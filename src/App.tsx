@@ -4233,7 +4233,9 @@ Ficha civil do titular:
                 setSelectedDoc={setSelectedDoc} 
                 onClickNotification={(n) => {
                   setActiveNotificationModal(n);
-                  setNotifications((prev) => prev.filter((item) => item.id !== n.id));
+                  setNotifications((prev) => 
+                    prev.map((item) => item.id === n.id ? { ...item, unread: false } : item)
+                  );
                   setShowNotifications(false);
                 }}
                 onDeleteNotification={(id) => {

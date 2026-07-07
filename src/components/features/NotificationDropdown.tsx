@@ -28,6 +28,7 @@ export function NotificationDropdown({
   onDeleteNotification
 }: NotificationDropdownProps) {
   const { t } = useLanguage();
+  const unreadNotifications = notifications.filter(n => n.unread !== false);
 
   return (
     <AnimatePresence>
@@ -49,13 +50,13 @@ export function NotificationDropdown({
             <div className="p-4 md:p-6 border-b border-line bg-slate-50/50 flex justify-between items-center">
               <h4 className="text-sm md:text-lg font-black text-primary">{t("Notificações")}</h4>
               <div className="p-1 px-2.5 md:px-3 bg-red-100 text-red-600 text-[8px] md:text-[10px] font-black uppercase tracking-widest rounded-full">
-                {notifications.length} {t("Alertas")}
+                {unreadNotifications.length} {t("Alertas")}
               </div>
             </div>
             <div className="max-h-[300px] md:max-h-[380px] overflow-y-auto custom-scrollbar">
-              {notifications.length > 0 ? (
+              {unreadNotifications.length > 0 ? (
                 <div className="divide-y divide-line/40">
-                  {notifications.map((n) => (
+                  {unreadNotifications.map((n) => (
                     <div 
                       key={n.id} 
                       onClick={() => {

@@ -143,6 +143,7 @@ export function Header({
 }: HeaderProps) {
   const { user, activeProfile } = useSession();
   const { t: translate } = useLanguage();
+  const unreadCount = notifications.filter(n => n.unread !== false).length;
   const isGov = appMode !== 'user';
   const isAdmin = appMode === 'admin';
   const isInst = appMode === 'institution';
@@ -350,9 +351,9 @@ export function Header({
                 className="ring-1 ring-primary/5 hover:ring-primary/15"
               />
             ) : null}
-            {notifications.length > 0 && (
+            {unreadCount > 0 && (
               <div className="bg-red-600 text-white font-black text-[6px] min-w-[10px] h-[10px] px-0.5 flex items-center justify-center rounded-full ring-1 ring-white absolute -top-0.5 -right-0.5 z-10 shadow-sm pointer-events-none leading-none">
-                {notifications.length}
+                {unreadCount}
               </div>
             )}
             <NotificationDropdown />
@@ -499,9 +500,9 @@ export function Header({
                 className="ring-1 ring-primary/5 hover:ring-primary/15 shadow-xs transition-all"
               />
             ) : null}
-            {notifications.length > 0 && (
+            {unreadCount > 0 && (
               <div className="bg-red-600 text-white font-black text-[7.5px] min-w-[12px] h-[12px] px-0.5 flex items-center justify-center rounded-full ring-1 ring-white absolute -top-0.5 -right-0.5 z-10 shadow-sm pointer-events-none leading-none">
-                {notifications.length}
+                {unreadCount}
               </div>
             )}
             <NotificationDropdown />

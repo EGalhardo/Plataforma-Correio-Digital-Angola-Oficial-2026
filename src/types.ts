@@ -98,6 +98,7 @@ export interface AppNotification {
   time: string;
   type: 'success' | 'warning' | 'info';
   targetTab: string;
+  unread?: boolean;
 }
 
 export interface UserRequest {
