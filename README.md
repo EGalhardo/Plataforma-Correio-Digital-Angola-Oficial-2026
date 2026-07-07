@@ -3,8 +3,7 @@
 Plataforma nacional de correspondência digital preparada para operar entre:
 
 - Cidadãos
-- Instituições Públicas
-- Instituições Privadas
+- Instituições Públicas / Privadas
 - Administração Central
 
 O projeto foi estruturado para manter uma experiência moderna, simples e atraente no frontend, enquanto evolui gradualmente para uma operação integrada com Supabase.
