@@ -1,0 +1,463 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-text: #020617;
+  --color-muted: #475569;
+  --color-line: #cbd5e1;
+  --color-primary: #0e2b64;
+  --color-secondary: #0c5a53;
+  --color-success: #19a56f;
+  --color-warning: #f59e0b;
+  
+  --color-slate-150: #f1f5f9;
+  --color-slate-650: #475569;
+  --color-slate-955: #020617;
+  --color-red-650: #dc2626;
+  --color-rose-650: #e11d48;
+  --color-indigo-650: #4f46e5;
+  --color-emerald-650: #059669;
+
+  --radius-xl: 28px;
+  --radius-lg: 18px;
+}
+
+@layer base {
+  html {
+    font-size: 10.5px;
+    -webkit-text-size-adjust: 100%;
+  }
+  @media (max-width: 640px) {
+    html {
+      font-size: 13px;
+    }
+  }
+  body {
+    @apply bg-bg text-text font-sans m-0 antialiased text-base leading-relaxed;
+  }
+
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+}
+
+@layer components {
+  .cda-micro-label {
+    @apply text-[10px] font-black uppercase tracking-widest text-slate-500;
+  }
+
+  .cda-secondary-text {
+    @apply text-[11px] text-slate-600 font-semibold leading-relaxed;
+  }
+
+  .cda-support-text {
+    @apply text-slate-500 font-medium;
+  }
+
+  .cda-link-text {
+    @apply text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors cursor-pointer;
+  }
+
+  .cda-soft-panel {
+    @apply bg-slate-50 border border-slate-200 rounded-[24px];
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+@keyframes slide {
+  from { transform: translateX(-140%); }
+  to { transform: translateX(260%); }
+}
+
+@keyframes scan-motion {
+  0%, 100% { top: 5%; opacity: 0.3; }
+  50% { top: 95%; opacity: 0.9; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Global contrast refinement for secondary typography without altering layout */
+.text-slate-400 {
+  color: #64748b !important;
+}
+
+.text-slate-500 {
+  color: #475569 !important;
+}
+
+.animate-float {
+  animation: float 2.4s ease-in-out infinite;
+}
+
+.animate-slide {
+  animation: slide 1.6s linear infinite;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.splash-gradient {
+  background: linear-gradient(180deg, #091f46 0%, #0e2b64 50%, #0c5a53 100%);
+}
+
+.hero-gradient {
+  background: linear-gradient(180deg, #0e2b64 0%, #0c5a53 100%);
+}
+
+.info-gradient {
+  background: linear-gradient(90deg, rgba(14, 43, 100, 0.08), rgba(12, 90, 83, 0.08));
+}
+
+.panel-gradient {
+  background: linear-gradient(135deg, #0e2b64 0%, #0c5a53 100%);
+}
+
+.qr-overlay {
+  @apply border border-line rounded-[16px] bg-white p-[10px];
+}
+
+.custom-scrollbar::-webkit-scrollbar, .custom-scrollbar-h::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track, .custom-scrollbar-h::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb, .custom-scrollbar-h::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover, .custom-scrollbar-h::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
+}
+
+.mobile-data-table {
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .mobile-data-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 768px) {
+  .mobile-safe-panel {
+    border-radius: 24px !important;
+  }
+
+  .mobile-touch-target {
+    min-height: 44px;
+  }
+}
+
+/* ==========================================
+   CDA DARK MODE ARCHITECTURE (100% REPLICA)
+   ========================================== */
+
+/* Light Mode Border Optimization (E2E8F0 instead of black or dark gray) */
+html:not(.dark) {
+  --color-slate-100: #E2E8F0 !important;
+  --color-slate-200: #E2E8F0 !important;
+  --color-slate-300: #E2E8F0 !important;
+  --color-gray-200: #E2E8F0 !important;
+  --color-border: #E2E8F0 !important;
+  --color-line: #E2E8F0 !important;
+}
+
+html:not(.dark) .border,
+html:not(.dark) .border-t,
+html:not(.dark) .border-b,
+html:not(.dark) .border-l,
+html:not(.dark) .border-r,
+html:not(.dark) .border-2,
+html:not(.dark) .md\:border-2 {
+  border-color: #E2E8F0 !important;
+}
+
+html:not(.dark) .border-slate-100,
+html:not(.dark) .border-slate-200,
+html:not(.dark) .border-slate-300,
+html:not(.dark) .border-slate-400,
+html:not(.dark) .border-slate-200\/60,
+html:not(.dark) .border-\[\#D1D5DB\],
+html:not(.dark) .border-\[\#E2E8F0\],
+html:not(.dark) .md\:border-slate-200,
+html:not(.dark) .md\:border-\[\#E2E8F0\] {
+  border-color: #E2E8F0 !important;
+}
+
+/* Dark Mode Overrides (With enhanced visible borders) */
+html.dark {
+  --color-bg: rgb(9, 17, 36) !important;
+  --color-surface: rgb(9, 17, 36) !important;
+  --color-text: #f1f5f9 !important;
+  --color-muted: #94a3b8 !important;
+  --color-line: rgb(38, 52, 85) !important;
+  --color-primary: #3b82f6 !important;
+  --color-secondary: #0d9488 !important;
+  --color-success: #10b981 !important;
+  --color-warning: #f59e0b !important;
+  
+  --color-slate-50: rgb(9, 17, 36) !important;
+  --color-slate-100: rgb(9, 17, 36) !important;
+  --color-slate-150: rgb(9, 17, 36) !important;
+  --color-slate-200: rgb(38, 52, 85) !important;
+  --color-slate-300: rgb(38, 52, 85) !important;
+  --color-slate-400: #cbd5e1 !important;
+  --color-slate-500: #e2e8f0 !important;
+  --color-slate-600: #f1f5f9 !important;
+  --color-slate-650: #cbd5e1 !important;
+  --color-slate-700: #f1f5f9 !important;
+  --color-slate-800: #f8fafc !important;
+  --color-slate-900: #ffffff !important;
+  --color-slate-955: #ffffff !important;
+  
+  --color-border: rgb(38, 52, 85) !important;
+  --color-gray-200: rgb(38, 52, 85) !important;
+
+  /* Disable all shadows in dark mode */
+  --shadow-3xs: none !important;
+  --shadow-2xs: none !important;
+  --shadow-xs: none !important;
+  --shadow-sm: none !important;
+  --shadow-md: none !important;
+  --shadow-lg: none !important;
+  --shadow-xl: none !important;
+  --shadow-2xl: none !important;
+  --shadow-inner: none !important;
+}
+
+/* Ensure body dark mode is properly set */
+html.dark body {
+  background-color: rgb(9, 17, 36) !important;
+  color: #f1f5f9 !important;
+}
+
+/* Standard class typography override for dark mode to maximize text visibility */
+html.dark .text-slate-400 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .text-slate-500 {
+  color: #e2e8f0 !important;
+}
+
+html.dark .text-slate-600 {
+  color: #f1f5f9 !important;
+}
+
+html.dark .text-slate-700 {
+  color: #f8fafc !important;
+}
+
+html.dark .text-slate-800 {
+  color: #ffffff !important;
+}
+
+html.dark .text-slate-900 {
+  color: #ffffff !important;
+}
+
+html.dark .text-slate-950 {
+  color: #ffffff !important;
+}
+
+html.dark .text-slate-955 {
+  color: #ffffff !important;
+}
+
+html.dark .text-black {
+  color: #ffffff !important;
+}
+
+/* Override custom blue / black text and other deep navy / black color classes in dark mode */
+html.dark .text-\[\#0c2340\] {
+  color: #ffffff !important;
+}
+
+html.dark .text-\[\#0f172a\] {
+  color: #ffffff !important;
+}
+
+html.dark .text-\[\#0a2342\] {
+  color: #ffffff !important;
+}
+
+html.dark .text-\[\#1e293b\] {
+  color: #f1f5f9 !important;
+}
+
+html.dark .text-\[\#334155\] {
+  color: #cbd5e1 !important;
+}
+
+html.dark .text-\[\#1e3a8a\] {
+  color: #93c5fd !important;
+}
+
+html.dark .text-primary {
+  color: #3b82f6 !important;
+}
+
+/* Also support transparent background content inputs and texts that might use these colors with opacity */
+html.dark .text-\[\#0c2340\]\/60 {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+html.dark .text-\[\#0c2340\]\/80 {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+html.dark .text-\[\#0c2340\]\/50 {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+html.dark .text-slate-900\/60 {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+/* Panel Background Overrides */
+html.dark .bg-white,
+html.dark .md\:bg-white,
+html.dark .lg\:bg-white {
+  background-color: rgb(9, 17, 36) !important;
+}
+
+html.dark .bg-slate-50,
+html.dark .md\:bg-slate-50,
+html.dark .lg\:bg-slate-50 {
+  background-color: rgb(9, 17, 36) !important;
+}
+
+html.dark .bg-slate-100,
+html.dark .md\:bg-slate-100,
+html.dark .lg\:bg-slate-100 {
+  background-color: rgb(9, 17, 36) !important;
+}
+
+html.dark .bg-slate-50\/80 {
+  background-color: rgba(9, 17, 36, 0.8) !important;
+}
+
+html.dark .bg-slate-50\/50 {
+  background-color: rgba(9, 17, 36, 0.5) !important;
+}
+
+html.dark .bg-\[\#f0f4f9\] {
+  background-color: rgb(20, 29, 49) !important;
+}
+
+html.dark .bg-\[\#f1f5f9\] {
+  background-color: rgb(20, 29, 49) !important;
+}
+
+/* Border Overrides in dark mode (using more visible rgb(38, 52, 85)) */
+html.dark .border-slate-100 {
+  border-color: rgb(38, 52, 85) !important;
+}
+
+html.dark .border-slate-200 {
+  border-color: rgb(38, 52, 85) !important;
+}
+
+html.dark .border-slate-300 {
+  border-color: rgb(38, 52, 85) !important;
+}
+
+html.dark .border-slate-400 {
+  border-color: rgb(38, 52, 85) !important;
+}
+
+html.dark .border-line\/5 {
+  border-color: rgba(38, 52, 85, 0.4) !important;
+}
+
+html.dark .border-\[\#D1D5DB\] {
+  border-color: rgb(38, 52, 85) !important;
+}
+
+html.dark .border-\[\#E2E8F0\] {
+  border-color: rgb(38, 52, 85) !important;
+}
+
+html.dark .border {
+  border-color: rgb(38, 52, 85) !important;
+}
+
+html.dark .border-t {
+  border-top-color: rgb(38, 52, 85) !important;
+}
+
+html.dark .border-b {
+  border-bottom-color: rgb(38, 52, 85) !important;
+}
+
+html.dark .border-l {
+  border-left-color: rgb(38, 52, 85) !important;
+}
+
+html.dark .border-r {
+  border-right-color: rgb(38, 52, 85) !important;
+}
+
+/* Shadow Neutralizations */
+html.dark .shadow-sm,
+html.dark .shadow-md,
+html.dark .shadow-lg,
+html.dark .shadow-xl,
+html.dark .shadow-2xl,
+html.dark .shadow-3xs,
+html.dark .shadow-2xs {
+  box-shadow: none !important;
+}
+
+/* Custom panel gradients in dark mode */
+html.dark .panel-gradient {
+  background: linear-gradient(135deg, rgb(20, 29, 49) 0%, rgb(9, 17, 36) 100%) !important;
+}
+
+html.dark .info-gradient {
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.08), rgba(20, 29, 49, 0.2)) !important;
+}
+
+/* Specific main layout panel borders on desktop */
+html.dark .md\:border-2 {
+  border-width: 1px !important;
+  border-color: rgb(38, 52, 85) !important;
+}
+
+html.dark .md\:shadow-xl {
+  box-shadow: none !important;
+}
+
+/* Custom scrollbar in dark mode */
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb, 
+html.dark .custom-scrollbar-h::-webkit-scrollbar-thumb {
+  background: rgb(38, 52, 85) !important;
+}
+
+

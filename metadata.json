@@ -1,0 +1,6 @@
+{
+  "name": "Plataforma Correio Digital Angola",
+  "description": "Plataforma oficial de correspondência e serviços do Correio Digital de Angola (CADA) com integração inteligente e suporte por voz.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
