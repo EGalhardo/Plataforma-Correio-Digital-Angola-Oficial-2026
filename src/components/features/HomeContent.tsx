@@ -165,7 +165,7 @@ export function HomeContent({
           <div className="hidden md:block" />
         </div>
          <div className="flex flex-nowrap gap-2 md:gap-3 overflow-x-auto custom-scrollbar-h pb-2">
-          {["SME", "AGT", "ENDE", "EPAL", "Tribunal", "Hospital", "Ministerios", "Polícia Nacional", "Notário", "Registo Civil", "Seguro Social", "Administradoras", "INE", "INAPEM"].map((name) => {
+          {["INAPEM", "SME", "AGT", "ENDE", "EPAL", "Tribunal", "Hospital", "Ministerios", "Polícia Nacional", "Notário", "Registo Civil", "Seguro Social", "Administradoras", "INE"].map((name) => {
             const unreadCount = (inbox || []).filter(
               m => m.unread && (m.org || '').toUpperCase().includes(name.toUpperCase())
             ).length;

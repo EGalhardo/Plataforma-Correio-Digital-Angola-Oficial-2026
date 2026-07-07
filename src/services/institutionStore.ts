@@ -82,6 +82,12 @@ export const InstitutionProvider: React.FC<{ children: React.ReactNode }> = ({ c
             parsed.push(canonicalInapem);
           }
         }
+        // Garante que INAPEM está em primeiro lugar da lista
+        const inapemIndex = parsed.findIndex(inst => inst.name === 'INAPEM' || inst.id === 'inst-inapem');
+        if (inapemIndex > 0) {
+          const [inapem] = parsed.splice(inapemIndex, 1);
+          parsed.unshift(inapem);
+        }
         return parsed;
       } catch (e) {
         // use default

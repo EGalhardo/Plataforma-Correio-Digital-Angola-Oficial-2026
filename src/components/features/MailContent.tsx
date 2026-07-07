@@ -780,7 +780,7 @@ export function MailContent({
                       className="w-full bg-white border border-line rounded-2xl px-5 py-3.5 md:py-4 text-xs md:text-sm font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none cursor-pointer"
                     >
                       <option value="">Selecione uma instituição...</option>
-                      {["SME", "AGT", "ENDE", "EPAL", "Tribunal", "Hospital", "Registo Civil", "INE", "INAPEM"].map(org => (
+                      {["INAPEM", "SME", "AGT", "ENDE", "EPAL", "Tribunal", "Hospital", "Registo Civil", "INE"].map(org => (
                         <option key={org} value={org}>{org}</option>
                       ))}
                     </select>
