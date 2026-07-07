@@ -375,18 +375,35 @@ export default function App() {
   });
 
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
+    let items: AppNotification[] = [];
     if (shouldUseLocalBootstrap()) {
       const saved = localStorage.getItem('correio_digital_notifications');
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return parsed;
+          if (Array.isArray(parsed)) {
+            items = parsed;
+          }
         } catch (e) {
           console.error('Failed to parse correio_digital_notifications:', e);
         }
       }
     }
-    return shouldUseMockFallback() ? [...NOTIFICATIONS] : [];
+    if (items.length === 0 && shouldUseMockFallback()) {
+      items = [...NOTIFICATIONS];
+    }
+    
+    // Deduplicate by combining title and message to clear any stale accumulated duplicates
+    const seen = new Set<string>();
+    const uniqueItems: AppNotification[] = [];
+    items.forEach(item => {
+      const key = `${item.title || ''}|${item.message || ''}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueItems.push(item);
+      }
+    });
+    return uniqueItems;
   });
 
   const [auditLogs, setAuditLogs] = useState<any[]>(() => {
@@ -1217,7 +1234,8 @@ export default function App() {
         title: 'Sincronização Finalizada',
         message: `${queue.length} acções offline foram consolidadas com a base central. Backup de emergência v1.2 atualizado.`,
         time: 'Agora',
-        targetTab: 'home'
+        targetTab: 'home',
+        unread: true
       };
       setNotifications(prev => [newNotif, ...prev]);
     }, 1500);
@@ -1737,14 +1755,20 @@ export default function App() {
       
       // Emitir uma notificação oficial de sucesso (apenas uma vez por sessão)
       const checkNotif: AppNotification = {
-        id: Number(`99099${Math.floor(Math.random() * 1000)}`),
+        id: 990990,
         title: 'Auditoria CADA Concluída',
         message: `Encontradas e corrigidas ${fixesCount} inconsistências leves e ${dupesCount} dados duplicados nos domínios. Base de dados certificada 100% íntegra.`,
         time: 'Agora',
         type: 'success',
-        targetTab: 'home'
+        targetTab: 'home',
+        unread: true
       };
-      setNotifications(prev => [checkNotif, ...prev]);
+      setNotifications(prev => {
+        if (prev.some(n => n.id === 990990 || n.title === 'Auditoria CADA Concluída')) {
+          return prev;
+        }
+        return [checkNotif, ...prev];
+      });
     }
   };
 
@@ -2348,7 +2372,8 @@ export default function App() {
       message: `O seu pedido de ${type} foi enviado à AGT.`,
       time: 'Agora',
       type: 'info',
-      targetTab: 'home'
+      targetTab: 'home',
+      unread: true
     };
     setNotifications(prev => [newNotif, ...prev]);
 
@@ -2520,7 +2545,8 @@ Ficha civil do titular:
           message: `O seu pedido de ${request.docType} foi aprovado e emitido.`,
           time: 'Agora',
           type: 'success',
-          targetTab: 'correspondencias'
+          targetTab: 'correspondencias',
+          unread: true
         }, ...prev]);
       }
       
@@ -3140,7 +3166,8 @@ Ficha civil do titular:
                   message: 'Protocolo de Emergência Activado pelo SOC',
                   time: 'Agora',
                   type: 'warning',
-                  targetTab: 'correspondencias'
+                  targetTab: 'correspondencias',
+                  unread: true
                 }, ...prev]);
               }
             }} 
@@ -3180,7 +3207,8 @@ Ficha civil do titular:
                   message: 'Protocolo de Emergência Ciber-Defensiva Ativado. Chaves Faciais e Biométricas de Edlasio Galhardo Temporariamente Suspensas / Bloqueadas para Salvaguarda de Soberania Digital!',
                   time: 'Agora',
                   type: 'warning',
-                  targetTab: 'home'
+                  targetTab: 'home',
+                  unread: true
                 }, ...prev]);
 
                 // Despacho de Mensagem na Inbox (Mail)
@@ -4224,6 +4252,7 @@ Ficha civil do titular:
               setShowOfflineManagerWidget(!showOfflineManagerWidget);
             }}
             offlineQueueLength={offlineQueue.length}
+            unreadCorrespondencesCount={unreadTotal}
             NotificationDropdown={() => (
               <NotificationDropdown 
                 showNotifications={showNotifications} 

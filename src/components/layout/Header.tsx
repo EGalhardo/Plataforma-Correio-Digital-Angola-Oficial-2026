@@ -35,6 +35,7 @@ interface HeaderProps {
   setCurrentLanguage: (lang: LanguageCode) => void;
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
+  unreadCorrespondencesCount?: number;
 }
 
 function LanguageSelectorDropdown({
@@ -139,11 +140,15 @@ export function Header({
   currentLanguage,
   setCurrentLanguage,
   theme,
-  setTheme
+  setTheme,
+  unreadCorrespondencesCount
 }: HeaderProps) {
   const { user, activeProfile } = useSession();
   const { t: translate } = useLanguage();
-  const unreadCount = notifications.filter(n => n.unread !== false).length;
+  const isUserMode = appMode === 'user';
+  const unreadCount = isUserMode && typeof unreadCorrespondencesCount === 'number'
+    ? unreadCorrespondencesCount
+    : notifications.filter(n => n.unread !== false).length;
   const isGov = appMode !== 'user';
   const isAdmin = appMode === 'admin';
   const isInst = appMode === 'institution';
