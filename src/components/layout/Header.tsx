@@ -210,7 +210,7 @@ export function Header({
 
   const getMainTitle = () => {
     if (isAdmin) return activeProfile?.role || 'Administrador';
-    if (isInst) return activeProfile?.institutionName ? activeProfile.institutionName : `Olá, ${user?.firstName || 'Utilizador'}`;
+    if (isInst) return activeProfile?.institutionName || `Olá, ${user?.firstName || 'Utilizador'}`;
     const nameToUse = user?.firstName || 'Cidadão';
     // Translate "Olá, " and merge with the name
     return `${translate("Olá")}, ${nameToUse}`;
