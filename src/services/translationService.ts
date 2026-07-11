@@ -19,6 +19,7 @@ const STATIC_TRANSLATE_MAP: Record<string, Record<LanguageCode, string>> = {
   "Contactos": { pt: "Contactos", um: "Omanu", ki: "Miji", kk: "Kangu", ch: "Atu", ng: "Vakwetu", kw: "Aantu", nh: "Ovanthu", fi: "Batu" },
   "Conta": { pt: "Conta", um: "Ombila", ki: "Mbandu", kk: "Nzo", ch: "Mufu", ng: "Mukulo", kw: "Omauyelele", nh: "Omuhonga", fi: "Nzila" },
   "Trabalhadores": { pt: "Trabalhadores", um: "Olowola", ki: "Upange", kk: "Kisalu", ch: "Vakaji", ng: "Vangaji", kw: "Anilonga", nh: "Ovilinga", fi: "Basadi" },
+  "Equipa": { pt: "Equipa", um: "Olowola", ki: "Upange", kk: "Kisalu", ch: "Vakaji", ng: "Vangaji", kw: "Anilonga", nh: "Ovilinga", fi: "Basadi" },
   "QR Code": { pt: "QR Code", um: "Oloko QR", ki: "Kijimbu", kk: "Soneka", ch: "Chinyingika", ng: "Cinoneno", kw: "Endandeko", nh: "Okutaila", fi: "Dimbu" },
   "IA": { pt: "IA", um: "Olondunge", ki: "Kixilu", kk: "Lulendo", ch: "Ipupolo", ng: "Vihhande", kw: "Eendunge", nh: "Epupolo", fi: "Nzila-Lula" },
   "Instituições": { pt: "Instituições", um: "Ovingonjo", ki: "Vihandela", kk: "Nkenda", ch: "Mwenya", ng: "Vihandeka", kw: "Oshilongo", nh: "Omilandu", fi: "Mutinu" },

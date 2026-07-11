@@ -77,7 +77,7 @@ function extractTranslatableStrings(): string[] {
   const extraUI = [
     "Olá",
     // Navigation & Tabs
-    "Painel", "Correio", "Contactos", "Conta", "Trabalhadores", "QR Code", "IA",
+    "Painel", "Correio", "Contactos", "Conta", "Trabalhadores", "Equipa", "QR Code", "IA",
     "Instituições", "Correspondências", "Cidadãos", "Relatórios", "Auditoria",
     "ÁREA DO CIDADÃO", "ADMINISTRAÇÃO CENTRAL", "INSTITUIÇÃO / PRIVADO",
     

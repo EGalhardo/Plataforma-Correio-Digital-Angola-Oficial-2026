@@ -1040,7 +1040,7 @@ export function GovContactsContent({
           ...(w.activityLogs || [])
         ]
       } : w));
-      addAuditLog?.(`[TRABALHADORES] Registo do trabalhador ${newWorkerName} atualizado com sucesso.`, 'success');
+      addAuditLog?.(`[EQUIPA] Registo do membro da equipa ${newWorkerName} atualizado com sucesso.`, 'success');
     } else {
       const defaultPerms = isPlatformAdmin 
         ? ['Visualizar', 'Homologar']
@@ -1063,7 +1063,7 @@ export function GovContactsContent({
         ]
       };
       setWorkers(prev => [...prev, newWorker]);
-      addAuditLog?.(`[TRABALHADORES] Novo trabalhador ${newWorkerName} cadastrado com sucesso.`, 'success');
+      addAuditLog?.(`[EQUIPA] Novo membro da equipa ${newWorkerName} cadastrado com sucesso.`, 'success');
     }
 
     setShowAddWorkerModal(false);
@@ -1084,10 +1084,10 @@ export function GovContactsContent({
   };
 
   const handleDeleteWorker = (id: string, name: string) => {
-    if (confirm(`Tem a certeza que deseja remover o trabalhador ${name} do sistema?`)) {
+    if (confirm(`Tem a certeza que deseja remover o membro da equipa ${name} do sistema?`)) {
       setWorkers(prev => prev.filter(w => w.id !== id));
       if (selectedWorkerId === id) setSelectedWorkerId(null);
-      addAuditLog?.(`[TRABALHADORES] Trabalhador ${name} foi removido do ecossistema institucional.`, 'warning');
+      addAuditLog?.(`[EQUIPA] Membro da equipa ${name} foi removido do ecossistema institucional.`, 'warning');
     }
   };
 
@@ -1106,7 +1106,7 @@ export function GovContactsContent({
       ]
     } : w));
     playToggleSound(nextStatus === 'Ativo');
-    addAuditLog?.(`[TRABALHADORES] Estado do trabalhador ${name} alterado para ${nextStatus}.`, 'info');
+    addAuditLog?.(`[EQUIPA] Estado do membro da equipa ${name} alterado para ${nextStatus}.`, 'info');
   };
 
   // Filtered workers list
@@ -1135,12 +1135,12 @@ export function GovContactsContent({
               </span>
             </div>
             <h1 className="text-3xl md:text-5xl font-black text-slate-950 tracking-tighter italic uppercase leading-none">
-              {isPlatformAdmin ? 'Gestão de Trabalhadores' : 'Gestão de Trabalhadores'}
+              {isPlatformAdmin ? 'Gestão de Equipa' : 'Gestão de Equipa'}
             </h1>
             <p className="text-slate-500 font-medium text-xs mt-2 max-w-xl">
               {isPlatformAdmin 
-                ? 'Controle de administradores, moderadores e técnicos autorizados da plataforma central. Administre permissões, acessos e registe novos trabalhadores da plataforma.'
-                : 'Controle de funcionários e técnicos autorizados da instituição. Administre as credenciais operacionais e registe novos trabalhadores do sistema.'}
+                ? 'Controle de administradores, moderadores e técnicos autorizados da plataforma central. Administre permissões, acessos e registe novos membros da equipa da plataforma.'
+                : 'Controle de funcionários e técnicos autorizados da instituição. Administre as credenciais operacionais e registe novos membros da equipa do sistema.'}
             </p>
           </div>
 
@@ -1152,7 +1152,7 @@ export function GovContactsContent({
             className="flex items-center gap-2 px-5 py-3 bg-blue-950 hover:bg-blue-900 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-blue-950/10 cursor-pointer border-0 transition-all self-start md:self-auto"
           >
             <UserPlus size={16} />
-            {isPlatformAdmin ? 'Adicionar Trabalhador' : 'Adicionar Trabalhador'}
+            {isPlatformAdmin ? 'Adicionar à Equipa' : 'Adicionar à Equipa'}
           </button>
         </div>
 
@@ -1160,7 +1160,7 @@ export function GovContactsContent({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
           <div className="bg-white border border-slate-200 rounded-[28px] p-6 shadow-xs">
             <span className="font-mono text-[10px] font-black uppercase text-slate-400 tracking-wider block">
-              {isPlatformAdmin ? 'Total de Trabalhadores' : 'Total de Trabalhadores'}
+              {isPlatformAdmin ? 'Total da Equipa' : 'Total da Equipa'}
             </span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-3xl font-black text-slate-900 italic font-mono">
@@ -1191,7 +1191,7 @@ export function GovContactsContent({
               <div className="w-1.5 h-6 bg-indigo-600 rounded-full" />
               <div>
                 <h3 className="text-lg font-black tracking-tighter text-slate-900 uppercase italic">
-                  {isPlatformAdmin ? 'Quadro de Trabalhadores' : 'Quadro de Trabalhadores'}
+                  {isPlatformAdmin ? 'Quadro da Equipa' : 'Quadro da Equipa'}
                 </h3>
                 <span className="text-[10px] text-slate-400 font-bold tracking-wider uppercase font-mono">
                   {isPlatformAdmin 
@@ -1221,7 +1221,7 @@ export function GovContactsContent({
               <table className="mobile-data-table w-full text-left border-collapse min-w-[900px]">
                 <thead className="sticky top-0 z-10 bg-blue-950 text-white text-[10px] font-black uppercase tracking-widest">
                   <tr>
-                    <th className="py-4 px-5 rounded-l-2xl">Colaborador / Trabalhador</th>
+                    <th className="py-4 px-5 rounded-l-2xl">Colaborador / Membro da Equipa</th>
                     <th className="py-4 px-5">E-mail / Contacto</th>
                     <th className="py-4 px-5">Telefone</th>
                     <th className="py-4 px-5">Função e Setor</th>
@@ -1294,7 +1294,7 @@ export function GovContactsContent({
                                 return worker;
                               }));
                               playToggleSound(nextStatus === 'Ativo');
-                              addAuditLog?.(`[TRABALHADORES] Acesso dactiloscópico de ${w.name} alterado para ${nextStatus}.`, nextStatus === 'Ativo' ? 'success' : 'warning');
+                              addAuditLog?.(`[EQUIPA] Acesso dactiloscópico de ${w.name} alterado para ${nextStatus}.`, nextStatus === 'Ativo' ? 'success' : 'warning');
                             }}
                             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none focus:outline-none ${
                               w.status === 'Ativo' ? 'bg-emerald-600' : 'bg-slate-300'
@@ -1354,7 +1354,7 @@ export function GovContactsContent({
             <div className="py-16 bg-white border border-slate-200 rounded-[32px] text-center text-slate-400 shadow-3xs w-full">
               <Users size={28} className="mx-auto text-slate-300 mb-2" />
               <span className="text-[10.5px] font-black uppercase tracking-wider block">
-                {isPlatformAdmin ? 'Nenhum trabalhador localizado...' : 'Nenhum trabalhador localizado...'}
+                {isPlatformAdmin ? 'Nenhum membro da equipa localizado...' : 'Nenhum membro da equipa localizado...'}
               </span>
               <p className="text-[9.5px] font-bold uppercase mt-1">Experimente alterar os critérios de filtro ou pesquisa.</p>
             </div>
@@ -1390,8 +1390,8 @@ export function GovContactsContent({
                     <div className="flex-1 min-w-0">
                       <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">
                         {isPlatformAdmin 
-                          ? (isEditingWorker ? 'EDITAR TRABALHADOR' : 'REGISTAR NOVO TRABALHADOR')
-                          : (isEditingWorker ? 'EDITAR FICHA DO TRABALHADOR' : 'REGISTAR NOVO TRABALHADOR')}
+                          ? (isEditingWorker ? 'EDITAR MEMBRO DA EQUIPA' : 'REGISTAR NOVO MEMBRO DA EQUIPA')
+                          : (isEditingWorker ? 'EDITAR FICHA DO MEMBRO DA EQUIPA' : 'REGISTAR NOVO MEMBRO DA EQUIPA')}
                       </h3>
                       <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none">
                         {isPlatformAdmin 
@@ -1484,7 +1484,7 @@ export function GovContactsContent({
                       <div className="space-y-4">
                         <div className="flex items-center gap-2 text-[#4f46e5]">
                           <Briefcase size={15} className="stroke-[2.5]" />
-                          <span className="font-extrabold text-[11px] uppercase tracking-widest">Afiliação & Funções do Trabalhador</span>
+                          <span className="font-extrabold text-[11px] uppercase tracking-widest">Afiliação & Funções do Membro da Equipa</span>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1613,7 +1613,7 @@ export function GovContactsContent({
                         className="flex-1 bg-[#0c2340] hover:bg-[#152e4d] text-white py-3.5 rounded-[20px] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#0c2340]/15 flex items-center justify-center gap-2.5 transition-all duration-300 cursor-pointer active:scale-98 font-sans border-0"
                       >
                         <Check size={15} className="stroke-[3]" />
-                        {isEditingWorker ? 'Guardar Ficha do Trabalhador' : 'Submeter Cadastro'}
+                        {isEditingWorker ? 'Guardar Ficha do Membro da Equipa' : 'Submeter Cadastro'}
                       </button>
                     </div>
                   </form>
@@ -1843,7 +1843,7 @@ export function GovContactsContent({
                                 ]
                               } : w));
                               playSuccessSound();
-                              addAuditLog?.(`Atividade simulada adicionada para o trabalhador ${selectedWorker.name}.`, 'info');
+                              addAuditLog?.(`Atividade simulada adicionada para o membro da equipa ${selectedWorker.name}.`, 'info');
                             }}
                             className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-[#4f46e5] text-[9px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer border-0"
                           >

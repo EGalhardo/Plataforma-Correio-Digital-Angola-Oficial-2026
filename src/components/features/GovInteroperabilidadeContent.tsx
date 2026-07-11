@@ -1176,7 +1176,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                   <th className="py-4 px-4 rounded-l-[20px]">Instituição</th>
                   <th className="py-4 px-4">Localização</th>
                   <th className="py-4 px-4">Responsável</th>
-                  <th className="py-4 px-4 text-center">Trabalhadores</th>
+                  <th className="py-4 px-4 text-center">Equipa</th>
                   <th className="py-4 px-4 text-center">Correspondência</th>
                   <th className="py-4 px-4 text-center">Utilização da IA</th>
                   <th className="py-4 px-4 text-center">Estado</th>
@@ -1858,7 +1858,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                       <div className="flex justify-between items-center bg-slate-50 p-3.5 border border-slate-100 rounded-xl text-[10px] font-bold gap-4">
                         <div className="space-y-1">
-                          <span className="text-[8.5px] font-black text-slate-450 uppercase tracking-widest block leading-none">TRABALHADORES</span>
+                          <span className="text-[8.5px] font-black text-slate-450 uppercase tracking-widest block leading-none">EQUIPA</span>
                           <span className="text-base text-slate-900 font-mono font-black block leading-none">{selectedInstHistory.totalAgents} agentes</span>
                         </div>
                         <div className="space-y-1 text-right">

@@ -41,7 +41,7 @@ const userItems: MenuItem[] = [
 const institutionItems: MenuItem[] = [
   { id: 'home', label: 'Painel', icon: Home },
   { id: 'correspondencias', label: 'Correio', icon: Mail },
-  { id: 'gov-contatos', label: 'Trabalhadores', icon: Users },
+  { id: 'gov-contatos', label: 'Equipa', icon: Users },
   { id: 'inst-qrcode', label: 'QR Code', icon: QrCode },
   { id: 'inst-ai-assistant', label: 'IA', icon: Bot },
   { id: 'perfil', label: 'Perfil', icon: User },
@@ -52,7 +52,7 @@ const adminItems: MenuItem[] = [
   { id: 'gov-interoperabilidade', label: 'Instituições', icon: Landmark },
   { id: 'gov-correspondencias', label: 'Correspondências', icon: Mail },
   { id: 'gov-contatos', label: 'Cidadãos', icon: User },
-  { id: 'gov-trabalhadores', label: 'Trabalhadores', icon: Users },
+  { id: 'gov-trabalhadores', label: 'Equipa', icon: Users },
   { id: 'gov-relatorio', label: 'Relatórios', icon: FileText },
   { id: 'gov-ia', label: 'IA', icon: Bot },
   { id: 'gov-seguranca', label: 'Auditoria', icon: Shield },

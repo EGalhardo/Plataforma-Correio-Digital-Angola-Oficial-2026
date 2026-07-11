@@ -62,6 +62,17 @@ export const TRANSLATE_MAP: Record<string, Record<LanguageCode, string>> = {
     nh: "Ovilinga",
     fi: "Basadi"
   },
+  "Equipa": {
+    pt: "Equipa",
+    um: "Olowola",
+    ki: "Upange",
+    kk: "Kisalu",
+    ch: "Vakaji",
+    ng: "Vangaji",
+    kw: "Anilonga",
+    nh: "Ovilinga",
+    fi: "Basadi"
+  },
   "QR Code": {
     pt: "QR Code",
     um: "Oloko QR",

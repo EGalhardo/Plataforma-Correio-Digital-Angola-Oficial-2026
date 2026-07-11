@@ -138,7 +138,7 @@ const PAGE_FRIENDLY_NAMES: Record<AppMode, Record<string, string>> = {
   institution: {
     home: "Painel Principal",
     correspondencias: "Correio Institucional",
-    "gov-contatos": "Trabalhadores",
+    "gov-contatos": "Equipa",
     "inst-qrcode": "Validação por QR Code",
     "inst-ai-assistant": "Assistência IA",
     perfil: "Perfil Institucional",
@@ -149,7 +149,7 @@ const PAGE_FRIENDLY_NAMES: Record<AppMode, Record<string, string>> = {
     "gov-interoperabilidade": "Interoperabilidade",
     "gov-correspondencias": "Correspondências",
     "gov-contatos": "Cidadãos",
-    "gov-trabalhadores": "Trabalhadores",
+    "gov-trabalhadores": "Equipa",
     "gov-relatorio": "Relatórios",
     "gov-ia": "IA (Nacional)",
     "gov-seguranca": "Auditoria de Segurança",

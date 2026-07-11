@@ -161,7 +161,7 @@ export function Header({
         case 'gov-interoperabilidade': return 'Gestão Institucional';
         case 'gov-correspondencias': return 'Correspondências Nacionais';
         case 'gov-contatos': return 'Cadastro de Cidadãos';
-        case 'gov-trabalhadores': return 'Operadores do Sistema';
+        case 'gov-trabalhadores': return 'Equipa do Sistema';
         case 'gov-relatorio': return 'Centro de Relatórios';
         case 'gov-ia': return 'Assistência IA Nacional';
         case 'gov-seguranca': return 'Auditoria e Segurança';
@@ -178,7 +178,7 @@ export function Header({
       switch (tab) {
         case 'home': return 'Área Institucional';
         case 'correspondencias': return 'Correio Institucional';
-        case 'gov-contatos': return 'Trabalhadores da Instituição';
+        case 'gov-contatos': return 'Equipa da Instituição';
         case 'inst-qrcode': return 'Validação por QR Code';
         case 'inst-ai-assistant': return 'Assistência IA Institucional';
         case 'perfil': return 'Perfil Institucional';

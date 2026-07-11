@@ -154,7 +154,7 @@ export function GovRelatorioContent({
     { id: 'correspondences', label: 'Correspond.', icon: <FileText size={16} />, desc: 'Trâmite postal e taxa de entrega' },
     { id: 'institutions', label: 'Instituições', icon: <Building2 size={16} />, desc: 'Integração pública e tráfego API' },
     { id: 'citizens', label: 'Cidadãos', icon: <Users size={16} />, desc: 'Adesão de usuários e BI Digital' },
-    { id: 'workers', label: 'Trabalhadores', icon: <Briefcase size={16} />, desc: 'Auditoria de produtividade' },
+    { id: 'workers', label: 'Equipa', icon: <Briefcase size={16} />, desc: 'Auditoria de produtividade' },
     { id: 'ai_assist', label: 'Assistência IA', icon: <Sparkles size={16} />, desc: 'Automação e chancelaria assistida' },
     { id: 'digital_docs', label: 'Docs Digitais', icon: <FileSignature size={16} />, desc: 'Emissões e chaves criptográficas' },
     { id: 'audit_security', label: 'Auditoria', icon: <ShieldAlert size={16} />, desc: 'Monitorização cibernética e logs' },
@@ -247,7 +247,7 @@ export function GovRelatorioContent({
         };
       case 'workers':
         return {
-          title: 'Produtividade e Auditoria de Operadores e Trabalhadores',
+          title: 'Produtividade e Auditoria de Operadores e Membros da Equipa',
           metrics: [
             { id: 'wo-1', label: 'Operadores Ativos', current: 18, prev: 15, text: 'No painel consular central', suffix: ' técnicos', isTrendUp: true, pct: '+20.0%' },
             { id: 'wo-2', label: 'Atendimentos Digitais Concluídos', current: Math.round(1420 * scaleFactor), prev: Math.round(1100 * scaleFactor), text: 'Homologações por operador', suffix: ' docs', isTrendUp: true, pct: '+29.0%' },
