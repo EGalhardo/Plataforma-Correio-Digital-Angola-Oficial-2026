@@ -949,6 +949,8 @@ export default function App() {
   }, [selectedMessage, wasOpenedUnread]);
   const [showInviteConfirm, setShowInviteConfirm] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
+  const [preloadProgress, setPreloadProgress] = useState<number>(0);
+  const [preloadCompleted, setPreloadCompleted] = useState<boolean>(false);
   const [searchMail, setSearchMail] = useState('');
   const [searchDocMail, setSearchDocMail] = useState('');
   const [searchDoc, setSearchDoc] = useState('');
@@ -1798,14 +1800,16 @@ export default function App() {
 
     // Subscribe to preloading updates to register stats into the Audit Logs
     const unsubscribe = subscribeToPreload((stats) => {
+      setPreloadProgress(stats.progress.progressPercentage);
       if (stats.progress.isCompleted) {
+        setPreloadCompleted(true);
         const total = stats.progress.total;
         const loaded = stats.progress.loaded;
         const failed = stats.progress.failed;
         if (failed > 0) {
           addAuditLog(`[Image Preloader] Pré-carregamento de imagens concluído: ${loaded}/${total} carregadas, ${failed} falhas de ligação guardadas para nova tentativa`, 'warning');
         } else {
-          addAuditLog(`[Image Preloader] Todas as ${total} imagens publicitárias pré-carregadas e guardadas em cache com sucesso (Sistemas: Utilizador, Instituição, Administração)`, 'success');
+          addAuditLog(`[Image Preloader] Todas as ${total} imagens publicitárias, logomarcas e ecrãs pré-carregadas e guardadas em cache com sucesso (Sistemas: Utilizador, Instituição, Administração)`, 'success');
         }
       }
     });
@@ -1829,10 +1833,19 @@ export default function App() {
 
   useEffect(() => {
     if (stage === 'splash') {
-      const timer = setTimeout(() => setStage('login'), 5000);
-      return () => clearTimeout(timer);
+      if (preloadCompleted) {
+        // Add a slight delay for visual smoothness before entering login
+        const timer = setTimeout(() => setStage('login'), 800);
+        return () => clearTimeout(timer);
+      } else {
+        // Safety fallback timer if connection is slow or an image errors out
+        const safetyTimer = setTimeout(() => {
+          setStage('login');
+        }, 6000);
+        return () => clearTimeout(safetyTimer);
+      }
     }
-  }, [stage]);
+  }, [stage, preloadCompleted]);
 
   // Derived Memos
   const currentInbox = isInstMode ? instInbox : inbox;
@@ -3304,14 +3317,14 @@ Ficha civil do titular:
           />
           <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden border border-slate-100">
             <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: "100%" }}
-              transition={{ duration: 5, ease: "linear" }}
+              initial={{ width: "0%" }}
+              animate={{ width: `${preloadProgress}%` }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
               className="h-full bg-primary rounded-full"
             />
           </div>
           <motion.p className="text-slate-500 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] mt-4">
-            {t("A carregar plataforma oficial...")}
+            {t("A carregar plataforma oficial...")} {preloadProgress > 0 ? `(${preloadProgress}%)` : ''}
           </motion.p>
         </motion.div>
       </section>

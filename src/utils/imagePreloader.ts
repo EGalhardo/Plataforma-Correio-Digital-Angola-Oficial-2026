@@ -56,6 +56,17 @@ function notifyListeners() {
 export function getAdvertisingImageUrls(): string[] {
   const urls = new Set<string>();
 
+  // Imagens essenciais e institucionais (Logomarcas, Biometria, Mapa, etc.)
+  urls.add("https://i.postimg.cc/cCkwskty/Logomarca-Correio-Digital.png");
+  urls.add("https://i.postimg.cc/6pQwXBFQ/Logomarca-Modo-Claro-Escuro.png");
+  urls.add("https://i.postimg.cc/Fs8cZJZt/Logomarca-PNG-(1).png");
+  urls.add("https://i.postimg.cc/x88pJx9X/Login-Biometrico.jpg");
+  urls.add("https://i.postimg.cc/7PWwyst7/QR-Code.jpg");
+  urls.add("https://i.postimg.cc/rp2hhzfK/mapa-Angola.jpg");
+  urls.add("https://i.postimg.cc/Rq5TKbdk/Correio-Digital-Angola.png");
+  urls.add("https://i.postimg.cc/J73QvnGv/Foto-Edlasio.png");
+  urls.add("https://i.postimg.cc/4x1mS4hQ/AGT.jpg");
+
   // Use optional chaining and type assertions to safe-guard against structure variations
   const addUrl = (url: any) => {
     if (typeof url === 'string' && url.trim().length > 0) {
