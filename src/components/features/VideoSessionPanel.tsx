@@ -464,37 +464,12 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
   };
 
   const handleQuickRequestCitizen = async () => {
-    setIsCreating(true);
-    try {
-      const protocolNumber = message?.protocol?.protocolNumber || `CDA-${Math.floor(100000 + Math.random() * 900000)}`;
-      const cleanProtocol = protocolNumber.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-      const roomName = `cda-atendimento-${cleanProtocol}-${Date.now().toString().slice(-4)}`;
-
-      const newSession = await VideoSessionService.createSession({
-        roomName,
-        subject: `Atendimento de Suporte: Correspondência ${message?.id || 'Geral'}`,
-        associatedProtocol: message?.protocol?.protocolNumber || protocolNumber,
-        associatedMessageId: message?.id,
-        status: 'agendada', // Citizen creates it as requested/scheduled
-        hostBi: 'INST-' + (message?.org || 'GERAL'),
-        hostName: `Suporte Institucional (${message?.org || 'Geral'})`,
-        guestBi: user?.bi || '',
-        guestName: user?.name || '',
-        scheduledFor: 'Brevemente (Aguardando Oficial)',
-      });
-
-      setSession(newSession);
-      const evts = await VideoSessionService.getSessionEvents(newSession.id);
-      setEvents(evts);
-
-      if (addAuditLog) {
-        addAuditLog(`Solicitou suporte por videoatendimento para a correspondência ${message?.id || 'Geral'}`, 'info');
-      }
-      loadSessionData();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsCreating(false);
+    // Regra estrita: O cidadão não pode agendar/criar uma reunião diretamente no sistema central.
+    // Apenas pode submeter uma intenção ou solicitação administrativa simples, mas a criação de sessões Jitsi
+    // e agendamento formal é um privilégio exclusivo de representantes oficiais e funcionários de Instituições.
+    alert('Acesso negado: Por motivos regulamentares de soberania administrativa, a criação e agendamento de reuniões oficiais por vídeo é de competência exclusiva de funcionários de instituições governamentais autorizadas.');
+    if (addAuditLog) {
+      addAuditLog(`Tentativa de agendamento de vídeo bloqueada para o cidadão por restrição regulamentar`, 'warning');
     }
   };
 
