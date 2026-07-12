@@ -22,7 +22,9 @@ import {
   Printer,
   Copy,
   Check,
-  QrCode
+  QrCode,
+  ChevronDown,
+  Building
 } from 'lucide-react';
 import { Message } from '../../types';
 
@@ -148,6 +150,170 @@ const getOrgBadgeStyles = (org: string) => {
   return 'bg-slate-50 text-slate-700 border-slate-200';
 };
 
+const ANGOLA_MINISTRIES = [
+  {
+    acronym: "MINDENVPM",
+    name: "Ministério da Defesa Nacional, Antigos Combatentes e Veteranos da Pátria",
+    desc: "Defesa do espaço terrestre, marítimo e aéreo nacional, salvaguarda da soberania e assistência aos veteranos de pátria.",
+    email: "geral@minden.gov.ao",
+    phone: "+244 222 334 455"
+  },
+  {
+    acronym: "MININT",
+    name: "Ministério do Interior",
+    desc: "Garantia da ordem pública, segurança nacional, migração, proteção civil e investigação criminal.",
+    email: "contacto@minint.gov.ao",
+    phone: "+244 222 445 566"
+  },
+  {
+    acronym: "MIREX",
+    name: "Ministério das Relações Exteriores",
+    desc: "Formulação, coordenação e execução da política externa de Angola e representação diplomática internacional.",
+    email: "mirex@mirex.gov.ao",
+    phone: "+244 222 556 677"
+  },
+  {
+    acronym: "MINFIN",
+    name: "Ministério das Finanças",
+    desc: "Gestão das finanças públicas, orçamento geral do Estado, tesouro nacional e políticas macro-tributárias.",
+    email: "gabinete@minfin.gov.ao",
+    phone: "+244 222 667 788"
+  },
+  {
+    acronym: "MINPLAN",
+    name: "Ministério do Planeamento",
+    desc: "Planeamento estratégico de desenvolvimento económico nacional, coordenação de investimentos e censos.",
+    email: "geral@minplan.gov.ao",
+    phone: "+244 222 778 899"
+  },
+  {
+    acronym: "MAT",
+    name: "Ministério da Administração do Território",
+    desc: "Administração local do Estado, organização do território, apoio aos municípios e processos eleitorais.",
+    email: "apoio@mat.gov.ao",
+    phone: "+244 222 889 900"
+  },
+  {
+    acronym: "MINJUSDH",
+    name: "Ministério da Justiça e dos Direitos Humanos",
+    desc: "Administração da justiça, registos civis e notariais, promoção dos direitos civis e acesso ao direito.",
+    email: "contacto@minjusdh.gov.ao",
+    phone: "+244 222 990 011"
+  },
+  {
+    acronym: "MAPTSS",
+    name: "Ministério da Administração Pública, Trabalho e Segurança Social",
+    desc: "Regulação do funcionalismo público, fomento do emprego, segurança social dos trabalhadores e formação profissional.",
+    email: "maptss@maptss.gov.ao",
+    phone: "+244 222 112 233"
+  },
+  {
+    acronym: "MINAGRIF",
+    name: "Ministério da Agricultura e Florestas",
+    desc: "Promoção do sector agrícola, sustentabilidade florestal, segurança alimentar e desenvolvimento rural.",
+    email: "contacto@minagrif.gov.ao",
+    phone: "+244 222 223 344"
+  },
+  {
+    acronym: "MINPESCAS",
+    name: "Ministério das Pescas e Recursos Marinhos",
+    desc: "Gestão sustentável das pescas, aquicultura, proteção de recursos marinhos e economia azul.",
+    email: "pescas@minpescas.gov.ao",
+    phone: "+244 222 334 455"
+  },
+  {
+    acronym: "MINDCOM",
+    name: "Ministério da Indústria e Comércio",
+    desc: "Industrialização nacional, regulação do comércio interno e externo, protecção da concorrência comercial.",
+    email: "geral@mindcom.gov.ao",
+    phone: "+244 222 445 566"
+  },
+  {
+    acronym: "MIREMPET",
+    name: "Ministério dos Recursos Minerais, Petróleo e Gás",
+    desc: "Regulação da exploração geológica-mineira, hidrocarbonetos, refinação de petróleo e gás natural.",
+    email: "suporte@mirempet.gov.ao",
+    phone: "+244 222 556 677"
+  },
+  {
+    acronym: "MINOPUH",
+    name: "Ministério das Obras Públicas, Urbanismo e Habitação",
+    desc: "Construção de infraestruturas públicas, ordenamento do território, desenvolvimento urbano e habitação social.",
+    email: "obras@minopuh.gov.ao",
+    phone: "+244 222 667 788"
+  },
+  {
+    acronym: "MINEA",
+    name: "Ministério da Energia e Águas",
+    desc: "Produção e distribuição de electricidade, saneamento, abastecimento de água e gestão de bacias hídricas.",
+    email: "gabinete@minea.gov.ao",
+    phone: "+244 222 778 899"
+  },
+  {
+    acronym: "MINTRANS",
+    name: "Ministério dos Transportes",
+    desc: "Regulação e modernização dos transportes rodoviários, ferroviários, aéreos e portuários de Angola.",
+    email: "transportes@mintrans.gov.ao",
+    phone: "+244 222 889 900"
+  },
+  {
+    acronym: "MINTTICS",
+    name: "Ministério das Telecomunicações, Tecnologias de Informação e Comunicação Social",
+    desc: "Inovação tecnológica, infraestruturas de telecomunicações, governação digital e regulação da imprensa.",
+    email: "comunicacao@minttics.gov.ao",
+    phone: "+244 222 990 011"
+  },
+  {
+    acronym: "MESCTI",
+    name: "Ministério do Ensino Superior, Ciência, Tecnologia e Inovação",
+    desc: "Supervisão do subsistema de ensino superior, investigação científica, desenvolvimento tecnológico e bolsas.",
+    email: "contacto@mescti.gov.ao",
+    phone: "+244 222 112 233"
+  },
+  {
+    acronym: "MED",
+    name: "Ministério da Educação",
+    desc: "Gestão do ensino pré-escolar, primário e secundário, formação de professores e currículo nacional.",
+    email: "geral@med.gov.ao",
+    phone: "+244 222 223 344"
+  },
+  {
+    acronym: "MINSA",
+    name: "Ministério da Saúde",
+    desc: "Políticas nacionais de saúde pública, rede hospitalar primária, controlo epidemiológico e medicamentos.",
+    email: "gabinete@minsa.gov.ao",
+    phone: "+244 222 334 455"
+  },
+  {
+    acronym: "MINAMB",
+    name: "Ministério do Ambiente",
+    desc: "Conservação da biodiversidade, combate às alterações climáticas, fiscalização e sustentabilidade ambiental.",
+    email: "ambiente@minamb.gov.ao",
+    phone: "+244 222 445 566"
+  },
+  {
+    acronym: "MINCTUR",
+    name: "Ministério da Cultura e Turismo",
+    desc: "Salvaguarda do património histórico-cultural, fomento das artes, indústrias criativas e promoção do turismo.",
+    email: "cultura@minctur.gov.ao",
+    phone: "+244 222 556 677"
+  },
+  {
+    acronym: "MINJUD",
+    name: "Ministério da Juventude e Desportos",
+    desc: "Políticas de apoio à juventude, associativismo, infraestruturas desportivas e fomento de alta competição.",
+    email: "geral@minjud.gov.ao",
+    phone: "+244 222 667 788"
+  },
+  {
+    acronym: "MASFAMU",
+    name: "Ministério da Acção Social, Família e Promoção da Mulher",
+    desc: "Inclusão social, apoio a famílias vulneráveis, igualdade de género e protecção dos direitos da criança.",
+    email: "geral@masfamu.gov.ao",
+    phone: "+244 222 778 899"
+  }
+];
+
 export function InstitutionDetail({
   institutionName,
   inbox,
@@ -160,6 +326,13 @@ export function InstitutionDetail({
   const [previewType, setPreviewType] = useState<'invoice' | 'document' | null>(null);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
+  const [selectedMinistry, setSelectedMinistry] = useState<any>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  React.useEffect(() => {
+    setSelectedMinistry(null);
+    setIsDropdownOpen(false);
+  }, [institutionName]);
 
   const numericId = previewDoc?.id
     ? (typeof previewDoc.id === 'number'
@@ -234,20 +407,95 @@ export function InstitutionDetail({
       </div>
 
       {/* Institution Banner block */}
-      <section className="bg-white border border-slate-200 rounded-[24px] md:rounded-[32px] p-6 shadow-sm overflow-hidden relative group">
+      <section className={`bg-white border border-slate-200 rounded-[24px] md:rounded-[32px] p-6 shadow-sm relative group ${isDropdownOpen ? 'overflow-visible z-20' : 'overflow-hidden'}`}>
         <div className="absolute right-0 top-0 -mr-20 -mt-20 w-80 h-80 bg-primary/2.5 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-1000" />
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-          <div className="space-y-3 max-w-2xl min-w-0">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase bg-blue-900 text-white tracking-wider border border-blue-800">
-              <ShieldCheck size={12} className="text-white" />
-              {meta.category}
-            </span>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10 w-full">
+          <div className="space-y-3 max-w-2xl min-w-0 flex-1">
+            <div className="flex flex-row items-center justify-between gap-4 w-full">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase bg-blue-900 text-white tracking-wider border border-blue-800 shrink-0">
+                <ShieldCheck size={12} className="text-white" />
+                {meta.category}
+              </span>
+
+              {meta.category === "Administração Central" && (
+                <div className="relative inline-block text-left z-30 shrink-0">
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                      className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900 hover:border-primary/20 transition-all cursor-pointer shadow-xs active:scale-95"
+                      id="menu-button"
+                      aria-expanded={isDropdownOpen}
+                    >
+                      <Building size={11} className="text-primary" />
+                      <span>{selectedMinistry ? selectedMinistry.acronym : "Ministérios"}</span>
+                      <ChevronDown size={11} className={`text-slate-400 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                  </div>
+
+                  {isDropdownOpen && (
+                    <>
+                      {/* Overlay */}
+                      <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)} />
+                      
+                      <div className="absolute right-0 mt-2 w-72 max-h-72 overflow-y-auto rounded-2xl bg-white p-2 shadow-xl ring-1 ring-black/5 focus:outline-none z-50 border border-slate-100 custom-scrollbar">
+                        <div className="px-3 py-2 border-b border-slate-100 mb-1.5">
+                          <span className="text-[7.5px] font-black uppercase tracking-wider text-slate-400">Ministérios Governamentais de Angola</span>
+                        </div>
+                        <div className="space-y-0.5">
+                          {ANGOLA_MINISTRIES.map((min) => (
+                            <button
+                              key={min.acronym}
+                              onClick={() => {
+                                setSelectedMinistry(min);
+                                setIsDropdownOpen(false);
+                              }}
+                              className={`w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+                                selectedMinistry?.acronym === min.acronym
+                                  ? 'bg-blue-50 text-blue-700 font-bold'
+                                  : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                              }`}
+                            >
+                              <div className={`w-5 h-5 rounded-md flex items-center justify-center font-mono text-[7px] font-black uppercase shrink-0 ${
+                                selectedMinistry?.acronym === min.acronym
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-slate-100 text-slate-500'
+                              }`}>
+                                {min.acronym.slice(0, 3)}
+                              </div>
+                              <div className="min-w-0">
+                                <span className="block font-black text-[8.5px] leading-none truncate">{min.acronym}</span>
+                                <span className="block text-[6.5px] text-slate-400 font-bold truncate leading-none mt-1">{min.name}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
             <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight italic uppercase">
-              {meta.full}
+              {selectedMinistry ? selectedMinistry.name : meta.full}
             </h1>
             <p className="text-xs md:text-sm text-slate-600 font-medium leading-relaxed">
-              {meta.desc}
+              {selectedMinistry ? selectedMinistry.desc : meta.desc}
             </p>
+
+            {selectedMinistry && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                <span className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-150 rounded-lg px-2.5 py-1 text-[10px] font-mono font-bold text-slate-500 shadow-3xs">
+                  <Mail size={11} className="text-slate-400" />
+                  {selectedMinistry.email}
+                </span>
+                <span className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-150 rounded-lg px-2.5 py-1 text-[10px] font-mono font-bold text-slate-500 shadow-3xs">
+                  <span className="text-slate-400">📞</span>
+                  {selectedMinistry.phone}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Quick Metrics */}
