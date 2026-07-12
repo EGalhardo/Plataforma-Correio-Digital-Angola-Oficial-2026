@@ -275,6 +275,37 @@ export function MessageDetail({
     : (selectedMessage.protocol?.officialTime || '10:45');
 
   const getMessageLocality = (msg: Message) => {
+    // Se a mensagem contiver o metadado ou se corresponder a uma das instituições mock, procuramos a sua morada
+    const orgCode = msg.org || '';
+    
+    // Mapeamento dinâmico de moradas reais das instituições integradas
+    const ADDRESSES_MAPPING: Record<string, string> = {
+      'SME': 'Serviço de Migração e Estrangeiros, Bairro Maianga, Luanda, Angola',
+      'AGT': 'Administração Geral Tributária, Bairro Ingombota, Luanda, Angola',
+      'ENDE': 'Sede ENDE, Centralidade do Kilamba, Bloco T22, Luanda, Angola',
+      'EPAL': 'Empresa Pública de Águas, Bairro Viana Sede, Luanda, Angola',
+      'Tribunal': 'Tribunal de Comarca, Distrito de Talatona, Luanda, Angola',
+      'Hospital': 'Hospital Geral de Luanda, Distrito da Camama, Benfica, Luanda, Angola',
+      'MINJUS': 'Ministério da Justiça, Bairro Lubango, Huíla, Angola',
+      'MINSA': 'Ministério da Saúde, Bairro Huambo Sede, Huambo, Angola',
+      'PNA': 'Polícia Nacional de Angola, Bairro Cabinda Sede, Cabinda, Angola',
+      'INSS': 'Instituto Nacional de Segurança Social, Bairro Cazenga, Luanda, Angola',
+      'CNE': 'Comissão Nacional Eleitoral, Bairro Ingombota, Luanda, Angola',
+      'Registo Civil': 'Conservatória do Registo Civil, Município de Belas, Luanda, Angola',
+      'Notariado': 'Repartição de Notariado, Bairro Maianga, Luanda, Angola',
+      'Universidade Pública': 'Universidade Agostinho Neto (UAN), Campus Universitário, Belas, Luanda, Angola',
+      'INAPEM': 'INAPEM, Município de Talatona, Luanda, Angola'
+    };
+
+    const matchedKey = Object.keys(ADDRESSES_MAPPING).find(key => 
+      orgCode.toUpperCase().includes(key.toUpperCase()) || 
+      key.toUpperCase().includes(orgCode.toUpperCase())
+    );
+
+    if (matchedKey) {
+      return ADDRESSES_MAPPING[matchedKey];
+    }
+
     return 'Rua Deolinda Rodrigues, n-227, Benfica, Luanda';
   };
   const messageLocality = getMessageLocality(selectedMessage);
