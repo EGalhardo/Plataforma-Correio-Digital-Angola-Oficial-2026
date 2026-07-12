@@ -367,10 +367,29 @@ export function InstitutionDetail({
   };
 
   // Filter regular messages (incoming to user / from org)
-  const incomingMessages = inbox.filter(m => matchesOrg(m.org));
+  const incomingMessages = inbox.filter(m => {
+    if (institutionName === 'Ministerios') {
+      if (selectedMinistry) {
+        return m.org === selectedMinistry.acronym;
+      } else {
+        // Se for Ministério mas nenhum estiver selecionado, não mostra nada
+        return false;
+      }
+    }
+    return matchesOrg(m.org);
+  });
   
   // Filter sent messages (to org / from user)
-  const outgoingMessages = sentMessages.filter(m => matchesOrg(m.org));
+  const outgoingMessages = sentMessages.filter(m => {
+    if (institutionName === 'Ministerios') {
+      if (selectedMinistry) {
+        return m.org === selectedMinistry.acronym;
+      } else {
+        return false;
+      }
+    }
+    return matchesOrg(m.org);
+  });
 
   // Load invoices matching this institution from localStorage
   const savedInvoicesRaw = localStorage.getItem('correio_digital_faturas');
@@ -378,7 +397,16 @@ export function InstitutionDetail({
   if (savedInvoicesRaw) {
     try {
       const parsed = JSON.parse(savedInvoicesRaw);
-      invoices = parsed.filter((inv: any) => matchesOrg(inv.org));
+      invoices = parsed.filter((inv: any) => {
+        if (institutionName === 'Ministerios') {
+          if (selectedMinistry) {
+            return inv.org === selectedMinistry.acronym;
+          } else {
+            return false;
+          }
+        }
+        return matchesOrg(inv.org);
+      });
     } catch (e) {
       invoices = [];
     }
@@ -388,7 +416,16 @@ export function InstitutionDetail({
   }
 
   // Also read document request records from this institution
-  const incomingDocs = docInbox.filter(m => matchesOrg(m.org));
+  const incomingDocs = docInbox.filter(m => {
+    if (institutionName === 'Ministerios') {
+      if (selectedMinistry) {
+        return m.org === selectedMinistry.acronym;
+      } else {
+        return false;
+      }
+    }
+    return matchesOrg(m.org);
+  });
 
   return (
     <div className="space-y-4">
