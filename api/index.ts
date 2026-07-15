@@ -77,7 +77,7 @@ app.post("/api/gov-ai", async (req, res) => {
       userPrompt = `Classifique e extraia metadados e informações críticas do seguinte documento:\n\n${text}`;
     } else if (action === "fraud") {
       systemPrompt = "Você é o perito de segurança facial e cibernética do Correio Digital de Angola. Analise o documento ou mensagem para detectar indícios de fraudes, tentativas de phishing, golpes de cobrança falsa de impostos, NIF falso, ou solicitações indevidas de dados pessoais.";
-      userPrompt = `Analise este documento ou correspondência minuciosamente procurando sinais de fraude, de falsificação de identidade ou golpe fiscal/social:\n\n${text}`;
+      userPrompt = `Análise este documento ou correspondência minuciosamente procurando sinais de fraude, de falsificação de identidade ou golpe fiscal/social:\n\n${text}`;
     } else if (action === "help" || action === "qna") {
       systemPrompt = "Você é o assistente virtual de inteligência artificial governamental do Correio Digital de Angola. Ajude o cidadão de Angola com instruções passo a passo detalhadas sobre como resolver as pendências financeiras, fiscais ou burocráticas descritas no documento ou mensagem.";
       userPrompt = `Dúvida do cidadão ou solicitação de ajuda sobre o documento:\n${text}\n\nContexto da correspondência:\n${context || ''}`;
@@ -110,7 +110,7 @@ app.post("/api/gov-ai", async (req, res) => {
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt }
           ],
-          model: "llama3-8b-8192",
+          model: "llama-3.1-8b-instant",
           temperature: 0.3
         });
         if (completion.choices && completion.choices[0] && completion.choices[0].message) {
@@ -158,7 +158,7 @@ app.post("/api/chat", async (req, res) => {
               content: m.content
             }))
           ],
-          model: "llama3-8b-8192",
+          model: "llama-3.1-8b-instant",
         });
         console.log("GROQ CHAT COMPLETION SUCCESSFUL.");
         if (completion.choices && completion.choices[0] && completion.choices[0].message) {
