@@ -110,7 +110,7 @@ app.post("/api/gov-ai", async (req, res) => {
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt }
           ],
-          model: "llama-3.1-8b-instant",
+          model: "llama3-8b-8192",
           temperature: 0.3
         });
         if (completion.choices && completion.choices[0] && completion.choices[0].message) {
@@ -158,7 +158,7 @@ app.post("/api/chat", async (req, res) => {
               content: m.content
             }))
           ],
-          model: "llama-3.1-8b-instant",
+          model: "llama3-8b-8192",
         });
         console.log("GROQ CHAT COMPLETION SUCCESSFUL.");
         if (completion.choices && completion.choices[0] && completion.choices[0].message) {
