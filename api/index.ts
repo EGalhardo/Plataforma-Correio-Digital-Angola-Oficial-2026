@@ -1,9 +1,6 @@
 import express from "express";
 import path from "path";
-import { WebSocketServer, WebSocket } from "ws";
-import { createServer } from "http";
 import { GoogleGenAI, Type } from "@google/genai";
-import { createClient } from '@supabase/supabase-js';
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
 
@@ -154,7 +151,9 @@ app.post("/api/chat", async (req, res) => {
           ],
           model: "llama-3.1-8b-instant",
         });
-        return res.json({ message: completion.choices[0].message.content });
+        if (completion.choices && completion.choices[0] && completion.choices[0].message) {
+          return res.json({ message: completion.choices[0].message.content });
+        }
       } catch (groqErr) {
         console.error("Groq Chat Error:", groqErr);
       }
