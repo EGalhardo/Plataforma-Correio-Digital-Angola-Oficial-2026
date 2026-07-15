@@ -7,13 +7,16 @@ import Groq from "groq-sdk";
 dotenv.config();
 
 const app = express();
+
+// IMPORTANTE: O bodyParser nativo do Express por vezes pode ler o corpo como vazio (undefined) em ambientes Serverless da Vercel.
+// Ativamos o parser de JSON e URLEncoded padrão de forma explícita.
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Initialize AI Clients
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
 const groqApiKey = process.env.GROQ_API_KEY || '';
 
-// LOGS DE AUDITORIA DE AMBIENTE
 console.log("HEALTH CHECK API INITIALIZED. GROQ KEY PRESENT:", !!groqApiKey);
 
 let groq: Groq | null = null;
@@ -59,9 +62,13 @@ app.get("/api/health", (req, res) => {
 // API for Government AI
 app.post("/api/gov-ai", async (req, res) => {
   try {
-    const { action, text, context } = req.body;
+    const { action, text, context } = req.body || {};
     let systemPrompt = "Você é o assistente virtual do Correio Digital de Angola especializado em análises governamentais.";
     let userPrompt = "";
+
+    if (!text) {
+      return res.status(400).json({ error: "O campo 'text' é obrigatório." });
+    }
 
     if (action === "summarize") {
       systemPrompt = "Você é um assistente do Governo de Angola especialista em simplificar e resumir documentos administrativos de forma clara, concisa e direta. Remova burocracias desnecessárias e explique tudo de forma simples em português de Angola.";
@@ -132,15 +139,18 @@ app.post("/api/gov-ai", async (req, res) => {
 // Resilient Chat Endpoint
 app.post("/api/chat", async (req, res) => {
   try {
-    const { messages, isGovMode, currentPage, pageContext, language } = req.body;
+    const { messages, isGovMode, currentPage, pageContext, language } = req.body || {};
     
     console.log("CHAT REQUEST RECEIVED. MESSAGES COUNT:", messages?.length);
+
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: "O array de 'messages' é obrigatório e não pode estar vazio." });
+    }
 
     const sysPrompt = "Você é o assistente oficial do Correio Digital de Angola. Responda em Português de Angola de forma direta, clara e concisa. Não utilize asteriscos ou formatações.";
 
     const alternateMessages: { role: 'user' | 'assistant'; content: string }[] = [];
-    const chatHistory = messages || [];
-    for (const msg of chatHistory) {
+    for (const msg of messages) {
       const role = msg.role === 'assistant' || msg.role === 'model' || msg.role === 'bot' ? 'assistant' : 'user';
       const content = msg.content || msg.text || '';
       if (!content) continue;
@@ -182,10 +192,10 @@ app.post("/api/chat", async (req, res) => {
 // Translation API
 app.post("/api/translate", async (req, res) => {
   try {
-    const { texts } = req.body;
+    const { texts } = req.body || {};
     return res.json({ translations: texts || [] });
   } catch (err: any) {
-    return res.json({ translations: req.body.texts || [] });
+    return res.json({ translations: req.body?.texts || [] });
   }
 });
 
@@ -196,4 +206,7 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
-export default app;
+// Exporta o handler encapsulado para Vercel Serverless
+export default (req: any, res: any) => {
+  return app(req, res);
+};
