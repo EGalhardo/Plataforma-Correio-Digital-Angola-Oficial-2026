@@ -4,14 +4,18 @@ import Groq from "groq-sdk";
 
 dotenv.config();
 
-// Initialize AI Clients
+// Initialize AI Clients using the exact verified variables
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
-const groqApiKey = process.env.GROQ_API_KEY || '';
+// Ler a chave do Groq de forma dinâmica e segura (sem incluir segredos em texto limpo no código que acionam a Push Protection do GitHub)
+const groqApiKey = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY || '';
+
+console.log("HEALTH CHECK API INITIALIZED. GROQ KEY PRESENT:", !!groqApiKey);
 
 let groq: Groq | null = null;
 if (groqApiKey) {
   try {
     groq = new Groq({ apiKey: groqApiKey.trim() });
+    console.log("GROQ CLIENT INSTANTIATED SUCCESSFULLY.");
   } catch (e: any) {
     console.error("CRITICAL: Failed to instantiate Groq client:", e.message || e);
   }
@@ -28,6 +32,12 @@ if (apiKey) {
     console.warn("CRITICAL: Failed to instantiate GoogleGenAI client:", e);
   }
 }
+
+const getRuntimeFlags = () => ({
+  local_bootstrap: true,
+  mock_fallback: false,
+  supabase_auto_seed: false,
+});
 
 // Handler nativo Serverless da Vercel (evita completamente os problemas do Express quebrando rotas)
 export default async function handler(req: any, res: any) {
@@ -159,8 +169,8 @@ export default async function handler(req: any, res: any) {
           if (completion.choices?.[0]?.message) {
             return res.status(200).json({ message: completion.choices[0].message.content });
           }
-        } catch (e) {
-          console.error("Erro na API do Groq no Serverless:", e);
+        } catch (e: any) {
+          console.error("Erro na API do Groq no Serverless:", e.message || e);
         }
       }
 
