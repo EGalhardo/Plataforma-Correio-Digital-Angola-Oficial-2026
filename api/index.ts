@@ -13,13 +13,19 @@ app.use(express.json());
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
 const groqApiKey = process.env.GROQ_API_KEY || '';
 
+// LOGS DE AUDITORIA DE AMBIENTE
+console.log("HEALTH CHECK API INITIALIZED. GROQ KEY PRESENT:", !!groqApiKey);
+
 let groq: Groq | null = null;
 if (groqApiKey) {
   try {
-    groq = new Groq({ apiKey: groqApiKey });
-  } catch (e) {
-    console.warn("CRITICAL: Failed to instantiate Groq client:", e);
+    groq = new Groq({ apiKey: groqApiKey.trim() });
+    console.log("GROQ CLIENT INSTANTIATED SUCCESSFULLY.");
+  } catch (e: any) {
+    console.error("CRITICAL: Failed to instantiate Groq client:", e.message || e);
   }
+} else {
+  console.error("CRITICAL ERROR: GROQ API KEY MISSING FROM PROCESS.ENV!");
 }
 
 let ai: GoogleGenAI | null = null;
@@ -110,8 +116,8 @@ app.post("/api/gov-ai", async (req, res) => {
         if (completion.choices && completion.choices[0] && completion.choices[0].message) {
           return res.json({ result: completion.choices[0].message.content });
         }
-      } catch (groqErr) {
-        console.error("Groq fallback failed:", groqErr);
+      } catch (groqErr: any) {
+        console.error("Groq fallback failed:", groqErr.message || groqErr);
       }
     }
 
@@ -128,6 +134,8 @@ app.post("/api/chat", async (req, res) => {
   try {
     const { messages, isGovMode, currentPage, pageContext, language } = req.body;
     
+    console.log("CHAT REQUEST RECEIVED. MESSAGES COUNT:", messages?.length);
+
     const sysPrompt = "Você é o assistente oficial do Correio Digital de Angola. Responda em Português de Angola de forma direta, clara e concisa. Não utilize asteriscos ou formatações.";
 
     const alternateMessages: { role: 'user' | 'assistant'; content: string }[] = [];
@@ -141,6 +149,7 @@ app.post("/api/chat", async (req, res) => {
 
     if (groq) {
       try {
+        console.log("ATTEMPTING GROQ CHAT COMPLETION...");
         const completion = await groq.chat.completions.create({
           messages: [
             { role: "system", content: sysPrompt },
@@ -151,18 +160,21 @@ app.post("/api/chat", async (req, res) => {
           ],
           model: "llama-3.1-8b-instant",
         });
+        console.log("GROQ CHAT COMPLETION SUCCESSFUL.");
         if (completion.choices && completion.choices[0] && completion.choices[0].message) {
           return res.json({ message: completion.choices[0].message.content });
         }
-      } catch (groqErr) {
-        console.error("Groq Chat Error:", groqErr);
+      } catch (groqErr: any) {
+        console.error("GROQ CHAT COMPLETION FAILED:", groqErr.message || groqErr);
       }
+    } else {
+      console.error("GROQ CLIENT IS NULL IN CHAT ENDPOINT!");
     }
 
     return res.json({ message: "Olá! Atualmente estou a operar em Modo local. Como posso ajudar com os seus documentos?" });
 
-  } catch (error) {
-    console.error("Chat Error:", error);
+  } catch (error: any) {
+    console.error("Chat Error:", error.message || error);
     res.status(500).json({ error: "Erro ao processar conversa com IA." });
   }
 });
