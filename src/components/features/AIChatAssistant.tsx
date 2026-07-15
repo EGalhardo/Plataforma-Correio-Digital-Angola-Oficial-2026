@@ -243,33 +243,37 @@ export function AIChatAssistant({
       const pageText = activeTab && modePresentations ? modePresentations[activeTab] : null;
 
       if (pageText) {
+        // Concatenar a pergunta de ajuda no final da apresentação
+        const fullPresentationText = pageText + "\n\nPrecisa de alguma ajuda com as funcionalidades desta página?";
+
         setMessages(prev => {
           const welcomeText = getGreetingText(currentLanguage);
           if (prev.length <= 1 && (prev.length === 0 || prev[0].content === welcomeText)) {
-            return [{ role: 'assistant', content: pageText }];
+            return [{ role: 'assistant', content: fullPresentationText }];
           }
-          if (prev[prev.length - 1]?.content !== pageText) {
-            return [...prev, { role: 'assistant', content: pageText }];
+          if (prev[prev.length - 1]?.content !== fullPresentationText) {
+            return [...prev, { role: 'assistant', content: fullPresentationText }];
           }
           return prev;
         });
 
         const timer = setTimeout(() => {
           if (currentLanguage === 'pt') {
-            speak(pageText, () => {
-              // Automatically deactivate microphone upon finishing presentation
-              if (stopIaVoice) {
-                stopIaVoice();
+            speak(fullPresentationText, () => {
+              // Reativar microfone automaticamente para que o cidadão possa falar
+              if (recognitionRef.current && iaLiveActiveRef.current) {
+                try {
+                  recognitionRef.current.start();
+                } catch (e) {}
               }
             });
           }
         }, 300);
         return () => clearTimeout(timer);
       } else {
-        const welcomeText = getGreetingText(currentLanguage);
+        const welcomeText = getGreetingText(currentLanguage) + "\n\nPrecisa de ajuda com alguma coisa hoje?";
         
         setMessages(prev => {
-          // If there's only the default initial message, replace or pre-populate it.
           if (prev.length === 1 && prev[0].role === 'assistant') {
             return [{ role: 'assistant', content: welcomeText }];
           }
@@ -279,10 +283,16 @@ export function AIChatAssistant({
           return prev;
         });
 
-        // Small delay to allow audio synthesis engine stability, then speak welcome message out loud
         const timer = setTimeout(() => {
           if (currentLanguage === 'pt') {
-            speak(welcomeText);
+            speak(welcomeText, () => {
+              // Reativar microfone automaticamente para captar resposta
+              if (recognitionRef.current && iaLiveActiveRef.current) {
+                try {
+                  recognitionRef.current.start();
+                } catch (e) {}
+              }
+            });
           }
         }, 300);
         return () => clearTimeout(timer);
@@ -290,7 +300,6 @@ export function AIChatAssistant({
     } else {
       window.speechSynthesis.cancel();
       if (recognitionRef.current) {
-        // Detach handlers to prevent async triggers during aborting
         recognitionRef.current.onstart = null;
         recognitionRef.current.onend = null;
         recognitionRef.current.onresult = null;
@@ -376,15 +385,16 @@ export function AIChatAssistant({
     
     if (pageText) {
       const friendlyName = getPageFriendlyName(pageKey);
+      const fullPresentationText = pageText + "\n\nPrecisa de alguma ajuda com as funcionalidades desta página?";
       
       // Update message list
       setMessages(prev => {
         // Remove any duplicate consecutive presentation messages to keep chat elegant
-        const filtered = prev.filter(m => m.content !== pageText);
+        const filtered = prev.filter(m => m.content !== fullPresentationText);
         return [
           ...filtered,
           { role: 'user', content: `Apresentar página: ${friendlyName}` },
-          { role: 'assistant', content: pageText }
+          { role: 'assistant', content: fullPresentationText }
         ];
       });
       
@@ -393,10 +403,12 @@ export function AIChatAssistant({
         if (currentLanguage === 'pt') {
           // Explicitly set voice active so speak succeeds
           iaLiveActiveRef.current = true;
-          speak(pageText, () => {
-            // Automatically deactivate microphone upon finishing presentation
-            if (stopIaVoice) {
-              stopIaVoice();
+          speak(fullPresentationText, () => {
+            // Reativar microfone automaticamente para que o cidadão possa falar
+            if (recognitionRef.current && iaLiveActiveRef.current) {
+              try {
+                recognitionRef.current.start();
+              } catch (e) {}
             }
           });
         }
