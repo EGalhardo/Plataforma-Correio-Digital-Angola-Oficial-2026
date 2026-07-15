@@ -6,16 +6,12 @@ dotenv.config();
 
 // Initialize AI Clients using the exact verified variables
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
-// Ler a chave do Groq de forma dinâmica e segura (sem incluir segredos em texto limpo no código que acionam a Push Protection do GitHub)
 const groqApiKey = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY || '';
-
-console.log("HEALTH CHECK API INITIALIZED. GROQ KEY PRESENT:", !!groqApiKey);
 
 let groq: Groq | null = null;
 if (groqApiKey) {
   try {
     groq = new Groq({ apiKey: groqApiKey.trim() });
-    console.log("GROQ CLIENT INSTANTIATED SUCCESSFULLY.");
   } catch (e: any) {
     console.error("CRITICAL: Failed to instantiate Groq client:", e.message || e);
   }
@@ -32,12 +28,6 @@ if (apiKey) {
     console.warn("CRITICAL: Failed to instantiate GoogleGenAI client:", e);
   }
 }
-
-const getRuntimeFlags = () => ({
-  local_bootstrap: true,
-  mock_fallback: false,
-  supabase_auto_seed: false,
-});
 
 // Handler nativo Serverless da Vercel (evita completamente os problemas do Express quebrando rotas)
 export default async function handler(req: any, res: any) {
@@ -69,9 +59,19 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ translations: texts });
     }
 
+    // Parse do Body de forma segura
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {
+        console.error("Erro ao fazer parse manual de string body:", e);
+      }
+    }
+
     // 3. Endpoint /api/gov-ai
     if (url.includes('/api/gov-ai')) {
-      const { action, text, context } = req.body || {};
+      const { action, text, context } = body || {};
       if (!text) {
         return res.status(400).json({ error: "O campo 'text' é obrigatório." });
       }
@@ -138,7 +138,7 @@ export default async function handler(req: any, res: any) {
 
     // 4. Endpoint /api/chat (Fluxo contínuo do Chat do Cidadão)
     if (url.includes('/api/chat')) {
-      const { messages } = req.body || {};
+      const { messages } = body || {};
 
       if (!messages || !Array.isArray(messages) || messages.length === 0) {
         return res.status(400).json({ error: "O array de 'messages' é obrigatório." });
