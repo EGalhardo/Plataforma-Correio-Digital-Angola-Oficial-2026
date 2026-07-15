@@ -224,6 +224,13 @@ export function Header({
       // If voice is active, close everything. If not, just start voice.
       if (iaLiveActive) {
         stopIaVoice();
+        // Desativar microfone cancelando a síntese
+        window.speechSynthesis.cancel();
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.stop();
+          } catch (e) {}
+        }
         setIsChatOpen(false);
       } else {
         startIaVoice();

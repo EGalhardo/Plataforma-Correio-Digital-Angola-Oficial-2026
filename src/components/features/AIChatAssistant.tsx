@@ -212,6 +212,21 @@ export function AIChatAssistant({
   // Estado para navegação pendente de confirmação
   const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null);
 
+  // Monitorar fechamento do chatbot para desligar microfone e sintetizador
+  useEffect(() => {
+    if (!isOpen) {
+      window.speechSynthesis.cancel();
+      if (stopIaVoice) {
+        stopIaVoice();
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {}
+      }
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     const currentGreeting = getGreetingText(currentLanguage);
     setMessages(prev => {
