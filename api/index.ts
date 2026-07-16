@@ -1,12 +1,9 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
 
 dotenv.config();
 
 // Initialize AI Clients using the exact verified variables
-const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
-
 // Ler a chave do Groq de forma dinâmica e segura baseando-se na nova variável do utilizador
 const getGroqKey = (): string => {
   const envKey = process.env.GROQ_API_KEY_cda || process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY;
@@ -31,18 +28,6 @@ if (groqApiKey) {
     console.log("GROQ CLIENT INSTANTIATED SUCCESSFULLY.");
   } catch (e: any) {
     console.error("CRITICAL: Failed to instantiate Groq client:", e.message || e);
-  }
-}
-
-let ai: GoogleGenAI | null = null;
-if (apiKey) {
-  try {
-    ai = new GoogleGenAI({
-      apiKey: apiKey,
-      apiVersion: 'v1beta',
-    });
-  } catch (e) {
-    console.warn("CRITICAL: Failed to instantiate GoogleGenAI client:", e);
   }
 }
 
@@ -71,7 +56,7 @@ export default async function handler(req: any, res: any) {
     if (url.includes('/api/health')) {
       return res.status(200).json({
         status: "ok",
-        ai_key_configured: !!apiKey,
+        ai_key_configured: false,
         groq_key_configured: !!groqApiKey,
       });
     }
@@ -110,7 +95,7 @@ export default async function handler(req: any, res: any) {
         userPrompt = `Explique de forma acolhedora, clara e simples o significado prático e os termos difíceis desta notificação/mensagem oficial:\n\n${text}`;
       } else if (action === "urgency") {
         systemPrompt = "Você é especialista em identificar o nível de urgência e prazos legais de atendimento em comunicações administrativas públicas em Angola. Estipule riscos de perda de prazo.";
-        userPrompt = `Analise detalhadamente o nível de urgência, o prazo oficial implícito ou explícito e as consequências jurídicas ou fiscais imediatas se o prazo não for cumprido para esta correspondência oficial:\n\n${text}`;
+        userPrompt = `Analise detalhadamente o nível de urgência, o prazo oficial implícito ou explícito e as consequências jurídicas ou fiscais imediatas se o prazo não for cumpido para esta correspondência oficial:\n\n${text}`;
       } else if (action === "classify") {
         systemPrompt = "Você é um classificador especializado de correspondência governamental angolana. Determine: 1. Categoria do Documento (Notificação, Ofício, Multa, Fatura, Processo, etc.), 2. Instituição Emissora Provável, 3. Assunto Principal, e 4. Metadados Extraídos de forma organizada.";
         userPrompt = `Classifique e extraia metadados e informações críticas do seguinte documento:\n\n${text}`;
@@ -122,22 +107,6 @@ export default async function handler(req: any, res: any) {
         userPrompt = `Dúvida do cidadão ou solicitação de ajuda sobre o documento:\n${text}\n\nContexto da correspondência:\n${context || ''}`;
       } else {
         userPrompt = text;
-      }
-
-      if (ai) {
-        try {
-          const response = await ai.models.generateContent({
-            model: "gemini-2.0-flash",
-            contents: userPrompt,
-            config: {
-              systemInstruction: systemPrompt,
-              temperature: 0.3,
-            }
-          });
-          if (response && response.text) {
-            return res.status(200).json({ result: response.text });
-          }
-        } catch (e) {}
       }
 
       if (groq) {
@@ -197,7 +166,6 @@ Regras de Resposta:
               }))
             ],
             model: "llama-3.1-8b-instant",
-            temperature: 0.3
           });
           if (completion.choices?.[0]?.message) {
             return res.status(200).json({ message: completion.choices[0].message.content });
