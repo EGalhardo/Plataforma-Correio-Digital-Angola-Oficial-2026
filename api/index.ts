@@ -66,6 +66,16 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    // Parse do Body de forma segura como prioridade número 1 antes de qualquer condicional de rota
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {
+        console.error("Erro ao fazer parse manual de string body:", e);
+      }
+    }
+
     // 1. Endpoint /api/health
     if (url.includes('/api/health')) {
       return res.status(200).json({
@@ -136,16 +146,6 @@ Regras Críticas de Fidelidade e Integridade:
       return res.status(200).json({ translations: texts });
     }
 
-    // Parse do Body de forma segura
-    let body = req.body;
-    if (typeof body === 'string') {
-      try {
-        body = JSON.parse(body);
-      } catch (e) {
-        console.error("Erro ao fazer parse manual de string body:", e);
-      }
-    }
-
     // 3. Endpoint /api/gov-ai
     if (url.includes('/api/gov-ai')) {
       const { action, text, context } = body || {};
@@ -176,6 +176,22 @@ Regras Críticas de Fidelidade e Integridade:
         userPrompt = `Dúvida do cidadão ou solicitação de ajuda sobre o documento:\n${text}\n\nContexto da correspondência:\n${context || ''}`;
       } else {
         userPrompt = text;
+      }
+
+      if (ai) {
+        try {
+          const response = await ai.models.generateContent({
+            model: "gemini-2.0-flash",
+            contents: userPrompt,
+            config: {
+              systemInstruction: systemPrompt,
+              temperature: 0.3,
+            }
+          });
+          if (response && response.text) {
+            return res.status(200).json({ result: response.text });
+          }
+        } catch (e) {}
       }
 
       if (groq) {
