@@ -180,6 +180,7 @@ interface AIChatAssistantProps {
   activeTab?: string;
   pageContextHint?: string;
   currentLanguage?: LanguageCode;
+  recognitionRefOut?: any; // Utilizar 'any' estável no padrão do ficheiro para evitar dependência de namespace React
 }
 
 export function AIChatAssistant({ 
@@ -193,7 +194,8 @@ export function AIChatAssistant({
   onNavigate,
   activeTab,
   pageContextHint,
-  currentLanguage = 'pt'
+  currentLanguage = 'pt',
+  recognitionRefOut
 }: AIChatAssistantProps) {
   const isGov = appMode !== 'user';
   const isAdmin = appMode === 'admin';
@@ -571,6 +573,9 @@ export function AIChatAssistant({
     };
 
     recognitionRef.current = recognition;
+    if (recognitionRefOut) {
+      (recognitionRefOut as any).current = recognition;
+    }
 
     if (iaLiveActive) {
       try {

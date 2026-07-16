@@ -36,6 +36,7 @@ interface HeaderProps {
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
   unreadCorrespondencesCount?: number;
+  chatAssistantRecognitionRef?: any; // Utilizar 'any' estável no padrão do ficheiro para evitar dependência de namespace React
 }
 
 function LanguageSelectorDropdown({
@@ -141,7 +142,8 @@ export function Header({
   setCurrentLanguage,
   theme,
   setTheme,
-  unreadCorrespondencesCount
+  unreadCorrespondencesCount,
+  chatAssistantRecognitionRef
 }: HeaderProps) {
   const { user, activeProfile } = useSession();
   const { t: translate } = useLanguage();
@@ -224,11 +226,11 @@ export function Header({
       // If voice is active, close everything. If not, just start voice.
       if (iaLiveActive) {
         stopIaVoice();
-        // Desativar microfone cancelando a síntese
+        // Desativar microfone cancelando a síntese de forma segura
         window.speechSynthesis.cancel();
-        if (recognitionRef.current) {
+        if (chatAssistantRecognitionRef?.current) {
           try {
-            recognitionRef.current.stop();
+            chatAssistantRecognitionRef.current.stop();
           } catch (e) {}
         }
         setIsChatOpen(false);

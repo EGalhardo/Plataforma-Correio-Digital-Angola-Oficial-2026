@@ -697,6 +697,7 @@ export default function App() {
   
   // Mic Activation State (UI only)
   const [iaLiveActive, setIaLiveActive] = useState(false);
+  const chatAssistantRecognitionRef = useRef<any>(null); // Referência compartilhada do microfone
   const startIaVoice = () => setIaLiveActive(true);
   const stopIaVoice = () => setIaLiveActive(false);
   
@@ -4266,6 +4267,7 @@ Ficha civil do titular:
             }}
             offlineQueueLength={offlineQueue.length}
             unreadCorrespondencesCount={unreadTotal}
+            chatAssistantRecognitionRef={chatAssistantRecognitionRef} // Repassar ref do reconhecimento de voz
             NotificationDropdown={() => (
               <NotificationDropdown 
                 showNotifications={showNotifications} 
@@ -4314,6 +4316,7 @@ Ficha civil do titular:
         onNavigate={setTab}
         activeTab={tab}
         pageContextHint={getPageContentDescription(tab)}
+        recognitionRefOut={chatAssistantRecognitionRef} // Exportar ref de voz do assistente para o App
       />
 
       <AddContactModal 
