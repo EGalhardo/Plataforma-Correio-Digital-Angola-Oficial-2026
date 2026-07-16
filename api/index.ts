@@ -1,9 +1,11 @@
+import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
 
 dotenv.config();
 
 // Initialize AI Clients using the exact verified variables
+const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
 // Ler a chave do Groq de forma dinâmica e segura baseando-se na nova variável do utilizador
 const getGroqKey = (): string => {
   const envKey = process.env.GROQ_API_KEY_cda || process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY;
@@ -28,6 +30,18 @@ if (groqApiKey) {
     console.log("GROQ CLIENT INSTANTIATED SUCCESSFULLY.");
   } catch (e: any) {
     console.error("CRITICAL: Failed to instantiate Groq client:", e.message || e);
+  }
+}
+
+let ai: GoogleGenAI | null = null;
+if (apiKey) {
+  try {
+    ai = new GoogleGenAI({
+      apiKey: apiKey,
+      apiVersion: 'v1beta',
+    });
+  } catch (e) {
+    console.warn("CRITICAL: Failed to instantiate GoogleGenAI client:", e);
   }
 }
 
@@ -59,16 +73,6 @@ export default async function handler(req: any, res: any) {
         ai_key_configured: false,
         groq_key_configured: !!groqApiKey,
       });
-    }
-
-    // Parse do Body de forma segura
-    let body = req.body;
-    if (typeof body === 'string') {
-      try {
-        body = JSON.parse(body);
-      } catch (e) {
-        console.error("Erro ao fazer parse manual de string body:", e);
-      }
     }
 
     // 2. Endpoint /api/translate (TRADUÇÃO DINÂMICA DE ECRÃS POR IA)
@@ -130,6 +134,16 @@ Regras Críticas de Fidelidade e Integridade:
       }
 
       return res.status(200).json({ translations: texts });
+    }
+
+    // Parse do Body de forma segura
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {
+        console.error("Erro ao fazer parse manual de string body:", e);
+      }
     }
 
     // 3. Endpoint /api/gov-ai
@@ -195,7 +209,7 @@ Regras Críticas de Fidelidade e Integridade:
       const sysPrompt = `Você é o assistente virtual oficial do Correio Digital de Angola.
 O seu objetivo é responder de forma clara, simples, amigável e direta em português de Angola.
 
-Regra Fundamental de Resposta:
+Regra Fundamental de Resposta (SUPER RIGOROSA):
 - Suas respostas devem ser curtas, simples, diretas e objetivas, com no máximo 2 ou 3 frases curtas. Nunca dê respostas longas ou textos extensos.
 - Não utilize de forma alguma asteriscos, aspas ou qualquer símbolo de formatação (como markdown). Apresente o texto totalmente limpo.
 
