@@ -61,12 +61,6 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    // 2. Endpoint /api/translate
-    if (url.includes('/api/translate')) {
-      const texts = req.body?.texts || [];
-      return res.status(200).json({ translations: texts });
-    }
-
     // Parse do Body de forma segura
     let body = req.body;
     if (typeof body === 'string') {
@@ -75,6 +69,67 @@ export default async function handler(req: any, res: any) {
       } catch (e) {
         console.error("Erro ao fazer parse manual de string body:", e);
       }
+    }
+
+    // 2. Endpoint /api/translate (TRADUÇÃO DINÂMICA DE ECRÃS POR IA)
+    if (url.includes('/api/translate')) {
+      const { texts, targetLanguage } = body || {};
+      if (!texts || !Array.isArray(texts) || texts.length === 0) {
+        return res.status(200).json({ translations: [] });
+      }
+
+      if (!targetLanguage || targetLanguage === 'pt') {
+        return res.status(200).json({ translations: texts });
+      }
+
+      const dialectNames: Record<string, string> = {
+        um: "Umbundu",
+        ki: "Kimbundu",
+        kk: "Kikongo",
+        ch: "Chokwe",
+        ng: "Ngangela",
+        kw: "Kwanyama",
+        nh: "Nhaneca",
+        fi: "Fiote"
+      };
+
+      const selectedLanguageName = dialectNames[targetLanguage] || targetLanguage;
+
+      const translationSystemPrompt = `Você é o Tradutor e Intérprete Oficial de Línguas Nacionais do Estado de Angola.
+A sua missão é traduzir com absoluto rigor e fidelidade um lote de textos dinâmicos do Português de Angola para o dialeto selecionado: "${selectedLanguageName}".
+
+Regras Críticas de Fidelidade e Integridade:
+1. NÃO traduzir de forma alguma nomes próprios de cidadãos, siglas institucionais oficiais (como AGT, SME, ENDE, EPAL, INSS, BI, NIF, SOC, CDA), códigos de referência, protocolos, hashes, chaves, endereços eletrónicos, datas ou valores monetários (Kz, AOA).
+2. Use linguagem formal e tom respeitoso de chancelaria eletrónica do Estado.
+3. Regra de Fallback Seguro: Caso não exista um termo traduzível consolidado ou confiável para jargões técnicos, jurídicos, fiscais ou administrativos no dialeto "${selectedLanguageName}", você DEVE manter a palavra ou expressão original em Português de Angola para evitar erros de interpretação por parte do cidadão.
+4. Devolva estritamente a resposta formatada como um array JSON bruto (começando com [ e terminando com ]), contendo as strings traduzidas na exata mesma ordem em que as recebeu. Não inclua marcas de markdown, explicações ou comentários.`;
+
+      const userTranslationPrompt = `Língua de Destino: ${selectedLanguageName}\nLista de textos a traduzir:\n${JSON.stringify(texts, null, 2)}`;
+
+      if (groq) {
+        try {
+          const completion = await groq.chat.completions.create({
+            messages: [
+              { role: "system", content: translationSystemPrompt },
+              { role: "user", content: userTranslationPrompt }
+            ],
+            model: "llama-3.1-8b-instant",
+            temperature: 0.1
+          });
+
+          const rawContent = completion.choices?.[0]?.message?.content || '[]';
+          const cleanRaw = rawContent.substring(rawContent.indexOf('['), rawContent.lastIndexOf(']') + 1);
+          const parsedTranslations = JSON.parse(cleanRaw);
+
+          if (Array.isArray(parsedTranslations) && parsedTranslations.length === texts.length) {
+            return res.status(200).json({ translations: parsedTranslations });
+          }
+        } catch (e: any) {
+          console.error("Erro na tradução dinâmica do Groq Serverless:", e.message || e);
+        }
+      }
+
+      return res.status(200).json({ translations: texts });
     }
 
     // 3. Endpoint /api/gov-ai
@@ -136,16 +191,7 @@ export default async function handler(req: any, res: any) {
         return res.status(400).json({ error: "O array de 'messages' é obrigatório." });
       }
 
-      // INJEÇÃO DA DIRETIVA DE CONHECIMENTO DE SISTEMA DO CORREIO DIGITAL ANGOLA
-      const sysPrompt = `Você é o assistente virtual oficial do Correio Digital de Angola.
-O seu objetivo é responder de forma clara, simples e direta em português de Angola.
-Sempre que o utilizador perguntar sobre o funcionamento da plataforma ou do projeto Correio Digital Angola, você DEVE responder e basear-se estritamente no seguinte conhecimento do projeto:
-
-Correio Digital Angola representa a modernização administrativa de Angola, transformando o Bilhete de Identidade no principal endereço oficial do cidadão. O projeto resolve problemas de localização e ausência de endereços residenciais formais no país, oferecendo rapidez, segurança e eficiência no envio de correspondências, certidões e faturas de órgãos parceiros como a AGT, SME, ENDE e EPAL.
-
-Regras de Resposta:
-1. Analise a pergunta do utilizador de forma acolhedora e formule uma resposta de forma simples e clara.
-2. Não utilize de forma alguma asteriscos ou símbolos de formatação como markdown. Apresente o texto de forma limpa e legível para leitura por voz.`;
+      const sysPrompt = "Você é o assistente oficial do Correio Digital de Angola. Responda em Português de Angola de forma direta, clara, concisa e muito realista. Não utilize de forma alguma asteriscos ou símbolos de formatação como markdown. Apresente informações reais sobre documentos e correspondências.";
 
       const alternateMessages: { role: 'user' | 'assistant'; content: string }[] = [];
       for (const msg of messages) {
@@ -166,6 +212,7 @@ Regras de Resposta:
               }))
             ],
             model: "llama-3.1-8b-instant",
+            temperature: 0.3
           });
           if (completion.choices?.[0]?.message) {
             return res.status(200).json({ message: completion.choices[0].message.content });
