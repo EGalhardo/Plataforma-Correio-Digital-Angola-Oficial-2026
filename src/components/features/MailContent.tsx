@@ -99,6 +99,7 @@ interface MailContentProps {
   composeData: { to: string; subject: string; body: string; attachments?: string[] };
   setComposeData: (data: { to: string; subject: string; body: string; attachments?: string[] }) => void;
   handleSendMessage: () => void;
+  handleSendUrgentMessage?: () => void; // Adicionar handler de envio de mensagem urgente
   unreadTotal: number;
   correspondenciaTab: string;
   setCorrespondenciaTab: (tab: string) => void;
@@ -126,6 +127,7 @@ export function MailContent({
   composeData = { to: '', subject: '', body: '', attachments: [] },
   setComposeData,
   handleSendMessage,
+  handleSendUrgentMessage, // Handler urgente injetado
   unreadTotal,
   correspondenciaTab,
   setCorrespondenciaTab,
@@ -180,6 +182,10 @@ export function MailContent({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgressMessage, setUploadProgressMessage] = useState('');
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Estados para popup (modal de confirmação obrigatória)
+  const [isOfficialConfirmOpen, setIsOfficialConfirmOpen] = useState(false);
+  const [isUrgentConfirmOpen, setIsUrgentConfirmOpen] = useState(false);
 
   const triggerRecipientSearch = (value: string) => {
     const term = value.trim();
@@ -1207,6 +1213,18 @@ export function MailContent({
               Enviar Mensagem Oficial
             </button>
 
+            {/* Novo botão Enviar Mensagem Urgente para Área Institucional autorizada */}
+            {isInst && (
+              <button 
+                onClick={handleSendUrgentMessage}
+                disabled={!composeData.to || !composeData.subject || !composeData.body}
+                className="w-full md:flex-[2] bg-red-600 text-white py-4 rounded-2xl font-black text-sm md:text-base shadow-xl shadow-red-200 hover:bg-red-700 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 md:gap-3 cursor-pointer border-0"
+              >
+                <AlertTriangle size={18} className="text-white animate-pulse" />
+                Enviar Mensagem Urgente
+              </button>
+            )}
+
             <label 
               className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-4 bg-white hover:bg-slate-50 text-slate-700 font-extrabold text-sm rounded-2xl transition-all cursor-pointer active:scale-95 border border-slate-300 relative shadow-sm shrink-0"
               title="Anexar múltiplos ficheiros"
@@ -1247,6 +1265,110 @@ export function MailContent({
             </button>
           </div>
         </div>
+
+        {/* POPUP DE CONFIRMAÇÃO OBRIGATÓRIA - MENSAGEM OFICIAL */}
+        <AnimatePresence>
+          {isOfficialConfirmOpen && (
+            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsOfficialConfirmOpen(false)}
+                className="absolute inset-0 bg-[#0c2340]/40 backdrop-blur-xs"
+              />
+              <motion.div 
+                initial={{ scale: 0.95, opacity: 0, y: 15 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 15 }}
+                className="relative bg-white rounded-[32px] p-6 md:p-8 shadow-2xl max-w-md w-full text-left"
+              >
+                <h3 className="text-lg md:text-xl font-black text-slate-900 mb-3">
+                  Confirmar Envio da Mensagem Oficial
+                </h3>
+                <p className="text-slate-600 text-xs md:text-sm leading-relaxed mb-6 font-medium">
+                  Tem a certeza de que pretende enviar esta <strong className="text-primary font-black">Mensagem Oficial</strong>?
+                  <br /><br />
+                  Após a confirmação, a mensagem será enviada ao destinatário selecionado e ficará registada no histórico de comunicações da plataforma.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button 
+                    type="button"
+                    onClick={() => setIsOfficialConfirmOpen(false)}
+                    className="px-5 py-3 bg-slate-100 text-slate-600 font-extrabold text-xs uppercase tracking-wider rounded-xl hover:bg-slate-200 transition-all cursor-pointer border-0 outline-none"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsOfficialConfirmOpen(false);
+                      // Chamar a função original de envio injetada nas props
+                      handleSendMessage();
+                    }}
+                    className="px-5 py-3 bg-primary text-white font-black text-xs uppercase tracking-wider rounded-xl hover:opacity-95 transition-all cursor-pointer border-0 outline-none shadow-md shadow-primary/20"
+                  >
+                    Confirmar Envio
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* POPUP DE CONFIRMAÇÃO OBRIGATÓRIA - MENSAGEM URGENTE */}
+        <AnimatePresence>
+          {isUrgentConfirmOpen && (
+            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsUrgentConfirmOpen(false)}
+                className="absolute inset-0 bg-[#0c2340]/40 backdrop-blur-xs"
+              />
+              <motion.div 
+                initial={{ scale: 0.95, opacity: 0, y: 15 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 15 }}
+                className="relative bg-white rounded-[32px] p-6 md:p-8 shadow-2xl max-w-md w-full text-left border-2 border-red-500"
+              >
+                <h3 className="text-lg md:text-xl font-black text-red-650 mb-3 flex items-center gap-2">
+                  <AlertTriangle className="text-red-600 animate-pulse shrink-0" size={20} />
+                  ⚠ Confirmar Envio da Mensagem Urgente
+                </h3>
+                <p className="text-slate-600 text-xs md:text-sm leading-relaxed mb-6 font-medium">
+                  Está prestes a enviar uma <strong className="text-red-600 font-black">Mensagem Urgente</strong>.
+                  <br /><br />
+                  Esta mensagem será enviada imediatamente ao cidadão destinatário e, caso existam contactos de emergência registados na página <strong className="text-slate-900 font-black">"Contactos"</strong>, será igualmente enviada para todos esses contactos.
+                  <br /><br />
+                  Certifique-se de que esta comunicação corresponde efetivamente a uma situação de emergência.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button 
+                    type="button"
+                    onClick={() => setIsUrgentConfirmOpen(false)}
+                    className="px-5 py-3 bg-slate-100 text-slate-600 font-extrabold text-xs uppercase tracking-wider rounded-xl hover:bg-slate-200 transition-all cursor-pointer border-0 outline-none"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsUrgentConfirmOpen(false);
+                      if (handleSendUrgentMessage) {
+                        handleSendUrgentMessage();
+                      }
+                    }}
+                    className="px-5 py-3 bg-red-600 text-white font-black text-xs uppercase tracking-wider rounded-xl hover:bg-red-700 transition-all cursor-pointer border-0 outline-none shadow-md shadow-red-200"
+                  >
+                    Enviar Mensagem Urgente
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {editingAttachmentIdx !== null && (

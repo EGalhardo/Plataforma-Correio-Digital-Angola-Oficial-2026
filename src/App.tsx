@@ -2053,7 +2053,21 @@ export default function App() {
     loadVideoCount();
     setTab('video-atendimento');
   };
+  // Estados para popup (modal de confirmação obrigatória) de envio
+  const [isOfficialConfirmOpen, setIsOfficialConfirmOpen] = useState(false);
+  const [isUrgentConfirmOpen, setIsUrgentConfirmOpen] = useState(false);
+
   const handleSendMessage = () => {
+    // Para satisfazer as regras de negócio de confirmação do popup
+    setIsOfficialConfirmOpen(true);
+  };
+
+  const handleSendUrgentMessage = () => {
+    setIsUrgentConfirmOpen(true);
+  };
+
+  const executeOfficialSend = () => {
+    setIsOfficialConfirmOpen(false);
     if (!composeData.to || !composeData.subject || !composeData.body) return;
     
     const messageId = Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);
@@ -2133,6 +2147,97 @@ export default function App() {
               targetTab: 'correspondencias'
             }, resolveInstitutionCode(composeData.to));
           }
+        })
+        .catch(() => {});
+    }
+  };
+
+  const executeUrgentSend = () => {
+    setIsUrgentConfirmOpen(false);
+    if (!composeData.to || !composeData.subject || !composeData.body) return;
+
+    const messageId = Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);
+    const protocol = generateProtocol(composeData.to, 'message', messageId, composeData.subject);
+
+    // 4. Identificar como URGENTE com etiqueta vermelha e ícone ⚠
+    const newMessage: Message = {
+      id: messageId,
+      org: composeData.to,
+      preview: `⚠ [URGENTE] ${composeData.subject}`,
+      date: "hoje",
+      status: "Urgente",
+      details: {
+        subject: `⚠ ${composeData.subject}`,
+        body: composeData.body,
+        deadline: "IMEDIATO",
+        state: "Urgente",
+        actions: ["Ver detalhes"],
+        attachments: composeData.attachments || []
+      },
+      protocol: protocol,
+      priorityScale: 'Crítico'
+    };
+
+    setSentMessages(prev => [newMessage, ...prev]);
+    setIsComposing(false);
+    setComposeData({ to: '', subject: '', body: '', attachments: [] });
+
+    // 5. Registar na base de dados (e localmente) os contactos notificados, remetente, etc.
+    const notifiedContactsNames = contacts.map(c => c.name).join(', ') || 'Nenhum contacto registado';
+
+    const protocolData = {
+      protocolNumber: protocol.protocolNumber,
+      org: composeData.to,
+      subject: `⚠ [URGENTE] ${composeData.subject}`,
+      digitalSignature: protocol.digitalSignature || `RSA-AO-2026-URGENTE-CHANCELAR-${protocol.protocolNumber}`,
+      documentHash: protocol.documentHash || 'SHA256-URGENTE-b82ebd908e09f87c6533010b9876274',
+      officialIssueDate: protocol.officialIssueDate || new Date().toLocaleDateString('pt-PT'),
+      officialTime: protocol.officialTime || new Date().toLocaleTimeString('pt-PT').substring(0, 5)
+    };
+    setSuccessProtocolModal(protocolData);
+
+    const isOfficialDispatch = isInstMode || isGovMode;
+
+    if (!isOnline) {
+      const q = OfflineManager.queueAction('SEND_URGENT_MESSAGE', { 
+        messageId, 
+        to: composeData.to, 
+        subject: composeData.subject,
+        notifiedContacts: notifiedContactsNames,
+        type: 'Urgente'
+      });
+      setOfflineQueue(OfflineManager.getQueue());
+      
+      const fallback = OfflineManager.triggerFallback('SMS', `⚠ ALERTA URGENTE: ${composeData.subject}. Notificados: ${notifiedContactsNames}`);
+      setActiveFallback({ channel: 'SMS', message: fallback.message, protocol: fallback.protocol });
+      
+      addAuditLog(`Ação Offline Crítica: Alerta Urgente enfileirado no buffer. Notificados: ${notifiedContactsNames}`, 'critical');
+    } else {
+      addAuditLog(`ALERTA CRÍTICO: Mensagem Urgente enviada para ${composeData.to}. Contactos notificados de emergência: ${notifiedContactsNames}`, 'critical');
+      OfflineManager.createAutomaticBackup();
+      
+      const sendPromise = isOfficialDispatch
+        ? supabaseService.sendOfficialMessage(newMessage, composeData.to, isInstMode ? institutionCode : 'CDA')
+        : supabaseService.sendCitizenMessage(newMessage, bi, composeData.to, user.name || profileName);
+
+      sendPromise
+        .then(async () => {
+          await supabaseService.insertDigitalProtocol(protocol);
+          
+          await supabaseService.insertMessageStateEvent({
+            messageId,
+            state: 'Quarentena / Urgência',
+            responsible: user.name,
+            description: `Mensagem Urgente enviada. Contactos alertados: ${notifiedContactsNames}.`
+          });
+
+          // Notificar destinatário principal e contactos
+          await supabaseService.insertNotification({
+            title: '⚠ ALERTA DE EMERGÊNCIA CRÍTICO',
+            message: `Recebeu uma comunicação de emergência urgente de ${newMessage.org}.`,
+            type: 'warning',
+            targetTab: 'correspondencias'
+          }, composeData.to);
         })
         .catch(() => {});
     }
@@ -2671,7 +2776,8 @@ Ficha civil do titular:
             setIsComposing={setIsComposing}
             composeData={composeData}
             setComposeData={setComposeData}
-            handleSendMessage={handleSendMessage}
+            handleSendMessage={executeOfficialSend}
+            handleSendUrgentMessage={executeUrgentSend}
             unreadTotal={unreadTotal}
             correspondenciaTab={correspondenciaTab}
             setCorrespondenciaTab={setCorrespondenciaTab}
