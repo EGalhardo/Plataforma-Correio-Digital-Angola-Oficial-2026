@@ -1246,16 +1246,6 @@ export function MailContent({
             </label>
 
             <button 
-              type="button"
-              onClick={handleCreateVirtualAttachment}
-              className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-4 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold text-sm rounded-2xl transition-all cursor-pointer active:scale-95 border border-indigo-200 shadow-sm shrink-0"
-              title="Criar um anexo virtual de texto diretamente"
-            >
-              <Plus size={18} className="stroke-[2.5]" />
-              <span>Anexo Virtual</span>
-            </button>
-
-            <button 
               onClick={() => {
                 if(confirm("Deseja descartar este rascunho?")) setIsComposing(false);
               }}
