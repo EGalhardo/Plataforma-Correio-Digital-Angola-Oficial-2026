@@ -276,25 +276,7 @@ export function AIChatAssistant({
 
         const timer = setTimeout(() => {
           if (currentLanguage === 'pt') {
-            speak(fullPresentationText, () => {
-              // Quando terminar a apresentação de voz, fala a pergunta final e reativa o microfone
-              const followUpQuestion = "Precisa de alguma ajuda com as funcionalidades desta página?";
-              speak(followUpQuestion, () => {
-                // Reativar microfone automaticamente para que o cidadão possa falar de forma segura
-                if (recognitionRef.current && iaLiveActiveRef.current) {
-                  try {
-                    recognitionRef.current.stop();
-                  } catch (e) {}
-                  setTimeout(() => {
-                    if (iaLiveActiveRef.current) {
-                      try {
-                        recognitionRef.current.start();
-                      } catch (e) {}
-                    }
-                  }, 150);
-                }
-              });
-            });
+            speak(fullPresentationText);
           }
         }, 300);
         return () => clearTimeout(timer);
@@ -313,24 +295,7 @@ export function AIChatAssistant({
 
         const timer = setTimeout(() => {
           if (currentLanguage === 'pt') {
-            speak(welcomeText, () => {
-              const followUpQuestion = "Precisa de alguma ajuda hoje?";
-              speak(followUpQuestion, () => {
-                // Reativar microfone automaticamente para captar a resposta
-                if (recognitionRef.current && iaLiveActiveRef.current) {
-                  try {
-                    recognitionRef.current.stop();
-                  } catch (e) {}
-                  setTimeout(() => {
-                    if (iaLiveActiveRef.current) {
-                      try {
-                        recognitionRef.current.start();
-                      } catch (e) {}
-                    }
-                  }, 150);
-                }
-              });
-            });
+            speak(welcomeText + "\n\nPrecisa de alguma ajuda hoje?");
           }
         }, 300);
         return () => clearTimeout(timer);
@@ -381,7 +346,16 @@ export function AIChatAssistant({
       } else {
         // Resume listening after speaking if still active
         if (iaLiveActiveRef.current && recognitionRef.current) {
-          try { recognitionRef.current.start(); } catch(e) {}
+          try {
+            recognitionRef.current.stop();
+          } catch (e) {}
+          setTimeout(() => {
+            if (iaLiveActiveRef.current) {
+              try {
+                recognitionRef.current.start();
+              } catch (e) {}
+            }
+          }, 150);
         }
       }
     };
@@ -442,24 +416,7 @@ export function AIChatAssistant({
         if (currentLanguage === 'pt') {
           // Explicitly set voice active so speak succeeds
           iaLiveActiveRef.current = true;
-          speak(pageText, () => {
-            const followUpQuestion = "Precisa de alguma ajuda com as funcionalidades desta página?";
-            speak(followUpQuestion, () => {
-              // Reativar microfone automaticamente para que o cidadão possa falar
-              if (recognitionRef.current && iaLiveActiveRef.current) {
-                try {
-                  recognitionRef.current.stop();
-                } catch (e) {}
-                setTimeout(() => {
-                  if (iaLiveActiveRef.current) {
-                    try {
-                      recognitionRef.current.start();
-                    } catch (e) {}
-                  }
-                }, 150);
-              }
-            });
-          });
+          speak(fullPresentationText);
         }
       }, 400);
     }
@@ -719,24 +676,7 @@ export function AIChatAssistant({
         
         setMessages(prev => [...prev, { role: 'assistant', content: followUpResponse }]);
         if (iaLiveActive) {
-          speak(data.message, () => {
-            const followUpQuestion = "Precisa de alguma ajuda com mais alguma coisa?";
-            speak(followUpQuestion, () => {
-              // Reativar microfone automaticamente para captar nova pergunta
-              if (recognitionRef.current && iaLiveActiveRef.current) {
-                try {
-                  recognitionRef.current.stop();
-                } catch (e) {}
-                setTimeout(() => {
-                  if (iaLiveActiveRef.current) {
-                    try {
-                      recognitionRef.current.start();
-                    } catch (e) {}
-                  }
-                }, 150);
-              }
-            });
-          });
+          speak(followUpResponse);
         }
       } else {
         const errorMsg = data.error || 'Falha na resposta da IA';
