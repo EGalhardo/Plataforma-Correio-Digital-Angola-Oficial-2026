@@ -559,6 +559,46 @@ export function AIChatAssistant({
     };
   }, [iaLiveActive]);
 
+  // Detetar se o utilizador quer encerrar a conversa
+  const isClosingIntent = (text: string): boolean => {
+    const normalized = text.toLowerCase().trim();
+    
+    // Lista de termos e padrões de encerramento
+    const closingPatterns = [
+      'não, obrigado', 'nao, obrigado', 'não obrigado', 'nao obrigado',
+      'não, obrigada', 'nao, obrigada', 'não obrigada', 'nao obrigada',
+      'é tudo', 'e tudo', 'é só isso', 'e so isso', 'era só isso', 'era so isso',
+      'já está', 'ja esta', 'ja esta obrigado', 'já está obrigado',
+      'obrigado pela ajuda', 'obrigada pela ajuda', 'obrigado', 'obrigada',
+      'não preciso de mais nada', 'nao preciso de mais nada',
+      'está tudo', 'esta tudo', 'era apenas isso', 'obrigado, pode terminar', 'pode terminar',
+      'até breve', 'ate breve', 'até logo', 'ate logo', 'adeus', 'tchau', 'fim'
+    ];
+
+    // Verificação por igualdade exata ou se a frase curta bate com algum padrão
+    if (closingPatterns.some(pattern => normalized === pattern || normalized.startsWith(pattern) || normalized.endsWith(pattern))) {
+      return true;
+    }
+
+    // Padrões de negação curta quando precedidos ou sucedidos por termos de cortesia
+    const shortNegations = ['não', 'nao', 'nada', 'nada mais', 'chega', 'termine', 'terminar'];
+    const courtesyTerms = ['obrigado', 'obrigada', 'graças', 'valeu', 'fim', 'tudo'];
+    
+    if (shortNegations.includes(normalized)) {
+      return true;
+    }
+
+    for (const neg of shortNegations) {
+      for (const cour of courtesyTerms) {
+        if (normalized.includes(neg) && normalized.includes(cour)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  };
+
   const handleSendMessage = async (textOverride?: string) => {
     const currentInput = textOverride || input;
     if (!currentInput.trim() || isLoading) return;
@@ -654,6 +694,31 @@ export function AIChatAssistant({
 
     setMessages(prev => [...prev, userMsg]);
     setInput('');
+
+    // Verificar se o utilizador manifestou a intenção de encerrar a conversação
+    if (isClosingIntent(currentInput)) {
+      const farewellMessages = [
+        "Foi um prazer poder ajudá-lo. Sempre que precisar de assistência, estarei disponível para o ajudar. Tenha um excelente dia!",
+        "Obrigado por utilizar o Correio Digital Angola. Estarei sempre disponível sempre que necessitar de apoio. Até breve!"
+      ];
+      // Selecionar uma resposta cordial de despedida de forma estável
+      const farewellText = farewellMessages[Math.floor(Math.random() * farewellMessages.length)];
+      
+      setMessages(prev => [...prev, { role: 'assistant', content: farewellText }]);
+      
+      if (iaLiveActive) {
+        speak(farewellText, () => {
+          // Desativar apenas a escuta ativa para não entrar em ciclo de reativação após a despedida
+          if (recognitionRef.current) {
+            try {
+              recognitionRef.current.stop();
+            } catch (e) {}
+          }
+        });
+      }
+      return;
+    }
+
     setIsLoading(true);
 
     try {
