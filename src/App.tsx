@@ -1234,6 +1234,16 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [faceProgress, loginSubMode, emergencyMode, bi, isInstMode, isGovMode, profileName]);
 
+  // Reavaliação periódica da homologação: desbloqueia a correspondência assim que
+  // a Área de Administração aprovar o registo, sem recarregar nem limpar dados.
+  useEffect(() => {
+    if (stage !== 'app' || appMode !== 'user') return;
+    const rec = homologationStore.getStatus(bi);
+    if (!rec || rec.status === 'active') return;
+    const id = setInterval(() => setGateRefreshTick(t => t + 1), 4000);
+    return () => clearInterval(id);
+  }, [stage, appMode, bi, gateRefreshTick]);
+
   // Auto-scroll to top on tab/stage change
   useEffect(() => {
     if (contentRef.current) {
@@ -1964,10 +1974,19 @@ export default function App() {
   }, [stage, preloadCompleted]);
 
   // Derived Memos
-  const currentInbox = isInstMode ? instInbox : inbox;
+  // Homologação: sem página de bloqueio — o cidadão entra direto no Painel, mas
+  // enquanto a conta aguarda aprovação NÃO recebe correspondência institucional.
+  const homologationPendingForCitizen = (() => {
+    if (appMode !== 'user') return false;
+    void gateRefreshTick; // reavalia a cada tick do intervalo de 4s
+    const rec = homologationStore.getStatus(bi);
+    return !!rec && rec.status !== 'active';
+  })();
+
+  const currentInbox = isInstMode ? instInbox : (homologationPendingForCitizen ? [] : inbox);
   const unreadTotal = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id)).reduce((sum, msg) => sum + (msg.unread || 0), 0), [currentInbox, deletedMessageIds, hiddenMessageIds]);
 
-  const currentDocInbox = isInstMode ? instDocInbox : docInbox;
+  const currentDocInbox = isInstMode ? instDocInbox : (homologationPendingForCitizen ? [] : docInbox);
   const unreadDocTotal = useMemo(() => currentDocInbox.reduce((sum, msg) => sum + (msg.unread || 0), 0), [currentDocInbox]);
 
   const filteredMessages = useMemo(() => {
@@ -3133,7 +3152,7 @@ Ficha civil do titular:
             contactsCount={contacts.length}
             setTab={setTab}
             handleLogout={handleLogout}
-            inbox={inbox}
+            inbox={homologationPendingForCitizen ? [] : inbox}
             docInbox={docInbox}
             sentMessages={sentMessages}
             contactsList={contacts}
@@ -3698,14 +3717,9 @@ Ficha civil do titular:
         addAuditLog("BLOQUEIO IDENTITÁRIO: Tentativa de login por Edlasio Galhardo suspensa (SOC-AN-2026)", "critical");
         return;
       }
-      if (hasTwoFactor) {
-        await applyIdentityForLoggedUser();
-        setLoginSubMode('two-factor');
-      } else {
-        await applyIdentityForLoggedUser();
-        setStage('app');
-        addAuditLog('Login de Cidadão via Autenticação Segura', 'success');
-      }
+      await applyIdentityForLoggedUser();
+      setStage('app');
+      addAuditLog('Login de Cidadão via Autenticação Segura', 'success');
     };
 
     return (
@@ -3979,105 +3993,6 @@ Ficha civil do titular:
                           {t("Esqueci Senha")}
                         </button>
                       </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {loginSubMode === 'two-factor' && (
-                <motion.div
-                  key="login-2fa"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="space-y-4 flex-1 flex flex-col justify-center text-center animate-fadeIn"
-                >
-                  {/* Top Avatar Circle exactly like Image 2 */}
-                  <div className="mx-auto w-[78px] h-[78px] bg-[#f0f9ff] text-blue-600 rounded-full flex items-center justify-center shadow-xs border border-blue-100 mb-2.5">
-                    <Smartphone size={30} className="text-[#2563eb]" />
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-2xl font-black text-[#0c2340] uppercase tracking-tight">{t("Autenticação de canais")}</h3>
-                    <p className="text-slate-500 text-xs font-semibold max-w-sm mx-auto mt-1" style={{ lineHeight: '1.4' }}>
-                      {t("Enviámos um SMS com o código aleatório temporário (OTP) para o telemóvel associado:")}{' '}
-                      <strong className="text-[#2563eb] font-extrabold font-mono">{phone.replace(/\d{3} \d{3}$/, '*** ***')}</strong>
-                    </p>
-                  </div>
-
-                  <div className="space-y-4.5">
-                    <div className="text-center space-y-2">
-                      <span className="text-[11px] text-slate-500 font-extrabold uppercase tracking-wider">{t("Insira o código de 6 dígitos enviado por SMS")}</span>
-                      
-                      {/* OTP field container card with 6 slots like Image 2 */}
-                      <div className="relative py-4 max-w-md mx-auto bg-[#fafbfc]/50 border border-slate-100 rounded-2xl p-4.5 shadow-3xs">
-                        {/* Hidden input overlay */}
-                        <input 
-                          type="tel"
-                          pattern="[0-9]*"
-                          maxLength={6}
-                          value={enteredOtp}
-                          onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, ''))}
-                          className="absolute inset-0 opacity-0 cursor-text w-full h-full z-20"
-                          autoFocus
-                        />
-                        {/* 6 Grid visual indicators */}
-                        <div className="grid grid-cols-6 gap-2.5">
-                          {[0, 1, 2, 3, 4, 5].map((idx) => {
-                            const val = enteredOtp[idx] || '';
-                            const isFocused = enteredOtp.length === idx;
-                            return (
-                              <div
-                                key={idx}
-                                className={`h-14 rounded-xl bg-white border flex items-center justify-center font-mono font-black text-xl transition-all ${
-                                  isFocused 
-                                    ? 'border-blue-500 ring-2 ring-blue-100 scale-102 shadow-xs' 
-                                    : 'border-slate-200 text-slate-800'
-                                  }`}
-                              >
-                                {val ? val : <span className="text-slate-300 font-normal leading-none">-</span>}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Simultaion notification badge like Image 2 */}
-                    <div className="bg-blue-50/50 border border-blue-100/70 rounded-2xl p-4 flex items-center gap-3.5 text-left max-w-md mx-auto">
-                      <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
-                        <Lightbulb className="text-white fill-[#fcd34d]" size={18} />
-                      </div>
-                      <div className="text-xs">
-                        <h5 className="font-extrabold text-[#0c2340] leading-none mb-1">Dica de Simulação:</h5>
-                        <p className="text-slate-500 font-semibold leading-normal">
-                          O código de teste recebido por canais é <strong className="text-blue-700 font-mono font-extrabold text-[13px] select-all">123456</strong>
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Actions precisely styled with Cancel & Validar buttons like Image 2 */}
-                    <div className="pt-1.5 grid grid-cols-2 gap-3.5 max-w-md mx-auto">
-                      <button 
-                        onClick={() => setLoginSubMode('normal')}
-                        className="py-3 bg-white border border-slate-200 text-slate-600 font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-slate-50 transition-all cursor-pointer shadow-3xs"
-                      >
-                        {t("Cancelar")}
-                      </button>
-                      <button 
-                        onClick={() => {
-                          if (enteredOtp === '123456' || enteredOtp.length === 6) {
-                            setStage('app');
-                            addAuditLog('Login concluído com factor duplo SMS', 'success');
-                          } else {
-                            alert(t("Código de verificação OTP incorrecto. Utilize o código de simulação 123456."));
-                          }
-                        }}
-                        className="py-3 bg-[#0E2B64] hover:bg-[#081a3d] border-none text-white font-black text-xs uppercase tracking-widest rounded-2xl flex items-center justify-center gap-1 transition-all cursor-pointer shadow-md"
-                      >
-                        {t("Validar OTP")}
-                        <ChevronRight size={15} className="stroke-[2.5]" />
-                      </button>
                     </div>
                   </div>
                 </motion.div>
@@ -4434,35 +4349,8 @@ Ficha civil do titular:
     );
   }
 
-  // ==========================================================================
-  // GATE DE HOMOLOGAÇÃO (apenas perfil Cidadão)
-  // O utilizador autenticou-se, mas a conta ainda NÃO está ativa: enquanto a
-  // Área de Administração não aprovar os dados do registo, a correspondência
-  // institucional fica bloqueada e o único canal aberto é o oficial da Admin.
-  // ==========================================================================
-  if (stage === 'app' && appMode === 'user') {
-    const gateRecord = homologationStore.getStatus(bi);
-    if (gateRecord && gateRecord.status !== 'active') {
-      return (
-        <HomologationGate
-          bi={bi}
-          name={gateRecord.name || profileName}
-          record={gateRecord}
-          addAuditLog={addAuditLog}
-          onActivated={() => setGateRefreshTick(t => t + 1)}
-          onResubmit={() => {
-            setStage('login');
-            setLoginSubMode('register');
-          }}
-          onLogout={() => {
-            setStage('login');
-            setLoginSubMode('normal');
-            addAuditLog('Sessão terminada a partir do ecrã de homologação', 'info');
-          }}
-        />
-      );
-    }
-  }
+  // Homologação: a retenção de correspondência é feita no painel
+  // (homologationPendingForCitizen) — não existe página/écran de bloqueio.
 
   return (
     <main className={`min-h-screen bg-bg text-primary md:flex md:gap-5 md:p-5 font-sans selection:bg-primary selection:text-white transition-all ${emergencyMode && isGovMode ? 'pt-[32px] md:pt-[44px]' : ''}`}>
