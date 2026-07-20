@@ -663,6 +663,23 @@ export default function App() {
           resolvedFiliation = data.filiation || '';
           resolvedMaritalStatus = data.marital_status || '';
         }
+
+        // 1b) Nuvem: fila oficial de registo (solicitacoes_registo) — cobre contas
+        // registadas apos o patch SQL (que ja nao gravam em profiles)
+        const { data: regRows, error: regErr } = await supabase
+          .from('solicitacoes_registo')
+          .select('nome, email, url_selfie, status')
+          .eq('bi_numero', normalized)
+          .order('criado_em', { ascending: false })
+          .limit(1);
+        if (regErr && (regErr as any).code !== 'PGRST205') {
+          console.error('CADA: erro ao carregar solicitacao de registo no login:', regErr);
+        }
+        const reg = regRows && regRows[0];
+        if (reg) {
+          if (!resolvedName) resolvedName = reg.nome || reg.email || '';
+          if (!resolvedAvatar && reg.url_selfie) resolvedAvatar = reg.url_selfie;
+        }
       }
 
       // 2) Fallback local: registo efetuado neste dispositivo (nome + foto/selfie)
