@@ -581,12 +581,12 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   };
 
   return (
-    <div className="w-full flex flex-col justify-between min-h-[530px] flex-1 font-sans">
+    <div className="w-full flex flex-col justify-between min-h-[440px] flex-1 font-sans">
       {/* Dynamic High-Fidelity Stepper Indicator */}
       {step !== 'success' && step !== 1 && (
-        <div className="relative flex items-center justify-between w-full max-w-lg mx-auto mb-7 select-none px-4">
+        <div className="relative flex items-center justify-between w-full max-w-lg mx-auto mb-4 select-none px-4">
           {/* Background Connector Bar with smooth animated progress */}
-          <div className="absolute top-[18px] left-10 right-10 h-[3px] bg-slate-100 pointer-events-none -translate-y-1/2 -z-0">
+          <div className="absolute top-[14px] left-10 right-10 h-[2.5px] bg-slate-100 pointer-events-none -translate-y-1/2 -z-0">
             <div 
               className="h-full bg-[#2563eb] transition-all duration-300 rounded-full" 
               style={{
@@ -597,12 +597,12 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
           {/* Step 1 */}
           <div className="relative z-10 flex flex-col items-center">
-            <div className={`w-9.5 h-9.5 rounded-full border-2 flex items-center justify-center text-[11.5px] font-black transition-all ${
+            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[10.5px] font-black transition-all ${
               step === 1 ? 'border-[#2563eb] text-[#2563eb] bg-white ring-4 ring-blue-50/75' : 'border-[#2563eb] text-white bg-[#2563eb]'
             }`}>
-              {step > 1 ? <Check size={14} className="stroke-[3]" /> : "01"}
+              {step > 1 ? <Check size={13} className="stroke-[3]" /> : "01"}
             </div>
-            <span className={`text-[10px] font-black tracking-widest uppercase mt-2 ${
+            <span className={`text-[10px] font-black tracking-widest uppercase mt-1 ${
               step === 1 ? 'text-[#0f172a]' : 'text-slate-400'
             }`}>
               ACESSO
@@ -611,16 +611,16 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
           {/* Step 2 */}
           <div className="relative z-10 flex flex-col items-center">
-            <div className={`w-9.5 h-9.5 rounded-full border-2 flex items-center justify-center text-[11.5px] font-black transition-all ${
+            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[10.5px] font-black transition-all ${
               step === 2 
                 ? 'border-[#2563eb] text-[#2563eb] bg-white ring-4 ring-blue-50/75' 
                 : step > 2 
                 ? 'border-[#2563eb] text-white bg-[#2563eb]' 
                 : 'border-slate-200 text-slate-400 bg-white'
             }`}>
-              {step > 2 ? <Check size={14} className="stroke-[3]" /> : "02"}
+              {step > 2 ? <Check size={13} className="stroke-[3]" /> : "02"}
             </div>
-            <span className={`text-[10px] font-black tracking-widest uppercase mt-2 ${
+            <span className={`text-[10px] font-black tracking-widest uppercase mt-1 ${
               step === 2 ? 'text-[#2563eb]' : 'text-slate-400'
             }`}>
               IDENTIDADE
@@ -629,12 +629,12 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
           {/* Step 3 */}
           <div className="relative z-10 flex flex-col items-center">
-            <div className={`w-9.5 h-9.5 rounded-full border-2 flex items-center justify-center text-[11.5px] font-black transition-all ${
+            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[10.5px] font-black transition-all ${
               step === 3 ? 'border-[#2563eb] text-[#2563eb] bg-white ring-4 ring-blue-50/75' : 'border-slate-200 text-slate-400 bg-white'
             }`}>
               03
             </div>
-            <span className={`text-[10px] font-black tracking-widest uppercase mt-2 ${
+            <span className={`text-[10px] font-black tracking-widest uppercase mt-1 ${
               step === 3 ? 'text-[#0f172a]' : 'text-slate-400'
             }`}>
               BIOMETRIA
@@ -653,40 +653,40 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.28 }}
-              className="space-y-6"
+              className="space-y-4"
             >
               {/* Centered User Avatar exactly like the Login image */}
-              <div className="text-center space-y-2.5">
+              <div className="text-center space-y-1.5">
                 <div className="flex justify-center mb-1">
-                  <div className="w-19 h-19 rounded-full bg-[#f0f4f9] flex items-center justify-center border border-slate-100 shadow-3xs">
-                    <User className="text-[#0c2340]" size={28.5} />
+                  <div className="w-14 h-14 rounded-full bg-[#f0f4f9] flex items-center justify-center border border-slate-100 shadow-3xs">
+                    <User className="text-[#0c2340]" size={22} />
                   </div>
                 </div>
 
-                <h2 className="text-[34px] font-black text-[#0c2340] tracking-tight uppercase leading-none">
+                <h2 className="text-[25px] font-black text-[#0c2340] tracking-tight uppercase leading-none">
                   {appMode === 'institution' ? 'REGISTO DE INSTITUIÇÃO' : 'REGISTO'}
                 </h2>
-                <p className="text-[11.5px] text-slate-400 font-black uppercase tracking-widest leading-none mt-1">
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none mt-0.5">
                   {appMode === 'institution' ? 'Adesão oficial da instituição ao Correio Digital' : 'Criação oficial da conta de cidadão digital'}
                 </p>
               </div>
 
               {/* Form Input fields */}
-              <div className="space-y-5 pt-1.5 max-w-lg mx-auto">
+              <div className="space-y-3.5 pt-0 max-w-lg mx-auto">
                 {/* Nome Completo */}
-                <div className="grid gap-1.5 text-left">
-                  <span className="text-[11.5px] text-slate-505 font-extrabold tracking-wider uppercase">
+                <div className="grid gap-1 text-left">
+                  <span className="text-[10.5px] text-slate-505 font-extrabold tracking-wider uppercase">
                     {appMode === 'institution' ? 'Nome da Instituição' : 'Nome Completo'}
                   </span>
-                  <div className="flex items-center gap-4 bg-white border border-slate-200 focus-within:border-[#0c2340] focus-within:ring-1 focus-within:ring-[#0c2340] rounded-[18px] px-4.5 py-2.5 transition-all">
-                    <div className="w-12.5 h-12.5 bg-[#f0f4f9] text-[#1e3a8a] rounded-xl flex items-center justify-center shrink-0">
-                      <User size={23} className="text-[#2563eb]" />
+                  <div className="flex items-center gap-3 bg-white border border-slate-200 focus-within:border-[#0c2340] focus-within:ring-1 focus-within:ring-[#0c2340] rounded-[15px] px-4 py-1.5 transition-all">
+                    <div className="w-10 h-10 bg-[#f0f4f9] text-[#1e3a8a] rounded-lg flex items-center justify-center shrink-0">
+                      <User size={19} className="text-[#2563eb]" />
                     </div>
                     <input 
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full bg-transparent font-bold tracking-wider text-slate-800 border-none outline-none text-[15px] placeholder-slate-400"
+                      className="w-full bg-transparent font-bold tracking-wider text-slate-800 border-none outline-none text-[13px] placeholder-slate-400"
                       placeholder={appMode === 'institution' ? 'Ex: ENDE - Empresa Nacional de Distribuição de Electricidade' : 'Ex: Manuel António da Silva'}
                     />
                   </div>
@@ -698,19 +698,19 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 </div>
 
                 {/* E-mail */}
-                <div className="grid gap-1.5 text-left">
-                  <span className="text-[11.5px] text-slate-505 font-extrabold tracking-wider uppercase">
+                <div className="grid gap-1 text-left">
+                  <span className="text-[10.5px] text-slate-505 font-extrabold tracking-wider uppercase">
                     {appMode === 'institution' ? 'E-mail Institucional' : 'Endereço de E-mail'}
                   </span>
-                  <div className="flex items-center gap-4 bg-white border border-slate-200 focus-within:border-[#0c2340] focus-within:ring-1 focus-within:ring-[#0c2340] rounded-[18px] px-4.5 py-2.5 transition-all">
-                    <div className="w-12.5 h-12.5 bg-[#f0f4f9] text-[#1e3a8a] rounded-xl flex items-center justify-center shrink-0">
-                      <Mail size={21} className="text-[#2563eb]" />
+                  <div className="flex items-center gap-3 bg-white border border-slate-200 focus-within:border-[#0c2340] focus-within:ring-1 focus-within:ring-[#0c2340] rounded-[15px] px-4 py-1.5 transition-all">
+                    <div className="w-10 h-10 bg-[#f0f4f9] text-[#1e3a8a] rounded-lg flex items-center justify-center shrink-0">
+                      <Mail size={18} className="text-[#2563eb]" />
                     </div>
                     <input 
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full bg-transparent font-bold tracking-wider text-slate-800 border-none outline-none text-[15px] placeholder-slate-400"
+                      className="w-full bg-transparent font-bold tracking-wider text-slate-800 border-none outline-none text-[13px] placeholder-slate-400"
                       placeholder={appMode === 'institution' ? 'geral@ende.co.ao' : 'manuel.silva@netangola.ao'}
                     />
                   </div>
@@ -722,13 +722,13 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 </div>
 
                 {/* Password/Senha Row */}
-                <div className="grid gap-1.5 text-left">
+                <div className="grid gap-1 text-left">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11.5px] text-slate-505 font-extrabold tracking-wider uppercase">
+                    <span className="text-[10.5px] text-slate-505 font-extrabold tracking-wider uppercase">
                       Senha de Acesso
                     </span>
                     {password && (
-                      <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded ${
+                      <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${
                         pwdStrength === 'Fraca' ? 'bg-red-50 text-red-600' :
                         pwdStrength === 'Média' ? 'bg-amber-50 text-amber-600' :
                         'bg-emerald-50 text-emerald-600'
@@ -737,23 +737,23 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 bg-white border border-slate-200 focus-within:border-[#0c2340] focus-within:ring-1 focus-within:ring-[#0c2340] rounded-[18px] px-4.5 py-2.5 transition-all relative">
-                    <div className="w-12.5 h-12.5 bg-[#f0f4f9] text-[#1e3a8a] rounded-xl flex items-center justify-center shrink-0">
-                      <Lock size={21} className="text-[#2563eb]" />
+                  <div className="flex items-center gap-3 bg-white border border-slate-200 focus-within:border-[#0c2340] focus-within:ring-1 focus-within:ring-[#0c2340] rounded-[15px] px-4 py-1.5 transition-all relative">
+                    <div className="w-10 h-10 bg-[#f0f4f9] text-[#1e3a8a] rounded-lg flex items-center justify-center shrink-0">
+                      <Lock size={18} className="text-[#2563eb]" />
                     </div>
                     <input 
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-transparent font-bold tracking-wider text-slate-800 border-none outline-none text-[15px] placeholder-slate-400 pr-12"
+                      className="w-full bg-transparent font-bold tracking-wider text-slate-800 border-none outline-none text-[13px] placeholder-slate-400 pr-10"
                       placeholder="••••••••••••"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 bg-transparent border-none cursor-pointer flex items-center justify-center transition-all"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 bg-transparent border-none cursor-pointer flex items-center justify-center transition-all"
                     >
-                      {showPassword ? <EyeOff size={20.5} /> : <Eye size={20.5} />}
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
                   {password && password.length < 8 && (
@@ -764,36 +764,36 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 </div>
 
                 {/* Password requirements banner matching image 1 perfectly */}
-                <div className="bg-[#f0f4f9] rounded-2xl p-4.5 flex items-center gap-4.5 shadow-2xs border border-slate-100">
-                  <ShieldCheck size={23} className="text-[#2563eb] shrink-0" />
-                  <span className="text-slate-700 text-[11.5px] font-bold leading-normal font-sans">
+                <div className="bg-[#f0f4f9] rounded-xl p-3 flex items-center gap-3 shadow-2xs border border-slate-100">
+                  <ShieldCheck size={18} className="text-[#2563eb] shrink-0" />
+                  <span className="text-slate-700 text-[10.5px] font-bold leading-normal font-sans">
                     A senha deve ter pelo menos 8 caracteres, incluindo letras e números.
                   </span>
                 </div>
               </div>
 
               {/* Horizontal Separator Line */}
-              <div className="border-t border-slate-100/80 my-3.5 max-w-lg mx-auto" />
+              <div className="border-t border-slate-100/80 my-2 max-w-lg mx-auto" />
 
               {/* Actions Footer */}
-              <div className="flex flex-col gap-4 max-w-lg mx-auto w-full pt-1">
+              <div className="flex flex-col gap-2.5 max-w-lg mx-auto w-full pt-0">
                 <button
                   type="button"
                   disabled={!isStep1Valid}
                   onClick={() => setStep(2)}
-                  className={`w-full text-white rounded-[18px] py-4.5 font-black text-[13.5px] uppercase tracking-widest shadow-lg transition-all border-none flex items-center justify-center gap-2 ${
+                  className={`w-full text-white rounded-[15px] py-3 font-black text-[12px] uppercase tracking-widest shadow-lg transition-all border-none flex items-center justify-center gap-2 ${
                     isStep1Valid 
                       ? 'bg-[#0c2340] hover:bg-slate-900 shadow-[#0c2340]/15 cursor-pointer hover:opacity-95' 
                       : 'bg-slate-200 cursor-not-allowed text-slate-400 shadow-none'
                   }`}
                   id="btn-next-step-1"
                 >
-                  CONTINUAR <ArrowRight size={16} />
+                  CONTINUAR <ArrowRight size={14} />
                 </button>
                 <button
                   type="button"
                   onClick={onCancel}
-                  className="w-full bg-[#f8fafc] hover:bg-slate-100 text-[#2563eb] border border-slate-200 rounded-[18px] py-4.5 font-black text-[13.5px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer shadow-3xs"
+                  className="w-full bg-[#f8fafc] hover:bg-slate-100 text-[#2563eb] border border-slate-200 rounded-[15px] py-3 font-black text-[12px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer shadow-3xs"
                   id="btn-cancel-step-1"
                 >
                   CANCELAR
@@ -801,8 +801,8 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               </div>
 
               {/* Protected Seal footer */}
-              <div className="flex items-center justify-center gap-2 text-slate-500 text-[12.5px] font-bold mt-1">
-                <Shield size={16} className="text-[#2563eb]" />
+              <div className="flex items-center justify-center gap-2 text-slate-500 text-[11px] font-bold mt-0">
+                <Shield size={14} className="text-[#2563eb]" />
                 <span>Seus dados estão protegidos com segurança.</span>
               </div>
             </motion.div>
@@ -814,33 +814,33 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
-              className="space-y-4.5"
+              className="space-y-3"
             >
               {/* Submission Title Header */}
-              <div className="text-center mt-1.5 animate-fadeIn">
-                <h1 className="text-[#0f172a] text-xl md:text-2xl font-black tracking-tight uppercase leading-none">
+              <div className="text-center mt-0 animate-fadeIn">
+                <h1 className="text-[#0f172a] text-lg md:text-xl font-black tracking-tight uppercase leading-none">
                   {appMode === 'institution' ? 'SUBMISSÃO DE DOCUMENTOS DA INSTITUIÇÃO' : 'SUBMISSÃO OFICIAL DE IDENTIDADE'}
                 </h1>
               </div>
 
               {/* Form container */}
-              <div className="space-y-4 text-left max-w-2xl mx-auto">
+              <div className="space-y-3 text-left max-w-2xl mx-auto">
                 {/* BI input field */}
-                <div className="space-y-1.5">
-                  <label className="text-[10.5px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-1.5 mb-1 bg-transparent">
-                    <FileText size={13} className="text-[#2563eb]" /> {appMode === 'institution' ? 'NÚMERO DE IDENTIFICAÇÃO FISCAL (NIF)' : 'Nº DO BILHETE DE IDENTIDADE (Nº B.I.)'}
+                <div className="space-y-1">
+                  <label className="text-[10.5px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-1 mb-0.5 bg-transparent">
+                    <FileText size={12} className="text-[#2563eb]" /> {appMode === 'institution' ? 'NÚMERO DE IDENTIFICAÇÃO FISCAL (NIF)' : 'Nº DO BILHETE DE IDENTIDADE (Nº B.I.)'}
                   </label>
                   <div className="relative font-mono">
                     <input 
                       type="text"
                       value={biNumber}
                       onChange={(e) => handleBiChange(e.target.value)}
-                      className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4.5 py-3 pl-11.5 text-sm text-slate-800 outline-none transition-all font-bold tracking-widest placeholder:text-slate-350"
+                      className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4 py-2 pl-10.5 text-[13px] text-slate-800 outline-none transition-all font-bold tracking-widest placeholder:text-slate-350"
                       placeholder={appMode === 'institution' ? '540132918' : '002931298LA045'}
                       maxLength={14}
                     />
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#2563eb]">
-                      <FileText size={16.5} />
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#2563eb]">
+                      <FileText size={14} />
                     </div>
                     {appMode === 'institution' ? isNifValid(biNumber) && (
                       <div className="absolute right-4 top-1/2 -translate-y-1/2 text-white bg-[#2563eb] rounded-full p-0.5">
@@ -860,13 +860,13 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 </div>
 
                 {/* Grid of Double Upload Columns */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Frente Card with Dashed Blue Border */}
-                  <div className="space-y-1.5">
-                    <span className="text-[10.5px] text-slate-800 font-extrabold tracking-widest uppercase flex items-center gap-1.5">
+                  <div className="space-y-1">
+                    <span className="text-[10.5px] text-slate-800 font-extrabold tracking-widest uppercase flex items-center gap-1">
                       <span className="w-1.5 h-1.5 bg-[#2563eb] rounded-full"></span> {appMode === 'institution' ? 'REGISTO COMERCIAL / DIÁRIO' : 'FRENTE DO B.I.'}
                     </span>
-                    <label className={`group relative border-2 border-dashed rounded-[20px] p-3.5 text-center flex flex-col items-center justify-center min-h-[128px] cursor-pointer transition-all duration-300 select-none ${
+                    <label className={`group relative border-2 border-dashed rounded-[16px] p-2.5 text-center flex flex-col items-center justify-center min-h-[108px] cursor-pointer transition-all duration-300 select-none ${
                       frenteSuccess 
                         ? 'border-emerald-500 bg-emerald-50/10' 
                         : isUploadingFrente 
@@ -883,34 +883,34 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                       />
                       
                       {isUploadingFrente ? (
-                        <div className="flex flex-col items-center gap-1.5">
-                           <Loader2 size={21} className="text-[#2563eb] animate-spin" />
+                        <div className="flex flex-col items-center gap-1">
+                           <Loader2 size={18} className="text-[#2563eb] animate-spin" />
                            <span className="text-[10.5px] font-black text-[#2563eb] uppercase tracking-widest">A processar...</span>
                         </div>
                       ) : frenteSuccess ? (
                         <div className="flex flex-col items-center w-full">
                           {frentePreview ? (
-                            <div className="w-full h-[88px] rounded-[10px] overflow-hidden border border-emerald-200 relative">
+                            <div className="w-full h-[72px] rounded-lg overflow-hidden border border-emerald-200 relative">
                               <img src={frentePreview} alt="Frente Preview" className="w-full h-full object-cover" />
                             </div>
                           ) : (
                             <div className="flex flex-col items-center gap-0.5">
-                              <CheckCircle2 size={21} className="text-emerald-500" />
+                              <CheckCircle2 size={18} className="text-emerald-500" />
                               <span className="text-[10.5px] font-black text-emerald-600 uppercase tracking-wider">Leitura Completa</span>
                             </div>
                           )}
-                          <span className="text-[9px] font-black text-emerald-700 mt-1 uppercase tracking-tight">Ficheiro Carregado</span>
+                          <span className="text-[10px] font-black text-emerald-700 mt-0.5 uppercase tracking-tight">Ficheiro Carregado</span>
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center gap-1.5">
-                          <div className="w-10.5 h-10.5 bg-white border border-blue-50 rounded-full flex items-center justify-center text-[#2563eb] shadow-sm">
-                            <UploadCloud size={18.5} />
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="w-9 h-9 bg-white border border-blue-50 rounded-full flex items-center justify-center text-[#2563eb] shadow-sm">
+                            <UploadCloud size={16} />
                           </div>
                           <div className="space-y-0.5">
-                            <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest block font-sans">CARREGAR DOCUMENTO</span>
-                            <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-tight block font-sans">Clique para carregar</span>
+                            <span className="text-[10.5px] font-black text-slate-800 uppercase tracking-widest block font-sans">CARREGAR DOCUMENTO</span>
+                            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-tight block font-sans">Clique para carregar</span>
                           </div>
-                          <span className="bg-[#eff6ff] text-[9px] font-bold text-[#2563eb] px-2.5 py-0.5 rounded-full uppercase tracking-wider block font-sans">
+                          <span className="bg-[#eff6ff] text-[10px] font-bold text-[#2563eb] px-2 py-0.5 rounded-full uppercase tracking-wider block font-sans">
                             Formatos: JPG, PNG, PDF
                           </span>
                         </div>
@@ -919,11 +919,11 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                   </div>
 
                   {/* Verso Card with Dashed Blue Border */}
-                  <div className="space-y-1.5">
-                    <span className="text-[10.5px] text-slate-800 font-extrabold tracking-widest uppercase flex items-center gap-1.5">
+                  <div className="space-y-1">
+                    <span className="text-[10.5px] text-slate-800 font-extrabold tracking-widest uppercase flex items-center gap-1">
                       <span className="w-1.5 h-1.5 bg-[#2563eb] rounded-full"></span> {appMode === 'institution' ? 'COMPROVATIVO DE NIF / ALVARÁ' : 'VERSO DO B.I.'}
                     </span>
-                    <label className={`group relative border-2 border-dashed rounded-[20px] p-3.5 text-center flex flex-col items-center justify-center min-h-[128px] cursor-pointer transition-all duration-300 select-none ${
+                    <label className={`group relative border-2 border-dashed rounded-[16px] p-2.5 text-center flex flex-col items-center justify-center min-h-[108px] cursor-pointer transition-all duration-300 select-none ${
                       versoSuccess 
                         ? 'border-emerald-500 bg-emerald-50/10' 
                         : isUploadingVerso 
@@ -940,34 +940,34 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                       />
                       
                       {isUploadingVerso ? (
-                        <div className="flex flex-col items-center gap-1.5">
-                          <Loader2 size={21} className="text-[#2563eb] animate-spin" />
+                        <div className="flex flex-col items-center gap-1">
+                          <Loader2 size={18} className="text-[#2563eb] animate-spin" />
                           <span className="text-[10.5px] font-black text-[#2563eb] uppercase tracking-widest">A processar...</span>
                         </div>
                       ) : versoSuccess ? (
                         <div className="flex flex-col items-center w-full">
                           {versoPreview ? (
-                            <div className="w-full h-[88px] rounded-[10px] overflow-hidden border border-emerald-200 relative">
+                            <div className="w-full h-[72px] rounded-lg overflow-hidden border border-emerald-200 relative">
                               <img src={versoPreview} alt="Verso Preview" className="w-full h-full object-cover" />
                             </div>
                           ) : (
                             <div className="flex flex-col items-center gap-0.5">
-                              <CheckCircle2 size={21} className="text-emerald-500" />
+                              <CheckCircle2 size={18} className="text-emerald-500" />
                               <span className="text-[10.5px] font-black text-emerald-600 uppercase tracking-wider">Leitura Completa</span>
                             </div>
                           )}
-                          <span className="text-[9px] font-black text-emerald-700 mt-1 uppercase tracking-tight">Ficheiro Carregado</span>
+                          <span className="text-[10px] font-black text-emerald-700 mt-0.5 uppercase tracking-tight">Ficheiro Carregado</span>
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center gap-1.5">
-                          <div className="w-10.5 h-10.5 bg-white border border-blue-50 rounded-full flex items-center justify-center text-[#2563eb] shadow-sm">
-                            <UploadCloud size={18.5} />
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="w-9 h-9 bg-white border border-blue-50 rounded-full flex items-center justify-center text-[#2563eb] shadow-sm">
+                            <UploadCloud size={16} />
                           </div>
                           <div className="space-y-0.5">
-                            <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest block font-sans">CARREGAR VERSO</span>
-                            <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-tight block font-sans">Clique para carregar</span>
+                            <span className="text-[10.5px] font-black text-slate-800 uppercase tracking-widest block font-sans">CARREGAR VERSO</span>
+                            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-tight block font-sans">Clique para carregar</span>
                           </div>
-                          <span className="bg-[#eff6ff] text-[9px] font-bold text-[#2563eb] px-2.5 py-0.5 rounded-full uppercase tracking-wider block font-sans">
+                          <span className="bg-[#eff6ff] text-[10px] font-bold text-[#2563eb] px-2 py-0.5 rounded-full uppercase tracking-wider block font-sans">
                             Formatos: JPG, PNG, PDF
                           </span>
                         </div>
@@ -977,36 +977,36 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 </div>
 
                 {/* Encrypted files alert status bar */}
-                <div className="bg-[#f1f5f9] rounded-2xl p-3.5 flex items-center gap-2.5 mt-2.5">
-                  <div className="w-6 h-6 rounded-lg bg-[#2563eb]/10 flex items-center justify-center text-[#2563eb] shrink-0 shadow-sm">
-                    <Lock size={11.5} className="font-extrabold" />
+                <div className="bg-[#f1f5f9] rounded-xl p-2.5 flex items-center gap-2 mt-1.5">
+                  <div className="w-5 h-5 rounded-md bg-[#2563eb]/10 flex items-center justify-center text-[#2563eb] shrink-0 shadow-sm">
+                    <Lock size={11} className="font-extrabold" />
                   </div>
-                  <span className="text-[11px] font-semibold text-slate-700 leading-normal">
+                  <span className="text-[10.5px] font-semibold text-slate-700 leading-normal">
                     Os documentos são <span className="font-bold text-[#2563eb]">encriptados</span> e utilizados apenas para validação da sua identidade.
                   </span>
                 </div>
               </div>
 
               {/* Actions Box */}
-              <div className="pt-4 border-t border-slate-100 flex gap-3.5 max-w-2xl mx-auto">
+              <div className="pt-2.5 border-t border-slate-100 flex gap-3 max-w-2xl mx-auto">
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-800 font-black text-[12.5px] uppercase tracking-widest rounded-xl transition-all cursor-pointer bg-white flex items-center justify-center gap-1.5"
+                  className="flex-1 py-2 border border-slate-200 hover:bg-slate-50 text-slate-800 font-black text-[11.5px] uppercase tracking-widest rounded-xl transition-all cursor-pointer bg-white flex items-center justify-center gap-1.5"
                 >
-                  <ArrowLeft size={14} /> VOLTAR
+                  <ArrowLeft size={13} /> VOLTAR
                 </button>
                 <button
                   type="button"
                   disabled={!isStep2Valid}
                   onClick={() => setStep(3)}
-                  className={`flex-1 py-3 text-white font-black text-[12.5px] uppercase tracking-widest rounded-xl transition-all border-0 shadow-md flex items-center justify-center gap-1.5 ${
+                  className={`flex-1 py-2 text-white font-black text-[11.5px] uppercase tracking-widest rounded-xl transition-all border-0 shadow-md flex items-center justify-center gap-1.5 ${
                     isStep2Valid 
                       ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/20 cursor-pointer' 
                       : 'bg-slate-100 cursor-not-allowed text-slate-400 border border-slate-200'
                   }`}
                 >
-                  SEGUINTE <ArrowRight size={14} />
+                  SEGUINTE <ArrowRight size={13} />
                 </button>
               </div>
 
@@ -1020,18 +1020,18 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
-              className="space-y-4"
+              className="space-y-2.5"
             >
               {/* Centered titles */}
               <div className="text-center">
-                <h1 className="text-[#0f172a] text-2xl font-extrabold tracking-tight mb-1 leading-tight">
+                <h1 className="text-[#0f172a] text-xl font-extrabold tracking-tight mb-0.5 leading-tight">
                   {appMode === 'institution' ? 'Biometria Facial do Representante' : 'Assinatura de Biometria Facial'}
                 </h1>
               </div>
 
               {/* Círculo interativo de Captura Biométrica (mesma configuração do Login Facial) */}
-              <div className="relative flex justify-center py-2 mb-2.5">
-                <div className="relative w-[210px] h-[210px] rounded-full flex items-center justify-center bg-white shadow-xl transition-all duration-300">
+              <div className="relative flex justify-center py-1 mb-1.5">
+                <div className="relative w-[168px] h-[168px] rounded-full flex items-center justify-center bg-white shadow-xl transition-all duration-300">
                   {/* Anel SVG de progresso 0% → 100% */}
                   <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none z-10" viewBox="0 0 100 100">
                     <circle
@@ -1067,7 +1067,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                   </svg>
 
                   {/* Círculo escuro principal */}
-                  <div className="w-[190px] h-[190px] rounded-full overflow-hidden bg-gradient-to-b from-[#0f172a] to-[#1e1b4b] relative flex items-center justify-center border-4 border-white shadow-inner z-5">
+                  <div className="w-[152px] h-[152px] rounded-full overflow-hidden bg-gradient-to-b from-[#0f172a] to-[#1e1b4b] relative flex items-center justify-center border-[3px] border-white shadow-inner z-5">
                     {/* Grelha tecnológica de fundo */}
                     <div className="absolute inset-0 bg-[linear-gradient(to_right,#334155_1px,transparent_1px),linear-gradient(to_bottom,#334155_1px,transparent_1px)] bg-[size:10px_10px] opacity-25" />
 
@@ -1083,10 +1083,10 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     )}
 
                     {/* Cantos da moldura oval de calibração */}
-                    <div className="absolute top-6 left-6 w-5 h-5 border-t-2 border-l-2 border-white rounded-tl-sm opacity-80 pointer-events-none" />
-                    <div className="absolute top-6 right-6 w-5 h-5 border-t-2 border-r-2 border-white rounded-tr-sm opacity-80 pointer-events-none" />
-                    <div className="absolute bottom-6 left-6 w-5 h-5 border-b-2 border-l-2 border-white rounded-bl-sm opacity-80 pointer-events-none" />
-                    <div className="absolute bottom-6 right-6 w-5 h-5 border-b-2 border-r-2 border-white rounded-br-sm opacity-80 pointer-events-none" />
+                    <div className="absolute top-5 left-5 w-4 h-4 border-t-2 border-l-2 border-white rounded-tl-sm opacity-80 pointer-events-none" />
+                    <div className="absolute top-5 right-5 w-4 h-4 border-t-2 border-r-2 border-white rounded-tr-sm opacity-80 pointer-events-none" />
+                    <div className="absolute bottom-5 left-5 w-4 h-4 border-b-2 border-l-2 border-white rounded-bl-sm opacity-80 pointer-events-none" />
+                    <div className="absolute bottom-5 right-5 w-4 h-4 border-b-2 border-r-2 border-white rounded-br-sm opacity-80 pointer-events-none" />
 
                     {/* Vídeo real da câmara física (sempre montado para evitar race conditions) */}
                     <video
@@ -1110,7 +1110,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                       <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-slate-950 z-10">
                         <div className="relative w-full h-full flex items-center justify-center">
                           {/* Silhueta vetorial da face */}
-                          <svg className={`w-28 h-28 stroke-[1] ${isScanning ? 'text-blue-400 animate-pulse' : 'text-sky-400'} transition-colors`} viewBox="0 0 100 100" fill="none">
+                          <svg className={`w-20 h-20 stroke-[1] ${isScanning ? 'text-blue-400 animate-pulse' : 'text-sky-400'} transition-colors`} viewBox="0 0 100 100" fill="none">
                             <path d="M50,15 C28,15 28,50 28,68 C28,86 42,92 50,92 C58,92 72,86 72,68 C72,50 72,15 50,15 Z" stroke="currentColor" strokeDasharray="3 4" />
                             <ellipse cx="38" cy="48" rx="4.5" ry="2.5" stroke="currentColor" />
                             <ellipse cx="62" cy="48" rx="4.5" ry="2.5" stroke="currentColor" />
@@ -1123,8 +1123,8 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                           </svg>
 
                           {/* Anéis HUD rotativos */}
-                          <div className="absolute inset-4 border border-sky-500/10 rounded-full animate-[spin_10s_linear_infinite]" />
-                          <div className="absolute inset-8 border border-dashed border-indigo-400/20 rounded-full animate-[spin_20s_linear_infinite_reverse]" />
+                          <div className="absolute inset-3 border border-sky-500/10 rounded-full animate-[spin_10s_linear_infinite]" />
+                          <div className="absolute inset-6 border border-dashed border-indigo-400/20 rounded-full animate-[spin_20s_linear_infinite_reverse]" />
                         </div>
                       </div>
                     )}
@@ -1135,14 +1135,14 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
               {/* Capture Aligned Info Tag - estado dinâmico por etapa */}
               <div className="text-center space-y-1">
-                <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border ${
+                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
                   captureFinished 
                     ? 'bg-emerald-50 border-emerald-100 text-emerald-600' 
                     : isScanning 
                     ? 'bg-blue-50 border-blue-100 text-blue-600 animate-pulse' 
                     : 'bg-slate-50 border-slate-200 text-slate-500'
                 }`}>
-                  <Check size={11.5} className="font-extrabold" />
+                  <Check size={10.5} className="font-extrabold" />
                   <span>
                     {captureFinished
                       ? 'Cadastro biométrico robusto concluído! 3/3 faces fundidas criptograficamente.'
@@ -1155,7 +1155,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                             : 'Pronto para registo (Captura 3/3: Sorriso)'}
                   </span>
                 </div>
-                <p className="text-slate-400 text-[11.5px] font-semibold">{faceCaptureHint}</p>
+                <p className="text-slate-400 text-[10px] font-semibold">{faceCaptureHint}</p>
               </div>
 
               {/* Centered Scanning Fingerprint Action Button */}
@@ -1165,7 +1165,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     type="button"
                     disabled={isScanning || !webcamReady}
                     onClick={startCameraScan}
-                    className={`w-full py-3 rounded-2xl font-black text-[12.5px] uppercase tracking-widest transition-all border-0 shadow-md flex items-center justify-center gap-2.5 ${
+                    className={`w-full py-2.5 rounded-2xl font-black text-[11.5px] uppercase tracking-widest transition-all border-0 shadow-md flex items-center justify-center gap-2 ${
                       isScanning || !webcamReady
                         ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
                         : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white cursor-pointer shadow-blue-500/15'
@@ -1173,12 +1173,12 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                   >
                     {isScanning ? (
                       <>
-                        <Loader2 size={15} className="animate-spin text-white" />
+                        <Loader2 size={13} className="animate-spin text-white" />
                         MAPEAMENTO FACIAL: {scanProgress}%...
                       </>
                     ) : (
                       <>
-                        <Fingerprint size={15} className="text-white animate-pulse" />
+                        <Fingerprint size={13} className="text-white animate-pulse" />
                         {tempFaceCaptures.length === 0
                           ? 'INICIAR CAPTURA (1/3: FRENTE)'
                           : tempFaceCaptures.length === 1
@@ -1192,8 +1192,8 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
               {/* Success Bio validation Alert Box */}
               {captureFinished && (
-                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3.5 flex gap-2.5 text-left max-w-md mx-auto">
-                  <ShieldCheck size={16} className="text-emerald-500 shrink-0 mt-0.5" />
+                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-2.5 flex gap-2 text-left max-w-md mx-auto">
+                  <ShieldCheck size={14} className="text-emerald-500 shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <p className="text-[10.5px] font-black text-emerald-850 uppercase tracking-tight">BIOMETRIA CONCLUÍDA</p>
                     <p className="text-[10px] text-[#065f46] leading-relaxed font-semibold">
@@ -1204,33 +1204,33 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               )}
 
               {/* Action Buttons Voltar / Terminar */}
-              <div className="pt-4 border-t border-slate-100 flex flex-col gap-2.5 max-w-md mx-auto">
+              <div className="pt-2.5 border-t border-slate-100 flex flex-col gap-2 max-w-md mx-auto">
                 {isSubmitting && (
-                  <div className="flex items-center justify-center gap-2 py-1 text-[11px] font-bold text-blue-600 animate-pulse">
-                    <Loader2 size={15} className="animate-spin" />
+                  <div className="flex items-center justify-center gap-1.5 py-0.5 text-[10px] font-bold text-blue-600 animate-pulse">
+                    <Loader2 size={13} className="animate-spin" />
                     {submitMessage}
                   </div>
                 )}
-                <div className="flex gap-3.5 w-full">
+                <div className="flex gap-3 w-full">
                   <button
                     type="button"
                     disabled={isScanning || isSubmitting}
                     onClick={() => setStep(2)}
-                    className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-800 font-extrabold text-[#0f172a] text-[12.5px] uppercase tracking-widest rounded-xl transition-all cursor-pointer bg-white flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    className="flex-1 py-2 border border-slate-200 hover:bg-slate-50 text-slate-800 font-extrabold text-[#0f172a] text-[11.5px] uppercase tracking-widest rounded-xl transition-all cursor-pointer bg-white flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
-                    <ArrowLeft size={14} /> VOLTAR
+                    <ArrowLeft size={13} /> VOLTAR
                   </button>
                   <button
                     type="button"
                     disabled={!captureFinished || isScanning || isSubmitting}
                     onClick={handleFinalSubmit}
-                    className={`flex-1 py-3 text-[12.5px] font-black uppercase tracking-widest rounded-xl transition-all border-0 shadow-md flex items-center justify-center gap-1.5 ${
+                    className={`flex-1 py-2 text-[11.5px] font-black uppercase tracking-widest rounded-xl transition-all border-0 shadow-md flex items-center justify-center gap-1.5 ${
                       captureFinished && !isScanning && !isSubmitting
                         ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white cursor-pointer shadow-blue-500/20' 
                         : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 shadow-none'
                     }`}
                   >
-                    {isSubmitting ? 'A ENVIAR...' : 'FINALIZAR SUBMISSÃO'} <Check size={14} />
+                    {isSubmitting ? 'A ENVIAR...' : 'FINALIZAR SUBMISSÃO'} <Check size={13} />
                   </button>
                 </div>
               </div>
@@ -1243,23 +1243,23 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               key="step-success"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="text-center space-y-6 max-w-lg mx-auto"
+              className="text-center space-y-4 max-w-lg mx-auto"
             >
-              <div className="mx-auto w-18.5 h-18.5 bg-emerald-50 text-emerald-500 rounded-[22px] flex items-center justify-center shadow-md border border-emerald-100 animate-scaleUp">
-                <ShieldCheck size={37} />
+              <div className="mx-auto w-14 h-14 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center shadow-md border border-emerald-100 animate-scaleUp">
+                <ShieldCheck size={28} />
               </div>
 
-              <div className="space-y-2.5">
-                <h3 className="text-2xl md:text-3xl font-black text-slate-900 italic uppercase tracking-tight leading-tight">
+              <div className="space-y-2">
+                <h3 className="text-xl md:text-2xl font-black text-slate-900 italic uppercase tracking-tight leading-tight">
                   {appMode === 'institution' ? 'Pedido de Adesão Enviado!' : 'Documentação Enviada com Sucesso!'}
                 </h3>
-                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 text-slate-650 text-left space-y-3.5 shadow-inner">
-                  <p className="text-slate-750 text-sm md:text-[16px] font-semibold leading-relaxed">
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-slate-650 text-left space-y-2 shadow-inner">
+                  <p className="text-slate-750 text-[12.5px] md:text-[13.5px] font-semibold leading-relaxed">
                     {appMode === 'institution' 
                       ? 'O processo de adesão da instituição ENDE foi submetido com sucesso para homologação administrativa.' 
                       : 'O seu processo de registo foi enviado com sucesso para a fila de homologação.'}
                   </p>
-                  <p className="text-[12.5px] text-slate-500 font-medium leading-relaxed">
+                  <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
                     {appMode === 'institution' 
                       ? 'O pedido está sob revisão da nossa equipa administrativa e técnica. Em menos de 24h enviaremos para o e-mail institucional os resultados.' 
                       : 'O seu processo está sob revisão dos inspectores de identificação civil nacional usando inteligência artificial. Em menos de 24h enviaremos para o seu Email os resultados.'}
@@ -1267,11 +1267,11 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 </div>
               </div>
 
-              <div className="bg-blue-50 border border-blue-100/60 rounded-2xl p-4.5 text-left flex gap-3 items-center">
-                <span className="text-[12.5px] font-black text-blue-800 select-none font-sans font-extrabold uppercase">
+              <div className="bg-blue-50 border border-blue-100/60 rounded-xl p-3 text-left flex gap-2.5 items-center">
+                <span className="text-[11px] font-black text-blue-800 select-none font-sans font-extrabold uppercase">
                   {appMode === 'institution' ? 'NIF da Instituição:' : 'B.I. de Acesso:'}
                 </span>
-                <span className="text-sm font-mono font-black text-slate-750 uppercase tracking-widest bg-white border border-blue-100 px-3.5 py-1.5 rounded-lg">
+                <span className="text-[12.5px] font-mono font-black text-slate-750 uppercase tracking-widest bg-white border border-blue-100 px-3 py-1 rounded-lg">
                   {biNumber}
                 </span>
               </div>
@@ -1279,7 +1279,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               <button
                 type="button"
                 onClick={onSuccess}
-                className="w-full py-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-[22px] font-black text-[13.5px] uppercase tracking-widest transition-all cursor-pointer border-0 shadow-xl shadow-blue-500/15 flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-black text-[12px] uppercase tracking-widest transition-all cursor-pointer border-0 shadow-xl shadow-blue-500/15 flex items-center justify-center gap-2"
               >
                 Voltar ao Login e Acesso Seguro
               </button>
