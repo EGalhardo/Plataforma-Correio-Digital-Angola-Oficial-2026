@@ -7,6 +7,13 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { AnimatedCounter } from '../ui/AnimatedCounter';
+import {
+  homologationStore,
+  notifyAccountApproved,
+  notifyAccountRejected,
+  notifyAccountReopened,
+  notifyAccountUnblocked,
+} from '../../services/homologationStore';
 import { 
   Users,
   Mail, 
@@ -429,6 +436,9 @@ export function GovContactsContent({
   const [aiMatchScore, setAiMatchScore] = useState<number | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>('');
   const [isRejecting, setIsRejecting] = useState<boolean>(false);
+  // Canal exclusivo Admin ⇄ Cidadão (homologação)
+  const [adminMsgInput, setAdminMsgInput] = useState<string>('');
+  const [adminThreadRefresh, setAdminThreadRefresh] = useState<number>(0);
   const [modalActiveTab, setModalActiveTab] = useState<'validation' | 'activity' | 'edit'>('validation');
 
   // Edit fields states for selection inside modal
@@ -2920,6 +2930,81 @@ export function GovContactsContent({
 
               </div>
 
+              {/* Canal Exclusivo de Homologação: Admin ⇄ Cidadão */}
+              {selectedReviewCitizen.biNumber && (
+                <div className="px-6 py-4 bg-blue-50/60 border-t border-blue-100 flex-shrink-0">
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <Mail size={13} className="text-blue-600" />
+                    <span className="text-[9.5px] font-black text-blue-800 uppercase tracking-widest flex-1">
+                      Correspondência de Homologação com o Cidadão · BI {selectedReviewCitizen.biNumber}
+                    </span>
+                    <span className="text-[8.5px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-150 px-2 py-0.5 rounded-full uppercase">
+                      Canal exclusivo
+                    </span>
+                  </div>
+
+                  <div
+                    key={adminThreadRefresh}
+                    className="bg-white/80 border border-blue-100 rounded-xl p-2.5 space-y-2 max-h-36 overflow-y-auto mb-2.5"
+                  >
+                    {homologationStore.getThread(selectedReviewCitizen.biNumber).length === 0 && (
+                      <p className="text-[10px] text-slate-400 font-semibold text-center py-2">
+                        Sem correspondência registada para este processo.
+                      </p>
+                    )}
+                    {homologationStore.getThread(selectedReviewCitizen.biNumber).map((msg) => (
+                      <div key={msg.id} className={`flex ${msg.from === 'admin' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[85%] rounded-xl px-3 py-2 text-[10.5px] leading-relaxed shadow-sm ${
+                          msg.from === 'admin'
+                            ? 'bg-blue-600 text-white rounded-br-md'
+                            : msg.from === 'system'
+                              ? 'bg-slate-200/80 text-slate-600'
+                              : 'bg-white border border-slate-200 text-slate-700 rounded-bl-md'
+                        }`}>
+                          <p className="font-semibold whitespace-pre-line">{msg.text}</p>
+                          <p className={`text-[8px] mt-0.5 ${msg.from === 'admin' ? 'text-blue-100' : 'text-slate-400'}`}>
+                            {msg.from === 'citizen' ? 'Cidadão' : msg.from === 'system' ? 'Sistema' : 'Área de Administração'} · {msg.at}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={adminMsgInput}
+                      onChange={(e) => setAdminMsgInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && adminMsgInput.trim()) {
+                          homologationStore.addMessage(selectedReviewCitizen.biNumber || '', 'admin', adminMsgInput.trim());
+                          setAdminMsgInput('');
+                          setAdminThreadRefresh(t => t + 1);
+                          addAuditLog?.(`Correspondência da Área de Administração enviada ao cidadão "${selectedReviewCitizen.name}" (BI: ${selectedReviewCitizen.biNumber})`, 'info');
+                        }
+                      }}
+                      placeholder="Escrever ao cidadão sobre este processo..."
+                      className="flex-1 bg-white border border-blue-150 rounded-xl px-3.5 py-2 text-[11px] font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!adminMsgInput.trim()) return;
+                        homologationStore.addMessage(selectedReviewCitizen.biNumber || '', 'admin', adminMsgInput.trim());
+                        setAdminMsgInput('');
+                        setAdminThreadRefresh(t => t + 1);
+                        addAuditLog?.(`Correspondência da Área de Administração enviada ao cidadão "${selectedReviewCitizen.name}" (BI: ${selectedReviewCitizen.biNumber})`, 'info');
+                      }}
+                      disabled={!adminMsgInput.trim()}
+                      className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 py-2 font-black text-[9.5px] uppercase tracking-widest flex items-center gap-1.5 cursor-pointer border-0 shadow-sm disabled:opacity-40 transition-all"
+                    >
+                      <Send size={11} />
+                      Enviar
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Ações de Decisão Administrativa (Footer do Modal) */}
               <div className="p-6 bg-slate-50 border-t border-slate-150 flex flex-col sm:flex-row items-center justify-between gap-4 flex-shrink-0">
                 <div>
@@ -2956,6 +3041,10 @@ export function GovContactsContent({
                         if (selectedReviewCitizen.dbUUID || selectedReviewCitizen.id.length > 20) {
                           await updateRegistrationRecord(selectedReviewCitizen.dbUUID || selectedReviewCitizen.id, { status: 'Aprovado', observacoes: 'Conta reativada pelo Administrador.' });
                         }
+
+                        // HOMOLOGAÇÃO: reativação também liberta o gate do cidadão
+                        homologationStore.setStatus(selectedReviewCitizen.biNumber || '', 'active', undefined, selectedReviewCitizen.name);
+                        notifyAccountUnblocked(selectedReviewCitizen.biNumber || '', selectedReviewCitizen.name);
 
                         addAuditLog?.(`Auditoria: Conta de "${selectedReviewCitizen.name}" DESBLOQUEADA com sucesso.`, 'success');
                         setSelectedReviewCitizen(null);
@@ -3040,6 +3129,10 @@ export function GovContactsContent({
                               });
                             }
 
+                            // HOMOLOGAÇÃO: conta Rejeitada + correspondência oficial automática ao cidadão
+                            homologationStore.setStatus(selectedReviewCitizen.biNumber || '', 'rejected', rejectionReason, selectedReviewCitizen.name);
+                            notifyAccountRejected(selectedReviewCitizen.biNumber || '', selectedReviewCitizen.name, rejectionReason);
+
                             addAuditLog?.(`Auditoria: Registo de "${selectedReviewCitizen.name}" REJEITADO do sistema CDA. Parecer: "${rejectionReason}"`, 'critical');
                             setSelectedReviewCitizen(null);
                           }}
@@ -3072,6 +3165,10 @@ export function GovContactsContent({
                               observacoes: 'Homologado e ativado biometricamente pelo agente Admin.'
                             });
                           }
+
+                          // HOMOLOGAÇÃO: aprovação ativa a conta + correspondência oficial automática ao cidadão
+                          homologationStore.setStatus(selectedReviewCitizen.biNumber || '', 'active', undefined, selectedReviewCitizen.name);
+                          notifyAccountApproved(selectedReviewCitizen.biNumber || '', selectedReviewCitizen.name);
 
                           addAuditLog?.(`Auditoria: Cadastro do cidadão "${selectedReviewCitizen.name}" homologado e ativado biometricamente pelo agente Admin.`, 'success');
                           setSelectedReviewCitizen(null);
@@ -3106,6 +3203,10 @@ export function GovContactsContent({
                             observacoes: 'Reaberto para nova revisão.'
                           });
                         }
+
+                        // HOMOLOGAÇÃO: processo reaberto → conta volta a Pendente + aviso oficial ao cidadão
+                        homologationStore.setStatus(selectedReviewCitizen.biNumber || '', 'pending', undefined, selectedReviewCitizen.name);
+                        notifyAccountReopened(selectedReviewCitizen.biNumber || '', selectedReviewCitizen.name);
 
                         addAuditLog?.(`Auditoria: Cadastro de "${selectedReviewCitizen.name}" reaberto para nova revisão e testes dactiloscópicos.`, 'info');
                         setSelectedReviewCitizen(null);

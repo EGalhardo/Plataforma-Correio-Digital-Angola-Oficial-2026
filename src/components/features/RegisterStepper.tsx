@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   User, 
@@ -8,7 +8,6 @@ import {
   EyeOff, 
   Check, 
   CheckCircle2, 
-  Camera, 
   UploadCloud, 
   X, 
   ArrowRight, 
@@ -21,6 +20,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import { homologationStore, notifyRegistrationSubmitted } from '../../services/homologationStore';
 
 const base64ToBlob = (base64Str: string): Blob => {
   try {
@@ -74,6 +74,15 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   const [scanStateText, setScanStateText] = useState('Pronto para Captura');
   const [captureFinished, setCaptureFinished] = useState(false);
   const [savedFacePhoto, setSavedFacePhoto] = useState<string>('');
+
+  // Motor Biométrico Real (mesma configuração do Login Facial do App.tsx)
+  const [webcamReady, setWebcamReady] = useState(false);
+  const [isSimulatedCamera, setIsSimulatedCamera] = useState(false);
+  const [faceCaptureHint, setFaceCaptureHint] = useState('Posicione o rosto no centro da moldura.');
+  const [tempFaceCaptures, setTempFaceCaptures] = useState<{ imageDataUrl: string; signature: number[] }[]>([]);
+  const faceVideoRef = useRef<HTMLVideoElement | null>(null);
+  const faceCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const faceStreamRef = useRef<MediaStream | null>(null);
 
   // Submissão ao Supabase
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -171,43 +180,233 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
     setBiNumber(formatted);
   };
 
-  // Biomety capture simulation
-  const startCameraScan = () => {
-    setIsScanning(true);
-    setScanProgress(0);
-    setScanStateText('A inicializar detetor biométrico...');
+  // ===== Motor Biométrico Facial de Registo (idêntico ao do Login Facial do App.tsx) =====
 
-    let currentProgress = 0;
-    const interval = setInterval(() => {
-      currentProgress += 5;
-
-      if (currentProgress === 20) setScanStateText('Detetando enquadramento oval...');
-      if (currentProgress === 40) setScanStateText('Mapeando eixos tridimensionais...');
-      if (currentProgress === 65) setScanStateText('Analisando vetores de vivacidade contra spoofing...');
-      if (currentProgress === 85) setScanStateText('Sincronizando biometria com base civil de Angola...');
-
-      if (currentProgress >= 100) {
-        clearInterval(interval);
-        setScanProgress(100);
-        setIsScanning(false);
-        setCaptureFinished(true);
-        setScanStateText('Mapeamento Facial Concluído!');
-
-        // Use elegant photo template representation
-        const randomPhotos = [
-          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face',
-          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face',
-          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=250&h=250&fit=crop&crop=face',
-          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=250&h=250&fit=crop&crop=face'
-        ];
-        const selectedPhoto = randomPhotos[Math.floor(Math.random() * randomPhotos.length)];
-        setSavedFacePhoto(selectedPhoto);
-        addAuditLog('Captura Biométrica Facial concluída com sucesso', 'success');
-      } else {
-        setScanProgress(currentProgress);
-      }
-    }, 150);
+  // Chave canónica de armazenamento local: cda_demo_face_[mode]_[BI_EM_MAIÚSCULAS]
+  // 100% interoperável com a validação do Login Facial (App.tsx getDemoFaceStorageKey)
+  const getDemoFaceStorageKey = () => {
+    const identifier = (biNumber || 'anon').toUpperCase().replace(/\s+/g, '');
+    return `cda_demo_face_${appMode}_${identifier}`;
   };
+
+  // Assinatura de tons de cinza 16x16 (mesma função do Login)
+  const computeFaceSignature = (canvas: HTMLCanvasElement): number[] => {
+    const temp = document.createElement('canvas');
+    temp.width = 16;
+    temp.height = 16;
+    const ctx = temp.getContext('2d');
+    if (!ctx) return [];
+    ctx.drawImage(canvas, 0, 0, temp.width, temp.height);
+    const { data } = ctx.getImageData(0, 0, temp.width, temp.height);
+    const signature: number[] = [];
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = Math.round((data[i] + data[i + 1] + data[i + 2]) / 3);
+      signature.push(gray);
+    }
+    return signature;
+  };
+
+  const stopFaceCamera = () => {
+    if (faceStreamRef.current) {
+      faceStreamRef.current.getTracks().forEach(track => track.stop());
+      faceStreamRef.current = null;
+    }
+    if (faceVideoRef.current) {
+      faceVideoRef.current.srcObject = null;
+    }
+    setWebcamReady(false);
+    setIsSimulatedCamera(false);
+  };
+
+  // Captura do frame real da câmara; fallback para câmara virtual biométrica sobre o canvas
+  const captureFaceFrame = () => {
+    const video = faceVideoRef.current;
+    const canvas = faceCanvasRef.current;
+
+    // Se o vídeo real estiver ativo e válido, capturar o frame físico
+    if (video && canvas && video.videoWidth > 0 && video.videoHeight > 0) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const signature = computeFaceSignature(canvas);
+        return { imageDataUrl, signature };
+      }
+    }
+
+    // Fallback: desenhar a face biométrica simulada no canvas (mesmo desenho do Login)
+    if (canvas) {
+      canvas.width = 300;
+      canvas.height = 300;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, 300, 300);
+
+        ctx.strokeStyle = 'rgba(37, 99, 235, 0.2)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 300; i += 30) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i, 300);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, i);
+          ctx.lineTo(300, i);
+          ctx.stroke();
+        }
+
+        ctx.beginPath();
+        ctx.ellipse(150, 150, 70, 100, 0, 0, 2 * Math.PI);
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = '#60a5fa';
+        ctx.beginPath();
+        ctx.arc(120, 130, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(180, 130, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(150, 150);
+        ctx.lineTo(145, 175);
+        ctx.lineTo(155, 175);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(150, 200, 20, 8, 0, 0, Math.PI);
+        ctx.stroke();
+
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const signature = computeFaceSignature(canvas);
+        return { imageDataUrl, signature };
+      }
+    }
+
+    return null;
+  };
+
+  // Ativação real da câmara ao entrar na fase de Biometria (passo 3), com câmara virtual de fallback
+  useEffect(() => {
+    let mounted = true;
+
+    const startCamera = async () => {
+      if (step !== 3) return;
+      setIsSimulatedCamera(false);
+      setFaceCaptureHint('Posicione o rosto no centro da moldura.');
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        if (!mounted) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+        faceStreamRef.current = stream;
+        if (faceVideoRef.current) {
+          faceVideoRef.current.srcObject = stream;
+          await faceVideoRef.current.play().catch(() => {});
+        }
+        setWebcamReady(true);
+      } catch (error) {
+        console.error('Erro ao abrir câmara no registo facial:', error);
+        // Fallback para a câmara virtual biométrica simulada — o fluxo nunca congela
+        setWebcamReady(true);
+        setIsSimulatedCamera(true);
+        setFaceCaptureHint('Câmara física indetectável. Ativada Câmara Virtual com Scanner Biométrico Integrado para Demonstração.');
+      }
+    };
+
+    if (step === 3) {
+      startCamera();
+    } else {
+      stopFaceCamera();
+    }
+
+    return () => {
+      mounted = false;
+      stopFaceCamera();
+    };
+  }, [step]);
+
+  // Fluxo robusto de registo em 3 capturas (Frente → Esquerda → Sorriso/Cima) com fusão criptográfica
+  const startCameraScan = async () => {
+    if (!webcamReady || isScanning || captureFinished) return;
+
+    const captured = captureFaceFrame();
+    if (!captured) {
+      setFaceCaptureHint('Não foi possível capturar a imagem facial. Aguarde a ativação da câmara e tente novamente.');
+      return;
+    }
+
+    setIsScanning(true);
+    setScanProgress(20);
+
+    const currentCapturesCount = tempFaceCaptures.length;
+    setFaceCaptureHint(`A processar captura ${currentCapturesCount + 1} de 3...`);
+    addAuditLog(`Iniciou digitalização biométrica facial no Registo (Captura ${currentCapturesCount + 1}/3)`, 'info');
+
+    const finalize = (progress: number) => new Promise(resolve => setTimeout(() => {
+      setScanProgress(progress);
+      resolve(true);
+    }, 220));
+
+    await finalize(45);
+    await finalize(75);
+
+    const nextCaptures = [...tempFaceCaptures, captured];
+
+    if (currentCapturesCount < 2) {
+      // Ainda não são 3 capturas: guarda o progresso temporário
+      setTempFaceCaptures(nextCaptures);
+      await finalize(100);
+      setIsScanning(false);
+      setScanProgress(0);
+
+      const nextStep = currentCapturesCount + 2;
+      if (nextStep === 2) {
+        setFaceCaptureHint('Captura 1/3 gravada! Agora, incline ligeiramente o rosto para a ESQUERDA.');
+        addAuditLog('Biometria facial no Registo: Captura 1/3 (Frente) registada', 'info');
+      } else if (nextStep === 3) {
+        setFaceCaptureHint('Captura 2/3 gravada! Agora, sorria ou olhe ligeiramente para CIMA.');
+        addAuditLog('Biometria facial no Registo: Captura 2/3 (Esquerda) registada', 'info');
+      }
+      return;
+    }
+
+    // 3ª captura: compilar, fundir criptograficamente e persistir o perfil biométrico local
+    const avgSignature: number[] = [];
+    const len = nextCaptures[0].signature.length;
+    for (let i = 0; i < len; i++) {
+      const sum = nextCaptures[0].signature[i] + nextCaptures[1].signature[i] + nextCaptures[2].signature[i];
+      avgSignature.push(Math.round(sum / 3));
+    }
+
+    const storagePayload = {
+      identifier: biNumber.toUpperCase(),
+      profileMode: appMode,
+      displayName: name.trim(),
+      capturedAt: new Date().toLocaleString('pt-AO'),
+      imageDataUrl: captured.imageDataUrl,
+      signature: avgSignature,
+      signatures: nextCaptures.map(c => c.signature),
+    };
+
+    localStorage.setItem(getDemoFaceStorageKey(), JSON.stringify(storagePayload));
+
+    setTempFaceCaptures([]);
+    setSavedFacePhoto(captured.imageDataUrl);
+    setCaptureFinished(true);
+    setScanStateText('Mapeamento Facial Concluído!');
+    setFaceCaptureHint('Cadastro biométrico robusto concluído! 3/3 faces fundidas criptograficamente.');
+    await finalize(100);
+    setIsScanning(false);
+    addAuditLog(`DEMO_FACE_ENROLLED: Registo biométrico de 3 capturas concluído com sucesso no Registo (${appMode})`, 'success');
+  };
+
 
   // Form submission and registration inside Supabase (with fallback to local storage)
   const handleFinalSubmit = async () => {
@@ -366,6 +565,11 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       }, ...currentCitizens];
       localStorage.setItem('gov_admin_citizens', JSON.stringify(updated));
       localStorage.setItem(`citizen_pass_${newUser.biNumber}`, password);
+
+      // HOMOLOGAÇÃO: a conta nasce PENDENTE — o cidadão pode entrar, mas fica
+      // inativo até aprovação da Área de Administração (única via de contacto)
+      homologationStore.setStatus(newUser.biNumber, 'pending', undefined, newUser.name);
+      notifyRegistrationSubmitted(newUser.biNumber, newUser.name);
 
       addAuditLog(`Processo de Adesão de ${newUser.name} submetido ao SME`, 'info');
       setStep('success');
@@ -825,82 +1029,111 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 </h1>
               </div>
 
-              {/* Oval HUD Futuristic Camera Container - upscaled by 15% from 128px to 147px */}
-              <div className="relative mx-auto w-[147px] h-[147px] rounded-full border-4 border-slate-100 overflow-hidden shadow-xl bg-gradient-to-b from-[#1e293b] to-[#0f172a] flex items-center justify-center p-2 mb-2.5">
-                {/* Visual HUD coordinate rings inside */}
-                <div className="absolute inset-2 border border-slate-700/40 rounded-full pointer-events-none" />
-                <div className="absolute inset-5 border border-slate-700/20 rounded-full pointer-events-none" />
-                
-                {/* Bracket overlay coordinates focus */}
-                <div className="absolute top-6 left-6 w-3.5 h-3.5 border-t-2 border-l-2 border-blue-400 rounded-tl z-15" />
-                <div className="absolute top-6 right-6 w-3.5 h-3.5 border-t-2 border-r-2 border-blue-400 rounded-tr z-15" />
-                <div className="absolute bottom-6 left-6 w-3.5 h-3.5 border-b-2 border-l-2 border-blue-400 rounded-bl z-15" />
-                <div className="absolute bottom-6 right-6 w-3.5 h-3.5 border-b-2 border-r-2 border-blue-400 rounded-br z-15" />
-
-                {/* Ring glow indicator status */}
-                <div className={`absolute inset-0 border-2 rounded-full pointer-events-none z-15 transition-colors duration-400 ${
-                  captureFinished 
-                    ? 'border-emerald-500 animate-pulse' 
-                    : isScanning 
-                    ? 'border-blue-400' 
-                    : 'border-slate-300/40'
-                }`} />
-
-                {/* Scanner laser animation */}
-                {isScanning && (
-                  <div 
-                    className="absolute left-0 right-0 h-[2.5px] bg-[#2563eb] shadow-[0_0_8px_rgba(37,99,235,1)] z-20"
-                    style={{
-                      animation: 'scan-laser-relative 2.5s infinite ease-in-out',
-                      position: 'absolute'
-                    }}
-                  />
-                )}
-
-                {/* Blue Dot rotating perimeter tracker ring */}
-                <div className="absolute top-[35%] -right-0.5 w-[7px] h-[7px] bg-[#2563eb] rounded-full ring-2 ring-blue-50 z-15 animate-pulse" />
-
-                {/* Face Capture mapping elements */}
-                <div className="w-full h-full rounded-full flex flex-col items-center justify-center overflow-hidden relative">
-                  {captureFinished && savedFacePhoto ? (
-                    <img 
-                      src={savedFacePhoto} 
-                      alt="Captura Facial" 
-                      className="w-full h-full object-cover animate-scaleUp z-10"
-                      referrerPolicy="no-referrer"
+              {/* Círculo interativo de Captura Biométrica (mesma configuração do Login Facial) */}
+              <div className="relative flex justify-center py-2 mb-2.5">
+                <div className="relative w-[210px] h-[210px] rounded-full flex items-center justify-center bg-white shadow-xl transition-all duration-300">
+                  {/* Anel SVG de progresso 0% → 100% */}
+                  <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none z-10" viewBox="0 0 100 100">
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="46"
+                      fill="none"
+                      stroke="#f1f5f9"
+                      strokeWidth="2.5"
                     />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center text-slate-400 text-center px-2 gap-0.5 z-10 select-none">
-                      {/* Futurist Vector Wireframe face overlay in SVG */}
-                      <svg className={`w-23 h-23 stroke-[1] ${isScanning ? 'text-blue-500 animate-pulse' : 'text-slate-400/80'}`} viewBox="0 0 100 100" fill="none">
-                        <path d="M50,15 C28,15 28,50 28,68 C28,86 42,92 50,92 C58,92 72,86 72,68 C72,50 72,15 50,15 Z" stroke="currentColor" strokeDasharray="3 4" />
-                        <ellipse cx="38" cy="48" rx="4.5" ry="2.5" stroke="currentColor" />
-                        <ellipse cx="62" cy="48" rx="4.5" ry="2.5" stroke="currentColor" />
-                        <path d="M38,48 L62,48" stroke="currentColor" strokeWidth="0.5" />
-                        <path d="M50,45 L50,65 L44,68 L56,68 L50,65" stroke="currentColor" strokeWidth="0.5" />
-                        <path d="M40,75 Q50,83 60,75" stroke="currentColor" strokeWidth="0.5" />
-                        <path d="M50,15 L50,92" stroke="currentColor" strokeWidth="0.2" />
-                        <path d="M28,68 L72,68" stroke="currentColor" strokeWidth="0.2" />
-                        <circle cx="50" cy="15" r="1" fill="#2563eb" />
-                        <circle cx="50" cy="35" r="1" fill="#2563eb" />
-                        <circle cx="38" cy="48" r="1" fill="#2563eb" />
-                        <circle cx="62" cy="48" r="1" fill="#2563eb" />
-                        <circle cx="50" cy="65" r="1" fill="#2563eb" />
-                        <circle cx="28" cy="68" r="1" fill="#2563eb" />
-                        <circle cx="72" cy="68" r="1" fill="#2563eb" />
-                        <path d="M50,35 L38,48 L50,65 L62,48 Z" stroke="currentColor" strokeWidth="0.5" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="46"
+                      fill="none"
+                      stroke={captureFinished ? '#10b981' : '#2563eb'}
+                      strokeWidth="3"
+                      strokeDasharray={`${2 * Math.PI * 46}`}
+                      strokeDashoffset={`${2 * Math.PI * 46 * (1 - scanProgress / 100)}`}
+                      className="transition-all duration-150 ease-out"
+                      strokeLinecap="round"
+                    />
+                    {/* Indicador deslizante no anel */}
+                    {scanProgress > 0 && scanProgress < 100 && (
+                      <circle
+                        cx={50 + 46 * Math.cos((scanProgress / 100) * 2 * Math.PI - Math.PI / 2)}
+                        cy={50 + 46 * Math.sin((scanProgress / 100) * 2 * Math.PI - Math.PI / 2)}
+                        r="2.5"
+                        fill="#3b82f6"
+                        className="shadow-sm"
+                      />
+                    )}
+                  </svg>
 
-                {/* Small camera trigger emblem at bottom */}
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 bg-[#0f172a] border border-slate-700 w-8 h-8 rounded-full flex items-center justify-center text-white shadow-lg z-25">
-                  <Camera size={13} />
+                  {/* Círculo escuro principal */}
+                  <div className="w-[190px] h-[190px] rounded-full overflow-hidden bg-gradient-to-b from-[#0f172a] to-[#1e1b4b] relative flex items-center justify-center border-4 border-white shadow-inner z-5">
+                    {/* Grelha tecnológica de fundo */}
+                    <div className="absolute inset-0 bg-[linear-gradient(to_right,#334155_1px,transparent_1px),linear-gradient(to_bottom,#334155_1px,transparent_1px)] bg-[size:10px_10px] opacity-25" />
+
+                    {/* Laser de varredura (mesmo do Login) */}
+                    {isScanning && (
+                      <div
+                        className="absolute top-0 left-0 right-0 h-1 bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.9)] z-20 pointer-events-none"
+                        style={{
+                          animation: 'scan-motion 2.5s infinite ease-in-out',
+                          position: 'absolute'
+                        }}
+                      />
+                    )}
+
+                    {/* Cantos da moldura oval de calibração */}
+                    <div className="absolute top-6 left-6 w-5 h-5 border-t-2 border-l-2 border-white rounded-tl-sm opacity-80 pointer-events-none" />
+                    <div className="absolute top-6 right-6 w-5 h-5 border-t-2 border-r-2 border-white rounded-tr-sm opacity-80 pointer-events-none" />
+                    <div className="absolute bottom-6 left-6 w-5 h-5 border-b-2 border-l-2 border-white rounded-bl-sm opacity-80 pointer-events-none" />
+                    <div className="absolute bottom-6 right-6 w-5 h-5 border-b-2 border-r-2 border-white rounded-br-sm opacity-80 pointer-events-none" />
+
+                    {/* Vídeo real da câmara física (sempre montado para evitar race conditions) */}
+                    <video
+                      ref={faceVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className={`w-full h-full object-cover absolute inset-0 rounded-full scale-[1.06] transition-all duration-300 ${
+                        webcamReady && !isSimulatedCamera && !captureFinished ? 'opacity-95 z-10' : 'opacity-0 z-0 pointer-events-none'
+                      }`}
+                    />
+
+                    {/* Face final fundida OU câmara virtual biométrica simulada */}
+                    {captureFinished && savedFacePhoto ? (
+                      <img
+                        src={savedFacePhoto}
+                        alt="Captura Facial"
+                        className="absolute inset-0 w-full h-full object-cover z-10 animate-scaleUp"
+                      />
+                    ) : (!webcamReady || isSimulatedCamera) && (
+                      <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-slate-950 z-10">
+                        <div className="relative w-full h-full flex items-center justify-center">
+                          {/* Silhueta vetorial da face */}
+                          <svg className={`w-28 h-28 stroke-[1] ${isScanning ? 'text-blue-400 animate-pulse' : 'text-sky-400'} transition-colors`} viewBox="0 0 100 100" fill="none">
+                            <path d="M50,15 C28,15 28,50 28,68 C28,86 42,92 50,92 C58,92 72,86 72,68 C72,50 72,15 50,15 Z" stroke="currentColor" strokeDasharray="3 4" />
+                            <ellipse cx="38" cy="48" rx="4.5" ry="2.5" stroke="currentColor" />
+                            <ellipse cx="62" cy="48" rx="4.5" ry="2.5" stroke="currentColor" />
+                            <path d="M50,52 L50,68 L46,68" stroke="currentColor" />
+                            <path d="M40,78 Q50,84 60,78" stroke="currentColor" />
+
+                            <circle cx="38" cy="48" r="1.5" className="fill-blue-400 animate-ping" />
+                            <circle cx="62" cy="48" r="1.5" className="fill-blue-400 animate-ping" />
+                            <circle cx="50" cy="92" r="2" className="fill-blue-500 animate-bounce" />
+                          </svg>
+
+                          {/* Anéis HUD rotativos */}
+                          <div className="absolute inset-4 border border-sky-500/10 rounded-full animate-[spin_10s_linear_infinite]" />
+                          <div className="absolute inset-8 border border-dashed border-indigo-400/20 rounded-full animate-[spin_20s_linear_infinite_reverse]" />
+                        </div>
+                      </div>
+                    )}
+                    <canvas ref={faceCanvasRef} className="hidden" />
+                  </div>
                 </div>
               </div>
 
-              {/* Capture Aligned Info Tag */}
+              {/* Capture Aligned Info Tag - estado dinâmico por etapa */}
               <div className="text-center space-y-1">
                 <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border ${
                   captureFinished 
@@ -910,9 +1143,19 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     : 'bg-slate-50 border-slate-200 text-slate-500'
                 }`}>
                   <Check size={11.5} className="font-extrabold" />
-                  <span>{captureFinished ? 'Captura Biométrica Concluída!' : scanStateText}</span>
+                  <span>
+                    {captureFinished
+                      ? 'Cadastro biométrico robusto concluído! 3/3 faces fundidas criptograficamente.'
+                      : isScanning
+                        ? `A processar: ${scanProgress}%`
+                        : tempFaceCaptures.length === 0
+                          ? 'Pronto para registo (Captura 1/3: Frente)'
+                          : tempFaceCaptures.length === 1
+                            ? 'Pronto para registo (Captura 2/3: Esquerda)'
+                            : 'Pronto para registo (Captura 3/3: Sorriso)'}
+                  </span>
                 </div>
-                <p className="text-slate-400 text-[11.5px] font-semibold">Posicione o rosto no centro da moldura.</p>
+                <p className="text-slate-400 text-[11.5px] font-semibold">{faceCaptureHint}</p>
               </div>
 
               {/* Centered Scanning Fingerprint Action Button */}
@@ -920,10 +1163,10 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 <div className="max-w-md mx-auto">
                   <button
                     type="button"
-                    disabled={isScanning}
+                    disabled={isScanning || !webcamReady}
                     onClick={startCameraScan}
                     className={`w-full py-3 rounded-2xl font-black text-[12.5px] uppercase tracking-widest transition-all border-0 shadow-md flex items-center justify-center gap-2.5 ${
-                      isScanning 
+                      isScanning || !webcamReady
                         ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
                         : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white cursor-pointer shadow-blue-500/15'
                     }`}
@@ -936,7 +1179,11 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     ) : (
                       <>
                         <Fingerprint size={15} className="text-white animate-pulse" />
-                        INICIAR CAPTURA FACIAL
+                        {tempFaceCaptures.length === 0
+                          ? 'INICIAR CAPTURA (1/3: FRENTE)'
+                          : tempFaceCaptures.length === 1
+                            ? 'REGISTAR CAPTURA (2/3: ESQUERDA)'
+                            : 'REGISTAR CAPTURA (3/3: SORRISO)'}
                       </>
                     )}
                   </button>

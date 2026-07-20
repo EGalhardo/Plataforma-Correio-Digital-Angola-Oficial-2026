@@ -39,6 +39,7 @@ import {
   PastaDigitalContent,
   SolicitarDocumentoContent,
   RegisterStepper,
+  HomologationGate,
   VoiceGuideAssistant,
   InstitutionDetail,
   InstQrCodeContent,
@@ -72,6 +73,7 @@ import { Message, Document, Contact, AppNotification, AppMode, UserRequest, DocR
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol } from './utils/protocolGenerator';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi } from './services/supabaseService';
+import { homologationStore } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
 import { useSession } from './services/sessionStore';
 import { VideoSessionService } from './services/videoSessionService';
@@ -91,6 +93,8 @@ export default function App() {
     return 'splash';
   });
   const [triggerRefetch, setTriggerRefetch] = useState(0);
+  // Tick para forçar re-render quando a conta é ativada no ecrã de homologação
+  const [gateRefreshTick, setGateRefreshTick] = useState(0);
   const [tab, setTab] = useState('home');
   const [selectedInstitution, setSelectedInstitution] = useState<string | null>(null);
   const [showAccessModal, setShowAccessModal] = useState(false);
@@ -4302,6 +4306,35 @@ Ficha civil do titular:
     );
   }
 
+  // ==========================================================================
+  // GATE DE HOMOLOGAÇÃO (apenas perfil Cidadão)
+  // O utilizador autenticou-se, mas a conta ainda NÃO está ativa: enquanto a
+  // Área de Administração não aprovar os dados do registo, a correspondência
+  // institucional fica bloqueada e o único canal aberto é o oficial da Admin.
+  // ==========================================================================
+  if (stage === 'app' && appMode === 'user') {
+    const gateRecord = homologationStore.getStatus(bi);
+    if (gateRecord && gateRecord.status !== 'active') {
+      return (
+        <HomologationGate
+          bi={bi}
+          name={gateRecord.name || profileName}
+          record={gateRecord}
+          addAuditLog={addAuditLog}
+          onActivated={() => setGateRefreshTick(t => t + 1)}
+          onResubmit={() => {
+            setStage('login');
+            setLoginSubMode('register');
+          }}
+          onLogout={() => {
+            setStage('login');
+            setLoginSubMode('normal');
+            addAuditLog('Sessão terminada a partir do ecrã de homologação', 'info');
+          }}
+        />
+      );
+    }
+  }
 
   return (
     <main className={`min-h-screen bg-bg text-primary md:flex md:gap-5 md:p-5 font-sans selection:bg-primary selection:text-white transition-all ${emergencyMode && isGovMode ? 'pt-[32px] md:pt-[44px]' : ''}`}>
