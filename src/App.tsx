@@ -624,6 +624,96 @@ export default function App() {
     });
   };
 
+  // Resolve e aplica a identidade real do cidadao que inicia sessao.
+  // Contas demo canonicas manutem o preset; outros B.I.s carregam o perfil da nuvem (fallback local).
+  const applyIdentityForLoggedUser = async () => {
+    if (appMode !== 'user') return;
+    const normalized = bi.trim().toUpperCase();
+    if (!normalized) return;
+    if (normalized === DEMO_CREDENTIALS.user.identifier) {
+      // Conta demo canonica: garante que a foto canonica e restaurada
+      updateUserFields?.({ avatarUrl: MOCK_SESSION_USER.avatarUrl });
+      return;
+    }
+    try {
+      let resolvedName = '';
+      let resolvedPhone = '';
+      let resolvedNif = '';
+      let resolvedPassport = '';
+      let resolvedBirthDate = '';
+      let resolvedFiliation = '';
+      let resolvedMaritalStatus = '';
+      let resolvedAvatar = '';
+
+      // 1) Nuvem: tabela profiles (RLS permissivo no schema atual)
+      const isSupabaseReady = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+      if (isSupabaseReady) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('name, phone, nif, passport, birth_date, filiation, marital_status')
+          .eq('bi', normalized)
+          .maybeSingle();
+        if (error) console.error('CADA: erro ao carregar perfil da nuvem no login:', error);
+        if (data) {
+          resolvedName = data.name || '';
+          resolvedPhone = data.phone || '';
+          resolvedNif = data.nif || '';
+          resolvedPassport = data.passport || '';
+          resolvedBirthDate = data.birth_date ? String(data.birth_date).split('-').reverse().join('/') : '';
+          resolvedFiliation = data.filiation || '';
+          resolvedMaritalStatus = data.marital_status || '';
+        }
+      }
+
+      // 2) Fallback local: registo efetuado neste dispositivo (nome + foto/selfie)
+      try {
+        const saved = localStorage.getItem('gov_admin_citizens');
+        if (saved) {
+          const match = (JSON.parse(saved) as any[]).find((c: any) => (c.biNumber || '').toUpperCase() === normalized);
+          if (match) {
+            if (!resolvedName) resolvedName = match.name || match.contact || '';
+            const fp = match.facePhoto || '';
+            if (fp.startsWith('data:image/') || fp.includes('.supabase.co/')) resolvedAvatar = fp;
+          }
+        }
+      } catch (_) { /* ignora */ }
+
+      // 3) Foto biometrica local (matricula facial de 3 capturas deste dispositivo)
+      try {
+        const faceRaw = localStorage.getItem(`cda_demo_face_${appMode}_${normalized}`);
+        if (faceRaw) {
+          const faceData = JSON.parse(faceRaw);
+          if (faceData?.imageDataUrl) resolvedAvatar = faceData.imageDataUrl;
+        }
+      } catch (_) { /* ignora */ }
+
+      if (!resolvedName) return; // B.I. desconhecido: mantem comportamento demo atual
+
+      setProfileName(resolvedName);
+      setPhoneLocal(resolvedPhone);
+      setNifLocal(resolvedNif);
+      setPassportLocal(resolvedPassport);
+      setUserBirthDate(resolvedBirthDate);
+      setUserFiliation(resolvedFiliation);
+      setUserMaritalStatus(resolvedMaritalStatus);
+      setVerificationStatus('Identidade Registada');
+      updateUserFields?.({
+        bi: normalized,
+        phone: resolvedPhone,
+        nif: resolvedNif,
+        passport: resolvedPassport,
+        name: resolvedName,
+        birthDate: resolvedBirthDate,
+        filiation: resolvedFiliation,
+        maritalStatus: resolvedMaritalStatus,
+        avatarUrl: resolvedAvatar,
+      });
+      addAuditLog(`Identidade resolvida para o utilizador registado ${resolvedName} (${normalized})`, 'info');
+    } catch (e) {
+      console.error('CADA: falha ao resolver identidade do utilizador no login:', e);
+    }
+  };
+
   useEffect(() => {
     localStorage.setItem('correio_digital_bi', bi);
   }, [bi]);
@@ -1116,9 +1206,12 @@ export default function App() {
         return;
       }
       timer = setTimeout(() => {
-        stopLoginFaceCamera();
-        setStage('app');
-        addAuditLog('Acesso concedido via Biometria Facial Local de Demonstração', 'success');
+        void (async () => {
+          await applyIdentityForLoggedUser();
+          stopLoginFaceCamera();
+          setStage('app');
+          addAuditLog('Acesso concedido via Biometria Facial Local de Demonstração', 'success');
+        })();
       }, 800);
     }
     return () => clearTimeout(timer);
@@ -3582,15 +3675,17 @@ Ficha civil do titular:
       addAuditLog(`DEMO_FACE_RESET: Registo facial local removido para ${appMode}`, 'warning');
     };
 
-    const handleLoginSubmit = () => {
+    const handleLoginSubmit = async () => {
       if (emergencyMode && !isInstMode && !isGovMode && (bi.toLowerCase().includes('002931298') || bi.toLowerCase().includes('edlasio') || profileName.toLowerCase().includes('edlasio'))) {
         setLoginError("Credenciais e chaves biométricas suspensas / bloqueadas temporariamente ao abrigo do protocolo SOC-AN-2026 para salvaguarda de soberania digital nacional.");
         addAuditLog("BLOQUEIO IDENTITÁRIO: Tentativa de login por Edlasio Galhardo suspensa (SOC-AN-2026)", "critical");
         return;
       }
       if (hasTwoFactor) {
+        await applyIdentityForLoggedUser();
         setLoginSubMode('two-factor');
       } else {
+        await applyIdentityForLoggedUser();
         setStage('app');
         addAuditLog('Login de Cidadão via Autenticação Segura', 'success');
       }
