@@ -40,6 +40,7 @@ import {
   SolicitarDocumentoContent,
   RegisterStepper,
   HomologationGate,
+  ResetPasswordStepper,
   VoiceGuideAssistant,
   InstitutionDetail,
   InstQrCodeContent,
@@ -672,7 +673,7 @@ export default function App() {
   }, [userMaritalStatus]);
 
   // UI States
-  const [loginSubMode, setLoginSubMode] = useState<'normal' | 'two-factor' | 'face-capture' | 'register'>('normal');
+  const [loginSubMode, setLoginSubMode] = useState<'normal' | 'two-factor' | 'face-capture' | 'register' | 'forgot'>('normal');
   const [loginError, setLoginError] = useState<string | null>(null);
 
   const [showVoiceGuide, setShowVoiceGuide] = useState(false);
@@ -3858,9 +3859,7 @@ Ficha civil do titular:
                         <button
                           type="button"
                           onClick={() => {
-                            setAccessModalTitle('Recuperação de Credenciais');
-                            setAccessModalMessage('Para recuperar a sua senha ou o seu código de segurança governamental (PIN), por favor dirija-se a um guiché físico de atendimento do SME, AGT ou contacte a linha oficial de suporte do Correio Digital de Angola.');
-                            setShowAccessModal(true);
+                            setLoginSubMode('forgot');
                           }}
                           className="text-slate-650 hover:text-[#0c2340] transition-colors bg-transparent border-none cursor-pointer text-[11px] font-black uppercase tracking-widest font-sans flex items-center gap-1.5"
                         >
@@ -4194,6 +4193,23 @@ Ficha civil do titular:
                 >
                   <RegisterStepper 
                     onCancel={() => setLoginSubMode('normal')} 
+                    onSuccess={() => setLoginSubMode('normal')}
+                    addAuditLog={addAuditLog}
+                    appMode={appMode}
+                  />
+                </motion.div>
+              )}
+
+              {loginSubMode === 'forgot' && (
+                <motion.div
+                  key="login-forgot"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="flex-1 flex flex-col justify-center"
+                >
+                  <ResetPasswordStepper
+                    onCancel={() => setLoginSubMode('normal')}
                     onSuccess={() => setLoginSubMode('normal')}
                     addAuditLog={addAuditLog}
                     appMode={appMode}
