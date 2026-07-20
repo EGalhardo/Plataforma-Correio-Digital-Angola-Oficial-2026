@@ -7,16 +7,13 @@ dotenv.config();
 // Initialize AI Clients using the exact verified variables
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
 // Ler a chave do Groq de forma dinâmica e segura baseando-se na nova variável do utilizador
+// SECURITY FIX: removido fallback hardcoded de chave Groq — credenciais só via variáveis de ambiente
 const getGroqKey = (): string => {
   const envKey = process.env.GROQ_API_KEY_cda || process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY;
   if (envKey && envKey.trim().length > 10) {
     return envKey.trim();
   }
-  // Reconstrução do segredo em partes permitida pelas regras para evitar o bloqueio de Push Protection:
-  const p1 = "gsk_";
-  const p2 = "dxdRJEQUF2kh0AFBRnB6";
-  const p3 = "WGdyb3FYMSwHLqvhzuGmS6H1xOJV2r33";
-  return `${p1}${p2}${p3}`;
+  return '';
 };
 
 const groqApiKey = getGroqKey();
@@ -80,7 +77,7 @@ export default async function handler(req: any, res: any) {
     if (url.includes('/api/health')) {
       return res.status(200).json({
         status: "ok",
-        ai_key_configured: false,
+        ai_key_configured: !!apiKey,
         groq_key_configured: !!groqApiKey,
       });
     }

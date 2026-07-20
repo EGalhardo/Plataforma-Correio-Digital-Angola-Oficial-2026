@@ -16,7 +16,6 @@
     "verify:supabase": "tsx scripts/verifySupabase.ts",
     "test:interop": "tsx scripts/testInteroperabilidade.ts",
     "test:pilot": "tsx scripts/pilotComprehensive.ts",
-    "test:interconexao": "tsx scripts/pilotInterconexaoCompleta.ts",
     "production:readiness": "tsx scripts/productionReadiness.ts"
   },
   "dependencies": {

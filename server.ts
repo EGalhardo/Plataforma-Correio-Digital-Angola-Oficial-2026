@@ -88,8 +88,11 @@ async function startServer() {
     } catch {
       return null;
     }
+    // FIX: Node.js 20 não tem WebSocket nativo — passar o transport 'ws'
+    // (mesma abordagem já usada em scripts/bootstrapSupabase.ts, verifySupabase.ts e productionReadiness.ts)
     return createClient(url, serviceKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
+      auth: { autoRefreshToken: false, persistSession: false },
+      realtime: { transport: WebSocket as any }
     });
   };
 
@@ -107,47 +110,53 @@ async function startServer() {
   });
 
   app.get('/api/security/readiness', async (req, res) => {
-    const runtimeFlags = getRuntimeFlags();
-    const blockers: string[] = [];
-    const warnings: string[] = [];
-    const tableHealth: Record<string, { ok: boolean; count?: number; error?: string }> = {};
+    // FIX: handler async em Express 4 — sem try/catch qualquer exceção derruba o processo (unhandled rejection)
+    try {
+      const runtimeFlags = getRuntimeFlags();
+      const blockers: string[] = [];
+      const warnings: string[] = [];
+      const tableHealth: Record<string, { ok: boolean; count?: number; error?: string }> = {};
 
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      warnings.push('SUPABASE_SERVICE_ROLE_KEY não configurada para operações administrativas.');
-    }
-    if (runtimeFlags.mock_fallback) {
-      blockers.push('VITE_ENABLE_MOCK_FALLBACK=true — desativar antes de produção.');
-    }
-    if (runtimeFlags.supabase_auto_seed) {
-      blockers.push('VITE_ENABLE_SUPABASE_AUTO_SEED=true — desativar antes de produção.');
-    }
-    if (runtimeFlags.local_bootstrap) {
-      warnings.push('VITE_ENABLE_LOCAL_BOOTSTRAP=true — confirmar estratégia offline antes de produção.');
-    }
-
-    const adminSupabase = createSupabaseAdminClient();
-    if (!adminSupabase) {
-      blockers.push('Credenciais do Supabase não configuradas no servidor.');
-    } else {
-      const tables = ['profiles','messages','message_state_history','documents','contacts','notifications','user_requests','document_requests','audit_logs','digital_protocols'];
-      for (const table of tables) {
-        const { count, error } = await adminSupabase.from(table).select('*', { count: 'exact', head: true });
-        tableHealth[table] = {
-          ok: !error,
-          count: typeof count === 'number' ? count : undefined,
-          error: error?.message,
-        };
-        if (error) blockers.push(`Tabela indisponível: ${table} (${error.message})`);
+      if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        warnings.push('SUPABASE_SERVICE_ROLE_KEY não configurada para operações administrativas.');
       }
-    }
+      if (runtimeFlags.mock_fallback) {
+        blockers.push('VITE_ENABLE_MOCK_FALLBACK=true — desativar antes de produção.');
+      }
+      if (runtimeFlags.supabase_auto_seed) {
+        blockers.push('VITE_ENABLE_SUPABASE_AUTO_SEED=true — desativar antes de produção.');
+      }
+      if (runtimeFlags.local_bootstrap) {
+        warnings.push('VITE_ENABLE_LOCAL_BOOTSTRAP=true — confirmar estratégia offline antes de produção.');
+      }
 
-    res.json({
-      status: blockers.length === 0 ? 'production-candidate' : 'not-ready',
-      blockers,
-      warnings,
-      runtime_flags: runtimeFlags,
-      table_health: tableHealth,
-    });
+      const adminSupabase = createSupabaseAdminClient();
+      if (!adminSupabase) {
+        blockers.push('Credenciais do Supabase não configuradas no servidor.');
+      } else {
+        const tables = ['profiles','messages','message_state_history','documents','contacts','notifications','user_requests','document_requests','audit_logs','digital_protocols'];
+        for (const table of tables) {
+          const { count, error } = await adminSupabase.from(table).select('*', { count: 'exact', head: true });
+          tableHealth[table] = {
+            ok: !error,
+            count: typeof count === 'number' ? count : undefined,
+            error: error?.message,
+          };
+          if (error) blockers.push(`Tabela indisponível: ${table} (${error.message})`);
+        }
+      }
+
+      res.json({
+        status: blockers.length === 0 ? 'production-candidate' : 'not-ready',
+        blockers,
+        warnings,
+        runtime_flags: runtimeFlags,
+        table_health: tableHealth,
+      });
+    } catch (err: any) {
+      console.error('error in /api/security/readiness:', err);
+      res.status(500).json({ error: err?.message || 'Erro ao verificar prontidão de segurança.' });
+    }
   });
 
   // API for Government AI
