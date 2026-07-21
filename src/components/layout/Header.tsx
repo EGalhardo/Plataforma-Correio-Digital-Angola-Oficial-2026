@@ -56,55 +56,48 @@ function UnreadMessagesMenu({
   onOpenMessage?: (message: Message) => void;
   onShowNotifications: () => void;
 }) {
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [open, onClose]);
-
   if (!open) return null;
 
+  // Estrutura idêntica ao dropdown de Notificações (padrão comprovado da app):
+  // backdrop fixo fecha ao clicar fora + painel fixo independente do z-index e
+  // do overflow dos cabeçalhos — assim as opções recebem SEMPRE o clique.
   return (
-    <div ref={menuRef} className="absolute right-0 top-full mt-2 w-[320px] max-w-[88vw] bg-white rounded-2xl shadow-[0_20px_50px_rgba(15,23,42,0.16)] border border-slate-100 z-[170] overflow-hidden text-left">
-      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">Mensagens não lidas</span>
-        <span className="text-[9px] font-black text-white bg-red-600 rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center leading-none">{messages.length}</span>
+    <>
+      <div className="fixed inset-0 z-[150]" onClick={onClose} />
+      <div className="fixed top-16 md:top-20 right-3 md:right-6 z-[160] w-[min(92vw,340px)] bg-white rounded-2xl shadow-[0_20px_50px_rgba(15,23,42,0.18)] border border-slate-100 overflow-hidden text-left">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">Mensagens não lidas</span>
+          <span className="text-[9px] font-black text-white bg-red-600 rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center leading-none">{messages.length}</span>
+        </div>
+        <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
+          {messages.length === 0 ? (
+            <div className="px-4 py-6 text-center text-[11px] font-bold text-slate-400">Sem mensagens não lidas.</div>
+          ) : messages.map((msg) => (
+            <button
+              key={msg.id}
+              type="button"
+              onClick={() => { onOpenMessage?.(msg); onClose(); }}
+              className="w-full text-left px-4 py-3 hover:bg-blue-50/60 transition-colors border-b border-slate-50 last:border-b-0 cursor-pointer flex items-start gap-2.5"
+            >
+              <span className="mt-1.5 w-2 h-2 rounded-full bg-blue-600 shrink-0" />
+              <span className="flex-1 min-w-0">
+                <span className="block text-[10px] font-black uppercase tracking-wide text-slate-800 truncate">{msg.org}</span>
+                <span className="block text-[11px] font-bold text-slate-600 truncate">{msg.details?.subject || msg.preview}</span>
+                <span className="block text-[9px] font-semibold text-slate-400 mt-0.5">{msg.date}</span>
+              </span>
+              <Mail size={13} className="text-slate-300 shrink-0 mt-1.5" />
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => { onClose(); onShowNotifications(); }}
+          className="w-full px-4 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-[9.5px] font-black uppercase tracking-widest text-slate-500 flex items-center justify-center gap-1.5 cursor-pointer border-t border-slate-100"
+        >
+          <Bell size={11} /> Ver notificações do sistema
+        </button>
       </div>
-      <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
-        {messages.length === 0 ? (
-          <div className="px-4 py-6 text-center text-[11px] font-bold text-slate-400">Sem mensagens não lidas.</div>
-        ) : messages.map((msg) => (
-          <button
-            key={msg.id}
-            type="button"
-            onClick={() => { onOpenMessage?.(msg); onClose(); }}
-            className="w-full text-left px-4 py-3 hover:bg-blue-50/60 transition-colors border-b border-slate-50 last:border-b-0 cursor-pointer flex items-start gap-2.5"
-          >
-            <span className="mt-1.5 w-2 h-2 rounded-full bg-blue-600 shrink-0" />
-            <span className="flex-1 min-w-0">
-              <span className="block text-[10px] font-black uppercase tracking-wide text-slate-800 truncate">{msg.org}</span>
-              <span className="block text-[11px] font-bold text-slate-600 truncate">{msg.details?.subject || msg.preview}</span>
-              <span className="block text-[9px] font-semibold text-slate-400 mt-0.5">{msg.date}</span>
-            </span>
-            <Mail size={13} className="text-slate-300 shrink-0 mt-1.5" />
-          </button>
-        ))}
-      </div>
-      <button
-        type="button"
-        onClick={() => { onClose(); onShowNotifications(); }}
-        className="w-full px-4 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-[9.5px] font-black uppercase tracking-widest text-slate-500 flex items-center justify-center gap-1.5 cursor-pointer border-t border-slate-100"
-      >
-        <Bell size={11} /> Ver notificações do sistema
-      </button>
-    </div>
+    </>
   );
 }
 

@@ -2079,10 +2079,11 @@ export default function App() {
   const unreadTotal = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id)).reduce((sum, msg) => sum + (msg.unread || 0), 0), [currentInbox, deletedMessageIds, hiddenMessageIds]);
   const unreadMessagesList = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id) && !!msg.unread), [currentInbox, deletedMessageIds, hiddenMessageIds]);
 
-  // Menu da foto de perfil: abrir mensagem não lida → marca como lida e abre o detalhe em Correspondências.
+  // Menu da foto de perfil: abrir mensagem não lida → marca como lida e garante
+  // que a página final é SEMPRE o detalhe da mensagem (tab 'mensagem').
   const handleOpenUnreadMessage = (message: Message) => {
-    setTab('correspondencias');
     handleSelectMessage(message);
+    setTab('mensagem');
   };
 
   const currentDocInbox = isInstMode ? instDocInbox : (homologationPendingForCitizen ? [] : docInbox);
