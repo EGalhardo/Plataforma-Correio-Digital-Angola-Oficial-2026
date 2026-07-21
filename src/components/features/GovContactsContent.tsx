@@ -440,6 +440,9 @@ export function GovContactsContent({
   // Canal exclusivo Admin ⇄ Cidadão (homologação)
   const [adminMsgInput, setAdminMsgInput] = useState<string>('');
   const [adminThreadRefresh, setAdminThreadRefresh] = useState<number>(0);
+  // Eliminação de cadastro: popup de confirmação + estado de progresso
+  const [deleteConfirmCitizen, setDeleteConfirmCitizen] = useState<Citizen | null>(null);
+  const [isDeletingCitizen, setIsDeletingCitizen] = useState<boolean>(false);
   const [modalActiveTab, setModalActiveTab] = useState<'validation' | 'activity' | 'edit'>('validation');
 
   // Edit fields states for selection inside modal
@@ -876,6 +879,50 @@ export function GovContactsContent({
     } catch (err) {
       console.error(err);
       return false;
+    }
+  };
+
+  // Remove o registo da nuvem (solicitacoes_registo). Devolve false se falhar —
+  // nesse caso a linha NÃO é removida da consola, para não ressuscitar no próximo load.
+  const deleteRegistrationRecord = async (recordId: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('solicitacoes_registo')
+        .delete()
+        .eq('id', recordId);
+      if (error) {
+        if (error.code === 'PGRST205') return true; // tabela ausente: nada a remover na nuvem
+        console.error(error);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error(err);
+      return false;
+    }
+  };
+
+  // Acção confirmada no popup de eliminação
+  const confirmDeleteCitizen = async () => {
+    const target = deleteConfirmCitizen;
+    if (!target) return;
+    setIsDeletingCitizen(true);
+    try {
+      if (target.dbUUID || target.id.length > 20) {
+        const ok = await deleteRegistrationRecord(target.dbUUID || target.id);
+        if (!ok) {
+          alert('Não foi possível eliminar o registo na base de dados central. Verifique a ligação à internet e tente novamente.');
+          return;
+        }
+      }
+      setCitizens(prev => prev.filter(c => c.id !== target.id));
+      if (target.biNumber) {
+        try { homologationStore.clearStatus(target.biNumber); } catch (e) { /* ignora */ }
+      }
+      addAuditLog?.(`Remoção: Cadastro do cidadão "${target.name}" (BI: ${target.biNumber || '—'}) eliminado permanentemente pelo Administrador.`, 'critical');
+      setDeleteConfirmCitizen(null);
+    } finally {
+      setIsDeletingCitizen(false);
     }
   };
 
@@ -2140,18 +2187,18 @@ export function GovContactsContent({
               </div>
             </div>
           ) : (
-            <div className="overflow-auto rounded-[24px] bg-slate-50/20 custom-scrollbar max-h-[600px] border border-slate-200">
-              <table className="mobile-data-table w-full text-left border-collapse min-w-[1000px]">
+            <div className="overflow-auto rounded-[24px] bg-slate-50/20 custom-scrollbar max-h-[70vh] border border-slate-200">
+              <table className="mobile-data-table w-full text-left border-collapse min-w-[900px]">
                 <thead className="sticky top-0 z-10 bg-blue-950 text-white text-[10px] font-black uppercase tracking-widest">
                   <tr>
-                    <th className="py-4 px-5 rounded-l-2xl">Cidadão / Tipo</th>
-                    <th className="py-4 px-5">Documento BI</th>
-                    <th className="py-4 px-5">Contacto</th>
-                    <th className="py-4 px-5">Localidade</th>
-                    <th className="py-4 px-5 text-center">Score Match IA</th>
-                    <th className="py-4 px-5 text-center">Estado</th>
-                    <th className="py-4 px-5 text-center">Anexos / Ficheiros</th>
-                    <th className="py-4 px-5 text-center rounded-r-2xl">Ações</th>
+                    <th className="py-3 px-3 rounded-l-2xl">Cidadão / Tipo</th>
+                    <th className="py-3 px-3">Documento BI</th>
+                    <th className="py-3 px-3">Contacto</th>
+                    <th className="py-3 px-3">Localidade</th>
+                    <th className="py-3 px-3 text-center">Score Match IA</th>
+                    <th className="py-3 px-3 text-center">Estado</th>
+                    <th className="py-3 px-3 text-center">Anexos / Ficheiros</th>
+                    <th className="py-3 px-3 text-center rounded-r-2xl">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2175,13 +2222,13 @@ export function GovContactsContent({
                       }}
                       className="text-xs text-[#334155] border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors cursor-pointer"
                     >
-                      <td className="py-4 px-5 font-bold text-slate-900">
+                      <td className="py-3 px-3 font-bold text-slate-900">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0">
                             <img src={citizen.facePhoto} alt="Rosto" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           </div>
                           <div className="min-w-0">
-                            <h4 className="font-display font-black text-slate-900 text-xs sm:text-sm uppercase leading-tight tracking-tight truncate max-w-[200px]">
+                            <h4 className="font-display font-black text-slate-900 text-xs sm:text-sm uppercase leading-tight tracking-tight truncate max-w-[150px]">
                               {citizen.name}
                             </h4>
                             <div className="flex items-center gap-2 mt-1">
@@ -2198,19 +2245,19 @@ export function GovContactsContent({
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-5 font-mono font-bold text-slate-800">
+                      <td className="py-3 px-3 font-mono font-bold text-slate-800">
                         <div className="flex items-center gap-1">
                           <IdCard size={11} className="text-slate-400 shrink-0" />
                           <span>{citizen.biNumber}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-5 font-sans text-slate-600 font-bold">
+                      <td className="py-3 px-3 font-sans text-slate-600 font-bold">
                         <div className="leading-tight">
                           <div>{citizen.phone || citizen.contact}</div>
                           <div className="text-[10px] text-slate-400 font-normal mt-0.5">{citizen.email}</div>
                         </div>
                       </td>
-                      <td className="py-4 px-5 font-bold text-slate-705">
+                      <td className="py-3 px-3 font-bold text-slate-705">
                         <div className="flex items-center gap-1.5">
                           <MapPin size={11} className="text-slate-400 shrink-0" />
                           <div>
@@ -2219,7 +2266,7 @@ export function GovContactsContent({
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-5 text-center font-mono font-black">
+                      <td className="py-3 px-3 text-center font-mono font-black">
                         {citizen.facialMatch !== undefined ? (
                           <div className="flex flex-col items-center justify-center">
                             <span className={citizen.facialMatch >= 90 ? 'text-emerald-600' : citizen.facialMatch >= 70 ? 'text-amber-500' : 'text-rose-600'}>
@@ -2236,7 +2283,7 @@ export function GovContactsContent({
                           <span className="text-slate-300">&mdash;</span>
                         )}
                       </td>
-                      <td className="py-4 px-5 text-center">
+                      <td className="py-3 px-3 text-center">
                         <div className="flex flex-col items-center gap-1">
                           {citizen.status === 'Pendente de Validação' && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-50 text-orange-655 border border-orange-100 text-[8.5px] font-black uppercase tracking-wider animate-pulse select-none">
@@ -2280,7 +2327,7 @@ export function GovContactsContent({
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-5 text-center">
+                      <td className="py-3 px-3 text-center">
                         <div className="flex flex-col items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1 bg-slate-50 border border-slate-205 rounded-lg p-1 px-1.5 py-0.5 text-[9px] font-bold text-slate-600 shadow-3xs" title="Ficheiros de documentos digitais">
                             <FileText size={9} className="text-indigo-650" />
@@ -2292,8 +2339,8 @@ export function GovContactsContent({
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-5 text-center">
-                        <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex flex-col items-stretch justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                           {citizen.status === 'Pendente de Validação' || citizen.status === 'Em Análise pela IA' || citizen.status === 'Em Revisão Administrativa' ? (
                             <button
                               onClick={(e) => {
@@ -2378,15 +2425,12 @@ export function GovContactsContent({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (confirm(`Remover usuário "${citizen.name}" permanentemente do cadastro?`)) {
-                                setCitizens(prev => prev.filter(c => c.id !== citizen.id));
-                                addAuditLog?.(`Remoção: Usuário "${citizen.name}" removido permanentemente.`, 'critical');
-                              }
+                              setDeleteConfirmCitizen(citizen);
                             }}
-                            className="bg-rose-50 hover:bg-rose-105 text-rose-650 border border-slate-200 p-1.5 rounded-lg cursor-pointer transition-colors"
-                            title="Eliminar permanentemente"
+                            className="bg-rose-600 hover:bg-rose-700 text-white font-black text-[9px] uppercase tracking-wide py-2 px-2.5 rounded-lg cursor-pointer border-0 transition-colors shadow-xs active:scale-95 flex items-center justify-center gap-1.5"
+                            title="Eliminar cadastro permanentemente"
                           >
-                            <Trash2 size={11} />
+                            <Trash2 size={11} /> Eliminar
                           </button>
                         </div>
                       </td>
@@ -3358,6 +3402,73 @@ export function GovContactsContent({
                 </div>
               </div>
 
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* POPUP DE CONFIRMAÇÃO DE ELIMINAÇÃO DE CADASTRO */}
+      <AnimatePresence>
+        {deleteConfirmCitizen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isDeletingCitizen && setDeleteConfirmCitizen(null)}
+              className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-[300]"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 12 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] max-w-md bg-white rounded-[28px] shadow-3xl z-[301] border border-rose-100 text-left font-sans overflow-hidden"
+            >
+              <div className="bg-rose-600 px-6 py-5 text-white flex items-start gap-3">
+                <div className="w-11 h-11 bg-white/15 rounded-2xl flex items-center justify-center shrink-0">
+                  <AlertTriangle size={22} className="text-white" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-rose-100">Acção irreversível · Requer confirmação</p>
+                  <h3 className="text-base font-black uppercase tracking-tight mt-0.5">Eliminar Cadastro do Cidadão</h3>
+                </div>
+              </div>
+              <div className="p-6 space-y-4">
+                <p className="text-[12px] text-slate-600 font-semibold leading-relaxed">
+                  Tem a certeza de que pretende eliminar permanentemente o cadastro de
+                  <span className="font-black text-slate-900"> "{deleteConfirmCitizen.name}"</span>
+                  {deleteConfirmCitizen.biNumber ? <> (BI: <span className="font-mono font-bold">{deleteConfirmCitizen.biNumber}</span>)</> : null}?
+                </p>
+                <div className="bg-rose-50 border border-rose-100 rounded-2xl p-3.5 text-[10.5px] font-bold text-rose-700 leading-relaxed uppercase tracking-wide">
+                  Esta acção remove o registo da base de dados central e desta consola, incluindo os dados de validação associados. Não pode ser anulada.
+                </div>
+                <div className="flex flex-col-reverse sm:flex-row gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    disabled={isDeletingCitizen}
+                    onClick={() => setDeleteConfirmCitizen(null)}
+                    className="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold text-[11px] uppercase tracking-widest rounded-xl cursor-pointer bg-white transition-all disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isDeletingCitizen}
+                    onClick={confirmDeleteCitizen}
+                    className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] uppercase tracking-widest rounded-xl cursor-pointer border-0 shadow-md transition-all active:scale-95 disabled:opacity-60 flex items-center justify-center gap-1.5"
+                  >
+                    {isDeletingCitizen ? (
+                      <>
+                        <RefreshCw size={13} className="animate-spin" /> A eliminar...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 size={13} /> Eliminar Definitivamente
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </>
         )}
