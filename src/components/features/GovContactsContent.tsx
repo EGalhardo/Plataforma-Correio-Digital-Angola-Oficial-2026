@@ -3422,7 +3422,7 @@ export function GovContactsContent({
               initial={{ opacity: 0, scale: 0.92, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.92, y: 12 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] max-w-md bg-white rounded-[28px] shadow-3xl z-[301] border border-rose-100 text-left font-sans overflow-hidden"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[94vw] max-w-lg bg-white rounded-[28px] shadow-3xl z-[301] border border-rose-100 text-left font-sans overflow-hidden"
             >
               <div className="bg-rose-600 px-6 py-5 text-white flex items-start gap-3">
                 <div className="w-11 h-11 bg-white/15 rounded-2xl flex items-center justify-center shrink-0">
@@ -3447,7 +3447,7 @@ export function GovContactsContent({
                     type="button"
                     disabled={isDeletingCitizen}
                     onClick={() => setDeleteConfirmCitizen(null)}
-                    className="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold text-[11px] uppercase tracking-widest rounded-xl cursor-pointer bg-white transition-all disabled:opacity-50"
+                    className="flex-1 py-2.5 px-4 border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold text-[10px] uppercase tracking-wide leading-none rounded-xl cursor-pointer bg-white transition-all disabled:opacity-50 text-center whitespace-nowrap"
                   >
                     Cancelar
                   </button>
@@ -3455,15 +3455,15 @@ export function GovContactsContent({
                     type="button"
                     disabled={isDeletingCitizen}
                     onClick={confirmDeleteCitizen}
-                    className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] uppercase tracking-widest rounded-xl cursor-pointer border-0 shadow-md transition-all active:scale-95 disabled:opacity-60 flex items-center justify-center gap-1.5"
+                    className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] uppercase tracking-wide leading-none rounded-xl cursor-pointer border-0 shadow-md transition-all active:scale-95 disabled:opacity-60 flex items-center justify-center gap-1.5 text-center whitespace-nowrap"
                   >
                     {isDeletingCitizen ? (
                       <>
-                        <RefreshCw size={13} className="animate-spin" /> A eliminar...
+                        <RefreshCw size={12} className="animate-spin shrink-0" /> A eliminar...
                       </>
                     ) : (
                       <>
-                        <Trash2 size={13} /> Eliminar Definitivamente
+                        <Trash2 size={12} className="shrink-0" /> Eliminar Definitivamente
                       </>
                     )}
                   </button>
