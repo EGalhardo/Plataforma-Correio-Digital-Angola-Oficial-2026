@@ -78,6 +78,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
   const [editEmail, setEditEmail] = useState(user?.email || '');
   const [editFiliation, setEditFiliation] = useState(user?.filiation || 'António Galhardo & Maria Conceição');
   const [editMaritalStatus, setEditMaritalStatus] = useState(user?.maritalStatus || 'Solteiro');
+  const [editMorada, setEditMorada] = useState(user?.address || '');
 
   useEffect(() => {
     setEditName(user?.name || '');
@@ -85,6 +86,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
     setEditEmail(user?.email || '');
     setEditFiliation(user?.filiation || 'António Galhardo & Maria Conceição');
     setEditMaritalStatus(user?.maritalStatus || 'Solteiro');
+    setEditMorada(user?.address || '');
   }, [user]);
 
   const handleSaveDirectEdit = async () => {
@@ -94,7 +96,8 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
         phone: editPhone,
         email: editEmail,
         filiation: editFiliation,
-        maritalStatus: editMaritalStatus
+        maritalStatus: editMaritalStatus,
+        address: editMorada
       });
 
       if (hasValidSupabaseKeys()) {
@@ -710,9 +713,10 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Morada Residencial</span>
                   <input 
                     type="text"
-                    defaultValue=""
-                    disabled
-                    className="w-full p-2 bg-slate-100/50 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 focus:outline-none cursor-not-allowed"
+                    value={editMorada}
+                    onChange={(e) => setEditMorada(e.target.value)}
+                    placeholder="Ex.: Centralidade do Kilamba, Bloco T22, Luanda"
+                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-855 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800"
                   />
                 </div>
               </div>
@@ -725,7 +729,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                   { label: 'Telemóvel Registado', value: '', type: 'phone' },
                   { label: 'Estado Civil', value: user?.maritalStatus || 'Solteiro(a)', type: 'text' },
                   { label: 'Filiação (Paternidade & Maternidade)', value: user?.filiation || 'António Galhardo & Maria Conceição', type: 'text' },
-                  { label: 'Morada Residencial', value: '', type: 'text', colSpan: 'md:col-span-2' },
+                  { label: 'Morada Residencial', value: user?.address || '', type: 'text', colSpan: 'md:col-span-2' },
                   { label: 'Registo do Sistema Central', value: 'Conta criada em: 16 de Junho de 2025', type: 'text', colSpan: 'md:col-span-2', subtle: true }
                 ].map((field, index) => (
                   <div 

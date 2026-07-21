@@ -5,9 +5,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mic, Globe, ChevronDown, Check, Sun, Moon } from 'lucide-react';
+import { Mic, Globe, ChevronDown, Check, Sun, Moon, Mail, Bell } from 'lucide-react';
 import { useSession } from '../../services/sessionStore';
-import { AppNotification, AppMode, LanguageCode, LANGUAGE_OPTIONS } from '../../types';
+import { AppNotification, AppMode, LanguageCode, LANGUAGE_OPTIONS, Message } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
 import { LazyImage } from '../ui/LazyImage';
 import { hasPagePresentation } from '../../services/voicePresentations';
@@ -36,7 +36,76 @@ interface HeaderProps {
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
   unreadCorrespondencesCount?: number;
+  /** Mensagens não lidas da caixa do utilizador — listadas no menu da foto de perfil. */
+  unreadMessages?: Message[];
+  /** Abre uma mensagem não lida (marca-a como lida e navega para Correspondências). */
+  onOpenUnreadMessage?: (message: Message) => void;
   chatAssistantRecognitionRef?: any; // Utilizar 'any' estável no padrão do ficheiro para evitar dependência de namespace React
+}
+
+function UnreadMessagesMenu({
+  open,
+  onClose,
+  messages,
+  onOpenMessage,
+  onShowNotifications
+}: {
+  open: boolean;
+  onClose: () => void;
+  messages: Message[];
+  onOpenMessage?: (message: Message) => void;
+  onShowNotifications: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div ref={menuRef} className="absolute right-0 top-full mt-2 w-[320px] max-w-[88vw] bg-white rounded-2xl shadow-[0_20px_50px_rgba(15,23,42,0.16)] border border-slate-100 z-[170] overflow-hidden text-left">
+      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">Mensagens não lidas</span>
+        <span className="text-[9px] font-black text-white bg-red-600 rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center leading-none">{messages.length}</span>
+      </div>
+      <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
+        {messages.length === 0 ? (
+          <div className="px-4 py-6 text-center text-[11px] font-bold text-slate-400">Sem mensagens não lidas.</div>
+        ) : messages.map((msg) => (
+          <button
+            key={msg.id}
+            type="button"
+            onClick={() => { onOpenMessage?.(msg); onClose(); }}
+            className="w-full text-left px-4 py-3 hover:bg-blue-50/60 transition-colors border-b border-slate-50 last:border-b-0 cursor-pointer flex items-start gap-2.5"
+          >
+            <span className="mt-1.5 w-2 h-2 rounded-full bg-blue-600 shrink-0" />
+            <span className="flex-1 min-w-0">
+              <span className="block text-[10px] font-black uppercase tracking-wide text-slate-800 truncate">{msg.org}</span>
+              <span className="block text-[11px] font-bold text-slate-600 truncate">{msg.details?.subject || msg.preview}</span>
+              <span className="block text-[9px] font-semibold text-slate-400 mt-0.5">{msg.date}</span>
+            </span>
+            <Mail size={13} className="text-slate-300 shrink-0 mt-1.5" />
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => { onClose(); onShowNotifications(); }}
+        className="w-full px-4 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-[9.5px] font-black uppercase tracking-widest text-slate-500 flex items-center justify-center gap-1.5 cursor-pointer border-t border-slate-100"
+      >
+        <Bell size={11} /> Ver notificações do sistema
+      </button>
+    </div>
+  );
 }
 
 function LanguageSelectorDropdown({
@@ -143,6 +212,8 @@ export function Header({
   theme,
   setTheme,
   unreadCorrespondencesCount,
+  unreadMessages = [],
+  onOpenUnreadMessage,
   chatAssistantRecognitionRef
 }: HeaderProps) {
   const { user, activeProfile } = useSession();
@@ -151,6 +222,7 @@ export function Header({
   const unreadCount = isUserMode && typeof unreadCorrespondencesCount === 'number'
     ? unreadCorrespondencesCount
     : notifications.filter(n => n.unread !== false).length;
+  const [showUnreadMenu, setShowUnreadMenu] = useState(false);
   const isGov = appMode !== 'user';
   const isAdmin = appMode === 'admin';
   const isInst = appMode === 'institution';
@@ -351,7 +423,7 @@ export function Header({
                 alt="Perfil"
                 priority={true}
                 placeholder="skeleton"
-                onClick={() => setShowNotifications(!showNotifications)}
+                onClick={() => { setShowUnreadMenu(!showUnreadMenu); setShowNotifications(false); }}
                 style={{
                   width: '2rem',
                   height: '2rem',
@@ -370,6 +442,13 @@ export function Header({
                 {unreadCount}
               </div>
             )}
+            <UnreadMessagesMenu
+              open={showUnreadMenu}
+              onClose={() => setShowUnreadMenu(false)}
+              messages={unreadMessages}
+              onOpenMessage={onOpenUnreadMessage}
+              onShowNotifications={() => setShowNotifications(true)}
+            />
             <NotificationDropdown />
           </div>
         </div>
@@ -502,7 +581,7 @@ export function Header({
                 alt="Perfil"
                 priority={true}
                 placeholder="skeleton"
-                onClick={() => setShowNotifications(!showNotifications)}
+                onClick={() => { setShowUnreadMenu(!showUnreadMenu); setShowNotifications(false); }}
                 style={{
                   width: '2.5rem',
                   height: '2.5rem',
@@ -519,6 +598,13 @@ export function Header({
                 {unreadCount}
               </div>
             )}
+            <UnreadMessagesMenu
+              open={showUnreadMenu}
+              onClose={() => setShowUnreadMenu(false)}
+              messages={unreadMessages}
+              onOpenMessage={onOpenUnreadMessage}
+              onShowNotifications={() => setShowNotifications(true)}
+            />
             <NotificationDropdown />
           </div>
         </div>

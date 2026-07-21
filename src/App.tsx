@@ -2077,6 +2077,13 @@ export default function App() {
       ? inbox.filter(isOwnHomologationMail)
       : inbox.filter(m => !m.homologation || isOwnHomologationMail(m));
   const unreadTotal = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id)).reduce((sum, msg) => sum + (msg.unread || 0), 0), [currentInbox, deletedMessageIds, hiddenMessageIds]);
+  const unreadMessagesList = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id) && !!msg.unread), [currentInbox, deletedMessageIds, hiddenMessageIds]);
+
+  // Menu da foto de perfil: abrir mensagem não lida → marca como lida e abre o detalhe em Correspondências.
+  const handleOpenUnreadMessage = (message: Message) => {
+    setTab('correspondencias');
+    handleSelectMessage(message);
+  };
 
   const currentDocInbox = isInstMode ? instDocInbox : (homologationPendingForCitizen ? [] : docInbox);
   const unreadDocTotal = useMemo(() => currentDocInbox.reduce((sum, msg) => sum + (msg.unread || 0), 0), [currentDocInbox]);
@@ -4514,6 +4521,8 @@ Ficha civil do titular:
             }}
             offlineQueueLength={offlineQueue.length}
             unreadCorrespondencesCount={unreadTotal}
+            unreadMessages={unreadMessagesList}
+            onOpenUnreadMessage={handleOpenUnreadMessage}
             chatAssistantRecognitionRef={chatAssistantRecognitionRef} // Repassar ref do reconhecimento de voz
             NotificationDropdown={() => (
               <NotificationDropdown 
