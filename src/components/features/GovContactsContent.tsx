@@ -926,6 +926,7 @@ export function GovContactsContent({
         try { homologationStore.clearStatus(biKey); } catch (e) { /* ignora */ }
         try { homologationStore.clearThread(biKey); } catch (e) { /* ignora */ }
         try { localStorage.removeItem(`citizen_pass_${biKey}`); } catch (e) { /* ignora */ }
+        try { localStorage.removeItem(`cda_read_msgs_${(biKey || '').toUpperCase().replace(/\s+/g, '').trim()}`); } catch (e) { /* ignora */ }
         ['user', 'institution', 'admin'].forEach((m) => {
           try { localStorage.removeItem(`cda_demo_face_${m}_${biKey}`); } catch (e) { /* ignora */ }
         });

@@ -83,6 +83,28 @@ import { startImagePreloading, subscribeToPreload } from './utils/imagePreloader
 import { shouldAutoSeedSupabase, shouldUseLocalBootstrap, shouldUseMockFallback } from './config/runtime';
 
 
+// ---- Estado "Lida" persistente por BI: sobrevive a terminar/iniciar sessão ----
+export const cdaReadKey = (rawBi: string): string => `cda_read_msgs_${normalizeHomologationBi(rawBi || '')}`;
+
+export const getReadMessageIds = (rawBi: string): Set<number> => {
+  try {
+    const raw = localStorage.getItem(cdaReadKey(rawBi));
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set<number>(Array.isArray(arr) ? arr.filter((n: unknown): n is number => typeof n === 'number') : []);
+  } catch {
+    return new Set<number>();
+  }
+};
+
+export const persistReadMessageId = (rawBi: string, ...ids: number[]): void => {
+  if (!rawBi) return;
+  try {
+    const set = getReadMessageIds(rawBi);
+    ids.forEach(id => set.add(id));
+    localStorage.setItem(cdaReadKey(rawBi), JSON.stringify(Array.from(set)));
+  } catch { /* sem storage: fica só em memória */ }
+};
+
 export default function App() {
   const { currentLanguage, setCurrentLanguage, t } = useLanguage();
 
@@ -599,7 +621,8 @@ export default function App() {
 
   const applyDemoPresetForMode = (mode: AppMode, includePassword = false) => {
     const preset = DEMO_CREDENTIALS[mode];
-    setBiLocal(preset.identifier);
+    // Login do cidadão: o campo B.I. fica LIVRE — o nº demo aparece apenas como placeholder.
+    setBiLocal(mode === 'user' ? '' : preset.identifier);
     setPhoneLocal(preset.phone);
     setNifLocal(preset.nif);
     setPassportLocal(preset.passport);
@@ -632,8 +655,9 @@ export default function App() {
   // Contas demo canonicas manutem o preset; outros B.I.s carregam o perfil da nuvem (fallback local).
   const applyIdentityForLoggedUser = async () => {
     if (appMode !== 'user') return;
-    const normalized = bi.trim().toUpperCase();
-    if (!normalized) return;
+    // B.I. em branco no login = assume o identificador demo exibido como placeholder.
+    const normalized = (bi.trim() || DEMO_CREDENTIALS.user.identifier).toUpperCase();
+    if (bi.trim().toUpperCase() !== normalized) setBi(normalized);
     if (normalized === DEMO_CREDENTIALS.user.identifier) {
       // Conta demo canonica: garante que a foto canonica e restaurada
       updateUserFields?.({ avatarUrl: MOCK_SESSION_USER.avatarUrl });
@@ -1074,6 +1098,8 @@ export default function App() {
     const targetId = selectedMessage.id;
     const baseOf = (id: number) => (id >= 10000 && id < 90000000 ? id - 10000 : id);
     const baseId = baseOf(targetId);
+    // Persiste "Lida" para as próximas sessões deste BI (novo login não repõe "Não Lida").
+    persistReadMessageId(bi, targetId, baseId);
     const mark = (list: Message[]) => {
       let touched = false;
       const next = list.map(m => {
@@ -1286,14 +1312,15 @@ export default function App() {
     return 90000000 + (h % 8999999);
   };
 
-  const buildHomologationInboxMessage = (msg: HomologationMessage, cleanBi: string): Message =>
-    ensureProtocolOnMessage({
+  const buildHomologationInboxMessage = (msg: HomologationMessage, cleanBi: string): Message => {
+    const alreadyRead = getReadMessageIds(cleanBi).has(homologationInboxId(msg.id));
+    return ensureProtocolOnMessage({
       id: homologationInboxId(msg.id),
       org: 'Área de Administração · CDA',
       preview: msg.text.length > 96 ? `${msg.text.slice(0, 96)}…` : msg.text,
       date: msg.at,
-      unread: 1,
-      status: 'Recebido',
+      unread: alreadyRead ? 0 : 1,
+      status: alreadyRead ? 'Lida' : 'Recebido',
       institution: 'Área de Administração · CDA',
       details: {
         subject: msg.from === 'system' ? 'Registo Recebido — Homologação Oficial' : 'Comunicação Oficial da Área de Administração',
@@ -1304,6 +1331,7 @@ export default function App() {
       homologation: true,
       homologationBi: cleanBi,
     });
+  };
 
   useEffect(() => {
     if (appMode !== 'user' || !bi) return;
@@ -1325,6 +1353,27 @@ export default function App() {
       if (pruned.length === prev.length && fresh.length === 0) return prev;
       return [...fresh.slice().reverse(), ...pruned];
     });
+  }, [appMode, bi, gateRefreshTick]);
+
+  // Persistência do estado "Lida" entre sessões: re-aplica as leituras guardadas
+  // deste BI sempre que a caixa for (re)construída (novo login, seed, espelho).
+  useEffect(() => {
+    if (appMode !== 'user' || !bi) return;
+    const readIds = getReadMessageIds(bi);
+    if (readIds.size === 0) return;
+    const baseOfId = (id: number) => (id >= 10000 && id < 90000000 ? id - 10000 : id);
+    const applyRead = (list: Message[]) => {
+      let touched = false;
+      const next = list.map(m => {
+        if (!m.unread) return m;
+        if (!readIds.has(m.id) && !readIds.has(baseOfId(m.id))) return m;
+        touched = true;
+        return { ...m, unread: 0, status: 'Lida' };
+      });
+      return touched ? next : list;
+    };
+    setInbox(prev => applyRead(prev));
+    setDocInbox(prev => applyRead(prev));
   }, [appMode, bi, gateRefreshTick]);
 
   // Auto-scroll to top on tab/stage change
