@@ -622,6 +622,10 @@ export default function App() {
       birthDate: preset.birthDate,
       filiation: preset.filiation,
       maritalStatus: preset.maritalStatus,
+      // Repõe SEMPRE a foto canónica do perfil demo: sem isto, a selfie do último
+      // cidadão registado (guardada no user de sessão partilhado) infiltrava-se na
+      // área de Administração/Instituição, cujos logins não resolvem avatar próprio.
+      avatarUrl: MOCK_SESSION_USER.avatarUrl,
     });
   };
 
