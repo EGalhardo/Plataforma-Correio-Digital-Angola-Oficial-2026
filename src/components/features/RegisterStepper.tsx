@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore, notifyRegistrationSubmitted } from '../../services/homologationStore';
+import { runRegistrationVerification, type RegistrationVerificationReport } from '../../services/verificationEngine';
 
 const base64ToBlob = (base64Str: string): Blob => {
   try {
@@ -74,6 +75,11 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   const [scanStateText, setScanStateText] = useState('Pronto para Captura');
   const [captureFinished, setCaptureFinished] = useState(false);
   const [savedFacePhoto, setSavedFacePhoto] = useState<string>('');
+
+  // Pré-verificação real dos documentos (Fase 1 — motor local no browser)
+  const [verificationReport, setVerificationReport] = useState<RegistrationVerificationReport | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const verificationStartedRef = useRef(false);
 
   // Motor Biométrico Real (mesma configuração do Login Facial do App.tsx)
   const [webcamReady, setWebcamReady] = useState(false);
@@ -332,6 +338,30 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
     };
   }, [step]);
 
+  // Pré-verificação automática (Fase 1): dispara quando a captura facial termina
+  useEffect(() => {
+    if (!captureFinished || !savedFacePhoto || verificationStartedRef.current) return;
+    verificationStartedRef.current = true;
+    setIsVerifying(true);
+    addAuditLog('Pré-verificação automática dos documentos iniciada (motor local)', 'info');
+    runRegistrationVerification({
+      frontImageDataUrl: frentePreview,
+      selfieDataUrl: savedFacePhoto,
+      typedBi: biNumber,
+      typedName: name
+    }).then(report => {
+      setVerificationReport(report);
+      addAuditLog(`Pré-verificação concluída em ${report.durationMs}ms — coerência global ${report.coherenceScore}% (${report.iaResult})`, 'info');
+      if (report.errors.length > 0) {
+        addAuditLog(`Pré-verificação com análises indisponíveis: ${report.errors.join('; ')}`, 'warning');
+      }
+    }).catch(err => {
+      console.error('Falha global na pré-verificação:', err);
+    }).finally(() => {
+      setIsVerifying(false);
+    });
+  }, [captureFinished, savedFacePhoto, frentePreview, biNumber, name, addAuditLog]);
+
   // Fluxo robusto de registo em 3 capturas (Frente → Esquerda → Sorriso/Cima) com fusão criptográfica
   const startCameraScan = async () => {
     if (!webcamReady || isScanning || captureFinished) return;
@@ -425,10 +455,17 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       status: 'Pendente' as const,
       biNumber: biNumber.toUpperCase(),
       facePhoto: savedFacePhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face',
-      verificationScore: parseFloat((94 + Math.random() * 5).toFixed(1)),
-      reason: appMode === 'institution' 
-        ? '[Instituição] Adesão formal para a instituição ENDE. Pendente de homologação administrativa.' 
-        : 'Aguardando validação formal de vivacidade e homologação de dados por analista tributário e SME.'
+      verificationScore: verificationReport ? verificationReport.coherenceScore : parseFloat((94 + Math.random() * 5).toFixed(1)),
+      // Métricas reais da pré-verificação local (a fila do Admin usa estes valores quando presentes)
+      facialMatch: verificationReport?.face.similarity ?? undefined,
+      imageQuality: verificationReport?.quality.score ?? undefined,
+      ocrDataMatch: verificationReport?.ocr.score ?? undefined,
+      coherenceLevel: verificationReport?.coherenceScore ?? undefined,
+      iaResult: verificationReport?.iaResult ?? undefined,
+      reason: (appMode === 'institution'
+        ? '[Instituição] Adesão formal para a instituição ENDE. Pendente de homologação administrativa.'
+        : 'Aguardando validação formal de vivacidade e homologação de dados por analista tributário e SME.')
+        + (verificationReport ? ` | Pré-verificação local: ${verificationReport.coherenceScore}% (${verificationReport.iaResult})` : '')
     };
 
     let urlFrente = '';
@@ -1203,6 +1240,59 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 </div>
               )}
 
+              {/* Pré-Verificação Automática real dos documentos (Fase 1 — motor local) */}
+              {(isVerifying || verificationReport) && (
+                <div className="bg-white border border-blue-100 rounded-xl p-3 space-y-1.5 max-w-md mx-auto text-left shadow-3xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10.5px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
+                      <ShieldCheck size={13} className="text-[#2563eb]" /> Pré-Verificação Automática
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">local</span>
+                  </div>
+
+                  {isVerifying ? (
+                    <div className="flex items-center gap-2 py-1 text-[10.5px] font-bold text-blue-600">
+                      <Loader2 size={13} className="animate-spin" />
+                      A analisar documento, biometria e coerência…
+                    </div>
+                  ) : verificationReport && (
+                    <>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10.5px]">
+                          <span className="font-bold text-slate-600">Correspondência facial (B.I. ↔ selfie)</span>
+                          <span className={`font-black ${verificationReport.face.similarity !== null ? (verificationReport.face.similarity >= 70 ? 'text-emerald-600' : verificationReport.face.similarity >= 45 ? 'text-amber-600' : 'text-red-500') : 'text-slate-400'}`}>
+                            {verificationReport.face.similarity !== null ? `${verificationReport.face.similarity}%` : 'Indisponível'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10.5px]">
+                          <span className="font-bold text-slate-600">Leitura óptica do documento (OCR)</span>
+                          <span className={`font-black ${verificationReport.ocr.score !== null ? (verificationReport.ocr.score >= 70 ? 'text-emerald-600' : verificationReport.ocr.score >= 45 ? 'text-amber-600' : 'text-red-500') : 'text-slate-400'}`}>
+                            {verificationReport.ocr.score !== null ? `${verificationReport.ocr.score}%` : 'Indisponível'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10.5px]">
+                          <span className="font-bold text-slate-600">Qualidade da imagem do B.I.</span>
+                          <span className="font-black text-slate-700">{verificationReport.quality.score}%</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10.5px] border-t border-slate-100 pt-1">
+                          <span className="font-black text-slate-800 uppercase tracking-wide">Coerência global</span>
+                          <span className="font-black text-[#2563eb]">{verificationReport.coherenceScore}%</span>
+                        </div>
+                      </div>
+                      <div className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full w-fit ${
+                        verificationReport.iaResult === 'Aprovado' ? 'bg-emerald-50 text-emerald-600' :
+                        verificationReport.iaResult === 'Revisão Administrativa' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-500'
+                      }`}>
+                        {verificationReport.iaLabel}
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-semibold leading-normal">
+                        Verificação preliminar local (não certificada) — a decisão final cabe à Área de Administração.
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
+
               {/* Action Buttons Voltar / Terminar */}
               <div className="pt-2.5 border-t border-slate-100 flex flex-col gap-2 max-w-md mx-auto">
                 {isSubmitting && (
@@ -1222,15 +1312,15 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                   </button>
                   <button
                     type="button"
-                    disabled={!captureFinished || isScanning || isSubmitting}
+                    disabled={!captureFinished || isScanning || isSubmitting || isVerifying}
                     onClick={handleFinalSubmit}
                     className={`flex-1 py-2 text-[11.5px] font-black uppercase tracking-widest rounded-xl transition-all border-0 shadow-md flex items-center justify-center gap-1.5 ${
-                      captureFinished && !isScanning && !isSubmitting
+                      captureFinished && !isScanning && !isSubmitting && !isVerifying
                         ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white cursor-pointer shadow-blue-500/20' 
                         : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 shadow-none'
                     }`}
                   >
-                    {isSubmitting ? 'A ENVIAR...' : 'FINALIZAR SUBMISSÃO'} <Check size={13} />
+                    {isVerifying ? 'A ANALISAR...' : isSubmitting ? 'A ENVIAR...' : 'FINALIZAR SUBMISSÃO'} <Check size={13} />
                   </button>
                 </div>
               </div>
