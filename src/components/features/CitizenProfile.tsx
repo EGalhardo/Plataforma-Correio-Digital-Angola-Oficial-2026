@@ -73,14 +73,15 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [editName, setEditName] = useState(user?.name || '');
-  const [editPhone, setEditPhone] = useState(user?.phone || '');
+  // O telemóvel não é recolhido no registo — arranca sempre vazio na ficha do cidadão.
+  const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState(user?.email || '');
   const [editFiliation, setEditFiliation] = useState(user?.filiation || 'António Galhardo & Maria Conceição');
   const [editMaritalStatus, setEditMaritalStatus] = useState(user?.maritalStatus || 'Solteiro');
 
   useEffect(() => {
     setEditName(user?.name || '');
-    setEditPhone(user?.phone || '');
+    setEditPhone('');
     setEditEmail(user?.email || '');
     setEditFiliation(user?.filiation || 'António Galhardo & Maria Conceição');
     setEditMaritalStatus(user?.maritalStatus || 'Solteiro');
@@ -709,7 +710,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Morada Residencial</span>
                   <input 
                     type="text"
-                    defaultValue="Rua do Papel, 45, Luanda, Angola"
+                    defaultValue=""
                     disabled
                     className="w-full p-2 bg-slate-100/50 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 focus:outline-none cursor-not-allowed"
                   />
@@ -721,10 +722,10 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                   { label: 'Nome Completo', value: user?.name || '', type: 'text' },
                   { label: 'B.I. (Nº Bilhete de Identidade)', value: user?.bi || '', type: 'mono' },
                   { label: 'Email Registado', value: user?.email || derivedEmail, type: 'email', verified: true },
-                  { label: 'Telemóvel Registado', value: user?.phone || '', type: 'phone', verified: true },
+                  { label: 'Telemóvel Registado', value: '', type: 'phone' },
                   { label: 'Estado Civil', value: user?.maritalStatus || 'Solteiro(a)', type: 'text' },
                   { label: 'Filiação (Paternidade & Maternidade)', value: user?.filiation || 'António Galhardo & Maria Conceição', type: 'text' },
-                  { label: 'Morada Residencial', value: 'Rua do Papel, 45, Luanda, Angola', type: 'text', colSpan: 'md:col-span-2' },
+                  { label: 'Morada Residencial', value: '', type: 'text', colSpan: 'md:col-span-2' },
                   { label: 'Registo do Sistema Central', value: 'Conta criada em: 16 de Junho de 2025', type: 'text', colSpan: 'md:col-span-2', subtle: true }
                 ].map((field, index) => (
                   <div 

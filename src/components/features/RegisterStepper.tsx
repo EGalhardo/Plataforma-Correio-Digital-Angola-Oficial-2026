@@ -17,7 +17,8 @@ import {
   FileText, 
   Fingerprint, 
   Sparkles,
-  Loader2
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore, notifyRegistrationSubmitted } from '../../services/homologationStore';
@@ -93,6 +94,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   // Submissão ao Supabase
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   // Calculate Password Strength in real time
   useEffect(() => {
@@ -451,6 +453,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   // Form submission and registration inside Supabase (with fallback to local storage)
   const handleFinalSubmit = async () => {
     setIsSubmitting(true);
+    setSubmitError('');
     setSubmitMessage('Enviando documentos para o Supabase Storage...');
 
     // Standard register/institution block
@@ -487,6 +490,30 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       
       if (isSupabaseReady) {
         const biClean = newUser.biNumber.replace(/\s+/g, '');
+
+        // DUPLICADOS: o B.I. e o e-mail são únicos por cidadão — se já
+        // constarem na base de dados, o registo é recusado antes de qualquer envio.
+        setSubmitMessage('A verificar os dados na base de dados...');
+        try {
+          const [{ data: biDup }, { data: emailDup }] = await Promise.all([
+            supabase.from('solicitacoes_registo').select('id').eq('bi_numero', newUser.biNumber).limit(1),
+            supabase.from('solicitacoes_registo').select('id').eq('email', newUser.contact).limit(1)
+          ]);
+          if (biDup && biDup.length > 0) {
+            setSubmitError('Não é possível efectuar o registo: este número de B.I. já se encontra registado.');
+            setIsSubmitting(false);
+            return;
+          }
+          if (emailDup && emailDup.length > 0) {
+            setSubmitError('Não é possível efectuar o registo: este e-mail já se encontra registado.');
+            setIsSubmitting(false);
+            return;
+          }
+        } catch (dupErr) {
+          // Se a verificação falhar (rede/tabela ausente), prossegue — o insert trata duplicados (23505).
+          console.warn('Verificação de duplicados indisponível:', dupErr);
+        }
+        setSubmitMessage('Enviando documentos para o Supabase Storage...');
         
         // Upload front
         if (documentFrente) {
@@ -573,6 +600,12 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
           }]);
 
         if (insertErr) {
+          if (insertErr.code === '23505') {
+            // Rede de segurança: violação da chave única do B.I. (numa corrida)
+            setSubmitError('Não é possível efectuar o registo: este número de B.I. já se encontra registado.');
+            setIsSubmitting(false);
+            return;
+          }
           if (insertErr.code === 'PGRST205') {
             console.warn('Tabela solicitacoes_registo não encontrada. A usar fallback para profiles.');
             const { error: profileErr } = await supabase
@@ -761,7 +794,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     <input 
                       type="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => { setEmail(e.target.value); setSubmitError(''); }}
                       className="w-full bg-transparent font-bold tracking-wider text-slate-800 border-none outline-none text-[13px] placeholder-slate-400"
                       placeholder={appMode === 'institution' ? 'geral@ende.co.ao' : 'manuel.silva@netangola.ao'}
                     />
@@ -886,7 +919,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     <input 
                       type="text"
                       value={biNumber}
-                      onChange={(e) => handleBiChange(e.target.value)}
+                      onChange={(e) => { handleBiChange(e.target.value); setSubmitError(''); }}
                       className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4 py-2 pl-10.5 text-[13px] text-slate-800 outline-none transition-all font-bold tracking-widest placeholder:text-slate-350"
                       placeholder={appMode === 'institution' ? '540132918' : '002931298LA045'}
                       maxLength={14}
@@ -1273,6 +1306,12 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                   <div className="flex items-center justify-center gap-1.5 py-0.5 text-[10px] font-bold text-blue-600 animate-pulse">
                     <Loader2 size={13} className="animate-spin" />
                     {submitMessage}
+                  </div>
+                )}
+                {submitError && !isSubmitting && (
+                  <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 text-[10.5px] font-bold text-red-700 text-left">
+                    <AlertTriangle size={14} className="shrink-0 mt-px text-red-500" />
+                    <span>{submitError}</span>
                   </div>
                 )}
                 <div className="flex gap-3 w-full">
