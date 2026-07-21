@@ -2187,7 +2187,7 @@ export function GovContactsContent({
               </div>
             </div>
           ) : (
-            <div className="overflow-auto rounded-[24px] bg-slate-50/20 custom-scrollbar max-h-[70vh] border border-slate-200">
+            <div style={{ zoom: 0.9 }} className="overflow-auto rounded-[24px] bg-slate-50/20 custom-scrollbar max-h-[70vh] border border-slate-200">
               <table className="mobile-data-table w-full text-left border-collapse min-w-[900px]">
                 <thead className="sticky top-0 z-10 bg-blue-950 text-white text-[10px] font-black uppercase tracking-widest">
                   <tr>
