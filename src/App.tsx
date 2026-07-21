@@ -1281,13 +1281,21 @@ export default function App() {
     if (appMode !== 'user' || !bi) return;
     const cleanBi = normalizeHomologationBi(bi);
     const thread = homologationStore.getThread(bi).filter(m => m.from !== 'citizen');
-    if (thread.length === 0) return;
+    const threadIds = new Set(thread.map(m => homologationInboxId(m.id)));
     setInbox(prev => {
-      const existing = new Set(prev.map(m => m.id));
+      // A thread da loja de homologação é a FONTE DE VERDADE: mensagens deste BI
+      // que já não existam lá (registo recomeçado ou conta eliminada) saem da caixa.
+      const pruned = prev.filter(m =>
+        !m.homologation ||
+        normalizeHomologationBi(m.homologationBi) !== cleanBi ||
+        threadIds.has(m.id)
+      );
+      const existing = new Set(pruned.map(m => m.id));
       const fresh = thread
         .map(msg => buildHomologationInboxMessage(msg, cleanBi))
         .filter(m => !existing.has(m.id));
-      return fresh.length > 0 ? [...fresh.slice().reverse(), ...prev] : prev;
+      if (pruned.length === prev.length && fresh.length === 0) return prev;
+      return [...fresh.slice().reverse(), ...pruned];
     });
   }, [appMode, bi, gateRefreshTick]);
 

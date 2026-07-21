@@ -93,6 +93,16 @@ export const homologationStore = {
     }
   },
 
+  /** Remove TODA a correspondência do BI (ex.: registo recomeçado ou conta eliminada). */
+  clearThread: (bi: string): void => {
+    const key = normalizeHomologationBi(bi);
+    const all = readJson<Record<string, HomologationMessage[]>>(THREADS_KEY, {});
+    if (all[key]) {
+      delete all[key];
+      writeJson(THREADS_KEY, all);
+    }
+  },
+
   /** Thread de correspondência oficial da homologação (Admin ⇄ Cidadão). */
   getThread: (bi?: string): HomologationMessage[] => {
     const key = normalizeHomologationBi(bi);
@@ -123,11 +133,10 @@ export const homologationStore = {
 // ----------------------------------------------------------------------------
 
 export const notifyRegistrationSubmitted = (bi: string, name?: string): void => {
-  homologationStore.addMessage(
-    bi,
-    'system',
-    'O seu pedido de registo no Correio Digital de Angola foi recebido com sucesso.'
-  );
+  // Novo pedido de registo: a correspondência de processos ANTERIORES deste BI
+  // é descartada — cada registo recomeça com a caixa limpa, contendo UMA única
+  // confirmação oficial da Área de Administração.
+  homologationStore.clearThread(bi);
   homologationStore.addMessage(
     bi,
     'admin',

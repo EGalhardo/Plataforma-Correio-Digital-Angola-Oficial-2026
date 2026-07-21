@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { AnimatedCounter } from '../ui/AnimatedCounter';
 import {
   homologationStore,
+  normalizeHomologationBi,
   notifyAccountApproved,
   notifyAccountRejected,
   notifyAccountReopened,
@@ -916,10 +917,43 @@ export function GovContactsContent({
         }
       }
       setCitizens(prev => prev.filter(c => c.id !== target.id));
-      if (target.biNumber) {
-        try { homologationStore.clearStatus(target.biNumber); } catch (e) { /* ignora */ }
+
+      // ELIMINAÇÃO EM CASCATA: todo o conteúdo da conta é removido junto — estado,
+      // mensagens (thread oficial + espelhos na caixa partilhada), credenciais,
+      // matrizes biométricas locais e ficheiros do registo no storage central.
+      const biKey = target.biNumber || '';
+      if (biKey) {
+        try { homologationStore.clearStatus(biKey); } catch (e) { /* ignora */ }
+        try { homologationStore.clearThread(biKey); } catch (e) { /* ignora */ }
+        try { localStorage.removeItem(`citizen_pass_${biKey}`); } catch (e) { /* ignora */ }
+        ['user', 'institution', 'admin'].forEach((m) => {
+          try { localStorage.removeItem(`cda_demo_face_${m}_${biKey}`); } catch (e) { /* ignora */ }
+        });
+        try {
+          const raw = localStorage.getItem('correio_digital_inbox');
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              const kept = list.filter((m: any) => !(
+                m && m.homologation === true &&
+                normalizeHomologationBi(m.homologationBi) === normalizeHomologationBi(biKey)
+              ));
+              if (kept.length !== list.length) {
+                localStorage.setItem('correio_digital_inbox', JSON.stringify(kept));
+              }
+            }
+          }
+        } catch (e) { /* ignora */ }
+        try {
+          const biClean = biKey.replace(/\s+/g, '');
+          const { data: files } = await supabase.storage.from('documentos_registo').list(biClean);
+          if (files && files.length > 0) {
+            await supabase.storage.from('documentos_registo').remove(files.map((f: any) => `${biClean}/${f.name}`));
+          }
+        } catch (e) { /* ignora — storage sem permissão: eliminação lógica já garantida */ }
       }
-      addAuditLog?.(`Remoção: Cadastro do cidadão "${target.name}" (BI: ${target.biNumber || '—'}) eliminado permanentemente pelo Administrador.`, 'critical');
+
+      addAuditLog?.(`Remoção: Cadastro do cidadão "${target.name}" (BI: ${target.biNumber || '—'}) e TODO o seu conteúdo (mensagens, validações e ficheiros) eliminados pelo Administrador.`, 'critical');
       setDeleteConfirmCitizen(null);
     } finally {
       setIsDeletingCitizen(false);
