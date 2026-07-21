@@ -1051,8 +1051,10 @@ export default function App() {
   };
   
   // Sincronização Unidirecional de Session para os estados locais do App.tsx
+  // EXCEÇÃO: no login/splash o campo B.I. é livre (placeholder + digitação) —
+  // a sessão nunca reescreve o campo enquanto o utilizador está a digitar.
   useEffect(() => {
-    if (user) {
+    if (user && stage !== 'login' && stage !== 'splash') {
       setBiLocal(prev => prev !== user.bi ? user.bi : prev);
       setPhoneLocal(prev => prev !== user.phone ? user.phone : prev);
       setNifLocal(prev => prev !== user.nif ? user.nif : prev);
@@ -1062,7 +1064,7 @@ export default function App() {
       setUserFiliationLocal(prev => prev !== user.filiation ? user.filiation : prev);
       setUserMaritalStatusLocal(prev => prev !== user.maritalStatus ? user.maritalStatus : prev);
     }
-  }, [user]);
+  }, [user, stage]);
 
   useEffect(() => {
     setLoginError(null);
