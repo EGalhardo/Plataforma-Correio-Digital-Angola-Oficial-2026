@@ -39,7 +39,6 @@ import {
   PastaDigitalContent,
   SolicitarDocumentoContent,
   RegisterStepper,
-  HomologationGate,
   ResetPasswordStepper,
   VoiceGuideAssistant,
   InstitutionDetail,
@@ -785,7 +784,7 @@ export default function App() {
   }, [userMaritalStatus]);
 
   // UI States
-  const [loginSubMode, setLoginSubMode] = useState<'normal' | 'two-factor' | 'face-capture' | 'register' | 'forgot'>('normal');
+  const [loginSubMode, setLoginSubMode] = useState<'normal' | 'face-capture' | 'register' | 'forgot'>('normal');
   const [loginError, setLoginError] = useState<string | null>(null);
 
   const [showVoiceGuide, setShowVoiceGuide] = useState(false);
