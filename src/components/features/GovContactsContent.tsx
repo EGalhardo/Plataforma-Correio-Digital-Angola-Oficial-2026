@@ -2415,7 +2415,7 @@ export function GovContactsContent({
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl bg-white rounded-[40px] shadow-3xl z-[201] overflow-hidden border border-slate-150 text-left font-sans flex flex-col max-h-[92vh]"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[96vw] max-w-6xl bg-white rounded-[24px] md:rounded-[40px] shadow-3xl z-[201] overflow-hidden border border-slate-150 text-left font-sans flex flex-col h-[94vh]"
             >
               {/* Header do Modal */}
               <div className="bg-[#0c2340] p-6 text-white relative flex-shrink-0">
@@ -2439,11 +2439,10 @@ export function GovContactsContent({
                 </div>
               </div>
 
-              {/* Corpo de Análise em Grid de Duas Partes ou Formulários */}
-              <div className="p-6 md:p-8 space-y-6 overflow-y-auto custom-scrollbar flex-grow">
-                
+              {/* Navegação do Portal — barra fixa, visível durante toda a leitura */}
+              <div className="px-6 md:px-8 pt-5 flex-shrink-0">
                 {/* Modal Navigation Sub-Tabs */}
-                <div className="flex border border-slate-200 bg-[#f8fafc] p-1.5 rounded-2xl gap-2 flex-shrink-0 font-sans">
+                <div className="flex border border-slate-200 bg-[#f8fafc] p-1.5 rounded-2xl gap-2 font-sans">
                   <button
                     onClick={() => setModalActiveTab('validation')}
                     className={`flex items-center gap-2 py-2.5 px-5 text-[10.5px] font-extrabold uppercase tracking-wider transition-all rounded-xl border-none cursor-pointer flex-1 justify-center ${
@@ -2478,6 +2477,10 @@ export function GovContactsContent({
                     <UserCheck size={14} /> Editar Dados Digitais
                   </button>
                 </div>
+              </div>
+
+              {/* Corpo de Análise — área rolável: todo o conteúdo fica acessível de ponta a ponta */}
+              <div className="p-6 md:p-8 pt-5 md:pt-5 space-y-6 overflow-y-auto custom-scrollbar flex-grow">
 
                 {/* Alerta de status ou instruções */}
                 <div className="bg-[#eff6ff]/60 border border-blue-100 rounded-2xl p-4.5 flex gap-4 text-left shadow-2xs">
@@ -3063,11 +3066,9 @@ export function GovContactsContent({
                   </div>
                 )}
 
-              </div>
-
-              {/* Canal Exclusivo de Homologação: Admin ⇄ Cidadão */}
-              {selectedReviewCitizen.biNumber && (
-                <div className="px-6 py-4 bg-blue-50/60 border-t border-blue-100 flex-shrink-0">
+                {/* Canal Exclusivo de Homologação: Admin ⇄ Cidadão */}
+                {selectedReviewCitizen.biNumber && (
+                <div className="px-4 md:px-5 py-4 bg-blue-50/70 border border-blue-100 rounded-2xl">
                   <div className="flex items-center gap-2 mb-2.5">
                     <Mail size={13} className="text-blue-600" />
                     <span className="text-[9.5px] font-black text-blue-800 uppercase tracking-widest flex-1">
@@ -3080,7 +3081,7 @@ export function GovContactsContent({
 
                   <div
                     key={adminThreadRefresh}
-                    className="bg-white/80 border border-blue-100 rounded-xl p-2.5 space-y-2 max-h-36 overflow-y-auto mb-2.5"
+                    className="bg-white/80 border border-blue-100 rounded-xl p-2.5 space-y-2 max-h-44 overflow-y-auto mb-2.5"
                   >
                     {homologationStore.getThread(selectedReviewCitizen.biNumber).length === 0 && (
                       <p className="text-[10px] text-slate-400 font-semibold text-center py-2">
@@ -3138,7 +3139,9 @@ export function GovContactsContent({
                     </button>
                   </div>
                 </div>
-              )}
+                )}
+
+              </div>
 
               {/* Ações de Decisão Administrativa (Footer do Modal) */}
               <div className="p-6 bg-slate-50 border-t border-slate-150 flex flex-col sm:flex-row items-center justify-between gap-4 flex-shrink-0">
