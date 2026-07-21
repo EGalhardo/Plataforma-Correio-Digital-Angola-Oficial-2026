@@ -58,6 +58,10 @@ export interface Message {
   sensitivity?: 'Público' | 'Privado' | 'Sensível' | 'Restrito' | 'Ultra Restrito';
   priorityScale?: 'Normal' | 'Importante' | 'Urgente' | 'Crítico';
   deadlineHoursRemaining?: number;
+  /** Canal oficial de homologação (Área de Administração ⇄ Cidadão) — visível mesmo com conta pendente de ativação. */
+  homologation?: boolean;
+  /** BI do cidadão a quem a mensagem de homologação se destina. */
+  homologationBi?: string;
 }
 
 export interface Document {

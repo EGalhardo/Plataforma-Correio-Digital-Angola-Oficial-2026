@@ -417,6 +417,7 @@ export function GovContactsContent({
     activityHistory?: { action: string; timestamp: string; ip?: string }[];
     urlFrente?: string;
     urlVerso?: string;
+    urlSelfie?: string;
     facePhoto?: string;
     reason?: string;
     verificationScore?: number;
@@ -779,10 +780,40 @@ export function GovContactsContent({
     localStorage.setItem('gov_admin_citizens', JSON.stringify(citizens));
   }, [citizens]);
 
+  // Extrai o relatório REAL da pré-verificação local embutido nas observações:
+  // formato novo: marcador [KYC:{...}] | formato legado: "Pré-verificação local: X% (Y)".
+  const parseKycFromObservacoes = (raw?: string): { fm: number | null; iq: number | null; ocr: number | null; coh: number | null; ia?: string } | null => {
+    if (!raw) return null;
+    const marker = raw.match(/\[KYC:(\{[\s\S]*?\})\]/);
+    if (marker) {
+      try {
+        const k = JSON.parse(marker[1]);
+        return { fm: k.fm ?? null, iq: k.iq ?? null, ocr: k.ocr ?? null, coh: k.coh ?? null, ia: k.ia };
+      } catch {
+        return null;
+      }
+    }
+    const legacy = raw.match(/Pré-verificação local: (\d+(?:[.,]\d+)?)% \(([^)]+)\)/);
+    if (legacy) {
+      return { fm: null, iq: null, ocr: null, coh: parseFloat(legacy[1].replace(',', '.')), ia: legacy[2] };
+    }
+    return null;
+  };
+
+  const stripKycMarker = (raw?: string): string =>
+    (raw || '').replace(/\s*\[KYC:\{[\s\S]*?\}\]/, '').trim();
+
   const mapRegistrationRowsToCitizens = (rows: any[]): Citizen[] => rows.map((item: any) => {
     let st: 'Pendente de Validação' | 'Aprovado Manualmente' | 'Rejeitado' = 'Pendente de Validação';
     if (item.status === 'Aprovado') st = 'Aprovado Manualmente';
     if (item.status === 'Reprovado' || item.status === 'Não Aprovado' || item.status === 'Rejeitado') st = 'Rejeitado';
+
+    // Métricas reais medidas pelo motor local no momento do registo (não inventadas)
+    const kyc = parseKycFromObservacoes(item.observacoes);
+    const iaRes: Citizen['iaResult'] | undefined =
+      kyc?.ia === 'Aprovado' ? 'Aprovado' :
+      kyc?.ia === 'Revisão Administrativa' ? 'Revisão Administrativa' :
+      kyc?.ia === 'Rejeitado' ? 'Rejeitado' : undefined;
 
     return {
       id: item.id,
@@ -794,9 +825,17 @@ export function GovContactsContent({
       contact: item.email,
       status: st,
       biNumber: item.bi_numero,
+      email: item.email || undefined,
       facePhoto: item.url_selfie || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face',
-      reason: item.observacoes || '',
-      verificationScore: item.status === 'Aprovado' ? 98.4 : undefined,
+      urlSelfie: item.url_selfie || '',
+      reason: stripKycMarker(item.observacoes),
+      registrationDate: item.criado_em ? new Date(item.criado_em).toLocaleDateString('pt-AO') : undefined,
+      verificationScore: kyc?.coh ?? (item.status === 'Aprovado' ? 98.4 : undefined),
+      coherenceLevel: kyc?.coh ?? undefined,
+      facialMatch: kyc?.fm ?? undefined,
+      imageQuality: kyc?.iq ?? undefined,
+      ocrDataMatch: kyc?.ocr ?? undefined,
+      iaResult: iaRes,
       urlFrente: item.url_frente || '',
       urlVerso: item.url_verso || '',
       dbUUID: item.id
@@ -879,7 +918,24 @@ export function GovContactsContent({
 
           setCitizens(prev => {
             const localFiltered = prev.filter(c => !data.some((item: any) => item.bi_numero === c.biNumber));
-            return [...supabaseCitizens, ...localFiltered];
+            // A versão da nuvem ganha prioridade, MAS preserva as métricas reais
+            // locais quando o registo na nuvem ainda não as transporta.
+            const merged = supabaseCitizens.map(sc => {
+              const local = prev.find(c => c.biNumber === sc.biNumber);
+              if (!local) return sc;
+              return {
+                ...local,
+                ...sc,
+                coherenceLevel: sc.coherenceLevel ?? local.coherenceLevel,
+                facialMatch: sc.facialMatch ?? local.facialMatch,
+                imageQuality: sc.imageQuality ?? local.imageQuality,
+                ocrDataMatch: sc.ocrDataMatch ?? local.ocrDataMatch,
+                iaResult: sc.iaResult ?? local.iaResult,
+                verificationScore: sc.verificationScore ?? local.verificationScore,
+                phone: sc.phone ?? local.phone
+              };
+            });
+            return [...merged, ...localFiltered];
           });
         }
       } catch (err) {
@@ -2438,6 +2494,29 @@ export function GovContactsContent({
 
                 {modalActiveTab === 'validation' && (
                   <>
+                    {/* Ficha resumida dos dados realmente submetidos pelo cidadão no registo */}
+                    <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-4">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 block mb-2.5">Dados Submetidos pelo Cidadão no Registo</span>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-left">
+                        <div className="min-w-0">
+                          <span className="text-[8px] font-bold text-slate-400 uppercase block">Nome Completo</span>
+                          <span className="text-[11px] font-extrabold text-slate-800 uppercase block leading-tight truncate">{selectedReviewCitizen.name}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[8px] font-bold text-slate-400 uppercase block">Nº do B.I.</span>
+                          <span className="text-[11px] font-extrabold text-slate-800 font-mono block leading-tight">{selectedReviewCitizen.biNumber || '—'}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[8px] font-bold text-slate-400 uppercase block">Correio Eletrónico</span>
+                          <span className="text-[11px] font-extrabold text-slate-800 block leading-tight truncate">{selectedReviewCitizen.email || selectedReviewCitizen.contact || '—'}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[8px] font-bold text-slate-400 uppercase block">Data de Submissão</span>
+                          <span className="text-[11px] font-extrabold text-slate-800 font-mono block leading-tight">{selectedReviewCitizen.registrationDate || '—'}</span>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                              {/* Painel Esquerdo: Fotocópia do BI Digitalizado (com abas de Frente/Verso ou imagens reais do Supabase) */}
                   <div className="space-y-3">
@@ -2657,6 +2736,52 @@ export function GovContactsContent({
 
                 </div>
 
+                {/* Relatório REAL da pré-verificação automática feita no registo (motor local) */}
+                {(selectedReviewCitizen.facialMatch !== undefined || selectedReviewCitizen.coherenceLevel !== undefined || selectedReviewCitizen.ocrDataMatch !== undefined || selectedReviewCitizen.imageQuality !== undefined) && (
+                  <div className="bg-white border border-blue-150 rounded-3xl p-5 text-left space-y-2.5 shadow-2xs">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
+                        <ShieldCheck size={14} className="text-[#2563eb]" /> Relatório de Pré-Verificação Automática do Registo
+                      </span>
+                      {selectedReviewCitizen.iaResult && (
+                        <span className={`text-[8.5px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full border ${
+                          selectedReviewCitizen.iaResult === 'Aprovado' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                          selectedReviewCitizen.iaResult === 'Revisão Administrativa' ? 'bg-amber-50 text-amber-600 border-amber-150' : 'bg-red-50 text-red-500 border-red-150'
+                        }`}>Motor local: {selectedReviewCitizen.iaResult}</span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                      <div className="bg-slate-50 border border-slate-150 rounded-xl p-2.5 text-center">
+                        <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider">Corresp. Facial</span>
+                        <span className={`text-sm font-black font-mono ${selectedReviewCitizen.facialMatch !== undefined ? (selectedReviewCitizen.facialMatch >= 70 ? 'text-emerald-600' : selectedReviewCitizen.facialMatch >= 45 ? 'text-amber-500' : 'text-rose-600') : 'text-slate-350'}`}>
+                          {selectedReviewCitizen.facialMatch !== undefined ? `${selectedReviewCitizen.facialMatch}%` : '—'}
+                        </span>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-150 rounded-xl p-2.5 text-center">
+                        <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider">Leitura OCR</span>
+                        <span className={`text-sm font-black font-mono ${selectedReviewCitizen.ocrDataMatch !== undefined ? (selectedReviewCitizen.ocrDataMatch >= 70 ? 'text-emerald-600' : selectedReviewCitizen.ocrDataMatch >= 45 ? 'text-amber-500' : 'text-rose-600') : 'text-slate-350'}`}>
+                          {selectedReviewCitizen.ocrDataMatch !== undefined ? `${selectedReviewCitizen.ocrDataMatch}%` : '—'}
+                        </span>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-150 rounded-xl p-2.5 text-center">
+                        <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider">Qualidade Imagem</span>
+                        <span className="text-sm font-black font-mono text-slate-800">
+                          {selectedReviewCitizen.imageQuality !== undefined ? `${selectedReviewCitizen.imageQuality}%` : '—'}
+                        </span>
+                      </div>
+                      <div className="bg-blue-50 border border-blue-150 rounded-xl p-2.5 text-center">
+                        <span className="text-[8px] font-black text-blue-550 uppercase block tracking-wider">Coerência Global</span>
+                        <span className="text-sm font-black font-mono text-blue-700">
+                          {selectedReviewCitizen.coherenceLevel !== undefined ? `${selectedReviewCitizen.coherenceLevel}%` : '—'}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[8.5px] text-slate-400 font-semibold uppercase tracking-wide leading-relaxed">
+                      Análise preliminar executada automaticamente no dispositivo do cidadão durante o registo (visível apenas nesta consola) — a decisão final de homologação cabe à Área de Administração.
+                    </p>
+                  </div>
+                )}
+
                 {/* Bloco de Batimento Inteligente por IA */}
                 <div className="bg-indigo-50/50 border border-indigo-100 rounded-3xl p-6 text-center space-y-4 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full pointer-events-none" />
@@ -2676,10 +2801,14 @@ export function GovContactsContent({
                           // Simular tempo de carregamento de IA
                           setTimeout(() => {
                             setAiEvaluationState('completed');
-                            // Gerar um match alto aleatório baseado no nome (geralmente alto para os pendentes normais)
-                            const score = selectedReviewCitizen.id === 'u3' ? 98.2 : 97.5;
+                            // Usa SEMPRE o relatório real da pré-verificação do registo quando existe;
+                            // a pontuação simulada só se aplica aos cidadãos de demonstração.
+                            const realKyc = selectedReviewCitizen.coherenceLevel ?? selectedReviewCitizen.facialMatch;
+                            const score = realKyc ?? (selectedReviewCitizen.id === 'u3' ? 98.2 : 97.5);
                             setAiMatchScore(score);
-                            addAuditLog?.(`Inteligência Artificial: Prova de identidade de "${selectedReviewCitizen.name}" executada com ${score}% de fidedignidade facial.`, 'success');
+                            addAuditLog?.(realKyc !== undefined
+                              ? `Batimento IA: relatório real de pré-verificação do registo de "${selectedReviewCitizen.name}" apresentado (coerência ${score}%).`
+                              : `Inteligência Artificial: Prova de identidade de "${selectedReviewCitizen.name}" executada com ${score}% de fidedignidade facial.`, 'success');
                           }, 2500);
                         }}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest px-8 py-3.5 rounded-2xl cursor-pointer border-0 shadow-lg shadow-indigo-600/15 font-bold transition-all hover:scale-103"
@@ -2725,9 +2854,15 @@ export function GovContactsContent({
                       </div>
 
                       <div className="max-w-xl mx-auto space-y-1">
-                        <p className="text-[10px] text-slate-800 font-black uppercase tracking-tight">Resultado da IA: Correspondência Altamente Confiável</p>
+                        <p className="text-[10px] text-slate-800 font-black uppercase tracking-tight">
+                          {(selectedReviewCitizen.coherenceLevel ?? selectedReviewCitizen.facialMatch) !== undefined
+                            ? `Relatório real do registo — Coerência global ${aiMatchScore}%`
+                            : 'Resultado da IA: Correspondência Altamente Confiável'}
+                        </p>
                         <p className="text-[9.5px] text-slate-400 font-bold uppercase tracking-wide leading-relaxed">
-                          A imagem antropométrica facial é coincidente com a fotocópia do BI. Os dados extraídos via OCR conferem integralmente com os registos civis da base de dados CDA em Luanda.
+                          {(selectedReviewCitizen.coherenceLevel ?? selectedReviewCitizen.facialMatch) !== undefined
+                            ? 'Valores reais medidos pelo motor local de pré-verificação durante o registo do cidadão (correspondência facial, leitura OCR e qualidade documental). A decisão final de homologação cabe à Área de Administração.'
+                            : 'A imagem antropométrica facial é coincidente com a fotocópia do BI. Os dados extraídos via OCR conferem integralmente com os registos civis da base de dados CDA em Luanda.'}
                         </p>
                       </div>
                     </div>

@@ -74,7 +74,8 @@ import { Message, Document, Contact, AppNotification, AppMode, UserRequest, DocR
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol } from './utils/protocolGenerator';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi } from './services/supabaseService';
-import { homologationStore } from './services/homologationStore';
+import { homologationStore, normalizeHomologationBi } from './services/homologationStore';
+import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
 import { useSession } from './services/sessionStore';
 import { VideoSessionService } from './services/videoSessionService';
@@ -1234,15 +1235,57 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [faceProgress, loginSubMode, emergencyMode, bi, isInstMode, isGovMode, profileName]);
 
-  // Reavaliação periódica da homologação: desbloqueia a correspondência assim que
-  // a Área de Administração aprovar o registo, sem recarregar nem limpar dados.
+  // Reavaliação periódica em sessão de cidadão: desbloqueia a correspondência
+  // assim que a Área de Administração aprovar o registo E mantém o canal oficial
+  // de homologação actualizado (novas mensagens do admin aparecem em ~4s),
+  // sem recarregar nem limpar dados.
   useEffect(() => {
     if (stage !== 'app' || appMode !== 'user') return;
-    const rec = homologationStore.getStatus(bi);
-    if (!rec || rec.status === 'active') return;
     const id = setInterval(() => setGateRefreshTick(t => t + 1), 4000);
     return () => clearInterval(id);
-  }, [stage, appMode, bi, gateRefreshTick]);
+  }, [stage, appMode, bi]);
+
+  // Canal oficial de homologação (Área de Administração ⇄ Cidadão): espelha as
+  // mensagens gravadas na homologationStore para a caixa de entrada do cidadão.
+  // Sem este espelho, a correspondência do admin ficava invisível para o cidadão.
+  const homologationInboxId = (raw: string): number => {
+    let h = 0;
+    for (let i = 0; i < raw.length; i++) h = ((h * 31) + raw.charCodeAt(i)) >>> 0;
+    return 90000000 + (h % 8999999);
+  };
+
+  const buildHomologationInboxMessage = (msg: HomologationMessage, cleanBi: string): Message =>
+    ensureProtocolOnMessage({
+      id: homologationInboxId(msg.id),
+      org: 'Área de Administração · CDA',
+      preview: msg.text.length > 96 ? `${msg.text.slice(0, 96)}…` : msg.text,
+      date: msg.at,
+      unread: 1,
+      status: 'Recebido',
+      institution: 'Área de Administração · CDA',
+      details: {
+        subject: msg.from === 'system' ? 'Registo Recebido — Homologação Oficial' : 'Comunicação Oficial da Área de Administração',
+        body: msg.text,
+      },
+      sensitivity: 'Privado',
+      priorityScale: 'Importante',
+      homologation: true,
+      homologationBi: cleanBi,
+    });
+
+  useEffect(() => {
+    if (appMode !== 'user' || !bi) return;
+    const cleanBi = normalizeHomologationBi(bi);
+    const thread = homologationStore.getThread(bi).filter(m => m.from !== 'citizen');
+    if (thread.length === 0) return;
+    setInbox(prev => {
+      const existing = new Set(prev.map(m => m.id));
+      const fresh = thread
+        .map(msg => buildHomologationInboxMessage(msg, cleanBi))
+        .filter(m => !existing.has(m.id));
+      return fresh.length > 0 ? [...fresh.slice().reverse(), ...prev] : prev;
+    });
+  }, [appMode, bi, gateRefreshTick]);
 
   // Auto-scroll to top on tab/stage change
   useEffect(() => {
@@ -1983,7 +2026,16 @@ export default function App() {
     return !!rec && rec.status !== 'active';
   })();
 
-  const currentInbox = isInstMode ? instInbox : (homologationPendingForCitizen ? [] : inbox);
+  // Filtro do canal de homologação: durante a pendência o cidadão SÓ vê as
+  // mensagens oficiais da Área de Administração; após a ativação, esse histórico
+  // permanece acessível na caixa de entrada normal (sempre restrito ao seu BI).
+  const isOwnHomologationMail = (m: Message) =>
+    m.homologation === true && normalizeHomologationBi(m.homologationBi) === normalizeHomologationBi(bi);
+  const currentInbox = isInstMode
+    ? instInbox
+    : homologationPendingForCitizen
+      ? inbox.filter(isOwnHomologationMail)
+      : inbox.filter(m => !m.homologation || isOwnHomologationMail(m));
   const unreadTotal = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id)).reduce((sum, msg) => sum + (msg.unread || 0), 0), [currentInbox, deletedMessageIds, hiddenMessageIds]);
 
   const currentDocInbox = isInstMode ? instDocInbox : (homologationPendingForCitizen ? [] : docInbox);

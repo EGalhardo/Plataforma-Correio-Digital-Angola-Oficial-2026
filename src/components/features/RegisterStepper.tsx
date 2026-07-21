@@ -554,7 +554,12 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
             url_verso: urlVerso || null,
             url_selfie: urlSelfie || null,
             status: 'Pendente',
-            observacoes: newUser.reason
+            // Relatório técnico da pré-verificação local: viaja embutido nas
+            // observações (marcador KYC) para a Área de Administração o ler em
+            // qualquer dispositivo — nunca é mostrado ao cidadão.
+            observacoes: newUser.reason + (verificationReport
+              ? ` [KYC:${JSON.stringify({ v: 1, fm: verificationReport.face.similarity, iq: verificationReport.quality.score, ocr: verificationReport.ocr.score, coh: verificationReport.coherenceScore, ia: verificationReport.iaResult })}]`
+              : '')
           }]);
 
         if (insertErr) {
@@ -1240,56 +1245,15 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 </div>
               )}
 
-              {/* Pré-Verificação Automática real dos documentos (Fase 1 — motor local) */}
-              {(isVerifying || verificationReport) && (
-                <div className="bg-white border border-blue-100 rounded-xl p-3 space-y-1.5 max-w-md mx-auto text-left shadow-3xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10.5px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
-                      <ShieldCheck size={13} className="text-[#2563eb]" /> Pré-Verificação Automática
-                    </span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">local</span>
+              {/* Motor local de pré-verificação: corre em SILÊNCIO para o cidadão.
+                  O relatório técnico (concordância facial, OCR, coerência global) é
+                  enviado APENAS para a fila de homologação da Área de Administração. */}
+              {isVerifying && (
+                <div className="bg-white border border-blue-100 rounded-xl p-3 max-w-md mx-auto text-left shadow-3xs">
+                  <div className="flex items-center gap-2 py-1 text-[10.5px] font-bold text-blue-600">
+                    <Loader2 size={13} className="animate-spin" />
+                    A validar a integridade dos documentos submetidos…
                   </div>
-
-                  {isVerifying ? (
-                    <div className="flex items-center gap-2 py-1 text-[10.5px] font-bold text-blue-600">
-                      <Loader2 size={13} className="animate-spin" />
-                      A analisar documento, biometria e coerência…
-                    </div>
-                  ) : verificationReport && (
-                    <>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10.5px]">
-                          <span className="font-bold text-slate-600">Correspondência facial (B.I. ↔ selfie)</span>
-                          <span className={`font-black ${verificationReport.face.similarity !== null ? (verificationReport.face.similarity >= 70 ? 'text-emerald-600' : verificationReport.face.similarity >= 45 ? 'text-amber-600' : 'text-red-500') : 'text-slate-400'}`}>
-                            {verificationReport.face.similarity !== null ? `${verificationReport.face.similarity}%` : 'Indisponível'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-[10.5px]">
-                          <span className="font-bold text-slate-600">Leitura óptica do documento (OCR)</span>
-                          <span className={`font-black ${verificationReport.ocr.score !== null ? (verificationReport.ocr.score >= 70 ? 'text-emerald-600' : verificationReport.ocr.score >= 45 ? 'text-amber-600' : 'text-red-500') : 'text-slate-400'}`}>
-                            {verificationReport.ocr.score !== null ? `${verificationReport.ocr.score}%` : 'Indisponível'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-[10.5px]">
-                          <span className="font-bold text-slate-600">Qualidade da imagem do B.I.</span>
-                          <span className="font-black text-slate-700">{verificationReport.quality.score}%</span>
-                        </div>
-                        <div className="flex items-center justify-between text-[10.5px] border-t border-slate-100 pt-1">
-                          <span className="font-black text-slate-800 uppercase tracking-wide">Coerência global</span>
-                          <span className="font-black text-[#2563eb]">{verificationReport.coherenceScore}%</span>
-                        </div>
-                      </div>
-                      <div className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full w-fit ${
-                        verificationReport.iaResult === 'Aprovado' ? 'bg-emerald-50 text-emerald-600' :
-                        verificationReport.iaResult === 'Revisão Administrativa' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-500'
-                      }`}>
-                        {verificationReport.iaLabel}
-                      </div>
-                      <p className="text-[10px] text-slate-400 font-semibold leading-normal">
-                        Verificação preliminar local (não certificada) — a decisão final cabe à Área de Administração.
-                      </p>
-                    </>
-                  )}
                 </div>
               )}
 
