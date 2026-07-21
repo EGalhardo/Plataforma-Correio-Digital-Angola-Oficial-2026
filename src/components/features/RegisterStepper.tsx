@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore, notifyRegistrationSubmitted } from '../../services/homologationStore';
-import { runRegistrationVerification, type RegistrationVerificationReport } from '../../services/verificationEngine';
+import { runRegistrationVerification, prewarmVerificationEngine, type RegistrationVerificationReport } from '../../services/verificationEngine';
 
 const base64ToBlob = (base64Str: string): Blob => {
   try {
@@ -437,6 +437,16 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
     addAuditLog(`DEMO_FACE_ENROLLED: Registo biométrico de 3 capturas concluído com sucesso no Registo (${appMode})`, 'success');
   };
 
+
+  // PRÉ-AQUECIMENTO do motor de pré-verificação: assim que o cidadão anexa o
+  // primeiro documento, os modelos de IA (BlazeFace + OCR) começam a carregar
+  // em segundo plano — quando terminar a captura biométrica, a análise arranca
+  // quase instantaneamente.
+  useEffect(() => {
+    if (frenteSuccess || versoSuccess) {
+      prewarmVerificationEngine();
+    }
+  }, [frenteSuccess, versoSuccess]);
 
   // Form submission and registration inside Supabase (with fallback to local storage)
   const handleFinalSubmit = async () => {

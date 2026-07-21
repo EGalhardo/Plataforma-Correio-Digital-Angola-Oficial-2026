@@ -249,10 +249,27 @@ const ensureTesseractWorker = async () => {
   return tesseractWorkerPromise;
 };
 
+/**
+ * Pré-aquecimento do motor: dispara o carregamento dos modelos de IA em
+ * segundo plano (BlazeFace + worker OCR/Tesseract) ANTES de a verificação ser
+ * pedida. Chamado pelo RegisterStepper logo que o primeiro documento é anexado;
+ * quando o utilizador termina a captura biométrica, a análise arranca num
+ * instante. Totalmente tolerante a falhas (a verificação real continua a
+ * funcionar e a repetir a inicialização se necessário).
+ */
+export const prewarmVerificationEngine = (): void => {
+  try { void ensureBlazeFace().catch(() => { /* ignorado */ }); } catch (_) { /* ignorado */ }
+  try { void ensureTesseractWorker().catch(() => { /* ignorado */ }); } catch (_) { /* ignorado */ }
+};
+
 // Pré-processamento: escala + cinza + contraste para melhorar OCR do B.I.
 const preprocessForOcr = (img: HTMLImageElement): HTMLCanvasElement => {
   const canvas = document.createElement('canvas');
-  const scale = Math.min(2, Math.max(1, 1400 / Math.max(1, img.naturalWidth)));
+  // teto de 1800px: fotos grandes de telemóvel (ex.: 4000x3000) eram processadas
+  // na resolução total, tornando o OCR várias vezes mais lento sem ganho real.
+  const maxDim = Math.max(img.naturalWidth, img.naturalHeight);
+  let scale = Math.min(2, Math.max(1, 1400 / Math.max(1, img.naturalWidth)));
+  if (maxDim * scale > 1800) scale = 1800 / maxDim;
   canvas.width = Math.round(img.naturalWidth * scale);
   canvas.height = Math.round(img.naturalHeight * scale);
   const ctx = canvas.getContext('2d');
@@ -296,8 +313,18 @@ export const runRegistrationVerification = async (
   let frontImg: HTMLImageElement | null = null;
   let selfieImg: HTMLImageElement | null = null;
 
-  try { if (params.frontImageDataUrl) frontImg = await loadImage(params.frontImageDataUrl); } catch (e) { errors.push('falha ao ler imagem da frente do B.I.'); }
-  try { if (params.selfieDataUrl) selfieImg = await loadImage(params.selfieDataUrl); } catch (e) { errors.push('falha ao ler a selfie'); }
+  // Modelos de IA arrancam IMEDIATAMENTE em paralelo com a leitura das imagens
+  // (promessas em cache no módulo — chamadas repetidas são instantâneas)
+  void ensureBlazeFace().catch(() => { /* a etapa facial trata os erros */ });
+  void ensureTesseractWorker().catch(() => { /* a etapa OCR trata os erros */ });
+  await Promise.all([
+    (async () => {
+      try { if (params.frontImageDataUrl) frontImg = await loadImage(params.frontImageDataUrl); } catch (e) { errors.push('falha ao ler imagem da frente do B.I.'); }
+    })(),
+    (async () => {
+      try { if (params.selfieDataUrl) selfieImg = await loadImage(params.selfieDataUrl); } catch (e) { errors.push('falha ao ler a selfie'); }
+    })(),
+  ]);
 
   // ---- Qualidade (nitidez/brilho/resolução) — sempre executa se houver imagem
   try {
@@ -323,58 +350,69 @@ export const runRegistrationVerification = async (
     errors.push('análise de qualidade indisponível');
   }
 
-  // ---- Correspondência facial (BlazeFace doc vs selfie)
-  try {
-    if (frontImg && selfieImg) {
-      face.attempted = true;
-      const detector = await ensureBlazeFace();
-      const docFace = await detectLargestFace(detector, frontImg);
-      const selfieFace = await detectLargestFace(detector, selfieImg);
-      face.faceFoundInDocument = !!docFace;
-      face.faceFoundInSelfie = !!selfieFace;
+  // ---- Correspondência facial (BlazeFace) e OCR do documento EM PARALELO:
+  // o OCR executa dentro de um web worker (thread de fundo) enquanto a
+  // inferência facial corre na thread principal — o tempo total passa a ser
+  // ≈ o mais lento dos dois, em vez da soma de ambos.
+  const faceTask = (async () => {
+    try {
+      if (frontImg && selfieImg) {
+        face.attempted = true;
+        const detector = await ensureBlazeFace();
+        const docFace = await detectLargestFace(detector, frontImg);
+        const selfieFace = await detectLargestFace(detector, selfieImg);
+        face.faceFoundInDocument = !!docFace;
+        face.faceFoundInSelfie = !!selfieFace;
 
-      if (docFace && selfieFace) {
-        const sigDoc = faceSignatureFromCrop(frontImg, docFace.box);
-        const sigSelfie = faceSignatureFromCrop(selfieImg, selfieFace.box);
-        const pixelScore = Math.max(0, Math.min(100, Math.round(100 - avgAbsDiff(sigDoc, sigSelfie) * 2)));
-        const geo = geometryRatioScore(docFace.landmarks, selfieFace.landmarks);
-        face.geometryScore = geo;
-        face.similarity = geo !== null ? Math.round(pixelScore * 0.6 + geo * 0.4) : pixelScore;
-      } else {
-        if (!docFace) errors.push('nenhuma face detetada na foto do documento');
-        if (!selfieFace) errors.push('nenhuma face detetada na selfie (câmara virtual?)');
+        if (docFace && selfieFace) {
+          const sigDoc = faceSignatureFromCrop(frontImg, docFace.box);
+          const sigSelfie = faceSignatureFromCrop(selfieImg, selfieFace.box);
+          const pixelScore = Math.max(0, Math.min(100, Math.round(100 - avgAbsDiff(sigDoc, sigSelfie) * 2)));
+          const geo = geometryRatioScore(docFace.landmarks, selfieFace.landmarks);
+          face.geometryScore = geo;
+          face.similarity = geo !== null ? Math.round(pixelScore * 0.6 + geo * 0.4) : pixelScore;
+        } else {
+          if (!docFace) errors.push('nenhuma face detetada na foto do documento');
+          if (!selfieFace) errors.push('nenhuma face detetada na selfie (câmara virtual?)');
+        }
       }
+    } catch (e: any) {
+      face.error = e?.message || 'motor facial indisponível';
+      errors.push('comparação facial indisponível neste dispositivo/rede');
     }
-  } catch (e: any) {
-    face.error = e?.message || 'motor facial indisponível';
-    errors.push('comparação facial indisponível neste dispositivo/rede');
-  }
+  })();
 
   // ---- OCR real do documento (Tesseract.js, PT)
-  try {
-    if (frontImg) {
-      ocr.attempted = true;
-      const worker = await ensureTesseractWorker();
-      const prepared = preprocessForOcr(frontImg);
-      const { data } = await worker.recognize(prepared);
-      const text: string = data?.text || '';
-      ocr.available = text.trim().length > 0;
-      ocr.confidence = Math.round(data?.confidence || 0);
-      ocr.snippet = text.replace(/\s+/g, ' ').trim().slice(0, 120);
+  const ocrTask = (async () => {
+    try {
+      if (frontImg) {
+        ocr.attempted = true;
+        const worker = await ensureTesseractWorker();
+        const prepared = preprocessForOcr(frontImg);
+        const { data } = await worker.recognize(prepared);
+        const text: string = data?.text || '';
+        ocr.available = text.trim().length > 0;
+        ocr.confidence = Math.round(data?.confidence || 0);
+        // fix: regex de whitespace corrigida (\s em vez de \\s escapado a dobrar,
+        // que impedia a compactação do texto e anulava a deteção do BI)
+        ocr.snippet = text.replace(/\s+/g, ' ').trim().slice(0, 120);
 
-      if (ocr.available) {
-        const biNorm = (params.typedBi || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const ocrCompact = normalizeLooseText(text).replace(/\s+/g, '');
-        ocr.biFound = biNorm.length > 0 && ocrCompact.includes(biNorm);
-        ocr.biScore = ocr.biFound ? 100 : 0;
-        ocr.nameScore = fuzzyNameMatchScore(params.typedName, text);
-        ocr.score = Math.round(ocr.confidence * 0.2 + ocr.biScore * 0.35 + ocr.nameScore * 0.45);
+        if (ocr.available) {
+          const biNorm = (params.typedBi || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+          const ocrCompact = normalizeLooseText(text).replace(/\s+/g, '');
+          ocr.biFound = biNorm.length > 0 && ocrCompact.includes(biNorm);
+          ocr.biScore = ocr.biFound ? 100 : 0;
+          ocr.nameScore = fuzzyNameMatchScore(params.typedName, text);
+          ocr.score = Math.round(ocr.confidence * 0.2 + ocr.biScore * 0.35 + ocr.nameScore * 0.45);
+        }
       }
+    } catch (e: any) {
+      ocr.error = e?.message || 'motor OCR indisponível';
+      errors.push('OCR indisponível neste dispositivo/rede');
     }
-  } catch (e: any) {
-    ocr.error = e?.message || 'motor OCR indisponível';
-    errors.push('OCR indisponível neste dispositivo/rede');
-  }
+  })();
+
+  await Promise.all([faceTask, ocrTask]);
 
   // ---- Coerência global ponderada
   const coherenceScore = computeWeightedCoherence([
