@@ -1064,6 +1064,35 @@ export default function App() {
       setWasOpenedUnread(false);
     }
   }, [selectedMessage, wasOpenedUnread]);
+
+  // REGRA CENTRAL DE LEITURA: abrir uma mensagem NÃO LIDA marca-a
+  // automaticamente como LIDA em todas as listas — sai de "Não Lidas" e passa
+  // para "Lidas" de imediato. Cobre todo e qualquer caminho de abertura.
+  useEffect(() => {
+    if (!selectedMessage) return;
+    if (!selectedMessage.unread) return;
+    const targetId = selectedMessage.id;
+    const baseOf = (id: number) => (id >= 10000 && id < 90000000 ? id - 10000 : id);
+    const baseId = baseOf(targetId);
+    const mark = (list: Message[]) => {
+      let touched = false;
+      const next = list.map(m => {
+        if (!m.unread) return m;
+        if (baseOf(m.id) !== baseId && m.id !== targetId) return m;
+        touched = true;
+        return { ...m, unread: 0, status: 'Lida' };
+      });
+      return touched ? next : list; // mesma referência = sem re-render extra
+    };
+    setInbox(prev => mark(prev));
+    setDocInbox(prev => mark(prev));
+    setInstInbox(prev => mark(prev));
+    setInstDocInbox(prev => mark(prev));
+    // objecto aberto em coerência visual (badge "Lida" no detalhe também)
+    setSelectedMessage(prev =>
+      prev && prev.id === targetId && prev.unread ? { ...prev, unread: 0, status: 'Lida' } : prev
+    );
+  }, [selectedMessage]);
   const [showInviteConfirm, setShowInviteConfirm] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [preloadProgress, setPreloadProgress] = useState<number>(0);
