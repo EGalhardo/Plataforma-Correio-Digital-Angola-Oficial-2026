@@ -33,6 +33,7 @@ export * from './features/GovCorrespondenciasContent';
 export * from './features/PastaDigitalContent';
 export * from './features/SolicitarDocumentoContent';
 export * from './features/RegisterStepper';
+export * from './features/RegisterInstitutionPage';
 export * from './features/HomologationGate';
 export * from './features/ResetPasswordStepper';
 export * from './features/VoiceGuideAssistant';

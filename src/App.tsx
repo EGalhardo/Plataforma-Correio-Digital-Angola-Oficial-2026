@@ -39,6 +39,7 @@ import {
   PastaDigitalContent,
   SolicitarDocumentoContent,
   RegisterStepper,
+  RegisterInstitutionPage,
   ResetPasswordStepper,
   VoiceGuideAssistant,
   InstitutionDetail,
@@ -4045,7 +4046,7 @@ Ficha civil do titular:
                     {/* Input wrapper with Icon on left exactly like image 1 */}
                     <div className="grid gap-1.5 text-left">
                       <span className="text-[10.5px] text-slate-500 font-extrabold tracking-wider uppercase">
-                        {(isInstMode || isGovMode) ? t("Número de Agente") : t("Número de BI de Cidadão")}
+                        {isInstMode ? t("Código Institucional") : isGovMode ? t("Número de Agente") : t("Número de BI de Cidadão")}
                       </span>
                       <div className="flex items-center gap-3 bg-white border border-slate-200 focus-within:border-[#0c2340] focus-within:ring-1 focus-within:ring-[#0c2340] rounded-xl px-3 py-1.5 transition-all">
                         <div className="w-9 h-9 bg-[#f0f4f9] text-[#1e3a8a] rounded-lg flex items-center justify-center shrink-0">
@@ -4056,7 +4057,7 @@ Ficha civil do titular:
                           value={bi}
                           onChange={(e) => setBi(e.target.value.toUpperCase())}
                           placeholder={isInstMode ? "AGT-9921-SR" : isGovMode ? "ADM-8812-OP" : "009874562LA041"}
-                          maxLength={14}
+                          maxLength={isInstMode ? 18 : 14}
                         />
                       </div>
                     </div>
@@ -4380,12 +4381,20 @@ Ficha civil do titular:
                   exit={{ opacity: 0, y: -10 }}
                   className="flex-1 flex flex-col justify-center"
                 >
-                  <RegisterStepper 
-                    onCancel={() => setLoginSubMode('normal')} 
-                    onSuccess={() => setLoginSubMode('normal')}
-                    addAuditLog={addAuditLog}
-                    appMode={appMode}
-                  />
+                  {appMode === 'institution' ? (
+                    <RegisterInstitutionPage
+                      onCancel={() => setLoginSubMode('normal')}
+                      onSuccess={() => setLoginSubMode('normal')}
+                      addAuditLog={addAuditLog}
+                    />
+                  ) : (
+                    <RegisterStepper
+                      onCancel={() => setLoginSubMode('normal')}
+                      onSuccess={() => setLoginSubMode('normal')}
+                      addAuditLog={addAuditLog}
+                      appMode={appMode}
+                    />
+                  )}
                 </motion.div>
               )}
 
