@@ -85,7 +85,7 @@ import { useSession } from './services/sessionStore';
 import { VideoSessionService } from './services/videoSessionService';
 import { useLanguage } from './hooks/useLanguage';
 import { startImagePreloading, subscribeToPreload } from './utils/imagePreloader';
-import { shouldAutoSeedSupabase, shouldUseLocalBootstrap, shouldUseMockFallback } from './config/runtime';
+import { shouldAutoSeedSupabase, shouldUseAdminFacialStrict, shouldUseLocalBootstrap, shouldUseMockFallback } from './config/runtime';
 
 
 // ---- Estado "Lida" persistente por BI: sobrevive a terminar/iniciar sessão ----
@@ -4013,6 +4013,18 @@ Ficha civil do titular:
         setInstMustChangePwd(false);
       }
 
+      if (isGovMode) {
+        // F5/S6: a Administração entra obrigatoriamente por validação facial
+        // (a senha confirma a identidade; o rosto valida o acesso). Fora da
+        // demo, a flag `adminFacialStrict` em runtime.ts remove o botão de
+        // contorno "Entrar sem câmara".
+        setLoginError(null);
+        addAuditLog('Login da Administração: validação facial obrigatória iniciada.', 'info');
+        setFaceProgress(0);
+        setLoginSubMode('face-capture');
+        return;
+      }
+
       await applyIdentityForLoggedUser();
       setStage('app');
       addAuditLog(isInstMode ? 'Login de Instituição via Autenticação Segura' : 'Login de Cidadão via Autenticação Segura', 'success');
@@ -4497,6 +4509,21 @@ Ficha civil do titular:
                       )}
                     </div>
                   </div>
+
+                  {/* F5 — Via demo de emergencia da Administração (flag adminFacialStrict desactiva em produção) */}
+                  {isGovMode && !shouldUseAdminFacialStrict() && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        stopLoginFaceCamera();
+                        setStage('app');
+                        addAuditLog('ADMIN DEMO BYPASS: entrada na Área de Administração sem validação facial (via demo de emergência — registado em auditoria; desactivável pela flag adminFacialStrict).', 'critical');
+                      }}
+                      className="text-[9.5px] font-black uppercase tracking-widest text-amber-600 hover:text-amber-800 transition-colors cursor-pointer bg-transparent border-0 underline underline-offset-4"
+                    >
+                      {t("Entrar sem câmara (via demo da Administração)")}
+                    </button>
+                  )}
 
                   {/* Encryption Footer label */}
                   <div className="flex items-center justify-center gap-1.5 text-slate-400 text-[9.5px] font-bold">
