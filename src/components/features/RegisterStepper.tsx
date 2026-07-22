@@ -146,6 +146,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   const handleFrenteFile = (file: File) => {
     setIsUploadingFrente(true);
     setFrenteSuccess(false);
+    setDocumentFrente(file); // sem isto o upload nunca acontecia — imagem perdida
     
     // Create preview
     const reader = new FileReader();
@@ -166,6 +167,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   const handleVersoFile = (file: File) => {
     setIsUploadingVerso(true);
     setVersoSuccess(false);
+    setDocumentVerso(file); // sem isto o upload nunca acontecia — imagem perdida
     
     // Create preview
     const reader = new FileReader();
@@ -515,13 +517,14 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         }
         setSubmitMessage('Enviando documentos para o Supabase Storage...');
         
-        // Upload front
-        if (documentFrente) {
-          const frontExt = documentFrente.name.split('.').pop() || 'jpg';
-          const frontPath = `${biClean}/frente_${Date.now()}.${frontExt}`;
+        // Upload front — ficheiro seleccionado OU Blob derivado do preview base64
+        const frenteBlob: Blob | null = documentFrente
+          || (frentePreview && frentePreview.startsWith('data:image/') ? base64ToBlob(frentePreview) : null);
+        if (frenteBlob) {
+          const frontPath = `${biClean}/frente_${Date.now()}.jpg`;
           const { error: fErr } = await supabase.storage
             .from('documentos_registo')
-            .upload(frontPath, documentFrente);
+            .upload(frontPath, frenteBlob, { contentType: frenteBlob.type || 'image/jpeg' });
           if (fErr) console.error('Erro upload frente:', fErr);
           else {
             const { data } = supabase.storage.from('documentos_registo').getPublicUrl(frontPath);
@@ -529,13 +532,14 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
           }
         }
 
-        // Upload back
-        if (documentVerso) {
-          const backExt = documentVerso.name.split('.').pop() || 'jpg';
-          const backPath = `${biClean}/verso_${Date.now()}.${backExt}`;
+        // Upload back — ficheiro seleccionado OU Blob derivado do preview base64
+        const versoBlob: Blob | null = documentVerso
+          || (versoPreview && versoPreview.startsWith('data:image/') ? base64ToBlob(versoPreview) : null);
+        if (versoBlob) {
+          const backPath = `${biClean}/verso_${Date.now()}.jpg`;
           const { error: bErr } = await supabase.storage
             .from('documentos_registo')
-            .upload(backPath, documentVerso);
+            .upload(backPath, versoBlob, { contentType: versoBlob.type || 'image/jpeg' });
           if (bErr) console.error('Erro upload verso:', bErr);
           else {
             const { data } = supabase.storage.from('documentos_registo').getPublicUrl(backPath);
