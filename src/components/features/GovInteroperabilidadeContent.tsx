@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Building2, 
@@ -22,7 +22,8 @@ import {
   User,
   Briefcase,
   Shield,
-  UploadCloud
+  UploadCloud,
+  Landmark
 } from 'lucide-react';
 
 import { Institution } from '../../types';
@@ -30,6 +31,9 @@ import { MUNICIPALITIES_BY_PROVINCE, CITIES_BY_PROVINCE, COMMUNES_BY_MUNICIPALIT
 import { useInstitutions } from '../../services/institutionStore';
 import { useSession } from '../../services/sessionStore';
 import { supabaseService } from '../../services/supabaseService';
+import { supabase } from '../../lib/supabaseClient';
+import { homologationStore } from '../../services/homologationStore';
+import { parseInstPack, isInstitutionObservacao, normalizeInstCode, getLocalInstRegs, updateLocalInstReg } from '../../services/institutionRegistrationStore';
 
 
 interface GovInteroperabilidadeContentProps {
@@ -365,6 +369,58 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
+  // ---- Solicitações de Registo de Instituições (mesmo modelo do cidadão) ----
+  const [solicitacoes, setSolicitacoes] = useState<any[]>([]);
+  const [loadingSolicitacoes, setLoadingSolicitacoes] = useState(false);
+  const [selectedSolicitacao, setSelectedSolicitacao] = useState<any | null>(null);
+  const [solReason, setSolReason] = useState('');
+  const [solError, setSolError] = useState('');
+  const [solBusy, setSolBusy] = useState(false);
+  const [adminSolInput, setAdminSolInput] = useState('');
+  const [solThreadTick, setSolThreadTick] = useState(0);
+
+  const solState = (status?: string): 'pendente' | 'ativa' | 'rejeitada' | 'correcao' => {
+    if (status === 'Aprovado') return 'ativa';
+    if (status === 'Rejeitado' || status === 'Reprovado' || status === 'Não Aprovado') return 'rejeitada';
+    if (status === 'Em Correções') return 'correcao';
+    return 'pendente';
+  };
+
+  const fetchSolicitacoes = async () => {
+    setLoadingSolicitacoes(true);
+    const byCode = new Map<string, any>();
+    // 1. Espelho local (funciona offline e cobre registos criados neste dispositivo)
+    for (const r of getLocalInstRegs()) {
+      byCode.set(normalizeInstCode(r.code), {
+        id: r.code, nome: r.nome, email: r.email, bi_numero: r.code,
+        status: r.status, observacoes: r.observacoes, criado_em: r.criadoEm,
+      });
+    }
+    // 2. Nuvem (ganha sobre o local quando presente — é a fonte canónica)
+    const ready = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+    if (ready) {
+      try {
+        const { data, error } = await supabase
+          .from('solicitacoes_registo')
+          .select('*')
+          .order('criado_em', { ascending: false });
+        if (!error && data) {
+          for (const row of data as any[]) {
+            if (isInstitutionObservacao(row?.observacoes)) {
+              byCode.set(normalizeInstCode(row.bi_numero), row);
+            }
+          }
+        } else if (error && error.code !== 'PGRST205') {
+          console.error('Erro a listar solicitações institucionais:', error);
+        }
+      } catch (e) {
+        console.warn('Listagem de solicitações indisponível (offline):', e);
+      }
+    }
+    setSolicitacoes([...byCode.values()]);
+    setLoadingSolicitacoes(false);
+  };
+
   // Municipalities options based on selection
   const currentMunicipalities = useMemo(() => {
     return MUNICIPALITIES_BY_PROVINCE[filterProvince] || ['Todos'];
@@ -423,6 +479,9 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     setFormStatusLocal(inst.status);
     setFormLogoFile(null);
   };
+
+  useEffect(() => { fetchSolicitacoes(); }, []);
+  void solThreadTick; // força a reavaliação da thread no modal ao enviar mensagens
 
   // Save new institution
   const handleCreate = (e: React.FormEvent) => {
@@ -509,7 +568,17 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
       return i;
     }));
 
-    if (onLog) onLog(`INSTITUIÇÃO ${newStatus === 'Ativa' ? 'ACTIVADA' : 'DESACTIVADA'}: ${inst.name}`, newStatus === 'Ativa' ? 'success' : 'warning');
+    // Espelho: ficha nascida de uma solicitação → suspensão/reactivação reflecte-se no acesso
+    if (inst.instCode) {
+      homologationStore.setStatus(
+        inst.instCode,
+        newStatus === 'Ativa' ? 'active' : 'blocked',
+        newStatus === 'Ativa' ? undefined : 'Suspensa pela Área de Administração.',
+        inst.fullName
+      );
+    }
+
+    if (onLog) onLog(`INSTITUIÇÃO ${newStatus === 'Ativa' ? 'ACTIVADA' : 'SUSPENSA'}: ${inst.name}`, newStatus === 'Ativa' ? 'success' : 'warning');
   };
 
   // Toggle status from inside detail dossier
@@ -522,6 +591,131 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     setSelectedInstHistory(prev => prev ? { ...prev, status: newStatus } : null);
 
     if (onLog) onLog(`INSTITUIÇÃO ${newStatus === 'Ativa' ? 'ACTIVADA' : 'DESACTIVADA'}: ${inst.name}`, newStatus === 'Ativa' ? 'success' : 'warning');
+  };
+
+  // ---- Acções das Solicitações de Registo (modelo do cidadão) ----
+  const persistSolicitationStatus = async (row: any, status: string) => {
+    updateLocalInstReg(row.bi_numero, { status });
+    const ready = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+    if (!ready || !row.id || String(row.id) === String(row.bi_numero)) return;
+    try {
+      const { error } = await supabase.from('solicitacoes_registo').update({ status }).eq('id', row.id);
+      if (error) console.error('Erro a actualizar estado da solicitação na nuvem:', error);
+    } catch (e) { console.warn('Actualização cloud indisponível:', e); }
+  };
+
+  const handleApproveSolicitacao = async (row: any) => {
+    setSolBusy(true); setSolError('');
+    const code = normalizeInstCode(row.bi_numero);
+    const pack = parseInstPack(row.observacoes);
+    await persistSolicitationStatus(row, 'Aprovado');
+    homologationStore.setStatus(code, 'active', undefined, row.nome);
+    // Ficha 1:1 na lista de instituições da página (editável pelo popup "Editar")
+    setInstitutions(prev => {
+      if (prev.some(i => normalizeInstCode(i.instCode || '') === code)) return prev;
+      const newInst: Institution = {
+        id: `inst-${(pack?.sigla || 'inst').toLowerCase()}-${Math.floor(Math.random() * 900) + 100}`,
+        name: pack?.sigla || code,
+        fullName: row.nome,
+        category: mapTypeToCategory(pack?.tipo || ''),
+        province: pack?.provincia || 'Luanda',
+        municipio: pack?.municipio || '—',
+        status: 'Ativa',
+        totalCorrespondence: 0,
+        totalAgents: 1,
+        lastActivity: 'Aprovada agora',
+        responseRate: '100%',
+        typeInst: pack?.tipo,
+        cidade: pack?.cidade,
+        comuna: pack?.comuna,
+        address: pack?.endereco,
+        registrationDate: new Date(row.criado_em || Date.now()).toLocaleDateString('pt-AO'),
+        aiUsageRate: '0%',
+        performanceScore: '100%',
+        contactEmail: pack?.emailContacto || row.email || '',
+        contactPhone: pack?.telefone || '',
+        responsibleName: pack?.responsavel || '',
+        responsibleRole: pack?.cargo || '',
+        instCode: code,
+      };
+      return [newInst, ...prev];
+    });
+    homologationStore.addMessage(
+      code, 'admin',
+      `Exmos. Senhores da ${row.nome} (${code}), informamos que a vossa adesão ao Correio Digital Angola foi APROVADA pela Área de Administração e a conta da instituição encontra-se oficialmente ATIVA. Todas as funcionalidades da área institucional ficam disponíveis de imediato. Bem-vindos à rede nacional de correio digital.`
+    );
+    onLog?.(`Instituição APROVADA: ${row.nome} (${code}) — conta activa e ficha criada na página Instituições.`, 'success');
+    await fetchSolicitacoes();
+    setSelectedSolicitacao(null);
+    setSolBusy(false);
+  };
+
+  const handleRejectSolicitacao = async (row: any) => {
+    if (!solReason.trim()) { setSolError('Indique o motivo da rejeição — é obrigatório.'); return; }
+    setSolBusy(true); setSolError('');
+    const code = normalizeInstCode(row.bi_numero);
+    await persistSolicitationStatus(row, 'Rejeitado');
+    homologationStore.setStatus(code, 'rejected', solReason.trim(), row.nome);
+    homologationStore.addMessage(
+      code, 'admin',
+      `Exmos. Senhores da ${row.nome} (${code}), após análise, a vossa solicitação de adesão foi REJEITADA pela Área de Administração. Motivo oficial: "${solReason.trim()}". Podem corrigir a informação e submeter novo registo com o mesmo Código quando elegível.`
+    );
+    onLog?.(`Solicitação de ${row.nome} (${code}) REJEITADA. Motivo: ${solReason.trim()}`, 'warning');
+    setSolReason('');
+    await fetchSolicitacoes();
+    setSelectedSolicitacao(null);
+    setSolBusy(false);
+  };
+
+  const handleRequestCorrections = async (row: any) => {
+    if (!solReason.trim()) { setSolError('Indique as correções a efectuar — é obrigatório.'); return; }
+    setSolBusy(true); setSolError('');
+    const code = normalizeInstCode(row.bi_numero);
+    await persistSolicitationStatus(row, 'Em Correções');
+    homologationStore.setStatus(code, 'correcao', solReason.trim(), row.nome);
+    homologationStore.addMessage(
+      code, 'admin',
+      `Exmos. Senhores da ${row.nome} (${code}), a Área de Administração solicitou CORREÇÕES ao vosso pedido de adesão. Pontos a corrigir: "${solReason.trim()}". Após ajustar os dados, respondam por este canal — o pedido voltará à fila de análise.`
+    );
+    onLog?.(`CORREÇÕES solicitadas a ${row.nome} (${code}). Pontos: ${solReason.trim()}`, 'info');
+    setSolReason('');
+    await fetchSolicitacoes();
+    setSelectedSolicitacao(null);
+    setSolBusy(false);
+  };
+
+  const handleDeleteSolicitacao = async (row: any) => {
+    setSolBusy(true);
+    const code = normalizeInstCode(row.bi_numero);
+    // Cascata idêntica à do cidadão: registo + homologação + thread + lidos
+    try { homologationStore.clearStatus(code); } catch { /* ignora */ }
+    try { homologationStore.clearThread(code); } catch { /* ignora */ }
+    try { localStorage.removeItem(`cda_read_msgs_${code.replace(/\s+/g, '')}`); } catch { /* ignora */ }
+    try {
+      const raw = localStorage.getItem('cda_inst_regs_v1');
+      if (raw) {
+        const regs = JSON.parse(raw).filter((r: any) => normalizeInstCode(r.code) !== code);
+        localStorage.setItem('cda_inst_regs_v1', JSON.stringify(regs));
+      }
+    } catch { /* ignora */ }
+    const ready = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+    if (ready && row.id && String(row.id) !== String(row.bi_numero)) {
+      try {
+        const { error } = await supabase.from('solicitacoes_registo').delete().eq('id', row.id);
+        if (error) console.error('Erro a remover solicitação na nuvem:', error);
+      } catch (e) { console.warn('Remoção cloud indisponível:', e); }
+    }
+    onLog?.(`Solicitação de ${row.nome} (${code}) eliminada em cascata (registo, homologação, thread, lidos).`, 'critical');
+    await fetchSolicitacoes();
+    setSelectedSolicitacao(null);
+    setSolBusy(false);
+  };
+
+  const handleSendSolThread = (row: any) => {
+    if (!adminSolInput.trim()) return;
+    homologationStore.addMessage(normalizeInstCode(row.bi_numero), 'admin', adminSolInput.trim());
+    setAdminSolInput('');
+    setSolThreadTick(t => t + 1);
   };
 
   // Aggregated analytics/metrics derived from the current set of institutions
@@ -832,6 +1026,80 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
           </div>
         </div>
       </div>
+
+      {/* ===== SOLICITAÇÕES DE REGISTO (modelo do cidadão) ===== */}
+      {(() => {
+        const pendingCount = solicitacoes.filter(s => solState(s.status) === 'pendente' || solState(s.status) === 'correcao').length;
+        const stateChip = (status?: string) => {
+          const st = solState(status);
+          if (st === 'ativa') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-emerald-50 border-emerald-100 text-emerald-700 tracking-wider">🟢 Ativa</span>;
+          if (st === 'rejeitada') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-rose-50 border-rose-100 text-rose-700 tracking-wider">🔴 Rejeitada</span>;
+          if (st === 'correcao') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-amber-50 border-amber-100 text-amber-700 tracking-wider">🟠 Em Correções</span>;
+          return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-yellow-50 border-yellow-100 text-yellow-700 tracking-wider">🟡 Pendente</span>;
+        };
+        return (
+          <div className="bg-white border border-slate-200 rounded-[24px] p-6 mb-8 shadow-xs">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-4">
+              <div className="flex items-center gap-2.5">
+                <Shield size={15} className="text-[#4f46e5] stroke-[2.5]" />
+                <h3 className="text-[11px] font-black uppercase text-slate-900 tracking-wider">Solicitações de Registo de Instituições</h3>
+                {pendingCount > 0 && (
+                  <span className="bg-amber-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full leading-none">{pendingCount} pendente{pendingCount > 1 ? 's' : ''}</span>
+                )}
+              </div>
+              <button
+                onClick={() => fetchSolicitacoes()}
+                className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                {loadingSolicitacoes ? 'A actualizar…' : 'Actualizar'}
+              </button>
+            </div>
+
+            {solicitacoes.length === 0 ? (
+              <div className="py-8 text-center text-slate-400">
+                <Building2 size={24} className="mx-auto text-slate-300 mb-2" />
+                <span className="text-[10px] font-black uppercase tracking-wider block">Sem solicitações de registo institucional</span>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-[10px] md:text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="py-2.5 px-3 text-[9px] font-black uppercase tracking-wider text-slate-400">Nome da Instituição</th>
+                      <th className="py-2.5 px-3 text-[9px] font-black uppercase tracking-wider text-slate-400">Sigla</th>
+                      <th className="py-2.5 px-3 text-[9px] font-black uppercase tracking-wider text-slate-400">Tipo</th>
+                      <th className="py-2.5 px-3 text-[9px] font-black uppercase tracking-wider text-slate-400">Província</th>
+                      <th className="py-2.5 px-3 text-[9px] font-black uppercase tracking-wider text-slate-400">Responsável</th>
+                      <th className="py-2.5 px-3 text-[9px] font-black uppercase tracking-wider text-slate-400">Data</th>
+                      <th className="py-2.5 px-3 text-[9px] font-black uppercase tracking-wider text-slate-400 text-center">Estado</th>
+                      <th className="py-2.5 px-3" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {solicitacoes.map((row) => {
+                      const pack = parseInstPack(row.observacoes);
+                      return (
+                        <tr key={normalizeInstCode(row.bi_numero)} onClick={() => { setSelectedSolicitacao(row); setSolReason(''); setSolError(''); }} className="border-b border-slate-50 hover:bg-slate-50/70 transition-colors cursor-pointer">
+                          <td className="py-3 px-3 font-bold text-slate-800">{row.nome}</td>
+                          <td className="py-3 px-3 font-mono font-bold text-[#4f46e5]">{pack?.sigla || '—'}</td>
+                          <td className="py-3 px-3 text-slate-600">{pack?.tipo || '—'}</td>
+                          <td className="py-3 px-3 text-slate-600">{pack?.provincia || '—'}</td>
+                          <td className="py-3 px-3 text-slate-600">{pack?.responsavel || '—'}</td>
+                          <td className="py-3 px-3 text-slate-500">{row.criado_em ? new Date(row.criado_em).toLocaleDateString('pt-AO') : '—'}</td>
+                          <td className="py-3 px-3 text-center">{stateChip(row.status)}</td>
+                          <td className="py-3 px-3 text-right">
+                            <span className="px-2 py-1 bg-indigo-50 border border-indigo-100 text-[#4f46e5] rounded-lg text-[8.5px] font-extrabold uppercase tracking-wider">Abrir</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Advanced Filter Box */}
       <div className="bg-white border border-slate-200 rounded-[24px] p-6 mb-8">
@@ -1517,6 +1785,132 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
             </motion.div>
           </>
         )}
+      </AnimatePresence>
+
+      {/* ===== MODAL — Auditoria Institucional da Solicitação ===== */}
+      <AnimatePresence>
+        {selectedSolicitacao && (() => {
+          const row = selectedSolicitacao;
+          const code = normalizeInstCode(row.bi_numero);
+          const pack = parseInstPack(row.observacoes);
+          const st = solState(row.status);
+          const InfoRow = ({ label, value }: { label: string; value?: string }) => (
+            <div className="flex flex-col text-left">
+              <span className="text-[8.5px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+              <span className="text-[11.5px] font-bold text-slate-800 leading-snug">{value || '—'}</span>
+            </div>
+          );
+          return (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                onClick={() => { setSelectedSolicitacao(null); setSolError(''); setSolReason(''); }}
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[150]"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                className="fixed inset-x-3 top-[3%] bottom-[3%] md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-[720px] bg-white rounded-[28px] shadow-2xl z-[160] flex flex-col overflow-hidden border border-slate-100"
+              >
+                {/* Cabeçalho */}
+                <div className="bg-slate-950 p-5 md:p-6 text-white relative shrink-0">
+                  <button onClick={() => { setSelectedSolicitacao(null); setSolError(''); setSolReason(''); }} className="absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-full transition-colors cursor-pointer border-0 text-white bg-transparent" type="button"><X size={17} /></button>
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 bg-white/10 rounded-2xl flex items-center justify-center border border-white/15"><Landmark size={21} /></div>
+                    <div className="min-w-0">
+                      <div className="text-[8.5px] font-black uppercase tracking-[0.2em] text-indigo-300">Solicitação de Adesão — {code}</div>
+                      <h3 className="text-base md:text-lg font-black uppercase tracking-tight leading-tight truncate">{row.nome}</h3>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-5 md:p-6 space-y-5 text-left">
+                  {/* Dados institucionais */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3.5">
+                    <InfoRow label="Sigla" value={pack?.sigla} />
+                    <InfoRow label="Tipo" value={pack?.tipo} />
+                    <InfoRow label="Estado do pedido" value={st === 'ativa' ? '🟢 Ativa' : st === 'rejeitada' ? '🔴 Rejeitada' : st === 'correcao' ? '🟠 Em Correções' : '🟡 Pendente'} />
+                    <div className="col-span-2 md:col-span-3 h-px bg-slate-100" />
+                    <InfoRow label="Província" value={pack?.provincia} />
+                    <InfoRow label="Cidade" value={pack?.cidade} />
+                    <InfoRow label="Município" value={pack?.municipio} />
+                    <InfoRow label="Comuna" value={pack?.comuna} />
+                    <div className="col-span-2 md:col-span-2"><InfoRow label="Endereço" value={pack?.endereco} /></div>
+                    <div className="col-span-2 md:col-span-3 h-px bg-slate-100" />
+                    <InfoRow label="E-mail Institucional" value={pack?.emailContacto} />
+                    <InfoRow label="Telefone Institucional" value={pack?.telefone} />
+                    <InfoRow label="E-mail de Acesso (responsável)" value={pack?.emailAcesso || row.email} />
+                    <div className="col-span-2 md:col-span-3 h-px bg-slate-100" />
+                    <InfoRow label="Responsável" value={pack?.responsavel} />
+                    <InfoRow label="Cargo" value={pack?.cargo} />
+                    <InfoRow label="Data do pedido" value={row.criado_em ? new Date(row.criado_em).toLocaleString('pt-AO') : undefined} />
+                  </div>
+
+                  {/* Nota KYC — N/A institucional (S1) */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-[9.5px] font-bold text-slate-500 leading-snug">
+                    Verificações biométricas/KYC do modelo de cidadão: <span className="font-black text-slate-600">N/A — adesão institucional</span> (sem documentos nem captura facial neste fluxo, por definição do processo aprovado).
+                  </div>
+
+                  {/* Thread */}
+                  <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                    <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-100 flex items-center gap-2">
+                      <Mail size={12} className="text-[#4f46e5]" />
+                      <span className="text-[9.5px] font-black uppercase tracking-widest text-slate-600">Canal oficial com a instituição</span>
+                    </div>
+                    <div className="max-h-[180px] overflow-y-auto custom-scrollbar p-3.5 space-y-2">
+                      {homologationStore.getThread(code).length === 0 && (
+                        <p className="text-[9.5px] text-slate-400 font-bold">Sem mensagens ainda.</p>
+                      )}
+                      {homologationStore.getThread(code).map((m) => (
+                        <div key={m.id} className={`max-w-[92%] rounded-2xl px-3 py-2 text-[10px] font-medium leading-snug ${m.from === 'admin' ? 'bg-indigo-50 text-indigo-950 border border-indigo-100' : 'bg-emerald-50 text-emerald-950 border border-emerald-100 ml-auto'}`}>
+                          <span className="block text-[8px] font-black uppercase tracking-widest opacity-60 mb-0.5">{m.from === 'admin' ? 'Área de Administração' : 'Instituição'} · {m.at}</span>
+                          {m.text}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="border-t border-slate-100 p-3 flex items-center gap-2">
+                      <input
+                        value={adminSolInput}
+                        onChange={(e) => setAdminSolInput(e.target.value)}
+                        placeholder="Escrever mensagem oficial à instituição…"
+                        className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10.5px] font-bold text-slate-800 outline-none focus:border-[#4f46e5]/40"
+                      />
+                      <button type="button" onClick={() => handleSendSolThread(row)} className="bg-[#4f46e5] hover:bg-[#4338ca] text-white px-3.5 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer border-none">Enviar</button>
+                    </div>
+                  </div>
+
+                  {/* Acções */}
+                  {(st === 'pendente' || st === 'correcao') && (
+                    <div className="space-y-3 pt-1">
+                      <textarea
+                        value={solReason}
+                        onChange={(e) => { setSolReason(e.target.value); setSolError(''); }}
+                        rows={2}
+                        placeholder="Motivo / correções (obrigatório para Rejeitar ou Solicitar Correções)…"
+                        className="w-full bg-white border border-slate-200 rounded-2xl px-3.5 py-2.5 text-[10.5px] font-bold text-slate-800 outline-none focus:border-[#4f46e5]/40 resize-none"
+                      />
+                      {solError && <p className="text-[9.5px] text-red-600 font-bold">{solError}</p>}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button type="button" disabled={solBusy} onClick={() => handleApproveSolicitacao(row)} className="flex-1 min-w-[130px] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white py-2.5 rounded-xl text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"><CheckCircle size={12} /> Aprovar</button>
+                        <button type="button" disabled={solBusy} onClick={() => handleRequestCorrections(row)} className="flex-1 min-w-[130px] bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white py-2.5 rounded-xl text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"><Clock size={12} /> Solicitar Correções</button>
+                        <button type="button" disabled={solBusy} onClick={() => handleRejectSolicitacao(row)} className="flex-1 min-w-[130px] bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white py-2.5 rounded-xl text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"><X size={12} /> Rejeitar</button>
+                      </div>
+                      <div className="text-center">
+                        <button type="button" disabled={solBusy} onClick={() => handleDeleteSolicitacao(row)} className="text-[8.5px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-600 transition-colors cursor-pointer bg-transparent border-none underline underline-offset-4">Eliminar solicitação (cascata)</button>
+                      </div>
+                    </div>
+                  )}
+                  {st !== 'pendente' && st !== 'correcao' && (
+                    <div className="text-center pb-1">
+                      <span className="text-[9.5px] font-black uppercase tracking-widest text-slate-400">Processo encerrado — {st === 'ativa' ? 'instituição aprovada e activa' : 'solicitação rejeitada'}</span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </>
+          );
+        })()}
       </AnimatePresence>
 
       {/* Interoperability Activity History Modal */}

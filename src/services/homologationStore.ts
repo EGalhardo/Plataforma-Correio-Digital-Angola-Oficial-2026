@@ -10,7 +10,7 @@
 //    100% interoperável entre sessões/abas do mesmo dispositivo.
 // ============================================================================
 
-export type HomologationStatus = 'pending' | 'rejected' | 'active' | 'blocked';
+export type HomologationStatus = 'pending' | 'rejected' | 'active' | 'blocked' | 'correcao';
 
 export interface HomologationRecord {
   status: HomologationStatus;
@@ -76,7 +76,7 @@ export const homologationStore = {
     const prev = all[key];
     all[key] = {
       status,
-      reason: status === 'rejected' ? reason : undefined,
+      reason: (status === 'rejected' || status === 'correcao' || status === 'blocked') ? reason : undefined,
       name: name || prev?.name,
       updatedAt: nowStamp(),
     };

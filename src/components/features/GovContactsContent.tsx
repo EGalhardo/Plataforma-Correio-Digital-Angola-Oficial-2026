@@ -488,7 +488,8 @@ export function GovContactsContent({
           'Bloqueado',
           'Ativo'
         ];
-        return parsed.map((c: any) => {
+        // Instituições deixam de figurar nesta fila — passaram para a página Instituições.
+        return parsed.filter((c: any) => c.category !== 'Instituição').map((c: any) => {
           let st = c.status;
           if (st === 'Aprovado' || st === 'Ativo') st = 'Ativo';
           if (st === 'Pendente' || st === 'Pendente de Validação') st = 'Pendente de Validação';
@@ -996,10 +997,12 @@ export function GovContactsContent({
         }
 
         if (data && data.length > 0) {
-          const supabaseCitizens: Citizen[] = mapRegistrationRowsToCitizens(data);
+          // Instituições vivem na página Instituições (secção "Solicitações de Registo") — saem da fila de cidadãos.
+          const citizenRows = (data as any[]).filter((item: any) => !item?.observacoes?.includes('[Instituição]'));
+          const supabaseCitizens: Citizen[] = mapRegistrationRowsToCitizens(citizenRows);
 
           setCitizens(prev => {
-            const localFiltered = prev.filter(c => !data.some((item: any) => item.bi_numero === c.biNumber));
+            const localFiltered = prev.filter(c => !citizenRows.some((item: any) => item.bi_numero === c.biNumber) && c.category !== 'Instituição');
             // A versão da nuvem ganha prioridade, MAS preserva as métricas reais
             // locais quando o registo na nuvem ainda não as transporta.
             const merged = supabaseCitizens.map(sc => {
