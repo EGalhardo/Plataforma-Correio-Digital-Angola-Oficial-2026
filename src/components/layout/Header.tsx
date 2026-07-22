@@ -215,12 +215,14 @@ export function Header({
   const { user, activeProfile } = useSession();
   const { t: translate } = useLanguage();
   const isUserMode = appMode === 'user';
+  const isInstitutionMode = appMode === 'institution';
   const unreadCount = isUserMode && typeof unreadCorrespondencesCount === 'number'
     ? unreadCorrespondencesCount
     : notifications.filter(n => n.unread !== false).length;
   const [showUnreadMenu, setShowUnreadMenu] = useState(false);
   // Cor do indicador Online por estado da conta (só no modo cidadão)
-  const onlineTone = isUserMode ? citizenOnlineTone : null;
+  // O tom por estado da conta aplica-se ao cidadão E à instituição (pendente → vermelho…)
+  const onlineTone = (isUserMode || isInstitutionMode) ? citizenOnlineTone : null;
   const onlineDot = onlineTone === 'red' ? 'bg-red-500' : onlineTone === 'yellow' ? 'bg-amber-400' : 'bg-[#00dd82]';
   const onlinePing2 = onlineTone === 'red' ? 'bg-red-500/30' : onlineTone === 'yellow' ? 'bg-amber-400/30' : 'bg-[#00dd82]/30';
   const onlinePillText = onlineTone === 'red' ? 'bg-transparent text-red-600' : onlineTone === 'yellow' ? 'bg-transparent text-amber-600' : 'bg-transparent text-[#00925d]';

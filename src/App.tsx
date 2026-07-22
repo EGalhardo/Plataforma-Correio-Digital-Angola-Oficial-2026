@@ -40,6 +40,7 @@ import {
   SolicitarDocumentoContent,
   RegisterStepper,
   RegisterInstitutionPage,
+  InstitutionWaitingPage,
   ResetPasswordStepper,
   VoiceGuideAssistant,
   InstitutionDetail,
@@ -75,6 +76,7 @@ import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol } f
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi } from './services/supabaseService';
 import { homologationStore, normalizeHomologationBi } from './services/homologationStore';
+import { resolveInstitutionLogin, isInstitutionFichaSuspended, type InstitutionIdentity } from './services/institutionSessionService';
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
 import { useSession } from './services/sessionStore';
@@ -844,10 +846,14 @@ export default function App() {
   
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const { user, appMode, setAppMode, activeProfile, updateUserFields } = useSession();
+  const { user, appMode, setAppMode, activeProfile, updateUserFields, updateActiveProfileFields } = useSession();
   const isGovMode = appMode === 'admin';
   const isInstMode = appMode === 'institution';
   const institutionCode = resolveInstitutionCode(activeProfile?.institutionName || '');
+  // F3 — porta da área da Instituição: 'restricted' = entrou pendente/em correções; 'full' = acesso total
+  const [instGate, setInstGate] = useState<'none' | 'restricted' | 'full'>('none');
+  const [instIdentity, setInstIdentity] = useState<InstitutionIdentity | null>(null);
+  void instIdentity; // consumida pela F4 (equipa/perfil)
 
   // Claro/Escuro Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -1286,6 +1292,19 @@ export default function App() {
       }
       timer = setTimeout(() => {
         void (async () => {
+          // Instituições registadas entram apenas por Código + Senha (a senha identifica a pessoa)
+          if (isInstMode && bi.trim().toUpperCase() !== DEMO_CREDENTIALS.institution.identifier && bi.trim() !== '') {
+            setLoginError('Login facial indisponível para instituições registadas: utilize o Código Institucional + Senha de Acesso.');
+            setFaceProgress(0);
+            setIsFaceScanning(false);
+            stopLoginFaceCamera();
+            setLoginSubMode('normal');
+            return;
+          }
+          if (isInstMode) {
+            setInstGate('full');
+            setInstIdentity({ type: 'responsible' });
+          }
           await applyIdentityForLoggedUser();
           stopLoginFaceCamera();
           setStage('app');
@@ -1301,10 +1320,21 @@ export default function App() {
   // de homologação actualizado (novas mensagens do admin aparecem em ~4s),
   // sem recarregar nem limpar dados.
   useEffect(() => {
-    if (stage !== 'app' || appMode !== 'user') return;
+    if (stage !== 'app' || (appMode !== 'user' && appMode !== 'institution')) return;
     const id = setInterval(() => setGateRefreshTick(t => t + 1), 4000);
     return () => clearInterval(id);
   }, [stage, appMode, bi]);
+
+  // F3 — a porta institucional desbloqueia sozinha assim que a Admin aprovar
+  useEffect(() => {
+    if (!isInstMode || instGate !== 'restricted') return;
+    void gateRefreshTick; // reavalia a cada tick
+    const rec = homologationStore.getStatus(bi);
+    if (rec?.status === 'active' && !isInstitutionFichaSuspended(bi)) {
+      setInstGate('full');
+      addAuditLog(`Instituição ${bi} APROVADA — funcionalidades desbloqueadas automaticamente.`, 'success');
+    }
+  }, [gateRefreshTick, isInstMode, instGate, bi]);
 
   // Canal oficial de homologação (Área de Administração ⇄ Cidadão): espelha as
   // mensagens gravadas na homologationStore para a caixa de entrada do cidadão.
@@ -2127,6 +2157,20 @@ export default function App() {
     if (!rec || rec.status === 'active') return 'green' as const;
     if (rec.status === 'blocked') return 'yellow' as const;
     return 'red' as const;
+  })();
+
+  // F3 — cor do indicador "Online" também para a área da Instituição (mesma matriz do cidadão)
+  const institutionOnlineTone = (() => {
+    if (!isInstMode) return null;
+    void gateRefreshTick; // reavalia a cada tick
+    const rec = homologationStore.getStatus(bi);
+    if (instGate === 'restricted') {
+      if (rec?.status === 'blocked') return 'yellow' as const;
+      return 'red' as const; // pendente/em correções/rejeitada → conta ainda não activa
+    }
+    if (rec?.status === 'blocked') return 'yellow' as const;
+    if (rec?.status === 'pending' || rec?.status === 'correcao' || rec?.status === 'rejected') return 'red' as const;
+    return 'green' as const;
   })();
 
   // Filtro do canal de homologação: durante a pendência o cidadão SÓ vê as
@@ -3028,6 +3072,25 @@ Ficha civil do titular:
 
   // Rendering Helpers
   const renderContent = () => {
+    // F3 — Instituição pendente/em correções: funcionalidades bloqueadas (página informativa)
+    if (isInstMode && instGate === 'restricted') {
+      void instIdentity; // F4 consumirá a identidade (responsável/colaborador)
+      const visibleName = (activeProfile?.institutionName || user?.name || bi).replace(/\s*\([^)]*\)\s*$/, '');
+      return (
+        <InstitutionWaitingPage
+          code={bi}
+          name={visibleName}
+          onRefresh={() => {
+            const rec = homologationStore.getStatus(bi);
+            if (rec?.status === 'active' && !isInstitutionFichaSuspended(bi)) {
+              setInstGate('full');
+              addAuditLog(`Instituição ${bi} APROVADA — funcionalidades desbloqueadas.`, 'success');
+            }
+            setGateRefreshTick(tick => tick + 1);
+          }}
+        />
+      );
+    }
     switch (tab) {
       case 'home':
         return (
@@ -3880,9 +3943,49 @@ Ficha civil do titular:
         addAuditLog("BLOQUEIO IDENTITÁRIO: Tentativa de login por Edlasio Galhardo suspensa (SOC-AN-2026)", "critical");
         return;
       }
+      // ---- F3: Login da Instituição por Código Institucional + Senha ----
+      if (isInstMode) {
+        const typedCode = bi.trim().toUpperCase();
+        const instPreset = DEMO_CREDENTIALS.institution;
+        if (!typedCode || typedCode === instPreset.identifier) {
+          // Via demo intacta (AGT-9921-SR): entra como responsável com tudo
+          setInstGate('full');
+          setInstIdentity({ type: 'responsible' });
+          if (!typedCode) setBi(instPreset.identifier);
+        } else {
+          setLoginError(null);
+          try {
+            const result = await resolveInstitutionLogin(typedCode, loginPasswordInput, supabase);
+            if (result.outcome === 'invalid' || result.outcome === 'deny') {
+              setLoginError(result.message || 'Acesso não autorizado.');
+              addAuditLog(`Login institucional recusado (${result.code}): ${result.message}`, result.outcome === 'deny' ? 'critical' : 'warning');
+              return;
+            }
+            updateUserFields?.({ bi: result.code, name: result.name });
+            updateActiveProfileFields?.({ institutionName: `${result.name} (${result.code})`, role: 'institution' });
+            setInstIdentity(result.identity || { type: 'responsible' });
+            setInstGate(result.outcome === 'restricted' ? 'restricted' : 'full');
+            setBi(result.code);
+            addAuditLog(
+              result.outcome === 'restricted'
+                ? `Login institucional (${result.code}) — conta pendente de aprovação: funcionalidades bloqueadas.`
+                : `Login institucional (${result.code}) — conta activa.`,
+              result.outcome === 'restricted' ? 'warning' : 'success'
+            );
+          } catch (e) {
+            console.error('Erro no login institucional:', e);
+            setLoginError('Falha na validação do login institucional. Tente novamente.');
+            return;
+          }
+        }
+      } else {
+        setInstGate('none');
+        setInstIdentity(null);
+      }
+
       await applyIdentityForLoggedUser();
       setStage('app');
-      addAuditLog('Login de Cidadão via Autenticação Segura', 'success');
+      addAuditLog(isInstMode ? 'Login de Instituição via Autenticação Segura' : 'Login de Cidadão via Autenticação Segura', 'success');
     };
 
     return (
@@ -4595,7 +4698,7 @@ Ficha civil do titular:
             unreadCorrespondencesCount={unreadTotal}
             unreadMessages={unreadMessagesList}
             onOpenUnreadMessage={handleOpenUnreadMessage}
-            citizenOnlineTone={citizenOnlineTone}
+            citizenOnlineTone={isInstMode ? institutionOnlineTone : citizenOnlineTone}
             chatAssistantRecognitionRef={chatAssistantRecognitionRef} // Repassar ref do reconhecimento de voz
             NotificationDropdown={() => (
               <NotificationDropdown 
