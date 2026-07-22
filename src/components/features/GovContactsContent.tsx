@@ -3296,6 +3296,11 @@ export function GovContactsContent({
                             await updateRegistrationRecord(selectedReviewCitizen.dbUUID || selectedReviewCitizen.id, { status: 'Bloqueado', observacoes: 'Bloqueio preventivo: ' + mot });
                           }
 
+                          // HOMOLOGAÇÃO: o bloqueio também fica registado na loja — o cidadão
+                          // fica restrito pela regra já existente (status !== 'active') e o
+                          // indicador Online passa a amarelo.
+                          homologationStore.setStatus(selectedReviewCitizen.biNumber || '', 'blocked', mot, selectedReviewCitizen.name);
+
                           addAuditLog?.(`Auditoria: Conta de "${selectedReviewCitizen.name}" BLOQUEADA preventivamente por: "${mot}".`, 'warning');
                           setSelectedReviewCitizen(null);
                         }}

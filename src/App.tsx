@@ -2117,6 +2117,17 @@ export default function App() {
     return !!rec && rec.status !== 'active';
   })();
 
+  // Cor do indicador "Online" por estado da conta do cidadão:
+  // desactivado (pendente/rejeitado) → vermelho | activa → verde | bloqueada → amarelo.
+  const citizenOnlineTone = (() => {
+    if (appMode !== 'user' || !bi) return null;
+    void gateRefreshTick; // reavalia a cada tick
+    const rec = homologationStore.getStatus(bi);
+    if (!rec || rec.status === 'active') return 'green' as const;
+    if (rec.status === 'blocked') return 'yellow' as const;
+    return 'red' as const;
+  })();
+
   // Filtro do canal de homologação: durante a pendência o cidadão SÓ vê as
   // mensagens oficiais da Área de Administração; após a ativação, esse histórico
   // permanece acessível na caixa de entrada normal (sempre restrito ao seu BI).
@@ -4575,6 +4586,7 @@ Ficha civil do titular:
             unreadCorrespondencesCount={unreadTotal}
             unreadMessages={unreadMessagesList}
             onOpenUnreadMessage={handleOpenUnreadMessage}
+            citizenOnlineTone={citizenOnlineTone}
             chatAssistantRecognitionRef={chatAssistantRecognitionRef} // Repassar ref do reconhecimento de voz
             NotificationDropdown={() => (
               <NotificationDropdown 

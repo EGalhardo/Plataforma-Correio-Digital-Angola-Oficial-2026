@@ -10,7 +10,7 @@
 //    100% interoperável entre sessões/abas do mesmo dispositivo.
 // ============================================================================
 
-export type HomologationStatus = 'pending' | 'rejected' | 'active';
+export type HomologationStatus = 'pending' | 'rejected' | 'active' | 'blocked';
 
 export interface HomologationRecord {
   status: HomologationStatus;

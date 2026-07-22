@@ -40,6 +40,8 @@ interface HeaderProps {
   unreadMessages?: Message[];
   /** Abre uma mensagem não lida (marca-a como lida e navega para Correspondências). */
   onOpenUnreadMessage?: (message: Message) => void;
+  /** Tom do indicador Online por estado da conta do cidadão (null = tom padrão verde). */
+  citizenOnlineTone?: 'red' | 'green' | 'yellow' | null;
   chatAssistantRecognitionRef?: any; // Utilizar 'any' estável no padrão do ficheiro para evitar dependência de namespace React
 }
 
@@ -207,6 +209,7 @@ export function Header({
   unreadCorrespondencesCount,
   unreadMessages = [],
   onOpenUnreadMessage,
+  citizenOnlineTone = null,
   chatAssistantRecognitionRef
 }: HeaderProps) {
   const { user, activeProfile } = useSession();
@@ -216,6 +219,11 @@ export function Header({
     ? unreadCorrespondencesCount
     : notifications.filter(n => n.unread !== false).length;
   const [showUnreadMenu, setShowUnreadMenu] = useState(false);
+  // Cor do indicador Online por estado da conta (só no modo cidadão)
+  const onlineTone = isUserMode ? citizenOnlineTone : null;
+  const onlineDot = onlineTone === 'red' ? 'bg-red-500' : onlineTone === 'yellow' ? 'bg-amber-400' : 'bg-[#00dd82]';
+  const onlinePing2 = onlineTone === 'red' ? 'bg-red-500/30' : onlineTone === 'yellow' ? 'bg-amber-400/30' : 'bg-[#00dd82]/30';
+  const onlinePillText = onlineTone === 'red' ? 'bg-transparent text-red-600' : onlineTone === 'yellow' ? 'bg-transparent text-amber-600' : 'bg-transparent text-[#00925d]';
   const isGov = appMode !== 'user';
   const isAdmin = appMode === 'admin';
   const isInst = appMode === 'institution';
@@ -474,7 +482,7 @@ export function Header({
             onClick={onClickConnectivity}
             className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider transition-all pointer-events-auto cursor-pointer ${
               isOnline 
-                ? 'bg-transparent text-[#00925d]' 
+                ? onlinePillText 
                 : 'border border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100 animate-pulse'
             }`}
             style={{ cursor: 'pointer' }}
@@ -482,11 +490,11 @@ export function Header({
             <div className="relative flex h-2.5 w-2.5 shrink-0 items-center justify-center">
               {isOnline && (
                 <>
-                  <span className="animate-ping absolute inline-flex h-4 w-4 rounded-full bg-[#00dd82] opacity-75"></span>
-                  <span className="animate-ping absolute inline-flex h-6 w-6 rounded-full bg-[#00dd82]/30 opacity-40" style={{ animationDelay: '0.4s' }}></span>
+                  <span className={`animate-ping absolute inline-flex h-4 w-4 rounded-full ${onlineDot} opacity-75`}></span>
+                  <span className={`animate-ping absolute inline-flex h-6 w-6 rounded-full ${onlinePing2} opacity-40`} style={{ animationDelay: '0.4s' }}></span>
                 </>
               )}
-              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isOnline ? 'bg-[#00dd82]' : 'bg-amber-500'}`}></span>
+              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isOnline ? onlineDot : 'bg-amber-500'}`}></span>
             </div>
             <span>{isOnline ? 'Online' : 'Offline'}</span>
             {offlineQueueLength > 0 && (
