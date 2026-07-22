@@ -61,6 +61,7 @@ import {
   Zap
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, isInstPasswordTaken } from '../../services/institutionRegistrationStore';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -1138,6 +1139,7 @@ export function GovContactsContent({
   const [newWorkerPhone, setNewWorkerPhone] = useState('');
   const [newWorkerStatus, setNewWorkerStatus] = useState<'Ativo' | 'Desativado' | 'Suspenso' | 'Férias' | 'Pendente'>('Ativo');
   const [newWorkerAccessProfile, setNewWorkerAccessProfile] = useState('Operador de Atendimento');
+  const [newWorkerPassword, setNewWorkerPassword] = useState('');
   
   // Search state for workers
   const [workerSearch, setWorkerSearch] = useState('');
@@ -1160,6 +1162,7 @@ export function GovContactsContent({
     setNewWorkerPhone('');
     setNewWorkerStatus('Ativo');
     setNewWorkerAccessProfile('Operador de Atendimento');
+    setNewWorkerPassword('');
     setIsEditingWorker(false);
     setEditingWorkerId(null);
   };
@@ -1174,7 +1177,35 @@ export function GovContactsContent({
     const isPlatformAdmin = appMode === 'admin-workers';
     const currentTime = '12/06/2026 ' + new Date().toTimeString().slice(0, 5);
 
+    // F4 — instituições registadas (Código Institucional): o colaborador recebe
+    // uma senha inicial individual (login: Código + esta senha), única na instituição.
+    const regCode = normalizeInstCode(bi);
+    const instReg = (!isPlatformAdmin && appMode === 'institution' && regCode) ? getLocalInstReg(regCode) : undefined;
+    if (instReg && !isEditingWorker) {
+      if (!newWorkerPassword || newWorkerPassword.length < 8) {
+        alert('Defina a Senha inicial do colaborador (mínimo 8 caracteres). O login institucional deste colaborador será: Código da instituição + esta senha.');
+        return;
+      }
+      if (isInstPasswordTaken(regCode, newWorkerPassword)) {
+        alert('Esta senha já está a ser usada por outra credencial desta instituição. Como a senha identifica a pessoa no login, escolha outra.');
+        return;
+      }
+    }
+    if (instReg && isEditingWorker && newWorkerPassword) {
+      if (newWorkerPassword.length < 8) {
+        alert('A nova senha (se preenchida) deve ter pelo menos 8 caracteres.');
+        return;
+      }
+      if (isInstPasswordTaken(regCode, newWorkerPassword, editingWorkerId || undefined)) {
+        alert('Esta senha já está a ser usada por outra credencial desta instituição. Escolha outra.');
+        return;
+      }
+    }
+
     if (isEditingWorker && editingWorkerId) {
+      if (instReg && newWorkerPassword && editingWorkerId) {
+        updateInstMemberPassword(regCode, editingWorkerId, newWorkerPassword);
+      }
       setWorkers(prev => prev.map(w => w.id === editingWorkerId ? {
         ...w,
         name: newWorkerName,
@@ -1197,8 +1228,20 @@ export function GovContactsContent({
         ? ['Visualizar', 'Homologar']
         : ['Visualizar'];
 
+      const newWorkerId = `w-${Date.now()}`;
+      if (instReg) {
+        addInstMember(regCode, {
+          id: newWorkerId,
+          name: newWorkerName,
+          email: newWorkerEmail,
+          role: newWorkerRole,
+          dept: newWorkerDept || 'Geral',
+          password: newWorkerPassword,
+          mustChangePassword: true,
+        });
+      }
       const newWorker: Trabajador = {
-        id: `w-${Date.now()}`,
+        id: newWorkerId,
         name: newWorkerName,
         email: newWorkerEmail,
         role: newWorkerRole,
@@ -1224,6 +1267,7 @@ export function GovContactsContent({
   const handleEditWorkerClick = (w: Trabajador) => {
     setIsEditingWorker(true);
     setEditingWorkerId(w.id);
+    setNewWorkerPassword('');
     setNewWorkerName(w.name);
     setNewWorkerEmail(w.email);
     setNewWorkerRole(w.role);
@@ -1236,6 +1280,10 @@ export function GovContactsContent({
 
   const handleDeleteWorker = (id: string, name: string) => {
     if (confirm(`Tem a certeza que deseja remover o membro da equipa ${name} do sistema?`)) {
+      const regCode = normalizeInstCode(bi);
+      if (appMode === 'institution' && regCode && getLocalInstReg(regCode)) {
+        removeInstMember(regCode, id); // a senha do colaborador deixa de ser reconhecida no login
+      }
       setWorkers(prev => prev.filter(w => w.id !== id));
       if (selectedWorkerId === id) setSelectedWorkerId(null);
       addAuditLog?.(`[EQUIPA] Membro da equipa ${name} foi removido do ecossistema institucional.`, 'warning');
@@ -1744,6 +1792,34 @@ export function GovContactsContent({
                       </div>
 
                     </div>
+
+                    {/* F4 — Senha inicial do colaborador (só instituições registadas por Código) */}
+                    {appMode === 'institution' && (
+                      <>
+                        <div className="border-t border-dashed border-slate-150" />
+                        <div className="grid gap-1.5 text-left">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                            {isEditingWorker ? 'Nova Senha do Colaborador (deixe vazio para manter)' : 'Senha Inicial do Colaborador *'}
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none">
+                              <UserPlus size={16} />
+                            </span>
+                            <input
+                              type="text"
+                              autoComplete="off"
+                              placeholder={isEditingWorker ? '********' : 'Mín. 8 caracteres — será substituída no 1.º login'}
+                              value={newWorkerPassword}
+                              onChange={(e) => setNewWorkerPassword(e.target.value)}
+                              className="w-full bg-white border-2 border-slate-100 focus:border-blue-500/30 rounded-[20px] pl-11 pr-4 py-3.5 text-xs text-slate-800 font-mono font-bold outline-none transition-all"
+                            />
+                          </div>
+                          <p className="text-[9px] text-slate-400 font-bold leading-snug m-0 mr-1 select-none">
+                            O colaborador entra com <strong>Código da instituição + esta senha</strong>. A senha identifica a pessoa — não pode repetir outra credencial activa e ficará guardada apenas neste dispositivo.
+                          </p>
+                        </div>
+                      </>
+                    )}
 
                     {/* Separator before buttons */}
                     <div className="border-t border-dashed border-slate-150 mt-4" />

@@ -109,6 +109,48 @@ export const updateLocalInstReg = (code: string, patch: Partial<LocalInstitution
   writeRegs(regs);
 };
 
+// ---------- Equipa da instituição (F4 — senhas 100% locais) ----------
+
+export type InstMember = LocalInstitutionRegistration['members'][number];
+
+export const listInstMembers = (code?: string): InstMember[] => getLocalInstReg(code)?.members || [];
+
+export const addInstMember = (code: string, member: InstMember): void => {
+  const reg = getLocalInstReg(code);
+  if (!reg) return;
+  updateLocalInstReg(code, { members: [...(reg.members || []), member] });
+};
+
+export const removeInstMember = (code: string, memberId: string): void => {
+  const reg = getLocalInstReg(code);
+  if (!reg) return;
+  updateLocalInstReg(code, { members: (reg.members || []).filter(m => m.id !== memberId) });
+};
+
+export const updateInstMemberPassword = (code: string, memberId: string, password: string): void => {
+  const reg = getLocalInstReg(code);
+  if (!reg) return;
+  updateLocalInstReg(code, {
+    members: (reg.members || []).map(m => m.id === memberId ? { ...m, password, mustChangePassword: false } : m),
+  });
+};
+
+/** A senha é a identidade da pessoa: dentro da mesma instituição não pode haver repetição. */
+export const isInstPasswordTaken = (code: string, password: string, excludeMemberId?: string): boolean => {
+  const reg = getLocalInstReg(code);
+  if (!reg || !password) return false;
+  if (reg.password === password) return true;
+  return (reg.members || []).some(m => m.id !== excludeMemberId && m.password === password);
+};
+
+export const setInstResponsiblePassword = (code: string, password: string): void => {
+  updateLocalInstReg(code, { password });
+};
+
+export const setInstLogo = (code: string, dataUrl: string): void => {
+  updateLocalInstReg(code, { logoDataUrl: dataUrl });
+};
+
 // ---------- Geração do Código Institucional (SIGLA maiúscula + sequencial global) ----------
 
 /** Próximo número global dado um conjunto de códigos existentes (sequencial — 2 dígitos, cresce após 99). */

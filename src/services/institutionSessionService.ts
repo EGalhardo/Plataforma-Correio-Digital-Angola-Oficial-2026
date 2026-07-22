@@ -21,6 +21,7 @@ export interface InstitutionIdentity {
   type: 'responsible' | 'member';
   memberId?: string;
   memberName?: string;
+  mustChangePassword?: boolean;
 }
 
 export interface InstitutionLoginResult {
@@ -94,7 +95,7 @@ export const resolveInstitutionLogin = async (
     identity = { type: 'responsible' };
   } else if (reg) {
     const member = (reg.members || []).find(m => m.password === password && password.length > 0);
-    if (member) identity = { type: 'member', memberId: member.id, memberName: member.name };
+    if (member) identity = { type: 'member', memberId: member.id, memberName: member.name, mustChangePassword: !!member.mustChangePassword };
   }
   if (!identity) {
     return {

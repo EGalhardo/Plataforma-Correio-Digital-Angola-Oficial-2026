@@ -35,6 +35,7 @@ export * from './features/SolicitarDocumentoContent';
 export * from './features/RegisterStepper';
 export * from './features/RegisterInstitutionPage';
 export * from './features/InstitutionWaitingPage';
+export * from './features/InstitutionAccessPanels';
 export * from './features/HomologationGate';
 export * from './features/ResetPasswordStepper';
 export * from './features/VoiceGuideAssistant';

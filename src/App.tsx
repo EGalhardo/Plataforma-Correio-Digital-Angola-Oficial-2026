@@ -41,6 +41,8 @@ import {
   RegisterStepper,
   RegisterInstitutionPage,
   InstitutionWaitingPage,
+  InstitutionAccessPanel,
+  InstitutionForcedPasswordChange,
   ResetPasswordStepper,
   VoiceGuideAssistant,
   InstitutionDetail,
@@ -853,6 +855,7 @@ export default function App() {
   // F3 — porta da área da Instituição: 'restricted' = entrou pendente/em correções; 'full' = acesso total
   const [instGate, setInstGate] = useState<'none' | 'restricted' | 'full'>('none');
   const [instIdentity, setInstIdentity] = useState<InstitutionIdentity | null>(null);
+  const [instMustChangePwd, setInstMustChangePwd] = useState(false);
   void instIdentity; // consumida pela F4 (equipa/perfil)
 
   // Claro/Escuro Theme State
@@ -3091,6 +3094,21 @@ Ficha civil do titular:
         />
       );
     }
+    // F4 — 1.º login do colaborador: troca obrigatória da palavra-passe inicial
+    if (isInstMode && instGate === 'full' && instMustChangePwd) {
+      return (
+        <InstitutionForcedPasswordChange
+          code={bi}
+          memberId={instIdentity?.memberId}
+          memberName={instIdentity?.memberName}
+          onCompleted={() => {
+            setInstMustChangePwd(false);
+            addAuditLog(`Colaborador ${instIdentity?.memberName || bi} substituiu a palavra-passe inicial (1.º login concluído).`, 'success');
+          }}
+          onAudit={addAuditLog}
+        />
+      );
+    }
     switch (tab) {
       case 'home':
         return (
@@ -3351,7 +3369,15 @@ Ficha civil do titular:
         );
       case 'perfil':
         return (
-          <ProfileContent
+          <>
+            {isInstMode && instGate === 'full' && (
+              <InstitutionAccessPanel
+                code={bi}
+                identity={instIdentity}
+                onAudit={addAuditLog}
+              />
+            )}
+            <ProfileContent
             isInst={isInstMode}
             showSensitiveData={showSensitiveData}
             setShowSensitiveData={setShowSensitiveData}
@@ -3387,7 +3413,8 @@ Ficha civil do titular:
             docRequests={docRequests}
             auditLogs={auditLogs}
             addAuditLog={addAuditLog}
-          />
+            />
+          </>
         );
       case 'gov-dashboard':
         return (
@@ -3951,6 +3978,7 @@ Ficha civil do titular:
           // Via demo intacta (AGT-9921-SR): entra como responsável com tudo
           setInstGate('full');
           setInstIdentity({ type: 'responsible' });
+          setInstMustChangePwd(false);
           if (!typedCode) setBi(instPreset.identifier);
         } else {
           setLoginError(null);
@@ -3964,6 +3992,7 @@ Ficha civil do titular:
             updateUserFields?.({ bi: result.code, name: result.name });
             updateActiveProfileFields?.({ institutionName: `${result.name} (${result.code})`, role: 'institution' });
             setInstIdentity(result.identity || { type: 'responsible' });
+            setInstMustChangePwd(!!result.identity?.mustChangePassword);
             setInstGate(result.outcome === 'restricted' ? 'restricted' : 'full');
             setBi(result.code);
             addAuditLog(
@@ -3981,6 +4010,7 @@ Ficha civil do titular:
       } else {
         setInstGate('none');
         setInstIdentity(null);
+        setInstMustChangePwd(false);
       }
 
       await applyIdentityForLoggedUser();
