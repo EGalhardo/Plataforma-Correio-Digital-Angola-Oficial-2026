@@ -8,7 +8,9 @@
 
 import { useState } from 'react';
 import { Landmark, RefreshCw, ShieldCheck, Clock, Send, AlertTriangle, Ban } from 'lucide-react';
+import { supabase } from '../../lib/supabaseClient';
 import { homologationStore } from '../../services/homologationStore';
+import { updateLocalInstReg } from '../../services/institutionRegistrationStore';
 
 interface InstitutionWaitingPageProps {
   code: string;
@@ -37,6 +39,21 @@ export function InstitutionWaitingPage({ code, name, onRefresh }: InstitutionWai
   const handleSend = () => {
     if (!input.trim()) return;
     homologationStore.addMessage(code, 'citizen', input.trim());
+    // S2 — resposta após "Em Correções" = reenvio: o pedido volta a Pendente
+    // para nova análise da Área de Administração (local + nuvem, best-effort).
+    if (status === 'correcao') {
+      homologationStore.setStatus(code, 'pending');
+      updateLocalInstReg(code, { status: 'Pendente' });
+      const ready = !!((import.meta as any).env || {}).VITE_SUPABASE_URL && !!((import.meta as any).env || {}).VITE_SUPABASE_ANON_KEY;
+      if (ready) {
+        void (async () => {
+          try {
+            const { error } = await supabase.from('solicitacoes_registo').update({ status: 'Pendente' }).eq('bi_numero', code);
+            if (error) console.error('Erro ao devolver o pedido à análise na nuvem:', error);
+          } catch (e) { console.warn('Nuvem indisponível:', e); }
+        })();
+      }
+    }
     setInput('');
     setTick(t => t + 1);
   };

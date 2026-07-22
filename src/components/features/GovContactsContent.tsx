@@ -1793,8 +1793,8 @@ export function GovContactsContent({
 
                     </div>
 
-                    {/* F4 — Senha inicial do colaborador (só instituições registadas por Código) */}
-                    {appMode === 'institution' && (
+                    {/* F4 — Senha inicial do colaborador (só instituições registadas por Código; na demo AGT-9921-SR não há registo, logo sem campo) */}
+                    {appMode === 'institution' && !!getLocalInstReg(normalizeInstCode(bi)) && (
                       <>
                         <div className="border-t border-dashed border-slate-150" />
                         <div className="grid gap-1.5 text-left">

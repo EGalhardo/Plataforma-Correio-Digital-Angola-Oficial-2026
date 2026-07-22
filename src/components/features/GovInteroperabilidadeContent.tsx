@@ -590,7 +590,18 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     setInstitutions(prev => prev.map(i => i.id === inst.id ? { ...i, status: newStatus } : i));
     setSelectedInstHistory(prev => prev ? { ...prev, status: newStatus } : null);
 
-    if (onLog) onLog(`INSTITUIÇÃO ${newStatus === 'Ativa' ? 'ACTIVADA' : 'DESACTIVADA'}: ${inst.name}`, newStatus === 'Ativa' ? 'success' : 'warning');
+    // Espelho de homologação — tem de ser IDÊNTICO ao botão da lista (toggleStatus),
+    // senão suspender por um caminho e reactivar pelo outro deixa o acesso bloqueado.
+    if (inst.instCode) {
+      homologationStore.setStatus(
+        inst.instCode,
+        newStatus === 'Ativa' ? 'active' : 'blocked',
+        newStatus === 'Ativa' ? undefined : 'Suspensa pela Área de Administração.',
+        inst.fullName
+      );
+    }
+
+    if (onLog) onLog(`INSTITUIÇÃO ${newStatus === 'Ativa' ? 'ACTIVADA' : 'SUSPENSA'}: ${inst.name}`, newStatus === 'Ativa' ? 'success' : 'warning');
   };
 
   // ---- Acções das Solicitações de Registo (modelo do cidadão) ----

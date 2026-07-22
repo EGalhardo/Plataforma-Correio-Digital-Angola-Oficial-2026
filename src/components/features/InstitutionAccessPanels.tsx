@@ -234,6 +234,10 @@ export function InstitutionForcedPasswordChange({ code, memberId, memberName, on
       setMsg({ kind: 'err', text: 'A nova palavra-passe deve ter pelo menos 8 caracteres.' });
       return;
     }
+    if (newPwd === currentPwd) {
+      setMsg({ kind: 'err', text: 'A nova palavra-passe deve ser diferente da palavra-passe inicial.' });
+      return;
+    }
     if (isInstPasswordTaken(code, newPwd, member.id)) {
       setMsg({ kind: 'err', text: 'Esta palavra-passe já está em uso por outra credencial desta instituição. Escolha outra.' });
       return;
