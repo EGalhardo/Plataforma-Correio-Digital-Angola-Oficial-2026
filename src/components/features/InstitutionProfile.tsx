@@ -10,11 +10,13 @@ import {
   RefreshCw,
   AlertTriangle,
   CheckCircle2,
-  X
+  X,
+  Landmark
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useSession } from "../../services/sessionStore";
 import { supabaseService, hasValidSupabaseKeys } from "../../services/supabaseService";
+import { getLocalInstReg, normalizeInstCode } from "../../services/institutionRegistrationStore";
 
 interface InstitutionProfileProps {
   userProfilePhoto: string;
@@ -32,6 +34,7 @@ interface InstitutionProfileProps {
   department?: string;
   institution?: string;
   lastAccess?: string;
+  agentNumber?: string;
   addAuditLog?: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
 }
 
@@ -51,19 +54,24 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
   department: originalDepartment,
   institution: originalInstitution,
   lastAccess: originalLastAccess,
+  agentNumber: agentNumberProp,
   addAuditLog,
 }) => {
-  const profileName = typeof originalProfileName === 'string' && originalProfileName ? originalProfileName : "Edlasio Galhardo";
-  const bi = typeof originalBi === 'string' && originalBi ? originalBi : "009874562LA041";
-  const nif = typeof originalNif === 'string' && originalNif ? originalNif : "5401329188";
-  const phone = typeof originalPhone === 'string' && originalPhone ? originalPhone : "+244 923 111 222";
-  const email = typeof originalEmail === 'string' && originalEmail ? originalEmail : "edlasio.galhardo@gmail.com";
-  const role = typeof originalRole === 'string' && originalRole ? originalRole : 'Gestor de Contas Digital';
-  const department = typeof originalDepartment === 'string' && originalDepartment ? originalDepartment : 'Direcção de Atendimento e Fiscalização Digital';
+  // F8 — apenas os dados desta conta: campos vazios mostram "—" (sem dados demo do cidadão).
+  const profileName = typeof originalProfileName === 'string' && originalProfileName.trim()
+    ? originalProfileName
+    : (typeof originalInstitution === 'string' && originalInstitution.trim() ? originalInstitution.replace(/\s*\([^)]*\)\s*$/, '') : 'Agente Institucional');
+  const bi = typeof originalBi === 'string' && originalBi ? originalBi : '';
+  const nif = typeof originalNif === 'string' && originalNif ? originalNif : '';
+  const phone = typeof originalPhone === 'string' && originalPhone ? originalPhone : '';
+  const email = typeof originalEmail === 'string' && originalEmail ? originalEmail : '';
+  const role = typeof originalRole === 'string' && originalRole ? originalRole : 'Agente Institucional';
+  const department = typeof originalDepartment === 'string' && originalDepartment ? originalDepartment : '';
   const institution = typeof originalInstitution === 'string' && originalInstitution ? originalInstitution : 'Administração Geral Tributária (AGT)';
-  const lastAccess = typeof originalLastAccess === 'string' && originalLastAccess ? originalLastAccess : 'Hoje às 18:45';
+  const lastAccess = typeof originalLastAccess === 'string' && originalLastAccess ? originalLastAccess : '—';
 
-  const finalPhoto = (userProfilePhoto && !userProfilePhoto.includes("Foto-Edlasio") && (userProfilePhoto.includes("unsplash") || userProfilePhoto.includes("foto_perfil_edlasio") || userProfilePhoto.includes("sxWsYGX2"))) ? "https://i.postimg.cc/J73QvnGv/Foto-Edlasio.png" : userProfilePhoto || "https://i.postimg.cc/J73QvnGv/Foto-Edlasio.png";
+  // F8 — sem foto própria, mostra-se um marcador neutro institucional (nunca a foto do cidadão demo).
+  const finalPhoto = (userProfilePhoto && !userProfilePhoto.includes("Foto-Edlasio") && (userProfilePhoto.includes("unsplash") || userProfilePhoto.includes("foto_perfil_edlasio") || userProfilePhoto.includes("sxWsYGX2"))) ? "https://i.postimg.cc/J73QvnGv/Foto-Edlasio.png" : (userProfilePhoto || "");
 
   const { updateUserFields } = useSession();
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -97,6 +105,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
         const publicUrl = await supabaseService.uploadFile('fotos_perfil', filePath, file);
         if (publicUrl) {
           updateUserFields({ avatarUrl: publicUrl });
+          try { if (bi) localStorage.setItem(`cda_inst_profile_photo_${bi.toUpperCase()}`, publicUrl); } catch { /* ignora */ }
           
           if (addAuditLog) {
             addAuditLog('Foto de perfil institucional atualizada com sucesso no Supabase Storage', 'success');
@@ -115,6 +124,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
         reader.onload = (event) => {
           const base64String = event.target?.result as string;
           updateUserFields({ avatarUrl: base64String });
+          try { if (bi) localStorage.setItem(`cda_inst_profile_photo_${bi.toUpperCase()}`, base64String); } catch { /* ignora */ }
           
           if (addAuditLog) {
             addAuditLog('Foto de perfil institucional atualizada com sucesso localmente', 'success');
@@ -148,8 +158,13 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
   const institutionAcronym = institutionAcronymMatch?.[1] || (typeof normalizedInstitution === 'string' ? normalizedInstitution.split(' ').map(word => word ? word[0] : '').join('').slice(0, 8).toUpperCase() : 'AGT');
   const institutionalDomain = (institutionAcronym || 'gov').toLowerCase() === 'agt' ? 'agt.gov.ao' : `${(institutionAcronym || 'gov').toLowerCase()}.gov.ao`;
   const safeProfileName = profileName || 'Utilizador';
-  const derivedEmail = email || `${safeProfileName.toLowerCase().replace(/\s+/g, '.')}@${institutionalDomain}`;
-  const derivedPersonalEmail = `${safeProfileName.toLowerCase().replace(/\s+/g, '.')}@gmail.com`;
+  // F8 — sem e-mail registado não se inventa um endereço a partir do nome: mostra-se "—".
+  const derivedEmail = email;
+  const derivedPersonalEmail = '';
+  // F8 — dados reais do registo desta instituição (Nº agente + data de adesão)
+  const instReg = (() => { try { return bi ? getLocalInstReg(normalizeInstCode(bi)) : undefined; } catch { return undefined; } })();
+  const agentNoDisplay = agentNumberProp || instReg?.agentNumber || (bi ? `CDA-${institutionAcronym}-2026-${bi.slice(-4)}` : '—');
+  const adhesionDate = instReg?.criadoEm ? new Date(instReg.criadoEm).toLocaleDateString('pt-AO') : '12 de Março de 2024';
 
   return (
     <section className="space-y-6 text-slate-950 animate-fade-in font-sans">
@@ -208,12 +223,19 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
           
           <div className="relative mt-4 mb-4 group">
             <div className="w-32 h-32 md:w-36 md:h-36 rounded-[28px] border border-slate-150 p-1 bg-white relative overflow-hidden">
-              <img 
-                src={finalPhoto} 
-                alt={profileName} 
-                className="w-full h-full rounded-[22px] object-cover transition-all group-hover:scale-105"
-                referrerPolicy="no-referrer"
-              />
+              {finalPhoto ? (
+                <img 
+                  src={finalPhoto} 
+                  alt={profileName} 
+                  className="w-full h-full rounded-[22px] object-cover transition-all group-hover:scale-105"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-full h-full rounded-[22px] bg-gradient-to-b from-[#0c2340] to-[#1e3a8a] flex flex-col items-center justify-center text-white gap-1.5">
+                  <Landmark size={42} strokeWidth={1.6} />
+                  <span className="text-[11px] font-black uppercase tracking-[0.2em]">{institutionAcronym}</span>
+                </div>
+              )}
               
               {/* Hover overlay */}
               <label 
@@ -267,12 +289,12 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
           {/* Utilizador details stack */}
           <div className="w-full space-y-4 text-left p-2">
             {[
-              { label: 'ID do Utilizador', value: `CDA-${institutionAcronym}-2026-${bi.slice(-4)}`, type: 'mono' },
-              { label: 'Departamento', value: department, type: 'text' },
+              { label: 'ID do Utilizador', value: agentNoDisplay, type: 'mono' },
+              { label: 'Departamento', value: department || '—', type: 'text' },
               { label: 'Cargo Oficial', value: role, type: 'text' },
-              { label: 'Email Institucional', value: derivedEmail, type: 'text' },
-              { label: 'Telefone do Estado', value: phone, type: 'mono' },
-              { label: 'Data de Adesão', value: '12 de Março de 2024', type: 'text' },
+              { label: 'Email Institucional', value: derivedEmail || '—', type: 'text' },
+              { label: 'Telefone do Estado', value: phone || '—', type: 'mono' },
+              { label: 'Data de Adesão', value: adhesionDate, type: 'text' },
               { label: 'Último Acesso', value: lastAccess, type: 'text', bold: true }
             ].map((detail, idx) => (
               <div key={idx} className="border-b border-slate-50 pb-2.5 last:border-0 last:pb-0">
@@ -313,9 +335,9 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
                 { label: 'Nível de Acesso', value: 'Padrão', highlight: true },
                 { label: 'Perfil de Permissões', value: 'Operacional' },
                 { label: 'Instituição Sincronizada', value: institution, colSpan: 'md:col-span-2' },
-                { label: 'Departamento / Repartição', value: department, colSpan: 'md:col-span-2' },
-                { label: 'Email Alternativo (Pessoal)', value: derivedPersonalEmail },
-                { label: 'Telefone Pessoal', value: phone }
+                { label: 'Departamento / Repartição', value: department || '—', colSpan: 'md:col-span-2' },
+                { label: 'Email Alternativo (Pessoal)', value: derivedPersonalEmail || '—' },
+                { label: 'Telefone Pessoal', value: phone || '—' }
               ].map((field, idx) => (
                 <div key={idx} className={`bg-slate-50/50 border border-slate-150 p-4 rounded-2xl flex flex-col justify-center ${field.colSpan || ''}`}>
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">{field.label}</span>

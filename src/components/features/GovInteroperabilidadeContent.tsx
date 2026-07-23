@@ -378,6 +378,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   const [solBusy, setSolBusy] = useState(false);
   const [adminSolInput, setAdminSolInput] = useState('');
   const [solThreadTick, setSolThreadTick] = useState(0);
+  const [solToDelete, setSolToDelete] = useState<any | null>(null);   // F8 — popup de confirmação de eliminação
 
   const solState = (status?: string): 'pendente' | 'ativa' | 'rejeitada' | 'correcao' => {
     if (status === 'Aprovado') return 'ativa';
@@ -716,7 +717,8 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
         if (error) console.error('Erro a remover solicitação na nuvem:', error);
       } catch (e) { console.warn('Remoção cloud indisponível:', e); }
     }
-    onLog?.(`Solicitação de ${row.nome} (${code}) eliminada em cascata (registo, homologação, thread, lidos).`, 'critical');
+    setInstitutions(prev => prev.filter(i => normalizeInstCode(i.instCode || '') !== code));
+    onLog?.(`Solicitação de ${row.nome} (${code}) eliminada em cascata (registo, homologação, thread, lidos, ficha da página).`, 'critical');
     await fetchSolicitacoes();
     setSelectedSolicitacao(null);
     setSolBusy(false);
@@ -1099,7 +1101,17 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           <td className="py-3 px-3 text-slate-500">{row.criado_em ? new Date(row.criado_em).toLocaleDateString('pt-AO') : '—'}</td>
                           <td className="py-3 px-3 text-center">{stateChip(row.status)}</td>
                           <td className="py-3 px-3 text-right">
-                            <span className="px-2 py-1 bg-indigo-50 border border-indigo-100 text-[#4f46e5] rounded-lg text-[8.5px] font-extrabold uppercase tracking-wider">Abrir</span>
+                            <div className="flex items-center justify-end gap-2">
+                              <span className="px-2 py-1 bg-indigo-50 border border-indigo-100 text-[#4f46e5] rounded-lg text-[8.5px] font-extrabold uppercase tracking-wider">Abrir</span>
+                              <button
+                                type="button"
+                                title="Eliminar solicitação"
+                                onClick={(e) => { e.stopPropagation(); setSolToDelete(row); }}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition-colors cursor-pointer bg-white"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1908,7 +1920,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                         <button type="button" disabled={solBusy} onClick={() => handleRejectSolicitacao(row)} className="flex-1 min-w-[130px] bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white py-2.5 rounded-xl text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"><X size={12} /> Rejeitar</button>
                       </div>
                       <div className="text-center">
-                        <button type="button" disabled={solBusy} onClick={() => handleDeleteSolicitacao(row)} className="text-[8.5px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-600 transition-colors cursor-pointer bg-transparent border-none underline underline-offset-4">Eliminar solicitação (cascata)</button>
+                        <button type="button" disabled={solBusy} onClick={() => setSolToDelete(row)} className="text-[8.5px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-600 transition-colors cursor-pointer bg-transparent border-none underline underline-offset-4">Eliminar solicitação (cascata)</button>
                       </div>
                     </div>
                   )}
@@ -1917,6 +1929,61 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                       <span className="text-[9.5px] font-black uppercase tracking-widest text-slate-400">Processo encerrado — {st === 'ativa' ? 'instituição aprovada e activa' : 'solicitação rejeitada'}</span>
                     </div>
                   )}
+                </div>
+              </motion.div>
+            </>
+          );
+        })()}
+      </AnimatePresence>
+
+      {/* ===== MODAL DE CONFIRMAÇÃO — Eliminar Solicitação de Registo (F8) ===== */}
+      <AnimatePresence>
+        {solToDelete && (() => {
+          const row = solToDelete;
+          const code = normalizeInstCode(row.bi_numero);
+          return (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                onClick={() => { if (!solBusy) setSolToDelete(null); }}
+                className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[170]"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.94, y: 14 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.94, y: 14 }}
+                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-[440px] bg-white rounded-[26px] shadow-2xl z-[180] border border-slate-100 overflow-hidden text-left"
+              >
+                <div className="p-5 md:p-6">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0"><Trash2 size={20} className="text-rose-600" /></div>
+                    <div className="min-w-0">
+                      <div className="text-[8.5px] font-black uppercase tracking-[0.2em] text-rose-500">Eliminar Solicitação — {code}</div>
+                      <h3 className="text-sm md:text-base font-black text-slate-900 uppercase tracking-tight leading-tight mt-0.5">{row.nome}</h3>
+                      <p className="text-[10.5px] font-bold text-slate-500 leading-snug mt-2">
+                        Esta acção é <span className="text-rose-600">definitiva e irreversível</span>. Serão removidos: o registo (local e nuvem), o estado de homologação, o canal oficial de mensagens e as leituras associadas{solState(row.status) === 'ativa' ? ', bem como a ficha da instituição nesta página' : ''}.
+                      </p>
+                      <p className="text-[9.5px] font-black uppercase tracking-widest text-slate-400 mt-2">Confirma a eliminação desta solicitação?</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2.5 mt-5">
+                    <button
+                      type="button"
+                      disabled={solBusy}
+                      onClick={() => setSolToDelete(null)}
+                      className="flex-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-700 rounded-xl py-2.5 text-[9.5px] font-black uppercase tracking-widest transition-colors cursor-pointer border border-slate-200"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={solBusy}
+                      onClick={() => { void handleDeleteSolicitacao(row).finally(() => setSolToDelete(null)); }}
+                      className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white rounded-xl py-2.5 text-[9.5px] font-black uppercase tracking-widest transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"
+                    >
+                      <Trash2 size={12} /> {solBusy ? 'A eliminar…' : 'Eliminar Definitivamente'}
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </>

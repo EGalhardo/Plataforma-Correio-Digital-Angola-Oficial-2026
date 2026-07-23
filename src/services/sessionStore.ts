@@ -8,6 +8,28 @@ export const CANONICAL_USER: SessionUser = MOCK_SESSION_USER;
 // Available profiles mapped to user
 export const PROFILES_MAP: Record<AppMode, ActiveProfile> = MOCK_SESSION_PROFILES;
 
+// F8 — Base de sessão da área da Instituição: campos limpos, sem os dados demo
+// do cidadão — cada conta institucional vê apenas os seus próprios dados.
+export const INSTITUTION_BASE_USER: SessionUser = {
+  ...CANONICAL_USER,
+  id: 'institution-session',
+  name: '',
+  firstName: '',
+  lastName: '',
+  bi: '',
+  nif: '',
+  passport: '',
+  phone: '',
+  email: '',
+  birthDate: '',
+  filiation: '',
+  maritalStatus: '',
+  avatarUrl: '',
+  verificationLevel: 'Pendente',
+  confidenceScore: 0,
+  lastAccess: '',
+};
+
 interface SessionContextType {
   user: SessionUser;
   activeProfile: ActiveProfile;
@@ -24,29 +46,33 @@ const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const sanitizeSessionUser = (candidate: any): SessionUser => {
-    let avatar = candidate?.avatarUrl || CANONICAL_USER.avatarUrl;
+    // F8 — fallback por modo: na área da Instituição os campos vazios NUNCA são
+    // preenchidos com os dados demo do cidadão.
+    const mode = (localStorage.getItem("gov_app_mode") as AppMode) || "user";
+    const base: SessionUser = mode === "institution" ? INSTITUTION_BASE_USER : CANONICAL_USER;
+    let avatar = candidate?.avatarUrl || base.avatarUrl;
     if (avatar && (avatar.includes("sxWsYGX2") || avatar.includes("foto_perfil_edlasio"))) {
-      avatar = "https://i.postimg.cc/J73QvnGv/Foto-Edlasio.png";
+      avatar = mode === "institution" ? base.avatarUrl : "https://i.postimg.cc/J73QvnGv/Foto-Edlasio.png";
     }
     return {
-      ...CANONICAL_USER,
+      ...base,
       ...(candidate || {}),
-      id: candidate?.id || CANONICAL_USER.id,
-      name: candidate?.name || CANONICAL_USER.name,
-      firstName: candidate?.firstName || candidate?.name?.trim()?.split(' ')?.[0] || CANONICAL_USER.firstName,
-      lastName: candidate?.lastName || candidate?.name?.trim()?.split(' ')?.slice(-1)?.[0] || CANONICAL_USER.lastName,
-      bi: candidate?.bi || CANONICAL_USER.bi,
-      nif: candidate?.nif || CANONICAL_USER.nif,
-      passport: candidate?.passport || CANONICAL_USER.passport,
-      phone: candidate?.phone || CANONICAL_USER.phone,
-      email: candidate?.email || CANONICAL_USER.email,
-      birthDate: candidate?.birthDate || CANONICAL_USER.birthDate,
-      filiation: candidate?.filiation || CANONICAL_USER.filiation,
-      maritalStatus: candidate?.maritalStatus || CANONICAL_USER.maritalStatus,
+      id: candidate?.id || base.id,
+      name: candidate?.name || base.name,
+      firstName: candidate?.firstName || candidate?.name?.trim()?.split(' ')?.[0] || base.firstName,
+      lastName: candidate?.lastName || candidate?.name?.trim()?.split(' ')?.slice(-1)?.[0] || base.lastName,
+      bi: candidate?.bi || base.bi,
+      nif: candidate?.nif || base.nif,
+      passport: candidate?.passport || base.passport,
+      phone: candidate?.phone || base.phone,
+      email: candidate?.email || base.email,
+      birthDate: candidate?.birthDate || base.birthDate,
+      filiation: candidate?.filiation || base.filiation,
+      maritalStatus: candidate?.maritalStatus || base.maritalStatus,
       avatarUrl: avatar,
-      verificationLevel: candidate?.verificationLevel || CANONICAL_USER.verificationLevel,
-      confidenceScore: candidate?.confidenceScore || CANONICAL_USER.confidenceScore,
-      lastAccess: candidate?.lastAccess || CANONICAL_USER.lastAccess,
+      verificationLevel: candidate?.verificationLevel || base.verificationLevel,
+      confidenceScore: candidate?.confidenceScore ?? base.confidenceScore,
+      lastAccess: candidate?.lastAccess || base.lastAccess,
     };
   };
 

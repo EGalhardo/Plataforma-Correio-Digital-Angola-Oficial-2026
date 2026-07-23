@@ -55,6 +55,7 @@ interface ProfileContentProps {
   documentsList?: Document[];
   userRequests?: UserRequest[];
   docRequests?: DocRequest[];
+  instAgentNumber?: string;
   auditLogs?: any[];
   addAuditLog?: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
 }
@@ -93,6 +94,7 @@ export function ProfileContent({
   documentsList = [],
   userRequests = [],
   docRequests = [],
+  instAgentNumber,
   auditLogs: passedAuditLogs = [],
   addAuditLog
 }: ProfileContentProps) {
@@ -436,6 +438,7 @@ export function ProfileContent({
         department={activeProfile?.departmentName}
         institution={activeProfile?.institutionName}
         lastAccess={user?.lastAccess}
+        agentNumber={instAgentNumber}
         addAuditLog={addAuditLog}
       />
     );

@@ -79,6 +79,7 @@ import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi } from './services/supabaseService';
 import { homologationStore, normalizeHomologationBi } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, type InstitutionIdentity } from './services/institutionSessionService';
+import { getLocalInstReg, normalizeInstCode, parseInstPack } from './services/institutionRegistrationStore';
 import { resolveAdminAgentLogin } from './services/adminAgentStore';
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
@@ -654,6 +655,72 @@ export default function App() {
       // cidadão registado (guardada no user de sessão partilhado) infiltrava-se na
       // área de Administração/Instituição, cujos logins não resolvem avatar próprio.
       avatarUrl: MOCK_SESSION_USER.avatarUrl,
+    });
+  };
+
+  // F8 — Avatar neutro institucional (sigla/iniciais): NUNCA fotos de terceiros.
+  const makeInstNeutralAvatar = (label: string): string => {
+    const txt = (label || 'IN').replace(/[^A-Za-z0-9]/g, '').slice(0, 3).toUpperCase() || 'IN';
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96'><rect width='96' height='96' rx='20' fill='#0c2340'/><text x='48' y='58' font-family='Arial,sans-serif' font-size='30' font-weight='700' fill='#ffffff' text-anchor='middle'>${txt}</text></svg>`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  };
+
+  // F8 — Cada conta institucional vê apenas os SEUS dados: aplica a identidade
+  // (nome, e-mail, telefone, cargo, foto) do responsável/colaborador autenticado,
+  // limpando os campos do cidadão demo que a sessão partilhada trazia.
+  const applyInstitutionSessionIdentity = (result: { code: string; name: string; identity?: InstitutionIdentity | null; pack?: ReturnType<typeof parseInstPack> }) => {
+    const code = normalizeInstCode(result.code);
+    const reg = getLocalInstReg(code);
+    const pack = result.pack || parseInstPack(reg?.observacoes || '');
+    const isMember = result.identity?.type === 'member';
+    const memberRec = isMember ? (reg?.members || []).find(m => m.id === result.identity?.memberId) : undefined;
+    const personName = (isMember && result.identity?.memberName)
+      ? result.identity.memberName
+      : (pack?.responsavel || result.name.replace(/\s*\([^)]*\)\s*$/, '') || 'Agente Institucional');
+    const email = (pack?.emailAcesso || pack?.emailContacto || reg?.email || '').trim();
+    const phone = (pack?.telefone || '').trim();
+    // Foto do agente: 1) captura facial desta pessoa (registada na página Conta);
+    // 2) foto de perfil carregada por esta conta; 3) logótipo (responsável);
+    // 4) avatar neutro gerado — nunca fotos de terceiros.
+    let avatar = '';
+    const personKey = (result.identity?.agentNumber || code).toUpperCase().replace(/\s+/g, '');
+    try {
+      const faceRaw = localStorage.getItem(`cda_demo_face_institution_${personKey}`);
+      if (faceRaw) {
+        const d = JSON.parse(faceRaw);
+        if (d?.imageDataUrl) avatar = d.imageDataUrl as string;
+      }
+    } catch { /* ignora */ }
+    if (!avatar) {
+      try {
+        const pp = localStorage.getItem(`cda_inst_profile_photo_${code}`);
+        if (pp) avatar = pp;
+      } catch { /* ignora */ }
+    }
+    if (!avatar && !isMember && reg?.logoDataUrl) avatar = reg.logoDataUrl;
+    if (!avatar) avatar = makeInstNeutralAvatar(pack?.sigla || personName);
+    setProfileName(personName);
+    setPhone(phone);
+    setNif('');
+    setPassport('');
+    setUserBirthDate('');
+    setUserFiliation('');
+    setUserMaritalStatus('');
+    updateUserFields?.({
+      bi: code,
+      name: personName,
+      email,
+      phone,
+      nif: '',
+      passport: '',
+      birthDate: '',
+      filiation: '',
+      maritalStatus: '',
+      avatarUrl: avatar,
+    });
+    updateActiveProfileFields?.({
+      role: isMember ? (memberRec?.role || 'Colaborador') : (pack?.cargo || 'Responsável'),
+      departmentName: isMember ? (memberRec?.dept || '') : '',
     });
   };
 
@@ -1309,8 +1376,8 @@ export default function App() {
                 addAuditLog(`Login facial institucional recusado (${res.code}): ${res.message}`, res.outcome === 'deny' ? 'critical' : 'warning');
                 return;
               }
-              updateUserFields?.({ bi: res.code, name: res.name });
-              updateActiveProfileFields?.({ institutionName: `${res.name} (${res.code})`, role: 'institution' });
+              applyInstitutionSessionIdentity(res);
+              updateActiveProfileFields?.({ institutionName: `${res.name} (${res.code})` });
               setBi(res.code);
               setInstIdentity(res.identity || { type: 'responsible' });
               // com credencial facial não pedimos a senha inicial nesta sessão (a marca mantém-se na loja)
@@ -3424,23 +3491,9 @@ Ficha civil do titular:
                 />
               </div>
             )}
-            {isInstMode && (
-              <InstitutionAccessPanel
-                code={bi}
-                identity={instIdentity}
-                onAudit={addAuditLog}
-              />
-            )}
-            {isInstMode && (
-              <div className="px-4 md:px-8 pt-4">
-                <FacialLoginSettings
-                  mode="institution"
-                  personId={instIdentity?.agentNumber || bi || DEMO_CREDENTIALS.institution.identifier}
-                  displayName={instIdentity?.memberName || activeProfile?.institutionName || user?.name}
-                  onAudit={addAuditLog}
-                />
-              </div>
-            )}
+            {/* F8 — "Perfil do Utilizador" fica imediatamente DEBAIXO do título da
+                página (nome da instituição + código); os painéis de acesso e o
+                registo facial passam para depois do container do perfil. */}
             <ProfileContent
             isInst={isInstMode}
             showSensitiveData={showSensitiveData}
@@ -3477,7 +3530,25 @@ Ficha civil do titular:
             docRequests={docRequests}
             auditLogs={auditLogs}
             addAuditLog={addAuditLog}
+            instAgentNumber={isInstMode ? (instIdentity?.agentNumber || getLocalInstReg(normalizeInstCode(bi))?.agentNumber || undefined) : undefined}
             />
+            {isInstMode && (
+              <InstitutionAccessPanel
+                code={bi}
+                identity={instIdentity}
+                onAudit={addAuditLog}
+              />
+            )}
+            {isInstMode && (
+              <div className="px-4 md:px-8 pt-4">
+                <FacialLoginSettings
+                  mode="institution"
+                  personId={instIdentity?.agentNumber || bi || DEMO_CREDENTIALS.institution.identifier}
+                  displayName={instIdentity?.memberName || activeProfile?.institutionName || user?.name}
+                  onAudit={addAuditLog}
+                />
+              </div>
+            )}
           </>
         );
       case 'gov-dashboard':
@@ -4012,8 +4083,8 @@ Ficha civil do titular:
               addAuditLog(`Login institucional recusado (${result.code}): ${result.message}`, result.outcome === 'deny' ? 'critical' : 'warning');
               return;
             }
-            updateUserFields?.({ bi: result.code, name: result.name });
-            updateActiveProfileFields?.({ institutionName: `${result.name} (${result.code})`, role: 'institution' });
+            applyInstitutionSessionIdentity(result);
+            updateActiveProfileFields?.({ institutionName: `${result.name} (${result.code})` });
             setInstIdentity(result.identity || { type: 'responsible' });
             setInstMustChangePwd(!!result.identity?.mustChangePassword);
             setInstGate(result.outcome === 'restricted' ? 'restricted' : 'full');
