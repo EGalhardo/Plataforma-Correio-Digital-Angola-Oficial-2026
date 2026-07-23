@@ -79,13 +79,14 @@ import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi } from './services/supabaseService';
 import { homologationStore, normalizeHomologationBi } from './services/homologationStore';
 import { resolveInstitutionLogin, isInstitutionFichaSuspended, type InstitutionIdentity } from './services/institutionSessionService';
+import { resolveAdminAgentLogin } from './services/adminAgentStore';
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
 import { useSession } from './services/sessionStore';
 import { VideoSessionService } from './services/videoSessionService';
 import { useLanguage } from './hooks/useLanguage';
 import { startImagePreloading, subscribeToPreload } from './utils/imagePreloader';
-import { shouldAutoSeedSupabase, shouldUseAdminFacialStrict, shouldUseLocalBootstrap, shouldUseMockFallback } from './config/runtime';
+import { shouldAutoSeedSupabase, shouldUseLocalBootstrap, shouldUseMockFallback } from './config/runtime';
 
 
 // ---- Estado "Lida" persistente por BI: sobrevive a terminar/iniciar sessão ----
@@ -4013,21 +4014,27 @@ Ficha civil do titular:
         setInstMustChangePwd(false);
       }
 
+      // F6/C7 — Agentes criados na página Equipa (Nº 'Admin-NN') entram com senha local
       if (isGovMode) {
-        // F5/S6: a Administração entra obrigatoriamente por validação facial
-        // (a senha confirma a identidade; o rosto valida o acesso). Fora da
-        // demo, a flag `adminFacialStrict` em runtime.ts remove o botão de
-        // contorno "Entrar sem câmara".
-        setLoginError(null);
-        addAuditLog('Login da Administração: validação facial obrigatória iniciada.', 'info');
-        setFaceProgress(0);
-        setLoginSubMode('face-capture');
-        return;
+        const typedAgent = bi.trim().toUpperCase();
+        if (typedAgent && typedAgent !== DEMO_CREDENTIALS.admin.identifier) {
+          const cred = resolveAdminAgentLogin(typedAgent, loginPasswordInput);
+          if (cred) {
+            updateUserFields?.({ name: cred.name, bi: typedAgent });
+            setLoginError(null);
+            addAuditLog(`Login da Administração: agente ${cred.agent} (${cred.name}) autenticado por Nº + senha local.`, 'success');
+          } else if (/^ADMIN-\d+$/.test(typedAgent.replace(/\s+/g, ''))) {
+            setLoginError('Credenciais incorrectas: a senha não corresponde a este Nº Agente Admin.');
+            addAuditLog(`Login da Administração recusado para ${typedAgent}: senha inválida.`, 'warning');
+            return;
+          }
+          // Identificadores fora do formato Admin-NN seguem a via demo existente (intacta)
+        }
       }
 
       await applyIdentityForLoggedUser();
       setStage('app');
-      addAuditLog(isInstMode ? 'Login de Instituição via Autenticação Segura' : 'Login de Cidadão via Autenticação Segura', 'success');
+      addAuditLog(isInstMode ? 'Login de Instituição via Autenticação Segura' : isGovMode ? 'Login da Administração via Autenticação Segura' : 'Login de Cidadão via Autenticação Segura', 'success');
     };
 
     return (
@@ -4509,21 +4516,6 @@ Ficha civil do titular:
                       )}
                     </div>
                   </div>
-
-                  {/* F5 — Via demo de emergencia da Administração (flag adminFacialStrict desactiva em produção) */}
-                  {isGovMode && !shouldUseAdminFacialStrict() && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        stopLoginFaceCamera();
-                        setStage('app');
-                        addAuditLog('ADMIN DEMO BYPASS: entrada na Área de Administração sem validação facial (via demo de emergência — registado em auditoria; desactivável pela flag adminFacialStrict).', 'critical');
-                      }}
-                      className="text-[9.5px] font-black uppercase tracking-widest text-amber-600 hover:text-amber-800 transition-colors cursor-pointer bg-transparent border-0 underline underline-offset-4"
-                    >
-                      {t("Entrar sem câmara (via demo da Administração)")}
-                    </button>
-                  )}
 
                   {/* Encryption Footer label */}
                   <div className="flex items-center justify-center gap-1.5 text-slate-400 text-[9.5px] font-bold">
