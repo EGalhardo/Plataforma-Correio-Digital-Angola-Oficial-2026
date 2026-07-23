@@ -1698,7 +1698,10 @@ export default function App() {
         
         // Auto-seed check: Check if messages are empty for this user, seed all default data if database is fresh
         const dbMessagesTest = await supabaseService.getMessages(bi);
-        if (shouldAutoSeedSupabase() && (dbMessagesTest === null || dbMessagesTest.length === 0)) {
+        // F9 — a semeadura automática é um recurso da DEMO (cidadão/AGT-9921-SR):
+        // nunca semear fictícios da AGT numa conta institucional real.
+        const isDemoInstitutionSeed = !isInstMode || homologationStore.isExempt(bi);
+        if (shouldAutoSeedSupabase() && isDemoInstitutionSeed && (dbMessagesTest === null || dbMessagesTest.length === 0)) {
           console.log('CADA: Nenhum dado de mensagens encontrado para este utilizador no Supabase. Efetuando semeadura automática...');
           const seedPayload = {
             profile: {
@@ -1815,8 +1818,10 @@ export default function App() {
         if (isInstMode) {
           const dbInstitutionMessages = await supabaseService.getInstitutionMessages(institutionCode);
           if (dbInstitutionMessages !== null && isSubscribed) {
-            const instNormal = dbInstitutionMessages.map(ensureProtocolOnMessage);
-            const instDoc = dbInstitutionMessages.map(ensureProtocolOnMessage).map(m => ({ ...m, id: m.id + 10000 }));
+            // F9 — marca de destinatária: só assim a conta institucional real distingue
+            // o que lhe é de facto endereçado do seed demo da AGT.
+            const instNormal = dbInstitutionMessages.map(ensureProtocolOnMessage).map(m => ({ ...m, recipientInst: institutionCode }));
+            const instDoc = dbInstitutionMessages.map(ensureProtocolOnMessage).map(m => ({ ...m, id: m.id + 10000, recipientInst: institutionCode }));
             
             setInstInbox(prevLocal => {
               const dbIds = new Set(instNormal.map(m => m.id));
@@ -2306,8 +2311,18 @@ export default function App() {
   // permanece acessível na caixa de entrada normal (sempre restrito ao seu BI).
   const isOwnHomologationMail = (m: Message) =>
     m.homologation === true && normalizeHomologationBi(m.homologationBi) === normalizeHomologationBi(bi);
+  // F9 — Conta institucional REAL (não-demo): o Correio mostra APENAS o canal oficial
+  // com a Área de Administração (confirmação de receção enquanto pendente; aprovação,
+  // correções ou rejeição depois — não lidas → badge na foto de perfil) e mensagens
+  // de facto endereçadas a esta instituição. As correspondências seed/demo da AGT são
+  // exclusivas da conta demo e nunca aparecem noutras contas institucionais.
+  const isDemoInstitutionSession = isInstMode && (homologationStore.isExempt(bi) || !bi.trim());
+  const isInstitutionAddressedMail = (m: Message) =>
+    !!m.recipientInst && normalizeInstCode(m.recipientInst) === normalizeInstCode(institutionCode || bi);
   const currentInbox = isInstMode
-    ? instInbox.filter(m => !m.homologation || isOwnHomologationMail(m))
+    ? (isDemoInstitutionSession
+        ? instInbox.filter(m => !m.homologation || isOwnHomologationMail(m))
+        : instInbox.filter(m => isOwnHomologationMail(m) || isInstitutionAddressedMail(m)))
     : homologationPendingForCitizen
       ? inbox.filter(isOwnHomologationMail)
       : inbox.filter(m => !m.homologation || isOwnHomologationMail(m));

@@ -62,6 +62,8 @@ export interface Message {
   homologation?: boolean;
   /** BI do cidadão a quem a mensagem de homologação se destina. */
   homologationBi?: string;
+  /** F9 — Código da instituição a quem a mensagem foi de facto endereçada (fusão da nuvem). */
+  recipientInst?: string;
 }
 
 export interface Document {
