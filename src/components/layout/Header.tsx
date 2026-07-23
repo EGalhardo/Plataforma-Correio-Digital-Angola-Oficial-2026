@@ -216,7 +216,7 @@ export function Header({
   const { t: translate } = useLanguage();
   const isUserMode = appMode === 'user';
   const isInstitutionMode = appMode === 'institution';
-  const unreadCount = isUserMode && typeof unreadCorrespondencesCount === 'number'
+  const unreadCount = (isUserMode || isInstitutionMode) && typeof unreadCorrespondencesCount === 'number'
     ? unreadCorrespondencesCount
     : notifications.filter(n => n.unread !== false).length;
   const [showUnreadMenu, setShowUnreadMenu] = useState(false);

@@ -210,7 +210,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
       homologationStore.addMessage(
         code,
         'admin',
-        `Exmos. Senhores da ${fullName.trim()} (${s.toUpperCase()}), a Área de Administração do Correio Digital Angola confirma a receção da vossa solicitação de adesão (Código Institucional: ${code}). O pedido já foi enviado para análise e em menos de 24 horas receberão uma resposta oficial através deste canal. Enquanto a instituição não for aprovada, as funcionalidades da área institucional permanecem bloqueadas.`
+        `Exmos. Senhores da ${fullName.trim()} (${s.toUpperCase()}), a Área de Administração do Correio Digital Angola confirma a receção da vossa solicitação de adesão (Código Institucional: ${code}). O pedido já foi enviado para análise e em menos de 24 horas receberão uma resposta oficial através deste canal. Enquanto o pedido estiver pendente, cada comunicação oficial chega a esta caixa como correspondência não lida — o aviso aparece no badge da foto de perfil e no menu "Mensagens não lidas".`
       );
       addAuditLog(`Adesão institucional de ${fullName.trim()} (${code}) submetida — pendente de aprovação da Área de Administração.`, 'success');
 
@@ -250,7 +250,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
         <div>
           <h3 className="text-lg md:text-xl font-black text-[#0c2340] uppercase tracking-tight leading-tight">Pedido de Adesão Enviado!</h3>
           <p className="text-[11px] text-slate-500 font-medium max-w-md mx-auto mt-2 leading-relaxed">
-            A sua solicitação foi enviada com sucesso à Área de Administração do Correio Digital Angola e em <strong>menos de 24 horas</strong> receberá uma resposta. Enquanto estiver <strong>Pendente de Aprovação</strong>, pode iniciar sessão mas as funcionalidades permanecem bloqueadas.
+            A sua solicitação foi enviada com sucesso à Área de Administração do Correio Digital Angola e em <strong>menos de 24 horas</strong> receberá uma resposta. Enquanto estiver <strong>Pendente de Aprovação</strong>, após o login, a resposta oficial chega à caixa de <strong>Correio</strong> como correspondência não lida — com aviso no badge da foto de perfil.
           </p>
         </div>
         <div className="w-full max-w-sm bg-slate-50 border-2 border-dashed border-[#2563eb]/30 rounded-3xl p-5 space-y-1.5">

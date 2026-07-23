@@ -40,7 +40,6 @@ import {
   SolicitarDocumentoContent,
   RegisterStepper,
   RegisterInstitutionPage,
-  InstitutionWaitingPage,
   InstitutionAccessPanel,
   InstitutionForcedPasswordChange,
   FacialLoginSettings,
@@ -853,7 +852,7 @@ export default function App() {
   const isGovMode = appMode === 'admin';
   const isInstMode = appMode === 'institution';
   const institutionCode = resolveInstitutionCode(activeProfile?.institutionName || '');
-  // F3 — porta da área da Instituição: 'restricted' = entrou pendente/em correções; 'full' = acesso total
+  // F3/F7 — estado da conta institucional: 'restricted' = pendente/em correções (a área abre na mesma; o estado alimenta o tom do indicador Online); 'full' = aprovada
   const [instGate, setInstGate] = useState<'none' | 'restricted' | 'full'>('none');
   const [instIdentity, setInstIdentity] = useState<InstitutionIdentity | null>(null);
   const [instMustChangePwd, setInstMustChangePwd] = useState(false);
@@ -1319,7 +1318,7 @@ export default function App() {
               setInstGate(res.outcome === 'restricted' ? 'restricted' : 'full');
               addAuditLog(
                 res.outcome === 'restricted'
-                  ? `Login facial institucional (${res.code}) — conta pendente de aprovação: funcionalidades bloqueadas.`
+                  ? `Login facial institucional (${res.code}) — conta pendente de aprovação: aviso oficial entregue como correspondência não lida (badge na foto de perfil).`
                   : `Login facial institucional (${res.code}) — ${res.identity?.type === 'member' ? `colaborador ${res.identity?.memberName}` : 'responsável'} autenticado.`,
                 res.outcome === 'restricted' ? 'warning' : 'success'
               );
@@ -1357,14 +1356,16 @@ export default function App() {
     return () => clearInterval(id);
   }, [stage, appMode, bi]);
 
-  // F3 — a porta institucional desbloqueia sozinha assim que a Admin aprovar
+  // F3/F7 — aprovada pela Admin? O estado sobe para 'full' sozinho (tick de 4s) e o
+  // indicador Online fica verde — a correspondência oficial da aprovação entretanto
+  // já chegou à caixa como não lida.
   useEffect(() => {
     if (!isInstMode || instGate !== 'restricted') return;
     void gateRefreshTick; // reavalia a cada tick
     const rec = homologationStore.getStatus(bi);
     if (rec?.status === 'active' && !isInstitutionFichaSuspended(bi)) {
       setInstGate('full');
-      addAuditLog(`Instituição ${bi} APROVADA — funcionalidades desbloqueadas automaticamente.`, 'success');
+      addAuditLog(`Instituição ${bi} APROVADA pela Administração — conta activa (indicador Online verde).`, 'success');
     }
   }, [gateRefreshTick, isInstMode, instGate, bi]);
 
@@ -1406,6 +1407,34 @@ export default function App() {
     setInbox(prev => {
       // A thread da loja de homologação é a FONTE DE VERDADE: mensagens deste BI
       // que já não existam lá (registo recomeçado ou conta eliminada) saem da caixa.
+      const pruned = prev.filter(m =>
+        !m.homologation ||
+        normalizeHomologationBi(m.homologationBi) !== cleanBi ||
+        threadIds.has(m.id)
+      );
+      const existing = new Set(pruned.map(m => m.id));
+      const fresh = thread
+        .map(msg => buildHomologationInboxMessage(msg, cleanBi))
+        .filter(m => !existing.has(m.id));
+      if (pruned.length === prev.length && fresh.length === 0) return prev;
+      return [...fresh.slice().reverse(), ...pruned];
+    });
+  }, [appMode, bi, gateRefreshTick]);
+
+  // F7 — Canal oficial de homologação (Área de Administração ⇄ Instituição): o MESMO
+  // espelho do cidadão. A correspondência oficial enviada ao código institucional
+  // entra na caixa da instituição como NÃO LIDA — badge na foto de perfil, menu
+  // "Mensagens não lidas" e separador "Não Lidas" do Correio. É assim que a
+  // instituição pendente recebe o aviso de validação, a aprovação, as correcções
+  // e a rejeição, sem qualquer página de bloqueio.
+  useEffect(() => {
+    if (appMode !== 'institution' || !bi) return;
+    const cleanBi = normalizeHomologationBi(bi);
+    const thread = homologationStore.getThread(bi).filter(m => m.from !== 'citizen');
+    const threadIds = new Set(thread.map(m => homologationInboxId(m.id)));
+    setInstInbox(prev => {
+      // A thread da loja é a FONTE DE VERDADE: mails desta instituição que já não
+      // existam lá (registo recomeçado ou conta eliminada) saem da caixa.
       const pruned = prev.filter(m =>
         !m.homologation ||
         normalizeHomologationBi(m.homologationBi) !== cleanBi ||
@@ -2211,7 +2240,7 @@ export default function App() {
   const isOwnHomologationMail = (m: Message) =>
     m.homologation === true && normalizeHomologationBi(m.homologationBi) === normalizeHomologationBi(bi);
   const currentInbox = isInstMode
-    ? instInbox
+    ? instInbox.filter(m => !m.homologation || isOwnHomologationMail(m))
     : homologationPendingForCitizen
       ? inbox.filter(isOwnHomologationMail)
       : inbox.filter(m => !m.homologation || isOwnHomologationMail(m));
@@ -3104,27 +3133,13 @@ Ficha civil do titular:
 
   // Rendering Helpers
   const renderContent = () => {
-    // F3 — Instituição pendente/em correções: funcionalidades bloqueadas (página informativa)
-    if (isInstMode && instGate === 'restricted') {
-      void instIdentity; // F4 consumirá a identidade (responsável/colaborador)
-      const visibleName = (activeProfile?.institutionName || user?.name || bi).replace(/\s*\([^)]*\)\s*$/, '');
-      return (
-        <InstitutionWaitingPage
-          code={bi}
-          name={visibleName}
-          onRefresh={() => {
-            const rec = homologationStore.getStatus(bi);
-            if (rec?.status === 'active' && !isInstitutionFichaSuspended(bi)) {
-              setInstGate('full');
-              addAuditLog(`Instituição ${bi} APROVADA — funcionalidades desbloqueadas.`, 'success');
-            }
-            setGateRefreshTick(tick => tick + 1);
-          }}
-        />
-      );
-    }
+    // F7 — SEM página informativa de espera: a instituição PENDENTE entra na área
+    // normal. O aviso de validação chega como correspondência NÃO LIDA da Área de
+    // Administração (espelho do canal de homologação na caixa de entrada), com badge
+    // na foto de perfil + menu "Mensagens não lidas", tal como na área do cidadão.
+    // O indicador Online mantém-se vermelho enquanto o pedido estiver pendente.
     // F4 — 1.º login do colaborador: troca obrigatória da palavra-passe inicial
-    if (isInstMode && instGate === 'full' && instMustChangePwd) {
+    if (isInstMode && instMustChangePwd) {
       return (
         <InstitutionForcedPasswordChange
           code={bi}
@@ -3409,14 +3424,14 @@ Ficha civil do titular:
                 />
               </div>
             )}
-            {isInstMode && instGate === 'full' && (
+            {isInstMode && (
               <InstitutionAccessPanel
                 code={bi}
                 identity={instIdentity}
                 onAudit={addAuditLog}
               />
             )}
-            {isInstMode && instGate === 'full' && (
+            {isInstMode && (
               <div className="px-4 md:px-8 pt-4">
                 <FacialLoginSettings
                   mode="institution"
@@ -4005,7 +4020,7 @@ Ficha civil do titular:
             setBi(result.code);
             addAuditLog(
               result.outcome === 'restricted'
-                ? `Login institucional (${result.code}) — conta pendente de aprovação: funcionalidades bloqueadas.`
+                ? `Login institucional (${result.code}) — conta pendente de aprovação: aviso oficial entregue como correspondência não lida (badge na foto de perfil).`
                 : `Login institucional (${result.code}) — conta activa.`,
               result.outcome === 'restricted' ? 'warning' : 'success'
             );
@@ -4660,7 +4675,9 @@ Ficha civil do titular:
   }
 
   // Homologação: a retenção de correspondência é feita no painel
-  // (homologationPendingForCitizen) — não existe página/écran de bloqueio.
+  // (homologationPendingForCitizen) — não existe página/écran de bloqueio, nem
+  // para o cidadão nem para a instituição (F7): o aviso oficial chega como
+  // correspondência não lida, com badge na foto de perfil.
 
   return (
     <main className={`min-h-screen bg-bg text-primary md:flex md:gap-5 md:p-5 font-sans selection:bg-primary selection:text-white transition-all ${emergencyMode && isGovMode ? 'pt-[32px] md:pt-[44px]' : ''}`}>
