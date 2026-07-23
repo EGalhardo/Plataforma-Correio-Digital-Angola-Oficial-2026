@@ -20,8 +20,9 @@ import {
   INSTITUTION_TYPES, generateSigla
 } from '../../config/institutionCatalog';
 import {
-  buildInstObservacoes, buildInstCode, collectInstitutionUniqueness,
-  nextGlobalSeq, normalizeInstCode, saveLocalInstReg, type InstitutionRegPack
+  buildInstObservacoes, buildInstCode, buildInstitutionalCode, buildAgentNumber,
+  collectInstitutionUniqueness, nextGlobalSeq, normalizeInstCode, saveLocalInstReg,
+  type InstitutionRegPack
 } from '../../services/institutionRegistrationStore';
 
 interface RegisterInstitutionPageProps {
@@ -63,6 +64,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
   const [submitMessage, setSubmitMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
+  const [generatedAgent, setGeneratedAgent] = useState('');
   const [copied, setCopied] = useState(false);
 
   const setErr = (k: string, msg: string) => setFieldErrors(prev => msg ? { ...prev, [k]: msg } : (({ [k]: _, ...rest }) => rest)(prev));
@@ -138,12 +140,14 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
         setIsSubmitting(false); return;
       }
 
-      // 3. Geração do Código Institucional (único)
-      const code = buildInstCode(s, nextGlobalSeq(uni.takenCodes));
+      // 3. Geração definitiva no submit — F6/B2: SIGLA + iniciais P/C/M/C (sufixo numérico se colidir)
+      const code = buildInstitutionalCode(s, province, cidade, municipio, comuna, uni.takenCodes);
       if (uni.takenCodes.includes(code)) {
         setSubmitError('Não foi possível gerar um Código Institucional único. Tente novamente.');
         setIsSubmitting(false); return;
       }
+      const agentNumber = buildAgentNumber(code, 1); // responsável = -01
+      void buildInstCode; void nextGlobalSeq; // geradores do formato antigo (compatibilidade)
 
       const pack: InstitutionRegPack = {
         v: 1,
@@ -159,6 +163,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
         telefone: telefone.trim(),
         responsavel: respName.trim(),
         cargo: respCargo.trim(),
+        agentNumber,
       };
       const observacoes = buildInstObservacoes(pack, `Adesão formal da instituição ${fullName.trim()} (${s.toUpperCase()}). Pendente de homologação administrativa.`);
 
@@ -197,6 +202,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
         status: 'Pendente',
         observacoes,
         criadoEm: new Date().toISOString(),
+        agentNumber,
       });
       homologationStore.setStatus(code, 'pending', undefined, fullName.trim());
       // Correspondência automática da Área de Administração (visível na página informativa)
@@ -209,7 +215,8 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
       addAuditLog(`Adesão institucional de ${fullName.trim()} (${code}) submetida — pendente de aprovação da Área de Administração.`, 'success');
 
       setGeneratedCode(code);
-      addAuditLog(`Código Institucional gerado: ${code}`, 'info');
+      setGeneratedAgent(agentNumber);
+      addAuditLog(`Código Institucional gerado: ${code} · Nº Agente do responsável: ${agentNumber}`, 'info');
     } catch (err) {
       console.error('Erro global no registo institucional:', err);
       setSubmitError('Ocorreu um erro inesperado ao finalizar o registo. Tente novamente.');
@@ -257,7 +264,13 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
             {copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
             {copied ? 'Copiado!' : 'Copiar Código'}
           </button>
-          <p className="text-[9.5px] text-slate-400 mt-1 leading-snug">Guarde este Código — é a chave de acesso da sua instituição (equivalente ao B.I. do cidadão).</p>
+          {generatedAgent && (
+            <div className="pt-2 mt-1 border-t border-dashed border-slate-200">
+              <span className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block">Nº Agente Institucional do Responsável</span>
+              <span className="font-mono font-black text-lg text-[#0E2B64] tracking-widest block">{generatedAgent}</span>
+            </div>
+          )}
+          <p className="text-[9.5px] text-slate-400 mt-1 leading-snug">Guarde ambos: o <strong>Código</strong> identifica a instituição; o <strong>Nº Agente</strong> identifica a pessoa no login (responsável = -01; a equipa recebe -02, -03…).</p>
         </div>
         <button
           type="button"
@@ -539,6 +552,28 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
                 <p className="text-[9.5px] text-emerald-600 font-bold ml-1 flex items-center gap-1"><Check size={10} /> As senhas coincidem</p>
               )}
               {fieldErrors.confirmar && <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.confirmar}</p>}
+            </div>
+          </div>
+
+          {/* F6/B2 — Gerados automaticamente pelo sistema (pré-visualização em tempo real; valor definitivo no submit) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid gap-1">
+              <label className={labelCls}>Código Institucional (automático)</label>
+              <div className="bg-slate-50 border-2 border-dashed border-[#2563eb]/25 rounded-[14px] px-4 py-3 text-xs font-mono font-black text-[#0E2B64] tracking-widest select-all">
+                {normalizeInstCode(sigla).length >= 2
+                  ? buildInstitutionalCode(sigla, province, cidade, municipio, comuna, [])
+                  : 'Aguarda a sigla…'}
+              </div>
+              <p className="text-[8.5px] text-slate-400 font-bold ml-1 leading-snug">Sigla + iniciais de Província · Cidade · Município · Comuna.</p>
+            </div>
+            <div className="grid gap-1">
+              <label className={labelCls}>Nº Agente Institucional (automático)</label>
+              <div className="bg-slate-50 border-2 border-dashed border-[#2563eb]/25 rounded-[14px] px-4 py-3 text-xs font-mono font-black text-[#0E2B64] tracking-widest select-all">
+                {normalizeInstCode(sigla).length >= 2
+                  ? `${buildInstitutionalCode(sigla, province, cidade, municipio, comuna, [])}-01`
+                  : 'Aguarda a sigla…'}
+              </div>
+              <p className="text-[8.5px] text-slate-400 font-bold ml-1 leading-snug">O responsável criado neste registo recebe sempre o agente -01.</p>
             </div>
           </div>
         </div>

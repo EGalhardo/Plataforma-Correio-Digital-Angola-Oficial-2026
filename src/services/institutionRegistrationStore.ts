@@ -22,6 +22,7 @@ export interface InstitutionRegPack {
   telefone: string;
   responsavel: string;
   cargo: string;
+  agentNumber?: string;   // F6 — Nº Agente Institucional do responsável ('-01')
 }
 
 export interface LocalInstitutionRegistration {
@@ -34,7 +35,8 @@ export interface LocalInstitutionRegistration {
   observacoes: string;
   criadoEm: string;
   logoDataUrl?: string;      // F4 — logótipo carregado no Perfil
-  members: { id: string; name: string; email: string; role: string; dept: string; password: string; mustChangePassword: boolean; }[];
+  agentNumber?: string;   // F6 — Nº Agente do responsável (código + '-01')
+  members: { id: string; name: string; email: string; role: string; dept: string; password: string; mustChangePassword: boolean; agentNumber?: string; }[];
 }
 
 const LOCAL_REGS_KEY = 'cda_inst_regs_v1';
@@ -170,6 +172,71 @@ export const nextGlobalSeq = (existingCodes: string[]): number => {
 export const buildInstCode = (sigla: string, seq: number): string => {
   const clean = normalizeInstCode(sigla).replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'INST';
   return `${clean}${String(seq).padStart(2, '0')}`;
+};
+
+// ---------- F6 — Código: SIGLA + iniciais P/C/M/C · Nº Agente: código + '-NN' ----------
+
+export const stripAccentsUpper = (str?: string): string =>
+  (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+
+/** 1.ª letra A-Z do lugar; ausente/estranha → 'X' (C2). */
+export const initialLetter = (place?: string): string => {
+  const m = stripAccentsUpper(place).match(/[A-Z]/);
+  return m ? m[0] : 'X';
+};
+
+/**
+ * F6/B2 — Código Institucional: SIGLA (alfanumérica, máx. 8) + '-' + iniciais
+ * de Província, Cidade, Município e Comuna. Colisão → sufixo numérico no código
+ * (C3): SME-LLVV, SME-LLVV2, … (nunca confunde com o '-NN' do agente).
+ */
+export const buildInstitutionalCode = (
+  sigla: string, provincia: string, cidade: string, municipio: string, comuna: string,
+  takenCodes: string[]
+): string => {
+  const sig = normalizeInstCode(sigla).replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'INST';
+  const loc = initialLetter(provincia) + initialLetter(cidade) + initialLetter(municipio) + initialLetter(comuna);
+  const taken = new Set(takenCodes.map(normalizeInstCode));
+  const base = `${sig}-${loc}`;
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base}${n}`)) n += 1;
+  return `${base}${n}`;
+};
+
+/** F6 — Nº Agente Institucional = código da instituição + '-' + NN (2 dígitos). */
+export const buildAgentNumber = (instCode: string, seq: number): string =>
+  `${normalizeInstCode(instCode)}-${String(seq).padStart(2, '0')}`;
+
+/** F6 — Separa "SME-LLVV-01" em { code: 'SME-LLVV', seq: 1 }; sem sufixo NN → seq null. */
+export const splitAgentNumber = (raw?: string): { code: string; seq: number | null } => {
+  const norm = normalizeInstCode(raw);
+  const m = norm.match(/^(.*)-(\d{2})$/);
+  if (!m || !m[1]) return { code: norm, seq: null };
+  return { code: m[1], seq: parseInt(m[2], 10) };
+};
+
+/** F6/B4 — Próximo Nº de agente livre dentro da instituição (responsável = 01). */
+export const nextMemberAgentNumber = (code: string): string => {
+  const reg = getLocalInstReg(code);
+  let max = 1; // responsável
+  for (const m of (reg?.members || [])) {
+    const { seq } = splitAgentNumber(m.agentNumber || '');
+    if (seq && seq > max) max = seq;
+  }
+  return buildAgentNumber(code, max + 1);
+};
+
+/** F6 — Localiza a pessoa de um Nº de agente (responsável '-01' ou membro). */
+export const findInstitutionAgent = (
+  code: string, agentNumber: string
+): { type: 'responsible' } | { type: 'member'; member: InstMember } | null => {
+  const { code: c, seq } = splitAgentNumber(agentNumber);
+  if (normalizeInstCode(code) !== c || seq === null) return null;
+  if (seq === 1) return { type: 'responsible' };
+  const reg = getLocalInstReg(code);
+  const member = (reg?.members || []).find(m => splitAgentNumber(m.agentNumber || '').seq === seq && normalizeInstCode(splitAgentNumber(m.agentNumber || '').code) === c);
+  return member ? { type: 'member', member } : null;
 };
 
 const isSupabaseReady = (): boolean =>
