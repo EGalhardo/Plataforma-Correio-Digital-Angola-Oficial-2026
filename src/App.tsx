@@ -43,6 +43,7 @@ import {
   InstitutionWaitingPage,
   InstitutionAccessPanel,
   InstitutionForcedPasswordChange,
+  FacialLoginSettings,
   ResetPasswordStepper,
   VoiceGuideAssistant,
   InstitutionDetail,
@@ -78,7 +79,7 @@ import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol } f
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi } from './services/supabaseService';
 import { homologationStore, normalizeHomologationBi } from './services/homologationStore';
-import { resolveInstitutionLogin, isInstitutionFichaSuspended, type InstitutionIdentity } from './services/institutionSessionService';
+import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, type InstitutionIdentity } from './services/institutionSessionService';
 import { resolveAdminAgentLogin } from './services/adminAgentStore';
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
@@ -826,7 +827,6 @@ export default function App() {
   const [isFaceScanning, setIsFaceScanning] = useState(false);
   const [demoFaceTemplateLoaded, setDemoFaceTemplateLoaded] = useState(false);
   const [demoFaceTemplateMeta, setDemoFaceTemplateMeta] = useState<{ capturedAt: string; identifier: string } | null>(null);
-  const [tempFaceCaptures, setTempFaceCaptures] = useState<{ imageDataUrl: string; signature: number[] }[]>([]);
   const [faceCaptureHint, setFaceCaptureHint] = useState('Posicione o rosto no centro da moldura.');
   const [faceCaptureError, setFaceCaptureError] = useState<string | null>(null);
   const [webcamReady, setWebcamReady] = useState(false);
@@ -1296,16 +1296,44 @@ export default function App() {
       }
       timer = setTimeout(() => {
         void (async () => {
-          // Instituições registadas entram apenas por Código + Senha (a senha identifica a pessoa)
+          // F6/B6.3 — login facial também para instituições registadas: a face (verificada contra
+          // o template da pessoa, registado na página Conta) substitui a senha. Gates idênticos.
           if (isInstMode && bi.trim().toUpperCase() !== DEMO_CREDENTIALS.institution.identifier && bi.trim() !== '') {
-            setLoginError('Login facial indisponível para instituições registadas: utilize o Código Institucional + Senha de Acesso.');
-            setFaceProgress(0);
-            setIsFaceScanning(false);
-            stopLoginFaceCamera();
-            setLoginSubMode('normal');
-            return;
+            try {
+              const res = await resolveInstitutionFaceLogin(bi.trim(), supabase);
+              if (res.outcome === 'invalid' || res.outcome === 'deny') {
+                setLoginError(res.message || 'Login facial não autorizado para este Nº Agente.');
+                setFaceProgress(0);
+                setIsFaceScanning(false);
+                stopLoginFaceCamera();
+                setLoginSubMode('normal');
+                addAuditLog(`Login facial institucional recusado (${res.code}): ${res.message}`, res.outcome === 'deny' ? 'critical' : 'warning');
+                return;
+              }
+              updateUserFields?.({ bi: res.code, name: res.name });
+              updateActiveProfileFields?.({ institutionName: `${res.name} (${res.code})`, role: 'institution' });
+              setBi(res.code);
+              setInstIdentity(res.identity || { type: 'responsible' });
+              // com credencial facial não pedimos a senha inicial nesta sessão (a marca mantém-se na loja)
+              setInstMustChangePwd(false);
+              setInstGate(res.outcome === 'restricted' ? 'restricted' : 'full');
+              addAuditLog(
+                res.outcome === 'restricted'
+                  ? `Login facial institucional (${res.code}) — conta pendente de aprovação: funcionalidades bloqueadas.`
+                  : `Login facial institucional (${res.code}) — ${res.identity?.type === 'member' ? `colaborador ${res.identity?.memberName}` : 'responsável'} autenticado.`,
+                res.outcome === 'restricted' ? 'warning' : 'success'
+              );
+            } catch (e) {
+              console.error('Erro no login facial institucional:', e);
+              setLoginError('Falha na validação do login facial institucional. Tente novamente.');
+              setFaceProgress(0);
+              setIsFaceScanning(false);
+              stopLoginFaceCamera();
+              setLoginSubMode('normal');
+              return;
+            }
           }
-          if (isInstMode) {
+          if (isInstMode && bi.trim().toUpperCase() === DEMO_CREDENTIALS.institution.identifier) {
             setInstGate('full');
             setInstIdentity({ type: 'responsible' });
           }
@@ -3371,12 +3399,32 @@ Ficha civil do titular:
       case 'perfil':
         return (
           <>
+            {!isInstMode && !isGovMode && (
+              <div className="px-4 md:px-8 pt-4 md:pt-6">
+                <FacialLoginSettings
+                  mode="user"
+                  personId={bi || DEMO_CREDENTIALS.user.identifier}
+                  displayName={profileName}
+                  onAudit={addAuditLog}
+                />
+              </div>
+            )}
             {isInstMode && instGate === 'full' && (
               <InstitutionAccessPanel
                 code={bi}
                 identity={instIdentity}
                 onAudit={addAuditLog}
               />
+            )}
+            {isInstMode && instGate === 'full' && (
+              <div className="px-4 md:px-8 pt-4">
+                <FacialLoginSettings
+                  mode="institution"
+                  personId={instIdentity?.agentNumber || bi || DEMO_CREDENTIALS.institution.identifier}
+                  displayName={instIdentity?.memberName || activeProfile?.institutionName || user?.name}
+                  onAudit={addAuditLog}
+                />
+              </div>
             )}
             <ProfileContent
             isInst={isInstMode}
@@ -3634,7 +3682,16 @@ Ficha civil do titular:
         );
       case 'gov-perfil':
         return (
-          <GovPerfilContent 
+          <>
+            <div className="px-4 md:px-8 pt-4 md:pt-6">
+              <FacialLoginSettings
+                mode="admin"
+                personId={bi || DEMO_CREDENTIALS.admin.identifier}
+                displayName={profileName}
+                onAudit={addAuditLog}
+              />
+            </div>
+            <GovPerfilContent 
             logs={auditLogs} 
             emergencyMode={emergencyMode} 
             bi={bi}
@@ -3680,6 +3737,7 @@ Ficha civil do titular:
               }
             }} 
           />
+          </>
         );
       case 'gov-stats':
         return null; // Removido ou integrado no painel principal
@@ -3862,12 +3920,11 @@ Ficha civil do titular:
       setFaceProgress(20);
       setIsFaceScanning(true);
       
-      const currentCapturesCount = tempFaceCaptures.length;
-      setFaceCaptureHint(demoFaceTemplateLoaded 
-        ? 'A comparar o rosto capturado com o perfil local armazenado...' 
-        : `A processar captura ${currentCapturesCount + 1} de 3...`);
-        
-      addAuditLog(`Iniciou digitalização biométrica facial no portal (Captura ${demoFaceTemplateLoaded ? 'Login' : `${currentCapturesCount + 1}/3`})`, 'info');
+      setFaceCaptureHint(demoFaceTemplateLoaded
+        ? 'A comparar o rosto capturado com o registo facial local (página Conta)...'
+        : 'Sem registo facial neste dispositivo — o registo faz-se na página Conta (Perfil).');
+
+      addAuditLog(`Iniciou verificação biométrica facial no portal (modo ${demoFaceTemplateLoaded ? 'login' : 'sem registo'})`, 'info');
 
       const finalize = (progress: number) => new Promise(resolve => setTimeout(() => {
         setFaceProgress(progress);
@@ -3905,65 +3962,15 @@ Ficha civil do titular:
         return;
       }
 
-      // We are in registration mode
-      const nextCaptures = [...tempFaceCaptures, captured];
-
-      if (currentCapturesCount < 2) {
-        // Not yet 3 captures. Save temporary progress.
-        setTempFaceCaptures(nextCaptures);
-        await finalize(100);
-        setIsFaceScanning(false);
-        setFaceProgress(0);
-        
-        const nextStep = currentCapturesCount + 2;
-        if (nextStep === 2) {
-          setFaceCaptureHint('Captura 1/3 gravada! Agora, incline ligeiramente o rosto para a ESQUERDA.');
-          addAuditLog(`Biometria facial: Captura 1/3 (Frente) registada para ${appMode}`, 'info');
-        } else if (nextStep === 3) {
-          setFaceCaptureHint('Captura 2/3 gravada! Agora, sorria ou olhe ligeiramente para CIMA.');
-          addAuditLog(`Biometria facial: Captura 2/3 (Esquerda) registada para ${appMode}`, 'info');
-        }
-        return;
-      }
-
-      // This is the 3rd capture! Compile and save.
-      const avgSignature: number[] = [];
-      const len = nextCaptures[0].signature.length;
-      for (let i = 0; i < len; i++) {
-        const sum = nextCaptures[0].signature[i] + nextCaptures[1].signature[i] + nextCaptures[2].signature[i];
-        avgSignature.push(Math.round(sum / 3));
-      }
-
-      const storagePayload = {
-        identifier: (bi || DEMO_CREDENTIALS[appMode].identifier).toUpperCase(),
-        profileMode: appMode,
-        displayName: profileName,
-        capturedAt: new Date().toLocaleString('pt-AO'),
-        imageDataUrl: captured.imageDataUrl,
-        signature: avgSignature,
-        signatures: nextCaptures.map(c => c.signature),
-      };
-      
-      localStorage.setItem(getDemoFaceStorageKey(), JSON.stringify(storagePayload));
-      setDemoFaceTemplateLoaded(true);
-      setDemoFaceTemplateMeta({ capturedAt: storagePayload.capturedAt, identifier: storagePayload.identifier });
-      setTempFaceCaptures([]);
-      setFaceCaptureHint('Cadastro biométrico robusto concluído! 3/3 faces fundidas criptograficamente.');
-      await finalize(100);
+      // F6/B6 — a página login APENAS verifica. O registo facial mudou-se para a página
+      // Conta (Perfil) das três áreas, após autenticação — aqui não há capturas de registo.
       setIsFaceScanning(false);
-      addAuditLog(`DEMO_FACE_ENROLLED: Registo de 3 capturas biométricas concluído com sucesso para ${appMode}`, 'success');
+      setFaceProgress(0);
+      setFaceCaptureHint('Sem registo facial neste dispositivo.');
+      setFaceCaptureError('Sem registo facial para esta identidade: entre com as credenciais e registe a sua face na página Conta (Perfil).');
+      addAuditLog(`DEMO_FACE_NO_TEMPLATE: login facial tentado sem registo na página Conta (${appMode})`, 'info');
     };
 
-    const handleClearDemoFace = () => {
-      localStorage.removeItem(getDemoFaceStorageKey());
-      setDemoFaceTemplateLoaded(false);
-      setDemoFaceTemplateMeta(null);
-      setTempFaceCaptures([]);
-      setFaceCaptureHint('Registo facial demo removido deste dispositivo.');
-      setFaceCaptureError(null);
-      setFaceProgress(0);
-      addAuditLog(`DEMO_FACE_RESET: Registo facial local removido para ${appMode}`, 'warning');
-    };
 
     const handleLoginSubmit = async () => {
       if (emergencyMode && !isInstMode && !isGovMode && (bi.toLowerCase().includes('002931298') || bi.toLowerCase().includes('edlasio') || profileName.toLowerCase().includes('edlasio'))) {
@@ -4451,17 +4458,13 @@ Ficha civil do titular:
                     <div className="flex items-center gap-1.5 justify-center">
                       <CheckCircle size={15} className={faceProgress === 100 ? "text-emerald-500" : isFaceScanning ? "text-blue-500 animate-spin" : "text-emerald-500"} />
                       <span className="text-emerald-600 font-extrabold uppercase tracking-widest text-[9.5px] font-sans">
-                        {faceProgress === 100 
-                          ? (demoFaceTemplateLoaded ? t("Face local validada") : t("Face registrada")) 
-                          : isFaceScanning 
-                            ? `${t("A processar")}: ${faceProgress}%` 
-                            : demoFaceTemplateLoaded 
-                              ? t("Pronto para validação local") 
-                              : tempFaceCaptures.length === 0 
-                                ? t("Pronto para registo (Frente)") 
-                                : tempFaceCaptures.length === 1 
-                                  ? t("Pronto para registo (Esquerda)") 
-                                  : t("Pronto para registo (Sorriso)")}
+                        {faceProgress === 100
+                          ? t("Face local validada")
+                          : isFaceScanning
+                            ? `${t("A processar")}: ${faceProgress}%`
+                            : demoFaceTemplateLoaded
+                              ? t("Pronto para validação local")
+                              : t("Sem registo facial — use a página Conta")}
                       </span>
                     </div>
                     <p className="text-slate-400 text-[10.5px] font-semibold">
@@ -4489,13 +4492,7 @@ Ficha civil do titular:
                       className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-5 rounded-2xl font-black text-[12.5px] uppercase tracking-widest flex items-center justify-center gap-1.5 shadow-lg shadow-blue-500/15 hover:opacity-95 active:scale-95 transition-all disabled:opacity-40 disabled:scale-100 disabled:shadow-none cursor-pointer border-0"
                     >
                       <Fingerprint size={15} />
-                      {demoFaceTemplateLoaded 
-                        ? t('VALIDAR FACE LOCAL') 
-                        : tempFaceCaptures.length === 0 
-                          ? t('INICIAR CAPTURA (1/3: FRENTE)') 
-                          : tempFaceCaptures.length === 1 
-                            ? t('REGISTAR CAPTURA (2/3: ESQUERDA)') 
-                            : t('REGISTAR CAPTURA (3/3: SORRISO)')}
+                      {t('VALIDAR FACE LOCAL')}
                     </button>
                     <div className="flex flex-wrap items-center justify-center gap-3 text-[9.5px] font-black uppercase tracking-widest">
                       <button
@@ -4505,15 +4502,6 @@ Ficha civil do titular:
                       >
                         {t("Auto Preencher Demonstração")}
                       </button>
-                      {demoFaceTemplateLoaded && (
-                        <button
-                          type="button"
-                          onClick={handleClearDemoFace}
-                          className="text-rose-500 hover:text-rose-700 transition-colors cursor-pointer bg-transparent border-0"
-                        >
-                          {t("Limpar Face Demo")}
-                        </button>
-                      )}
                     </div>
                   </div>
 
@@ -4566,7 +4554,6 @@ Ficha civil do titular:
                   />
                 </motion.div>
               )}
-
 
             </AnimatePresence>
           </motion.div>

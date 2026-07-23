@@ -53,6 +53,92 @@ const mapRowStatus = (status?: string): HomologationStatus => {
   return 'pending';
 };
 
+/**
+ * F6/B6 — Login FACIAL da instituição: a face (já validada no dispositivo contra
+ * o template registado na página Conta) substitui a senha como credencial da
+ * pessoa identificada pelo Nº Agente. Mantém EXATAMENTE os mesmos gates da via
+ * por senha (rejeitada/suspensa → deny; pendente/correções → restricted).
+ */
+export const resolveInstitutionFaceLogin = async (
+  typedRaw: string,
+  supabase?: any
+): Promise<InstitutionLoginResult> => {
+  const typed = normalizeInstCode(typedRaw);
+  const { code: parsedCode, seq: agentSeq } = splitAgentNumber(typed);
+  const code = agentSeq !== null ? parsedCode : typed;
+  if (!code) {
+    return { outcome: 'invalid', code, name: '', message: 'Introduza o Nº Agente Institucional.' };
+  }
+
+  const reg: LocalInstitutionRegistration | undefined = getLocalInstReg(code);
+  let row: any = null;
+  const ready = (import.meta as any).env?.VITE_SUPABASE_URL && (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
+  if (ready && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('solicitacoes_registo')
+        .select('*')
+        .eq('bi_numero', code)
+        .maybeSingle();
+      if (!error) row = data;
+    } catch (e) {
+      console.warn('[InstSession] Consulta cloud indisponível:', e);
+    }
+  }
+
+  const name: string = row?.nome || reg?.nome || code;
+  const pack = parseInstPack(row?.observacoes || reg?.observacoes || '');
+  if (!reg && !row) {
+    return {
+      outcome: 'invalid', code, name: '',
+      message: `A instituição \"${code}\" não foi reconhecida. Confirme o seu Nº Agente Institucional.`
+    };
+  }
+
+  // A face é a credencial: resolve a pessoa pelo Nº Agente (sem exigir senha)
+  let identity: InstitutionIdentity | null = null;
+  if (agentSeq !== null) {
+    if (agentSeq === 1) {
+      identity = { type: 'responsible', agentNumber: typed };
+    } else if (reg) {
+      const member = (reg.members || []).find(m => {
+        const own = splitAgentNumber(m.agentNumber || '');
+        return own.seq === agentSeq && own.code === code;
+      });
+      if (member) identity = { type: 'member', memberId: member.id, memberName: member.name, mustChangePassword: false, agentNumber: typed };
+    }
+  } else {
+    // Formato antigo (código simples) → assume o responsável (via demo conservadora)
+    identity = { type: 'responsible', agentNumber: reg?.agentNumber || pack?.agentNumber };
+  }
+  if (!identity) {
+    return {
+      outcome: 'invalid', code, name,
+      message: `O Nº Agente \"${typed}\" não corresponde a nenhuma pessoa desta instituição.`
+    };
+  }
+
+  const rec = homologationStore.getStatus(code);
+  const fichaSuspensa = isInstitutionFichaSuspended(code);
+  const status: HomologationStatus = rec?.status || mapRowStatus(row?.status || reg?.status);
+  if (status === 'rejected') {
+    return {
+      outcome: 'deny', code, name, pack, status,
+      message: `A adesão da instituição \"${name}\" (${code}) foi REJEITADA pela Área de Administração.${rec?.reason ? ` Motivo: \"${rec.reason}\".` : ''}`
+    };
+  }
+  if (status === 'blocked' || fichaSuspensa) {
+    return {
+      outcome: 'deny', code, name, pack, status: 'blocked',
+      message: `A conta da instituição \"${name}\" (${code}) encontra-se SUSPENSA pela Área de Administração.${rec?.reason ? ` Motivo: \"${rec.reason}\".` : ''}`
+    };
+  }
+  if (status === 'pending' || status === 'correcao') {
+    return { outcome: 'restricted', code, name, pack, identity, status };
+  }
+  return { outcome: 'full', code, name, pack, identity, status: 'active' };
+};
+
 export const resolveInstitutionLogin = async (
   codeRaw: string,
   password: string,
