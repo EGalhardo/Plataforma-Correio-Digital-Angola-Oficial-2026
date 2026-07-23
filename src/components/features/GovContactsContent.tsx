@@ -58,10 +58,13 @@ import {
   Building,
   Phone,
   Info,
-  Zap
+  Zap,
+  Pencil,
+  KeyRound
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, isInstPasswordTaken } from '../../services/institutionRegistrationStore';
+import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, isInstPasswordTaken, nextMemberAgentNumber } from '../../services/institutionRegistrationStore';
+import { addAdminAgent, updateAdminAgentPassword, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber } from '../../services/adminAgentStore';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -1140,6 +1143,16 @@ export function GovContactsContent({
   const [newWorkerStatus, setNewWorkerStatus] = useState<'Ativo' | 'Desativado' | 'Suspenso' | 'Férias' | 'Pendente'>('Ativo');
   const [newWorkerAccessProfile, setNewWorkerAccessProfile] = useState('Operador de Atendimento');
   const [newWorkerPassword, setNewWorkerPassword] = useState('');
+
+  // F6/B4 — Nº de agente gerado pelo sistema (instituição real → 'SME-LLVV-NN'; Admin → 'Admin-NN'; restantes contextos → formato legado)
+  const autoWorkerAgentId = (() => {
+    if (isEditingWorker) return workers.find(w => w.id === editingWorkerId)?.agentId || '';
+    const regCode = normalizeInstCode(bi || '');
+    const instRegAuto = (appMode !== 'admin-workers' && appMode === 'institution' && regCode) ? getLocalInstReg(regCode) : undefined;
+    if (appMode === 'institution' && instRegAuto) return nextMemberAgentNumber(regCode);
+    if (appMode === 'admin-workers') return nextAdminAgentNumber(workers.map(w => w.agentId || ''));
+    return `AGT-${Math.floor(100000 + Math.random() * 900000)}`;
+  })();
   
   // Search state for workers
   const [workerSearch, setWorkerSearch] = useState('');
@@ -1147,7 +1160,8 @@ export function GovContactsContent({
   
   // Selected Worker state for permissions and logs
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
-  const [activeWorkerTab, setActiveWorkerTab] = useState<'permissions' | 'logs'>('permissions');
+  const [activeWorkerTab, setActiveWorkerTab] = useState<'dados' | 'permissions' | 'logs'>('dados');
+  const [workerDrawerPwd, setWorkerDrawerPwd] = useState('');
 
   const selectedWorker = useMemo(() => {
     return workers.find(w => w.id === selectedWorkerId) || null;
@@ -1181,6 +1195,8 @@ export function GovContactsContent({
     // uma senha inicial individual (login: Código + esta senha), única na instituição.
     const regCode = normalizeInstCode(bi);
     const instReg = (!isPlatformAdmin && appMode === 'institution' && regCode) ? getLocalInstReg(regCode) : undefined;
+    // F6/B4 — Admin: agentes recebem senha inicial individual (login Admin: 'Admin-NN' + senha), única na área.
+    const adminCredsOn = isPlatformAdmin;
     if (instReg && !isEditingWorker) {
       if (!newWorkerPassword || newWorkerPassword.length < 8) {
         alert('Defina a Senha inicial do colaborador (mínimo 8 caracteres). O login institucional deste colaborador será: Código da instituição + esta senha.');
@@ -1201,10 +1217,39 @@ export function GovContactsContent({
         return;
       }
     }
+    // F6 — validações da senha de Agente Admin (criar obrigatória; editar só se preenchida)
+    if (adminCredsOn && !isEditingWorker) {
+      if (!newWorkerPassword || newWorkerPassword.length < 8) {
+        alert('Defina a Senha inicial do agente (mínimo 8 caracteres). O login Admin deste agente será: Nº Agente Admin + esta senha.');
+        return;
+      }
+      if (isAdminAgentPasswordTaken(newWorkerPassword)) {
+        alert('Esta senha já está a ser usada por outro agente da Administração. Como a senha identifica a pessoa no login, escolha outra.');
+        return;
+      }
+    }
+    if (adminCredsOn && isEditingWorker && newWorkerPassword) {
+      if (newWorkerPassword.length < 8) {
+        alert('A nova senha (se preenchida) deve ter pelo menos 8 caracteres.');
+        return;
+      }
+      const editingAgentNum = workers.find(w => w.id === editingWorkerId)?.agentId;
+      if (isAdminAgentPasswordTaken(newWorkerPassword, editingAgentNum)) {
+        alert('Esta senha já está a ser usada por outro agente da Administração. Escolha outra.');
+        return;
+      }
+    }
 
     if (isEditingWorker && editingWorkerId) {
       if (instReg && newWorkerPassword && editingWorkerId) {
         updateInstMemberPassword(regCode, editingWorkerId, newWorkerPassword);
+      }
+      if (adminCredsOn && newWorkerPassword && editingWorkerId) {
+        const editedWorkerAgentNum = workers.find(w => w.id === editingWorkerId)?.agentId;
+        if (editedWorkerAgentNum && /^Admin-\d+$/i.test(editedWorkerAgentNum)) {
+          updateAdminAgentPassword(editedWorkerAgentNum, newWorkerPassword);
+          addAuditLog?.(`[EQUIPA] Senha do agente ${editedWorkerAgentNum} actualizada — login Admin passa a exigir a nova senha.`, 'info');
+        }
       }
       setWorkers(prev => prev.map(w => w.id === editingWorkerId ? {
         ...w,
@@ -1238,7 +1283,17 @@ export function GovContactsContent({
           dept: newWorkerDept || 'Geral',
           password: newWorkerPassword,
           mustChangePassword: true,
+          agentNumber: autoWorkerAgentId, // F6 — 'SME-LLVV-NN'
         });
+      }
+      if (adminCredsOn) {
+        addAdminAgent({
+          agent: autoWorkerAgentId, // F6 — 'Admin-NN'
+          password: newWorkerPassword,
+          workerId: newWorkerId,
+          name: newWorkerName,
+        });
+        addAuditLog?.(`[EQUIPA] Agente ${autoWorkerAgentId} (${newWorkerName}) criado — login Admin com Nº + senha inicial.`, 'success');
       }
       const newWorker: Trabajador = {
         id: newWorkerId,
@@ -1247,7 +1302,7 @@ export function GovContactsContent({
         role: newWorkerRole,
         phone: newWorkerPhone,
         department: newWorkerDept || 'Geral',
-        agentId: `CDA-${Math.floor(1000 + Math.random() * 9000)}`,
+        agentId: autoWorkerAgentId || `CDA-${Math.floor(1000 + Math.random() * 9000)}`,
         status: newWorkerStatus || 'Ativo',
         lastAccess: 'Nunca acedeu',
         registrationDate: '12/06/2026',
@@ -1278,11 +1333,46 @@ export function GovContactsContent({
     setShowAddWorkerModal(true);
   };
 
+  // F6/B4 — guardar nova senha directamente no dossier do colaborador (vazio = manter)
+  const handleDrawerPasswordSave = () => {
+    if (!selectedWorker || !workerDrawerPwd) return;
+    const regCodeD = normalizeInstCode(bi || '');
+    const instRegD = (appMode === 'institution' && regCodeD) ? getLocalInstReg(regCodeD) : undefined;
+    if (instRegD) {
+      if (workerDrawerPwd.length < 8) { alert('A nova senha deve ter pelo menos 8 caracteres.'); return; }
+      if (isInstPasswordTaken(regCodeD, workerDrawerPwd, selectedWorker.id)) {
+        alert('Esta senha já está a ser usada por outra credencial desta instituição. Escolha outra.');
+        return;
+      }
+      updateInstMemberPassword(regCodeD, selectedWorker.id, workerDrawerPwd, true);
+      addAuditLog?.(`[EQUIPA] Senha do colaborador ${selectedWorker.name} reposicionada — terá de a substituir no próximo login.`, 'success');
+      setWorkerDrawerPwd('');
+      playSuccessSound();
+      return;
+    }
+    if (appMode === 'admin-workers') {
+      const agentNum = selectedWorker.agentId || '';
+      if (!/^Admin-\d+$/i.test(agentNum)) { alert('Este elemento não tem um Nº Agente Admin (Admin-NN) — a senha do login Admin só se aplica a agentes com esse formato.'); return; }
+      if (workerDrawerPwd.length < 8) { alert('A nova senha deve ter pelo menos 8 caracteres.'); return; }
+      if (isAdminAgentPasswordTaken(workerDrawerPwd, agentNum)) {
+        alert('Esta senha já está a ser usada por outro agente da Administração. Escolha outra.');
+        return;
+      }
+      updateAdminAgentPassword(agentNum, workerDrawerPwd);
+      addAuditLog?.(`[EQUIPA] Senha do agente ${agentNum} reposicionada — login Admin exige a nova senha.`, 'success');
+      setWorkerDrawerPwd('');
+      playSuccessSound();
+    }
+  };
+
   const handleDeleteWorker = (id: string, name: string) => {
     if (confirm(`Tem a certeza que deseja remover o membro da equipa ${name} do sistema?`)) {
       const regCode = normalizeInstCode(bi);
       if (appMode === 'institution' && regCode && getLocalInstReg(regCode)) {
         removeInstMember(regCode, id); // a senha do colaborador deixa de ser reconhecida no login
+      }
+      if (appMode === 'admin-workers') {
+        removeAdminAgentByWorker(id); // F6 — o Nº Agente Admin deixa de entrar no login
       }
       setWorkers(prev => prev.filter(w => w.id !== id));
       if (selectedWorkerId === id) setSelectedWorkerId(null);
@@ -1435,7 +1525,8 @@ export function GovContactsContent({
                       key={w.id} 
                       onClick={() => {
                         setSelectedWorkerId(w.id);
-                        setActiveWorkerTab('permissions');
+                        setActiveWorkerTab('dados');
+                        setWorkerDrawerPwd('');
                       }}
                       className="text-xs text-[#334155] hover:bg-slate-50/80 transition-colors border-b border-slate-100 last:border-b-0 cursor-pointer"
                     >
@@ -1728,7 +1819,7 @@ export function GovContactsContent({
 
                           {/* IDENTIFICADOR EXTERNO */}
                           <div className="grid gap-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 min-h-[30px] flex items-end pb-1">ID Único do Agente (Opcional)</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 min-h-[30px] flex items-end pb-1">{isPlatformAdmin ? 'Nº Agente Admin' : appMode === 'institution' && !!getLocalInstReg(normalizeInstCode(bi)) ? 'Nº Agente Institucional' : 'ID Único do Agente (Opcional)'}</label>
                             <div className="relative">
                               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                                 <Lock size={16} />
@@ -1736,8 +1827,8 @@ export function GovContactsContent({
                               <input
                                 type="text"
                                 className="w-full bg-slate-50 border-2 border-slate-100 rounded-[20px] pl-11 pr-4 py-3.5 text-xs text-slate-500 font-mono outline-none"
-                                placeholder="Gerado automaticamente se vazio"
-                                value={newWorkerAgentId}
+                                placeholder="Gerado automaticamente pelo sistema"
+                                value={autoWorkerAgentId}
                                 readOnly
                               />
                             </div>
@@ -1794,7 +1885,7 @@ export function GovContactsContent({
                     </div>
 
                     {/* F4 — Senha inicial do colaborador (só instituições registadas por Código; na demo AGT-9921-SR não há registo, logo sem campo) */}
-                    {appMode === 'institution' && !!getLocalInstReg(normalizeInstCode(bi)) && (
+                    {(isPlatformAdmin || (appMode === 'institution' && !!getLocalInstReg(normalizeInstCode(bi)))) && (
                       <>
                         <div className="border-t border-dashed border-slate-150" />
                         <div className="grid gap-1.5 text-left">
@@ -1815,7 +1906,7 @@ export function GovContactsContent({
                             />
                           </div>
                           <p className="text-[9px] text-slate-400 font-bold leading-snug m-0 mr-1 select-none">
-                            O colaborador entra com <strong>Código da instituição + esta senha</strong>. A senha identifica a pessoa — não pode repetir outra credencial activa e ficará guardada apenas neste dispositivo.
+                            {isPlatformAdmin ? (<>O agente entra com <strong>Nº Agente Admin + esta senha</strong> no login da Administração.</>) : (<>O colaborador entra com <strong>Código da instituição + esta senha</strong>.</>)} A senha identifica a pessoa — não pode repetir outra credencial activa e ficará guardada apenas neste dispositivo.
                           </p>
                         </div>
                       </>
@@ -1911,6 +2002,19 @@ export function GovContactsContent({
                   {/* Tabs Selector Row */}
                   <div className="flex border-b border-slate-100 bg-slate-50/50 shrink-0 select-none">
                     <button
+                      onClick={() => setActiveWorkerTab('dados')}
+                      className={`flex-1 py-3 text-center font-black text-[11px] uppercase tracking-wider relative cursor-pointer border-b-2 outline-none transition-all ${
+                        activeWorkerTab === 'dados'
+                          ? 'border-indigo-600 text-indigo-950 font-black'
+                          : 'border-transparent text-slate-400 hover:text-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-center gap-1.5">
+                        <User size={14} />
+                        Dados do Colaborador
+                      </div>
+                    </button>
+                    <button
                       onClick={() => setActiveWorkerTab('permissions')}
                       className={`flex-1 py-3 text-center font-black text-[11px] uppercase tracking-wider relative cursor-pointer border-b-2 outline-none transition-all ${
                         activeWorkerTab === 'permissions'
@@ -1940,7 +2044,100 @@ export function GovContactsContent({
 
                   {/* Drawer Content Body */}
                   <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6 text-left">
-                    {activeWorkerTab === 'permissions' ? (
+                    {activeWorkerTab === 'dados' ? (
+                      <div className="space-y-5">
+                        {/* F6/B4 — mesmo layout do popup "Registar novo membro da Equipa", com os dados do colaborador */}
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2 text-[#4f46e5]">
+                            <User size={15} className="stroke-[2.5]" />
+                            <span className="font-extrabold text-[11px] uppercase tracking-widest">Dados Pessoais</span>
+                          </div>
+                          {([
+                            { label: 'Nome Completo', value: selectedWorker.name },
+                            { label: 'Email Institucional', value: selectedWorker.email },
+                            { label: 'Telefone', value: selectedWorker.phone || '—' },
+                          ] as { label: string; value: string }[]).map(f => (
+                            <div key={f.label} className="grid gap-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{f.label}</label>
+                              <input type="text" readOnly value={f.value} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[20px] px-4 py-3.5 text-xs text-slate-600 font-bold outline-none" />
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="border-t border-dashed border-slate-150" />
+
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2 text-[#4f46e5]">
+                            <Briefcase size={15} className="stroke-[2.5]" />
+                            <span className="font-extrabold text-[11px] uppercase tracking-widest">Função & Identificação</span>
+                          </div>
+                          {([
+                            { label: 'Cargo / Função', value: selectedWorker.role },
+                            { label: 'Departamento / Área Territorial', value: selectedWorker.department || '—' },
+                            { label: appMode === 'admin-workers' ? 'Nº Agente Admin' : appMode === 'institution' ? 'Nº Agente Institucional' : 'ID Único do Agente', value: selectedWorker.agentId || '—' },
+                            { label: 'Estado', value: selectedWorker.status },
+                            { label: 'Inscrito em', value: selectedWorker.registrationDate || '—' },
+                          ] as { label: string; value: string }[]).map(f => (
+                            <div key={f.label} className="grid gap-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{f.label}</label>
+                              <input type="text" readOnly value={f.value} className={`w-full bg-slate-50 border-2 border-slate-100 rounded-[20px] px-4 py-3.5 text-xs text-slate-600 font-bold outline-none ${f.label.includes('Agente') || f.label.includes('ID Único') ? 'font-mono' : ''}`} />
+                            </div>
+                          ))}
+                        </div>
+
+                        {(appMode === 'admin-workers' || (appMode === 'institution' && !!getLocalInstReg(normalizeInstCode(bi)))) && (
+                          <>
+                            <div className="border-t border-dashed border-slate-150" />
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2 text-amber-500">
+                                <Lock size={15} className="stroke-[2.5]" />
+                                <span className="font-extrabold text-[11px] uppercase tracking-widest">Senha de Acesso</span>
+                              </div>
+                              <div className="grid gap-1.5">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nova Senha (deixe vazio para manter a actual)</label>
+                                <input
+                                  type="text"
+                                  autoComplete="off"
+                                  placeholder="Mín. 8 caracteres — substitui a senha actual"
+                                  value={workerDrawerPwd}
+                                  onChange={(e) => setWorkerDrawerPwd(e.target.value)}
+                                  className="w-full bg-white border-2 border-slate-100 focus:border-amber-500/30 rounded-[20px] px-4 py-3.5 text-xs text-slate-800 font-mono font-bold outline-none transition-all"
+                                />
+                                <p className="text-[9px] text-slate-400 font-bold ml-1 leading-snug">
+                                  Guardada apenas neste dispositivo. {appMode === 'admin-workers' ? 'Passa a ser exigida no login da Administração.' : 'O colaborador terá de a substituir no próximo login.'}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={handleDrawerPasswordSave}
+                                disabled={!workerDrawerPwd}
+                                className="bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white px-5 py-2.5 rounded-[16px] font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer border-0 flex items-center gap-2"
+                              >
+                                <KeyRound size={13} /> Guardar Nova Senha
+                              </button>
+                            </div>
+                          </>
+                        )}
+
+                        <div className="border-t border-dashed border-slate-150" />
+                        <div className="flex items-center gap-2.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => { handleEditWorkerClick(selectedWorker); }}
+                            className="flex-1 bg-[#0E2B64] hover:bg-[#081a3d] text-white py-3 rounded-[18px] font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer border-0 flex items-center justify-center gap-2"
+                          >
+                            <Pencil size={13} /> Editar Dados
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { handleDeleteWorker(selectedWorker.id, selectedWorker.name); }}
+                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-5 py-3 rounded-[18px] font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2"
+                          >
+                            <Trash2 size={13} /> Remover
+                          </button>
+                        </div>
+                      </div>
+                    ) : activeWorkerTab === 'permissions' ? (
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <div>

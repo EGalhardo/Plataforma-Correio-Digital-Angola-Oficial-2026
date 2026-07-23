@@ -129,11 +129,11 @@ export const removeInstMember = (code: string, memberId: string): void => {
   updateLocalInstReg(code, { members: (reg.members || []).filter(m => m.id !== memberId) });
 };
 
-export const updateInstMemberPassword = (code: string, memberId: string, password: string): void => {
+export const updateInstMemberPassword = (code: string, memberId: string, password: string, requireChangeOnNextLogin = false): void => {
   const reg = getLocalInstReg(code);
   if (!reg) return;
   updateLocalInstReg(code, {
-    members: (reg.members || []).map(m => m.id === memberId ? { ...m, password, mustChangePassword: false } : m),
+    members: (reg.members || []).map(m => m.id === memberId ? { ...m, password, mustChangePassword: requireChangeOnNextLogin } : m),
   });
 };
 
