@@ -11,7 +11,7 @@
 
 import { homologationStore, type HomologationStatus } from './homologationStore';
 import {
-  getLocalInstReg, normalizeInstCode, parseInstPack,
+  getLocalInstReg, normalizeInstCode, parseInstPack, splitAgentNumber,
   type LocalInstitutionRegistration
 } from './institutionRegistrationStore';
 
@@ -22,6 +22,7 @@ export interface InstitutionIdentity {
   memberId?: string;
   memberName?: string;
   mustChangePassword?: boolean;
+  agentNumber?: string; // F6 — Nº Agente da pessoa autenticada (ex.: SME-LLVV-01)
 }
 
 export interface InstitutionLoginResult {
@@ -57,9 +58,13 @@ export const resolveInstitutionLogin = async (
   password: string,
   supabase?: any
 ): Promise<InstitutionLoginResult> => {
-  const code = normalizeInstCode(codeRaw);
+  const typed = normalizeInstCode(codeRaw);
+  // F6/B3: o campo recebe o Nº Agente Institucional (SME-LLVV-01). Códigos antigos
+  // (ENDE01) e o demo (AGT-9921-SR) chegam sem sufixo NN → via legada (C4).
+  const { code: parsedCode, seq: agentSeq } = splitAgentNumber(typed);
+  const code = agentSeq !== null ? parsedCode : typed;
   if (!code) {
-    return { outcome: 'invalid', code, name: '', message: 'Introduza o Código Institucional.' };
+    return { outcome: 'invalid', code, name: '', message: 'Introduza o Nº Agente Institucional.' };
   }
 
   // 1. Localizar o registo: espelho local primeiro, nuvem depois
@@ -89,19 +94,42 @@ export const resolveInstitutionLogin = async (
   const name: string = row?.nome || reg?.nome || code;
   const pack = parseInstPack(row?.observacoes || reg?.observacoes || '');
 
-  // 2. A senha identifica a PESSOA
+  // 2. A senha confirma a PESSOA (F6/C5: o NN do agente identifica; a senha valida essa pessoa)
   let identity: InstitutionIdentity | null = null;
-  if ((row && row.password_hash === password) || (reg && reg.password === password)) {
-    identity = { type: 'responsible' };
-  } else if (reg) {
-    const member = (reg.members || []).find(m => m.password === password && password.length > 0);
-    if (member) identity = { type: 'member', memberId: member.id, memberName: member.name, mustChangePassword: !!member.mustChangePassword };
-  }
-  if (!identity) {
-    return {
-      outcome: 'invalid', code, name,
-      message: 'Credenciais incorrectas: a senha não corresponde a nenhuma credencial activa desta instituição.'
-    };
+  const respPasswordOk = (!!row && row.password_hash === password) || (!!reg && reg.password === password);
+  if (agentSeq !== null) {
+    // Via nova: Nº Agente explícito
+    if (agentSeq === 1) {
+      if (respPasswordOk) identity = { type: 'responsible', agentNumber: typed };
+    } else if (reg) {
+      const member = (reg.members || []).find(m => {
+        const own = splitAgentNumber(m.agentNumber || '');
+        return own.seq === agentSeq && own.code === code;
+      });
+      if (member && member.password === password && password.length > 0) {
+        identity = { type: 'member', memberId: member.id, memberName: member.name, mustChangePassword: !!member.mustChangePassword, agentNumber: typed };
+      }
+    }
+    if (!identity) {
+      return {
+        outcome: 'invalid', code, name,
+        message: 'Credenciais incorrectas: a senha não corresponde a este Nº Agente Institucional.'
+      };
+    }
+  } else {
+    // Via legada (código sem NN): a senha identifica a pessoa — comportamento F3 mantido
+    if (respPasswordOk) {
+      identity = { type: 'responsible', agentNumber: reg?.agentNumber || (parseInstPack(row?.observacoes || reg?.observacoes || '')?.agentNumber) };
+    } else if (reg) {
+      const member = (reg.members || []).find(m => m.password === password && password.length > 0);
+      if (member) identity = { type: 'member', memberId: member.id, memberName: member.name, mustChangePassword: !!member.mustChangePassword, agentNumber: member.agentNumber };
+    }
+    if (!identity) {
+      return {
+        outcome: 'invalid', code, name,
+        message: 'Credenciais incorrectas: a senha não corresponde a nenhuma credencial activa desta instituição.'
+      };
+    }
   }
 
   // 3. Estado da instituição (homologação local ganha; depois ficha suspensa; depois linha)
