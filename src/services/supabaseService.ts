@@ -156,6 +156,13 @@ const createStateHistoryPayload = ({
   };
 };
 
+export interface InstitutionMailboxBundle { messages: Message[]; legacyIds: number[]; }
+
+/** F14 — código institucional real da forma SIGLA-XXXX (ex.: SME-LLVV, SME-LLVV2).
+ *  Exclui o formato legado/demo ('AGT-9921-SR', 'ENDE01') e etiquetas sem traço. */
+export const isRealInstitutionalCode = (raw?: string): boolean =>
+  /^[A-Z0-9]{2,8}-[A-Z0-9]{2,8}$/.test((raw || '').trim().toUpperCase());
+
 export const supabaseService = {
   /**
    * Check connection and verify if tables are created.
@@ -688,18 +695,25 @@ export const supabaseService = {
     }
   },
 
-  async getInstitutionMessages(institutionLabel: string): Promise<Message[] | null> {
+  async getInstitutionMessages(institutionLabel: string): Promise<InstitutionMailboxBundle | null> {
     if (!hasValidSupabaseKeys()) return null;
     try {
-      const institutionCode = resolveInstitutionCode(institutionLabel);
+      const rawLabel = (institutionLabel || '').trim();
+      const realCode = isRealInstitutionalCode(rawLabel);
+      const legacyTarget = resolveInstitutionCode(institutionLabel);
+      // F14 — Código institucional REAL (ex.: SME-LLVV): consulta EXACTA por
+      // código próprio. O canal legado por sigla ('SME', 'AGT', …) fica reservado
+      // à conta demo/etiquetas antigas — fundi-lo numa conta real era a fuga que
+      // mostrava correspondências de outras contas (BD partilhada).
+      const target = realCode ? rawLabel.toUpperCase() : legacyTarget;
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .eq('recipient_bi', institutionCode)
+        .eq('recipient_bi', target)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      if (!data) return [];
+      if (!data) return { messages: [], legacyIds: [] };
 
       const senderBis = Array.from(new Set(data.map((item: any) => item.sender_bi).filter((value: string) => !!value && !['AGT','SME','ENDE','EPAL','MINSA','TRIBUNAL','SYSTEM'].includes(value))));
       let profilesByBi = new Map<string, string>();
@@ -708,7 +722,7 @@ export const supabaseService = {
         profilesByBi = new Map((profiles || []).map((item: any) => [item.bi, item.name]));
       }
 
-      return data.map((item: any) => ({
+      const mapped: Message[] = data.map((item: any) => ({
         id: Number(item.id),
         org: profilesByBi.has(item.sender_bi) ? `Cidadão: ${profilesByBi.get(item.sender_bi)}` : `Cidadão: ${item.sender_bi}`,
         preview: item.preview,
@@ -727,6 +741,17 @@ export const supabaseService = {
         priorityScale: item.priority_scale,
         deadlineHoursRemaining: item.deadline_hours_remaining
       }));
+
+      // F14 — IDs do canal legado por sigla: cópias locais etiquetadas por
+      // versões anteriores como pertencendo a este código são expurgadas no App.
+      const messages: Message[] = mapped;
+      let legacyIds: number[] = [];
+      if (realCode && legacyTarget !== target) {
+        const { data: legacyRows } = await supabase.from('messages').select('id').eq('recipient_bi', legacyTarget);
+        const exactIds = new Set(data.map((item: any) => Number(item.id)));
+        legacyIds = (legacyRows || []).map((item: any) => Number(item.id)).filter(id => !exactIds.has(id));
+      }
+      return { messages, legacyIds } as InstitutionMailboxBundle;
     } catch (e) {
       console.error('Supabase getInstitutionMessages error:', e);
       return null;

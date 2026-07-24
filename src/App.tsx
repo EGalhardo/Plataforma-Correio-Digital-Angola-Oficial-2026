@@ -77,7 +77,7 @@ import { Message, Document, Contact, AppNotification, AppMode, UserRequest, DocR
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol } from './utils/protocolGenerator';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi } from './services/supabaseService';
-import { homologationStore, normalizeHomologationBi } from './services/homologationStore';
+import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, type InstitutionIdentity } from './services/institutionSessionService';
 import { getLocalInstReg, normalizeInstCode, parseInstPack } from './services/institutionRegistrationStore';
 import { resolveAdminAgentLogin } from './services/adminAgentStore';
@@ -668,8 +668,14 @@ export default function App() {
   // F8 — Cada conta institucional vê apenas os SEUS dados: aplica a identidade
   // (nome, e-mail, telefone, cargo, foto) do responsável/colaborador autenticado,
   // limpando os campos do cidadão demo que a sessão partilhada trazia.
-  const applyInstitutionSessionIdentity = (result: { code: string; name: string; identity?: InstitutionIdentity | null; pack?: ReturnType<typeof parseInstPack> }) => {
+  const applyInstitutionSessionIdentity = (result: { code: string; name: string; identity?: InstitutionIdentity | null; pack?: ReturnType<typeof parseInstPack>; status?: string }) => {
     const code = normalizeInstCode(result.code);
+    // F14 — Multi-dispositivo: garante o canal oficial da Área de Administração
+    // quando a thread local não existe neste dispositivo (a conta REAL tem
+    // sempre a correspondência de confirmação/aprovação da sua adesão).
+    if (['pending', 'correcao', 'active'].includes(String(result.status || ''))) {
+      ensureInstitutionHomologationChannel(code, result.name, result.status as 'pending' | 'correcao' | 'active');
+    }
     const reg = getLocalInstReg(code);
     const pack = result.pack || parseInstPack(reg?.observacoes || '');
     const isMember = result.identity?.type === 'member';
@@ -1846,22 +1852,27 @@ export default function App() {
         }
 
         if (isInstMode) {
-          const dbInstitutionMessages = await supabaseService.getInstitutionMessages(institutionCode);
-          if (dbInstitutionMessages !== null && isSubscribed) {
-            // F9 — marca de destinatária: só assim a conta institucional real distingue
-            // o que lhe é de facto endereçado do seed demo da AGT.
-            const instNormal = dbInstitutionMessages.map(ensureProtocolOnMessage).map(m => ({ ...m, recipientInst: institutionCode }));
-            const instDoc = dbInstitutionMessages.map(ensureProtocolOnMessage).map(m => ({ ...m, id: m.id + 10000, recipientInst: institutionCode }));
+          const mailbox = await supabaseService.getInstitutionMessages(institutionCode);
+          if (mailbox !== null && isSubscribed) {
+            // F9/F14 — marca de destinatária: a conta real só recebe o endereçado
+            // AO SEU CÓDIGO (consulta exacta). `legacyIds` = correio do canal por
+            // sigla que versões anteriores fundiram indevidamente nesta conta —
+            // expurgado das caixas locais deste dispositivo.
+            const instNormal = mailbox.messages.map(ensureProtocolOnMessage).map(m => ({ ...m, recipientInst: institutionCode }));
+            const instDoc = mailbox.messages.map(ensureProtocolOnMessage).map(m => ({ ...m, id: m.id + 10000, recipientInst: institutionCode }));
+            const legacyIds = new Set(mailbox.legacyIds);
             
             setInstInbox(prevLocal => {
               const dbIds = new Set(instNormal.map(m => m.id));
-              const onlyLocal = prevLocal.filter(m => !dbIds.has(m.id));
+              const purgedLocal = legacyIds.size ? prevLocal.filter(m => !legacyIds.has(m.id)) : prevLocal;
+              const onlyLocal = purgedLocal.filter(m => !dbIds.has(m.id));
               return [...instNormal, ...onlyLocal];
             });
             
             setInstDocInbox(prevLocal => {
               const dbIds = new Set(instDoc.map(m => m.id));
-              const onlyLocal = prevLocal.filter(m => !dbIds.has(m.id));
+              const purgedLocal = legacyIds.size ? prevLocal.filter(m => !legacyIds.has(m.id - 10000)) : prevLocal;
+              const onlyLocal = purgedLocal.filter(m => !dbIds.has(m.id));
               return [...instDoc, ...onlyLocal];
             });
           }

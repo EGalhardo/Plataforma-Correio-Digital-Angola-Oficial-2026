@@ -175,3 +175,38 @@ export const notifyAccountUnblocked = (bi: string, name?: string): void => {
     `Exmo(a). ${name || 'Cidadão(ã)'}, o bloqueio preventivo da sua conta foi levantado pela Área de Administração. A sua conta no Correio Digital de Angola encontra-se novamente ATIVA.`
   );
 };
+
+
+// ----------------------------------------------------------------------------
+// F14 — Canal oficial multi-dispositivo da instituição: a thread de homologação
+// é local ao dispositivo; um login noutro dispositivo deixava a conta real SEM
+// a correspondência oficial da Área de Administração. Se a thread estiver
+// vazia, reconstrói-a a partir do registo (confirmação de recepção; + mensagem
+// de aprovação quando a conta já está activa). Nunca sobrescreve o que existe.
+// ----------------------------------------------------------------------------
+export const ensureInstitutionHomologationChannel = (
+  codeRaw: string,
+  fullName: string,
+  status: 'pending' | 'correcao' | 'active' | 'rejected' | 'blocked',
+): void => {
+  const code = (codeRaw || '').trim().toUpperCase();
+  if (!code || ALWAYS_ACTIVE_IDENTIFIERS.includes(code)) return; // apenas contas reais
+  if (!homologationStore.getStatus(code)) {
+    homologationStore.setStatus(code, status, undefined, fullName);
+  }
+  if (homologationStore.getThread(code).length > 0) return;
+  const base = (fullName || '').replace(/\s*\([^)]*\)\s*$/, '').trim() || code;
+  const sig = ((fullName || '').match(/\(([^)]+)\)/)?.[1] || code.split('-')[0]).toUpperCase();
+  homologationStore.addMessage(
+    code,
+    'admin',
+    `Exmos. Senhores da ${base} (${sig}), a Área de Administração do Correio Digital Angola confirma a receção da vossa solicitação de adesão (Código Institucional: ${code}). O pedido já foi enviado para análise e em menos de 24 horas receberão uma resposta oficial através deste canal. Enquanto o pedido estiver pendente, cada comunicação oficial chega a esta caixa como correspondência não lida — o aviso aparece no badge da foto de perfil e no menu "Mensagens não lidas".`
+  );
+  if (status === 'active') {
+    homologationStore.addMessage(
+      code,
+      'admin',
+      `Exmos. Senhores da ${base} (${code}), informamos que a vossa adesão ao Correio Digital Angola foi APROVADA pela Área de Administração e a conta da instituição encontra-se oficialmente ATIVA. Todas as funcionalidades da área institucional ficam disponíveis de imediato. Bem-vindos à rede nacional de correio digital.`
+    );
+  }
+};
