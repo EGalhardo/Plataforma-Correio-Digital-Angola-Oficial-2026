@@ -8,6 +8,7 @@ import {
   Users, 
   Mail, 
   Activity, 
+  AlertTriangle,
   Clock, 
   Cpu, 
   CheckCircle, 
@@ -1936,7 +1937,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
         })()}
       </AnimatePresence>
 
-      {/* ===== MODAL DE CONFIRMAÇÃO — Eliminar Solicitação de Registo (F8) ===== */}
+      {/* ===== MODAL DE CONFIRMAÇÃO — Eliminar Solicitação de Registo (desenho oficial) ===== */}
       <AnimatePresence>
         {solToDelete && (() => {
           const row = solToDelete;
@@ -1952,38 +1953,69 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                 initial={{ opacity: 0, scale: 0.94, y: 14 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.94, y: 14 }}
-                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-[440px] bg-white rounded-[26px] shadow-2xl z-[180] border border-slate-100 overflow-hidden text-left"
+                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-[480px] bg-white rounded-[24px] shadow-2xl z-[180] border border-slate-100 overflow-hidden text-center relative"
               >
-                <div className="p-5 md:p-6">
-                  <div className="flex items-start gap-3.5">
-                    <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0"><Trash2 size={20} className="text-rose-600" /></div>
-                    <div className="min-w-0">
-                      <div className="text-[8.5px] font-black uppercase tracking-[0.2em] text-rose-500">Eliminar Solicitação — {code}</div>
-                      <h3 className="text-sm md:text-base font-black text-slate-900 uppercase tracking-tight leading-tight mt-0.5">{row.nome}</h3>
-                      <p className="text-[10.5px] font-bold text-slate-500 leading-snug mt-2">
-                        Esta acção é <span className="text-rose-600">definitiva e irreversível</span>. Serão removidos: o registo (local e nuvem), o estado de homologação, o canal oficial de mensagens e as leituras associadas{solState(row.status) === 'ativa' ? ', bem como a ficha da instituição nesta página' : ''}.
-                      </p>
-                      <p className="text-[9.5px] font-black uppercase tracking-widest text-slate-400 mt-2">Confirma a eliminação desta solicitação?</p>
+                {/* Fechar (X) */}
+                <button
+                  type="button"
+                  disabled={solBusy}
+                  onClick={() => setSolToDelete(null)}
+                  className="absolute top-4 right-4 w-7 h-7 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer flex items-center justify-center disabled:opacity-60"
+                  title="Fechar"
+                >
+                  <X size={13} />
+                </button>
+
+                <div className="px-7 md:px-9 pt-9 pb-6">
+                  {/* Ícone central circular */}
+                  <div className="mx-auto w-20 h-20 rounded-full bg-rose-50 border border-rose-100 shadow-[0_0_36px_rgba(244,63,94,0.18)] flex items-center justify-center mb-5">
+                    <Trash2 size={34} className="text-rose-600" strokeWidth={2.2} />
+                  </div>
+
+                  {/* Título + nome + barra de destaque */}
+                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-600 mb-2">
+                    Eliminar Solicitação — {code}
+                  </div>
+                  <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight">{row.nome}</h3>
+                  <span className="block mx-auto mt-2.5 mb-6 h-[3px] w-14 rounded-full bg-rose-600" />
+
+                  {/* Caixa de aviso */}
+                  <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-3.5 text-left mb-5">
+                    <AlertTriangle size={30} className="text-rose-500 shrink-0" strokeWidth={2.2} />
+                    <p className="text-[11px] leading-snug text-slate-600 font-medium">
+                      <span className="font-black text-slate-900">Esta acção é <span className="text-rose-600">definitiva e irreversível</span>.</span><br />
+                      Serão removidos: o registo (local e nuvem), o estado de homologação, o canal oficial de mensagens e as leituras associadas{solState(row.status) === 'ativa' ? ', bem como a ficha da instituição nesta página' : ''}.
+                    </p>
+                  </div>
+
+                  {/* Linha de confirmação com "?" */}
+                  <div className="flex items-center gap-3 text-left mb-2 px-1">
+                    <span className="w-9 h-9 rounded-full bg-slate-200/80 text-slate-600 font-black text-[15px] flex items-center justify-center shrink-0 select-none">?</span>
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-800 leading-snug">Confirma a eliminação desta solicitação?</p>
+                      <p className="text-[10.5px] font-medium text-slate-500 mt-0.5">Esta acção não poderá ser desfeita.</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2.5 mt-5">
-                    <button
-                      type="button"
-                      disabled={solBusy}
-                      onClick={() => setSolToDelete(null)}
-                      className="flex-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-700 rounded-xl py-2.5 text-[9.5px] font-black uppercase tracking-widest transition-colors cursor-pointer border border-slate-200"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      disabled={solBusy}
-                      onClick={() => { void handleDeleteSolicitacao(row).finally(() => setSolToDelete(null)); }}
-                      className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white rounded-xl py-2.5 text-[9.5px] font-black uppercase tracking-widest transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"
-                    >
-                      <Trash2 size={12} /> {solBusy ? 'A eliminar…' : 'Eliminar Definitivamente'}
-                    </button>
-                  </div>
+                </div>
+
+                {/* Acções (pill) sob o divisor */}
+                <div className="border-t border-slate-100 px-7 md:px-9 py-5 flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={solBusy}
+                    onClick={() => setSolToDelete(null)}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-700 rounded-full py-3 text-[10px] font-black uppercase tracking-[0.12em] whitespace-nowrap transition-colors cursor-pointer border-none flex items-center justify-center gap-2"
+                  >
+                    <X size={14} /> Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={solBusy}
+                    onClick={() => { void handleDeleteSolicitacao(row).finally(() => setSolToDelete(null)); }}
+                    className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white rounded-full py-3 text-[10px] font-black uppercase tracking-[0.12em] whitespace-nowrap transition-all cursor-pointer border-none flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={14} /> {solBusy ? 'A eliminar…' : 'Eliminar Definitivamente'}
+                  </button>
                 </div>
               </motion.div>
             </>
