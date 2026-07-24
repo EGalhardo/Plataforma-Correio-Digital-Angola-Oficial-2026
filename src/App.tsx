@@ -2011,9 +2011,10 @@ export default function App() {
     setInbox(prev => {
       const ids = new Set<number>();
       const uniques: Message[] = [];
-      prev.forEach(m => {
+      prev.forEach(item => {
+        let m = item;
         if (!m.org || m.org.trim() === '') {
-          m.org = 'CDA'; // F11 — emissor padrão neutro (nunca dados da demo)
+          m = { ...m, org: 'CDA' }; // F11/F18 — emissor neutro, SEM mutar o estado anterior
           fixesCount++;
         }
         if (!ids.has(m.id)) {
@@ -2031,9 +2032,10 @@ export default function App() {
     setDocInbox(prev => {
       const ids = new Set<number>();
       const uniques: Message[] = [];
-      prev.forEach(m => {
+      prev.forEach(item => {
+        let m = item;
         if (!m.org || m.org.trim() === '') {
-          m.org = 'SME'; // Corrige: atribui emissor padrão
+          m = { ...m, org: 'CDA' }; // F18 — emissor neutro (era 'SME', marca demo) + sem mutação
           fixesCount++;
         }
         if (!ids.has(m.id)) {
@@ -2047,12 +2049,12 @@ export default function App() {
       // 5. Garantir sincronização real-time inteligente do estado das mensagens sem aninhamento perigoso
       const inboxReadStatus = new Map<number, number>();
       finalCleanInbox.forEach(m => {
-        const baseId = m.id >= 10000 ? m.id - 10000 : m.id;
+        const baseId = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
         inboxReadStatus.set(baseId, m.unread || 0);
       });
 
       const updatedDocInbox = uniques.map(m => {
-        const baseId = m.id >= 10000 ? m.id - 10000 : m.id;
+        const baseId = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
         if (inboxReadStatus.has(baseId)) {
           const desiredUnread = inboxReadStatus.get(baseId)!;
           if (m.unread !== desiredUnread) {
@@ -2070,9 +2072,10 @@ export default function App() {
     setInstInbox(prev => {
       const ids = new Set<number>();
       const uniques: Message[] = [];
-      prev.forEach(m => {
+      prev.forEach(item => {
+        let m = item;
         if (!m.org || m.org.trim() === '') {
-          m.org = 'Cidadão';
+          m = { ...m, org: 'Cidadão' }; // F18 — sem mutação do estado anterior
           fixesCount++;
         }
         if (!ids.has(m.id)) {
@@ -2088,9 +2091,10 @@ export default function App() {
     setInstDocInbox(prev => {
       const ids = new Set<number>();
       const uniques: Message[] = [];
-      prev.forEach(m => {
+      prev.forEach(item => {
+        let m = item;
         if (!m.org || m.org.trim() === '') {
-          m.org = 'Cidadão';
+          m = { ...m, org: 'Cidadão' }; // F18 — sem mutação do estado anterior
           fixesCount++;
         }
         if (!ids.has(m.id)) {
@@ -2107,13 +2111,14 @@ export default function App() {
     setCorrespondences(prev => {
       const ids = new Set<string>();
       const uniques: any[] = [];
-      prev.forEach(c => {
+      prev.forEach(item => {
+        let c = item;
         if (!c.sender || c.sender.trim() === '') {
-          c.sender = 'CDA'; // F11 — remetente padrão neutro
+          c = { ...c, sender: 'CDA' }; // F11/F18 — remetente neutro, sem mutação
           fixesCount++;
         }
         if (!c.recipient || c.recipient.trim() === '') {
-          c.recipient = 'Cidadão'; // F11 — destinatário padrão neutro
+          c = { ...c, recipient: 'Cidadão' }; // F11/F18 — destinatário neutro, sem mutação
           fixesCount++;
         }
         const stringId = String(c.id);
@@ -2131,13 +2136,14 @@ export default function App() {
     setDocuments(prev => {
       const codes = new Set<string>();
       const uniques: Document[] = [];
-      prev.forEach(d => {
+      prev.forEach(item => {
+        let d = item;
         if (!d.code || d.code.trim() === '') {
-          d.code = `CDA-REP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+          d = { ...d, code: `CDA-REP-${Math.random().toString(36).substring(2, 8).toUpperCase()}` }; // F18 — sem mutação
           fixesCount++;
         }
         if (!d.holder || d.holder !== profileName) {
-          d.holder = profileName;
+          d = { ...d, holder: profileName }; // F18 — sem mutação
           fixesCount++;
         }
         if (!codes.has(d.code)) {
@@ -2154,9 +2160,10 @@ export default function App() {
     setContacts(prev => {
       const bis = new Set<string>();
       const uniques: Contact[] = [];
-      prev.forEach(c => {
+      prev.forEach(item => {
+        let c = item;
         if (!c.bi || c.bi.trim() === '') {
-          c.bi = `ANG-CONTACT-${Math.floor(Math.random() * 900000 + 100000)}`;
+          c = { ...c, bi: `ANG-CONTACT-${Math.floor(Math.random() * 900000 + 100000)}` }; // F18 — sem mutação
           fixesCount++;
         }
         if (!bis.has(c.bi)) {
@@ -2596,7 +2603,7 @@ export default function App() {
     setSelectedMessage(message);
     setWasOpenedUnread(!!message.unread);
     if (isOnline && hasValidSupabaseKeys()) {
-      const baseId = message.id >= 10000 ? message.id - 10000 : message.id;
+      const baseId = message.id >= 10000 && message.id < 90000000 ? message.id - 10000 : message.id;
       supabaseService.getMessageStateHistory(baseId).then((history) => {
         if (history && history.length > 0) {
           setSelectedMessage((prev) => prev ? {
@@ -2615,23 +2622,23 @@ export default function App() {
     setMessageSource(correspondenciaTab === 'enviadas' ? 'enviados' : 'correspondencias');
     
     if (message.unread) {
-      const baseId = message.id >= 10000 ? message.id - 10000 : message.id;
+      const baseId = message.id >= 10000 && message.id < 90000000 ? message.id - 10000 : message.id;
       
       // Sincronização em tempo real de estado "Lida" em todos os arrays da plataforma
       setInbox(prev => prev.map(m => {
-        const mBase = m.id >= 10000 ? m.id - 10000 : m.id;
+        const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
         return mBase === baseId ? { ...m, unread: 0, status: 'Lida' } : m;
       }));
       setDocInbox(prev => prev.map(m => {
-        const mBase = m.id >= 10000 ? m.id - 10000 : m.id;
+        const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
         return mBase === baseId ? { ...m, unread: 0, status: 'Lida' } : m;
       }));
       setInstInbox(prev => prev.map(m => {
-        const mBase = m.id >= 10000 ? m.id - 10000 : m.id;
+        const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
         return mBase === baseId ? { ...m, unread: 0, status: 'Lida' } : m;
       }));
       setInstDocInbox(prev => prev.map(m => {
-        const mBase = m.id >= 10000 ? m.id - 10000 : m.id;
+        const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
         return mBase === baseId ? { ...m, unread: 0, status: 'Lida' } : m;
       }));
       
@@ -3072,7 +3079,7 @@ export default function App() {
 
   const handleEmitDocument = (doc: Document, notification: AppNotification) => {
     setDocuments(prev => [doc, ...prev]);
-    setNotifications(prev => [notification, ...prev]);
+    setNotifications(prev => [stampNotif(notification), ...prev]); // F18 — dono da sessão (visível em contas reais)
     
     // Also send a formal message to the inbox to simulate real correspondence
     const newMessage: Message = {
@@ -3146,7 +3153,7 @@ export default function App() {
     const newNotif: AppNotification = {
       id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
       title: 'Solicitação Enviada',
-      message: `O seu pedido de ${type} foi enviado à AGT.`,
+      message: `O seu pedido de ${type} foi enviado à Área de Administração.`, // F18 — era 'AGT' (marca demo)
       time: 'Agora',
       type: 'info',
       targetTab: 'home',
@@ -3293,6 +3300,7 @@ Ficha civil do titular:
         validity: 'VITALÍCIO',
         code: `CDA-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
         holder: request.userName,
+        holderBi: request.userBi, // F18 — escopo F12: sem isto o cidadão real nunca via o documento aprovado
         number: request.userBi,
         issuer: `${request.institution} - Emissão Automática`,
         issuedAt: new Date().toLocaleDateString('pt-AO')
@@ -3316,7 +3324,7 @@ Ficha civil do titular:
       
       if (request.userBi === bi) {
         setInbox(prev => [systemMsg, ...prev]);
-        setNotifications(prev => [{
+        setNotifications(prev => [stampNotif({
           id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
           title: 'Documento Aprovado',
           message: `O seu pedido de ${request.docType} foi aprovado e emitido.`,
@@ -3324,7 +3332,7 @@ Ficha civil do titular:
           type: 'success',
           targetTab: 'correspondencias',
           unread: true
-        }, ...prev]);
+        }), ...prev]);
       }
       
       // Persist documents, companion messages, and alerts in Supabase for the citizen
@@ -4007,7 +4015,7 @@ Ficha civil do titular:
                   }
                 };
                 setInbox(prev => [systemAlert, ...prev]);
-                setNotifications(prev => [{
+                setNotifications(prev => [stampNotif({
                   id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
                   title: 'ALERTA NACIONAL',
                   message: 'Protocolo de Emergência Activado pelo SOC',
@@ -4015,7 +4023,7 @@ Ficha civil do titular:
                   type: 'warning',
                   targetTab: 'correspondencias',
                   unread: true
-                }, ...prev]);
+                }), ...prev]);
               }
             }} 
           />
@@ -4049,15 +4057,15 @@ Ficha civil do titular:
                 addAuditLog('PROTOCOLO SOC-AN-2026 ATIVADO: Bloqueio Identitário e Chaves Criptográficas Encriptadas', 'critical');
                 
                 // Add Notification to citizen
-                setNotifications(prev => [{
+                setNotifications(prev => [stampNotif({
                   id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
                   title: 'ALERTA SOC-AN-2026 UNIFICADO',
-                  message: 'Protocolo de Emergência Ciber-Defensiva Ativado. Chaves Faciais e Biométricas de Edlasio Galhardo Temporariamente Suspensas / Bloqueadas para Salvaguarda de Soberania Digital!',
+                  message: `Protocolo de Emergência Ciber-Defensiva Ativado. Chaves Faciais e Biométricas de ${profileName} Temporariamente Suspensas / Bloqueadas para Salvaguarda de Soberania Digital!`, // F18 — era o nome demo hardcoded
                   time: 'Agora',
                   type: 'warning',
                   targetTab: 'home',
                   unread: true
-                }, ...prev]);
+                }), ...prev]);
 
                 // Despacho de Mensagem na Inbox (Mail)
                 const dateAO = new Date().toLocaleDateString('pt-AO');
