@@ -4231,7 +4231,18 @@ Ficha civil do titular:
         if (typedAgent && typedAgent !== DEMO_CREDENTIALS.admin.identifier) {
           const cred = resolveAdminAgentLogin(typedAgent, loginPasswordInput);
           if (cred) {
-            updateUserFields?.({ name: cred.name, bi: typedAgent });
+            // F13 — Agente Admin-NN (conta REAL): sessão limpa com a ficha do
+            // próprio agente. O perfil "Administrador Geral / Central" e os
+            // dados pessoais do cidadão demo pertencem apenas à conta ADM-8812-OP.
+            setProfileName(cred.name);
+            setPhoneLocal(''); setNifLocal(''); setPassportLocal('');
+            setUserBirthDate(''); setUserFiliation(''); setUserMaritalStatus('');
+            setVerificationStatus('Agente da Administração');
+            updateUserFields?.({
+              name: cred.name, bi: typedAgent, phone: '', nif: '', passport: '',
+              birthDate: '', filiation: '', maritalStatus: '', email: '',
+              avatarUrl: makeInstNeutralAvatar('AD'),
+            });
             setLoginError(null);
             addAuditLog(`Login da Administração: agente ${cred.agent} (${cred.name}) autenticado por Nº + senha local.`, 'success');
           } else if (/^ADMIN-\d+$/.test(typedAgent.replace(/\s+/g, ''))) {
