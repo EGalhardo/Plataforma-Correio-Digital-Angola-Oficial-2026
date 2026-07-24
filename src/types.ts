@@ -64,6 +64,8 @@ export interface Message {
   homologationBi?: string;
   /** F9 — Código da instituição a quem a mensagem foi de facto endereçada (fusão da nuvem). */
   recipientInst?: string;
+  /** F12 — BI do cidadão a quem a mensagem foi de facto endereçada (fusão da nuvem). */
+  recipientBi?: string;
 }
 
 export interface Document {
@@ -75,6 +77,8 @@ export interface Document {
   issuer: string;
   issuedAt: string;
   protocol?: DigitalProtocol;
+  /** F12 — chave da sessão (BI/código) que fundiu este documento. */
+  holderBi?: string;
 }
 
 export interface Contact {
@@ -85,6 +89,8 @@ export interface Contact {
   status: string;
   type?: 'Normal' | 'Emergência';
   phone?: string;
+  /** F12 — chave da sessão proprietária do contacto. */
+  ownerId?: string;
 }
 
 export interface Slide {
@@ -105,6 +111,8 @@ export interface AppNotification {
   type: 'success' | 'warning' | 'info';
   targetTab: string;
   unread?: boolean;
+  /** F12 — dono da sessão que gerou o evento (sessões reais só vêem os seus). */
+  ownerId?: string;
 }
 
 export interface UserRequest {
@@ -287,6 +295,8 @@ export const PRIORITY_CONFIGS: Record<'Normal' | 'Importante' | 'Urgente' | 'Cr�
 export interface Correspondence {
   id: string;
   sender: string;
+  /** F13 — agente da Administração que registou o expediente (consola real partilhada). */
+  createdBy?: string;
   recipient: string;
   subject: string;
   originProvince: string;

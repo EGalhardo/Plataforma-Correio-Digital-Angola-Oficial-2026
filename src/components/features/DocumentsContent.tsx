@@ -105,6 +105,8 @@ interface DocumentsContentProps {
   setTab: (tab: string) => void;
   bi: string;
   isInst?: boolean;
+  /** F12 — facturas/carteira simuladas apenas nas contas de demonstração. */
+  sessionDemo?: boolean;
   currentLanguage?: LanguageCode;
 }
 
@@ -126,6 +128,7 @@ export function DocumentsContent({
   setTab,
   bi,
   isInst,
+  sessionDemo,
   currentLanguage = 'pt'
 }: DocumentsContentProps) {
   const { institutions } = useInstitutions();
@@ -135,6 +138,7 @@ export function DocumentsContent({
 
   // Simulated Wallet Balance for paying invoices
   const [walletBalance, setWalletBalance] = useState<number>(() => {
+    if (sessionDemo === false) return 0; // F12 — conta real: sem saldo simulado
     const saved = localStorage.getItem('correio_digital_carteira_saldo');
     return saved ? Number(saved) : 154700; // 154.700 Kz
   });
@@ -324,6 +328,11 @@ export function DocumentsContent({
     localStorage.setItem('correio_digital_faturas', JSON.stringify(invoices));
   }, [invoices]);
 
+  // F12 — Conta real (cidadão/instituição registada): NÃO herda as facturas
+  // simuladas FT-AGT/FT-ENDE… — a lista nasce vazia e a carteira sem saldo.
+  const demoScope = sessionDemo !== false;
+  const effectiveInvoices = demoScope ? invoices : [];
+
   const allDocsCombined = useMemo(() => {
     return [...inbox, ...sentMessages];
   }, [inbox, sentMessages]);
@@ -332,7 +341,7 @@ export function DocumentsContent({
     if (name === 'Todas') return allDocsCombined.length;
     const term = name.toLowerCase();
     if (!isInst) {
-      return invoices.filter(item => item.org?.toLowerCase() === term).length;
+      return effectiveInvoices.filter(item => item.org?.toLowerCase() === term).length;
     } else {
       return allDocsCombined.filter(item => {
         const orgName = item.org?.toLowerCase() || '';
@@ -355,9 +364,9 @@ export function DocumentsContent({
   }, [allDocsCombined, selectedInst]);
 
   const filteredInvoicesForSelectedInst = useMemo(() => {
-    if (selectedInst === 'Todas') return invoices;
-    return invoices.filter(item => item.org?.toLowerCase() === selectedInst.toLowerCase());
-  }, [invoices, selectedInst]);
+    if (selectedInst === 'Todas') return effectiveInvoices;
+    return effectiveInvoices.filter(item => item.org?.toLowerCase() === selectedInst.toLowerCase());
+  }, [effectiveInvoices, selectedInst]);
 
   const saveInvoicesToStorage = (updatedList: any[]) => {
     localStorage.setItem('correio_digital_faturas', JSON.stringify(updatedList));
@@ -831,7 +840,7 @@ export function DocumentsContent({
             <p className="text-[10px] md:text-sm text-slate-600 font-black uppercase tracking-widest">
               {isInst 
                 ? `${unreadTotal} ${translate('novos arquivados')}` 
-                : `${invoices.filter(i => i.status === 'Pendente').length} ${translate('faturas aguardando pagamento')}`
+                : `${effectiveInvoices.filter(i => i.status === 'Pendente').length} ${translate('faturas aguardando pagamento')}`
               }
             </p>
           </div>

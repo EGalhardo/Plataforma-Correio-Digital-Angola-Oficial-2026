@@ -23,6 +23,8 @@ import { useSession } from '../../services/sessionStore';
 
 interface ProfileContentProps {
   isInst?: boolean;
+  /** F12 — true apenas nas contas de demonstração (conteúdo simulado permitido). */
+  sessionDemo?: boolean;
   showSensitiveData: boolean;
   setShowSensitiveData: (show: boolean) => void;
   bi: string;
@@ -62,6 +64,7 @@ interface ProfileContentProps {
 
 export function ProfileContent({
   isInst = false,
+  sessionDemo,
   showSensitiveData,
   setShowSensitiveData,
   bi,
@@ -417,6 +420,7 @@ export function ProfileContent({
           onSyncSupabase={handleSyncWithSupabase}
           isSyncingSupabase={supabaseSyncing}
           addAuditLog={addAuditLog}
+          sessionDemo={sessionDemo}
         />
       );
     }
@@ -1214,7 +1218,7 @@ return (
                       {isInst ? "Segurança de Agente do Estado" : "Configuração de Segurança"}
                     </h3>
                     <p className="text-[9px] text-[#2563eb] font-extrabold uppercase tracking-widest leading-none mt-1">
-                      {isInst ? "Portal de Serviço Tributário - AGT" : "Identidade Digital de Angola"}
+                      {isInst ? "Portal de Serviços da Instituição" : "Identidade Digital de Angola"}
                     </p>
                   </div>
                 </div>

@@ -818,7 +818,20 @@ export default function App() {
         }
       } catch (_) { /* ignora */ }
 
-      if (!resolvedName) return; // B.I. desconhecido: mantem comportamento demo atual
+      if (!resolvedName) {
+        // F12 — B.I. sem registo (conta real desconhecida): a sessão entra LIMPA
+        // e não verificada — nunca herda o perfil simulado da conta demo.
+        setProfileName('');
+        setPhoneLocal(''); setNifLocal(''); setPassportLocal('');
+        setUserBirthDate(''); setUserFiliation(''); setUserMaritalStatus('');
+        setVerificationStatus('Não Verificado');
+        updateUserFields?.({
+          bi: normalized, name: '', phone: '', nif: '', passport: '',
+          birthDate: '', filiation: '', maritalStatus: '', email: '',
+          avatarUrl: makeInstNeutralAvatar(normalized.slice(0, 2)),
+        });
+        return;
+      }
 
       setProfileName(resolvedName);
       setPhoneLocal(resolvedPhone);
@@ -931,6 +944,8 @@ export default function App() {
   const { user, appMode, setAppMode, activeProfile, updateUserFields, updateActiveProfileFields } = useSession();
   const isGovMode = appMode === 'admin';
   const isInstMode = appMode === 'institution';
+  // F12 — auxiliar simétrico para a ideologia demo/real (conta cidadão).
+  const isUserMode = appMode === 'user';
   const institutionCode = resolveInstitutionCode(activeProfile?.institutionName || '');
   // F3/F7 — estado da conta institucional: 'restricted' = pendente/em correções (a área abre na mesma; o estado alimenta o tom do indicador Online); 'full' = aprovada
   const [instGate, setInstGate] = useState<'none' | 'restricted' | 'full'>('none');
@@ -1671,7 +1686,7 @@ export default function App() {
         targetTab: 'home',
         unread: true
       };
-      setNotifications(prev => [newNotif, ...prev]);
+      setNotifications(prev => [stampNotif(newNotif), ...prev]);
     }, 1500);
   };
 
@@ -1793,8 +1808,10 @@ export default function App() {
         // 2. Fetch Citizen Messages / Institution Messages / Sent messages
         const dbMessages = await supabaseService.getMessages(bi);
         if (dbMessages !== null && isSubscribed) {
-          const incoming = dbMessages.filter(m => !isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage);
-          const docs = dbMessages.filter(m => isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage);
+          // F12 — marca de titularidade: o cidadão/instituição REAL só vê o que
+          // foi efectivamente endereçado à sua chave (query da nuvem já filtra).
+          const incoming = dbMessages.filter(m => !isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage).map(m => ({ ...m, recipientBi: bi }));
+          const docs = dbMessages.filter(m => isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage).map(m => ({ ...m, recipientBi: bi }));
           
           setInbox(prevLocal => {
             const dbIds = new Set(incoming.map(m => m.id));
@@ -1853,20 +1870,24 @@ export default function App() {
         // 3. Fetch Documents
         const dbDocs = await supabaseService.getDocuments(bi);
         if (dbDocs !== null && isSubscribed) {
+          // F12 — titularidade do documento (sessões reais só vêem os seus).
+          const taggedDocs = dbDocs.map(d => ({ ...d, holderBi: bi }));
           setDocuments(prevLocal => {
-            const dbCodes = new Set(dbDocs.map(d => d.code));
+            const dbCodes = new Set(taggedDocs.map(d => d.code));
             const onlyLocal = prevLocal.filter(d => !dbCodes.has(d.code));
-            return [...dbDocs, ...onlyLocal];
+            return [...taggedDocs, ...onlyLocal];
           });
         }
 
         // 4. Fetch Contacts
         const dbContacts = await supabaseService.getContacts(bi);
         if (dbContacts !== null && isSubscribed) {
+          // F12 — cada contacto fica marcado com o dono da sessão que o fundiu.
+          const taggedContacts = dbContacts.map(c => ({ ...c, ownerId: bi }));
           setContacts(prevLocal => {
-            const dbIds = new Set(dbContacts.map(c => c.id));
+            const dbIds = new Set(taggedContacts.map(c => c.id));
             const onlyLocal = prevLocal.filter(c => !dbIds.has(c.id));
-            return [...dbContacts, ...onlyLocal];
+            return [...taggedContacts, ...onlyLocal];
           });
         }
 
@@ -2206,7 +2227,7 @@ export default function App() {
         if (prev.some(n => n.id === 990990 || n.title === 'Auditoria CADA Concluída')) {
           return prev;
         }
-        return [checkNotif, ...prev];
+        return [stampNotif(checkNotif), ...prev];
       });
     }
   };
@@ -2344,13 +2365,27 @@ export default function App() {
     const sigla = (pack?.sigla || code.split('-')[0] || 'INST').toUpperCase();
     return { sigla, logoUrl: reg?.logoDataUrl || makeInstNeutralAvatar(sigla), verified: instGate === 'active' };
   }, [isInstMode, isDemoInstitutionSession, institutionCode, bi, instGate, gateRefreshTick]);
+
+  // F12 — Ideologia "conta nova = zero dados simulados" (prompt v7): apenas as
+  // contas fixas (ALWAYS_ACTIVE_IDENTIFIERS) são demonstração. Sessões reais só
+  // vêem o que tem dono conhecido = a sua própria chave; tudo o resto é herança
+  // de outras sessões neste dispositivo e não aparece.
+  const isDemoCitizenSession = isUserMode && homologationStore.isExempt(bi);
+  const isDemoAdminSession = isGovMode && homologationStore.isExempt(bi);
+  const isDemoSession = isDemoCitizenSession || isDemoInstitutionSession || isDemoAdminSession;
+  const sessionOwnerKey = isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi);
+  const stampNotif = (n: AppNotification): AppNotification => ({ ...n, ownerId: sessionOwnerKey });
+  const isOwnCitizenMail = (m: Message) =>
+    isOwnHomologationMail(m) || (!!m.recipientBi && normalizeHomologationBi(m.recipientBi) === normalizeHomologationBi(bi));
   const currentInbox = isInstMode
     ? (isDemoInstitutionSession
         ? instInbox.filter(m => !m.homologation || isOwnHomologationMail(m))
         : instInbox.filter(m => isOwnHomologationMail(m) || isInstitutionAddressedMail(m)))
     : homologationPendingForCitizen
       ? inbox.filter(isOwnHomologationMail)
-      : inbox.filter(m => !m.homologation || isOwnHomologationMail(m));
+      : isDemoCitizenSession
+        ? inbox.filter(m => !m.homologation || isOwnHomologationMail(m))
+        : inbox.filter(isOwnCitizenMail);
   const unreadTotal = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id)).reduce((sum, msg) => sum + (msg.unread || 0), 0), [currentInbox, deletedMessageIds, hiddenMessageIds]);
   const unreadMessagesList = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id) && !!msg.unread), [currentInbox, deletedMessageIds, hiddenMessageIds]);
 
@@ -2367,7 +2402,38 @@ export default function App() {
     ? (isDemoInstitutionSession
         ? instDocInbox
         : instDocInbox.filter(m => isOwnHomologationMail(m) || isInstitutionAddressedMail(m)))
-    : (homologationPendingForCitizen ? [] : docInbox);
+    : (homologationPendingForCitizen ? [] : (isDemoCitizenSession ? docInbox : docInbox.filter(isOwnCitizenMail)));
+
+  // F12 — Documentos (carteira/pasta digital/QR/emissão): sessões reais só vêem
+  // os documentos marcados com a SUA chave na fusão da nuvem.
+  const currentDocuments = useMemo(() => {
+    if (isGovMode) return documents;
+    if (isUserMode && isDemoCitizenSession) return documents;
+    if (isInstMode && isDemoInstitutionSession) return documents;
+    return documents.filter(d => !!d.holderBi && normalizeHomologationBi(d.holderBi) === normalizeHomologationBi(bi));
+  }, [documents, isGovMode, isUserMode, isDemoCitizenSession, isInstMode, isDemoInstitutionSession, bi]);
+
+  // F12 — Contactos pessoais por conta: sessões reais só vêem os seus.
+  const currentContacts = useMemo(() =>
+    (isUserMode && !isDemoCitizenSession) || (isInstMode && !isDemoInstitutionSession)
+      ? contacts.filter(c => !!c.ownerId && c.ownerId === sessionOwnerKey)
+      : contacts,
+    [contacts, isUserMode, isDemoCitizenSession, isInstMode, isDemoInstitutionSession, sessionOwnerKey]);
+
+  // F12 — Notificações: sessões reais só vêem eventos gerados na SUA sessão;
+  // o Centro de Notificações de uma conta nova nasce vazio.
+  const currentNotifications = useMemo(() =>
+    isDemoSession ? notifications : notifications.filter(n => n.ownerId === sessionOwnerKey),
+    [notifications, isDemoSession, sessionOwnerKey]);
+
+  // F12/F13 — Correspondências gov: demo vê o histórico simulado; agentes reais
+  // partilham apenas os expedientes efectivamente registados (createdBy);
+  // cidadão/instituição real não vê dados gov simulados no histórico.
+  const currentCorrespondences = useMemo(() => {
+    if (isGovMode) return isDemoAdminSession ? correspondences : correspondences.filter(c => !!c.createdBy);
+    if (isUserMode) return isDemoCitizenSession ? correspondences : [];
+    return isDemoInstitutionSession ? correspondences : [];
+  }, [correspondences, isGovMode, isDemoAdminSession, isUserMode, isDemoCitizenSession, isInstMode, isDemoInstitutionSession]);
   const unreadDocTotal = useMemo(() => currentDocInbox.reduce((sum, msg) => sum + (msg.unread || 0), 0), [currentDocInbox]);
 
   const filteredMessages = useMemo(() => {
@@ -2422,14 +2488,14 @@ export default function App() {
   }, [documents, searchDoc]);
 
   const filteredContacts = useMemo(() => {
-    if (!searchContact.trim()) return contacts;
+    if (!searchContact.trim()) return currentContacts;
     const term = searchContact.toLowerCase();
-    return contacts.filter(c => 
+    return currentContacts.filter(c => 
       (c.name?.toLowerCase().includes(term) ?? false) || 
       (c.bi?.toLowerCase().includes(term) ?? false) ||
       (c.relation?.toLowerCase().includes(term) ?? false)
     );
-  }, [contacts, searchContact]);
+  }, [currentContacts, searchContact]);
 
   const addAuditLog = (action: string, type: 'info' | 'warning' | 'critical' | 'success' = 'info') => {
     const actorLabel = isGovMode
@@ -2893,6 +2959,7 @@ export default function App() {
       status: "Confirmado",
       type: contactForm.type || "Normal",
       phone: contactForm.phone || "",
+      ownerId: sessionOwnerKey,
     };
 
     setContacts(prev => [newContact, ...prev]);
@@ -3009,7 +3076,7 @@ export default function App() {
       targetTab: 'home',
       unread: true
     };
-    setNotifications(prev => [newNotif, ...prev]);
+    setNotifications(prev => [stampNotif(newNotif), ...prev]);
 
     if (!isOnline) {
       OfflineManager.queueAction('CREATE_REQUEST', { type, priority });
@@ -3365,6 +3432,7 @@ Ficha civil do titular:
             setTab={setTab}
             bi={bi}
             isInst={isInstMode}
+            sessionDemo={(isUserMode && isDemoCitizenSession) || (isInstMode && isDemoInstitutionSession)}
             currentLanguage={currentLanguage}
           />
         );
@@ -3387,7 +3455,7 @@ Ficha civil do titular:
         if (isInstMode) {
           return (
           <GovDocsContent 
-            documents={documents} 
+            documents={currentDocuments} 
             requests={docRequests} 
             onUpdateStatus={handleUpdateDocRequest}
             setTab={setTab}
@@ -3432,14 +3500,14 @@ Ficha civil do titular:
       case 'pasta-digital':
         return (
           <PastaDigitalContent
-            documents={documents}
+            documents={currentDocuments}
             docRequests={docRequests.filter(r => r.userBi === bi)}
             onCreateRequest={handleCreateDocRequest}
             setSelectedDoc={setSelectedDoc}
             setTab={setTab}
             logSecurityEvent={logSecurityEvent}
             emergencyMode={emergencyMode}
-            correspondences={correspondences}
+            correspondences={currentCorrespondences}
           />
         );
       case 'historico':
@@ -3448,11 +3516,11 @@ Ficha civil do titular:
             appMode={appMode}
             messages={currentInbox}
             sentMessages={sentMessages}
-            documents={documents}
+            documents={currentDocuments}
             docRequests={isGovMode ? docRequests : docRequests.filter(r => r.userBi === bi)}
             userRequests={isGovMode ? userRequests : userRequests.filter(r => r.bi === bi)}
-            correspondences={correspondences}
-            notifications={notifications}
+            correspondences={currentCorrespondences}
+            notifications={currentNotifications}
             auditLogs={auditLogs}
             setTab={setTab}
           />
@@ -3460,7 +3528,7 @@ Ficha civil do titular:
       case 'notificacoes':
         return (
           <NotificationsCenterContent
-            notifications={notifications}
+            notifications={currentNotifications}
             setTab={setTab}
             appMode={appMode}
           />
@@ -3468,7 +3536,7 @@ Ficha civil do titular:
       case 'inst-qrcode':
         return (
           <InstQrCodeContent
-            documents={documents}
+            documents={currentDocuments}
             messages={isInstMode
               ? [...currentInbox, ...currentDocInbox, ...sentMessages, ...docSentMessages]
               : [...inbox, ...docInbox, ...sentMessages, ...docSentMessages]}
@@ -3518,7 +3586,7 @@ Ficha civil do titular:
           />
         ) : (
           <ContactsContent
-            contacts={contacts}
+            contacts={currentContacts}
             filteredContacts={filteredContacts}
             searchContact={searchContact}
             setSearchContact={setSearchContact}
@@ -3545,6 +3613,7 @@ Ficha civil do titular:
                 registo facial passam para depois do container do perfil. */}
             <ProfileContent
             isInst={isInstMode}
+            sessionDemo={(isUserMode && isDemoCitizenSession) || (isInstMode && isDemoInstitutionSession)}
             showSensitiveData={showSensitiveData}
             setShowSensitiveData={setShowSensitiveData}
             bi={bi}
@@ -3567,14 +3636,14 @@ Ficha civil do titular:
             setHasFacialAuth={setHasFacialAuth}
             setHasTwoFactor={setHasTwoFactor}
             setGovPin={setGovPin}
-            contactsCount={contacts.length}
+            contactsCount={currentContacts.length}
             setTab={setTab}
             handleLogout={handleLogout}
-            inbox={homologationPendingForCitizen ? [] : inbox}
-            docInbox={docInbox}
+            inbox={currentInbox}
+            docInbox={currentDocInbox}
             sentMessages={sentMessages}
-            contactsList={contacts}
-            documentsList={documents}
+            contactsList={currentContacts}
+            documentsList={currentDocuments}
             userRequests={userRequests}
             docRequests={docRequests}
             auditLogs={auditLogs}
@@ -3604,7 +3673,7 @@ Ficha civil do titular:
         return (
           <GovDashboard 
             onNavigate={setTab} 
-            documents={documents} 
+            documents={currentDocuments} 
             emergencyMode={emergencyMode} 
             appMode={appMode} 
             userRequests={userRequests}
@@ -3627,7 +3696,7 @@ Ficha civil do titular:
         return (
           <GovEmissaoContent 
             onEmit={handleEmitDocument} 
-            recentDocuments={documents} 
+            recentDocuments={currentDocuments} 
             emergencyMode={emergencyMode} 
             userRequests={userRequests.filter(r => r.status !== 'concluido')}
           />
@@ -3635,10 +3704,10 @@ Ficha civil do titular:
       case 'gov-correspondencias':
         return (
           <GovCorrespondenciasContent 
-            correspondences={correspondences}
+            correspondences={currentCorrespondences}
             onNavigate={setTab}
             onAddCorrespondence={async (newCor) => {
-              setCorrespondences(prev => [newCor, ...prev]);
+              setCorrespondences(prev => [{ ...newCor, createdBy: bi }, ...prev]);
               addAuditLog(`Novo Expediente Enviado: ${newCor.id} de ${newCor.sender} para ${newCor.recipient}`, 'success');
               
               const resolvedBi = resolveCitizenBi(newCor.recipient);
@@ -3745,7 +3814,7 @@ Ficha civil do titular:
       case 'gov-documentos':
         return (
           <GovDocsContent 
-            documents={documents} 
+            documents={currentDocuments} 
             requests={docRequests} 
             onUpdateStatus={handleUpdateDocRequest}
             setTab={setTab}
@@ -3881,7 +3950,7 @@ Ficha civil do titular:
       case 'gov-relatorio':
         return (
           <GovRelatorioContent 
-            correspondences={correspondences}
+            correspondences={currentCorrespondences}
             auditLogs={auditLogs}
           />
         );
@@ -4853,7 +4922,7 @@ Ficha civil do titular:
             iaLiveActive={iaLiveActive} 
             startIaVoice={startIaVoice} 
             stopIaVoice={stopIaVoice} 
-            notifications={notifications}
+            notifications={currentNotifications}
             showNotifications={showNotifications}
             setShowNotifications={setShowNotifications}
             isChatOpen={isChatOpen}
@@ -4877,7 +4946,7 @@ Ficha civil do titular:
               <NotificationDropdown 
                 showNotifications={showNotifications} 
                 setShowNotifications={setShowNotifications} 
-                notifications={notifications} 
+                notifications={currentNotifications} 
                 setTab={setTab} 
                 setSelectedDoc={setSelectedDoc} 
                 onClickNotification={(n) => {

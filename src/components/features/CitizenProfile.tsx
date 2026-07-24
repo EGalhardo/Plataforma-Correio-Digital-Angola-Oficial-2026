@@ -42,6 +42,8 @@ interface CitizenProfileProps {
   onSyncSupabase?: () => Promise<any>;
   isSyncingSupabase?: boolean;
   addAuditLog?: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
+  /** F12 — conteúdo simulado apenas nas contas de demonstração. */
+  sessionDemo?: boolean;
 }
 
 export const CitizenProfile: React.FC<CitizenProfileProps> = ({
@@ -63,6 +65,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
   onSyncSupabase,
   isSyncingSupabase = false,
   addAuditLog,
+  sessionDemo,
 }) => {
   const [localSyncing, setLocalSyncing] = useState(false);
   const [localSyncStep, setLocalSyncStep] = useState('');
@@ -563,12 +566,14 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
             </div>
 
             <div className="space-y-3">
-              {[
+              {(sessionDemo === false
+                ? [{ action: 'Sem actividade recente', desc: 'A actividade da sua conta aparecerá aqui.', time: '', type: 'info' }]
+                : [
                 { action: 'BI actualizado', desc: 'Ficha civil sincronizada', time: 'Hoje às 10:32', type: 'success' },
                 { action: 'Nova correspondência da AGT', desc: 'Notificação electrónica', time: 'Hoje às 09:15', type: 'info' },
                 { action: 'Passaporte validado', desc: 'Homologação pelo SME', time: 'Ontem às 16:45', type: 'success' },
                 { action: 'Factura da ENDE recebida', desc: 'Pagamento de utilidade integrado', time: 'Ontem às 11:20', type: 'warn' }
-              ].map((act, idx) => (
+              ]).map((act, idx) => (
                 <div key={idx} className="flex gap-3 items-start text-xs border-b border-slate-50 pb-3 last:border-0 last:pb-0">
                   <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${
                     act.type === 'success' ? 'bg-emerald-500' :
