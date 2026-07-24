@@ -706,6 +706,19 @@ export default function App() {
     setUserBirthDate('');
     setUserFiliation('');
     setUserMaritalStatus('');
+    // F11 — O estado de verificação deixa de ser o preset demo ('Agente AGT
+    // Verificado'): a conta REAL mostra a sigla da PRÓPRIA instituição e o
+    // estado de homologação. Sem registo de homologação = via legacy (activa).
+    if (!homologationStore.isExempt(code)) {
+      const brandSigla = (pack?.sigla || code.split('-')[0] || 'INST').toUpperCase();
+      const hSt = homologationStore.getStatus(code)?.status || 'active';
+      setVerificationStatus(
+        hSt === 'active' ? `Agente ${brandSigla} Verificado`
+        : hSt === 'correcao' ? 'Em Correcções'
+        : hSt === 'rejected' ? 'Solicitação Rejeitada'
+        : hSt === 'blocked' ? 'Conta Bloqueada'
+        : 'Pendente de Validação');
+    }
     updateUserFields?.({
       bi: code,
       name: personName,
@@ -1966,7 +1979,7 @@ export default function App() {
       const uniques: Message[] = [];
       prev.forEach(m => {
         if (!m.org || m.org.trim() === '') {
-          m.org = 'AGT'; // Corrige: atribui emissor padrão
+          m.org = 'CDA'; // F11 — emissor padrão neutro (nunca dados da demo)
           fixesCount++;
         }
         if (!ids.has(m.id)) {
@@ -2062,11 +2075,11 @@ export default function App() {
       const uniques: any[] = [];
       prev.forEach(c => {
         if (!c.sender || c.sender.trim() === '') {
-          c.sender = 'AGT';
+          c.sender = 'CDA'; // F11 — remetente padrão neutro
           fixesCount++;
         }
         if (!c.recipient || c.recipient.trim() === '') {
-          c.recipient = 'Edlasio Galhardo';
+          c.recipient = 'Cidadão'; // F11 — destinatário padrão neutro
           fixesCount++;
         }
         const stringId = String(c.id);
@@ -2319,6 +2332,18 @@ export default function App() {
   const isDemoInstitutionSession = isInstMode && (homologationStore.isExempt(bi) || !bi.trim());
   const isInstitutionAddressedMail = (m: Message) =>
     !!m.recipientInst && normalizeInstCode(m.recipientInst) === normalizeInstCode(institutionCode || bi);
+  // F11 — Marca da instituição da sessão (Painel / ID Digital): sigla e logótipo
+  // do PRÓPRIO registo (logótipo carregado na página Conta → avatar neutro com a
+  // sigla). A conta demo (AGT-9921-SR) mantém o branding histórico da AGT.
+  const sessionInstBrand = useMemo(() => {
+    if (!isInstMode) return { sigla: '', logoUrl: '', verified: true };
+    if (isDemoInstitutionSession) return { sigla: 'AGT', logoUrl: '', verified: true };
+    const code = normalizeInstCode(institutionCode || bi);
+    const reg = getLocalInstReg(code);
+    const pack = parseInstPack(reg?.observacoes || '');
+    const sigla = (pack?.sigla || code.split('-')[0] || 'INST').toUpperCase();
+    return { sigla, logoUrl: reg?.logoDataUrl || makeInstNeutralAvatar(sigla), verified: instGate === 'active' };
+  }, [isInstMode, isDemoInstitutionSession, institutionCode, bi, instGate, gateRefreshTick]);
   const currentInbox = isInstMode
     ? (isDemoInstitutionSession
         ? instInbox.filter(m => !m.homologation || isOwnHomologationMail(m))
@@ -2336,7 +2361,13 @@ export default function App() {
     setTab('mensagem');
   };
 
-  const currentDocInbox = isInstMode ? instDocInbox : (homologationPendingForCitizen ? [] : docInbox);
+  // F11 — Documentos da instituição real seguem o MESMO escopo do Correio:
+  // apenas o canal oficial da própria instituição + o que lhe foi endereçado.
+  const currentDocInbox = isInstMode
+    ? (isDemoInstitutionSession
+        ? instDocInbox
+        : instDocInbox.filter(m => isOwnHomologationMail(m) || isInstitutionAddressedMail(m)))
+    : (homologationPendingForCitizen ? [] : docInbox);
   const unreadDocTotal = useMemo(() => currentDocInbox.reduce((sum, msg) => sum + (msg.unread || 0), 0), [currentDocInbox]);
 
   const filteredMessages = useMemo(() => {
@@ -3249,6 +3280,9 @@ Ficha civil do titular:
             handleSelectMessage={handleSelectMessage}
             onCreateRequest={handleCreateRequest}
             isInst={isInstMode}
+            instSigla={isInstMode ? sessionInstBrand.sigla : undefined}
+            instLogoUrl={isInstMode ? sessionInstBrand.logoUrl : undefined}
+            instVerified={isInstMode ? sessionInstBrand.verified : undefined}
             onDoubleClickInstitution={isGovMode ? undefined : (name) => {
               setSelectedInstitution(name);
               setTab('instituicao');
@@ -3436,7 +3470,7 @@ Ficha civil do titular:
           <InstQrCodeContent
             documents={documents}
             messages={isInstMode
-              ? [...instInbox, ...instDocInbox, ...sentMessages, ...docSentMessages]
+              ? [...currentInbox, ...currentDocInbox, ...sentMessages, ...docSentMessages]
               : [...inbox, ...docInbox, ...sentMessages, ...docSentMessages]}
             onSelectMessage={handleSelectMessage}
             addAuditLog={addAuditLog}

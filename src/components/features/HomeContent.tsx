@@ -22,6 +22,10 @@ interface HomeContentProps {
   handleSelectMessage: (msg: Message) => void;
   onCreateRequest?: (type: string, priority: 'Alta' | 'Média' | 'Baixa') => void;
   isInst?: boolean;
+  /** F11 — marca da instituição da sessão (sigla/logótipo/estado). */
+  instSigla?: string;
+  instLogoUrl?: string;
+  instVerified?: boolean;
   onDoubleClickInstitution?: (name: string) => void;
   currentLanguage?: LanguageCode;
 }
@@ -36,6 +40,9 @@ export function HomeContent({
   handleSelectMessage,
   onCreateRequest,
   isInst,
+  instSigla,
+  instLogoUrl,
+  instVerified,
   onDoubleClickInstitution,
   currentLanguage: propLanguage
 }: HomeContentProps) {
@@ -97,8 +104,8 @@ export function HomeContent({
           <div className={`w-12 h-12 md:w-16 md:h-16 ${isInst ? 'bg-white border-slate-100' : 'bg-green-600 border-green-600'} rounded-2xl flex items-center justify-center shadow-sm shrink-0 border`}>
             {isInst ? (
               <LazyImage 
-                src="https://i.postimg.cc/4x1mS4hQ/AGT.jpg" 
-                alt="AGT" 
+                src={instLogoUrl || "https://i.postimg.cc/4x1mS4hQ/AGT.jpg"} 
+                alt={instSigla || "AGT"} 
                 style={{
                   width: '100%',
                   height: '100%',
@@ -112,10 +119,10 @@ export function HomeContent({
           <div className="min-w-0 flex-1">
             <div className="text-[9px] md:text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1 truncate">{t("ID Digital")}</div>
             <div className="text-base md:text-xl font-black text-slate-900 leading-tight italic tracking-tighter">
-              {isInst ? t('Agente AGT Verificado') : t('Cidadão Verificado')}
+              {isInst ? t('Agente {sigla} Verificado').replace('{sigla}', instSigla || 'AGT') : t('Cidadão Verificado')}
             </div>
             <div className="flex items-center gap-1.5 mt-1">
-              <div className={`w-1.5 h-1.5 rounded-full ${isInst ? 'bg-red-600' : 'bg-emerald-500'} animate-pulse`} />
+              <div className={`w-1.5 h-1.5 rounded-full ${isInst && instVerified === false ? 'bg-red-600' : 'bg-emerald-500'} animate-pulse`} />
               <span className="text-[9px] md:text-xs font-bold text-slate-700">{t("Protocolo Ativado 100%")}</span>
             </div>
           </div>
