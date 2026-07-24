@@ -2390,14 +2390,17 @@ export default function App() {
   const stampNotif = (n: AppNotification): AppNotification => ({ ...n, ownerId: sessionOwnerKey });
   const isOwnCitizenMail = (m: Message) =>
     isOwnHomologationMail(m) || (!!m.recipientBi && normalizeHomologationBi(m.recipientBi) === normalizeHomologationBi(bi));
+  // F17 — Piso de não-lidas ao nível da DERIVAÇÃO (só demo): a fusão assíncrona
+  // da nuvem repõe cópias lidas por cima do piso aplicado 1x no arranque; com o
+  // piso derivado aqui, "Não Lidas" nunca fica vazio em sessão de demonstração.
   const currentInbox = isInstMode
     ? (isDemoInstitutionSession
-        ? instInbox.filter(m => !m.homologation || isOwnHomologationMail(m))
+        ? withUnreadFloor(instInbox.filter(m => !m.homologation || isOwnHomologationMail(m)))
         : instInbox.filter(m => isOwnHomologationMail(m) || isInstitutionAddressedMail(m)))
     : homologationPendingForCitizen
       ? inbox.filter(isOwnHomologationMail)
       : isDemoCitizenSession
-        ? inbox.filter(m => !m.homologation || isOwnHomologationMail(m))
+        ? withUnreadFloor(inbox.filter(m => !m.homologation || isOwnHomologationMail(m)))
         : inbox.filter(isOwnCitizenMail);
   const unreadTotal = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id)).reduce((sum, msg) => sum + (msg.unread || 0), 0), [currentInbox, deletedMessageIds, hiddenMessageIds]);
   const unreadMessagesList = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id) && !!msg.unread), [currentInbox, deletedMessageIds, hiddenMessageIds]);
@@ -2413,9 +2416,9 @@ export default function App() {
   // apenas o canal oficial da própria instituição + o que lhe foi endereçado.
   const currentDocInbox = isInstMode
     ? (isDemoInstitutionSession
-        ? instDocInbox
+        ? withUnreadFloor(instDocInbox)
         : instDocInbox.filter(m => isOwnHomologationMail(m) || isInstitutionAddressedMail(m)))
-    : (homologationPendingForCitizen ? [] : (isDemoCitizenSession ? docInbox : docInbox.filter(isOwnCitizenMail)));
+    : (homologationPendingForCitizen ? [] : (isDemoCitizenSession ? withUnreadFloor(docInbox) : docInbox.filter(isOwnCitizenMail)));
 
   // F12 — Documentos (carteira/pasta digital/QR/emissão): sessões reais só vêem
   // os documentos marcados com a SUA chave na fusão da nuvem.
@@ -2435,9 +2438,14 @@ export default function App() {
 
   // F12 — Notificações: sessões reais só vêem eventos gerados na SUA sessão;
   // o Centro de Notificações de uma conta nova nasce vazio.
-  const currentNotifications = useMemo(() =>
-    isDemoSession ? notifications : notifications.filter(n => n.ownerId === sessionOwnerKey),
-    [notifications, isDemoSession, sessionOwnerKey]);
+  const currentNotifications = useMemo(() => {
+    if (!isDemoSession) return notifications.filter(n => n.ownerId === sessionOwnerKey);
+    // F17 — piso de não-lidas também nas notificações (simuladas, só demo)
+    if (notifications.length && !notifications.some(n => n.unread)) {
+      return [{ ...notifications[0], unread: true }, ...notifications.slice(1)];
+    }
+    return notifications;
+  }, [notifications, isDemoSession, sessionOwnerKey]);
 
   // F12/F13 — Correspondências gov: demo vê o histórico simulado; agentes reais
   // partilham apenas os expedientes efectivamente registados (createdBy);
@@ -2476,7 +2484,10 @@ export default function App() {
     const plan = buildDemoContentPlan(area, sessionOwnerKey);
     const unreadFloorMail = (list: Message[]): Message[] => {
       const next = withUnreadFloor(list);
-      if (next !== list && next.length) unmarkReadIds(sessionOwnerKey, next[0].id);
+      if (next !== list && next.length) {
+        const fid = next[0].id;
+        unmarkReadIds(sessionOwnerKey, fid, fid >= 10000 && fid < 90000000 ? fid - 10000 : fid);
+      }
       return next;
     };
     if (area === 'user') {
