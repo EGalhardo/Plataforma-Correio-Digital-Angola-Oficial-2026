@@ -88,6 +88,7 @@ import { VideoSessionService } from './services/videoSessionService';
 import { useLanguage } from './hooks/useLanguage';
 import { startImagePreloading, subscribeToPreload } from './utils/imagePreloader';
 import { shouldAutoSeedSupabase, shouldUseLocalBootstrap, shouldUseMockFallback } from './config/runtime';
+import { buildDemoContentPlan, withUnreadFloor, unmarkReadIds, type DemoArea } from './services/demoContentGuarantee';
 
 
 // ---- Estado "Lida" persistente por BI: sobrevive a terminar/iniciar sessão ----
@@ -1835,8 +1836,9 @@ export default function App() {
         const sentSenderKey = isInstMode ? institutionCode : isGovMode ? 'CDA' : bi;
         const dbSentMessages = await supabaseService.getSentMessagesBySender(sentSenderKey);
         if (dbSentMessages !== null && isSubscribed) {
-          const sentNormal = dbSentMessages.filter(m => !isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage);
-          const sentDoc = dbSentMessages.filter(m => isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage);
+          // F15 — marca da sessão remetente ("Enviadas" isolada por conta)
+          const sentNormal = dbSentMessages.filter(m => !isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey }));
+          const sentDoc = dbSentMessages.filter(m => isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey }));
           
           setSentMessages(prevLocal => {
             const dbIds = new Set(sentNormal.map(m => m.id));
@@ -2445,16 +2447,68 @@ export default function App() {
     if (isUserMode) return isDemoCitizenSession ? correspondences : [];
     return isDemoInstitutionSession ? correspondences : [];
   }, [correspondences, isGovMode, isDemoAdminSession, isUserMode, isDemoCitizenSession, isInstMode, isDemoInstitutionSession]);
+
+  // F15/v7 — Caixas "Enviadas" isoladas por conta (senderKey): sessões reais só
+  // vêem o que enviaram; a demo (qualquer uma das 3) mantém o histórico completo.
+  const currentSentMessages = useMemo(() =>
+    isDemoSession ? sentMessages : sentMessages.filter(m => !!m.senderKey && m.senderKey === sessionOwnerKey),
+    [sentMessages, isDemoSession, sessionOwnerKey]);
+  const currentDocSentMessages = useMemo(() =>
+    isDemoSession ? docSentMessages : docSentMessages.filter(m => !!m.senderKey && m.senderKey === sessionOwnerKey),
+    [docSentMessages, isDemoSession, sessionOwnerKey]);
+
+  // F15 — GARANTIA DE CONTEÚDO DEMO (prompt v8): só em contas de demonstração.
+  // No arranque da sessão: completa colecções vazias com os seeds canónicos
+  // (etiquetados com o dono demo) e mantém ≥1 não lida em cada caixa — todas as
+  // páginas e separadores preenchidos, nenhum vazio. Não apaga nem sobrescreve;
+  // idempotente por sessão; contas reais não são tocadas.
+  const demoGuaranteeRef = useRef<string>('');
+  useEffect(() => {
+    if (stage !== 'app') return;
+    const area: DemoArea | null = isUserMode ? (isDemoCitizenSession ? 'user' : null)
+      : isInstMode ? (isDemoInstitutionSession ? 'institution' : null)
+      : isGovMode ? (isDemoAdminSession ? 'admin' : null)
+      : null;
+    if (!area) return;
+    const runKey = `${area}:${sessionOwnerKey}`;
+    if (demoGuaranteeRef.current === runKey) return;
+    demoGuaranteeRef.current = runKey;
+    const plan = buildDemoContentPlan(area, sessionOwnerKey);
+    const unreadFloorMail = (list: Message[]): Message[] => {
+      const next = withUnreadFloor(list);
+      if (next !== list && next.length) unmarkReadIds(sessionOwnerKey, next[0].id);
+      return next;
+    };
+    if (area === 'user') {
+      setInbox(prev => prev.length ? unreadFloorMail(prev) : plan.inbox);
+      setDocInbox(prev => prev.length ? unreadFloorMail(prev) : plan.docInbox);
+      setContacts(prev => prev.length ? prev : plan.contacts);
+    }
+    setSentMessages(prev => prev.length ? prev : plan.sentMessages);
+    setDocSentMessages(prev => prev.length ? prev : plan.docSentMessages);
+    if (area === 'institution') {
+      setInstInbox(prev => prev.length ? unreadFloorMail(prev) : plan.instInbox);
+      setInstDocInbox(prev => prev.length ? unreadFloorMail(prev) : plan.instDocInbox);
+    }
+    setNotifications(prev => prev.length
+      ? (prev.some(n => n.unread) ? prev : [{ ...prev[0], unread: true }, ...prev.slice(1)])
+      : plan.notifications);
+    setDocuments(prev => prev.length ? prev : plan.documents);
+    if (area === 'admin') {
+      setCorrespondences(prev => prev.length ? prev : plan.correspondences);
+      setAuditLogs(prev => prev.length ? prev : plan.auditLogs);
+    }
+  }, [stage, isUserMode, isDemoCitizenSession, isInstMode, isDemoInstitutionSession, isGovMode, isDemoAdminSession, sessionOwnerKey]);
   const unreadDocTotal = useMemo(() => currentDocInbox.reduce((sum, msg) => sum + (msg.unread || 0), 0), [currentDocInbox]);
 
   const filteredMessages = useMemo(() => {
     let base: Message[] = [];
     if (correspondenciaTab === "excluidas") {
-      const allMsgs = [...currentInbox, ...sentMessages];
+      const allMsgs = [...currentInbox, ...currentSentMessages];
       base = allMsgs.filter(item => deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id));
     } else {
       if (correspondenciaTab === "enviadas") {
-        base = sentMessages.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id));
+        base = currentSentMessages.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id));
       } else if (correspondenciaTab === "lidas") {
         base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && !item.unread);
       } else {
@@ -2470,11 +2524,11 @@ export default function App() {
       (m.preview?.toLowerCase().includes(term) ?? false) ||
       (m.details?.subject?.toLowerCase().includes(term) ?? false)
     );
-  }, [correspondenciaTab, currentInbox, sentMessages, searchMail, deletedMessageIds, hiddenMessageIds]);
+  }, [correspondenciaTab, currentInbox, currentSentMessages, searchMail, deletedMessageIds, hiddenMessageIds]);
 
   const filteredDocMessages = useMemo(() => {
     let base: Message[] = [];
-    if (documentosTab === "enviadas") base = docSentMessages;
+    if (documentosTab === "enviadas") base = currentDocSentMessages;
     else if (documentosTab === "lidas") base = currentDocInbox.filter((item) => !item.unread);
     else base = currentDocInbox.filter((item) => item.unread);
 
@@ -2486,7 +2540,7 @@ export default function App() {
       (m.preview?.toLowerCase().includes(term) ?? false) ||
       (m.details?.subject?.toLowerCase().includes(term) ?? false)
     );
-  }, [documentosTab, currentDocInbox, docSentMessages, searchDocMail]);
+  }, [documentosTab, currentDocInbox, currentDocSentMessages, searchDocMail]);
 
   const filteredDocs = useMemo(() => {
     if (!searchDoc.trim()) return documents;
@@ -2682,7 +2736,7 @@ export default function App() {
       protocol: protocol
     };
 
-    setSentMessages(prev => [newMessage, ...prev]);
+    setSentMessages(prev => [{ ...newMessage, senderKey: isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi) }, ...prev]);
     setIsComposing(false);
     setComposeData({ to: '', subject: '', body: '', attachments: [] });
 
@@ -2770,7 +2824,7 @@ export default function App() {
       priorityScale: 'Crítico'
     };
 
-    setSentMessages(prev => [newMessage, ...prev]);
+    setSentMessages(prev => [{ ...newMessage, senderKey: isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi) }, ...prev]);
     setIsComposing(false);
     setComposeData({ to: '', subject: '', body: '', attachments: [] });
 
@@ -2868,7 +2922,7 @@ export default function App() {
       protocol: protocol
     };
 
-    setDocSentMessages(prev => [newMessage, ...prev]);
+    setDocSentMessages(prev => [{ ...newMessage, senderKey: isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi) }, ...prev]);
     setIsDocComposing(false);
     setDocComposeData({ to: '', subject: '', body: '' });
 
@@ -3354,7 +3408,7 @@ Ficha civil do titular:
             setTab={setTab}
             unreadTotal={unreadTotal}
             inbox={currentInbox}
-            sentMessages={sentMessages}
+            sentMessages={currentSentMessages}
             handleSelectMessage={handleSelectMessage}
             onCreateRequest={handleCreateRequest}
             isInst={isInstMode}
@@ -3376,7 +3430,7 @@ Ficha civil do titular:
           <InstitutionDetail
             institutionName={selectedInstitution}
             inbox={currentInbox}
-            sentMessages={sentMessages}
+            sentMessages={currentSentMessages}
             docInbox={currentDocInbox}
             onBack={() => {
               setSelectedInstitution(null);
@@ -3398,7 +3452,7 @@ Ficha civil do titular:
             correspondenciaTab={correspondenciaTab}
             setCorrespondenciaTab={setCorrespondenciaTab}
             inbox={currentInbox}
-            sentMessages={sentMessages}
+            sentMessages={currentSentMessages}
             searchMail={searchMail}
             setSearchMail={setSearchMail}
             filteredMessages={filteredMessages}
@@ -3435,7 +3489,7 @@ Ficha civil do titular:
             correspondenciaTab={documentosTab}
             setCorrespondenciaTab={setDocumentosTab}
             inbox={currentDocInbox}
-            sentMessages={docSentMessages}
+            sentMessages={currentDocSentMessages}
             searchMail={searchDocMail}
             setSearchMail={setSearchDocMail}
             filteredMessages={filteredDocMessages}
@@ -3526,7 +3580,7 @@ Ficha civil do titular:
           <ActivityCenterContent
             appMode={appMode}
             messages={currentInbox}
-            sentMessages={sentMessages}
+            sentMessages={currentSentMessages}
             documents={currentDocuments}
             docRequests={isGovMode ? docRequests : docRequests.filter(r => r.userBi === bi)}
             userRequests={isGovMode ? userRequests : userRequests.filter(r => r.bi === bi)}
@@ -3549,7 +3603,7 @@ Ficha civil do titular:
           <InstQrCodeContent
             documents={currentDocuments}
             messages={isInstMode
-              ? [...currentInbox, ...currentDocInbox, ...sentMessages, ...docSentMessages]
+              ? [...currentInbox, ...currentDocInbox, ...currentSentMessages, ...currentDocSentMessages]
               : [...inbox, ...docInbox, ...sentMessages, ...docSentMessages]}
             onSelectMessage={handleSelectMessage}
             addAuditLog={addAuditLog}
@@ -3652,7 +3706,7 @@ Ficha civil do titular:
             handleLogout={handleLogout}
             inbox={currentInbox}
             docInbox={currentDocInbox}
-            sentMessages={sentMessages}
+            sentMessages={currentSentMessages}
             contactsList={currentContacts}
             documentsList={currentDocuments}
             userRequests={userRequests}
