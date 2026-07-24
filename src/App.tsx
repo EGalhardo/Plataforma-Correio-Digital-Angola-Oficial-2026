@@ -3663,16 +3663,6 @@ Ficha civil do titular:
       case 'perfil':
         return (
           <>
-            {!isInstMode && !isGovMode && (
-              <div className="px-4 md:px-8 pt-4 md:pt-6">
-                <FacialLoginSettings
-                  mode="user"
-                  personId={bi || DEMO_CREDENTIALS.user.identifier}
-                  displayName={profileName}
-                  onAudit={addAuditLog}
-                />
-              </div>
-            )}
             {/* F8 — "Perfil do Utilizador" fica imediatamente DEBAIXO do título da
                 página (nome da instituição + código); os painéis de acesso e o
                 registo facial passam para depois do container do perfil. */}
@@ -3715,6 +3705,18 @@ Ficha civil do titular:
             addAuditLog={addAuditLog}
             instAgentNumber={isInstMode ? (instIdentity?.agentNumber || getLocalInstReg(normalizeInstCode(bi))?.agentNumber || undefined) : undefined}
             />
+            {/* F16 — Cidadão: o container "Login Facial" fica no FINAL da página
+                Conta (depois de todos os painéis do perfil). */}
+            {!isInstMode && !isGovMode && (
+              <div className="px-4 md:px-8 pt-4 md:pt-6">
+                <FacialLoginSettings
+                  mode="user"
+                  personId={bi || DEMO_CREDENTIALS.user.identifier}
+                  displayName={profileName}
+                  onAudit={addAuditLog}
+                />
+              </div>
+            )}
             {isInstMode && (
               <InstitutionAccessPanel
                 code={bi}
