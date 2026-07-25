@@ -1184,7 +1184,7 @@ export function GovContactsContent({
   const handleCreateWorker = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWorkerName || !newWorkerEmail || !newWorkerPhone || !newWorkerRole) {
-      alert('Por favor, preencha todos os campos obrigatórios (Nome completo, Email, Telefone e Função/Cargo).');
+      alert('Por favor, preencha todos os campos obrigatórios (Nome Completo, Email Institucional, Telefone Profissional e Perfil Funcional).');
       return;
     }
 
@@ -1511,9 +1511,9 @@ export function GovContactsContent({
                 <thead className="sticky top-0 z-10 bg-blue-950 text-white text-[10px] font-black uppercase tracking-widest">
                   <tr>
                     <th className="py-4 px-5 rounded-l-2xl">Colaborador / Membro da Equipa</th>
-                    <th className="py-4 px-5">E-mail / Contacto</th>
-                    <th className="py-4 px-5">Telefone</th>
-                    <th className="py-4 px-5">Função e Setor</th>
+                    <th className="py-4 px-5">Email Institucional</th>
+                    <th className="py-4 px-5">Telefone Profissional</th>
+                    <th className="py-4 px-5">Perfil Funcional & Departamento</th>
                     <th className="py-4 px-5 text-center">Estado / Acesso Rápido</th>
                     <th className="py-4 px-5 text-center">Último Acesso</th>
                     <th className="py-4 px-5 text-center rounded-r-2xl">Ações</th>
@@ -1523,11 +1523,8 @@ export function GovContactsContent({
                   {filteredWorkers.map((w) => (
                     <tr 
                       key={w.id} 
-                      onClick={() => {
-                        setSelectedWorkerId(w.id);
-                        setActiveWorkerTab('dados');
-                        setWorkerDrawerPwd('');
-                      }}
+                      // F21 — clique no colaborador abre o popup (igual ao de registo) com os seus dados
+                      onClick={() => handleEditWorkerClick(w)}
                       className="text-xs text-[#334155] hover:bg-slate-50/80 transition-colors border-b border-slate-100 last:border-b-0 cursor-pointer"
                     >
                       <td className="py-4 px-5">
@@ -1613,6 +1610,18 @@ export function GovContactsContent({
 
                       <td className="py-4 px-5 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedWorkerId(w.id);
+                              setActiveWorkerTab('dados');
+                              setWorkerDrawerPwd('');
+                            }}
+                            title="Ficha do Membro (Permissões & Registos de Actividade)"
+                            className="bg-transparent border-none text-slate-400 hover:text-indigo-600 cursor-pointer transition-colors p-1"
+                          >
+                            <Eye size={13} className="mx-auto" />
+                          </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1707,7 +1716,7 @@ export function GovContactsContent({
                       <div className="space-y-4">
                         <div className="flex items-center gap-2 text-[#4f46e5]">
                           <User size={15} className="stroke-[2.5]" />
-                          <span className="font-extrabold text-[11px] uppercase tracking-widest">Dados Pessoais</span>
+                          <span className="font-extrabold text-[11px] uppercase tracking-widest">Dados Pessoais do Membro</span>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1731,7 +1740,7 @@ export function GovContactsContent({
 
                           {/* EMAIL INSTITUCIONAL */}
                           <div className="grid gap-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 min-h-[30px] flex items-end pb-1">Email Institucional *</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 min-h-[30px] flex items-end pb-1">{isPlatformAdmin ? 'Email Institucional da Plataforma *' : 'Email Institucional *'}</label>
                             <div className="relative">
                               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                                 <Mail size={16} />
@@ -1740,7 +1749,7 @@ export function GovContactsContent({
                                 required
                                 type="email"
                                 className="w-full bg-white border-2 border-slate-100 focus:border-[#4f46e5]/30 rounded-[20px] pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-350"
-                                placeholder={isPlatformAdmin ? "f.manuel@mindis.gov.ao" : "f.manuel@cda.gov.ao"}
+                                placeholder={isPlatformAdmin ? "f.manuel@cdaadmin.ao" : "f.manuel@cda.gov.ao"}
                                 value={newWorkerEmail}
                                 onChange={(e) => setNewWorkerEmail(e.target.value)}
                               />
@@ -1749,7 +1758,7 @@ export function GovContactsContent({
 
                           {/* TELEFONE */}
                           <div className="grid gap-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 min-h-[30px] flex items-end pb-1">Telefone *</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 min-h-[30px] flex items-end pb-1">Telefone Profissional *</label>
                             <div className="relative">
                               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                                 <Phone size={16} />
@@ -1788,7 +1797,7 @@ export function GovContactsContent({
                               <input
                                 type="text"
                                 required
-                                placeholder="Ex: Auditor Geral"
+                                placeholder={isPlatformAdmin ? "Ex: Auditor Geral do Sistema" : "Ex: Auditor Geral"}
                                 value={newWorkerRole}
                                 onChange={(e) => {
                                   setNewWorkerRole(e.target.value);
@@ -1801,7 +1810,7 @@ export function GovContactsContent({
 
                           {/* DEPARTAMENTO / ÁREA (INPUT) */}
                           <div className="grid gap-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 min-h-[30px] flex items-end pb-1 leading-tight text-left">Departamento / Área Territorial *</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 min-h-[30px] flex items-end pb-1 leading-tight text-left">{isPlatformAdmin ? 'Departamento / Área Funcional *' : 'Departamento / Área Territorial *'}</label>
                             <div className="relative">
                               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                                 <Building size={16} />
@@ -1809,7 +1818,7 @@ export function GovContactsContent({
                               <input
                                 type="text"
                                 required
-                                placeholder="Ex: Direcção Geral"
+                                placeholder={isPlatformAdmin ? "Ex: Direcção de Operações da Plataforma" : "Ex: Direcção Geral"}
                                 value={newWorkerDept}
                                 onChange={(e) => setNewWorkerDept(e.target.value)}
                                 className="w-full bg-white border-2 border-slate-100 focus:border-[#4f46e5]/30 focus:ring-0 rounded-[20px] pl-11 pr-4 py-3.5 text-xs text-slate-800 font-bold outline-none transition-all placeholder:text-slate-300"
@@ -1876,7 +1885,7 @@ export function GovContactsContent({
                           <div className="md:col-span-7 bg-[#f0fdf4] border border-[#10b981]/15 rounded-[20px] p-4 flex gap-3 text-left">
                             <Info size={18} className="text-emerald-600 shrink-0 mt-0.5" />
                             <p className="text-xs text-[#065f46] leading-relaxed font-bold m-0 select-none">
-                              Utilizadores com estado 'Desativado' ou 'Suspenso' verão o seu acesso dactiloscópico e barramento postal revogado preventivamente.
+                              {isPlatformAdmin ? "Novos membros registados pela página Registo nascem 'Pendente de Análise'. Membros 'Desativados' ou 'Suspensos' terão o acesso à Administração revogado preventivamente." : "Utilizadores com estado 'Desativado' ou 'Suspenso' verão o seu acesso dactiloscópico e barramento postal revogado preventivamente."}
                             </p>
                           </div>
                         </div>
@@ -1890,7 +1899,7 @@ export function GovContactsContent({
                         <div className="border-t border-dashed border-slate-150" />
                         <div className="grid gap-1.5 text-left">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                            {isEditingWorker ? 'Nova Senha do Colaborador (deixe vazio para manter)' : 'Senha Inicial do Colaborador *'}
+                            {isPlatformAdmin ? (isEditingWorker ? 'Nova Palavra-passe do Agente (deixe vazio para manter)' : 'Palavra-passe Inicial do Agente *') : (isEditingWorker ? 'Nova Senha do Colaborador (deixe vazio para manter)' : 'Senha Inicial do Colaborador *')}
                           </label>
                           <div className="relative">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none">
@@ -1906,7 +1915,7 @@ export function GovContactsContent({
                             />
                           </div>
                           <p className="text-[9px] text-slate-400 font-bold leading-snug m-0 mr-1 select-none">
-                            {isPlatformAdmin ? (<>O agente entra com <strong>Nº Agente Admin + esta senha</strong> no login da Administração.</>) : (<>O colaborador entra com <strong>Código da instituição + esta senha</strong>.</>)} A senha identifica a pessoa — não pode repetir outra credencial activa e ficará guardada apenas neste dispositivo.
+                            {isPlatformAdmin ? (<>O membro entra com <strong>Nº Agente Admin + esta palavra-passe</strong> no login da Administração.</>) : (<>O colaborador entra com <strong>Código da instituição + esta senha</strong>.</>)} A senha identifica a pessoa — não pode repetir outra credencial activa e ficará guardada apenas neste dispositivo.
                           </p>
                         </div>
                       </>
@@ -1931,7 +1940,7 @@ export function GovContactsContent({
                         className="flex-1 bg-[#0c2340] hover:bg-[#152e4d] text-white py-3.5 rounded-[20px] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#0c2340]/15 flex items-center justify-center gap-2.5 transition-all duration-300 cursor-pointer active:scale-98 font-sans border-0"
                       >
                         <Check size={15} className="stroke-[3]" />
-                        {isEditingWorker ? 'Guardar Ficha do Membro da Equipa' : 'Submeter Cadastro'}
+                        {isEditingWorker ? 'Guardar Ficha do Membro da Equipa' : (isPlatformAdmin ? 'Submeter Cadastro do Membro' : 'Submeter Cadastro')}
                       </button>
                     </div>
                   </form>
@@ -2050,12 +2059,12 @@ export function GovContactsContent({
                         <div className="space-y-4">
                           <div className="flex items-center gap-2 text-[#4f46e5]">
                             <User size={15} className="stroke-[2.5]" />
-                            <span className="font-extrabold text-[11px] uppercase tracking-widest">Dados Pessoais</span>
+                            <span className="font-extrabold text-[11px] uppercase tracking-widest">Dados Pessoais do Membro</span>
                           </div>
                           {([
                             { label: 'Nome Completo', value: selectedWorker.name },
-                            { label: 'Email Institucional', value: selectedWorker.email },
-                            { label: 'Telefone', value: selectedWorker.phone || '—' },
+                            { label: isPlatformAdmin ? 'Email Institucional da Plataforma' : 'Email Institucional', value: selectedWorker.email },
+                            { label: 'Telefone Profissional', value: selectedWorker.phone || '—' },
                           ] as { label: string; value: string }[]).map(f => (
                             <div key={f.label} className="grid gap-1.5">
                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{f.label}</label>
@@ -2072,8 +2081,8 @@ export function GovContactsContent({
                             <span className="font-extrabold text-[11px] uppercase tracking-widest">Função & Identificação</span>
                           </div>
                           {([
-                            { label: 'Cargo / Função', value: selectedWorker.role },
-                            { label: 'Departamento / Área Territorial', value: selectedWorker.department || '—' },
+                            { label: 'Perfil Funcional', value: selectedWorker.role },
+                            { label: isPlatformAdmin ? 'Departamento / Área Funcional' : 'Departamento / Área Territorial', value: selectedWorker.department || '—' },
                             { label: appMode === 'admin-workers' ? 'Nº Agente Admin' : appMode === 'institution' ? 'Nº Agente Institucional' : 'ID Único do Agente', value: selectedWorker.agentId || '—' },
                             { label: 'Estado', value: selectedWorker.status },
                             { label: 'Inscrito em', value: selectedWorker.registrationDate || '—' },
