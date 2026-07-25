@@ -64,7 +64,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, isInstPasswordTaken, nextMemberAgentNumber } from '../../services/institutionRegistrationStore';
-import { addAdminAgent, updateAdminAgentPassword, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber } from '../../services/adminAgentStore';
+import { addAdminAgent, updateAdminAgentPassword, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber, getAdminAgentCreds } from '../../services/adminAgentStore';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -1150,7 +1150,7 @@ export function GovContactsContent({
     const regCode = normalizeInstCode(bi || '');
     const instRegAuto = (appMode !== 'admin-workers' && appMode === 'institution' && regCode) ? getLocalInstReg(regCode) : undefined;
     if (appMode === 'institution' && instRegAuto) return nextMemberAgentNumber(regCode);
-    if (appMode === 'admin-workers') return nextAdminAgentNumber(workers.map(w => w.agentId || ''));
+    if (appMode === 'admin-workers') return nextAdminAgentNumber([...workers.map(w => w.agentId || ''), ...getAdminAgentCreds().map(c => c.agent)]); // F25 — fonte completa (trabalhadores + credenciais), como na página de registo
     return `AGT-${Math.floor(100000 + Math.random() * 900000)}`;
   })();
   
@@ -1217,25 +1217,25 @@ export function GovContactsContent({
         return;
       }
     }
-    // F6 — validações da senha de Agente Admin (criar obrigatória; editar só se preenchida)
+    // F6 — validações da palavra-passe de Agente Admin (criar obrigatória; editar só se preenchida)
     if (adminCredsOn && !isEditingWorker) {
       if (!newWorkerPassword || newWorkerPassword.length < 8) {
-        alert('Defina a Senha inicial do agente (mínimo 8 caracteres). O login Admin deste agente será: Nº Agente Admin + esta senha.');
+        alert('Defina a Palavra-passe inicial do agente (mínimo 8 caracteres). O login Admin deste agente será: Nº Agente Admin + esta palavra-passe.');
         return;
       }
       if (isAdminAgentPasswordTaken(newWorkerPassword)) {
-        alert('Esta senha já está a ser usada por outro agente da Administração. Como a senha identifica a pessoa no login, escolha outra.');
+        alert('Esta palavra-passe já está a ser usada por outro agente da Administração. Como a palavra-passe identifica a pessoa no login, escolha outra.');
         return;
       }
     }
     if (adminCredsOn && isEditingWorker && newWorkerPassword) {
       if (newWorkerPassword.length < 8) {
-        alert('A nova senha (se preenchida) deve ter pelo menos 8 caracteres.');
+        alert('A nova palavra-passe (se preenchida) deve ter pelo menos 8 caracteres.');
         return;
       }
       const editingAgentNum = workers.find(w => w.id === editingWorkerId)?.agentId;
       if (isAdminAgentPasswordTaken(newWorkerPassword, editingAgentNum)) {
-        alert('Esta senha já está a ser usada por outro agente da Administração. Escolha outra.');
+        alert('Esta palavra-passe já está a ser usada por outro agente da Administração. Escolha outra.');
         return;
       }
     }
@@ -1352,10 +1352,10 @@ export function GovContactsContent({
     }
     if (appMode === 'admin-workers') {
       const agentNum = selectedWorker.agentId || '';
-      if (!/^Admin-\d+$/i.test(agentNum)) { alert('Este elemento não tem um Nº Agente Admin (ADMIN-NNNN) — a senha do login Admin só se aplica a agentes com esse formato.'); return; }
-      if (workerDrawerPwd.length < 8) { alert('A nova senha deve ter pelo menos 8 caracteres.'); return; }
+      if (!/^Admin-\d+$/i.test(agentNum)) { alert('Este elemento não tem um Nº Agente Admin (ADMIN-NNNN) — a palavra-passe do login Admin só se aplica a agentes com esse formato.'); return; }
+      if (workerDrawerPwd.length < 8) { alert('A nova palavra-passe deve ter pelo menos 8 caracteres.'); return; }
       if (isAdminAgentPasswordTaken(workerDrawerPwd, agentNum)) {
-        alert('Esta senha já está a ser usada por outro agente da Administração. Escolha outra.');
+        alert('Esta palavra-passe já está a ser usada por outro agente da Administração. Escolha outra.');
         return;
       }
       updateAdminAgentPassword(agentNum, workerDrawerPwd);

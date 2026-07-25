@@ -4318,7 +4318,7 @@ Ficha civil do titular:
         if (typedAgent && typedAgent !== DEMO_CREDENTIALS.admin.identifier) {
           const cred = resolveAdminAgentLogin(typedAgent, loginPasswordInput);
           if (cred) {
-            // F13 — Agente Admin-NN (conta REAL): sessão limpa com a ficha do
+            // F13 — Agente ADMIN-NNNN (conta REAL): sessão limpa com a ficha do
             // próprio agente. O perfil "Administrador Geral / Central" e os
             // dados pessoais do cidadão demo pertencem apenas à conta ADM-8812-OP.
             setProfileName(cred.name);
