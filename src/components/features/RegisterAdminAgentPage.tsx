@@ -11,11 +11,13 @@
 // página Equipa (ADMIN-0002, ADMIN-0003, …). Se o Alfa for removido na Equipa, a
 // opção "Registar" reactiva (D4). Credencial só neste dispositivo (D6).
 // F23 — Revisão de layout conforme o modelo visual aprovado (imagem de
-// referência): página em largura total (o App alarga o cartão e esconde o
-// painel lateral só neste submodo), secções em painéis brancos rounded-2xl com
-// badges maiores (1&2 azul, 3 âmbar, 4 navy), inputs rounded-xl mais altos,
-// campos fixos com chevron de "select", Nº Agente com ícone '#', palavra-passe
-// mascarada com botão olho, botão Submeter azul. Textos v9.1/v10.1 intactos.
+// referência): secções em painéis brancos rounded-2xl com badges maiores
+// (1&2 azul, 3 âmbar, 4 navy), inputs rounded-xl mais altos, campos fixos com
+// chevron de "select", Nº Agente com ícone '#', palavra-passe mascarada com
+// botão olho, botão Submeter azul. Textos v9.1/v10.1 intactos.
+// F24 — Dimensão igual às restantes páginas de registo (o mesmo cartão do
+// login com painel lateral; scroll interno com teto) e título actualizado:
+// "Registar Admin" (subtítulo "Credencial Operacional Plataforma" intacto).
 // Reutiliza EXCLUSIVAMENTE o que já existe: adminAgentStore + a chave de
 // trabalhadores da página Equipa ('correio_digital_admin_workers').
 
@@ -261,8 +263,8 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
       className="flex-1 flex flex-col min-h-0 text-left"
     >
       <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 space-y-5">
-        {/* Área rolável — sem teto de altura no desktop (página larga, F23) */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[64vh] md:max-h-none md:overflow-visible pr-1.5 md:pr-0 space-y-5">
+        {/* Área rolável */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[64vh] pr-1.5 space-y-5">
           {/* Cabeçalho */}
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-gradient-to-br from-[#2563eb] to-[#4f46e5] text-white rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/25">
@@ -270,7 +272,7 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="text-lg md:text-xl font-black text-[#0c2340] uppercase tracking-tight leading-tight">
-                Registar Novo Membro da Equipa
+                Registar Admin
               </h3>
               <span className="inline-flex items-center gap-1 mt-1 text-[#2563eb] font-black text-[9.5px] uppercase tracking-[0.18em] leading-none">
                 Credencial Operacional Plataforma
