@@ -1144,7 +1144,7 @@ export function GovContactsContent({
   const [newWorkerAccessProfile, setNewWorkerAccessProfile] = useState('Operador de Atendimento');
   const [newWorkerPassword, setNewWorkerPassword] = useState('');
 
-  // F6/B4 — Nº de agente gerado pelo sistema (instituição real → 'SME-LLVV-NN'; Admin → 'Admin-NN'; restantes contextos → formato legado)
+  // F6/B4 — Nº de agente gerado pelo sistema (instituição real → 'SME-LLVV-NN'; Admin → 'ADMIN-NNNN' sequencial v10.1; restantes contextos → formato legado)
   const autoWorkerAgentId = (() => {
     if (isEditingWorker) return workers.find(w => w.id === editingWorkerId)?.agentId || '';
     const regCode = normalizeInstCode(bi || '');
@@ -1195,7 +1195,7 @@ export function GovContactsContent({
     // uma senha inicial individual (login: Código + esta senha), única na instituição.
     const regCode = normalizeInstCode(bi);
     const instReg = (!isPlatformAdmin && appMode === 'institution' && regCode) ? getLocalInstReg(regCode) : undefined;
-    // F6/B4 — Admin: agentes recebem senha inicial individual (login Admin: 'Admin-NN' + senha), única na área.
+    // F6/B4 — Admin: agentes recebem senha inicial individual (login Admin: 'ADMIN-NNNN' + senha), única na área.
     const adminCredsOn = isPlatformAdmin;
     if (instReg && !isEditingWorker) {
       if (!newWorkerPassword || newWorkerPassword.length < 8) {
@@ -1288,7 +1288,7 @@ export function GovContactsContent({
       }
       if (adminCredsOn) {
         addAdminAgent({
-          agent: autoWorkerAgentId, // F6 — 'Admin-NN'
+          agent: autoWorkerAgentId, // F6 — 'ADMIN-NNNN' (sequencial; o Alfa reserva o nº 1)
           password: newWorkerPassword,
           workerId: newWorkerId,
           name: newWorkerName,
@@ -1352,7 +1352,7 @@ export function GovContactsContent({
     }
     if (appMode === 'admin-workers') {
       const agentNum = selectedWorker.agentId || '';
-      if (!/^Admin-\d+$/i.test(agentNum)) { alert('Este elemento não tem um Nº Agente Admin (Admin-NN) — a senha do login Admin só se aplica a agentes com esse formato.'); return; }
+      if (!/^Admin-\d+$/i.test(agentNum)) { alert('Este elemento não tem um Nº Agente Admin (ADMIN-NNNN) — a senha do login Admin só se aplica a agentes com esse formato.'); return; }
       if (workerDrawerPwd.length < 8) { alert('A nova senha deve ter pelo menos 8 caracteres.'); return; }
       if (isAdminAgentPasswordTaken(workerDrawerPwd, agentNum)) {
         alert('Esta senha já está a ser usada por outro agente da Administração. Escolha outra.');

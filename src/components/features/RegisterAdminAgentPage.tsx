@@ -1,11 +1,15 @@
-// F19/F20 — Página "Registo" da área ADMIN (prompt v9.1 aprovado + revisão de layout).
+// F19/F20/F22 — Página "Registo" da área ADMIN (prompts v9.1 + v10.1 aprovados).
 // Formulário fiel ao popup "REGISTAR NOVO MEMBRO DA EQUIPA — CREDENCIAL OPERACIONAL
 // PLATAFORMA" da página Equipa, com todos os campos adaptados ao universo da
 // Administração da Plataforma (CDA).
 //
-// Decisões aprovadas: D1(a) componente próprio · D2(b) Estado bloqueado em
-// "Pendente de Análise" · D3 sem captura facial (faz-se depois na página Conta)
-// · D4 a Equipa activa na página Equipa · D5 credencial só neste dispositivo.
+// v10.1 (Admin Alfa): a página serve UMA única vez — o registo do elemento mais
+// alto da hierarquia — com Nº forçado ADMIN-0001, Estado "Ativo" (sem estágio de
+// aprovação), permissões completas e os dois cargos máximos fixos (readOnly, D1).
+// Após o registo, a opção "Registar" do login Admin fica desactivada com nota (D2/D3
+// — flag 'cda_admin_alfa_v1'); os restantes membros são adicionados pelo Alfa na
+// página Equipa (ADMIN-0002, ADMIN-0003, …). Se o Alfa for removido na Equipa, a
+// opção "Registar" reactiva (D4). Credencial só neste dispositivo (D6).
 // Reutiliza EXCLUSIVAMENTE o que já existe: adminAgentStore + a chave de
 // trabalhadores da página Equipa ('correio_digital_admin_workers').
 
@@ -17,9 +21,10 @@ import {
 } from 'lucide-react';
 import {
   addAdminAgent,
-  getAdminAgentCreds,
+  ADMIN_ALFA_AGENT,
+  getAdminAlfa,
   isAdminAgentPasswordTaken,
-  nextAdminAgentNumber,
+  setAdminAlfa,
 } from '../../services/adminAgentStore';
 
 interface RegisterAdminAgentPageProps {
@@ -46,6 +51,14 @@ interface AdminWorker {
 
 const WORKERS_KEY = 'correio_digital_admin_workers';
 
+// ---------- v10.1 — Conteúdo fixo do Admin Alfa (elemento mais alto da hierarquia) ----------
+/** D1 — Perfil Funcional fixo do Alfa (readOnly, sem edição). */
+const ALFA_ROLE = 'Administrador Geral da Plataforma';
+/** D1 — Departamento / Área Funcional fixa do Alfa (readOnly, sem edição). */
+const ALFA_DEPT = 'Direcção Geral — Sede Executiva';
+/** Permissões completas — as mesmas do administrador-semente w-admin-1 da Equipa (reutilizadas). */
+const ALFA_PERMISSIONS = ['Visualizar', 'Homologar', 'Bloqueio', 'Alertas', 'Logs', 'API'];
+
 const readAdminWorkers = (): AdminWorker[] => {
   try {
     const raw = localStorage.getItem(WORKERS_KEY);
@@ -62,15 +75,10 @@ const appendAdminWorker = (w: AdminWorker): void => {
   } catch { /* sem storage: fica apenas a credencial */ }
 };
 
-/** Nº Agente seguinte — calculado sobre trabalhadores + credenciais (fonte completa). */
-const computeNextAgent = (): string =>
-  nextAdminAgentNumber([
-    ...readAdminWorkers().map(w => w.agentId || ''),
-    ...getAdminAgentCreds().map(c => c.agent),
-  ]);
-
 // ---------- Sistema visual da página (F20 — revisão de layout) ----------
 const inputCls = "w-full bg-white border-2 border-slate-100 focus:border-[#4f46e5]/30 rounded-[20px] pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-350";
+/** v10.1 — campos do Alfa com valor fixo (readOnly): mesma geometria do input comum, aspecto bloqueado. */
+const lockedCls = "w-full bg-slate-100/80 border-2 border-slate-100 rounded-[20px] pl-11 pr-4 py-3.5 text-xs text-slate-600 outline-none font-bold cursor-not-allowed select-none";
 const labelCls = "text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1";
 const iconCls = "absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none";
 
@@ -110,8 +118,9 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState('');
-  const [dept, setDept] = useState('');
+  // v10.1 (D1) — Perfil Funcional e Departamento/Área Funcional: cargos máximos fixos (readOnly).
+  const role = ALFA_ROLE;
+  const dept = ALFA_DEPT;
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [createdAgent, setCreatedAgent] = useState('');
@@ -120,6 +129,10 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    if (getAdminAlfa()) {
+      setError('O registo está encerrado — o Administrador Geral já foi registado neste dispositivo. Os restantes membros são adicionados por ele na página Equipa (ADMIN-0002, ADMIN-0003, …).');
+      return;
+    }
     if (!name.trim() || !email.trim() || !phone.trim() || !role.trim() || !dept.trim()) {
       setError('Preencha todos os campos obrigatórios (Nome, Email, Telefone, Perfil Funcional e Departamento).');
       return;
@@ -137,8 +150,8 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
       return;
     }
 
-    // Credencial operacional — o Nº Agente é atribuído pelo sistema no momento da submissão.
-    const agent = computeNextAgent();
+    // v10.1 — Admin Alfa: Nº forçado ADMIN-0001, "Ativo" desde o primeiro instante, acesso total.
+    const agent = ADMIN_ALFA_AGENT;
     const workerId = `w-${Date.now()}`;
     const now = new Date();
     const dateAO = now.toLocaleDateString('pt-AO');
@@ -150,19 +163,20 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
       email: email.trim(),
       role: role.trim(),
       phone: phone.trim(),
-      department: dept.trim() || 'Geral',
+      department: dept.trim(),
       agentId: agent,
-      // D2(b)/D4 — nasce "Pendente de Análise"; a Equipa activa na página Equipa.
-      status: 'Pendente',
+      // v10.1 — sem estágio de aprovação: o Administrador Geral nasce "Ativo".
+      status: 'Ativo',
       lastAccess: 'Nunca acedeu',
       registrationDate: dateAO,
-      permissions: ['Visualizar', 'Homologar'],
+      permissions: [...ALFA_PERMISSIONS],
       activityLogs: [
-        { action: 'Cadastro submetido via página Registo da Administração — pendente de análise pela Equipa.', timestamp: `${dateAO} ${timeAO}`, ip: '127.0.0.1' },
+        { action: 'Registo do Administrador Geral efectuado — acesso total atribuído.', timestamp: `${dateAO} ${timeAO}`, ip: '127.0.0.1' },
       ],
     });
     addAdminAgent({ agent, password, workerId, name: name.trim() });
-    addAuditLog?.(`[REGISTO-ADMIN] Novo membro da equipa ${name.trim()} submetido via página Registo — Agente ${agent}, estado Pendente de Análise.`, 'success');
+    setAdminAlfa(agent); // D3 — fecha a opção "Registar" do login Admin neste dispositivo
+    addAuditLog?.(`[REGISTO-ADMIN] Administrador Geral (Admin Alfa) ${name.trim()} registado — Agente ${agent}, estado Ativo, acesso total. Novos membros serão adicionados por si na página Equipa.`, 'success');
     setCreatedAgent(agent);
   };
 
@@ -184,9 +198,9 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
           <CheckCircle2 size={30} />
         </div>
         <div>
-          <h3 className="text-lg md:text-xl font-black text-[#0c2340] uppercase tracking-tight leading-tight">Cadastro Submetido com Sucesso!</h3>
+          <h3 className="text-lg md:text-xl font-black text-[#0c2340] uppercase tracking-tight leading-tight">Cadastro Efectuado com Sucesso!</h3>
           <p className="text-[11px] text-slate-500 font-medium max-w-md mx-auto mt-2 leading-relaxed">
-            O seu pedido de adesão à <strong>Equipa da Administração</strong> está <strong>Pendente de Análise</strong>. Depois de activado na página Equipa, entra no login da Administração com o seu <strong>Nº Agente + a palavra-passe definida</strong>.
+            É o elemento mais alto da hierarquia — <strong>acesso total imediato</strong>. Entra já no login da Administração com o seu <strong>Nº Agente + a palavra-passe definida</strong>. Os restantes colaboradores são adicionados por si na página Equipa (ADMIN-0002, …).
           </p>
         </div>
 
@@ -202,8 +216,8 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
               <span className="block text-[11px] font-bold text-white truncate">{name}</span>
               <span className="block text-[9.5px] font-medium text-blue-200/80 truncate">{email}</span>
             </div>
-            <span className="shrink-0 inline-flex items-center gap-1 bg-amber-400/15 border border-amber-300/30 text-amber-300 rounded-full px-2.5 py-1 text-[8.5px] font-black uppercase tracking-widest">
-              <Lock size={10} /> Pendente de Análise
+            <span className="shrink-0 inline-flex items-center gap-1 bg-emerald-400/15 border border-emerald-300/30 text-emerald-300 rounded-full px-2.5 py-1 text-[8.5px] font-black uppercase tracking-widest">
+              <CheckCircle2 size={10} /> Ativo
             </span>
           </div>
         </div>
@@ -273,10 +287,10 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
           <Section n="2" icon={<IdCard size={14} className="stroke-[2.5]" />} tint="#2563eb" tintSoft="text-[#2563eb]" title="Afiliação & Funções do Membro da Equipa">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <Field label="Perfil Funcional *" icon={<IdCard size={16} />}>
-                <input required type="text" className={inputCls} placeholder="Ex: Auditor Geral do Sistema" value={role} onChange={(e) => setRole(e.target.value)} />
+                <input type="text" className={lockedCls} value={role} readOnly title="Cargo máximo — definido pela plataforma" />
               </Field>
               <Field label="Departamento / Área Funcional *" icon={<Building size={16} />}>
-                <input required type="text" className={inputCls} placeholder="Ex: Direcção de Operações da Plataforma" value={dept} onChange={(e) => setDept(e.target.value)} />
+                <input type="text" className={lockedCls} value={dept} readOnly title="Cargo máximo — definido pela plataforma" />
               </Field>
             </div>
             <Field label="Nº Agente Admin" icon={<Lock size={16} />}>
@@ -284,7 +298,7 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
                 type="text"
                 className="w-full bg-indigo-50/60 border-2 border-indigo-100 rounded-[20px] pl-11 pr-[74px] py-3.5 text-xs text-[#4f46e5] font-mono font-black outline-none"
                 placeholder="Gerado automaticamente pelo sistema"
-                value={computeNextAgent()}
+                value={ADMIN_ALFA_AGENT}
                 readOnly
               />
               <span className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-indigo-100/80 text-[#4f46e5] rounded-full px-2 py-1 text-[8px] font-black uppercase tracking-widest pointer-events-none">
@@ -295,20 +309,20 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
 
           {/* Secção 3 — Estágio de Autorização */}
           <Section n="3" icon={<CheckCircle2 size={14} className="stroke-[2.5]" />} tint="#d97706" tintSoft="text-[#b45309]" title="Estágio de Autorização">
-            <Field label="Estado de Acesso *" icon={<CheckCircle2 size={16} className="text-amber-500" />}>
+            <Field label="Estado de Acesso *" icon={<CheckCircle2 size={16} className="text-emerald-500" />}>
               <select
                 disabled
-                value="Pendente"
-                className="w-full bg-amber-50/70 border-2 border-amber-100 rounded-[20px] pl-11 pr-11 py-3.5 text-xs text-amber-700 font-black outline-none appearance-none cursor-not-allowed"
+                value="Ativo"
+                className="w-full bg-emerald-50/70 border-2 border-emerald-100 rounded-[20px] pl-11 pr-11 py-3.5 text-xs text-emerald-700 font-black outline-none appearance-none cursor-not-allowed"
               >
-                <option value="Pendente">Pendente de Análise</option>
+                <option value="Ativo">Ativo</option>
               </select>
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-amber-400 pointer-events-none"><Lock size={13} /></span>
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-500 pointer-events-none"><Lock size={13} /></span>
             </Field>
             <div className="bg-[#f0fdf4] border border-[#10b981]/15 rounded-[18px] p-3.5 flex gap-2.5 text-left">
               <Info size={16} className="text-emerald-600 shrink-0 mt-0.5" />
               <p className="text-[10.5px] text-[#065f46] leading-relaxed font-bold m-0 select-none">
-                Novos membros nascem 'Pendente de Análise' — a Equipa da Administração activa a credencial na página Equipa. Membros 'Desativados' ou 'Suspensos' terão o acesso à Administração revogado preventivamente.
+                O Administrador Geral tem acesso total imediato — não requer homologação. Os restantes membros (ADMIN-0002, ADMIN-0003, …) são adicionados por si na página Equipa; 'Desativados' ou 'Suspensos' terão o acesso à Administração revogado preventivamente.
               </p>
             </div>
           </Section>

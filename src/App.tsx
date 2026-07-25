@@ -81,7 +81,7 @@ import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveC
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, type InstitutionIdentity } from './services/institutionSessionService';
 import { getLocalInstReg, normalizeInstCode, parseInstPack } from './services/institutionRegistrationStore';
-import { resolveAdminAgentLogin } from './services/adminAgentStore';
+import { resolveAdminAgentLogin, getAdminAlfa } from './services/adminAgentStore';
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
 import { useSession } from './services/sessionStore';
@@ -4312,7 +4312,7 @@ Ficha civil do titular:
         setInstMustChangePwd(false);
       }
 
-      // F6/C7 — Agentes criados na página Equipa (Nº 'Admin-NN') entram com senha local
+      // F6/C7 — Agentes criados na página Equipa (Nº 'ADMIN-NNNN'; legado 'Admin-NN') entram com senha local
       if (isGovMode) {
         const typedAgent = bi.trim().toUpperCase();
         if (typedAgent && typedAgent !== DEMO_CREDENTIALS.admin.identifier) {
@@ -4337,7 +4337,7 @@ Ficha civil do titular:
             addAuditLog(`Login da Administração recusado para ${typedAgent}: senha inválida.`, 'warning');
             return;
           }
-          // Identificadores fora do formato Admin-NN seguem a via demo existente (intacta)
+          // Identificadores fora do formato ADMIN-NNNN (ou legado 'Admin-NN') seguem a via demo existente (intacta)
         }
       }
 
@@ -4595,17 +4595,34 @@ Ficha civil do titular:
                       </div>
 
                       {/* Footer border and buttons for Citizen */}
-                      <div className="pt-3 mt-1.5 border-t border-slate-100 flex items-center justify-between">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setLoginSubMode('register');
-                          }}
-                          className="text-slate-600 hover:text-[#0c2340] transition-colors bg-transparent border-none cursor-pointer text-[10px] font-black uppercase tracking-widest font-sans flex items-center gap-1"
-                        >
-                          <UserPlus size={14} className="text-[#2563eb]" />
-                          {t("Registar")}
-                        </button>
+                      <div className="pt-3 mt-1.5 border-t border-slate-100 flex items-center justify-between gap-3">
+                        {isGovMode && getAdminAlfa() ? (
+                          <div className="flex flex-col items-start gap-1 text-left min-w-0">
+                            <button
+                              type="button"
+                              disabled
+                              title={t("Registo encerrado — o Administrador Geral já foi registado.")}
+                              className="text-slate-300 bg-transparent border-none cursor-not-allowed text-[10px] font-black uppercase tracking-widest font-sans flex items-center gap-1"
+                            >
+                              <UserPlus size={14} className="text-slate-300" />
+                              {t("Registar")}
+                            </button>
+                            <span className="text-[8.5px] font-bold text-slate-400 leading-snug max-w-[190px]">
+                              {t("Registo encerrado — novos membros são adicionados pelo Administrador Geral na página Equipa.")}
+                            </span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLoginSubMode('register');
+                            }}
+                            className="text-slate-600 hover:text-[#0c2340] transition-colors bg-transparent border-none cursor-pointer text-[10px] font-black uppercase tracking-widest font-sans flex items-center gap-1"
+                          >
+                            <UserPlus size={14} className="text-[#2563eb]" />
+                            {t("Registar")}
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
