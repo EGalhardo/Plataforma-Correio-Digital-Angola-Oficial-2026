@@ -4346,13 +4346,18 @@ Ficha civil do titular:
       addAuditLog(isInstMode ? 'Login de Instituição via Autenticação Segura' : isGovMode ? 'Login da Administração via Autenticação Segura' : 'Login de Cidadão via Autenticação Segura', 'success');
     };
 
+    // F23 — Registo do Admin Alfa em largura total: cartão mais largo sem o
+    // painel lateral (modelo visual aprovado). Cidadão/instituição e os outros
+    // submodos mantêm a grelha original.
+    const isAdminRegisterPage = loginSubMode === 'register' && isGovMode;
+
     return (
       <section className="min-h-screen p-4 bg-slate-50 flex items-center justify-center font-sans">
-        <div className="max-w-[940px] w-full mx-auto grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-4.5 items-stretch">
+        <div className={`${isAdminRegisterPage ? 'max-w-[860px]' : 'max-w-[940px] md:grid-cols-[1.2fr_1fr]'} w-full mx-auto grid grid-cols-1 gap-4.5 items-stretch`}>
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className={`hidden md:flex bg-white rounded-3xl ${loginSubMode === 'face-capture' ? 'p-6 min-h-[410px]' : 'p-8 md:p-8 min-h-[510px]'} border border-[#E2E8F0] flex-col items-center justify-center text-center shadow-sm h-full relative overflow-hidden transition-all duration-300`}
+            className={`${isAdminRegisterPage ? 'hidden' : 'hidden md:flex'} bg-white rounded-3xl ${loginSubMode === 'face-capture' ? 'p-6 min-h-[410px]' : 'p-8 md:p-8 min-h-[510px]'} border border-[#E2E8F0] flex-col items-center justify-center text-center shadow-sm h-full relative overflow-hidden transition-all duration-300`}
           >
             <div className="absolute top-0 right-0 w-80 h-80 bg-primary/2 rounded-full -mr-40 -mt-40 blur-3xl pointer-events-none" />
             

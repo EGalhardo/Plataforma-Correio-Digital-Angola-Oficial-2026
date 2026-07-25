@@ -1,4 +1,4 @@
-// F19/F20/F22 — Página "Registo" da área ADMIN (prompts v9.1 + v10.1 aprovados).
+// F19/F20/F22/F23 — Página "Registo" da área ADMIN (prompts v9.1 + v10.1 aprovados).
 // Formulário fiel ao popup "REGISTAR NOVO MEMBRO DA EQUIPA — CREDENCIAL OPERACIONAL
 // PLATAFORMA" da página Equipa, com todos os campos adaptados ao universo da
 // Administração da Plataforma (CDA).
@@ -10,14 +10,21 @@
 // — flag 'cda_admin_alfa_v1'); os restantes membros são adicionados pelo Alfa na
 // página Equipa (ADMIN-0002, ADMIN-0003, …). Se o Alfa for removido na Equipa, a
 // opção "Registar" reactiva (D4). Credencial só neste dispositivo (D6).
+// F23 — Revisão de layout conforme o modelo visual aprovado (imagem de
+// referência): página em largura total (o App alarga o cartão e esconde o
+// painel lateral só neste submodo), secções em painéis brancos rounded-2xl com
+// badges maiores (1&2 azul, 3 âmbar, 4 navy), inputs rounded-xl mais altos,
+// campos fixos com chevron de "select", Nº Agente com ícone '#', palavra-passe
+// mascarada com botão olho, botão Submeter azul. Textos v9.1/v10.1 intactos.
 // Reutiliza EXCLUSIVAMENTE o que já existe: adminAgentStore + a chave de
 // trabalhadores da página Equipa ('correio_digital_admin_workers').
 
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import {
-  UserPlus, User, Mail, Phone, IdCard, Building, Lock,
+  UserPlus, User, Mail, Phone, IdCard, Building, Lock, Hash, Shield,
   CheckCircle2, Info, X, Check, Copy, ShieldCheck, KeyRound,
+  Eye, EyeOff, ChevronDown,
 } from 'lucide-react';
 import {
   addAdminAgent,
@@ -75,27 +82,29 @@ const appendAdminWorker = (w: AdminWorker): void => {
   } catch { /* sem storage: fica apenas a credencial */ }
 };
 
-// ---------- Sistema visual da página (F20 — revisão de layout) ----------
-const inputCls = "w-full bg-white border-2 border-slate-100 focus:border-[#4f46e5]/30 rounded-[20px] pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-350";
-/** v10.1 — campos do Alfa com valor fixo (readOnly): mesma geometria do input comum, aspecto bloqueado. */
-const lockedCls = "w-full bg-slate-100/80 border-2 border-slate-100 rounded-[20px] pl-11 pr-4 py-3.5 text-xs text-slate-600 outline-none font-bold cursor-not-allowed select-none";
-const labelCls = "text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1";
+// ---------- Sistema visual da página (F23 — modelo visual da referência anexada) ----------
+const inputCls = "w-full bg-white border-2 border-slate-200 focus:border-[#2563eb]/35 rounded-xl pl-11 pr-4 py-4 text-[13px] text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400 placeholder:font-medium";
+/** v10.1 — campos do Alfa com valor fixo (readOnly): aspecto de select bloqueado (chevron à direita). */
+const lockedCls = "w-full bg-slate-50 border-2 border-slate-200 rounded-xl pl-11 pr-11 py-4 text-[13px] text-slate-600 outline-none font-bold cursor-not-allowed select-none";
+/** Palavra-passe: mesma geometria do input comum, com folga à direita para o botão "olho". */
+const passwordCls = "w-full bg-white border-2 border-slate-200 focus:border-blue-500/35 rounded-xl pl-11 pr-11 py-4 text-[13px] text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400 placeholder:font-medium font-mono";
+const labelCls = "text-[11px] font-extrabold text-slate-600 uppercase tracking-wider ml-1";
 const iconCls = "absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none";
 
-/** Painel de secção numerado — ritmo vertical claro dentro do cartão de autenticação. */
+/** Painel de secção numerado — painel branco com badge colorido maior (modelo visual F23). */
 const Section = ({ n, icon, tint, tintSoft, title, children }: {
   n: string; icon: ReactNode; tint: string; tintSoft: string; title: string; children: ReactNode;
 }) => (
-  <section className="bg-slate-50/70 border border-slate-100 rounded-[22px] p-4 space-y-3.5 text-left">
-    <div className="flex items-center gap-2.5">
+  <section className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 space-y-4 shadow-sm text-left">
+    <div className="flex items-center gap-3">
       <span
-        className="w-5.5 h-5.5 min-w-[22px] min-h-[22px] rounded-full flex items-center justify-center text-[10px] font-black text-white shadow-sm"
+        className="w-7 h-7 min-w-[28px] min-h-[28px] rounded-full flex items-center justify-center text-[12px] font-black text-white shadow-sm"
         style={{ backgroundColor: tint }}
       >
         {n}
       </span>
       <span style={{ color: tint }}>{icon}</span>
-      <span className={`font-extrabold text-[10.5px] uppercase tracking-widest ${tintSoft}`}>{title}</span>
+      <span className={`font-black text-[11.5px] uppercase tracking-[0.14em] ${tintSoft}`}>{title}</span>
     </div>
     {children}
   </section>
@@ -122,6 +131,7 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
   const role = ALFA_ROLE;
   const dept = ALFA_DEPT;
   const [password, setPassword] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState('');
   const [createdAgent, setCreatedAgent] = useState('');
   const [copied, setCopied] = useState(false);
@@ -250,26 +260,26 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
       animate={{ opacity: 1, y: 0 }}
       className="flex-1 flex flex-col min-h-0 text-left"
     >
-      <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 space-y-4">
-        {/* Área rolável */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[64vh] pr-1.5 space-y-4">
+      <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 space-y-5">
+        {/* Área rolável — sem teto de altura no desktop (página larga, F23) */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[64vh] md:max-h-none md:overflow-visible pr-1.5 md:pr-0 space-y-5">
           {/* Cabeçalho */}
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 bg-gradient-to-br from-[#4f46e5] to-[#2563eb] text-white rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-indigo-500/20">
-              <UserPlus size={22} strokeWidth={2.5} />
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-gradient-to-br from-[#2563eb] to-[#4f46e5] text-white rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/25">
+              <UserPlus size={27} strokeWidth={2.5} />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-[15px] md:text-base font-black text-[#0c2340] italic uppercase tracking-tighter leading-tight">
+              <h3 className="text-lg md:text-xl font-black text-[#0c2340] uppercase tracking-tight leading-tight">
                 Registar Novo Membro da Equipa
               </h3>
-              <span className="inline-flex items-center gap-1 mt-1.5 bg-indigo-50 border border-indigo-100 text-[#4f46e5] rounded-full px-2.5 py-0.5 font-black text-[8.5px] uppercase tracking-[0.16em] leading-none">
+              <span className="inline-flex items-center gap-1 mt-1 text-[#2563eb] font-black text-[9.5px] uppercase tracking-[0.18em] leading-none">
                 Credencial Operacional Plataforma
               </span>
             </div>
           </div>
 
           {/* Secção 1 — Dados Pessoais do Membro */}
-          <Section n="1" icon={<User size={14} className="stroke-[2.5]" />} tint="#4f46e5" tintSoft="text-[#4f46e5]" title="Dados Pessoais do Membro">
+          <Section n="1" icon={<User size={15} className="stroke-[2.5]" />} tint="#2563eb" tintSoft="text-[#2563eb]" title="Dados Pessoais do Membro">
             <Field label="Nome Completo *" icon={<User size={16} />}>
               <input required type="text" className={inputCls} placeholder="Ex: Dr. Francisco Manuel" value={name} onChange={(e) => setName(e.target.value)} />
             </Field>
@@ -284,42 +294,44 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
           </Section>
 
           {/* Secção 2 — Afiliação & Funções */}
-          <Section n="2" icon={<IdCard size={14} className="stroke-[2.5]" />} tint="#2563eb" tintSoft="text-[#2563eb]" title="Afiliação & Funções do Membro da Equipa">
+          <Section n="2" icon={<IdCard size={15} className="stroke-[2.5]" />} tint="#2563eb" tintSoft="text-[#2563eb]" title="Afiliação & Funções do Membro da Equipa">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <Field label="Perfil Funcional *" icon={<IdCard size={16} />}>
                 <input type="text" className={lockedCls} value={role} readOnly title="Cargo máximo — definido pela plataforma" />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><ChevronDown size={15} /></span>
               </Field>
               <Field label="Departamento / Área Funcional *" icon={<Building size={16} />}>
                 <input type="text" className={lockedCls} value={dept} readOnly title="Cargo máximo — definido pela plataforma" />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><ChevronDown size={15} /></span>
               </Field>
             </div>
-            <Field label="Nº Agente Admin" icon={<Lock size={16} />}>
+            <Field label="Nº Agente Admin" icon={<Hash size={16} className="text-indigo-400" />}>
               <input
                 type="text"
-                className="w-full bg-indigo-50/60 border-2 border-indigo-100 rounded-[20px] pl-11 pr-[74px] py-3.5 text-xs text-[#4f46e5] font-mono font-black outline-none"
+                className="w-full bg-indigo-50/60 border-2 border-indigo-200 rounded-xl pl-11 pr-[74px] py-4 text-[13px] text-[#4f46e5] font-mono font-black outline-none"
                 placeholder="Gerado automaticamente pelo sistema"
                 value={ADMIN_ALFA_AGENT}
                 readOnly
               />
-              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-indigo-100/80 text-[#4f46e5] rounded-full px-2 py-1 text-[8px] font-black uppercase tracking-widest pointer-events-none">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 bg-indigo-100/80 text-[#4f46e5] rounded-full px-2.5 py-1 text-[8.5px] font-black uppercase tracking-widest pointer-events-none">
                 Auto
               </span>
             </Field>
           </Section>
 
           {/* Secção 3 — Estágio de Autorização */}
-          <Section n="3" icon={<CheckCircle2 size={14} className="stroke-[2.5]" />} tint="#d97706" tintSoft="text-[#b45309]" title="Estágio de Autorização">
+          <Section n="3" icon={<ShieldCheck size={15} className="stroke-[2.5]" />} tint="#d97706" tintSoft="text-[#b45309]" title="Estágio de Autorização">
             <Field label="Estado de Acesso *" icon={<CheckCircle2 size={16} className="text-emerald-500" />}>
               <select
                 disabled
                 value="Ativo"
-                className="w-full bg-emerald-50/70 border-2 border-emerald-100 rounded-[20px] pl-11 pr-11 py-3.5 text-xs text-emerald-700 font-black outline-none appearance-none cursor-not-allowed"
+                className="w-full bg-emerald-50 border-2 border-emerald-200 rounded-xl pl-11 pr-11 py-4 text-[13px] text-emerald-700 font-black outline-none appearance-none cursor-not-allowed"
               >
                 <option value="Ativo">Ativo</option>
               </select>
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-500 pointer-events-none"><Lock size={13} /></span>
             </Field>
-            <div className="bg-[#f0fdf4] border border-[#10b981]/15 rounded-[18px] p-3.5 flex gap-2.5 text-left">
+            <div className="bg-[#f0fdf4] border border-[#10b981]/15 rounded-xl p-4 flex gap-2.5 text-left">
               <Info size={16} className="text-emerald-600 shrink-0 mt-0.5" />
               <p className="text-[10.5px] text-[#065f46] leading-relaxed font-bold m-0 select-none">
                 O Administrador Geral tem acesso total imediato — não requer homologação. Os restantes membros (ADMIN-0002, ADMIN-0003, …) são adicionados por si na página Equipa; 'Desativados' ou 'Suspensos' terão o acesso à Administração revogado preventivamente.
@@ -328,16 +340,25 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
           </Section>
 
           {/* Secção 4 — Credencial Operacional */}
-          <Section n="4" icon={<ShieldCheck size={14} className="stroke-[2.5]" />} tint="#0c2340" tintSoft="text-[#0c2340]" title="Credencial Operacional">
+          <Section n="4" icon={<Shield size={15} className="stroke-[2.5]" />} tint="#0c2340" tintSoft="text-[#0c2340]" title="Credencial Operacional">
             <Field label="Palavra-passe Inicial do Agente *" icon={<KeyRound size={16} className="text-blue-500" />}>
               <input
-                type="text"
-                autoComplete="off"
+                type={showPwd ? 'text' : 'password'}
+                autoComplete="new-password"
                 placeholder="Mín. 8 caracteres — definida por si neste registo"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className={inputCls + " font-mono focus:border-blue-500/30"}
+                className={passwordCls}
               />
+              <button
+                type="button"
+                onClick={() => setShowPwd(v => !v)}
+                aria-label={showPwd ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
+                title={showPwd ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors bg-transparent border-none cursor-pointer p-0.5"
+              >
+                {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </Field>
             <div className="flex items-center justify-between gap-3 px-1">
               <p className="text-[9px] text-slate-400 font-bold leading-snug m-0 select-none">
@@ -353,7 +374,7 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
 
           {/* Erro de validação */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-[18px] px-4 py-3 text-[11px] font-bold text-red-600 leading-snug flex gap-2.5 items-start">
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-[11px] font-bold text-red-600 leading-snug flex gap-2.5 items-start">
               <X size={14} className="shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
@@ -365,14 +386,14 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
           <button
             type="button"
             onClick={onCancel}
-            className="sm:w-auto px-6 py-3.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-[20px] font-extrabold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all cursor-pointer"
+            className="sm:w-auto px-8 py-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-extrabold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             <X size={15} />
             Cancelar
           </button>
           <button
             type="submit"
-            className="flex-1 bg-[#0c2340] hover:bg-[#152e4d] text-white py-3.5 rounded-[20px] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#0c2340]/15 flex items-center justify-center gap-2.5 transition-all duration-300 cursor-pointer active:scale-98 border-0"
+            className="flex-1 bg-[#2563eb] hover:bg-[#1d4ed8] text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2.5 transition-all duration-300 cursor-pointer active:scale-98 border-0"
           >
             <Check size={15} className="stroke-[3]" />
             Submeter Cadastro do Membro
