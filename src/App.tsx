@@ -40,6 +40,7 @@ import {
   SolicitarDocumentoContent,
   RegisterStepper,
   RegisterInstitutionPage,
+  RegisterAdminAgentPage,
   InstitutionAccessPanel,
   InstitutionForcedPasswordChange,
   FacialLoginSettings,
@@ -4824,6 +4825,14 @@ Ficha civil do titular:
                 >
                   {appMode === 'institution' ? (
                     <RegisterInstitutionPage
+                      onCancel={() => setLoginSubMode('normal')}
+                      onSuccess={() => setLoginSubMode('normal')}
+                      addAuditLog={addAuditLog}
+                    />
+                  ) : appMode === 'admin' ? (
+                    // F19 — Registo do Admin = Credencial Operacional Plataforma
+                    // (prompt v9.1): formulário fiel ao popup da página Equipa.
+                    <RegisterAdminAgentPage
                       onCancel={() => setLoginSubMode('normal')}
                       onSuccess={() => setLoginSubMode('normal')}
                       addAuditLog={addAuditLog}
