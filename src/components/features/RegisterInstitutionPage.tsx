@@ -14,6 +14,7 @@ import {
   CheckCircle, CheckCircle2, Loader2, ArrowLeft, Copy, Check, Landmark
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticInstitutionAgentEmail } from '../../services/cloudAuthService';
 import { homologationStore } from '../../services/homologationStore';
 import {
   MUNICIPALITIES_BY_PROVINCE, CITIES_BY_PROVINCE, COMMUNES_BY_MUNICIPALITY,
@@ -217,6 +218,30 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
       setGeneratedCode(code);
       setGeneratedAgent(agentNumber);
       addAuditLog(`Código Institucional gerado: ${code} · Nº Agente do responsável: ${agentNumber}`, 'info');
+
+      // F32 (v12/D4-a) — o RESPONSÁVEL (-01) nasce na nuvem: a senha vive apenas no
+      // Supabase Auth (bcrypt da plataforma). Best-effort (D3): falha nunca quebra a
+      // adesão — a migração just-in-time ocorre no primeiro login (D2).
+      if (isSupabaseConfigured()) {
+        try {
+          const cloudEmail = syntheticInstitutionAgentEmail(agentNumber);
+          const prov = await provisionCloudAccount(supabase, {
+            email: cloudEmail,
+            password: senha,
+            metadata: { agent: agentNumber, instituicao: code, name: respName.trim(), role: 'instituicao' },
+          });
+          if (prov.outcome === 'ok' || prov.outcome === 'linked_existing') {
+            markCloudAccount(agentNumber, cloudEmail, 'instituicao');
+            addAuditLog(`[AUTH-CLOUD] Responsável ${agentNumber} (${respName.trim()}) nascido na nuvem — a senha vive apenas no Supabase Auth.`, 'success');
+          } else if (prov.outcome === 'pending_confirm') {
+            addAuditLog('[AUTH-CLOUD] ATENÇÃO: confirmação de e-mail activa no Supabase — desactivar (Authentication → Providers → Email).', 'warning');
+          } else if (prov.outcome === 'unavailable') {
+            addAuditLog(`[AUTH-CLOUD] Nuvem indisponível no registo de ${fullName.trim()} — credencial local mantida; migração just-in-time no primeiro login (D3).`, 'warning');
+          }
+        } catch (cloudErr) {
+          console.error('[AUTH-CLOUD] Falha inesperada no provisionamento institucional:', cloudErr);
+        }
+      }
     } catch (err) {
       console.error('Erro global no registo institucional:', err);
       setSubmitError('Ocorreu um erro inesperado ao finalizar o registo. Tente novamente.');

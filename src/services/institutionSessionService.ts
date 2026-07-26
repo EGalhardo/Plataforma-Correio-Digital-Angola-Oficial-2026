@@ -10,6 +10,7 @@
 // ============================================================================
 
 import { homologationStore, type HomologationStatus } from './homologationStore';
+import { cloudSignIn, provisionCloudAccount, isCloudBound, markCloudAccount, syntheticInstitutionAgentEmail } from './cloudAuthService';
 import {
   getLocalInstReg, normalizeInstCode, parseInstPack, splitAgentNumber,
   type LocalInstitutionRegistration
@@ -183,6 +184,43 @@ export const resolveInstitutionLogin = async (
   // 2. A senha confirma a PESSOA (F6/C5: o NN do agente identifica; a senha valida essa pessoa)
   let identity: InstitutionIdentity | null = null;
   const respPasswordOk = (!!row && row.password_hash === password) || (!!reg && reg.password === password);
+
+  // F32 (v12/D4-a) — NUVEM PRIMEIRO para Nº Agente explícito: a senha vive no
+  // Supabase Auth. Nuvem ok => identidade resolvida pela nuvem; nuvem recusa com
+  // conta já migrada => tentativa local de TRANSIÇÃO (até F-c); nuvem em baixo =>
+  // validação local de emergência (D3). Via legada (código sem NN) não muda.
+  const cloudAgentEmail = agentSeq !== null ? syntheticInstitutionAgentEmail(typed) : '';
+  const cloudAgentMarked = agentSeq !== null ? isCloudBound(typed) : false;
+  // Guarda SEM `ready`: o cliente injectado decide (testes tsx não têm import.meta.env);
+  // sem configuração a chamada falha => 'unavailable' => fallback local D3.
+  if (supabase && agentSeq !== null) {
+    const cloudRes = await cloudSignIn(supabase, cloudAgentEmail, password);
+    if (cloudRes.outcome === 'ok') {
+      if (!cloudAgentMarked) markCloudAccount(typed, cloudAgentEmail, 'instituicao');
+      if (agentSeq === 1) {
+        identity = { type: 'responsible', agentNumber: typed };
+      } else if (reg) {
+        const cloudMember = (reg.members || []).find(m => { const own = splitAgentNumber(m.agentNumber || ''); return own.seq === agentSeq && own.code === code; });
+        if (cloudMember) identity = { type: 'member', memberId: cloudMember.id, memberName: cloudMember.name, mustChangePassword: !!cloudMember.mustChangePassword, agentNumber: typed };
+      }
+      if (!identity && cloudRes.metadata?.name && agentSeq !== 1) {
+        // Login noutro dispositivo sem espelho local: metadados do Auth identificam a pessoa
+        identity = { type: 'member', memberName: String(cloudRes.metadata.name), mustChangePassword: false, agentNumber: typed };
+      }
+      if (!identity) {
+        return {
+          outcome: 'invalid', code, name,
+          message: `O Nº Agente \"${typed}\" não corresponde a nenhuma pessoa desta instituição.`
+        };
+      }
+    } else if (cloudRes.outcome === 'invalid' && cloudAgentMarked) {
+      console.warn('[AUTH-CLOUD] Nuvem recusou as credenciais de', typed, '— tentativa local de TRANSIÇÃO (válida até à reposição assistida F-c).');
+    } else if (cloudRes.outcome === 'unavailable') {
+      console.warn('[AUTH-CLOUD] Nuvem indisponível para', typed, '— validação local de emergência (D3).');
+    }
+  }
+
+  if (!identity) {
   if (agentSeq !== null) {
     // Via nova: Nº Agente explícito
     if (agentSeq === 1) {
@@ -215,6 +253,21 @@ export const resolveInstitutionLogin = async (
         outcome: 'invalid', code, name,
         message: 'Credenciais incorrectas: a senha não corresponde a nenhuma credencial activa desta instituição.'
       };
+    }
+  }
+  }
+
+  // F32 (D2) — MIGRAÇÃO JUST-IN-TIME institucional: credencial local válida +
+  // nuvem disponível + agente explícito ainda não migrado => provisiona já.
+  if (identity && supabase && agentSeq !== null && !cloudAgentMarked) {
+    const jitProv = await provisionCloudAccount(supabase, {
+      email: cloudAgentEmail,
+      password,
+      metadata: { agent: typed, instituicao: code, name: identity.memberName || name, role: 'instituicao' },
+    });
+    if (jitProv.outcome === 'ok' || jitProv.outcome === 'linked_existing') {
+      markCloudAccount(typed, cloudAgentEmail, 'instituicao');
+      console.warn(`[AUTH-CLOUD] Migração just-in-time (D2): agente institucional ${typed} provisionado na nuvem.`);
     }
   }
 

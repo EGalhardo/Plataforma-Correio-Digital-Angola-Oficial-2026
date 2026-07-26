@@ -16,6 +16,7 @@ import {
   notifyAccountUnblocked,
 } from '../../services/homologationStore';
 import { parsePvicFromObservacoes } from '../../services/preVerificationService';
+import { provisionCloudAccount, markCloudAccount, isCloudBound, isSupabaseConfigured, syntheticAdminEmail, syntheticInstitutionAgentEmail } from '../../services/cloudAuthService';
 import { 
   Users,
   Mail, 
@@ -1273,12 +1274,19 @@ export function GovContactsContent({
     if (isEditingWorker && editingWorkerId) {
       if (instReg && newWorkerPassword && editingWorkerId) {
         updateInstMemberPassword(regCode, editingWorkerId, newWorkerPassword);
+        const editedMemberAgent = workers.find(w => w.id === editingWorkerId)?.agentId;
+        if (editedMemberAgent && isCloudBound(editedMemberAgent)) {
+          addAuditLog?.(`[AUTH-CLOUD] Nota (transição até F-c): a senha de ${editedMemberAgent} na nuvem só é actualizada na reposição assistida; até lá também vale a local deste dispositivo (marcado no log).`, 'warning');
+        }
       }
       if (adminCredsOn && newWorkerPassword && editingWorkerId) {
         const editedWorkerAgentNum = workers.find(w => w.id === editingWorkerId)?.agentId;
         if (editedWorkerAgentNum && /^Admin-\d+$/i.test(editedWorkerAgentNum)) {
           updateAdminAgentPassword(editedWorkerAgentNum, newWorkerPassword);
           addAuditLog?.(`[EQUIPA] Senha do agente ${editedWorkerAgentNum} actualizada — login Admin passa a exigir a nova senha.`, 'info');
+          if (isCloudBound(editedWorkerAgentNum)) {
+            addAuditLog?.(`[AUTH-CLOUD] Nota (transição até F-c): a palavra-passe de ${editedWorkerAgentNum} na nuvem só é actualizada na reposição assistida; até lá também vale a local deste dispositivo (marcado no log).`, 'warning');
+          }
         }
       }
       setWorkers(prev => prev.map(w => w.id === editingWorkerId ? {
@@ -1324,6 +1332,31 @@ export function GovContactsContent({
           name: newWorkerName,
         });
         addAuditLog?.(`[EQUIPA] Agente ${autoWorkerAgentId} (${newWorkerName}) criado — login Admin com Nº + senha inicial.`, 'success');
+      }
+      // F32 (v12/D4-a) — o novo membro nasce na NUVEM: a palavra-passe vive apenas
+      // no Supabase Auth. Best-effort (D3): falha nunca quebra a criação local —
+      // a migração just-in-time ocorre no primeiro login (D2).
+      if (isSupabaseConfigured() && newWorkerPassword && (instReg || adminCredsOn)) {
+        const cloudEmail = adminCredsOn
+          ? syntheticAdminEmail(autoWorkerAgentId)
+          : syntheticInstitutionAgentEmail(autoWorkerAgentId);
+        const cloudRole: 'instituicao' | 'admin' = adminCredsOn ? 'admin' : 'instituicao';
+        void provisionCloudAccount(supabase, {
+          email: cloudEmail,
+          password: newWorkerPassword,
+          metadata: adminCredsOn
+            ? { agent: autoWorkerAgentId, name: newWorkerName, workerId: newWorkerId, role: 'admin' }
+            : { agent: autoWorkerAgentId, instituicao: regCode, name: newWorkerName, role: 'instituicao' },
+        }).then((prov) => {
+          if (prov.outcome === 'ok' || prov.outcome === 'linked_existing') {
+            markCloudAccount(autoWorkerAgentId, cloudEmail, cloudRole);
+            addAuditLog?.(`[AUTH-CLOUD] Membro ${autoWorkerAgentId} (${newWorkerName}) nascido na nuvem — a palavra-passe vive apenas no Supabase Auth.`, 'success');
+          } else if (prov.outcome === 'pending_confirm') {
+            addAuditLog?.('[AUTH-CLOUD] ATENÇÃO: confirmação de e-mail activa no Supabase — desactivar (Authentication → Providers → Email).', 'warning');
+          } else if (prov.outcome === 'unavailable') {
+            addAuditLog?.('[AUTH-CLOUD] Nuvem indisponível ao criar o membro — credencial local mantida; migração just-in-time no primeiro login (D3).', 'warning');
+          }
+        }).catch((provErr) => console.error('[AUTH-CLOUD] Falha inesperada no provisionamento do membro:', provErr));
       }
       const newWorker: Trabajador = {
         id: newWorkerId,

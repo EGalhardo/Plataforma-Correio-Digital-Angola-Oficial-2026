@@ -35,6 +35,8 @@ import {
   isAdminAgentPasswordTaken,
   setAdminAlfa,
 } from '../../services/adminAgentStore';
+import { supabase } from '../../lib/supabaseClient';
+import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticAdminEmail } from '../../services/cloudAuthService';
 
 interface RegisterAdminAgentPageProps {
   onCancel: () => void;
@@ -189,6 +191,28 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
     addAdminAgent({ agent, password, workerId, name: name.trim() });
     setAdminAlfa(agent); // D3 — fecha a opção "Registar" do login Admin neste dispositivo
     addAuditLog?.(`[REGISTO-ADMIN] Administrador Geral (Admin Alfa) ${name.trim()} registado — Agente ${agent}, estado Ativo, acesso total. Novos membros serão adicionados por si na página Equipa.`, 'success');
+
+    // F32 (v12/D4-a) — o Alfa nasce na NUVEM: a palavra-passe vive apenas no
+    // Supabase Auth. Best-effort (D3): falha nunca quebra o registo — a migração
+    // just-in-time ocorre no primeiro login (D2).
+    if (isSupabaseConfigured()) {
+      const alfaEmail = syntheticAdminEmail(agent);
+      void provisionCloudAccount(supabase, {
+        email: alfaEmail,
+        password,
+        metadata: { agent, name: name.trim(), workerId, role: 'admin' },
+      }).then((prov) => {
+        if (prov.outcome === 'ok' || prov.outcome === 'linked_existing') {
+          markCloudAccount(agent, alfaEmail, 'admin');
+          addAuditLog?.(`[AUTH-CLOUD] Administrador Geral ${agent} nascido na nuvem — a palavra-passe vive apenas no Supabase Auth.`, 'success');
+        } else if (prov.outcome === 'pending_confirm') {
+          addAuditLog?.('[AUTH-CLOUD] ATENÇÃO: confirmação de e-mail activa no Supabase — desactivar (Authentication → Providers → Email).', 'warning');
+        } else if (prov.outcome === 'unavailable') {
+          addAuditLog?.('[AUTH-CLOUD] Nuvem indisponível no registo do Alfa — credencial local mantida; migração just-in-time no primeiro login (D3).', 'warning');
+        }
+      }).catch((provErr) => console.error('[AUTH-CLOUD] Falha inesperada no provisionamento do Alfa:', provErr));
+    }
+
     setCreatedAgent(agent);
   };
 

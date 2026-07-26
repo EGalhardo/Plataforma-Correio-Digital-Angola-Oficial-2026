@@ -82,6 +82,11 @@ import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologati
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, type InstitutionIdentity } from './services/institutionSessionService';
 import { getLocalInstReg, normalizeInstCode, parseInstPack } from './services/institutionRegistrationStore';
 import { resolveAdminAgentLogin, hasActiveAdminAlfa } from './services/adminAgentStore';
+import { getAdminAgentCred, addAdminAgent } from './services/adminAgentStore';
+import {
+  cloudSignIn, provisionCloudAccount, markCloudAccount, isCloudBound,
+  isSupabaseConfigured, syntheticCitizenEmail, syntheticAdminEmail, hasActiveCloudSession,
+} from './services/cloudAuthService';
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
 import { useSession } from './services/sessionStore';
@@ -4250,6 +4255,13 @@ Ficha civil do titular:
         await finalize(100);
         setIsFaceScanning(false);
         addAuditLog(`DEMO_FACE_LOGIN_SUCCESS: Correspondência facial validada localmente para ${appMode}`, 'success');
+        // F31 (v12/D6): a face apenas DESBLOQUEIA a sessão — a biometria nunca sai
+        // do dispositivo; se já existir sessão nuvem, fica confirmada (best-effort).
+        if (!homologationStore.isExempt(bi.trim().toUpperCase()) && isSupabaseConfigured()) {
+          void hasActiveCloudSession(supabase).then((active) => {
+            if (active) addAuditLog('[AUTH-CLOUD] Login facial (D6): sessão nuvem confirmada neste dispositivo.', 'info');
+          });
+        }
         return;
       }
 
@@ -4316,7 +4328,57 @@ Ficha civil do titular:
       if (isGovMode) {
         const typedAgent = bi.trim().toUpperCase();
         if (typedAgent && typedAgent !== DEMO_CREDENTIALS.admin.identifier) {
-          const cred = resolveAdminAgentLogin(typedAgent, loginPasswordInput);
+          // F32 (v12/D4-a) — a palavra-passe do agente vive no Supabase Auth: nuvem
+          // primeiro, migração just-in-time (D2), transição local marcada (até F-c)
+          // e fallback honesto (D3). Contas demo nunca entram nesta via.
+          let cred = resolveAdminAgentLogin(typedAgent, loginPasswordInput);
+          if (isSupabaseConfigured() && /^ADMIN-\d+$/.test(typedAgent.replace(/\s+/g, ''))) {
+            const agentEmail = syntheticAdminEmail(typedAgent);
+            const agentMarked = isCloudBound(typedAgent);
+            const cloudRes = await cloudSignIn(supabase, agentEmail, loginPasswordInput);
+            if (cloudRes.outcome === 'ok') {
+              if (!agentMarked) markCloudAccount(typedAgent, agentEmail, 'admin');
+              if (!cred) {
+                // Login noutro dispositivo: reconstrói a credencial local a partir dos metadados do Auth
+                const metaName = typeof cloudRes.metadata?.name === 'string' && cloudRes.metadata.name ? cloudRes.metadata.name : typedAgent;
+                const metaWorkerId = typeof cloudRes.metadata?.workerId === 'string' ? cloudRes.metadata.workerId : `agent-${typedAgent.toUpperCase()}`;
+                if (!getAdminAgentCred(typedAgent)) {
+                  addAdminAgent({ agent: typedAgent.toUpperCase().replace(/\s+/g, ''), name: metaName, password: loginPasswordInput, workerId: metaWorkerId });
+                }
+                cred = resolveAdminAgentLogin(typedAgent, loginPasswordInput);
+                addAuditLog(`[AUTH-CLOUD] Agente ${typedAgent} autenticado noutro dispositivo — credencial espelhada localmente a partir da nuvem.`, 'info');
+              } else {
+                addAuditLog(`[AUTH-CLOUD] Agente ${cred.agent} (${cred.name}) validado na nuvem (Supabase Auth).`, 'success');
+              }
+            } else if (cloudRes.outcome === 'invalid') {
+              if (agentMarked) {
+                if (cred) {
+                  addAuditLog(`[AUTH-CLOUD] Login do agente ${cred.agent} por credencial local de TRANSIÇÃO (nuvem primária; divergência até à reposição assistida F-c).`, 'warning');
+                } else {
+                  setLoginError('Credenciais incorrectas: a senha não corresponde a este Nº Agente Admin.');
+                  addAuditLog(`Login da Administração recusado para ${typedAgent}: senha inválida na nuvem.`, 'warning');
+                  return;
+                }
+              } else if (cred) {
+                // Credencial local legada válida => migração just-in-time (D2)
+                const prov = await provisionCloudAccount(supabase, {
+                  email: agentEmail,
+                  password: loginPasswordInput,
+                  metadata: { agent: typedAgent.toUpperCase().replace(/\s+/g, ''), name: cred.name, workerId: cred.workerId, role: 'admin' },
+                });
+                if (prov.outcome === 'ok' || prov.outcome === 'linked_existing') {
+                  markCloudAccount(typedAgent, agentEmail, 'admin');
+                  addAuditLog(`[AUTH-CLOUD] Migração just-in-time (D2): agente ${cred.agent} provisionado na nuvem no primeiro login.`, 'success');
+                } else if (prov.outcome === 'pending_confirm') {
+                  addAuditLog('[AUTH-CLOUD] ATENÇÃO: confirmação de e-mail activa no Supabase — desactivar (Authentication → Providers → Email). Agentes permanecem locais até à configuração.', 'warning');
+                } else if (prov.outcome === 'unavailable') {
+                  addAuditLog(`[AUTH-CLOUD] Nuvem indisponível — login local de emergência do agente ${typedAgent} (D3).`, 'warning');
+                }
+              }
+            } else if (cloudRes.outcome === 'unavailable') {
+              addAuditLog(`[AUTH-CLOUD] Nuvem indisponível — login local de emergência do agente ${typedAgent} (D3).`, 'warning');
+            }
+          }
           if (cred) {
             // F13 — Agente ADMIN-NNNN (conta REAL): sessão limpa com a ficha do
             // próprio agente. O perfil "Administrador Geral / Central" e os
@@ -4338,6 +4400,97 @@ Ficha civil do titular:
             return;
           }
           // Identificadores fora do formato ADMIN-NNNN (ou legado 'Admin-NN') seguem a via demo existente (intacta)
+        }
+      }
+
+      // ---- F31 (v12/ideologia v13): CIDADÃO autentica na NUVEM (Supabase Auth) ----
+      if (!isInstMode && !isGovMode) {
+        const typedCitizenBi = bi.trim().toUpperCase().replace(/\s+/g, '');
+        // Contas demo (v7) NUNCA tocam no Auth — via da demonstração intacta (D7)
+        if (typedCitizenBi && !homologationStore.isExempt(typedCitizenBi) && isSupabaseConfigured()) {
+          const cloudEmail = syntheticCitizenEmail(typedCitizenBi);
+          const cloudMarked = isCloudBound(typedCitizenBi);
+          const localPass = (() => { try { return localStorage.getItem(`citizen_pass_${typedCitizenBi}`); } catch { return null; } })();
+
+          const cloudRes = await cloudSignIn(supabase, cloudEmail, loginPasswordInput);
+          if (cloudRes.outcome === 'ok') {
+            if (!cloudMarked) markCloudAccount(typedCitizenBi, cloudEmail, 'cidadao');
+            addAuditLog(`[AUTH-CLOUD] Login do cidadão ${typedCitizenBi} validado na nuvem (Supabase Auth) — a palavra-passe foi verificada pela plataforma, não pela aplicação.`, 'success');
+          } else if (cloudRes.outcome === 'invalid') {
+            const wrongPassMsg = 'Credenciais incorrectas: a senha não corresponde a este Nº de B.I.';
+            if (cloudMarked) {
+              // Transição (até à reposição assistida F-c): se a credencial local deste
+              // dispositivo ainda confere, aceita como via de transição — a nuvem
+              // continua primária e a divergência fica marcada no log.
+              if (localPass !== null && localPass === loginPasswordInput) {
+                addAuditLog(`[AUTH-CLOUD] Login do cidadão ${typedCitizenBi} por credencial local de TRANSIÇÃO (nuvem primária; senha divergente até à reposição assistida F-c).`, 'warning');
+              } else {
+                setLoginError(wrongPassMsg);
+                addAuditLog(`Login do cidadão ${typedCitizenBi} recusado na nuvem: senha inválida.`, 'warning');
+                return;
+              }
+            // Credencial local legada (pré-v12)? Se a senha confere => migração JIT (D2)
+            } else if (localPass !== null) {
+              if (localPass !== loginPasswordInput) {
+                setLoginError(wrongPassMsg);
+                addAuditLog(`Login do cidadão ${typedCitizenBi} recusado: senha inválida (credencial local).`, 'warning');
+                return;
+              }
+              const prov = await provisionCloudAccount(supabase, {
+                email: cloudEmail,
+                password: loginPasswordInput,
+                metadata: { bi: typedCitizenBi, role: 'cidadao' },
+              });
+              if (prov.outcome === 'ok' || prov.outcome === 'linked_existing') {
+                markCloudAccount(typedCitizenBi, cloudEmail, 'cidadao');
+                addAuditLog(`[AUTH-CLOUD] Migração just-in-time (D2): credencial local de ${typedCitizenBi} provisionada na nuvem no primeiro login — valida na nuvem daqui em diante.`, 'success');
+              } else if (prov.outcome === 'pending_confirm') {
+                addAuditLog('[AUTH-CLOUD] ATENÇÃO: confirmação de e-mail activa no Supabase — desactivar (Authentication → Providers → Email). A conta permanece local até à configuração.', 'warning');
+              } else if (prov.outcome === 'conflict') {
+                setLoginError('Esta conta já existe na nuvem com uma senha diferente. Use a senha definida na nuvem ou contacte a Administração.');
+                addAuditLog(`[AUTH-CLOUD] Conflito de migração para ${typedCitizenBi}: o e-mail sintético já existe com outra senha.`, 'critical');
+                return;
+              } else if (prov.outcome === 'unavailable') {
+                addAuditLog(`[AUTH-CLOUD] Nuvem indisponível — login local de emergência para ${typedCitizenBi} (D3); migração adiada para o próximo login.`, 'warning');
+              }
+            }
+            // B.I. sem nenhuma credencial conhecida (nunca registado neste dispositivo
+            // nem migrado): via F12 actual — a sessão entra limpa e não verificada.
+            // (Fecho definitivo desta via = RLS, fase F-c do prompt v12.)
+          } else if (cloudRes.outcome === 'unavailable') {
+            addAuditLog(`[AUTH-CLOUD] Nuvem indisponível (${cloudRes.message || 'sem ligação'}) — fallback local (D3): login do cidadão ${typedCitizenBi} validado pelo modelo actual.`, 'warning');
+          }
+
+          // F-b — ESTADO LIDO DA NUVEM: activação/bloqueio/rejeição do admin passam a
+          // valer em QUALQUER dispositivo (antes era apenas estado visual local).
+          try {
+            const { data: statusRows } = await supabase
+              .from('solicitacoes_registo')
+              .select('status')
+              .eq('bi_numero', typedCitizenBi)
+              .order('criado_em', { ascending: false })
+              .limit(1);
+            const cloudSt = statusRows && statusRows[0] ? String(statusRows[0].status || '') : '';
+            if (cloudSt) {
+              if (cloudSt === 'Aprovado') homologationStore.setStatus(typedCitizenBi, 'active', undefined, undefined);
+              else if (cloudSt === 'Pendente') homologationStore.setStatus(typedCitizenBi, 'pending', undefined, undefined);
+              else if (cloudSt === 'Bloqueado') homologationStore.setStatus(typedCitizenBi, 'blocked', undefined, undefined);
+              else if (cloudSt === 'Reprovado' || cloudSt === 'Rejeitado' || cloudSt === 'Não Aprovado') homologationStore.setStatus(typedCitizenBi, 'rejected', undefined, undefined);
+
+              if (cloudSt === 'Bloqueado') {
+                setLoginError('A sua conta encontra-se BLOQUEADA pela Área de Administração. Contacte o suporte oficial para reactivação.');
+                addAuditLog(`Login do cidadão ${typedCitizenBi} recusado: conta BLOQUEADA (estado lido da nuvem — vale em qualquer dispositivo).`, 'critical');
+                return;
+              }
+              if (cloudSt === 'Reprovado' || cloudSt === 'Rejeitado' || cloudSt === 'Não Aprovado') {
+                setLoginError('O seu pedido de registo foi REJEITADO pela Área de Administração. Regularize a situação junto do suporte oficial.');
+                addAuditLog(`Login do cidadão ${typedCitizenBi} recusado: registo REJEITADO (estado lido da nuvem).`, 'critical');
+                return;
+              }
+            }
+          } catch (statusErr) {
+            console.warn('[AUTH-CLOUD] Leitura do estado na nuvem indisponível — mantido o estado local (D3):', statusErr);
+          }
         }
       }
 
