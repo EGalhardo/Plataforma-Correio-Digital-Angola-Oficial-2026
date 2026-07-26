@@ -261,6 +261,115 @@ O Correio Digital Angola moderniza a administração de Angola, transformando o 
       return res.status(200).json({ message: "Olá! Atualmente estou a operar em Modo local. Como posso ajudar com os seus documentos?" });
     }
 
+    // 5. Endpoint /api/verificar-cadastro (F27 — Prompt v11.1 · Portas 2 e 3)
+    // Pré-Verificação Inteligente das imagens do documento com IA de visão (Groq).
+    // REGRA DE OURO: qualquer erro/timeout/resposta inválida => {"veredicto":"REVISAO"}
+    // — o cadastro permanece PENDENTE exactamente como hoje (nunca aprovação por falha).
+    // Não persiste imagens nem dados sensíveis; logs apenas com metadados.
+    // (Manter em sincronia com a rota equivalente em server.ts — dev local.)
+    if (url.includes('/api/verificar-cadastro')) {
+      const pviResponderBase = (res: any, payload: any) => res.status(200).json(payload);
+      const pviEmit = (emit: any, veredicto: 'APTO' | 'REVISAO', alertas: string[], motivo: string) => emit(veredicto, alertas, motivo);
+      const pviStartedAt = Date.now();
+      const PVI_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+
+      const { biNumber, nome, tipo, urls, dataNascimento, sexo } = body || {};
+      const pviBi = typeof biNumber === 'string' ? biNumber.trim().toUpperCase() : '';
+      const pviNome = typeof nome === 'string' ? nome.trim() : '';
+      const pviTipo = tipo === 'instituicao' ? 'instituicao' : 'cidadao';
+      const pviFrente = typeof urls?.frente === 'string' ? urls.frente : '';
+      const pviVerso = typeof urls?.verso === 'string' ? urls.verso : '';
+      const pviNascimento = typeof dataNascimento === 'string' ? dataNascimento.trim() : '';
+      const pviSexo = typeof sexo === 'string' ? sexo.trim() : '';
+      // Só aceitamos URLs públicas do Storage do projecto ou data-URL de imagem (anti-SSRF)
+      const pviUrlOk = (u: string) => /^https:\/\/[^\s]+\.supabase\.co\//i.test(u) || u.startsWith('data:image/');
+
+      const pviResponder = (veredicto: 'APTO' | 'REVISAO', alertas: string[], motivo: string) =>
+        pviResponderBase(res, { veredicto, alertas, motivo, duracaoMs: Date.now() - pviStartedAt, modelo: PVI_MODEL });
+
+      if (!pviBi || !pviNome || !pviUrlOk(pviFrente) || !pviUrlOk(pviVerso)) {
+        return pviEmit(pviResponder, 'REVISAO', ['dados_insuficientes'], 'Dados insuficientes para a pré-verificação (identificação ou imagens em falta). O cadastro segue para homologação manual.');
+      }
+      if (!groq) {
+        return pviEmit(pviResponder, 'REVISAO', ['ia_indisponivel'], 'Serviço de IA indisponível no momento. O cadastro segue para homologação manual.');
+      }
+
+      const pviDocDesc = pviTipo === 'instituicao'
+        ? 'os documentos institucionais da adesão (ex.: Registo Comercial / Diário da República e Comprovativo de NIF / Alvará)'
+        : 'o Bilhete de Identidade da República de Angola (modelo oficial, formato cartão ID-1)';
+      const pviLayoutRules = pviTipo === 'instituicao'
+        ? `- Os documentos devem parecer oficiais e plausíveis (cabeçalho institucional, selos/carimbos ou composição tipográfica consistente), completos e legíveis.\n- Não existe um layout único — avalia-se a plausibilidade documental e a coerência do número declarado (NIF/registo) com o texto do documento.`
+        : `- MODELO OFICIAL DO B.I. ANGOLANO. FRENTE: fundo claro com padrão guilhoché/elementos gráficos de segurança, o Brasão da República no topo, os dizeres "REPÚBLICA DE ANGOLA" e "BILHETE DE IDENTIDADE", a fotografia a cores do titular, o nome completo, a filiação, o número do bilhete e a área da assinatura.\n- VERSO: impressão digital do titular, zona MRZ (linhas de leitura óptica, quando presente), naturalidade, data de nascimento, sexo, altura, estado civil e as datas de emissão e de validade.\n- Se o layout não corresponder de forma reconhecível a este modelo oficial, o veredicto é REVISAO.`;
+
+      const pviSystemPrompt = `Você é o motor de triagem documental do Correio Digital Angola (pré-verificação inteligente de novos cadastros).
+Analise as DUAS imagens anexadas — a primeira é a FRENTE e a segunda é o VERSO de ${pviDocDesc} — e compare-as com os dados declarados no formulário.
+AVALIE RIGOROSAMENTE:
+1. QUALIDADE DA IMAGEM: nitidez, resolução, iluminação, enquadramento, inclinação, reflexos, cortes e compressão excessiva.
+2. INTEGRIDADE DO DOCUMENTO: indícios de edição digital, montagem, recortes, fotografia ou texto adulterados, screenshot ou fotografia de ecrã, ou documento aparentemente gerado por IA. A análise é heurística — perante suspeita razoável, REVISAO.
+3. LAYOUT:
+${pviLayoutRules}
+4. COERÊNCIA OCR: leia o texto visível nas imagens e compare com os dados declarados (nome, número do documento e, quando visíveis, data de nascimento/sexo/filiação). Qualquer divergência relevante => REVISAO.
+REGRAS ABSOLUTAS:
+- "APTO" apenas quando TUDO estiver legível, coerente e sem qualquer indício de problema. Qualquer dúvida, imagem ilegível ou elemento obrigatório ausente => SEMPRE "REVISAO".
+- Nunca invente dados que não consegue ler: se não consegue ler, "REVISAO".
+- Com "APTO" o array "alertas" fica obrigatoriamente vazio; com "REVISAO" liste os motivos em snake_case (ex.: imagem_desfocada, imagem_cortada, layout_suspeito, nome_divergente, documento_divergente, data_divergente, possivel_screenshot, verso_incompativel, documento_ilegivel).
+- Responda APENAS com um objecto JSON válido, sem markdown nem texto adicional: {"veredicto":"APTO"|"REVISAO","alertas":["..."],"motivo":"frase curta em português de Angola"}.
+Esta análise é apenas uma triagem de plausibilidade — NÃO certifica identidades nem substitui a homologação administrativa.`;
+
+      const pviUserPrompt = `Tipo de cadastro: ${pviTipo === 'instituicao' ? 'INSTITUIÇÃO (documentos de adesão)' : 'CIDADÃO (Bilhete de Identidade)'}
+Dados declarados no formulário: Nome: "${pviNome}" | Nº do documento: "${pviBi}"${pviNascimento ? ` | Data de nascimento: "${pviNascimento}"` : ''}${pviSexo ? ` | Sexo: "${pviSexo}"` : ''}
+A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS com o JSON pedido.`;
+
+      try {
+        const PVI_TIMEOUT_MS = 20000;
+        const completion: any = await Promise.race([
+          groq.chat.completions.create({
+            messages: [
+              { role: 'system', content: pviSystemPrompt },
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: pviUserPrompt },
+                  { type: 'image_url', image_url: { url: pviFrente } },
+                  { type: 'image_url', image_url: { url: pviVerso } },
+                ] as any,
+              },
+            ],
+            model: PVI_MODEL,
+            temperature: 0,
+            max_tokens: 600,
+          }),
+          new Promise((_unused, reject) => setTimeout(() => reject(new Error('PVI_TIMEOUT_20S')), PVI_TIMEOUT_MS)),
+        ]);
+
+        const rawContent: string = completion?.choices?.[0]?.message?.content || '';
+        // Parsing conservador: qualquer anomalia => REVISAO (nunca aprovar por erro técnico)
+        let parsed: any = null;
+        try {
+          const ini = rawContent.indexOf('{');
+          const fim = rawContent.lastIndexOf('}');
+          if (ini >= 0 && fim > ini) parsed = JSON.parse(rawContent.substring(ini, fim + 1));
+        } catch { parsed = null; }
+
+        const alertas: string[] = parsed && Array.isArray(parsed.alertas)
+          ? parsed.alertas.filter((a: any) => typeof a === 'string' && a.trim()).map((a: string) => a.trim()).slice(0, 12)
+          : [];
+        const motivo: string = parsed && typeof parsed.motivo === 'string' ? parsed.motivo.trim().slice(0, 500) : '';
+
+        if (!parsed || (parsed.veredicto !== 'APTO' && parsed.veredicto !== 'REVISAO') || !motivo) {
+          return pviEmit(pviResponder, 'REVISAO', ['resposta_invalida', ...alertas].slice(0, 12), motivo || 'Resposta da IA inválida ou incompleta. O cadastro segue para homologação manual.');
+        }
+        // Coerência defensiva: APTO nunca pode coexistir com alertas — downgrade seguro.
+        if (parsed.veredicto === 'APTO' && alertas.length > 0) {
+          return pviEmit(pviResponder, 'REVISAO', alertas, motivo || 'Veredicto APTO devolvido com alertas — por segurança, segue para homologação manual.');
+        }
+        return pviEmit(pviResponder, parsed.veredicto, alertas, motivo);
+      } catch (e: any) {
+        console.error('PVIC: falha na pré-verificação com IA:', e?.message || e);
+        return pviEmit(pviResponder, 'REVISAO', ['falha_tecnica'], 'Falha técnica ou timeout na análise da IA. O cadastro segue para homologação manual.');
+      }
+    }
+
     // Fallback global de rotas
     return res.status(404).json({ error: "Endpoint não encontrado." });
 
