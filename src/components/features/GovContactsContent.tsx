@@ -3284,6 +3284,80 @@ export function GovContactsContent({
                     />
                   </motion.div>
                 )}
+
+                {/* F30 — Painel da Pré-Verificação Inteligente (IA): movido para DENTRO do
+                      separador «Validação Biométrica & IA», no fim do seu conteúdo — faz scroll
+                      junto com o resto do separador e deixa de ocupar espaço fixo nos outros.
+                      (F29, Prompt v11.1):
+                    veredicto, alertas, OCR vs formulário, qualidade das imagens, data/hora,
+                    modelo e tempo da análise — para auto-aprovados E pendentes com triagem [PVIC]. */}
+                {selectedReviewCitizen.pviVer && (
+                  <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/90 to-blue-50/60 p-4 space-y-3 text-left">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-700">
+                        <Zap size={12} className="text-indigo-500 fill-indigo-200" /> Pré-Verificação Inteligente (IA)
+                      </span>
+                      <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${selectedReviewCitizen.pviVer === 'APTO' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                        Veredicto da IA: {selectedReviewCitizen.pviVer === 'APTO' ? 'APTO' : 'REVISÃO'}
+                      </span>
+                    </div>
+
+                    {selectedReviewCitizen.pviVer === 'APTO' && (
+                      <div className="inline-flex items-center gap-1.5 bg-emerald-100/70 border border-emerald-200 rounded-full px-3 py-1">
+                        <Zap size={10} className="text-emerald-600 fill-emerald-300" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700">Aprovado automaticamente por Pré-Verificação Inteligente (IA)</span>
+                      </div>
+                    )}
+
+                    {!!selectedReviewCitizen.pviMotivo && (
+                      <p className="text-[11px] font-semibold text-slate-600 leading-relaxed">{selectedReviewCitizen.pviMotivo}</p>
+                    )}
+
+                    <div>
+                      <span className="text-[8.5px] font-black uppercase tracking-widest text-slate-400 block mb-1">Alertas da IA</span>
+                      {selectedReviewCitizen.pviAlertas && selectedReviewCitizen.pviAlertas.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {selectedReviewCitizen.pviAlertas.map((a) => (
+                            <span key={a} className="text-[8.5px] font-black uppercase tracking-wider bg-amber-100/80 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full">{a.replace(/_/g, ' ')}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-[9.5px] font-bold text-emerald-600 uppercase tracking-widest">Sem alertas</span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 pt-2 border-t border-indigo-100">
+                      <div>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Resultado OCR vs formulário</span>
+                        <span className="text-[11px] font-black text-slate-700">{selectedReviewCitizen.ocrDataMatch !== undefined ? `${selectedReviewCitizen.ocrDataMatch}%` : '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Qualidade das imagens</span>
+                        <span className="text-[11px] font-black text-slate-700">{selectedReviewCitizen.imageQuality !== undefined ? `${selectedReviewCitizen.imageQuality}%` : '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Coerência facial</span>
+                        <span className="text-[11px] font-black text-slate-700">{selectedReviewCitizen.facialMatch !== undefined ? `${selectedReviewCitizen.facialMatch}%` : '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Data e hora da análise</span>
+                        <span className="text-[11px] font-black text-slate-700">{selectedReviewCitizen.pviTs ? new Date(selectedReviewCitizen.pviTs).toLocaleString('pt-AO') : '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Modelo utilizado</span>
+                        <span className="text-[10px] font-black text-slate-700 font-mono break-all">{selectedReviewCitizen.pviModelo || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Tempo da análise</span>
+                        <span className="text-[11px] font-black text-slate-700">{selectedReviewCitizen.pviDuracaoMs !== undefined && selectedReviewCitizen.pviDuracaoMs !== null ? `${(selectedReviewCitizen.pviDuracaoMs / 1000).toFixed(1)}s` : '—'}</span>
+                      </div>
+                    </div>
+
+                    <p className="text-[8.5px] font-bold text-indigo-400 uppercase tracking-wider leading-snug pt-2 border-t border-indigo-100">
+                      Triagem de plausibilidade — a IA não certifica identidade. A Administração é a autoridade final e pode revogar qualquer aprovação automática.
+                    </p>
+                  </div>
+                )}
                   </>
                 )}
 
@@ -3536,77 +3610,6 @@ export function GovContactsContent({
                 )}
 
               </div>
-
-              {/* F29 (Prompt v11.1) — Painel da Pré-Verificação Inteligente (IA):
-                  veredicto, alertas, OCR vs formulário, qualidade das imagens, data/hora,
-                  modelo e tempo da análise — para auto-aprovados E pendentes com triagem [PVIC]. */}
-              {selectedReviewCitizen.pviVer && (
-                <div className="mx-6 mb-4 rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/90 to-blue-50/60 p-4 space-y-3 text-left">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-700">
-                      <Zap size={12} className="text-indigo-500 fill-indigo-200" /> Pré-Verificação Inteligente (IA)
-                    </span>
-                    <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${selectedReviewCitizen.pviVer === 'APTO' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                      Veredicto da IA: {selectedReviewCitizen.pviVer === 'APTO' ? 'APTO' : 'REVISÃO'}
-                    </span>
-                  </div>
-
-                  {selectedReviewCitizen.pviVer === 'APTO' && (
-                    <div className="inline-flex items-center gap-1.5 bg-emerald-100/70 border border-emerald-200 rounded-full px-3 py-1">
-                      <Zap size={10} className="text-emerald-600 fill-emerald-300" />
-                      <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700">Aprovado automaticamente por Pré-Verificação Inteligente (IA)</span>
-                    </div>
-                  )}
-
-                  {!!selectedReviewCitizen.pviMotivo && (
-                    <p className="text-[11px] font-semibold text-slate-600 leading-relaxed">{selectedReviewCitizen.pviMotivo}</p>
-                  )}
-
-                  <div>
-                    <span className="text-[8.5px] font-black uppercase tracking-widest text-slate-400 block mb-1">Alertas da IA</span>
-                    {selectedReviewCitizen.pviAlertas && selectedReviewCitizen.pviAlertas.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {selectedReviewCitizen.pviAlertas.map((a) => (
-                          <span key={a} className="text-[8.5px] font-black uppercase tracking-wider bg-amber-100/80 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full">{a.replace(/_/g, ' ')}</span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-[9.5px] font-bold text-emerald-600 uppercase tracking-widest">Sem alertas</span>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 pt-2 border-t border-indigo-100">
-                    <div>
-                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Resultado OCR vs formulário</span>
-                      <span className="text-[11px] font-black text-slate-700">{selectedReviewCitizen.ocrDataMatch !== undefined ? `${selectedReviewCitizen.ocrDataMatch}%` : '—'}</span>
-                    </div>
-                    <div>
-                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Qualidade das imagens</span>
-                      <span className="text-[11px] font-black text-slate-700">{selectedReviewCitizen.imageQuality !== undefined ? `${selectedReviewCitizen.imageQuality}%` : '—'}</span>
-                    </div>
-                    <div>
-                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Coerência facial</span>
-                      <span className="text-[11px] font-black text-slate-700">{selectedReviewCitizen.facialMatch !== undefined ? `${selectedReviewCitizen.facialMatch}%` : '—'}</span>
-                    </div>
-                    <div>
-                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Data e hora da análise</span>
-                      <span className="text-[11px] font-black text-slate-700">{selectedReviewCitizen.pviTs ? new Date(selectedReviewCitizen.pviTs).toLocaleString('pt-AO') : '—'}</span>
-                    </div>
-                    <div>
-                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Modelo utilizado</span>
-                      <span className="text-[10px] font-black text-slate-700 font-mono break-all">{selectedReviewCitizen.pviModelo || '—'}</span>
-                    </div>
-                    <div>
-                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Tempo da análise</span>
-                      <span className="text-[11px] font-black text-slate-700">{selectedReviewCitizen.pviDuracaoMs !== undefined && selectedReviewCitizen.pviDuracaoMs !== null ? `${(selectedReviewCitizen.pviDuracaoMs / 1000).toFixed(1)}s` : '—'}</span>
-                    </div>
-                  </div>
-
-                  <p className="text-[8.5px] font-bold text-indigo-400 uppercase tracking-wider leading-snug pt-2 border-t border-indigo-100">
-                    Triagem de plausibilidade — a IA não certifica identidade. A Administração é a autoridade final e pode revogar qualquer aprovação automática.
-                  </p>
-                </div>
-              )}
 
               {/* Ações de Decisão Administrativa (Footer do Modal) */}
               <div className="p-6 bg-slate-50 border-t border-slate-150 flex flex-col sm:flex-row items-center justify-between gap-4 flex-shrink-0">
