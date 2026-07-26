@@ -59,7 +59,9 @@ export function getAdvertisingImageUrls(): string[] {
   // Imagens essenciais e institucionais (Logomarcas, Biometria, Mapa, etc.)
   urls.add("https://i.postimg.cc/cCkwskty/Logomarca-Correio-Digital.png");
   urls.add("https://i.postimg.cc/6pQwXBFQ/Logomarca-Modo-Claro-Escuro.png");
-  urls.add("https://i.postimg.cc/Fs8cZJZt/Logomarca-PNG-(1).png");
+  // F35 — o tema claro usa o asset local recortado (logomarca_modo_claro_crop.png),
+  // servido pela própria app e carregado no primeiro paint da AppBar/Sidebar;
+  // o URL externo antigo deixou de ser necessário.
   urls.add("https://i.postimg.cc/x88pJx9X/Login-Biometrico.jpg");
   urls.add("https://i.postimg.cc/7PWwyst7/QR-Code.jpg");
   urls.add("https://i.postimg.cc/rp2hhzfK/mapa-Angola.jpg");
