@@ -2738,19 +2738,23 @@ export default function App() {
 
   const executeOfficialSend = () => {
     setIsOfficialConfirmOpen(false);
-    if (!composeData.to || !composeData.subject || !composeData.body) return;
+    // F34 — a Nova Mensagem do cidadão já não tem campo Assunto: deriva-se do corpo.
+    if (!composeData.to || !composeData.body) return;
+    const effectiveSubject = composeData.subject.trim()
+      || composeData.body.trim().replace(/\s+/g, ' ').slice(0, 60).trim()
+      || 'Correspondência Oficial';
     
     const messageId = Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);
-    const protocol = generateProtocol(composeData.to, 'message', messageId, composeData.subject);
+    const protocol = generateProtocol(composeData.to, 'message', messageId, effectiveSubject);
 
     const newMessage: Message = {
       id: messageId,
       org: composeData.to,
-      preview: composeData.subject,
+      preview: effectiveSubject,
       date: "hoje",
       status: "Informativo",
       details: {
-        subject: composeData.subject,
+        subject: effectiveSubject,
         body: composeData.body,
         deadline: "Sem prazo",
         state: "Entregue & Autenticado",
@@ -2767,7 +2771,7 @@ export default function App() {
     const protocolData = {
       protocolNumber: protocol.protocolNumber,
       org: composeData.to,
-      subject: composeData.subject,
+      subject: effectiveSubject,
       digitalSignature: protocol.digitalSignature || `RSA-AO-2026-CHANCELAR-${protocol.protocolNumber}`,
       documentHash: protocol.documentHash || 'SHA256:d82ebd908e09f87c6533010b9876274',
       officialIssueDate: protocol.officialIssueDate || new Date().toLocaleDateString('pt-PT'),
@@ -2776,10 +2780,10 @@ export default function App() {
     setSuccessProtocolModal(protocolData);
 
     if (!isOnline) {
-      const q = OfflineManager.queueAction('SEND_MESSAGE', { messageId, to: composeData.to, subject: composeData.subject });
+      const q = OfflineManager.queueAction('SEND_MESSAGE', { messageId, to: composeData.to, subject: effectiveSubject });
       setOfflineQueue(OfflineManager.getQueue());
       
-      const fallback = OfflineManager.triggerFallback('SMS', `Enviar Correspondência: ${composeData.subject}`);
+      const fallback = OfflineManager.triggerFallback('SMS', `Enviar Correspondência: ${effectiveSubject}`);
       setActiveFallback({ channel: 'SMS', message: fallback.message, protocol: fallback.protocol });
       
       addAuditLog(`Ação Offline: Mensagem guardada em fila local. Canal SMS ativo.`, 'warning');

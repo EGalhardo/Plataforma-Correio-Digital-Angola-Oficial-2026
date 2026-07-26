@@ -54,6 +54,10 @@ export function resolveCitizenName(bi: string): string {
 
 export const resolveInstitutionCode = (label?: string): string => {
   if (!label) return 'AGT';
+  const trimmedLabel = label.trim();
+  // F34 — código institucional REAL (ex.: AGT-9921-SR) passa intacto:
+  // a Nova Mensagem do cidadão endereça directamente pelo código.
+  if (isRealInstitutionalCode(trimmedLabel)) return trimmedLabel.toUpperCase();
   const explicit = label.match(/\(([^)]+)\)/)?.[1];
   if (explicit) return explicit.toUpperCase();
   const normalized = label.toUpperCase();

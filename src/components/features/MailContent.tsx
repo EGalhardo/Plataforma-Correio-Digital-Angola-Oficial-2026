@@ -162,9 +162,6 @@ export function MailContent({
   const [textHistory, setTextHistory] = useState<string[]>([composeData.body || '']);
   const [historyIndex, setHistoryIndex] = useState(0);
 
-  const [provincia, setProvincia] = useState('Luanda');
-  const [cidade, setCidade] = useState('Luanda');
-  const [municipio, setMunicipio] = useState('Benfica');
 
   const [isSearchingRecipient, setIsSearchingRecipient] = useState(false);
   const [searchTimer, setSearchTimer] = useState<NodeJS.Timeout | null>(null);
@@ -316,84 +313,6 @@ export function MailContent({
     return () => clearTimeout(debounceTimeout);
   }, [composeData.to]);
 
-  const PROVINCIAS_OPCOES = [
-    { value: 'Luanda', label: 'Luanda' },
-    { value: 'Benguela', label: 'Benguela' },
-    { value: 'Huíla', label: 'Huíla' },
-    { value: 'Cabinda', label: 'Cabinda' },
-  ];
-
-  const CIDADES_OPCOES: Record<string, { value: string; label: string }[]> = {
-    Luanda: [
-      { value: 'Luanda', label: 'Luanda' },
-      { value: 'Talatona', label: 'Talatona' },
-      { value: 'Cacuaco', label: 'Cacuaco' },
-      { value: 'Viana', label: 'Viana' }
-    ],
-    Benguela: [
-      { value: 'Benguela', label: 'Benguela' },
-      { value: 'Lobito', label: 'Lobito' },
-      { value: 'Catumbela', label: 'Catumbela' }
-    ],
-    Huíla: [
-      { value: 'Lubango', label: 'Lubango' },
-      { value: 'Humpata', label: 'Humpata' },
-      { value: 'Chibia', label: 'Chibia' }
-    ],
-    Cabinda: [
-      { value: 'Cabinda', label: 'Cabinda' },
-      { value: 'Cacongo', label: 'Cacongo' }
-    ]
-  };
-
-  const MUNICIPIOS_OPCOES: Record<string, { value: string; label: string }[]> = {
-    Luanda: [
-      { value: 'Benfica', label: 'Benfica' },
-      { value: 'Belas', label: 'Belas' },
-      { value: 'Sambizanga', label: 'Sambizanga' },
-      { value: 'Cazenga', label: 'Cazenga' }
-    ],
-    Talatona: [
-      { value: 'Talatona Centro', label: 'Talatona Centro' },
-      { value: 'Camama', label: 'Camama' }
-    ],
-    Cacuaco: [
-      { value: 'Cacuaco Sede', label: 'Cacuaco Sede' },
-      { value: 'Kicolo', label: 'Kicolo' }
-    ],
-    Viana: [
-      { value: 'Viana Sede', label: 'Viana Sede' },
-      { value: 'Estalagem', label: 'Estalagem' }
-    ],
-    Benguela: [
-      { value: 'Benguela Sede', label: 'Benguela Sede' },
-      { value: 'Baía Farta', label: 'Baía Farta' }
-    ],
-    Lobito: [
-      { value: 'Lobito Sede', label: 'Lobito Sede' },
-      { value: 'Canata', label: 'Canata' }
-    ],
-    Catumbela: [
-      { value: 'Catumbela Sede', label: 'Catumbela Sede' }
-    ],
-    Lubango: [
-      { value: 'Lubango Sede', label: 'Lubango Sede' },
-      { value: 'Arriba', label: 'Arriba' }
-    ],
-    Humpata: [
-      { value: 'Humpata Sede', label: 'Humpata Sede' }
-    ],
-    Chibia: [
-      { value: 'Chibia Sede', label: 'Chibia Sede' }
-    ],
-    Cabinda: [
-      { value: 'Cabinda Sede', label: 'Cabinda Sede' },
-      { value: 'Landana', label: 'Landana' }
-    ],
-    Cacongo: [
-      { value: 'Cacongo Sede', label: 'Cacongo Sede' }
-    ]
-  };
 
   useEffect(() => {
     if (isComposing) {
@@ -774,110 +693,20 @@ export function MailContent({
             </div>
           ) : (
             <div className="space-y-5 md:space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-5 md:gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">
-                    Destinatário Institucional
-                  </label>
-                  <div className="relative">
-                    <select 
-                      value={composeData.to}
-                      onChange={(e) => setComposeData({ ...composeData, to: e.target.value })}
-                      className="w-full bg-white border border-line rounded-2xl px-5 py-3.5 md:py-4 text-xs md:text-sm font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none cursor-pointer"
-                    >
-                      <option value="">Selecione uma instituição...</option>
-                      {["INAPEM", "SME", "AGT", "ENDE", "EPAL", "Tribunal", "Hospital", "Registo Civil", "INE"].map(org => (
-                        <option key={org} value={org}>{org}</option>
-                      ))}
-                    </select>
-                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                      <ArrowLeft className="-rotate-90" size={14} />
-                    </div>
-                  </div>
-                </div>
- 
-                <div className="space-y-2">
-                  <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">
-                    Província
-                  </label>
-                  <div className="relative">
-                    <select 
-                      value={provincia}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setProvincia(val);
-                        const firstCity = CIDADES_OPCOES[val]?.[0]?.value || '';
-                        setCidade(firstCity);
-                        const listM = MUNICIPIOS_OPCOES[firstCity] || MUNICIPIOS_OPCOES[val] || [];
-                        setMunicipio(listM[0]?.value || '');
-                      }}
-                      className="w-full bg-white border border-line rounded-2xl px-5 py-3.5 md:py-4 text-xs md:text-sm font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none cursor-pointer"
-                    >
-                      {PROVINCIAS_OPCOES.map(prov => (
-                        <option key={prov.value} value={prov.value}>{prov.label}</option>
-                      ))}
-                    </select>
-                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                      <ArrowLeft className="-rotate-90" size={14} />
-                    </div>
-                  </div>
-                </div>
- 
-                <div className="space-y-2">
-                  <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">
-                    Cidade
-                  </label>
-                  <div className="relative">
-                    <select 
-                      value={cidade}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setCidade(val);
-                        const listM = MUNICIPIOS_OPCOES[val] || [];
-                        setMunicipio(listM[0]?.value || '');
-                      }}
-                      className="w-full bg-white border border-line rounded-2xl px-5 py-3.5 md:py-4 text-xs md:text-sm font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none cursor-pointer"
-                    >
-                      {(CIDADES_OPCOES[provincia] || []).map(cid => (
-                        <option key={cid.value} value={cid.value}>{cid.label}</option>
-                      ))}
-                    </select>
-                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                      <ArrowLeft className="-rotate-90" size={14} />
-                    </div>
-                  </div>
-                </div>
- 
-                <div className="space-y-2">
-                  <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">
-                    Município
-                  </label>
-                  <div className="relative">
-                    <select 
-                      value={municipio}
-                      onChange={(e) => setMunicipio(e.target.value)}
-                      className="w-full bg-white border border-line rounded-2xl px-5 py-3.5 md:py-4 text-xs md:text-sm font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none cursor-pointer"
-                    >
-                      {(MUNICIPIOS_OPCOES[cidade] || MUNICIPIOS_OPCOES[provincia] || []).map(mun => (
-                        <option key={mun.value} value={mun.value}>{mun.label}</option>
-                      ))}
-                    </select>
-                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                      <ArrowLeft className="-rotate-90" size={14} />
-                    </div>
-                  </div>
-                </div>
-              </div>
- 
               <div className="space-y-2">
-                <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">Assunto</label>
-                <input 
+                <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">
+                  Destinatário Institucional codigo
+                </label>
+                <input
                   type="text"
-                  placeholder="Qual o tema da sua mensagem?"
-                  value={composeData.subject}
-                  onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })}
-                  className="w-full bg-white border border-line rounded-2xl px-5 py-3.5 md:py-4 text-xs md:text-sm font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                  placeholder="Introduza o Código Institucional (ex.: AGT-9921-SR)"
+                  value={composeData.to}
+                  onChange={(e) => setComposeData({ ...composeData, to: e.target.value.toUpperCase().replace(/\s+/g, '') })}
+                  className="w-full bg-white border border-line rounded-2xl px-5 py-3.5 md:py-4 text-xs md:text-sm font-mono font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
                 />
+                <p className="text-[9px] md:text-[11px] text-slate-500 font-bold pl-1 leading-relaxed">
+                  O Código Institucional é fornecido pela instituição destinatária (ex.: AGT-9921-SR, SME-LLVV).
+                </p>
               </div>
             </div>
           )}
@@ -1206,7 +1035,7 @@ export function MailContent({
           <div className="pt-2 md:pt-4 flex flex-col md:flex-row gap-3 md:gap-4 items-center">
             <button 
               onClick={handleSendMessage}
-              disabled={!composeData.to || !composeData.subject || !composeData.body}
+              disabled={!composeData.to || (isInst && !composeData.subject) || !composeData.body}
               className="w-full md:flex-[2] bg-primary text-white py-4 rounded-2xl font-black text-sm md:text-base shadow-xl shadow-primary/25 hover:bg-primary/95 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 md:gap-3 cursor-pointer"
             >
               <Send size={18} />
