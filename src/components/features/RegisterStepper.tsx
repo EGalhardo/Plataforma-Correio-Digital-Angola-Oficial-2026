@@ -21,7 +21,8 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import { homologationStore, notifyRegistrationSubmitted } from '../../services/homologationStore';
+import { homologationStore, notifyRegistrationSubmitted, notifyAccountApproved } from '../../services/homologationStore';
+import { requestPviVerification, buildPvicMarker, type PviVerdict } from '../../services/preVerificationService';
 import { runRegistrationVerification, prewarmVerificationEngine, type RegistrationVerificationReport } from '../../services/verificationEngine';
 
 const base64ToBlob = (base64Str: string): Blob => {
@@ -79,6 +80,8 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
   // Pré-verificação real dos documentos (Fase 1 — motor local no browser)
   const [verificationReport, setVerificationReport] = useState<RegistrationVerificationReport | null>(null);
+  // F28 (v11.1): selo «Aprovado automaticamente por Pré-Verificação Inteligente (IA)» no ecrã de sucesso
+  const [pviAutoApproved, setPviAutoApproved] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const verificationStartedRef = useRef(false);
 
@@ -486,6 +489,9 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
     let urlFrente = '';
     let urlVerso = '';
     let urlSelfie = '';
+    // F28 (Prompt v11.1) — veredicto da Pré-Verificação Inteligente (decidido após os uploads)
+    let pviVerdict: PviVerdict | null = null;
+    let pviAutoApproved = false;
 
     try {
       const isSupabaseReady = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
@@ -581,6 +587,36 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
           }
         }
 
+        // F28 (Prompt v11.1) — Portas 2 e 3: a IA de visão do servidor analisa as imagens do
+        // documento a partir das URLs gravadas no Storage. Qualquer falha/dúvida => REVISAO
+        // (a conta fica PENDENTE, exactamente como hoje). NUNCA aprovação por erro técnico.
+        if (urlFrente && urlVerso) {
+          setSubmitMessage('Pré-Verificação Inteligente (IA): a analisar as imagens do documento...');
+          pviVerdict = await requestPviVerification({
+            biNumber: newUser.biNumber,
+            nome: newUser.name,
+            tipo: appMode === 'institution' ? 'instituicao' : 'cidadao',
+            urls: { frente: urlFrente, verso: urlVerso },
+          });
+        } else {
+          pviVerdict = {
+            veredicto: 'REVISAO',
+            alertas: ['sem_imagens_nuvem'],
+            motivo: 'Imagens do documento indisponíveis na nuvem — homologação manual.',
+            duracaoMs: 0,
+            modelo: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          };
+        }
+        // Porta 2 local (verificationEngine) + Porta 2/3 do servidor: AMBAS têm de aprovar.
+        const pviLocalEngineOk = verificationReport != null && verificationReport.iaResult === 'Aprovado';
+        pviAutoApproved = pviVerdict.veredicto === 'APTO' && pviLocalEngineOk;
+        addAuditLog(
+          pviAutoApproved
+            ? `[PVIC] Cadastro de ${newUser.name} APROVADO AUTOMATICAMENTE pela Pré-Verificação Inteligente (veredicto APTO — modelo ${pviVerdict.modelo}, ${pviVerdict.duracaoMs}ms).`
+            : `[PVIC] Cadastro de ${newUser.name} enviado para homologação manual — veredicto ${pviVerdict.veredicto}${pviVerdict.alertas.length ? ` · alertas: ${pviVerdict.alertas.join(', ')}` : ''}${pviVerdict.motivo ? ` · ${pviVerdict.motivo}` : ''}`,
+          pviAutoApproved ? 'success' : 'warning'
+        );
+
         setSubmitMessage('Registando dados no Supabase Database...');
 
         // Insert to Supabase table: solicitacoes_registo
@@ -594,13 +630,16 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
             url_frente: urlFrente || null,
             url_verso: urlVerso || null,
             url_selfie: urlSelfie || null,
-            status: 'Pendente',
+            status: pviAutoApproved ? 'Aprovado' : 'Pendente',
             // Relatório técnico da pré-verificação local: viaja embutido nas
             // observações (marcador KYC) para a Área de Administração o ler em
             // qualquer dispositivo — nunca é mostrado ao cidadão.
             observacoes: newUser.reason + (verificationReport
               ? ` [KYC:${JSON.stringify({ v: 1, fm: verificationReport.face.similarity, iq: verificationReport.quality.score, ocr: verificationReport.ocr.score, coh: verificationReport.coherenceScore, ia: verificationReport.iaResult })}]`
               : '')
+            // F28 (v11.1): marcador [PVIC] — legível pelo Admin noutro dispositivo; nunca visível ao cidadão
+            + (pviVerdict ? ` ${buildPvicMarker(pviVerdict)}` : '')
+            + (pviAutoApproved ? ' | Aprovado automaticamente por Pré-Verificação Inteligente (IA).' : '')
           }]);
 
         if (insertErr) {
@@ -650,15 +689,33 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       
       const updated = [{
         ...newUser,
+        // F28 (v11.1): conta auto-aprovada pela IA nasce activa — e vê-se na fila do Admin como 'Aprovado Automaticamente'
+        status: pviAutoApproved ? 'Aprovado Automaticamente' : newUser.status,
+        pviVer: pviVerdict?.veredicto,
+        pviAlertas: pviVerdict?.alertas,
+        pviMotivo: pviVerdict?.motivo,
+        pviDuracaoMs: pviVerdict?.duracaoMs,
+        pviModelo: pviVerdict?.modelo,
+        pviTs: pviVerdict ? new Date().toISOString() : undefined,
         facePhoto: urlSelfie || newUser.facePhoto
       }, ...currentCitizens];
       localStorage.setItem('gov_admin_citizens', JSON.stringify(updated));
       localStorage.setItem(`citizen_pass_${newUser.biNumber}`, password);
 
-      // HOMOLOGAÇÃO: a conta nasce PENDENTE — o cidadão pode entrar, mas fica
-      // inativo até aprovação da Área de Administração (única via de contacto)
-      homologationStore.setStatus(newUser.biNumber, 'pending', undefined, newUser.name);
-      notifyRegistrationSubmitted(newUser.biNumber, newUser.name);
+      // HOMOLOGAÇÃO: por omissão a conta nasce PENDENTE — o cidadão pode entrar, mas fica
+      // inactivo até aprovação da Área de Administração (única via de contacto).
+      // F28 (v11.1): quando a Pré-Verificação Inteligente aprova as TRÊS portas, a conta
+      // nasce ACTIVA e recebe a correspondência oficial de boas-vindas (substitui a de
+      // 'em homologação'). Qualquer dúvida/falha => caminho pendente, inalterado.
+      if (pviAutoApproved) {
+        homologationStore.setStatus(newUser.biNumber, 'active', undefined, newUser.name);
+        homologationStore.clearThread(newUser.biNumber);
+        notifyAccountApproved(newUser.biNumber, newUser.name);
+      } else {
+        homologationStore.setStatus(newUser.biNumber, 'pending', undefined, newUser.name);
+        notifyRegistrationSubmitted(newUser.biNumber, newUser.name);
+      }
+      setPviAutoApproved(pviAutoApproved);
 
       addAuditLog(`Processo de Adesão de ${newUser.name} submetido ao SME`, 'info');
       setStep('success');
@@ -1367,9 +1424,13 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                       : 'O seu processo de registo foi enviado com sucesso para a fila de homologação.'}
                   </p>
                   <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                    {appMode === 'institution' 
-                      ? 'O pedido está sob revisão da nossa equipa administrativa e técnica. Em menos de 24h enviaremos para o e-mail institucional os resultados.' 
-                      : 'O seu processo está sob revisão dos inspectores de identificação civil nacional usando inteligência artificial. Em menos de 24h enviaremos para o seu Email os resultados.'}
+                    {pviAutoApproved
+                      ? (appMode === 'institution'
+                        ? 'A adesão foi APROVADA AUTOMATICAMENTE pela Pré-Verificação Inteligente (IA) — a área institucional fica activa de imediato, sem espera pela homologação manual.'
+                        : 'A sua conta foi APROVADA AUTOMATICAMENTE pela Pré-Verificação Inteligente (IA) e está activa de imediato — já pode iniciar sessão com o seu B.I.')
+                      : (appMode === 'institution'
+                        ? 'O pedido está sob revisão da nossa equipa administrativa e técnica. Em menos de 24h enviaremos para o e-mail institucional os resultados.'
+                        : 'O seu processo está sob revisão dos inspectores de identificação civil nacional usando inteligência artificial. Em menos de 24h enviaremos para o seu Email os resultados.')}
                   </p>
                 </div>
               </div>
@@ -1382,6 +1443,13 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                   {biNumber}
                 </span>
               </div>
+
+              {pviAutoApproved && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 flex items-center justify-center gap-2 animate-fadeIn">
+                  <Sparkles size={13} className="text-emerald-600" />
+                  <span className="text-[10.5px] font-black text-emerald-700 uppercase tracking-widest">Aprovado automaticamente por Pré-Verificação Inteligente (IA)</span>
+                </div>
+              )}
 
               <button
                 type="button"
