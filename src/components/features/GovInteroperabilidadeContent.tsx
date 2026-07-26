@@ -35,6 +35,7 @@ import { supabaseService } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore } from '../../services/homologationStore';
 import { parseInstPack, isInstitutionObservacao, normalizeInstCode, getLocalInstRegs, updateLocalInstReg } from '../../services/institutionRegistrationStore';
+import { parsePvicFromObservacoes } from '../../services/preVerificationService';
 
 
 interface GovInteroperabilidadeContentProps {
@@ -1875,6 +1876,38 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-[9.5px] font-bold text-slate-500 leading-snug">
                     Verificações biométricas/KYC do modelo de cidadão: <span className="font-black text-slate-600">N/A — adesão institucional</span> (sem documentos nem captura facial neste fluxo, por definição do processo aprovado).
                   </div>
+
+                  {/* F29 (Prompt v11.1) — Painel da Pré-Verificação Inteligente (IA) dos
+                      documentos da adesão: veredicto, alertas, motivo, data/hora, modelo e
+                      duração. Só aparece quando o registo traz marcador [PVIC]. */}
+                  {(() => {
+                    const pvi = parsePvicFromObservacoes(row.observacoes);
+                    if (!pvi) return null;
+                    return (
+                      <div className="border border-indigo-200 bg-indigo-50/60 rounded-2xl px-4 py-3 space-y-2 text-left">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="text-[9.5px] font-black uppercase tracking-widest text-indigo-700">Pré-Verificação Inteligente (IA) — documentos da adesão</span>
+                          <span className={`text-[8.5px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${pvi.ver === 'APTO' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                            Veredicto da IA: {pvi.ver === 'APTO' ? 'APTO' : 'REVISÃO'}
+                          </span>
+                        </div>
+                        {pvi.mot && <p className="text-[10px] font-semibold text-slate-600 leading-snug">{pvi.mot}</p>}
+                        {pvi.al.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {pvi.al.map((a) => (
+                              <span key={a} className="text-[8px] font-black uppercase tracking-wider bg-amber-100/70 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded-full">{a.replace(/_/g, ' ')}</span>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-[8.5px] font-bold text-slate-400 leading-snug">
+                          {pvi.ts ? `Analisado em ${new Date(pvi.ts).toLocaleString('pt-AO')}` : 'Análise sem data registada'}{pvi.mod ? ` · modelo ${pvi.mod}` : ''}{pvi.dur != null ? ` · ${(pvi.dur / 1000).toFixed(1)}s` : ''}
+                        </p>
+                        {pvi.ver === 'APTO' && (
+                          <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Aprovado automaticamente por Pré-Verificação Inteligente (IA) — revogável pela Administração</p>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Thread */}
                   <div className="border border-slate-200 rounded-2xl overflow-hidden">

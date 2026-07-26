@@ -15,6 +15,7 @@ import {
   notifyAccountReopened,
   notifyAccountUnblocked,
 } from '../../services/homologationStore';
+import { parsePvicFromObservacoes } from '../../services/preVerificationService';
 import { 
   Users,
   Mail, 
@@ -428,6 +429,13 @@ export function GovContactsContent({
     verificationScore?: number;
     dbUUID?: string;
     iaReport?: string;
+    // F29 (v11.1) — resumo da Pré-Verificação Inteligente (marcador [PVIC] das observações)
+    pviVer?: 'APTO' | 'REVISAO';
+    pviAlertas?: string[];
+    pviMotivo?: string;
+    pviDuracaoMs?: number;
+    pviModelo?: string;
+    pviTs?: string;
   }
 
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
@@ -810,11 +818,18 @@ export function GovContactsContent({
   };
 
   const stripKycMarker = (raw?: string): string =>
-    (raw || '').replace(/\s*\[KYC:\{[\s\S]*?\}\]/, '').trim();
+    (raw || '')
+      .replace(/\s*\[KYC:\{[\s\S]*?\}\]/, '')
+      // F29 (v11.1): o marcador [PVIC] também não pode poluir o texto de motivo
+      .replace(/\s*\[PVIC:\{[\s\S]*?\}\]/, '')
+      .trim();
 
   const mapRegistrationRowsToCitizens = (rows: any[]): Citizen[] => rows.map((item: any) => {
-    let st: 'Pendente de Validação' | 'Aprovado Manualmente' | 'Rejeitado' = 'Pendente de Validação';
-    if (item.status === 'Aprovado') st = 'Aprovado Manualmente';
+    // F29 (v11.1): status 'Aprovado' com marcador [PVIC] APTO = auto-aprovação pela IA
+    // (distinta da aprovação manual — com selo próprio e revogação marcada).
+    const pvi = parsePvicFromObservacoes(item.observacoes);
+    let st: 'Pendente de Validação' | 'Aprovado Automaticamente' | 'Aprovado Manualmente' | 'Rejeitado' = 'Pendente de Validação';
+    if (item.status === 'Aprovado') st = pvi?.ver === 'APTO' ? 'Aprovado Automaticamente' : 'Aprovado Manualmente';
     if (item.status === 'Reprovado' || item.status === 'Não Aprovado' || item.status === 'Rejeitado') st = 'Rejeitado';
 
     // Métricas reais medidas pelo motor local no momento do registo (não inventadas)
@@ -847,7 +862,14 @@ export function GovContactsContent({
       iaResult: iaRes,
       urlFrente: item.url_frente || '',
       urlVerso: item.url_verso || '',
-      dbUUID: item.id
+      dbUUID: item.id,
+      // F29 (v11.1) — detalhe da Pré-Verificação Inteligente para o painel do modal
+      pviVer: pvi?.ver ?? undefined,
+      pviAlertas: pvi?.al,
+      pviMotivo: pvi?.mot,
+      pviDuracaoMs: pvi?.dur ?? undefined,
+      pviModelo: pvi?.mod,
+      pviTs: pvi?.ts
     };
   });
 
@@ -1021,7 +1043,15 @@ export function GovContactsContent({
                 ocrDataMatch: sc.ocrDataMatch ?? local.ocrDataMatch,
                 iaResult: sc.iaResult ?? local.iaResult,
                 verificationScore: sc.verificationScore ?? local.verificationScore,
-                phone: sc.phone ?? local.phone
+                phone: sc.phone ?? local.phone,
+                // F29 (v11.1): o spread da nuvem escreveria undefined sobre os campos PVIC
+                // locais — preserva-os como já acontece com as métricas KYC.
+                pviVer: sc.pviVer ?? local.pviVer,
+                pviAlertas: (sc.pviAlertas && sc.pviAlertas.length > 0) ? sc.pviAlertas : local.pviAlertas,
+                pviMotivo: sc.pviMotivo ?? local.pviMotivo,
+                pviDuracaoMs: sc.pviDuracaoMs ?? local.pviDuracaoMs,
+                pviModelo: sc.pviModelo ?? local.pviModelo,
+                pviTs: sc.pviTs ?? local.pviTs
               };
             });
             return [...merged, ...localFiltered];
@@ -3507,6 +3537,77 @@ export function GovContactsContent({
 
               </div>
 
+              {/* F29 (Prompt v11.1) — Painel da Pré-Verificação Inteligente (IA):
+                  veredicto, alertas, OCR vs formulário, qualidade das imagens, data/hora,
+                  modelo e tempo da análise — para auto-aprovados E pendentes com triagem [PVIC]. */}
+              {selectedReviewCitizen.pviVer && (
+                <div className="mx-6 mb-4 rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/90 to-blue-50/60 p-4 space-y-3 text-left">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-700">
+                      <Zap size={12} className="text-indigo-500 fill-indigo-200" /> Pré-Verificação Inteligente (IA)
+                    </span>
+                    <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${selectedReviewCitizen.pviVer === 'APTO' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                      Veredicto da IA: {selectedReviewCitizen.pviVer === 'APTO' ? 'APTO' : 'REVISÃO'}
+                    </span>
+                  </div>
+
+                  {selectedReviewCitizen.pviVer === 'APTO' && (
+                    <div className="inline-flex items-center gap-1.5 bg-emerald-100/70 border border-emerald-200 rounded-full px-3 py-1">
+                      <Zap size={10} className="text-emerald-600 fill-emerald-300" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700">Aprovado automaticamente por Pré-Verificação Inteligente (IA)</span>
+                    </div>
+                  )}
+
+                  {!!selectedReviewCitizen.pviMotivo && (
+                    <p className="text-[11px] font-semibold text-slate-600 leading-relaxed">{selectedReviewCitizen.pviMotivo}</p>
+                  )}
+
+                  <div>
+                    <span className="text-[8.5px] font-black uppercase tracking-widest text-slate-400 block mb-1">Alertas da IA</span>
+                    {selectedReviewCitizen.pviAlertas && selectedReviewCitizen.pviAlertas.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {selectedReviewCitizen.pviAlertas.map((a) => (
+                          <span key={a} className="text-[8.5px] font-black uppercase tracking-wider bg-amber-100/80 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full">{a.replace(/_/g, ' ')}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[9.5px] font-bold text-emerald-600 uppercase tracking-widest">Sem alertas</span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 pt-2 border-t border-indigo-100">
+                    <div>
+                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Resultado OCR vs formulário</span>
+                      <span className="text-[11px] font-black text-slate-700">{selectedReviewCitizen.ocrDataMatch !== undefined ? `${selectedReviewCitizen.ocrDataMatch}%` : '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Qualidade das imagens</span>
+                      <span className="text-[11px] font-black text-slate-700">{selectedReviewCitizen.imageQuality !== undefined ? `${selectedReviewCitizen.imageQuality}%` : '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Coerência facial</span>
+                      <span className="text-[11px] font-black text-slate-700">{selectedReviewCitizen.facialMatch !== undefined ? `${selectedReviewCitizen.facialMatch}%` : '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Data e hora da análise</span>
+                      <span className="text-[11px] font-black text-slate-700">{selectedReviewCitizen.pviTs ? new Date(selectedReviewCitizen.pviTs).toLocaleString('pt-AO') : '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Modelo utilizado</span>
+                      <span className="text-[10px] font-black text-slate-700 font-mono break-all">{selectedReviewCitizen.pviModelo || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Tempo da análise</span>
+                      <span className="text-[11px] font-black text-slate-700">{selectedReviewCitizen.pviDuracaoMs !== undefined && selectedReviewCitizen.pviDuracaoMs !== null ? `${(selectedReviewCitizen.pviDuracaoMs / 1000).toFixed(1)}s` : '—'}</span>
+                    </div>
+                  </div>
+
+                  <p className="text-[8.5px] font-bold text-indigo-400 uppercase tracking-wider leading-snug pt-2 border-t border-indigo-100">
+                    Triagem de plausibilidade — a IA não certifica identidade. A Administração é a autoridade final e pode revogar qualquer aprovação automática.
+                  </p>
+                </div>
+              )}
+
               {/* Ações de Decisão Administrativa (Footer do Modal) */}
               <div className="p-6 bg-slate-50 border-t border-slate-150 flex flex-col sm:flex-row items-center justify-between gap-4 flex-shrink-0">
                 <div>
@@ -3707,7 +3808,10 @@ export function GovContactsContent({
                         if (selectedReviewCitizen.dbUUID || selectedReviewCitizen.id.length > 20) {
                           await updateRegistrationRecord(selectedReviewCitizen.dbUUID || selectedReviewCitizen.id, { 
                             status: 'Pendente',
-                            observacoes: 'Reaberto para nova revisão.'
+                            // F29 (v11.1): revogação de auto-aprovação marcada (rastreável na auditoria)
+                            observacoes: selectedReviewCitizen.status === 'Aprovado Automaticamente'
+                              ? `Reaberto por revogação da aprovação automática (Pré-Verificação Inteligente) em ${new Date().toLocaleString('pt-AO')}.`
+                              : 'Reaberto para nova revisão.'
                           });
                         }
 
@@ -3715,12 +3819,14 @@ export function GovContactsContent({
                         homologationStore.setStatus(selectedReviewCitizen.biNumber || '', 'pending', undefined, selectedReviewCitizen.name);
                         notifyAccountReopened(selectedReviewCitizen.biNumber || '', selectedReviewCitizen.name);
 
-                        addAuditLog?.(`Auditoria: Cadastro de "${selectedReviewCitizen.name}" reaberto para nova revisão e testes dactiloscópicos.`, 'info');
+                        addAuditLog?.(selectedReviewCitizen.status === 'Aprovado Automaticamente'
+                          ? `Auditoria: REVOGADA a aprovação automática (Pré-Verificação Inteligente) do cadastro de "${selectedReviewCitizen.name}" — o processo volta a Pendente de Validação.`
+                          : `Auditoria: Cadastro de "${selectedReviewCitizen.name}" reaberto para nova revisão e testes dactiloscópicos.`, 'info');
                         setSelectedReviewCitizen(null);
                       }}
                       className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer font-bold w-full sm:w-auto text-center border-0 font-sans"
                     >
-                      Reabrir para Revisão
+                      {selectedReviewCitizen.status === 'Aprovado Automaticamente' ? 'Revogar Aprovação Automática' : 'Reabrir para Revisão'}
                     </button>
                   )}
 
