@@ -31,7 +31,7 @@ import {
 import {
   addAdminAgent,
   ADMIN_ALFA_AGENT,
-  getAdminAlfa,
+  hasActiveAdminAlfa,
   isAdminAgentPasswordTaken,
   setAdminAlfa,
 } from '../../services/adminAgentStore';
@@ -141,7 +141,7 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    if (getAdminAlfa()) {
+    if (hasActiveAdminAlfa()) { // F26 — a marcação só bloqueia com a credencial do Alfa existente
       setError('O registo está encerrado — o Administrador Geral já foi registado neste dispositivo. Os restantes membros são adicionados por ele na página Equipa (ADMIN-0002, ADMIN-0003, …).');
       return;
     }

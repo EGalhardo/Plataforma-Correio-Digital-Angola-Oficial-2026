@@ -31,6 +31,14 @@ export const getAdminAlfa = (): string | null => {
   try { return localStorage.getItem(ALFA_KEY); } catch { return null; }
 };
 
+/** Marcação ACTIVA do Alfa: só tem efeito se a credencial correspondente existir neste
+ *  dispositivo. F26 — robustez: se a credencial se perder localmente sem a marcação
+ *  (gravações separadas), o registo NÃO fica permanentemente bloqueado. */
+export const hasActiveAdminAlfa = (): boolean => {
+  const alfa = getAdminAlfa();
+  return !!alfa && !!getAdminAgentCred(alfa);
+};
+
 /** D3 — grava a marcação "Alfa registado" (fecha a opção "Registar" do login Admin). */
 export const setAdminAlfa = (agent: string): void => {
   try { localStorage.setItem(ALFA_KEY, normalizeAgentNumber(agent)); }

@@ -81,7 +81,7 @@ import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveC
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, type InstitutionIdentity } from './services/institutionSessionService';
 import { getLocalInstReg, normalizeInstCode, parseInstPack } from './services/institutionRegistrationStore';
-import { resolveAdminAgentLogin, getAdminAlfa } from './services/adminAgentStore';
+import { resolveAdminAgentLogin, hasActiveAdminAlfa } from './services/adminAgentStore';
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
 import { useSession } from './services/sessionStore';
@@ -4596,7 +4596,7 @@ Ficha civil do titular:
 
                       {/* Footer border and buttons for Citizen */}
                       <div className="pt-3 mt-1.5 border-t border-slate-100 flex items-center justify-between gap-3">
-                        {isGovMode && getAdminAlfa() ? (
+                        {isGovMode && hasActiveAdminAlfa() ? (
                           <div className="flex flex-col items-start gap-1 text-left min-w-0">
                             <button
                               type="button"
