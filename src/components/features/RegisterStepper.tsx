@@ -23,6 +23,7 @@ import {
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore, notifyRegistrationSubmitted, notifyAccountApproved } from '../../services/homologationStore';
 import { requestPviVerification, buildPvicMarker, type PviVerdict } from '../../services/preVerificationService';
+import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticCitizenEmail } from '../../services/cloudAuthService';
 import { runRegistrationVerification, prewarmVerificationEngine, type RegistrationVerificationReport } from '../../services/verificationEngine';
 
 const base64ToBlob = (base64Str: string): Blob => {
@@ -701,6 +702,32 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       }, ...currentCitizens];
       localStorage.setItem('gov_admin_citizens', JSON.stringify(updated));
       localStorage.setItem(`citizen_pass_${newUser.biNumber}`, password);
+
+      // F31 (v12/ideologia v13, D1-a) — A palavra-passe nasce na NUVEM (Supabase
+      // Auth, bcrypt da plataforma). Best-effort: falha da nuvem NUNCA quebra o
+      // registo (D3) — a migração just-in-time ocorre no primeiro login (D2).
+      // Instituições: o responsável é provisionado em RegisterInstitutionPage
+      // com o Nº Agente real (logins institucionais usam código/agente, não NIF).
+      if (appMode !== 'institution' && isSupabaseConfigured()) {
+        try {
+          const cloudEmail = syntheticCitizenEmail(newUser.biNumber);
+          const prov = await provisionCloudAccount(supabase, {
+            email: cloudEmail,
+            password,
+            metadata: { bi: newUser.biNumber, role: 'cidadao', name: newUser.name },
+          });
+          if (prov.outcome === 'ok' || prov.outcome === 'linked_existing') {
+            markCloudAccount(newUser.biNumber, cloudEmail, 'cidadao');
+            addAuditLog(`[AUTH-CLOUD] Conta do cidadão ${newUser.name} (${newUser.biNumber}) nascida na nuvem — a palavra-passe vive apenas no Supabase Auth.`, 'success');
+          } else if (prov.outcome === 'pending_confirm') {
+            addAuditLog('[AUTH-CLOUD] ATENÇÃO: confirmação de e-mail activa no Supabase — desactivar (Authentication → Providers → Email) para o login na nuvem funcionar.', 'warning');
+          } else if (prov.outcome === 'unavailable') {
+            addAuditLog(`[AUTH-CLOUD] Nuvem indisponível no registo de ${newUser.name} — conta mantida local; migração just-in-time no primeiro login (D3).`, 'warning');
+          }
+        } catch (cloudErr) {
+          console.error('[AUTH-CLOUD] Falha inesperada no provisionamento do cidadão:', cloudErr);
+        }
+      }
 
       // HOMOLOGAÇÃO: por omissão a conta nasce PENDENTE — o cidadão pode entrar, mas fica
       // inactivo até aprovação da Área de Administração (única via de contacto).
