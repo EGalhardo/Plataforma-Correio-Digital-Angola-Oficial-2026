@@ -9,6 +9,7 @@ import { Message, Document, AppMode, LanguageCode } from '../../types';
 import { useSession } from '../../services/sessionStore';
 import { useLanguage } from '../../hooks/useLanguage';
 import { LazyImage } from '../ui/LazyImage';
+import logoModoClaro from '../../assets/images/logomarca_modo_claro_crop.png';
 
 interface MenuItem {
   id: string;
@@ -86,12 +87,12 @@ export function Sidebar({
         <LazyImage
           src={theme === 'dark' 
             ? "https://i.postimg.cc/6pQwXBFQ/Logomarca-Modo-Claro-Escuro.png"
-            : "https://i.postimg.cc/Fs8cZJZt/Logomarca-PNG-(1).png"
+            : logoModoClaro
           } 
           alt="Correio Digital" 
           priority={true}
           placeholder="skeleton"
-          style={{ height: '74px', width: 'auto', objectFit: 'contain', backgroundColor: 'transparent' }}
+          style={{ height: '74px', width: 'auto', objectFit: 'contain', backgroundColor: 'transparent', ...(theme === 'dark' ? {} : { maxWidth: '100%' }) }}
           className="transition-all"
         />
       </div>

@@ -10,6 +10,7 @@ import { useSession } from '../../services/sessionStore';
 import { AppNotification, AppMode, LanguageCode, LANGUAGE_OPTIONS, Message } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
 import { LazyImage } from '../ui/LazyImage';
+import logoModoClaro from '../../assets/images/logomarca_modo_claro_crop.png';
 import { hasPagePresentation } from '../../services/voicePresentations';
 import type { JSX } from 'react';
 
@@ -333,12 +334,12 @@ export function Header({
           <LazyImage 
             src={theme === 'dark' 
               ? "https://i.postimg.cc/6pQwXBFQ/Logomarca-Modo-Claro-Escuro.png"
-              : "https://i.postimg.cc/Fs8cZJZt/Logomarca-PNG-(1).png"
+              : logoModoClaro
             }
             alt="Correio Digital" 
             priority={true}
             placeholder="skeleton"
-            style={{ height: '46px', width: 'auto', objectFit: 'contain', cursor: 'pointer', backgroundColor: 'transparent' }}
+            style={{ height: '46px', width: 'auto', objectFit: 'contain', cursor: 'pointer', backgroundColor: 'transparent', ...(theme === 'dark' ? {} : { maxWidth: '45vw' }) }}
           />
           {isAdmin && (
             <span className={`ml-2 text-[8px] font-black uppercase px-1.5 py-0.5 rounded leading-none bg-slate-900 text-white`}>
