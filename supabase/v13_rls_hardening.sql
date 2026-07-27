@@ -5,6 +5,13 @@
 --   inteiro numa transação única → o erro fez ROLLBACK TOTAL (verificado ao
 --   vivo com a chave anon: messages/profiles/etc. continuavam legíveis).
 --   NADA ficou aplicado; esta versão pode ser executada de imediato.
+-- v1.2-c (2026-07-27) — correcção do erro 42703 da 2.ª execução:
+--   "column host_bi does not exist" — a tabela REAL de produção de
+--   video_sessions NÃO foi criada a partir do schema.sql do repositório
+--   (que declara host_bi/guest_bi). Como está vazia, as colunas reais não
+--   são consultáveis via API. As políticas de vídeo passam a NÃO referenciar
+--   colunas (adm/instituição apenas) até o diagnóstico ⑩ revelar o esquema
+--   real. Todas as outras políticas usam apenas colunas VERIFICADAS ao vivo.
 -- ============================================================================
 -- ============================================================================
 -- Correio Digital Angola — RLS v1.2 (HARDENING REAL)
@@ -36,7 +43,8 @@
 --
 -- COMPATIBILIDADE (fluxos reais verificados no código — src/services/*):
 --   · Cidadão: lê/cria os SEUS contactos, documentos, pedidos, histórico da
---     SUA caixa, sessões de vídeo em que participa. (App.tsx l.1911/3430/3164)
+--     SUA caixa. (App.tsx l.1911/3430/3164) · Sessões de vídeo ficam em modo
+--     LOCAL (fallback já existente) até se conhecerem as colunas reais.
 --   · Instituição: lê documentos/pedidos/protocolos do âmbito institucional.
 --   · Admin (role='admin'): leitura total; escrita nos fluxos de gestão.
 --   · Contas DEMO (sem sessão Auth): acesso nuvem morre — ACEITE desde a v1.1
@@ -247,68 +255,36 @@ create policy "msg_history_insert_da_caixa"
   );
 
 -- ----------------------------------------------------------------------------
--- B6) video_sessions / video_session_events — participantes e admin
---     (videoSessionService: select geral l.211, insert host l.310, update
---      status l.378, eventos insert l.439 / select por sessão l.474)
+-- B6) video_sessions / video_session_events — SELADAS a admin/instituição.
+--     ATENÇÃO: a tabela real de produção NÃO corresponde ao schema.sql do
+--     repositório (42703: host_bi não existe lá) e está VAZIA — as colunas
+--     reais são indeterminadas. Por isso as políticas NÃO referenciam nenhuma
+--     coluna: só role admin/instituicao passa. A app usa fallback local-first
+--     para sessões de vídeo (videoSessionService faz try/catch + local em
+--     todos os caminhos — comportamento que já era o real em produção, onde
+--     nunca existiram linhas). Políticas por participante (host/convidado)
+--     ficam ADIADAS até o diagnóstico ⑩ revelar as colunas reais.
 -- ----------------------------------------------------------------------------
 alter table video_sessions enable row level security;
 drop policy if exists "video_sessions_select_participante" on video_sessions;
 drop policy if exists "video_sessions_insert_host" on video_sessions;
 drop policy if exists "video_sessions_update_host_ou_admin" on video_sessions;
+drop policy if exists "video_sessions_admin_e_instituicao" on video_sessions;
 
-create policy "video_sessions_select_participante"
-  on video_sessions for select
-  using (
-    host_bi  = (auth.jwt() -> 'user_metadata' ->> 'bi')
-    or guest_bi = (auth.jwt() -> 'user_metadata' ->> 'bi')
-    or (auth.jwt() -> 'user_metadata' ->> 'role') in ('admin', 'instituicao')
-  );
-
-create policy "video_sessions_insert_host"
-  on video_sessions for insert
-  with check (
-    host_bi = (auth.jwt() -> 'user_metadata' ->> 'bi')
-    or (auth.jwt() -> 'user_metadata' ->> 'role') in ('admin', 'instituicao')
-  );
-
-create policy "video_sessions_update_host_ou_admin"
-  on video_sessions for update
-  using (
-    host_bi = (auth.jwt() -> 'user_metadata' ->> 'bi')
-    or guest_bi = (auth.jwt() -> 'user_metadata' ->> 'bi')
-    or (auth.jwt() -> 'user_metadata' ->> 'role') in ('admin', 'instituicao')
-  )
-  with check (
-    host_bi = (auth.jwt() -> 'user_metadata' ->> 'bi')
-    or guest_bi = (auth.jwt() -> 'user_metadata' ->> 'bi')
-    or (auth.jwt() -> 'user_metadata' ->> 'role') in ('admin', 'instituicao')
-  );
+create policy "video_sessions_admin_e_instituicao"
+  on video_sessions for all
+  using ((auth.jwt() -> 'user_metadata' ->> 'role') in ('admin', 'instituicao'))
+  with check ((auth.jwt() -> 'user_metadata' ->> 'role') in ('admin', 'instituicao'));
 
 alter table video_session_events enable row level security;
 drop policy if exists "video_events_select_participante" on video_session_events;
 drop policy if exists "video_events_insert_participante" on video_session_events;
+drop policy if exists "video_events_admin_e_instituicao" on video_session_events;
 
-create policy "video_events_select_participante"
-  on video_session_events for select
-  using (
-    bi = (auth.jwt() -> 'user_metadata' ->> 'bi')
-    or (auth.jwt() -> 'user_metadata' ->> 'role') in ('admin', 'instituicao')
-    or exists (
-      select 1 from video_sessions vs
-      where vs.id = video_session_events.session_id
-        and (
-          vs.host_bi  = (auth.jwt() -> 'user_metadata' ->> 'bi')
-          or vs.guest_bi = (auth.jwt() -> 'user_metadata' ->> 'bi')
-        )
-    )
-  );
-
-create policy "video_events_insert_participante"
-  on video_session_events for insert
-  with check (
-    bi = (auth.jwt() -> 'user_metadata' ->> 'bi')
-    or (auth.jwt() -> 'user_metadata' ->> 'role') in ('admin', 'instituicao')
-  );
+create policy "video_events_admin_e_instituicao"
+  on video_session_events for all
+  using ((auth.jwt() -> 'user_metadata' ->> 'role') in ('admin', 'instituicao'))
+  with check ((auth.jwt() -> 'user_metadata' ->> 'role') in ('admin', 'instituicao'));
 
 -- B7) video_session_notifications — SEM USO no código e INEXISTENTE em
 --     produção (ver B6/A: tratada no bloco protegido). Se um dia for criada:
