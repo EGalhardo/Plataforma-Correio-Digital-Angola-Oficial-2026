@@ -86,6 +86,7 @@ import { getAdminAgentCred, addAdminAgent } from './services/adminAgentStore';
 import {
   cloudSignIn, provisionCloudAccount, markCloudAccount, isCloudBound,
   isSupabaseConfigured, syntheticCitizenEmail, syntheticAdminEmail, hasActiveCloudSession,
+  cloudSignOutBestEffort,
 } from './services/cloudAuthService';
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
@@ -1736,7 +1737,27 @@ export default function App() {
     async function loadSupabaseData() {
       try {
         console.log('CADA: Carregando dados integrados do Supabase...');
-        
+
+        // 0. F39 (v13) — hidratar o perfil do cidadão a partir da nuvem
+        // (multi-dispositivo): a linha `profiles` reflecte edições de nome,
+        // e-mail, telefone, filiação e estado civil feitas noutros dispositivos.
+        if (isUserMode && bi && !homologationStore.isExempt(bi) && isCloudBound(bi)) {
+          try {
+            const dbProfile = await supabaseService.getProfile(bi);
+            if (dbProfile && isSubscribed) {
+              const hyd: { name?: string; email?: string; phone?: string; filiation?: string; maritalStatus?: string } = {};
+              if (typeof dbProfile.name === 'string' && dbProfile.name.trim()) hyd.name = dbProfile.name.trim();
+              if (typeof dbProfile.email === 'string' && dbProfile.email.trim()) hyd.email = dbProfile.email.trim();
+              if (typeof dbProfile.phone === 'string' && dbProfile.phone.trim()) hyd.phone = dbProfile.phone.trim();
+              if (typeof dbProfile.filiation === 'string' && dbProfile.filiation.trim()) hyd.filiation = dbProfile.filiation.trim();
+              if (typeof dbProfile.marital_status === 'string' && dbProfile.marital_status.trim()) hyd.maritalStatus = dbProfile.marital_status.trim();
+              if (Object.keys(hyd).length) updateUserFields(hyd);
+            }
+          } catch (hydrErr) {
+            console.warn('[PERFIL-SYNC] Hidratação de perfil falhou (best-effort):', hydrErr);
+          }
+        }
+
         // Auto-seed check: Check if messages are empty for this user, seed all default data if database is fresh
         const dbMessagesTest = await supabaseService.getMessages(bi);
         // F9 — a semeadura automática é um recurso da DEMO (cidadão/AGT-9921-SR):
@@ -2694,12 +2715,26 @@ export default function App() {
     }
   };
 
-  const handleLogout = (clearAll = false) => {
+  // F38 (v13) — logout REAL: contas migradas (não-demo) terminam também a sessão
+  // Supabase Auth ANTES do reload; a face deixa de reabrir a conta (D6/v12 exige
+  // sessão de nuvem activa). Best-effort: sem rede o logout local prossegue; o
+  // marcador cda_cloud_accounts_v1 NUNCA é apagado (a conta continua migrada).
+  const handleLogout = async (clearAll = false) => {
     if (clearAll) {
       localStorage.clear();
       window.location.reload();
     } else {
       addAuditLog(`Sessão terminada pelo utilizador (${appMode})`, 'info');
+      if (bi && !homologationStore.isExempt(bi) && isSupabaseConfigured()) {
+        const signOutRes = await cloudSignOutBestEffort(supabase);
+        if (signOutRes.outcome === 'ok') {
+          addAuditLog('[AUTH-CLOUD] Sessão de nuvem terminada neste dispositivo (local + Auth).', 'success');
+        } else if (signOutRes.outcome === 'error') {
+          addAuditLog('[AUTH-CLOUD] signOut falhou (rede/serviço); a sessão local foi limpa na mesma.', 'warning');
+        }
+      } else if (bi && homologationStore.isExempt(bi)) {
+        console.log('[DEMO] signOut ignorado — conta de demonstração (D7/v12).');
+      }
       setLoginPasswordInput('');
       setEnteredOtp('');
       setEnteredPin('');

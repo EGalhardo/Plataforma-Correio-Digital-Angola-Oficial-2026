@@ -16,6 +16,10 @@ import { OfflineManager } from '../../utils/offlineManager';
 import { motion, AnimatePresence } from 'motion/react';
 import { Message, Document, Contact, UserRequest, DocRequest } from '../../types';
 import { supabaseService, hasValidSupabaseKeys } from '../../services/supabaseService';
+import { supabase } from '../../lib/supabaseClient';
+import { syncProfileToCloud } from '../../services/profileSyncService';
+import { cloudChangePassword, hasActiveCloudSession, isCloudBound } from '../../services/cloudAuthService';
+import { homologationStore } from '../../services/homologationStore';
 import { CitizenProfile } from './CitizenProfile';
 import { InstitutionProfile } from './InstitutionProfile';
 import { useSession } from '../../services/sessionStore';
@@ -388,6 +392,73 @@ export function ProfileContent({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccessMsg, setPasswordSuccessMsg] = useState('');
+
+  // F40 (v13) — alteração de palavra-passe REAL na nuvem (Supabase Auth):
+  // contas migradas (não-demo) com sessão activa mudam a senha em TODOS os
+  // dispositivos; a credencial local do cidadão é espelhada (transição v12 até
+  // F-c). Sem sessão activa → mensagem honesta (nada quebra). Demos mantêm o
+  // comportamento simulado anterior, com desvio explícito no log.
+  const submitPasswordChange = async (e: { preventDefault: () => void }) => {
+    e.preventDefault();
+    setPasswordSuccess(false);
+    setPasswordSuccessMsg('');
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Por favor, preencha todos os campos.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('As senhas introduzidas não coincidem.');
+      return;
+    }
+    const targetBi = (user?.bi || bi || '').trim();
+    if (!!sessionDemo || homologationStore.isExempt(targetBi)) {
+      console.log('[DEMO] cloudChangePassword ignorado — conta de demonstração (D7/v12).');
+      setPasswordError('');
+      setPasswordSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError('A nova palavra-passe deve ter pelo menos 8 caracteres.');
+      return;
+    }
+    if (newPassword === currentPassword) {
+      setPasswordError('A nova palavra-passe deve ser diferente da senha atual.');
+      return;
+    }
+    if (!hasValidSupabaseKeys() || !isCloudBound(targetBi)) {
+      setPasswordError('Esta conta ainda não está ligada à nuvem — a alteração da palavra-passe fica disponível após o próximo início de sessão com senha.');
+      return;
+    }
+    const sessionActive = await hasActiveCloudSession(supabase);
+    if (!sessionActive) {
+      setPasswordError('Sessão segura inactiva. Saia e entre novamente com a senha actual para activar a sessão de nuvem.');
+      return;
+    }
+    const res = await cloudChangePassword(supabase, newPassword);
+    if (res.outcome === 'ok') {
+      // Espelho local da transição (v12/D3) — apenas na área do cidadão
+      if (!isInst && targetBi) {
+        try { localStorage.setItem(`citizen_pass_${targetBi}`, newPassword); } catch { /* sem espaço — sem espelho */ }
+      }
+      setPasswordError('');
+      setPasswordSuccess(true);
+      setPasswordSuccessMsg('Palavra-passe actualizada. Passe a usar a nova palavra-passe em todos os dispositivos.');
+      addAuditLog?.('[AUTH-CLOUD] Palavra-passe actualizada na nuvem pelo próprio titular', 'success');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } else if (res.outcome === 'weak') {
+      setPasswordError('A nova palavra-passe foi recusada pelo serviço de autenticação — escolha uma mais forte (mínimo 8 caracteres).');
+    } else if (res.outcome === 'no_session') {
+      setPasswordError('Sessão segura inactiva. Saia e entre novamente com a senha actual.');
+    } else {
+      setPasswordError('Serviço temporariamente indisponível. A sua senha actual mantém-se válida — tente mais tarde.');
+    }
+  };
 
   const correspondenceCount = (inbox || []).length + (docInbox || []).length + (sentMessages || []).length;
   const institutionsCount = new Set([
@@ -567,24 +638,7 @@ export function ProfileContent({
                 </div>
               </div>
 
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                if (!currentPassword || !newPassword || !confirmPassword) {
-                  setPasswordError('Por favor, preencha todos os campos.');
-                  setPasswordSuccess(false);
-                  return;
-                }
-                if (newPassword !== confirmPassword) {
-                  setPasswordError('As senhas introduzidas não coincidem.');
-                  setPasswordSuccess(false);
-                  return;
-                }
-                setPasswordSuccess(true);
-                setPasswordError('');
-                setCurrentPassword('');
-                setNewPassword('');
-                setConfirmPassword('');
-              }} className="space-y-4">
+              <form onSubmit={submitPasswordChange} className="space-y-4">
                 <div className="flex flex-col gap-4">
                   <div className="space-y-1">
                     <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha Atual</span>
@@ -640,7 +694,7 @@ export function ProfileContent({
                       className="text-[11px] text-emerald-700 font-extrabold bg-emerald-50 border border-emerald-150 rounded-xl px-4 py-2.5 flex items-center gap-1.5"
                     >
                       <Check size={14} className="text-emerald-600" />
-                      <span>Palavra-passe alterada com sucesso!</span>
+                      <span>{passwordSuccessMsg || 'Palavra-passe alterada com sucesso!'}</span>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -780,24 +834,7 @@ export function ProfileContent({
               </div>
             </div>
 
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              if (!currentPassword || !newPassword || !confirmPassword) {
-                setPasswordError('Por favor, preencha todos os campos.');
-                setPasswordSuccess(false);
-                return;
-              }
-              if (newPassword !== confirmPassword) {
-                setPasswordError('As senhas introduzidas não coincidem.');
-                setPasswordSuccess(false);
-                return;
-              }
-              setPasswordSuccess(true);
-              setPasswordError('');
-              setCurrentPassword('');
-              setNewPassword('');
-              setConfirmPassword('');
-            }} className="space-y-4">
+            <form onSubmit={submitPasswordChange} className="space-y-4">
               <div className="flex flex-col gap-4">
                 <div className="space-y-1">
                   <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha Atual</span>
@@ -853,7 +890,7 @@ export function ProfileContent({
                     className="text-[11px] text-emerald-700 font-extrabold bg-emerald-50 border border-emerald-150 rounded-xl px-4 py-2.5 flex items-center gap-1.5"
                   >
                     <Check size={14} className="text-emerald-600" />
-                    <span>Palavra-passe alterada com sucesso!</span>
+                    <span>{passwordSuccessMsg || 'Palavra-passe alterada com sucesso!'}</span>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -2133,27 +2170,28 @@ return (
                       });
                     }
 
-                    // Try to sync to Supabase profile
+                    // F39 (v13) — sync dirigida à nuvem (profileSyncService):
+                    // apenas as colunas fornecidas são actualizadas (nunca anula
+                    // nif/passport/data como a via antiga fazia); email incluído.
                     if (hasValidSupabaseKeys()) {
-                      supabaseService.upsertProfile({
-                        bi: user?.bi || '',
+                      syncProfileToCloud(supabase, {
+                        bi: user?.bi || bi,
                         name: editName,
                         phone: editPhone,
+                        email: editEmail,
                         filiation: editFiliation,
-                        marital_status: editMaritalStatus,
-                        role: isInst ? 'institution' : 'user'
+                        maritalStatus: editMaritalStatus,
                       })
-                      .then(() => {
-                        if (addAuditLog) {
-                          addAuditLog('Dados do utilizador sincronizados com sucesso no Supabase', 'success');
+                      .then(res => {
+                        if (!addAuditLog) return;
+                        if (res.outcome === 'ok' || res.outcome === 'created' || res.outcome === 'schema_retry') {
+                          addAuditLog('[PERFIL-SYNC] Dados de perfil sincronizados na nuvem', 'success');
+                        } else if (res.outcome === 'error' || res.outcome === 'unavailable') {
+                          addAuditLog('[PERFIL-SYNC] Guardado localmente; sincronização com a nuvem pendente', 'warning');
                         }
+                        // demo / not_bound → silêncio (desvio já registado no serviço)
                       })
-                      .catch(e => {
-                        console.warn('Erro ao sincronizar dados com Supabase:', e);
-                        if (addAuditLog) {
-                          addAuditLog('Erro ao sincronizar dados do perfil no Supabase', 'warning');
-                        }
-                      });
+                      .catch(() => { /* o serviço nunca lança — salvaguarda */ });
                     }
 
                     const newLog = { action: isInst ? 'Preferências do agente e dados de perfil guardados de forma segura' : 'Preferências do cidadão e dados de perfil guardados de forma segura', time: 'Agora mesmo' };

@@ -227,3 +227,83 @@ export const hasActiveCloudSession = async (client: any): Promise<boolean> => {
     return false;
   }
 };
+
+// ---- F38 (v13) — encerrar a sessão de nuvem (logout real) --------------------
+export type CloudSignOutOutcome =
+  | 'ok'      // sessão Auth terminada no dispositivo
+  | 'no_op'   // cliente Auth ausente (nada a fazer)
+  | 'error';  // falha de rede/serviço — o logout LOCAL deve prosseguir na mesma
+
+export interface CloudSignOutResult {
+  outcome: CloudSignOutOutcome;
+  message?: string;
+}
+
+/**
+ * F38 — signOut best-effort: NUNCA lança e NUNCA apaga o marcador
+ * (cda_cloud_accounts_v1) — a conta continua migrada e o próximo login volta a
+ * exigir a senha real. Demos: o desvio é feito no CHAMADOR (App decide a isenção
+ * via homologationStore); aqui garantimos apenas a operação Auth em si.
+ */
+export const cloudSignOutBestEffort = async (client: any): Promise<CloudSignOutResult> => {
+  try {
+    if (!client?.auth?.signOut) return { outcome: 'no_op', message: 'cliente Auth ausente.' };
+    const { error } = await client.auth.signOut();
+    if (error) return { outcome: 'error', message: error.message };
+    console.log('[AUTH-CLOUD] Sessão Auth terminada (signOut).');
+    return { outcome: 'ok' };
+  } catch (e: any) {
+    return { outcome: 'error', message: e?.message || String(e) };
+  }
+};
+
+// ---- F40 (v13) — alteração de palavra-passe self-service na nuvem -----------
+export type CloudPasswordChangeOutcome =
+  | 'ok'          // senha actualizada no Auth (nova passa a valer em todo o lado)
+  | 'no_session'  // sem sessão de nuvem activa — o utilizador deve re-entrar
+  | 'weak'        // recusada: fraca (< 8 chars) ou rejeitada pelo servidor
+  | 'unavailable' // rede/serviço em baixo — a senha actual mantém-se
+  | 'error';
+
+export interface CloudPasswordChangeResult {
+  outcome: CloudPasswordChangeOutcome;
+  message?: string;
+}
+
+/**
+ * F40 — `auth.updateUser({ password })` funciona com a anon key quando há sessão
+ * activa (não precisa de service_role). NUNCA lança. Após o sucesso, encerra as
+ * OUTRAS sessões (best-effort, scope 'others') para que a senha antiga deixe de
+ * valer também nos outros dispositivos. Demos/contas não migradas: o desvio é
+ * decidido no chamador (Perfil), que conhece a identidade e o modo da sessão.
+ */
+export const cloudChangePassword = async (
+  client: any,
+  newPassword: string,
+): Promise<CloudPasswordChangeResult> => {
+  try {
+    if (!newPassword || newPassword.length < 8) {
+      return { outcome: 'weak', message: 'A palavra-passe deve ter pelo menos 8 caracteres.' };
+    }
+    if (!client?.auth?.updateUser) return { outcome: 'unavailable', message: 'cliente Auth ausente.' };
+    if (!(await hasActiveCloudSession(client))) return { outcome: 'no_session' };
+    const { error } = await client.auth.updateUser({ password: newPassword });
+    if (error) {
+      const kind = classifyAuthError(error);
+      if (kind === 'unavailable') return { outcome: 'unavailable', message: error.message };
+      const msg = `${error.message || ''}`.toLowerCase();
+      if (msg.includes('password') && (msg.includes('at least') || msg.includes('weak') || msg.includes('strong') || msg.includes('same'))) {
+        return { outcome: 'weak', message: error.message };
+      }
+      return { outcome: 'error', message: error.message };
+    }
+    // Encerrar as OUTRAS sessões (best-effort): a senha antiga deixa de reabrir
+    // sessões noutros dispositivos; a sessão actual permanece activa.
+    try { await client.auth.signOut({ scope: 'others' }); } catch { /* best-effort */ }
+    console.log('[AUTH-CLOUD] Palavra-passe actualizada na nuvem.');
+    return { outcome: 'ok' };
+  } catch (e: any) {
+    const kind = classifyAuthError(e);
+    return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
+  }
+};
