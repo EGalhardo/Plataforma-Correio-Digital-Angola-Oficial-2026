@@ -4159,9 +4159,9 @@ Ficha civil do titular:
             alt="Correio Digital Logo" 
             priority={true}
             placeholder="skeleton"
-            className="w-64 md:w-80 h-auto mx-auto mb-12"
+            className="w-[13.6rem] h-auto mx-auto mb-12"
             style={{ 
-              width: '16rem', 
+              width: '13.6rem', 
               height: 'auto',
               marginBottom: '3rem',
               marginLeft: 'auto',
@@ -4547,7 +4547,7 @@ Ficha civil do titular:
                   alt="Correio Digital" 
                   priority={true}
                   placeholder="skeleton"
-                  className={loginSubMode === 'face-capture' ? "w-35 h-auto mb-3" : "w-51 h-auto mb-5"}
+                  className={loginSubMode === 'face-capture' ? "w-[7.44rem] h-auto mb-3" : "w-[10.84rem] h-auto mb-5"}
                 />
                 <h1 className={`${loginSubMode === 'face-capture' ? 'text-lg md:text-xl mb-3' : 'text-xl md:text-2xl mb-4'} font-black text-slate-900 leading-tight italic uppercase tracking-tight`}>
                   {t("O seu novo endereço digital oficial")}
