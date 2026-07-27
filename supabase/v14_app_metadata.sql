@@ -14,8 +14,10 @@
 --       re-força os valores ANTIGOS (imutáveis) — mas respeita edições feitas
 --       directamente em app_metadata via admin API (suporte assistido);
 --   §2) Backfill das contas já existentes;
---   §3) Reescrita das 32 políticas (1:1, só troca 'user_metadata'→'app_metadata'),
---       idempotente: drop if exists + create policy nos casos de colisão.
+--   §3) Reescrita das 30 políticas com claims (1:1, só troca
+--       'user_metadata'→'app_metadata'; as 2 INSERT-abertas check(true) —
+--       solicitacoes_insert_publica e audit_insert_aberta — não usam claims e
+--       não mudam), idempotente: drop if exists + create policy.
 --
 -- EXECUÇÃO: SQL Editor → colar TUDO → Run. Esperado: Success + várias listagens.
 -- VERIFICAÇÃO (o assistente re-executa o exploit — TEM de falhar com []).
@@ -80,7 +82,7 @@ where raw_app_meta_data is null
    or raw_app_meta_data->>'bi' is null;
 
 -- ----------------------------------------------------------------------------
--- §3) REESCRITA DAS 32 POLÍTICAS — 'user_metadata' → 'app_metadata' (1:1)
+-- §3) REESCRITA DAS 30 POLÍTICAS COM CLAIMS — 'user_metadata' → 'app_metadata'
 -- ----------------------------------------------------------------------------
 
 -- 1. solicitacoes_registo ------------------------------------------------------------
@@ -368,7 +370,8 @@ where schemaname = 'public'
   and (qual like '%user_metadata%' or with_check like '%user_metadata%')
 order by tablename;
 
--- ② Espera-se 32 políticas a ler app_metadata
+-- ② Espera-se 30 políticas a ler app_metadata (as outras 2 INSERT-abertas
+--    com check(true) não usam claims — é normal não aparecerem)
 select count(*) as politicas_com_app_metadata
 from pg_policies
 where schemaname = 'public'
