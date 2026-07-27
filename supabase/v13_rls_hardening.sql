@@ -1,4 +1,12 @@
 -- ============================================================================
+-- v1.2-b (2026-07-27) — correcção do erro 42P01 da 1.ª execução:
+--   "relation video_session_notifications does not exist" — a tabela está no
+--   schema.sql mas NUNCA foi criada em produção. O SQL Editor corre o script
+--   inteiro numa transação única → o erro fez ROLLBACK TOTAL (verificado ao
+--   vivo com a chave anon: messages/profiles/etc. continuavam legíveis).
+--   NADA ficou aplicado; esta versão pode ser executada de imediato.
+-- ============================================================================
+-- ============================================================================
 -- Correio Digital Angola — RLS v1.2 (HARDENING REAL)
 -- ----------------------------------------------------------------------------
 -- CAUSA-RAIZ ENCONTRADA (2026-07-27, verificado ao vivo com a chave anon):
@@ -58,9 +66,19 @@ drop policy if exists "Permitir tudo para document_requests" on document_request
 drop policy if exists "Permitir tudo para audit_logs" on audit_logs;
 drop policy if exists "Permitir tudo para video_sessions" on video_sessions;
 drop policy if exists "Permitir tudo para video_session_events" on video_session_events;
-drop policy if exists "Permitir tudo para video_session_notifications" on video_session_notifications;
--- NOTA: só v1.2 remove estas. Se o schema.sql for re-executado um dia,
--- as "Permitir tudo" VOLTAM e reabrem tudo → não re-executar schema.sql.
+-- video_session_notifications: confirmado INEXISTENTE em produção (42P01).
+-- Bloco protegido: se um dia for criada, este passo activa RLS e remove a
+-- política permissiva; se não existir, é ignorado sem abortar o script.
+do $$
+begin
+  alter table video_session_notifications enable row level security;
+  drop policy if exists "Permitir tudo para video_session_notifications" on video_session_notifications;
+  raise notice 'video_session_notifications existe — RLS activo, permissiva removida.';
+exception when undefined_table then
+  raise notice 'video_session_notifications nao existe em producao — passo ignorado.';
+end $$;
+-- NOTA: só v1.2 remove as "Permitir tudo". Se o schema.sql for re-executado
+-- um dia, elas VOLTAM e reabrem tudo → não re-executar schema.sql.
 
 -- ----------------------------------------------------------------------------
 -- B1) contacts — o dono gere os seus contactos; admin lê tudo
@@ -292,10 +310,9 @@ create policy "video_events_insert_participante"
     or (auth.jwt() -> 'user_metadata' ->> 'role') in ('admin', 'instituicao')
   );
 
--- B7) video_session_notifications — SEM USO no código → selada totalmente
-alter table video_session_notifications enable row level security;
--- (sem políticas: RLS activo = nega tudo; se a feature um dia nascer,
---  criar políticas próprias no modelo acima)
+-- B7) video_session_notifications — SEM USO no código e INEXISTENTE em
+--     produção (ver B6/A: tratada no bloco protegido). Se um dia for criada:
+--     fica com RLS activo SEM políticas = acesso negado a todos.
 
 -- ----------------------------------------------------------------------------
 -- C) RE-AFIRMAR RLS EM TODAS AS TABELAS (idempotente — cobre falhas futuras)
@@ -313,7 +330,6 @@ alter table digital_protocols enable row level security;
 alter table message_state_history enable row level security;
 alter table video_sessions enable row level security;
 alter table video_session_events enable row level security;
-alter table video_session_notifications enable row level security;
 
 -- ============================================================================
 -- CHECKLIST PÓS-APLICAÇÃO (o assistente executa remotamente com a chave anon —
@@ -340,5 +356,5 @@ alter table video_session_notifications enable row level security;
 --   alter table message_state_history disable row level security;
 --   alter table video_sessions      disable row level security;
 --   alter table video_session_events disable row level security;
---   alter table video_session_notifications disable row level security;
+--   (video_session_notifications NÃO existe — nada a desligar)
 -- ============================================================================
