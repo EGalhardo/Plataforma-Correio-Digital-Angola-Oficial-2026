@@ -92,7 +92,10 @@ export function Sidebar({
           alt="Correio Digital" 
           priority={true}
           placeholder="skeleton"
-          style={{ height: '45px', width: 'auto', objectFit: 'contain', backgroundColor: 'transparent', ...(theme === 'dark' ? {} : { maxWidth: '100%' }) }}
+          // F37 (Opção A aprovada) — paridade de LARGURA na caixa útil ~178px (250−p-5−px-4):
+          // claro 45px → desenho 176x45; escuro 71.4px (=178×513/1279) → desenho ~178x71.4.
+          // objectFit contain preserva a proporção de cada marca; maxWidth 100% protege ambos.
+          style={{ width: 'auto', objectFit: 'contain', backgroundColor: 'transparent', maxWidth: '100%', ...(theme === 'dark' ? { height: '71.4px' } : { height: '45px' }) }}
           className="transition-all"
         />
       </div>
