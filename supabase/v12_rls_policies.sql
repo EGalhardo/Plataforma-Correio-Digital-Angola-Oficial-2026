@@ -1,4 +1,12 @@
 -- ============================================================================
+-- v1.1 (2026-07-27) — correcção validada contra o esquema REAL em produção:
+--   user_requests.bi NÃO existe → a coluna real é user_requests.user_bi
+--   (erro 42703 da 1.ª execução; o SQL Editor fez rollback total — nada aplicado).
+-- Colunas confirmadas ao vivo: profiles.bi · solicitacoes_registo.bi_numero ·
+--   messages.sender_bi/recipient_bi · notifications.target_bi · user_requests.user_bi
+-- ============================================================================
+
+-- ============================================================================
 -- Correio Digital Angola — Prompt v12 (F-c): Row Level Security (RLS)
 -- ----------------------------------------------------------------------------
 -- RASCUNHO PARA REVISÃO + EXECUÇÃO MANUAL no Supabase Dashboard (SQL Editor).
@@ -27,6 +35,11 @@
 --    · SELECT/UPDATE/DELETE: só admin (role='admin'); o titular lê a sua linha.
 -- ----------------------------------------------------------------------------
 alter table solicitacoes_registo enable row level security;
+-- idempotente: permite re-execução segura
+drop policy if exists "solicitacoes_insert_publica" on solicitacoes_registo;
+drop policy if exists "solicitacoes_select_propria_ou_admin" on solicitacoes_registo;
+drop policy if exists "solicitacoes_update_admin" on solicitacoes_registo;
+drop policy if exists "solicitacoes_delete_admin" on solicitacoes_registo;
 
 create policy "solicitacoes_insert_publica"
   on solicitacoes_registo for insert
@@ -53,6 +66,9 @@ create policy "solicitacoes_delete_admin"
 --    · titular lê/actualiza/cria a sua ficha; admin lê todas.
 -- ----------------------------------------------------------------------------
 alter table profiles enable row level security;
+drop policy if exists "profiles_select_propria_ou_admin" on profiles;
+drop policy if exists "profiles_insert_propria_ou_admin" on profiles;
+drop policy if exists "profiles_update_propria" on profiles;
 
 create policy "profiles_select_propria_ou_admin"
   on profiles for select
@@ -79,6 +95,8 @@ create policy "profiles_update_propria"
 --    (recipient_bi). Ajustar se o esquema real usar coluna própria (recipient_inst).
 -- ----------------------------------------------------------------------------
 alter table messages enable row level security;
+drop policy if exists "messages_select_propria_caixa" on messages;
+drop policy if exists "messages_insert_remetente_valido" on messages;
 
 create policy "messages_select_propria_caixa"
   on messages for select
@@ -102,6 +120,8 @@ create policy "messages_insert_remetente_valido"
 -- 4. notifications — leitura apenas dos próprios avisos
 -- ----------------------------------------------------------------------------
 alter table notifications enable row level security;
+drop policy if exists "notifications_select_proprias" on notifications;
+drop policy if exists "notifications_insert_papeis" on notifications;
 
 create policy "notifications_select_proprias"
   on notifications for select
@@ -119,18 +139,21 @@ create policy "notifications_insert_papeis"
 -- 5. user_requests — pedidos do próprio utilizador; admin gere tudo
 -- ----------------------------------------------------------------------------
 alter table user_requests enable row level security;
+drop policy if exists "user_requests_select_proprios_ou_admin" on user_requests;
+drop policy if exists "user_requests_insert_proprio" on user_requests;
+drop policy if exists "user_requests_update_admin" on user_requests;
 
 create policy "user_requests_select_proprios_ou_admin"
   on user_requests for select
   using (
-    bi = (auth.jwt() -> 'user_metadata' ->> 'bi')
+    user_bi = (auth.jwt() -> 'user_metadata' ->> 'bi')
     or (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   );
 
 create policy "user_requests_insert_proprio"
   on user_requests for insert
   with check (
-    bi = (auth.jwt() -> 'user_metadata' ->> 'bi')
+    user_bi = (auth.jwt() -> 'user_metadata' ->> 'bi')
     or (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   );
 
@@ -143,6 +166,8 @@ create policy "user_requests_update_admin"
 -- 6. audit_logs — escrita aberta (trilha de auditoria), leitura só admin
 -- ----------------------------------------------------------------------------
 alter table audit_logs enable row level security;
+drop policy if exists "audit_insert_aberta" on audit_logs;
+drop policy if exists "audit_select_admin" on audit_logs;
 
 create policy "audit_insert_aberta"
   on audit_logs for insert
