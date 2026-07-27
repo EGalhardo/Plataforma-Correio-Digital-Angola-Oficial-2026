@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabaseService, hasValidSupabaseKeys } from "../../services/supabaseService";
+import { supabase } from '../../lib/supabaseClient';
+import { syncProfileToCloud } from '../../services/profileSyncService';
 import { useSession } from "../../services/sessionStore";
 
 import { Contact, Document } from '../../types';
@@ -104,16 +106,23 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
       });
 
       if (hasValidSupabaseKeys()) {
-        await supabaseService.upsertProfile({
+        // F39-b (Auditoria F42, Bug #2): troca upsertProfile (payload "a ferro"
+        // que anulava nif/passport/birth_date a cada gravação) por sync dirigido
+        // — só as colunas fornecidas são escritas; as restantes preservam-se.
+        const res = await syncProfileToCloud(supabase, {
           bi: user?.bi || '',
           name: editName,
           phone: editPhone,
+          email: editEmail,
           filiation: editFiliation,
-          marital_status: editMaritalStatus,
-          role: 'user'
+          maritalStatus: editMaritalStatus,
         });
         if (addAuditLog) {
-          addAuditLog('Dados do cidadão sincronizados com sucesso no Supabase', 'success');
+          if (res.outcome === 'ok' || res.outcome === 'created' || res.outcome === 'schema_retry') {
+            addAuditLog('[PERFIL-SYNC] Dados do cidadão sincronizados na nuvem', 'success');
+          } else if (res.outcome === 'error' || res.outcome === 'unavailable') {
+            addAuditLog('[PERFIL-SYNC] Guardado localmente; sincronização com a nuvem pendente', 'warning');
+          }
         }
       }
 
