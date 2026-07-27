@@ -72,16 +72,9 @@ export function InstitutionAccessPanel({ code, identity, onAudit }: PanelProps) 
     }
     if (isResponsible) {
       setInstResponsiblePassword(code, newPwd);
-      // best-effort: actualiza também a password_hash na nuvem (mesma tabela do registo)
-      const ready = (import.meta as any).env?.VITE_SUPABASE_URL && (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
-      if (ready) {
-        void (async () => {
-          try {
-            const { error } = await supabase.from('solicitacoes_registo').update({ password_hash: newPwd }).eq('bi_numero', code);
-            if (error) console.error('Erro a actualizar password_hash na nuvem:', error);
-          } catch (e) { console.warn('Nuvem indisponível:', e); }
-        })();
-      }
+      // F43 (Auditoria F42 #3/#8): espelho cloud em plaintext REMOVIDO — sob RLS
+      // já era no-op silencioso (sessão local sem JWT); a via real de senha é a
+      // F40 (Auth cloud) para contas migradas + loja local para a sessão actual.
     } else if (member) {
       updateInstMemberPassword(code, member.id, newPwd);
     }

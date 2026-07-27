@@ -626,7 +626,8 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
           .insert([{
             nome: newUser.name,
             email: newUser.contact,
-            password_hash: password,
+            // F43 (Auditoria F42 #3): password_hash removido — a senha REAL vive
+            // no Supabase Auth (v12). Coluna legada saneada a NULL em produção.
             bi_numero: newUser.biNumber,
             url_frente: urlFrente || null,
             url_verso: urlVerso || null,

@@ -175,7 +175,9 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
         const { error } = await supabase.from('solicitacoes_registo').insert([{
           nome: fullName.trim(),
           email: eA,
-          password_hash: senha, // demo — igual ao modelo actual do cidadão
+          // F43 (Auditoria F42 #3): password_hash removido — nunca persistir
+          // senhas em texto plano; a via legada de comparação já era inacessível
+          // sob RLS. Retirada total da coluna fica para a frente F44.
           bi_numero: code,      // o Código funciona como o B.I. da instituição
           url_frente: null,
           url_verso: null,

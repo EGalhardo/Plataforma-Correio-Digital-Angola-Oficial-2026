@@ -8,6 +8,25 @@ export default defineConfig(({mode}) => {
   return {
     plugins: [react(), tailwindcss()],
     define: {},
+    build: {
+      rollupOptions: {
+        output: {
+          // F43-b (Auditoria F42, Médio#1): split de vendors pesados — o entry
+          // desce de ~3,17 MB (815 KB gzip) e cada chunk faz cache paralela.
+          // @tensorflow fica FORA de propósito: já tem os seus chunks lazy (blazeface).
+          manualChunks(id: string) {
+            if (id.includes('node_modules')) {
+              if (id.includes('@tensorflow') || id.includes('blazeface')) return;
+              if (id.includes('@supabase')) return 'supabase';
+              if (id.includes('recharts')) return 'charts';
+              if (id.includes('motion') || id.includes('framer')) return 'motion';
+              if (id.includes('lucide-react')) return 'icons';
+              return 'vendor';
+            }
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
