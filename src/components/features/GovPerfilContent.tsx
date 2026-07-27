@@ -28,6 +28,10 @@ import {
   X
 } from 'lucide-react';
 import { USER_PROFILE_PHOTO } from '../../constants/data';
+import { supabase } from '../../lib/supabaseClient';
+import { hasValidSupabaseKeys } from '../../services/supabaseService';
+import { cloudChangePassword, hasActiveCloudSession, isCloudBound } from '../../services/cloudAuthService';
+import { homologationStore } from '../../services/homologationStore';
 
 interface AuditLog {
   id: string;
@@ -78,6 +82,71 @@ export function GovPerfilContent({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccessMsg, setPasswordSuccessMsg] = useState('');
+
+  // F40-b (v13) — palavra-passe REAL na nuvem para agentes da Administração
+  // (mesma lógica do Perfil cidadão/agente; sem espelho local — credenciais de
+  // agente ficam na transição v12 até à porta privada F-c).
+  const submitAdminPasswordChange = async (e: { preventDefault: () => void }) => {
+    e.preventDefault();
+    setPasswordSuccess(false);
+    setPasswordSuccessMsg('');
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Por favor, preencha todos os campos.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('As senhas introduzidas não coincidem.');
+      return;
+    }
+    const targetBi = (bi || '').trim();
+    if (homologationStore.isExempt(targetBi)) {
+      console.log('[DEMO] cloudChangePassword ignorado — conta de demonstração (D7/v12).');
+      setPasswordError('');
+      setPasswordSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError('A nova palavra-passe deve ter pelo menos 8 caracteres.');
+      return;
+    }
+    if (newPassword === currentPassword) {
+      setPasswordError('A nova palavra-passe deve ser diferente da senha atual.');
+      return;
+    }
+    if (!hasValidSupabaseKeys()) {
+      setPasswordError('Serviço temporariamente indisponível. A sua senha actual mantém-se válida — tente mais tarde.');
+      return;
+    }
+    const sessionActive = await hasActiveCloudSession(supabase);
+    if (!sessionActive) {
+      setPasswordError(
+        isCloudBound(targetBi)
+          ? 'Sessão segura inactiva. Saia e entre novamente com a senha actual para activar a sessão de nuvem.'
+          : 'Esta conta ainda não está ligada à nuvem — a alteração da palavra-passe fica disponível após o próximo início de sessão com senha.'
+      );
+      return;
+    }
+    const res = await cloudChangePassword(supabase, newPassword);
+    if (res.outcome === 'ok') {
+      setPasswordError('');
+      setPasswordSuccess(true);
+      setPasswordSuccessMsg('Palavra-passe actualizada. Passe a usar a nova palavra-passe em todos os dispositivos.');
+      console.log('[AUTH-CLOUD] Palavra-passe de agente admin actualizada na nuvem pelo próprio titular');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } else if (res.outcome === 'weak') {
+      setPasswordError('A nova palavra-passe foi recusada pelo serviço de autenticação — escolha uma mais forte (mínimo 8 caracteres).');
+    } else if (res.outcome === 'no_session') {
+      setPasswordError('Sessão segura inactiva. Saia e entre novamente com a senha actual.');
+    } else {
+      setPasswordError('Serviço temporariamente indisponível. A sua senha actual mantém-se válida — tente mais tarde.');
+    }
+  };
 
   return (
     <section className="space-y-6">
@@ -235,24 +304,7 @@ export function GovPerfilContent({
               </button>
             </div>
 
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              if (!currentPassword || !newPassword || !confirmPassword) {
-                setPasswordError('Por favor, preencha todos os campos.');
-                setPasswordSuccess(false);
-                return;
-              }
-              if (newPassword !== confirmPassword) {
-                setPasswordError('As senhas introduzidas não coincidem.');
-                setPasswordSuccess(false);
-                return;
-              }
-              setPasswordSuccess(true);
-              setPasswordError('');
-              setCurrentPassword('');
-              setNewPassword('');
-              setConfirmPassword('');
-            }} className="space-y-4">
+            <form onSubmit={submitAdminPasswordChange} className="space-y-4">
               <div className="flex flex-col gap-4">
                 <div className="space-y-1">
                   <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha Atual</span>
@@ -308,7 +360,7 @@ export function GovPerfilContent({
                     className="text-[11px] text-emerald-700 font-extrabold bg-emerald-50 border border-emerald-150 rounded-xl px-4 py-2.5 flex items-center gap-1.5"
                   >
                     <Check size={14} className="text-emerald-600" />
-                    <span>Palavra-passe alterada com sucesso!</span>
+                    <span>{passwordSuccessMsg || 'Palavra-passe alterada com sucesso!'}</span>
                   </motion.div>
                 )}
               </AnimatePresence>

@@ -429,13 +429,17 @@ export function ProfileContent({
       setPasswordError('A nova palavra-passe deve ser diferente da senha atual.');
       return;
     }
-    if (!hasValidSupabaseKeys() || !isCloudBound(targetBi)) {
-      setPasswordError('Esta conta ainda não está ligada à nuvem — a alteração da palavra-passe fica disponível após o próximo início de sessão com senha.');
+    if (!hasValidSupabaseKeys()) {
+      setPasswordError('Serviço temporariamente indisponível. A sua senha actual mantém-se válida — tente mais tarde.');
       return;
     }
     const sessionActive = await hasActiveCloudSession(supabase);
     if (!sessionActive) {
-      setPasswordError('Sessão segura inactiva. Saia e entre novamente com a senha actual para activar a sessão de nuvem.');
+      setPasswordError(
+        isCloudBound(targetBi)
+          ? 'Sessão segura inactiva. Saia e entre novamente com a senha actual para activar a sessão de nuvem.'
+          : 'Esta conta ainda não está ligada à nuvem — a alteração da palavra-passe fica disponível após o próximo início de sessão com senha.'
+      );
       return;
     }
     const res = await cloudChangePassword(supabase, newPassword);
@@ -638,7 +642,24 @@ export function ProfileContent({
                 </div>
               </div>
 
-              <form onSubmit={submitPasswordChange} className="space-y-4">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (!currentPassword || !newPassword || !confirmPassword) {
+                  setPasswordError('Por favor, preencha todos os campos.');
+                  setPasswordSuccess(false);
+                  return;
+                }
+                if (newPassword !== confirmPassword) {
+                  setPasswordError('As senhas introduzidas não coincidem.');
+                  setPasswordSuccess(false);
+                  return;
+                }
+                setPasswordSuccess(true);
+                setPasswordError('');
+                setCurrentPassword('');
+                setNewPassword('');
+                setConfirmPassword('');
+              }} className="space-y-4">
                 <div className="flex flex-col gap-4">
                   <div className="space-y-1">
                     <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha Atual</span>
@@ -694,7 +715,7 @@ export function ProfileContent({
                       className="text-[11px] text-emerald-700 font-extrabold bg-emerald-50 border border-emerald-150 rounded-xl px-4 py-2.5 flex items-center gap-1.5"
                     >
                       <Check size={14} className="text-emerald-600" />
-                      <span>{passwordSuccessMsg || 'Palavra-passe alterada com sucesso!'}</span>
+                      <span>Palavra-passe alterada com sucesso!</span>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -834,7 +855,24 @@ export function ProfileContent({
               </div>
             </div>
 
-            <form onSubmit={submitPasswordChange} className="space-y-4">
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!currentPassword || !newPassword || !confirmPassword) {
+                setPasswordError('Por favor, preencha todos os campos.');
+                setPasswordSuccess(false);
+                return;
+              }
+              if (newPassword !== confirmPassword) {
+                setPasswordError('As senhas introduzidas não coincidem.');
+                setPasswordSuccess(false);
+                return;
+              }
+              setPasswordSuccess(true);
+              setPasswordError('');
+              setCurrentPassword('');
+              setNewPassword('');
+              setConfirmPassword('');
+            }} className="space-y-4">
               <div className="flex flex-col gap-4">
                 <div className="space-y-1">
                   <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha Atual</span>
@@ -890,7 +928,7 @@ export function ProfileContent({
                     className="text-[11px] text-emerald-700 font-extrabold bg-emerald-50 border border-emerald-150 rounded-xl px-4 py-2.5 flex items-center gap-1.5"
                   >
                     <Check size={14} className="text-emerald-600" />
-                    <span>{passwordSuccessMsg || 'Palavra-passe alterada com sucesso!'}</span>
+                    <span>Palavra-passe alterada com sucesso!</span>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1298,6 +1336,52 @@ return (
                       />
                     </div>
                   </div>
+
+                  {/* F40 (v13) — Palavra-passe de acesso REAL na nuvem (Supabase Auth):
+                      ligado aos botões "Alterar Palavra-passe" dos perfis Cidadão e Instituição. */}
+                  <form onSubmit={submitPasswordChange} className="p-4 bg-slate-50/60 border border-slate-200 rounded-2xl space-y-2.5">
+                    <div className="flex items-center gap-2 text-[#0c2340]">
+                      <Key size={14} className="text-indigo-600" />
+                      <span className="text-[10px] font-black uppercase tracking-wider">Alterar palavra-passe de acesso</span>
+                    </div>
+                    <input
+                      type="password"
+                      placeholder="Palavra-passe actual"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="w-full h-10 bg-white border border-slate-200 focus:border-primary/40 rounded-xl px-4 text-xs font-semibold outline-none transition-all"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Nova palavra-passe (mín. 8 caracteres)"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full h-10 bg-white border border-slate-200 focus:border-primary/40 rounded-xl px-4 text-xs font-semibold outline-none transition-all"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Confirmar nova palavra-passe"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full h-10 bg-white border border-slate-200 focus:border-primary/40 rounded-xl px-4 text-xs font-semibold outline-none transition-all"
+                    />
+                    {passwordError && (
+                      <div className="text-[11px] text-red-650 font-black bg-red-50 border border-red-150 rounded-xl px-3 py-2">{passwordError}</div>
+                    )}
+                    {passwordSuccess && (
+                      <div className="text-[11px] text-emerald-700 font-extrabold bg-emerald-50 border border-emerald-150 rounded-xl px-3 py-2 flex items-center gap-1.5">
+                        <Check size={13} className="text-emerald-600" />
+                        {passwordSuccessMsg || 'Palavra-passe alterada com sucesso!'}
+                      </div>
+                    )}
+                    <button
+                      type="submit"
+                      className="w-full py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer border-0"
+                    >
+                      Actualizar Palavra-passe
+                    </button>
+                    <p className="text-[9px] text-slate-400 font-bold leading-snug">A nova palavra-passe passa a ser exigida em todos os dispositivos.</p>
+                  </form>
 
                   {/* 2FA Switch Panel */}
                   <div className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl gap-3">
