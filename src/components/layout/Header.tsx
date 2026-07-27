@@ -339,7 +339,7 @@ export function Header({
             alt="Correio Digital" 
             priority={true}
             placeholder="skeleton"
-            style={{ height: '46px', width: 'auto', objectFit: 'contain', cursor: 'pointer', backgroundColor: 'transparent', ...(theme === 'dark' ? {} : { maxWidth: '45vw' }) }}
+            style={{ height: '39.1px', width: 'auto', objectFit: 'contain', cursor: 'pointer', backgroundColor: 'transparent', ...(theme === 'dark' ? {} : { maxWidth: '45vw' }) }}
           />
           {isAdmin && (
             <span className={`ml-2 text-[8px] font-black uppercase px-1.5 py-0.5 rounded leading-none bg-slate-900 text-white`}>

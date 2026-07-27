@@ -92,7 +92,7 @@ export function Sidebar({
           alt="Correio Digital" 
           priority={true}
           placeholder="skeleton"
-          style={{ height: '74px', width: 'auto', objectFit: 'contain', backgroundColor: 'transparent', ...(theme === 'dark' ? {} : { maxWidth: '100%' }) }}
+          style={{ height: '62.9px', width: 'auto', objectFit: 'contain', backgroundColor: 'transparent', ...(theme === 'dark' ? {} : { maxWidth: '100%' }) }}
           className="transition-all"
         />
       </div>
