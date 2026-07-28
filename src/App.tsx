@@ -78,7 +78,7 @@ import { Message, Document, Contact, AppNotification, AppMode, UserRequest, DocR
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol } from './utils/protocolGenerator';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi } from './services/supabaseService';
-import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel } from './services/homologationStore';
+import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, type InstitutionIdentity } from './services/institutionSessionService';
 import { getLocalInstReg, normalizeInstCode, parseInstPack } from './services/institutionRegistrationStore';
 import { resolveAdminAgentLogin, hasActiveAdminAlfa } from './services/adminAgentStore';
@@ -89,7 +89,8 @@ import {
   cloudSignOutBestEffort,
 } from './services/cloudAuthService';
 // F47 — revogação de contas eliminadas (pré-login via RPC v16 + purga local)
-import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLocalResidues } from './services/accountGateService';
+// F48 — sincronização viva do estado oficial em sessão aberta (luz Online/gate)
+import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLocalResidues, resolveCloudGateAction } from './services/accountGateService';
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
 import { resolveStorageUrl } from './lib/secureStorage';
@@ -1522,6 +1523,63 @@ export default function App() {
     if (stage !== 'app' || (appMode !== 'user' && appMode !== 'institution')) return;
     const id = setInterval(() => setGateRefreshTick(t => t + 1), 4000);
     return () => clearInterval(id);
+  }, [stage, appMode, bi]);
+
+  // F48 — SINCRONIZAÇÃO VIVA do estado oficial da conta (área do cidadão): sem
+  // esta sondagem, a decisão do Admin noutro dispositivo só era aprendida no
+  // PRÓXIMO login — a luz "Online" ficava vermelha com a sessão aberta. A cada
+  // 8s lê-se o estado da fila central (RPC security-definer v16; fallback SELECT
+  // válido com a sessão do titular) e reflecte-se na loja local + tick de 4s que
+  // re-renderiza a luz e o gate de correspondência. Eliminação em sessão ⇒
+  // revogação imediata (F47). D3: leituras indisponíveis nunca tocam no estado.
+  useEffect(() => {
+    if (stage !== 'app' || appMode !== 'user') return;
+    const liveBi = bi.trim().toUpperCase().replace(/\s+/g, '');
+    if (!liveBi || homologationStore.isExempt(liveBi) || !isSupabaseConfigured()) return;
+    let cancelled = false;
+    let inFlight = false;
+    const sync = async () => {
+      if (cancelled || inFlight) return;
+      inFlight = true;
+      try {
+        const pre = await readCitizenRegistrationStatus(supabase, liveBi);
+        if (cancelled) return;
+        const current = homologationStore.getStatus(liveBi)?.status ?? null;
+        const action = resolveCloudGateAction(pre, current);
+        if (action.type === 'revoke') {
+          purgeCitizenLocalResidues(liveBi);
+          await cloudSignOutBestEffort(supabase);
+          addAuditLog(`F48: a conta do cidadão ${liveBi} foi ELIMINADA pela Administração com esta sessão aberta — acesso revogado de imediato; novo acesso exige NOVO registo aprovado novamente.`, 'critical');
+          setLoginPasswordInput('');
+          setLoginError('A sua conta foi ELIMINADA pela Área de Administração durante esta sessão. Para voltar a usar a plataforma, efectue um NOVO registo — a conta só ficará activa após nova aprovação da Administração.');
+          setStage('login');
+          return;
+        }
+        if (action.type === 'set') {
+          const wasBlocked = current === 'blocked';
+          homologationStore.setStatus(liveBi, action.status, undefined, undefined);
+          if (action.status === 'active') {
+            // Canal oficial: a correspondência de activação chega também à caixa
+            // do cidadão neste dispositivo (antes só existia no dispositivo do Admin).
+            if (wasBlocked) notifyAccountUnblocked(liveBi, profileName || undefined);
+            else notifyAccountApproved(liveBi, profileName || undefined);
+            addAuditLog('F48: conta APROVADA pela Administração — activação detectada em sessão aberta (luz Online verde; correspondência institucional libertada).', 'success');
+          } else if (action.status === 'blocked') {
+            addAuditLog('F48: conta BLOQUEADA pela Administração — detectado em sessão aberta (luz Online amarela; acesso restrito).', 'critical');
+          } else if (action.status === 'rejected') {
+            addAuditLog('F48: registo REJEITADO pela Administração — detectado em sessão aberta.', 'warning');
+          }
+          setGateRefreshTick(t => t + 1);
+        }
+      } catch (e) {
+        console.warn('[F48] Sincronização viva do estado indisponível (D3):', e);
+      } finally {
+        inFlight = false;
+      }
+    };
+    const id = setInterval(sync, 8000);
+    void sync(); // primeira verificação imediata ao entrar na área
+    return () => { cancelled = true; clearInterval(id); };
   }, [stage, appMode, bi]);
 
   // F3/F7 — aprovada pela Admin? O estado sobe para 'full' sozinho (tick de 4s) e o

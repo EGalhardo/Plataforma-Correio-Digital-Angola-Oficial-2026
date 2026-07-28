@@ -26,7 +26,7 @@
 // injectado (`if (client)`), tal como institutionSessionService (F44/F46).
 // ============================================================================
 
-import { homologationStore, normalizeHomologationBi } from './homologationStore';
+import { homologationStore, normalizeHomologationBi, HomologationStatus } from './homologationStore';
 import { unmarkCloudAccount } from './cloudAuthService';
 
 export interface CitizenRegistrationRead {
@@ -111,10 +111,10 @@ export const isRevokedDeletedAccount = (s: RevocationSignals): boolean => {
 
 /**
  * Purga os vestígios LOCAIS de uma conta revogada neste dispositivo:
-// estado/correspondência de homologação, credencial de transição, marcador de
-// nuvem, matrizes faciais, espelho da correspondência oficial na caixa de
-// entrada e registo de lidas. (Espelha a cascata local que o Admin já faz no
-// dispositivo dele em GovContactsContent.)
+ * estado/correspondência de homologação, credencial de transição, marcador de
+ * nuvem, matrizes faciais, espelho da correspondência oficial na caixa de
+ * entrada e registo de lidas. (Espelha a cascata local que o Admin já faz no
+ * dispositivo dele em GovContactsContent.)
  */
 export const purgeCitizenLocalResidues = (bi: string): void => {
   const cleanBi = normalizeHomologationBi(bi);
@@ -142,4 +142,50 @@ export const purgeCitizenLocalResidues = (bi: string): void => {
       }
     }
   } catch { /* ignora */ }
+};
+
+// ----------------------------------------------------------------------------
+// F48 — Sincronização VIVA do estado oficial em sessão aberta (área do cidadão)
+// ----------------------------------------------------------------------------
+// Sem isto, a decisão do Admin noutro dispositivo só era aprendida no PRÓXIMO
+// login (a luz "Online" ficava vermelha com a sessão aberta e a correspondência
+// continuava bloqueada). O App sonda a cada 8s e aplica a acção devolvida aqui.
+
+export type CloudGateAction =
+  | { type: 'noop' }
+  | { type: 'set'; status: HomologationStatus }
+  | { type: 'revoke' };
+
+/** Mapa oficial: estado da fila central → estado local de homologação. */
+export const CLOUD_STATUS_TO_LOCAL: Record<string, HomologationStatus> = {
+  'Aprovado': 'active',
+  'Pendente': 'pending',
+  'Bloqueado': 'blocked',
+  'Reprovado': 'rejected',
+  'Rejeitado': 'rejected',
+  'Não Aprovado': 'rejected',
+};
+
+/**
+ * Decide o que fazer com a leitura oficial mais recente, dado o estado local
+// actual. Regras de segurança:
+//  · leitura indisponível (D3 offline) → nunca tocar no estado local;
+//  · "sem linha" só revoga quando vem da RPC security-definer (v16): o SELECT
+//    anónimo de fallback devolve SEMPRE zero linhas por RLS — revogar aí seria
+//    falso positivo (sessões locais de transição morreriam sem motivo);
+//  · "sem linha" sem estado local = via F12 limpa — nada a revogar;
+//  · estado idêntico ao local → noop (sem re-renders nem mensagens duplicadas).
+ */
+export const resolveCloudGateAction = (
+  read: CitizenRegistrationRead,
+  currentLocal: HomologationStatus | null,
+): CloudGateAction => {
+  if (!read.ok) return { type: 'noop' };
+  if (read.status === null) {
+    if (read.source === 'rpc' && currentLocal !== null) return { type: 'revoke' };
+    return { type: 'noop' };
+  }
+  const next = CLOUD_STATUS_TO_LOCAL[read.status];
+  if (!next || next === currentLocal) return { type: 'noop' };
+  return { type: 'set', status: next };
 };

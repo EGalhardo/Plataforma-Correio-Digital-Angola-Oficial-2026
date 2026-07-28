@@ -427,6 +427,10 @@ export function GovContactsContent({
     urlFrente?: string;
     urlVerso?: string;
     urlSelfie?: string;
+    /** F48 — os documentos EXISTEM no Storage privado mas esta consola não tem
+     *  sessão Auth de administração para os visualizar (v15): mostra-se aviso
+     *  honesto em vez da maqueta simulada (que parecia "imagem não gravada"). */
+    docsProtegidosSemAcesso?: boolean;
     facePhoto?: string;
     reason?: string;
     verificationScore?: number;
@@ -847,9 +851,29 @@ export function GovContactsContent({
         urlSelfie: selfie || (isStorageRef(c.urlSelfie) ? '' : c.urlSelfie),
         urlFrente: frente || (isStorageRef(c.urlFrente) ? '' : c.urlFrente),
         urlVerso: verso || (isStorageRef(c.urlVerso) ? '' : c.urlVerso),
+        docsProtegidosSemAcesso:
+          (isStorageRef(c.urlSelfie) && !selfie) ||
+          (isStorageRef(c.urlFrente) && !frente) ||
+          (isStorageRef(c.urlVerso) && !verso),
         facePhoto: face,
       };
     }));
+
+  // F48 — Painel honesto quando o documento EXISTE no Storage privado mas esta
+  // consola não tem sessão de agente real (ADMIN-NNNN) para o visualizar: antes
+  // caía na maqueta simulada do B.I. e parecia que "a imagem não ficou gravada".
+  const renderProtectedDocNotice = (lado: string) => (
+    <div className="h-[240px] rounded-[24px] border border-amber-200 bg-amber-50/80 flex flex-col items-center justify-center gap-2.5 p-6 text-center shadow-2xs">
+      <Lock size={26} className="text-amber-600" />
+      <p className="text-[11px] font-black uppercase tracking-wide text-amber-700">Documento guardado no Storage privado</p>
+      <p className="text-[11px] leading-relaxed font-semibold text-amber-600">
+        A foto do {lado} foi enviada com sucesso no registo e está SEGURA na nuvem —
+        mas esta consola entrou sem sessão de agente real (ADMIN-NNNN), e a política
+        de privacidade (v15) só liberta a visualização a administradores autenticados.
+        Entre na Área da Administração com um agente real para visualizar e homologar.
+      </p>
+    </div>
+  );
 
   const mapRegistrationRowsToCitizens = (rows: any[]): Citizen[] => rows.map((item: any) => {
     // F29 (v11.1): status 'Aprovado' com marcador [PVIC] APTO = auto-aprovação pela IA
@@ -935,6 +959,17 @@ export function GovContactsContent({
       console.error(err);
       return false;
     }
+  };
+
+  // F48 — decisões da consola SÓ valem na base central com sessão Auth de
+  // administração (agente real ADMIN-NNNN): a conta demo é offline por desenho
+  // (D7/v12) e a RLS recusa a escrita. ANTES, essa falha era SILENCIOSA — a
+  // consola mostrava a decisão como gravada e o cidadão ficava Pendente na
+  // nuvem para sempre (origem da "luz Online vermelha" reportada).
+  const warnIfCloudDecisionNotPersisted = (saved: boolean, what: string) => {
+    if (saved) return;
+    notify(`ATENÇÃO: ${what} não foi gravada na base central — esta consola não tem sessão de agente real (ADMIN-NNNN). O efeito ficou apenas local (demonstração). Para decisões com efeito na nuvem, entre na Área da Administração com um agente real.`);
+    addAuditLog?.(`[F48] ${what} NÃO persistida na nuvem (sem sessão Auth de administração / RLS) — efeito apenas local.`, 'critical');
   };
 
   // Remove o registo da nuvem (solicitacoes_registo). Devolve false se falhar —
@@ -3020,6 +3055,8 @@ export function GovContactsContent({
                           <img src={selectedReviewCitizen.urlFrente} alt="B.I. Frente" className="max-h-full max-w-full object-contain pointer-events-none" />
                           <div className="absolute top-2 right-2 bg-blue-950/85 px-2 py-0.5 text-[7px] font-bold text-white rounded-md uppercase tracking-wider shadow-md">Ficheiro Real Supabase</div>
                         </div>
+                      ) : selectedReviewCitizen.docsProtegidosSemAcesso ? (
+                        renderProtectedDocNotice('documento (frente)')
                       ) : (
                         <div className="bg-white border border-slate-200 rounded-[24px] p-5.5 relative overflow-hidden h-[240px] flex flex-col justify-between shadow-2xs">
                           {/* Micro-marcas d'água */}
@@ -3103,6 +3140,8 @@ export function GovContactsContent({
                           <img src={selectedReviewCitizen.urlVerso} alt="B.I. Verso" className="max-h-full max-w-full object-contain pointer-events-none" />
                           <div className="absolute top-2 right-2 bg-blue-950/85 px-2 py-0.5 text-[7px] font-bold text-white rounded-md uppercase tracking-wider shadow-md">Ficheiro Real Supabase</div>
                         </div>
+                      ) : selectedReviewCitizen.docsProtegidosSemAcesso ? (
+                        renderProtectedDocNotice('documento (verso)')
                       ) : (
                         <div className="bg-white border border-slate-200 rounded-[24px] p-5 relative overflow-hidden h-[240px] flex flex-col justify-between shadow-2xs">
                           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none w-56 h-56 rounded-full border-4 border-[#0c2340] flex items-center justify-center font-bold text-center text-xs">
@@ -3712,7 +3751,8 @@ export function GovContactsContent({
                         } : c));
 
                         if (selectedReviewCitizen.dbUUID || selectedReviewCitizen.id.length > 20) {
-                          await updateRegistrationRecord(selectedReviewCitizen.dbUUID || selectedReviewCitizen.id, { status: 'Aprovado', observacoes: 'Conta reativada pelo Administrador.' });
+                          const cloudSaved = await updateRegistrationRecord(selectedReviewCitizen.dbUUID || selectedReviewCitizen.id, { status: 'Aprovado', observacoes: 'Conta reativada pelo Administrador.' });
+                          warnIfCloudDecisionNotPersisted(cloudSaved, 'A reativação da conta');
                         }
 
                         // HOMOLOGAÇÃO: reativação também liberta o gate do cidadão
@@ -3749,7 +3789,8 @@ export function GovContactsContent({
                           } : c));
 
                           if (selectedReviewCitizen.dbUUID || selectedReviewCitizen.id.length > 20) {
-                            await updateRegistrationRecord(selectedReviewCitizen.dbUUID || selectedReviewCitizen.id, { status: 'Bloqueado', observacoes: 'Bloqueio preventivo: ' + mot });
+                            const cloudSaved = await updateRegistrationRecord(selectedReviewCitizen.dbUUID || selectedReviewCitizen.id, { status: 'Bloqueado', observacoes: 'Bloqueio preventivo: ' + mot });
+                            warnIfCloudDecisionNotPersisted(cloudSaved, 'O bloqueio da conta');
                           }
 
                           // HOMOLOGAÇÃO: o bloqueio também fica registado na loja — o cidadão
@@ -3801,10 +3842,11 @@ export function GovContactsContent({
 
                             // Supabase update if synced
                             if (selectedReviewCitizen.dbUUID || selectedReviewCitizen.id.length > 20) {
-                              await updateRegistrationRecord(selectedReviewCitizen.dbUUID || selectedReviewCitizen.id, { 
+                              const cloudSaved = await updateRegistrationRecord(selectedReviewCitizen.dbUUID || selectedReviewCitizen.id, { 
                                 status: 'Reprovado', 
                                 observacoes: rejectionReason 
                               });
+                              warnIfCloudDecisionNotPersisted(cloudSaved, 'A rejeição do cadastro');
                             }
 
                             // HOMOLOGAÇÃO: conta Rejeitada + correspondência oficial automática ao cidadão
@@ -3838,10 +3880,11 @@ export function GovContactsContent({
 
                           // Supabase update if synced
                           if (selectedReviewCitizen.dbUUID || selectedReviewCitizen.id.length > 20) {
-                            await updateRegistrationRecord(selectedReviewCitizen.dbUUID || selectedReviewCitizen.id, { 
+                            const cloudSaved = await updateRegistrationRecord(selectedReviewCitizen.dbUUID || selectedReviewCitizen.id, { 
                               status: 'Aprovado',
                               observacoes: 'Homologado e ativado biometricamente pelo agente Admin.'
                             });
+                            warnIfCloudDecisionNotPersisted(cloudSaved, 'A homologação do cadastro');
                           }
 
                           // HOMOLOGAÇÃO: aprovação ativa a conta + correspondência oficial automática ao cidadão
@@ -3876,13 +3919,14 @@ export function GovContactsContent({
 
                         // Supabase update if synced
                         if (selectedReviewCitizen.dbUUID || selectedReviewCitizen.id.length > 20) {
-                          await updateRegistrationRecord(selectedReviewCitizen.dbUUID || selectedReviewCitizen.id, { 
+                          const cloudSaved = await updateRegistrationRecord(selectedReviewCitizen.dbUUID || selectedReviewCitizen.id, { 
                             status: 'Pendente',
                             // F29 (v11.1): revogação de auto-aprovação marcada (rastreável na auditoria)
                             observacoes: selectedReviewCitizen.status === 'Aprovado Automaticamente'
                               ? `Reaberto por revogação da aprovação automática (Pré-Verificação Inteligente) em ${new Date().toLocaleString('pt-AO')}.`
                               : 'Reaberto para nova revisão.'
                           });
+                          warnIfCloudDecisionNotPersisted(cloudSaved, 'A reabertura do pedido');
                         }
 
                         // HOMOLOGAÇÃO: processo reaberto → conta volta a Pendente + aviso oficial ao cidadão
