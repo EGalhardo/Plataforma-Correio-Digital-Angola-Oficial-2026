@@ -51,8 +51,10 @@ from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public' and p.proname = 'cda_prelogin_cidadao';
 
--- ② Grants: anon + authenticated têm EXECUTE; mais ninguém:
---    Esperado: exactamente 2 linhas (anon, authenticated)
+-- ② Grants: anon + authenticated têm EXECUTE (essenciais). As linhas extra
+--    grantee = postgres (dono da função) e service_role são os grants por
+--    defeito do Supabase e são INOFENSIVAS (service_role já ignora RLS).
+--    Esperado: ver pelo menos anon e authenticated (4 linhas no total).
 select grantee, privilege_type
 from information_schema.routine_privileges
 where specific_schema = 'public' and routine_name = 'cda_prelogin_cidadao'
