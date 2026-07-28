@@ -21,7 +21,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { supabaseService, hasValidSupabaseKeys } from "../../services/supabaseService";
 import { supabase } from '../../lib/supabaseClient';
-import { syncProfileToCloud } from '../../services/profileSyncService';
+import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, type ProfileSyncOutcome } from '../../services/profileSyncService';
 import { useSession } from "../../services/sessionStore";
 
 import { Contact, Document } from '../../types';
@@ -114,18 +114,26 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
         address: editMorada
       });
 
+      // F53: o outcome da nuvem governa o feedback (C3 — nunca sucesso fabricado).
+      let syncOutcome: ProfileSyncOutcome | 'no_cloud' = 'no_cloud';
       if (hasValidSupabaseKeys()) {
         // F39-b (Auditoria F42, Bug #2): troca upsertProfile (payload "a ferro"
         // que anulava nif/passport/birth_date a cada gravação) por sync dirigido
         // — só as colunas fornecidas são escritas; as restantes preservam-se.
-        const res = await syncProfileToCloud(supabase, {
-          bi: user?.bi || '',
-          name: editName,
-          phone: editPhone,
-          email: editEmail,
-          filiation: editFiliation,
-          maritalStatus: editMaritalStatus,
-        });
+        // F53 (C1): buildCitizenContaPatch inclui a MORADA — o chamador omitia-a
+        // e ela nunca chegava à nuvem (coluna existe em produção).
+        const res = await syncProfileToCloud(
+          supabase,
+          buildCitizenContaPatch(user?.bi || '', {
+            name: editName,
+            phone: editPhone,
+            email: editEmail,
+            filiation: editFiliation,
+            maritalStatus: editMaritalStatus,
+            morada: editMorada,
+          }),
+        );
+        syncOutcome = res.outcome;
         if (addAuditLog) {
           if (res.outcome === 'ok' || res.outcome === 'created' || res.outcome === 'schema_retry') {
             addAuditLog('[PERFIL-SYNC] Dados do cidadão sincronizados na nuvem', 'success');
@@ -140,11 +148,8 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
       }
 
       setIsEditingInfo(false);
-      setFeedback({
-        type: 'success',
-        text: 'Perfil atualizado com sucesso!',
-        details: 'As suas informações pessoais foram guardadas localmente e propagadas no sistema central.'
-      });
+      // F53 (C3): feedback honesto — "sistema central" só quando a nuvem confirmou.
+      setFeedback(contaSaveFeedbackFromOutcome(syncOutcome));
     } catch (error: any) {
       setFeedback({
         type: 'error',

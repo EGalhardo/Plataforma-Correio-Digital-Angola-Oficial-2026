@@ -61,6 +61,82 @@ const toColumns = (patch: CitizenProfilePatch): Record<string, string> => {
   return cols;
 };
 
+// ============================================================================
+// F53 — Página Conta do cidadão: persistência COMPLETA e feedback HONESTO
+// ----------------------------------------------------------------------------
+// Defeitos corrigidos (queixas: "actualizei um dado e não ficou gravado"):
+//  C1) CitizenProfile enviava tudo ao sync MENOS a morada (o serviço já a
+//      suportava desde a F39 — o chamador é que a omitia) ⇒ morada nunca
+//      chegava à nuvem; noutro dispositivo perdia-se.
+//  C2) A hidratação de login (App.tsx) lia name/phone/… mas NUNCA morada nem
+//      email de profiles ⇒ mesmo gravados, não regressavam à sessão.
+//  C3) O feedback dizia sempre "propagadas no sistema central" mesmo quando
+//      a sincronização falhou ou não existiu (sucesso fabricado).
+// ============================================================================
+
+/** Colunas lidas pelo login do cidadão (F53: + morada, email — existem em produção). */
+export const PROFILE_HYDRATION_COLUMNS =
+  'name, phone, nif, passport, birth_date, filiation, marital_status, morada, email';
+
+/** Monta o patch COMPLETO da página Conta (inclui a morada — C1). */
+export const buildCitizenContaPatch = (
+  bi: string,
+  fields: {
+    name?: string; phone?: string; email?: string;
+    filiation?: string; maritalStatus?: string; morada?: string;
+  },
+): CitizenProfilePatch => ({
+  bi: bi || '',
+  name: fields.name,
+  phone: fields.phone,
+  email: fields.email,
+  filiation: fields.filiation,
+  maritalStatus: fields.maritalStatus,
+  morada: fields.morada,
+});
+
+/** Linha de `profiles` → campos de sessão do cidadão (só presentes; C2). */
+export const profileRowToCitizenFields = (row: any): Record<string, string> => {
+  if (!row || typeof row !== 'object') return {};
+  const out: Record<string, string> = {};
+  const put = (key: string, val: any) => { if (val) out[key] = String(val); };
+  put('name', row.name);
+  put('phone', row.phone);
+  put('nif', row.nif);
+  put('passport', row.passport);
+  if (row.birth_date) out.birthDate = String(row.birth_date).split('-').reverse().join('/');
+  put('filiation', row.filiation);
+  put('maritalStatus', row.marital_status);
+  put('address', row.morada);
+  put('email', row.email);
+  return out;
+};
+
+/**
+ * Feedback HONESTO do guardar da página Conta (C3 — padrão F48):
+ * "sucesso/propagado" SÓ quando a nuvem confirmou; caso contrário avisa que
+ * ficou guardado apenas neste dispositivo. NUNCA promete re-envio automático
+ * (não existe fila de re-tentativa — não inventamos comportamento).
+ */
+export const contaSaveFeedbackFromOutcome = (
+  outcome: ProfileSyncOutcome | 'local_only' | 'no_cloud',
+): { type: 'success' | 'info'; text: string; details: string } => {
+  if (outcome === 'ok' || outcome === 'created' || outcome === 'schema_retry') {
+    return {
+      type: 'success',
+      text: 'Perfil atualizado com sucesso!',
+      details: 'As suas informações pessoais foram guardadas e sincronizadas no sistema central.',
+    };
+  }
+  return {
+    type: 'info',
+    text: 'Perfil guardado apenas neste dispositivo.',
+    details:
+      'A sincronização com o sistema central não foi possível de momento. ' +
+      'Os dados ficam guardados neste dispositivo; confirme a ligação e guarde novamente para sincronizar.',
+  };
+};
+
 /** NUNCA lança — classifica sempre. */
 export const syncProfileToCloud = async (
   client: any,

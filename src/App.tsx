@@ -91,6 +91,7 @@ import {
 // F47 — revogação de contas eliminadas (pré-login via RPC v16 + purga local)
 // F48 — sincronização viva do estado oficial em sessão aberta (luz Online/gate)
 import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLocalResidues, resolveCloudGateAction } from './services/accountGateService';
+import { PROFILE_HYDRATION_COLUMNS } from './services/profileSyncService';
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
 import { resolveStorageUrl } from './lib/secureStorage';
@@ -777,13 +778,17 @@ export default function App() {
       let resolvedFiliation = '';
       let resolvedMaritalStatus = '';
       let resolvedAvatar = '';
+      // F53 (C2): a página Conta grava morada/email na nuvem — a hidratação tem
+      // de os trazer de volta, senão o dado "gravado" desaparece no próximo login.
+      let resolvedMorada = '';
+      let resolvedEmail = '';
 
       // 1) Nuvem: tabela profiles (RLS permissivo no schema atual)
       const isSupabaseReady = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
       if (isSupabaseReady) {
         const { data, error } = await supabase
           .from('profiles')
-          .select('name, phone, nif, passport, birth_date, filiation, marital_status')
+          .select(PROFILE_HYDRATION_COLUMNS)
           .eq('bi', normalized)
           .maybeSingle();
         if (error) console.error('CADA: erro ao carregar perfil da nuvem no login:', error);
@@ -795,6 +800,8 @@ export default function App() {
           resolvedBirthDate = data.birth_date ? String(data.birth_date).split('-').reverse().join('/') : '';
           resolvedFiliation = data.filiation || '';
           resolvedMaritalStatus = data.marital_status || '';
+          resolvedMorada = data.morada || '';
+          resolvedEmail = data.email || '';
         }
 
         // 1b) Nuvem: fila oficial de registo (solicitacoes_registo) — cobre contas
@@ -874,6 +881,10 @@ export default function App() {
         filiation: resolvedFiliation,
         maritalStatus: resolvedMaritalStatus,
         avatarUrl: resolvedAvatar,
+        // F53 (C2): só quando presentes na nuvem — nunca substituir por vazio
+        // um valor local válido (contas antigas podem não ter estas colunas).
+        ...(resolvedMorada ? { address: resolvedMorada } : {}),
+        ...(resolvedEmail ? { email: resolvedEmail } : {}),
       });
       addAuditLog(`Identidade resolvida para o utilizador registado ${resolvedName} (${normalized})`, 'info');
     } catch (e) {
