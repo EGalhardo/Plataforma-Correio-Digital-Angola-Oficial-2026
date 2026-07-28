@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { notify } from '../../lib/notify';
 import { motion, AnimatePresence } from 'motion/react';
 import { LazyImage } from '../ui/LazyImage';
 import { 
@@ -1324,7 +1325,7 @@ export function SolicitarDocumentoContent({
                         <button
                           type="button"
                           onClick={() => {
-                            alert(`Descarregando o Recibo Digital de Quitação ${activeReceipt.receiptCode} em PDF oficial consolidado pelo SIGFE.`);
+                            notify(`Descarregando o Recibo Digital de Quitação ${activeReceipt.receiptCode} em PDF oficial consolidado pelo SIGFE.`);
                           }}
                           className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black text-[9px] tracking-wider uppercase border-0 cursor-pointer shrink-0 transition-all flex items-center justify-center gap-1.5"
                         >
@@ -1587,7 +1588,7 @@ export function SolicitarDocumentoContent({
                   <button
                     type="button"
                     onClick={() => {
-                      alert(`Descarregando o ficheiro PDF Chancelado legalmente de acordo com o Protocolo nº ${createdDoc.protocol?.protocolNumber}`);
+                      notify(`Descarregando o ficheiro PDF Chancelado legalmente de acordo com o Protocolo nº ${createdDoc.protocol?.protocolNumber}`);
                     }}
                     className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-black text-[10px] tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer border-0"
                   >

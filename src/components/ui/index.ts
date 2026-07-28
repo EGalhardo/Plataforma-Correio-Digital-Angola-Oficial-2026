@@ -4,6 +4,8 @@
  */
 
 export { LazyImage } from './LazyImage';
+export { SecureImg, useResolvedStorageUrl } from './SecureImg';
+export { NotifyHost } from './NotifyHost';
 export { BackgroundImage } from './BackgroundImage';
 export { AnimatedCounter, CountingAnimation, formatCurrency, formatAngolaNumber, useAnimatedValue } from './AnimatedCounter';
 export { useImagePreload, preloadImage, preloadImages } from '../../hooks/useImagePreload';

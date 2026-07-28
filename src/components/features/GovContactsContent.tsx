@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { notify } from '../../lib/notify';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { AnimatedCounter } from '../ui/AnimatedCounter';
@@ -65,6 +66,7 @@ import {
   KeyRound
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, isInstPasswordTaken, nextMemberAgentNumber } from '../../services/institutionRegistrationStore';
 import { addAdminAgent, updateAdminAgentPassword, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber, getAdminAgentCreds } from '../../services/adminAgentStore';
 import { 
@@ -825,6 +827,30 @@ export function GovContactsContent({
       .replace(/\s*\[PVIC:\{[\s\S]*?\}\]/, '')
       .trim();
 
+  // F45 (Storage privado v15): documentos_registo é PRIVADO — fotos do B.I. e
+  // selfies chegam como marcador "storage:…" (novos) ou URL pública legada
+  // (antigos). Resolvem-se em lote para URLs assinados logo após o fetch, e os
+  // renders (<img src={citizen.urlFrente}>) recebem o URL final sem alterações.
+  // Falha total → fallback visual neutro (nunca <img> partido com marcador cru).
+  const REG_PHOTO_FALLBACK = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face';
+  const resolveCitizenDocUrls = async (list: Citizen[]): Promise<Citizen[]> =>
+    Promise.all(list.map(async (c) => {
+      if (!c.urlSelfie && !c.urlFrente && !c.urlVerso) return c;
+      const [selfie, frente, verso] = await Promise.all([
+        resolveStorageUrl(supabase, c.urlSelfie),
+        resolveStorageUrl(supabase, c.urlFrente),
+        resolveStorageUrl(supabase, c.urlVerso),
+      ]);
+      const face = selfie || (c.facePhoto && !isStorageRef(c.facePhoto) ? c.facePhoto : REG_PHOTO_FALLBACK);
+      return {
+        ...c,
+        urlSelfie: selfie || (isStorageRef(c.urlSelfie) ? '' : c.urlSelfie),
+        urlFrente: frente || (isStorageRef(c.urlFrente) ? '' : c.urlFrente),
+        urlVerso: verso || (isStorageRef(c.urlVerso) ? '' : c.urlVerso),
+        facePhoto: face,
+      };
+    }));
+
   const mapRegistrationRowsToCitizens = (rows: any[]): Citizen[] => rows.map((item: any) => {
     // F29 (v11.1): status 'Aprovado' com marcador [PVIC] APTO = auto-aprovação pela IA
     // (distinta da aprovação manual — com selo próprio e revogação marcada).
@@ -940,7 +966,7 @@ export function GovContactsContent({
       if (target.dbUUID || target.id.length > 20) {
         const ok = await deleteRegistrationRecord(target.dbUUID || target.id);
         if (!ok) {
-          alert('Não foi possível eliminar o registo na base de dados central. Verifique a ligação à internet e tente novamente.');
+          notify('Não foi possível eliminar o registo na base de dados central. Verifique a ligação à internet e tente novamente.');
           return;
         }
       }
@@ -1026,7 +1052,7 @@ export function GovContactsContent({
         if (data && data.length > 0) {
           // Instituições vivem na página Instituições (secção "Solicitações de Registo") — saem da fila de cidadãos.
           const citizenRows = (data as any[]).filter((item: any) => !item?.observacoes?.includes('[Instituição]'));
-          const supabaseCitizens: Citizen[] = mapRegistrationRowsToCitizens(citizenRows);
+          const supabaseCitizens: Citizen[] = await resolveCitizenDocUrls(mapRegistrationRowsToCitizens(citizenRows));
 
           setCitizens(prev => {
             const localFiltered = prev.filter(c => !citizenRows.some((item: any) => item.bi_numero === c.biNumber) && c.category !== 'Instituição');
@@ -1086,7 +1112,7 @@ export function GovContactsContent({
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!addUserName || !addUserAddress || !addUserContact) {
-      alert('Por favor, preencha todos os campos obrigatórios (Nome, Residência e Telefone/Contacto).');
+      notify('Por favor, preencha todos os campos obrigatórios (Nome, Residência e Telefone/Contacto).');
       return;
     }
 
@@ -1215,7 +1241,7 @@ export function GovContactsContent({
   const handleCreateWorker = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWorkerName || !newWorkerEmail || !newWorkerPhone || !newWorkerRole) {
-      alert('Por favor, preencha todos os campos obrigatórios (Nome Completo, Email Institucional, Telefone Profissional e Perfil Funcional).');
+      notify('Por favor, preencha todos os campos obrigatórios (Nome Completo, Email Institucional, Telefone Profissional e Perfil Funcional).');
       return;
     }
 
@@ -1230,43 +1256,43 @@ export function GovContactsContent({
     const adminCredsOn = isPlatformAdmin;
     if (instReg && !isEditingWorker) {
       if (!newWorkerPassword || newWorkerPassword.length < 8) {
-        alert('Defina a Senha inicial do colaborador (mínimo 8 caracteres). O login institucional deste colaborador será: Código da instituição + esta senha.');
+        notify('Defina a Senha inicial do colaborador (mínimo 8 caracteres). O login institucional deste colaborador será: Código da instituição + esta senha.');
         return;
       }
       if (isInstPasswordTaken(regCode, newWorkerPassword)) {
-        alert('Esta senha já está a ser usada por outra credencial desta instituição. Como a senha identifica a pessoa no login, escolha outra.');
+        notify('Esta senha já está a ser usada por outra credencial desta instituição. Como a senha identifica a pessoa no login, escolha outra.');
         return;
       }
     }
     if (instReg && isEditingWorker && newWorkerPassword) {
       if (newWorkerPassword.length < 8) {
-        alert('A nova senha (se preenchida) deve ter pelo menos 8 caracteres.');
+        notify('A nova senha (se preenchida) deve ter pelo menos 8 caracteres.');
         return;
       }
       if (isInstPasswordTaken(regCode, newWorkerPassword, editingWorkerId || undefined)) {
-        alert('Esta senha já está a ser usada por outra credencial desta instituição. Escolha outra.');
+        notify('Esta senha já está a ser usada por outra credencial desta instituição. Escolha outra.');
         return;
       }
     }
     // F6 — validações da palavra-passe de Agente Admin (criar obrigatória; editar só se preenchida)
     if (adminCredsOn && !isEditingWorker) {
       if (!newWorkerPassword || newWorkerPassword.length < 8) {
-        alert('Defina a Palavra-passe inicial do agente (mínimo 8 caracteres). O login Admin deste agente será: Nº Agente Admin + esta palavra-passe.');
+        notify('Defina a Palavra-passe inicial do agente (mínimo 8 caracteres). O login Admin deste agente será: Nº Agente Admin + esta palavra-passe.');
         return;
       }
       if (isAdminAgentPasswordTaken(newWorkerPassword)) {
-        alert('Esta palavra-passe já está a ser usada por outro agente da Administração. Como a palavra-passe identifica a pessoa no login, escolha outra.');
+        notify('Esta palavra-passe já está a ser usada por outro agente da Administração. Como a palavra-passe identifica a pessoa no login, escolha outra.');
         return;
       }
     }
     if (adminCredsOn && isEditingWorker && newWorkerPassword) {
       if (newWorkerPassword.length < 8) {
-        alert('A nova palavra-passe (se preenchida) deve ter pelo menos 8 caracteres.');
+        notify('A nova palavra-passe (se preenchida) deve ter pelo menos 8 caracteres.');
         return;
       }
       const editingAgentNum = workers.find(w => w.id === editingWorkerId)?.agentId;
       if (isAdminAgentPasswordTaken(newWorkerPassword, editingAgentNum)) {
-        alert('Esta palavra-passe já está a ser usada por outro agente da Administração. Escolha outra.');
+        notify('Esta palavra-passe já está a ser usada por outro agente da Administração. Escolha outra.');
         return;
       }
     }
@@ -1402,9 +1428,9 @@ export function GovContactsContent({
     const regCodeD = normalizeInstCode(bi || '');
     const instRegD = (appMode === 'institution' && regCodeD) ? getLocalInstReg(regCodeD) : undefined;
     if (instRegD) {
-      if (workerDrawerPwd.length < 8) { alert('A nova senha deve ter pelo menos 8 caracteres.'); return; }
+      if (workerDrawerPwd.length < 8) { notify('A nova senha deve ter pelo menos 8 caracteres.'); return; }
       if (isInstPasswordTaken(regCodeD, workerDrawerPwd, selectedWorker.id)) {
-        alert('Esta senha já está a ser usada por outra credencial desta instituição. Escolha outra.');
+        notify('Esta senha já está a ser usada por outra credencial desta instituição. Escolha outra.');
         return;
       }
       updateInstMemberPassword(regCodeD, selectedWorker.id, workerDrawerPwd, true);
@@ -1415,10 +1441,10 @@ export function GovContactsContent({
     }
     if (appMode === 'admin-workers') {
       const agentNum = selectedWorker.agentId || '';
-      if (!/^Admin-\d+$/i.test(agentNum)) { alert('Este elemento não tem um Nº Agente Admin (ADMIN-NNNN) — a palavra-passe do login Admin só se aplica a agentes com esse formato.'); return; }
-      if (workerDrawerPwd.length < 8) { alert('A nova palavra-passe deve ter pelo menos 8 caracteres.'); return; }
+      if (!/^Admin-\d+$/i.test(agentNum)) { notify('Este elemento não tem um Nº Agente Admin (ADMIN-NNNN) — a palavra-passe do login Admin só se aplica a agentes com esse formato.'); return; }
+      if (workerDrawerPwd.length < 8) { notify('A nova palavra-passe deve ter pelo menos 8 caracteres.'); return; }
       if (isAdminAgentPasswordTaken(workerDrawerPwd, agentNum)) {
-        alert('Esta palavra-passe já está a ser usada por outro agente da Administração. Escolha outra.');
+        notify('Esta palavra-passe já está a ser usada por outro agente da Administração. Escolha outra.');
         return;
       }
       updateAdminAgentPassword(agentNum, workerDrawerPwd);
@@ -3537,7 +3563,7 @@ export function GovContactsContent({
                         type="button"
                         onClick={() => {
                           if (!editName.trim() || !editBi.trim() || !editEmail.trim()) {
-                            alert('Existem campos obrigatórios em falta.');
+                            notify('Existem campos obrigatórios em falta.');
                             return;
                           }
                           setCitizens(prev => prev.map(c => c.id === selectedReviewCitizen.id ? {
@@ -3700,7 +3726,7 @@ export function GovContactsContent({
                           const mot = prompt('Indique o motivo de segurança do bloqueamento da conta:');
                           if (mot === null) return;
                           if (!mot.trim()) {
-                            alert('Motivo obrigatório.');
+                            notify('Motivo obrigatório.');
                             return;
                           }
 
@@ -3752,7 +3778,7 @@ export function GovContactsContent({
                           type="button"
                           onClick={async () => {
                             if (!rejectionReason.trim()) {
-                              alert('Insira uma justificativa para a rejeição fiscal.');
+                              notify('Insira uma justificativa para a rejeição fiscal.');
                               return;
                             }
                             setCitizens(prev => prev.map(c => c.id === selectedReviewCitizen.id ? { 

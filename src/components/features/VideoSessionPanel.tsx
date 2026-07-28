@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { notify } from '../../lib/notify';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Video, 
@@ -363,7 +364,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
     if (!session) return;
     const shareableText = `CDA - Atendimento por Vídeo Oficial\nSala: ${session.roomName}\nAssunto: ${session.subject}\nCódigo: ${session.id}\nEndereço: https://meet.jit.si/${session.roomName}`;
     navigator.clipboard.writeText(shareableText);
-    alert('Informações de acesso copiadas para a área de transferência!');
+    notify('Informações de acesso copiadas para a área de transferência!');
     if (addAuditLog) {
       addAuditLog(`Link do Atendimento ${session.id} copiado`, 'info');
     }
@@ -467,7 +468,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
     // Regra estrita: O cidadão não pode agendar/criar uma reunião diretamente no sistema central.
     // Apenas pode submeter uma intenção ou solicitação administrativa simples, mas a criação de sessões Jitsi
     // e agendamento formal é um privilégio exclusivo de representantes oficiais e funcionários de Instituições.
-    alert('Acesso negado: Por motivos regulamentares de soberania administrativa, a criação e agendamento de reuniões oficiais por vídeo é de competência exclusiva de funcionários de instituições governamentais autorizadas.');
+    notify('Acesso negado: Por motivos regulamentares de soberania administrativa, a criação e agendamento de reuniões oficiais por vídeo é de competência exclusiva de funcionários de instituições governamentais autorizadas.');
     if (addAuditLog) {
       addAuditLog(`Tentativa de agendamento de vídeo bloqueada para o cidadão por restrição regulamentar`, 'warning');
     }

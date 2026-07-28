@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { notify } from '../../lib/notify';
 import { motion } from 'motion/react';
 import { 
   ShieldCheck, 
@@ -102,7 +103,7 @@ export function GovSegurancaContent({
 
   const handleRequestRecalibration = (userId: string) => {
     setBiometricUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'Pendente' } : u));
-    alert('Solicitação de recadastramento facial lançada para o utilizador.');
+    notify('Solicitação de recadastramento facial lançada para o utilizador.');
   };
 
   const startAnalysisSimulation = (user: BiometricUser) => {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { beginProfileEdit, endProfileEdit } from '../../lib/profileEditGuard';
 import { 
   CheckCircle2, 
   ShieldCheck, 
@@ -93,6 +94,14 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
     setEditMaritalStatus(user?.maritalStatus || 'Solteiro');
     setEditMorada(user?.address || '');
   }, [user]);
+
+  // F45 (Auditoria F42 · Médio#10 — corrida F39): edição directa aberta ⇒ a
+  // hidratação da nuvem (App.tsx) não sobrescreve os campos em edição.
+  useEffect(() => {
+    if (!isEditingInfo) return;
+    beginProfileEdit();
+    return () => endProfileEdit();
+  }, [isEditingInfo]);
 
   const handleSaveDirectEdit = async () => {
     try {

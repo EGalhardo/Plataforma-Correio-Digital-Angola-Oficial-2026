@@ -90,6 +90,8 @@ import {
 } from './services/cloudAuthService';
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
+import { resolveStorageUrl } from './lib/secureStorage';
+import { isProfileEditActive } from './lib/profileEditGuard';
 import { useSession } from './services/sessionStore';
 import { VideoSessionService } from './services/videoSessionService';
 import { useLanguage } from './hooks/useLanguage';
@@ -806,7 +808,11 @@ export default function App() {
         const reg = regRows && regRows[0];
         if (reg) {
           if (!resolvedName) resolvedName = reg.nome || reg.email || '';
-          if (!resolvedAvatar && reg.url_selfie) resolvedAvatar = reg.url_selfie;
+          if (!resolvedAvatar && reg.url_selfie) {
+            // F45 (Storage privado v15): resolve marcador/URL legada para URL
+            // assinado; se falhar, mantém o valor cru (data-URL/externo intactos).
+            resolvedAvatar = await resolveStorageUrl(supabase, reg.url_selfie) || reg.url_selfie;
+          }
         }
       }
 
@@ -1744,14 +1750,16 @@ export default function App() {
         if (isUserMode && bi && !homologationStore.isExempt(bi) && isCloudBound(bi)) {
           try {
             const dbProfile = await supabaseService.getProfile(bi);
-            if (dbProfile && isSubscribed) {
+              if (dbProfile && isSubscribed) {
               const hyd: { name?: string; email?: string; phone?: string; filiation?: string; maritalStatus?: string } = {};
               if (typeof dbProfile.name === 'string' && dbProfile.name.trim()) hyd.name = dbProfile.name.trim();
               if (typeof dbProfile.email === 'string' && dbProfile.email.trim()) hyd.email = dbProfile.email.trim();
               if (typeof dbProfile.phone === 'string' && dbProfile.phone.trim()) hyd.phone = dbProfile.phone.trim();
               if (typeof dbProfile.filiation === 'string' && dbProfile.filiation.trim()) hyd.filiation = dbProfile.filiation.trim();
               if (typeof dbProfile.marital_status === 'string' && dbProfile.marital_status.trim()) hyd.maritalStatus = dbProfile.marital_status.trim();
-              if (Object.keys(hyd).length) updateUserFields(hyd);
+              // F45 (Auditoria F42 · Médio#10 — corrida F39): NUNCA aplicar a
+              // hidratação da nuvem POR CIMA de uma edição de perfil em curso.
+              if (Object.keys(hyd).length && !isProfileEditActive()) updateUserFields(hyd);
             }
           } catch (hydrErr) {
             console.warn('[PERFIL-SYNC] Hidratação de perfil falhou (best-effort):', hydrErr);

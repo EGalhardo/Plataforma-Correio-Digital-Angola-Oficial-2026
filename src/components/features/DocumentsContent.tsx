@@ -4,6 +4,7 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
+import { notify } from '../../lib/notify';
 import { useInstitutions } from '../../services/institutionStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -382,7 +383,7 @@ export function DocumentsContent({
 
       if (payMethod === 'carteira') {
         if (walletBalance < activePayingInvoice.amountVal) {
-          alert("Saldo Insuficiente na QR Code para liquidar esta fatura.");
+          notify("Saldo Insuficiente na QR Code para liquidar esta fatura.");
           return;
         }
         const nextBalance = walletBalance - activePayingInvoice.amountVal;

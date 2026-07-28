@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from "motion/react";
+import { notify } from '../../lib/notify';
 import {
   ShieldCheck,
   Mail,
@@ -580,7 +581,7 @@ export function GovDashboard({
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCitizenName || !newBiNumber || !newDescription) {
-      alert("Por favor, preencha todos os campos obrigatórios.");
+      notify("Por favor, preencha todos os campos obrigatórios.");
       return;
     }
 
@@ -638,7 +639,7 @@ export function GovDashboard({
 
   const handleActionReject = (item: QueueItem) => {
     if (!rejectionReason) {
-      alert("Por favor, indique um motivo para a rejeição.");
+      notify("Por favor, indique um motivo para a rejeição.");
       return;
     }
     updateItemStatus(item.id, 'Rejeitado', rejectionReason);

@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { notify } from '../../lib/notify';
 import { 
   BadgeCheck, EyeOff, Eye, ShieldCheck, Lock, Fingerprint, History, Settings, 
   Languages, Bell, Users, LogOut, Trash2, Scan, IdCard, Plane, Shield, 
@@ -18,6 +19,7 @@ import { Message, Document, Contact, UserRequest, DocRequest } from '../../types
 import { supabaseService, hasValidSupabaseKeys } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 import { syncProfileToCloud } from '../../services/profileSyncService';
+import { beginProfileEdit, endProfileEdit } from '../../lib/profileEditGuard';
 import { cloudChangePassword, hasActiveCloudSession, isCloudBound } from '../../services/cloudAuthService';
 import { homologationStore } from '../../services/homologationStore';
 import { CitizenProfile } from './CitizenProfile';
@@ -136,6 +138,14 @@ export function ProfileContent({
   const [editRole, setEditRole] = useState(activeProfile?.role || '');
   const [editDepartment, setEditDepartment] = useState(activeProfile?.departmentName || '');
   const [editInstitution, setEditInstitution] = useState(activeProfile?.institutionName || '');
+
+  // F45 (Auditoria F42 · Médio#10 — corrida F39): enquanto as Preferências /
+  // edição de dados estiverem abertas, a hidratação da nuvem não pisa os campos.
+  useEffect(() => {
+    if (!isPrefsOpen) { endProfileEdit(); return; }
+    beginProfileEdit();
+    return () => endProfileEdit();
+  }, [isPrefsOpen]);
 
   useEffect(() => {
     if (isPrefsOpen) {
@@ -826,7 +836,7 @@ return (
                   <button 
                     onClick={() => {
                       if (verifyStep === 2 && !captureSuccess) {
-                        alert("Por favor, conclua a digitalização biométrica facial antes de avançar.");
+                        notify("Por favor, conclua a digitalização biométrica facial antes de avançar.");
                         return;
                       }
                       setVerifyStep(prev => prev + 1);
@@ -1530,7 +1540,7 @@ return (
                             const newBackup = OfflineManager.createAutomaticBackup();
                             setBackupsList(OfflineManager.getBackups());
                             setAuditLogs(prev => [{ action: `Backup de Segurança Criado (${newBackup.version})`, time: 'Agora mesmo' }, ...prev]);
-                            alert(isInst ? `Chave de Cópia Virtual criada localmente: ${newBackup.version}\nDados salvos com sucesso no browser do Agente.` : `Chave de Cópia Virtual criada localmente: ${newBackup.version}\nDados compactados salvos com sucesso no browser do Cidadão.`);
+                            notify(isInst ? `Chave de Cópia Virtual criada localmente: ${newBackup.version}\nDados salvos com sucesso no browser do Agente.` : `Chave de Cópia Virtual criada localmente: ${newBackup.version}\nDados compactados salvos com sucesso no browser do Cidadão.`);
                           }}
                           className="py-1.5 px-3 bg-primary text-white font-extrabold text-[9px] uppercase tracking-wider rounded-lg hover:opacity-90 transition-all border-0 cursor-pointer"
                         >
@@ -1864,7 +1874,7 @@ return (
                     }
 
                     setIsPrefsOpen(false);
-                    alert(isInst ? "Preferências e dados do Agente salvos com sucesso!" : "Preferências e dados do Cidadão salvos com sucesso!");
+                    notify(isInst ? "Preferências e dados do Agente salvos com sucesso!" : "Preferências e dados do Cidadão salvos com sucesso!");
                   }}
                   className="flex-1 py-3 bg-primary text-white font-black text-xs uppercase rounded-xl hover:opacity-95 shadow-lg cursor-pointer border-0"
                 >

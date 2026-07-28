@@ -1,3 +1,14 @@
+// F45 (Auditoria F42 · Médio#3 — logger gated): em PRODUÇÃO, console.log /
+// debug / info são silenciados GLOBALMENTE (apanha os ~221 pontos de log com
+// possível PII sem tocar em nenhum ficheiro de funcionalidade). Warnings e
+// erros genuínos mantêm-se (e passam pelo filtro de conflitos abaixo).
+if (import.meta.env.PROD) {
+  const noop = () => { /* produção: logs de diagnóstico desligados */ };
+  console.log = noop;
+  console.debug = noop;
+  console.info = noop;
+}
+
 const originalWarn = console.warn;
 console.warn = function (...args) {
   const argStr = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
@@ -38,6 +49,7 @@ import './index.css';
 import {SessionProvider} from './services/sessionStore.ts';
 import {InstitutionProvider} from './services/institutionStore.ts';
 import {LanguageProvider} from './context/language/LanguageContext.tsx';
+import {NotifyHost} from './components/ui/NotifyHost.tsx';
 import {ErrorBoundary} from './components/ui/ErrorBoundary.tsx';
 
 // Intercept and suppress benign WebSocket / Vite HMR / sandbox fetching errors in the preview environment
@@ -85,6 +97,8 @@ createRoot(document.getElementById('root')!).render(
         <LanguageProvider>
           <ErrorBoundary>
             <App />
+            {/* F45 — host global dos toasts notify() (substituto do alert()) */}
+            <NotifyHost />
           </ErrorBoundary>
         </LanguageProvider>
       </InstitutionProvider>

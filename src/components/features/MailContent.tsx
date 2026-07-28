@@ -52,6 +52,7 @@ import { useLanguage } from '../../hooks/useLanguage';
 import { Video, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { MOCK_CITIZENS, MOCK_USERS } from '../../constants/mocks';
 import { supabase } from '../../lib/supabaseClient';
+import { buildStorageRef } from '../../lib/secureStorage';
 
 
 const getOrgBadgeStyles = (org: string) => {
@@ -422,11 +423,12 @@ export function MailContent({
                   console.error('Erro upload anexo:', uploadErr);
                   readAsLocalFallback(file, resolve);
                 } else {
-                  const { data } = supabase.storage.from('correspondencias_anexos').getPublicUrl(filePath);
+                  // F45 (Storage privado v15): grava-se MARCADOR resolvível —
+                  // o bucket deixa de ter URL pública; leitura por URL assinado.
                   resolve(JSON.stringify({
                     name: file.name,
                     size: `${(file.size / 1024).toFixed(1)} KB`,
-                    content: data.publicUrl, // URL in Supabase Storage
+                    content: buildStorageRef('correspondencias_anexos', filePath),
                     type: file.type
                   }));
                 }

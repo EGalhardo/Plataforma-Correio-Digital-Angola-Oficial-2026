@@ -4,6 +4,8 @@
  */
 
 import React, { useState, useEffect, Fragment } from 'react';
+import { supabase } from '../../lib/supabaseClient';
+import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowLeft, 
@@ -347,10 +349,28 @@ export function MessageDetail({
   const [previewFile, setPreviewFile] = useState<{ name: string; size: string; content?: string; type?: string } | null>(null);
   const [messageToDelete, setMessageToDelete] = useState<{ id: number; isPermanent: boolean } | null>(null);
 
-  const handleDownloadFile = (fileName: string) => {
-    if (previewFile && previewFile.content && (previewFile.content.startsWith('http://') || previewFile.content.startsWith('https://'))) {
+  // F45 (Storage privado v15): anexos novos chegam como marcador
+  // "storage:<bucket>/<path>" e os antigos como URL pública legada — resolve-se
+  // AQUI para URL assinado; data-URLs e ficheiros de texto passam intactos.
+  const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState('');
+  useEffect(() => {
+    let alive = true;
+    const c = previewFile?.content || '';
+    if (!c || !isStorageRef(c)) { setResolvedPreviewUrl(''); return; }
+    resolveStorageUrl(supabase, c)
+      .then(u => { if (alive) setResolvedPreviewUrl(u); })
+      .catch(() => { if (alive) setResolvedPreviewUrl(''); });
+    return () => { alive = false; };
+  }, [previewFile?.content]);
+
+  const handleDownloadFile = async (fileName: string) => {
+    let c = previewFile?.content || '';
+    if (c && isStorageRef(c)) {
+      try { c = (await resolveStorageUrl(supabase, c)) || c; } catch { /* mantém cru */ }
+    }
+    if (c && (c.startsWith('http://') || c.startsWith('https://'))) {
       const link = document.createElement('a');
-      link.href = previewFile.content;
+      link.href = c;
       link.download = fileName;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
@@ -3991,10 +4011,10 @@ com assinatura presencial.
                       </div>
                     ) : (previewFile.type?.startsWith('image/') || previewFile.name.toLowerCase().endsWith('.png') || previewFile.name.toLowerCase().endsWith('.jpg') || previewFile.name.toLowerCase().endsWith('.jpeg') || previewFile.name.toLowerCase().endsWith('.gif') || previewFile.name.toLowerCase().endsWith('.webp')) ? (
                       <div className="space-y-4 text-xs text-left">
-                        {previewFile.content && (previewFile.content.startsWith('http') || previewFile.content.startsWith('data:')) ? (
+                        {previewFile.content && (resolvedPreviewUrl || previewFile.content.startsWith('http') || previewFile.content.startsWith('data:')) ? (
                           <div className="flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-2xl shadow-sm">
                             <img 
-                              src={previewFile.content} 
+                              src={resolvedPreviewUrl || previewFile.content} 
                               alt={previewFile.name} 
                               className="max-h-[50vh] max-w-full object-contain rounded-xl shadow-md border border-slate-100" 
                               referrerPolicy="no-referrer" 
@@ -4127,19 +4147,19 @@ com assinatura presencial.
                             
                             {previewFile.content ? (
                               <div className="space-y-2">
-                                {previewFile.type?.startsWith('image/') || previewFile.content.startsWith('data:image/') || (previewFile.content.startsWith('http') && (previewFile.name.toLowerCase().endsWith('.png') || previewFile.name.toLowerCase().endsWith('.jpg') || previewFile.name.toLowerCase().endsWith('.jpeg') || previewFile.name.toLowerCase().endsWith('.gif'))) ? (
+                                {previewFile.type?.startsWith('image/') || previewFile.content.startsWith('data:image/') || (resolvedPreviewUrl && (previewFile.name.toLowerCase().endsWith('.png') || previewFile.name.toLowerCase().endsWith('.jpg') || previewFile.name.toLowerCase().endsWith('.jpeg') || previewFile.name.toLowerCase().endsWith('.gif') || previewFile.name.toLowerCase().endsWith('.webp'))) || (previewFile.content.startsWith('http') && (previewFile.name.toLowerCase().endsWith('.png') || previewFile.name.toLowerCase().endsWith('.jpg') || previewFile.name.toLowerCase().endsWith('.jpeg') || previewFile.name.toLowerCase().endsWith('.gif'))) ? (
                                   <div className="flex justify-center p-2 bg-white rounded-xl border border-slate-200">
-                                    <img src={previewFile.content} alt={previewFile.name} className="max-h-80 object-contain rounded-lg shadow-sm" referrerPolicy="no-referrer" />
+                                    <img src={resolvedPreviewUrl || previewFile.content} alt={previewFile.name} className="max-h-80 object-contain rounded-lg shadow-sm" referrerPolicy="no-referrer" />
                                   </div>
                                 ) : (
                                   <div className="bg-white border border-slate-200 rounded-xl p-4 font-sans text-xs text-slate-800 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto selection:bg-indigo-100 select-text">
-                                    {previewFile.content.startsWith('http') ? (
+                                    {previewFile.content.startsWith('http') || resolvedPreviewUrl ? (
                                       <div className="flex flex-col items-center justify-center py-6 px-4 text-center">
                                         <FileText size={48} className="text-indigo-500 mb-3 animate-pulse" />
                                         <p className="font-bold text-slate-800 text-sm mb-1">{previewFile.name}</p>
                                         <p className="text-xs text-slate-500 mb-4">{previewFile.size} • Ficheiro Digital Guardado</p>
                                         <a 
-                                          href={previewFile.content} 
+                                          href={resolvedPreviewUrl || previewFile.content} 
                                           target="_blank" 
                                           rel="noopener noreferrer" 
                                           className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer active:scale-95"

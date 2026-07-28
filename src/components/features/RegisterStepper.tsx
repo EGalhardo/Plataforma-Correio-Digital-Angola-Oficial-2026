@@ -25,6 +25,7 @@ import { homologationStore, notifyRegistrationSubmitted, notifyAccountApproved }
 import { requestPviVerification, buildPvicMarker, type PviVerdict } from '../../services/preVerificationService';
 import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticCitizenEmail } from '../../services/cloudAuthService';
 import { runRegistrationVerification, prewarmVerificationEngine, type RegistrationVerificationReport } from '../../services/verificationEngine';
+import { buildStorageRef } from '../../lib/secureStorage';
 
 const base64ToBlob = (base64Str: string): Blob => {
   try {
@@ -42,6 +43,37 @@ const base64ToBlob = (base64Str: string): Blob => {
     return new Blob([], { type: 'image/jpeg' });
   }
 };
+
+// F45 (Auditoria F42 · Storage privado): a PVI deixa de depender de URL pública
+// (bucket selado na v15) — o endpoint /api/verificar-cadastro aceita data-URL,
+// pelo que comprimimos o blob em JPEG ≤1280px para a IA de visão do servidor.
+// Falha => '' e a PVI recebe a referência restante (regra de ouro: REVISAO).
+const blobToPviDataUrl = (blob: Blob, maxSide = 1280, quality = 0.8): Promise<string> =>
+  new Promise((resolve) => {
+    try {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      const timer = setTimeout(() => { URL.revokeObjectURL(url); resolve(''); }, 8000);
+      img.onload = () => {
+        clearTimeout(timer);
+        try {
+          const scale = Math.min(1, maxSide / Math.max(img.width, img.height, 1));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { URL.revokeObjectURL(url); resolve(''); return; }
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          URL.revokeObjectURL(url);
+          resolve(dataUrl.startsWith('data:image/') ? dataUrl : '');
+        } catch { URL.revokeObjectURL(url); resolve(''); }
+      };
+      img.onerror = () => { clearTimeout(timer); URL.revokeObjectURL(url); resolve(''); };
+      img.src = url;
+    } catch { resolve(''); }
+  });
 
 interface RegisterStepperProps {
   onCancel: () => void;
@@ -490,6 +522,9 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
     let urlFrente = '';
     let urlVerso = '';
     let urlSelfie = '';
+    // F45 — imagens para a PVI viajam como data-URL (bucket jÁ não é público)
+    let pviFrenteData = '';
+    let pviVersoData = '';
     // F28 (Prompt v11.1) — veredicto da Pré-Verificação Inteligente (decidido após os uploads)
     let pviVerdict: PviVerdict | null = null;
     let pviAutoApproved = false;
@@ -534,8 +569,10 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
             .upload(frontPath, frenteBlob, { contentType: frenteBlob.type || 'image/jpeg' });
           if (fErr) console.error('Erro upload frente:', fErr);
           else {
-            const { data } = supabase.storage.from('documentos_registo').getPublicUrl(frontPath);
-            urlFrente = data.publicUrl;
+            // F45 (Storage privado v15): grava-se o MARCADOR resolvível
+            // (storage:bucket/path) — nunca a URL pública, que deixa de existir.
+            urlFrente = buildStorageRef('documentos_registo', frontPath);
+            try { pviFrenteData = await blobToPviDataUrl(frenteBlob); } catch { pviFrenteData = ''; }
           }
         }
 
@@ -549,8 +586,9 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
             .upload(backPath, versoBlob, { contentType: versoBlob.type || 'image/jpeg' });
           if (bErr) console.error('Erro upload verso:', bErr);
           else {
-            const { data } = supabase.storage.from('documentos_registo').getPublicUrl(backPath);
-            urlVerso = data.publicUrl;
+            // F45 (Storage privado v15): marcador resolvível em vez de URL pública.
+            urlVerso = buildStorageRef('documentos_registo', backPath);
+            try { pviVersoData = await blobToPviDataUrl(versoBlob); } catch { pviVersoData = ''; }
           }
         }
 
@@ -576,8 +614,8 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 .upload(selfiePath, selfieBlob, { contentType: 'image/jpeg' });
               if (sErr) console.error('Erro upload selfie:', sErr);
               else {
-                const { data } = supabase.storage.from('documentos_registo').getPublicUrl(selfiePath);
-                urlSelfie = data.publicUrl;
+                // F45 (Storage privado v15): marcador resolvível em vez de URL pública.
+                urlSelfie = buildStorageRef('documentos_registo', selfiePath);
               }
             } else {
               urlSelfie = savedFacePhoto;
@@ -597,7 +635,9 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
             biNumber: newUser.biNumber,
             nome: newUser.name,
             tipo: appMode === 'institution' ? 'instituicao' : 'cidadao',
-            urls: { frente: urlFrente, verso: urlVerso },
+            // F45: data-URL comprimido (o endpoint aceita data:image/ — anti-SSRF);
+            // sem compressão possível cai-se na referência restante → REVISAO segura.
+            urls: { frente: pviFrenteData || urlFrente, verso: pviVersoData || urlVerso },
           });
         } else {
           pviVerdict = {

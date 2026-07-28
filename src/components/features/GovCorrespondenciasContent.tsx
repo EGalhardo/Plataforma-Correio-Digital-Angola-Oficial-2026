@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { notify } from '../../lib/notify';
 import { useInstitutions } from '../../services/institutionStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -939,7 +940,7 @@ export function GovCorrespondenciasContent({
                         <button 
                           onClick={() => {
                             if (!forwardRecipient.trim()) {
-                              alert('Por favor insira um destinatário para reencaminhar.');
+                              notify('Por favor insira um destinatário para reencaminhar.');
                               return;
                             }
                             // Append to timeline log & update details
@@ -1107,7 +1108,7 @@ export function GovCorrespondenciasContent({
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (!formData.subject.trim() || !formData.body.trim()) {
-                    alert('Por favor preencha o assunto e o corpo oficial do ofício.');
+                    notify('Por favor preencha o assunto e o corpo oficial do ofício.');
                     return;
                   }
                   

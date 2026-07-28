@@ -4,6 +4,7 @@
  */
 
 import { useState, useMemo, useEffect, FormEvent, useRef } from 'react';
+import { notify } from '../../lib/notify';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, 
@@ -488,7 +489,7 @@ export function PastaDigitalContent({
 
   const handleCreateQrCode = (code: string) => {
     if (emergencyMode) {
-      alert("Acesso Bloqueado: Não é permitido gerar QR Code de partilha sob o Protocolo de Emergência Ciber-Defensiva SOC-AN-2026.");
+      notify("Acesso Bloqueado: Não é permitido gerar QR Code de partilha sob o Protocolo de Emergência Ciber-Defensiva SOC-AN-2026.");
       logSecurityEvent?.(`BLOQUEIO_SEGURANCA: Tentativa de gerar QR Code recusada para salvaguarda de soberania digital.`, 'critical');
       return;
     }
@@ -502,7 +503,7 @@ export function PastaDigitalContent({
     setVerificationResult('checking');
     setTimeout(() => {
       if (emergencyMode) {
-        alert("Erro de Validação: Chaves de autenticação do Estado estão cifradas e indisponíveis (SOC-AN-2026).");
+        notify("Erro de Validação: Chaves de autenticação do Estado estão cifradas e indisponíveis (SOC-AN-2026).");
         setVerificationResult('none');
         setIsVerifyingIntegrity(false);
         logSecurityEvent?.(`FALHA_CONECTIVIDADE: Chaves de matching sequestradas sob emergência de mitigação de intrusão.`, 'critical');
@@ -645,11 +646,11 @@ export function PastaDigitalContent({
 
   const notifyDownloadLocal = (doc: ActionableDoc) => {
     if (emergencyMode) {
-      alert("Acesso Bloqueado: Download de PDF suspenso durante o Protocolo Ativo de Emergência SOC-AN-2026.");
+      notify("Acesso Bloqueado: Download de PDF suspenso durante o Protocolo Ativo de Emergência SOC-AN-2026.");
       logSecurityEvent?.(`BLOQUEADO: Tentativa de descarga rejeitada preventivamente sob emergência para ${doc.name}.`, 'critical');
       return;
     }
-    alert(`Descarregando cópia autenticada e verificada pelo CDA em formato PDF chancelado para o documento:\n${doc.name}\n\nEspaço consumido: ${doc.fileSizeKb} KB.`);
+    notify(`Descarregando cópia autenticada e verificada pelo CDA em formato PDF chancelado para o documento:\n${doc.name}\n\nEspaço consumido: ${doc.fileSizeKb} KB.`);
     logSecurityEvent?.(`DESCARGA_CERTIFICADA: Cópia autenticada de ${doc.name} transferida via PDF.`, 'success');
   };
 
@@ -1193,7 +1194,7 @@ export function PastaDigitalContent({
                 <button 
                   onClick={() => {
                     handleCreateQrCode(inspectedDoc.code);
-                    alert("Acesso encriptado temporário de 15 minutos exposto para balcões!");
+                    notify("Acesso encriptado temporário de 15 minutos exposto para balcões!");
                   }}
                   className="bg-white border border-slate-205 text-slate-700 py-3.5 rounded-2xl px-5 font-black text-xs uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >

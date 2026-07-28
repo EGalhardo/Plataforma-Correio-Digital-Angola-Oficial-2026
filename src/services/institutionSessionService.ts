@@ -51,7 +51,34 @@ const mapRowStatus = (status?: string): HomologationStatus => {
   if (status === 'Aprovado') return 'active';
   if (status === 'Rejeitado' || status === 'Reprovado' || status === 'Não Aprovado') return 'rejected';
   if (status === 'Em Correções') return 'correcao';
+  // F44 (v15): o bloqueio administrativo lido da fila passa a valer também
+  // cross-device (antes só no dispositivo onde o admin actuou).
+  if (status === 'Bloqueado') return 'blocked';
   return 'pending';
+};
+
+// ----------------------------------------------------------------------------
+// F44 (Auditoria F42 · v15) — Reconhecimento pré-Auth da instituição.
+// O SELECT directo em solicitacoes_registo MORREU com o selo RLS (o anónimo
+// não vê a fila) → o login institucional passava a "não reconhecida" em
+// qualquer dispositivo sem espelho local. A RPC security-definer devolve
+// APENAS { nome, status } da linha do código exacto (sem listagem, sem dados
+// sensíveis). Se a RPC ainda não existir (janela de deploy), cai no SELECT
+// antigo (que devolve [] sob RLS) e no espelho local — sem quebrar.
+// ----------------------------------------------------------------------------
+const preloginLookupInstitution = async (supabase: any, code: string): Promise<{ nome?: string; status?: string } | null> => {
+  if (!supabase?.rpc) return null;
+  try {
+    const { data, error } = await supabase.rpc('cda_prelogin_instituicao', { p_codigo: code });
+    if (!error && Array.isArray(data) && data.length > 0 && data[0]) {
+      return { nome: data[0].nome, status: data[0].status };
+    }
+    // Linha inexistente na nuvem: null (o chamador distingue "não reconhecida")
+    if (!error && Array.isArray(data) && data.length === 0) return null;
+  } catch (e) {
+    console.warn('[InstSession] RPC de pré-login indisponível (fallback local/legado):', e);
+  }
+  return null;
 };
 
 /**
@@ -73,23 +100,29 @@ export const resolveInstitutionFaceLogin = async (
 
   const reg: LocalInstitutionRegistration | undefined = getLocalInstReg(code);
   let row: any = null;
-  const ready = (import.meta as any).env?.VITE_SUPABASE_URL && (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
-  if (ready && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('solicitacoes_registo')
-        .select('*')
-        .eq('bi_numero', code)
-        .maybeSingle();
-      if (!error) row = data;
-    } catch (e) {
-      console.warn('[InstSession] Consulta cloud indisponível:', e);
+  // F44 (v15): reconhecimento pré-Auth por RPC security-definer (devolve só nome+estado).
+  // Guarda SEM `ready` (padrão do serviço): o cliente injectado decide — sem nuvem,
+  // a RPC falha e cai no SELECT legado / espelho local (D3), sem quebrar.
+  let preRow: { nome?: string; status?: string } | null = null;
+  if (supabase) {
+    preRow = await preloginLookupInstitution(supabase, code);
+    if (!preRow) {
+      try {
+        const { data, error } = await supabase
+          .from('solicitacoes_registo')
+          .select('*')
+          .eq('bi_numero', code)
+          .maybeSingle();
+        if (!error) row = data;
+      } catch (e) {
+        console.warn('[InstSession] Consulta cloud indisponível:', e);
+      }
     }
   }
 
-  const name: string = row?.nome || reg?.nome || code;
+  const name: string = row?.nome || preRow?.nome || reg?.nome || code;
   const pack = parseInstPack(row?.observacoes || reg?.observacoes || '');
-  if (!reg && !row) {
+  if (!reg && !row && !preRow) {
     return {
       outcome: 'invalid', code, name: '',
       message: `A instituição \"${code}\" não foi reconhecida. Confirme o seu Nº Agente Institucional.`
@@ -121,7 +154,7 @@ export const resolveInstitutionFaceLogin = async (
 
   const rec = homologationStore.getStatus(code);
   const fichaSuspensa = isInstitutionFichaSuspended(code);
-  const status: HomologationStatus = rec?.status || mapRowStatus(row?.status || reg?.status);
+  const status: HomologationStatus = rec?.status || mapRowStatus(row?.status || reg?.status || preRow?.status);
   if (status === 'rejected') {
     return {
       outcome: 'deny', code, name, pack, status,
@@ -157,29 +190,37 @@ export const resolveInstitutionLogin = async (
   // 1. Localizar o registo: espelho local primeiro, nuvem depois
   const reg: LocalInstitutionRegistration | undefined = getLocalInstReg(code);
   let row: any = null;
-  const ready = (import.meta as any).env?.VITE_SUPABASE_URL && (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
-  if (ready && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('solicitacoes_registo')
-        .select('*')
-        .eq('bi_numero', code)
-        .maybeSingle();
-      if (!error) row = data;
-    } catch (e) {
-      console.warn('[InstSession] Consulta cloud indisponível:', e);
+  // F44 (v15): reconhecimento pré-Auth por RPC security-definer (devolve só nome+estado).
+  // Guarda SEM `ready` (padrão do serviço): o cliente injectado decide — sem nuvem,
+  // a RPC falha e cai no SELECT legado / espelho local (D3), sem quebrar.
+  let preRow: { nome?: string; status?: string } | null = null;
+  if (supabase) {
+    preRow = await preloginLookupInstitution(supabase, code);
+    if (!preRow) {
+      try {
+        const { data, error } = await supabase
+          .from('solicitacoes_registo')
+          .select('*')
+          .eq('bi_numero', code)
+          .maybeSingle();
+        if (!error) row = data;
+      } catch (e) {
+        console.warn('[InstSession] Consulta cloud indisponível:', e);
+      }
     }
   }
 
-  if (!reg && !row) {
+  if (!reg && !row && !preRow) {
     return {
       outcome: 'invalid', code, name: '',
       message: `O Código Institucional "${code}" não foi reconhecido. Confirme o código recebido no registo ou registe a instituição.`
     };
   }
 
-  const name: string = row?.nome || reg?.nome || code;
-  const pack = parseInstPack(row?.observacoes || reg?.observacoes || '');
+  // F44 (v15): `let` — a re-hidratação pós-Auth (abaixo) pode chegar aos dados
+  // completos DEPOIS desta primeira composição pré-Auth (nome via RPC/local).
+  let name: string = row?.nome || preRow?.nome || reg?.nome || code;
+  let pack = parseInstPack(row?.observacoes || reg?.observacoes || '');
 
   // 2. A senha confirma a PESSOA (F6/C5: o NN do agente identifica; a senha valida essa pessoa)
   let identity: InstitutionIdentity | null = null;
@@ -197,6 +238,24 @@ export const resolveInstitutionLogin = async (
     const cloudRes = await cloudSignIn(supabase, cloudAgentEmail, password);
     if (cloudRes.outcome === 'ok') {
       if (!cloudAgentMarked) markCloudAccount(typed, cloudAgentEmail, 'instituicao');
+      // F44 (v15) — RE-HIDRATAÇÃO PÓS-AUTH: autenticado, a linha da fila passa
+      // a ser visível pela própria RLS → num dispositivo novo recuperam-se os
+      // dados completos (nome do formulário e InstPack das observações).
+      if (!row && supabase) {
+        try {
+          const { data: fullRow } = await supabase
+            .from('solicitacoes_registo')
+            .select('*')
+            .eq('bi_numero', code)
+            .maybeSingle();
+          if (fullRow) {
+            row = fullRow;
+            if (fullRow.nome) name = fullRow.nome;
+            const fullPack = parseInstPack(fullRow.observacoes || '');
+            if (fullPack) pack = fullPack;
+          }
+        } catch { /* best-effort: já se entrou com dados pré-Auth */ }
+      }
       if (agentSeq === 1) {
         identity = { type: 'responsible', agentNumber: typed };
       } else if (reg) {
@@ -274,7 +333,7 @@ export const resolveInstitutionLogin = async (
   // 3. Estado da instituição (homologação local ganha; depois ficha suspensa; depois linha)
   const rec = homologationStore.getStatus(code);
   const fichaSuspensa = isInstitutionFichaSuspended(code);
-  const status: HomologationStatus = rec?.status || mapRowStatus(row?.status || reg?.status);
+  const status: HomologationStatus = rec?.status || mapRowStatus(row?.status || reg?.status || preRow?.status);
 
   if (status === 'rejected') {
     return {
