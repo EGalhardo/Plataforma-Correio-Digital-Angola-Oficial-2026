@@ -528,6 +528,14 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
     // F28 (Prompt v11.1) — veredicto da Pré-Verificação Inteligente (decidido após os uploads)
     let pviVerdict: PviVerdict | null = null;
     let pviAutoApproved = false;
+    // F47 — re-registo de conta ELIMINADA: a fila foi apagada mas a credencial
+    // Auth sobrevive (a aplicação nunca elimina contas Auth sem chave de serviço).
+    // O provisionamento (feito ANTES do insert) revela essa pré-existência —
+    // 'linked_existing'/'conflict' => a aprovação automática por PVI é SUPRIMIDA
+    // e a conta nasce PENDENTE de nova decisão da Área de Administração.
+    let cloudPreExisting = false;
+    let provOutcome: string | null = null;
+    let effectiveAutoApproved = false;
 
     try {
       const isSupabaseReady = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
@@ -658,6 +666,32 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
           pviAutoApproved ? 'success' : 'warning'
         );
 
+        // F47 — CONTA ELIMINADA ⇒ NUNCA auto-aprovar: provisiona JÁ (best-effort,
+        // D3 — a nuvem nunca quebra o registo) porque é o provisionamento que
+        // revela se o B.I. já teve credencial de nuvem. Se sim, este é um
+        // RE-registo: a decisão volta integralmente para a Administração.
+        if (appMode !== 'institution') {
+          try {
+            const cloudEmail = syntheticCitizenEmail(newUser.biNumber);
+            const prov = await provisionCloudAccount(supabase, {
+              email: cloudEmail,
+              password,
+              metadata: { bi: newUser.biNumber, role: 'cidadao', name: newUser.name },
+            });
+            provOutcome = prov.outcome;
+            cloudPreExisting = prov.outcome === 'linked_existing' || prov.outcome === 'conflict';
+            if (prov.outcome === 'ok' || prov.outcome === 'linked_existing') {
+              markCloudAccount(newUser.biNumber, cloudEmail, 'cidadao');
+            }
+          } catch (cloudErr) {
+            console.error('[AUTH-CLOUD] Falha inesperada no provisionamento do cidadão:', cloudErr);
+          }
+        }
+        effectiveAutoApproved = pviAutoApproved && !cloudPreExisting;
+        if (cloudPreExisting) {
+          addAuditLog(`[F47] Re-registo do B.I. ${newUser.biNumber}: credencial de nuvem PRÉ-EXISTENTE (conta anterior eliminada pela Administração) — aprovação automática por PVI SUPRIMIDA; a conta fica PENDENTE de nova homologação.`, 'warning');
+        }
+
         setSubmitMessage('Registando dados no Supabase Database...');
 
         // Insert to Supabase table: solicitacoes_registo
@@ -672,7 +706,9 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
             url_frente: urlFrente || null,
             url_verso: urlVerso || null,
             url_selfie: urlSelfie || null,
-            status: pviAutoApproved ? 'Aprovado' : 'Pendente',
+            // F47: re-registo de conta eliminada (credencial Auth pré-existente)
+            // nunca é auto-aprovado — nasce Pendente de nova homologação.
+            status: effectiveAutoApproved ? 'Aprovado' : 'Pendente',
             // Relatório técnico da pré-verificação local: viaja embutido nas
             // observações (marcador KYC) para a Área de Administração o ler em
             // qualquer dispositivo — nunca é mostrado ao cidadão.
@@ -681,7 +717,8 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               : '')
             // F28 (v11.1): marcador [PVIC] — legível pelo Admin noutro dispositivo; nunca visível ao cidadão
             + (pviVerdict ? ` ${buildPvicMarker(pviVerdict)}` : '')
-            + (pviAutoApproved ? ' | Aprovado automaticamente por Pré-Verificação Inteligente (IA).' : '')
+            + (effectiveAutoApproved ? ' | Aprovado automaticamente por Pré-Verificação Inteligente (IA).' : '')
+            + (cloudPreExisting ? ' | Re-registo após eliminação da conta anterior — aprovação automática suprimida (F47): aguarda nova decisão da Administração.' : '')
           }]);
 
         if (insertErr) {
@@ -732,7 +769,8 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       const updated = [{
         ...newUser,
         // F28 (v11.1): conta auto-aprovada pela IA nasce activa — e vê-se na fila do Admin como 'Aprovado Automaticamente'
-        status: pviAutoApproved ? 'Aprovado Automaticamente' : newUser.status,
+        // F47: re-registo de conta eliminada nunca recebe este selo (nasce Pendente).
+        status: effectiveAutoApproved ? 'Aprovado Automaticamente' : newUser.status,
         pviVer: pviVerdict?.veredicto,
         pviAlertas: pviVerdict?.alertas,
         pviMotivo: pviVerdict?.motivo,
@@ -749,24 +787,16 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       // registo (D3) — a migração just-in-time ocorre no primeiro login (D2).
       // Instituições: o responsável é provisionado em RegisterInstitutionPage
       // com o Nº Agente real (logins institucionais usam código/agente, não NIF).
+      // F47: o provisionamento em si aconteceu ANTES do insert na fila (é ele que
+      // revela a pré-existência da credencial e suprime a auto-aprovação); aqui
+      // resta apenas o registo de auditoria do desfecho.
       if (appMode !== 'institution' && isSupabaseConfigured()) {
-        try {
-          const cloudEmail = syntheticCitizenEmail(newUser.biNumber);
-          const prov = await provisionCloudAccount(supabase, {
-            email: cloudEmail,
-            password,
-            metadata: { bi: newUser.biNumber, role: 'cidadao', name: newUser.name },
-          });
-          if (prov.outcome === 'ok' || prov.outcome === 'linked_existing') {
-            markCloudAccount(newUser.biNumber, cloudEmail, 'cidadao');
-            addAuditLog(`[AUTH-CLOUD] Conta do cidadão ${newUser.name} (${newUser.biNumber}) nascida na nuvem — a palavra-passe vive apenas no Supabase Auth.`, 'success');
-          } else if (prov.outcome === 'pending_confirm') {
-            addAuditLog('[AUTH-CLOUD] ATENÇÃO: confirmação de e-mail activa no Supabase — desactivar (Authentication → Providers → Email) para o login na nuvem funcionar.', 'warning');
-          } else if (prov.outcome === 'unavailable') {
-            addAuditLog(`[AUTH-CLOUD] Nuvem indisponível no registo de ${newUser.name} — conta mantida local; migração just-in-time no primeiro login (D3).`, 'warning');
-          }
-        } catch (cloudErr) {
-          console.error('[AUTH-CLOUD] Falha inesperada no provisionamento do cidadão:', cloudErr);
+        if (provOutcome === 'ok' || provOutcome === 'linked_existing') {
+          addAuditLog(`[AUTH-CLOUD] Conta do cidadão ${newUser.name} (${newUser.biNumber}) nascida na nuvem — a palavra-passe vive apenas no Supabase Auth.`, 'success');
+        } else if (provOutcome === 'pending_confirm') {
+          addAuditLog('[AUTH-CLOUD] ATENÇÃO: confirmação de e-mail activa no Supabase — desactivar (Authentication → Providers → Email) para o login na nuvem funcionar.', 'warning');
+        } else if (provOutcome === 'unavailable') {
+          addAuditLog(`[AUTH-CLOUD] Nuvem indisponível no registo de ${newUser.name} — conta mantida local; migração just-in-time no primeiro login (D3).`, 'warning');
         }
       }
 
@@ -775,7 +805,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       // F28 (v11.1): quando a Pré-Verificação Inteligente aprova as TRÊS portas, a conta
       // nasce ACTIVA e recebe a correspondência oficial de boas-vindas (substitui a de
       // 'em homologação'). Qualquer dúvida/falha => caminho pendente, inalterado.
-      if (pviAutoApproved) {
+      if (effectiveAutoApproved) {
         homologationStore.setStatus(newUser.biNumber, 'active', undefined, newUser.name);
         homologationStore.clearThread(newUser.biNumber);
         notifyAccountApproved(newUser.biNumber, newUser.name);
@@ -783,7 +813,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         homologationStore.setStatus(newUser.biNumber, 'pending', undefined, newUser.name);
         notifyRegistrationSubmitted(newUser.biNumber, newUser.name);
       }
-      setPviAutoApproved(pviAutoApproved);
+      setPviAutoApproved(effectiveAutoApproved);
 
       addAuditLog(`Processo de Adesão de ${newUser.name} submetido ao SME`, 'info');
       setStep('success');

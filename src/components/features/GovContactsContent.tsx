@@ -1006,9 +1006,17 @@ export function GovContactsContent({
             await supabase.storage.from('documentos_registo').remove(files.map((f: any) => `${biClean}/${f.name}`));
           }
         } catch (e) { /* ignora — storage sem permissão: eliminação lógica já garantida */ }
+        // F47 — resíduos de nuvem eliminados em cascata (best-effort): perfil e
+        // pedidos/notificações do titular, para que nada re-hidrate a identidade
+        // revogada. A conta Auth NÃO é apagada (sem chave de serviço no cliente):
+        // torna-se inerte — o login passa a ser recusado por inexistência na fila
+        // (accountGateService) e um eventual re-registo nasce PENDENTE.
+        try { await supabase.from('profiles').delete().eq('bi', biKey); } catch (e) { /* ignora */ }
+        try { await supabase.from('user_requests').delete().eq('user_bi', biKey); } catch (e) { /* ignora */ }
+        try { await supabase.from('notifications').delete().eq('target_bi', biKey); } catch (e) { /* ignora */ }
       }
 
-      addAuditLog?.(`Remoção: Cadastro do cidadão "${target.name}" (BI: ${target.biNumber || '—'}) e TODO o seu conteúdo (mensagens, validações e ficheiros) eliminados pelo Administrador.`, 'critical');
+      addAuditLog?.(`Remoção: Cadastro do cidadão "${target.name}" (BI: ${target.biNumber || '—'}) e TODO o seu conteúdo (mensagens, validações e ficheiros) eliminados pelo Administrador. O B.I. só volta a ter acesso após NOVO registo, que nasce pendente de nova homologação (F47).`, 'critical');
       setDeleteConfirmCitizen(null);
     } finally {
       setIsDeletingCitizen(false);

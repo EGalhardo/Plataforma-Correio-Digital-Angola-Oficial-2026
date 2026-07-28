@@ -88,6 +88,8 @@ import {
   isSupabaseConfigured, syntheticCitizenEmail, syntheticAdminEmail, hasActiveCloudSession,
   cloudSignOutBestEffort,
 } from './services/cloudAuthService';
+// F47 — revogação de contas eliminadas (pré-login via RPC v16 + purga local)
+import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLocalResidues } from './services/accountGateService';
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
 import { resolveStorageUrl } from './lib/secureStorage';
@@ -1450,6 +1452,57 @@ export default function App() {
           if (isInstMode && bi.trim().toUpperCase() === DEMO_CREDENTIALS.institution.identifier) {
             setInstGate('full');
             setInstIdentity({ type: 'responsible' });
+          }
+          // F47 — login facial do CIDADÃO com gates IDÊNTICOS ao login por senha
+          // (antes não consultava a nuvem: uma conta eliminada voltava a entrar).
+          // A face bateu => a conta existiu neste dispositivo (evidência local
+          // forte); se a fila oficial já não tem registo deste B.I., o Admin
+          // eliminou a conta => revogar + purgar vestígios (inclui a matriz facial).
+          if (!isInstMode && !isGovMode) {
+            const faceBi = bi.trim().toUpperCase().replace(/\s+/g, '');
+            if (faceBi && !homologationStore.isExempt(faceBi) && isSupabaseConfigured()) {
+              try {
+                const pre = await readCitizenRegistrationStatus(supabase, faceBi);
+                if (isRevokedDeletedAccount({ read: pre, sessionLive: false, hasLocalEvidence: true })) {
+                  purgeCitizenLocalResidues(faceBi);
+                  await cloudSignOutBestEffort(supabase);
+                  setLoginError('Esta conta foi ELIMINADA pela Área de Administração. Para voltar a usar a plataforma, efectue um NOVO registo — a conta só ficará activa após nova aprovação da Administração.');
+                  setFaceProgress(0);
+                  setIsFaceScanning(false);
+                  stopLoginFaceCamera();
+                  setLoginSubMode('normal');
+                  addAuditLog(`Login facial do cidadão ${faceBi} recusado: registo inexistente na base central (conta eliminada pela Administração) — acesso revogado até novo registo + nova homologação (F47).`, 'critical');
+                  return;
+                }
+                const faceSt = pre.ok && pre.status ? pre.status : '';
+                if (faceSt) {
+                  if (faceSt === 'Aprovado') homologationStore.setStatus(faceBi, 'active', undefined, undefined);
+                  else if (faceSt === 'Pendente') homologationStore.setStatus(faceBi, 'pending', undefined, undefined);
+                  else if (faceSt === 'Bloqueado') homologationStore.setStatus(faceBi, 'blocked', undefined, undefined);
+                  else if (faceSt === 'Reprovado' || faceSt === 'Rejeitado' || faceSt === 'Não Aprovado') homologationStore.setStatus(faceBi, 'rejected', undefined, undefined);
+                  if (faceSt === 'Bloqueado') {
+                    setLoginError('A sua conta encontra-se BLOQUEADA pela Área de Administração. Contacte o suporte oficial para reactivação.');
+                    setFaceProgress(0);
+                    setIsFaceScanning(false);
+                    stopLoginFaceCamera();
+                    setLoginSubMode('normal');
+                    addAuditLog(`Login facial do cidadão ${faceBi} recusado: conta BLOQUEADA (estado lido da nuvem).`, 'critical');
+                    return;
+                  }
+                  if (faceSt === 'Reprovado' || faceSt === 'Rejeitado' || faceSt === 'Não Aprovado') {
+                    setLoginError('O seu pedido de registo foi REJEITADO pela Área de Administração. Regularize a situação junto do suporte oficial.');
+                    setFaceProgress(0);
+                    setIsFaceScanning(false);
+                    stopLoginFaceCamera();
+                    setLoginSubMode('normal');
+                    addAuditLog(`Login facial do cidadão ${faceBi} recusado: registo REJEITADO (estado lido da nuvem).`, 'critical');
+                    return;
+                  }
+                }
+              } catch (faceGateErr) {
+                console.warn('[F47] Leitura do estado na nuvem indisponível no login facial — mantido o estado local (D3):', faceGateErr);
+              }
+            }
           }
           await applyIdentityForLoggedUser();
           stopLoginFaceCamera();
@@ -4511,13 +4564,26 @@ Ficha civil do titular:
           // F-b — ESTADO LIDO DA NUVEM: activação/bloqueio/rejeição do admin passam a
           // valer em QUALQUER dispositivo (antes era apenas estado visual local).
           try {
-            const { data: statusRows } = await supabase
-              .from('solicitacoes_registo')
-              .select('status')
-              .eq('bi_numero', typedCitizenBi)
-              .order('criado_em', { ascending: false })
-              .limit(1);
-            const cloudSt = statusRows && statusRows[0] ? String(statusRows[0].status || '') : '';
+            // F47 — leitura via RPC security-definer `cda_prelogin_cidadao` (v16):
+            // fiável COM ou SEM sessão (o SELECT anónimo nunca vê a fila por RLS).
+            // Sem linha na fila + prova de existência prévia (sessão Auth válida
+            // agora, marcador de nuvem ou credencial local) = a conta foi ELIMINADA
+            // pelo Admin => acesso REVOGADO até a um NOVO registo, que nasce
+            // PENDENTE e exige nova homologação (PVI nunca auto-aprova re-registos
+            // de contas eliminadas — ver RegisterStepper, F47).
+            const pre = await readCitizenRegistrationStatus(supabase, typedCitizenBi);
+            if (isRevokedDeletedAccount({
+              read: pre,
+              sessionLive: cloudRes.outcome === 'ok',
+              hasLocalEvidence: cloudMarked || localPass !== null,
+            })) {
+              purgeCitizenLocalResidues(typedCitizenBi);
+              await cloudSignOutBestEffort(supabase);
+              setLoginError('Este registo foi ELIMINADO pela Área de Administração. Para voltar a usar a plataforma, efectue um NOVO registo — a conta só ficará activa após nova aprovação da Administração.');
+              addAuditLog(`Login do cidadão ${typedCitizenBi} recusado: registo INEXISTENTE na base central (conta eliminada pela Administração) — acesso revogado até NOVO registo + nova homologação (F47).`, 'critical');
+              return;
+            }
+            const cloudSt = pre.ok && pre.status ? pre.status : '';
             if (cloudSt) {
               if (cloudSt === 'Aprovado') homologationStore.setStatus(typedCitizenBi, 'active', undefined, undefined);
               else if (cloudSt === 'Pendente') homologationStore.setStatus(typedCitizenBi, 'pending', undefined, undefined);
