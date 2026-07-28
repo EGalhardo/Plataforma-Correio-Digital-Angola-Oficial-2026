@@ -79,7 +79,7 @@ import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol } f
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi } from './services/supabaseService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
-import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, type InstitutionIdentity } from './services/institutionSessionService';
+import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, preloginLookupInstitution, purgeInstitutionLocalResidues, mapRowStatus, type InstitutionIdentity } from './services/institutionSessionService';
 import { getLocalInstReg, normalizeInstCode, parseInstPack } from './services/institutionRegistrationStore';
 import { resolveAdminAgentLogin, hasActiveAdminAlfa } from './services/adminAgentStore';
 import { getAdminAgentCred, addAdminAgent } from './services/adminAgentStore';
@@ -1581,6 +1581,56 @@ export default function App() {
     void sync(); // primeira verificação imediata ao entrar na área
     return () => { cancelled = true; clearInterval(id); };
   }, [stage, appMode, bi]);
+
+  // F49 — SINCRONIZAÇÃO VIVA INSTITUCIONAL (gémea da F48 do cidadão): sem ela, a
+  // aprovação/castigo da instituição noutro dispositivo só era aprendida no
+  // PRÓXIMO login (o tick de 4s lê apenas a loja local). A cada 8s lê-se o
+  // estado oficial via RPC security-definer (v15) e actualiza-se a loja local —
+  // o tick F6 existente levanta instGate para 'full' sozinho quando fica
+  // 'active'. ELIMINAÇÃO em sessão ⇒ revogação imediata (regra F47 estendida).
+  // D3: leituras indisponíveis nunca tocam no estado local.
+  useEffect(() => {
+    if (stage !== 'app' || !isInstMode || instGate === 'none') return;
+    const code = normalizeInstCode(bi || '');
+    if (!code || code === normalizeInstCode(DEMO_CREDENTIALS.institution.identifier)) return; // demo intacto (v7/D7)
+    if (!isSupabaseConfigured()) return;
+    let cancelled = false;
+    let inFlight = false;
+    const sync = async () => {
+      if (cancelled || inFlight) return;
+      inFlight = true;
+      try {
+        const pre = await preloginLookupInstitution(supabase, code);
+        if (cancelled) return;
+        if (pre.kind === 'empty') {
+          purgeInstitutionLocalResidues(code, getLocalInstReg(code));
+          await cloudSignOutBestEffort(supabase);
+          addAuditLog(`F49: adesão da instituição ${code} ELIMINADA pela Administração com a sessão aberta — acesso revogado de imediato; novo acesso exige NOVO registo homologado.`, 'critical');
+          setLoginPasswordInput('');
+          setLoginError('A adesão desta instituição foi ELIMINADA pela Área de Administração durante esta sessão. Para voltar a usar a plataforma, efectue um NOVO registo — a conta só ficará activa após nova homologação.');
+          setStage('login');
+          return;
+        }
+        if (pre.kind !== 'found' || !pre.status) return;
+        const target = mapRowStatus(pre.status);
+        const current = homologationStore.getStatus(code)?.status ?? null;
+        if (target !== current) {
+          homologationStore.setStatus(code, target, undefined, undefined);
+          if (target === 'active') addAuditLog('F49: instituição APROVADA pela Administração — activação detectada em sessão aberta (o acesso total sobe no próximo tick de 4s).', 'success');
+          else if (target === 'blocked') addAuditLog('F49: instituição BLOQUEADA pela Administração — detectado em sessão aberta (luz Online amarela).', 'critical');
+          else if (target === 'rejected') addAuditLog('F49: adesão institucional REJEITADA pela Administração — detectado em sessão aberta.', 'warning');
+          setGateRefreshTick(t => t + 1);
+        }
+      } catch (e) {
+        console.warn('[F49] Sincronização viva institucional indisponível (D3):', e);
+      } finally {
+        inFlight = false;
+      }
+    };
+    const id = setInterval(sync, 8000);
+    void sync(); // primeira verificação imediata ao entrar na área
+    return () => { cancelled = true; clearInterval(id); };
+  }, [stage, isInstMode, instGate, bi]);
 
   // F3/F7 — aprovada pela Admin? O estado sobe para 'full' sozinho (tick de 4s) e o
   // indicador Online fica verde — a correspondência oficial da aprovação entretanto

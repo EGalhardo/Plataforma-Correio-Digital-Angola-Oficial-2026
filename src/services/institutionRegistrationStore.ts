@@ -87,6 +87,16 @@ export const getLocalInstReg = (code?: string): LocalInstitutionRegistration | u
   return readRegs().find(r => normalizeInstCode(r.code) === key);
 };
 
+// F49 — remoção do espelho local da instituição (adesão eliminada pelo Admin):
+// sem isto, o espelho sobrevivia e a adesão ELIMINADA continuava a entrar com
+// acesso total por credencial local — exactamente o bypass F47 do cidadão.
+export const removeLocalInstReg = (code?: string): void => {
+  const key = normalizeInstCode(code);
+  if (!key) return;
+  const kept = readRegs().filter(r => normalizeInstCode(r.code) !== key);
+  if (kept.length !== readRegs().length) writeRegs(kept);
+};
+
 export const saveLocalInstReg = (reg: Omit<LocalInstitutionRegistration, 'members'> & { members?: LocalInstitutionRegistration['members'] }): void => {
   const regs = readRegs();
   const key = normalizeInstCode(reg.code);
@@ -102,8 +112,7 @@ export const saveLocalInstReg = (reg: Omit<LocalInstitutionRegistration, 'member
   writeRegs(regs);
 };
 
-export const updateLocalInstReg = (code: string, patch: Partial<LocalInstitutionRegistration>): void => {
-  const regs = readRegs();
+export const updateLocalInstReg = (code: string, patch: Partial<LocalInstitutionRegistration>): void => {  const regs = readRegs();
   const key = normalizeInstCode(code);
   const idx = regs.findIndex(r => normalizeInstCode(r.code) === key);
   if (idx < 0) return;

@@ -10,9 +10,10 @@
 // ============================================================================
 
 import { homologationStore, type HomologationStatus } from './homologationStore';
-import { cloudSignIn, provisionCloudAccount, isCloudBound, markCloudAccount, syntheticInstitutionAgentEmail } from './cloudAuthService';
+import { cloudSignIn, provisionCloudAccount, isCloudBound, markCloudAccount, unmarkCloudAccount, syntheticInstitutionAgentEmail } from './cloudAuthService';
 import {
   getLocalInstReg, normalizeInstCode, parseInstPack, splitAgentNumber,
+  removeLocalInstReg,
   type LocalInstitutionRegistration
 } from './institutionRegistrationStore';
 
@@ -56,6 +57,8 @@ const mapRowStatus = (status?: string): HomologationStatus => {
   if (status === 'Bloqueado') return 'blocked';
   return 'pending';
 };
+// F49: exportado para a sondagem viva institucional no App (mesma matriz).
+export { mapRowStatus };
 
 // ----------------------------------------------------------------------------
 // F44 (Auditoria F42 · v15) — Reconhecimento pré-Auth da instituição.
@@ -65,21 +68,70 @@ const mapRowStatus = (status?: string): HomologationStatus => {
 // APENAS { nome, status } da linha do código exacto (sem listagem, sem dados
 // sensíveis). Se a RPC ainda não existir (janela de deploy), cai no SELECT
 // antigo (que devolve [] sob RLS) e no espelho local — sem quebrar.
+// F49 — o resultado passa a ser um UNIÃO DISCRIMINADA: 'empty' (a RPC
+// respondeu DEFINITIVAMENTE sem linha — base da revogação F47-institucional)
+// distingue-se de 'unavailable' (RPC em falta/rede → via legada D3, nunca
+// revoga por falso-positivo).
 // ----------------------------------------------------------------------------
-const preloginLookupInstitution = async (supabase: any, code: string): Promise<{ nome?: string; status?: string } | null> => {
-  if (!supabase?.rpc) return null;
+export type InstPreloginLookup =
+  | { kind: 'found'; nome?: string; status?: string }
+  | { kind: 'empty' }
+  | { kind: 'unavailable' };
+
+export const preloginLookupInstitution = async (supabase: any, code: string): Promise<InstPreloginLookup> => {
+  if (!supabase?.rpc) return { kind: 'unavailable' };
   try {
     const { data, error } = await supabase.rpc('cda_prelogin_instituicao', { p_codigo: code });
     if (!error && Array.isArray(data) && data.length > 0 && data[0]) {
-      return { nome: data[0].nome, status: data[0].status };
+      return { kind: 'found', nome: data[0].nome, status: data[0].status };
     }
-    // Linha inexistente na nuvem: null (o chamador distingue "não reconhecida")
-    if (!error && Array.isArray(data) && data.length === 0) return null;
+    // Linha inexistente na nuvem: 'empty' definitivo (o chamador avalia revogação)
+    if (!error && Array.isArray(data) && data.length === 0) return { kind: 'empty' };
   } catch (e) {
     console.warn('[InstSession] RPC de pré-login indisponível (fallback local/legado):', e);
   }
-  return null;
+  return { kind: 'unavailable' };
 };
+
+// F49 — purga dos vestígios LOCAIS de uma adesão institucional ELIMINADA
+// (espelho do registo + credenciais da equipa, estado/correspondência de
+// homologação, marcadores de nuvem dos Nº de agente e matrizes faciais).
+export const purgeInstitutionLocalResidues = (
+  codeRaw: string,
+  reg?: LocalInstitutionRegistration,
+): void => {
+  const code = normalizeInstCode(codeRaw);
+  if (!code) return;
+  try { removeLocalInstReg(code); } catch { /* ignora */ }
+  try { homologationStore.clearStatus(code); } catch { /* ignora */ }
+  try { homologationStore.clearThread(code); } catch { /* ignora */ }
+  const agentKeys = new Set<string>();
+  if (reg?.agentNumber) agentKeys.add(normalizeInstCode(reg.agentNumber));
+  (reg?.members || []).forEach(m => { if (m.agentNumber) agentKeys.add(normalizeInstCode(m.agentNumber)); });
+  agentKeys.add(`${code}-01`); // responsável padrão (F6/B2), mesmo sem espelho
+  agentKeys.forEach(a => { try { unmarkCloudAccount(a); } catch { /* ignora */ } });
+  const faceTargets = new Set<string>([code, ...agentKeys]);
+  faceTargets.forEach(k => {
+    ['user', 'institution', 'admin'].forEach(m => {
+      try { localStorage.removeItem(`cda_demo_face_${m}_${k}`); } catch { /* ignora */ }
+    });
+  });
+  try { localStorage.removeItem(`cda_read_msgs_${code}`); } catch { /* ignora */ }
+};
+
+// F49 — regra de revogação (gémea de isRevokedDeletedAccount do cidadão):
+// RPC definitivamente sem linha + prova de existência prévia neste dispositivo
+// (espelho do registo, estado local de homologação ou marcador de nuvem do Nº
+// Agente digitado) ⇒ a adesão foi ELIMINADA pelo Admin. Sem prova, é apenas um
+// código nunca registado neste dispositivo — via "não reconhecida" intacta.
+export const isRevokedDeletedInstitution = (
+  pre: InstPreloginLookup,
+  evidence: { hasLocalReg: boolean; hasLocalStatus: boolean; hasCloudMark: boolean },
+): boolean =>
+  pre.kind === 'empty' && (evidence.hasLocalReg || evidence.hasLocalStatus || evidence.hasCloudMark);
+
+export const institutionEliminatedMessage = (code: string, name?: string): string =>
+  `A adesão da instituição "${name || code}" (${code}) foi ELIMINADA pela Área de Administração. Para voltar a usar a plataforma, efectue um NOVO registo — a conta só ficará activa após nova homologação.`;
 
 /**
  * F6/B6 — Login FACIAL da instituição: a face (já validada no dispositivo contra
@@ -104,8 +156,11 @@ export const resolveInstitutionFaceLogin = async (
   // Guarda SEM `ready` (padrão do serviço): o cliente injectado decide — sem nuvem,
   // a RPC falha e cai no SELECT legado / espelho local (D3), sem quebrar.
   let preRow: { nome?: string; status?: string } | null = null;
+  let preKind: InstPreloginLookup['kind'] = 'unavailable';
   if (supabase) {
-    preRow = await preloginLookupInstitution(supabase, code);
+    const pre = await preloginLookupInstitution(supabase, code);
+    preKind = pre.kind;
+    if (pre.kind === 'found') preRow = { nome: pre.nome, status: pre.status };
     if (!preRow) {
       try {
         const { data, error } = await supabase
@@ -118,6 +173,22 @@ export const resolveInstitutionFaceLogin = async (
         console.warn('[InstSession] Consulta cloud indisponível:', e);
       }
     }
+  }
+
+  // F49 — ADESÃO ELIMINADA (regra F47 estendida às instituições): a RPC
+  // security-definer respondeu DEFINITIVAMENTE sem linha e há prova de que a
+  // adesão existiu neste dispositivo ⇒ o Admin eliminou-a: purgar vestígios e
+  // recusar — o acesso só volta com NOVO registo (nasce Pendente, sem excepção).
+  if (preKind === 'empty' && isRevokedDeletedInstitution({ kind: 'empty' }, {
+    hasLocalReg: !!reg,
+    hasLocalStatus: !!homologationStore.getStatus(code),
+    hasCloudMark: agentSeq !== null && isCloudBound(typed),
+  })) {
+    purgeInstitutionLocalResidues(code, reg);
+    return {
+      outcome: 'deny', code, name: reg?.nome || code, status: 'rejected',
+      message: institutionEliminatedMessage(code, reg?.nome),
+    };
   }
 
   const name: string = row?.nome || preRow?.nome || reg?.nome || code;
@@ -194,8 +265,11 @@ export const resolveInstitutionLogin = async (
   // Guarda SEM `ready` (padrão do serviço): o cliente injectado decide — sem nuvem,
   // a RPC falha e cai no SELECT legado / espelho local (D3), sem quebrar.
   let preRow: { nome?: string; status?: string } | null = null;
+  let preKind: InstPreloginLookup['kind'] = 'unavailable';
   if (supabase) {
-    preRow = await preloginLookupInstitution(supabase, code);
+    const pre = await preloginLookupInstitution(supabase, code);
+    preKind = pre.kind;
+    if (pre.kind === 'found') preRow = { nome: pre.nome, status: pre.status };
     if (!preRow) {
       try {
         const { data, error } = await supabase
@@ -208,6 +282,21 @@ export const resolveInstitutionLogin = async (
         console.warn('[InstSession] Consulta cloud indisponível:', e);
       }
     }
+  }
+
+  // F49 — ADESÃO ELIMINADA (regra F47 estendida às instituições): idêntica à
+  // via facial — RPC definitivamente sem linha + prova de existência prévia ⇒
+  // purgar vestígios e recusar (antes, o espelho local mantinha acesso FULL).
+  if (preKind === 'empty' && isRevokedDeletedInstitution({ kind: 'empty' }, {
+    hasLocalReg: !!reg,
+    hasLocalStatus: !!homologationStore.getStatus(code),
+    hasCloudMark: agentSeq !== null && isCloudBound(typed),
+  })) {
+    purgeInstitutionLocalResidues(code, reg);
+    return {
+      outcome: 'deny', code, name: reg?.nome || code, status: 'rejected',
+      message: institutionEliminatedMessage(code, reg?.nome),
+    };
   }
 
   if (!reg && !row && !preRow) {
