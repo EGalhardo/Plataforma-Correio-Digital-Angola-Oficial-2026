@@ -65,13 +65,17 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
   correspondencesCount = 0,
   institutionsCount = 0,
   lastAccess = 'Hoje às 18:45',
-  onSyncSupabase,
+  onSyncSupabase: _onSyncSupabaseDeprecated,
   isSyncingSupabase = false,
   addAuditLog,
   sessionDemo,
 }) => {
   const [localSyncing, setLocalSyncing] = useState(false);
   const [localSyncStep, setLocalSyncStep] = useState('');
+  // F54 — carimbo da ÚLTIMA sincronização REAL (só escrito quando a nuvem confirma)
+  const [lastSyncTime, setLastSyncTime] = useState<string>(
+    () => localStorage.getItem('supabase_last_sync_time') || ''
+  );
   const [showMissingKeysDialog, setShowMissingKeysDialog] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; text: string; details?: string } | null>(null);
 
@@ -233,61 +237,66 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
     }
   }, [feedback]);
 
+  // F54 — Botão "Sincronizar Supabase" passa a correr a sincronização REAL
+  // (antes: a prop onSyncSupabase nunca era passada pelo App → o botão nada
+  // fazia; e os passos "A simular…" + o sucesso do ramo else eram fabricados).
   const handleSyncClick = async () => {
     setFeedback(null);
     const hasKeys = hasValidSupabaseKeys();
-    
+
     if (!hasKeys) {
       setShowMissingKeysDialog(true);
       return;
     }
 
-    if (onSyncSupabase) {
-      try {
-        setLocalSyncing(true);
-        setLocalSyncStep('A inicializar ligação segura com Supabase...');
-        await new Promise(resolve => setTimeout(resolve, 600));
-        
-        setLocalSyncStep('A sincronizar ficha civil e dados de perfil...');
-        await new Promise(resolve => setTimeout(resolve, 800));
+    try {
+      setLocalSyncing(true);
+      setLocalSyncStep('A enviar a ficha civil e dados de perfil para a nuvem...');
 
-        setLocalSyncStep('A exportar expedientes e correspondência...');
-        await new Promise(resolve => setTimeout(resolve, 700));
+      const res = await syncProfileToCloud(
+        supabase,
+        buildCitizenContaPatch(user?.bi || '', {
+          name: user?.name,
+          phone: user?.phone,
+          email: user?.email,
+          filiation: user?.filiation,
+          maritalStatus: user?.maritalStatus,
+          morada: user?.address,
+        }),
+      );
 
-        const result = await onSyncSupabase();
-        
-        if (result && result.success) {
-          setFeedback({
-            type: 'success',
-            text: 'Sincronização com Supabase concluída!',
-            details: `A sua conta foi sincronizada com sucesso. ${result.message || ''}`
-          });
-          if (addAuditLog) {
-            addAuditLog('Sincronização bidireccional completa com Supabase', 'success');
-          }
-        } else if (result && !result.success) {
-          setFeedback({
-            type: 'error',
-            text: 'Erro de Sincronização Supabase',
-            details: result.message || 'Verifique as suas chaves e tabelas no painel do Supabase.'
-          });
-        } else {
-          setFeedback({
-            type: 'success',
-            text: 'Sincronização efetuada com sucesso!',
-            details: 'A sua conta do Correio Digital foi totalmente integrada com o banco de dados central.'
-          });
+      const fb = contaSaveFeedbackFromOutcome(res.outcome);
+      if (res.outcome === 'ok' || res.outcome === 'created' || res.outcome === 'schema_retry') {
+        const stamp = new Date().toLocaleString();
+        localStorage.setItem('supabase_last_sync_time', stamp);
+        setLastSyncTime(stamp);
+        if (addAuditLog) {
+          addAuditLog('[PERFIL-SYNC] Sincronização manual da ficha do cidadão concluída na nuvem', 'success');
         }
-      } catch (err: any) {
         setFeedback({
-          type: 'error',
-          text: 'Falha na ligação com o servidor Supabase',
-          details: err?.message || 'Verifique a sua ligação de rede e tente novamente.'
+          type: 'success',
+          text: 'Sincronização com Supabase concluída!',
+          details: `Ficha civil e dados de perfil confirmados na nuvem (${res.fields.join(', ') || 'sem alterações'}).`,
         });
-      } finally {
-        setLocalSyncing(false);
-        setLocalSyncStep('');
+      } else {
+        if (addAuditLog) {
+          addAuditLog(`[PERFIL-SYNC] Sincronização manual não concluída (outcome: ${res.outcome})`, 'warning');
+        }
+        setFeedback({
+          type: 'info',
+          text: fb.text,
+          details: fb.details,
+        });
       }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        text: 'Falha na ligação com o servidor Supabase',
+        details: err?.message || 'Verifique a sua ligação de rede e tente novamente.'
+      });
+    } finally {
+      setLocalSyncing(false);
+      setLocalSyncStep('');
     }
   };
 
@@ -310,11 +319,11 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
       await new Promise(resolve => setTimeout(resolve, 600));
 
       localStorage.setItem('supabase_last_sync_time', new Date().toLocaleString());
-      
+
       setFeedback({
-        type: 'success',
-        text: 'Sincronização Simulada Concluída com Sucesso! (Modo Sandbox)',
-        details: `Sincronizados com sucesso: 1 perfil, ${documentsList.length} ficheiros digitais, ${correspondencesCount} correspondências e ${contactsList.length} contactos na base de dados virtual.`
+        type: 'info',
+        text: 'Simulação concluída (Modo Sandbox — sem envio real).',
+        details: 'Esta pré-visualização NÃO enviou dados para a nuvem: nenhum perfil, ficheiro ou correspondência foi transferido. Configure as chaves reais do Supabase para sincronizar de verdade.'
       });
 
       if (addAuditLog) {
@@ -382,6 +391,11 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
             <RefreshCw size={13} className={`${isSyncBusy ? 'animate-spin' : ''}`} />
             <span>{isSyncBusy ? 'A Sincronizar...' : 'Sincronizar Supabase'}</span>
           </button>
+          {lastSyncTime && !isSyncBusy && (
+            <span className="text-[10px] font-semibold text-slate-400 normal-case">
+              Última sincronização real: {lastSyncTime}
+            </span>
+          )}
 
           <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-full text-emerald-700 font-extrabold text-[11px] uppercase tracking-wider">
             <CheckCircle2 size={14} className="text-emerald-600 fill-emerald-100" />
