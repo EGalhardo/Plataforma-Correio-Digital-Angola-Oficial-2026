@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, Plus, Search, ShieldCheck, ShieldAlert, Trash2, Info, Edit, User, CreditCard, CheckCircle, X, Check, Bell, Phone, UserPlus, ChevronDown } from 'lucide-react';
+import { Users, Plus, Search, ShieldCheck, ShieldAlert, Trash2, Info, Edit, User, CreditCard, CheckCircle, X, Check, Bell, Phone, ChevronDown } from 'lucide-react';
 import { Contact } from '../../types';
 import {
   CONTACT_RELATION_OPTIONS,
@@ -106,13 +106,6 @@ export function ContactsContent({
       onUpdateContactType(editingContact.id, editForm.type || 'Normal');
     }
     setEditingContact(null);
-  };
-
-  const handleUpdateProtocol = (type: 'Normal' | 'Emergência') => {
-    if (editingContact && onUpdateContactType) {
-      onUpdateContactType(editingContact.id, type);
-      setEditingContact({ ...editingContact, type });
-    }
   };
 
   const finalContacts = filteredContacts.filter(contact => {

@@ -13,7 +13,6 @@ export * from './features/NotificationsCenterContent';
 export * from './features/ActivityCenterContent';
 export * from './features/AddContactModal';
 export * from './features/DeleteContactModal';
-export * from './features/InviteConfirmModal';
 export * from './features/HomeContent';
 export * from './features/MailContent';
 export * from './features/DocumentsContent';

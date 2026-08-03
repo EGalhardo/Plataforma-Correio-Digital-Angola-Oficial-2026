@@ -18,7 +18,6 @@ import {
   ActivityCenterContent,
   AddContactModal,
   DeleteContactModal,
-  InviteConfirmModal,
   HomeContent,
   MailContent,
   DocumentsContent,
@@ -103,6 +102,12 @@ import {
   type EmergencyAlertOutcome,
   type EmergencyAlertType,
 } from './services/emergencyContactsService';
+// F56 — sincronização offline honesta (replay real; núcleo puro injectável)
+import {
+  replayOfflineQueue,
+  offlineSyncReportText,
+  offlineSyncSandboxReportText,
+} from './services/offlineSyncService';
 import { EmergencyAlertModal } from './components/features/EmergencyAlertModal';
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
@@ -1284,7 +1289,6 @@ export default function App() {
       prev && prev.id === targetId && prev.unread ? { ...prev, unread: 0, status: 'Lida' } : prev
     );
   }, [selectedMessage]);
-  const [showInviteConfirm, setShowInviteConfirm] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [preloadProgress, setPreloadProgress] = useState<number>(0);
   const [preloadCompleted, setPreloadCompleted] = useState<boolean>(false);
@@ -1875,35 +1879,73 @@ export default function App() {
     }
   }, [documents]);
 
-  const handleAutomaticSync = () => {
+  /**
+   * F56 — Sincronização offline HONESTA (antes: as acções ficavam SÓ na fila,
+   * eram descartadas após 1,5 s de setTimeout e o utilizador lia "propagadas
+   * com o Registo de Identidade Digital" — sucesso fabricado com PERDA REAL
+   * de dados nas contas reais).
+   * Agora:
+   *  - DEMO (D7): processamento LOCAL declarado; nada toca a nuvem;
+   *  - REAL: replay verdadeiro das acções suportadas (contactos). As que
+   *    falham ou ainda não têm replay PERMANECEM na fila e são reportadas
+   *    com a verdade — nunca "consolidadas" de forma inventada.
+   */
+  const handleAutomaticSync = async () => {
     const queue = OfflineManager.getQueue();
     if (queue.length === 0) return;
 
     addAuditLog(`Sincronização em segundo plano iniciada (${queue.length} acções na fila)`, 'info');
-    
-    // In a real application, we would call API endpoints for each queued action.
-    // For this prototype, all actions are successfully processed into the active states.
-    setTimeout(() => {
+
+    // DEMO — isolamento D7: sandbox declarado.
+    if (isDemoSession) {
       OfflineManager.setQueue([]);
       setOfflineQueue([]);
-      
-      // Auto backup
       OfflineManager.createAutomaticBackup();
-      
-      addAuditLog(`Sincronização concluída: ${queue.length} acções propagadas com o Registo de Identidade Digital`, 'success');
-      
-      // Notify citizen user
-      const newNotif: AppNotification = {
+      addAuditLog(`Simulação (Modo Sandbox): ${queue.length} acções processadas LOCALMENTE — nada foi enviado para a nuvem.`, 'info');
+      const sandboxNotif: AppNotification = {
         id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
-        type: 'success',
-        title: 'Sincronização Finalizada',
-        message: `${queue.length} acções offline foram consolidadas com a base central. Backup de emergência v1.2 atualizado.`,
+        type: 'info',
+        title: 'Simulação de Sincronização',
+        message: offlineSyncSandboxReportText(queue.length),
         time: 'Agora',
         targetTab: 'home',
         unread: true
       };
-      setNotifications(prev => [stampNotif(newNotif), ...prev]);
-    }, 1500);
+      setNotifications(prev => [stampNotif(sandboxNotif), ...prev]);
+      return;
+    }
+
+    // REAL — replay verdadeiro via núcleo puro injectável (testado em f56).
+    const replayResult = await replayOfflineQueue(
+      {
+        insertContact: (contact) => supabaseService.insertContact(contact, bi),
+        deleteContact: (contactId) => supabaseService.deleteContact(contactId),
+      },
+      queue,
+    );
+    const remaining = replayResult.remaining;
+    const consolidated = replayResult.consolidated;
+    const failed = replayResult.failed;
+
+    OfflineManager.setQueue(remaining);
+    setOfflineQueue(remaining);
+    OfflineManager.createAutomaticBackup();
+
+    const truth = offlineSyncReportText(replayResult);
+    const stillPending = remaining.length - failed;
+
+    addAuditLog(`Sincronização offline concluída: ${truth}`, (failed > 0 || stillPending > 0) ? 'warning' : 'success');
+
+    const newNotif: AppNotification = {
+      id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
+      type: (failed > 0 || stillPending > 0) ? 'warning' : 'success',
+      title: consolidated > 0 ? 'Sincronização Finalizada' : 'Sincronização Pendente',
+      message: truth,
+      time: 'Agora',
+      targetTab: 'home',
+      unread: true
+    };
+    setNotifications(prev => [stampNotif(newNotif), ...prev]);
   };
 
   useEffect(() => {
@@ -3317,7 +3359,9 @@ export default function App() {
     setContacts(prev => [newContact, ...prev]);
 
     if (!isOnline) {
-      OfflineManager.queueAction('ADD_CONTACT', { name: contactForm.name, bi: contactForm.bi });
+      // F56 — payload completo do contacto: permite replay REAL na
+      // sincronização (antes só tinha name/bi — insuficiente para reenviar).
+      OfflineManager.queueAction('ADD_CONTACT', { contact: newContact, name: contactForm.name, bi: contactForm.bi });
       setOfflineQueue(OfflineManager.getQueue());
       const fallback = OfflineManager.triggerFallback('USSD', `Adicionar Contacto: ${contactForm.name}`);
       setActiveFallback({ channel: 'USSD', message: fallback.message, protocol: fallback.protocol });
@@ -3440,14 +3484,27 @@ export default function App() {
     }
 
     // Conta REAL — GPS consentido + insert REAL em emergency_alerts.
-    const position = await getConsentedGeoPosition();
-    const outcome = await supabaseService.insertEmergencyAlert({
-      citizenBi: bi,
-      alertType,
-      position,
-      contacts: currentContacts,
-      citizenOwnWhatsapp: phone,
-    });
+    // try/catch defensivo: qualquer falha inesperada vira desfecho honesto
+    // (nunca deixa o modal preso no estado "a enviar").
+    let outcome: EmergencyAlertOutcome;
+    try {
+      const position = await getConsentedGeoPosition();
+      outcome = await supabaseService.insertEmergencyAlert({
+        citizenBi: bi,
+        alertType,
+        position,
+        contacts: currentContacts,
+        citizenOwnWhatsapp: phone,
+      });
+    } catch (e: any) {
+      outcome = {
+        recorded: false,
+        row: buildEmergencyAlertRow({ citizenBi: bi, alertType, position: null, contacts: currentContacts, citizenOwnWhatsapp: phone }),
+        errorCode: e?.code || 'EXCEPCAO',
+        errorMessage: e?.message || String(e),
+        sandbox: false,
+      };
+    }
 
     setEmergencyAlertFeedbackText(emergencyAlertFeedback(outcome));
     setEmergencyAlertPhase('result');
@@ -5674,14 +5731,7 @@ Ficha civil do titular:
         formErrors={contactFormErrors}
       />
 
-      <InviteConfirmModal 
-        showInviteConfirm={showInviteConfirm} 
-        setShowInviteConfirm={setShowInviteConfirm} 
-        contactForm={contactForm} 
-        handleAddContact={handleAddContact} 
-      />
-
-      <DeleteContactModal 
+      <DeleteContactModal
         contactToDelete={contactToDelete} 
         setContactToDelete={(c) => {
           setContactToDelete(c);
