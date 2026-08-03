@@ -91,16 +91,14 @@ import {
 // F48 — sincronização viva do estado oficial em sessão aberta (luz Online/gate)
 import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLocalResidues, resolveCloudGateAction } from './services/accountGateService';
 import { PROFILE_HYDRATION_COLUMNS } from './services/profileSyncService';
-// F55 — Contactos de Emergência + Mensagem de Emergência (núcleo puro testado)
+// F55 — Contactos de Emergência (núcleo puro testado). F57: as funções de
+// alerta continuam no serviço, agora sem consumidor no lado do cidadão —
+// reservadas ao fluxo institucional (v20), sem código zombie na UI.
 import {
   emergencyProfileState,
   validateContactForm,
   checkContactRemoval,
   checkContactTypeChange,
-  buildEmergencyAlertRow,
-  emergencyAlertFeedback,
-  type EmergencyAlertOutcome,
-  type EmergencyAlertType,
 } from './services/emergencyContactsService';
 // F56 — sincronização offline honesta (replay real; núcleo puro injectável)
 import {
@@ -108,7 +106,6 @@ import {
   offlineSyncReportText,
   offlineSyncSandboxReportText,
 } from './services/offlineSyncService';
-import { EmergencyAlertModal } from './components/features/EmergencyAlertModal';
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
 import { resolveStorageUrl } from './lib/secureStorage';
@@ -1236,13 +1233,11 @@ export default function App() {
   const [docComposeData, setDocComposeData] = useState({ to: '', subject: '', body: '' });
 
   const [contactForm, setContactForm] = useState({ name: '', bi: '', relation: '', phone: '', whatsapp: '', type: 'Normal' as 'Normal' | 'Emergência' });
-  // F55 — Contactos de Emergência: erros de validação reais, bloqueio honesto
-  // da regra dos 2 e estado do modal de Mensagem de Emergência.
+  // F55 — Contactos de Emergência: erros de validação reais e bloqueio
+  // honesto da regra dos 2. (F57 — o accionamento de alerta saiu do lado do
+  // cidadão: a Mensagem de Emergência passa a ser funcionalidade institucional.)
   const [contactFormErrors, setContactFormErrors] = useState<string[]>([]);
   const [contactDeleteBlock, setContactDeleteBlock] = useState<string | null>(null);
-  const [isEmergencyAlertOpen, setIsEmergencyAlertOpen] = useState(false);
-  const [emergencyAlertPhase, setEmergencyAlertPhase] = useState<'choose' | 'sending' | 'result'>('choose');
-  const [emergencyAlertFeedbackText, setEmergencyAlertFeedbackText] = useState('');
 
   // F55 — ao (re)abrir o modal de novo contacto, erros antigos não persistem.
   useEffect(() => {
@@ -3423,102 +3418,12 @@ export default function App() {
   };
 
   // -------------------------------------------------------------------------
-  // F55 — Mensagem de Emergência (registo REAL + honestidade total)
+  // F57 — O accionamento da Mensagem de Emergência foi REMOVIDO da área do
+  // cidadão por decisão do proprietário: emissão de alerta é funcionalidade
+  // INSTITUCIONAL. O núcleo (emergencyContactsService) e o método
+  // supabaseService.insertEmergencyAlert permanecem — serão consumidos pelo
+  // fluxo institucional (botão na área da instituição, spec v20).
   // -------------------------------------------------------------------------
-
-  /** GPS SÓ com consentimento explícito do browser; recusa/falha → null (nunca inventado). */
-  const getConsentedGeoPosition = (): Promise<{ lat: number; lng: number } | null> =>
-    new Promise((resolve) => {
-      if (typeof navigator === 'undefined' || !navigator.geolocation) {
-        resolve(null);
-        return;
-      }
-      let settled = false;
-      const finish = (value: { lat: number; lng: number } | null) => {
-        if (!settled) {
-          settled = true;
-          resolve(value);
-        }
-      };
-      navigator.geolocation.getCurrentPosition(
-        (pos) => finish({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => finish(null),
-        { timeout: 8000, maximumAge: 60000, enableHighAccuracy: false },
-      );
-      window.setTimeout(() => finish(null), 9000);
-    });
-
-  const handleOpenEmergencyAlert = () => {
-    // Defesa em profundidade (o botão já vem desarmado quando incompleto):
-    if (!emergencyProfileState(currentContacts).complete) return;
-    setEmergencyAlertFeedbackText('');
-    setEmergencyAlertPhase('choose');
-    setIsEmergencyAlertOpen(true);
-  };
-
-  const handleConfirmEmergencyAlert = async (alertType: EmergencyAlertType) => {
-    setEmergencyAlertPhase('sending');
-
-    // Conta DEMO — isolamento D7: simulação DECLARADA, zero escrita na BD real.
-    if (isDemoSession) {
-      const row = buildEmergencyAlertRow({
-        citizenBi: bi || 'demo',
-        alertType,
-        position: null,
-        contacts: currentContacts,
-        citizenOwnWhatsapp: phone,
-      });
-      const sandboxOutcome: EmergencyAlertOutcome = {
-        recorded: false,
-        row,
-        errorCode: null,
-        errorMessage: null,
-        sandbox: true,
-      };
-      window.setTimeout(() => {
-        setEmergencyAlertFeedbackText(emergencyAlertFeedback(sandboxOutcome));
-        setEmergencyAlertPhase('result');
-        addAuditLog('Simulação de alerta de emergência (Modo Sandbox — sem envio real)', 'info');
-      }, 800);
-      return;
-    }
-
-    // Conta REAL — GPS consentido + insert REAL em emergency_alerts.
-    // try/catch defensivo: qualquer falha inesperada vira desfecho honesto
-    // (nunca deixa o modal preso no estado "a enviar").
-    let outcome: EmergencyAlertOutcome;
-    try {
-      const position = await getConsentedGeoPosition();
-      outcome = await supabaseService.insertEmergencyAlert({
-        citizenBi: bi,
-        alertType,
-        position,
-        contacts: currentContacts,
-        citizenOwnWhatsapp: phone,
-      });
-    } catch (e: any) {
-      outcome = {
-        recorded: false,
-        row: buildEmergencyAlertRow({ citizenBi: bi, alertType, position: null, contacts: currentContacts, citizenOwnWhatsapp: phone }),
-        errorCode: e?.code || 'EXCEPCAO',
-        errorMessage: e?.message || String(e),
-        sandbox: false,
-      };
-    }
-
-    setEmergencyAlertFeedbackText(emergencyAlertFeedback(outcome));
-    setEmergencyAlertPhase('result');
-    if (outcome.recorded) {
-      addAuditLog(
-        `Alerta de emergência registado (tipo: ${alertType}` +
-        `${outcome.row.location_status === 'consentida' ? ', com GPS consentido' : ', sem GPS'}). ` +
-        `Envio automático indisponível — gateway de SMS/WhatsApp não configurado.`,
-        'critical',
-      );
-    } else {
-      addAuditLog(`Falha real ao registar alerta de emergência na nuvem (Erro real: ${outcome.errorCode}).`, 'warning');
-    }
-  };
 
   const handleEmitDocument = (doc: Document, notification: AppNotification) => {
     setDocuments(prev => [doc, ...prev]);
@@ -4121,7 +4026,6 @@ Ficha civil do titular:
             setContactToDelete={setContactToDelete}
             onUpdateContactType={handleUpdateContactType}
             emergencyStatus={emergencyProfileState(currentContacts)}
-            onOpenEmergencyAlert={handleOpenEmergencyAlert}
             onUpdateContact={handleUpdateContact}
           />
         );
@@ -5731,7 +5635,7 @@ Ficha civil do titular:
         formErrors={contactFormErrors}
       />
 
-      <DeleteContactModal
+      <DeleteContactModal 
         contactToDelete={contactToDelete} 
         setContactToDelete={(c) => {
           setContactToDelete(c);
@@ -5739,17 +5643,6 @@ Ficha civil do titular:
         }}
         handleDeleteContact={handleDeleteContact}
         blockReason={contactDeleteBlock}
-      />
-
-      {/* F55 — Mensagem de Emergência (registo real; sandbox declarado no demo) */}
-      <EmergencyAlertModal
-        isOpen={isEmergencyAlertOpen}
-        phase={emergencyAlertPhase}
-        feedbackText={emergencyAlertFeedbackText}
-        sandbox={isDemoSession}
-        recipientCount={currentContacts.length + ((phone || '').trim() ? 1 : 0)}
-        onConfirm={handleConfirmEmergencyAlert}
-        onClose={() => setIsEmergencyAlertOpen(false)}
       />
 
       {/* --- OFFLINE & FALLBACK INTERACTIVE MANAGER WIDGET --- */}

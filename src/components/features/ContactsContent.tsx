@@ -24,8 +24,6 @@ interface ContactsContentProps {
   onUpdateContactType?: (id: number, newType: 'Normal' | 'Emergência') => void;
   /** F55 — estado da regra dos 2 contactos de emergência (calculado no App). */
   emergencyStatus?: EmergencyProfileState;
-  /** F55 — abre o modal de Mensagem de Emergência (registo REAL do alerta). */
-  onOpenEmergencyAlert?: () => void;
   /** F55 — edição REAL do contacto completo; devolve erros de validação (vazio = gravado). */
   onUpdateContact?: (contact: Contact) => string[];
 }
@@ -39,7 +37,6 @@ export function ContactsContent({
   setContactToDelete,
   onUpdateContactType,
   emergencyStatus,
-  onOpenEmergencyAlert,
   onUpdateContact,
 }: ContactsContentProps) {
   const [selectedClassification, setSelectedClassification] = useState<'Todos' | 'Emergência' | 'Normal'>('Todos');
@@ -126,23 +123,6 @@ export function ContactsContent({
           </div>
         </div>
         <div className="flex gap-2">
-          {/* F55 — Mensagem de Emergência: só armado com ≥2 contactos de emergência */}
-          <button
-            onClick={() => onOpenEmergencyAlert?.()}
-            disabled={!emergencyStatus?.complete}
-            title={emergencyStatus?.complete
-              ? 'Registar alerta de emergência na rede de confiança'
-              : `Indisponível: o mínimo são 2 contactos de emergência (tem ${emergencyStatus?.emergencyCount ?? 0}).`}
-            className={`rounded-2xl px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-center gap-2.5 md:gap-3 text-xs md:text-sm font-black transition-all ${
-              emergencyStatus?.complete
-                ? 'bg-red-600 text-white shadow-xl shadow-red-600/25 hover:scale-[1.02] active:scale-95 cursor-pointer'
-                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-            }`}
-            id="open-emergency-alert"
-          >
-            <ShieldAlert size={18} className="md:w-5 md:h-5" />
-            Mensagem de Emergência
-          </button>
           <button 
             onClick={() => setIsAddingContact(true)}
             className="bg-primary text-white rounded-2xl px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-center gap-2.5 md:gap-3 shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all text-xs md:text-sm font-black"
@@ -165,7 +145,8 @@ export function ContactsContent({
               Tem <strong>{emergencyStatus.emergencyCount}</strong> de 2 contactos de emergência obrigatórios
               (falta{emergencyStatus.missing > 1 ? 'm' : ''} <strong>{emergencyStatus.missing}</strong>).
               Adicione contactos do tipo <strong>«Emergência»</strong> com telefone válido (+244 9XX XXX XXX)
-              para completar o seu perfil e activar a Mensagem de Emergência.
+              para completar o seu perfil. As instituições usam esta rede para chegar
+              à sua família em situações de emergência.
             </p>
           </div>
         </div>
