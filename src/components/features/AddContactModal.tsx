@@ -20,12 +20,16 @@ import {
   Edit
 } from 'lucide-react';
 
+import { CONTACT_RELATION_OPTIONS } from '../../services/emergencyContactsService';
+
 interface AddContactModalProps {
   isAddingContact: boolean;
   setIsAddingContact: (isAdding: boolean) => void;
-  contactForm: { name: string; bi: string; relation: string; phone?: string; type?: 'Normal' | 'Emergência' };
+  contactForm: { name: string; bi: string; relation: string; phone?: string; whatsapp?: string; type?: 'Normal' | 'Emergência' };
   setContactForm: (form: any) => void;
   onAddContact: () => void;
+  /** F55 — erros de validação reais (telefone +244, duplicados, relação…). */
+  formErrors?: string[];
 }
 
 export function AddContactModal({ 
@@ -33,7 +37,8 @@ export function AddContactModal({
   setIsAddingContact, 
   contactForm, 
   setContactForm, 
-  onAddContact 
+  onAddContact,
+  formErrors = [],
 }: AddContactModalProps) {
   return (
     <AnimatePresence>
@@ -153,20 +158,24 @@ export function AddContactModal({
                     </div>
                   </div>
 
-                  {/* Grau de Parentesco */}
+                  {/* Grau de Parentesco — F55: SELECT fechado (spec chat-approved) */}
                   <div className="grid gap-1.5">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Grau de Parentesco / Relação *</label>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10">
                         <Users size={15} />
                       </span>
-                      <input 
-                        placeholder="Ex: Mãe, Irmão, Advogado" 
+                      <select
                         value={contactForm.relation}
                         onChange={e => setContactForm((prev: any) => ({ ...prev, relation: e.target.value }))}
-                        className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
+                        className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold appearance-none cursor-pointer"
                         id="contact-relation-input"
-                      />
+                      >
+                        <option value="" disabled>Seleccionar relação…</option>
+                        {CONTACT_RELATION_OPTIONS.map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
@@ -186,7 +195,36 @@ export function AddContactModal({
                       />
                     </div>
                   </div>
+
+                  {/* WhatsApp — F55 (opcional) */}
+                  <div className="grid gap-1.5">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">WhatsApp (opcional)</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                        <Phone size={15} />
+                      </span>
+                      <input 
+                        placeholder="+244 923 000 000" 
+                        value={contactForm.whatsapp || ''}
+                        onChange={e => setContactForm((prev: any) => ({ ...prev, whatsapp: e.target.value }))}
+                        className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
+                        id="contact-whatsapp-input"
+                      />
+                    </div>
+                  </div>
                 </div>
+
+                {/* F55 — erros de validação reais (visíveis, sem retorno silencioso) */}
+                {formErrors.length > 0 && (
+                  <div className="bg-red-50 border border-red-200 rounded-2xl p-4 space-y-1.5" id="add-contact-errors">
+                    {formErrors.map((err, i) => (
+                      <p key={i} className="text-red-700 text-xs font-bold leading-relaxed flex items-start gap-2">
+                        <X size={13} className="shrink-0 mt-0.5" />
+                        {err}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Line Divider */}
@@ -235,9 +273,10 @@ export function AddContactModal({
               <button 
                 type="button"
                 onClick={() => {
-                  if (!contactForm.name || !contactForm.bi) return;
+                  // F55 — SEM retorno silencioso e SEM fecho fabricado: o App
+                  // valida, mostra erros reais e só fecha o modal em caso de
+                  // sucesso confirmado.
                   onAddContact();
-                  setIsAddingContact(false);
                 }}
                 disabled={!contactForm.name || !contactForm.bi}
                 className="flex-[2] bg-[#0c2340] hover:bg-[#152e4d] text-white py-3.5 rounded-full font-black text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2.5 transition-all duration-300 disabled:opacity-40 disabled:pointer-events-none cursor-pointer active:scale-98"

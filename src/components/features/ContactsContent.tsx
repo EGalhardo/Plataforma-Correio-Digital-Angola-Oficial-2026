@@ -5,8 +5,14 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, Plus, Search, ShieldCheck, Trash2, Info, Edit, User, CreditCard, CheckCircle, X, Check, Bell, Phone, UserPlus, ChevronDown } from 'lucide-react';
+import { Users, Plus, Search, ShieldCheck, ShieldAlert, Trash2, Info, Edit, User, CreditCard, CheckCircle, X, Check, Bell, Phone, UserPlus, ChevronDown } from 'lucide-react';
 import { Contact } from '../../types';
+import {
+  CONTACT_RELATION_OPTIONS,
+  EmergencyProfileState,
+  checkContactTypeChange,
+  validateContactForm,
+} from '../../services/emergencyContactsService';
 
 interface ContactsContentProps {
   contacts: Contact[];
@@ -16,6 +22,12 @@ interface ContactsContentProps {
   setIsAddingContact: (isAdding: boolean) => void;
   setContactToDelete: (contact: Contact) => void;
   onUpdateContactType?: (id: number, newType: 'Normal' | 'Emergência') => void;
+  /** F55 — estado da regra dos 2 contactos de emergência (calculado no App). */
+  emergencyStatus?: EmergencyProfileState;
+  /** F55 — abre o modal de Mensagem de Emergência (registo REAL do alerta). */
+  onOpenEmergencyAlert?: () => void;
+  /** F55 — edição REAL do contacto completo; devolve erros de validação (vazio = gravado). */
+  onUpdateContact?: (contact: Contact) => string[];
 }
 
 export function ContactsContent({
@@ -26,30 +38,71 @@ export function ContactsContent({
   setIsAddingContact,
   setContactToDelete,
   onUpdateContactType,
+  emergencyStatus,
+  onOpenEmergencyAlert,
+  onUpdateContact,
 }: ContactsContentProps) {
   const [selectedClassification, setSelectedClassification] = useState<'Todos' | 'Emergência' | 'Normal'>('Todos');
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
-  const [editForm, setEditForm] = useState<{ name: string; bi: string; relation: string; phone?: string; type?: 'Normal' | 'Emergência' }>({
+  const [editErrors, setEditErrors] = useState<string[]>([]);
+  const [editForm, setEditForm] = useState<{ name: string; bi: string; relation: string; phone?: string; whatsapp?: string; type?: 'Normal' | 'Emergência' }>({
     name: '',
     bi: '',
     relation: '',
     phone: '',
+    whatsapp: '',
     type: 'Normal',
   });
 
   const openEditModal = (contact: Contact) => {
     setEditingContact(contact);
+    setEditErrors([]);
     setEditForm({
       name: contact.name || '',
       bi: contact.bi || '',
       relation: contact.relation || '',
       phone: (contact as any).phone || '',
+      whatsapp: (contact as any).whatsapp || '',
       type: contact.type || 'Normal',
     });
   };
 
+  /**
+   * F55 — a edição passa a gravar TODOS os campos (antes apenas o tipo era
+   * persistido: o modal mostrava Nome/BI/Relação/Telefone editáveis mas o
+   * guardar descartava essas alterações — controlo fabricado).
+   * Validações honestas: erros ficam visíveis; nada é fechado com sucesso falso.
+   */
   const handleSaveEdit = () => {
-    if (editingContact && onUpdateContactType) {
+    if (!editingContact) return;
+
+    const fieldErrors = validateContactForm(editForm, contacts, { excludeContactId: editingContact.id });
+    const typeCheck = checkContactTypeChange(contacts, editingContact.id, editForm.type || 'Normal');
+    const errors = [...fieldErrors, ...(typeCheck.reason ? [typeCheck.reason] : [])];
+
+    if (errors.length > 0) {
+      setEditErrors(errors);
+      return;
+    }
+
+    const updatedContact: Contact = {
+      ...editingContact,
+      name: editForm.name.trim(),
+      bi: editForm.bi.trim(),
+      relation: editForm.relation.trim(),
+      phone: (editForm.phone || '').trim(),
+      whatsapp: (editForm.whatsapp || '').trim(),
+      type: editForm.type || 'Normal',
+    };
+
+    if (onUpdateContact) {
+      const appSideErrors = onUpdateContact(updatedContact);
+      if (appSideErrors.length > 0) {
+        setEditErrors(appSideErrors);
+        return;
+      }
+    } else if (onUpdateContactType) {
+      // Retrocompatibilidade defensiva (não deverá acontecer em produção).
       onUpdateContactType(editingContact.id, editForm.type || 'Normal');
     }
     setEditingContact(null);
@@ -80,6 +133,23 @@ export function ContactsContent({
           </div>
         </div>
         <div className="flex gap-2">
+          {/* F55 — Mensagem de Emergência: só armado com ≥2 contactos de emergência */}
+          <button
+            onClick={() => onOpenEmergencyAlert?.()}
+            disabled={!emergencyStatus?.complete}
+            title={emergencyStatus?.complete
+              ? 'Registar alerta de emergência na rede de confiança'
+              : `Indisponível: o mínimo são 2 contactos de emergência (tem ${emergencyStatus?.emergencyCount ?? 0}).`}
+            className={`rounded-2xl px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-center gap-2.5 md:gap-3 text-xs md:text-sm font-black transition-all ${
+              emergencyStatus?.complete
+                ? 'bg-red-600 text-white shadow-xl shadow-red-600/25 hover:scale-[1.02] active:scale-95 cursor-pointer'
+                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+            }`}
+            id="open-emergency-alert"
+          >
+            <ShieldAlert size={18} className="md:w-5 md:h-5" />
+            Mensagem de Emergência
+          </button>
           <button 
             onClick={() => setIsAddingContact(true)}
             className="bg-primary text-white rounded-2xl px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-center gap-2.5 md:gap-3 shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all text-xs md:text-sm font-black"
@@ -89,6 +159,24 @@ export function ContactsContent({
           </button>
         </div>
       </div>
+
+      {/* F55 — banner persistente da regra dos 2 contactos de emergência */}
+      {emergencyStatus && !emergencyStatus.complete && (
+        <div className="bg-amber-50 border border-amber-200 rounded-[24px] p-4 md:p-5 flex items-start gap-3 shadow-sm" id="emergency-contacts-banner">
+          <ShieldAlert size={22} className="text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-amber-800 font-black text-sm uppercase tracking-wide">
+              Perfil Incompleto — faltam contactos de emergência
+            </p>
+            <p className="text-amber-700 text-xs leading-relaxed mt-1">
+              Tem <strong>{emergencyStatus.emergencyCount}</strong> de 2 contactos de emergência obrigatórios
+              (falta{emergencyStatus.missing > 1 ? 'm' : ''} <strong>{emergencyStatus.missing}</strong>).
+              Adicione contactos do tipo <strong>«Emergência»</strong> com telefone válido (+244 9XX XXX XXX)
+              para completar o seu perfil e activar a Mensagem de Emergência.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white border border-slate-200 rounded-[32px] p-2 shadow-sm flex flex-col md:flex-row gap-2">
         <div className="relative flex-1">
@@ -386,20 +474,28 @@ export function ContactsContent({
                       </div>
                     </div>
 
-                    {/* Grau de Parentesco */}
+                    {/* Grau de Parentesco — F55: SELECT fechado (spec chat-approved) */}
                     <div className="grid gap-1.5">
                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Grau de Parentesco / Relação *</label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                           <Users size={15} />
                         </span>
-                        <input
-                          placeholder="Ex: Mãe, Irmão, Advogado"
+                        <select
                           value={editForm.relation}
                           onChange={e => setEditForm(prev => ({ ...prev, relation: e.target.value }))}
-                          className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
+                          className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold appearance-none cursor-pointer"
                           id="edit-contact-relation-input"
-                        />
+                        >
+                          <option value="" disabled>Seleccionar relação…</option>
+                          {/* Valor legado (texto livre pré-F55) mantido como opção para não destruir dados */}
+                          {editForm.relation && !((CONTACT_RELATION_OPTIONS as readonly string[]).includes(editForm.relation)) && (
+                            <option value={editForm.relation}>{editForm.relation}</option>
+                          )}
+                          {CONTACT_RELATION_OPTIONS.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
 
@@ -419,7 +515,36 @@ export function ContactsContent({
                         />
                       </div>
                     </div>
+
+                    {/* WhatsApp — F55 (opcional) */}
+                    <div className="grid gap-1.5">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">WhatsApp (opcional)</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                          <Phone size={15} />
+                        </span>
+                        <input
+                          placeholder="+244 923 000 000"
+                          value={editForm.whatsapp || ''}
+                          onChange={e => setEditForm(prev => ({ ...prev, whatsapp: e.target.value }))}
+                          className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
+                          id="edit-contact-whatsapp-input"
+                        />
+                      </div>
+                    </div>
                   </div>
+
+                  {/* F55 — erros de validação honestos (nada fecha com sucesso falso) */}
+                  {editErrors.length > 0 && (
+                    <div className="bg-red-50 border border-red-200 rounded-2xl p-4 space-y-1.5" id="edit-contact-errors">
+                      {editErrors.map((err, i) => (
+                        <p key={i} className="text-red-700 text-xs font-bold leading-relaxed flex items-start gap-2">
+                          <X size={13} className="shrink-0 mt-0.5" />
+                          {err}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Line Divider */}

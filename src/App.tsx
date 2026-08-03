@@ -92,6 +92,18 @@ import {
 // F48 — sincronização viva do estado oficial em sessão aberta (luz Online/gate)
 import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLocalResidues, resolveCloudGateAction } from './services/accountGateService';
 import { PROFILE_HYDRATION_COLUMNS } from './services/profileSyncService';
+// F55 — Contactos de Emergência + Mensagem de Emergência (núcleo puro testado)
+import {
+  emergencyProfileState,
+  validateContactForm,
+  checkContactRemoval,
+  checkContactTypeChange,
+  buildEmergencyAlertRow,
+  emergencyAlertFeedback,
+  type EmergencyAlertOutcome,
+  type EmergencyAlertType,
+} from './services/emergencyContactsService';
+import { EmergencyAlertModal } from './components/features/EmergencyAlertModal';
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
 import { resolveStorageUrl } from './lib/secureStorage';
@@ -1218,7 +1230,19 @@ export default function App() {
   const [isDocComposing, setIsDocComposing] = useState(false);
   const [docComposeData, setDocComposeData] = useState({ to: '', subject: '', body: '' });
 
-  const [contactForm, setContactForm] = useState({ name: '', bi: '', relation: '', phone: '', type: 'Normal' as 'Normal' | 'Emergência' });
+  const [contactForm, setContactForm] = useState({ name: '', bi: '', relation: '', phone: '', whatsapp: '', type: 'Normal' as 'Normal' | 'Emergência' });
+  // F55 — Contactos de Emergência: erros de validação reais, bloqueio honesto
+  // da regra dos 2 e estado do modal de Mensagem de Emergência.
+  const [contactFormErrors, setContactFormErrors] = useState<string[]>([]);
+  const [contactDeleteBlock, setContactDeleteBlock] = useState<string | null>(null);
+  const [isEmergencyAlertOpen, setIsEmergencyAlertOpen] = useState(false);
+  const [emergencyAlertPhase, setEmergencyAlertPhase] = useState<'choose' | 'sending' | 'result'>('choose');
+  const [emergencyAlertFeedbackText, setEmergencyAlertFeedbackText] = useState('');
+
+  // F55 — ao (re)abrir o modal de novo contacto, erros antigos não persistem.
+  useEffect(() => {
+    if (isAddingContact) setContactFormErrors([]);
+  }, [isAddingContact]);
   const [activeSlide, setActiveSlide] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -3238,6 +3262,16 @@ export default function App() {
 
   const handleDeleteContact = () => {
     if (contactToDelete) {
+      // F55 — regra dos 2 contactos de emergência: bloqueio REAL com razão
+      // visível no modal; o modal NÃO fecha com sucesso fabricado.
+      const removalCheck = checkContactRemoval(currentContacts, contactToDelete.id);
+      if (!removalCheck.allowed) {
+        setContactDeleteBlock(removalCheck.reason);
+        addAuditLog(`Remoção de contacto bloqueada: ${contactToDelete.name} — regra do mínimo de ${2} contactos de emergência.`, 'warning');
+        return;
+      }
+
+      setContactDeleteBlock(null);
       setContacts(prev => prev.filter(c => c.id !== contactToDelete.id));
       
       if (!isOnline) {
@@ -3249,8 +3283,8 @@ export default function App() {
       } else {
         addAuditLog(`Contacto removido: ${contactToDelete.name}`, 'warning');
         OfflineManager.createAutomaticBackup();
-        // Background sync to Supabase
-        supabaseService.deleteContact(contactToDelete.id).catch(() => {});
+        // Background sync to Supabase (nunca em sessões demo — D7)
+        if (!isDemoSession) supabaseService.deleteContact(contactToDelete.id).catch(() => {});
       }
       
       setContactToDelete(null);
@@ -3258,15 +3292,25 @@ export default function App() {
   };
 
   const handleAddContact = () => {
-    if (!contactForm.name || !contactForm.bi) return;
+    // F55 — fim do retorno silencioso: TODOS os bloqueios são verbalizados
+    // (telefone +244 obrigatório, relação obrigatória, anti-duplicados por
+    // telefone, máximo de 50 contactos). O modal só fecha em sucesso REAL.
+    const validationErrors = validateContactForm(contactForm, currentContacts);
+    if (validationErrors.length > 0) {
+      setContactFormErrors(validationErrors);
+      addAuditLog(`Adição de contacto rejeitada: ${validationErrors[0]}`, 'warning');
+      return;
+    }
+
     const newContact = {
       id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
-      name: contactForm.name,
-      bi: contactForm.bi,
-      relation: contactForm.relation || "Contato",
+      name: contactForm.name.trim(),
+      bi: contactForm.bi.trim(),
+      relation: contactForm.relation.trim() || "Outro",
       status: "Confirmado",
       type: contactForm.type || "Normal",
-      phone: contactForm.phone || "",
+      phone: (contactForm.phone || '').trim(),
+      whatsapp: (contactForm.whatsapp || '').trim(),
       ownerId: sessionOwnerKey,
     };
 
@@ -3281,25 +3325,142 @@ export default function App() {
     } else {
       addAuditLog(`Novo contacto adicionado: ${contactForm.name}`, 'success');
       OfflineManager.createAutomaticBackup();
-      // Background sync to Supabase
-      supabaseService.insertContact(newContact, bi).catch(() => {});
+      // Background sync to Supabase (nunca em sessões demo — D7)
+      if (!isDemoSession) supabaseService.insertContact(newContact, bi).catch(() => {});
     }
 
+    setContactFormErrors([]);
     setIsAddingContact(false);
-    setContactForm({ name: '', bi: '', relation: '', phone: '', type: 'Normal' });
+    setContactForm({ name: '', bi: '', relation: '', phone: '', whatsapp: '', type: 'Normal' });
+  };
+
+  /**
+   * F55 — edição REAL do contacto completo (nome, BI, relação, telefone,
+   * WhatsApp, tipo). Antes o modal mostrava todos os campos mas só persistia
+   * o tipo (controlo fabricado). Devolve erros de validação para a UI;
+   * vazio = gravado.
+   */
+  const handleUpdateContact = (updatedContact: Contact): string[] => {
+    const fieldErrors = validateContactForm(updatedContact, currentContacts, { excludeContactId: updatedContact.id });
+    const typeCheck = checkContactTypeChange(currentContacts, updatedContact.id, updatedContact.type || 'Normal');
+    const errors = [...fieldErrors, ...(typeCheck.reason ? [typeCheck.reason] : [])];
+    if (errors.length > 0) {
+      addAuditLog(`Edição de contacto rejeitada: ${errors[0]}`, 'warning');
+      return errors;
+    }
+
+    setContacts(prev => prev.map(c => (c.id === updatedContact.id ? { ...c, ...updatedContact } : c)));
+    addAuditLog(`Contacto actualizado: ${updatedContact.name}`, 'success');
+    OfflineManager.createAutomaticBackup();
+    if (isOnline && !isDemoSession) {
+      supabaseService.insertContact(updatedContact, bi).catch(() => {});
+    }
+    return [];
   };
 
   const handleUpdateContactType = (id: number, newType: 'Normal' | 'Emergência') => {
+    // F55 — despromover Emergência→Normal não pode deixar o perfil abaixo do
+    // mínimo de 2 contactos de emergência (mesma regra da remoção).
+    const typeCheck = checkContactTypeChange(currentContacts, id, newType);
+    if (!typeCheck.allowed) {
+      addAuditLog(`Alteração de tipo de contacto bloqueada: ${typeCheck.reason}`, 'warning');
+      return;
+    }
     setContacts(prev => prev.map(c => {
       if (c.id === id) {
         const updated = { ...c, type: newType };
-        // Sync update
-        supabaseService.insertContact(updated, bi).catch(() => {});
+        // Sync update (nunca em sessões demo — D7)
+        if (isOnline && !isDemoSession) supabaseService.insertContact(updated, bi).catch(() => {});
         return updated;
       }
       return c;
     }));
     addAuditLog(`Prioridade do contacto atualizada para ${newType}`, 'info');
+  };
+
+  // -------------------------------------------------------------------------
+  // F55 — Mensagem de Emergência (registo REAL + honestidade total)
+  // -------------------------------------------------------------------------
+
+  /** GPS SÓ com consentimento explícito do browser; recusa/falha → null (nunca inventado). */
+  const getConsentedGeoPosition = (): Promise<{ lat: number; lng: number } | null> =>
+    new Promise((resolve) => {
+      if (typeof navigator === 'undefined' || !navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      let settled = false;
+      const finish = (value: { lat: number; lng: number } | null) => {
+        if (!settled) {
+          settled = true;
+          resolve(value);
+        }
+      };
+      navigator.geolocation.getCurrentPosition(
+        (pos) => finish({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => finish(null),
+        { timeout: 8000, maximumAge: 60000, enableHighAccuracy: false },
+      );
+      window.setTimeout(() => finish(null), 9000);
+    });
+
+  const handleOpenEmergencyAlert = () => {
+    // Defesa em profundidade (o botão já vem desarmado quando incompleto):
+    if (!emergencyProfileState(currentContacts).complete) return;
+    setEmergencyAlertFeedbackText('');
+    setEmergencyAlertPhase('choose');
+    setIsEmergencyAlertOpen(true);
+  };
+
+  const handleConfirmEmergencyAlert = async (alertType: EmergencyAlertType) => {
+    setEmergencyAlertPhase('sending');
+
+    // Conta DEMO — isolamento D7: simulação DECLARADA, zero escrita na BD real.
+    if (isDemoSession) {
+      const row = buildEmergencyAlertRow({
+        citizenBi: bi || 'demo',
+        alertType,
+        position: null,
+        contacts: currentContacts,
+        citizenOwnWhatsapp: phone,
+      });
+      const sandboxOutcome: EmergencyAlertOutcome = {
+        recorded: false,
+        row,
+        errorCode: null,
+        errorMessage: null,
+        sandbox: true,
+      };
+      window.setTimeout(() => {
+        setEmergencyAlertFeedbackText(emergencyAlertFeedback(sandboxOutcome));
+        setEmergencyAlertPhase('result');
+        addAuditLog('Simulação de alerta de emergência (Modo Sandbox — sem envio real)', 'info');
+      }, 800);
+      return;
+    }
+
+    // Conta REAL — GPS consentido + insert REAL em emergency_alerts.
+    const position = await getConsentedGeoPosition();
+    const outcome = await supabaseService.insertEmergencyAlert({
+      citizenBi: bi,
+      alertType,
+      position,
+      contacts: currentContacts,
+      citizenOwnWhatsapp: phone,
+    });
+
+    setEmergencyAlertFeedbackText(emergencyAlertFeedback(outcome));
+    setEmergencyAlertPhase('result');
+    if (outcome.recorded) {
+      addAuditLog(
+        `Alerta de emergência registado (tipo: ${alertType}` +
+        `${outcome.row.location_status === 'consentida' ? ', com GPS consentido' : ', sem GPS'}). ` +
+        `Envio automático indisponível — gateway de SMS/WhatsApp não configurado.`,
+        'critical',
+      );
+    } else {
+      addAuditLog(`Falha real ao registar alerta de emergência na nuvem (Erro real: ${outcome.errorCode}).`, 'warning');
+    }
   };
 
   const handleEmitDocument = (doc: Document, notification: AppNotification) => {
@@ -3902,6 +4063,9 @@ Ficha civil do titular:
             setIsAddingContact={setIsAddingContact}
             setContactToDelete={setContactToDelete}
             onUpdateContactType={handleUpdateContactType}
+            emergencyStatus={emergencyProfileState(currentContacts)}
+            onOpenEmergencyAlert={handleOpenEmergencyAlert}
+            onUpdateContact={handleUpdateContact}
           />
         );
       case 'perfil':
@@ -5506,7 +5670,8 @@ Ficha civil do titular:
         setIsAddingContact={setIsAddingContact} 
         contactForm={contactForm} 
         setContactForm={setContactForm} 
-        onAddContact={handleAddContact} 
+        onAddContact={handleAddContact}
+        formErrors={contactFormErrors}
       />
 
       <InviteConfirmModal 
@@ -5518,8 +5683,23 @@ Ficha civil do titular:
 
       <DeleteContactModal 
         contactToDelete={contactToDelete} 
-        setContactToDelete={setContactToDelete} 
-        handleDeleteContact={handleDeleteContact} 
+        setContactToDelete={(c) => {
+          setContactToDelete(c);
+          if (!c) setContactDeleteBlock(null);
+        }}
+        handleDeleteContact={handleDeleteContact}
+        blockReason={contactDeleteBlock}
+      />
+
+      {/* F55 — Mensagem de Emergência (registo real; sandbox declarado no demo) */}
+      <EmergencyAlertModal
+        isOpen={isEmergencyAlertOpen}
+        phase={emergencyAlertPhase}
+        feedbackText={emergencyAlertFeedbackText}
+        sandbox={isDemoSession}
+        recipientCount={currentContacts.length + ((phone || '').trim() ? 1 : 0)}
+        onConfirm={handleConfirmEmergencyAlert}
+        onClose={() => setIsEmergencyAlertOpen(false)}
       />
 
       {/* --- OFFLINE & FALLBACK INTERACTIVE MANAGER WIDGET --- */}

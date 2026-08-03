@@ -25,6 +25,7 @@ import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcom
 import { useSession } from "../../services/sessionStore";
 
 import { Contact, Document } from '../../types';
+import { emergencyProfileState } from '../../services/emergencyContactsService';
 
 interface CitizenProfileProps {
   userProfilePhoto: string;
@@ -346,16 +347,25 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
     { name: parents[1] || 'Maria Conceição', relation: 'Familiar (Pai/Mãe)' },
     { name: parents[0] || 'António Galhardo', relation: 'Familiar (Pai/Mãe)' }
   ];
-  const visibleContacts = [0, 1].map((index) => {
-    const contact = prioritizedContacts[index];
-    if (contact) {
-      return {
-        name: contact.name,
-        relation: contact.relation || (contact.type === 'Emergência' ? 'Contacto de Emergência' : 'Contacto Autorizado')
-      };
-    }
-    return fallbackContacts[index];
-  });
+  // F55 — regra dos 2 contactos de emergência (estado REAL do perfil).
+  const emergencyState = emergencyProfileState(contactsList);
+  const visibleContacts = [0, 1]
+    .map((index) => {
+      const contact = prioritizedContacts[index];
+      if (contact) {
+        return {
+          name: contact.name,
+          relation: contact.relation || (contact.type === 'Emergência' ? 'Contacto de Emergência' : 'Contacto Autorizado')
+        };
+      }
+      // F55 — ideologia v7 (Conta nova = ZERO dados simulados): os nomes de
+      // recurso (Maria Conceição / António Galhardo) só podem aparecer em
+      // contas DEMO. Num cidadão real sem contactos mostrava-se gente inventada
+      // como se fosse da sua rede de confiança.
+      if (!sessionDemo) return null;
+      return fallbackContacts[index];
+    })
+    .filter((c): c is { name: string; relation: string } => c !== null);
   const safeProfileName = profileName || 'Cidadão';
   const derivedEmail = email || `${safeProfileName.toLowerCase().replace(/\s+/g, '.')}@cidadao.ao`;
   const visibleDocuments = documentsList.length > 0
@@ -840,6 +850,20 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                     <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest leading-none mb-0.5">Contactos de Emergência</h4>
                     <span className="text-[9px] text-slate-400 font-semibold leading-none">Pessoas de confiança</span>
                   </div>
+                </div>
+
+                {/* F55 — estado REAL do perfil face à regra dos 2 contactos */}
+                <div
+                  className={`mb-3 px-3 py-2 rounded-xl border text-[10px] font-bold leading-relaxed ${
+                    emergencyState.complete
+                      ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                      : 'bg-amber-50 border-amber-200 text-amber-800'
+                  }`}
+                  id="profile-emergency-contacts-state"
+                >
+                  {emergencyState.complete
+                    ? `Perfil completo — ${emergencyState.emergencyCount} contactos de emergência registados.`
+                    : `Perfil Incompleto — faltam contactos de emergência (${emergencyState.emergencyCount} de 2 obrigatórios).`}
                 </div>
 
                 <div className="space-y-4 py-2">

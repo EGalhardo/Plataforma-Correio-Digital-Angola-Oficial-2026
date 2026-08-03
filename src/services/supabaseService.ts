@@ -525,18 +525,59 @@ export const supabaseService = {
         bi: contact.bi,
         relation: contact.relation,
         status: contact.status,
-        type: contact.type || 'Normal'
+        type: contact.type || 'Normal',
+        // F55 — telefone/WhatsApp do contacto passam a persistir na nuvem
+        // (colunas acrescentadas pelo v19; sem elas o contacto de emergência
+        // era inútil noutro dispositivo).
+        phone: contact.phone || null,
+        whatsapp: contact.whatsapp || null
       };
       const { data, error } = await supabase
         .from('contacts')
         .upsert([payload])
         .select();
-      if (error) throw error;
+      if (error) {
+        // Janela antes do v19 ser aplicado no SQL Editor: as colunas
+        // phone/whatsapp ainda não existem (PGRST204). Tenta de novo sem elas
+        // em vez de falhar a gravação do contacto inteiro — honesto: se o
+        // segundo upsert falhar, o erro propaga-se normalmente.
+        if (error.code === 'PGRST204') {
+          const { phone: _p, whatsapp: _w, ...legacyPayload } = payload;
+          const retry = await supabase
+            .from('contacts')
+            .upsert([legacyPayload])
+            .select();
+          if (retry.error) throw retry.error;
+          return retry.data;
+        }
+        throw error;
+      }
       return data;
     } catch (e: any) {
       console.error('Supabase insertContact error:', e);
       throw e;
     }
+  },
+
+  /**
+   * F55 — Registo REAL do alerta de emergência na tabela emergency_alerts.
+   * Delega a construção/inserção no emergencyContactsService (núcleo puro,
+   * injectável e testado) com o cliente real. NUNCA simula envio: o estado
+   * do gateway vem de EMERGENCY_GATEWAY_CONFIGURED (hoje 'sem_gateway').
+   */
+  async insertEmergencyAlert(input: import('./emergencyContactsService').EmergencyAlertInput) {
+    const svc = await import('./emergencyContactsService');
+    const row = svc.buildEmergencyAlertRow(input);
+    if (!hasValidSupabaseKeys()) {
+      return {
+        recorded: false,
+        row,
+        errorCode: 'SEM_CHAVES',
+        errorMessage: 'Ligação à nuvem indisponível.',
+        sandbox: false,
+      } as import('./emergencyContactsService').EmergencyAlertOutcome;
+    }
+    return svc.insertEmergencyAlertWithClient(supabase, row);
   },
 
   /**
@@ -846,7 +887,11 @@ export const supabaseService = {
         bi: item.bi,
         relation: item.relation,
         status: item.status,
-        type: item.type
+        type: item.type,
+        // F55 — v19 passa a devolver phone/whatsapp; antes do v19 o select('*')
+        // simplesmente não traz as colunas e estes campos ficam undefined.
+        phone: item.phone || undefined,
+        whatsapp: item.whatsapp || undefined
       }));
     } catch (e) {
       console.error('Supabase getContacts error:', e);

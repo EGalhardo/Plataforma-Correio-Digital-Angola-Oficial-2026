@@ -4,19 +4,22 @@
  */
 
 import { motion, AnimatePresence } from 'motion/react';
-import { Trash2 } from 'lucide-react';
+import { Trash2, ShieldAlert } from 'lucide-react';
 import { Contact } from '../../types';
 
 interface DeleteContactModalProps {
   contactToDelete: Contact | null;
   setContactToDelete: (contact: Contact | null) => void;
   handleDeleteContact: () => void;
+  /** F55 — razão REAL de bloqueio (mínimo de 2 contactos de emergência). */
+  blockReason?: string | null;
 }
 
 export function DeleteContactModal({ 
   contactToDelete, 
   setContactToDelete, 
-  handleDeleteContact 
+  handleDeleteContact,
+  blockReason = null,
 }: DeleteContactModalProps) {
   return (
     <AnimatePresence>
@@ -42,6 +45,15 @@ export function DeleteContactModal({
             <p className="text-slate-600 text-sm leading-relaxed mb-8">
               Tem a certeza que deseja eliminar <strong>{contactToDelete.name}</strong> da sua rede de confiança? Esta acção não pode ser desfeita.
             </p>
+            {/* F55 — bloqueio real: o modal permanece aberto com a razão visível */}
+            {blockReason && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6 text-left" id="delete-contact-blocked">
+                <p className="text-red-700 text-xs font-bold leading-relaxed flex items-start gap-2">
+                  <ShieldAlert size={14} className="shrink-0 mt-0.5" />
+                  {blockReason}
+                </p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <button 
                 onClick={() => setContactToDelete(null)}
@@ -51,10 +63,16 @@ export function DeleteContactModal({
               </button>
               <button 
                 onClick={() => {
+                  // F55 — o App decide: fecha em sucesso REAL; mantém aberto
+                  // com a razão honesta quando a regra dos 2 bloqueia.
                   handleDeleteContact();
-                  setContactToDelete(null);
                 }}
-                className="py-4 bg-red-600 text-white rounded-2xl font-bold shadow-lg shadow-red-200 hover:bg-red-700 transition-colors"
+                disabled={!!blockReason}
+                className={`py-4 rounded-2xl font-bold transition-colors ${
+                  blockReason
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-red-600 text-white shadow-lg shadow-red-200 hover:bg-red-700'
+                }`}
               >
                 Eliminar
               </button>

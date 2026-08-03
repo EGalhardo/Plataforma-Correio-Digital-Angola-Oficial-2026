@@ -91,6 +91,8 @@ export interface Contact {
   status: string;
   type?: 'Normal' | 'Emergência';
   phone?: string;
+  /** F55 — WhatsApp do contacto (quando disponível). */
+  whatsapp?: string;
   /** F12 — chave da sessão proprietária do contacto. */
   ownerId?: string;
 }
