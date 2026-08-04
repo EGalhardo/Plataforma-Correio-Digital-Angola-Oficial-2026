@@ -76,7 +76,7 @@ import {
 import { Message, Document, Contact, AppNotification, AppMode, UserRequest, DocRequest, Correspondence, LanguageCode } from './types';
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, sealProtocolContent, canonicalProtocolPayload } from './utils/protocolGenerator';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
-import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi } from './services/supabaseService';
+import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, isRealInstitutionalCode } from './services/supabaseService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, preloginLookupInstitution, purgeInstitutionLocalResidues, mapRowStatus, type InstitutionIdentity } from './services/institutionSessionService';
 import { getLocalInstReg, normalizeInstCode, parseInstPack } from './services/institutionRegistrationStore';
@@ -3064,6 +3064,18 @@ export default function App() {
     setIsOfficialConfirmOpen(false);
     // F34 — a Nova Mensagem do cidadão já não tem campo Assunto: deriva-se do corpo.
     if (!composeData.to || !composeData.body) return;
+    // P0-B — anti void-delivery (decisão §0.1 do dono: BLOQUEAR): destinatário
+    // com formato de código institucional TEM de constar (aprovado) do registo
+    // oficial. Falha de infra (errorCode) NÃO bloqueia — o registo volta a
+    // impor-se quando a nuvem responder (fail-open só em erro, nunca em resposta
+    // negativa definitiva).
+    if (isRealInstitutionalCode(composeData.to)) {
+      const reg = await supabaseService.institutionRegistered(composeData.to);
+      if (!reg.errorCode && !reg.registered) {
+        addAuditLog(`P0-B — Envio bloqueado: o código institucional ${composeData.to.trim().toUpperCase()} não consta (aprovado) do registo oficial. Confirme o código ou peça à instituição para formalizar o registo.`, 'warning');
+        return;
+      }
+    }
     const effectiveSubject = composeData.subject.trim()
       || composeData.body.trim().replace(/\s+/g, ' ').slice(0, 60).trim()
       || 'Correspondência Oficial';
@@ -3169,6 +3181,14 @@ export default function App() {
 
   const handleSendDocMessage = async () => {
     if (!docComposeData.to || !docComposeData.subject || !docComposeData.body) return;
+    // P0-B — mesma guarda anti void-delivery do envio de mensagem (ver acima).
+    if (isRealInstitutionalCode(docComposeData.to)) {
+      const reg = await supabaseService.institutionRegistered(docComposeData.to);
+      if (!reg.errorCode && !reg.registered) {
+        addAuditLog(`P0-B — Envio bloqueado: o código institucional ${docComposeData.to.trim().toUpperCase()} não consta (aprovado) do registo oficial. Confirme o código ou peça à instituição para formalizar o registo.`, 'warning');
+        return;
+      }
+    }
     
     const messageId = Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);
     const protocol = await sealProtocolForSend(

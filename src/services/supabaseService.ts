@@ -1218,6 +1218,26 @@ export const supabaseService = {
   },
 
   /**
+   * P0-B — verifica REALMENTE se um código institucional consta (aprovado) do
+   * registo oficial (RPC cda_instituicao_existe, security definer, exact-match;
+   * substitui a fé cega no regex de formato isRealInstitutionalCode). Nunca
+   * assume: falha de infra devolve errorCode honesto e registered=false.
+   */
+  async institutionRegistered(code: string) {
+    if (!hasValidSupabaseKeys()) return { registered: false, errorCode: 'SEM_CHAVES' };
+    const target = (code || '').trim().toUpperCase();
+    if (!target) return { registered: false, errorCode: 'SEM_CODIGO' };
+    try {
+      const { data, error } = await supabase.rpc('cda_instituicao_existe', { p_codigo: target });
+      if (error) return { registered: false, errorCode: String((error as any)?.code || 'ERRO') };
+      return { registered: data === true };
+    } catch (e: any) {
+      console.error('Supabase institutionRegistered error:', e);
+      return { registered: false, errorCode: String(e?.code || 'ERRO') };
+    }
+  },
+
+  /**
    * Insert digital protocol
    */
   async insertDigitalProtocol(p: any) {

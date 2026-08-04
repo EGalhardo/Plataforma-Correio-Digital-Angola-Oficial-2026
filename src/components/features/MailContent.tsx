@@ -55,6 +55,7 @@ import { Video, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 // destinatário é REAL (RPC auditada) e chega por props do App.
 import { supabase } from '../../lib/supabaseClient';
 import { isCompleteBiFormat } from '../../services/institutionEmergencyService';
+import { supabaseService, isRealInstitutionalCode } from '../../services/supabaseService';
 import { buildStorageRef } from '../../lib/secureStorage';
 
 
@@ -236,6 +237,27 @@ export function MailContent({
     }, 900);
     return () => clearTimeout(t);
   }, [composeData.to, isInst, onRecipientLookup]);
+
+  // P0-B — verificação REAL do destinatário institucional (área do cidadão):
+  // o código é confirmado contra o registo oficial (RPC cda_instituicao_existe).
+  // Estados honestos; 'nao_registada' bloqueia o botão de envio (decisão §0.1).
+  const [instRegistry, setInstRegistry] = useState<{ code: string; status: 'checking' | 'registada' | 'nao_registada' | 'erro' } | null>(null);
+  const instRegistryReqRef = useRef(0);
+
+  useEffect(() => {
+    if (isInst) { setInstRegistry(null); return; } // instituição → destinatário é BI (F59)
+    const target = composeData.to.trim().toUpperCase();
+    if (!isRealInstitutionalCode(target)) { setInstRegistry(null); return; }
+    const reqId = ++instRegistryReqRef.current;
+    setInstRegistry({ code: target, status: 'checking' });
+    const t = setTimeout(async () => {
+      const res = await supabaseService.institutionRegistered(target);
+      if (instRegistryReqRef.current !== reqId) return;
+      if (res.errorCode) setInstRegistry({ code: target, status: 'erro' });
+      else setInstRegistry({ code: target, status: res.registered ? 'registada' : 'nao_registada' });
+    }, 700);
+    return () => clearTimeout(t);
+  }, [composeData.to, isInst]);
 
 
   useEffect(() => {
@@ -642,6 +664,22 @@ export function MailContent({
                 <p className="text-[9px] md:text-[11px] text-slate-500 font-bold pl-1 leading-relaxed">
                   O Código Institucional é fornecido pela instituição destinatária (ex.: AGT-9921-SR, SME-LLVV).
                 </p>
+
+                {/* P0-B — resultado da verificação REAL do registo institucional */}
+                {instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && (
+                  <div className={`mt-1 rounded-xl border p-3 text-[10px] md:text-[11px] font-bold flex items-start gap-2 ${
+                    instRegistry.status === 'registada'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      : instRegistry.status === 'nao_registada'
+                        ? 'bg-amber-50 border-amber-200 text-amber-900'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                  }`}>
+                    {instRegistry.status === 'checking' && (<><Loader2 className="animate-spin shrink-0 mt-0.5" size={14} /><span>A verificar o código no registo institucional…</span></>)}
+                    {instRegistry.status === 'registada' && (<><CheckCircle2 className="shrink-0 mt-0.5" size={14} /><span>Instituição registada na plataforma — entrega garantida ao código {instRegistry.code}.</span></>)}
+                    {instRegistry.status === 'nao_registada' && (<><AlertTriangle className="shrink-0 mt-0.5" size={14} /><span>Código não registado na plataforma. Confirme o código ou peça à instituição para formalizar o registo — o envio fica bloqueado.</span></>)}
+                    {instRegistry.status === 'erro' && (<><AlertTriangle className="shrink-0 mt-0.5" size={14} /><span>Verificação do registo indisponível de momento. O envio tentará confirmar novamente ao clicar.</span></>)}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -970,7 +1008,8 @@ export function MailContent({
           <div className="pt-2 md:pt-4 flex flex-col md:flex-row gap-3 md:gap-4 items-center">
             <button 
               onClick={handleSendMessage}
-              disabled={!composeData.to || (isInst && !composeData.subject) || !composeData.body}
+              disabled={!composeData.to || (isInst && !composeData.subject) || !composeData.body
+                || (!isInst && !!instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && instRegistry.status === 'nao_registada')}
               className="w-full md:flex-[2] bg-primary text-white py-4 rounded-2xl font-black text-sm md:text-base shadow-xl shadow-primary/25 hover:bg-primary/95 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 md:gap-3 cursor-pointer"
             >
               <Send size={18} />
