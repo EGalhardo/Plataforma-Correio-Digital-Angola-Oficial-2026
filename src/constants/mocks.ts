@@ -1835,7 +1835,7 @@ export function generateMockProtocol(id: string | number, type: string, inst: st
     currentState: "Autenticado no Barramento do Estado",
     priority: "Alta",
     deadlineDate: "15 de Agosto de 2026",
-    qrCodeUrl: "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=CorreioDigitalAngola-ProtocoloAuth-14-06-2026",
+    qrCodeUrl: "AO-PROTOCOL:CDA-DEMO-LOCAL|ID:DEMO-14-06-2026|REG:REG-DEMO",
     digitalSignature: "MIIEuwYJKoZIhvcNAQcCoIIErDCCBKgCAQExDzANBglghkgBZQMEAgEFADCBvAYJKoZIhvcNAQcBoIG8BIG5",
     digitalSeal: "HSM-SEAL-CDA-AO-2026",
     documentHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",

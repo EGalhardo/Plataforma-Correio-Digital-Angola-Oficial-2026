@@ -284,7 +284,11 @@ export function generateProtocol(
     `ARCHIVE:${archiveReference}`,
     `LOCATION:${archiveLocation}`
   ].join('|');
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrPayload)}&color=0f172a`;
+  // Q-1 (backlog) — QR 100% local: o valor guardado passa a ser o PRÓPRIO
+  // payload; a imagem é desenhada offline pelo componente QrCodeImage (pacote
+  // 'qrcode', já dependência). Antes: URL api.qrserver.com — fuga do conteúdo
+  // do protocolo a serviço externo em cada registo (e URL gravado na nuvem).
+  const qrCodeUrl = qrPayload;
 
   return {
     internalId,
@@ -310,133 +314,37 @@ export function generateProtocol(
 }
 
 export function generateTimelineEvents(msg: Message, protocol: DigitalProtocol): CorrespondenceStateEvent[] {
-  // Use deterministic date relative to when this app was established (May 2026)
-  const dateStr = (dayOffset: number) => `2026-05-${String(20 + dayOffset).padStart(2, '0')}`;
-  const responsible = protocol.issuerResponsible || 'Eng. Amilcar de Sousa Costa';
+  // P1 — linha temporal HONESTA (fallback para quando não há historial real
+  // gravado na nuvem). Antes: datas fixas 2026-05-2x, responsáveis inventados,
+  // estados fabricados consoante o assunto (consultas médicas, multas,
+  // verificação biométrica…) e nº de lote aleatório a cada chamada. Tudo
+  // removido: o fallback passa a conter APENAS factos que a plataforma conhece
+  // da mensagem/protocolo reais.
+  const events: CorrespondenceStateEvent[] = [];
+  const date = protocol.officialIssueDate || msg.date || '—';
+  const time = protocol.officialTime || '—';
 
-  const idMod = msg.id % 6;
-  const subj = (msg.details?.subject || msg.preview).toLowerCase();
-
-  const history: CorrespondenceStateEvent[] = [];
-
-  // 1. Recebida is always the first event
-  history.push({
+  // Facto real 1: a correspondência existe na caixa do destinatário.
+  events.push({
     state: 'Recebida',
-    date: dateStr(0),
-    time: '08:00 UTC',
-    responsible: 'Operador de Entrada Principal',
-    description: `Correspondência recebida e filtrada sob o lote geral de triagem nº ${Math.floor(Math.random() * 8000 + 1000)}.`
+    date,
+    time,
+    responsible: msg.org || protocol.issuerInstitution || 'Remetente',
+    description: 'Correspondência registada no endereço digital do destinatário.',
   });
 
-  // 2. Entregue is always the second event
-  history.push({
-    state: 'Entregue',
-    date: dateStr(0),
-    time: '08:15 UTC',
-    responsible: 'Prisma Core Mailer',
-    description: `Entregue eletronicamente com sucesso aos servidores locais da instituição: ${protocol.issuerInstitution}.`
-  });
-
-  // 3. Visualizada is almost always there (except if unread is high)
-  if (msg.unread === undefined || msg.unread === 0 || idMod !== 0) {
-    history.push({
+  // Facto real 2: quando já não está por ler, foi aberta pelo destinatário.
+  if (msg.unread === 0) {
+    events.push({
       state: 'Visualizada',
-      date: dateStr(0),
-      time: '10:30 UTC',
-      responsible: 'Assessor de Direção',
-      description: 'Correspondência oficial aberta e visualizada nativamente através do portal criptográfico de segurança.'
+      date,
+      time,
+      responsible: 'Destinatário',
+      description: 'Correspondência aberta pelo destinatário.',
     });
   }
 
-  // 4. Em análise
-  if (subj.includes('auditoria') || subj.includes('pendente') || idMod === 1 || idMod === 3) {
-    history.push({
-      state: 'Em análise',
-      date: dateStr(1),
-      time: '14:00 UTC',
-      responsible: 'Gabinete Técnico-Jurídico',
-      description: 'Ficheiros de manifesto e anexos sob auditoria de conformidade para triagem e revisão formal.'
-    });
-  }
-
-  // 5. Contestada or Expirada or Rejeitada or Encaminhada or Aprovada or Confirmada or Respondida or Arquivada
-  if (subj.includes('pendente') || idMod === 1) {
-    history.push({
-      state: 'Contestada',
-      date: dateStr(2),
-      time: '11:00 UTC',
-      responsible: responsible,
-      description: 'O utente abriu uma contestação formal referente aos montantes preliminares calculados de multas atrasadas.'
-    });
-  } else if (subj.includes('tarifario') || idMod === 2) {
-    history.push({
-      state: 'Expirada',
-      date: dateStr(2),
-      time: '00:00 UTC',
-      responsible: 'Serviço Central de Validade',
-      description: 'O prazo prescricional para impugnação administrativa do novo tarifário expirou na data oficial limite.'
-    });
-    history.push({
-      state: 'Arquivada',
-      date: dateStr(2),
-      time: '16:00 UTC',
-      responsible: 'Gabinete de Arquivos Digitais',
-      description: 'Arquivado permanentemente sob assinatura digital forte com o protocolo de conformidade arquivística.'
-    });
-  } else if (subj.includes('manutencao') || idMod === 3) {
-    history.push({
-      state: 'Encaminhada',
-      date: dateStr(0),
-      time: '13:00 UTC',
-      responsible: 'Supervisão Operacional de Redes',
-      description: 'Mensagem encaminhada para os departamentos de engenharia municipal e equipas de terreno.'
-    });
-  } else if (subj.includes('consulta') || idMod === 4) {
-    history.push({
-      state: 'Confirmada',
-      date: dateStr(1),
-      time: '09:00 UTC',
-      responsible: 'Receção Central de Triagem',
-      description: 'Marcação de consulta médica confirmada nas escalas dinâmicas de atendimento especializado.'
-    });
-    history.push({
-      state: 'Respondida',
-      date: dateStr(1),
-      time: '10:15 UTC',
-      responsible: 'Secretariado Executivo Hospitalar',
-      description: 'Resposta enviada de forma célere anexando as instruções formais para preparação prévia de atendimento.'
-    });
-  } else if (subj.includes('levantamento') || idMod === 5) {
-    history.push({
-      state: 'Aprovada',
-      date: dateStr(1),
-      time: '08:45 UTC',
-      responsible: 'Director SME Executivo',
-      description: 'Pedido de levantamento aprovado sob verificação biométrica e aprovação de identificação nacional.'
-    });
-  } else {
-    // Default fallback chains
-    history.push({
-      state: 'Aprovada',
-      date: dateStr(1),
-      time: '15:20 UTC',
-      responsible: responsible,
-      description: 'Assinatura oficial registada e correspondência assinada com certificado digital qualificado.'
-    });
-  }
-
-  // Inject a 'Rejeitada' scenario for specific messages to demonstrate full coverage
-  if (msg.id === 7) {
-    history.push({
-      state: 'Rejeitada',
-      date: dateStr(2),
-      time: '17:30 UTC',
-      responsible: 'Inspeção Regular Geral',
-      description: 'Reclamação indeferida / rejeitada por falta de comprovativos e anexos obrigatórios em formato legal.'
-    });
-  }
-
-  return history;
+  return events;
 }
 
 export function generateInitialAuditLogs(msg: Message): string[] {

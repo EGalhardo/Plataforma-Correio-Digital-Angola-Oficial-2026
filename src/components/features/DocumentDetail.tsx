@@ -9,6 +9,7 @@ import { ArrowLeft, Download, ShieldCheck, QrCode, Info, ExternalLink, Printer, 
 import { Document } from '../../types';
 import { USER_PROFILE_PHOTO } from '../../constants/data';
 import { generateProtocol } from '../../utils/protocolGenerator';
+import { QrCodeImage } from '../ui/QrCodeImage';
 import { GovernmentAIPanel } from './GovernmentAIPanel';
 
 interface DocumentDetailProps {
@@ -300,11 +301,10 @@ Selo Governamental de Angola: Activo e Autêntico.`}
                         </div>
                      </div>
                      <div className="shrink-0 p-1.5 bg-white rounded-xl shadow-sm">
-                        <img 
-                          src={protocol.qrCodeUrl} 
-                          alt="QR Document Protocolo"
+                        <QrCodeImage
+                          value={protocol.qrCodeUrl}
+                          size={48}
                           className="w-12 h-12 object-contain"
-                          referrerPolicy="no-referrer"
                         />
                      </div>
                   </div>

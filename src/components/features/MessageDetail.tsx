@@ -78,6 +78,7 @@ import { supabaseService } from '../../services/supabaseService';
 import { GovernmentAIPanel } from './GovernmentAIPanel';
 import { VideoSessionPanel } from './VideoSessionPanel';
 import { useLanguage } from '../../hooks/useLanguage';
+import { QrCodeImage } from '../ui/QrCodeImage';
 
 const STATE_STYLING: Record<string, { bg: string; text: string; border: string; bgDot: string; textIcon: string }> = {
   'Recebida': { bg: 'bg-slate-50', text: 'text-slate-800', border: 'border-slate-200', bgDot: 'bg-slate-150', textIcon: 'text-slate-600' },
@@ -3329,11 +3330,10 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           onClick={triggerVerification}
                           className="flex flex-col items-center shrink-0 border border-slate-200 bg-emerald-50/20 p-2 text-center rounded-xl shadow-sm cursor-pointer hover:bg-emerald-50/50 hover:border-emerald-300 active:scale-95 transition-all group"
                         >
-                          <img 
-                            src={protocol.qrCodeUrl} 
-                            alt="QR Protocolo"
+                          <QrCodeImage
+                            value={protocol.qrCodeUrl}
+                            size={64}
                             className="w-16 h-16 object-contain transition-transform group-hover:scale-105"
-                            referrerPolicy="no-referrer"
                           />
                           <span className="text-[7.5px] font-mono text-emerald-700 uppercase mt-1.5 tracking-wider font-black flex items-center gap-1 leading-none">
                             <QrCode size={8} /> VALIDAR QR
@@ -3691,11 +3691,10 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         onClick={triggerVerification}
                         className="p-3 bg-white border border-line/40 rounded-2xl shadow-md group relative overflow-hidden text-center w-full cursor-pointer hover:border-emerald-350 hover:bg-emerald-50/10 transition-all active:scale-95 flex flex-col items-center justify-center"
                       >
-                        <motion.img 
-                          src={protocol.qrCodeUrl} 
-                          alt="QR Code Seguro" 
+                        <QrCodeImage
+                          value={protocol.qrCodeUrl}
+                          size={144}
                           className="w-32 h-32 md:w-36 md:h-36 object-contain transition-transform duration-500 group-hover:scale-105 mx-auto"
-                          referrerPolicy="no-referrer"
                         />
                         <div className="text-[9px] font-mono text-indigo-700 font-extrabold uppercase mt-3 tracking-widest break-all">
                           {protocol.protocolNumber}
