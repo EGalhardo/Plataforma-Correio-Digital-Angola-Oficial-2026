@@ -2,6 +2,9 @@
 -- v20 — Difusão Institucional para Rede de Emergência (spec aprovada em chat)
 -- ----------------------------------------------------------------------------
 -- APLICAR NO SQL EDITOR DO SUPABASE (único caminho de DDL disponível).
+-- v20.1: casts ::text nas RPCs — profiles/contacts são varchar e o Postgres
+--         exigia correspondência exacta com o tipo declarado (erro real 42804
+--         detectado pela sonda ao vivo e corrigido aqui).
 --
 -- O que este ficheiro faz:
 --   1) emergency_alerts: acrescenta metadados do emissor INSTITUCIONAL
@@ -95,8 +98,8 @@ begin
 
   -- € Correspondência EXACTA em profiles.bi; nunca devolve familiares/telefones.
   return query
-  select p.bi,
-         p.name,
+  select p.bi::text,
+         p.name::text,
          (select count(*)::int from public.contacts c
            where upper(c.owner_bi) = upper(p.bi) and c.type = 'Emergência'),
          ((select count(*) from public.contacts c
@@ -127,12 +130,12 @@ begin
   end if;
 
   return query
-  select c.name,
-         c.relation,
-         c.phone,
-         c.whatsapp,
+  select c.name::text,
+         c.relation::text,
+         c.phone::text,
+         c.whatsapp::text,
          case when exists (select 1 from public.profiles pr where upper(pr.bi) = upper(c.bi))
-              then upper(c.bi) else null end,
+              then upper(c.bi)::text else null end,
          exists (select 1 from public.profiles pr where upper(pr.bi) = upper(c.bi))
         as has_cda_account
   from public.contacts c
