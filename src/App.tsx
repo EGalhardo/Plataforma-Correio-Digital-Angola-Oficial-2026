@@ -74,7 +74,7 @@ import {
   MOCK_SESSION_USER
 } from './constants/mocks';
 import { Message, Document, Contact, AppNotification, AppMode, UserRequest, DocRequest, Correspondence, LanguageCode } from './types';
-import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol } from './utils/protocolGenerator';
+import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, sealProtocolContent, canonicalProtocolPayload } from './utils/protocolGenerator';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi } from './services/supabaseService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
@@ -3028,12 +3028,39 @@ export default function App() {
   // Estados para popup (modal de confirmação obrigatória) de envio
   const [isOfficialConfirmOpen, setIsOfficialConfirmOpen] = useState(false);
 
+  // P0-A — Selagem REAL do protocolo ANTES de mostrar/gravar (spec aprovada):
+  // hash SHA-256 WebCrypto sobre payload canónico. Sem crypto.subtle o
+  // resultado e o marcador honesto 'NAO_SELADO' — nunca se inventa assinatura.
+  const sealProtocolForSend = async (
+    protocol: any,
+    senderKey: string,
+    recipientKey: string,
+    subject: string,
+    body: string,
+  ) => {
+    const hash = await sealProtocolContent(
+      canonicalProtocolPayload({
+        protocolNumber: protocol.protocolNumber,
+        senderKey,
+        recipientKey,
+        subject,
+        body,
+      }),
+    );
+    return {
+      ...protocol,
+      digitalSignature: hash || 'NAO_SELADO',
+      documentHash: hash || 'NAO_SELADO',
+      issuerResponsible: user?.name || institutionCode || 'Sistema CADA',
+    };
+  };
+
   const handleSendMessage = () => {
     // Para satisfazer as regras de negócio de confirmação do popup
     setIsOfficialConfirmOpen(true);
   };
 
-  const executeOfficialSend = () => {
+  const executeOfficialSend = async () => {
     setIsOfficialConfirmOpen(false);
     // F34 — a Nova Mensagem do cidadão já não tem campo Assunto: deriva-se do corpo.
     if (!composeData.to || !composeData.body) return;
@@ -3042,7 +3069,13 @@ export default function App() {
       || 'Correspondência Oficial';
     
     const messageId = Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);
-    const protocol = generateProtocol(composeData.to, 'message', messageId, effectiveSubject);
+    const protocol = await sealProtocolForSend(
+      generateProtocol(composeData.to, 'message', messageId, effectiveSubject),
+      isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi),
+      resolveCitizenBi(composeData.to),
+      effectiveSubject,
+      composeData.body,
+    );
 
     const newMessage: Message = {
       id: messageId,
@@ -3069,8 +3102,8 @@ export default function App() {
       protocolNumber: protocol.protocolNumber,
       org: composeData.to,
       subject: effectiveSubject,
-      digitalSignature: protocol.digitalSignature || `RSA-AO-2026-CHANCELAR-${protocol.protocolNumber}`,
-      documentHash: protocol.documentHash || 'SHA256:d82ebd908e09f87c6533010b9876274',
+      digitalSignature: protocol.digitalSignature,
+      documentHash: protocol.documentHash,
       officialIssueDate: protocol.officialIssueDate || new Date().toLocaleDateString('pt-PT'),
       officialTime: protocol.officialTime || new Date().toLocaleTimeString('pt-PT').substring(0, 5)
     };
@@ -3134,11 +3167,17 @@ export default function App() {
     setIsComposing(true);
   };
 
-  const handleSendDocMessage = () => {
+  const handleSendDocMessage = async () => {
     if (!docComposeData.to || !docComposeData.subject || !docComposeData.body) return;
     
     const messageId = Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);
-    const protocol = generateProtocol(docComposeData.to, 'message', messageId, docComposeData.subject);
+    const protocol = await sealProtocolForSend(
+      generateProtocol(docComposeData.to, 'message', messageId, docComposeData.subject),
+      isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi),
+      resolveCitizenBi(docComposeData.to),
+      docComposeData.subject,
+      docComposeData.body,
+    );
 
     const newMessage: Message = {
       id: messageId,
@@ -3164,8 +3203,8 @@ export default function App() {
       protocolNumber: protocol.protocolNumber,
       org: docComposeData.to,
       subject: docComposeData.subject,
-      digitalSignature: protocol.digitalSignature || `RSA-AO-2026-CHANCELAR-${protocol.protocolNumber}`,
-      documentHash: protocol.documentHash || 'SHA256:d82ebd908e09f87c6533010b9876274',
+      digitalSignature: protocol.digitalSignature,
+      documentHash: protocol.documentHash,
       officialIssueDate: protocol.officialIssueDate || new Date().toLocaleDateString('pt-PT'),
       officialTime: protocol.officialTime || new Date().toLocaleTimeString('pt-PT').substring(0, 5)
     };
@@ -4281,7 +4320,14 @@ Ficha civil do titular:
                   await supabaseService.sendOfficialMessage(finalMessageObj, resolvedBi, newCor.sender);
 
                   // 5.1 Store protocol for QR code reference
-                  await supabaseService.insertDigitalProtocol(protocol);
+                  const sealedCorProtocol = await sealProtocolForSend(
+                    protocol,
+                    normalizeInstCode(resolveInstitutionCode(newCor.sender)),
+                    resolvedBi,
+                    newMailMessage.details?.subject || newMailMessage.preview || '',
+                    newMailMessage.details?.body || '',
+                  );
+                  await supabaseService.insertDigitalProtocol(sealedCorProtocol);
 
                   // 6. Create citizen notification linked to their correct target_bi
                   await supabaseService.insertNotification({

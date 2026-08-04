@@ -127,17 +127,7 @@ export function getCategoryMetadata(categoryName: string): CategoryMetadata {
   };
 }
 
-// Lists of authentic-looking names for responsible issuers
-const RESPONSIBLE_NAMES = [
-  'Dr. Edmilson de Carvalho',
-  'Dra. Maria Antónia Bento',
-  'Eng. Carlos Adriano Lopes',
-  'Dra. Josefa Gouveia Neto',
-  'Dr. Mateus Francisco Dongala',
-  'Dr. Manuel da Silva Ramos',
-  'Eng. Amilcar de Sousa Costa',
-  'Dra. Isabel Catarina Lemos',
-];
+
 
 // Angolan province short codes
 const PROVINCES = ['LDA', 'LUA', 'CAB', 'BIE', 'HUA', 'LNO', 'LSU', 'BGO', 'HUI', 'ZAI'];
@@ -154,16 +144,6 @@ function pickBySeed<T>(arr: T[], seed: number): T {
   return arr[seed % arr.length];
 }
 
-function generateDeterministicSHA256Hash(seedInput: string): string {
-  const chars = '0123456789abcdef';
-  let seed = createSeed(seedInput);
-  let hash = '0x';
-  for (let i = 0; i < 40; i++) {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    hash += chars[seed % chars.length];
-  }
-  return hash;
-}
 
 export function generateProtocol(
   org: string,
@@ -273,32 +253,36 @@ export function generateProtocol(
   const hourNum = 8 + (seed % 8);
   const hour = `${String(hourNum).padStart(2, '0')}:${randMin}`;
   
-  // Official issue date and time
-  const officialIssueDate = '2026-05-21';
-  const officialTime = `${hour} UTC`;
-  const issuerResponsible = pickBySeed(RESPONSIBLE_NAMES, seed);
-  const currentState = 'Assinado & Autenticado';
-  const deadlineDate = '30 de Junho de 2026';
-  
-  // Realistic signature
-  const digitalSignature = generateDeterministicSHA256Hash(seedInput);
-  const documentHash = `SHA256-${digitalSignature.substring(2).toUpperCase()}`;
-  const digitalSeal = `SELO-DIGIT-AO-${cleanOrg}-#${sequenceStr}`;
-  const institutionalCertificate = `AC-GOV-AO-${cleanOrg}-QUALIFIED-v3`;
-  const signatureDate = `2026-05-21 às ${hour} UTC`;
-  const legalValidity = 'Plena validade probatória e jurídica regulada pelo Decreto Presidencial n.º 202/21';
+  // P0-A — VERDADE JURÍDICA HONESTA: apenas dados REAIS passam a constar do
+  // protocolo. Data/hora de emissão passam a ser as REAIS (antes: hardcoded
+  // '2026-05-21' — data errada gravada até na tabela digital_protocols).
+  const nowIso = new Date().toISOString();
+  const officialIssueDate = nowIso.slice(0, 10);
+  const officialTime = nowIso.slice(11, 16);
+  // Responsável real vem do remetente na gravação (App); aqui fica vazio —
+  // nunca mais um nome humano inventado por semente (antes: RESPONSIBLE_NAMES).
+  const issuerResponsible = '';
+  const currentState = 'Registado';
+  // Prazo legal não se inventa: o destino mostra o deadline da própria mensagem.
+  const deadlineDate = null;
+
+  // Assinatura/hashing: o selo SHA-256 REAL é aplicado pós-envio por
+  // sealProtocolContent() (ver rodapé deste ficheiro). Pré-selagem: null.
+  const digitalSignature = null;
+  const documentHash = null;
+  // Referência de registo (honesta; não é «selo digital» criptográfico).
+  const digitalSeal = `REG-${cleanOrg}-${year}-${sequenceStr}`;
+  const institutionalCertificate = '';
+  const legalValidity = PROTOCOL_INTEGRITY_NOTE;
   const archiveReference = `ARQ-${cleanOrg}-${province}-${year}-${sequenceStr}`;
   const archiveLocation = `Arquivo Institucional > ${institution} > ${province} > Série ${type === 'message' ? 'Correspondência' : 'Documento'} > ${archiveReference}`;
   
   const qrPayload = [
     `AO-PROTOCOL:${protocolNumber}`,
     `ID:${internalId}`,
-    `SEAL:${digitalSeal}`,
-    `HASH:${documentHash}`,
-    `CERT:${institutionalCertificate}`,
+    `REG:${digitalSeal}`,
     `ARCHIVE:${archiveReference}`,
-    `LOCATION:${archiveLocation}`,
-    `VALID:SIM`
+    `LOCATION:${archiveLocation}`
   ].join('|');
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrPayload)}&color=0f172a`;
 
@@ -319,7 +303,6 @@ export function generateProtocol(
     digitalSeal,
     documentHash,
     institutionalCertificate,
-    signatureDate,
     legalValidity,
     archiveReference,
     archiveLocation
@@ -591,4 +574,60 @@ export function ensureProtocolOnDocument(doc: Document): Document {
     ...doc,
     protocol: generateProtocol(doc.issuer || 'GOV', 'document', doc.code, doc.name)
   };
+}
+
+// ============================================================================
+// P0-A — Selagem de integridade REAL (spec aprovada pelo dono).
+// ---------------------------------------------------------------------------
+// Texto HONESTO que substitui a antiga alegação de «plena validade jurídica».
+// Volta a haver rótulo de força legal apenas quando existir PKI real.
+export const PROTOCOL_INTEGRITY_NOTE =
+  'Registo técnico de integridade. A validade jurídica como assinatura qualificada depende de integração futura com PKI nacional.';
+
+const SHA256_HEX_RE = /^[0-9a-f]{64}$/i;
+export function isSha256Hex(v: string | null | undefined): boolean {
+  return !!v && SHA256_HEX_RE.test(v);
+}
+
+/**
+ * Payload canónico do conteúdo a selar — ordem estável e documentada.
+ * NOTA de engenharia (desvio justificado à spec A1): o carimbo temporal foi
+ * REMOVIDO do canónico; a verificação no MessageDetail reconstrói o canónico
+ * APENAS a partir de campos gravados (nº protocolo, remetente, destinatário,
+ * assunto, corpo). Com timestamp, o hash nunca seria re-verificável.
+ */
+export function canonicalProtocolPayload(parts: {
+  protocolNumber: string;
+  senderKey: string;
+  recipientKey: string;
+  subject: string;
+  body: string;
+}): string {
+  return [
+    'CDA-P1',
+    parts.protocolNumber,
+    parts.senderKey,
+    parts.recipientKey,
+    parts.subject || '',
+    parts.body || '',
+  ].join('|');
+}
+
+/**
+ * SHA-256 REAL via WebCrypto (subtle.digest). Devolve 64 hex minúsculas, ou
+ * null se o ambiente não tiver crypto.subtle (http não-seguro) — o chamador
+ * NUNCA inventa hash nesse caso (usa o marcador honesto 'NAO_SELADO').
+ */
+export async function sealProtocolContent(canonical: string): Promise<string | null> {
+  try {
+    const subtle = (globalThis as any).crypto?.subtle;
+    if (!subtle?.digest) return null;
+    const bytes = new TextEncoder().encode(canonical);
+    const digest = await subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  } catch {
+    return null;
+  }
 }

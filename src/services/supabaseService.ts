@@ -773,7 +773,10 @@ export const supabaseService = {
           },
           sensitivity: item.sensitivity,
           priorityScale: item.priority_scale,
-          deadlineHoursRemaining: item.deadline_hours_remaining
+          deadlineHoursRemaining: item.deadline_hours_remaining,
+          // P0-A — chaves reais da nuvem para verificacao de integridade no detalhe.
+          senderKey: item.sender_bi,
+          recipientBi: item.recipient_bi
         };
       });
     } catch (e) {
@@ -826,7 +829,11 @@ export const supabaseService = {
         },
         sensitivity: item.sensitivity,
         priorityScale: item.priority_scale,
-        deadlineHoursRemaining: item.deadline_hours_remaining
+        deadlineHoursRemaining: item.deadline_hours_remaining,
+        // P0-A — chaves reais guardadas na nuvem (base do payload canonico CDA-P1
+        // usado na verificacao de integridade do protocolo no detalhe da mensagem).
+        senderKey: item.sender_bi,
+        recipientBi: item.recipient_bi
       }));
 
       // F14 — IDs do canal legado por sigla: cópias locais etiquetadas por
@@ -872,7 +879,10 @@ export const supabaseService = {
         },
         sensitivity: item.sensitivity,
         priorityScale: item.priority_scale,
-        deadlineHoursRemaining: item.deadline_hours_remaining
+        deadlineHoursRemaining: item.deadline_hours_remaining,
+        // P0-A — chaves reais da nuvem para verificacao de integridade no detalhe.
+        senderKey: item.sender_bi,
+        recipientBi: item.recipient_bi
       }));
     } catch (e) {
       console.error('Supabase getSentMessagesBySender error:', e);
@@ -1185,6 +1195,29 @@ export const supabaseService = {
   },
 
   /**
+   * P0-A — leitura pontual de um protocolo digital pelo numero. Devolve apenas
+   * os campos necessarios a apresentacao honesta e a verificacao de integridade
+   * (hash SHA-256 selado no envio). NUNCA inventa dados: se nao existir,
+   * protocol=null com errorCode real.
+   */
+  async getDigitalProtocolByNumber(protocolNumber: string) {
+    if (!hasValidSupabaseKeys()) return { protocol: null, errorCode: 'SEM_CHAVES' };
+    if (!protocolNumber) return { protocol: null, errorCode: 'SEM_NUMERO' };
+    try {
+      const { data, error } = await supabase
+        .from('digital_protocols')
+        .select('protocol_number, digital_signature, legal_validity, official_issue_date, official_time, issuer_responsible, current_state')
+        .eq('protocol_number', protocolNumber)
+        .maybeSingle();
+      if (error) return { protocol: null, errorCode: String((error as any)?.code || 'ERRO') };
+      return { protocol: data || null };
+    } catch (e: any) {
+      console.error('Supabase getDigitalProtocolByNumber error:', e);
+      return { protocol: null, errorCode: String(e?.code || 'ERRO') };
+    }
+  },
+
+  /**
    * Insert digital protocol
    */
   async insertDigitalProtocol(p: any) {
@@ -1201,8 +1234,10 @@ export const supabaseService = {
         current_state: p.currentState || 'Ativo',
         priority: p.priority || 'Normal',
         qr_code_url: p.qrCodeUrl || '',
-        digital_signature: p.digitalSignature || 'SEC_COMP_CAD_KEY_SIGNED',
-        legal_validity: p.legalValidity || 'Ponto de barramento seguro CADA'
+        // P0-A — sem chave/honra inventadas: nunca preencher com assinatura
+        // fabricada quando o selo não foi aplicado (marcador honesto).
+        digital_signature: p.digitalSignature || 'NAO_SELADO',
+        legal_validity: p.legalValidity || 'Registo tecnico de integridade (sem assinatura qualificada)'
       };
       const { data, error } = await supabase
         .from('digital_protocols')

@@ -1390,7 +1390,7 @@ export function MailContent({
                         <div className="flex items-center">
                           <span className="inline-flex items-center gap-1.5 text-[#e05252] text-[9px] font-semibold tracking-wider font-sans">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#f87171] animate-pulse shrink-0" />
-                            EXPIRA: {item.details?.deadline || item.protocol?.deadlineDate || '30 DE JUNHO DE 2026'}
+                            EXPIRA: {item.details?.deadline || item.protocol?.deadlineDate || '—'}
                           </span>
                         </div>
                       </td>

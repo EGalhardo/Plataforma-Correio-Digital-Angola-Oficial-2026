@@ -275,7 +275,7 @@ Selo Governamental de Angola: Activo e Autêntico.`}
                   </div>
                   <div className="col-span-2">
                      <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">Data Limite</span>
-                     <span className="font-bold text-slate-300">{protocol.deadlineDate}</span>
+                     <span className="font-bold text-slate-300">{protocol.deadlineDate || '—'}</span>
                   </div>
                   {protocol.archiveReference && (
                     <div className="col-span-2">
@@ -294,7 +294,7 @@ Selo Governamental de Angola: Activo e Autêntico.`}
                <div className="pt-4 border-t border-white/5 space-y-3">
                   <div className="flex justify-between items-center gap-2">
                      <div className="flex-1 min-w-0 text-left">
-                        <span className="text-[8px] text-white/40 font-bold uppercase tracking-wider block">Assinatura Digital</span>
+                        <span className="text-[8px] text-white/40 font-bold uppercase tracking-wider block">Hash de Integridade (SHA-256)</span>
                         <div className="font-mono text-[9px] break-all p-2 bg-black/40 rounded-lg text-slate-400 border border-white/5 block">
                            {protocol.digitalSignature}
                         </div>

@@ -73,7 +73,8 @@ import {
   Download
 } from 'lucide-react';
 import { Message, SENSITIVITY_LEVELS, SensitivityConfig, PRIORITY_CONFIGS } from '../../types';
-import { generateProtocol, generateTimelineEvents, getCategoryMetadata } from '../../utils/protocolGenerator';
+import { generateProtocol, generateTimelineEvents, getCategoryMetadata, canonicalProtocolPayload, sealProtocolContent } from '../../utils/protocolGenerator';
+import { supabaseService } from '../../services/supabaseService';
 import { GovernmentAIPanel } from './GovernmentAIPanel';
 import { VideoSessionPanel } from './VideoSessionPanel';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -270,11 +271,72 @@ export function MessageDetail({
   const { t } = useLanguage();
   const messageDate = selectedMessage.date && selectedMessage.date.includes('/')
     ? selectedMessage.date
-    : (selectedMessage.protocol?.officialIssueDate || '02/06/2026');
+    : (selectedMessage.protocol?.officialIssueDate || '—');
 
   const messageTime = selectedMessage.date && selectedMessage.date.includes(':')
     ? selectedMessage.date
-    : (selectedMessage.protocol?.officialTime || '10:45');
+    : (selectedMessage.protocol?.officialTime || '—');
+
+  // P0-A — verdade do protocolo: o selo/hash exibido vem da nuvem (registo
+  // gravado no envio), nunca de valores inventados localmente.
+  const [storedProtocol, setStoredProtocol] = useState<{
+    digital_signature: string | null;
+    legal_validity: string | null;
+    official_issue_date: string | null;
+    official_time: string | null;
+  } | null>(null);
+  const [integrityCheck, setIntegrityCheck] = useState<'idle' | 'busy' | 'integro' | 'adulterado' | 'legado' | 'sem_registo' | 'erro'>('idle');
+
+  useEffect(() => {
+    setIntegrityCheck('idle');
+    setStoredProtocol(null);
+    const pn = selectedMessage.protocol?.protocolNumber;
+    if (!pn) return;
+    let cancelled = false;
+    (async () => {
+      const res = await supabaseService.getDigitalProtocolByNumber(pn);
+      if (!cancelled && res?.protocol) setStoredProtocol(res.protocol);
+    })();
+    return () => { cancelled = true; };
+  }, [selectedMessage.id]);
+
+  // P0-A — verificacao REAL: reconstrui o payload canonico (CDA-P1) a partir
+  // das chaves guardadas na nuvem e compara o SHA-256 recomputado com o hash
+  // selado no envio. Estados honestos para todos os cenarios (sem invencao).
+  const handleVerifyIntegrity = async () => {
+    const pn = selectedMessage.protocol?.protocolNumber;
+    const keyNorm = (v: string) => (v || '').toUpperCase().replace(/\s+/g, '').trim();
+    const senderKey = keyNorm(selectedMessage.senderKey || '');
+    const recipientKey = keyNorm(selectedMessage.recipientBi || '');
+    const hash = (storedProtocol?.digital_signature || selectedMessage.protocol?.documentHash || '').trim();
+    if (!pn || !senderKey || !recipientKey || !hash) {
+      setIntegrityCheck('sem_registo');
+      return;
+    }
+    if (!/^[0-9a-f]{64}$/i.test(hash)) {
+      setIntegrityCheck('legado');
+      return;
+    }
+    setIntegrityCheck('busy');
+    try {
+      const recomputed = await sealProtocolContent(
+        canonicalProtocolPayload({
+          protocolNumber: pn,
+          senderKey,
+          recipientKey,
+          subject: selectedMessage.details?.subject || selectedMessage.preview || '',
+          body: selectedMessage.details?.body || '',
+        })
+      );
+      if (!recomputed) {
+        setIntegrityCheck('erro');
+        return;
+      }
+      setIntegrityCheck(recomputed.toUpperCase() === hash.toUpperCase() ? 'integro' : 'adulterado');
+    } catch {
+      setIntegrityCheck('erro');
+    }
+  };
 
   const getMessageLocality = (msg: Message) => {
     // Se a mensagem contiver o metadado ou se corresponder a uma das instituições mock, procuramos a sua morada
@@ -382,10 +444,10 @@ export function MessageDetail({
 
     const org = selectedMessage.org;
     const protocolNumber = selectedMessage.protocol?.protocolNumber || 'PRT-' + selectedMessage.id;
-    const signatureDate = selectedMessage.protocol?.signatureDate || messageDate;
-    const officialTime = selectedMessage.protocol?.officialTime || '10:45';
-    const documentHash = selectedMessage.protocol?.documentHash || '3e7a5c9d4b6f2a8e1c9d0f7a3b5e8c2d9f1a6b3c';
-    const digitalSignature = selectedMessage.protocol?.digitalSignature || 'RSA-CDA-INTEGRITY-SIGNATURE-KEY-AO';
+    const signatureDate = selectedMessage.protocol?.officialIssueDate || messageDate;
+    const officialTime = selectedMessage.protocol?.officialTime || '—';
+    const documentHash = storedProtocol?.digital_signature || selectedMessage.protocol?.documentHash || '';
+    const digitalSignature = storedProtocol?.digital_signature || selectedMessage.protocol?.digitalSignature || '';
 
     const lowerName = fileName.toLowerCase();
     
@@ -532,7 +594,7 @@ export function MessageDetail({
 
           ctx.fillStyle = '#94a3b8';
           ctx.font = '10px sans-serif';
-          ctx.fillText('DATA DA CERTIFICAÇÃO', 505, 344);
+          ctx.fillText('DATA DE EMISSÃO', 505, 344);
           ctx.fillStyle = '#ffffff';
           ctx.font = 'bold 11px sans-serif';
           ctx.fillText(`${signatureDate} às ${officialTime}`, 505, 357);
@@ -545,11 +607,11 @@ export function MessageDetail({
           ctx.fillRect(505, 395, 230, 65);
           ctx.fillStyle = '#10b981';
           ctx.font = 'bold 9px sans-serif';
-          ctx.fillText('✓ CERTIFICAÇÃO JURÍDICA ATIVA', 515, 413);
+          ctx.fillText('✓ REGISTO DE INTEGRIDADE ATIVO', 515, 413);
           ctx.fillStyle = '#a7f3d0';
           ctx.font = '8px monospace';
           ctx.fillText(`HASH: ${documentHash.substring(0, 24)}...`, 515, 428);
-          ctx.fillText('SISTEMA INTEGRADO DE CHAVES PÚBLICAS AO', 515, 442);
+          ctx.fillText('HASH SHA-256 DO CONTEÚDO REGISTADO', 515, 442);
         } else {
           // General certified file screenshot placeholder
           ctx.fillStyle = '#ffffff';
@@ -605,9 +667,9 @@ export function MessageDetail({
         ctx.fillStyle = '#94a3b8';
         ctx.font = '9px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(`ASSINATURA DIGITAL CDA: ${digitalSignature}`, 400, 515);
+        ctx.fillText(`HASH DE INTEGRIDADE: ${digitalSignature || 'NÃO SELADO'}`, 400, 515);
         ctx.font = 'italic 9px sans-serif';
-        ctx.fillText('Este documento digital possui validade jurídica ao abrigo da regulamentação do Governo de Angola.', 400, 535);
+        ctx.fillText('Registo técnico de integridade. Não constitui assinatura electrónica qualificada.', 400, 535);
 
         // Download PNG Blob
         canvas.toBlob((blob) => {
@@ -648,7 +710,7 @@ export function MessageDetail({
         "(GOVERNO DA REPUBLICA DE ANGOLA) Tj",
         "0 -25 Td",
         "/F1 12 Tf",
-        "(CORREIO DIGITAL DE ANGOLA - CERTIFICADO LEGAL) Tj",
+        "(CORREIO DIGITAL DE ANGOLA - REGISTO DE INTEGRIDADE) Tj",
         "0 -40 Td",
         "/F1 10 Tf",
         "(Nome do Ficheiro Anexo: " + fileName + ") Tj",
@@ -666,19 +728,19 @@ export function MessageDetail({
         "(" + (selectedMessage.details?.subject || selectedMessage.preview).substring(0, 60) + ") Tj",
         "0 -40 Td",
         "/F1 11 Tf",
-        "(CONTEUDO CERTIFICADO E GARANTIDO:) Tj",
+        "(CONTEUDO DA CORRESPONDENCIA REGISTADA:) Tj",
         "0 -20 Td",
         "/F1 10 Tf",
-        "(O presente documento atesta legalmente a integridade e veracidade do anexo) Tj",
+        "(O presente registo associa o anexo ao protocolo electronico indicado.) Tj",
         "0 -15 Td",
         "(" + fileName + " arquivado e custodiado sob os sistemas seguros do CDA.) Tj",
         "0 -15 Td",
-        "(Em conformidade com a Lei de Desmaterializacao da Administracao Publica.) Tj",
+        "(Registo tecnico de integridade - nao constitui assinatura electronica qualificada.) Tj",
         "0 -40 Td",
         "/F1 10 Tf",
-        "(ASSINADO ELETRONICAMENTE - SEGURANÇA INTEGRAL) Tj",
+        "(HASH DE INTEGRIDADE SHA-256 DO CONTEUDO) Tj",
         "0 -15 Td",
-        "(Chave: " + digitalSignature.substring(0, 36) + ") Tj",
+        "(Estado: registado na plataforma) Tj",
         "0 -15 Td",
         "(SHA-256 Hash: " + documentHash + ") Tj",
         "ET",
@@ -715,7 +777,7 @@ export function MessageDetail({
                     REPÚBLICA DE ANGOLA
          GOVERNO DIGITAL - CORREIO DIGITAL DE ANGOLA (CDA)
 ================================================================================
-                  CERTIFICADO DIGITAL DE EXPEDIENTE
+                  REGISTO DE INTEGRIDADE DE EXPEDIENTE
 
 IDENTIFICADOR ÚNICO DO DOCUMENTO:
 👉 ${selectedMessage.id}
@@ -729,26 +791,25 @@ EMISSOR OFICIAL:
 NOME DO FICHEIRO SEGURO ANEXADO:
 📄 ${fileName}
 
-DATA DE CERTIFICAÇÃO:
-📅 ${signatureDate} às ${officialTime}
+DATA DE EMISSÃO:
+📅 ${signatureDate} ${officialTime}
 
-ESTADO DE VALIDAÇÃO:
-✅ VERIFICADO E ASSINADO (ICP-ANGOLA - INFRAESTRUTURA DE CHAVES PÚBLICAS)
+ESTADO DO REGISTO:
+✅ REGISTADO NA PLATAFORMA (HASH DE INTEGRIDADE SHA-256)
 
-ASSINATURA DIGITAL DO SISTEMA CDA:
-🔑 ${digitalSignature}
+HASH DE INTEGRIDADE (SHA-256):
+🔑 ${digitalSignature || 'NÃO SELADO'}
 
-HASH CRIPTOGRÁFICO DE INTEGRIDADE (SHA-256):
-🔒 ${documentHash}
+REFERÊNCIA DE PROTOCOLO:
+🔖 ${protocolNumber}
 
 ASSUNTO DO EXPEDIENTE ASSOCIADO:
 📝 ${selectedMessage.details?.subject || selectedMessage.preview}
 
-VALIDADE JURÍDICA:
-O presente documento é assinado e certificado digitalmente nos termos da lei de
-Desmaterialização da Administração Pública e de Governação Digital da República
-de Angola. Possui a mesma eficácia e valor probatório que um documento impresso
-com assinatura presencial.
+NOTA DE INTEGRIDADE:
+Este registo técnico permite detectar alterações ao conteúdo (hash SHA-256).
+Não constitui assinatura electrónica qualificada; a validade jurídica plena
+depende de integração futura com a infra-estrutura de chaves nacional.
 
 --------------------------------------------------------------------------------
          ESTE DOCUMENTO FOI EMITIDO PELO PORTAL OFICIAL DE GOVERNO
@@ -1174,10 +1235,10 @@ com assinatura presencial.
     if (!ctx) return '';
 
     const protocolNumber = protocol.protocolNumber;
-    const signatureDate = protocol.signatureDate || messageDate;
-    const officialTime = protocol.officialTime || '10:45';
-    const documentHash = protocol.documentHash;
-    const digitalSignature = protocol.digitalSignature || 'RSA-CDA-INTEGRITY-SIGNATURE-KEY-AO';
+    const signatureDate = protocol.officialIssueDate || messageDate;
+    const officialTime = protocol.officialTime || '—';
+    const documentHash = storedProtocol?.digital_signature || protocol.documentHash || '';
+    const digitalSignature = storedProtocol?.digital_signature || protocol.digitalSignature || '';
 
     const lowerName = fileName.toLowerCase();
 
@@ -1317,7 +1378,7 @@ com assinatura presencial.
 
       ctx.fillStyle = '#94a3b8';
       ctx.font = '10px sans-serif';
-      ctx.fillText('DATA DA CERTIFICAÇÃO', 505, 344);
+      ctx.fillText('DATA DE EMISSÃO', 505, 344);
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 11px sans-serif';
       ctx.fillText(`${signatureDate} às ${officialTime}`, 505, 357);
@@ -1330,11 +1391,11 @@ com assinatura presencial.
       ctx.fillRect(505, 395, 230, 65);
       ctx.fillStyle = '#10b981';
       ctx.font = 'bold 9px sans-serif';
-      ctx.fillText('✓ CERTIFICAÇÃO JURÍDICA ATIVA', 515, 413);
+      ctx.fillText('✓ REGISTO DE INTEGRIDADE ATIVO', 515, 413);
       ctx.fillStyle = '#a7f3d0';
       ctx.font = '8px monospace';
       ctx.fillText(`HASH: ${documentHash.substring(0, 24)}...`, 515, 428);
-      ctx.fillText('SISTEMA INTEGRADO DE CHAVES PÚBLICAS AO', 515, 442);
+      ctx.fillText('HASH SHA-256 DO CONTEÚDO REGISTADO', 515, 442);
     } else {
       // General certified file screenshot placeholder
       ctx.fillStyle = '#ffffff';
@@ -1390,9 +1451,9 @@ com assinatura presencial.
     ctx.fillStyle = '#94a3b8';
     ctx.font = '9px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(`ASSINATURA DIGITAL CDA: ${digitalSignature}`, 400, 515);
+    ctx.fillText(`HASH DE INTEGRIDADE: ${digitalSignature || 'NÃO SELADO'}`, 400, 515);
     ctx.font = 'italic 9px sans-serif';
-    ctx.fillText('Este documento digital possui validade jurídica ao abrigo da regulamentação do Governo de Angola.', 400, 535);
+    ctx.fillText('Registo técnico de integridade. Não constitui assinatura electrónica qualificada.', 400, 535);
 
     return canvas.toDataURL('image/png');
   };
@@ -1793,7 +1854,7 @@ com assinatura presencial.
                     </div>
                   </div>
                   <div>
-                    <span className="text-[9px] font-black text-slate-450 block uppercase">Selo Digital Institucional</span>
+                    <span className="text-[9px] font-black text-slate-450 block uppercase">Referência de Registo</span>
                     <span className="font-mono text-[8px] text-slate-500 break-all block truncate">{detailReplySuccess.digitalSeal}</span>
                   </div>
                 </div>
@@ -3237,35 +3298,31 @@ com assinatura presencial.
                           <ShieldCheck size={18} />
                         </div>
                         <div>
-                          <h4 className="text-xs font-black uppercase tracking-[0.05em] text-slate-900 leading-none">Documento Verificado</h4>
-                          <p className="text-[10px] text-emerald-800 font-medium mt-0.5">Assinatura Digital Institucional Completa</p>
+                          <h4 className="text-xs font-black uppercase tracking-[0.05em] text-slate-900 leading-none">Documento Registado</h4>
+                          <p className="text-[10px] text-emerald-800 font-medium mt-0.5">Registo de integridade com hash SHA-256</p>
                         </div>
                         <span className="ml-auto bg-emerald-500 text-white font-mono text-[8px] font-black px-2 py-0.5 rounded uppercase leading-none tracking-wider font-bold">
-                          AUTÊNTICO & INTEGRAL
+                          REGISTADO
                         </span>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-medium bg-emerald-50/40 p-4 border border-emerald-100/80 rounded-2xl">
                         <div>
-                          <span className="text-slate-400 text-[9px] font-black uppercase block tracking-wider mb-0.5">Selo Digital Institucional</span>
+                          <span className="text-slate-400 text-[9px] font-black uppercase block tracking-wider mb-0.5">Referência de Registo</span>
                           <span className="font-mono text-slate-800 break-all">{protocol.digitalSeal}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 text-[9px] font-black uppercase block tracking-wider mb-0.5">Certificado Digital Emissor</span>
-                          <span className="text-slate-850 font-bold">{protocol.institutionalCertificate}</span>
                         </div>
                         <div className="md:col-span-2">
                           <span className="text-slate-400 text-[9px] font-black uppercase block tracking-wider mb-0.5">Hash de Integridade do Documento</span>
-                          <span className="font-mono text-[10px] text-slate-700 bg-white/80 p-1.5 border border-emerald-100/50 rounded block break-all">{protocol.documentHash}</span>
+                          <span className="font-mono text-[10px] text-slate-700 bg-white/80 p-1.5 border border-emerald-100/50 rounded block break-all">{storedProtocol?.digital_signature || protocol.documentHash || '—'}</span>
                         </div>
                       </div>
 
                       <div className="flex flex-col sm:flex-row gap-5 items-center justify-between bg-white p-4 border border-slate-200 rounded-2xl">
                         <div className="flex-1 min-w-0 space-y-1.5 text-left">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Assinatura Criptográfica Emissora</span>
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Hash de Integridade (SHA-256)</span>
                           <div className="bg-slate-900 text-slate-350 p-2.5 rounded-xl text-[10px] font-mono break-all border border-slate-850 flex items-center gap-2">
                             <Fingerprint size={14} className="text-emerald-400 shrink-0" />
-                            <span className="text-slate-400">{protocol.digitalSignature}</span>
+                            <span className="text-slate-400">{storedProtocol?.digital_signature || protocol.digitalSignature || '—'}</span>
                           </div>
                         </div>
                         <div 
@@ -3383,9 +3440,9 @@ com assinatura presencial.
                   <div className="p-5 bg-primary/5 rounded-2xl border border-primary/10 flex items-start gap-4">
                     <ShieldCheck size={24} className="text-primary shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-base font-bold text-primary mb-1">Documento Autenticado</p>
+                      <p className="text-base font-bold text-primary mb-1">Documento Registado</p>
                       <p className="text-sm text-primary/70 leading-tight">
-                        Este conteúdo foi extraído diretamente da base oficial do Estado Angolano e possui plena validade jurídica como prova digital.
+                        Este registo é um comprovativo técnico de integridade da correspondência na plataforma. Não constitui assinatura electrónica qualificada.
                       </p>
                     </div>
                   </div>
@@ -3793,14 +3850,14 @@ com assinatura presencial.
                       </div>
 
                       <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                        <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">Data de Assinatura</span>
+                        <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">Data de Emissão</span>
                         <span className="text-slate-850 font-mono text-xs font-bold text-right">
-                          {protocol.signatureDate}
+                          {storedProtocol?.official_issue_date || protocol.officialIssueDate}
                         </span>
                       </div>
 
                       <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                        <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">Selo Digital Institucional</span>
+                        <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">Referência de Registo</span>
                         <span className="text-slate-850 font-mono text-xs font-bold text-right">
                           {protocol.digitalSeal}
                         </span>
@@ -3809,22 +3866,53 @@ com assinatura presencial.
                       <div className="pt-3">
                         <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider block mb-1">Hash Criptográfico (SHA-256)</span>
                         <span className="text-slate-700 font-mono text-[10px] break-all block leading-relaxed bg-slate-50 p-2 border border-slate-100 rounded-lg">
-                          {protocol.documentHash}
+                          {storedProtocol?.digital_signature || protocol.documentHash || '—'}
                         </span>
                       </div>
 
                       <div className="pt-3">
-                        <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider block mb-1">Certificado Qualificado</span>
-                        <span className="text-slate-700 font-mono text-[10px] break-all block leading-relaxed bg-slate-50 p-2 border border-slate-100 rounded-lg">
-                          {protocol.institutionalCertificate}
-                        </span>
-                      </div>
-
-                      <div className="pt-3">
-                        <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider block mb-1.5">Validade Jurídica Regulamentar</span>
+                        <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider block mb-1.5">Nota de Integridade</span>
                         <p className="text-slate-655 text-[11px] font-medium leading-relaxed bg-indigo-50/40 p-2.5 border border-indigo-100/50 rounded-lg text-left">
-                          {protocol.legalValidity}
+                          {storedProtocol?.legal_validity || protocol.legalValidity}
                         </p>
+                      </div>
+
+                      {/* P0-A — verificação REAL: re-hash do conteúdo vs. hash selado na nuvem */}
+                      <div className="pt-4 border-t border-slate-100 mt-2">
+                        <button
+                          type="button"
+                          onClick={handleVerifyIntegrity}
+                          disabled={integrityCheck === 'busy'}
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-900 text-white text-[11px] font-black uppercase tracking-wider hover:bg-slate-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <ShieldCheck size={14} />
+                          {integrityCheck === 'busy' ? 'A verificar…' : 'Verificar Integridade'}
+                        </button>
+                        {integrityCheck === 'integro' && (
+                          <p className="mt-2 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2.5">
+                            ✓ Íntegro — o conteúdo actual corresponde ao hash selado no envio.
+                          </p>
+                        )}
+                        {integrityCheck === 'adulterado' && (
+                          <p className="mt-2 text-[11px] font-bold text-red-700 bg-red-50 border border-red-200 rounded-lg p-2.5">
+                            ⚠ Divergência — o conteúdo actual NÃO corresponde ao hash registado.
+                          </p>
+                        )}
+                        {integrityCheck === 'legado' && (
+                          <p className="mt-2 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                            Registo sem hash verificável (anterior à selagem SHA-256 ou enviado sem selo).
+                          </p>
+                        )}
+                        {integrityCheck === 'sem_registo' && (
+                          <p className="mt-2 text-[11px] font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                            Sem dados suficientes para verificar (protocolo ou chaves em falta).
+                          </p>
+                        )}
+                        {integrityCheck === 'erro' && (
+                          <p className="mt-2 text-[11px] font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                            Verificação indisponível neste ambiente (sem suporte criptográfico).
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -3902,7 +3990,7 @@ com assinatura presencial.
                     </h3>
                     <div className="inline-block mt-2 px-3 py-1 bg-indigo-50 border border-indigo-150 rounded-full">
                       <span className="text-[9px] font-extrabold tracking-widest text-indigo-700 uppercase">
-                        Selo de Autenticidade Ativo
+                        Registo de Integridade Ativo
                       </span>
                     </div>
                   </div>
@@ -3918,8 +4006,8 @@ com assinatura presencial.
                       <strong className="text-slate-800 font-mono">{protocol.protocolNumber}</strong>
                     </div>
                     <div>
-                      <span className="block text-slate-400 font-bold uppercase tracking-wider text-[9px] mb-0.5">Data de Certificação</span>
-                      <strong className="text-slate-800 font-mono">{protocol.signatureDate} às {protocol.officialTime || '10:45'}</strong>
+                      <span className="block text-slate-400 font-bold uppercase tracking-wider text-[9px] mb-0.5">Data de Emissão</span>
+                      <strong className="text-slate-800 font-mono">{protocol.officialIssueDate}{protocol.officialTime ? ' ' + protocol.officialTime : ''}</strong>
                     </div>
                     <div>
                       <span className="block text-slate-400 font-bold uppercase tracking-wider text-[9px] mb-0.5">Nome do Ficheiro</span>
@@ -4124,7 +4212,7 @@ com assinatura presencial.
                           <p><strong className="text-indigo-600">Ref. Arquivística:</strong> {protocol.archiveReference || 'CDA-ARQ-' + selectedMessage.id}</p>
                           <p><strong className="text-indigo-600">Custódia:</strong> Arquivo Geral do Ministério Emissor</p>
                           <p><strong className="text-indigo-600">Nível de Classificação:</strong> {selectedMessage.sensitivity || 'Público'}</p>
-                          <p><strong className="text-indigo-600">Hash de Validação:</strong> {protocol.documentHash}</p>
+                          <p><strong className="text-indigo-600">Hash de Validação:</strong> {storedProtocol?.digital_signature || protocol.documentHash || '—'}</p>
                           <p className="text-[10px] text-slate-400 mt-2">Este código de referência arquivística permite a recuperação integral do documento original a qualquer momento no Balcão de Atendimento do CDA.</p>
                         </div>
                       </div>
