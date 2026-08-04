@@ -5,10 +5,13 @@
 -- v20.1: casts ::text nas RPCs — profiles/contacts são varchar e o Postgres
 --         exigia correspondência exacta com o tipo declarado (erro real 42804
 --         detectado pela sonda ao vivo e corrigido aqui).
--- v20.2: "timestamp" com aspas no lookup — palavra reservada; sem aspas o
---         INSERT de auditoria falhava em runtime e era engolido pelo bloco
---         best-effort (auditoria e limite anti-abuso nunca actuavam; defeito
---         detectado pela sonda ao vivo P6 e corrigido aqui).
+-- v20.2: "timestamp" passou a citado por higiene (palavra reservada), mas a
+--         sonda P6 provou que NÃO era a causa — hipótese refutada ao vivo.
+-- v20.3: CAUSA REAL do silêncio da auditoria — a função era STABLE e o
+--         PostgREST executa funções stable/immutable numa transação READ-ONLY;
+--         o INSERT falhava com SQLSTATE 25006 e o bloco best-effort engolia-o.
+--         Lookup passa a VOLATILE (escreve auditoria); a rede mantém STABLE
+--         (só lê). Confirmado ao vivo pela RPC de diagnóstico (25006).
 --
 -- O que este ficheiro faz:
 --   1) emergency_alerts: acrescenta metadados do emissor INSTITUCIONAL
@@ -70,7 +73,7 @@ create policy "emergalerts_select_proprio_inst_ou_admin"
 -- ---------------------------------------------------------------------------
 create or replace function public.cda_cidadao_lookup_bi(p_bi text)
 returns table (bi text, name text, emergency_contacts_count int, rede_completa boolean)
-language plpgsql stable security definer set search_path = public as $$
+language plpgsql volatile security definer set search_path = public as $$
 declare
   v_bi    text := upper(trim(p_bi));
   v_inst  text := coalesce(auth.jwt() -> 'app_metadata' ->> 'instituicao', '');
@@ -94,9 +97,10 @@ begin
   end if;
 
   -- € Auditoria best-effort (nunca bloqueia a pesquisa; id omitted = default)
-  --   v20.2: "timestamp" OBRIGATORIAMENTE com aspas — palavra reservada; sem
-  --   aspas o INSERT falha com erro de sintaxe em runtime e o exception
-  --   when others engolia-o silenciosamente (auditoria nunca chegava à tabela).
+  --   v20.3: esta função TEM de ser VOLATILE — o PostgREST corre funções
+  --   stable/immutable numa transação READ-ONLY e o INSERT falha com
+  --   SQLSTATE 25006, engolido silenciosamente pelo exception when others
+  --   (causa real do defeito P6; "timestamp" mantém-se citado por higiene).
   begin
     insert into public.audit_logs (action, username, "timestamp", action_type)
     values ('EMERGENCIA_LOOKUP_CIDADAO_BI', upper(v_inst), now(), 'difusao_emergencia');
