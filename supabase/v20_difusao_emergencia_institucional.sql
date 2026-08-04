@@ -8,10 +8,11 @@
 -- v20.2: "timestamp" passou a citado por higiene (palavra reservada), mas a
 --         sonda P6 provou que NÃO era a causa — hipótese refutada ao vivo.
 -- v20.3: CAUSA REAL do silêncio da auditoria — a função era STABLE e o
---         PostgREST executa funções stable/immutable numa transação READ-ONLY;
---         o INSERT falhava com SQLSTATE 25006 e o bloco best-effort engolia-o.
---         Lookup passa a VOLATILE (escreve auditoria); a rede mantém STABLE
---         (só lê). Confirmado ao vivo pela RPC de diagnóstico (25006).
+--         PostgreSQL RECUSA DML em funções não-voláteis (SPI), erguendo
+--         0A000 "INSERT is not allowed in a non-volatile function", que o
+--         bloco best-effort engolia. Erro real capturado ao vivo pela RPC de
+--         diagnóstico cda_diag_v203 (apagada após a prova). Lookup passa a
+--         VOLATILE (escreve auditoria); a rede mantém STABLE (só lê).
 --
 -- O que este ficheiro faz:
 --   1) emergency_alerts: acrescenta metadados do emissor INSTITUCIONAL
@@ -97,9 +98,9 @@ begin
   end if;
 
   -- € Auditoria best-effort (nunca bloqueia a pesquisa; id omitted = default)
-  --   v20.3: esta função TEM de ser VOLATILE — o PostgREST corre funções
-  --   stable/immutable numa transação READ-ONLY e o INSERT falha com
-  --   SQLSTATE 25006, engolido silenciosamente pelo exception when others
+  --   v20.3: esta função TEM de ser VOLATILE — o PostgreSQL recusa DML em
+  --   funções stable/immutable (erro ao vivo: 0A000 "INSERT is not allowed
+  --   in a non-volatile function"), engolido pelo exception when others
   --   (causa real do defeito P6; "timestamp" mantém-se citado por higiene).
   begin
     insert into public.audit_logs (action, username, "timestamp", action_type)
