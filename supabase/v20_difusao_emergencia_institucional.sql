@@ -5,6 +5,10 @@
 -- v20.1: casts ::text nas RPCs — profiles/contacts são varchar e o Postgres
 --         exigia correspondência exacta com o tipo declarado (erro real 42804
 --         detectado pela sonda ao vivo e corrigido aqui).
+-- v20.2: "timestamp" com aspas no lookup — palavra reservada; sem aspas o
+--         INSERT de auditoria falhava em runtime e era engolido pelo bloco
+--         best-effort (auditoria e limite anti-abuso nunca actuavam; defeito
+--         detectado pela sonda ao vivo P6 e corrigido aqui).
 --
 -- O que este ficheiro faz:
 --   1) emergency_alerts: acrescenta metadados do emissor INSTITUCIONAL
@@ -84,14 +88,17 @@ begin
     select count(*) from public.audit_logs l
      where l.action = 'EMERGENCIA_LOOKUP_CIDADAO_BI'
        and l.username = upper(v_inst)
-       and l.timestamp > now() - interval '1 hour'
+       and l."timestamp" > now() - interval '1 hour'
   ) >= 200 then
     raise exception 'LIMITE_ANTI_ABUSO_LOOKUP' using errcode = 'P0002';
   end if;
 
   -- € Auditoria best-effort (nunca bloqueia a pesquisa; id omitted = default)
+  --   v20.2: "timestamp" OBRIGATORIAMENTE com aspas — palavra reservada; sem
+  --   aspas o INSERT falha com erro de sintaxe em runtime e o exception
+  --   when others engolia-o silenciosamente (auditoria nunca chegava à tabela).
   begin
-    insert into public.audit_logs (action, username, timestamp, action_type)
+    insert into public.audit_logs (action, username, "timestamp", action_type)
     values ('EMERGENCIA_LOOKUP_CIDADAO_BI', upper(v_inst), now(), 'difusao_emergencia');
   exception when others then null;
   end;
