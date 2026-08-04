@@ -14,6 +14,18 @@
 import { isValidAoPhone, aoPhoneKey } from './emergencyContactsService';
 
 // ---------------------------------------------------------------------------
+// F59 — Formato do BI angolano usado pela plataforma (9 dígitos + 2 letras +
+// 3 dígitos). Serve APENAS para gatilho automático do lookup no compositor
+// (debounce) — a RPC é sempre a autoridade final (faz upper/trim/exacto).
+// ---------------------------------------------------------------------------
+
+export const CDA_BI_COMPLETO_RE = /^\d{9}[A-Za-z]{2}\d{3}$/;
+
+export function isCompleteBiFormat(raw: string | null | undefined): boolean {
+  return CDA_BI_COMPLETO_RE.test((raw || '').trim());
+}
+
+// ---------------------------------------------------------------------------
 // Tipos públicos
 // ---------------------------------------------------------------------------
 

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowLeft, 
@@ -50,8 +50,11 @@ import { getCategoryMetadata } from '../../utils/protocolGenerator';
 import { translateText } from '../../utils/translator';
 import { useLanguage } from '../../hooks/useLanguage';
 import { Video, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
-import { MOCK_CITIZENS, MOCK_USERS } from '../../constants/mocks';
+// F59 — a pesquisa teatral de 8s com textos governamentais inventados e
+// correspondência em MOCK_CITIZENS/MOCK_USERS foi REMOVIDA: o lookup do
+// destinatário é REAL (RPC auditada) e chega por props do App.
 import { supabase } from '../../lib/supabaseClient';
+import { isCompleteBiFormat } from '../../services/institutionEmergencyService';
 import { buildStorageRef } from '../../lib/secureStorage';
 
 
@@ -120,8 +123,26 @@ interface MailContentProps {
   onNavigateToVideoAtendimento?: () => void;
   videoSessionCount?: number;
   currentLanguage?: LanguageCode;
-  /** F58 — bloco "Difusão de Emergência" (área Instituição; JSX construído no App). */
-  instEmergencySlot?: React.ReactNode;
+  /**
+   * F59 (substitui o slot F58) — lookup REAL do destinatário, área Instituição.
+   * Estado levantado no App (a RPC cda_cidadao_lookup_bi é auditada/anti-abuso).
+   */
+  recipientLookup?: {
+    status: 'idle' | 'busy' | 'found' | 'not_found' | 'error';
+    lookedUpBi?: string;
+    citizen?: {
+      bi: string;
+      name: string;
+      emergencyContactsCount: number;
+      redeCompleta: boolean;
+    };
+    errorCode?: string | null;
+    /** Apenas no sandbox de demonstração: marca o cartão como dados fictícios. */
+    sandbox?: boolean;
+  };
+  onRecipientLookup?: (bi: string) => void;
+  /** Abre o modal de difusão F58 alimentado pelo BI verificado no Destinatário. */
+  onEmergencyBroadcast?: () => void;
 }
 
 export function MailContent({
@@ -150,7 +171,9 @@ export function MailContent({
   onNavigateToVideoAtendimento,
   videoSessionCount = 0,
   currentLanguage: propLanguage = 'pt',
-  instEmergencySlot,
+  recipientLookup,
+  onRecipientLookup,
+  onEmergencyBroadcast,
 }: MailContentProps) {
   const { currentLanguage, t } = useLanguage();
   const [editorBold, setEditorBold] = useState(false);
@@ -167,15 +190,23 @@ export function MailContent({
   const [historyIndex, setHistoryIndex] = useState(0);
 
 
-  const [isSearchingRecipient, setIsSearchingRecipient] = useState(false);
-  const [searchTimer, setSearchTimer] = useState<NodeJS.Timeout | null>(null);
-  const [searchStatusText, setSearchStatusText] = useState('');
-  const [searchFeedback, setSearchFeedback] = useState<{
-    status: 'idle' | 'searching' | 'found' | 'not_found';
-    message: string;
-    citizen?: any;
-  }>({ status: 'idle', message: '' });
-  const [searchProgress, setSearchProgress] = useState(0);
+  // F59 — lookup REAL: o estado vem por props (App → RPC auditada). Aqui só
+  // existe o anti-repetição do gatilho automático (não chama a RPC dezenas de
+  // vezes — cada chamada é auditada e conta para o limite anti-abuso 200/h).
+  const lastLookupBiRef = useRef('');
+  const normalizedDestBi = composeData.to.trim().toUpperCase();
+  const lookupVisible =
+    !!isInst &&
+    !!recipientLookup &&
+    recipientLookup.status !== 'idle' &&
+    recipientLookup.lookedUpBi === normalizedDestBi;
+
+  const fireRecipientLookup = (raw: string) => {
+    const target = (raw || '').trim().toUpperCase();
+    if (!onRecipientLookup || !target) return;
+    lastLookupBiRef.current = target; // impede o debounce de repetir a mesma chamada
+    onRecipientLookup(target);
+  };
 
   const [editingAttachmentIdx, setEditingAttachmentIdx] = useState<number | null>(null);
   const [editingAttachmentContent, setEditingAttachmentContent] = useState<string>('');
@@ -188,134 +219,26 @@ export function MailContent({
   const [isOfficialConfirmOpen, setIsOfficialConfirmOpen] = useState(false);
   const [isUrgentConfirmOpen, setIsUrgentConfirmOpen] = useState(false);
 
-  const triggerRecipientSearch = (value: string) => {
-    const term = value.trim();
-    if (!term) {
-      setSearchFeedback({ status: 'idle', message: '' });
-      setIsSearchingRecipient(false);
-      return;
-    }
-
-    if (searchTimer) {
-      clearTimeout(searchTimer);
-    }
-    
-    setIsSearchingRecipient(true);
-    setSearchProgress(0);
-    setSearchFeedback({ status: 'searching', message: 'Iniciando pesquisa na base de dados...' });
-    
-    const statusLogs = [
-      "A ligar ao Servidor de Identificação Civil Nacional...",
-      "A consultar índice de Bilhetes de Identidade...",
-      "A ler base de dados governamental (SME & Registo Civil)...",
-      "A analisar padrões de nomes e caracteres...",
-      "A verificar assinaturas digitais e biometria associada...",
-      "A cruzar dados com a rede central de Luanda...",
-      "A autenticar integridade dos dados obtidos...",
-      "A finalizar compilação de resultados..."
-    ];
-
-    let currentProgress = 0;
-    const intervalTime = 500; // update progress twice a second
-    const totalDuration = 8000; // exactly 8 seconds
-    
-    const interval = setInterval(() => {
-      currentProgress += (100 / (totalDuration / intervalTime));
-      const nextProgress = Math.min(Math.round(currentProgress), 100);
-      setSearchProgress(nextProgress);
-      
-      const logIndex = Math.min(
-        Math.floor((nextProgress / 100) * statusLogs.length),
-        statusLogs.length - 1
-      );
-      setSearchStatusText(statusLogs[logIndex]);
-    }, intervalTime);
-
-    setSearchStatusText(statusLogs[0]);
-
-    const timeout = setTimeout(() => {
-      clearInterval(interval);
-      setIsSearchingRecipient(false);
-      
-      const normalized = term.toLowerCase();
-      const matched = MOCK_CITIZENS.find(c => 
-        c.bi.toLowerCase() === normalized || 
-        c.fullName.toLowerCase() === normalized ||
-        c.fullName.toLowerCase().includes(normalized)
-      );
-
-      if (matched) {
-        setSearchFeedback({
-          status: 'found',
-          message: `Cidadão Localizado: ${matched.fullName}`,
-          citizen: matched
-        });
-        setComposeData({
-          ...composeData,
-          to: matched.bi
-        });
-      } else {
-        const matchedUser = MOCK_USERS.find(u => 
-          u.bi.toLowerCase() === normalized || 
-          u.name.toLowerCase() === normalized ||
-          u.name.toLowerCase().includes(normalized)
-        );
-        if (matchedUser) {
-          setSearchFeedback({
-            status: 'found',
-            message: `Cidadão Localizado: ${matchedUser.name}`,
-            citizen: matchedUser
-          });
-          setComposeData({
-            ...composeData,
-            to: matchedUser.bi
-          });
-        } else {
-          setSearchFeedback({
-            status: 'not_found',
-            message: 'Dado não encontrado!'
-          });
-        }
-      }
-    }, totalDuration);
-
-    setSearchTimer(timeout);
-  };
-
+  // F59 — gatilho automático do lookup REAL: só na área Instituição, só quando
+  // o BI tem formato completo (a RPC continua a ser a autoridade final), com
+  // debounce de 900 ms e anti-repetição (ref). Divergência do campo limpa o ref
+  // para permitir nova pesquisa do mesmo BI depois de editado.
   useEffect(() => {
-    return () => {
-      if (searchTimer) {
-        clearTimeout(searchTimer);
-      }
-    };
-  }, [searchTimer]);
-
-  useEffect(() => {
-    if (!composeData.to.trim()) {
-      setSearchFeedback({ status: 'idle', message: '' });
-      setIsSearchingRecipient(false);
+    if (!isInst || !onRecipientLookup) return;
+    const target = composeData.to.trim().toUpperCase();
+    if (target === lastLookupBiRef.current) return;
+    if (!isCompleteBiFormat(target)) {
+      lastLookupBiRef.current = '';
       return;
     }
-
-    if (searchFeedback.status === 'found') {
-      const cit = searchFeedback.citizen;
-      if (cit && (composeData.to === cit.bi || composeData.to === cit.fullName)) {
-        return;
+    const t = setTimeout(() => {
+      if (lastLookupBiRef.current !== target) {
+        lastLookupBiRef.current = target;
+        onRecipientLookup(target);
       }
-    }
-    
-    if (isSearchingRecipient) {
-      return;
-    }
-
-    const debounceTimeout = setTimeout(() => {
-      if (composeData.to.trim().length >= 3) {
-        triggerRecipientSearch(composeData.to);
-      }
-    }, 1500);
-
-    return () => clearTimeout(debounceTimeout);
-  }, [composeData.to]);
+    }, 900);
+    return () => clearTimeout(t);
+  }, [composeData.to, isInst, onRecipientLookup]);
 
 
   useEffect(() => {
@@ -572,29 +495,31 @@ export function MailContent({
             <div className="grid grid-cols-1 gap-5 md:gap-6">
               <div className="space-y-2">
                 <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">
-                  Destinatário
+                  Destinatário (Nº do BI — exacto)
                 </label>
                 <div className="relative flex items-center">
-                  <input 
+                  <input
                     type="text"
-                    placeholder="Introduz o N-BI ou Nome Completo"
+                    placeholder="Número do BI exacto (ex.: 000123456LA789)"
                     value={composeData.to}
                     onChange={(e) => {
                       setComposeData({ ...composeData, to: e.target.value });
                     }}
-                    disabled={isSearchingRecipient}
+                    disabled={lookupVisible && recipientLookup?.status === 'busy'}
                     className="w-full bg-white border border-line rounded-2xl pl-5 pr-12 py-3.5 md:py-4 text-xs md:text-sm font-mono font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none disabled:opacity-75 disabled:bg-slate-50"
+                    id="recipient-bi-input"
                   />
                   <div className="absolute right-4 flex items-center gap-2">
-                    {isSearchingRecipient ? (
+                    {lookupVisible && recipientLookup?.status === 'busy' ? (
                       <Loader2 className="animate-spin text-indigo-600" size={18} />
                     ) : (
                       <button
-                        onClick={() => triggerRecipientSearch(composeData.to)}
+                        onClick={() => fireRecipientLookup(composeData.to)}
                         type="button"
-                        title="Procurar na base de dados"
+                        title="Consultar este BI na plataforma CDA (consulta auditada)"
                         className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-indigo-600 transition-all cursor-pointer"
-                        disabled={!composeData.to.trim()}
+                        disabled={!composeData.to.trim() || !onRecipientLookup}
+                        id="recipient-bi-search-btn"
                       >
                         <Search size={16} />
                       </button>
@@ -602,84 +527,92 @@ export function MailContent({
                   </div>
                 </div>
 
-                {/* Animated searching block & results */}
+                {/* F59 — resultado do lookup REAL: estados honestos, zero encenação.
+                    Não encontrado NÃO bloqueia o envio oficial (entrega pré-registo),
+                    mas bloqueia a difusão de emergência (botão na linha de acções). */}
                 <AnimatePresence mode="wait">
-                  {isSearchingRecipient && (
-                    <motion.div 
-                      key="searching-state"
+                  {lookupVisible && recipientLookup?.status === 'busy' && (
+                    <motion.div
+                      key="rl-busy"
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 mt-2 space-y-3">
-                        <div className="flex items-center gap-3">
-                          <Loader2 className="animate-spin text-indigo-600 shrink-0" size={18} />
-                          <div className="flex-1 min-w-0">
-                            <span className="text-xs font-bold text-indigo-950 block">A pesquisar base de dados civil...</span>
-                            <span className="text-[10px] text-indigo-600 font-semibold block truncate animate-pulse">
-                              {searchStatusText}
-                            </span>
-                          </div>
-                          <span className="text-xs font-mono font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full shrink-0">
-                            {searchProgress}%
-                          </span>
-                        </div>
-                        {/* Progress Bar */}
-                        <div className="w-full h-1.5 bg-indigo-100 rounded-full overflow-hidden">
-                          <motion.div 
-                            className="h-full bg-indigo-600"
-                            initial={{ width: '0%' }}
-                            animate={{ width: `${searchProgress}%` }}
-                            transition={{ duration: 0.3 }}
-                          />
-                        </div>
+                      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3.5 mt-2 flex items-center gap-3">
+                        <Loader2 className="animate-spin text-indigo-600 shrink-0" size={16} />
+                        <span className="text-xs font-bold text-indigo-950">A consultar o BI na plataforma CDA…</span>
                       </div>
                     </motion.div>
                   )}
 
-                  {!isSearchingRecipient && searchFeedback.status === 'found' && (
-                    <motion.div 
-                      key="found-state"
+                  {lookupVisible && recipientLookup?.status === 'found' && recipientLookup.citizen && (
+                    <motion.div
+                      key="rl-found"
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mt-2 flex items-start gap-3">
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mt-2 flex items-start gap-3" id="recipient-verified-card">
                         <CheckCircle2 className="text-emerald-600 shrink-0 mt-0.5" size={18} />
-                        <div className="flex-1 min-w-0">
-                          <span className="text-xs font-extrabold text-emerald-950 block">Cidadão Localizado com Sucesso</span>
-                          <p className="text-[11px] text-emerald-800 font-bold mt-1">
-                            {searchFeedback.citizen?.fullName || searchFeedback.message}
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <span className="text-xs font-extrabold text-emerald-950 block">
+                            Cidadão registado na plataforma CDA{recipientLookup.sandbox ? ' (Modo Sandbox — dados fictícios)' : ''}
+                          </span>
+                          <p className="text-[11px] text-emerald-800 font-bold">
+                            {recipientLookup.citizen.name} — BI {recipientLookup.citizen.bi}
                           </p>
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 pt-2 border-t border-emerald-100/60 text-[9.5px] font-mono text-emerald-700 font-bold">
-                            <div>BI: {searchFeedback.citizen?.bi}</div>
-                            <div>NIF: {searchFeedback.citizen?.nif || 'Não associado'}</div>
-                            <div>Tel: {searchFeedback.citizen?.phone || 'Não associado'}</div>
-                            <div>Província: {searchFeedback.citizen?.province || 'Não associado'}</div>
-                          </div>
+                          <p className="text-[10px] font-bold text-emerald-700">
+                            Rede de emergência: {recipientLookup.citizen.emergencyContactsCount} contacto(s)
+                          </p>
+                          {recipientLookup.citizen.redeCompleta ? (
+                            <span className="inline-block text-[10px] font-black uppercase tracking-widest text-emerald-800 bg-emerald-100 border border-emerald-200 rounded-full px-2.5 py-0.5">
+                              Rede completa
+                            </span>
+                          ) : (
+                            <span className="inline-block text-[10px] font-black uppercase tracking-widest text-amber-800 bg-amber-100 border border-amber-200 rounded-full px-2.5 py-0.5">
+                              Rede incompleta ({recipientLookup.citizen.emergencyContactsCount} de 2 obrigatórios)
+                            </span>
+                          )}
                         </div>
                       </div>
                     </motion.div>
                   )}
 
-                  {!isSearchingRecipient && searchFeedback.status === 'not_found' && (
-                    <motion.div 
-                      key="not-found-state"
+                  {lookupVisible && recipientLookup?.status === 'not_found' && (
+                    <motion.div
+                      key="rl-notfound"
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 mt-2 flex items-center gap-3">
-                        <AlertTriangle className="text-rose-600 shrink-0" size={18} />
+                      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mt-2 flex items-start gap-3" id="recipient-not-found">
+                        <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
                         <div>
-                          <span className="text-xs font-black text-rose-950 block">Dado não encontrado!</span>
-                          <span className="text-[10px] text-rose-700 font-bold block mt-0.5">
-                            Por favor, verifique se o número de BI ou nome completo foi inserido correctamente e tente novamente.
+                          <span className="text-xs font-black text-amber-950 block">Cidadão ainda não registado na plataforma.</span>
+                          <span className="text-[10.5px] text-amber-800 font-bold block mt-0.5">
+                            A mensagem ficará guardada e será entregue quando ele criar a conta com este BI.
                           </span>
                         </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {lookupVisible && recipientLookup?.status === 'error' && (
+                    <motion.div
+                      key="rl-error"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 mt-2 flex items-center gap-3">
+                        <AlertTriangle className="text-rose-600 shrink-0" size={16} />
+                        <span className="text-xs font-bold text-rose-900">
+                          Não foi possível consultar o BI (Erro real: {recipientLookup.errorCode || 'DESCONHECIDO'}).
+                        </span>
                       </div>
                     </motion.div>
                   )}
@@ -1037,9 +970,6 @@ export function MailContent({
             </div>
           )}
 
-          {/* F58 — bloco "Difusão de Emergência" (área Instituição, JSX do App) */}
-          {isInst && instEmergencySlot}
-
           <div className="pt-2 md:pt-4 flex flex-col md:flex-row gap-3 md:gap-4 items-center">
             <button 
               onClick={handleSendMessage}
@@ -1052,13 +982,37 @@ export function MailContent({
 
             {/* Novo botão Enviar Mensagem Urgente para Área Institucional autorizada */}
             {isInst && (
-              <button 
+              <button
                 onClick={handleSendUrgentMessage}
                 disabled={!composeData.to || !composeData.subject || !composeData.body}
                 className="w-full md:flex-[2] bg-red-600 text-white py-4 rounded-2xl font-black text-sm md:text-base shadow-xl shadow-red-200 hover:bg-red-700 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 md:gap-3 cursor-pointer border-0"
               >
                 <AlertTriangle size={18} className="text-white animate-pulse" />
                 Enviar Mensagem Urgente
+              </button>
+            )}
+
+            {/* F59 — Difusão à rede de emergência do destinatário VERIFICADO.
+                Armada apenas com: cidadão encontrado na plataforma + rede
+                completa (≥2) + mensagem escrita no corpo. O cidadão-comum
+                nunca vê este botão (isInst + prop só passada na área Inst.). */}
+            {isInst && onEmergencyBroadcast && (
+              <button
+                onClick={onEmergencyBroadcast}
+                disabled={
+                  !(
+                    lookupVisible &&
+                    recipientLookup?.status === 'found' &&
+                    recipientLookup.citizen?.redeCompleta &&
+                    !!composeData.body.trim()
+                  )
+                }
+                title="Enviar primeiro à conta CDA dos familiares (quem tiver) e abrir o link WhatsApp para confirmar — nunca inventa envio"
+                className="w-full md:flex-[2] bg-white text-red-700 border-2 border-red-600 py-4 rounded-2xl font-black text-sm md:text-base shadow-xl shadow-red-100 hover:bg-red-50 active:scale-95 transition-all disabled:opacity-40 disabled:scale-100 disabled:border-slate-200 disabled:text-slate-400 disabled:shadow-none flex items-center justify-center gap-2 md:gap-3 cursor-pointer"
+                id="btn-emergency-broadcast"
+              >
+                <ShieldAlert size={18} />
+                Mensagem de Emergência
               </button>
             )}
 

@@ -1248,16 +1248,17 @@ export default function App() {
   const [contactFormErrors, setContactFormErrors] = useState<string[]>([]);
   const [contactDeleteBlock, setContactDeleteBlock] = useState<string | null>(null);
 
-  // F58 — Difusão Institucional para Rede de Emergência (área Instituição ·
-  // Correio · Nova Mensagem). Locksmith: lookup por BI EXACTO + confirmação
-  // visual anti-engano; difusão por linha com desfecho real por canal.
-  const [instEmgBiInput, setInstEmgBiInput] = useState('');
-  const [instEmgLookup, setInstEmgLookup] = useState<
+  // F59 (= F58 + fusão aprovada) — lookup REAL do destinatário no compositor
+  // institucional: um ÚNICO campo de BI alimenta tanto o envio oficial como a
+  // difusão de emergência. O campo separado "rede de emergência" foi eliminado
+  // (duplicado) e a pesquisa teatral de 8s com textos governamentais
+  // inventados foi removida — a RPC auditada é a única fonte.
+  const [recipientLookup, setRecipientLookup] = useState<
     | { status: 'idle' }
-    | { status: 'busy' }
-    | { status: 'found'; citizen: InstCitizenInfo }
-    | { status: 'not_found' }
-    | { status: 'error'; errorCode: string }
+    | { status: 'busy'; lookedUpBi: string }
+    | { status: 'found'; lookedUpBi: string; citizen: InstCitizenInfo; sandbox?: boolean }
+    | { status: 'not_found'; lookedUpBi: string }
+    | { status: 'error'; lookedUpBi: string; errorCode: string }
   >({ status: 'idle' });
   const [instEmgBroadcastOpen, setInstEmgBroadcastOpen] = useState(false);
   const [instEmgRecipients, setInstEmgRecipients] = useState<RedeMember[] | null>(null);
@@ -3451,34 +3452,39 @@ export default function App() {
   //   agente — NUNCA existe "WhatsApp enviado"). Demo = sandbox declarado (D7).
   // -------------------------------------------------------------------------
 
-  const handleInstEmergencyLocate = async () => {
-    const target = instEmgBiInput.trim().toUpperCase();
+  // F59 — lookup REAL do destinatário (chamado pelo compositor: debounce de
+  // BI completo + botão manual). Cada chamada real é auditada na plataforma
+  // (200/h por instituição) — no demo, sandbox declarado com ZERO chamadas.
+  const handleRecipientLookup = async (rawBi: string) => {
+    const target = (rawBi || '').trim().toUpperCase();
     if (!target) return;
     // DEMO — sandbox declarado; ZERO chamadas reais.
     if (isDemoInstitutionSession) {
-      setInstEmgLookup({
+      setRecipientLookup({
         status: 'found',
+        lookedUpBi: target,
         citizen: { bi: target, name: 'Cidadão de Demonstração', emergencyContactsCount: 2, redeCompleta: true },
+        sandbox: true,
       });
       addAuditLog('Simulação de pesquisa de cidadão (Modo Sandbox — sem consulta real)', 'info');
       return;
     }
-    setInstEmgLookup({ status: 'busy' });
+    setRecipientLookup({ status: 'busy', lookedUpBi: target });
     const res = await supabaseService.institutionLookupCidadao(target);
     if (res.errorCode) {
-      setInstEmgLookup({ status: 'error', errorCode: res.errorCode });
+      setRecipientLookup({ status: 'error', lookedUpBi: target, errorCode: res.errorCode });
       addAuditLog(`Pesquisa de cidadão por BI falhou (Erro real: ${res.errorCode})`, 'warning');
     } else if (!res.found || !res.citizen) {
-      setInstEmgLookup({ status: 'not_found' });
-      addAuditLog(`Pesquisa de cidadão por BI: sem registo (${target})`, 'info');
+      setRecipientLookup({ status: 'not_found', lookedUpBi: target });
+      addAuditLog(`Pesquisa de cidadão por BI: sem registo (${target}) — mensagem oficial pode seguir para entrega pré-registo`, 'info');
     } else {
-      setInstEmgLookup({ status: 'found', citizen: res.citizen });
+      setRecipientLookup({ status: 'found', lookedUpBi: target, citizen: res.citizen });
       addAuditLog(`Cidadão localizado por BI exacto: ${res.citizen.name} — rede de emergência: ${res.citizen.emergencyContactsCount}`, 'info');
     }
   };
 
   const handleInstEmergencyOpen = async () => {
-    if (instEmgLookup.status !== 'found' || !instEmgLookup.citizen.redeCompleta) return;
+    if (recipientLookup.status !== 'found' || !recipientLookup.citizen.redeCompleta) return;
     if (!composeData.body.trim()) return;
     setInstEmgBroadcastOpen(true);
     // DEMO — rede fictícia declarada; ZERO chamadas reais.
@@ -3494,7 +3500,7 @@ export default function App() {
     setInstEmgRecipients(null);
     setInstEmgRecipientsError(null);
     setInstEmgRecipientsBusy(true);
-    const res = await supabaseService.institutionFetchRedeEmergencia(instEmgLookup.citizen.bi);
+    const res = await supabaseService.institutionFetchRedeEmergencia(recipientLookup.citizen.bi);
     setInstEmgRecipientsBusy(false);
     if (res.errorCode) {
       setInstEmgRecipientsError(res.errorCode);
@@ -3589,8 +3595,7 @@ export default function App() {
   useEffect(() => {
     if (!isComposing) {
       setInstEmgBroadcastOpen(false);
-      setInstEmgLookup({ status: 'idle' });
-      setInstEmgBiInput('');
+      setRecipientLookup({ status: 'idle' });
       setInstEmgRecipients(null);
       setInstEmgRecipientsError(null);
       setInstEmgRecipientsBusy(false);
@@ -4006,90 +4011,9 @@ Ficha civil do titular:
             onNavigateToVideoAtendimento={handleNavigateToVideoAtendimento}
             videoSessionCount={videoSessionCount}
             currentLanguage={currentLanguage}
-            instEmergencySlot={
-              <div className="border-2 border-dashed border-red-200 rounded-[24px] p-5 space-y-4 bg-red-50/40" id="inst-emergency-block">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
-                    <ShieldAlert size={18} />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-red-700 uppercase tracking-tight">Difusão de Emergência</h4>
-                    <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest">
-                      Envio à rede de emergência do cidadão — procura só por BI exacto
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    value={instEmgBiInput}
-                    onChange={(e) => {
-                      setInstEmgBiInput(e.target.value);
-                      setInstEmgLookup({ status: 'idle' });
-                    }}
-                    placeholder="Número do BI do cidadão (exacto)"
-                    className="flex-1 bg-white border border-line rounded-2xl px-4 py-3 text-xs md:text-sm font-mono font-bold text-primary focus:ring-4 focus:ring-red-500/10 outline-none"
-                    id="inst-emg-bi-input"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleInstEmergencyLocate}
-                    disabled={!instEmgBiInput.trim() || instEmgLookup.status === 'busy'}
-                    className="bg-[#0c2340] text-white px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#152e4d] transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer flex items-center justify-center gap-2"
-                    id="inst-emg-locate-btn"
-                  >
-                    {instEmgLookup.status === 'busy' ? <Loader2 size={14} className="animate-spin" /> : <ShieldAlert size={14} />}
-                    {instEmgLookup.status === 'busy' ? 'A localizar…' : 'Localizar Cidadão'}
-                  </button>
-                </div>
-
-                {/* Confirmação visual anti-engano / estados honestos do lookup */}
-                {instEmgLookup.status === 'error' && (
-                  <p className="text-red-700 text-xs font-bold bg-red-100/70 border border-red-200 rounded-xl px-3 py-2">
-                    Não foi possível localizar (Erro real: {instEmgLookup.errorCode}).
-                  </p>
-                )}
-                {instEmgLookup.status === 'not_found' && (
-                  <p className="text-slate-600 text-xs font-bold bg-slate-100 border border-slate-200 rounded-xl px-3 py-2">
-                    Sem registo na plataforma para o BI indicado.
-                  </p>
-                )}
-                {instEmgLookup.status === 'found' && (
-                  <div className="space-y-3">
-                    <p className="text-emerald-800 text-xs font-bold bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2" id="inst-emg-confirm">
-                      {instEmgLookup.citizen.name} — BI {instEmgLookup.citizen.bi}
-                      {' · '}rede de emergência: {instEmgLookup.citizen.emergencyContactsCount} contacto(s)
-                      {isDemoInstitutionSession ? ' (Modo Sandbox — dados fictícios)' : ''}
-                    </p>
-
-                    {!instEmgLookup.citizen.redeCompleta ? (
-                      <p className="text-amber-800 text-xs font-bold bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                        Cidadão com rede de emergência incompleta ({instEmgLookup.citizen.emergencyContactsCount} de 2 obrigatórios) — difusão indisponível.
-                      </p>
-                    ) : (
-                      <>
-                        {!composeData.body.trim() && (
-                          <p className="text-slate-500 text-[11px] font-semibold">
-                            Escreva primeiro a mensagem no corpo deste correio — será enviada igual para cada familiar.
-                          </p>
-                        )}
-                        <button
-                          type="button"
-                          onClick={handleInstEmergencyOpen}
-                          disabled={!composeData.body.trim()}
-                          className="w-full sm:w-auto bg-red-600 text-white px-6 py-3.5 rounded-2xl font-black text-xs md:text-sm uppercase tracking-widest shadow-lg shadow-red-200 hover:bg-red-700 active:scale-95 transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer flex items-center justify-center gap-2"
-                          id="open-inst-broadcast"
-                        >
-                          <ShieldAlert size={16} />
-                          Mensagem de Emergência
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            }
+            recipientLookup={recipientLookup}
+            onRecipientLookup={handleRecipientLookup}
+            onEmergencyBroadcast={handleInstEmergencyOpen}
           />
         );
       case 'video-atendimento':
@@ -5905,16 +5829,16 @@ Ficha civil do titular:
       {isInstMode && (
         <InstitutionEmergencyBroadcast
           isOpen={instEmgBroadcastOpen}
-          citizenName={instEmgLookup.status === 'found' ? instEmgLookup.citizen.name : ''}
-          citizenBi={instEmgLookup.status === 'found' ? instEmgLookup.citizen.bi : ''}
+          citizenName={recipientLookup.status === 'found' ? recipientLookup.citizen.name : ''}
+          citizenBi={recipientLookup.status === 'found' ? recipientLookup.citizen.bi : ''}
           messageText={composeData.body}
           recipients={instEmgRecipients}
           isLoadingRecipients={instEmgRecipientsBusy}
           recipientsError={instEmgRecipientsError}
           isSandbox={isDemoInstitutionSession}
           onSendRow={(member) =>
-            instEmgLookup.status === 'found'
-              ? handleInstEmergencySendRow(member, instEmgLookup.citizen)
+            recipientLookup.status === 'found'
+              ? handleInstEmergencySendRow(member, recipientLookup.citizen)
               : Promise.resolve({ platform: 'falhou' as const, platformErrorCode: 'SEM_CIDADAO', waLink: null })
           }
           onClose={() => setInstEmgBroadcastOpen(false)}
