@@ -15,7 +15,10 @@ export const hasValidSupabaseKeys = (): boolean => {
 };
 
 export function resolveCitizenBi(nameOrBi: string): string {
-  if (!nameOrBi) return MOCK_SESSION_USER.bi;
+  // F61 — NUNCA fabricar destinatário: input vazio devolve vazio (antes caía
+  // silenciosamente para o BI de demonstração → mensagem real endereçada ao
+  // cidadão fictício + perfil-fantasma criado por ensureProfileExists).
+  if (!nameOrBi) return nameOrBi;
   const normalized = nameOrBi.trim().toLowerCase();
   
   // Check if it's already a BI of one of our citizens
@@ -40,7 +43,10 @@ export function resolveCitizenBi(nameOrBi: string): string {
     return nameOrBi;
   }
 
-  return MOCK_SESSION_USER.bi; // default fallback
+  // F61 — sem correspondência: devolve o input EXACTAMENTE como foi escrito
+  // (antes: 'default fallback' → BI de demonstração = destinatário errado
+  // em silêncio). BIs reais (15) e códigos (≥9) já passam acima intactos.
+  return nameOrBi;
 }
 
 export function resolveCitizenName(bi: string): string {
