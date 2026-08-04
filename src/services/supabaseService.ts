@@ -581,6 +581,42 @@ export const supabaseService = {
   },
 
   /**
+   * F58/v20 — Difusão Institucional: lookup do cidadão por BI exacto
+   * (RPC security definer; gate duro instituição/admin). Delega no núcleo
+   * puro injectável; erros chegam com código real (P0001/P0002/PGRST202…).
+   */
+  async institutionLookupCidadao(bi: string) {
+    if (!hasValidSupabaseKeys()) {
+      return { found: false, citizen: null, errorCode: 'SEM_CHAVES' } as import('./institutionEmergencyService').InstCitizenLookupResult;
+    }
+    const svc = await import('./institutionEmergencyService');
+    return svc.lookupCidadaoByBi(supabase, bi);
+  },
+
+  /**
+   * F58/v20 — rede de emergência do cidadão (RPC security definer).
+   */
+  async institutionFetchRedeEmergencia(bi: string) {
+    if (!hasValidSupabaseKeys()) {
+      return { members: null, errorCode: 'SEM_CHAVES' } as import('./institutionEmergencyService').FetchRedeResult;
+    }
+    const svc = await import('./institutionEmergencyService');
+    return svc.fetchRedeEmergencia(supabase, bi);
+  },
+
+  /**
+   * F58/v20 — registo REAL da difusão em emergency_alerts (append-only,
+   * ramo instituição). NUNCA simula: o resultado diz se ficou gravado.
+   */
+  async institutionRecordEmergencyBroadcast(row: import('./institutionEmergencyService').BroadcastRecordRow) {
+    if (!hasValidSupabaseKeys()) {
+      return { recorded: false, errorCode: 'SEM_CHAVES' } as import('./institutionEmergencyService').RecordBroadcastResult;
+    }
+    const svc = await import('./institutionEmergencyService');
+    return svc.recordInstitutionBroadcast(supabase, row);
+  },
+
+  /**
    * Delete contact
    */
   async deleteContact(contactId: number) {

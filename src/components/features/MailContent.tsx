@@ -120,6 +120,8 @@ interface MailContentProps {
   onNavigateToVideoAtendimento?: () => void;
   videoSessionCount?: number;
   currentLanguage?: LanguageCode;
+  /** F58 — bloco "Difusão de Emergência" (área Instituição; JSX construído no App). */
+  instEmergencySlot?: React.ReactNode;
 }
 
 export function MailContent({
@@ -147,7 +149,8 @@ export function MailContent({
   hiddenMessageIds = [],
   onNavigateToVideoAtendimento,
   videoSessionCount = 0,
-  currentLanguage: propLanguage = 'pt'
+  currentLanguage: propLanguage = 'pt',
+  instEmergencySlot,
 }: MailContentProps) {
   const { currentLanguage, t } = useLanguage();
   const [editorBold, setEditorBold] = useState(false);
@@ -1033,6 +1036,9 @@ export function MailContent({
               })}
             </div>
           )}
+
+          {/* F58 — bloco "Difusão de Emergência" (área Instituição, JSX do App) */}
+          {isInst && instEmergencySlot}
 
           <div className="pt-2 md:pt-4 flex flex-col md:flex-row gap-3 md:gap-4 items-center">
             <button 
