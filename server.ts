@@ -529,12 +529,12 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
       if (ai) {
         try {
           const response = await ai.models.generateContent({
-            model: "gemini-2.0-flash",
+            model: "gemini-2.5-flash",
             contents: [{ role: "user", parts: [{ text: utilizador }] }],
             config: { systemInstruction: sistema, temperature: 0.3 },
           });
           if (response && response.text) {
-            return res.json({ ok: true, acao: v.dados.acao, modelo: "gemini-2.0-flash", resultado: response.text, aviso: AVISO_IA });
+            return res.json({ ok: true, acao: v.dados.acao, modelo: "gemini-2.5-flash", resultado: response.text, aviso: AVISO_IA });
           }
         } catch (geminiErr) {
           console.error("Gemini assistente-documento erro, fallback Groq:", geminiErr);
