@@ -5,7 +5,7 @@
 // decide como mostrar. NUNCA devolve texto fingido.
 // ============================================================================
 
-import type { AcaoDocumento, TipoRascunho } from './aiDocumentoCore';
+import type { AcaoDocumento, TipoRascunho, IdiomaTraducao } from './aiDocumentoCore';
 
 const TIMEOUT_MS = 45000;
 
@@ -22,6 +22,7 @@ export async function assistenteDocumento(args: {
   titulo?: string;
   remetente?: string;
   tipoRascunho?: TipoRascunho;
+  idiomaDestino?: IdiomaTraducao;
 }): Promise<AssistenteResposta> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
