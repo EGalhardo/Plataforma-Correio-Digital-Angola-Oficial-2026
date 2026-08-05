@@ -20,7 +20,7 @@ exige storage + regras de permissão, e sem isso seria inseguro/inventado.
 ## Ciclos
 
 ### E1 — Motor de Base de Conhecimento (sem conteúdo do dono)
-- Formato `src/constants/kb/<SIGLA>.ts`: `{ sigla, nome, fontes: [{ id, titulo, tipo: 'regulamento'|'procedimento'|'faq', texto, atualizadoEm }] }`
+- Formato `api/kb/` (módulos TS dentro de api/ — a Vercel não empacota `../src`, lição do S1; especificação ajustada em E1): `{ sigla, nome, fontes: [{ id, titulo, tipo: 'regulamento'|'procedimento'|'faq', texto, atualizadoEm }] }`
 - Servidor: `indexKb.ts` puro — seleciona fontes por sigla do remetente (ou
   parâmetro explícito), aplica limite de caracteres, monta secção no prompt:
   resposta só com base no DOCUMENTO + KB; se faltar nos dois, frase padrão de

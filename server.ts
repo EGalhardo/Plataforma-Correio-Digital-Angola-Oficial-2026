@@ -7,7 +7,8 @@ import { GoogleGenAI, LiveServerMessage, Modality, Type } from "@google/genai";
 import { createClient } from '@supabase/supabase-js';
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
-import { AVISO_IA, construirPrompts, validarPedido } from "./src/services/aiDocumentoCore";
+import { AVISO_IA, construirPrompts, montarContextoKb, selecionarInstituicaoKb, validarPedido } from "./src/services/aiDocumentoCore";
+import { KB_REGISTO } from "./api/kb/registoKb";
 
 dotenv.config();
 
@@ -522,6 +523,17 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
       const v = validarPedido(req.body);
       if (v.ok === false) {
         return res.status(400).json({ ok: false, erro: v.erro });
+      }
+      // E1 — Base de Conhecimento: anexa fontes oficiais da instituição quando
+      // existirem no registo (E2/E3); sem registo, o comportamento é o de hoje.
+      const alvoKb = (req.body && typeof req.body.siglaKb === 'string' ? req.body.siglaKb : v.dados.remetente);
+      const instKb = selecionarInstituicaoKb(KB_REGISTO, alvoKb);
+      if (instKb) {
+        const montado = montarContextoKb(instKb);
+        if (montado.contexto) {
+          v.dados.kb = { instituicao: instKb.nome, contexto: montado.contexto, truncado: montado.truncado };
+          console.log(`KB: ${instKb.sigla} -> ${montado.fontesUsadas.length} fontes (truncado=${montado.truncado})`);
+        }
       }
       const { sistema, utilizador } = construirPrompts(v.dados);
 
