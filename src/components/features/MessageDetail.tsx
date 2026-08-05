@@ -252,6 +252,7 @@ interface MessageDetailProps {
   setSelectedMessage: (msg: Message | null) => void;
   setTab: (tab: string) => void;
   handleReply: (msg: Message) => void;
+  onResponderComRascunho?: (msg: Message, texto: string) => void;
   onUpdateMessage?: (msg: Message) => void;
   onDeleteMessage?: (id: number) => void;
   onRestoreMessage?: (id: number) => void;
@@ -264,6 +265,7 @@ export function MessageDetail({
   setSelectedMessage,
   setTab,
   handleReply,
+  onResponderComRascunho,
   onUpdateMessage,
   onDeleteMessage,
   onRestoreMessage,
@@ -1746,6 +1748,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
             titulo={selectedMessage.details?.subject || selectedMessage.preview}
             remetente={selectedMessage.org}
             className="mt-8"
+            onUsarRascunho={onResponderComRascunho ? (textoRascunho: string) => onResponderComRascunho(selectedMessage, textoRascunho) : undefined}
           />
 
           {/* Incoming Document Attachments */}
@@ -3139,6 +3142,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                       titulo={selectedMessage.details?.subject || selectedMessage.preview}
                       remetente={selectedMessage.org}
                       className="mt-8"
+                      onUsarRascunho={onResponderComRascunho ? (textoRascunho: string) => onResponderComRascunho(selectedMessage, textoRascunho) : undefined}
                     />
 
                     {/* Incoming Document Attachments */}

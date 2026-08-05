@@ -3179,6 +3179,19 @@ export default function App() {
     setIsComposing(true);
   };
 
+  // S5 — rascunho gerado pela IA entra no compositor para REVISAO humana;
+  // o envio continua 100% manual (a IA nunca envia).
+  const handleResponderComRascunho = (msg: Message, rascunho: string) => {
+    setComposeData({
+      to: msg.org,
+      subject: `RE: ${msg.details?.subject || msg.preview.substring(0, 30)}`,
+      body: rascunho,
+      attachments: []
+    });
+    setTab('correspondencias');
+    setIsComposing(true);
+  };
+
   const handleSendDocMessage = async () => {
     if (!docComposeData.to || !docComposeData.subject || !docComposeData.body) return;
     // P0-B — mesma guarda anti void-delivery do envio de mensagem (ver acima).
@@ -4018,6 +4031,7 @@ Ficha civil do titular:
             setSelectedMessage={setSelectedMessage}
             setTab={setTab}
             handleReply={handleReply}
+            onResponderComRascunho={handleResponderComRascunho}
             onUpdateMessage={handleUpdateMessage}
             onDeleteMessage={handleDeleteMessage}
             onRestoreMessage={handleRestoreMessage}
