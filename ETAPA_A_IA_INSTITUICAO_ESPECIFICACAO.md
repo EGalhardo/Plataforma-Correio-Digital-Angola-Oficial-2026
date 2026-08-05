@@ -95,6 +95,21 @@ páginas públicas oficiais (e 1 directório público, assinalado), com
 - Sonda ao vivo pós-deploy: pergunta cuja resposta esteja SÓ na KB deve vir
   com a fonte indicada (registada neste ficheiro após o deploy).
 
+**Sondas ao vivo (2026-08-05, deploy `7464b56`, health OK):**
+1. AGT + acção `prazos_direitos` (gemini-2.5-flash): recusou inventar prazo
+   ("definidos no Calendário Fiscal ... www.agt.minfin.gov.ao") e citou
+   "Fonte: Portal do Contribuinte — serviços electrónicos da AGT" +
+   "Fonte: Legislação fiscal, notificações e contactos da AGT". ✅
+2. INAPEM + `prazos_direitos` (gemini): respondeu SÓ com dados da KB
+   (validade 12 meses; emissão ~3 dias vs ~30; Twendy ~10 semanas) citando as
+   3 fontes com datas. ✅
+3. EPAL + `explicar` factura estimada (fallback llama-3.1-8b-instant):
+   explicou as 3 formas de facturação exactamente como na KB. ✅
+4. ENDE + `explicar` (llama): perfil institucional em linha com a fonte
+   limitada carregada. ✅
+5. Controlo SEM KB (`siglaKb: 'ZZZ'`): 200 normal, sem conteúdo KB —
+   contrato E1 intacto. ✅
+
 ### Regra actualizada
 "A KB é SÓ o que o dono aprovar" passa a incluir o método **recolha na
 internet de fontes oficiais públicas**, com URL e data por fonte, e possibilidade
