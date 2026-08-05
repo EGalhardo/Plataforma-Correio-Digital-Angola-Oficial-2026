@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
+import { AVISO_IA, construirPrompts, validarPedido } from "../src/services/aiDocumentoCore";
 
 dotenv.config();
 
@@ -208,6 +209,53 @@ Regras Críticas de Fidelidade e Integridade:
       }
 
       return res.status(200).json({ result: "Modo offline ativo." });
+    }
+
+    // 3.5 Endpoint /api/assistente-documento (Fase 1 / S1): explicar, resumir,
+    // passos, prazos e rascunhos. Gemini-primeiro com fallback Groq.
+    // Fail-safe: sem provedor ou erro de IA => HTTP honesto; nunca texto fingido.
+    if (url.includes('/api/assistente-documento')) {
+      const v = validarPedido(body);
+      if (v.ok === false) {
+        return res.status(400).json({ ok: false, erro: v.erro });
+      }
+      const { sistema, utilizador } = construirPrompts(v.dados);
+
+      if (ai) {
+        try {
+          const response = await ai.models.generateContent({
+            model: "gemini-2.0-flash",
+            contents: [{ role: "user", parts: [{ text: utilizador }] }],
+            config: { systemInstruction: sistema, temperature: 0.3 },
+          });
+          if (response && response.text) {
+            return res.status(200).json({ ok: true, acao: v.dados.acao, modelo: "gemini-2.0-flash", resultado: response.text, aviso: AVISO_IA });
+          }
+        } catch (geminiErr) {
+          console.error("Gemini assistente-documento erro, fallback Groq:", geminiErr);
+        }
+      }
+
+      if (groq) {
+        try {
+          const completion = await groq.chat.completions.create({
+            messages: [
+              { role: "system", content: sistema },
+              { role: "user", content: utilizador }
+            ],
+            model: "llama-3.1-8b-instant",
+            temperature: 0.3,
+          });
+          const textoGroq = completion.choices?.[0]?.message?.content;
+          if (textoGroq) {
+            return res.status(200).json({ ok: true, acao: v.dados.acao, modelo: "llama-3.1-8b-instant", resultado: textoGroq, aviso: AVISO_IA });
+          }
+        } catch (groqErr) {
+          console.error("Groq assistente-documento erro:", groqErr);
+        }
+      }
+
+      return res.status(503).json({ ok: false, erro: "Assistente de IA indisponível neste momento. Tenta novamente dentro de instantes." });
     }
 
     // 4. Endpoint /api/chat (Fluxo contínuo do Chat do Cidadão)

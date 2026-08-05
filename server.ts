@@ -7,6 +7,7 @@ import { GoogleGenAI, LiveServerMessage, Modality, Type } from "@google/genai";
 import { createClient } from '@supabase/supabase-js';
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
+import { AVISO_IA, construirPrompts, validarPedido } from "./src/services/aiDocumentoCore";
 
 dotenv.config();
 
@@ -510,6 +511,60 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
     } catch (error) {
       console.error("Groq & Gemini Chat Error:", error);
       res.status(500).json({ error: "Erro ao processar conversa com IA." });
+    }
+  });
+
+  // Assistente de Documentos (Fase 1 / S1): explicar, resumir, passos, prazos e
+  // rascunhos. Gemini-primeiro com fallback Groq (padrão do /api/chat).
+  // Fail-safe: sem provedor ou erro de IA => HTTP honesto; nunca texto fingido.
+  app.post("/api/assistente-documento", async (req, res) => {
+    try {
+      const v = validarPedido(req.body);
+      if (v.ok === false) {
+        return res.status(400).json({ ok: false, erro: v.erro });
+      }
+      const { sistema, utilizador } = construirPrompts(v.dados);
+
+      // 1. Gemini primeiro (modo teste aprovado pelo dono)
+      if (ai) {
+        try {
+          const response = await ai.models.generateContent({
+            model: "gemini-2.0-flash",
+            contents: [{ role: "user", parts: [{ text: utilizador }] }],
+            config: { systemInstruction: sistema, temperature: 0.3 },
+          });
+          if (response && response.text) {
+            return res.json({ ok: true, acao: v.dados.acao, modelo: "gemini-2.0-flash", resultado: response.text, aviso: AVISO_IA });
+          }
+        } catch (geminiErr) {
+          console.error("Gemini assistente-documento erro, fallback Groq:", geminiErr);
+        }
+      }
+
+      // 2. Fallback Groq (já ativo em produção)
+      if (groq) {
+        try {
+          const completion = await groq.chat.completions.create({
+            messages: [
+              { role: "system", content: sistema },
+              { role: "user", content: utilizador }
+            ],
+            model: "llama-3.1-8b-instant",
+            temperature: 0.3,
+          });
+          const textoGroq = completion.choices?.[0]?.message?.content;
+          if (textoGroq) {
+            return res.json({ ok: true, acao: v.dados.acao, modelo: "llama-3.1-8b-instant", resultado: textoGroq, aviso: AVISO_IA });
+          }
+        } catch (groqErr) {
+          console.error("Groq assistente-documento erro:", groqErr);
+        }
+      }
+
+      return res.status(503).json({ ok: false, erro: "Assistente de IA indisponível neste momento. Tenta novamente dentro de instantes." });
+    } catch (e) {
+      console.error("assistente-documento erro:", e);
+      return res.status(500).json({ ok: false, erro: "Erro ao processar o pedido do assistente de documentos." });
     }
   });
 
