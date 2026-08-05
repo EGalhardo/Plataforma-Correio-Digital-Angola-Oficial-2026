@@ -52,6 +52,54 @@ estrutura simples, sem dados sensíveis).
 - A KB é dados, não instruções (mesma guarda anti-injeção do S1)
 - Limite de tamanho por resposta (custo controlado no nível gratuito)
 
-## Bloqueio imediato
+## Bloqueio imediato — RESOLVIDO (2026-08-05, ver adenda em baixo)
 E2 e E3 precisam dos textos oficiais (regulamentos, procedimentos, FAQ) da
 **AGT** e do **INAPEM** — colados em mensagem ou num ficheiro, tal como estiver.
+
+---
+
+## ADENDA 2026-08-05 — E2/E3 EXECUTADOS (método autorizado: recolha na internet)
+
+**Autorização do dono (mensagem de 2026-08-05):** "Adiciona o texto ou arquivo na
+base de conhecimento da IA atraves da pesquisa na internet. Coloque as
+instituições mais populares de Angola como INAPEM, AGT, ENDE, EPAL, etc."
+
+### Âmbito executado
+6 instituições populares, **17 fontes** de conhecimento, todas recolhidas de
+páginas públicas oficiais (e 1 directório público, assinalado), com
+`atualizadoEm` + `fonteUrl` registados para auditoria — lista completa em
+`ETAPA_A_E2E3_FONTES.md`:
+
+| Sigla | Instituição | Fontes | Páginas-origem |
+|---|---|---|---|
+| AGT | Administração Geral Tributária | 3 | portaldocontribuinte.minfin.gov.ao, agt.minfin.gov.ao |
+| ENDE | Empresa Nacional de Distribuição de Electricidade | 1 | directório público + SEPE (site oficial indisponível à data — assinalado) |
+| EPAL | Empresa Pública de Águas de Luanda | 4 | epal.co.ao (página comercial, tarifário Decreto 230/18) |
+| INAPEM | Instituto Nacional de Apoio às MPME | 3 | inapem.gov.ao |
+| INSS | Instituto Nacional de Segurança Social | 3 | virtual.inss.gov.ao, estouinscrito.inss.gov.ao, siac.gv.ao/pt/inss |
+| SME | Serviço de Migração e Estrangeiros | 3 | sme.gov.ao, sme.minint.ao, siac.gov.ao |
+
+### Arquitectura (como decidido no E1)
+- Ficheiros-fonte `api/kb/{agt,ende,epal,inapem,inss,sme}Kb.ts` literais, sem
+  imports fora de `api/kb/` (regra da cadeia do cold start);
+- `api/kb/registoKb.ts` agrega os 6 ficheiros (usado por `server.ts` em dev);
+- `scripts/syncKb.ts` injeta o conteúdo em JSON na secção
+  `===KB-INICIO===/===KB-FIM===` de `api/index.ts` (Vercel não tolera imports);
+- paridade JSON verificada na bateria (`f_e2e3_kb_conteudo.mts`, 32 checks);
+- `FonteKb.fonteUrl?: string` adicionado (campo opcional, não é enviado ao
+  modelo — apenas auditoria).
+
+### Verificação
+- `tsc --noEmit` limpo; `npm run build` OK; bateria **75/75 PASS**;
+- Contrato E1 mantido: sem KB, prompts bit-a-bit iguais (f_e1, 23 checks);
+- Sonda ao vivo pós-deploy: pergunta cuja resposta esteja SÓ na KB deve vir
+  com a fonte indicada (registada neste ficheiro após o deploy).
+
+### Regra actualizada
+"A KB é SÓ o que o dono aprovar" passa a incluir o método **recolha na
+internet de fontes oficiais públicas**, com URL e data por fonte, e possibilidade
+de o dono corrigir/pedir remoção de qualquer entrada. Nada foi inventado:
+valores de taxas/tarifas/requisitos só entram vindos da página citada.
+
+### E4/E5
+Continuam por executar — aguardam "podes implementar" do dono.

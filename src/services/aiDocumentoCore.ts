@@ -36,6 +36,9 @@ export interface FonteKb {
   tipo: 'regulamento' | 'procedimento' | 'faq';
   texto: string;
   atualizadoEm: string;
+  // E2/E3 (2026-08-05): URL público de onde o texto foi recolhido (auditoria
+  // de proveniência; opcional — não é enviado ao modelo).
+  fonteUrl?: string;
 }
 
 export interface KbInstituicao {

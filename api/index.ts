@@ -76,6 +76,7 @@ interface FonteKb {
   tipo: 'regulamento' | 'procedimento' | 'faq';
   texto: string;
   atualizadoEm: string;
+  fonteUrl?: string;
 }
 
 interface KbInstituicao {
@@ -267,9 +268,184 @@ const construirPrompts = (dados: PedidoDocumento): { sistema: string; utilizador
 // KB_REGISTO embutido — NÃO importar ./kb/registoKb aqui: qualquer import
 // local novo no entry api/index.ts falha no cold start da Vercel
 // (FUNCTION_INVOCATION_FAILED, confirmado 2x em 2026-08-05).
-// Fonte única do conteúdo: api/kb/registoKb.ts (usado por server.ts em dev).
-// Em E2 um script de sincronização injeta aqui o conteúdo (parity na bateria).
-const KB_REGISTO: KbInstituicao[] = [];
+// Fonte única do conteúdo: api/kb/*.ts (usados por server.ts em dev).
+// O bloco abaixo é regerado por scripts/syncKb.ts (parity na bateria).
+// ===KB-INICIO=== (GERADO por scripts/syncKb.ts — NÃO EDITAR A MÃO: editar api/kb/*Kb.ts e correr "npx tsx scripts/syncKb.ts")
+const KB_REGISTO: KbInstituicao[] = [
+  {
+    "sigla": "AGT",
+    "nome": "Administração Geral Tributária",
+    "fontes": [
+      {
+        "id": "agt-portal-servicos",
+        "titulo": "Portal do Contribuinte — serviços electrónicos da AGT",
+        "tipo": "procedimento",
+        "texto": "O Portal do Contribuinte (portaldocontribuinte.minfin.gov.ao) é a plataforma digital oficial da AGT — órgão superintendido pelo Ministério das Finanças — para a relação com os contribuintes, sem deslocação às repartições fiscais e aduaneiras.\nACESSO: na página inicial existe o botão «Solicitar Novo Acesso» (criar registo) e a opção «Recuperar a Palavra-Passe». Quem não tem conta pode seleccionar «Novo Utilizador»; para representar outro contribuinte, «Nova Representação».\nSERVIÇOS DO PORTAL: submissão de declarações electrónicas (IVA e demais impostos); liquidação e pagamento de impostos; consulta de facturas; emissão de certidão de conformidade tributária e de certidão de dívida tributária; consulta da conta-corrente do contribuinte; submissão de ficheiros SAF-T (contabilidade e facturação); validação de documentos; registo de facturas electrónicas.\nSERVIÇO PÚBLICO SEM LOGIN: «Verificação da Nota de Liquidação» — permite a qualquer pessoa confirmar a validade de uma nota de liquidação da AGT.\nPRAZOS: o Calendário Fiscal (edição 2026 em PDF no portal) e os comunicados oficiais definem — e por vezes alargam — os prazos de submissão de declarações e pagamentos. Confirmar sempre no portal ou em www.agt.minfin.gov.ao.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://portaldocontribuinte.minfin.gov.ao"
+      },
+      {
+        "id": "agt-simulador-ivm",
+        "titulo": "Simulador Tributário e Imposto sobre os Veículos Motorizados (IVM)",
+        "tipo": "procedimento",
+        "texto": "No site www.agt.minfin.gov.ao, aba «Serviços Electrónicos» > «Simulador Tributário», o contribuinte pode simular o Imposto sobre os Veículos Motorizados (IVM), o Imposto Predial (IP) e o Imposto sobre o Rendimento do Trabalho (IRT); a AGT prevê incluir faseadamente II, IEC, IVA, IS, IAC e IEJ e a componente aduaneira (importação e exportação).\nIVM: no próprio site existe a caixa «Imposto Sobre os Veículos Motorizados». Quem NÃO está cadastrado no Portal do Contribuinte escolhe «Cadastrar», digita o NIF e recebe um código de verificação no e-mail ou telemóvel associado ao cadastro; segue os passos para cadastrar o veículo, liquidar, pagar e obter o selo. Também existe «Carregamento em Massa» para frotas.\nA AGT publicou no portal um «Passo a Passo» oficial do IVM (cadastrar, liquidar, pagar e obter o selo) e um «Guia rápido» para desassociação de veículos no Portal do Contribuinte.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://portaldocontribuinte.minfin.gov.ao/noticia?id=809086"
+      },
+      {
+        "id": "agt-legislacao-contactos",
+        "titulo": "Legislação fiscal, notificações e contactos da AGT (perguntas frequentes)",
+        "tipo": "faq",
+        "texto": "Q: Onde consulto a legislação fiscal e aduaneira? R: Em www.agt.minfin.gov.ao, secção «Legislação» (Legislação Fiscal, Legislação Aduaneira, Tributação Especial, circulares, instrutivos, tipografias/gráficas e programas validados). As medidas fiscais e aduaneiras do Orçamento Geral do Estado estão na secção «OGE» do mesmo portal, e o boletim mensal «Folha Tributária» na Sala de Imprensa.\nQ: Como sei da minha situação fiscal ou de notificações? R: A AGT notifica os contribuintes pela caixa do Portal do Contribuinte (anúncios recentes incluíram, por exemplo, notificações de início de fiscalização e de direito de audição prévia relativas ao exercício de 2025). Verificar regularmente a conta no portal.\nQ: Existe atendimento rápido por chat? R: Sim — o portal da AGT (www.agt.minfin.gov.ao) divulga contacto por WhatsApp: +244 923 167 011.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://agt.minfin.gov.ao/PortalAGT/#!/"
+      }
+    ]
+  },
+  {
+    "sigla": "ENDE",
+    "nome": "Empresa Nacional de Distribuição de Electricidade",
+    "fontes": [
+      {
+        "id": "ende-atendimento-canais",
+        "titulo": "Atendimento ao cliente, Provedor do Cliente e canais de reclamação",
+        "tipo": "faq",
+        "texto": "A ENDE — Empresa Nacional de Distribuição de Electricidade — é a empresa pública de distribuição de electricidade em Angola, tutelada pelo Ministério da Energia e Águas, com sede na Rua Cónego Manuel das Neves, 234, Luanda.\nQ: Como contactar a ENDE? R: Central de atendimento telefónico +244 222 641 750 (linha principal divulgada publicamente); Instagram oficial @ende_oficial.\nQ: A reclamação não foi resolvida? R: Existe o PROVEDOR DO CLIENTE ENDE, serviço de aproximação entre a empresa e o consumidor, que pode ser contactado por formulário próprio na área de eServiços do SEPE (Portal dos Serviços Públicos Electrónicos do Governo de Angola, sepe.gov.ao). Em alternativa, o consumidor pode expor a situação ao INADEC (Instituto Nacional de Defesa do Consumidor).\nNOTA DE CONFIANÇA: estes contactos foram recolhidos de directórios públicos e do portal SEPE. Para serviços novos (pedidos de ligação, contadores, tarifas), confirmar SEMPRE junto da ENDE — presencialmente num centro de atendimento ou pelos canais acima — pois só a ENDE é fonte autorizada.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://telefone-numero.com/ende-contactos"
+      }
+    ]
+  },
+  {
+    "sigla": "EPAL",
+    "nome": "Empresa Pública de Águas de Luanda",
+    "fontes": [
+      {
+        "id": "epal-nova-ligacao",
+        "titulo": "Nova ligação de água — como celebrar o contrato (segmento doméstico)",
+        "tipo": "procedimento",
+        "texto": "Para celebrar o contrato de abastecimento de água no segmento DOMÉSTICO, o cliente dirige-se a uma agência/balcão comercial da EPAL apresentando:\n1) cópia do Bilhete de Identidade;\n2) documento que comprove que o cliente é o legítimo titular do local a abastecer;\n3) valor de 600,00 Kz;\n4) Taxa de Ligação de 15.000,00 Kz (Projecto 700.000 ligações).\nOs valores são os publicados na página comercial da EPAL (www.epal.co.ao) à data da recolha; confirmar sempre no balcão antes de pagar.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://www.epal.co.ao/comercial.php"
+      },
+      {
+        "id": "epal-facturacao-pagamento",
+        "titulo": "Facturação e modalidades de pagamento",
+        "tipo": "procedimento",
+        "texto": "FACTURAÇÃO (três formas): 1) LEITURA DE CONTADOR — baseada na leitura do contador; 2) CONSUMO ESTIMADO — na ausência de contador, o consumo é facturado por estimativa em função do sector e subsector de actividade; 3) MÉDIA DE CONSUMO — na ausência de leitura, com base na média dos consumos reais anteriores, regularizada imediatamente após uma nova leitura.\nMODALIDADES DE PAGAMENTO: Multicaixa (num ATM, seguindo as instruções de pagamento); depósito à ordem; numerário ou cartão Multicaixa nos balcões da EPAL; pagamento directo nos balcões dos bancos BCA e Sol (não carece de reconciliação nos balcões da EPAL); internet banking e transferência bancária; ordem de saque.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://www.epal.co.ao/comercial.php"
+      },
+      {
+        "id": "epal-tarifario",
+        "titulo": "Plano tarifário da água potável — Decreto Executivo Conjunto n.º 230/18",
+        "tipo": "regulamento",
+        "texto": "O Plano Tarifário de água potável para a Província de Luanda foi aprovado pelo Decreto Executivo Conjunto n.º 230/18, de 12 de Junho (Ministério das Finanças e Ministério da Energia e Águas).\nDOMÉSTICOS: tarifa básica 59 Kz/m³ (consumo de 0 a 10 m³); tarifa de transição 94 Kz/m³ (10 a 15 m³); tarifa básica 137 Kz/m³ com tarifa fixa mensal de 332 Kz (consumo acima de 15 m³).\nCOMÉRCIO E SERVIÇOS: 137 Kz/m³, com tarifa fixa mensal de 3.900 Kz. INDÚSTRIA: 124 Kz/m³, com tarifa fixa mensal de 11.700 Kz. CHAFARIZ: 42 Kz/m³. GIRAFA: 137 Kz/m³.\nO diploma e a tabela completa estão publicados no site da EPAL (www.epal.co.ao, secção Comercial > Tarifário).",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://www.epal.co.ao/comercial.php"
+      },
+      {
+        "id": "epal-atendimento",
+        "titulo": "Atendimento ao cliente, reclamações e balcões (perguntas frequentes)",
+        "tipo": "faq",
+        "texto": "Q: Como faço uma reclamação (falta de água, avaria, factura errada)? R: Piquete da EPAL: (+244) 942 454 897; outros contactos telefónicos: 993 009 582, 921 553 333 e 226 431 561; e-mail geral@epal.co.ao; página oficial no Facebook «Epal de Luanda»; ou presencialmente num balcão comercial.\nQ: Onde são os balcões? R: A EPAL tem dezanove balcões de atendimento em Luanda — por exemplo Coqueiros, Valódia, Terra Nova, Viana, Kilamba, Maianga, Camama, Cacuaco, Cazenga, Mulemba, Zango, Benfica e Sequele — mais sub-agências (Kifica, Nova Vida, Golfe) e postos comerciais (Kero Cacuaco; SIAC do Cazenga, Talatona e Zango; Vida Pacífica; Vila Marina), além de postos móveis em zonas sem balcão fixo.\nQ: O que tratam os balcões comerciais? R: Atendimento ao cliente, entrega de facturas ao domicílio, cadastramento de clientes, leitura de contadores, gestão de reclamações e celebração de contratos.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://www.epal.co.ao/comercial.php"
+      }
+    ]
+  },
+  {
+    "sigla": "INAPEM",
+    "nome": "Instituto Nacional de Apoio às Micro, Pequenas e Médias Empresas",
+    "fontes": [
+      {
+        "id": "inapem-cert-oque",
+        "titulo": "Certificado MPME — o que é, validade e benefícios",
+        "tipo": "procedimento",
+        "texto": "O Certificado MPME é o documento oficial do INAPEM que atesta a classificação formal de uma empresa como MICRO, PEQUENA ou MÉDIA empresa.\nVALIDADE: 12 meses, findo o qual deve ser RENOVADO para manter os benefícios associados.\nBENEFÍCIOS do certificado: acesso a linhas de crédito com condições especiais; participação em programas de apoio e incentivos governamentais; maior visibilidade e credibilidade no mercado; acesso a capacitação e formação especializada; oportunidades de networking e parcerias estratégicas.\nA certificação destina-se às MPME que precisam de fazer prova do estatuto junto de entidades da Administração Pública — atribuição de apoios ou outras formas de discriminação positiva de micro, pequenas e médias empresas.\nPortal oficial: www.inapem.gov.ao",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://www.inapem.gov.ao"
+      },
+      {
+        "id": "inapem-cert-pedido",
+        "titulo": "Como pedir o Certificado MPME online",
+        "tipo": "procedimento",
+        "texto": "O pedido do Certificado MPME é feito À DISTÂNCIA, sem deslocação física nem entrega presencial de documentos, na Plataforma de Certificação do INAPEM, que está interligada com o canal da AGT.\nPASSOS: 1) aceder a www.inapem.gov.ao; 2) no menu «Serviços» escolher a subcategoria «Certificação»; 3) premir «Ver mais» e depois «Solicitar» — o requerente é reencaminhado para a plataforma, que valida os dados da empresa junto da AGT.\nO certificado emitido tem código QR para reforço da segurança e geolocalização da empresa.\nSegundo anúncio do INAPEM (Maio de 2023), a plataforma reduziu o período médio de emissão do certificado de cerca de 30 dias para cerca de 3 dias.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://www.inapem.gov.ao"
+      },
+      {
+        "id": "inapem-programas-faq",
+        "titulo": "Programas e produtos do INAPEM (perguntas frequentes)",
+        "tipo": "faq",
+        "texto": "Q: Que outros apoios o INAPEM dá às MPME? R: REDE INAPEM — plataforma digital que dá maior visibilidade no mercado aos prestadores de serviços angolanos e os liga a potenciais clientes e parceiros. SELO «FEITO EM ANGOLA» — certificação oficial de origem e qualidade que identifica, valoriza e promove produtos fabricados em território nacional. MEU GESTOR — consultores especializados dão apoio técnico personalizado directamente nas instalações das micro e pequenas empresas (diagnóstico de desempenho, recomendações práticas de gestão, implementação de soluções). NOSSO SABER — plataforma de e-learning com cursos, webinars e materiais educativos para empreendedores, no seu próprio ritmo, com certificação de conclusão. KAWENAINVEST — ligação de MPME a investidores e oportunidades de capital, com orientação para acesso a linhas de crédito e programas de garantia pública. TWENDY — programa nacional de incubação e aceleração de startups, com ciclos intensivos de cerca de 10 semanas, mentoria, recursos e redes de parceiros.\nQ: Onde faço a candidatura a estes programas? R: Em www.inapem.gov.ao, menu «Serviços», escolhendo o produto pretendido.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://www.inapem.gov.ao"
+      }
+    ]
+  },
+  {
+    "sigla": "INSS",
+    "nome": "Instituto Nacional de Segurança Social",
+    "fontes": [
+      {
+        "id": "inss-virtual-servicos",
+        "titulo": "INSS Virtual — serviços electrónicos disponíveis",
+        "tipo": "procedimento",
+        "texto": "O INSS Virtual (virtual.inss.gov.ao) concentra num único ambiente os serviços digitais do Instituto Nacional de Segurança Social.\nENTIDADES EMPREGADORAS (contribuintes): inscrever os seus trabalhadores, gerar as folhas de remunerações, imprimir cartões, consultar a situação contributiva e receber as notificações enviadas pelo INSS.\nSEGURADOS E PENSIONISTAS: emitir extractos de contribuições e de pagamentos.\nVERIFICAÇÃO DE INSCRIÇÃO sem login: serviço «Estou Inscrito?» (estouinscrito.inss.gov.ao) — com o número do Bilhete de Identidade, o cidadão confirma se já está inscrito na segurança social e, se estiver, pode imprimir o cartão de segurado.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://virtual.inss.gov.ao/"
+      },
+      {
+        "id": "inss-pensao-reforma",
+        "titulo": "Pensão de reforma por velhice — condições e documentos",
+        "tipo": "procedimento",
+        "texto": "CONDIÇÕES DE ACESSO (regra geral da legislação da segurança social): 60 anos de idade e pelo menos 180 meses (15 anos) de contribuições no INSS; ou, independentemente da idade, 420 meses (35 anos) de descontos ininterruptos.\nDOCUMENTOS (balcões do INSS e do SIAC): 1) Bilhete de Identidade original do segurado; 2) certificado de tempo de serviço emitido pelo(s) empregador(es); 3) certificado de remuneração do último ano, emitido pelo empregador; 4) modelo de requerimento próprio para pensão de velhice, preenchido no balcão.\nONDE DAR ENTRADA: o pedido é formalizado PRESENCIALMENTE numa agência do INSS ou num balcão do SIAC — não é concluído apenas pela internet. Reunir os documentos numa pasta organizada antes de se deslocar.\nO VALOR da pensão depende da média dos últimos salários (salário de referência) e do total de anos de descontos — o cálculo exacto é feito pelo INSS no processo.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://www.siac.gv.ao/pt/inss"
+      },
+      {
+        "id": "inss-inscricao-outros",
+        "titulo": "Inscrição inicial e outros benefícios (perguntas frequentes)",
+        "tipo": "faq",
+        "texto": "Q: Como é feito o cadastro inicial (empresa e trabalhadores)? R: Numa agência do INSS ou balcão SIAC, com fotocópia do cartão de contribuinte fiscal da entidade empregadora, fotocópia do Bilhete de Identidade do gestor ou representante legal da empresa e fotocópia do BI dos trabalhadores a inscrever.\nQ: Quais os documentos para a PENSÃO DE SOBREVIVÊNCIA? R: Cópia ou certidão da sentença de fixação homologada de alimentos; certidão de nascimento dos descendentes do segurado; certificado escolar de frequência (ensino médio até aos 18 anos; até aos 25 anos se no ensino superior); atestado médico comprovativo de incapacidade para descendentes maiores de 18 anos.\nQ: E para o SUBSÍDIO DE ALEITAMENTO? R: Bilhete de Identidade original do(a) segurado(a); certidão de nascimento do filho ou declaração dos serviços de saúde/maternidade; se o pedido for do pai segurado, prova de casamento ou união de facto e Bilhete de Identidade do cônjuge.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://www.siac.gv.ao/pt/inss"
+      }
+    ]
+  },
+  {
+    "sigla": "SME",
+    "nome": "Serviço de Migração e Estrangeiros",
+    "fontes": [
+      {
+        "id": "sme-passaporte-requisitos",
+        "titulo": "Passaporte — requisitos (normal, diplomático, segunda via e alteração de dados)",
+        "tipo": "procedimento",
+        "texto": "PASSAPORTE NORMAL: fotocópia a cores do Bilhete de Identidade (acompanhada do original), dentro do prazo de validade; três fotografias tipo passe, coloridas, recentes, com fundo branco; formulário devidamente preenchido com assinatura legível, disponível no portal da SME; comprovativo do pagamento da taxa-emolumento. Se o requerente reside no exterior, o comprovativo de residência no estrangeiro pode suprir a ausência do atestado de residência; se não exerce actividade remunerada, apresenta declaração de desemprego passada pela administração municipal.\nPASSAPORTE DIPLOMÁTICO: despacho de nomeação e/ou Diário da República ou termo de posse; fotografia tipo passe actualizada com fundo branco; comprovativo do pagamento da taxa-emolumento. PASSAPORTE DE SERVIÇO: via específica, com elementos-base indicados no portal da SME (cópia do BI no prazo de validade, três fotografias tipo passe coloridas com fundo branco).\nSEGUNDA VIA: fotocópia a cores do passaporte anterior (1.ª, 2.ª e última página) — em falta, a cópia do BI; norma dirigida ao SME em que o requerente se compromete a devolver o passaporte caso venha a encontrá-lo; comprovativo do pagamento da taxa-emolumento.\nALTERAÇÃO DE DADOS (fisionomia ou estado civil): comprovativo da mudança a efectuar (BI com fisionomia ou estado civil actualizado, ou declaração de serviço); formulário do portal da SME preenchido; comprovativo do pagamento da taxa-emolumento.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://siac.gov.ao/servico/sme-migracao-e-estrangeiros/"
+      },
+      {
+        "id": "sme-vistos-requisitos",
+        "titulo": "Vistos de entrada em Angola — requisitos por tipo",
+        "tipo": "procedimento",
+        "texto": "ELEMENTOS COMUNS: formulário preenchido (obtido gratuitamente no portal da SME); fotografias tipo passe 4x5 cm, coloridas, recentes, fundo branco; passaporte válido e reconhecido pelas autoridades angolanas; comprovativo do pagamento do acto migratório.\nVISTO DE TURISMO: 2 fotografias; certificado internacional de vacinas; comprovativo de meios de subsistência nos termos da lei; declaração de compromisso de respeitar as leis da República de Angola.\nVISTO DE TRÂNSITO: 3 fotografias; comprovativo de ser titular de visto de entrada (ou isenção) no país de destino; bilhete de passagem para o país de destino; certificado internacional de vacinas.\nVISTO DE CURTA DURAÇÃO: 2 fotografias; bilhete de passagem para a República de Angola com retorno; certificado internacional de vacinas; comprovativo de meios de subsistência; documento comprovativo dos objectivos da entrada.\nVISTO DE TRABALHO: contrato de trabalho ou contrato-promessa de trabalho; certificado de habilitações literárias e profissionais autenticado e traduzido para português; curriculum vitae traduzido; certificado de registo criminal do país de origem ou residência habitual, traduzido e reconhecido; atestado médico do país de origem traduzido em português e devidamente reconhecido; parecer do Ministério da Administração Pública, Emprego e Segurança Social (instituições/empresas públicas) ou do órgão de tutela da actividade (instituições e empresas privadas).\nVISTO DE ESTUDO: certificado de registo criminal do país de origem ou residência habitual, traduzido e devidamente reconhecido; atestado médico do país de origem traduzido em português e reconhecido; comprovativo de meios de subsistência; entre outros, comprovativo da matrícula em estabelecimento de ensino devidamente reconhecido.\nAs listas completas, por tipo de visto, estão em www.sme.gov.ao, secção Serviços > «Requisitos dos Actos Migratórios».",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://www.sme.gov.ao/estrangeiros/"
+      },
+      {
+        "id": "sme-visto-online",
+        "titulo": "Pedido de visto online — instruções oficiais (perguntas frequentes)",
+        "tipo": "faq",
+        "texto": "Q: Posso pedir o visto de entrada pela internet? R: Sim, através do portal da SME. Antes de iniciar o pedido, assegurar: 1) passaporte com validade mínima de UM ANO e pelo menos QUATRO páginas em branco; 2) fotografia recente com fundo branco, adequada a uso oficial; 3) todos os documentos originais de apoio exigidos para o tipo de visto pretendido.\nQ: Como envio os documentos? R: Os documentos são carregados no portal em imagens digitalizadas de boa qualidade, no formato .jpg/.jpeg, respeitando as dimensões mínimas/máximas e o tamanho máximo de ficheiro indicados nas instruções do portal (por exemplo, foto de cara com mínimo 496 px de altura e ficheiros até 200 KB).\nQ: O pedido online dispensa a ida ao consulado? R: NÃO. Mesmo aprovado o pedido pela internet, é obrigatório levar os documentos originais ao consulado para recolha de dados biométricos e entrevista, para fins de verificação.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://sme.minint.ao/ao/servicos/vistos/instrucoes/"
+      }
+    ]
+  }
+];
+// ===KB-FIM===
 
 // Handler nativo Serverless da Vercel (evita completamente os problemas do Express quebrando rotas)
 export default async function handler(req: any, res: any) {
