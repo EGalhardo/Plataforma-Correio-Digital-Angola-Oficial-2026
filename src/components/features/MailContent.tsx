@@ -56,6 +56,9 @@ import { Video, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { isCompleteBiFormat } from '../../services/institutionEmergencyService';
 import { supabaseService, isRealInstitutionalCode } from '../../services/supabaseService';
+import { validarEnvio } from '../../services/validacaoEnvio';
+import type { ResultadoValidacaoEnvio } from '../../services/validacaoEnvio';
+import { CATALOGO_INSTITUICOES } from '../../constants/catalogoInstituicoes';
 import { buildStorageRef } from '../../lib/secureStorage';
 
 
@@ -175,6 +178,30 @@ export function MailContent({
   onEmergencyBroadcast,
 }: MailContentProps) {
   const { currentLanguage, t } = useLanguage();
+
+  // S6 — validacao deterministica pre-envio (gratuita e offline)
+  const [validacao, setValidacao] = useState<ResultadoValidacaoEnvio | null>(null);
+  const [avisosConfirmados, setAvisosConfirmados] = useState(false);
+  // S7 — visibilidade do catalogo de instituicoes
+  const [catalogoAberto, setCatalogoAberto] = useState(false);
+
+  // S6 — qualquer edicao limpa a validacao anterior (avisos exigem nova revisao)
+  useEffect(() => {
+    setValidacao(null);
+    setAvisosConfirmados(false);
+  }, [composeData.to, composeData.subject, composeData.body, composeData.attachments]);
+
+  const tentarEnviar = () => {
+    const v = validarEnvio(composeData);
+    setValidacao(v);
+    if (v.bloqueios.length > 0) return;
+    if (v.avisos.length > 0 && !avisosConfirmados) {
+      setAvisosConfirmados(true);
+      return;
+    }
+    handleSendMessage();
+  };
+
   const [editorBold, setEditorBold] = useState(false);
   const [editorItalic, setEditorItalic] = useState(false);
   const [editorUnderline, setEditorUnderline] = useState(false);
@@ -684,6 +711,61 @@ export function MailContent({
             </div>
           )}
  
+          {/* S7 — Catálogo das 22 instituições (Parte I aprovada): escolher entidade
+              preenche o código; escolher serviço tipifica o assunto. O envio verifica
+              sempre o registo oficial da instituição (gate P0-B). */}
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/50">
+            <button
+              type="button"
+              onClick={() => setCatalogoAberto(v => !v)}
+              className="w-full px-4 py-3 flex items-center justify-between text-[11px] md:text-xs font-black text-slate-700 uppercase tracking-wider"
+            >
+              <span className="flex items-center gap-2">
+                <Landmark size={14} className="text-primary" />
+                Catálogo de instituições e serviços (22)
+              </span>
+              <span className="text-[9px] text-slate-400">{catalogoAberto ? 'Fechar' : 'Abrir'}</span>
+            </button>
+            {catalogoAberto && (
+              <div className="px-3 pb-3 max-h-72 overflow-y-auto space-y-2">
+                <p className="text-[10px] text-slate-500 font-bold px-1 leading-relaxed">
+                  Catálogo em fase de integração: toca numa instituição com código conhecido para preencher o destinatário, ou num serviço para tipificar o assunto. O envio confirma sempre o registo oficial da instituição.
+                </p>
+                {CATALOGO_INSTITUICOES.map((ent) => (
+                  <details key={ent.sigla} className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                    <summary className="px-3 py-2.5 cursor-pointer text-[11px] font-black text-slate-700 list-none flex items-center justify-between gap-2">
+                      <span className="truncate">{ent.sigla} — {ent.nome}</span>
+                      <span className="text-[9px] font-bold text-slate-400 shrink-0">{ent.codigoSugerido ? ent.codigoSugerido : 'código por atribuir'}</span>
+                    </summary>
+                    <div className="px-3 pb-3">
+                      {ent.codigoSugerido && (
+                        <button
+                          type="button"
+                          onClick={() => setComposeData({ ...composeData, to: ent.codigoSugerido as string })}
+                          className="mb-2 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+                        >
+                          Usar código {ent.codigoSugerido}
+                        </button>
+                      )}
+                      <div className="flex flex-wrap gap-1.5">
+                        {ent.servicos.map((serv) => (
+                          <button
+                            key={serv}
+                            type="button"
+                            onClick={() => setComposeData({ ...composeData, subject: `[${serv}] ${composeData.subject.replace(/^\[[^\]]*\]\s*/, '')}` })}
+                            className="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-600 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
+                          >
+                            {serv}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="space-y-2">
             <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">Conteúdo da Mensagem</label>
             
@@ -1005,15 +1087,39 @@ export function MailContent({
             </div>
           )}
 
+          {/* S6 — resultado da validação pré-envio (bloqueios e avisos) */}
+          {validacao && (validacao.bloqueios.length > 0 || validacao.avisos.length > 0) && (
+            <div className="space-y-2">
+              {validacao.bloqueios.length > 0 && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-[11px] font-bold text-red-800">
+                  <p className="mb-1">Corrige antes de enviar:</p>
+                  {validacao.bloqueios.map((b, i) => <p key={i}>• {b}</p>)}
+                </div>
+              )}
+              {validacao.avisos.length > 0 && !avisosConfirmados && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] font-bold text-amber-900">
+                  <p className="mb-1">Atenção — revê antes de enviar:</p>
+                  {validacao.avisos.map((a, i) => <p key={i}>• {a}</p>)}
+                  <p className="mt-2 text-amber-700">Se estiver tudo certo, clica novamente no botão de envio.</p>
+                </div>
+              )}
+              {validacao.avisos.length > 0 && avisosConfirmados && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] font-bold text-amber-900">
+                  Avisos revistos — o próximo clique envia a mensagem.
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="pt-2 md:pt-4 flex flex-col md:flex-row gap-3 md:gap-4 items-center">
             <button 
-              onClick={handleSendMessage}
+              onClick={tentarEnviar}
               disabled={!composeData.to || (isInst && !composeData.subject) || !composeData.body
                 || (!isInst && !!instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && instRegistry.status === 'nao_registada')}
               className="w-full md:flex-[2] bg-primary text-white py-4 rounded-2xl font-black text-sm md:text-base shadow-xl shadow-primary/25 hover:bg-primary/95 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 md:gap-3 cursor-pointer"
             >
               <Send size={18} />
-              Enviar Mensagem Oficial
+              {avisosConfirmados && validacao && validacao.avisos.length > 0 ? 'Enviar mesmo assim' : 'Enviar Mensagem Oficial'}
             </button>
 
 
