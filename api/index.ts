@@ -264,7 +264,12 @@ const construirPrompts = (dados: PedidoDocumento): { sistema: string; utilizador
 };
 // ======================= FIM DO NUCLEO EMBUTIDO ============================
 
-import { KB_REGISTO } from "./kb/registoKb";
+// KB_REGISTO embutido — NÃO importar ./kb/registoKb aqui: qualquer import
+// local novo no entry api/index.ts falha no cold start da Vercel
+// (FUNCTION_INVOCATION_FAILED, confirmado 2x em 2026-08-05).
+// Fonte única do conteúdo: api/kb/registoKb.ts (usado por server.ts em dev).
+// Em E2 um script de sincronização injeta aqui o conteúdo (parity na bateria).
+const KB_REGISTO: KbInstituicao[] = [];
 
 // Handler nativo Serverless da Vercel (evita completamente os problemas do Express quebrando rotas)
 export default async function handler(req: any, res: any) {
