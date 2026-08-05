@@ -1000,13 +1000,20 @@ export const supabaseService = {
         type: notif.type || 'info',
         target_tab: notif.targetTab || 'home'
       };
-      const { data, error } = await supabase
+      // v25 (familia do bug de auditoria — provado por sonda REST em 2026-08-05):
+      // NAO encadear .select(). O RETURNING forca SELECT da linha inserida;
+      // notifications so e legivel pelo destinatario (target_bi proprio) ou
+      // admin → quando o REMETENTE (instituicao/cidadao) notifica OUTRO BI, a
+      // statement inteira falhava 42501 e o insert era revertido; o catch
+      // engolia o erro: o cidadao nunca recebia notificacoes de institucoes.
+      // Sem .select() o PostgREST usa return=minimal → escrita garantida pela
+      // policy de INSERT; a leitura continua restrita ao destinatario/admin.
+      const { error } = await supabase
         .from('notifications')
-        .insert([payload])
-        .select();
+        .insert([payload]);
 
       if (error) throw error;
-      return data;
+      return { written: true };
     } catch (e) {
       console.error('Supabase insertNotification error:', e);
       return null;
@@ -1264,12 +1271,19 @@ export const supabaseService = {
         digital_signature: p.digitalSignature || 'NAO_SELADO',
         legal_validity: p.legalValidity || 'Registo tecnico de integridade (sem assinatura qualificada)'
       };
-      const { data, error } = await supabase
+      // v25 (familia do bug de auditoria — provado por sonda REST em 2026-08-05):
+      // NAO encadear .select(). O SELECT em digital_protocols exige papel
+      // admin/instituicao OU issuer_institution = claim instituicao do JWT →
+      // envios de CIDADAO falhavam 42501 no read-back e o insert era revertido
+      // em silencio: protocolos de cidadaos nunca eram gravados (as linhas
+      // existentes na base sao so de instituicoes). Sem .select() o PostgREST
+      // usa return=minimal → escrita garantida pela policy de INSERT; a
+      // leitura continua restrita por RLS como antes.
+      const { error } = await supabase
         .from('digital_protocols')
-        .insert([payload])
-        .select();
+        .insert([payload]);
       if (error) throw error;
-      return data;
+      return { written: true };
     } catch (e) {
       console.error('Supabase insertDigitalProtocol error:', e);
       return null;
