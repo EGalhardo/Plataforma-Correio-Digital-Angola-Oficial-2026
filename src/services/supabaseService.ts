@@ -654,12 +654,17 @@ export const supabaseService = {
         username: userStr,
         action_type: typeStr
       };
-      const { data, error } = await supabase
+      // v25 (descoberta no rasto do Security Advisor): NÃO encadear .select().
+      // O RETURNING força uma leitura SELECT da linha inserida — a leitura de
+      // audit_logs é admin-only por desenho → para cidadão/instituição/anon a
+      // statement INTEIRA falhava (insert revertido) e o catch engolia o erro
+      // em silêncio: a auditoria desses papéis nunca era gravada. Sem .select()
+      // o PostgREST usa return=minimal → escrita garantida; leitura segue admin.
+      const { error } = await supabase
         .from('audit_logs')
-        .insert([payload])
-        .select();
+        .insert([payload]);
       if (error) throw error;
-      return data;
+      return { written: true };
     } catch (e: any) {
       console.warn('Supabase auditLog sync warning (non-blocking):', e?.message || e);
       return null;
