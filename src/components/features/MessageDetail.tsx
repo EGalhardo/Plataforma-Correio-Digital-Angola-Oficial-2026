@@ -79,6 +79,7 @@ import { GovernmentAIPanel } from './GovernmentAIPanel';
 import { VideoSessionPanel } from './VideoSessionPanel';
 import { useLanguage } from '../../hooks/useLanguage';
 import { QrCodeImage } from '../ui/QrCodeImage';
+import { AssistenteDocumento } from './AssistenteDocumento';
 
 const STATE_STYLING: Record<string, { bg: string; text: string; border: string; bgDot: string; textIcon: string }> = {
   'Recebida': { bg: 'bg-slate-50', text: 'text-slate-800', border: 'border-slate-200', bgDot: 'bg-slate-150', textIcon: 'text-slate-600' },
@@ -1740,6 +1741,13 @@ depende de integração futura com a infra-estrutura de chaves nacional.
             </div>
           )}
 
+          <AssistenteDocumento
+            texto={selectedMessage.details?.body?.trim() ? selectedMessage.details.body : (selectedMessage.preview || '')}
+            titulo={selectedMessage.details?.subject || selectedMessage.preview}
+            remetente={selectedMessage.org}
+            className="mt-8"
+          />
+
           {/* Incoming Document Attachments */}
           {parsedAttachments.length > 0 && (
             <div className="mt-8 pt-6 border-t border-slate-150 text-left">
@@ -3125,6 +3133,13 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         </p>
                       </div>
                     )}
+
+                    <AssistenteDocumento
+                      texto={selectedMessage.details?.body?.trim() ? selectedMessage.details.body : (selectedMessage.preview || '')}
+                      titulo={selectedMessage.details?.subject || selectedMessage.preview}
+                      remetente={selectedMessage.org}
+                      className="mt-8"
+                    />
 
                     {/* Incoming Document Attachments */}
                     {parsedAttachments.length > 0 && (

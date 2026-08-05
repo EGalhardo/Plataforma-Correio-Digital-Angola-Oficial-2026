@@ -11,6 +11,7 @@ import { USER_PROFILE_PHOTO } from '../../constants/data';
 import { generateProtocol } from '../../utils/protocolGenerator';
 import { QrCodeImage } from '../ui/QrCodeImage';
 import { GovernmentAIPanel } from './GovernmentAIPanel';
+import { AssistenteDocumento } from './AssistenteDocumento';
 
 interface DocumentDetailProps {
   selectedDoc: Document;
@@ -179,6 +180,14 @@ Selo Governamental de Angola: Activo e Autêntico.`}
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Assistente do Documento (Fase 1 / S2): analisa os metadados visiveis — nao ha corpo de texto nestes documentos */}
+          <AssistenteDocumento
+            texto={`Documento: ${selectedDoc.name}\nEmissor: ${selectedDoc.issuer}\nTitular: ${selectedDoc.holder}\nEmitido em: ${selectedDoc.issuedAt}\nValidade: ${selectedDoc.validity}\nReferencia: ${selectedDoc.code}`}
+            titulo={selectedDoc.name}
+            remetente={selectedDoc.issuer}
+            className="mt-6"
+          />
         </div>
 
         {/* Info & Metadata */}
