@@ -1,4 +1,6 @@
 # FASE 1 — Assistente IA de Documentos + Catálogo de Serviços
+
+> **ESTADO: CONCLUÍDA (2026-08-05)** — S1…S7 implementados, 73/73 testes, tudo verificado ao vivo. Commits: a817ffd/a5e0c37/8fcc038 (S1), 9f483eb (S2), fe33c1c (S3+S4), 15be20a (S5), 50c2046 (S6+S7).
 Especificação para aprovação por ciclos (S1…S7). Cada ciclo: implemento → tsc → build → bateria → commit → push → verificação ao vivo → reporto. Nada entra sem o teu "podes implementar" no ciclo correspondente.
 
 Aprovado pelo dono em 2026-08-05: **Fase 1 SEM gateway de pagamentos; IA Gemini em modo teste** (plano pago Gemini só após aprovação dos resultados).
