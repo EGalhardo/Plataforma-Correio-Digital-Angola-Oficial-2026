@@ -155,3 +155,20 @@ valores de taxas/tarifas/requisitos só entram vindos da página citada.
 - **E4** selo de proveniência no painel — `ce5ef09`
 - **E5** auditoria estruturada KB_AUDIT — `ce5ef09`
 - Bateria final: **77 suites PASS / 0 FAIL**
+
+### Vaga-2 da KB (2026-08-05, "Podes alargar a base a mais instituições")
+
++7 instituições (DNIRN, Conservatória do Registo Civil, DTSER, SIAC, MINED,
+MINSA, Emergências CISP 111) ⇒ **13 instituições · 31 fontes**. Detalhe das
+origens em `ETAPA_A_E2E3_FONTES.md`. Decisões registadas:
+
+- **Direcção/ordem do registo:** SIAC ficou em último de propósito — o motor
+  devolve o 1.º match e uma mensagem "SIAC — balcão SME/DNIRN" deve bater no
+  organismo específico (apareceu na suite, corrigido e testado).
+- **Siglas curtas blindadas:** rejeitei siglas de 2–3 letras com falsos
+  positivos provados por teste ("desnecessário" conteria "sne"; "online"
+  conteria "ine") — INE ficou fora desta vaga por isso; CISP é a sigla
+  oficial actual da emergência unificada.
+- **Sem alteração do motor de selecção** (contrato E1 intacto): as mensagens
+  com assento (ex.: "o seu Bilhete… DNIRN") resolvem-se pela sigla no texto.
+- bateria: f_e2e3 32→45 checks; **77/77 PASS**; paridade JSON mantida.

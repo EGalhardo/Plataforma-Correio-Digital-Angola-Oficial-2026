@@ -1,10 +1,11 @@
-# Fontes da Base de Conhecimento da IA — Etapa A (E2/E3)
+# Fontes da Base de Conhecimento da IA — Etapa A (E2/E3 + vaga-2)
 
+**Dados actuais: 13 instituições · 31 fontes (vaga-1: 6 inst./17 fontes;
+vaga-2: +7 inst./+14 fontes).**
 **Data da recolha: 5 de Agosto de 2026** · Método: pesquisa na Internet em
-páginas oficiais públicas, autorizada pelo dono na mensagem de 2026-08-05
+páginas oficiais públicas, autorizada pelo dono nas mensagens de 2026-08-05
 ("Adiciona o texto ou arquivo na base de conhecimento da IA atraves da
-pesquisa na internet. Coloque as instituições mais populares de Angola como
-INAPEM, AGT, ENDE, EPAL, etc.").
+pesquisa na internet…" e "Podes alargar a base a mais instituições.").
 
 A assistente de IA responde sobre estas instituições **apenas com base nestes
 textos**; se algo não constar, responde honestamente "Não consta do documento
@@ -68,6 +69,63 @@ nem dos regulamentos disponíveis." e indica onde confirmar.
 > assinala no próprio texto que novas ligações/tarifas devem ser confirmadas
 > junto da ENDE. Se o senhor tiver um folheto/regulamento oficial da ENDE,
 > envie-me e eu reforço esta entrada.
+
+---
+
+## VAGA-2 (07→13 instituições)
+
+## 7. DNIRN — Identificação Civil e Criminal (3 fontes)
+
+| Conteúdo carregado | De onde veio |
+|---|---|
+| Bilhete de Identidade 1.ª via (a partir dos 6 anos; assento ou boletim com NUC pós-Mar/2021; BI dos pais; bilhete amarelo antigo) e renovação (BI original + assento + emolumento BPC-SIAC) | https://siac.gov.ao/servico/identificacao-civil/ |
+| 2.ª via (extravio: + participação da polícia), substituição (mau estado), averbamento (estado civil) e levantamento por outrem (só mãe/pai/irmão +18/cônjuge averbado) | https://www.siac.gv.ao/pt/dnirn |
+| Certificado de Registo Criminal: requisitos (BI + NIF, presença, estrangeiros, procuração) e **prazo 72 horas** a partir da entrada no SIAC | https://www.sepe.gov.ao/ao/catalogo/mais-servicos/direito-e-legislacao/pedido-de-certificado-de-registo-criminal/ + https://www.siac.gv.ao/pt/dnirn |
+
+## 8. Conservatória do Registo Civil (2 fontes)
+
+| Conteúdo carregado | De onde veio |
+|---|---|
+| Registo de nascimento (progenitores, documentos dos pais, cartão de maternidade) e registo de óbito (certificado médico de óbito, identificação do declarante) | https://siac.gov.ao/servico/registo-civil/ |
+| Filiação, actos com requerimento notarial (divórcio, rectificação), naturalização (traduções obrigatórias) | https://siac.gov.ao/servico/registo-civil/ |
+
+## 9. DTSER — Trânsito e Segurança Rodoviária (2 fontes)
+
+| Conteúdo carregado | De onde veio |
+|---|---|
+| Carta de condução: conta STAC obrigatória; renovação (atestado médico modelo 2 Imprensa Nacional), duplicado (SADEC), mudança de residência, troca de carta estrangeira (certidão de autenticidade + registo criminal) | https://www.siac.gv.ao/pt/dtser |
+| Matrícula de veículo (formulário Modelo "O", desalfandegamento, certificado de embarque CNC, factura), TUV — Título Único de Veículo, duplicado de livrete | https://siac.gov.ao/servico/dtser-transito-e-seguranca-rodoviaria/ |
+
+## 10. SIAC — Serviço Integrado de Atendimento ao Cidadão (2 fontes)
+
+| Conteúdo carregado | De onde veio |
+|---|---|
+| Como funciona: ~90 serviços de 12 organismos num só espaço; tirar senha + triagem; tempo de espera programado ~5 minutos; emolumentos no BPC interno | https://www.maptss.gov.ao/2024/09/26/servicos-disponiveis-no-siac/ |
+| Lista de serviços por organismo (BI, carta de condução, notariado, registo de imóvel, alvará, AGT, INSS, SME, autenticação MIREX/ICAESC…) | https://siac.gov.ao/ |
+
+## 11. MINED — Ministério da Educação (2 fontes)
+
+| Conteúdo carregado | De onde veio |
+|---|---|
+| Decreto Presidencial n.º 163/25: homologação (títulos angolanos p/ uso no exterior), reconhecimento (estudos estrangeiros), equivalência (declaração exigível até 30 dias após inscrição) | https://angolex.com/paginas/decreto-presidencial/regras-e-procedimentos-para-homologacao-reconhecimento-e-concessao-de-equivalencia-de-estudos-163a-25a.html |
+| Reconhecimento de certificado do II ciclo SIMPLIFICADO (só declaração/certificado original + cópia do BI; vistos provinciais eliminados salvo estudos no exterior) | https://angolex.com/paginas/diversos/procedimento-de-reconhecimento-de-certificado-do-ensino-do-segundo-ciclo.html |
+
+> Angolex é repositório jurídico privado que reproduz diplomas do Diário da
+> República. Se preferir que estas duas entradas apontem para o DR oficial,
+> diga — troco a referência.
+
+## 12. MINSA — Ministério da Saúde (2 fontes)
+
+| Conteúdo carregado | De onde veio |
+|---|---|
+| Certificado Digital de Vacinação (vacina.gov.ao): consulta por BI ou código individual, linhas 930 795 019 / 948 477 028, transcrição de vacina do estrangeiro; noções do cartão de vacinação | https://www.vacina.gov.ao/certificado.aspx |
+| Contactos institucionais (Rua 17 de Setembro, +244 222 338 052, minsa.gov.ao) e orientação honesta: atestados/junta médica tratam-se na unidade sanitária | https://www.sepe.gov.ao/ao/gov/sepe/ministerios/detalhe/20/ |
+
+## 13. Emergências — CISP 111 (1 fonte)
+
+| Conteúdo carregado | De onde veio |
+|---|---|
+| **111** é o número único de emergência (crime, acidente, incêndio, emergência médica), 24/24h, do CISP; **113 desactivado** (MININT, Mai/2020) e **115 descontinuado** (Bombeiros, Nov/2024); cobertura a alargar por província; fora da cobertura, ligar ao comando municipal | https://rna.ao/rna.ao/2024/11/28/servico-de-proteccao-civil-e-bombeiros-alerta-que-em-caso-de-emergencias-medicas-policiais-ou-de-incendio-os-cidadaos-devem-ligar-para-o-111/ (+ Novo Jornal, Mai/2020) |
 
 ---
 

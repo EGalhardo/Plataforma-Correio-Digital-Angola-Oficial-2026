@@ -303,6 +303,72 @@ const KB_REGISTO: KbInstituicao[] = [
     ]
   },
   {
+    "sigla": "CISP",
+    "nome": "Emergências — Centro Integrado de Segurança Pública (111)",
+    "fontes": [
+      {
+        "id": "cisp-numero-emergencia",
+        "titulo": "Número de emergência em Angola — 111 (e o destino dos antigos 113 e 115)",
+        "tipo": "faq",
+        "texto": "Q: Para que número ligo numa emergência (crime, acidente, incêndio, emergência médica)? R: 111 — terminal telefónico de emergência ÚNICO, coordenado pelo CISP (Centro Integrado de Segurança Pública), ao serviço da população 24 sobre 24 horas. O objectivo do CISP é unificar num só número qualquer situação: acidente de viação, incêndio ou denúncia de um crime.\nQ: E os antigos números? R: NÃO USAR — o 113 (antiga linha de emergência policial) foi DESACTIVADO pelo Ministério do Interior (Maio de 2020): quem ligar não será atendido. O 115 (Protecção Civil e Bombeiros) também foi descontinuado e os bombeiros orientam ligar o 111 (rádio RNA, Novembro de 2024).\nQ: O 111 funciona em todo o país? R: Foi implantado primeiro em Luanda e Benguela e vai sendo alargado às restantes províncias à medida que são inauguradas delegações do CISP. Onde o 111 ainda não funciona, a orientação oficial do Ministério do Interior é ligar para o comando policial do seu município (os contactos móveis são divulgados pelos comandos provinciais e municipais).",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://rna.ao/rna.ao/2024/11/28/servico-de-proteccao-civil-e-bombeiros-alerta-que-em-caso-de-emergencias-medicas-policiais-ou-de-incendio-os-cidadaos-devem-ligar-para-o-111/"
+      }
+    ]
+  },
+  {
+    "sigla": "DNIRN",
+    "nome": "Direcção Nacional de Identificação, Registos e Notário (Identificação Civil)",
+    "fontes": [
+      {
+        "id": "dnirn-bi-primeira-renovacao",
+        "titulo": "Bilhete de Identidade — 1.ª via e renovação",
+        "tipo": "procedimento",
+        "texto": "QUEM PODE PEDIR A 1.ª VIA: todo o cidadão com idade a partir dos 6 anos. DOCUMENTOS (portal do SIAC): assento de nascimento (original e cópia); se o registo foi feito depois de Março de 2021, não é precisa certidão — basta o boletim de nascimento com o NUC (Número Único do Cidadão, adquirido no acto do registo); cópia do bilhete dos pais, dentro do prazo de validade; comprovativo do pagamento da taxa-emolumento. Quem tem o bilhete ANTIGO (amarelo) apresenta-o acompanhado do assento de nascimento.\nRENOVAÇÃO (bilhete fora do prazo de validade): Bilhete de Identidade original + assento de nascimento + comprovativo do pagamento da taxa-emolumento. NOTA: se o BI estiver dentro da validade mas estragado, o serviço correcto é a SUBSTITUIÇÃO, não a renovação.\nOs emolumentos são normalmente cobrados com comprovativo emitido pelo BPC nos balcões do próprio SIAC. Requisitos completos em siac.gov.ao, serviço «Identificação Civil».",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://siac.gov.ao/servico/identificacao-civil/"
+      },
+      {
+        "id": "dnirn-bi-segunda-substituicao",
+        "titulo": "Bilhete de Identidade — 2.ª via, substituição, averbamento e levantamento por outrem",
+        "tipo": "procedimento",
+        "texto": "SEGUNDA VIA (perda, extravio, roubo): assento de nascimento; bilhete antigo (amarelo), se existir; PARTICIPAÇÃO DA POLÍCIA (obrigatória em caso de extravio); comprovativo do pagamento da taxa-emolumento.\nSUBSTITUIÇÃO (bilhete estragado ou em mau estado de conservação): Bilhete de Identidade original + assento de nascimento + comprovativo do emolumento.\nAVERBAMENTO (mudança de estado civil etc.): Bilhete de Identidade original ou cópia (se for o BI actual), dentro do prazo; assento de nascimento; assento de casamento, de divórcio ou de óbito do cônjuge, conforme o caso; comprovativo do emolumento.\nLEVANTAMENTO DO BILHETE POR OUTRA PESSOA: só a mãe, o pai, um irmão maior de 18 anos ou o cônjuge (com o estado civil averbado no bilhete); no acto de levantamento apresenta-se o Bilhete de Identidade original de quem levanta e o recibo do processo.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://www.siac.gv.ao/pt/dnirn"
+      },
+      {
+        "id": "dnirn-registo-criminal",
+        "titulo": "Certificado de Registo Criminal — requisitos e prazo",
+        "tipo": "procedimento",
+        "texto": "O Certificado de Registo Criminal certifica a situação de identificação criminal do cidadão. PRAZO DE EXECUÇÃO: 72 horas a partir da data de entrada do processo no SIAC (segundo o catálogo de serviços do SEPE).\nREQUISITOS: Bilhete de Identidade original, dentro do prazo de validade; NIF actualizado; presença do requerente; comprovativo do pagamento da taxa-emolumento (emitido pelo BPC - SIAC). NOTA: se não tiver o bilhete ou a cópia, o serviço pode ser tratado com o número do bilhete.\nESTRANGEIROS: passaporte com visto dentro do prazo de validade (original e cópia) ou cartão de residente (original e cópia); documento que comprove a filiação do requerente; NIF actualizado.\nAUSÊNCIA DO REQUERENTE: procuração — para estrangeiros, procuração original passada pelo cartório notarial do país de origem — e Bilhete de Identidade do requerente e do seu representante legal.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://www.sepe.gov.ao/ao/catalogo/mais-servicos/direito-e-legislacao/pedido-de-certificado-de-registo-criminal/"
+      }
+    ]
+  },
+  {
+    "sigla": "DTSER",
+    "nome": "Direcção de Trânsito e Segurança Rodoviária",
+    "fontes": [
+      {
+        "id": "dtser-carta-conducao",
+        "titulo": "Carta de condução — renovação, duplicado, mudança de residência e troca de carta estrangeira",
+        "tipo": "procedimento",
+        "texto": "ELEMENTO COMUM: os serviços da carta de condução exigem o cadastro de conta STAC (Sistema Tecnológico de Apoio ao Cidadão), criado antecipadamente.\nRENOVAÇÃO DA CARTA: conta STAC; atestado médico para condutores (modelo 2, Imprensa Nacional); fotocópia do Bilhete de Identidade; carta de condução original e fotocópia; se estrangeiro, fotocópia do passaporte com visto de trabalho actualizado ou do cartão de estrangeiro residente.\nDUPLICADO (segunda via): conta STAC; fotocópia do B.I.; cópia da carta de condução (SADEC).\nMUDANÇA DE RESIDÊNCIA NA CARTA: conta STAC; atestado de residência; carta de condução original; fotocópia do B.I.\nTROCA DE CARTA DE CONDUÇÃO ESTRANGEIRA: conta STAC; carta de condução estrangeira original e fotocópia; fotocópia do passaporte com visto de trabalho actualizado ou do cartão de estrangeiro; certidão de autenticidade da carta de condução; registo criminal.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://www.siac.gv.ao/pt/dtser"
+      },
+      {
+        "id": "dtser-veiculo-matricula-tuv",
+        "titulo": "Registo de veículo — matrícula, Título Único de Veículo (TUV) e duplicado do livrete",
+        "tipo": "procedimento",
+        "texto": "REGISTO E ATRIBUIÇÃO DE MATRÍCULA DE VEÍCULO: comprovativo do pagamento da taxa-emolumento (emitido pelo BPC - SIAC); formulário Modelo «O»; nota de desalfandegamento; sinopse; documento único; certificado de embarque (emitido pelo Conselho Nacional de Carregadores de Angola); factura de compra e venda do veículo (comercial/invoice).\nTUV — TÍTULO ÚNICO DE VEÍCULO: emitido para livretes extraviados e para alteração de características do veículo (serviços anunciados no portal do SIAC).\nDUPLICADO DO LIVRETE (para livretes com data de emissão anterior a seis meses): fotocópia do livrete; fotocópia do B.I.; fotocópia do título do registo de propriedade (caso o tenha — se não, dirigir-se primeiro à Conservatória de Propriedade Automóvel para se informar).\nDetalhes por serviço em siac.gov.ao, serviço «Trânsito e Segurança Rodoviária (DTSER)».",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://siac.gov.ao/servico/dtser-transito-e-seguranca-rodoviaria/"
+      }
+    ]
+  },
+  {
     "sigla": "ENDE",
     "nome": "Empresa Nacional de Distribuição de Electricidade",
     "fontes": [
@@ -415,6 +481,72 @@ const KB_REGISTO: KbInstituicao[] = [
     ]
   },
   {
+    "sigla": "MINED",
+    "nome": "Ministério da Educação",
+    "fontes": [
+      {
+        "id": "mined-equivalencia-dp163",
+        "titulo": "Equivalência e reconhecimento de estudos — Decreto Presidencial n.º 163/25",
+        "tipo": "regulamento",
+        "texto": "O Decreto Presidencial n.º 163/25 aprovou o Regulamento sobre as regras e procedimentos de HOMOLOGAÇÃO, RECONHECIMENTO e concessão de EQUIVALÊNCIA de estudos da educação pré-escolar, do ensino primário e do ensino secundário.\nHOMOLOGAÇÃO: confirma a validade de atestados, declarações, certificados e diplomas emitidos em território nacional — para efeitos legais ou para a continuação de estudos NO EXTERIOR.\nRECONHECIMENTO: aplica-se a documentos escolares obtidos em sistemas educativos ESTRANGEIROS (educação pré-escolar, ensino primário, ensino secundário geral e técnico-profissional), para obter habilitações equivalentes do sistema angolano.\nEQUIVALÊNCIA: as instituições de ensino devem exigir ao aluno recém-chegado ao país a declaração de equivalência NO PRAZO DE ATÉ 30 DIAS após o processo de inscrição.\nNa prática, os processos pedem normalmente: documento escolar original devidamente autenticado (diploma/certificado), certificado de notas ou histórico escolar, documento de identificação, e — para documentos em língua estrangeira — legalização/apostila e tradução certificada para português. Confirmar os detalhes junto dos serviços provinciais do Ministério da Educação, com antecedência.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://angolex.com/paginas/decreto-presidencial/regras-e-procedimentos-para-homologacao-reconhecimento-e-concessao-de-equivalencia-de-estudos-163a-25a.html"
+      },
+      {
+        "id": "mined-reconhecimento-ii-ciclo",
+        "titulo": "Reconhecimento de certificado do ensino secundário (II ciclo) — procedimento simplificado",
+        "tipo": "procedimento",
+        "texto": "RECONHECIMENTO DE CERTIFICADO/DECLARAÇÃO DO ENSINO SECUNDÁRIO DO II CICLO (medida do Projecto SIMPLIFICA):\nREQUISITOS ACTUAIS: 1) declaração ou certificado original de estudo; 2) cópia do Bilhete de Identidade do estudante.\nO QUE FOI SIMPLIFICADO: foi eliminado o visto do Gabinete Provincial da Educação e da Direcção Municipal da Educação para o reconhecimento destes documentos, SALVO nos casos de continuidade de estudos no exterior do país — nesses casos continuam a intervir o Ministro da Educação e o Ministério das Relações Exteriores (MIREX).",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://angolex.com/paginas/diversos/procedimento-de-reconhecimento-de-certificado-do-ensino-do-segundo-ciclo.html"
+      }
+    ]
+  },
+  {
+    "sigla": "MINSA",
+    "nome": "Ministério da Saúde",
+    "fontes": [
+      {
+        "id": "minsa-certificado-vacinacao",
+        "titulo": "Certificado Digital de Vacinação — como obter no portal oficial",
+        "tipo": "procedimento",
+        "texto": "O Certificado Digital de Vacinação é obtido no portal oficial vacina.gov.ao: abrir a página do «Certificado Digital» e inserir o N.º do documento de identificação OU o Código Individual de vacinação atribuído quando se vacinou.\nDIVERGÊNCIAS: se os dados da vacina não coincidirem com os do cartão de vacinas, o próprio portal indica que se envie uma cópia do cartão.\nLINHAS DE ATENDIMENTO publicadas no portal: 930 795 019 e 948 477 028. Para TRANSCRIÇÃO DE VACINA administrada no estrangeiro: 930 795 019 (serviço só para utentes vacinados no estrangeiro).\nA vacinação de crianças e adultos é registada no cartão de vacinação; o cartão do MINSA acompanha o calendário nacional (por exemplo BCG, poliomielite, DTP, sarampo e febre amarela, além de doses para grávidas e mulheres em idade fértil).",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://www.vacina.gov.ao/certificado.aspx"
+      },
+      {
+        "id": "minsa-contactos-orientacao",
+        "titulo": "Contactos do MINSA e onde tratar documentos de saúde (perguntas frequentes)",
+        "tipo": "faq",
+        "texto": "Q: Onde fica o Ministério da Saúde? R: Rua 17 de Setembro, Luanda; telefone +244 222 338 052; site www.minsa.gov.ao (dados do directório de ministérios do SEPE).\nQ: Onde trato atestados médicos, junta médica ou declarações clínicas? R: Esses actos tramitam-se na unidade sanitária (hospital ou centro de saúde) onde o cidadão é assistido; os requisitos variam consoante a unidade — confirmar no próprio estabelecimento. Para atestado de condutor (carta de condução), o modelo usado é o «modelo 2» da Imprensa Nacional.\nQ: O atendimento nos hospitais públicos requer documentos? R: Levar sempre um documento de identificação (Bilhete de Identidade) e, quando existir, o cartão/boletim de vacinação ou boletim sanitário da unidade onde é seguido.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://www.sepe.gov.ao/ao/gov/sepe/ministerios/detalhe/20/"
+      }
+    ]
+  },
+  {
+    "sigla": "REGCIVIL",
+    "nome": "Conservatória do Registo Civil",
+    "fontes": [
+      {
+        "id": "regcivil-nascimento-obito",
+        "titulo": "Registo de nascimento e registo de óbito — documentos necessários",
+        "tipo": "procedimento",
+        "texto": "REGISTO DE NASCIMENTO (e passagem de boletim): presença dos progenitores, caso não sejam casados ou tenham documentos não averbados (se tiverem, apresentam o assento de casamento); Bilhete de Identidade, cédula pessoal ou certidão de nascimento dos pais, dentro do prazo de validade; cartão da maternidade, se houver; passaporte dos pais (se estrangeiros), dentro do prazo de validade; comprovativo do pagamento da taxa-emolumento.\nREGISTO DE ÓBITO: Bilhete de Identidade, cédula pessoal ou certidão de nascimento do falecido (original e cópia); certificado de óbito passado pelo médico (original e cópia); documento de identificação do declarante (Bilhete de Identidade, cédula pessoal ou carta de condução — original e cópia, dentro do prazo); comprovativo do pagamento da taxa-emolumento. Também existe via com boletim de óbito + comprovativo do emolumento.\nNOTA NUC: para registos feitos depois de Março de 2021, o boletim com o NUC (Número Único do Cidadão) substitui a certidão na emissão do Bilhete de Identidade.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://siac.gov.ao/servico/registo-civil/"
+      },
+      {
+        "id": "regcivil-certidoes-actos",
+        "titulo": "Certidões, filiação e actos especiais do Registo Civil",
+        "tipo": "procedimento",
+        "texto": "FILIAÇÃO (acrescentar filiação a um registo): Bilhete de Identidade (original), dentro do prazo de validade; cédula pessoal, boletim ou certidão de nascimento da pessoa que se quer filiar; se for adulta, necessita do consentimento da mesma; comprovativo do emolumento.\nACTOS ESPECIAIS (por exemplo divórcio, rectificação ou averbamento de assento): requerimento com assinatura reconhecida por NOTÁRIO; conforme o acto, acrescentam-se peças como certidão de casamento, certidão de nascimento dos cônjuges, certidão de cópia integral, certidão passada pelo tribunal (divórcio com filhos menores), atestado de residência e Bilhete de Identidade (original e fotocópia, dentro do prazo).\nNATURALIZAÇÃO: requerimento com assinatura reconhecida por notário; certidão de nascimento; declaração emitida pelo Governo provincial; cartão de estrangeiro residente; fotocópia do passaporte dentro do prazo; todos os documentos em língua estrangeira devem estar traduzidos para português.\nOnde tratar: conservatórias, lojas dos registos e balcões do SIAC; requisitos por acto em siac.gov.ao, serviço «Conservatória do Registo Civil».",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://siac.gov.ao/servico/registo-civil/"
+      }
+    ]
+  },
+  {
     "sigla": "SME",
     "nome": "Serviço de Migração e Estrangeiros",
     "fontes": [
@@ -441,6 +573,28 @@ const KB_REGISTO: KbInstituicao[] = [
         "texto": "Q: Posso pedir o visto de entrada pela internet? R: Sim, através do portal da SME. Antes de iniciar o pedido, assegurar: 1) passaporte com validade mínima de UM ANO e pelo menos QUATRO páginas em branco; 2) fotografia recente com fundo branco, adequada a uso oficial; 3) todos os documentos originais de apoio exigidos para o tipo de visto pretendido.\nQ: Como envio os documentos? R: Os documentos são carregados no portal em imagens digitalizadas de boa qualidade, no formato .jpg/.jpeg, respeitando as dimensões mínimas/máximas e o tamanho máximo de ficheiro indicados nas instruções do portal (por exemplo, foto de cara com mínimo 496 px de altura e ficheiros até 200 KB).\nQ: O pedido online dispensa a ida ao consulado? R: NÃO. Mesmo aprovado o pedido pela internet, é obrigatório levar os documentos originais ao consulado para recolha de dados biométricos e entrevista, para fins de verificação.",
         "atualizadoEm": "2026-08-05",
         "fonteUrl": "https://sme.minint.ao/ao/servicos/vistos/instrucoes/"
+      }
+    ]
+  },
+  {
+    "sigla": "SIAC",
+    "nome": "Serviço Integrado de Atendimento ao Cidadão",
+    "fontes": [
+      {
+        "id": "siac-como-funciona",
+        "titulo": "O que é o SIAC e como funciona o atendimento",
+        "tipo": "faq",
+        "texto": "Q: O que é o SIAC? R: O Serviço Integrado de Atendimento ao Cidadão — espaços que concentram cerca de 90 serviços públicos de 12 organismos no mesmo local, para o cidadão tratar de vários documentos numa só deslocação (portal siac.gov.ao e siac.gv.ao).\nQ: Como sou atendido? R: Ao chegar, tire uma SENHA e verifique junto do orientador de fluxo se a sua documentação está completa; para a área do Registo Civil existe antes uma triagem. O tempo de espera programado para o atendimento é de cerca de 5 minutos (segundo o MAPTSS, Setembro de 2024).\nQ: Onde encontro os documentos exigidos por cada serviço? R: No portal www.siac.gov.ao, por organismo/serviço (por exemplo Identificação Civil, Conservatória do Registo Civil, Trânsito/DTSER, SME, INSS, AGT). Os emolumentos costumam ser pagos com comprovativo emitido pelo BPC nos balcões do próprio SIAC.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://www.maptss.gov.ao/2024/09/26/servicos-disponiveis-no-siac/"
+      },
+      {
+        "id": "siac-servicos-lista",
+        "titulo": "Que serviços se tratam no SIAC (por organismo)",
+        "tipo": "faq",
+        "texto": "No mesmo espaço do SIAC o cidadão pode tratar, entre outros (MAPTSS, Set/2024):\nIDENTIFICAÇÃO E REGISTOS: registo civil, Bilhete de Identidade, certificado de registo criminal, actos notariais, certificado de admissibilidade de firma, registo de imóvel;\nTRÂNSITO: carta de condução (nova, renovação, duplicado), atribuição de matrícula, Título Único de Veículo;\nFISCALIDADE E EMPRESA: cartão de contribuinte e pagamento de impostos (AGT), obtenção de alvará comercial, registo geral de empresas;\nSEGURANÇA SOCIAL E TRABALHO: pensão de reforma, subsídio de maternidade (INSS), cadastramento nos centros de emprego;\nEXTERIOR: autenticação de documentos do Ministério das Relações Exteriores (ICAESC); serviços do SME (migração); área bancária e empresarial.\nAntes de se deslocar, confirmar os requisitos do serviço pretendido no portal siac.gov.ao — cada organismo tem a sua página de requisitos.",
+        "atualizadoEm": "2026-08-05",
+        "fonteUrl": "https://siac.gov.ao/"
       }
     ]
   }
