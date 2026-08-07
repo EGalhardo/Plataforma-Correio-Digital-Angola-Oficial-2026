@@ -49,7 +49,7 @@ import { Message, SENSITIVITY_LEVELS, PRIORITY_CONFIGS, LanguageCode } from '../
 import { getCategoryMetadata } from '../../utils/protocolGenerator';
 import { translateText } from '../../utils/translator';
 import { useLanguage } from '../../hooks/useLanguage';
-import { Video, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Video, Loader2, CheckCircle2, AlertTriangle, Sparkles } from 'lucide-react';
 // F59 — a pesquisa teatral de 8s com textos governamentais inventados e
 // correspondência em MOCK_CITIZENS/MOCK_USERS foi REMOVIDA: o lookup do
 // destinatário é REAL (RPC auditada) e chega por props do App.
@@ -57,6 +57,8 @@ import { supabase } from '../../lib/supabaseClient';
 import { isCompleteBiFormat } from '../../services/institutionEmergencyService';
 import { supabaseService, isRealInstitutionalCode } from '../../services/supabaseService';
 import { validarEnvio } from '../../services/validacaoEnvio';
+import { assistenteDocumento } from '../../services/aiDocumentoService';
+import { MARCADOR_CLAREZA_SUGESTAO } from '../../services/aiDocumentoCore';
 import type { ResultadoValidacaoEnvio } from '../../services/validacaoEnvio';
 import { CATALOGO_INSTITUICOES } from '../../constants/catalogoInstituicoes';
 import { buildStorageRef } from '../../lib/secureStorage';
@@ -182,14 +184,42 @@ export function MailContent({
   // S6 — validacao deterministica pre-envio (gratuita e offline)
   const [validacao, setValidacao] = useState<ResultadoValidacaoEnvio | null>(null);
   const [avisosConfirmados, setAvisosConfirmados] = useState(false);
+  // S6-camada-IA — revisao de clareza OPCIONAL (fail-safe: falha da IA nunca
+  // bloqueia o envio; o utilizador decide se usa a versão melhorada)
+  type EstadoClareza =
+    | { estado: 'a_carregar' }
+    | { estado: 'ok'; observacoes: string; sugestao: string }
+    | { estado: 'erro'; erro: string };
+  const [clareza, setClareza] = useState<EstadoClareza | null>(null);
   // S7 — visibilidade do catalogo de instituicoes
   const [catalogoAberto, setCatalogoAberto] = useState(false);
 
   // S6 — qualquer edicao limpa a validacao anterior (avisos exigem nova revisao)
+  // e tambem a revisao de clareza (o texto revisto deixou de ser o atual)
   useEffect(() => {
     setValidacao(null);
     setAvisosConfirmados(false);
+    setClareza(null);
   }, [composeData.to, composeData.subject, composeData.body, composeData.attachments]);
+
+  // S6-camada-IA — chama o assistente com a acao rever_clareza. Erro/serviço
+  // indisponível vira aviso âmbar honesto; NUNCA interfere com tentarEnviar.
+  const reverClareza = async () => {
+    const corpo = (composeData.body || '').trim();
+    if (!corpo || clareza?.estado === 'a_carregar') return;
+    setClareza({ estado: 'a_carregar' });
+    const r = await assistenteDocumento({ acao: 'rever_clareza', texto: corpo, titulo: composeData.subject });
+    if (!r.ok || !r.resultado) {
+      setClareza({ estado: 'erro', erro: r.erro || 'O assistente não respondeu.' });
+      return;
+    }
+    const partes = r.resultado.split(MARCADOR_CLAREZA_SUGESTAO);
+    setClareza({
+      estado: 'ok',
+      observacoes: (partes[0] || '').trim(),
+      sugestao: (partes[1] || '').trim(),
+    });
+  };
 
   const tentarEnviar = () => {
     const v = validarEnvio(composeData);
@@ -1111,6 +1141,50 @@ export function MailContent({
             </div>
           )}
 
+          {/* S6-camada-IA — resultado da revisao de clareza (OPCIONAL;
+              falha da IA nunca bloqueia o envio — caixa âmbar honesta) */}
+          {clareza && (
+            <div className="rounded-xl border border-violet-200 bg-violet-50 p-3 text-[11px] font-bold text-violet-900 space-y-2">
+              {clareza.estado === 'a_carregar' && (
+                <p className="flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> A IA está a rever a clareza do texto…</p>
+              )}
+              {clareza.estado === 'erro' && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-amber-900">
+                  <p>Revisão por IA indisponível agora ({clareza.erro}).</p>
+                  <p className="mt-1">Não precisas dela para enviar — esta revisão é opcional.</p>
+                </div>
+              )}
+              {clareza.estado === 'ok' && (
+                <>
+                  <p className="uppercase tracking-wide">Revisão de clareza (IA) — confirma antes de usar:</p>
+                  {clareza.observacoes && <p className="whitespace-pre-wrap font-semibold">{clareza.observacoes}</p>}
+                  {clareza.sugestao && (
+                    <div className="rounded-lg border border-violet-200 bg-white p-2 whitespace-pre-wrap font-semibold text-slate-800">{clareza.sugestao}</div>
+                  )}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {clareza.sugestao && (
+                      <button
+                        type="button"
+                        onClick={() => setComposeData({ ...composeData, body: clareza.sugestao })}
+                        className="px-3 py-2 rounded-lg bg-violet-600 text-white font-black cursor-pointer hover:bg-violet-700 active:scale-95 transition-all"
+                      >
+                        Usar versão melhorada
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setClareza(null)}
+                      className="px-3 py-2 rounded-lg border border-violet-300 text-violet-700 font-black cursor-pointer hover:bg-violet-100 active:scale-95 transition-all"
+                    >
+                      Manter o meu texto
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-violet-500">Conteúdo gerado por IA — revê antes de enviar.</p>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="pt-2 md:pt-4 flex flex-col md:flex-row gap-3 md:gap-4 items-center">
             <button 
               onClick={tentarEnviar}
@@ -1120,6 +1194,17 @@ export function MailContent({
             >
               <Send size={18} />
               {avisosConfirmados && validacao && validacao.avisos.length > 0 ? 'Enviar mesmo assim' : 'Enviar Mensagem Oficial'}
+            </button>
+
+            {/* S6-camada-IA — gatilho da revisão de clareza (opcional) */}
+            <button
+              type="button"
+              onClick={reverClareza}
+              disabled={!composeData.body?.trim() || clareza?.estado === 'a_carregar'}
+              className="w-full md:w-auto px-5 py-4 rounded-2xl font-black text-sm border-2 border-violet-300 text-violet-700 bg-violet-50 hover:bg-violet-100 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {clareza?.estado === 'a_carregar' ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+              {clareza?.estado === 'a_carregar' ? 'A rever…' : 'Rever clareza (IA)'}
             </button>
 
 

@@ -13,7 +13,7 @@
 // - tudo o que for gerado leva a marca de rascunho/aviso de IA.
 // ============================================================================
 
-export const ACOES_DOCUMENTO = ['explicar', 'resumir', 'passos', 'prazos_direitos', 'rascunho', 'traduzir'] as const;
+export const ACOES_DOCUMENTO = ['explicar', 'resumir', 'passos', 'prazos_direitos', 'rascunho', 'traduzir', 'rever_clareza'] as const;
 export type AcaoDocumento = typeof ACOES_DOCUMENTO[number];
 
 export const TIPOS_RASCUNHO = ['confirmacao', 'esclarecimento', 'recurso', 'prorrogacao'] as const;
@@ -61,6 +61,9 @@ export const DELIMITADOR_DOCUMENTO = '"""';
 export const REGRA_NAO_CONSTA = 'Não consta do documento';
 
 export const MARCA_RASCUNHO = 'Rascunho gerado por IA — revê antes de enviar.';
+export const MARCADOR_CLAREZA_SUGESTAO = '===SUGESTAO===';
+// S6-camada-IA (2026-08-07): a acao rever_clareza devolve observacoes + esta
+// marca + a versao melhorada — o compositor corta a resposta nesta marca.
 export const AVISO_IA = 'Conteúdo gerado por IA — confirme sempre na fonte oficial.';
 
 export interface PedidoDocumento {
@@ -196,6 +199,8 @@ const instrucaoPorAcao = (dados: PedidoDocumento): string => {
       if (dados.idiomaDestino === 'fr')
         return 'Traduis le document en français simple et clair. Garde les dates, montants, noms officiels et sigles exactement comme écrits. Ne produis que la traduction.';
       return 'Traduz o documento para Português simples de Angola: frases curtas e palavras do dia a dia, mantendo datas, valores, nomes oficiais e siglas exatamente iguais. Produz apenas a tradução.';
+    case 'rever_clareza':
+      return 'Revê a CLAREZA do texto — uma mensagem oficial que o remetente vai enviar. Identifica erros de português, frases confusas ou longas demais, tom inadequado para comunicação oficial e inconsistências internas (nomes, datas, valores). Responde em exatamente duas partes: primeiro as observações em lista numerada curta (máximo 6 itens; se não houver nada relevante, escreve apenas: Nada relevante a assinalar.); depois uma linha contendo apenas ' + MARCADOR_CLAREZA_SUGESTAO + '; e por fim a versão melhorada do texto, completa. A versão melhorada NUNCA pode inventar nem alterar nomes, datas, valores, números de processo ou factos: mantém-nos exatamente como no original.';
     case 'rascunho':
       return `Redige uma carta de resposta formal e curta do tipo "${ROTULOS_RASCUNHO[dados.tipoRascunho as TipoRascunho]}", escrita na voz do cidadão para a instituição remetente, pronta para ser revista por uma pessoa antes do envio. Termina obrigatoriamente com uma linha final contendo apenas: ${MARCA_RASCUNHO}`;
   }
