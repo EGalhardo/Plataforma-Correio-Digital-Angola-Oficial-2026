@@ -60,13 +60,35 @@ export const parecerEcoDaEntrada = (entrada: string, saida: string): boolean => 
   return a.slice(0, limite) === b.slice(0, limite);
 };
 
+// Guarda anti-degeneracao (2026-08-07, provada AO VIVO apos o deploy): o
+// fallback llama-3.1-8b, sem dominio real de Umbundu, entrou em ciclo —
+// "Omu ku kala ku kala..." por milhares de caracteres. Nao e eco da entrada
+// (a guarda acima nao o apanha) mas tambem nao e traducao. Criterios
+// conservadores, calibrados para NUNCA tocar em texto genuino:
+//   >= 24 palavras com diversidade lexical < 30%; OU >= 10 palavras iguais
+//   seguidas. Texto real (PT ou linguas nacionais) fica longe destes tetos.
+export const parecerSaidaDegenerada = (saida: string): boolean => {
+  const palavras = normalizarEco(saida).split(' ').filter(p => p.length > 0);
+  if (palavras.length < 24) return false;
+  if (new Set(palavras).size / palavras.length < 0.3) return true;
+  let seguidas = 1;
+  for (let i = 1; i < palavras.length; i++) {
+    seguidas = palavras[i] === palavras[i - 1] ? seguidas + 1 : 1;
+    if (seguidas >= 10) return true;
+  }
+  return false;
+};
+
 export const protegerTraducaoLinguaNacional = (dados: PedidoDocumento, resultado: string): string => {
   if (dados.acao !== 'traduzir' || !eLinguaNacional(dados.idiomaDestino)) return resultado;
   const lingua = ROTULOS_LINGUAS_NACIONAIS[dados.idiomaDestino as LinguaNacional];
   const frase = `Não consigo traduzir com qualidade para ${lingua}`;
   if (resultado.toLowerCase().includes(frase.toLowerCase())) return resultado;
-  if (!parecerEcoDaEntrada(dados.texto, resultado)) return resultado;
-  return `${frase}. Apresento o texto em Português simples de Angola, exatamente como foi recebido:\n\n${resultado}`;
+  const degradado = parecerEcoDaEntrada(dados.texto, resultado) || parecerSaidaDegenerada(resultado);
+  if (!degradado) return resultado;
+  // Embrulhamos sempre o ORIGINAL (dados.texto): no caso degenerado o
+  // resultado e lixo repetido que nunca pode chegar aos olhos do cidadao.
+  return `${frase}. Apresento o texto em Português simples de Angola, exatamente como foi recebido:\n\n${dados.texto}`;
 };
 
 // --- Etapa A / E1: Base de Conhecimento por instituição -------------------

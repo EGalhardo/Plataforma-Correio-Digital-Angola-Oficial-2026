@@ -100,13 +100,26 @@ const parecerEcoDaEntrada = (entrada: string, saida: string): boolean => {
   return a.slice(0, limite) === b.slice(0, limite);
 };
 
+const parecerSaidaDegenerada = (saida: string): boolean => {
+  const palavras = normalizarEco(saida).split(' ').filter(p => p.length > 0);
+  if (palavras.length < 24) return false;
+  if (new Set(palavras).size / palavras.length < 0.3) return true;
+  let seguidas = 1;
+  for (let i = 1; i < palavras.length; i++) {
+    seguidas = palavras[i] === palavras[i - 1] ? seguidas + 1 : 1;
+    if (seguidas >= 10) return true;
+  }
+  return false;
+};
+
 const protegerTraducaoLinguaNacional = (dados: PedidoDocumento, resultado: string): string => {
   if (dados.acao !== 'traduzir' || !eLinguaNacional(dados.idiomaDestino)) return resultado;
   const lingua = ROTULOS_LINGUAS_NACIONAIS[dados.idiomaDestino as LinguaNacional];
   const frase = `Não consigo traduzir com qualidade para ${lingua}`;
   if (resultado.toLowerCase().includes(frase.toLowerCase())) return resultado;
-  if (!parecerEcoDaEntrada(dados.texto, resultado)) return resultado;
-  return `${frase}. Apresento o texto em Português simples de Angola, exatamente como foi recebido:\n\n${resultado}`;
+  const degradado = parecerEcoDaEntrada(dados.texto, resultado) || parecerSaidaDegenerada(resultado);
+  if (!degradado) return resultado;
+  return `${frase}. Apresento o texto em Português simples de Angola, exatamente como foi recebido:\n\n${dados.texto}`;
 };
 
 // --- Etapa A / E1: Base de Conhecimento por instituição -------------------
@@ -1008,11 +1021,17 @@ Regras Críticas de Fidelidade e Integridade:
 
       if (ai) {
         try {
-          const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: [{ role: "user", parts: [{ text: utilizador }] }],
-            config: { systemInstruction: sistema, temperature: 0.3 },
-          });
+          // 2026-08-07 (provado ao vivo): o SDK do Gemini pode ficar pendurado
+          // SEM responder (o cidadao esperava >80s e a funcao morria em
+          // silencio). Corrida com timeout: passados 25s cai no fallback Groq.
+          const response = await Promise.race([
+            ai.models.generateContent({
+              model: "gemini-2.5-flash",
+              contents: [{ role: "user", parts: [{ text: utilizador }] }],
+              config: { systemInstruction: sistema, temperature: 0.3 },
+            }),
+            new Promise<never>((_res, reject) => setTimeout(() => reject(new Error('GEMINI_TIMEOUT_25S')), 25000)),
+          ]);
           if (response && response.text) {
             return res.status(200).json({ ok: true, acao: v.dados.acao, modelo: "gemini-2.5-flash", resultado: protegerTraducaoLinguaNacional(v.dados, response.text), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
           }
@@ -1030,6 +1049,10 @@ Regras Críticas de Fidelidade e Integridade:
             ],
             model: "llama-3.1-8b-instant",
             temperature: 0.3,
+            // Teto de saida: texto max de entrada + margem; impede que um
+            // ciclo degenerado (provado ao vivo com linguas nacionais) queime
+            // milhares de tokens de lixo repetido antes da guarda o cortar.
+            max_tokens: 4096,
           });
           const textoGroq = completion.choices?.[0]?.message?.content;
           if (textoGroq) {

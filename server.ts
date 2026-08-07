@@ -579,11 +579,16 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
       // 1. Gemini primeiro (modo teste aprovado pelo dono)
       if (ai) {
         try {
-          const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: [{ role: "user", parts: [{ text: utilizador }] }],
-            config: { systemInstruction: sistema, temperature: 0.3 },
-          });
+          // 2026-08-07 (provado ao vivo): o SDK do Gemini pode ficar pendurado
+          // SEM responder. Corrida com timeout: passados 25s cai no fallback.
+          const response = await Promise.race([
+            ai.models.generateContent({
+              model: "gemini-2.5-flash",
+              contents: [{ role: "user", parts: [{ text: utilizador }] }],
+              config: { systemInstruction: sistema, temperature: 0.3 },
+            }),
+            new Promise<never>((_res, reject) => setTimeout(() => reject(new Error('GEMINI_TIMEOUT_25S')), 25000)),
+          ]);
           if (response && response.text) {
             return res.json({ ok: true, acao: v.dados.acao, modelo: "gemini-2.5-flash", resultado: protegerTraducaoLinguaNacional(v.dados, response.text), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
           }
@@ -602,6 +607,9 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
             ],
             model: "llama-3.1-8b-instant",
             temperature: 0.3,
+            // Teto de saida: impede que um ciclo degenerado (provado ao vivo
+            // com linguas nacionais) queime milhares de tokens de lixo.
+            max_tokens: 4096,
           });
           const textoGroq = completion.choices?.[0]?.message?.content;
           if (textoGroq) {
