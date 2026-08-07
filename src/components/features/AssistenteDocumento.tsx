@@ -10,9 +10,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   Sparkles, MessageCircleQuestion, AlignLeft, ListOrdered, CalendarClock,
-  Languages, Volume2, Square, Loader2, AlertTriangle, PenLine, Send,
+  Languages, Volume2, Square, Loader2, AlertTriangle, PenLine, Send, BookOpen,
 } from 'lucide-react';
-import { assistenteDocumento } from '../../services/aiDocumentoService';
+import { assistenteDocumento, seloKb } from '../../services/aiDocumentoService';
+import type { AssistenteKb } from '../../services/aiDocumentoService';
 import { AVISO_IA } from '../../services/aiDocumentoCore';
 import type { AcaoDocumento, TipoRascunho, IdiomaTraducao } from '../../services/aiDocumentoCore';
 
@@ -54,6 +55,8 @@ export function AssistenteDocumento({ texto, titulo, remetente, className, onUsa
   const [resultado, setResultado] = useState<string | null>(null);
   const [modelo, setModelo] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  // E4 — proveniência devolvida pelo servidor (null = resposta sem KB).
+  const [kb, setKb] = useState<AssistenteKb | null>(null);
   const [aFalar, setAFalar] = useState<'documento' | 'resposta' | null>(null);
   const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
 
@@ -66,6 +69,7 @@ export function AssistenteDocumento({ texto, titulo, remetente, className, onUsa
     setResultado(null);
     setModelo(null);
     setErro(null);
+    setKb(null);
     pararVoz();
   }, [texto]);
 
@@ -99,6 +103,7 @@ export function AssistenteDocumento({ texto, titulo, remetente, className, onUsa
     setResultado(null);
     setModelo(null);
     setErro(null);
+    setKb(null);
 
     let pedido: Parameters<typeof assistenteDocumento>[0];
     if (chave.startsWith('traduzir:')) {
@@ -114,6 +119,7 @@ export function AssistenteDocumento({ texto, titulo, remetente, className, onUsa
     if (r.ok) {
       setResultado(r.resultado || null);
       setModelo(r.modelo || null);
+      setKb(r.kb ?? null);
     } else {
       setErro(r.erro || 'Não foi possível obter resposta do assistente de IA agora. Tenta novamente dentro de instantes.');
     }
@@ -207,6 +213,17 @@ export function AssistenteDocumento({ texto, titulo, remetente, className, onUsa
       {resultado && !loading && (
         <div className="mt-3 bg-white border border-indigo-100 rounded-xl p-3.5">
           <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-medium">{resultado}</p>
+
+          {/* E4 — selo de proveniência: sempre visível, linguagem honesta.
+              Com KB: quantos documentos oficiais fundamentaram a resposta
+              (título mostra quais). Sem KB: diz que veio só do documento. */}
+          <p
+            className="mt-2.5 flex items-start gap-1.5 text-[10px] font-bold text-slate-500"
+            title={kb ? `Fontes usadas: ${kb.fontes.join(' · ')}` : undefined}
+          >
+            <BookOpen size={12} className="shrink-0 mt-0.5 text-slate-400" />
+            <span>{seloKb(kb)}</span>
+          </p>
 
           <div className="mt-3 pt-2.5 border-t border-indigo-50 flex items-center justify-between gap-2 flex-wrap">
             <p className="text-[10px] font-bold text-indigo-400">

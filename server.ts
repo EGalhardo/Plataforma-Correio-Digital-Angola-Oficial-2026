@@ -528,12 +528,23 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
       // existirem no registo (E2/E3); sem registo, o comportamento é o de hoje.
       const alvoKb = (req.body && typeof req.body.siglaKb === 'string' ? req.body.siglaKb : v.dados.remetente);
       const instKb = selecionarInstituicaoKb(KB_REGISTO, alvoKb);
+      let kbUsada: { instituicao: string; fontes: string[]; truncado: boolean } | null = null;
       if (instKb) {
         const montado = montarContextoKb(instKb);
         if (montado.contexto) {
           v.dados.kb = { instituicao: instKb.nome, contexto: montado.contexto, truncado: montado.truncado };
-          console.log(`KB: ${instKb.sigla} -> ${montado.fontesUsadas.length} fontes (truncado=${montado.truncado})`);
+          // E4 — devolve ao cliente o que fundamentou a resposta (títulos das fontes).
+          kbUsada = {
+            instituicao: instKb.nome,
+            fontes: instKb.fontes.filter(f => montado.fontesUsadas.includes(f.id)).map(f => f.titulo),
+            truncado: montado.truncado,
+          };
+          // E5 — auditoria estruturada: sigla, fontes e ação; NUNCA texto do cidadão.
+          console.log('KB_AUDIT ' + JSON.stringify({ evento: 'kb_usada', sigla: instKb.sigla, fontes: montado.fontesUsadas, truncado: montado.truncado, acao: v.dados.acao, ts: new Date().toISOString() }));
         }
+      } else {
+        // E5 — sem correspondência: regista só a ação (nem remetente, por privacidade).
+        console.log('KB_AUDIT ' + JSON.stringify({ evento: 'kb_sem_correspondencia', acao: v.dados.acao, ts: new Date().toISOString() }));
       }
       const { sistema, utilizador } = construirPrompts(v.dados);
 
@@ -546,7 +557,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
             config: { systemInstruction: sistema, temperature: 0.3 },
           });
           if (response && response.text) {
-            return res.json({ ok: true, acao: v.dados.acao, modelo: "gemini-2.5-flash", resultado: response.text, aviso: AVISO_IA });
+            return res.json({ ok: true, acao: v.dados.acao, modelo: "gemini-2.5-flash", resultado: response.text, aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
           }
         } catch (geminiErr) {
           console.error("Gemini assistente-documento erro, fallback Groq:", geminiErr);
@@ -566,7 +577,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
           });
           const textoGroq = completion.choices?.[0]?.message?.content;
           if (textoGroq) {
-            return res.json({ ok: true, acao: v.dados.acao, modelo: "llama-3.1-8b-instant", resultado: textoGroq, aviso: AVISO_IA });
+            return res.json({ ok: true, acao: v.dados.acao, modelo: "llama-3.1-8b-instant", resultado: textoGroq, aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
           }
         } catch (groqErr) {
           console.error("Groq assistente-documento erro:", groqErr);

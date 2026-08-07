@@ -79,5 +79,9 @@ nem dos regulamentos disponíveis." e indica onde confirmar.
   Vercel não aceita imports neste ponto (falha de arranque confirmada 2×);
 - Teste automático garante que o conteúdo em produção é **idêntico** aos
   ficheiros-fonte (paridade JSON);
-- O painel do cidadão ainda não mostra o selo de proveniência ("com base em N
-  documentos oficiais de X") — esse é o passo **E4**, à espera de aprovação.
+- **E4 (2026-08-05):** o painel do cidadão mostra agora um selo de
+  proveniência por baixo de cada resposta da IA — "Com base em N documentos
+  oficiais de [Instituição]" quando a base foi usada, ou "Sem regulamentos
+  carregados — resposta só com base no documento" quando não foi;
+- **E5 (2026-08-05):** cada uso da base fica registado nos logs do servidor
+  (sigla da instituição, fontes usadas e ação — nunca o texto do cidadão).

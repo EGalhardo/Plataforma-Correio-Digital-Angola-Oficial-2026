@@ -116,5 +116,25 @@ internet de fontes oficiais públicas**, com URL e data por fonte, e possibilida
 de o dono corrigir/pedir remoção de qualquer entrada. Nada foi inventado:
 valores de taxas/tarifas/requisitos só entram vindos da página citada.
 
-### E4/E5
-Continuam por executar — aguardam "podes implementar" do dono.
+### E4/E5 — EXECUTADOS (2026-08-05, aprovação: "Podes avancar para E4 + E5")
+
+**E4 — Selo de proveniência no painel do cidadão**
+- Servidor devolve `kb: { instituicao, fontes[títulos], truncado }` na
+  resposta de `/api/assistente-documento` (Gemini e Groq, nos dois runtimes);
+- `src/services/aiDocumentoService.ts`: tipo `AssistenteKb` + função pura
+  `seloKb()` — fonte única da frase honesta ("Com base em N documentos
+  oficiais de X" / "(parcial…)" se truncado / "Sem regulamentos carregados —
+  resposta só com base no documento");
+- `AssistenteDocumento.tsx`: selo sempre visível no cartão de resultado
+  (ícone de livro), com título que lista as fontes usadas ao passar o rato.
+
+**E5 — Auditoria estruturada do uso da KB**
+- `KB_AUDIT {json}` em `console.log` (api/index.ts e server.ts, paridade
+  testada): evento `kb_usada` (sigla, fontes[id], truncado, ação, ts) e
+  `kb_sem_correspondencia` (ação + ts). NUNCA texto do documento nem
+  remetente do cidadão.
+- Limitação honesta: serverless ⇒ os registos vivem nos logs da plataforma
+  (Vercel/local); não há persistência fingida.
+
+**Verificação:** tsc limpo, build OK, bateria **77/77 PASS**
+(f_e4 19 checks, f_e5 12 checks). Sondas ao vivo pós-deploy registadas abaixo.
