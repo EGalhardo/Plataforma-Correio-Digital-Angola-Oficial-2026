@@ -144,3 +144,18 @@ nem dos regulamentos disponíveis." e indica onde confirmar.
   carregados — resposta só com base no documento" quando não foi;
 - **E5 (2026-08-05):** cada uso da base fica registado nos logs do servidor
   (sigla da instituição, fontes usadas e ação — nunca o texto do cidadão).
+
+---
+
+## Carimbo 2026-08-07 — vaga 3 (4 instituições, 17/39) + E6
+| Instituição | Fontes curadas (verificadas ao vivo) |
+|---|---|
+| BNA | consumidorbancario.bna.ao / www.bna.ao — Provedor do Cliente Bancário, Aviso 12/2016, Lei 12/2015 art. 74; 222 679 244, reclamacoes@bna.ao, WhatsApp 944 889 499/504 |
+| INACOM | inacom.gov.ao/contact e /single-services — LAC 15555 (grátis, dias úteis 8h–17h), reclamacao@inacom.gov.ao |
+| INE | ine.gov.ao + censo2024.ine.gov.ao — Censo 2024: 36,6 M hab, 65,7% urbana, 76 indicadores |
+| TS | tribunalsupremo.ao + /jurisprudencia/ — acórdãos; +244 222 339 079 |
+
+Motor: fronteira de palavra + casamento de nome nas duas direções.
+E6: tabela `kb_fontes_instituicao` (RLS v14/v20) — fontes próprias das
+instituições fundem-se com estas quando o SQL v25 for aplicado; a fusão e
+o selo de proveniência contam as fontes dinâmicas automaticamente.

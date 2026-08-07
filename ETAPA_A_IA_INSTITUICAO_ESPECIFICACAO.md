@@ -193,3 +193,26 @@ origens em `ETAPA_A_E2E3_FONTES.md`. Decisões registadas:
 - **Sem alteração do motor de selecção** (contrato E1 intacto): as mensagens
   com assento (ex.: "o seu Bilhete… DNIRN") resolvem-se pela sigla no texto.
 - bateria: f_e2e3 32→45 checks; **77/77 PASS**; paridade JSON mantida.
+
+---
+
+## Carimbo 2026-08-07 — vaga 3 (4 instituições) + E6 self-service
+- **Motor de correspondência reescrito:** siglas passam a comparar por
+  FRONTEIRA DE PALAVRA (regex com `[^a-z0-9]` à volta) — INE e TS ficaram
+  possíveis; «online»/«gabinete» deixaram de ativar instituições (veto
+  provado ao vivo). Nome de instituição casa nas DUAS direções.
+- **+4 instituições (total 17 / 39 fontes):** BNA (consumidorbancario.bna.ao,
+  provedoria, Aviso 12/16 — 222 679 244, WhatsApp 944 889 499/504), INACOM
+  (LAC 15555), INE (Censo 2024: 36,6 M hab / censo2024.ine.gov.ao), TS
+  (tribunalsupremo.ao + Jurisprudência). Sondas ao vivo 5/5.
+- **E6 self-service:** as instituições passam a gerir as SUAS fontes no
+  painel (aba «Base de Conhecimento»), CRUD real contra
+  `public.kb_fontes_instituicao` (SQL `supabase/v25_kb_instituicao.sql`,
+  RLS pela convenção v14/v20). O servidor funde (fail-open, 4s) as fontes
+  ativas com a KB estática; a maquete de ficheiros fictícios foi removida.
+
+## Carimbo 2026-08-07 — Línguas nacionais com guardas (verdade operacional)
+Tradução experimental para 6 línguas; duas guardas PROVADAS AO VIVO:
+anti-eco (fallback devolvia PT como se fosse tradução) e anti-degeneração
+(ciclo de repetição detetado pós-deploy) + timeout de 25s no Gemini e teto
+de tokens no fallback. Detalhe em `CORRECOES_APLICADAS_2026-08-07.md`.

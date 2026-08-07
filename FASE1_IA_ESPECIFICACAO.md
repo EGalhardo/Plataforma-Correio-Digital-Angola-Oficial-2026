@@ -49,6 +49,7 @@ Gerado pela IA (S1) → abre o compositor PRÉ-PREENCHIDO com etiqueta "Rascunho
 ### S6 — Deteção de erros pré-envio (compositor)
 Determinística primeiro (gratuita, offline): campos obrigatórios vazios, destinatário inválido (liga ao gate P0-B existente), anexos acima do limite/tipo, corpo quase vazio, aviso se o texto sugere prazo sem data.
 Camada IA OPCIONAL (só se chave ativa): revisão de clareza/inconsistências — com fail-safe: falha de IA nunca bloqueia o envio.
+> ✅ 2026-08-07: camada IA ATIVADA (ação `rever_clareza`, marcador de corte, botões usar/manter no compositor). Ver `CORRECOES_APLICADAS_2026-08-07.md`.
 
 ### S7 — Catálogo de serviços das 22 instituições (dados + UI honesta)
 Ficheiro de config com as 22 entidades e os serviços da tua Parte I (sem gateway).
@@ -56,7 +57,8 @@ Etiqueta honesta: disponível vs demonstração (coerente com o backlog "classif
 Superfície inicial: seleção de tipo de correspondência no compositor + página de diretório. Sem inventar integrações.
 
 ## Fora de âmbito na Fase 1 (registado para não se perder)
-Pagamentos/gateway · dados clínicos · assinatura qualificada · RAG completo por instituição · línguas nacionais na IA de documentos · SOS GPS/multimédia.
+Pagamentos/gateway · dados clínicos · assinatura qualificada · RAG completo por instituição · SOS GPS/multimédia.
+> ✅ 2026-08-07: «línguas nacionais na IA de documentos» SAIU desta lista — tradução experimental para 6 línguas nacionais com guardas de honestidade (anti-eco + anti-degeneração) e painel marcado «(experimental)». Ver `CORRECOES_APLICADAS_2026-08-07.md`.
 
 ## Regras de segurança/custo (todos os ciclos)
 - Chaves SÓ no servidor (nunca `VITE_`)
