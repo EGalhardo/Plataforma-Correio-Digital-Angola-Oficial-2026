@@ -138,3 +138,20 @@ valores de taxas/tarifas/requisitos só entram vindos da página citada.
 
 **Verificação:** tsc limpo, build OK, bateria **77/77 PASS**
 (f_e4 19 checks, f_e5 12 checks). Sondas ao vivo pós-deploy registadas abaixo.
+
+**Sondas ao vivo E4/E5 (2026-08-05, deploy `ce5ef09`, health OK):**
+1. AGT + `explicar` (gemini-2.5-flash): resposta traz
+   `"kb":{"instituicao":"Administração Geral Tributária","fontes":[3 títulos],"truncado":false}` —
+   1.º título "Portal do Contribuinte — serviços electrónicos da AGT". ✅
+2. Controlo `siglaKb: 'ZZZ'` (llama): resposta 200 **sem** campo `kb`. ✅
+3. Bundle `index-DNz5sutE.js`: marcadores do selo presentes — "Com base em N
+   documento(s) oficial(is)", "Sem regulamentos carregados — resposta só com
+   base no documento", "(parcial…)", "Fontes usadas:". ✅
+
+## Etapa A — CONCLUÍDA (E1 + E2 + E3 + E4 + E5)
+
+- **E1** motor KB (seleção/montagem/guardas) — `483891c` + `3ddaa35`
+- **E2/E3** conteúdo de 6 instituições, 17 fontes (internet, autorizado) — `7464b56`
+- **E4** selo de proveniência no painel — `ce5ef09`
+- **E5** auditoria estruturada KB_AUDIT — `ce5ef09`
+- Bateria final: **77 suites PASS / 0 FAIL**
