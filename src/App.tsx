@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
+import type { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Loader2, Scan, Mail, QrCode, Users, User, Shield, ShieldAlert, Lock, Fingerprint, Smartphone, Key, ShieldCheck, Camera, Wifi, WifiOff, Database, RefreshCw, Signal, AlertTriangle, X, Mic, ArrowLeft, Check, CheckCircle, IdCard, UserPlus, ChevronRight, Lightbulb, Send, Download } from 'lucide-react';
 
@@ -23,21 +24,12 @@ import {
   DocumentsContent,
   WalletContent,
   ContactsContent,
-  ProfileContent,
-  MessageDetail,
   DocumentDetail,
-  GovDashboard,
   GovEmissaoContent,
   GovDocsContent,
-  GovInteroperabilidadeContent,
-  GovContactsContent,
   GovPerfilContent,
   GovSegurancaContent,
-  GovRelatorioContent,
-  GovCorrespondenciasContent,
   PastaDigitalContent,
-  SolicitarDocumentoContent,
-  RegisterStepper,
   RegisterInstitutionPage,
   RegisterAdminAgentPage,
   InstitutionAccessPanel,
@@ -46,9 +38,6 @@ import {
   ResetPasswordStepper,
   VoiceGuideAssistant,
   InstitutionDetail,
-  InstQrCodeContent,
-  InstAiAssistantContent,
-  GovIaContent,
   NotificationDetailModal,
   VideoSessionPage,
 } from './components';
@@ -123,6 +112,31 @@ import { useSession } from './services/sessionStore';
 import { VideoSessionService } from './services/videoSessionService';
 import { useLanguage } from './hooks/useLanguage';
 import { startImagePreloading, subscribeToPreload } from './utils/imagePreloader';
+
+// ============================================================================
+// ETAPA DESEMPENHO (2026-08-05) — divisão por procura (React.lazy):
+// estes painéis pesados (74–241 KB de fonte cada) deixaram de vir TODOS no
+// ficheiro inicial (~1,9 MB). São descarregados só quando o utilizador os
+// abre. Fallback: indicador a rodar; NENHUMA funcionalidade mudou.
+// ============================================================================
+const PainelSuspense = ({ children }: { children: ReactNode }) => (
+  <Suspense fallback={<div className="flex items-center justify-center p-10"><Loader2 className="w-6 h-6 animate-spin text-indigo-500" /></div>}>
+    {children}
+  </Suspense>
+);
+
+const MessageDetail = lazy(() => import('./components/features/MessageDetail').then(m => ({ default: m.MessageDetail })));
+const ProfileContent = lazy(() => import('./components/features/ProfileContent').then(m => ({ default: m.ProfileContent })));
+const GovDashboard = lazy(() => import('./components/features/GovDashboard').then(m => ({ default: m.GovDashboard })));
+const GovContactsContent = lazy(() => import('./components/features/GovContactsContent').then(m => ({ default: m.GovContactsContent })));
+const GovInteroperabilidadeContent = lazy(() => import('./components/features/GovInteroperabilidadeContent').then(m => ({ default: m.GovInteroperabilidadeContent })));
+const GovCorrespondenciasContent = lazy(() => import('./components/features/GovCorrespondenciasContent').then(m => ({ default: m.GovCorrespondenciasContent })));
+const GovRelatorioContent = lazy(() => import('./components/features/GovRelatorioContent').then(m => ({ default: m.GovRelatorioContent })));
+const GovIaContent = lazy(() => import('./components/features/GovIaContent').then(m => ({ default: m.GovIaContent })));
+const InstQrCodeContent = lazy(() => import('./components/features/InstQrCodeContent').then(m => ({ default: m.InstQrCodeContent })));
+const InstAiAssistantContent = lazy(() => import('./components/features/InstAiAssistantContent').then(m => ({ default: m.InstAiAssistantContent })));
+const SolicitarDocumentoContent = lazy(() => import('./components/features/SolicitarDocumentoContent').then(m => ({ default: m.SolicitarDocumentoContent })));
+const RegisterStepper = lazy(() => import('./components/features/RegisterStepper').then(m => ({ default: m.RegisterStepper })));
 import { shouldAutoSeedSupabase, shouldUseLocalBootstrap, shouldUseMockFallback } from './config/runtime';
 import { buildDemoContentPlan, withUnreadFloor, unmarkReadIds, type DemoArea } from './services/demoContentGuarantee';
 
@@ -4026,6 +4040,7 @@ Ficha civil do titular:
       case 'mensagem':
         if (!selectedMessage) return null;
         return (
+          <PainelSuspense>
           <MessageDetail
             selectedMessage={selectedMessage}
             setSelectedMessage={setSelectedMessage}
@@ -4038,6 +4053,7 @@ Ficha civil do titular:
             isDeleted={deletedMessageIds.includes(selectedMessage.id)}
             backTab={selectedInstitution ? 'instituicao' : 'correspondencias'}
           />
+          </PainelSuspense>
         );
       case 'qr-code':
         if (isInstMode) {
@@ -4076,6 +4092,7 @@ Ficha civil do titular:
         );
       case 'solicitar-documento':
         return (
+          <PainelSuspense>
           <SolicitarDocumentoContent
             setTab={setTab}
             bi={bi}
@@ -4084,6 +4101,7 @@ Ficha civil do titular:
             isOnline={isOnline}
             addAuditLog={addAuditLog}
           />
+          </PainelSuspense>
         );
       case 'pasta-digital':
         return (
@@ -4123,6 +4141,7 @@ Ficha civil do titular:
         );
       case 'inst-qrcode':
         return (
+          <PainelSuspense>
           <InstQrCodeContent
             documents={currentDocuments}
             messages={isInstMode
@@ -4132,17 +4151,21 @@ Ficha civil do titular:
             addAuditLog={addAuditLog}
             setTab={setTab}
           />
+          </PainelSuspense>
         );
       case 'inst-ai-assistant':
         return (
+          <PainelSuspense>
           <InstAiAssistantContent
             addAuditLog={addAuditLog}
             setTab={setTab}
           />
+          </PainelSuspense>
         );
       case 'contatos':
       case 'contactos':
         return appMode === 'institution' ? (
+          <PainelSuspense>
           <GovContactsContent
             appMode={appMode}
             bi={bi}
@@ -4172,6 +4195,7 @@ Ficha civil do titular:
             addAuditLog={addAuditLog}
             auditLogs={auditLogs}
           />
+          </PainelSuspense>
         ) : (
           <ContactsContent
             contacts={currentContacts}
@@ -4191,6 +4215,7 @@ Ficha civil do titular:
             {/* F8 — "Perfil do Utilizador" fica imediatamente DEBAIXO do título da
                 página (nome da instituição + código); os painéis de acesso e o
                 registo facial passam para depois do container do perfil. */}
+            <PainelSuspense>
             <ProfileContent
             isInst={isInstMode}
             sessionDemo={(isUserMode && isDemoCitizenSession) || (isInstMode && isDemoInstitutionSession)}
@@ -4230,6 +4255,7 @@ Ficha civil do titular:
             addAuditLog={addAuditLog}
             instAgentNumber={isInstMode ? (instIdentity?.agentNumber || getLocalInstReg(normalizeInstCode(bi))?.agentNumber || undefined) : undefined}
             />
+            </PainelSuspense>
             {/* F16 — Cidadão: o container "Login Facial" fica no FINAL da página
                 Conta (depois de todos os painéis do perfil). */}
             {!isInstMode && !isGovMode && (
@@ -4263,6 +4289,7 @@ Ficha civil do titular:
         );
       case 'gov-dashboard':
         return (
+          <PainelSuspense>
           <GovDashboard 
             onNavigate={setTab} 
             documents={currentDocuments} 
@@ -4283,6 +4310,7 @@ Ficha civil do titular:
             setUserMaritalStatus={setUserMaritalStatus}
             addAuditLog={addAuditLog}
           />
+          </PainelSuspense>
         );
       case 'gov-emissao':
         return (
@@ -4295,6 +4323,7 @@ Ficha civil do titular:
         );
       case 'gov-correspondencias':
         return (
+          <PainelSuspense>
           <GovCorrespondenciasContent 
             correspondences={currentCorrespondences}
             onNavigate={setTab}
@@ -4408,6 +4437,7 @@ Ficha civil do titular:
               }
             }}
           />
+          </PainelSuspense>
         );
       case 'gov-docs':
       case 'gov-documentos':
@@ -4421,6 +4451,7 @@ Ficha civil do titular:
         );
       case 'gov-contatos':
         return (
+          <PainelSuspense>
           <GovContactsContent
             appMode={appMode}
             bi={bi}
@@ -4450,9 +4481,11 @@ Ficha civil do titular:
             addAuditLog={addAuditLog}
             auditLogs={auditLogs}
           />
+          </PainelSuspense>
         );
       case 'gov-trabalhadores':
         return (
+          <PainelSuspense>
           <GovContactsContent
             appMode="admin-workers"
             bi={bi}
@@ -4482,6 +4515,7 @@ Ficha civil do titular:
             addAuditLog={addAuditLog}
             auditLogs={auditLogs}
           />
+          </PainelSuspense>
         );
       case 'gov-perfil':
         return (
@@ -4545,17 +4579,19 @@ Ficha civil do titular:
       case 'gov-stats':
         return null; // Removido ou integrado no painel principal
       case 'gov-interoperabilidade':
-        return <GovInteroperabilidadeContent onLog={addAuditLog} />;
+        return <PainelSuspense><GovInteroperabilidadeContent onLog={addAuditLog} /></PainelSuspense>;
       case 'gov-relatorio':
         return (
+          <PainelSuspense>
           <GovRelatorioContent 
             correspondences={currentCorrespondences}
             auditLogs={auditLogs}
           />
+          </PainelSuspense>
         );
       case 'gov-ia':
         return (
-          <GovIaContent onLog={addAuditLog} />
+          <PainelSuspense><GovIaContent onLog={addAuditLog} /></PainelSuspense>
         );
       case 'gov-seguranca':
         return (
@@ -5528,12 +5564,14 @@ Ficha civil do titular:
                       addAuditLog={addAuditLog}
                     />
                   ) : (
+                    <PainelSuspense>
                     <RegisterStepper
                       onCancel={() => setLoginSubMode('normal')}
                       onSuccess={() => setLoginSubMode('normal')}
                       addAuditLog={addAuditLog}
                       appMode={appMode}
                     />
+                    </PainelSuspense>
                   )}
                 </motion.div>
               )}
