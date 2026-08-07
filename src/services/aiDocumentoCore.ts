@@ -173,6 +173,39 @@ export const montarContextoKb = (inst: KbInstituicao, limite: number = LIMITE_CO
   return { contexto: partes.join('\n\n'), fontesUsadas, truncado };
 };
 
+
+// --- E6 (2026-08-07): fusão com fontes SELF-SERVICE da instituição ----------
+// Linha bruta do REST (defesa em profundidade — o SQL já garante título ≥ 8
+// e texto 200..4000; aqui só saneamos e mapeamos para FonteKb honesta).
+export interface FonteKbDinamicaRow {
+  titulo?: unknown; tipo?: unknown; texto?: unknown;
+  fonte_url?: unknown; atualizado_em?: unknown;
+}
+
+export const rowParaFonteKb = (r: FonteKbDinamicaRow, idx: number): FonteKb | null => {
+  if (!r || typeof r.titulo !== 'string' || typeof r.texto !== 'string') return null;
+  const titulo = r.titulo.trim();
+  const texto = r.texto.trim();
+  if (titulo.length < 8 || texto.length < 50) return null;
+  const tipo: FonteKb['tipo'] = r.tipo === 'regulamento' || r.tipo === 'faq' ? r.tipo : 'procedimento';
+  const fonteUrl = typeof r.fonte_url === 'string' && r.fonte_url.startsWith('https://') ? r.fonte_url : undefined;
+  const atualizadoEm = typeof r.atualizado_em === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.atualizado_em)
+    ? r.atualizado_em
+    : new Date().toISOString().slice(0, 10);
+  return { id: `inst-own-${idx + 1}`, titulo, tipo, texto, atualizadoEm, fonteUrl };
+};
+
+// Estáticas curadas primeiro; dinâmicas entram depois, SEM duplicar título
+// (normalizado). O montarContextoKb já trata do limite — fontes próprias
+// respeitam o mesmo teto de contexto.
+export const juntarFontesKb = (estaticas: FonteKb[], dinamicas: FonteKb[]): FonteKb[] => {
+  if (dinamicas.length === 0) return estaticas;
+  const chave = (t: string) => t.toLowerCase().replace(/\s+/g, ' ').trim();
+  const vistos = new Set(estaticas.map(f => chave(f.titulo)));
+  const extras = dinamicas.filter(f => !vistos.has(chave(f.titulo)));
+  return extras.length === 0 ? estaticas : [...estaticas, ...extras];
+};
+
 export const validarPedido = (body: unknown): ValidacaoPedido => {
   if (!body || typeof body !== 'object') {
     return { ok: false, erro: 'Pedido inválido.' };

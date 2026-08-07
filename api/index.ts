@@ -205,6 +205,39 @@ const montarContextoKb = (inst: KbInstituicao, limite: number = LIMITE_CONTEXTO_
   return { contexto: partes.join('\n\n'), fontesUsadas, truncado };
 };
 
+
+// --- E6 (2026-08-07): fusão com fontes SELF-SERVICE da instituição ----------
+// Linha bruta do REST (defesa em profundidade — o SQL já garante título ≥ 8
+// e texto 200..4000; aqui só saneamos e mapeamos para FonteKb honesta).
+interface FonteKbDinamicaRow {
+  titulo?: unknown; tipo?: unknown; texto?: unknown;
+  fonte_url?: unknown; atualizado_em?: unknown;
+}
+
+const rowParaFonteKb = (r: FonteKbDinamicaRow, idx: number): FonteKb | null => {
+  if (!r || typeof r.titulo !== 'string' || typeof r.texto !== 'string') return null;
+  const titulo = r.titulo.trim();
+  const texto = r.texto.trim();
+  if (titulo.length < 8 || texto.length < 50) return null;
+  const tipo: FonteKb['tipo'] = r.tipo === 'regulamento' || r.tipo === 'faq' ? r.tipo : 'procedimento';
+  const fonteUrl = typeof r.fonte_url === 'string' && r.fonte_url.startsWith('https://') ? r.fonte_url : undefined;
+  const atualizadoEm = typeof r.atualizado_em === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.atualizado_em)
+    ? r.atualizado_em
+    : new Date().toISOString().slice(0, 10);
+  return { id: `inst-own-${idx + 1}`, titulo, tipo, texto, atualizadoEm, fonteUrl };
+};
+
+// Estáticas curadas primeiro; dinâmicas entram depois, SEM duplicar título
+// (normalizado). O montarContextoKb já trata do limite — fontes próprias
+// respeitam o mesmo teto de contexto.
+const juntarFontesKb = (estaticas: FonteKb[], dinamicas: FonteKb[]): FonteKb[] => {
+  if (dinamicas.length === 0) return estaticas;
+  const chave = (t: string) => t.toLowerCase().replace(/\s+/g, ' ').trim();
+  const vistos = new Set(estaticas.map(f => chave(f.titulo)));
+  const extras = dinamicas.filter(f => !vistos.has(chave(f.titulo)));
+  return extras.length === 0 ? estaticas : [...estaticas, ...extras];
+};
+
 const validarPedido = (body: unknown): ValidacaoPedido => {
   if (!body || typeof body !== 'object') {
     return { ok: false, erro: 'Pedido inválido.' };
@@ -927,7 +960,32 @@ Regras Críticas de Fidelidade e Integridade:
       }
       // E1 — Base de Conhecimento: idem server.ts (registo em api/kb/registoKb.ts)
       const alvoKb = (body && typeof body.siglaKb === 'string' ? body.siglaKb : v.dados.remetente);
-      const instKb = selecionarInstituicaoKb(KB_REGISTO, alvoKb);
+      const instKbBase = selecionarInstituicaoKb(KB_REGISTO, alvoKb);
+      // E6 — funde fontes self-service (ativo=true) da instituição via REST;
+      // sem env/erro/timeout => fica só a KB estática (fail-open honesto).
+      let fontesDinamicas: FonteKb[] = [];
+      if (instKbBase) {
+        try {
+          const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+          const supaKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+          if (supaUrl && supaKey) {
+            const ctrl = new AbortController();
+            const timerFd = setTimeout(() => ctrl.abort(), 4000);
+            const respFd = await fetch(`${supaUrl}/rest/v1/kb_fontes_instituicao?sigla=eq.${encodeURIComponent(instKbBase.sigla)}&ativo=is.true&select=titulo,tipo,texto,fonte_url,atualizado_em&order=created_at.asc`, {
+              headers: { apikey: supaKey, Authorization: `Bearer ${supaKey}` },
+              signal: ctrl.signal,
+            });
+            clearTimeout(timerFd);
+            if (respFd.ok) {
+              const rows = (await respFd.json()) as FonteKbDinamicaRow[];
+              fontesDinamicas = (Array.isArray(rows) ? rows : [])
+                .map((r, i) => rowParaFonteKb(r, i))
+                .filter((f): f is FonteKb => f !== null);
+            }
+          }
+        } catch { fontesDinamicas = []; }
+      }
+      const instKb = instKbBase ? { ...instKbBase, fontes: juntarFontesKb(instKbBase.fontes, fontesDinamicas) } : null;
       let kbUsada: { instituicao: string; fontes: string[]; truncado: boolean } | null = null;
       if (instKb) {
         const montado = montarContextoKb(instKb);

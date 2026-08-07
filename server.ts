@@ -8,8 +8,9 @@ import { GoogleGenAI, LiveServerMessage, Modality, Type } from "@google/genai";
 import { createClient } from '@supabase/supabase-js';
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
-import { AVISO_IA, construirPrompts, montarContextoKb, protegerTraducaoLinguaNacional, selecionarInstituicaoKb, validarPedido } from "./src/services/aiDocumentoCore";
+import { AVISO_IA, construirPrompts, juntarFontesKb, montarContextoKb, protegerTraducaoLinguaNacional, rowParaFonteKb, selecionarInstituicaoKb, validarPedido } from "./src/services/aiDocumentoCore";
 import { KB_REGISTO } from "./api/kb/registoKb";
+import type { FonteKb, FonteKbDinamicaRow } from "./src/services/aiDocumentoCore";
 
 dotenv.config();
 
@@ -529,7 +530,32 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
       // E1 — Base de Conhecimento: anexa fontes oficiais da instituição quando
       // existirem no registo (E2/E3); sem registo, o comportamento é o de hoje.
       const alvoKb = (req.body && typeof req.body.siglaKb === 'string' ? req.body.siglaKb : v.dados.remetente);
-      const instKb = selecionarInstituicaoKb(KB_REGISTO, alvoKb);
+      const instKbBase = selecionarInstituicaoKb(KB_REGISTO, alvoKb);
+      // E6 — funde fontes self-service (ativo=true) da instituição via REST;
+      // sem env/erro/timeout => fica só a KB estática (fail-open honesto).
+      let fontesDinamicas: FonteKb[] = [];
+      if (instKbBase) {
+        try {
+          const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+          const supaKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+          if (supaUrl && supaKey) {
+            const ctrl = new AbortController();
+            const timerFd = setTimeout(() => ctrl.abort(), 4000);
+            const respFd = await fetch(`${supaUrl}/rest/v1/kb_fontes_instituicao?sigla=eq.${encodeURIComponent(instKbBase.sigla)}&ativo=is.true&select=titulo,tipo,texto,fonte_url,atualizado_em&order=created_at.asc`, {
+              headers: { apikey: supaKey, Authorization: `Bearer ${supaKey}` },
+              signal: ctrl.signal,
+            });
+            clearTimeout(timerFd);
+            if (respFd.ok) {
+              const rows = (await respFd.json()) as FonteKbDinamicaRow[];
+              fontesDinamicas = (Array.isArray(rows) ? rows : [])
+                .map((r, i) => rowParaFonteKb(r, i))
+                .filter((f): f is FonteKb => f !== null);
+            }
+          }
+        } catch { fontesDinamicas = []; }
+      }
+      const instKb = instKbBase ? { ...instKbBase, fontes: juntarFontesKb(instKbBase.fontes, fontesDinamicas) } : null;
       let kbUsada: { instituicao: string; fontes: string[]; truncado: boolean } | null = null;
       if (instKb) {
         const montado = montarContextoKb(instKb);

@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import InstKbSelfService, { carregarResumoKb } from './InstKbSelfService';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Bot, 
@@ -63,16 +64,6 @@ interface ChatMessage {
   text: string;
   time: string;
   delivered?: boolean;
-}
-
-interface KnowledgeItem {
-  id: string;
-  name: string;
-  size: string;
-  type?: string;
-  uploadedAt: string;
-  status: 'Processado' | 'Indexando' | 'Em Processamento';
-  category?: string;
 }
 
 interface InteractionLog {
@@ -284,20 +275,17 @@ REGRAS OPERATIVAS:
   const [previewInput, setPreviewInput] = useState<string>('');
   const [isPreviewTyping, setIsPreviewTyping] = useState<boolean>(false);
   const previewChatBottomRef = useRef<HTMLDivElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const configFileInputRef = useRef<HTMLInputElement | null>(null);
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
-  // Knowledge Base Files state
-  const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeItem[]>([
-    { id: 'kb1', name: 'Regulamento_AGT_Fiscal.pdf', size: '2.4 MB', type: 'PDF', uploadedAt: '15/06/2026 14:32', status: 'Processado', category: 'Legislação' },
-    { id: 'kb2', name: 'Manual_Atendimento_Fiscal.docx', size: '1.1 MB', type: 'DOCX', uploadedAt: '15/06/2026 11:18', status: 'Processado', category: 'Manual' },
-    { id: 'kb3', name: 'Politica_Privacidade_AGT.pdf', size: '890 KB', type: 'PDF', uploadedAt: '14/06/2026 16:45', status: 'Processado', category: 'Política' },
-    { id: 'kb4', name: 'Perguntas_Frequentes_NIF.txt', size: '320 KB', type: 'TXT', uploadedAt: '14/06/2026 09:20', status: 'Processado', category: 'FAQ' },
-    { id: 'kb5', name: 'Procedimentos_Fiscais_2026.pdf', size: '3.2 MB', type: 'PDF', uploadedAt: '11/06/2026 10:05', status: 'Em Processamento', category: 'Procedimentos' },
-    { id: 'kb6', name: 'Guia_Modelos_Fiscais.pdf', size: '1.8 MB', type: 'PDF', uploadedAt: '10/06/2026 08:45', status: 'Processado', category: 'Guias' },
-  ]);
+  // E6 (2026-08-07): a lista de ficheiros era MOCK (nunca alimentou a IA).
+  // Agora: resumo REAL da tabela kb_fontes_instituicao; a gestão é feita na
+  // sub-aba knowledge pelo componente InstKbSelfService (CRUD real).
+  const [kbResumo, setKbResumo] = useState<{ total: number; ativas: number } | null>(null);
+  useEffect(() => {
+    const siglaV = (institutionCode || '').trim().toUpperCase();
+    if (!siglaV) return;
+    void carregarResumoKb(siglaV).then(setKbResumo);
+  }, [institutionCode]);
+
 
   // Authorized API Tools integration state
   const [tools, setTools] = useState<ToolIntegration[]>([
@@ -371,100 +359,6 @@ REGRAS OPERATIVAS:
     setCustomPrompt(tempInstructions);
     triggerToast('Instruções operacionais do assistente atualizadas com sucesso!', 'success');
     addAuditLog?.('Instruções operacionais do Assistente de IA atualizadas por agente autorizado.', 'success');
-  };
-
-  // Action: Add selected or dropped file to base
-  const handleUploadFileInstance = (file: File) => {
-    const existing = knowledgeFiles.find(f => f.name.toLowerCase() === file.name.toLowerCase());
-    if (existing) {
-      triggerToast('Este documento já está registrado na base de conhecimento.', 'warning');
-      return;
-    }
-
-    const today = new Date();
-    const formattedDate = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()} ${today.getHours().toString().padStart(2, '0')}:${today.getMinutes().toString().padStart(2, '0')}`;
-
-    const sizeInMB = file.size / (1024 * 1024);
-    const sizeStr = sizeInMB < 0.1 
-      ? `${(file.size / 1024).toFixed(0)} KB` 
-      : `${sizeInMB.toFixed(1)} MB`;
-
-    let ext = file.name.split('.').pop()?.toUpperCase() || 'PDF';
-    if (ext.length > 5) ext = ext.substring(0, 4);
-
-    // Determine category
-    const nameLower = file.name.toLowerCase();
-    let category = 'Documento';
-    if (nameLower.includes('regulamento') || nameLower.includes('lei') || nameLower.includes('decreto')) category = 'Legislação';
-    else if (nameLower.includes('manual') || nameLower.includes('guia')) category = 'Manual';
-    else if (nameLower.includes('pergunta') || nameLower.includes('faq')) category = 'FAQ';
-    else if (nameLower.includes('politica') || nameLower.includes('privacidade')) category = 'Política';
-    else if (nameLower.includes('procedimento') || nameLower.includes('instrução')) category = 'Procedimentos';
-    else if (nameLower.includes('modelo') || nameLower.includes('formulário')) category = 'Modelo';
-    else if (nameLower.includes('fiscal') || nameLower.includes('imposto')) category = 'Fiscal';
-
-    const newDoc: KnowledgeItem = {
-      id: `doc-${Date.now()}`,
-      name: file.name,
-      type: ext,
-      size: sizeStr,
-      uploadedAt: formattedDate,
-      status: 'Em Processamento',
-      category
-    };
-
-    setKnowledgeFiles(prev => [newDoc, ...prev]);
-    
-    // Update stats
-    setAiStats(prev => {
-      const updated = { ...prev, knowledgeDocs: prev.knowledgeDocs + 1 };
-      localStorage.setItem(`cda_ai_stats_${institutionCode || 'default'}`, JSON.stringify(updated));
-      return updated;
-    });
-    
-    triggerToast(`Documento "${file.name}" carregado para processamento vetorial.`, 'success');
-    addAuditLog?.(`Novo documento anexado ao conhecimento do Assistente: ${file.name}`, 'success');
-
-    // Simulate complete index status
-    setTimeout(() => {
-      setKnowledgeFiles(current => current.map(f => f.id === newDoc.id ? { ...f, status: 'Processado' } : f));
-    }, 4500);
-  };
-
-  const handleFileSelectChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      handleUploadFileInstance(files[0]);
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleConfigDocsUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      for (let i = 0; i < files.length; i++) {
-        handleUploadFileInstance(files[i]);
-      }
-    }
-    if (configFileInputRef.current) {
-      configFileInputRef.current.value = '';
-    }
-  };
-
-  // Action: Delete document from database
-  const handleDeleteFile = (id: string, name: string) => {
-    setKnowledgeFiles(prev => prev.filter(f => f.id !== id));
-    
-    setAiStats(prev => {
-      const updated = { ...prev, knowledgeDocs: Math.max(0, prev.knowledgeDocs - 1) };
-      localStorage.setItem(`cda_ai_stats_${institutionCode || 'default'}`, JSON.stringify(updated));
-      return updated;
-    });
-    
-    triggerToast(`Documento "${name}" excluído da base assistente.`, 'info');
-    addAuditLog?.(`Documento removido da base IA: ${name}`, 'warning');
   };
 
   // Action: Toggle custom API tools
@@ -905,7 +799,7 @@ Contexto adicional:
                   <Database size={13} className="text-indigo-600 shrink-0" />
                   <div>
                     <span className="text-[9px] text-slate-400 font-bold uppercase block">Docs Indexados</span>
-                    <span className="text-sm font-black text-slate-800">{knowledgeFiles.filter(f => f.status === 'Processado').length}</span>
+                    <span className="text-sm font-black text-slate-800">{kbResumo?.ativas ?? 0}</span>
                   </div>
                 </div>
               </div>
@@ -1002,158 +896,30 @@ Contexto adicional:
               </div>
             </div>
 
-            {/* COLUNA DIREITA - BASE DE CONHECIMENTO (7 spans) */}
-            <div className="lg:col-span-7 bg-white border border-[#0c2340]/15 rounded-[24px] p-6.5 shadow-none flex flex-col text-left h-full min-h-[580px]">
-              <div className="flex-1 flex flex-col justify-between h-full">
-                {/* BASE DE CONHECIMENTO */}
-                <div className="flex-1 flex flex-col">
-                  <div className="flex items-center justify-between mb-4 border-b border-slate-50 pb-3">
-                    <div>
-                      <h3 className="text-sm font-black text-[#0c2340] tracking-wider uppercase m-0 leading-none">
-                        BASE DE CONHECIMENTO
-                      </h3>
-                      <p className="text-[11px] text-slate-400 font-semibold mt-1">
-                        Repositório de documentos da instituição utilizados para instruir a IA
-                      </p>
-                    </div>
-                    <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100 shrink-0">
-                      {knowledgeFiles.length} {knowledgeFiles.length === 1 ? 'ficheiro' : 'ficheiros'}
-                    </span>
-                  </div>
-
-                  {/* Lista de Ficheiros */}
-                  <div className="flex-1 overflow-y-auto max-h-[380px] mb-4 pr-1 space-y-2">
-                    <AnimatePresence initial={false}>
-                      {knowledgeFiles.length === 0 ? (
-                        <motion.div 
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="flex flex-col items-center justify-center py-16 px-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50"
-                        >
-                          <FileText className="w-10 h-10 text-slate-300 mb-3" />
-                          <p className="text-xs text-slate-400 font-semibold text-center leading-relaxed">
-                            Nenhum ficheiro foi adicionado à Base de Conhecimento.
-                          </p>
-                        </motion.div>
-                      ) : (
-                        <div className="space-y-2">
-                          {knowledgeFiles.map((file) => {
-                            const isConfirming = confirmingDeleteId === file.id;
-
-                            // Helper for extensions
-                            const extLower = (file.type || '').toLowerCase();
-                            let iconBg = 'bg-rose-50 text-rose-600 border-rose-100';
-                            let extLabel = 'PDF';
-                            
-                            if (extLower === 'xlsx' || extLower === 'xls' || extLower === 'csv') {
-                              iconBg = 'bg-emerald-50 text-emerald-600 border-emerald-100';
-                              extLabel = extLower.toUpperCase();
-                            } else if (extLower === 'txt') {
-                              iconBg = 'bg-sky-50 text-sky-600 border-sky-100';
-                              extLabel = 'TXT';
-                            } else if (extLower === 'docx' || extLower === 'doc') {
-                              iconBg = 'bg-blue-50 text-blue-600 border-blue-100';
-                              extLabel = extLower.toUpperCase();
-                            } else if (extLower === 'png' || extLower === 'jpg' || extLower === 'jpeg') {
-                              iconBg = 'bg-purple-50 text-purple-600 border-purple-100';
-                              extLabel = 'IMG';
-                            } else if (extLower === 'json') {
-                              iconBg = 'bg-amber-50 text-amber-600 border-amber-100';
-                              extLabel = 'JSON';
-                            }
-
-                            return (
-                              <motion.div
-                                key={file.id}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, x: -10 }}
-                                transition={{ duration: 0.2 }}
-                                className="flex items-center justify-between p-3.5 rounded-xl border border-slate-100 bg-slate-50/30 hover:border-slate-250 transition-all font-sans"
-                              >
-                                {isConfirming ? (
-                                  <div className="flex items-center justify-between w-full">
-                                    <span className="text-[11px] font-bold text-rose-700 block truncate max-w-[220px]">
-                                      Eliminar "{file.name}"?
-                                    </span>
-                                    <div className="flex items-center gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          handleDeleteFile(file.id, file.name);
-                                          setConfirmingDeleteId(null);
-                                        }}
-                                        className="px-2.5 py-1 text-[9px] font-black text-white bg-rose-600 hover:bg-rose-700 rounded-lg border-none cursor-pointer transition-all uppercase"
-                                      >
-                                        Sim
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => setConfirmingDeleteId(null)}
-                                        className="px-2.5 py-1 text-[9px] font-black text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-lg border-none cursor-pointer transition-all uppercase"
-                                      >
-                                        Não
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${iconBg}`}>
-                                        <FileText size={14} />
-                                      </div>
-                                      <div className="text-left min-w-0">
-                                        <span className="text-[11px] font-black text-slate-800 block truncate max-w-[190px] md:max-w-[210px]" title={file.name}>
-                                          {file.name}
-                                        </span>
-                                        <span className="text-[9px] text-slate-400 font-extrabold block uppercase flex items-center gap-1.5 mt-0.5">
-                                          <span className="text-slate-500 font-extrabold">{extLabel}</span>
-                                          <span className="w-0.5 h-0.5 bg-slate-300 rounded-full" />
-                                          <span>{file.size}</span>
-                                          <span className="w-0.5 h-0.5 bg-slate-300 rounded-full" />
-                                          <span>{file.uploadedAt.split(' ')[0]}</span>
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => setConfirmingDeleteId(file.id)}
-                                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer border-0 bg-transparent flex items-center justify-center shrink-0"
-                                      title="Remover Ficheiro"
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
-                                  </>
-                                )}
-                              </motion.div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  {/* Adicionar novos ficheiros */}
-                  <div className="mt-auto">
-                    <input
-                      type="file"
-                      ref={configFileInputRef}
-                      onChange={handleConfigDocsUpload}
-                      multiple
-                      className="hidden"
-                      accept=".pdf,.docx,.doc,.xlsx,.xls,.txt,.csv,.json,.png,.jpg,.jpeg"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => configFileInputRef.current?.click()}
-                      className="w-full py-3.5 px-4 bg-[#0E2B64] hover:bg-[#081a3d] hover:border-[#081a3d] border border-[#0E2B64] text-white rounded-xl font-extrabold text-[10px] uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 shadow-2xs"
-                    >
-                      <Plus size={14} className="stroke-[2.5]" />
-                      Adicionar Ficheiro(s)
-                    </button>
-                  </div>
+            {/* COLUNA DIREITA - BASE DE CONHECIMENTO (E6: ligação à gestão real) */}
+            <div className="lg:col-span-7 bg-white border border-[#0c2340]/15 rounded-[24px] p-6.5 shadow-none flex flex-col text-left h-full min-h-[280px]">
+              <div className="flex-1 flex flex-col justify-center items-center text-center gap-4 py-8">
+                <Database className="w-12 h-12 text-indigo-200" />
+                <div>
+                  <h3 className="text-sm font-black text-[#0c2340] tracking-wider uppercase m-0">
+                    Base de Conhecimento
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-semibold mt-1.5 max-w-md leading-relaxed">
+                    {kbResumo === null
+                      ? 'A carregar as fontes próprias da instituição…'
+                      : kbResumo.total === 0
+                        ? 'A instituição ainda não tem fontes próprias. As fontes que adicionares alimentam as respostas da IA da plataforma.'
+                        : `${kbResumo.ativas} fonte(s) ativa(s) de ${kbResumo.total} — entram nas respostas do Assistente de Documentos quando o assunto envolve esta instituição.`}
+                  </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab('knowledge')}
+                  className="px-5 py-3 bg-[#4f46e5] hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-2 transition-all cursor-pointer border-none"
+                >
+                  <Plus size={14} className="stroke-[2.5]" />
+                  Gerir a Base de Conhecimento
+                </button>
               </div>
             </div>
           </div>
@@ -1354,180 +1120,12 @@ Contexto adicional:
 
       {/* SUB-TAB: BASE DE CONHECIMENTO */}
       {activeSubTab === 'knowledge' && (
-        <>
-          <div 
-            className={`bg-white border rounded-[24px] p-6.5 shadow-none flex flex-col justify-between text-left transition-all duration-200 relative ${
-              isDragging 
-                ? 'border-indigo-500 bg-indigo-50/10 ring-2 ring-indigo-500/15 scale-[1.005]' 
-                : 'border-[#0c2340]/15'
-            }`}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={(e) => {
-              e.preventDefault();
-              setIsDragging(false);
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              setIsDragging(false);
-              const files = e.dataTransfer.files;
-              if (files && files.length > 0) {
-                handleUploadFileInstance(files[0]);
-              }
-            }}
-          >
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.gif,.xls,.xlsx,.csv"
-              onChange={handleFileSelectChange}
-              id="kb-file-input-uploader"
-            />
-
-            <div>
-              <div className="pb-3 border-b border-slate-100 flex items-center justify-between gap-4 text-left">
-                <div>
-                  <h3 className="text-sm font-black text-[#0c2340] tracking-wider uppercase m-0 leading-none">
-                    BASE DE CONHECIMENTO
-                  </h3>
-                  <p className="text-[11px] text-slate-400 font-semibold tracking-tight mt-1 bg-transparent max-w-lg leading-snug">
-                    Gerencie os documentos que a IA utiliza como fonte de conhecimento institucional. 
-                    Todos os documentos são processados e indexados para pesquisa semântica via Groq.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-2.5 bg-[#4f46e5] hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5 transition-all cursor-pointer border-none shrink-0"
-                >
-                  <Plus size={14} className="stroke-[3]" />
-                  <span>Adicionar Documento</span>
-                </button>
-              </div>
-
-              {/* Document list table */}
-              <div className="overflow-x-auto overflow-y-auto max-h-[400px] mt-4 pr-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                <table className="mobile-data-table w-full text-left text-xs border-collapse">
-                  <thead className="sticky top-0 bg-white z-10 shadow-[0_1px_0_0_rgba(241,245,249,1)]">
-                    <tr className="border-b border-indigo-50/50 text-slate-400 uppercase tracking-widest text-[9px] font-extrabold bg-white">
-                      <th className="py-2.5 px-1 pb-2 font-black text-left">Nome do Documento</th>
-                      <th className="py-2.5 px-1 pb-2 text-center font-black">Categoria</th>
-                      <th className="py-2.5 px-1 pb-2 text-center font-black">Tipo</th>
-                      <th className="py-2.5 px-1 pb-2 text-center font-black">Data de Carga</th>
-                      <th className="py-2.5 px-1 pb-2 text-center font-black">Tamanho</th>
-                      <th className="py-2.5 px-1 pb-2 text-center font-black">Estado</th>
-                      <th className="py-2.5 px-1 pb-2 text-right font-black">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {knowledgeFiles.map(file => {
-                      const isPdf = file.type === 'PDF';
-                      const isDoc = ['DOC', 'DOCX'].includes(file.type || '');
-                      const isImg = ['JPG', 'JPEG', 'PNG', 'GIF', 'WEBP'].includes(file.type || '');
-                      
-                      return (
-                        <tr key={file.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                          <td className="py-2 px-1 font-bold text-slate-800 flex items-center gap-2.5">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border text-[8px] font-black tracking-tighter uppercase ${
-                              isPdf 
-                                ? 'bg-rose-50 border-rose-200/40 text-rose-600' 
-                                : isImg
-                                ? 'bg-emerald-50 border-emerald-200/40 text-emerald-600'
-                                : isDoc
-                                ? 'bg-indigo-50 border-indigo-200/40 text-indigo-600'
-                                : 'bg-amber-50 border-amber-200/40 text-amber-700'
-                            }`}>
-                              <span>{file.type || 'DOC'}</span>
-                            </div>
-                            <span className="truncate max-w-[145px] text-xs font-bold text-slate-700" title={file.name}>
-                              {file.name}
-                            </span>
-                          </td>
-                          <td className="py-2 px-1 text-center">
-                            <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-md px-2 py-0.5 uppercase tracking-wide">
-                              {file.category || 'Documento'}
-                            </span>
-                          </td>
-                          <td className="py-2 px-1 text-center font-mono font-extrabold text-slate-450 uppercase text-[9.5px]">
-                            {file.type || 'DOC'}
-                          </td>
-                          <td className="py-2 px-1 text-center font-semibold text-slate-500 whitespace-nowrap text-[10px]">
-                            {file.uploadedAt}
-                          </td>
-                          <td className="py-2 px-1 text-center font-bold text-slate-650 text-[10px]">
-                            {file.size}
-                          </td>
-                          <td className="py-2 px-1 text-center">
-                            {file.status === 'Processado' ? (
-                              <span className="bg-emerald-50 border border-emerald-200/60 text-emerald-600 rounded-md text-[8.5px] font-extrabold px-2 py-0.5 inline-flex items-center gap-1 uppercase tracking-wide">
-                                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block" />
-                                Processado
-                              </span>
-                            ) : (
-                              <span className="bg-indigo-50 border border-indigo-200/60 text-indigo-700 rounded-md text-[8.5px] font-extrabold px-2 py-0.5 inline-flex items-center gap-1 uppercase tracking-wide animate-pulse">
-                                <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full inline-block animate-ping" />
-                                {file.status}
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-2 px-1">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button className="p-1 hover:bg-slate-50 text-slate-400 hover:text-[#0c2340] rounded border-none bg-transparent cursor-pointer" title="Visualizar">
-                                <Eye size={13} className="stroke-[2.5]" />
-                              </button>
-                              <button className="p-1 hover:bg-slate-50 text-slate-400 hover:text-indigo-600 rounded border-none bg-transparent cursor-pointer" title="Recarregar">
-                                <RefreshCw size={12} className="stroke-[2.5]" />
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteFile(file.id, file.name)}
-                                className="p-1 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded border-none bg-transparent cursor-pointer" 
-                                title="Remover"
-                              >
-                                <Trash2 size={13} className="stroke-[2.5]" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {knowledgeFiles.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="py-12 text-center text-slate-400 uppercase font-black tracking-widest text-[10px]">
-                          Nenhum documento na base de conhecimento
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Table pagination stats footer */}
-            <div className="flex items-center justify-between text-[10px] font-extrabold text-slate-450 border-t border-slate-105 pt-2.5 mt-1 uppercase tracking-wider">
-              <span>{knowledgeFiles.length} documentos • {knowledgeFiles.filter(f => f.status === 'Processado').length} processados</span>
-              <div className="flex items-center gap-4">
-                <span>Página 1 de 1</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Como funciona alert */}
-          <div className="bg-indigo-50/40 border border-indigo-100 rounded-xl p-4 flex items-start gap-3">
-            <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-150 flex items-center justify-center text-indigo-600 shrink-0 mt-0.5">
-              <Info className="w-4 h-4 text-indigo-600" />
-            </div>
-            <div>
-              <p className="text-[11px] text-indigo-950 font-bold leading-relaxed uppercase tracking-tight m-0">
-                <strong className="text-indigo-900 font-extrabold mr-1.5">Como funciona:</strong>
-                Os documentos são processados automaticamente após o upload e ficam disponíveis para a IA consultar durante as conversas. Ao remover um documento, a IA deixa imediatamente de utilizar esse conteúdo como fonte de conhecimento. A indexação semântica é feita pelo motor da Groq.
-              </p>
-            </div>
-          </div>
-        </>
+        <InstKbSelfService
+          institutionCode={institutionCode}
+          profileName={profileName}
+          onResumo={setKbResumo}
+          addAuditLog={addAuditLog}
+        />
       )}
 
       {/* SUB-TAB: HISTÓRICO */}
