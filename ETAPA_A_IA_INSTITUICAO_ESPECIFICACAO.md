@@ -158,11 +158,17 @@ valores de taxas/tarifas/requisitos só entram vindos da página citada.
 
 ### Vaga-2 da KB (2026-08-05, "Podes alargar a base a mais instituições")
 
-> ⏳ **ESTADO (2026-08-05 ~19h05 UTC): código completo e testado, DEPLOY EM
-> ESPERA** — os commits `a61a234` e `c004fa7` não foram servidos pela Vercel
-> (produção segue com a vaga-1: 6 instituições). Verificado: ficheiro embutido
-> parseia OK localmente (13 siglas), esbuild da função OK, webhooks pararam
-> pós-`da5614d`. Sondas ao vivo da vaga-2 ficam pendentes do deploy.
+> ✅ **RESOLVIDO (2026-08-05 ~19h40 UTC):** a causa era o **limite Hobby da
+> Vercel — 12 funções serverless por deploy** ("No more than 12 Serverless
+> Functions can be added to a Deployment on the Hobby plan", erro reportado
+> pelo dono no painel). Cada `.ts` em `api/` conta como uma função: os 14
+> ficheiros da KB em `api/kb/` + `api/index.ts` = 15 funções. CORRECÇÃO:
+> KB consolidada num ÚNICO ficheiro `api/kb/registoKb.ts` (685 linhas, 13
+> instituições, 0 imports) ⇒ `api/` passou a ter só 2 funções. Sondas ao
+> vivo da vaga-2 re-corridas abaixo após o deploy.
+>
+> (contexto anterior: commits `a61a234`/`c004fa7` falharam no build por este
+> limite; produção ficou congelada na vaga-1 sem quebrar nada.)
 
 +7 instituições (DNIRN, Conservatória do Registo Civil, DTSER, SIAC, MINED,
 MINSA, Emergências CISP 111) ⇒ **13 instituições · 31 fontes**. Detalhe das

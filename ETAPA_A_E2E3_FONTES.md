@@ -131,8 +131,9 @@ nem dos regulamentos disponíveis." e indica onde confirmar.
 
 ## Arquitectura técnica (resumo honesto)
 
-- Fonte única do conteúdo: ficheiros `api/kb/*Kb.ts` (literais com
-  `fonteUrl` e `atualizadoEm` por entrada);
+- Fonte única do conteúdo: **`api/kb/registoKb.ts`** — ficheiro único
+  consolidado com todas as instituições (necessário porque cada ficheiro em
+  `api/` conta como uma função serverless e o plano Hobby permite apenas 12);
 - `scripts/syncKb.ts` copia o conteúdo para dentro de `api/index.ts` — a
   Vercel não aceita imports neste ponto (falha de arranque confirmada 2×);
 - Teste automático garante que o conteúdo em produção é **idêntico** aos

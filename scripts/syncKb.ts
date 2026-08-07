@@ -1,8 +1,9 @@
 // ============================================================================
 // syncKb.ts — Etapa A / E2 (2026-08-05)
-// Injeta o conteúdo de api/kb/* (FONTE ÚNICA) na secção marcada de
-// api/index.ts, porque a Vercel não tolera imports locais novos no entry
-// (FUNCTION_INVOCATION_FAILED confirmado 2x em 2026-08-05).
+// Injeta o conteúdo de api/kb/registoKb.ts (FONTE ÚNICA, ficheiro único
+// consolidado — ver lá a nota do limite Hobby de 12 funções) na secção
+// marcada de api/index.ts, porque a Vercel não tolera imports locais novos
+// no entry (FUNCTION_INVOCATION_FAILED confirmado 2x em 2026-08-05).
 //
 // Uso (a partir da raiz do repo):
 //   npx tsx scripts/syncKb.ts
