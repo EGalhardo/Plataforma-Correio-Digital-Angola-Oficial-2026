@@ -138,7 +138,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
         };
         reader.readAsDataURL(file);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error uploading photo:', error);
       if (addAuditLog) {
         addAuditLog(`Erro ao atualizar foto de perfil institucional: ${error.message || error}`, 'warning');

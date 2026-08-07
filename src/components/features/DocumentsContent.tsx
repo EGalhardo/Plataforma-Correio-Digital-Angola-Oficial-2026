@@ -369,7 +369,7 @@ export function DocumentsContent({
     return effectiveInvoices.filter(item => item.org?.toLowerCase() === selectedInst.toLowerCase());
   }, [effectiveInvoices, selectedInst]);
 
-  const saveInvoicesToStorage = (updatedList: any[]) => {
+  const saveInvoicesToStorage = (updatedList: unknown[]) => {
     localStorage.setItem('correio_digital_faturas', JSON.stringify(updatedList));
     setInvoices(updatedList);
   };

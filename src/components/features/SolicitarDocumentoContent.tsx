@@ -59,7 +59,7 @@ interface SolicitarDocumentoContentProps {
   setTab: (tab: string) => void;
   bi: string;
   nif: string;
-  onEmitDocument: (doc: Document, notification: any) => void;
+  onEmitDocument: (doc: Document, notification: { title: string; message: string; type?: string; targetTab?: string }) => void;
   isOnline: boolean;
   addAuditLog: (action: string, type: 'info' | 'warning' | 'critical' | 'success') => void;
 }

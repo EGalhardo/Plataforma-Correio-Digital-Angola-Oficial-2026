@@ -117,6 +117,19 @@ interface GovContactsContentProps {
   auditLogs?: AuditLog[];
 }
 
+
+// Linhas cruas lidas nesta página (solicitacoes_registo / profiles / storage).
+interface LinhaSolicitacaoCidadao {
+  id: string | number; nome: string; bi_numero: string; email?: string;
+  status?: string; observacoes?: string; url_selfie?: string;
+  url_bi_frente?: string; url_bi_verso?: string; created_at?: string;
+  url_frente?: string; url_verso?: string; pvi_json?: string;
+  criado_em?: string;
+  nome_completo?: string; telefone?: string;
+  [extra: string]: unknown;
+}
+interface LinhaPerfilAdmin { id?: string; name: string; email?: string; bi: string; }
+
 export function GovContactsContent({
   appMode = 'user',
   bi = '009874562LA041',
@@ -508,7 +521,7 @@ export function GovContactsContent({
           'Ativo'
         ];
         // Instituições deixam de figurar nesta fila — passaram para a página Instituições.
-        return parsed.filter((c: any) => c.category !== 'Instituição').map((c: any) => {
+        return parsed.filter((c: Partial<Citizen> & { contact?: string }) => c.category !== 'Instituição').map((c) => {
           let st = c.status;
           if (st === 'Aprovado' || st === 'Ativo') st = 'Ativo';
           if (st === 'Pendente' || st === 'Pendente de Validação') st = 'Pendente de Validação';
@@ -875,7 +888,7 @@ export function GovContactsContent({
     </div>
   );
 
-  const mapRegistrationRowsToCitizens = (rows: any[]): Citizen[] => rows.map((item: any) => {
+  const mapRegistrationRowsToCitizens = (rows: LinhaSolicitacaoCidadao[]): Citizen[] => rows.map((item) => {
     // F29 (v11.1): status 'Aprovado' com marcador [PVIC] APTO = auto-aprovação pela IA
     // (distinta da aprovação manual — com selo próprio e revogação marcada).
     const pvi = parsePvicFromObservacoes(item.observacoes);
@@ -891,7 +904,7 @@ export function GovContactsContent({
       kyc?.ia === 'Rejeitado' ? 'Rejeitado' : undefined;
 
     return {
-      id: item.id,
+      id: String(item.id),
       name: item.nome,
       category: item.observacoes?.includes('[Instituição]') ? 'Instituição' : 'Cidadão',
       province: 'Luanda',
@@ -913,7 +926,7 @@ export function GovContactsContent({
       iaResult: iaRes,
       urlFrente: item.url_frente || '',
       urlVerso: item.url_verso || '',
-      dbUUID: item.id,
+      dbUUID: String(item.id),
       // F29 (v11.1) — detalhe da Pré-Verificação Inteligente para o painel do modal
       pviVer: pvi?.ver ?? undefined,
       pviAlertas: pvi?.al,
@@ -924,7 +937,7 @@ export function GovContactsContent({
     };
   });
 
-  const mapProfilesToCitizens = (rows: any[]): Citizen[] => rows.map((item: any, index: number) => ({
+  const mapProfilesToCitizens = (rows: LinhaPerfilAdmin[]): Citizen[] => rows.map((item, index: number) => ({
     id: item.id || `profile-${index}`,
     name: item.name,
     category: 'Cidadão',
@@ -940,7 +953,7 @@ export function GovContactsContent({
     dbUUID: item.id
   }));
 
-  const updateRegistrationRecord = async (recordId: string, payload: Record<string, any>) => {
+  const updateRegistrationRecord = async (recordId: string, payload: Record<string, unknown>) => {
     try {
       const { error } = await supabase
         .from('solicitacoes_registo')
@@ -1024,7 +1037,7 @@ export function GovContactsContent({
           if (raw) {
             const list = JSON.parse(raw);
             if (Array.isArray(list)) {
-              const kept = list.filter((m: any) => !(
+              const kept = list.filter((m: { homologation?: boolean; homologationBi?: string }) => !(
                 m && m.homologation === true &&
                 normalizeHomologationBi(m.homologationBi) === normalizeHomologationBi(biKey)
               ));
@@ -1038,7 +1051,7 @@ export function GovContactsContent({
           const biClean = biKey.replace(/\s+/g, '');
           const { data: files } = await supabase.storage.from('documentos_registo').list(biClean);
           if (files && files.length > 0) {
-            await supabase.storage.from('documentos_registo').remove(files.map((f: any) => `${biClean}/${f.name}`));
+            await supabase.storage.from('documentos_registo').remove(files.map((f: { name: string }) => `${biClean}/${f.name}`));
           }
         } catch (e) { /* ignora — storage sem permissão: eliminação lógica já garantida */ }
         // F47 — resíduos de nuvem eliminados em cascata (best-effort): perfil e
@@ -1082,7 +1095,7 @@ export function GovContactsContent({
             if (profileData && profileData.length > 0) {
               const profileCitizens = mapProfilesToCitizens(profileData);
               setCitizens(prev => {
-                const localFiltered = prev.filter(c => !profileData.some((item: any) => item.bi === c.biNumber));
+                const localFiltered = prev.filter(c => !(profileData as LinhaPerfilAdmin[]).some((item) => item.bi === c.biNumber));
                 return [...profileCitizens, ...localFiltered];
               });
             }
@@ -1094,11 +1107,11 @@ export function GovContactsContent({
 
         if (data && data.length > 0) {
           // Instituições vivem na página Instituições (secção "Solicitações de Registo") — saem da fila de cidadãos.
-          const citizenRows = (data as any[]).filter((item: any) => !item?.observacoes?.includes('[Instituição]'));
+          const citizenRows = (data as LinhaSolicitacaoCidadao[]).filter((item) => !item?.observacoes?.includes('[Instituição]'));
           const supabaseCitizens: Citizen[] = await resolveCitizenDocUrls(mapRegistrationRowsToCitizens(citizenRows));
 
           setCitizens(prev => {
-            const localFiltered = prev.filter(c => !citizenRows.some((item: any) => item.bi_numero === c.biNumber) && c.category !== 'Instituição');
+            const localFiltered = prev.filter(c => !citizenRows.some((item) => item.bi_numero === c.biNumber) && c.category !== 'Instituição');
             // A versão da nuvem ganha prioridade, MAS preserva as métricas reais
             // locais quando o registo na nuvem ainda não as transporta.
             const merged = supabaseCitizens.map(sc => {

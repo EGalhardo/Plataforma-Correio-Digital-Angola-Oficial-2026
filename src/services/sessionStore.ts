@@ -45,7 +45,7 @@ interface SessionContextType {
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const sanitizeSessionUser = (candidate: any): SessionUser => {
+  const sanitizeSessionUser = (candidate: Partial<SessionUser> | null | undefined): SessionUser => {
     // F8 — fallback por modo: na área da Instituição os campos vazios NUNCA são
     // preenchidos com os dados demo do cidadão.
     const mode = (localStorage.getItem("gov_app_mode") as AppMode) || "user";

@@ -197,11 +197,14 @@ const ensureBlazeFace = async () => {
   return blazeFacePromise;
 };
 
-const detectLargestFace = async (detector: any, imgEl: HTMLImageElement) => {
+interface PredicaoFace { topLeft: [number, number]; bottomRight: [number, number]; landmarks?: Array<[number, number]>; }
+interface DetectorFacesMin { estimateFaces(img: HTMLImageElement, returnTensors: boolean): Promise<PredicaoFace[]>; }
+
+const detectLargestFace = async (detector: DetectorFacesMin, imgEl: HTMLImageElement) => {
   const predictions = await detector.estimateFaces(imgEl, false);
   if (!predictions || predictions.length === 0) return null;
   // maior caixa = face principal do documento/retrato
-  const sorted = [...predictions].sort((a: any, b: any) =>
+  const sorted = [...predictions].sort((a: PredicaoFace, b: PredicaoFace) =>
     (b.bottomRight[0] - b.topLeft[0]) * (b.bottomRight[1] - b.topLeft[1]) -
     (a.bottomRight[0] - a.topLeft[0]) * (a.bottomRight[1] - a.topLeft[1])
   );
@@ -376,7 +379,7 @@ export const runRegistrationVerification = async (
           if (!selfieFace) errors.push('nenhuma face detetada na selfie (câmara virtual?)');
         }
       }
-    } catch (e: any) {
+    } catch (e) {
       face.error = e?.message || 'motor facial indisponível';
       errors.push('comparação facial indisponível neste dispositivo/rede');
     }
@@ -406,7 +409,7 @@ export const runRegistrationVerification = async (
           ocr.score = Math.round(ocr.confidence * 0.2 + ocr.biScore * 0.35 + ocr.nameScore * 0.45);
         }
       }
-    } catch (e: any) {
+    } catch (e) {
       ocr.error = e?.message || 'motor OCR indisponível';
       errors.push('OCR indisponível neste dispositivo/rede');
     }

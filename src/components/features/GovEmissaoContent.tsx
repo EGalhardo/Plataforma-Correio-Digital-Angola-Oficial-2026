@@ -58,7 +58,7 @@ export function GovEmissaoContent({
     }
   ], [userRequests]);
 
-  const handleSelectRequest = (item: any) => {
+  const handleSelectRequest = (item: { user: string; bi?: string; subject: string; date: string }) => {
     setFormData({
       ...formData,
       holder: item.user,

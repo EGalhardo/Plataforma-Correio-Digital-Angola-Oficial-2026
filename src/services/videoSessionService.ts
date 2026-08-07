@@ -27,6 +27,21 @@ const generateUUID = (): string => {
 };
 
 // Extended session interface for enhanced features
+// Linha crua da tabela de sessoes de video (aceita grafias snake/camel).
+interface LinhaVideoSessao {
+  id?: string | number; room_name?: string; roomName?: string; subject?: string;
+  associated_protocol?: string; associatedProtocol?: string;
+  associated_message_id?: number; associatedMessageId?: number; status?: string;
+  host_bi?: string; hostBi?: string; host_name?: string; hostName?: string;
+  guest_bi?: string; guestBi?: string; guest_name?: string; guestName?: string;
+  scheduled_for?: string; scheduledFor?: string; created_at?: string; createdAt?: string;
+  closed_at?: string; closedAt?: string; agenda?: string; notes?: string;
+  duration?: number; quality?: string; participant_count?: number; participantCount?: number;
+  session_id?: string | number; sessionId?: string | number;
+  event_type?: string; eventType?: string; bi?: string; user_name?: string; userName?: string;
+  description?: string; timestamp?: string;
+}
+
 export interface VideoSessionExtended extends VideoSession {
   agenda?: string;
   notes?: string;
@@ -214,13 +229,13 @@ export const VideoSessionService = {
         
       if (error) throw error;
       if (data && data.length > 0) {
-        const mapped: VideoSessionExtended[] = data.map((d: any) => ({
-          id: d.id,
+        const mapped: VideoSessionExtended[] = data.map((d: LinhaVideoSessao) => ({
+          id: String(d.id ?? ''),
           roomName: d.room_name || d.roomName,
           subject: d.subject,
           associatedProtocol: d.associated_protocol || d.associatedProtocol,
           associatedMessageId: d.associated_message_id || d.associatedMessageId,
-          status: d.status,
+          status: d.status as VideoSessionExtended['status'],
           hostBi: d.host_bi || d.hostBi,
           hostName: d.host_name || d.hostName,
           guestBi: d.guest_bi || d.guestBi,
@@ -231,7 +246,7 @@ export const VideoSessionService = {
           agenda: d.agenda,
           notes: d.notes,
           duration: d.duration,
-          quality: d.quality,
+          quality: d.quality as VideoSessionExtended['quality'],
           participantCount: d.participant_count || 2
         }));
         return mapped;
@@ -478,10 +493,10 @@ export const VideoSessionService = {
 
       if (error) throw error;
       if (data && data.length > 0) {
-        return data.map((d: any) => ({
-          id: d.id,
-          sessionId: d.session_id || d.sessionId,
-          eventType: d.event_type || d.eventType,
+        return data.map((d: LinhaVideoSessao) => ({
+          id: String(d.id ?? ''),
+          sessionId: String(d.session_id ?? d.sessionId ?? ''),
+          eventType: (d.event_type || d.eventType) as VideoSessionEvent['eventType'],
           bi: d.bi,
           userName: d.user_name || d.userName,
           description: d.description,

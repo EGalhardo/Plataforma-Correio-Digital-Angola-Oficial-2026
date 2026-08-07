@@ -70,7 +70,7 @@ export function getAdvertisingImageUrls(): string[] {
   urls.add("https://i.postimg.cc/4x1mS4hQ/AGT.jpg");
 
   // Use optional chaining and type assertions to safe-guard against structure variations
-  const addUrl = (url: any) => {
+  const addUrl = (url: unknown) => {
     if (typeof url === 'string' && url.trim().length > 0) {
       urls.add(url.trim());
     }
@@ -224,7 +224,7 @@ export async function startImagePreloading(): Promise<void> {
         try {
           await preloadSingleImage(url, isWebpSupported);
           currentStats.progress.loaded += 1;
-        } catch (err: any) {
+        } catch (err) {
           currentStats.progress.failed += 1;
           const msg = err.message || Error(err).message;
           currentStats.errors.push(msg);

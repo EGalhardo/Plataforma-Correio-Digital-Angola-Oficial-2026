@@ -119,7 +119,7 @@ export function InstitutionEmergencyBroadcast({
     let outcome: RowSendOutcome;
     try {
       outcome = await onSendRow(member);
-    } catch (e: any) {
+    } catch (e) {
       outcome = { platform: 'falhou', platformErrorCode: e?.code || 'EXCEPCAO', waLink: null };
     }
 

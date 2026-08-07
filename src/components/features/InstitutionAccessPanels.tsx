@@ -97,7 +97,7 @@ export function InstitutionAccessPanel({ code, identity, onAudit }: PanelProps) 
       try {
         const raw = localStorage.getItem('correio_digital_institutions');
         if (raw) {
-          const list = JSON.parse(raw).map((i: any) => (i.instCode || '').toUpperCase() === code.toUpperCase() ? { ...i, logoUrl: dataUrl } : i);
+          const list = JSON.parse(raw).map((i: { instCode?: string; logoUrl?: string }) => (i.instCode || '').toUpperCase() === code.toUpperCase() ? { ...i, logoUrl: dataUrl } : i);
           localStorage.setItem('correio_digital_institutions', JSON.stringify(list));
         }
       } catch { /* ignora */ }

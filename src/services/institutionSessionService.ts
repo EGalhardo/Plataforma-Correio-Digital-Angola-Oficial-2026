@@ -11,6 +11,7 @@
 
 import { homologationStore, type HomologationStatus } from './homologationStore';
 import { cloudSignIn, provisionCloudAccount, isCloudBound, markCloudAccount, unmarkCloudAccount, syntheticInstitutionAgentEmail } from './cloudAuthService';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   getLocalInstReg, normalizeInstCode, parseInstPack, splitAgentNumber,
   removeLocalInstReg,
@@ -78,7 +79,7 @@ export type InstPreloginLookup =
   | { kind: 'empty' }
   | { kind: 'unavailable' };
 
-export const preloginLookupInstitution = async (supabase: any, code: string): Promise<InstPreloginLookup> => {
+export const preloginLookupInstitution = async (supabase: SupabaseClient, code: string): Promise<InstPreloginLookup> => {
   if (!supabase?.rpc) return { kind: 'unavailable' };
   try {
     const { data, error } = await supabase.rpc('cda_prelogin_instituicao', { p_codigo: code });
@@ -141,7 +142,7 @@ export const institutionEliminatedMessage = (code: string, name?: string): strin
  */
 export const resolveInstitutionFaceLogin = async (
   typedRaw: string,
-  supabase?: any
+  supabase?: SupabaseClient
 ): Promise<InstitutionLoginResult> => {
   const typed = normalizeInstCode(typedRaw);
   const { code: parsedCode, seq: agentSeq } = splitAgentNumber(typed);
@@ -151,7 +152,7 @@ export const resolveInstitutionFaceLogin = async (
   }
 
   const reg: LocalInstitutionRegistration | undefined = getLocalInstReg(code);
-  let row: any = null;
+  let row: Record<string, string> | null = null;
   // F44 (v15): reconhecimento pré-Auth por RPC security-definer (devolve só nome+estado).
   // Guarda SEM `ready` (padrão do serviço): o cliente injectado decide — sem nuvem,
   // a RPC falha e cai no SELECT legado / espelho local (D3), sem quebrar.
@@ -247,7 +248,7 @@ export const resolveInstitutionFaceLogin = async (
 export const resolveInstitutionLogin = async (
   codeRaw: string,
   password: string,
-  supabase?: any
+  supabase?: SupabaseClient
 ): Promise<InstitutionLoginResult> => {
   const typed = normalizeInstCode(codeRaw);
   // F6/B3: o campo recebe o Nº Agente Institucional (SME-LLVV-01). Códigos antigos
@@ -260,7 +261,7 @@ export const resolveInstitutionLogin = async (
 
   // 1. Localizar o registo: espelho local primeiro, nuvem depois
   const reg: LocalInstitutionRegistration | undefined = getLocalInstReg(code);
-  let row: any = null;
+  let row: Record<string, string> | null = null;
   // F44 (v15): reconhecimento pré-Auth por RPC security-definer (devolve só nome+estado).
   // Guarda SEM `ready` (padrão do serviço): o cliente injectado decide — sem nuvem,
   // a RPC falha e cai no SELECT legado / espelho local (D3), sem quebrar.

@@ -159,7 +159,7 @@ export const AnimatedCounter: React.FC<AnimatedCounterProps> = memo(({
 
     let isCancelled = false;
     let animationFrameId: number;
-    let timeoutId: any;
+    let timeoutId: ReturnType<typeof setTimeout>;
 
     const runAnimation = () => {
       isAnimatingRef.current = true;

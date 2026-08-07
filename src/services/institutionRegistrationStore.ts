@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 // ============================================================================
 // Loja Local de Registos de Instituições — Correio Digital Angola
 // ----------------------------------------------------------------------------
@@ -256,7 +257,7 @@ const isSupabaseReady = (): boolean =>
  * Consulta `solicitacoes_registo` (todas as linhas; o email é global, a sigla só entre instituições).
  * Em falta de rede/tabela, usa a loja local — a rede de segurança continua a ser o UNIQUE do bi_numero.
  */
-export const collectInstitutionUniqueness = async (supabase: any): Promise<{
+export const collectInstitutionUniqueness = async (supabase: SupabaseClient): Promise<{
   takenCodes: string[];
   takenEmails: string[];
   takenSiglas: string[];

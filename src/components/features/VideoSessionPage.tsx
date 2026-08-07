@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../../hooks/useLanguage';
 import { VideoSessionService } from '../../services/videoSessionService';
+import type { VideoSessionExtended } from '../../services/videoSessionService';
 
 interface JitsiEmbedProps {
   roomName: string;
@@ -245,6 +246,7 @@ interface VideoSessionPageProps {
 
 // mockSessions com atendimentos disponíveis e 1 sessão de demonstração sempre activa
 const mockSessions = [
+
   {
     id: 'sessao-demo',
     subject: 'CONFERÊNCIA DEMO ACTIVA - Testar Jitsi Meet',
@@ -291,7 +293,8 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
   const { t } = useLanguage();
   
   const [sessions, setSessions] = useState<any[]>([]);
-  const [selectedSession, setSelectedSession] = useState<any | null>(null);
+  type SessaoPagina = VideoSessionExtended | (typeof mockSessions)[number];
+  const [selectedSession, setSelectedSession] = useState<SessaoPagina | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'agenda' | 'historico' | 'calendario' | 'ajuda' | 'video'>('agenda');
   const [isVideoOn, setIsVideoOn] = useState(true);
@@ -316,7 +319,7 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
     try {
       const allSessions = await VideoSessionService.listSessions();
       // Garantir que a sessão demo de teste esteja sempre ativa e incluída na lista para demonstração
-      let finalSessions: any[] = allSessions.length > 0 ? [...allSessions] : [...mockSessions];
+      let finalSessions: SessaoPagina[] = allSessions.length > 0 ? [...allSessions] : [...mockSessions];
       if (!finalSessions.some(s => s.id === 'sessao-demo')) {
         finalSessions = [mockSessions[0], ...finalSessions];
       }
@@ -360,7 +363,7 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
   const availableCount = sessions.filter(s => s.status === 'disponivel' || s.status === 'agendada').length;
   const inProgressCount = sessions.filter(s => s.status === 'em_curso').length;
   
-  const handleStartCall = (session: any) => {
+  const handleStartCall = (session: SessaoPagina) => {
     setSelectedSession(session);
     setIsInCall(true);
     setCallDuration(0);

@@ -54,7 +54,11 @@ export async function assistenteDocumento(args: {
       signal: controller.signal,
       body: JSON.stringify(args),
     });
-    let data: any = null;
+    interface CorpoRespostaApi {
+      ok?: boolean; resultado?: string; modelo?: string; erro?: string;
+      kb?: { instituicao?: unknown; fontes?: unknown; truncado?: unknown };
+    }
+    let data: CorpoRespostaApi | null = null;
     try {
       data = await resp.json();
     } catch {
@@ -76,7 +80,7 @@ export async function assistenteDocumento(args: {
       };
     }
     return { ok: true, resultado: data.resultado, modelo: data.modelo, kb };
-  } catch (e: any) {
+  } catch (e) {
     if (e?.name === 'AbortError') {
       return { ok: false, erro: 'O assistente demorou demasiado tempo a responder.' };
     }

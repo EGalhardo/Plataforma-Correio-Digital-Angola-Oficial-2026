@@ -16,6 +16,7 @@
  *   enviado. gateway_status: 'sem_gateway'.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { Contact } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -364,7 +365,7 @@ export function emergencyAlertFeedback(outcome: EmergencyAlertOutcome): string {
  * `if (!client)`: honesto — o alerta NÃO ficou registado.
  */
 export async function insertEmergencyAlertWithClient(
-  client: any,
+  client: SupabaseClient,
   row: EmergencyAlertRow,
 ): Promise<EmergencyAlertOutcome> {
   const base: EmergencyAlertOutcome = {
@@ -383,7 +384,7 @@ export async function insertEmergencyAlertWithClient(
       return { ...base, errorCode: error.code || 'DESCONHECIDO', errorMessage: error.message || '' };
     }
     return { ...base, recorded: true };
-  } catch (e: any) {
+  } catch (e) {
     return { ...base, errorCode: e?.code || 'EXCEPCAO', errorMessage: e?.message || String(e) };
   }
 }

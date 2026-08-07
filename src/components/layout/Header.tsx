@@ -43,7 +43,7 @@ interface HeaderProps {
   onOpenUnreadMessage?: (message: Message) => void;
   /** Tom do indicador Online por estado da conta do cidadão (null = tom padrão verde). */
   citizenOnlineTone?: 'red' | 'green' | 'yellow' | null;
-  chatAssistantRecognitionRef?: any; // Utilizar 'any' estável no padrão do ficheiro para evitar dependência de namespace React
+  chatAssistantRecognitionRef?: { current: { stop(): void } | null };
 }
 
 function UnreadMessagesMenu({

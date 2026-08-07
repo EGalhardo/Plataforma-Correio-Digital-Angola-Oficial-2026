@@ -180,7 +180,22 @@ interface AIChatAssistantProps {
   activeTab?: string;
   pageContextHint?: string;
   currentLanguage?: LanguageCode;
-  recognitionRefOut?: any; // Utilizar 'any' estável no padrão do ficheiro para evitar dependência de namespace React
+  recognitionRefOut?: { current: ReconhecimentoVoz | null };
+}
+
+// Superficie minima da Web Speech API usada neste ficheiro (TS nao traz
+// SpeechRecognition na lib DOM) — substitui `any` com a forma real usada.
+interface ResultadoReconhecimento {
+  resultIndex: number;
+  results: { length: number; [i: number]: { isFinal: boolean; 0: { transcript: string } } };
+}
+interface ErroReconhecimento { error?: string; message?: string }
+interface ReconhecimentoVoz {
+  continuous: boolean; interimResults: boolean; lang: string;
+  onresult: ((event: ResultadoReconhecimento) => void) | null;
+  onerror: ((event: ErroReconhecimento) => void) | null;
+  onend: (() => void) | null; onstart: (() => void) | null;
+  start(): void; stop(): void; abort(): void;
 }
 
 export function AIChatAssistant({ 
@@ -460,7 +475,7 @@ export function AIChatAssistant({
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) return;
 
-    let recognition: any;
+    let recognition: ReconhecimentoVoz;
     try {
       recognition = new SpeechRecognition();
     } catch (err) {
@@ -472,7 +487,7 @@ export function AIChatAssistant({
     recognition.interimResults = true;
     recognition.lang = 'pt-AO';
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: ResultadoReconhecimento) => {
       let finalTranscript = '';
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         if (event.results[i].isFinal) {
@@ -508,7 +523,7 @@ export function AIChatAssistant({
       }, 300);
     };
 
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (event: ErroReconhecimento) => {
       // no-speech is a timeout when no one talks, we can ignore it as onend will restart it
       if (event.error === 'no-speech') {
         return;
@@ -747,7 +762,7 @@ export function AIChatAssistant({
         const errorMsg = data.error || 'Falha na resposta da IA';
         throw new Error(errorMsg);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Chat error:', error);
       const userFriendlyError = error.message.includes('not configured') 
         ? 'A chave da API Groq não foi configurada. Por favor, adicione GROQ_API_KEY no painel de Segredos (Settings -> Secrets).'

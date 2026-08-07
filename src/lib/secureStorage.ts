@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 // ============================================================================
 // F45 — Armazenamento Selado (Auditoria F42 · P2 Storage Privado)
 // ----------------------------------------------------------------------------
@@ -83,7 +84,7 @@ export const signedUrlCacheSize = (): number => signedCache.size;
  *     (ainda funciona enquanto o bucket estiver público — janela de deploy)
  */
 export const resolveStorageUrl = async (
-  supabase: any,
+  supabase: SupabaseClient,
   raw?: string | null,
   ttlSeconds: number = DEFAULT_TTL_SECONDS
 ): Promise<string> => {
@@ -121,7 +122,7 @@ export const resolveStorageUrl = async (
 
 /** Resolve uma lista em paralelo, mantendo a ordem (posições vazias → ''). */
 export const resolveStorageUrls = async (
-  supabase: any,
+  supabase: SupabaseClient,
   raws: (string | null | undefined)[],
   ttlSeconds: number = DEFAULT_TTL_SECONDS
 ): Promise<string[]> => Promise.all(raws.map(r => resolveStorageUrl(supabase, r, ttlSeconds)));

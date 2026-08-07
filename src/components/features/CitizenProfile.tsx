@@ -155,7 +155,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
       setIsEditingInfo(false);
       // F53 (C3): feedback honesto — "sistema central" só quando a nuvem confirmou.
       setFeedback(contaSaveFeedbackFromOutcome(syncOutcome));
-    } catch (error: any) {
+    } catch (error) {
       setFeedback({
         type: 'error',
         text: 'Erro ao atualizar o perfil.',
@@ -214,7 +214,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
         };
         reader.readAsDataURL(file);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error uploading photo:', error);
       if (addAuditLog) {
         addAuditLog(`Erro ao atualizar foto de perfil: ${error.message || error}`, 'warning');
@@ -289,7 +289,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
           details: fb.details,
         });
       }
-    } catch (err: any) {
+    } catch (err) {
       setFeedback({
         type: 'error',
         text: 'Falha na ligação com o servidor Supabase',

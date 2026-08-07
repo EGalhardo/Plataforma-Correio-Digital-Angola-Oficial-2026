@@ -34,7 +34,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { Document, Message } from '../../types';
 
 interface InstQrCodeContentProps {
-  qrCodeModuleRef?: { current: any };
+  qrCodeModuleRef?: { current: Html5Qrcode | null };
   documents: Document[];
   messages?: Message[];
   onSelectMessage?: (msg: Message) => void;
@@ -42,12 +42,24 @@ interface InstQrCodeContentProps {
   setTab?: (tab: string) => void;
 }
 
+// Payload aberto vindo de QRs externos: chaves conhecidas tipadas; o resto
+// fica acessível via índice (conteúdo não confiável — nunca executado).
+interface PayloadQr {
+  protocolNumber?: string; rastreamento?: string; code?: string;
+  id?: string | number; protocolo?: string; referencia?: string;
+  'Nº PROTOCOLO NACIONAL'?: string;
+  title?: string; observacoes?: string; body?: string; status?: string;
+  signature?: string; mensagem?: string; tipo?: string; assunto?: string;
+  type?: string; data?: unknown;
+  [chave: string]: unknown;
+}
+
 interface ScanHistoryItem {
   id: number;
   raw: string;
   parsed: {
     type: string;
-    data: any;
+    data: unknown;
     isJson: boolean;
   };
   source: string;
@@ -381,7 +393,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
     const normalizedCode = trimmed.toUpperCase();
 
     // Try parsing JSON if rawCode is JSON
-    let parsedJson: any = null;
+    let parsedJson: PayloadQr | null = null;
     try {
       parsedJson = JSON.parse(trimmed);
     } catch(e) {}
@@ -876,7 +888,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
         };
         reader.readAsDataURL(file);
       }
-    } catch (err: any) {
+    } catch (err) {
       showToast('❌ Erro no processamento: ' + err.message, 'error');
       setGenSelectedFile(null);
     }
@@ -921,7 +933,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
       setGeneratedQrCodeUrl(url);
       setGeneratedQrRawText(payload);
       showToast('✅ QR Code gerado de forma correta!', 'success');
-    } catch (e: any) {
+    } catch (e) {
       showToast('Erro ao codificar QR: ' + e.message, 'error');
     }
   };
@@ -959,7 +971,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
       setGeneratedQrCodeUrl(url);
       setGeneratedQrRawText(payload);
       showToast('✅ QR Code gerado de forma correta!', 'success');
-    } catch (e: any) {
+    } catch (e) {
       showToast('Erro: ' + e.message, 'error');
     }
   };
@@ -979,7 +991,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
       setGeneratedQrCodeUrl(url);
       setGeneratedQrRawText(freeInputText);
       showToast('✅ QR Code livre gerado!', 'success');
-    } catch (e: any) {
+    } catch (e) {
       showToast('Erro: ' + e.message, 'error');
     }
   };

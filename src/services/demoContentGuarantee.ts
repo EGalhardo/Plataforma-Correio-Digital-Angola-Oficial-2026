@@ -6,7 +6,7 @@
 // sessão demo de forma idempotente e não-destrutiva (só colecções vazias + piso
 // de não-lidas).
 
-import { Message, AppNotification, Contact, Document } from '../types';
+import { Message, AppNotification, Contact, Document, Correspondence } from '../types';
 import { ensureProtocolOnMessage, ensureProtocolOnDocument } from '../utils/protocolGenerator';
 import {
   INBOX,
@@ -30,8 +30,8 @@ export interface DemoContentPlan {
   notifications: AppNotification[];
   contacts: Contact[];
   documents: Document[];
-  correspondences: any[];
-  auditLogs: any[];
+  correspondences: Correspondence[];
+  auditLogs: Array<{ id?: string; action?: string; user?: string; timestamp?: string; type?: string }>;
 }
 
 /** Plano canónico de conteúdo demo para uma área, etiquetado com a chave demo da sessão. */

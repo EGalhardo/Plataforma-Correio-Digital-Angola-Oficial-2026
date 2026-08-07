@@ -62,7 +62,7 @@ import {
   MOCK_GOV_CORRESPONDENCES,
   MOCK_SESSION_USER
 } from './constants/mocks';
-import { Message, Document, Contact, AppNotification, AppMode, UserRequest, DocRequest, Correspondence, LanguageCode } from './types';
+import { Message, Document, Contact, AppNotification, AppMode, UserRequest, DocRequest, Correspondence, LanguageCode, DigitalProtocol } from './types';
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, sealProtocolContent, canonicalProtocolPayload } from './utils/protocolGenerator';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, isRealInstitutionalCode } from './services/supabaseService';
@@ -211,7 +211,7 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          const existingIds = new Set(parsed.map((m: any) => m.id));
+          const existingIds = new Set(parsed.map((m: { id?: number | string }) => m.id));
           const newItems = baseItems.filter(m => !existingIds.has(m.id));
           items = [...parsed, ...newItems];
         } else {
@@ -237,7 +237,7 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          const existingIds = new Set(parsed.map((m: any) => m.id));
+          const existingIds = new Set(parsed.map((m: { id?: number | string }) => m.id));
           const newItems = baseItems.filter(m => !existingIds.has(m.id));
           items = [...parsed, ...newItems];
         } else {
@@ -263,7 +263,7 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          const existingIds = new Set(parsed.map((m: any) => m.id));
+          const existingIds = new Set(parsed.map((m: { id?: number | string }) => m.id));
           const newItems = baseItems.filter(m => !existingIds.has(m.id));
           items = [...parsed, ...newItems];
         } else {
@@ -289,7 +289,7 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          const existingIds = new Set(parsed.map((m: any) => m.id));
+          const existingIds = new Set(parsed.map((m: { id?: number | string }) => m.id));
           const newItems = baseItems.filter(m => !existingIds.has(m.id));
           items = [...parsed, ...newItems];
         } else {
@@ -867,7 +867,7 @@ export default function App() {
       try {
         const saved = localStorage.getItem('gov_admin_citizens');
         if (saved) {
-          const match = (JSON.parse(saved) as any[]).find((c: any) => (c.biNumber || '').toUpperCase() === normalized);
+          const match = (JSON.parse(saved) as Array<{ biNumber?: string; name?: string; contact?: string; facePhoto?: string }>).find((c) => (c.biNumber || '').toUpperCase() === normalized);
           if (match) {
             if (!resolvedName) resolvedName = match.name || match.contact || '';
             const fp = match.facePhoto || '';
@@ -2418,7 +2418,7 @@ export default function App() {
     // 4. Audit, Higienização e De-duplicação da Tabela de Correspondências Governamental
     setCorrespondences(prev => {
       const ids = new Set<string>();
-      const uniques: any[] = [];
+      const uniques: typeof prev = [];
       prev.forEach(item => {
         let c = item;
         if (!c.sender || c.sender.trim() === '') {
@@ -2916,7 +2916,7 @@ export default function App() {
         if (history && history.length > 0) {
           setSelectedMessage((prev) => prev ? {
             ...prev,
-            stateHistory: history.map((event: any) => ({
+            stateHistory: history.map((event: { state?: string; event_date?: string; event_time?: string; responsible?: string; description?: string }) => ({
               state: event.state,
               date: new Date(event.event_date).toLocaleDateString('pt-AO'),
               time: event.event_time?.slice(0,5) || '',
@@ -3046,7 +3046,7 @@ export default function App() {
   // hash SHA-256 WebCrypto sobre payload canónico. Sem crypto.subtle o
   // resultado e o marcador honesto 'NAO_SELADO' — nunca se inventa assinatura.
   const sealProtocolForSend = async (
-    protocol: any,
+    protocol: DigitalProtocol,
     senderKey: string,
     recipientKey: string,
     subject: string,
@@ -3535,7 +3535,7 @@ export default function App() {
       try {
         await supabaseService.sendOfficialMessage(emergencyMessage, member.cda_bi, institutionCode || (user?.name ?? 'Instituição'));
         platform = 'enviado';
-      } catch (e: any) {
+      } catch (e) {
         platform = 'falhou';
         platformErrorCode = e?.code || 'EXCEPCAO';
       }

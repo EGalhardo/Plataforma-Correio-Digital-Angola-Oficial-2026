@@ -843,7 +843,7 @@ export function GovCorrespondenciasContent({
                     </div>
 
                     <div className="space-y-3.5 max-h-[190px] overflow-y-auto pr-1 custom-scrollbar">
-                      {selectedLetter.history && selectedLetter.history.map((log: any, index: number) => (
+                      {selectedLetter.history && selectedLetter.history.map((log: { action?: string; user?: string; dateTime?: string; state?: string; date?: string; time?: string; responsible?: string; description?: string }, index: number) => (
                         <div key={index} className="flex gap-2 text-[10.5px] relative pl-4 border-l border-slate-200 last:border-l-0 pb-3">
                           <div className="w-2 h-2 rounded-full bg-indigo-600 absolute -left-1 top-1.5" />
                           <div className="space-y-0.5">
@@ -863,7 +863,7 @@ export function GovCorrespondenciasContent({
                       <div className="pt-2 border-t border-slate-100 space-y-1.5">
                         <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest block">{t("Documentos Anexados")} ({selectedLetter.attachments.length})</span>
                         <div className="grid grid-cols-1 gap-1.5">
-                          {selectedLetter.attachments.map((file: any, idx: number) => (
+                          {selectedLetter.attachments.map((file: { name?: string; size?: string; url?: string }, idx: number) => (
                             <div key={idx} className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-150 rounded-xl text-[10.5px]">
                               <div className="flex items-center gap-2 truncate">
                                 <FileText size={13} className="text-slate-400 shrink-0" />

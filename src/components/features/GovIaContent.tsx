@@ -314,7 +314,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
       } else {
         throw new Error(data.error);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('AI Test Error:', error);
       setTestMessages(prev => [...prev, { 
         sender: 'assistant', 

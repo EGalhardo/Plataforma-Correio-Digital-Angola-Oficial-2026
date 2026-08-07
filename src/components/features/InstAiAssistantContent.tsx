@@ -117,14 +117,14 @@ export function InstAiAssistantContent({ addAuditLog, setTab, onNavigate, appMod
     knowledgeDocs: 0,
   });
   const [aiStatus, setAiStatus] = useState<'connected' | 'disconnected' | 'loading'>('loading');
-  const [healthData, setHealthData] = useState<any>(null);
+  const [healthData, setHealthData] = useState<{ ai_key_configured?: boolean; groq_key_configured?: boolean; status?: string } | null>(null);
 
   // Fetch AI status from server
   useEffect(() => {
     const fetchAIStatus = async () => {
       let attempts = 3;
       let delayMs = 1000;
-      let lastError: any = null;
+      let lastError: { message?: string } | null = null;
 
       while (attempts > 0) {
         try {
@@ -543,7 +543,7 @@ Contexto adicional:
       } else {
         throw new Error(data.error || 'Resposta inválida da IA');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('AI Chat Error:', error);
       setChatError(error.message || 'Erro ao processar resposta da IA');
       

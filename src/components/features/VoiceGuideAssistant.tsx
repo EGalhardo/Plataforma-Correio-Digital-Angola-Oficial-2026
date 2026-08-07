@@ -16,6 +16,21 @@ interface VoiceGuideAssistantProps {
 
 type GuideStep = 'welcome' | 'presentation' | 'register_flow' | 'offer_help' | 'opened_form' | 'custom_help';
 
+// Superficie minima da Web Speech API usada neste ficheiro (TS nao traz
+// SpeechRecognition na lib DOM) — substitui `any` com a forma real usada.
+interface ResultadoReconhecimento {
+  resultIndex: number;
+  results: { length: number; [i: number]: { isFinal: boolean; 0: { transcript: string } } };
+}
+interface ErroReconhecimento { error?: string; message?: string }
+interface ReconhecimentoVoz {
+  continuous: boolean; interimResults: boolean; lang: string;
+  onresult: ((event: ResultadoReconhecimento) => void) | null;
+  onerror: ((event: ErroReconhecimento) => void) | null;
+  onend: (() => void) | null; onstart: (() => void) | null;
+  start(): void; stop(): void;
+}
+
 export function VoiceGuideAssistant({
   onScrollDown,
   onFocusSteps,
@@ -126,7 +141,7 @@ export function VoiceGuideAssistant({
       return;
     }
 
-    let recognition: any;
+    let recognition: ReconhecimentoVoz;
     try {
       recognition = new SpeechRecognition();
       recognition.continuous = true;
@@ -137,7 +152,7 @@ export function VoiceGuideAssistant({
       return;
     }
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: ResultadoReconhecimento) => {
       const lastIndex = event.results.length - 1;
       const transcript = event.results[lastIndex][0].transcript.toLowerCase().trim();
       setUserTranscript(transcript);
@@ -160,7 +175,7 @@ export function VoiceGuideAssistant({
       }, 400);
     };
 
-    recognition.onerror = (e: any) => {
+    recognition.onerror = (e: ErroReconhecimento) => {
       if (e.error === 'not-allowed') {
         setSpeechError("Microfone bloqueado. Dê permissão de áudio para falar.");
         setIsListening(false);

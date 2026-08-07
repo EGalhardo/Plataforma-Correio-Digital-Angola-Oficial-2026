@@ -64,7 +64,7 @@ interface ProfileContentProps {
   userRequests?: UserRequest[];
   docRequests?: DocRequest[];
   instAgentNumber?: string;
-  auditLogs?: any[];
+  auditLogs?: Array<{ action: string; time: string }>;
   addAuditLog?: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
 }
 
@@ -249,7 +249,7 @@ export function ProfileContent({
           addAuditLog('Falha ao testar ligação do Supabase', 'warning');
         }
       }
-    } catch (e: any) {
+    } catch (e) {
       setSupabaseErrorMsg(e?.message || 'Erro inesperado.');
     } finally {
       setSupabaseTesting(false);
@@ -301,7 +301,7 @@ export function ProfileContent({
         }
       }
       return result;
-    } catch (e: any) {
+    } catch (e) {
       const errMsg = e?.message || 'Erro de rede ou permissões ao sincronizar.';
       setSupabaseErrorMsg(errMsg);
       return { success: false, message: errMsg };
@@ -1581,7 +1581,7 @@ return (
                       </div>
 
                       <div className="space-y-2 divide-y divide-slate-100 bg-transparent border border-slate-200 rounded-xl p-3">
-                        {activeSessions.map((session: any) => (
+                        {activeSessions.map((session) => (
                           <div key={session.id} className="flex justify-between items-center py-2.5 first:pt-0 last:pb-0 font-medium font-sans">
                             <div className="min-w-0">
                               <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5 truncate">
@@ -1596,7 +1596,7 @@ return (
                                 type="button"
                                 onClick={() => {
                                   if (confirm(`Deseja revogar e terminar a sessão no dispositivo ${session.device}?`)) {
-                                    setActiveSessions((prev: any) => prev.filter((s: any) => s.id !== session.id));
+                                    setActiveSessions((prev) => prev.filter((s) => s.id !== session.id));
                                   }
                                 }}
                                 className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-rose-600 bg-white border border-rose-100 rounded-lg hover:bg-rose-50 cursor-pointer"
@@ -1621,7 +1621,7 @@ return (
                             const name = prompt("Insira o nome amigável do novo dispositivo a autorizar:");
                             if (name) {
                               const newDev = { id: `dev-${Date.now()}`, name, icon: 'smartphone', date: 'Autorizado ontem', authorized: true };
-                              setConnectedDevices((prev: any) => [...prev, newDev]);
+                              setConnectedDevices((prev) => [...prev, newDev]);
                             }
                           }}
                           className="text-[9px] text-primary hover:underline uppercase font-bold tracking-wider font-sans cursor-pointer"
@@ -1631,7 +1631,7 @@ return (
                       </div>
 
                       <div className="space-y-2 font-medium">
-                        {connectedDevices.map((dev: any) => (
+                        {connectedDevices.map((dev) => (
                           <div key={dev.id} className="p-3.5 bg-white border border-slate-150 rounded-xl flex justify-between items-center">
                             <div className="flex items-center gap-2.5 select-none md:gap-3">
                               <div className="w-9 h-9 rounded-lg bg-indigo-50/50 flex items-center justify-center text-primary border border-slate-200">
@@ -1652,7 +1652,7 @@ return (
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setConnectedDevices((prev: any) => prev.map((d: any) => d.id === dev.id ? { ...d, authorized: true, date: 'Autorizado agora' } : d));
+                                    setConnectedDevices((prev) => prev.map((d) => d.id === dev.id ? { ...d, authorized: true, date: 'Autorizado agora' } : d));
                                   }}
                                   className="text-[9px] bg-amber-50 hover:bg-amber-100 text-amber-600 font-extrabold uppercase px-2 py-1 rounded-lg border border-amber-100 cursor-pointer"
                                 >
@@ -1664,7 +1664,7 @@ return (
                                 type="button"
                                 onClick={() => {
                                   if (confirm(`Remover dispositivo ${dev.name}? Ele precisará de nova verificação de PIN.`)) {
-                                    setConnectedDevices((prev: any) => prev.filter((d: any) => d.id !== dev.id));
+                                    setConnectedDevices((prev) => prev.filter((d) => d.id !== dev.id));
                                   }
                                 }}
                                 className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-rose-500 rounded-lg cursor-pointer"

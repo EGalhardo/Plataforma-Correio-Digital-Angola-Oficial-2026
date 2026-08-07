@@ -27,7 +27,7 @@ import {
   Landmark
 } from 'lucide-react';
 
-import { Institution } from '../../types';
+import { Institution, Message } from '../../types';
 import { MUNICIPALITIES_BY_PROVINCE, CITIES_BY_PROVINCE, COMMUNES_BY_MUNICIPALITY, INSTITUTION_TYPES, mapTypeToCategory, generateSigla } from '../../config/institutionCatalog';
 import { useInstitutions } from '../../services/institutionStore';
 import { useSession } from '../../services/sessionStore';
@@ -40,6 +40,14 @@ import { parsePvicFromObservacoes } from '../../services/preVerificationService'
 
 interface GovInteroperabilidadeContentProps {
   onLog?: (action: string, type: 'info' | 'warning' | 'critical' | 'success') => void;
+}
+
+// Linha de solicitacoes_registo (campos lidos pelas acções desta página).
+interface LinhaSolicitacao {
+  id?: number | string; bi_numero: string; nome_completo?: string; nome?: string;
+  email?: string; status?: string; observacoes?: string; created_at?: string;
+  criado_em?: string;
+  [extra: string]: unknown;
 }
 
 export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeContentProps) {
@@ -107,7 +115,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
       } else {
         log("Conexão com o Supabase estabelecida com sucesso! Iniciando gravação de dados reais...");
       }
-    } catch (e: any) {
+    } catch (e) {
       log(`Conexão indisponível: ${e.message || e}`);
     }
 
@@ -239,7 +247,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
       
       const messageId = Math.floor(Math.random() * 90000000) + 10000000;
       
-      const msgObj: any = {
+      const msgObj: Message = {
         id: messageId,
         org: step.org,
         preview: step.subject,
@@ -257,7 +265,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
       };
 
       try {
-        let result: any = null;
+        let result: unknown = null;
         if (step.action === 'citizen_to_inst') {
           // Send Citizen to AGT
           result = await supabaseService.sendCitizenMessage(msgObj, citizenBi, 'AGT', citizenName);
@@ -320,7 +328,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
         
         // Brief artificial delay to show gorgeous progress sequencing
         await new Promise(r => setTimeout(r, 400));
-      } catch (err: any) {
+      } catch (err) {
         setTestSteps(prev => prev.map(s => s.id === step.id ? { ...s, status: 'failed', error: err.message || String(err) } : s));
         log(`Falha em ${step.subject}: ${err.message || err}`);
       }
@@ -608,7 +616,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   };
 
   // ---- Acções das Solicitações de Registo (modelo do cidadão) ----
-  const persistSolicitationStatus = async (row: any, status: string) => {
+  const persistSolicitationStatus = async (row: LinhaSolicitacao, status: string) => {
     updateLocalInstReg(row.bi_numero, { status });
     const ready = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
     if (!ready || !row.id || String(row.id) === String(row.bi_numero)) return;
@@ -618,7 +626,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     } catch (e) { console.warn('Actualização cloud indisponível:', e); }
   };
 
-  const handleApproveSolicitacao = async (row: any) => {
+  const handleApproveSolicitacao = async (row: LinhaSolicitacao) => {
     setSolBusy(true); setSolError('');
     const code = normalizeInstCode(row.bi_numero);
     const pack = parseInstPack(row.observacoes);
@@ -664,7 +672,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     setSolBusy(false);
   };
 
-  const handleRejectSolicitacao = async (row: any) => {
+  const handleRejectSolicitacao = async (row: LinhaSolicitacao) => {
     if (!solReason.trim()) { setSolError('Indique o motivo da rejeição — é obrigatório.'); return; }
     setSolBusy(true); setSolError('');
     const code = normalizeInstCode(row.bi_numero);
@@ -681,7 +689,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     setSolBusy(false);
   };
 
-  const handleRequestCorrections = async (row: any) => {
+  const handleRequestCorrections = async (row: LinhaSolicitacao) => {
     if (!solReason.trim()) { setSolError('Indique as correções a efectuar — é obrigatório.'); return; }
     setSolBusy(true); setSolError('');
     const code = normalizeInstCode(row.bi_numero);
@@ -698,7 +706,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     setSolBusy(false);
   };
 
-  const handleDeleteSolicitacao = async (row: any) => {
+  const handleDeleteSolicitacao = async (row: LinhaSolicitacao) => {
     setSolBusy(true);
     const code = normalizeInstCode(row.bi_numero);
     // Cascata idêntica à do cidadão: registo + homologação + thread + lidos
@@ -708,7 +716,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     try {
       const raw = localStorage.getItem('cda_inst_regs_v1');
       if (raw) {
-        const regs = JSON.parse(raw).filter((r: any) => normalizeInstCode(r.code) !== code);
+        const regs = JSON.parse(raw).filter((r: { code?: string }) => normalizeInstCode(r.code) !== code);
         localStorage.setItem('cda_inst_regs_v1', JSON.stringify(regs));
       }
     } catch { /* ignora */ }
@@ -726,7 +734,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     setSolBusy(false);
   };
 
-  const handleSendSolThread = (row: any) => {
+  const handleSendSolThread = (row: LinhaSolicitacao) => {
     if (!adminSolInput.trim()) return;
     homologationStore.addMessage(normalizeInstCode(row.bi_numero), 'admin', adminSolInput.trim());
     setAdminSolInput('');

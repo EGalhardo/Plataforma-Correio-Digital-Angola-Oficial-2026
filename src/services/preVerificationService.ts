@@ -70,13 +70,15 @@ export const requestPviVerification = async (req: PviRequest): Promise<PviVerdic
       return revisaoFallback('falha_tecnica', 'Serviço de pré-verificação indisponível — o cadastro segue para homologação manual.', startedAt);
     }
 
-    const data: any = await resp.json().catch(() => null);
+    const data = (await resp.json().catch(() => null)) as {
+      veredicto?: string; alertas?: unknown[]; motivo?: unknown; duracaoMs?: unknown; modelo?: unknown;
+    } | null;
     if (!data || (data.veredicto !== 'APTO' && data.veredicto !== 'REVISAO')) {
       return revisaoFallback('resposta_invalida', 'Resposta inválida do serviço de pré-verificação — homologação manual.', startedAt);
     }
 
     const alertas: string[] = Array.isArray(data.alertas)
-      ? data.alertas.filter((a: unknown) => typeof a === 'string' && (a as string).trim()).slice(0, 12)
+      ? data.alertas.filter((a: unknown): a is string => typeof a === 'string' && a.trim().length > 0).slice(0, 12)
       : [];
 
     // Coerência defensiva (espelha a regra do servidor): APTO nunca convive com alertas.

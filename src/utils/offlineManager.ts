@@ -1,3 +1,4 @@
+import type { Message, Document, Contact } from '../types';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -6,7 +7,7 @@
 export interface OfflineAction {
   id: string;
   type: string;
-  payload: any;
+  payload?: { contact?: Contact; id?: number; [k: string]: unknown };
   timestamp: string;
   status: 'pending' | 'synced' | 'failed';
 }
@@ -33,7 +34,7 @@ export class OfflineManager {
   /**
    * Enqueue an action to be synchronized when online
    */
-  public static queueAction(type: string, payload: any): OfflineAction {
+  public static queueAction(type: string, payload: OfflineAction['payload']): OfflineAction {
     const queue = this.getQueue();
     const newAction: OfflineAction = {
       id: `act-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -71,17 +72,17 @@ export class OfflineManager {
   /**
    * Cache messages locally for offline reading
    */
-  public static cacheMessages(messages: any[]): void {
+  public static cacheMessages(messages: Message[]): void {
     localStorage.setItem(this.CACHE_KEYS.MESSAGES, JSON.stringify(messages));
   }
 
   /**
    * Read cached messages when offline
    */
-  public static getCachedMessages(): any[] {
+  public static getCachedMessages(): Message[] {
     try {
       const data = localStorage.getItem(this.CACHE_KEYS.MESSAGES);
-      return data ? JSON.parse(data) : [];
+      return (data ? JSON.parse(data) : []) as Message[];
     } catch {
       return [];
     }
@@ -90,17 +91,17 @@ export class OfflineManager {
   /**
    * Cache documents locally for offline reading
    */
-  public static cacheDocuments(documents: any[]): void {
+  public static cacheDocuments(documents: Document[]): void {
     localStorage.setItem(this.CACHE_KEYS.DOCUMENTS, JSON.stringify(documents));
   }
 
   /**
    * Read cached documents when offline
    */
-  public static getCachedDocuments(): any[] {
+  public static getCachedDocuments(): Document[] {
     try {
       const data = localStorage.getItem(this.CACHE_KEYS.DOCUMENTS);
-      return data ? JSON.parse(data) : [];
+      return (data ? JSON.parse(data) : []) as Document[];
     } catch {
       return [];
     }

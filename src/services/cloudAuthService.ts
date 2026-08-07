@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 // ============================================================================
 // Autenticação na Nuvem (Supabase Auth) — Prompt v12 / Ideologia v13 (F31/F32)
 // ----------------------------------------------------------------------------
@@ -105,9 +106,10 @@ export const isSupabaseConfigured = (): boolean => {
 // ---- Classificação de erros do Auth (decide se D3 pode recuar ao local) ------
 export type CloudErrorKind = 'invalid_credentials' | 'already_registered' | 'unavailable' | 'other';
 
-export const classifyAuthError = (err: any): CloudErrorKind => {
-  const msg = `${err?.message || err || ''}`.toLowerCase();
-  const status = err?.status ?? err?.statusCode;
+export const classifyAuthError = (err: unknown): CloudErrorKind => {
+  const e = err as { message?: string; status?: number; statusCode?: number } | null | undefined;
+  const msg = `${e?.message || err || ''}`.toLowerCase();
+  const status = e?.status ?? e?.statusCode;
   if (msg.includes('already registered') || msg.includes('já registado') || msg.includes('already been registered')) {
     return 'already_registered';
   }
@@ -152,7 +154,7 @@ export interface CloudProvisionResult {
 
 // ---- Operações Auth (cliente injectado; NUNCA lançam excepção) ---------------
 export const cloudSignIn = async (
-  client: any,
+  client: SupabaseClient,
   email: string,
   password: string,
 ): Promise<CloudSignInResult> => {
@@ -169,14 +171,14 @@ export const cloudSignIn = async (
       return { outcome: 'invalid', message: 'Sessão não criada (confirmação de e-mail activa?).' };
     }
     return { outcome: 'ok', metadata: (data.user?.user_metadata as Record<string, any>) || {} };
-  } catch (e: any) {
+  } catch (e) {
     const kind = classifyAuthError(e);
     return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
   }
 };
 
 export const cloudSignUp = async (
-  client: any,
+  client: SupabaseClient,
   email: string,
   password: string,
   metadata: Record<string, any>,
@@ -194,7 +196,7 @@ export const cloudSignUp = async (
       return { outcome: 'pending_confirm', message: 'Conta criada mas pendente de confirmação de e-mail (desactivar no painel Supabase).' };
     }
     return { outcome: 'ok' };
-  } catch (e: any) {
+  } catch (e) {
     const kind = classifyAuthError(e);
     if (kind === 'already_registered') return { outcome: 'conflict', message: e?.message || String(e) };
     return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
@@ -207,7 +209,7 @@ export const cloudSignUp = async (
  * conferindo, liga a conta local à nuvem; divergindo, reporta conflito.
  */
 export const provisionCloudAccount = async (
-  client: any,
+  client: SupabaseClient,
   params: { email: string; password: string; metadata: Record<string, any> },
 ): Promise<CloudProvisionResult> => {
   const up = await cloudSignUp(client, params.email, params.password, params.metadata);
@@ -219,7 +221,7 @@ export const provisionCloudAccount = async (
 };
 
 /** D6 — confirma suave de sessão nuvem após login facial (nunca bloqueia). */
-export const hasActiveCloudSession = async (client: any): Promise<boolean> => {
+export const hasActiveCloudSession = async (client: SupabaseClient): Promise<boolean> => {
   try {
     const { data } = await client.auth.getSession();
     return !!data?.session;
@@ -245,14 +247,14 @@ export interface CloudSignOutResult {
  * exigir a senha real. Demos: o desvio é feito no CHAMADOR (App decide a isenção
  * via homologationStore); aqui garantimos apenas a operação Auth em si.
  */
-export const cloudSignOutBestEffort = async (client: any): Promise<CloudSignOutResult> => {
+export const cloudSignOutBestEffort = async (client: SupabaseClient): Promise<CloudSignOutResult> => {
   try {
     if (!client?.auth?.signOut) return { outcome: 'no_op', message: 'cliente Auth ausente.' };
     const { error } = await client.auth.signOut();
     if (error) return { outcome: 'error', message: error.message };
     console.log('[AUTH-CLOUD] Sessão Auth terminada (signOut).');
     return { outcome: 'ok' };
-  } catch (e: any) {
+  } catch (e) {
     return { outcome: 'error', message: e?.message || String(e) };
   }
 };
@@ -278,7 +280,7 @@ export interface CloudPasswordChangeResult {
  * decidido no chamador (Perfil), que conhece a identidade e o modo da sessão.
  */
 export const cloudChangePassword = async (
-  client: any,
+  client: SupabaseClient,
   newPassword: string,
 ): Promise<CloudPasswordChangeResult> => {
   try {
@@ -302,7 +304,7 @@ export const cloudChangePassword = async (
     try { await client.auth.signOut({ scope: 'others' }); } catch { /* best-effort */ }
     console.log('[AUTH-CLOUD] Palavra-passe actualizada na nuvem.');
     return { outcome: 'ok' };
-  } catch (e: any) {
+  } catch (e) {
     const kind = classifyAuthError(e);
     return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
   }

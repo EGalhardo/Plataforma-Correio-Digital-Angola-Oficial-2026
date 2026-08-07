@@ -27,6 +27,7 @@
 // ============================================================================
 
 import { homologationStore, normalizeHomologationBi, HomologationStatus } from './homologationStore';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { unmarkCloudAccount } from './cloudAuthService';
 
 export interface CitizenRegistrationRead {
@@ -49,7 +50,7 @@ export interface CitizenRegistrationRead {
  *    isRevokedDeletedAccount).
  */
 export const readCitizenRegistrationStatus = async (
-  client: any,
+  client: SupabaseClient,
   bi: string,
 ): Promise<CitizenRegistrationRead> => {
   const cleanBi = normalizeHomologationBi(bi);
@@ -132,7 +133,7 @@ export const purgeCitizenLocalResidues = (bi: string): void => {
     if (raw) {
       const list = JSON.parse(raw);
       if (Array.isArray(list)) {
-        const kept = list.filter((m: any) => !(
+        const kept = list.filter((m: { homologation?: boolean; homologationBi?: string }) => !(
           m && m.homologation === true &&
           normalizeHomologationBi(m.homologationBi) === cleanBi
         ));

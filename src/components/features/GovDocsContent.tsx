@@ -60,7 +60,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
 
   // Custom unified filter
   const unifiedList = useMemo(() => {
-    const list: any[] = [];
+    const list: Array<Record<string, string | number>> = [];
     
     // Add processed documents
     documents.forEach(doc => {

@@ -2,6 +2,66 @@ import { supabase } from '../lib/supabaseClient';
 import { Message, Document, Contact, UserRequest, DocRequest, Correspondence, AppNotification } from '../types';
 import { MOCK_CITIZENS, MOCK_USERS, MOCK_SESSION_USER } from '../constants/mocks';
 
+// ----------------------------------------------------------------------------
+// Linhas cruas do PostgREST (travessia de tipagem 2026-08-07 — item 4 do
+// backlog): substituem os mappers soltos. Declaram as colunas que os mappers
+// realmente leem; o tsconfig esta sem strictNullChecks, pelo que valores
+// null vindos da BD continuam a compilar tal como antes — o ganho real e
+// autocompletar + apanhar erros de digitacao no nome da coluna.
+// ----------------------------------------------------------------------------
+interface LinhaMensagem {
+  id: number | string; org: string; preview: string; created_at: string;
+  unread: boolean; status: string; subject: string; body: string;
+  deadline_text: string; state_indicator: string; actions: string[];
+  attachments: string[]; sensitivity: string; priority_scale: string;
+  deadline_hours_remaining: number; sender_bi: string; recipient_bi: string;
+}
+interface LinhaPerfilNome { bi: string; name: string; }
+interface LinhaDocumento {
+  name: string; validity: string; code: string; holder_bi: string;
+  document_number: string; issuer: string; issued_at: string;
+}
+interface LinhaContacto {
+  id: number; name: string; bi: string; relation: string; status: string;
+  type: string; phone: string | null; whatsapp: string | null;
+}
+interface LinhaUserRequest {
+  id: number; user_name: string; service_type: string; priority: string;
+  time_text: string; status: string; user_bi: string; institution: string;
+  request_date: string | null;
+}
+interface LinhaDocRequest {
+  id: number; user_name: string; user_bi: string; doc_type: string;
+  institution: string; request_date: string | null; status: string; ai_status: string;
+}
+// linha de audit_logs: tudo opcional — o semeador aceita objectos parciais
+// ({action,time}) e o mapper de leitura preenche os restantes.
+interface LinhaAuditLog {
+  id?: number | string; action?: string; username?: string;
+  timestamp?: string; action_type?: string;
+  message?: string; user?: string; type?: string;
+}
+interface LinhaProtocolo {
+  protocolNumber: string; issuerInstitution: string; officialIssueDate?: string;
+  officialTime?: string; issuerResponsible?: string; category?: string;
+  documentType?: string; currentState?: string; priority?: string;
+  qrCodeUrl?: string; digitalSignature?: string; legalValidity?: string;
+}
+interface LinhaNotificacao {
+  title: string; message: string; time?: string; type?: string; targetTab?: string;
+}
+
+// linha CRUA da tabela notifications (mapper de leitura)
+interface LinhaNotificacaoRow {
+  id: number | string; target_bi: string; title: string; message: string;
+  time_text: string; type: string; target_tab: string;
+}
+interface ProfileUpsertPayload {
+  bi: string; name: string; phone: string | null; nif: string | null;
+  passport: string | null; birth_date: string | undefined;
+  filiation: string | null; marital_status: string | null; role: string;
+}
+
 /**
  * Service to connect and synchronize state with the Supabase database.
  * Formatted and typed to align 100% with /supabase/schema.sql and the application types.
@@ -177,7 +237,7 @@ export const supabaseService = {
   /**
    * Check connection and verify if tables are created.
    */
-  async testConnection(): Promise<{ success: boolean; message: string; details?: any }> {
+  async testConnection(): Promise<{ success: boolean; message: string; details?: unknown }> {
     if (!hasValidSupabaseKeys()) {
       return {
         success: false,
@@ -212,7 +272,7 @@ export const supabaseService = {
         message: 'Conexão estabelecida com sucesso! As tabelas do banco de dados estão prontas.',
         details: { status }
       };
-    } catch (err: any) {
+    } catch (err) {
       return {
         success: false,
         message: 'Falha ao conectar com o servidor Supabase. Por favor, verifique sua conexão ou URL.',
@@ -273,7 +333,7 @@ export const supabaseService = {
       }
     }
 
-    const payload: any = {
+    const payload: ProfileUpsertPayload = {
       bi: profile.bi,
       name: profile.name,
       phone: profile.phone || null,
@@ -285,7 +345,7 @@ export const supabaseService = {
       role: profile.role || 'user'
     };
 
-    const performSave = async (currentPayload: any) => {
+    const performSave = async (currentPayload: ProfileUpsertPayload) => {
       const { data: existing } = await supabase
         .from('profiles')
         .select('id')
@@ -312,7 +372,7 @@ export const supabaseService = {
 
     try {
       return await performSave(payload);
-    } catch (e: any) {
+    } catch (e) {
       let activeError = e;
       const errorMsg = String(activeError?.message || activeError?.details || '').toLowerCase();
       const errorCode = String(activeError?.code || '');
@@ -328,7 +388,7 @@ export const supabaseService = {
           payload.nif = null;
           try {
             return await performSave(payload);
-          } catch (retryErr: any) {
+          } catch (retryErr) {
             activeError = retryErr; // prossegue para o check de passaporte se falhar por passaporte
           }
         }
@@ -343,7 +403,7 @@ export const supabaseService = {
           payload.passport = null;
           try {
             return await performSave(payload);
-          } catch (retryErr: any) {
+          } catch (retryErr) {
             activeError = retryErr;
           }
         }
@@ -376,7 +436,7 @@ export const supabaseService = {
 
       if (error) throw error;
       return data;
-    } catch (e: any) {
+    } catch (e) {
       console.error('Supabase insertMessage error:', e);
       throw e;
     }
@@ -398,7 +458,7 @@ export const supabaseService = {
       const { data, error } = await supabase.from('messages').upsert([payload]).select();
       if (error) throw error;
       return data;
-    } catch (e: any) {
+    } catch (e) {
       console.error('Supabase sendCitizenMessage error:', e);
       throw e;
     }
@@ -421,7 +481,7 @@ export const supabaseService = {
       const { data, error } = await supabase.from('messages').upsert([payload]).select();
       if (error) throw error;
       return data;
-    } catch (e: any) {
+    } catch (e) {
       console.error('Supabase sendOfficialMessage error:', e);
       throw e;
     }
@@ -433,7 +493,7 @@ export const supabaseService = {
       const { data, error } = await supabase.from('messages').update(changes).eq('id', messageId).select();
       if (error) throw error;
       return data;
-    } catch (e: any) {
+    } catch (e) {
       console.error('Supabase updateMessageState error:', e);
       return null;
     }
@@ -467,7 +527,7 @@ export const supabaseService = {
       const { data, error } = await supabase.from('message_state_history').insert([payload]).select();
       if (error) throw error;
       return data;
-    } catch (e: any) {
+    } catch (e) {
       console.error('Supabase insertMessageStateEvent error:', e);
       return null;
     }
@@ -484,7 +544,7 @@ export const supabaseService = {
         .order('event_time', { ascending: true });
       if (error) throw error;
       return data || [];
-    } catch (e: any) {
+    } catch (e) {
       console.error('Supabase getMessageStateHistory error:', e);
       return null;
     }
@@ -512,7 +572,7 @@ export const supabaseService = {
         .select();
       if (error) throw error;
       return data;
-    } catch (e: any) {
+    } catch (e) {
       console.error('Supabase insertDocument error:', e);
       throw e;
     }
@@ -559,7 +619,7 @@ export const supabaseService = {
         throw error;
       }
       return data;
-    } catch (e: any) {
+    } catch (e) {
       console.error('Supabase insertContact error:', e);
       throw e;
     }
@@ -665,7 +725,7 @@ export const supabaseService = {
         .insert([payload]);
       if (error) throw error;
       return { written: true };
-    } catch (e: any) {
+    } catch (e) {
       console.warn('Supabase auditLog sync warning (non-blocking):', e?.message || e);
       return null;
     }
@@ -693,7 +753,7 @@ export const supabaseService = {
         .select();
       if (error) throw error;
       return data;
-    } catch (e: any) {
+    } catch (e) {
       console.error('Supabase userRequest error:', e);
       throw e;
     }
@@ -720,7 +780,7 @@ export const supabaseService = {
         .select();
       if (error) throw error;
       return data;
-    } catch (e: any) {
+    } catch (e) {
       console.error('Supabase docRequest error:', e);
       throw e;
     }
@@ -760,7 +820,7 @@ export const supabaseService = {
       if (error) throw error;
       if (!data) return [];
 
-      return data.map((item: any) => {
+      return data.map((item: LinhaMensagem) => {
         return {
           id: Number(item.id),
           org: item.org,
@@ -776,8 +836,8 @@ export const supabaseService = {
             actions: item.actions || [],
             attachments: item.attachments || []
           },
-          sensitivity: item.sensitivity,
-          priorityScale: item.priority_scale,
+          sensitivity: item.sensitivity as Message['sensitivity'],
+          priorityScale: item.priority_scale as Message['priorityScale'],
           deadlineHoursRemaining: item.deadline_hours_remaining,
           // P0-A — chaves reais da nuvem para verificacao de integridade no detalhe.
           senderKey: item.sender_bi,
@@ -810,14 +870,14 @@ export const supabaseService = {
       if (error) throw error;
       if (!data) return { messages: [], legacyIds: [] };
 
-      const senderBis = Array.from(new Set(data.map((item: any) => item.sender_bi).filter((value: string) => !!value && !['AGT','SME','ENDE','EPAL','MINSA','TRIBUNAL','SYSTEM'].includes(value))));
+      const senderBis = Array.from(new Set(data.map((item: LinhaMensagem) => item.sender_bi).filter((value: string) => !!value && !['AGT','SME','ENDE','EPAL','MINSA','TRIBUNAL','SYSTEM'].includes(value))));
       let profilesByBi = new Map<string, string>();
       if (senderBis.length > 0) {
         const { data: profiles } = await supabase.from('profiles').select('bi,name').in('bi', senderBis);
-        profilesByBi = new Map((profiles || []).map((item: any) => [item.bi, item.name]));
+        profilesByBi = new Map((profiles || []).map((item: LinhaPerfilNome) => [item.bi, item.name]));
       }
 
-      const mapped: Message[] = data.map((item: any) => ({
+      const mapped: Message[] = data.map((item: LinhaMensagem) => ({
         id: Number(item.id),
         org: profilesByBi.has(item.sender_bi) ? `Cidadão: ${profilesByBi.get(item.sender_bi)}` : `Cidadão: ${item.sender_bi}`,
         preview: item.preview,
@@ -832,8 +892,8 @@ export const supabaseService = {
           actions: item.actions || [],
           attachments: item.attachments || []
         },
-        sensitivity: item.sensitivity,
-        priorityScale: item.priority_scale,
+        sensitivity: item.sensitivity as Message['sensitivity'],
+        priorityScale: item.priority_scale as Message['priorityScale'],
         deadlineHoursRemaining: item.deadline_hours_remaining,
         // P0-A — chaves reais guardadas na nuvem (base do payload canonico CDA-P1
         // usado na verificacao de integridade do protocolo no detalhe da mensagem).
@@ -847,8 +907,8 @@ export const supabaseService = {
       let legacyIds: number[] = [];
       if (realCode && legacyTarget !== target) {
         const { data: legacyRows } = await supabase.from('messages').select('id').eq('recipient_bi', legacyTarget);
-        const exactIds = new Set(data.map((item: any) => Number(item.id)));
-        legacyIds = (legacyRows || []).map((item: any) => Number(item.id)).filter(id => !exactIds.has(id));
+        const exactIds = new Set(data.map((item: LinhaMensagem) => Number(item.id)));
+        legacyIds = (legacyRows || []).map((item: LinhaMensagem) => Number(item.id)).filter(id => !exactIds.has(id));
       }
       return { messages, legacyIds } as InstitutionMailboxBundle;
     } catch (e) {
@@ -867,7 +927,7 @@ export const supabaseService = {
         .order('created_at', { ascending: false });
       if (error) throw error;
       if (!data) return [];
-      return data.map((item: any) => ({
+      return data.map((item: LinhaMensagem) => ({
         id: Number(item.id),
         org: item.org,
         preview: item.preview,
@@ -882,8 +942,8 @@ export const supabaseService = {
           actions: item.actions || [],
           attachments: item.attachments || []
         },
-        sensitivity: item.sensitivity,
-        priorityScale: item.priority_scale,
+        sensitivity: item.sensitivity as Message['sensitivity'],
+        priorityScale: item.priority_scale as Message['priorityScale'],
         deadlineHoursRemaining: item.deadline_hours_remaining,
         // P0-A — chaves reais da nuvem para verificacao de integridade no detalhe.
         senderKey: item.sender_bi,
@@ -909,7 +969,7 @@ export const supabaseService = {
       if (error) throw error;
       if (!data) return [];
 
-      return data.map((item: any) => ({
+      return data.map((item: LinhaDocumento) => ({
         name: item.name,
         validity: item.validity,
         code: item.code,
@@ -938,13 +998,13 @@ export const supabaseService = {
       if (error) throw error;
       if (!data) return [];
 
-      return data.map((item: any) => ({
+      return data.map((item: LinhaContacto) => ({
         id: Number(item.id),
         name: item.name,
         bi: item.bi,
         relation: item.relation,
         status: item.status,
-        type: item.type,
+        type: item.type as Contact['type'],
         // F55 — v19 passa a devolver phone/whatsapp; antes do v19 o select('*')
         // simplesmente não traz as colunas e estes campos ficam undefined.
         phone: item.phone || undefined,
@@ -971,12 +1031,12 @@ export const supabaseService = {
       if (error) throw error;
       if (!data) return [];
 
-      return data.map((item: any) => ({
+      return data.map((item: LinhaNotificacaoRow) => ({
         id: Number(item.id),
         title: item.title,
         message: item.message,
         time: item.time_text,
-        type: item.type,
+        type: item.type as Contact['type'],
         targetTab: item.target_tab
       }));
     } catch (e) {
@@ -988,7 +1048,7 @@ export const supabaseService = {
   /**
    * Save a system notification to Supabase
    */
-  async insertNotification(notif: any, targetBi: string) {
+  async insertNotification(notif: LinhaNotificacao, targetBi: string) {
     if (!hasValidSupabaseKeys()) return null;
     try {
       await ensureProfileExists(targetBi, undefined, inferProfileRole(targetBi));
@@ -1035,7 +1095,7 @@ export const supabaseService = {
       if (error) throw error;
       if (!data) return [];
 
-      return data.map((item: any) => ({
+      return data.map((item: LinhaUserRequest) => ({
         id: Number(item.id),
         user: item.user_name,
         type: item.service_type,
@@ -1067,7 +1127,7 @@ export const supabaseService = {
       if (error) throw error;
       if (!data) return [];
 
-      return data.map((item: any) => ({
+      return data.map((item: LinhaDocRequest) => ({
         id: Number(item.id),
         userName: item.user_name,
         userBi: item.user_bi,
@@ -1098,7 +1158,7 @@ export const supabaseService = {
       if (error) throw error;
       if (!data) return [];
 
-      return data.map((item: any) => ({
+      return data.map((item: LinhaAuditLog) => ({
         id: String(item.id),
         action: item.action,
         user: item.username,
@@ -1163,13 +1223,13 @@ export const supabaseService = {
       
       // Filter out messages that represent general personal messages of citizen
       // Keep only those with sensitivity 'Correspondencia' or that fallback to provinces in deadline_text
-      const filtered = data.filter((item: any) => {
+      const filtered = data.filter((item: LinhaMensagem) => {
         if (item.sensitivity === 'Correspondencia') return true;
         if (item.deadline_text && provinces.includes(item.deadline_text.toLowerCase())) return true;
         return false;
       });
 
-      return filtered.map((item: any) => ({
+      return filtered.map((item: LinhaMensagem) => ({
         id: `COR-${item.id}`,
         sender: item.sender_bi,
         recipient: resolveCitizenName(item.recipient_bi),
@@ -1223,7 +1283,7 @@ export const supabaseService = {
         .maybeSingle();
       if (error) return { protocol: null, errorCode: String((error as any)?.code || 'ERRO') };
       return { protocol: data || null };
-    } catch (e: any) {
+    } catch (e) {
       console.error('Supabase getDigitalProtocolByNumber error:', e);
       return { protocol: null, errorCode: String(e?.code || 'ERRO') };
     }
@@ -1243,7 +1303,7 @@ export const supabaseService = {
       const { data, error } = await supabase.rpc('cda_instituicao_existe', { p_codigo: target });
       if (error) return { registered: false, errorCode: String((error as any)?.code || 'ERRO') };
       return { registered: data === true };
-    } catch (e: any) {
+    } catch (e) {
       console.error('Supabase institutionRegistered error:', e);
       return { registered: false, errorCode: String(e?.code || 'ERRO') };
     }
@@ -1252,7 +1312,7 @@ export const supabaseService = {
   /**
    * Insert digital protocol
    */
-  async insertDigitalProtocol(p: any) {
+  async insertDigitalProtocol(p: LinhaProtocolo) {
     if (!hasValidSupabaseKeys()) return null;
     try {
       const payload = {
@@ -1312,12 +1372,12 @@ export const supabaseService = {
     documents: Document[];
     userRequests: UserRequest[];
     docRequests: DocRequest[];
-    auditLogs: any[];
+    auditLogs: LinhaAuditLog[];
     notifications?: AppNotification[];
     correspondences?: Correspondence[];
     institutionInbox?: Message[];
     institutionCode?: string;
-  }): Promise<{ success: boolean; message: string; counts?: any }> {
+  }): Promise<{ success: boolean; message: string; counts?: Record<string, number> }> {
     if (!hasValidSupabaseKeys()) {
       return { success: false, message: 'Não é possível semear: Chaves do Supabase ausentes ou inválidas.' };
     }
@@ -1347,7 +1407,7 @@ export const supabaseService = {
           role: 'user'
         });
         if (pResult) profileCount++;
-      } catch (err: any) {
+      } catch (err) {
         errors.push(`Perfil (${err?.message || err})`);
       }
 
@@ -1364,7 +1424,7 @@ export const supabaseService = {
           const res = await this.insertContact(contact, params.profile.bi);
           if (res) contactCount++;
           else errors.push(`Contato ${contact.name}`);
-        } catch (err: any) {
+        } catch (err) {
           errors.push(`Contato (${contact.name}: ${err?.message || err})`);
         }
       }
@@ -1376,7 +1436,7 @@ export const supabaseService = {
           const res = await this.sendOfficialMessage(msg, params.profile.bi, msg.org);
           if (res) messageCount++;
           else errors.push(`Msg Inbox #${msg.id}`);
-        } catch (err: any) {
+        } catch (err) {
           errors.push(`Msg Inbox #${msg.id} (${err?.message || err})`);
         }
       }
@@ -1387,7 +1447,7 @@ export const supabaseService = {
           const res = await this.sendCitizenMessage(msg, params.profile.bi, msg.org);
           if (res) messageCount++;
           else errors.push(`Msg Sent #${msg.id}`);
-        } catch (err: any) {
+        } catch (err) {
           errors.push(`Msg Sent #${msg.id} (${err?.message || err})`);
         }
       }
@@ -1398,7 +1458,7 @@ export const supabaseService = {
           const res = await this.insertDocument(doc, params.profile.bi);
           if (res) docCount++;
           else errors.push(`Doc ${doc.name}`);
-        } catch (err: any) {
+        } catch (err) {
           errors.push(`Doc ${doc.name} (${err?.message || err})`);
         }
       }
@@ -1409,7 +1469,7 @@ export const supabaseService = {
           const res = await this.insertUserRequest(req);
           if (res) requestCount++;
           else errors.push(`Ped IPU #${req.id}`);
-        } catch (err: any) {
+        } catch (err) {
           errors.push(`Ped IPU #${req.id} (${err?.message || err})`);
         }
       }
@@ -1420,7 +1480,7 @@ export const supabaseService = {
           const res = await this.insertDocRequest(req);
           if (res) requestCount++;
           else errors.push(`Req Doc #${req.id}`);
-        } catch (err: any) {
+        } catch (err) {
           errors.push(`Req Doc #${req.id} (${err?.message || err})`);
         }
       }
@@ -1430,7 +1490,7 @@ export const supabaseService = {
         try {
           const res = await this.insertNotification(notification, params.profile.bi);
           if (res) notifCount++;
-        } catch (err: any) {
+        } catch (err) {
           errors.push(`Notificação (${notification.title}: ${err?.message || err})`);
         }
       }
@@ -1440,7 +1500,7 @@ export const supabaseService = {
         try {
           const res = await this.insertCorrespondence(cor);
           if (res) correspondenceCount++;
-        } catch (err: any) {
+        } catch (err) {
           errors.push(`Correspondência (${cor.id}: ${err?.message || err})`);
         }
       }
@@ -1452,7 +1512,7 @@ export const supabaseService = {
           const inferredCitizenBi = msg.details?.body?.match(/BI:\s*([A-Z0-9]+)/i)?.[1] || params.profile.bi;
           const res = await this.sendCitizenMessage(msg, inferredCitizenBi, targetInstitution);
           if (res) messageCount++;
-        } catch (err: any) {
+        } catch (err) {
           errors.push(`Inbox Institucional #${msg.id} (${err?.message || err})`);
         }
       }
@@ -1485,7 +1545,7 @@ export const supabaseService = {
           auditLogs: logCount
         }
       };
-    } catch (e: any) {
+    } catch (e) {
       return {
         success: false,
         message: `Falha na semeadura geral: ${e?.message || e}`

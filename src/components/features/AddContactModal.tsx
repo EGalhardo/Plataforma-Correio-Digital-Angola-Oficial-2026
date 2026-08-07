@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { Dispatch, SetStateAction } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -22,11 +23,17 @@ import {
 
 import { CONTACT_RELATION_OPTIONS } from '../../services/emergencyContactsService';
 
+// Espelha o useState do compositor de contactos no App (fonte única da forma).
+interface ContactoForm {
+  name: string; bi: string; relation: string; phone: string; whatsapp: string;
+  type: 'Normal' | 'Emergência';
+}
+
 interface AddContactModalProps {
   isAddingContact: boolean;
   setIsAddingContact: (isAdding: boolean) => void;
   contactForm: { name: string; bi: string; relation: string; phone?: string; whatsapp?: string; type?: 'Normal' | 'Emergência' };
-  setContactForm: (form: any) => void;
+  setContactForm: Dispatch<SetStateAction<ContactoForm>>;
   onAddContact: () => void;
   /** F55 — erros de validação reais (telefone +244, duplicados, relação…). */
   formErrors?: string[];
@@ -94,7 +101,7 @@ export function AddContactModal({
                   <div className="bg-slate-50/50 p-1 rounded-2xl flex w-full border border-slate-200">
                     <button 
                       type="button"
-                      onClick={() => setContactForm((prev: any) => ({ ...prev, type: 'Normal' }))}
+                      onClick={() => setContactForm((prev) => ({ ...prev, type: 'Normal' }))}
                       className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
                         (contactForm.type || 'Normal') === 'Normal'
                           ? 'bg-[#0c2340] text-white shadow-sm'
@@ -107,7 +114,7 @@ export function AddContactModal({
                     </button>
                     <button 
                       type="button"
-                      onClick={() => setContactForm((prev: any) => ({ ...prev, type: 'Emergência' }))}
+                      onClick={() => setContactForm((prev) => ({ ...prev, type: 'Emergência' }))}
                       className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
                         contactForm.type === 'Emergência'
                           ? 'bg-[#0c2340] text-white shadow-sm'
@@ -133,7 +140,7 @@ export function AddContactModal({
                       <input 
                         placeholder="Ex: Edlasio Galhardo" 
                         value={contactForm.name}
-                        onChange={e => setContactForm((prev: any) => ({ ...prev, name: e.target.value }))}
+                        onChange={e => setContactForm((prev) => ({ ...prev, name: e.target.value }))}
                         className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
                         id="contact-name-input"
                       />
@@ -150,7 +157,7 @@ export function AddContactModal({
                       <input 
                         placeholder="000000000LA000" 
                         value={contactForm.bi}
-                        onChange={e => setContactForm((prev: any) => ({ ...prev, bi: e.target.value }))}
+                        onChange={e => setContactForm((prev) => ({ ...prev, bi: e.target.value }))}
                         className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-mono font-bold tracking-wider placeholder:text-slate-400"
                         maxLength={14}
                         id="contact-bi-input"
@@ -167,7 +174,7 @@ export function AddContactModal({
                       </span>
                       <select
                         value={contactForm.relation}
-                        onChange={e => setContactForm((prev: any) => ({ ...prev, relation: e.target.value }))}
+                        onChange={e => setContactForm((prev) => ({ ...prev, relation: e.target.value }))}
                         className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold appearance-none cursor-pointer"
                         id="contact-relation-input"
                       >
@@ -189,7 +196,7 @@ export function AddContactModal({
                       <input 
                         placeholder="+244 923 000 000" 
                         value={contactForm.phone || ''}
-                        onChange={e => setContactForm((prev: any) => ({ ...prev, phone: e.target.value }))}
+                        onChange={e => setContactForm((prev) => ({ ...prev, phone: e.target.value }))}
                         className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
                         id="contact-phone-input"
                       />
@@ -206,7 +213,7 @@ export function AddContactModal({
                       <input 
                         placeholder="+244 923 000 000" 
                         value={contactForm.whatsapp || ''}
-                        onChange={e => setContactForm((prev: any) => ({ ...prev, whatsapp: e.target.value }))}
+                        onChange={e => setContactForm((prev) => ({ ...prev, whatsapp: e.target.value }))}
                         className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
                         id="contact-whatsapp-input"
                       />

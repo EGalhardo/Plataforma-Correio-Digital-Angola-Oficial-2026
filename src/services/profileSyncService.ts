@@ -17,6 +17,7 @@
 // ============================================================================
 
 import { homologationStore } from './homologationStore';
+import type { SupabaseClient, PostgrestError } from '@supabase/supabase-js';
 import { classifyAuthError, isCloudBound } from './cloudAuthService';
 
 export type ProfileSyncOutcome =
@@ -96,10 +97,10 @@ export const buildCitizenContaPatch = (
 });
 
 /** Linha de `profiles` → campos de sessão do cidadão (só presentes; C2). */
-export const profileRowToCitizenFields = (row: any): Record<string, string> => {
+export const profileRowToCitizenFields = (row: Record<string, unknown> | null | undefined): Record<string, string> => {
   if (!row || typeof row !== 'object') return {};
   const out: Record<string, string> = {};
-  const put = (key: string, val: any) => { if (val) out[key] = String(val); };
+  const put = (key: string, val: unknown) => { if (val) out[key] = String(val); };
   put('name', row.name);
   put('phone', row.phone);
   put('nif', row.nif);
@@ -139,7 +140,7 @@ export const contaSaveFeedbackFromOutcome = (
 
 /** NUNCA lança — classifica sempre. */
 export const syncProfileToCloud = async (
-  client: any,
+  client: SupabaseClient,
   patch: CitizenProfilePatch,
 ): Promise<ProfileSyncResult> => {
   const bi = (patch.bi || '').trim();
@@ -158,7 +159,7 @@ export const syncProfileToCloud = async (
   const fields = Object.keys(cols);
   if (!fields.length) return { outcome: 'ok', message: 'nenhum campo para sincronizar.', fields: [] };
 
-  const runSave = async (columns: Record<string, string>): Promise<{ error: any; created: boolean }> => {
+  const runSave = async (columns: Record<string, string>): Promise<{ error: PostgrestError | null; created: boolean }> => {
     const { data: existing, error: findErr } = await client
       .from('profiles').select('id').eq('bi', bi).maybeSingle();
     if (findErr) return { error: findErr, created: false };
@@ -202,7 +203,7 @@ export const syncProfileToCloud = async (
     }
     console.log('[PERFIL-SYNC] Perfil sincronizado na nuvem:', fields.join('+'), '•', bi);
     return { outcome: res.created ? 'created' : 'ok', fields };
-  } catch (e: any) {
+  } catch (e) {
     const kind = classifyAuthError(e);
     return {
       outcome: kind === 'unavailable' ? 'unavailable' : 'error',

@@ -1,4 +1,5 @@
 import express from "express";
+import type { Response as ExpressResponse } from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { WebSocketServer, WebSocket } from "ws";
@@ -155,7 +156,7 @@ async function startServer() {
         runtime_flags: runtimeFlags,
         table_health: tableHealth,
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error('error in /api/security/readiness:', err);
       res.status(500).json({ error: err?.message || 'Erro ao verificar prontidão de segurança.' });
     }
@@ -204,7 +205,7 @@ async function startServer() {
           if (response && response.text) {
             return res.json({ result: response.text });
           }
-        } catch (geminiErr: any) {
+        } catch (geminiErr) {
           console.error("Gemini failed in /api/gov-ai, falling back to Groq... Error:", geminiErr);
         }
       }
@@ -246,7 +247,7 @@ async function startServer() {
 
       return res.json({ result: mockResult });
 
-    } catch (err: any) {
+    } catch (err) {
       console.error("error in /api/gov-ai:", err);
       res.status(500).json({ error: err.message || "Erro desconhecido na central de IA." });
     }
@@ -262,8 +263,9 @@ async function startServer() {
   // (Manter em sincronia com a rota equivalente em api/index.ts — produção Vercel.)
   app.post("/api/verificar-cadastro", async (req, res) => {
     const body = req.body;
-    const pviResponderBase = (res: any, payload: any) => res.status(200).json(payload);
-    const pviEmit = (emit: any, veredicto: 'APTO' | 'REVISAO', alertas: string[], motivo: string) => emit(veredicto, alertas, motivo);
+    const pviResponderBase = (res: ExpressResponse, payload: unknown) => res.status(200).json(payload);
+    type PviResponderFn = (veredicto: 'APTO' | 'REVISAO', alertas: string[], motivo: string) => unknown;
+    const pviEmit = (emit: PviResponderFn, veredicto: 'APTO' | 'REVISAO', alertas: string[], motivo: string) => emit(veredicto, alertas, motivo);
       const pviStartedAt = Date.now();
       const PVI_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
 
@@ -316,7 +318,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
 
       try {
         const PVI_TIMEOUT_MS = 20000;
-        const completion: any = await Promise.race([
+        const completion = (await Promise.race([
           groq.chat.completions.create({
             messages: [
               { role: 'system', content: pviSystemPrompt },
@@ -334,11 +336,11 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
             max_tokens: 600,
           }),
           new Promise((_unused, reject) => setTimeout(() => reject(new Error('PVI_TIMEOUT_20S')), PVI_TIMEOUT_MS)),
-        ]);
+        ])) as { choices?: Array<{ message?: { content?: string } }> };
 
         const rawContent: string = completion?.choices?.[0]?.message?.content || '';
         // Parsing conservador: qualquer anomalia => REVISAO (nunca aprovar por erro técnico)
-        let parsed: any = null;
+        let parsed = null as { veredicto?: string; alertas?: unknown[]; motivo?: unknown } | null;
         try {
           const ini = rawContent.indexOf('{');
           const fim = rawContent.lastIndexOf('}');
@@ -346,7 +348,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         } catch { parsed = null; }
 
         const alertas: string[] = parsed && Array.isArray(parsed.alertas)
-          ? parsed.alertas.filter((a: any) => typeof a === 'string' && a.trim()).map((a: string) => a.trim()).slice(0, 12)
+          ? parsed.alertas.filter((a: unknown): a is string => typeof a === 'string' && a.trim().length > 0).map((a) => a.trim()).slice(0, 12)
           : [];
         const motivo: string = parsed && typeof parsed.motivo === 'string' ? parsed.motivo.trim().slice(0, 500) : '';
 
@@ -358,7 +360,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
           return pviEmit(pviResponder, 'REVISAO', alertas, motivo || 'Veredicto APTO devolvido com alertas — por segurança, segue para homologação manual.');
         }
         return pviEmit(pviResponder, parsed.veredicto, alertas, motivo);
-      } catch (e: any) {
+      } catch (e) {
         console.error('PVIC: falha na pré-verificação com IA:', e?.message || e);
         return pviEmit(pviResponder, 'REVISAO', ['falha_tecnica'], 'Falha técnica ou timeout na análise da IA. O cadastro segue para homologação manual.');
       }
@@ -422,7 +424,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
 
       // Extract any incoming system message from frontend, and merge it with backend systemPrompt
       let finalSystemPrompt = systemPrompt;
-      const filteredMessages = (messages || []).filter((m: any) => {
+      const filteredMessages = (messages || []).filter((m: { role?: string; content?: string; text?: string }) => {
         if (m.role === 'system' || m.role === 'System') {
           if (m.content || m.text) {
             finalSystemPrompt += "\n\n" + (m.content || m.text);
@@ -471,7 +473,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
       // 2. Try Gemini if client is present
       if (ai) {
         try {
-          const formattedContents = alternateMessages.map((m: any) => ({
+          const formattedContents = alternateMessages.map((m) => ({
             role: m.role === 'assistant' ? 'model' : 'user',
             parts: [{ text: m.content }]
           }));
@@ -978,7 +980,7 @@ ${JSON.stringify(texts, null, 2)}`;
               return res.json({ translations });
             }
           }
-        } catch (geminiErr: any) {
+        } catch (geminiErr) {
           const errMsg = geminiErr?.message || String(geminiErr);
           const isRateLimit = errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED");
           const isUnavailable = errMsg.includes("503") || errMsg.includes("UNAVAILABLE");
@@ -1011,7 +1013,7 @@ ${JSON.stringify(texts, null, 2)}`;
               return res.json({ translations });
             }
           }
-        } catch (groqErr: any) {
+        } catch (groqErr) {
           const errMsg = groqErr?.message || String(groqErr);
           const isAuthError = errMsg.includes("401") || errMsg.includes("invalid_api_key") || errMsg.includes("Invalid API Key");
           if (isAuthError) {
@@ -1024,7 +1026,7 @@ ${JSON.stringify(texts, null, 2)}`;
 
       // Safe return of same texts in case of API failure
       return res.json({ translations: texts });
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error in /api/translate:", err);
       return res.json({ translations: req.body.texts || [] });
     }

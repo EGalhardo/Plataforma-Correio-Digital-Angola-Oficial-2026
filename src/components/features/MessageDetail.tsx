@@ -1469,7 +1469,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
     return rawAttachments.map(att => {
       if (!att) return { name: 'documento.pdf', size: '1.2 MB', content: '' };
       if (typeof att === 'object') {
-        const anyAtt = att as any;
+        const anyAtt = att as { name?: string; size?: string; content?: string };
         return { 
           name: anyAtt.name || 'documento.pdf', 
           size: anyAtt.size || '1.2 MB',

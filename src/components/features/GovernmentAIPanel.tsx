@@ -101,7 +101,7 @@ export function GovernmentAIPanel({
       } else {
         throw new Error(data.error || 'Erro na resposta do serviço de IA');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       const fallbackResult = `Erro ao aceder ao núcleo de Inteligência Artificial: ${err.message || 'Serviço temporariamente indisponível'}`;
       if (action === 'qna') {

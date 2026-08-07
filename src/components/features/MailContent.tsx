@@ -375,7 +375,7 @@ export function MailContent({
       }
       setIsUploading(true);
       setUploadProgressMessage(t("A carregar ficheiros para o arquivo digital central..."));
-      const promises = Array.from(files).map((file: any) => {
+      const promises = Array.from(files).map((file: File) => {
         return new Promise<string>((resolve) => {
           const readAsLocalFallback = (f: File, res: (val: string) => void) => {
             const reader = new FileReader();

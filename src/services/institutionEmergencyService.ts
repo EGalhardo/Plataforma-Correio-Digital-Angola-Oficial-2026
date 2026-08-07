@@ -11,6 +11,7 @@
  *     "WhatsApp enviado" NÃO EXISTE em lado nenhum e não pode existir.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { isValidAoPhone, aoPhoneKey } from './emergencyContactsService';
 
 // ---------------------------------------------------------------------------
@@ -91,7 +92,7 @@ export function redeemerWhatsappTarget(member: RedeMember): string | null {
 // RPC — lookup do cidadão por BI exacto (instituição/admin)
 // ---------------------------------------------------------------------------
 
-export async function lookupCidadaoByBi(client: any, rawBi: string): Promise<InstCitizenLookupResult> {
+export async function lookupCidadaoByBi(client: SupabaseClient, rawBi: string): Promise<InstCitizenLookupResult> {
   const bi = (rawBi || '').trim();
   if (!client) return { found: false, citizen: null, errorCode: 'SEM_CLIENTE' };
   if (!bi) return { found: false, citizen: null, errorCode: 'BI_VAZIO' };
@@ -110,7 +111,7 @@ export async function lookupCidadaoByBi(client: any, rawBi: string): Promise<Ins
       },
       errorCode: null,
     };
-  } catch (e: any) {
+  } catch (e) {
     return { found: false, citizen: null, errorCode: e?.code || 'EXCEPCAO' };
   }
 }
@@ -119,7 +120,7 @@ export async function lookupCidadaoByBi(client: any, rawBi: string): Promise<Ins
 // RPC — rede de emergência do cidadão (só tipo «Emergência»; defesa dupla)
 // ---------------------------------------------------------------------------
 
-export async function fetchRedeEmergencia(client: any, rawBi: string): Promise<FetchRedeResult> {
+export async function fetchRedeEmergencia(client: SupabaseClient, rawBi: string): Promise<FetchRedeResult> {
   const bi = (rawBi || '').trim();
   if (!client) return { members: null, errorCode: 'SEM_CLIENTE' };
   if (!bi) return { members: null, errorCode: 'BI_VAZIO' };
@@ -136,7 +137,7 @@ export async function fetchRedeEmergencia(client: any, rawBi: string): Promise<F
       has_cda_account: !!r.has_cda_account,
     }));
     return { members, errorCode: null };
-  } catch (e: any) {
+  } catch (e) {
     return { members: null, errorCode: e?.code || 'EXCEPCAO' };
   }
 }
@@ -149,7 +150,7 @@ export interface BroadcastRecordRow {
   citizen_bi: string;
   alert_type: 'outro';
   location_status: 'nao_disponivel';
-  recipients_snapshot: any[];
+  recipients_snapshot: unknown[];
   gateway_status: 'whatsapp_link_manual';
   sender_kind: 'instituicao';
   sender_instituicao: string;
@@ -171,7 +172,7 @@ export interface RecordBroadcastResult {
 }
 
 export async function recordInstitutionBroadcast(
-  client: any,
+  client: SupabaseClient,
   row: BroadcastRecordRow,
 ): Promise<RecordBroadcastResult> {
   if (!client) return { recorded: false, errorCode: 'SEM_CLIENTE' };
@@ -179,7 +180,7 @@ export async function recordInstitutionBroadcast(
     const { error } = await client.from('emergency_alerts').insert([row]);
     if (error) return { recorded: false, errorCode: error.code || 'DESCONHECIDO' };
     return { recorded: true, errorCode: null };
-  } catch (e: any) {
+  } catch (e) {
     return { recorded: false, errorCode: e?.code || 'EXCEPCAO' };
   }
 }

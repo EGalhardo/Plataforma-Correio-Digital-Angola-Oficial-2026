@@ -393,11 +393,11 @@ export function InstitutionDetail({
 
   // Load invoices matching this institution from localStorage
   const savedInvoicesRaw = localStorage.getItem('correio_digital_faturas');
-  let invoices: any[] = [];
+  let invoices: Array<{ org?: string; holderBi?: string; status?: string; [k: string]: unknown }> = [];
   if (savedInvoicesRaw) {
     try {
       const parsed = JSON.parse(savedInvoicesRaw);
-      invoices = parsed.filter((inv: any) => {
+      invoices = parsed.filter((inv: { org?: string; holderBi?: string }) => {
         if (institutionName === 'Ministerios') {
           if (selectedMinistry) {
             return inv.org === selectedMinistry.acronym;
