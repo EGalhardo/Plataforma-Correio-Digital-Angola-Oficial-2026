@@ -164,8 +164,17 @@ valores de taxas/tarifas/requisitos só entram vindos da página citada.
 > pelo dono no painel). Cada `.ts` em `api/` conta como uma função: os 14
 > ficheiros da KB em `api/kb/` + `api/index.ts` = 15 funções. CORRECÇÃO:
 > KB consolidada num ÚNICO ficheiro `api/kb/registoKb.ts` (685 linhas, 13
-> instituições, 0 imports) ⇒ `api/` passou a ter só 2 funções. Sondas ao
-> vivo da vaga-2 re-corridas abaixo após o deploy.
+> instituições, 0 imports) ⇒ `api/` passou a ter só 2 funções.
+>
+> **Sondas ao vivo vaga-2 (deploy `9c80d95`, bundle `index-Xs-mU-a1.js`,
+> health OK, tudo com gemini-2.5-flash):**
+> 1. DTSER (`passos`): respondeu conta STAC + atestado modelo 2 Imprensa
+>    Nacional + docs, com `kb` e 2 títulos de fonte. ✅
+> 2. DNIRN (remetente "SIAC / DNIRN", 2.ª via por extravio): passos correctos
+>    incl. "participação da Polícia, obrigatória em caso de extravio". ✅
+> 3. CISP: recomendou 111 único e alertou 113/115 desactivados. ✅
+> 4. MINED (`prazos_direitos`): regra dos 30 dias do DP 163/25 com a fonte
+>    citada. ✅
 >
 > (contexto anterior: commits `a61a234`/`c004fa7` falharam no build por este
 > limite; produção ficou congelada na vaga-1 sem quebrar nada.)
