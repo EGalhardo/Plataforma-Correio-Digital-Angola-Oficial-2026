@@ -158,6 +158,12 @@ valores de taxas/tarifas/requisitos só entram vindos da página citada.
 
 ### Vaga-2 da KB (2026-08-05, "Podes alargar a base a mais instituições")
 
+> ⏳ **ESTADO (2026-08-05 ~19h05 UTC): código completo e testado, DEPLOY EM
+> ESPERA** — os commits `a61a234` e `c004fa7` não foram servidos pela Vercel
+> (produção segue com a vaga-1: 6 instituições). Verificado: ficheiro embutido
+> parseia OK localmente (13 siglas), esbuild da função OK, webhooks pararam
+> pós-`da5614d`. Sondas ao vivo da vaga-2 ficam pendentes do deploy.
+
 +7 instituições (DNIRN, Conservatória do Registo Civil, DTSER, SIAC, MINED,
 MINSA, Emergências CISP 111) ⇒ **13 instituições · 31 fontes**. Detalhe das
 origens em `ETAPA_A_E2E3_FONTES.md`. Decisões registadas:
