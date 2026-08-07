@@ -31,6 +31,13 @@ const IDIOMAS: Array<{ id: IdiomaTraducao; label: string }> = [
   { id: 'pt-simples', label: 'PT simples' },
   { id: 'en', label: 'EN' },
   { id: 'fr', label: 'FR' },
+  // Línguas nacionais (2026-08-07): etiqueta honesta — a qualidade da IA
+  // nestas línguas é variável; o prompt manda-a dizer quando não consegue.
+  { id: 'umbundu', label: 'Umbundu (experimental)' },
+  { id: 'kimbundu', label: 'Kimbundu (experimental)' },
+  { id: 'kikongo', label: 'Kikongo (experimental)' },
+  { id: 'cokwe', label: 'Cokwe (experimental)' },
+  { id: 'kwanyama', label: 'Kwanyama (experimental)' },
 ];
 
 const RASCUNHOS: Array<{ id: TipoRascunho; label: string }> = [
