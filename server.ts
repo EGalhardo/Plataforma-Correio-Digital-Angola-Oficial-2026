@@ -8,7 +8,7 @@ import { GoogleGenAI, LiveServerMessage, Modality, Type } from "@google/genai";
 import { createClient } from '@supabase/supabase-js';
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
-import { AVISO_IA, construirPrompts, montarContextoKb, selecionarInstituicaoKb, validarPedido } from "./src/services/aiDocumentoCore";
+import { AVISO_IA, construirPrompts, montarContextoKb, protegerTraducaoLinguaNacional, selecionarInstituicaoKb, validarPedido } from "./src/services/aiDocumentoCore";
 import { KB_REGISTO } from "./api/kb/registoKb";
 
 dotenv.config();
@@ -559,7 +559,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
             config: { systemInstruction: sistema, temperature: 0.3 },
           });
           if (response && response.text) {
-            return res.json({ ok: true, acao: v.dados.acao, modelo: "gemini-2.5-flash", resultado: response.text, aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
+            return res.json({ ok: true, acao: v.dados.acao, modelo: "gemini-2.5-flash", resultado: protegerTraducaoLinguaNacional(v.dados, response.text), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
           }
         } catch (geminiErr) {
           console.error("Gemini assistente-documento erro, fallback Groq:", geminiErr);
@@ -579,7 +579,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
           });
           const textoGroq = completion.choices?.[0]?.message?.content;
           if (textoGroq) {
-            return res.json({ ok: true, acao: v.dados.acao, modelo: "llama-3.1-8b-instant", resultado: textoGroq, aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
+            return res.json({ ok: true, acao: v.dados.acao, modelo: "llama-3.1-8b-instant", resultado: protegerTraducaoLinguaNacional(v.dados, textoGroq), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
           }
         } catch (groqErr) {
           console.error("Groq assistente-documento erro:", groqErr);

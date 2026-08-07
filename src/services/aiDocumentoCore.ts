@@ -43,6 +43,32 @@ export const ROTULOS_LINGUAS_NACIONAIS: Record<LinguaNacional, string> = {
 export const eLinguaNacional = (i?: string): i is LinguaNacional =>
   (LINGUAS_NACIONAIS as readonly string[]).includes(i || '');
 
+// Guarda anti-eco (2026-08-07, provada AO VIVO): modelos pequenos sem a
+// língua nacional podem devolver o texto original em Português como se fosse
+// tradução. Se a "tradução" for eco da entrada, embrulhamos com a frase
+// honesta — o cidadão nunca lê Português A PENSAR que é Umbundu.
+const normalizarEco = (t: string): string =>
+  t.toLowerCase().replace(/[\p{P}\p{S}]/gu, ' ').replace(/\s+/g, ' ').trim();
+
+export const parecerEcoDaEntrada = (entrada: string, saida: string): boolean => {
+  const a = normalizarEco(entrada);
+  const b = normalizarEco(saida);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const menor = Math.min(a.length, b.length);
+  const limite = Math.max(30, Math.floor(menor * 0.95));
+  return a.slice(0, limite) === b.slice(0, limite);
+};
+
+export const protegerTraducaoLinguaNacional = (dados: PedidoDocumento, resultado: string): string => {
+  if (dados.acao !== 'traduzir' || !eLinguaNacional(dados.idiomaDestino)) return resultado;
+  const lingua = ROTULOS_LINGUAS_NACIONAIS[dados.idiomaDestino as LinguaNacional];
+  const frase = `Não consigo traduzir com qualidade para ${lingua}`;
+  if (resultado.toLowerCase().includes(frase.toLowerCase())) return resultado;
+  if (!parecerEcoDaEntrada(dados.texto, resultado)) return resultado;
+  return `${frase}. Apresento o texto em Português simples de Angola, exatamente como foi recebido:\n\n${resultado}`;
+};
+
 // --- Etapa A / E1: Base de Conhecimento por instituição -------------------
 export interface FonteKb {
   id: string;

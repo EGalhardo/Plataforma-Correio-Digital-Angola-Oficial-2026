@@ -83,6 +83,32 @@ const ROTULOS_LINGUAS_NACIONAIS: Record<LinguaNacional, string> = {
 const eLinguaNacional = (i?: string): i is LinguaNacional =>
   (LINGUAS_NACIONAIS as readonly string[]).includes(i || '');
 
+// Guarda anti-eco (2026-08-07, provada AO VIVO): modelos pequenos sem a
+// língua nacional podem devolver o texto original em Português como se fosse
+// tradução. Se a "tradução" for eco da entrada, embrulhamos com a frase
+// honesta — o cidadão nunca lê Português A PENSAR que é Umbundu.
+const normalizarEco = (t: string): string =>
+  t.toLowerCase().replace(/[\p{P}\p{S}]/gu, ' ').replace(/\s+/g, ' ').trim();
+
+const parecerEcoDaEntrada = (entrada: string, saida: string): boolean => {
+  const a = normalizarEco(entrada);
+  const b = normalizarEco(saida);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const menor = Math.min(a.length, b.length);
+  const limite = Math.max(30, Math.floor(menor * 0.95));
+  return a.slice(0, limite) === b.slice(0, limite);
+};
+
+const protegerTraducaoLinguaNacional = (dados: PedidoDocumento, resultado: string): string => {
+  if (dados.acao !== 'traduzir' || !eLinguaNacional(dados.idiomaDestino)) return resultado;
+  const lingua = ROTULOS_LINGUAS_NACIONAIS[dados.idiomaDestino as LinguaNacional];
+  const frase = `Não consigo traduzir com qualidade para ${lingua}`;
+  if (resultado.toLowerCase().includes(frase.toLowerCase())) return resultado;
+  if (!parecerEcoDaEntrada(dados.texto, resultado)) return resultado;
+  return `${frase}. Apresento o texto em Português simples de Angola, exatamente como foi recebido:\n\n${resultado}`;
+};
+
 // --- Etapa A / E1: Base de Conhecimento por instituição -------------------
 interface FonteKb {
   id: string;
@@ -930,7 +956,7 @@ Regras Críticas de Fidelidade e Integridade:
             config: { systemInstruction: sistema, temperature: 0.3 },
           });
           if (response && response.text) {
-            return res.status(200).json({ ok: true, acao: v.dados.acao, modelo: "gemini-2.5-flash", resultado: response.text, aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
+            return res.status(200).json({ ok: true, acao: v.dados.acao, modelo: "gemini-2.5-flash", resultado: protegerTraducaoLinguaNacional(v.dados, response.text), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
           }
         } catch (geminiErr) {
           console.error("Gemini assistente-documento erro, fallback Groq:", geminiErr);
@@ -949,7 +975,7 @@ Regras Críticas de Fidelidade e Integridade:
           });
           const textoGroq = completion.choices?.[0]?.message?.content;
           if (textoGroq) {
-            return res.status(200).json({ ok: true, acao: v.dados.acao, modelo: "llama-3.1-8b-instant", resultado: textoGroq, aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
+            return res.status(200).json({ ok: true, acao: v.dados.acao, modelo: "llama-3.1-8b-instant", resultado: protegerTraducaoLinguaNacional(v.dados, textoGroq), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
           }
         } catch (groqErr) {
           console.error("Groq assistente-documento erro:", groqErr);
