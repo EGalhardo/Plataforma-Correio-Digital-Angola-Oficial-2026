@@ -118,14 +118,29 @@ const campoCurto = (v: unknown): string | undefined => {
   return limpo.length > 0 ? limpo : undefined;
 };
 
+const escaparRegex = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Correspondência da sigla por PALAVRA (vaga-3, 2026-08-07): a subcadeia
+// simples («alvo inclui sigla») gerava falsos positivos com siglas curtas —
+// «online»/«gabinete» bateriam no INE, qualquer palavra com «ts» bateria no
+// TS. Exigir fronteiras [^a-z0-9] dos dois lados mantém os casos reais
+// ("SIAC — balcão SME/DNIRN", "República — EPAL Luanda") e torna INE e TS
+// possíveis sem ambiguidade.
+const contemSiglaComoPalavra = (alvo: string, sigla: string): boolean =>
+  new RegExp(`(^|[^a-z0-9])${escaparRegex(sigla)}([^a-z0-9]|$)`).test(alvo);
+
 const selecionarInstituicaoKb = (registo: KbInstituicao[], siglaOuRemetente?: string): KbInstituicao | null => {
   if (!siglaOuRemetente) return null;
   const alvo = siglaOuRemetente.trim().toLowerCase();
   if (!alvo) return null;
+  // Correspondência por NOME nos dois sentidos (vaga-3): digitado abreviado
+  // ("administração tributária" ⊂ nome) e remetente completo com prefixo/
+  // sufixo ("Tribunal Supremo — acórdão publicado" ⊃ nome oficial).
   return registo.find(i =>
     i.sigla.toLowerCase() === alvo ||
-    alvo.includes(i.sigla.toLowerCase()) ||
-    i.nome.toLowerCase().includes(alvo)
+    contemSiglaComoPalavra(alvo, i.sigla.toLowerCase()) ||
+    i.nome.toLowerCase().includes(alvo) ||
+    alvo.includes(i.nome.toLowerCase())
   ) || null;
 };
 
@@ -303,6 +318,28 @@ const KB_REGISTO: KbInstituicao[] = [
     ]
   },
   {
+    "sigla": "BNA",
+    "nome": "Banco Nacional de Angola",
+    "fontes": [
+      {
+        "id": "bna-reclamacoes-consumidor",
+        "titulo": "Como reclamar contra instituições financeiras (Portal do Consumidor Bancário do BNA)",
+        "tipo": "procedimento",
+        "texto": "O consumidor de produtos e serviços financeiros tem o direito de reclamar sobre os serviços e produtos oferecidos pelas instituições financeiras, junto da área especializada em atendimento ao cliente da respectiva instituição ou DIRECTAMENTE junto do Departamento de Conduta Financeira do Banco Nacional de Angola, quando julgar que a conduta da instituição não é adequada ou lesa os seus interesses ou direitos (artigo 74.º da Lei n.º 12/15, de 17 de Junho).\nQUEM PODE RECLAMAR: qualquer pessoa singular ou colectiva que seja cliente de instituição financeira bancária ou não bancária sob supervisão do BNA.\nMOTIVOS: actividades das instituições sob supervisão do BNA ou a sua forma de actuação — na celebração de um contrato, na comercialização de um produto ou na prestação de um serviço.\nONDE APRESENTAR: no balcão da instituição financeira; por carta; por telefone; no livro de reclamações; nas páginas electrónicas das instituições; ou directamente ao BNA — por carta dirigida ao Departamento de Conduta Financeira do BNA; telefone 222 679 244; e-mail reclamacoes@bna.ao; Portal do Consumidor consumidorbancario.bna.ao; carta às Delegações Regionais do BNA; WhatsApp 944 889 499 / 944 889 504.\nPREENCHIMENTO: o formulário deve ser claro e completo — é indispensável indicar a instituição reclamada, a identificação do reclamante e o seu contacto, e expor os factos de forma completa.\nPRAZOS: as instituições financeiras respondem às reclamações dentro dos prazos regulamentados pelo Aviso n.º 12/16, de 5 de Setembro, do BNA.",
+        "atualizadoEm": "2026-08-07",
+        "fonteUrl": "https://consumidorbancario.bna.ao/"
+      },
+      {
+        "id": "bna-provedoria-2instancia",
+        "titulo": "Provedoria do Cliente Bancário — recurso depois da reclamação ao banco",
+        "tipo": "procedimento",
+        "texto": "Se o banco não responder nos prazos regulamentares (Aviso n.º 12/16 do BNA) ou se o cliente não ficar satisfeito com a resposta, pode recorrer ao PROVEDOR DO CLIENTE BANCÁRIO — segunda instância de resolução — com página própria: provedoriadoclientebancario.bna.ao.\nAs políticas de gestão de reclamações dos bancos comerciais reconhecem que o cliente pode recorrer DIRECTAMENTE ao BNA, dispensando a precedência junto do banco — mas, na prática, reclamar primeiro ao banco (e guardar o número de registo da reclamação) acelera o processo.\nAs reclamações também ajudam o BNA a identificar necessidades de intervenção no exercício da supervisão comportamental do sistema financeiro.",
+        "atualizadoEm": "2026-08-07",
+        "fonteUrl": "https://www.bna.ao/"
+      }
+    ]
+  },
+  {
     "sigla": "CISP",
     "nome": "Emergências — Centro Integrado de Segurança Pública (111)",
     "fontes": [
@@ -421,6 +458,28 @@ const KB_REGISTO: KbInstituicao[] = [
     ]
   },
   {
+    "sigla": "INACOM",
+    "nome": "Instituto Angolano das Comunicações",
+    "fontes": [
+      {
+        "id": "inacom-lac-reclamacoes",
+        "titulo": "Linha de Apoio ao Consumidor 15555 e reclamações de telecomunicações",
+        "tipo": "procedimento",
+        "texto": "O INACOM (Instituto Angolano das Comunicações) é o instituto público criado para REGULAR, FISCALIZAR E SUPERVISIONAR o mercado das comunicações electrónicas e os serviços postais em Angola.\nLAC — LINHA DE APOIO AO CONSUMIDOR: ligue 15555 — chamada gratuita, todos os dias úteis, das 8h às 17h.\nRECLAMAÇÕES POR ESCRITO: e-mail reclamacao@inacom.gov.ao. E-mail geral: geral@inacom.gov.ao. Telefone da sede: +244 222 210 666.\nSEDE: Avenida Dr. António Agostinho Neto, nº 25, Zona C, Praia do Bispo, Cx. Postal 1459, Luanda.\nÉ ao INACOM que o cidadão recorre quando tem um conflito com a operadora (rede, facturação, serviço) que não conseguiu resolver directamente com ela.",
+        "atualizadoEm": "2026-08-07",
+        "fonteUrl": "https://inacom.gov.ao/contact/"
+      },
+      {
+        "id": "inacom-servicos-online",
+        "titulo": "Serviços online do INACOM — registo de empresa (gratuito) e autorizações",
+        "tipo": "procedimento",
+        "texto": "REGISTO DE EMPRESA — GRATUITO: as empresas devem fazer um registo prévio no INACOM, ANTES de formularem pedidos de qualquer natureza junto do instituto.\nQUEM PODE USAR: empresas registadas em Angola, com NIF angolano válido.\nETAPAS: preencher e submeter o formulário disponível no portal do INACOM (inacom.gov.ao), anexando os documentos nele indicados; o acesso faz-se pela área de serviços do portal.\nO portal tem ainda o serviço de AUTORIZAÇÃO DE COMERCIALIZAÇÃO: pedido submetido por formulário próprio no portal.",
+        "atualizadoEm": "2026-08-07",
+        "fonteUrl": "https://inacom.gov.ao/single-services/"
+      }
+    ]
+  },
+  {
     "sigla": "INAPEM",
     "nome": "Instituto Nacional de Apoio às Micro, Pequenas e Médias Empresas",
     "fontes": [
@@ -447,6 +506,28 @@ const KB_REGISTO: KbInstituicao[] = [
         "texto": "Q: Que outros apoios o INAPEM dá às MPME? R: REDE INAPEM — plataforma digital que dá maior visibilidade no mercado aos prestadores de serviços angolanos e os liga a potenciais clientes e parceiros. SELO «FEITO EM ANGOLA» — certificação oficial de origem e qualidade que identifica, valoriza e promove produtos fabricados em território nacional. MEU GESTOR — consultores especializados dão apoio técnico personalizado directamente nas instalações das micro e pequenas empresas (diagnóstico de desempenho, recomendações práticas de gestão, implementação de soluções). NOSSO SABER — plataforma de e-learning com cursos, webinars e materiais educativos para empreendedores, no seu próprio ritmo, com certificação de conclusão. KAWENAINVEST — ligação de MPME a investidores e oportunidades de capital, com orientação para acesso a linhas de crédito e programas de garantia pública. TWENDY — programa nacional de incubação e aceleração de startups, com ciclos intensivos de cerca de 10 semanas, mentoria, recursos e redes de parceiros.\nQ: Onde faço a candidatura a estes programas? R: Em www.inapem.gov.ao, menu «Serviços», escolhendo o produto pretendido.",
         "atualizadoEm": "2026-08-05",
         "fonteUrl": "https://www.inapem.gov.ao"
+      }
+    ]
+  },
+  {
+    "sigla": "INE",
+    "nome": "Instituto Nacional de Estatística",
+    "fontes": [
+      {
+        "id": "ine-dados-oficiais",
+        "titulo": "Onde obter dados estatísticos oficiais de Angola (INE)",
+        "tipo": "faq",
+        "texto": "O Instituto Nacional de Estatística (INE) é o órgão público angolano responsável pela informação estatística oficial da República de Angola — trabalha na dinamização, coordenação, recolha, tratamento e difusão dessa informação.\nPUBLICAÇÕES: o portal ine.gov.ao reúne boletins e publicações oficiais — resultados dos recenseamentos, inquéritos como o IDR (Inquérito de Despesas e Receitas), boletins de registo civil e Folhas de Informação Rápida (FIR), com descarga gratuita em PDF.\nAPLICAÇÃO MÓVEL: a app «INE ANGOLA» (Android) permite visualizar, analisar e interpretar dados estatísticos de Angola.\nSEDE: Rua Ho Chi Min, nº 10, Luanda.",
+        "atualizadoEm": "2026-08-07",
+        "fonteUrl": "https://www.ine.gov.ao/"
+      },
+      {
+        "id": "ine-censo-2024",
+        "titulo": "Censo 2024 — resultados definitivos e onde consultar",
+        "tipo": "faq",
+        "texto": "O Recenseamento Geral da População e Habitação (RGPH) 2024 apurou cerca de 36,6 MILHÕES de habitantes nas 21 províncias de Angola (resultados definitivos publicados pelo INE).\nRETRATO DO PAÍS: 65,7% da população vive em zona urbana; Luanda concentra 24% da população; 44,6% dos angolanos têm menos de 15 anos — a população mais jovem de África.\nONDE CONSULTAR: o portal dedicado censo2024.ine.gov.ao disponibiliza o Relatório Geral em PDF e os Quadros Anexos em Excel por província (76 indicadores sobre população, habitação, energia, água e educação), com descarga livre.\nCONTACTO DO CENSO: censo@ine.gov.ao.\nREFERÊNCIA ANTERIOR: o Censo 2014 (momento censitário de 16 de Maio de 2014) apurou 25 789 024 pessoas, 63% em área urbana.",
+        "atualizadoEm": "2026-08-07",
+        "fonteUrl": "https://censo2024.ine.gov.ao/"
       }
     ]
   },
@@ -573,6 +654,28 @@ const KB_REGISTO: KbInstituicao[] = [
         "texto": "Q: Posso pedir o visto de entrada pela internet? R: Sim, através do portal da SME. Antes de iniciar o pedido, assegurar: 1) passaporte com validade mínima de UM ANO e pelo menos QUATRO páginas em branco; 2) fotografia recente com fundo branco, adequada a uso oficial; 3) todos os documentos originais de apoio exigidos para o tipo de visto pretendido.\nQ: Como envio os documentos? R: Os documentos são carregados no portal em imagens digitalizadas de boa qualidade, no formato .jpg/.jpeg, respeitando as dimensões mínimas/máximas e o tamanho máximo de ficheiro indicados nas instruções do portal (por exemplo, foto de cara com mínimo 496 px de altura e ficheiros até 200 KB).\nQ: O pedido online dispensa a ida ao consulado? R: NÃO. Mesmo aprovado o pedido pela internet, é obrigatório levar os documentos originais ao consulado para recolha de dados biométricos e entrevista, para fins de verificação.",
         "atualizadoEm": "2026-08-05",
         "fonteUrl": "https://sme.minint.ao/ao/servicos/vistos/instrucoes/"
+      }
+    ]
+  },
+  {
+    "sigla": "TS",
+    "nome": "Tribunal Supremo",
+    "fontes": [
+      {
+        "id": "ts-institucional-camaras",
+        "titulo": "Tribunal Supremo — o que é, câmaras e contactos",
+        "tipo": "faq",
+        "texto": "O Tribunal Supremo é o órgão de cúpula da jurisdição comum em Angola. O seu portal oficial (tribunalsupremo.ao) foi criado para potenciar a proximidade ao cidadão, com transparência sobre o funcionamento da instância.\nESTRUTURA: Plenário e câmaras especializadas — Câmara Criminal; Câmara do Cível, Administrativo, Fiscal e Aduaneiro; Câmara do Trabalho; Câmara Familiar.\nO QUE O PORTAL DIVULGA: distribuições dos processos, sessões de julgamento e decisões judiciais proferidas pelos Juízes Conselheiros, além de notícias e eventos do tribunal.\nCONTACTOS: telefone +244 222 339 079; e-mail geral@tribunalsupremo.ao; endereço Rua 17 de Setembro e Pinheiro Furtado, Cidade Alta, Luanda.",
+        "atualizadoEm": "2026-08-07",
+        "fonteUrl": "https://tribunalsupremo.ao/"
+      },
+      {
+        "id": "ts-jurisprudencia-consulta",
+        "titulo": "Jurisprudência e acórdãos — consulta pública e gratuita no portal",
+        "tipo": "procedimento",
+        "texto": "A secção «Jurisprudência» do portal do Tribunal Supremo publica os ACÓRDÃOS organizados pelas câmaras (Criminal; Cível, Administrativo, Fiscal e Aduaneiro; Trabalho; Familiar), os SUMÁRIOS de acórdão e os acórdãos de UNIFORMIZAÇÃO DE JURISPRUDÊNCIA.\nA consulta é pública e gratuita e serve o cidadão e os mandatários que queiram conhecer as decisões e a orientação do tribunal; o portal tem ainda secções de Documentação — com Estudos Jurídicos e Legislação — e de Imprensa.\nO cidadão que precise de informação concreta sobre um processo seu deve dirigir-se à secretaria do tribunal onde o processo corre — o portal divulga a actividade e a jurisprudência do Tribunal Supremo, não o andamento individual de processos de outras instâncias.",
+        "atualizadoEm": "2026-08-07",
+        "fonteUrl": "https://tribunalsupremo.ao/jurisprudencia/"
       }
     ]
   },

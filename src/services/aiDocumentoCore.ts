@@ -86,14 +86,29 @@ const campoCurto = (v: unknown): string | undefined => {
   return limpo.length > 0 ? limpo : undefined;
 };
 
+const escaparRegex = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Correspondência da sigla por PALAVRA (vaga-3, 2026-08-07): a subcadeia
+// simples («alvo inclui sigla») gerava falsos positivos com siglas curtas —
+// «online»/«gabinete» bateriam no INE, qualquer palavra com «ts» bateria no
+// TS. Exigir fronteiras [^a-z0-9] dos dois lados mantém os casos reais
+// ("SIAC — balcão SME/DNIRN", "República — EPAL Luanda") e torna INE e TS
+// possíveis sem ambiguidade.
+const contemSiglaComoPalavra = (alvo: string, sigla: string): boolean =>
+  new RegExp(`(^|[^a-z0-9])${escaparRegex(sigla)}([^a-z0-9]|$)`).test(alvo);
+
 export const selecionarInstituicaoKb = (registo: KbInstituicao[], siglaOuRemetente?: string): KbInstituicao | null => {
   if (!siglaOuRemetente) return null;
   const alvo = siglaOuRemetente.trim().toLowerCase();
   if (!alvo) return null;
+  // Correspondência por NOME nos dois sentidos (vaga-3): digitado abreviado
+  // ("administração tributária" ⊂ nome) e remetente completo com prefixo/
+  // sufixo ("Tribunal Supremo — acórdão publicado" ⊃ nome oficial).
   return registo.find(i =>
     i.sigla.toLowerCase() === alvo ||
-    alvo.includes(i.sigla.toLowerCase()) ||
-    i.nome.toLowerCase().includes(alvo)
+    contemSiglaComoPalavra(alvo, i.sigla.toLowerCase()) ||
+    i.nome.toLowerCase().includes(alvo) ||
+    alvo.includes(i.nome.toLowerCase())
   ) || null;
 };
 

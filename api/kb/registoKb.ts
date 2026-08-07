@@ -11,7 +11,8 @@
 //   - Fonte única do conteúdo: ESTE ficheiro. Nada de imports (cadeia fria).
 //
 // E2/E3: conteúdo RECOLHIDO NA INTERNET a pedido do dono (vaga-1: 6
-// instituições; vaga-2: +7). Cada fonte regista fonteUrl e atualizadoEm.
+// instituições; vaga-2: +7; vaga-3: +4 = 17). Cada fonte regista fonteUrl
+// e atualizadoEm.
 // Regra mantida: nunca inventar regras/valores sem fonte.
 // ============================================================================
 
@@ -664,22 +665,175 @@ export const KB_SME: KbInstituicaoLocal = {
 };
 
 // ============================================================================
+// KB BNA / INACOM / INE / TS — Etapa A / E2-E3 VAGA-3 (2026-08-07,
+// "Avanca todas" do dono). Conteúdo recolhido NA INTERNET de fontes oficiais:
+//  - Portal do Consumidor Bancário do BNA (https://consumidorbancario.bna.ao)
+//  - Portal do BNA (https://www.bna.ao)
+//  - Portal do INACOM (https://inacom.gov.ao/contact e /single-services)
+//  - Portal do INE (https://www.ine.gov.ao) e portal Censo 2024
+//    (https://censo2024.ine.gov.ao)
+//  - Portal do Tribunal Supremo (https://tribunalsupremo.ao)
+// consultados em 2026-08-07. Siglas INE e TS só passaram a ser possíveis com
+// a correspondência por PALAVRA (fronteiras de palavra) no motor — ver
+// contemSiglaComoPalavra em aiDocumentoCore.ts.
+// ============================================================================
+
+export const KB_BNA: KbInstituicaoLocal = {
+  sigla: 'BNA',
+  nome: 'Banco Nacional de Angola',
+  fontes: [
+    {
+      id: 'bna-reclamacoes-consumidor',
+      titulo: 'Como reclamar contra instituições financeiras (Portal do Consumidor Bancário do BNA)',
+      tipo: 'procedimento',
+      texto: [
+        'O consumidor de produtos e serviços financeiros tem o direito de reclamar sobre os serviços e produtos oferecidos pelas instituições financeiras, junto da área especializada em atendimento ao cliente da respectiva instituição ou DIRECTAMENTE junto do Departamento de Conduta Financeira do Banco Nacional de Angola, quando julgar que a conduta da instituição não é adequada ou lesa os seus interesses ou direitos (artigo 74.º da Lei n.º 12/15, de 17 de Junho).',
+        'QUEM PODE RECLAMAR: qualquer pessoa singular ou colectiva que seja cliente de instituição financeira bancária ou não bancária sob supervisão do BNA.',
+        'MOTIVOS: actividades das instituições sob supervisão do BNA ou a sua forma de actuação — na celebração de um contrato, na comercialização de um produto ou na prestação de um serviço.',
+        'ONDE APRESENTAR: no balcão da instituição financeira; por carta; por telefone; no livro de reclamações; nas páginas electrónicas das instituições; ou directamente ao BNA — por carta dirigida ao Departamento de Conduta Financeira do BNA; telefone 222 679 244; e-mail reclamacoes@bna.ao; Portal do Consumidor consumidorbancario.bna.ao; carta às Delegações Regionais do BNA; WhatsApp 944 889 499 / 944 889 504.',
+        'PREENCHIMENTO: o formulário deve ser claro e completo — é indispensável indicar a instituição reclamada, a identificação do reclamante e o seu contacto, e expor os factos de forma completa.',
+        'PRAZOS: as instituições financeiras respondem às reclamações dentro dos prazos regulamentados pelo Aviso n.º 12/16, de 5 de Setembro, do BNA.',
+      ].join('\n'),
+      atualizadoEm: '2026-08-07',
+      fonteUrl: 'https://consumidorbancario.bna.ao/',
+    },
+    {
+      id: 'bna-provedoria-2instancia',
+      titulo: 'Provedoria do Cliente Bancário — recurso depois da reclamação ao banco',
+      tipo: 'procedimento',
+      texto: [
+        'Se o banco não responder nos prazos regulamentares (Aviso n.º 12/16 do BNA) ou se o cliente não ficar satisfeito com a resposta, pode recorrer ao PROVEDOR DO CLIENTE BANCÁRIO — segunda instância de resolução — com página própria: provedoriadoclientebancario.bna.ao.',
+        'As políticas de gestão de reclamações dos bancos comerciais reconhecem que o cliente pode recorrer DIRECTAMENTE ao BNA, dispensando a precedência junto do banco — mas, na prática, reclamar primeiro ao banco (e guardar o número de registo da reclamação) acelera o processo.',
+        'As reclamações também ajudam o BNA a identificar necessidades de intervenção no exercício da supervisão comportamental do sistema financeiro.',
+      ].join('\n'),
+      atualizadoEm: '2026-08-07',
+      fonteUrl: 'https://www.bna.ao/',
+    },
+  ],
+};
+
+export const KB_INACOM: KbInstituicaoLocal = {
+  sigla: 'INACOM',
+  nome: 'Instituto Angolano das Comunicações',
+  fontes: [
+    {
+      id: 'inacom-lac-reclamacoes',
+      titulo: 'Linha de Apoio ao Consumidor 15555 e reclamações de telecomunicações',
+      tipo: 'procedimento',
+      texto: [
+        'O INACOM (Instituto Angolano das Comunicações) é o instituto público criado para REGULAR, FISCALIZAR E SUPERVISIONAR o mercado das comunicações electrónicas e os serviços postais em Angola.',
+        'LAC — LINHA DE APOIO AO CONSUMIDOR: ligue 15555 — chamada gratuita, todos os dias úteis, das 8h às 17h.',
+        'RECLAMAÇÕES POR ESCRITO: e-mail reclamacao@inacom.gov.ao. E-mail geral: geral@inacom.gov.ao. Telefone da sede: +244 222 210 666.',
+        'SEDE: Avenida Dr. António Agostinho Neto, nº 25, Zona C, Praia do Bispo, Cx. Postal 1459, Luanda.',
+        'É ao INACOM que o cidadão recorre quando tem um conflito com a operadora (rede, facturação, serviço) que não conseguiu resolver directamente com ela.',
+      ].join('\n'),
+      atualizadoEm: '2026-08-07',
+      fonteUrl: 'https://inacom.gov.ao/contact/',
+    },
+    {
+      id: 'inacom-servicos-online',
+      titulo: 'Serviços online do INACOM — registo de empresa (gratuito) e autorizações',
+      tipo: 'procedimento',
+      texto: [
+        'REGISTO DE EMPRESA — GRATUITO: as empresas devem fazer um registo prévio no INACOM, ANTES de formularem pedidos de qualquer natureza junto do instituto.',
+        'QUEM PODE USAR: empresas registadas em Angola, com NIF angolano válido.',
+        'ETAPAS: preencher e submeter o formulário disponível no portal do INACOM (inacom.gov.ao), anexando os documentos nele indicados; o acesso faz-se pela área de serviços do portal.',
+        'O portal tem ainda o serviço de AUTORIZAÇÃO DE COMERCIALIZAÇÃO: pedido submetido por formulário próprio no portal.',
+      ].join('\n'),
+      atualizadoEm: '2026-08-07',
+      fonteUrl: 'https://inacom.gov.ao/single-services/',
+    },
+  ],
+};
+
+export const KB_INE: KbInstituicaoLocal = {
+  sigla: 'INE',
+  nome: 'Instituto Nacional de Estatística',
+  fontes: [
+    {
+      id: 'ine-dados-oficiais',
+      titulo: 'Onde obter dados estatísticos oficiais de Angola (INE)',
+      tipo: 'faq',
+      texto: [
+        'O Instituto Nacional de Estatística (INE) é o órgão público angolano responsável pela informação estatística oficial da República de Angola — trabalha na dinamização, coordenação, recolha, tratamento e difusão dessa informação.',
+        'PUBLICAÇÕES: o portal ine.gov.ao reúne boletins e publicações oficiais — resultados dos recenseamentos, inquéritos como o IDR (Inquérito de Despesas e Receitas), boletins de registo civil e Folhas de Informação Rápida (FIR), com descarga gratuita em PDF.',
+        'APLICAÇÃO MÓVEL: a app «INE ANGOLA» (Android) permite visualizar, analisar e interpretar dados estatísticos de Angola.',
+        'SEDE: Rua Ho Chi Min, nº 10, Luanda.',
+      ].join('\n'),
+      atualizadoEm: '2026-08-07',
+      fonteUrl: 'https://www.ine.gov.ao/',
+    },
+    {
+      id: 'ine-censo-2024',
+      titulo: 'Censo 2024 — resultados definitivos e onde consultar',
+      tipo: 'faq',
+      texto: [
+        'O Recenseamento Geral da População e Habitação (RGPH) 2024 apurou cerca de 36,6 MILHÕES de habitantes nas 21 províncias de Angola (resultados definitivos publicados pelo INE).',
+        'RETRATO DO PAÍS: 65,7% da população vive em zona urbana; Luanda concentra 24% da população; 44,6% dos angolanos têm menos de 15 anos — a população mais jovem de África.',
+        'ONDE CONSULTAR: o portal dedicado censo2024.ine.gov.ao disponibiliza o Relatório Geral em PDF e os Quadros Anexos em Excel por província (76 indicadores sobre população, habitação, energia, água e educação), com descarga livre.',
+        'CONTACTO DO CENSO: censo@ine.gov.ao.',
+        'REFERÊNCIA ANTERIOR: o Censo 2014 (momento censitário de 16 de Maio de 2014) apurou 25 789 024 pessoas, 63% em área urbana.',
+      ].join('\n'),
+      atualizadoEm: '2026-08-07',
+      fonteUrl: 'https://censo2024.ine.gov.ao/',
+    },
+  ],
+};
+
+export const KB_TS: KbInstituicaoLocal = {
+  sigla: 'TS',
+  nome: 'Tribunal Supremo',
+  fontes: [
+    {
+      id: 'ts-institucional-camaras',
+      titulo: 'Tribunal Supremo — o que é, câmaras e contactos',
+      tipo: 'faq',
+      texto: [
+        'O Tribunal Supremo é o órgão de cúpula da jurisdição comum em Angola. O seu portal oficial (tribunalsupremo.ao) foi criado para potenciar a proximidade ao cidadão, com transparência sobre o funcionamento da instância.',
+        'ESTRUTURA: Plenário e câmaras especializadas — Câmara Criminal; Câmara do Cível, Administrativo, Fiscal e Aduaneiro; Câmara do Trabalho; Câmara Familiar.',
+        'O QUE O PORTAL DIVULGA: distribuições dos processos, sessões de julgamento e decisões judiciais proferidas pelos Juízes Conselheiros, além de notícias e eventos do tribunal.',
+        'CONTACTOS: telefone +244 222 339 079; e-mail geral@tribunalsupremo.ao; endereço Rua 17 de Setembro e Pinheiro Furtado, Cidade Alta, Luanda.',
+      ].join('\n'),
+      atualizadoEm: '2026-08-07',
+      fonteUrl: 'https://tribunalsupremo.ao/',
+    },
+    {
+      id: 'ts-jurisprudencia-consulta',
+      titulo: 'Jurisprudência e acórdãos — consulta pública e gratuita no portal',
+      tipo: 'procedimento',
+      texto: [
+        'A secção «Jurisprudência» do portal do Tribunal Supremo publica os ACÓRDÃOS organizados pelas câmaras (Criminal; Cível, Administrativo, Fiscal e Aduaneiro; Trabalho; Familiar), os SUMÁRIOS de acórdão e os acórdãos de UNIFORMIZAÇÃO DE JURISPRUDÊNCIA.',
+        'A consulta é pública e gratuita e serve o cidadão e os mandatários que queiram conhecer as decisões e a orientação do tribunal; o portal tem ainda secções de Documentação — com Estudos Jurídicos e Legislação — e de Imprensa.',
+        'O cidadão que precise de informação concreta sobre um processo seu deve dirigir-se à secretaria do tribunal onde o processo corre — o portal divulga a actividade e a jurisprudência do Tribunal Supremo, não o andamento individual de processos de outras instâncias.',
+      ].join('\n'),
+      atualizadoEm: '2026-08-07',
+      fonteUrl: 'https://tribunalsupremo.ao/jurisprudencia/',
+    },
+  ],
+};
+
+// ============================================================================
 // Agregado. ORDEM IMPORTA: o motor devolve o 1.º match por sigla contida no
 // remetente — SIAC fica em ÚLTIMO de propósito: uma mensagem "SIAC — balcão
-// SME/DNIRN" deve bater no organismo específico.
+// SME/DNIRN" deve bater no organismo específico. (vaga-3: a sigla passou a
+// ser correspondida por PALAVRA completa, o que tornou INE e TS seguros.)
 // ============================================================================
 export const KB_REGISTO: KbInstituicaoLocal[] = [
   KB_AGT,
+  KB_BNA,
   KB_CISP,
   KB_DNIRN,
   KB_DTSER,
   KB_ENDE,
   KB_EPAL,
+  KB_INACOM,
   KB_INAPEM,
+  KB_INE,
   KB_INSS,
   KB_MINED,
   KB_MINSA,
   KB_REGCIVIL,
   KB_SME,
+  KB_TS,
   KB_SIAC,
 ];
