@@ -556,7 +556,7 @@ export function DocumentsContent({
         className="space-y-6"
       >
         {/* Style block for clean printing layout */}
-        <style dangerouslySetInnerHTML={{__html: `
+        <style>{`
           @media print {
             body {
               background: white !important;
@@ -581,7 +581,7 @@ export function DocumentsContent({
               display: none !important;
             }
           }
-        `}} />
+        `}</style>
 
         {/* Action Header / Top Bar (non-printable) */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 no-print bg-slate-50 border border-slate-200/80 p-4 rounded-[24px]">

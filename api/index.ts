@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
 
@@ -41,12 +41,6 @@ if (apiKey) {
     console.warn("CRITICAL: Failed to instantiate GoogleGenAI client:", e);
   }
 }
-
-const getRuntimeFlags = () => ({
-  local_bootstrap: true,
-  mock_fallback: false,
-  supabase_auto_seed: false,
-});
 
 // ============================================================================
 // NUCLEO EMBUTIDO do Assistente de Documentos (Fase 1 / S1).
