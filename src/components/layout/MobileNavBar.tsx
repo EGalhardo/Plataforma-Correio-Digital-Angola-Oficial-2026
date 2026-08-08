@@ -45,7 +45,7 @@ const institutionItems: MenuItem[] = [
 const adminItems: MenuItem[] = [
   { id: 'gov-dashboard', label: 'Painel', icon: BarChart3 },
   { id: 'gov-interoperabilidade', label: 'Instituições', icon: Landmark },
-  { id: 'gov-correspondencias', label: 'Correios', icon: Mail },
+  { id: 'gov-correspondencias', label: 'Correspondências', icon: Mail },
   { id: 'gov-contatos', label: 'Cidadãos', icon: User },
   { id: 'gov-trabalhadores', label: 'Equipa', icon: Users },
   { id: 'gov-relatorio', label: 'Relatórios', icon: FileText },

@@ -4985,6 +4985,15 @@ Ficha civil do titular:
       // ---- F31 (v12/ideologia v13): CIDADÃO autentica na NUVEM (Supabase Auth) ----
       if (!isInstMode && !isGovMode) {
         const typedCitizenBi = bi.trim().toUpperCase().replace(/\s+/g, '');
+        // PROMPT MASTER (2026-08-08, S2): campos vazios NUNCA abrem sessão —
+        // antes, BI+senha vazios caíam na via legada F12 e entravam numa
+        // sessão local não verificada. Identidades demo (isExempt) ficam
+        // intactas — têm BI e senha próprios.
+        if (!typedCitizenBi || !loginPasswordInput) {
+          setLoginError('Introduza o Nº do B.I. e a palavra-passe para entrar no portal.');
+          addAuditLog('Login do cidadão recusado: campos de acesso vazios (fecho S2).', 'warning');
+          return;
+        }
         // Contas demo (v7) NUNCA tocam no Auth — via da demonstração intacta (D7)
         if (typedCitizenBi && !homologationStore.isExempt(typedCitizenBi) && isSupabaseConfigured()) {
           const cloudEmail = syntheticCitizenEmail(typedCitizenBi);
@@ -5034,8 +5043,15 @@ Ficha civil do titular:
               }
             }
             // B.I. sem nenhuma credencial conhecida (nunca registado neste dispositivo
-            // nem migrado): via F12 actual — a sessão entra limpa e não verificada.
-            // (Fecho definitivo desta via = RLS, fase F-c do prompt v12.)
+            // nem migrado): PROMPT MASTER (2026-08-08, S1) — a via F12 é FECHADA para
+            // este ramo: BI real com senha inválida na nuvem e sem credencial local
+            // NÃO abre mais sessão não verificada; recusa honesta (a sessão local
+            // só continua a existir quando a nuvem está INDISPONÍVEL — D3 abaixo).
+            else {
+              setLoginError(wrongPassMsg);
+              addAuditLog(`Login do cidadão ${typedCitizenBi} recusado: senha inválida na nuvem e nenhuma credencial local neste dispositivo (fecho F12-lite).`, 'warning');
+              return;
+            }
           } else if (cloudRes.outcome === 'unavailable') {
             addAuditLog(`[AUTH-CLOUD] Nuvem indisponível (${cloudRes.message || 'sem ligação'}) — fallback local (D3): login do cidadão ${typedCitizenBi} validado pelo modelo actual.`, 'warning');
           }
