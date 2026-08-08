@@ -1,62 +1,70 @@
 # Auditoria Autónoma da Plataforma — runbook
 *(2026-08-08, a pedido do dono: «criar um prompt para verificar todas as funcionalidades e testar de forma autónoma»)*
+*Última execução verificada: **26 PASS / 0 FAIL** (blocos A–C + §D com sessões reais).*
 
 ## 1. O que é e o que cobre
 
-`scripts/auditoria_autonoma.sh` testa **tudo o que é verificável sem sessões
-privilegiadas**, diretamente contra produção, em ~1 minuto:
+`scripts/auditoria_autonoma.sh` testa diretamente contra produção, em ~1 min:
 
-| Bloco | Verificações (14 atualmente) |
+| Bloco | Verificações (26 atualmente) |
 |---|---|
-| **A. Produção viva** | health da API (estado + chaves IA), página 200 com entry do bundle, chunks de pagamentos referenciados, selo honesto de gateway + 4 métodos no bundle partilhado, self-service KB no bundle institucional |
-| **B. API de IA** | explicar genérico; KB INE (fonte oficial censo2024.ine.gov.ao); KB BNA (Provedor do Cliente Bancário/contactos); traduzir EN **não** é tocado pelas guardas; umbundu → embrulho honesto com o texto original (ou tradução diferenciada curta via modelo principal) |
-| **C. RLS / base de dados** | tabelas v25 (`kb_fontes_instituicao`) e v26 (`pagamentos`) existem; escrita anónima **bloqueada** nas duas (401/42501) — falhar a inserção é o comportamento correto |
+| **A. Produção viva** | health da API; página 200 com entry; chunks de pagamentos/self-service KB no bundle; selo honesto de gateway + 4 métodos; **integridade de TODOS os 22 chunks lazy** (nota 6 do dono — cada página da SPA é um chunk; um chunk partido = página em branco) |
+| **B. API de IA** | explicar genérico; KB INE; KB BNA; traduzir EN intacto; umbundu com embrulho honesto (ou tradução diferenciada curta) |
+| **C. RLS / base (anónimo)** | tabelas v25 + v26 existem; escrita anónima **bloqueada** nas duas (401/42501) |
+| **§D. Sessões reais (test account)** | login das duas contas de teste; claims oficiais no JWT (`bi` / `instituicao`); instituição regista cobrança → cidadão vê → cidadão **não** pode forjar cobranças → instituição cancela (linha afetada comprovada); KB self-service: criar → público vê (ativa) → desativar → público deixa de ver → dono ainda vê → apagar (linha comprovada) |
 
-Resultado esperado: `AUDITORIA: 14 PASS / 0 FAIL` (código de saída 0).
+Resultado esperado: `TOTAL GERAL: 26 PASS / 0 FAIL` (código de saída 0).
 
 ## 2. O prompt para me chamar (copiar/colar a qualquer momento)
 
 > **Executa a auditoria autónoma completa:**
-> 1) corre `bash scripts/auditoria_autonoma.sh` no repo;
+> 1) corre `bash scripts/auditoria_autonoma.sh` no repo com as variáveis §D das contas de teste (vê §3 onde estão);
 > 2) corre a bateria local `bash /home/user/cda_test/run_all.sh` (esperado: 80 PASS / 0 FAIL);
-> 3) confirma `node node_modules/typescript/bin/tsc --noEmit` limpo (reinstala
->    node_modules se o ambiente tiver sido reposto);
-> 4) reporta tudo numa tabela com PASS/FAIL e evidências, sem declarar sucesso
->    sem provas;
+> 3) confirma `node node_modules/typescript/bin/tsc --noEmit` limpo (reinstala node_modules se o ambiente tiver sido reposto);
+> 4) reporta tudo numa tabela com PASS/FAIL e evidências, sem declarar sucesso sem provas;
 > 5) se algo falhar, investiga a causa e propõe a correção antes de a aplicar.
 
-## 3. O que FICA FORA do alcance autónomo (por desenho, não por preguiça)
+## 3. §D — contas de teste e credenciais
 
-Estes fluxos exigem **JWT real com claims `app_metadata`** (imutáveis pelo
-titular desde v14 — ninguém, nem eu, os pode forjar com a chave anónima):
+Criadas a **2026-08-08 via API oficial de signup** (as claims nasceram oficiais
+pela trigger `cda_claims_sync` de v14 — prova de que o registo real funciona):
 
-- compositor/envio de correio oficial e confirmação de leitura;
-- self-service KB (criar/desativar fontes como instituição);
-- pagamentos: criar/cancelar cobrança como instituição e vê-la como cidadão;
-- homologação de instituições, videochamada, SOS/emergência (claims `bi`).
+| Conta | Papel | Claim oficial |
+|---|---|---|
+| `cda.teste.cidadao.2026@gmail.com` | cidadã | `bi = 009999999LA099` |
+| `cda.teste.instituicao.2026@gmail.com` | instituição | `instituicao = CDATST` |
 
-**Como desbloquear 100% de autonomia sobre estes fluxos:** criar duas contas de
-teste (uma instituição homologada + uma cidadã) e partilhar as credenciais
-comigo — acrescento uma secção §D ao script que faz o circuito completo via
-API oficial (login → claims → inserção → leitura → cancelamento), deixando só
-o rasto auditável. Depois pode mudar as palavras-passe por precaução.
+- **As palavras-passe NÃO estão no repo** (nunca se commitam credenciais) —
+  estão em `/home/user/cda_test/contas_teste.md` e foram partilhadas no chat.
+- A sigla `CDATST` **não** figure no registo KB: nada do circuito de teste
+  toca nas respostas públicas da IA.
+- A §D deixa de propósito **1 cobrança pendente** (Kz 12.500,50) no nome do
+  cidadão de teste → serve a demonstração ao INAPEM; e 1 cancelada (rasto).
+- Rodar as passwords: Supabase Dashboard → Authentication → Users.
 
-## 4. Execução manual rápida
+## 4. O que continua FORA do alcance autónomo
+
+Fluxos de UI com sessão de browser (compositor, caixa de entrada, videochamada,
+SOS) — verificam-se nas suites locais e em testes guiados; as **funções de dados
+e segurança por trás deles estão cobertas** pela §D e pelos blocos A–C.
+
+## 5. Execução manual rápida
 
 ```bash
-# auditoria de produção (sem credenciais; ~1 min)
+# auditoria de produção completa (A–C + §D)
+CDA_TEST_CID_EMAIL=... CDA_TEST_CID_PASS=... \
+CDA_TEST_INST_EMAIL=... CDA_TEST_INST_PASS=... \
 bash scripts/auditoria_autonoma.sh
 
-# bateria local de regressão (80 suites; precisa de node_modules)
+# bateria local de regressão (80 suites)
 bash /home/user/cda_test/run_all.sh
 
 # tipagem
 cd <repo> && node node_modules/typescript/bin/tsc --noEmit
 ```
 
-## 5. Quando correr
+## 6. Quando correr
 
-- Depois de cada deploy (a Vercel demora ~2 min a propagar — o script já
-  pressupõe produção estabilizada; corra-o 2–3 min após o push);
+- Depois de cada deploy (aguardar ~2 min de propagação da Vercel);
 - Antes de qualquer demonstração (ex.: INAPEM);
-- Periodicamente (o script é idempotente e não escreve nada na base).
+- Periodicamente (idempotente; a §D só escreve cobranças da sigla de teste).

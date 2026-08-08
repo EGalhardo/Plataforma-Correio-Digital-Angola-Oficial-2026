@@ -56,6 +56,19 @@ curl -s --max-time 60 "$BASE/$KBCHUNK" -o /tmp/aud_inst.js
 grep -q 'kb_fontes_instituicao' /tmp/aud_inst.js && ok "self-service KB presente no bundle institucional" \
   || bad "self-service KB ausente do bundle institucional"
 
+# A.2 (nota 6 do dono, 2026-08-08) — integridade de TODOS os chunks lazy:
+# cada "pagina" da SPA e um chunk; um chunk partido = pagina em branco para o
+# cidadao. Verificamos que TODOS respondem 200; o teste funcional por pagina
+# com sessao real corre no §D e nas suites locais.
+BROKEN=0; TOTAL_CHUNKS=0
+for c in $(grep -oE 'assets/[A-Za-z0-9_-]+-[A-Za-z0-9_-]{8}\.js' /tmp/aud_entry.js | sort -u); do
+  TOTAL_CHUNKS=$((TOTAL_CHUNKS+1))
+  CCODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$BASE/$c")
+  if [ "$CCODE" != "200" ]; then BROKEN=$((BROKEN+1)); echo "  [chunk partido] $c -> HTTP $CCODE"; fi
+done
+[ "$BROKEN" = "0" ] && ok "integridade de TODOS os $TOTAL_CHUNKS chunks lazy (todas as paginas serviveis)" \
+  || bad "$BROKEN de $TOTAL_CHUNKS chunks lazy partidos"
+
 # --- B) API de IA ---------------------------------------------------------------
 json_probe '{"acao":"explicar","texto":"O que significa certidão de teor?","remetente":"Cidadao"}'
 grep -q '"ok":true' /tmp/aud_resp.json && ok "explicar genérico responde" || bad "explicar genérico falhou: $(head -c 200 /tmp/aud_resp.json)"
@@ -113,6 +126,86 @@ else
 fi
 
 echo "======================================================================"
-echo "AUDITORIA: $PASS PASS / $FAIL FAIL   (fora de alcance autónomo: fluxos"
-echo "com sessão real — ver AUDITORIA_AUTONOMA.md §3)"
+echo "AUDITORIA A-C: $PASS PASS / $FAIL FAIL"
+
+# --- D) CIRCUITO COM SESSOES REAIS (opcional; 2026-08-08) ---------------------
+# Ativa-se com: CDA_TEST_CID_EMAIL/CDA_TEST_CID_PASS e CDA_TEST_INST_EMAIL/
+# CDA_TEST_INST_PASS. As contas NASCEM com as claims oficiais (trigger v14
+# sincroniza user_metadata -> app_metadata no INSERT). Circuito honesto:
+# instituicao REGISTA cobranca -> cidadao VE -> instituicao CANCELA (fica o
+# rasto); KB self-service: cria -> dono ve -> anon ve (ativa) -> desativa ->
+# anon deixa de ver -> apaga (limpeza). A sigla de teste (CDATST) NAO esta no
+# registo KB, por isso nada disto toca nas respostas publicas da IA.
+if [ -n "${CDA_TEST_CID_EMAIL:-}" ] && [ -n "${CDA_TEST_CID_PASS:-}" ] && [ -n "${CDA_TEST_INST_EMAIL:-}" ] && [ -n "${CDA_TEST_INST_PASS:-}" ] && [ -n "$SUPA_URL" ] && [ -n "$SUPA_KEY" ]; then
+  echo "--- §D circuito com sessoes reais ---"
+  login() { curl -s --max-time 30 -X POST "$SUPA_URL/auth/v1/token?grant_type=password" -H "apikey: $SUPA_KEY" -H 'Content-Type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}"; }
+  TOK_CID=$(login "$CDA_TEST_CID_EMAIL" "$CDA_TEST_CID_PASS" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("access_token",""))')
+  TOK_INST=$(login "$CDA_TEST_INST_EMAIL" "$CDA_TEST_INST_PASS" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("access_token",""))')
+
+  if [ -z "$TOK_CID" ] || [ -z "$TOK_INST" ]; then
+    bad "§D login falhou (cidadao ${#TOK_CID}B / instituicao ${#TOK_INST}B de token)"
+  else
+    ok "§D login real das duas contas de teste"
+    # NOTA (bug corrigido 2026-08-08): o Supabase aninha os claims em
+    # payload.app_metadata — nao no topo do JWT. A 1.a versao lia o topo e,
+    # sem claims, o RLS bloqueava tudo (corretamente).
+    CLAIM_CID=$(echo "$TOK_CID" | cut -d. -f2 | tr '_-' '/+' | python3 -c 'import sys,base64,json; s=sys.stdin.read().strip(); s+="="*(-len(s)%4); print(json.loads(base64.b64decode(s)).get("app_metadata",{}).get("bi",""))')
+    CLAIM_INST=$(echo "$TOK_INST" | cut -d. -f2 | tr '_-' '/+' | python3 -c 'import sys,base64,json; s=sys.stdin.read().strip(); s+="="*(-len(s)%4); print(json.loads(base64.b64decode(s)).get("app_metadata",{}).get("instituicao",""))')
+    [ -n "$CLAIM_CID" ] && [ -n "$CLAIM_INST" ] \
+      && ok "§D claims oficiais no JWT (bi=$CLAIM_CID / instituicao=$CLAIM_INST)" \
+      || bad "§D claims em falta no JWT (bi=$CLAIM_CID / instituicao=$CLAIM_INST)"
+
+    # cobranca de demonstracao pendente (fica para a demo ao INAPEM)
+    CR=$(curl -s --max-time 30 -X POST "$SUPA_URL/rest/v1/pagamentos" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $TOK_INST" -H 'Content-Type: application/json' -H 'Prefer: return=representation' \
+      -d "{\"instituicao_sigla\":\"$CLAIM_INST\",\"destinatario_bi\":\"$CLAIM_CID\",\"descricao\":\"Taxa de teste E2E — demonstracao INAPEM (auditoria autonoma)\",\"valor\":12500.50,\"metodos\":[\"multicaixa_express\",\"referencia_atm\",\"tpa\",\"transferencia\"],\"documento_ref\":\"Oficio CDA-TESTE/2026\"}")
+    echo "$CR" | grep -q '"id"' && ok "§D instituicao REGISTOU cobranca pendente para o cidadao" || bad "§D insert da cobranca falhou: $(echo "$CR" | head -c 200)"
+
+    GC=$(curl -s --max-time 30 -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $TOK_CID" "$SUPA_URL/rest/v1/pagamentos?select=descricao,valor,estado&estado=eq.pendente")
+    echo "$GC" | grep -q 'Taxa de teste E2E' && ok "§D cidadao VE a cobranca pendente na sua area" || bad "§D cidadao nao viu a cobranca: $(echo "$GC" | head -c 200)"
+
+    NC=$(curl -s -o /tmp/aud_nc.json -w '%{http_code}' --max-time 30 -X POST "$SUPA_URL/rest/v1/pagamentos" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $TOK_CID" -H 'Content-Type: application/json' \
+      -d '{"instituicao_sigla":"CDATST","destinatario_bi":"009999999LA099","descricao":"Cidadao nao pode criar cobrancas a si proprio","valor":1,"metodos":["tpa"]}')
+    { [ "$NC" = "401" ] || [ "$NC" = "403" ]; } && grep -qi 'row-level security' /tmp/aud_nc.json \
+      && ok "§D cidadao NAO pode forjar cobrancas (RLS insert bloqueado)" \
+      || bad "§D cidadao CONSEGUIU inserir cobranca (HTTP $NC) — grave"
+
+    # PATCH/DELETE verificam LINHAS AFETADAS (Prefer: return=representation) —
+    # um 204 com 0 linhas atualizadas seria um falso positivo elegante.
+    CC=$(curl -s --max-time 30 -X PATCH -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $TOK_INST" -H 'Content-Type: application/json' -H 'Prefer: return=representation' \
+      "$SUPA_URL/rest/v1/pagamentos?estado=eq.pendente&instituicao_sigla=eq.$CLAIM_INST&descricao=like.*auditoria%20autonoma*" -d '{"estado":"cancelado"}')
+    CANCELOU=0
+    echo "$CC" | grep -q '"estado":"cancelado"' && CANCELOU=1
+    # recria pendente (idempotente por desenho: so avanca se ainda nao houver uma pendente desta descricao)
+    PD=$(curl -s --max-time 30 -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $TOK_INST" "$SUPA_URL/rest/v1/pagamentos?select=id&estado=eq.pendente&instituicao_sigla=eq.$CLAIM_INST&descricao=like.*pendente,%20pronta%20p/%20demo*")
+    if [ "$PD" = "[]" ]; then
+      curl -s --max-time 30 -X POST "$SUPA_URL/rest/v1/pagamentos" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $TOK_INST" -H 'Content-Type: application/json' -o /dev/null \
+        -d "{\"instituicao_sigla\":\"$CLAIM_INST\",\"destinatario_bi\":\"$CLAIM_CID\",\"descricao\":\"Taxa de teste E2E — demonstracao INAPEM (pendente, pronta p/ demo)\",\"valor\":12500.50,\"metodos\":[\"multicaixa_express\",\"referencia_atm\",\"tpa\",\"transferencia\"],\"documento_ref\":\"Oficio CDA-TESTE/2026\"}"
+    fi
+    [ "$CANCELOU" = "1" ] && ok "§D instituicao CANCELOU a 1.a cobranca (linha afetada comprovada; rasto fica) e a de demo ficou pendente" || bad "§D cancelamento sem linha afetada: $(echo "$CC" | head -c 200)"
+
+    # KB self-service (v25) — sigla CDATST nao entra nas respostas publicas da IA
+    TEXTO_KB="Texto de teste da auditoria autonoma com pelo menos duzentos caracteres para respeitar os checks de qualidade da base de conhecimento institucional. Este conteudo descreve um procedimento ficticio da sigla CDATST usado apenas para provar o circuito de self-service com RLS: criar, ler como dono, ler como anonimo enquanto ativo, desativar e confirmar que o publico deixa de ver. Fim do texto de teste."
+    KR=$(curl -s --max-time 30 -X POST "$SUPA_URL/rest/v1/kb_fontes_instituicao" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $TOK_INST" -H 'Content-Type: application/json' -H 'Prefer: return=representation' \
+      -d "{\"sigla\":\"$CLAIM_INST\",\"titulo\":\"Procedimento de teste E2E (auditoria)\",\"tipo\":\"procedimento\",\"texto\":\"$TEXTO_KB\"}")
+    echo "$KR" | grep -q '"id"' && ok "§D instituicao CRIOU fonte na Base de Conhecimento (v25)" || bad "§D insert KB falhou: $(echo "$KR" | head -c 200)"
+
+    AN1=$(curl -s --max-time 30 -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" "$SUPA_URL/rest/v1/kb_fontes_instituicao?select=titulo&sigla=eq.$CLAIM_INST&ativo=is.true")
+    echo "$AN1" | grep -q 'Procedimento de teste E2E' && ok "§D fonte ATIVA visivel ao publico (conteudo de referencia)" || bad "§D fonte ativa invisivel ao publico: $(echo "$AN1" | head -c 200)"
+
+    curl -s --max-time 30 -X PATCH -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $TOK_INST" -H 'Content-Type: application/json' -o /dev/null \
+      "$SUPA_URL/rest/v1/kb_fontes_instituicao?sigla=eq.$CLAIM_INST" -d '{"ativo":false}'
+    AN2=$(curl -s --max-time 30 -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" "$SUPA_URL/rest/v1/kb_fontes_instituicao?select=titulo&sigla=eq.$CLAIM_INST&ativo=is.true")
+    [ "$AN2" = "[]" ] && ok "§D desativada, a fonte SAI do alcance publico imediatamente" || bad "§D publico ainda ve fonte desativada: $(echo "$AN2" | head -c 200)"
+
+    OW=$(curl -s --max-time 30 -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $TOK_INST" "$SUPA_URL/rest/v1/kb_fontes_instituicao?select=titulo,ativo&sigla=eq.$CLAIM_INST")
+    echo "$OW" | grep -q 'Procedimento de teste E2E' && ok "§D dono continua a ver a fonte desativada (gestao propria)" || bad "§D dono perdeu a fonte desativada: $(echo "$OW" | head -c 200)"
+
+    DL=$(curl -s --max-time 30 -X DELETE -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $TOK_INST" -H 'Prefer: return=representation' "$SUPA_URL/rest/v1/kb_fontes_instituicao?sigla=eq.$CLAIM_INST")
+    echo "$DL" | grep -q '"id"' && ok "§D dono apaga a fonte de teste (linha apagada comprovada)" || bad "§D delete da fonte sem linha afetada: $(echo "$DL" | head -c 200)"
+  fi
+else
+  echo "--- §D saltada: defina CDA_TEST_CID_EMAIL/CDA_TEST_CID_PASS/CDA_TEST_INST_EMAIL/CDA_TEST_INST_PASS ---"
+fi
+echo "======================================================================"
+echo "TOTAL GERAL: $PASS PASS / $FAIL FAIL"
 [ "$FAIL" = "0" ] && exit 0 || exit 1
