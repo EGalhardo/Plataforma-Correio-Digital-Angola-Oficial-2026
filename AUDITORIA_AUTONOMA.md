@@ -17,7 +17,9 @@
 
 | **G. Fluxos de escrita · ronda 2** | `scripts/e2e_fluxos_escrita2.mjs`: os últimos 4 botões de escrita — **C. Redefinição de senha** (circuito completo no UI com a conta §D: login real → stepper → nova senha; prova do contrato F-c: a nuvem manda — senha local divergente recusada com selo honesto, senha original da nuvem intacta em contexto limpo; a redefinição é credencial LOCAL por desenho, sem e-mails); **G. Homologação admin pelo UI** (cadastro pendente criado pelo formulário → admin demo abre a ficha na página «Cidadãos» → Homologar → distintivo «Aprovado Manualmente» + verdade na nuvem: admin demo não tem JWT de admin ⇒ a decisão persiste LOCAL — limite arquitetural reportado com evidência, consola avisa âmbar por desenho); **D. Mensagem pelo compose** (instituição descartável cria→homologa→entra → Nova Mensagem ao cidadão §D → modal «COMPROVATIVO ENVIADO» QR+SHA-256 → linha na `messages` → o cidadão lê na própria caixa via REST → removida); **F. KB self-service** (sub-aba «Base de Conhecimento»: criar fonte ≥400 chars → `kb_fontes_instituicao` ativo=true → Desativar pela UI (ativo=false comprovado) → apagar pela UI (2 cliques: arma+«Confirmar») → zero resíduos). Fixture §D: cidadã tem linha `solicitacoes_registo` própria (Aprovado) — sem ela, F47 tratava a conta bootstrap como eliminada no 2.º login UI. Env-gate: `SUPABASE_SERVICE_ROLE_KEY` (limpezas/homologação) + `CDA_TEST_CID_*`. Esperado: **20 PASS / 0 FAIL** (~110 s). |
 
-Resultado esperado: `TOTAL GERAL: 26 PASS / 0 FAIL` no script + `49 PASS / 0 FAIL` na varredura de páginas + `10 PASS / 0 FAIL` nos fluxos de escrita + `20 PASS / 0 FAIL` na ronda 2.
+| **H. Auditoria master (qualidade + segurança)** | `scripts/e2e_auditoria_master.mjs`: 39 verificações em Chromium contra produção — **R** responsividade (360/768/1920 px × 3 papéis × 2 papéis autenticados, zero overflow horizontal), **N** consola/rede sem erros, **P** performance (login frio ≈2,8 s; navegação Painel→Correio ≈1,7 s), **A** acessibilidade (inputs etiquetados, botões nomeados, imgs com alt, teclado até «Entrar»), **S** segurança (senha errada recusada · campos vazios recusados · SPA gated sem sessão · **cross-tenant real**: cidadão §D não lê mensagens/pagamentos de outro BI — 0 linhas; instituição §D não lê pagamentos/KB de outra sigla — 0/0), **U** UX (estado vazio honesto, pesquisa filtra, notificações sem loader infinito), **V** validações (gate CONTINUAR por validade; erros por campo na adesão). Esperado: **38 PASS / 1 WARN / 0 FAIL** (~150 s). Único WARN conhecido (NÍVEL BAIXO, backlog): N3 — `GET /rest/v1/messages` repetido 4× na travessia do cidadão (paginação/cache advisory). |
+
+Resultado esperado: `TOTAL GERAL: 26 PASS / 0 FAIL` no script + `49 PASS / 0 FAIL` na varredura de páginas + `10 PASS / 0 FAIL` nos fluxos de escrita + `20 PASS / 0 FAIL` na ronda 2 + `38 PASS / 1 WARN / 0 FAIL` na auditoria master — **224 verificações automatizadas**.
 
 ## 2. O prompt para me chamar (copiar/colar a qualquer momento)
 
@@ -28,6 +30,7 @@ Resultado esperado: `TOTAL GERAL: 26 PASS / 0 FAIL` no script + `49 PASS / 0 FAI
 > 4) corre a varredura de TODAS as páginas `node scripts/e2e_paginas.mjs` (Playwright + Chromium com as 3 identidades demo nativas — páginas, ecrãs públicos de acesso e fluxos funcionais; esperado: 49 PASS / 0 FAIL; screenshots ficam em `/home/user/cda_test/screenshots`);
 > 4b) corre os fluxos de ESCRITA reais `node scripts/e2e_fluxos_escrita.mjs` com as variáveis do `.env` exportadas (registo cidadão + adesão institucional + cobrança, tudo pelo browser, com limpeza total; esperado: 10 PASS / 0 FAIL; sem SUPABASE_SERVICE_ROLE_KEY sai SKIP por segurança);
 > 4c) corre a ronda 2 dos fluxos de escrita `node scripts/e2e_fluxos_escrita2.mjs` com `.env` + `CDA_TEST_CID_*` exportadas (redefinição de senha, homologação admin, mensagem pelo compose, KB self-service; esperado: 20 PASS / 0 FAIL);
+> 4d) corre a auditoria master `node scripts/e2e_auditoria_master.mjs` (responsividade, rede, performance, a11y, segurança cross-tenant, UX, validações; esperado: 38 PASS / 1 WARN / 0 FAIL — o WARN N3 é advisory conhecido);
 > 5) reporta tudo numa tabela com PASS/FAIL e evidências, sem declarar sucesso sem provas;
 > 6) se algo falhar, investiga a causa e propõe a correção antes de a aplicar.
 
@@ -38,8 +41,16 @@ pela trigger `cda_claims_sync` de v14 — prova de que o registo real funciona):
 
 | Conta | Papel | Claim oficial |
 |---|---|---|
-| `cda.teste.cidadao.2026@gmail.com` | cidadã | `bi = 009999999LA099` |
+| `bi.009999999la099@cidadao.correiodigital.ao` | cidadã | `bi = 009999999LA099` |
 | `cda.teste.instituicao.2026@gmail.com` | instituição | `instituicao = CDATST` |
+
+> **Sanidade da fixture §D (2026-08-08):** o e-mail canónico da cidadã de
+> teste é o **sintético derivado do BI** — a UI nunca usa outro. Um duplicado
+> com e-mail real (gmail), criado por engano durante a auditoria master com
+> as mesmas claims, foi **eliminado** (doutrina: 1 BI = 1 conta Auth). Se
+> a conta §D precisar de ser recriada, cria-se SEMPRE com o e-mail
+> sintético; senão o login UI devolve «credenciais incorrectas» mesmo com a
+> palavra-passe certa (diagnóstico completo em `contas_teste.md`).
 
 - **As palavras-passe NÃO estão no repo** (nunca se commitam credenciais) —
   estão em `/home/user/cda_test/contas_teste.md` e foram partilhadas no chat.

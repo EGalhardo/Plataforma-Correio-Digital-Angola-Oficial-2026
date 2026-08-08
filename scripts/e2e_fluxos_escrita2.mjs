@@ -198,7 +198,7 @@ const limparInstituicao = async (codigo) => {
 async function parteC(browser) {
   console.log('--- PARTE C · redefinição de senha (item 1) ---');
   if (!CID_PASS) { reg('C-redefinicao', 'SKIP', 'CDA_TEST_CID_PASS ausente no ambiente'); return; }
-  const cidEmail = process.env.CDA_TEST_CID_EMAIL || 'cda.teste.cidadao.2026@gmail.com';
+  const cidEmail = process.env.CDA_TEST_CID_EMAIL || 'bi.009999999la099@cidadao.correiodigital.ao';
   const novaSenha = `Nova#Pass${suf}${letras}!`;
   const page = await novaPagina(browser);
   try {
@@ -441,7 +441,7 @@ async function partesDF(browser) {
       reg('D2-mensagem-prova-cloud', 'PASS', `messages.id=${msgId} sender=${db.body[0].sender_bi} → recipient=${db.body[0].recipient_bi}`);
       // D3 — o cidadão vê-a na sua caixa (sessão REST com as próprias credenciais)
       if (CID_PASS) {
-        const cidEmail = process.env.CDA_TEST_CID_EMAIL || 'cda.teste.cidadao.2026@gmail.com';
+        const cidEmail = process.env.CDA_TEST_CID_EMAIL || 'bi.009999999la099@cidadao.correiodigital.ao';
         const token = await loginRest(cidEmail, CID_PASS);
         if (token) {
           const r = await fetch(`${SUPA_URL}/rest/v1/messages?subject=eq.${encodeURIComponent(INST2.assunto)}&select=id`, {
