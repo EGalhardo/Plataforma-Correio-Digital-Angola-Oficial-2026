@@ -29,8 +29,7 @@ suites, 0 falhas**; `tsc --noEmit` limpo.
   marcadores existem no bundle servido. Commits `f63fa74`.
 
 ## 3) Línguas nacionais (experimental) — com guardas de honestidade PROVADAS AO VIVO
-- Tradução para 6 línguas nacionais (Umbundu, Kimbundu, Kikongo, Cokwe,
-  Kwanyama + PT simples), painel marcado «(experimental)»; regra 4 do
+- Tradução para 5 línguas nacionais (Umbundu, Kimbundu, Kikongo, Cokwe, Kwanyama) + PT simples, painel marcado «(experimental)»; regra 4 do
   prompt mantém EN/FR byte-idênticos.
 - **Guarda anti-eco** (`ec1d2f7`): o fallback llama-3.1-8b devolvia o texto
   em Português como se fosse tradução → embrulho honesto «Não consigo
