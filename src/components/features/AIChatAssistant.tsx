@@ -133,6 +133,7 @@ const PAGE_FRIENDLY_NAMES: Record<AppMode, Record<string, string>> = {
     correspondencias: "Correio Digital",
     contactos: "Círculo de Confiança",
     perfil: "Meu Perfil",
+    pagamentos: "Pagamentos",
     "video-atendimento": "Video Atendimento"
   },
   institution: {
@@ -141,6 +142,7 @@ const PAGE_FRIENDLY_NAMES: Record<AppMode, Record<string, string>> = {
     "gov-contatos": "Equipa",
     "inst-qrcode": "Validação por QR Code",
     "inst-ai-assistant": "Assistência IA",
+    "inst-pagamentos": "Pagamentos e Cobranças",
     perfil: "Perfil Institucional",
     "video-atendimento": "Video Atendimento"
   },

@@ -135,6 +135,10 @@ const GovRelatorioContent = lazy(() => import('./components/features/GovRelatori
 const GovIaContent = lazy(() => import('./components/features/GovIaContent').then(m => ({ default: m.GovIaContent })));
 const InstQrCodeContent = lazy(() => import('./components/features/InstQrCodeContent').then(m => ({ default: m.InstQrCodeContent })));
 const InstAiAssistantContent = lazy(() => import('./components/features/InstAiAssistantContent').then(m => ({ default: m.InstAiAssistantContent })));
+// 2026-08-08 — Pagamentos (frontend-only; gateway só após validação INAPEM)
+const PagamentosContent = lazy(() => import('./components/features/PagamentosContent').then(m => ({ default: m.PagamentosContent })));
+const PagamentosInlineCidadao = lazy(() => import('./components/features/PagamentosContent').then(m => ({ default: m.PagamentosInlineCidadao })));
+const InstPagamentosContent = lazy(() => import('./components/features/InstPagamentosContent').then(m => ({ default: m.InstPagamentosContent })));
 const SolicitarDocumentoContent = lazy(() => import('./components/features/SolicitarDocumentoContent').then(m => ({ default: m.SolicitarDocumentoContent })));
 const RegisterStepper = lazy(() => import('./components/features/RegisterStepper').then(m => ({ default: m.RegisterStepper })));
 import { shouldAutoSeedSupabase, shouldUseLocalBootstrap, shouldUseMockFallback } from './config/runtime';
@@ -4041,6 +4045,7 @@ Ficha civil do titular:
         if (!selectedMessage) return null;
         return (
           <PainelSuspense>
+          <div className="flex flex-col gap-4">
           <MessageDetail
             selectedMessage={selectedMessage}
             setSelectedMessage={setSelectedMessage}
@@ -4053,6 +4058,13 @@ Ficha civil do titular:
             isDeleted={deletedMessageIds.includes(selectedMessage.id)}
             backTab={selectedInstitution ? 'instituicao' : 'correspondencias'}
           />
+          {isUserMode && bi ? (
+            <PagamentosInlineCidadao
+              citizenBi={bi}
+              assuntoDocumento={selectedMessage.subject || ''}
+            />
+          ) : null}
+          </div>
           </PainelSuspense>
         );
       case 'qr-code':
@@ -4158,6 +4170,30 @@ Ficha civil do titular:
           <PainelSuspense>
           <InstAiAssistantContent
             addAuditLog={addAuditLog}
+            setTab={setTab}
+            appMode={appMode}
+            bi={bi}
+            profileName={activeProfile?.institutionName || profileName || ''}
+            institutionCode={institutionCode}
+          />
+          </PainelSuspense>
+        );
+      case 'inst-pagamentos':
+        return (
+          <PainelSuspense>
+          <InstPagamentosContent
+            institutionCode={institutionCode}
+            profileName={activeProfile?.institutionName || profileName || ''}
+            addAuditLog={addAuditLog}
+            setTab={setTab}
+          />
+          </PainelSuspense>
+        );
+      case 'pagamentos':
+        return (
+          <PainelSuspense>
+          <PagamentosContent
+            citizenBi={bi}
             setTab={setTab}
           />
           </PainelSuspense>

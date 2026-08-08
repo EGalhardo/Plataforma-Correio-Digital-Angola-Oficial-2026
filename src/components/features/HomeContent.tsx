@@ -153,6 +153,11 @@ export function HomeContent({
       <div className="flex flex-wrap items-center gap-4 px-1 text-[10px] font-black uppercase tracking-widest">
         <button onClick={() => setTab('historico')} className="cda-link-text">{t("Ver Histórico")}</button>
         <button onClick={() => setTab('notificacoes')} className="cda-link-text">{t("Notificações")}</button>
+        {isInst ? (
+          <button onClick={() => setTab('inst-pagamentos')} className="cda-link-text">{t("Pagamentos")}</button>
+        ) : (
+          <button onClick={() => setTab('pagamentos')} className="cda-link-text">{t("Pagamentos")}</button>
+        )}
         {isInst && (
           <button onClick={() => setTab('inst-qrcode')} className="cda-link-text">{t("Validação QR")}</button>
         )}
