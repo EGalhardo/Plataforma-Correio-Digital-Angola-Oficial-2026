@@ -58,7 +58,8 @@ Superfície inicial: seleção de tipo de correspondência no compositor + pági
 
 ## Fora de âmbito na Fase 1 (registado para não se perder)
 Pagamentos/gateway · dados clínicos · assinatura qualificada · RAG completo por instituição · SOS GPS/multimédia.
-> ✅ 2026-08-07: «línguas nacionais na IA de documentos» SAIU desta lista — tradução experimental para 6 línguas nacionais com guardas de honestidade (anti-eco + anti-degeneração) e painel marcado «(experimental)». Ver `CORRECOES_APLICADAS_2026-08-07.md`.
+> ✅ 2026-08-07: «línguas nacionais na IA de documentos» SAIU desta lista — tradução experimental para 5 línguas nacionais com guardas de honestidade (anti-eco + anti-degeneração) e painel marcado «(experimental)». Ver `CORRECOES_APLICADAS_2026-08-07.md`.
+> ◐ 2026-08-08 (decisão do dono): «Pagamentos» sai PARCIALMENTE — entra já o frontend + registo de cobranças (v26, tabela `pagamentos`, RLS na convenção v14/v19/v25; de propósito SEM estado 'pago'); o **gateway/backend (EMIS/Multicaixa/bancos) fica para depois da validação do projecto pelo INAPEM**.
 
 ## Regras de segurança/custo (todos os ciclos)
 - Chaves SÓ no servidor (nunca `VITE_`)

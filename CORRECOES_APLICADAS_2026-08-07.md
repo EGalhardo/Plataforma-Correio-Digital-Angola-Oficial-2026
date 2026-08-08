@@ -88,3 +88,29 @@ suites, 0 falhas**; `tsc --noEmit` limpo.
 - Modal morto `isOfficialConfirmOpen` no MailContent.
 - Classificação «disponível vs demonstração» das páginas Gov (S7).
 - `checklist_verificacao_paginas.md`.
+
+---
+
+# Addendum 2026-08-08 — Pagamentos: frontend + registo (SEM gateway)
+
+Decisão do dono: «coloca apenas a parte frontend; a parte do backend ou gateway
+será implementada quando o projecto for validado pelo INAPEM». Entregue
+(commit `3816d26`, bateria 80/80, `tsc` limpo, marcadores verificados no bundle
+de produção):
+
+- **`supabase/v26_pagamentos_frontend.sql`** (aplicado pelo dono; sondas
+  remotas: tabela 200 OK, escrita anónima **bloqueada** 401/42501, leitura
+  anónima 0 linhas): tabela `pagamentos` com RLS na convenção v14/v19/v25 —
+  cidadão lê pelo claim `app_metadata.bi`; instituição escreve/gere só na
+  própria sigla; admin global. SEM política delete (cobrança cancela-se, fica
+  o rasto) e SEM estado `'pago'` — sem gateway, ninguém marca pagamentos.
+- **Cidadão**: página «Pagamentos» (lista, detalhe com valor/referência/prazo,
+  métodos marcados como *previstos*, selo honesto) + painel inline ao ler um
+  documento com cobrança associada por `documento_ref`.
+- **Instituição**: página «Pagamentos» para criar/listar/cancelar cobranças
+  (com auditoria) — **registo informativo, não movimenta dinheiro**.
+- Helpers puros em `pagamentosUtils.ts` (importável sem `import.meta`,
+  testável sob tsx) + CRUD em `pagamentosService.ts`.
+- Bónus: défice de wiring do E6 detetado e corrigido (o painel de IA
+  institucional não recebia `institutionCode` na App) com regressão trancada.
+- Gateway (EMIS/Multicaixa/bancos): **fase pós-INAPEM**, por decisão do dono.
