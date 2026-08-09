@@ -4105,6 +4105,7 @@ Ficha civil do titular:
             <PagamentosInlineCidadao
               citizenBi={bi}
               assuntoDocumento={selectedMessage.subject || ''}
+              onAbrirPagamentos={() => setTab('pagamentos')}
             />
           ) : null}
           </div>

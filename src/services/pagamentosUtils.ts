@@ -51,8 +51,11 @@ export const documentoRefCombina = (documentoRef: string | undefined, assunto: s
 
 /** Erros explicados (padrão RLS-aware da Base de Conhecimento). */
 export const explicarErroPagamentos = (mensagem: string): string => {
+  if (/pagamentos_estado_check|pag_simulacao|pag_estado_final|PGRST204/i.test(mensagem)) {
+    return 'A simulação de pagamento ainda não está activa neste projecto — aplique a migração v29 no SQL Editor do Supabase.';
+  }
   if (/row-level security/i.test(mensagem)) {
-    return 'Sem permissão para esta operação de pagamentos. Confirme que está com a sessão da instituição (ou do cidadão) correta e que a migração v26 foi aplicada.';
+    return 'Sem permissão para esta operação de pagamentos. Confirme que está com a sessão da instituição (ou do cidadão) correta e que as migrações v26/v29 foram aplicadas.';
   }
   if (/violates check constraint|check constraint/i.test(mensagem)) {
     return 'Dados fora dos limites (descrição 8–300 caracteres; valor > 0; métodos conhecidos).';
@@ -62,3 +65,9 @@ export const explicarErroPagamentos = (mensagem: string): string => {
   }
   return mensagem;
 };
+
+// v29 — referência do COMPROVATIVO SIMULADO: derivada do id da cobrança,
+// determinística (o mesmo pagamento simulado mostra sempre a mesma
+// referência) e marcada com o prefixo SIM para ninguém a tomar por real.
+export const gerarReferenciaSimulada = (pagamentoId: string): string =>
+  `SIM-${String(pagamentoId || '').replace(/-/g, '').slice(0, 8).toUpperCase() || 'XXXXXXXX'}`;

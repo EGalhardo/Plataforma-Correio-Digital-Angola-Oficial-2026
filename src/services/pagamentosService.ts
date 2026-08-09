@@ -1,12 +1,13 @@
 /**
- * Pagamentos — camada de SERVIÇO com Supabase (frontend-only, 2026-08-08 —
- * decisão do dono)
+ * Pagamentos — camada de SERVIÇO com Supabase (frontend-only — decisão do dono)
  * ----------------------------------------------------------------------------
  * A integração com o gateway de pagamentos (EMIS/Multicaixa/bancos) NÃO existe
- * ainda e NÃO é simulada: fica para depois da validação do projecto pelo
- * INAPEM. O que esta camada faz é o registo honesto das cobranças na tabela
- * public.pagamentos (v26) — a instituição emite, o cidadão consulta, e o botão
- * de pagamento EXPLICA o estado em vez de fingir que processa.
+ * ainda: fica para depois da validação do projecto pelo INAPEM. Desde 2026-08-09
+ * (nova decisão do dono, v29) existe o fluxo completo de SIMULAÇÃO — sempre
+ * rotulado como simulação em cada ecrã e gravado como estado 'paga_simulada'
+ * (NUNCA 'paga' pura), para que qualquer leitor perceba que nenhum valor foi
+ * cobrado. Se a v29 não estiver aplicada, o update é recusado e a UI diz isso
+ * mesmo — nunca finge um pagamento que não ficou registado.
  *
  * Helpers puros e constantes vivem em ./pagamentosUtils (importável sem rede)
  * e são re-exportados aqui para os componentes terem um ponto único.
@@ -19,13 +20,13 @@ import {
 export {
   FRASE_GATEWAY_PENDENTE, MAX_DESCRICAO, MAX_VALOR_AOA, METODOS_PAGAMENTO, MIN_BI,
   MIN_DESCRICAO, documentoRefCombina, explicarErroPagamentos, formatarKz, limparBi,
-  normalizarValorAoa,
+  normalizarValorAoa, gerarReferenciaSimulada,
 } from './pagamentosUtils';
 export type { MetodoPagamento } from './pagamentosUtils';
 
 export const TABELA_PAGAMENTOS = 'pagamentos';
 
-export type EstadoPagamento = 'pendente' | 'cancelado';
+export type EstadoPagamento = 'pendente' | 'cancelado' | 'paga_simulada';
 
 export interface Pagamento {
   id: string;
@@ -38,6 +39,8 @@ export interface Pagamento {
   documento_ref?: string;
   prazo?: string;
   estado: EstadoPagamento;
+  pago_em?: string;
+  metodo_simulado?: string;
   created_at: string;
   updated_at: string;
 }
@@ -53,6 +56,8 @@ interface LinhaPagamento {
   documento_ref: string | null;
   prazo: string | null;
   estado: string;
+  pago_em: string | null;
+  metodo_simulado: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -72,7 +77,10 @@ export interface NovoPagamento {
 // ---------------------------------------------------------------------------
 const linhaParaPagamento = (l: LinhaPagamento): Pagamento | null => {
   if (!l || typeof l !== 'object') return null;
-  const estado: EstadoPagamento = l.estado === 'cancelado' ? 'cancelado' : 'pendente';
+  const estado: EstadoPagamento =
+    l.estado === 'cancelado' ? 'cancelado'
+    : l.estado === 'paga_simulada' ? 'paga_simulada'
+    : 'pendente';
   const valor = Number(l.valor);
   if (!Number.isFinite(valor) || valor <= 0) return null;
   const metodosConhecidos = (Array.isArray(l.metodos) ? l.metodos : [])
@@ -88,6 +96,8 @@ const linhaParaPagamento = (l: LinhaPagamento): Pagamento | null => {
     documento_ref: l.documento_ref || undefined,
     prazo: l.prazo || undefined,
     estado,
+    pago_em: l.pago_em || undefined,
+    metodo_simulado: l.metodo_simulado || undefined,
     created_at: String(l.created_at || ''),
     updated_at: String(l.updated_at || ''),
   };
@@ -151,5 +161,33 @@ export const cancelarPagamento = async (id: string): Promise<{ ok: boolean; erro
     .eq('id', id)
     .eq('estado', 'pendente');
   if (error) return { ok: false, erro: explicarErroPagamentos(error.message) };
+  return { ok: true, erro: '' };
+};
+
+/**
+ * v29 — grava a SIMULAÇÃO de pagamento da cobrança do próprio cidadão.
+ * Regista estado 'paga_simulada' (NUNCA 'paga'), com carimbo e método.
+ * Se a RLS/constraint recusar (v29 por aplicar, cobrança já não pendente),
+ * devolve o erro explicado — o chamador NUNCA mostra o comprovativo sem
+ * este ok:true. O .select() deteta o "0 linhas afectadas" silencioso da RLS.
+ */
+export const marcarPagamentoSimulado = async (
+  id: string,
+  metodo: MetodoPagamento,
+): Promise<{ ok: boolean; erro: string }> => {
+  const { data, error } = await supabase
+    .from(TABELA_PAGAMENTOS)
+    .update({
+      estado: 'paga_simulada',
+      pago_em: new Date().toISOString(),
+      metodo_simulado: metodo,
+    })
+    .eq('id', id)
+    .eq('estado', 'pendente')
+    .select('id');
+  if (error) return { ok: false, erro: explicarErroPagamentos(error.message) };
+  if (!Array.isArray(data) || data.length === 0) {
+    return { ok: false, erro: 'A cobrança já não está pendente (ou a simulação ainda não está activa neste projecto — migração v29 pendente).' };
+  }
   return { ok: true, erro: '' };
 };

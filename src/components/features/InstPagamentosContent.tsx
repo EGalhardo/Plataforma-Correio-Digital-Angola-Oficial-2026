@@ -4,8 +4,10 @@
  * Regista cobranças na tabela public.pagamentos (v26): valor, referência,
  * prazo e os métodos que a instituição PREVÊ aceitar. Honestidade por desenho:
  * aqui não se processa dinheiro — a integração com o gateway (EMIS/Multicaixa/
- * bancos) fica para depois da validação do projecto pelo INAPEM. O estado de
- * uma cobrança é «pendente» ou «cancelada»; «pago» só existirá com o gateway.
+ * bancos) fica para depois da validação do projecto pelo INAPEM. Desde a v29
+ * o cidadão pode SIMULAR o pagamento: essas cobranças aparecem aqui como
+ * «paga (simulação)» — nenhum valor real foi cobrado, é apenas o teste do
+ * fluxo completo decidido pelo dono a 2026-08-09.
  */
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -45,7 +47,10 @@ const FORM_VAZIO: FormState = {
   metodos: METODOS_PAGAMENTO.map(m => m.id),
 };
 
+type FiltroEstadoInst = 'todas' | 'pendente' | 'paga_simulada' | 'cancelado';
+
 export function InstPagamentosContent({ institutionCode = '', addAuditLog }: InstPagamentosContentProps) {
+  const [filtro, setFiltro] = useState<FiltroEstadoInst>('todas');
   const sigla = institutionCode.trim().toUpperCase();
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -291,34 +296,70 @@ export function InstPagamentosContent({ institutionCode = '', addAuditLog }: Ins
       )}
 
       {!carregando && pagamentos.length > 0 && (
-        <ul className="space-y-3">
-          {pagamentos.map(p => (
-            <li key={p.id} className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 m-0">
-                  BI {p.destinatario_bi}{p.referencia ? ` · ref. ${p.referencia}` : ''}{p.prazo ? ` · prazo ${p.prazo}` : ''}
-                </p>
-                <p className="text-sm font-bold text-slate-800 m-0 mt-0.5">{p.descricao}</p>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="text-base font-black text-[#0c2340]">{formatarKz(p.valor)}</span>
-                {p.estado === 'pendente' ? (
-                  <>
-                    <span className="rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-black uppercase tracking-wider px-2 py-0.5">Pendente</span>
-                    <button
-                      onClick={() => void cancelar(p)}
-                      className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-700 transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" /> Cancelar
-                    </button>
-                  </>
-                ) : (
-                  <span className="rounded-full bg-slate-100 border border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-wider px-2 py-0.5">Cancelada</span>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            {([
+              ['todas', 'Todas'],
+              ['pendente', 'Pendentes'],
+              ['paga_simulada', 'Pagas (simulação)'],
+              ['cancelado', 'Canceladas'],
+            ] as [FiltroEstadoInst, string][]).map(([id, rotulo]) => (
+              <button
+                key={id}
+                onClick={() => setFiltro(id)}
+                className={`rounded-full text-[10px] font-black uppercase tracking-widest px-3 py-1.5 border transition-colors ${filtro === id ? 'bg-[#0c2340] text-white border-[#0c2340]' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}
+              >
+                {rotulo} ({id === 'todas' ? pagamentos.length : pagamentos.filter(p => p.estado === id).length})
+              </button>
+            ))}
+          </div>
+
+          {pagamentos.some(p => p.estado === 'paga_simulada') && (
+            <div className="flex items-start gap-2 rounded-2xl border border-violet-200 bg-violet-50 p-3">
+              <Info className="w-4 h-4 text-violet-600 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-violet-900 font-semibold leading-relaxed m-0">
+                <strong className="font-black uppercase tracking-wide mr-1">Pagas em simulação.</strong>
+                As cobranças marcadas como «paga (simulação)» foram testadas pelo cidadão no fluxo de simulação — <strong>nenhum valor real foi cobrado</strong>. A cobrança real só será possível com o gateway (após validação INAPEM).
+              </p>
+            </div>
+          )}
+
+          <ul className="space-y-3">
+            {(filtro === 'todas' ? pagamentos : pagamentos.filter(p => p.estado === filtro)).map(p => (
+              <li key={p.id} className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 m-0">
+                    BI {p.destinatario_bi}{p.referencia ? ` · ref. ${p.referencia}` : ''}{p.prazo ? ` · prazo ${p.prazo}` : ''}
+                  </p>
+                  <p className="text-sm font-bold text-slate-800 m-0 mt-0.5">{p.descricao}</p>
+                  {p.estado === 'paga_simulada' && (
+                    <p className="text-[10px] text-violet-600 font-bold m-0 mt-1">
+                      Simulada{p.metodo_simulado ? ` via ${METODOS_PAGAMENTO.find(m => m.id === p.metodo_simulado)?.rotulo || p.metodo_simulado}` : ''}{p.pago_em ? ` em ${new Date(p.pago_em).toLocaleString('pt-AO')}` : ''} — sem cobrança real
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-base font-black text-[#0c2340]">{formatarKz(p.valor)}</span>
+                  {p.estado === 'pendente' ? (
+                    <>
+                      <span className="rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-black uppercase tracking-wider px-2 py-0.5">Pendente</span>
+                      <button
+                        onClick={() => void cancelar(p)}
+                        className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-700 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Cancelar
+                      </button>
+                    </>
+                  ) : p.estado === 'paga_simulada' ? (
+                    <span className="rounded-full bg-violet-50 border border-violet-200 text-violet-700 text-[10px] font-black uppercase tracking-wider px-2 py-0.5">Paga (simulação)</span>
+                  ) : (
+                    <span className="rounded-full bg-slate-100 border border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-wider px-2 py-0.5">Cancelada</span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );
