@@ -5,6 +5,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import InstKbSelfService, { carregarResumoKb } from './InstKbSelfService';
+import { supabaseService } from '../../services/supabaseService';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Bot,
@@ -51,14 +52,17 @@ interface ChatMessage {
   delivered?: boolean;
 }
 
+// v28 — registo REAL de telemetria (tabela append-only ia_conversas_log).
+// Sem nome/BI de cidadãos nem "satisfação" inventada: só o que de facto
+// aconteceu — quando, por que canal, o que foi perguntado (160 chars),
+// se a IA respondeu e quanto tempo demorou.
 interface InteractionLog {
   id: string;
-  citizenName: string;
-  bi: string;
-  topic: string;
-  satisfaction: 'Alta' | 'Média' | 'Baixa';
+  canal: string;
+  promptPreview: string;
+  respostaOk: boolean;
+  latMs: number | null;
   time: string;
-  messagesCount: number;
 }
 
 interface AIStats {
@@ -292,9 +296,47 @@ REGRAS OPERATIVAS:
   // HONESTIDADE: as "ferramentas API" fictícias (endpoints /api/gov-ai que não
   // existem no servidor) foram removidas — eram código morto, nunca renderizado.
 
-  // HONESTIDADE: histórico começa vazio — só registos reais têm lugar aqui.
-  // (A tabela de telemetria central de conversas ainda não existe.)
-  const [interactionLogs] = useState<InteractionLog[]>([]);
+  // v28 — histórico REAL: carregado da telemetria central (append-only).
+  // Enquanto a SQL v28 não for aplicada no projecto, o estado é
+  // 'TABELA_AUSENTE' e a UI diz isso mesmo, em vez de inventar conversas.
+  const [interactionLogs, setInteractionLogs] = useState<InteractionLog[]>([]);
+  const [telemetriaEstado, setTelemetriaEstado] = useState<'a_carregar' | 'ok' | 'TABELA_AUSENTE' | 'indisponivel'>('a_carregar');
+
+  // Sessão de telemetria: um UUID por abertura da consola (agrupa as
+  // interacções desta sessão de trabalho, sem identificar ninguém).
+  const telemetrySessionRef = useRef<string>('');
+  if (!telemetrySessionRef.current) {
+    telemetrySessionRef.current = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+      ? crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+          const r = (Math.random() * 16) | 0;
+          return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+        });
+  }
+
+  // Carregar telemetria real (ao abrir a consola e sempre que se entra na aba)
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const r = await supabaseService.carregarTelemetriaInstituicao(institutionCode);
+      if (!vivo) return;
+      if (r.state === 'ok') {
+        setTelemetriaEstado('ok');
+        setInteractionLogs(r.logs.map(l => ({ id: l.id, canal: l.canal, promptPreview: l.promptPreview, respostaOk: l.respostaOk, latMs: l.latMs, time: l.quando })));
+        setAiStats(prev => ({
+          ...prev,
+          totalConversations: r.total,
+          activeToday: r.hoje,
+          totalUsers: r.sessoes,
+          resolutionRate: r.total > 0 ? Math.round((r.okCount / r.total) * 100) : 0,
+          avgResponseTime: r.latMediaMs !== null ? `${(r.latMediaMs / 1000).toFixed(1)}s` : '0s',
+        }));
+      } else {
+        setTelemetriaEstado(r.state === 'TABELA_AUSENTE' ? 'TABELA_AUSENTE' : 'indisponivel');
+      }
+    })();
+    return () => { vivo = false; };
+  }, [activeSubTab, institutionCode]);
 
   // Toast Alerts State
   const [toast, setToast] = useState<{ text: string; type: 'success' | 'info' | 'warning' | 'error' } | null>(null);
@@ -358,6 +400,19 @@ REGRAS OPERATIVAS:
   const runRealAIResponse = async (query: string) => {
     setIsTyping(true);
     setChatError(null);
+    const telemetriaT0 = Date.now();
+    const registarTelemetria = (ok: boolean) => {
+      // v28 — append-only, fire-and-forget: nunca bloqueia/quebra o chat.
+      void supabaseService.registarTelemetriaIa({
+        sessionId: telemetrySessionRef.current,
+        papel: 'instituicao',
+        sigla: institutionCode || null,
+        canal: 'consola_instituicao',
+        promptPreview: query.slice(0, 160),
+        respostaOk: ok,
+        latMs: Date.now() - telemetriaT0,
+      });
+    };
 
     try {
       const conversationHistory = chatMessages
@@ -401,18 +456,20 @@ Contexto adicional:
         
         // Update stats
         setAiStats(prev => {
-          const updated = { 
-            ...prev, 
+          const updated = {
+            ...prev,
             totalConversations: prev.totalConversations + 1,
             activeToday: prev.activeToday + 1
           };
           localStorage.setItem(`cda_ai_stats_${institutionCode || 'default'}`, JSON.stringify(updated));
           return updated;
         });
+        registarTelemetria(true);
       } else {
         throw new Error(data.error || 'Resposta inválida da IA');
       }
     } catch (error) {
+      registarTelemetria(false);
       console.error('AI Chat Error:', error);
       setChatError(error.message || 'Erro ao processar resposta da IA');
       
@@ -462,7 +519,20 @@ Contexto adicional:
     setPreviewMessages(prev => [...prev, userMsg]);
     const inputToProcess = previewInput;
     setPreviewInput('');
-    
+
+    const telemetriaT0 = Date.now();
+    const registarTelemetria = (ok: boolean) => {
+      void supabaseService.registarTelemetriaIa({
+        sessionId: telemetrySessionRef.current,
+        papel: 'instituicao',
+        sigla: institutionCode || null,
+        canal: 'preview_instituicao',
+        promptPreview: inputToProcess.slice(0, 160),
+        respostaOk: ok,
+        latMs: Date.now() - telemetriaT0,
+      });
+    };
+
     setIsPreviewTyping(true);
     try {
       const response = await fetch('/api/chat', {
@@ -482,6 +552,9 @@ Contexto adicional:
           text: data.message,
           time: new Date().toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' }),
         }]);
+        registarTelemetria(true);
+      } else {
+        registarTelemetria(false);
       }
     } catch {
       setPreviewMessages(prev => [...prev, {
@@ -490,6 +563,7 @@ Contexto adicional:
         text: 'Serviço de IA temporariamente indisponível.',
         time: new Date().toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' }),
       }]);
+      registarTelemetria(false);
     } finally {
       setIsPreviewTyping(false);
     }
@@ -778,7 +852,7 @@ Contexto adicional:
                 </div>
               </div>
               <p className="text-[9px] text-slate-400 font-semibold mt-3 leading-relaxed text-left">
-                Origens dos números: Conversas/Activos hoje — contagem real feita neste navegador através do Chat Teste; Docs indexados — fontes reais da Base de Conhecimento. Utilizadores, Resoluções e Tempo médio mostram 0 porque ainda não existe telemetria central de conversas — a plataforma não inventa estes valores.
+                Origens dos números: Conversas/Activos hoje — interacções reais registadas na telemetria central da plataforma (últimas 50) mais as desta sessão; Utilizadores — sessões distintas nesse registo; Resoluções — % de interacções em que a IA respondeu sem erro; Tempo médio — latência medida nessas interacções; Docs indexados — fontes reais da Base de Conhecimento. {telemetriaEstado === 'TABELA_AUSENTE' ? 'ATENÇÃO: a telemetria central ainda não está instalada no projecto (SQL v28 pendente) — os valores mostram apenas esta sessão. ' : ''}A plataforma não inventa estes valores.
               </p>
             </div>
           </div>
@@ -1077,21 +1151,21 @@ Contexto adicional:
               <div className="space-y-2 max-h-[180px] overflow-y-auto">
                 {interactionLogs.length === 0 && (
                   <p className="text-[10px] text-slate-400 font-semibold leading-relaxed text-left p-2">
-                    Ainda não há conversas para mostrar. As interacções reais dos cidadãos com o assistente aparecem aqui quando a plataforma tiver telemetria de conversas activa.
+                    {telemetriaEstado === 'TABELA_AUSENTE'
+                      ? 'A telemetria central ainda não está instalada neste projecto (SQL v28 pendente). Use o Chat Teste — assim que a telemetria for activada, as interacções reais aparecem aqui.'
+                      : 'Ainda não há conversas registadas. Use o Chat Teste ou o Preview — cada interacção real fica registada e aparece aqui.'}
                   </p>
                 )}
                 {interactionLogs.slice(0, 4).map(log => (
                   <div key={log.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-left">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black text-slate-700">{log.citizenName}</span>
+                      <span className="text-[10px] font-black text-slate-700">{log.canal === 'preview_instituicao' ? 'Preview (cidadão)' : 'Chat Teste'}</span>
                       <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full ${
-                        log.satisfaction === 'Alta' ? 'bg-emerald-50 text-emerald-600' :
-                        log.satisfaction === 'Média' ? 'bg-amber-50 text-amber-600' :
-                        'bg-red-50 text-red-600'
-                      }`}>{log.satisfaction}</span>
+                        log.respostaOk ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                      }`}>{log.respostaOk ? 'Respondida' : 'Falhou'}</span>
                     </div>
-                    <span className="text-[9px] text-slate-400 block mt-0.5">{log.topic}</span>
-                    <span className="text-[8px] text-slate-400 font-mono block">{log.time}</span>
+                    <span className="text-[9px] text-slate-400 block mt-0.5">{log.promptPreview || '(sem pré-visualização)'}</span>
+                    <span className="text-[8px] text-slate-400 font-mono block">{log.time}{log.latMs !== null ? ` · ${(log.latMs / 1000).toFixed(1)}s` : ''}</span>
                   </div>
                 ))}
               </div>
@@ -1116,23 +1190,26 @@ Contexto adicional:
           <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
             <div>
               <h3 className="text-sm font-black text-[#0c2340] uppercase tracking-wide m-0">HISTÓRICO DE INTERACÇÕES</h3>
-              <p className="text-[11px] text-slate-400 font-semibold mt-1">Registo de todas as conversas dos cidadãos com o assistente</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <select className="bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-600 rounded-lg px-3 py-2 outline-none cursor-pointer">
-                <option>Hoje</option>
-                <option>Últimos 7 dias</option>
-                <option>Este mês</option>
-                <option>Todos</option>
-              </select>
+              <p className="text-[11px] text-slate-400 font-semibold mt-1">Últimas 50 interacções reais registadas nesta consola (telemetria central, append-only)</p>
             </div>
           </div>
+
+          {telemetriaEstado === 'TABELA_AUSENTE' && (
+            <div className="mb-4 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-left">
+              <p className="text-[11px] font-black text-amber-800 uppercase tracking-wide">Telemetria central ainda não instalada</p>
+              <p className="text-[11px] text-amber-700 font-semibold mt-1 leading-relaxed">
+                A tabela de telemetria (SQL v28) ainda não foi aplicada neste projecto. As conversas continuam a funcionar; quando o administrador aplicar a v28, este histórico passa a mostrar os registos reais.
+              </p>
+            </div>
+          )}
 
           {interactionLogs.length === 0 ? (
             <div className="py-10 px-6 text-center">
               <p className="text-sm font-black text-slate-500 uppercase tracking-wide">Ainda sem conversas registadas</p>
               <p className="text-[11px] text-slate-400 font-semibold mt-2 max-w-md mx-auto leading-relaxed">
-                Quando os cidadãos conversarem com o assistente da sua instituição, o histórico real aparecerá nesta página. Até lá, esta lista permanece vazia — a plataforma não apresenta conversas de exemplo como se fossem reais.
+                {telemetriaEstado === 'TABELA_AUSENTE'
+                  ? 'A telemetria central ainda não está instalada (SQL v28 pendente) — assim que for activada, as interacções reais desta consola aparecem aqui.'
+                  : 'Use o Chat Teste ou o Preview do assistente — cada interacção real fica registada na telemetria central e aparece nesta lista. A plataforma não apresenta conversas de exemplo como se fossem reais.'}
               </p>
             </div>
           ) : (
@@ -1140,41 +1217,27 @@ Contexto adicional:
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-widest text-[9px] font-extrabold">
-                  <th className="py-2.5 px-2 text-left">Cidadão</th>
-                  <th className="py-2.5 px-2 text-left">BI</th>
-                  <th className="py-2.5 px-2 text-left">Assunto</th>
-                  <th className="py-2.5 px-2 text-center">Mensagens</th>
-                  <th className="py-2.5 px-2 text-center">Satisfação</th>
-                  <th className="py-2.5 px-2 text-left">Tempo</th>
-                  <th className="py-2.5 px-2 text-right">Ações</th>
+                  <th className="py-2.5 px-2 text-left">Quando</th>
+                  <th className="py-2.5 px-2 text-left">Canal</th>
+                  <th className="py-2.5 px-2 text-left">Pré-visualização do pedido</th>
+                  <th className="py-2.5 px-2 text-center">Resultado</th>
+                  <th className="py-2.5 px-2 text-right">Latência</th>
                 </tr>
               </thead>
               <tbody>
                 {interactionLogs.map(log => (
                   <tr key={log.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                    <td className="py-2.5 px-2 font-bold text-slate-800 text-xs">{log.citizenName}</td>
-                    <td className="py-2.5 px-2 font-mono text-[10px] text-slate-500">{log.bi}</td>
-                    <td className="py-2.5 px-2 text-xs font-semibold text-slate-600 max-w-[200px] truncate">{log.topic}</td>
-                    <td className="py-2.5 px-2 text-center">
-                      <span className="bg-indigo-50 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-indigo-100">
-                        {log.messagesCount}
-                      </span>
-                    </td>
+                    <td className="py-2.5 px-2 text-[10px] text-slate-500 font-mono whitespace-nowrap">{log.time}</td>
+                    <td className="py-2.5 px-2 font-bold text-slate-800 text-xs">{log.canal === 'preview_instituicao' ? 'Preview (cidadão)' : 'Chat Teste'}</td>
+                    <td className="py-2.5 px-2 text-xs font-semibold text-slate-600 max-w-[260px] truncate">{log.promptPreview || '(sem pré-visualização)'}</td>
                     <td className="py-2.5 px-2 text-center">
                       <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
-                        log.satisfaction === 'Alta' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                        log.satisfaction === 'Média' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
-                        'bg-red-50 text-red-700 border border-red-100'
+                        log.respostaOk ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'
                       }`}>
-                        {log.satisfaction}
+                        {log.respostaOk ? 'Respondida' : 'Falhou'}
                       </span>
                     </td>
-                    <td className="py-2.5 px-2 text-[10px] text-slate-400 font-mono">{log.time}</td>
-                    <td className="py-2.5 px-2 text-right">
-                      <button className="p-1 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded cursor-pointer border-0 bg-transparent">
-                        <Eye size={13} />
-                      </button>
-                    </td>
+                    <td className="py-2.5 px-2 text-right text-[10px] text-slate-400 font-mono">{log.latMs !== null ? `${(log.latMs / 1000).toFixed(1)}s` : '—'}</td>
                   </tr>
                 ))}
               </tbody>

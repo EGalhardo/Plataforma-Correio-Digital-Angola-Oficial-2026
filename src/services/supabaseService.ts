@@ -1422,6 +1422,99 @@ export const supabaseService = {
   },
 
   /**
+   * v28 — Telemetria real das conversas de IA (append-only).
+   * Regista UM evento de conversa da consola (instituição/admin) na tabela
+   * public.ia_conversas_log. Fire-and-forget honesto: nunca lança, nunca
+   * bloqueia o chat; sem sessão autenticada (contas demo locais) devolve
+   * SEM_SESSAO e o chamador simplesmente ignora.
+   */
+  async registarTelemetriaIa(ev: {
+    sessionId: string;
+    papel: 'cidadao' | 'instituicao' | 'admin';
+    sigla?: string | null;
+    canal: 'consola_instituicao' | 'preview_instituicao' | 'consola_admin';
+    promptPreview: string;
+    respostaOk: boolean;
+    latMs?: number | null;
+  }): Promise<{ written: boolean; reason?: string }> {
+    if (!hasValidSupabaseKeys()) return { written: false, reason: 'SEM_CHAVES' };
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess?.session) return { written: false, reason: 'SEM_SESSAO' };
+      const { error } = await supabase.from('ia_conversas_log').insert([{
+        session_id: ev.sessionId,
+        papel: ev.papel,
+        sigla: ev.sigla || null,
+        canal: ev.canal,
+        prompt_preview: (ev.promptPreview || '').slice(0, 160),
+        resposta_ok: ev.respostaOk,
+        lat_ms: typeof ev.latMs === 'number' && isFinite(ev.latMs) ? Math.max(0, Math.round(ev.latMs)) : null,
+      }]);
+      if (error) return { written: false, reason: String((error as any)?.code || 'ERRO') };
+      return { written: true };
+    } catch (e: any) {
+      // Telemetria nunca derruba a conversa — falha silenciosa e honesta.
+      return { written: false, reason: String(e?.code || 'ERRO') };
+    }
+  },
+
+  /**
+   * v28 — Lê a telemetria da PRÓPRIA instituição (a RLS da tabela garante que
+   * só as linhas da sigla do utilizador autenticado são devolvidas; o admin
+   * global vê tudo). Estados honestos: TABELA_AUSENTE até a SQL v28 ser
+   * aplicada no projecto, SEM_SESSAO em contas demo locais.
+   */
+  async carregarTelemetriaInstituicao(_sigla: string): Promise<{
+    state: 'ok' | 'SEM_CHAVES' | 'SEM_SESSAO' | 'TABELA_AUSENTE' | 'ERRO';
+    total: number;
+    hoje: number;
+    okCount: number;
+    sessoes: number;
+    latMediaMs: number | null;
+    logs: { id: string; quando: string; canal: string; promptPreview: string; respostaOk: boolean; latMs: number | null }[];
+  }> {
+    const vazio = { total: 0, hoje: 0, okCount: 0, sessoes: 0, latMediaMs: null as number | null, logs: [] as { id: string; quando: string; canal: string; promptPreview: string; respostaOk: boolean; latMs: number | null }[] };
+    if (!hasValidSupabaseKeys()) return { state: 'SEM_CHAVES', ...vazio };
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess?.session) return { state: 'SEM_SESSAO', ...vazio };
+      const { data, error } = await supabase
+        .from('ia_conversas_log')
+        .select('id, session_id, created_at, canal, prompt_preview, resposta_ok, lat_ms')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) {
+        const code = String((error as any)?.code || '');
+        // 42P01 = tabela inexistente; PGRST204/205 = schema cache desactualizado
+        const ausente = code === '42P01' || code === 'PGRST204' || code === 'PGRST205';
+        return { state: ausente ? 'TABELA_AUSENTE' : 'ERRO', ...vazio };
+      }
+      const linhas = Array.isArray(data) ? data : [];
+      const hoje0 = new Date(); hoje0.setHours(0, 0, 0, 0);
+      const lats = linhas.map(l => Number(l.lat_ms)).filter(n => isFinite(n) && n >= 0);
+      return {
+        state: 'ok',
+        total: linhas.length,
+        hoje: linhas.filter(l => new Date(String(l.created_at)) >= hoje0).length,
+        okCount: linhas.filter(l => l.resposta_ok === true).length,
+        sessoes: new Set(linhas.map(l => String(l.session_id))).size,
+        latMediaMs: lats.length > 0 ? Math.round(lats.reduce((a, b) => a + b, 0) / lats.length) : null,
+        logs: linhas.map(l => ({
+          id: String(l.id),
+          quando: new Date(String(l.created_at)).toLocaleString('pt-AO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+          canal: String(l.canal || ''),
+          promptPreview: String(l.prompt_preview || ''),
+          respostaOk: l.resposta_ok === true,
+          latMs: typeof l.lat_ms === 'number' ? l.lat_ms : null,
+        })),
+      };
+    } catch (e: any) {
+      console.error('Supabase carregarTelemetriaInstituicao error:', e);
+      return { state: 'ERRO', ...vazio };
+    }
+  },
+
+  /**
    * P0-B — verifica REALMENTE se um código institucional consta (aprovado) do
    * registo oficial (RPC cda_instituicao_existe, security definer, exact-match;
    * substitui a fé cega no regex de formato isRealInstitutionalCode). Nunca
