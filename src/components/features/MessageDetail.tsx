@@ -390,6 +390,9 @@ export function MessageDetail({
 
   const [showQRValidation, setShowQRValidation] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
+  // v27 — validação REAL do registo na nuvem (QR): estados honestos, sem teatro
+  const [registoQR, setRegistoQR] = useState<'idle' | 'encontrado' | 'nao_encontrado' | 'divergente' | 'indisponivel'>('idle');
+  const [registoQRInfo, setRegistoQRInfo] = useState<{ emissor: string; data_emissao: string; estado: string; selado: boolean } | null>(null);
   const [] = useState(false);
   const [] = useState(false);
   const [detailReplyText, setDetailReplyText] = useState('');
@@ -1210,9 +1213,28 @@ depende de integração futura com a infra-estrutura de chaves nacional.
   const triggerVerification = () => {
     setShowQRValidation(true);
     setIsValidating(true);
-    setTimeout(() => {
+    setRegistoQR('idle');
+    setRegistoQRInfo(null);
+    // v27 — validação REAL contra o registo na nuvem (RPC cda_validar_protocolo).
+    // Nunca finge: se a nuvem/RLS não responder, o estado honesto é «indisponível».
+    const numero = selectedMessage.protocol?.protocolNumber || '';
+    void (async () => {
+      const t0 = Date.now();
+      const res = await supabaseService.validarProtocolo(numero);
+      // mínimo perceptível para o spinner não piscar (só UX; o resultado é real)
+      const espera = Math.max(0, 350 - (Date.now() - t0));
+      await new Promise(r => setTimeout(r, espera));
       setIsValidating(false);
-    }, 850);
+      if (!res.encontrado) {
+        setRegistoQR(res.errorCode ? 'indisponivel' : 'nao_encontrado');
+        return;
+      }
+      const v = res.validacao!;
+      setRegistoQRInfo({ emissor: v.emissor, data_emissao: v.data_emissao, estado: v.estado, selado: v.selado });
+      const orgLocal = String(selectedMessage.org || '').trim().toUpperCase();
+      const orgNuvem = String(v.emissor || '').trim().toUpperCase();
+      setRegistoQR(orgLocal && orgNuvem && orgLocal !== orgNuvem ? 'divergente' : 'encontrado');
+    })();
   };
 
   const protocol = selectedMessage.protocol || generateProtocol(
@@ -3820,27 +3842,71 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                   <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
                     <div className="w-10 h-10 rounded-full border-4 border-slate-200 border-t-emerald-500 animate-spin" />
                     <div>
-                      <h4 className="font-extrabold text-slate-800 text-sm">Consultando Infraestrutura de Chaves Públicas</h4>
-                      <p className="text-xs text-slate-400 mt-1 font-medium">Validando carimbo de tempo & certificado da entidade emissora...</p>
+                      <h4 className="font-extrabold text-slate-800 text-sm">A consultar o registo da plataforma</h4>
+                      <p className="text-xs text-slate-400 mt-1 font-medium">A confirmar na nuvem do Correio Digital de Angola se este número de protocolo existe…</p>
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-5">
-                    {/* Status badge and description */}
-                    <div className="bg-emerald-50 border border-emerald-150 p-4 rounded-2xl flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md">
-                        <Check size={16} strokeWidth={3} />
+                    {/* v27 — resultado REAL da validação na nuvem (nunca inventado) */}
+                    {registoQR === 'encontrado' && (
+                      <div className="bg-emerald-50 border border-emerald-150 p-4 rounded-2xl flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                          <Check size={16} strokeWidth={3} />
+                        </div>
+                        <div>
+                          <span className="bg-emerald-600 text-white text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase leading-none inline-block">
+                            REGISTO OFICIAL CONFIRMADO
+                          </span>
+                          <h4 className="font-black text-slate-900 text-xs mt-1 leading-snug">Este número existe no registo da plataforma</h4>
+                          <p className="text-[11px] text-slate-600 font-medium leading-relaxed mt-1">
+                            Confirmado na nuvem do Correio Digital de Angola: emitido por <strong>{registoQRInfo?.emissor}</strong> em {registoQRInfo?.data_emissao}, estado «{registoQRInfo?.estado}»{registoQRInfo?.selado ? ', com hash de integridade selado no envio' : ''}. Para confirmar que o conteúdo não foi alterado, use «Verificar Integridade» abaixo.
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <span className="bg-emerald-600 text-white text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase leading-none inline-block">
-                          ASSINATURA CÔNJUGE VALIDADE
-                        </span>
-                        <h4 className="font-black text-slate-900 text-xs mt-1 leading-snug">Autenticidade e Integridade Confirmadas</h4>
-                        <p className="text-[11px] text-slate-600 font-medium leading-relaxed mt-1">
-                          Este documento foi assinado digitalmente por um certificado de assinatura qualificada associado ao cargo oficial da República de Angola e não sofreu modificações desde a sua emissão.
-                        </p>
+                    )}
+                    {registoQR === 'nao_encontrado' && (
+                      <div className="bg-red-50 border border-red-200 p-4 rounded-2xl flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0 shadow-md">✕</div>
+                        <div>
+                          <span className="bg-red-600 text-white text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase leading-none inline-block">
+                            REGISTO NÃO ENCONTRADO
+                          </span>
+                          <h4 className="font-black text-slate-900 text-xs mt-1 leading-snug">Número não consta no registo da plataforma</h4>
+                          <p className="text-[11px] text-slate-600 font-medium leading-relaxed mt-1">
+                            A nuvem não contém este número de protocolo. Pode tratar-se de um documento anterior ao registo central, de dados locais de demonstração, ou de um documento não emitido pela plataforma.
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    )}
+                    {registoQR === 'divergente' && registoQRInfo && (
+                      <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md">!</div>
+                        <div>
+                          <span className="bg-amber-600 text-white text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase leading-none inline-block">
+                            DIVERGÊNCIA DE EMISOR
+                          </span>
+                          <h4 className="font-black text-slate-900 text-xs mt-1 leading-snug">O número existe, mas o emissor não coincide</h4>
+                          <p className="text-[11px] text-slate-600 font-medium leading-relaxed mt-1">
+                            Na nuvem, este protocolo pertence a <strong>{registoQRInfo.emissor}</strong>, mas o documento apresentado indica <strong>{selectedMessage.org}</strong>. Trate com cautela e, se necessário, confirme na entidade emissora.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {registoQR === 'indisponivel' && (
+                      <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-slate-400 text-white flex items-center justify-center shrink-0 shadow-md">?</div>
+                        <div>
+                          <span className="bg-slate-500 text-white text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase leading-none inline-block">
+                            VERIFICAÇÃO INDISPONÍVEL
+                          </span>
+                          <h4 className="font-black text-slate-900 text-xs mt-1 leading-snug">Não foi possível confirmar agora</h4>
+                          <p className="text-[11px] text-slate-600 font-medium leading-relaxed mt-1">
+                            Sem acesso ao registo neste momento (ligação ou serviço de validação ainda não ativado no projecto). A validade NÃO foi confirmada — tente novamente mais tarde. Pode ainda usar «Verificar Integridade» abaixo para comparar o conteúdo com o hash selado.
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Verification Details List */}
                     <div className="space-y-3.5 divide-y divide-slate-100">

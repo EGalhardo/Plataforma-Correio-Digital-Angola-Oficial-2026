@@ -1382,6 +1382,46 @@ export const supabaseService = {
   },
 
   /**
+   * v27 — validação PÚBLICA de um protocolo (QR real): chama a RPC security
+   * definer cda_validar_protocolo, que devolve apenas metadados mínimos e
+   * não-sensíveis (emissor/data/estado/selo) — nunca BI, assunto ou corpo.
+   * Estados honestos: SEM_CHAVES, SEM_NUMERO, RPC_AUSENTE (função ainda não
+   * aplicada no projecto — estado honesto na UI), ERRO.
+   */
+  async validarProtocolo(protocolNumber: string): Promise<{
+    validacao: { protocolo: string; emissor: string; data_emissao: string; estado: string; selado: boolean } | null;
+    encontrado: boolean;
+    errorCode?: string;
+  }> {
+    if (!hasValidSupabaseKeys()) return { validacao: null, encontrado: false, errorCode: 'SEM_CHAVES' };
+    const numero = (protocolNumber || '').trim().toUpperCase();
+    if (!numero) return { validacao: null, encontrado: false, errorCode: 'SEM_NUMERO' };
+    try {
+      const { data, error } = await supabase.rpc('cda_validar_protocolo', { p_numero: numero });
+      if (error) {
+        const code = String((error as any)?.code || '');
+        // PGRST202 = função inexistente no projecto (SQL v27 ainda não aplicada)
+        return { validacao: null, encontrado: false, errorCode: code === 'PGRST202' ? 'RPC_AUSENTE' : (code || 'ERRO') };
+      }
+      const linha = Array.isArray(data) && data.length > 0 ? data[0] : null;
+      if (!linha) return { validacao: null, encontrado: false };
+      return {
+        validacao: {
+          protocolo: String(linha.protocolo || ''),
+          emissor: String(linha.emissor || ''),
+          data_emissao: String(linha.data_emissao || ''),
+          estado: String(linha.estado || ''),
+          selado: !!linha.selado,
+        },
+        encontrado: true,
+      };
+    } catch (e: any) {
+      console.error('Supabase validarProtocolo error:', e);
+      return { validacao: null, encontrado: false, errorCode: String(e?.code || 'ERRO') };
+    }
+  },
+
+  /**
    * P0-B — verifica REALMENTE se um código institucional consta (aprovado) do
    * registo oficial (RPC cda_instituicao_existe, security definer, exact-match;
    * substitui a fé cega no regex de formato isRealInstitutionalCode). Nunca
