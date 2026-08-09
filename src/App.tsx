@@ -2043,12 +2043,14 @@ export default function App() {
           }
         }
 
-        // Auto-seed check + leitura das caixas: UMA consulta serve os dois
-        // (advisory N-3 da auditoria master: antes havia DUAS consultas
-        // idênticas em seguida por execução — 4 por sessão). A nuvem só é
-        // relida no ramo raro em que há semeadura; a frescura normal já é
-        // garantida pelo canal Realtime (triggerRefetch abaixo).
-        let dbMessages = await supabaseService.getMessages(bi);
+        // Auto-seed check + leitura das caixas: UMA consulta OR serve
+        // semeadura + recebidas + enviadas (advisory N-3 da auditoria
+        // master: antes eram DUAS consultas por execução — 4-6 por sessão).
+        // A nuvem só é relida no ramo raro em que há semeadura; a frescura
+        // normal é garantida pelo canal Realtime (triggerRefetch abaixo).
+        const sentSenderKey = isInstMode ? institutionCode : isGovMode ? 'CDA' : bi;
+        let mailbox = await supabaseService.getOwnMailbox(bi, sentSenderKey);
+        let dbMessages = mailbox ? mailbox.incoming : null;
         // F9 — a semeadura automática é um recurso da DEMO (cidadão/AGT-9921-SR):
         // nunca semear fictícios da AGT numa conta institucional real.
         const isDemoInstitutionSeed = !isInstMode || homologationStore.isExempt(bi);
@@ -2080,8 +2082,11 @@ export default function App() {
           };
           await supabaseService.seedAll(seedPayload);
           console.log('CADA: Semeadura automática para o Supabase concluída!');
-          // Re-ler UMA vez para hidratar com as linhas acabadas de semear.
-          dbMessages = await supabaseService.getMessages(bi);
+          // Re-ler UMA vez (furando o micro-cache N-3) para hidratar com as
+          // linhas acabadas de semear.
+          invalidateMessagesReadCache();
+          mailbox = await supabaseService.getOwnMailbox(bi, sentSenderKey);
+          dbMessages = mailbox ? mailbox.incoming : null;
         }
 
         // Define document classifier for messages
@@ -2150,8 +2155,8 @@ export default function App() {
           });
         }
 
-        const sentSenderKey = isInstMode ? institutionCode : isGovMode ? 'CDA' : bi;
-        const dbSentMessages = await supabaseService.getSentMessagesBySender(sentSenderKey);
+        // "Enviadas" já vieram na consulta OR única acima (N-3)
+        const dbSentMessages = mailbox ? mailbox.sent : null;
         if (dbSentMessages !== null && isSubscribed) {
           // F15 — marca da sessão remetente ("Enviadas" isolada por conta)
           const sentNormal = dbSentMessages.filter(m => !isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey }));

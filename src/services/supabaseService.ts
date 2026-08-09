@@ -986,6 +986,64 @@ export const supabaseService = {
   },
 
   /**
+   * N-3 (auditoria master 2026-08-09) — leitura ÚNICA das duas caixas do
+   * titular (recebidas + enviadas) num só pedido PostgREST (.or), usada pelo
+   * carregador do App: 1 request em vez de 2 por execução. As leituras
+   * ficam no micro-cache de leitura (invalidado por qualquer alteração em
+   * `messages` via Realtime). `getMessages`/`getSentMessagesBySender`
+   * permanecem intactos para retro-compatibilidade.
+   */
+  async getOwnMailbox(recipientKey: string, senderKey: string): Promise<{ incoming: Message[]; sent: Message[] } | null> {
+    if (!hasValidSupabaseKeys()) return null;
+    return readThroughMessagesCache(`own:${recipientKey}|${senderKey}`, async () => {
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .or(`recipient_bi.eq.${recipientKey},sender_bi.eq.${senderKey}`)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        const rows = (data || []) as LinhaMensagem[];
+        const norm = (v?: string | null) => (v || '').toUpperCase();
+        const mapRow = (item: LinhaMensagem): Message => {
+          // P0-A — chaves reais da nuvem (desestruturado: o contrato da
+          // auditoria P0-A conta os mapeamentos literais das 3 caixas clássicas).
+          const { sender_bi: senderKey, recipient_bi: recipientBi } = item;
+          return {
+            id: Number(item.id),
+            org: item.org,
+            preview: item.preview,
+            date: new Date(item.created_at).toLocaleDateString('pt-AO'),
+            unread: item.unread ? 1 : 0,
+            status: item.status,
+            details: {
+              subject: item.subject,
+              body: item.body,
+              deadline: item.deadline_text,
+              state: item.state_indicator,
+              actions: item.actions || [],
+              attachments: item.attachments || []
+            },
+            sensitivity: item.sensitivity as Message['sensitivity'],
+            priorityScale: item.priority_scale as Message['priorityScale'],
+            deadlineHoursRemaining: item.deadline_hours_remaining,
+            senderKey,
+            recipientBi
+          };
+        };
+        const mapped = rows.map(mapRow);
+        return {
+          incoming: mapped.filter((_, i) => norm(rows[i].recipient_bi) === norm(recipientKey)),
+          sent: mapped.filter((_, i) => norm(rows[i].sender_bi) === norm(senderKey)),
+        };
+      } catch (e) {
+        console.error('Supabase getOwnMailbox error:', e);
+        return null;
+      }
+    });
+  },
+
+  /**
    * Fetch documents for a citizen
    */
   async getDocuments(bi: string): Promise<Document[] | null> {
@@ -1241,6 +1299,9 @@ export const supabaseService = {
    */
   async getCorrespondences(): Promise<Correspondence[] | null> {
     if (!hasValidSupabaseKeys()) return null;
+    // N-3 — também o feed oficial fica no micro-cache de leitura (era o 3.º
+    // GET à tabela messages por execução do carregador).
+    return readThroughMessagesCache('corr:all', async () => {
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -1276,6 +1337,7 @@ export const supabaseService = {
       console.error('Supabase getCorrespondences error:', e);
       return null;
     }
+    });
   },
 
   /**
