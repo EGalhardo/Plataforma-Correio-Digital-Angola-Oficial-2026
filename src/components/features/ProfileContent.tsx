@@ -34,7 +34,8 @@ import {
   Laptop,
   WifiOff,
   Clock,
-  Sparkles
+  Sparkles,
+  Mail
 } from 'lucide-react';
 import { OfflineManager } from '../../utils/offlineManager';
 import { motion, AnimatePresence } from 'motion/react';
@@ -43,7 +44,7 @@ import { supabaseService, hasValidSupabaseKeys } from '../../services/supabaseSe
 import { supabase } from '../../lib/supabaseClient';
 import { syncProfileToCloud } from '../../services/profileSyncService';
 import { beginProfileEdit, endProfileEdit } from '../../lib/profileEditGuard';
-import { cloudChangePassword, hasActiveCloudSession, isCloudBound } from '../../services/cloudAuthService';
+import { cloudChangePassword, hasActiveCloudSession, isCloudBound, cloudUpdateEmailReal, isEmailPlausivel, hasCloudEmailReal } from '../../services/cloudAuthService';
 import { homologationStore } from '../../services/homologationStore';
 import { CitizenProfile } from './CitizenProfile';
 import { InstitutionProfile } from './InstitutionProfile';
@@ -490,6 +491,70 @@ export function ProfileContent({
       setPasswordError('Sessão segura inactiva. Saia e entre novamente com a senha actual.');
     } else {
       setPasswordError('Serviço temporariamente indisponível. A sua senha actual mantém-se válida — tente mais tarde.');
+    }
+  };
+
+  // ITEM 3 (2026-08-09) — e-mail REAL de recuperação: torna possível o
+  // "Esqueci Senha" por e-mail. A conta nasce com um e-mail técnico interno
+  // que não recebe correio; aqui o titular associa um endereço entregável.
+  const [emailInfo, setEmailInfo] = useState<{ email: string; isReal: boolean } | null>(null);
+  const [novoEmailReal, setNovoEmailReal] = useState('');
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailMsg, setEmailMsg] = useState<{ texto: string; ok: boolean } | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    void (async () => {
+      if (!hasValidSupabaseKeys()) return;
+      const r = await hasCloudEmailReal(supabase);
+      if (vivo && r.outcome === 'ok') setEmailInfo({ email: r.email, isReal: r.isReal });
+    })();
+    return () => { vivo = false; };
+  }, []);
+
+  const submitEmailRealChange = async (e: { preventDefault: () => void }) => {
+    e.preventDefault();
+    setEmailMsg(null);
+    const alvo = novoEmailReal.trim().toLowerCase();
+    if (!isEmailPlausivel(alvo)) {
+      setEmailMsg({ texto: 'Escreva um e-mail válido (ex.: oseunome@gmail.com).', ok: false });
+      return;
+    }
+    const targetBi = (user?.bi || bi || '').trim();
+    if (!!sessionDemo || homologationStore.isExempt(targetBi)) {
+      setEmailMsg({ texto: 'As contas de demonstração não aceitam e-mail de recuperação real (são locais, sem nuvem).', ok: false });
+      return;
+    }
+    if (!hasValidSupabaseKeys()) {
+      setEmailMsg({ texto: 'Serviço de autenticação indisponível neste ambiente.', ok: false });
+      return;
+    }
+    setEmailBusy(true);
+    const sessionActive = await hasActiveCloudSession(supabase);
+    if (!sessionActive) {
+      setEmailBusy(false);
+      setEmailMsg({ texto: 'Sessão segura inactiva. Saia e entre novamente para associar o e-mail.', ok: false });
+      return;
+    }
+    const res = await cloudUpdateEmailReal(supabase, alvo);
+    setEmailBusy(false);
+    if (res.outcome === 'ok') {
+      setEmailMsg({
+        texto: 'Pedido registado. Se o serviço pedir confirmação, receberá um e-mail no NOVO endereço — clique no link para concluir. A partir daí, entre pelo e-mail (verá a opção "Entrar com e-mail" no ecrã de entrada) e o "Esqueci Senha" passa a funcionar nesse endereço.',
+        ok: true,
+      });
+      addAuditLog?.('[AUTH-CLOUD] Pedido de associação de e-mail real de recuperação efectuado pelo titular', 'success');
+      setNovoEmailReal('');
+      // Actualiza o estado do card já com optimismo honesto (a confirmação
+      // pode ainda ser exigida — o texto acima explica isso)
+      const r2 = await hasCloudEmailReal(supabase);
+      if (r2.outcome === 'ok') setEmailInfo({ email: r2.email, isReal: r2.isReal });
+    } else if (res.outcome === 'invalid_email') {
+      setEmailMsg({ texto: res.message || 'E-mail inválido.', ok: false });
+    } else if (res.outcome === 'no_session') {
+      setEmailMsg({ texto: 'Sessão segura inactiva. Saia e entre novamente.', ok: false });
+    } else {
+      setEmailMsg({ texto: res.message || 'Não consegui associar o e-mail. Tente mais tarde.', ok: false });
     }
   };
 
@@ -989,6 +1054,45 @@ return (
                     </button>
                     <p className="text-[9px] text-slate-400 font-bold leading-snug">A nova palavra-passe passa a ser exigida em todos os dispositivos.</p>
                   </form>
+
+                  {/* ITEM 3 (2026-08-09) — e-mail REAL de recuperação: activa o
+                      "Esqueci Senha" por e-mail e a entrada por e-mail. */}
+                  {!isInst && (
+                    <form onSubmit={submitEmailRealChange} className="p-4 bg-slate-50/60 border border-slate-200 rounded-2xl space-y-2.5" data-testid="card-email-real">
+                      <div className="flex items-center gap-2 text-[#0c2340]">
+                        <Mail size={14} className="text-indigo-600" />
+                        <span className="text-[10px] font-black uppercase tracking-wider">E-mail real de recuperação</span>
+                      </div>
+                      {emailInfo && (
+                        <p className={`text-[9.5px] font-bold leading-snug m-0 ${emailInfo.isReal ? 'text-emerald-700' : 'text-amber-700'}`}>
+                          {emailInfo.isReal
+                            ? `E-mail actual da conta: ${emailInfo.email} — já recebe correio; o "Esqueci Senha" funciona neste endereço.`
+                            : 'A sua conta ainda usa um e-mail técnico interno que NÃO recebe correio — sem ele, o "Esqueci Senha" por e-mail não funciona. Associe um endereço real abaixo.'}
+                        </p>
+                      )}
+                      <input
+                        type="email"
+                        placeholder="oseunome@gmail.com"
+                        value={novoEmailReal}
+                        onChange={(e) => setNovoEmailReal(e.target.value)}
+                        className="w-full h-10 bg-white border border-slate-200 focus:border-primary/40 rounded-xl px-4 text-xs font-semibold outline-none transition-all"
+                        autoComplete="email"
+                      />
+                      {emailMsg && (
+                        <p className={`text-[10px] font-bold leading-snug m-0 ${emailMsg.ok ? 'text-emerald-700' : 'text-red-600'}`}>
+                          {emailMsg.texto}
+                        </p>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={emailBusy}
+                        className="w-full py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] disabled:bg-slate-300 text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer border-0"
+                      >
+                        {emailBusy ? 'A registar…' : 'Associar e-mail real'}
+                      </button>
+                      <p className="text-[9px] text-slate-400 font-bold leading-snug">Depois de associado, pode passar a entrar com o e-mail (opção "Entrar com e-mail" no ecrã de entrada). O B.I. continua a ser a sua identidade na plataforma.</p>
+                    </form>
+                  )}
 
                   {/* 2FA Switch Panel */}
                   <div className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl gap-3">

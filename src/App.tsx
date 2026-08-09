@@ -832,11 +832,14 @@ export default function App() {
 
   // Resolve e aplica a identidade real do cidadao que inicia sessao.
   // Contas demo canonicas manutem o preset; outros B.I.s carregam o perfil da nuvem (fallback local).
-  const applyIdentityForLoggedUser = async () => {
+  // ITEM 3: biOverride — login por e-mail real resolve o B.I. da conta Auth e
+  // precisa que a hidratação use ESSE B.I. (o state `bi` ainda não actualizou).
+  const applyIdentityForLoggedUser = async (biOverride?: string) => {
     if (appMode !== 'user') return;
     // B.I. em branco no login = assume o identificador demo exibido como placeholder.
-    const normalized = (bi.trim() || DEMO_CREDENTIALS.user.identifier).toUpperCase();
-    if (bi.trim().toUpperCase() !== normalized) setBi(normalized);
+    const biBase = typeof biOverride === 'string' ? biOverride : bi;
+    const normalized = (biBase.trim() || DEMO_CREDENTIALS.user.identifier).toUpperCase();
+    if (biBase.trim().toUpperCase() !== normalized) setBi(normalized);
     if (normalized === DEMO_CREDENTIALS.user.identifier) {
       // Conta demo canonica: garante que a foto canonica e restaurada
       updateUserFields?.({ avatarUrl: MOCK_SESSION_USER.avatarUrl });
@@ -1014,7 +1017,23 @@ export default function App() {
   }, [userMaritalStatus]);
 
   // UI States
-  const [loginSubMode, setLoginSubMode] = useState<'normal' | 'face-capture' | 'register' | 'forgot'>('normal');
+  const [loginSubMode, setLoginSubMode] = useState<'normal' | 'face-capture' | 'register' | 'forgot' | 'email'>('normal');
+  // ITEM 3 (2026-08-09) — recuperação REAL por e-mail: o link enviado pelo
+  // mailer do Supabase cria uma sessão temporária (evento PASSWORD_RECOVERY);
+  // nesse momento forçamos o ecrã de nova senha. E login por E-MAIL para as
+  // contas que associaram um e-mail real no Perfil.
+  const [passwordRecoveryActive, setPasswordRecoveryActive] = useState(false);
+  const [loginEmailInput, setLoginEmailInput] = useState('');
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecoveryActive(true);
+        setLoginSubMode('forgot');
+        setStage('login');
+      }
+    });
+    return () => { sub.subscription.unsubscribe(); };
+  }, []);
   const [loginError, setLoginError] = useState<string | null>(null);
 
   const [showVoiceGuide, setShowVoiceGuide] = useState(false);
@@ -5151,6 +5170,75 @@ Ficha civil do titular:
       addAuditLog(isInstMode ? 'Login de Instituição via Autenticação Segura' : isGovMode ? 'Login da Administração via Autenticação Segura' : 'Login de Cidadão via Autenticação Segura', 'success');
     };
 
+    // ITEM 3 — login por E-MAIL REAL (contas que associaram um e-mail no
+    // Perfil → Segurança). Caminho explícito e separado do login por B.I.:
+    // valida o e-mail na nuvem (Auth), resolve o B.I. do user_metadata e
+    // aplica EXACTAMENTE as mesmas verificações F47/F-b (conta eliminada,
+    // bloqueada ou rejeitada ficam fora, em qualquer dispositivo).
+    const handleEmailSignInSubmit = async () => {
+      setLoginError(null);
+      const emailAlvo = loginEmailInput.trim().toLowerCase();
+      if (!emailAlvo || !loginPasswordInput) {
+        setLoginError('Introduza o seu e-mail e a palavra-passe para entrar.');
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailAlvo)) {
+        setLoginError('Escreva um e-mail válido.');
+        return;
+      }
+      if (!isSupabaseConfigured()) {
+        setLoginError('A autenticação na nuvem não está disponível neste ambiente.');
+        return;
+      }
+      const res = await cloudSignIn(supabase, emailAlvo, loginPasswordInput);
+      if (res.outcome !== 'ok') {
+        setLoginError('E-mail ou palavra-passe inválidos.');
+        addAuditLog('Login por e-mail real recusado: credenciais inválidas na nuvem.', 'warning');
+        return;
+      }
+      const emailBi = String((res.metadata as any)?.bi || '').trim().toUpperCase().replace(/\s+/g, '');
+      if (!emailBi) {
+        await cloudSignOutBestEffort(supabase);
+        setLoginError('Esta conta não pertence a um cidadão do Correio Digital de Angola.');
+        addAuditLog('Login por e-mail real recusado: conta sem B.I. de cidadão associado.', 'warning');
+        return;
+      }
+      setBi(emailBi);
+      addAuditLog(`[AUTH-CLOUD] Login por e-mail real: B.I. ${emailBi} resolvido da conta autenticada — a palavra-passe foi verificada pela plataforma.`, 'success');
+      try {
+        const pre = await readCitizenRegistrationStatus(supabase, emailBi);
+        if (isRevokedDeletedAccount({ read: pre, sessionLive: true, hasLocalEvidence: isCloudBound(emailBi) })) {
+          purgeCitizenLocalResidues(emailBi);
+          await cloudSignOutBestEffort(supabase);
+          setLoginError('Este registo foi ELIMINADO pela Área de Administração. Para voltar a usar a plataforma, efectue um NOVO registo — a conta só ficará activa após nova aprovação.');
+          addAuditLog(`Login por e-mail real recusado: registo de ${emailBi} INEXISTENTE na base central (conta eliminada) — F47.`, 'critical');
+          return;
+        }
+        const cloudSt = pre.ok && pre.status ? pre.status : '';
+        if (cloudSt) {
+          if (cloudSt === 'Aprovado') homologationStore.setStatus(emailBi, 'active', undefined, undefined);
+          else if (cloudSt === 'Pendente') homologationStore.setStatus(emailBi, 'pending', undefined, undefined);
+          else if (cloudSt === 'Bloqueado') homologationStore.setStatus(emailBi, 'blocked', undefined, undefined);
+          else if (cloudSt === 'Reprovado' || cloudSt === 'Rejeitado' || cloudSt === 'Não Aprovado') homologationStore.setStatus(emailBi, 'rejected', undefined, undefined);
+          if (cloudSt === 'Bloqueado') {
+            setLoginError('A sua conta encontra-se BLOQUEADA pela Área de Administração. Contacte o suporte oficial para reactivação.');
+            addAuditLog(`Login por e-mail real recusado: conta ${emailBi} BLOQUEADA (estado lido da nuvem).`, 'critical');
+            return;
+          }
+          if (cloudSt === 'Reprovado' || cloudSt === 'Rejeitado' || cloudSt === 'Não Aprovado') {
+            setLoginError('O seu pedido de registo foi REJEITADO pela Área de Administração. Regularize a situação junto do suporte oficial.');
+            addAuditLog(`Login por e-mail real recusado: registo de ${emailBi} REJEITADO (estado lido da nuvem).`, 'critical');
+            return;
+          }
+        }
+      } catch (statusErr) {
+        console.warn('[AUTH-CLOUD] Leitura do estado na nuvem indisponível no login por e-mail (D3):', statusErr);
+      }
+      await applyIdentityForLoggedUser(emailBi);
+      setStage('app');
+      addAuditLog('Login de Cidadão via e-mail real', 'success');
+    };
+
     return (
       <section className="min-h-screen p-4 bg-slate-50 flex items-center justify-center font-sans">
         <div className="max-w-[940px] w-full mx-auto grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-4.5 items-stretch">
@@ -5438,6 +5526,17 @@ Ficha civil do titular:
                           <Lock size={15.5} className="text-[#2563eb]" />
                           {t("Esqueci Senha")}
                         </button>
+                        {!isInstMode && !isGovMode && (
+                          <button
+                            type="button"
+                            onClick={() => { setLoginError(null); setLoginSubMode('email'); }}
+                            className="text-slate-600 hover:text-[#0c2340] transition-colors bg-transparent border-none cursor-pointer text-[10px] font-black uppercase tracking-widest font-sans flex items-center gap-1"
+                            title="Para contas que associaram um e-mail real no Perfil"
+                          >
+                            <Mail size={14} className="text-[#2563eb]" />
+                            {t("Entrar com e-mail")}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -5672,6 +5771,88 @@ Ficha civil do titular:
                 </motion.div>
               )}
 
+              {loginSubMode === 'email' && (
+                <motion.div
+                  key="login-email"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="flex-1 flex flex-col justify-center"
+                >
+                  <div className="w-full flex flex-col justify-between min-h-[440px] flex-1 font-sans">
+                    <div className="flex-1 flex flex-col justify-center space-y-4">
+                      <div className="text-center space-y-1.5">
+                        <div className="flex justify-center mb-1">
+                          <div className="w-14 h-14 rounded-full bg-[#f0f4f9] flex items-center justify-center border border-slate-100 shadow-3xs">
+                            <Mail className="text-[#0c2340]" size={22} />
+                          </div>
+                        </div>
+                        <h2 className="text-[25px] font-black text-[#0c2340] tracking-tight uppercase leading-none">
+                          Entrar com E-mail
+                        </h2>
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none mt-0.5">
+                          Para contas que associaram um e-mail real no Perfil
+                        </p>
+                      </div>
+
+                      <div className="max-w-lg mx-auto w-full space-y-1.5">
+                        <label className="text-[10.5px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-1 mb-0.5">
+                          <Mail size={12} className="text-[#2563eb]" /> E-MAIL REAL DA CONTA
+                        </label>
+                        <input
+                          type="email"
+                          value={loginEmailInput}
+                          onChange={(e) => setLoginEmailInput(e.target.value)}
+                          className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4 py-2.5 text-[13px] text-slate-800 outline-none transition-all font-bold placeholder:text-slate-350"
+                          placeholder="oseuemail@exemplo.com"
+                          autoComplete="email"
+                        />
+                      </div>
+
+                      <div className="max-w-lg mx-auto w-full space-y-1.5">
+                        <label className="text-[10.5px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-1 mb-0.5">
+                          <Lock size={12} className="text-[#2563eb]" /> PALAVRA-PASSE
+                        </label>
+                        <input
+                          type="password"
+                          value={loginPasswordInput}
+                          onChange={(e) => setLoginPasswordInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') void handleEmailSignInSubmit(); }}
+                          className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4 py-2.5 text-[13px] text-slate-800 outline-none transition-all font-bold placeholder:text-slate-350"
+                          placeholder="••••••••••••"
+                          autoComplete="current-password"
+                        />
+                      </div>
+
+                      {loginError && (
+                        <p className="max-w-lg mx-auto w-full text-[11px] text-red-600 font-bold leading-normal">{loginError}</p>
+                      )}
+
+                      <div className="flex flex-col gap-2.5 max-w-lg mx-auto w-full pt-0">
+                        <button
+                          type="button"
+                          onClick={() => void handleEmailSignInSubmit()}
+                          className="w-full text-white rounded-[15px] py-3 font-black text-[12px] uppercase tracking-widest shadow-lg transition-all border-none bg-[#0E2B64] hover:bg-[#081a3d] cursor-pointer"
+                        >
+                          Entrar com e-mail
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setLoginError(null); setLoginSubMode('normal'); }}
+                          className="w-full py-2.5 text-slate-500 font-black text-[11px] uppercase tracking-widest hover:text-slate-700 transition-colors bg-transparent border-none cursor-pointer"
+                        >
+                          Voltar à Entrada por B.I.
+                        </button>
+                      </div>
+
+                      <p className="max-w-lg mx-auto w-full text-[10.5px] text-slate-500 font-semibold leading-relaxed text-center">
+                        A sua conta ainda usa só o B.I.? Entre pelo B.I. e associe um e-mail real em Perfil → Segurança para passar a entrar por aqui.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
               {loginSubMode === 'forgot' && (
                 <motion.div
                   key="login-forgot"
@@ -5681,10 +5862,11 @@ Ficha civil do titular:
                   className="flex-1 flex flex-col justify-center"
                 >
                   <ResetPasswordStepper
-                    onCancel={() => setLoginSubMode('normal')}
-                    onSuccess={() => setLoginSubMode('normal')}
+                    onCancel={() => { setPasswordRecoveryActive(false); setLoginSubMode('normal'); }}
+                    onSuccess={() => { setPasswordRecoveryActive(false); setLoginSubMode('normal'); }}
                     addAuditLog={addAuditLog}
                     appMode={appMode}
+                    recoveryMode={passwordRecoveryActive}
                   />
                 </motion.div>
               )}

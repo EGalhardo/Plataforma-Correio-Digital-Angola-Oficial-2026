@@ -18,6 +18,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // ============================================================================
 
 // ---- Domínios sintéticos internos (detalhe técnico — o utilizador nunca vê) --
+// Domínios técnicos internos: identificadores de login SEM caixa de correio.
+export const CLOUD_AUTH_DOMINIOS_TECNICOS = [
+  'cidadao.correiodigital.ao',
+  'inst.correiodigital.ao',
+  'admin.correiodigital.ao',
+];
 export const CLOUD_AUTH_DOMAIN_CIDADAO = 'cidadao.correiodigital.ao';
 export const CLOUD_AUTH_DOMAIN_INSTITUICAO = 'inst.correiodigital.ao';
 export const CLOUD_AUTH_DOMAIN_ADMIN = 'admin.correiodigital.ao';
@@ -307,5 +313,142 @@ export const cloudChangePassword = async (
   } catch (e) {
     const kind = classifyAuthError(e);
     return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
+  }
+};
+
+// ---- ITEM 3 (2026-08-09) — Recuperação de senha por EMAIL REAL --------------
+// As contas de cidadão nascem com um e-mail técnico interno
+// (bi.<bi>@cidadao.correiodigital.ao) que NÃO recebe correio — por isso o
+// antigo ecrã "Esqueci Senha" (OTP inventado 123456 + senha só no browser)
+// foi substituído por este trio REAL, tudo com anon key + sessão/mailer do
+// próprio Supabase (sem SMTP extra, sem service_role no browser):
+//   1) cloudResetPasswordEmail — mailer real envia o link de recuperação;
+//   2) cloudUpdatePasswordFromRecovery — define a nova senha com a sessão
+//      temporária que o link cria (evento PASSWORD_RECOVERY);
+//   3) cloudUpdateEmailReal — associa um e-mail entregável à conta (o passo
+//      que torna 1) possível). NUNCA lançam.
+
+export type CloudResetEmailOutcome =
+  | 'ok'          // pedido aceite — se o e-mail existir, o link segue (neutro)
+  | 'unavailable' // rede/serviço em baixo
+  | 'error';
+
+export interface CloudResetEmailResult {
+  outcome: CloudResetEmailOutcome;
+  message?: string;
+}
+
+export const isEmailPlausivel = (email: string): boolean =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
+
+export const cloudResetPasswordEmail = async (
+  client: SupabaseClient,
+  email: string,
+  redirectTo: string,
+): Promise<CloudResetEmailResult> => {
+  try {
+    const alvo = email.trim().toLowerCase();
+    if (!isEmailPlausivel(alvo)) return { outcome: 'error', message: 'E-mail inválido.' };
+    if (!client?.auth?.resetPasswordForEmail) return { outcome: 'unavailable', message: 'cliente Auth ausente.' };
+    const { error } = await client.auth.resetPasswordForEmail(alvo, { redirectTo });
+    if (error) {
+      const kind = classifyAuthError(error);
+      return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: error.message };
+    }
+    return { outcome: 'ok' };
+  } catch (e: any) {
+    const kind = classifyAuthError(e);
+    return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
+  }
+};
+
+export type CloudRecoveryPasswordOutcome =
+  | 'ok' | 'no_session' | 'weak' | 'unavailable' | 'error';
+
+export interface CloudRecoveryPasswordResult {
+  outcome: CloudRecoveryPasswordOutcome;
+  message?: string;
+}
+
+export const cloudUpdatePasswordFromRecovery = async (
+  client: SupabaseClient,
+  newPassword: string,
+): Promise<CloudRecoveryPasswordResult> => {
+  try {
+    if (!newPassword || newPassword.length < 8) {
+      return { outcome: 'weak', message: 'A palavra-passe deve ter pelo menos 8 caracteres.' };
+    }
+    if (!client?.auth?.updateUser) return { outcome: 'unavailable', message: 'cliente Auth ausente.' };
+    if (!(await hasActiveCloudSession(client))) return { outcome: 'no_session' };
+    const { error } = await client.auth.updateUser({ password: newPassword });
+    if (error) {
+      const kind = classifyAuthError(error);
+      if (kind === 'unavailable') return { outcome: 'unavailable', message: error.message };
+      return { outcome: 'error', message: error.message };
+    }
+    // Encerra as OUTRAS sessões (best-effort) — a senha antiga deixa de valer.
+    try { await client.auth.signOut({ scope: 'others' }); } catch { /* best-effort */ }
+    return { outcome: 'ok' };
+  } catch (e: any) {
+    const kind = classifyAuthError(e);
+    return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
+  }
+};
+
+export type CloudEmailChangeOutcome =
+  | 'ok'              // pedido aceite (pode exigir clique de confirmação no e-mail)
+  | 'no_session'      // sem sessão nuvem — só contas autenticadas mudam o e-mail
+  | 'invalid_email'
+  | 'unavailable'
+  | 'error';
+
+export interface CloudEmailChangeResult {
+  outcome: CloudEmailChangeOutcome;
+  message?: string;
+}
+
+export const cloudUpdateEmailReal = async (
+  client: SupabaseClient,
+  newEmail: string,
+): Promise<CloudEmailChangeResult> => {
+  try {
+    const alvo = newEmail.trim().toLowerCase();
+    if (!isEmailPlausivel(alvo)) return { outcome: 'invalid_email', message: 'E-mail inválido.' };
+    if (!client?.auth?.updateUser) return { outcome: 'unavailable', message: 'cliente Auth ausente.' };
+    if (!(await hasActiveCloudSession(client))) return { outcome: 'no_session' };
+    const { error } = await client.auth.updateUser({ email: alvo });
+    if (error) {
+      const kind = classifyAuthError(error);
+      return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: error.message };
+    }
+    return { outcome: 'ok' };
+  } catch (e: any) {
+    const kind = classifyAuthError(e);
+    return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
+  }
+};
+
+export interface CloudEmailInfoResult {
+  outcome: 'ok' | 'no_session' | 'unavailable';
+  email: string;
+  /** true se o e-mail da conta Auth for ENTREGÁVEL (não é um domínio técnico interno) */
+  isReal: boolean;
+}
+
+/**
+ * Lê o e-mail actual da conta Auth e diz se é entregável. Os domínios técnicos
+ * internos (*.correiodigital.ao) NÃO recebem correio — servem apenas de
+ * identificador de login. NUNCA lança.
+ */
+export const hasCloudEmailReal = async (client: SupabaseClient): Promise<CloudEmailInfoResult> => {
+  try {
+    if (!client?.auth?.getSession) return { outcome: 'unavailable', email: '', isReal: false };
+    const { data } = await client.auth.getSession();
+    const email = String(data?.session?.user?.email || '').toLowerCase();
+    if (!email) return { outcome: 'no_session', email: '', isReal: false };
+    const tecnico = CLOUD_AUTH_DOMINIOS_TECNICOS.some(d => email.endsWith(`@${d}`));
+    return { outcome: 'ok', email, isReal: !tecnico };
+  } catch {
+    return { outcome: 'unavailable', email: '', isReal: false };
   }
 };
