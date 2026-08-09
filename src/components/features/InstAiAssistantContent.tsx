@@ -61,15 +61,6 @@ interface InteractionLog {
   messagesCount: number;
 }
 
-interface ToolIntegration {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  active: boolean;
-  endpoint?: string;
-}
-
 interface AIStats {
   totalConversations: number;
   totalUsers: number;
@@ -123,16 +114,18 @@ export function InstAiAssistantContent({ addAuditLog, setTab, profileName = '', 
                 console.error('Failed to parse AI stats:', e);
               }
             }
+            // HONESTIDADE: não existe ainda telemetria central de conversas. Os
+            // contadores começam em zero e só sobem com utilização real medida
+            // neste navegador (persistida em localStorage por instituição).
             if (loadedStats) {
               setAiStats(loadedStats);
             } else {
-              // Simulate loading real stats
               setAiStats({
-                totalConversations: 1248,
-                totalUsers: 865,
-                resolutionRate: 92,
-                avgResponseTime: '2m 34s',
-                activeToday: 142,
+                totalConversations: 0,
+                totalUsers: 0,
+                resolutionRate: 0,
+                avgResponseTime: '0s',
+                activeToday: 0,
                 knowledgeDocs: 0,
               });
             }
@@ -271,28 +264,37 @@ REGRAS OPERATIVAS:
     void carregarResumoKb(siglaV).then(setKbResumo);
   }, [institutionCode]);
 
+  // PERSISTÊNCIA REAL (antes o "Guardar" perdia tudo no refresh): a configuração
+  // do assistente fica gravada neste navegador, por instituição.
+  const cfgKey = `cda_ai_cfg_${(institutionCode || 'default').trim().toUpperCase()}`;
+  const [cfgCarregada, setCfgCarregada] = useState(false);
+  useEffect(() => {
+    if (cfgCarregada) return;
+    setCfgCarregada(true);
+    try {
+      const raw = localStorage.getItem(cfgKey);
+      if (!raw) return;
+      const cfg = JSON.parse(raw);
+      if (cfg && typeof cfg === 'object') {
+        if (typeof cfg.assistantName === 'string' && cfg.assistantName.trim()) setAssistantName(cfg.assistantName);
+        if (typeof cfg.model === 'string' && cfg.model.trim()) setModel(cfg.model);
+        if (typeof cfg.temperature === 'string' && cfg.temperature.trim()) setTemperature(cfg.temperature);
+        if (typeof cfg.instructions === 'string' && cfg.instructions.trim()) {
+          setInstructions(cfg.instructions);
+          setTempInstructions(cfg.instructions);
+        }
+      }
+    } catch { /* valor corrompido — ignora e mantém os valores por defeito */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cfgKey, cfgCarregada]);
 
-  // Authorized API Tools integration state
-  const [tools, setTools] = useState<ToolIntegration[]>([
-    { id: 't1', name: 'Validador de NIF', description: 'Valida a autenticidade e situação cadastral do contribuinte junto ao banco de dados estatal.', category: 'Serviços de Cadastro', active: true, endpoint: '/api/gov-ai?action=classify' },
-    { id: 't2', name: 'Emissor de DLI (Documento de Liquidação)', description: 'Permite que a IA gere referências de pagamento de multas ou guias voluntárias.', category: 'Finanças & Cobrança', active: true, endpoint: '/api/gov-ai?action=urgency' },
-    { id: 't3', name: 'Verificador de Estado de Processos', description: 'Consulta andamentos de petições, recursos e defesas de multas tributárias.', category: 'Contencioso', active: true, endpoint: '/api/gov-ai?action=fraud' },
-    { id: 't4', name: 'Verificação de Dívidas Ativas', description: 'Examina restrições ou pendências de débitos fiscais em execução judicial.', category: 'Finanças & Cobrança', active: false, endpoint: '/api/gov-ai?action=classify' },
-    { id: 't5', name: 'Gerenciador de Agendamentos', description: 'Interface para marcar atendimentos presenciais com auditores nas repartições regionais.', category: 'Apoio ao Cidadão', active: true },
-    { id: 't6', name: 'Geração Certidões de Quitação', description: 'Emite o PDF autenticado digitalmente confirmando a ausência de dívidas ativas.', category: 'Serviços de Cadastro', active: false },
-    { id: 't7', name: 'Consulta de Declarações', description: 'Verifica o estado de processamento de declarações fiscais submetidas.', category: 'Fiscal', active: true },
-    { id: 't8', name: 'Tradutor de Termos Jurídicos', description: 'Simplifica linguagem jurídica e burocrática presente em documentos.', category: 'Apoio ao Cidadão', active: true, endpoint: '/api/gov-ai?action=explain' },
-  ]);
 
-  // Conversation logs history (from localStorage or mock)
-  const [interactionLogs] = useState<InteractionLog[]>([
-    { id: 'log-1', citizenName: 'Edlasio Galhardo', bi: '009874562LA041', topic: 'Consulta de NIF e Isenções', satisfaction: 'Alta', time: 'Há 12 minutos', messagesCount: 8 },
-    { id: 'log-2', citizenName: 'Maria Antónia', bi: '008812342LA011', topic: 'Reclamação de Multa Comercial', satisfaction: 'Alta', time: 'Há 45 minutos', messagesCount: 14 },
-    { id: 'log-3', citizenName: 'José Kalunga', bi: '007712342LA021', topic: 'Obtenção de Modelo 1 Simplificado', satisfaction: 'Média', time: 'Há 2 horas', messagesCount: 6 },
-    { id: 'log-4', citizenName: 'António Nzaji', bi: '001224851BA034', topic: 'Atendimento Prévio Registral', satisfaction: 'Alta', time: 'Há 1 dia', messagesCount: 5 },
-    { id: 'log-5', citizenName: 'Filomena da Rocha', bi: '001144821LA091', topic: 'Contestação de Imposto Predial', satisfaction: 'Baixa', time: 'Há 2 dias', messagesCount: 19 },
-    { id: 'log-6', citizenName: 'Carlos Eduardo', bi: '003344551LA045', topic: 'Regularização de IVA', satisfaction: 'Alta', time: 'Há 3 dias', messagesCount: 11 },
-  ]);
+  // HONESTIDADE: as "ferramentas API" fictícias (endpoints /api/gov-ai que não
+  // existem no servidor) foram removidas — eram código morto, nunca renderizado.
+
+  // HONESTIDADE: histórico começa vazio — só registos reais têm lugar aqui.
+  // (A tabela de telemetria central de conversas ainda não existe.)
+  const [interactionLogs] = useState<InteractionLog[]>([]);
 
   // Toast Alerts State
   const [toast, setToast] = useState<{ text: string; type: 'success' | 'info' | 'warning' | 'error' } | null>(null);
@@ -322,6 +324,9 @@ REGRAS OPERATIVAS:
   const handleSaveGeneralConfig = () => {
     setInstructions(tempInstructions);
     setIsEditingNameInline(false);
+    try {
+      localStorage.setItem(cfgKey, JSON.stringify({ assistantName, model, temperature, instructions: tempInstructions }));
+    } catch { /* armazenamento cheio/indisponível — a configuração vive só na sessão */ }
 
     triggerToast('Configuração Geral e Instruções Operacionais salvas com sucesso!', 'success');
     addAuditLog?.(`Configurações de IA modificadas: Nome (${assistantName}), Modelo (${model}), Temp (${temperature})`, 'success');
@@ -342,26 +347,11 @@ REGRAS OPERATIVAS:
   const handleSaveInstructions = () => {
     setInstructions(tempInstructions);
     setCustomPrompt(tempInstructions);
+    try {
+      localStorage.setItem(cfgKey, JSON.stringify({ assistantName, model, temperature, instructions: tempInstructions }));
+    } catch { /* idem */ }
     triggerToast('Instruções operacionais do assistente atualizadas com sucesso!', 'success');
     addAuditLog?.('Instruções operacionais do Assistente de IA atualizadas por agente autorizado.', 'success');
-  };
-
-  // Action: Toggle custom API tools
-  const handleToggleTool = (id: string) => {
-    const targetTool = tools.find(t => t.id === id);
-    if (!targetTool) return;
-
-    const nextState = !targetTool.active;
-    
-    setTools(current => current.map(t => {
-      if (t.id === id) {
-        return { ...t, active: nextState };
-      }
-      return t;
-    }));
-
-    triggerToast(`Ferramenta "${targetTool.name}" ${nextState ? 'ativada' : 'desativada'}.`, nextState ? 'success' : 'info');
-    addAuditLog?.(`Integração de ferramenta de IA alterada: ${targetTool.name} (${nextState ? 'Ativa' : 'Inativa'})`, 'info');
   };
 
   // REAL AI CHAT LOGIC (using Groq via /api/chat)
@@ -506,7 +496,6 @@ Contexto adicional:
   };
 
   const activeCheckboxesCount = Object.values(contextConfig).filter(Boolean).length;
-  const activeToolsCount = tools.filter(t => t.active).length;
 
   return (
     <div className="space-y-6 max-w-none w-full pb-12 text-[#1e293b] font-sans antialiased" id="inst-ai-assistant-root">
@@ -788,6 +777,9 @@ Contexto adicional:
                   </div>
                 </div>
               </div>
+              <p className="text-[9px] text-slate-400 font-semibold mt-3 leading-relaxed text-left">
+                Origens dos números: Conversas/Activos hoje — contagem real feita neste navegador através do Chat Teste; Docs indexados — fontes reais da Base de Conhecimento. Utilizadores, Resoluções e Tempo médio mostram 0 porque ainda não existe telemetria central de conversas — a plataforma não inventa estes valores.
+              </p>
             </div>
           </div>
 
@@ -1083,6 +1075,11 @@ Contexto adicional:
             <div className="bg-white border border-[#0c2340]/15 rounded-[20px] p-5">
               <h4 className="text-[11px] font-black text-[#0c2340] uppercase tracking-widest mb-3">ÚLTIMAS INTERACÇÕES</h4>
               <div className="space-y-2 max-h-[180px] overflow-y-auto">
+                {interactionLogs.length === 0 && (
+                  <p className="text-[10px] text-slate-400 font-semibold leading-relaxed text-left p-2">
+                    Ainda não há conversas para mostrar. As interacções reais dos cidadãos com o assistente aparecem aqui quando a plataforma tiver telemetria de conversas activa.
+                  </p>
+                )}
                 {interactionLogs.slice(0, 4).map(log => (
                   <div key={log.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-left">
                     <div className="flex items-center justify-between">
@@ -1131,6 +1128,14 @@ Contexto adicional:
             </div>
           </div>
 
+          {interactionLogs.length === 0 ? (
+            <div className="py-10 px-6 text-center">
+              <p className="text-sm font-black text-slate-500 uppercase tracking-wide">Ainda sem conversas registadas</p>
+              <p className="text-[11px] text-slate-400 font-semibold mt-2 max-w-md mx-auto leading-relaxed">
+                Quando os cidadãos conversarem com o assistente da sua instituição, o histórico real aparecerá nesta página. Até lá, esta lista permanece vazia — a plataforma não apresenta conversas de exemplo como se fossem reais.
+              </p>
+            </div>
+          ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
@@ -1175,6 +1180,7 @@ Contexto adicional:
               </tbody>
             </table>
           </div>
+          )}
         </div>
       )}
 

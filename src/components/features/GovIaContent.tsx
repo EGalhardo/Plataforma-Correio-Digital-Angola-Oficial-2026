@@ -33,6 +33,8 @@ import {
   X
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { supabase } from '../../lib/supabaseClient';
+import { isInstitutionObservacao } from '../../services/institutionRegistrationStore';
 
 interface GovIaContentProps {
   onLog?: (action: string, type: 'info' | 'success' | 'warning' | 'critical') => void;
@@ -59,6 +61,12 @@ interface InstitutionConfig {
   docsCount: number;
   lastSync: string;
   model: string;
+}
+
+interface ChartPonto {
+  name: string;
+  volume: number;
+  responseTime?: number;
 }
 
 interface AIBaseConfig {
@@ -100,7 +108,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
     totalConversations: 0,
     activeUsers: 0,
     resolutionRate: 0,
-    avgResponseTime: '0s',
+    avgResponseTime: '—',
     docsConsulted: 0,
     escalationRate: 0,
     totalInstitutions: 0,
@@ -125,16 +133,11 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
           groqConfigured: data.groq_key_configured,
           geminiConfigured: data.ai_key_configured,
           supabaseConfigured: data.supabase_url_configured && data.supabase_anon_configured,
-          totalConversations: 24532,
-          activeUsers: 18752,
-          resolutionRate: 94.7,
-          avgResponseTime: '1.8s',
-          docsConsulted: 31225,
-          escalationRate: 5.3,
-          totalInstitutions: 127,
-          totalBases: 49,
-          totalDocs: 186450,
         }));
+        // HONESTIDADE: os números de utilização NÃO são inventados aqui — onde
+        // não existe telemetria central o contador permanece em 0/«—». As
+        // contagens reais (instituições registadas e bases de conhecimento)
+        // vêm da base de dados no efeito abaixo.
         
         setIsLoadingHealth(false);
       } catch (error) {
@@ -147,6 +150,90 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
     // Refresh every 30 seconds
     const interval = setInterval(fetchHealth, 30000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Preferência local da consola (instrução/modelo guardados nesta consola).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('cda_gov_ia_cfg');
+      if (!raw) return;
+      const cfg = JSON.parse(raw);
+      if (cfg && typeof cfg === 'object') {
+        if (typeof cfg.systemInstruction === 'string' && cfg.systemInstruction.trim()) setSystemInstruction(cfg.systemInstruction);
+        if (typeof cfg.mainModel === 'string' && cfg.mainModel.trim()) setMainModel(cfg.mainModel);
+      }
+    } catch { /* ignora valores corrompidos */ }
+  }, []);
+
+  // DADOS REAIS (substitui os números fabricados que aqui existiam):
+  //  - instituições registadas: public.solicitacoes_registo (mesma fonte da
+  //    página «Instituições» do Admin — se a RLS bloquear a leitura anónima,
+  //    fica vazio, o que é o estado verdadeiro para o observador);
+  //  - bases de conhecimento: public.kb_fontes_instituicao (leitura pública
+  //    das fontes ativas — criado na correção E6, tabela real da plataforma).
+  useEffect(() => {
+    let cancelado = false;
+    (async () => {
+      try {
+        const { data: regs, error: errRegs } = await supabase
+          .from('solicitacoes_registo')
+          .select('nome, bi_numero, status, observacoes, criado_em')
+          .order('criado_em', { ascending: false });
+        if (!cancelado && !errRegs && Array.isArray(regs)) {
+          const insts: InstitutionConfig[] = regs
+            .filter((r: any) => isInstitutionObservacao(r?.observacoes))
+            .map((r: any, i: number) => ({
+              id: String(r.bi_numero || `reg-${i}`),
+              name: String(r.nome || 'Instituição registada'),
+              code: String(r.bi_numero || '??').slice(0, 4).toUpperCase(),
+              aiEnabled: false,
+              docsCount: 0,
+              lastSync: 'Sem vetores indexados ainda',
+              model: '—',
+            }));
+          setInstitutions(insts);
+          setAiStats(prev => ({ ...prev, totalInstitutions: insts.length }));
+        }
+      } catch { /* offline/RLS — lista fica vazia (estado verdadeiro) */ }
+
+      try {
+        const { data: fontes, error: errKb } = await supabase
+          .from('kb_fontes_instituicao')
+          .select('id, sigla, titulo, tipo, ativo, atualizado_em')
+          .eq('ativo', true)
+          .order('atualizado_em', { ascending: false });
+        if (!cancelado && !errKb && Array.isArray(fontes)) {
+          const bases: AIBaseConfig[] = fontes.map((f: any) => ({
+            id: String(f.id),
+            title: String(f.titulo || 'Fonte sem título'),
+            type: String(f.tipo || 'Fonte'),
+            docsCount: 1,
+            institution: String(f.sigla || '—'),
+            status: 'synced',
+            lastUpdate: f.atualizado_em ? new Date(f.atualizado_em).toLocaleDateString('pt-AO') : '—',
+          }));
+          setKnowledgeBases(bases);
+          setAiStats(prev => ({ ...prev, totalBases: bases.length, totalDocs: bases.length }));
+          if (bases.length > 0) {
+            setInstitutions(prev => {
+              if (prev.length === 0) return prev;
+              const contagem = new Map<string, number>();
+              for (const f of fontes as any[]) {
+                const sig = String(f.sigla || '').toUpperCase();
+                contagem.set(sig, (contagem.get(sig) || 0) + 1);
+              }
+              return prev.map(inst => {
+                const docs = contagem.get(inst.code.toUpperCase());
+                return docs
+                  ? { ...inst, docsCount: docs, aiEnabled: true, lastSync: 'Fontes ativas na Base de Conhecimento', model: 'llama-3.1-8b-instant' }
+                  : inst;
+              });
+            });
+          }
+        }
+      } catch { /* idem */ }
+    })();
+    return () => { cancelado = true; };
   }, []);
 
   // Interactive configurations
@@ -200,110 +287,66 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
   };
 
   // AI Models Configuration (Real Groq models)
+  // Catálogo dos modelos configuráveis no fornecedor (Groq/Google). Os nomes e
+  // IDs são reais; custos, quotas e latências NÃO são medidos pela plataforma,
+  // por isso mostram «—» em vez de valores inventados.
   const [modelsList, setModelsList] = useState<AIProvider[]>([
-    { id: 'm1', name: 'Llama 3.1 8B Instant', model: 'llama-3.1-8b-instant', maker: 'Meta / Groq', status: 'active', cost: '85.120 Kz/h', quota: '68,4%', responseTime: '0.8s', endpoint: '/api/chat', isDefault: true },
-    { id: 'm2', name: 'Llama 3.3 70B Versatile', model: 'llama-3.3-70b-versatile', maker: 'Meta / Groq', status: 'active', cost: '320.450 Kz/h', quota: '18,7%', responseTime: '1.2s', endpoint: '/api/chat', isDefault: false },
-    { id: 'm3', name: 'Mixtral 8x7B', model: 'mixtral-8x7b-32768', maker: 'Mistral AI / Groq', status: 'active', cost: '180.220 Kz/h', quota: '9,2%', responseTime: '1.0s', endpoint: '/api/chat', isDefault: false },
-    { id: 'm4', name: 'Gemma 2 9B', model: 'gemma2-9b-it', maker: 'Google / Groq', status: 'active', cost: '120.340 Kz/h', quota: '3,7%', responseTime: '0.9s', endpoint: '/api/chat', isDefault: false },
-    { id: 'm5', name: 'Gemini 2.0 Flash (Live)', model: 'gemini-2.0-flash-exp', maker: 'Google AI Studio', status: 'fallback', cost: '612.450 Kz/h', quota: '0%', responseTime: '1.5s', endpoint: '/api/live', isDefault: false },
-    { id: 'm6', name: 'Whisper Large v3', model: 'whisper-large-v3', maker: 'OpenAI / Groq', status: 'active', cost: '45.000 Kz/h', quota: 'N/A', responseTime: '2.1s', endpoint: '/api/chat', isDefault: false },
+    { id: 'm1', name: 'Llama 3.1 8B Instant', model: 'llama-3.1-8b-instant', maker: 'Meta / Groq', status: 'active', cost: '—', quota: '—', responseTime: '—', endpoint: '/api/chat', isDefault: true },
+    { id: 'm2', name: 'Llama 3.3 70B Versatile', model: 'llama-3.3-70b-versatile', maker: 'Meta / Groq', status: 'active', cost: '—', quota: '—', responseTime: '—', endpoint: '/api/chat', isDefault: false },
+    { id: 'm3', name: 'Mixtral 8x7B', model: 'mixtral-8x7b-32768', maker: 'Mistral AI / Groq', status: 'active', cost: '—', quota: '—', responseTime: '—', endpoint: '/api/chat', isDefault: false },
+    { id: 'm4', name: 'Gemma 2 9B', model: 'gemma2-9b-it', maker: 'Google / Groq', status: 'active', cost: '—', quota: '—', responseTime: '—', endpoint: '/api/chat', isDefault: false },
   ]);
 
   const selectActiveModel = (id: string, modelName: string) => {
+    // NOTA HONESTA: isto muda apenas a preferência mostrada nesta consola.
+    // O modelo servido nas respostas é definido na configuração do servidor.
     setModelsList(prev => prev.map(m => ({ ...m, isDefault: m.id === id })));
     setMainModel(modelName);
-    triggerToast(`Modelo principal alterado para ${modelName}!`, 'success');
+    triggerToast(`Preferência desta consola: ${modelName}. (O modelo servido é definido pela configuração do servidor.)`, 'info');
     playSound('success');
-    if (onLog) onLog(`Modelo de IA modificado para: ${modelName}`, 'info');
+    if (onLog) onLog(`Preferência de modelo nesta consola: ${modelName}`, 'info');
   };
 
   // Institutions with AI Configuration
-  const [institutions, setInstitutions] = useState<InstitutionConfig[]>([
-    { id: '1', name: 'Ministério da Justiça', code: 'MJ', aiEnabled: true, docsCount: 25400, lastSync: 'Atualizado há 2 dias', model: 'llama-3.1-8b-instant' },
-    { id: '2', name: 'Ministério da Saúde', code: 'MINSA', aiEnabled: true, docsCount: 41200, lastSync: 'Atualizado há 1 dia', model: 'llama-3.1-8b-instant' },
-    { id: '3', name: 'Ministério da Educação', code: 'MED', aiEnabled: true, docsCount: 35100, lastSync: 'Atualizado hoje', model: 'llama-3.1-8b-instant' },
-    { id: '4', name: 'Ministério das Finanças', code: 'MF', aiEnabled: true, docsCount: 18900, lastSync: 'Atualizado há 3 dias', model: 'llama-3.1-8b-instant' },
-    { id: '5', name: 'AGT - Administração Geral Tributária', code: 'AGT', aiEnabled: true, docsCount: 15800, lastSync: 'Atualizado há 1 dia', model: 'llama-3.1-8b-instant' },
-    { id: '6', name: 'SME - Serviço de Migração e Estrangeiros', code: 'SME', aiEnabled: true, docsCount: 22300, lastSync: 'Atualizado hoje', model: 'llama-3.1-8b-instant' },
-    { id: '7', name: 'ENDE - Empresa Nacional de Distribuição', code: 'ENDE', aiEnabled: false, docsCount: 8900, lastSync: 'Há 5 dias', model: '-' },
-    { id: '8', name: 'EPAL - Empresa de Águas de Luanda', code: 'EPAL', aiEnabled: true, docsCount: 12400, lastSync: 'Atualizado hoje', model: 'llama-3.1-8b-instant' },
-  ]);
+  const [institutions, setInstitutions] = useState<InstitutionConfig[]>([]);
 
   // Knowledge Bases
-  const [knowledgeBases, setKnowledgeBases] = useState<AIBaseConfig[]>([
-    { id: 'k1', title: 'Perguntas Frequentes (FAQ)', type: 'Conversações', docsCount: 24785, institution: 'Todas', status: 'synced', lastUpdate: 'Hoje às 08:20' },
-    { id: 'k2', title: 'Procedimentos e Portarias', type: 'Manuais Operacionais', docsCount: 12340, institution: 'MF / AGT', status: 'synced', lastUpdate: 'Hoje às 06:00' },
-    { id: 'k3', title: 'Leis e Regulamentos Oficiais', type: 'Legislação', docsCount: 8976, institution: 'MJ', status: 'synced', lastUpdate: 'Ontem' },
-    { id: 'k4', title: 'Formulários e Modelos Administrativos', type: 'Documentos Padrão', docsCount: 4215, institution: 'Todas', status: 'synced', lastUpdate: 'Ontem' },
-    { id: 'k5', title: 'Glossário Fiscal e Tributário', type: 'Referência', docsCount: 3240, institution: 'AGT', status: 'syncing', lastUpdate: 'A processar...' },
-  ]);
+  // Começa vazio e carrega as fontes reais (kb_fontes_instituicao) no efeito acima.
+  const [knowledgeBases, setKnowledgeBases] = useState<AIBaseConfig[]>([]);
 
   const [newKbTitle, setNewKbTitle] = useState<string>('');
   const [newInstName, setNewInstName] = useState<string>('');
   const [newInstDocs] = useState<string>('5.000');
 
   const handleAddInstitution = () => {
+    // HONESTIDADE: adicionar uma linha só no ecrã fingia uma integração que não
+    // existe. O caminho real é o registo oficial da instituição.
     if (!newInstName.trim()) {
       triggerToast('Insira o nome da instituição', 'warning');
       return;
     }
-    const instDocsParsed = parseInt(newInstDocs.replace(/\D/g, '')) || 5000;
-    const newInst: InstitutionConfig = {
-      id: `inst-${Date.now()}`,
-      name: newInstName,
-      code: newInstName.substring(0, 4).toUpperCase(),
-      aiEnabled: false,
-      docsCount: instDocsParsed,
-      lastSync: 'Nunca sincronizado',
-      model: '-',
-    };
-    setInstitutions(prev => [...prev, newInst]);
-    setAiStats(prev => ({ ...prev, totalInstitutions: prev.totalInstitutions + 1 }));
-    setNewInstName('');
-    triggerToast(`Instituição "${newInstName}" adicionada!`, 'success');
-    playSound('success');
-    if (onLog) onLog(`Nova instituição adicionada: ${newInstName}`, 'success');
+    triggerToast('Nada foi adicionado: o registo de uma instituição é feito pelo fluxo oficial de registo (área «Instituições»). Esta consola apenas mostra o que existe.', 'info');
   };
 
   const handleAddKb = () => {
-    if (!newKbTitle.trim()) {
-      triggerToast('Insira o título da base de conhecimento', 'warning');
-      return;
-    }
-    const parsedCount = parseInt(newKbTitle.replace(/\D/g, '')) || 1000;
-    const newBase: AIBaseConfig = {
-      id: 'kb_' + Date.now(),
-      title: newKbTitle,
-      type: 'Personalizado',
-      docsCount: parsedCount,
-      institution: 'Diversas',
-      status: 'syncing',
-      lastUpdate: 'A processar...',
-    };
-    setKnowledgeBases(prev => [...prev, newBase]);
-    setAiStats(prev => ({ ...prev, totalBases: prev.totalBases + 1, totalDocs: prev.totalDocs + parsedCount }));
-    setNewKbTitle('');
+    triggerToast('A Base de Conhecimento é gerida por cada instituição na sua própria área (separador «Base de Conhecimento»). Aqui só apresentamos o que existe na plataforma.', 'info');
     setIsManageKnowledgeOpen(false);
-    triggerToast(`Base "${newKbTitle}" criada para vetorização!`, 'success');
-    playSound('success');
-    if (onLog) onLog(`Base de conhecimento criada: ${newKbTitle}`, 'success');
   };
 
-  const toggleInstitutionAI = (id: string) => {
-    setInstitutions(prev => prev.map(inst => 
-      inst.id === id 
-        ? { ...inst, aiEnabled: !inst.aiEnabled }
-        : inst
-    ));
-    const inst = institutions.find(i => i.id === id);
-    if (inst) {
-      triggerToast(`IA da ${inst.name} ${inst.aiEnabled ? 'desactivada' : 'activada'}`, 'info');
-    }
+  const toggleInstitutionAI = () => {
+    triggerToast('A activação de IA por instituição depende de telemetria e configuração reais — esta consola é apenas de leitura.', 'info');
   };
 
   const handleSaveInstructions = () => {
-    triggerToast('Instruções globais da IA guardadas com sucesso!', 'success');
-    if (onLog) onLog('Instruções globais do sistema de IA actualizadas.', 'success');
+    // Persistência local (honesta): fica gravada nesta consola/navegador.
+    // A instrução servida no chat da plataforma é definida no servidor.
+    try {
+      localStorage.setItem('cda_gov_ia_cfg', JSON.stringify({ systemInstruction, mainModel }));
+      triggerToast('Configuração guardada nesta consola. (A instrução servida no chat da plataforma é definida na configuração do servidor.)', 'success');
+    } catch {
+      triggerToast('Configuração aplicada apenas nesta janela — o navegador não permitiu gravar.', 'info');
+    }
+    if (onLog) onLog('Configuração de IA desta consola actualizada (local).', 'success');
   };
 
   // Chat/Test AI
@@ -344,23 +387,10 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
     }
   };
 
-  // Recharts Chart Data (with real data points)
-  const chartDataWeekly = [
-    { name: '01 Jun', volume: 15400, responseTime: 1.9 },
-    { name: '02 Jun', volume: 18500, responseTime: 1.85 },
-    { name: '03 Jun', volume: 22100, responseTime: 1.81 },
-    { name: '04 Jun', volume: 20400, responseTime: 1.82 },
-    { name: '05 Jun', volume: 24500, responseTime: 1.79 },
-    { name: '06 Jun', volume: 25680, responseTime: 1.76 },
-    { name: '07 Jun', volume: 23652, responseTime: 1.82 },
-  ];
-
-  const chartDataMonthly = [
-    { name: 'W1 Ago', volume: 68000, responseTime: 2.1 },
-    { name: 'W2 Ago', volume: 84000, responseTime: 1.95 },
-    { name: 'W3 Ago', volume: 91000, responseTime: 1.88 },
-    { name: 'W4 Ago', volume: 112000, responseTime: 1.8 },
-  ];
+  // HONESTIDADE: ainda não existe telemetria de volume de conversas —
+  // sem séries fabricadas. O gráfico mostra o estado vazio honesto.
+  const chartDataWeekly: ChartPonto[] = [];
+  const chartDataMonthly: ChartPonto[] = [];
 
   const currentChartData = useMemo(() => {
     return selectedRange === '7d' ? chartDataWeekly : chartDataMonthly;
@@ -562,7 +592,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
           <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Taxa de Resolução</span>
           <span className="text-[11px] font-semibold text-emerald-600 block mt-0.5">Global</span>
           <span className="text-2xl md:text-3xl font-black text-emerald-700 block mt-1 tracking-tight">
-            <AnimatedCounter to={aiStats.resolutionRate} suffix="%" className="font-mono" />
+            {aiStats.totalConversations === 0 ? <span className="font-mono text-slate-400">—</span> : <AnimatedCounter to={aiStats.resolutionRate} suffix="%" className="font-mono" />}
           </span>
         </div>
       </div>
@@ -638,7 +668,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
             </div>
             <div className="text-left">
               <span className="text-[10px] font-black text-[#0c2340] block">5. Resposta ao cidadão</span>
-              <span className="text-[9px] text-slate-500 block mt-0.5">{aiStats.resolutionRate}% resolvido</span>
+              <span className="text-[9px] text-slate-500 block mt-0.5">{aiStats.totalConversations === 0 ? 'Sem medição ainda' : `${aiStats.resolutionRate}% resolvido`}</span>
             </div>
           </div>
 
@@ -674,6 +704,11 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
             </div>
 
             <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+              {filteredInstitutions.length === 0 && (
+                <p className="text-[10px] text-slate-400 font-semibold leading-relaxed p-3 bg-slate-50/60 border border-dashed border-slate-200 rounded-2xl text-left">
+                  Nenhuma instituição registada é visível com as permissões actuais. As instituições registadas na plataforma aparecem aqui automaticamente.
+                </p>
+              )}
               {filteredInstitutions.map(inst => (
                 <div key={inst.id} className="flex items-center justify-between p-3.5 bg-white border border-slate-300 hover:border-indigo-300 rounded-2xl group transition-all shadow-3xs">
                   <div className="flex items-center gap-3">
@@ -691,7 +726,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
                       <span className="text-[8px] font-bold text-slate-400 block tracking-widest uppercase">Indexados</span>
                     </div>
                     <button
-                      onClick={() => toggleInstitutionAI(inst.id)}
+                      onClick={() => toggleInstitutionAI()}
                       className={`p-1 rounded-lg transition-all cursor-pointer border-0 ${
                         inst.aiEnabled 
                           ? 'text-emerald-600 hover:bg-emerald-50' 
@@ -743,6 +778,11 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
             </div>
 
             <div className="space-y-3 mt-4">
+              {knowledgeBases.length === 0 && (
+                <p className="text-[10px] text-slate-400 font-semibold leading-relaxed p-3 bg-slate-50/60 border border-dashed border-slate-200 rounded-2xl text-left">
+                  Ainda não existem fontes de conhecimento publicadas por instituições. Quando uma instituição publicar fontes na sua área, aparecem aqui em tempo real.
+                </p>
+              )}
               {knowledgeBases.map(kb => (
                 <div key={kb.id} className="flex items-center justify-between p-3.5 border border-slate-150 bg-white rounded-xl shadow-3xs hover:border-slate-200 transition-colors">
                   <div className="flex items-center gap-3">
@@ -775,12 +815,12 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
                 <div className="flex items-center gap-2.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
                   <div>
-                    <span className="text-[10px] font-black text-emerald-800 block">Sincronização de Vetores Activa</span>
+                    <span className="text-[10px] font-black text-emerald-800 block">Leitura da Base de Conhecimento em tempo real</span>
                     <span className="text-[9px] text-emerald-600 font-medium block">{syncedBases}/{knowledgeBases.length} bases sincronizadas • Groq + Supabase</span>
                   </div>
                 </div>
                 <button
-                  onClick={() => { playSound('success'); triggerToast('Resincronização de vectores iniciada...', 'info'); }}
+                  onClick={() => { playSound('success'); triggerToast('A lista mostrada já é a leitura actual da Base de Conhecimento — nada mais foi resincronizado.', 'info'); }}
                   className="p-1 px-2.5 bg-white border border-emerald-200 hover:border-emerald-300 text-emerald-700 rounded-lg text-[9px] font-black uppercase tracking-wider cursor-pointer shadow-3xs"
                 >
                   Sincronizar
@@ -805,7 +845,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="space-y-0.5">
                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Auditoria Operativa</span>
-                <h2 className="text-sm font-black text-[#0c2340] uppercase tracking-wide">Monitorização (Hoje)</h2>
+                <h2 className="text-sm font-black text-[#0c2340] uppercase tracking-wide">Monitorização (valores medidos)</h2>
               </div>
             </div>
 
@@ -814,37 +854,37 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
               <div className="bg-white p-3.5 rounded-2xl border border-slate-300 text-left shadow-3xs">
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Perguntas Respondidas</span>
                 <span className="text-base font-black text-slate-800 font-mono block mt-1">{aiStats.totalConversations.toLocaleString('pt-AO')}</span>
-                <span className="text-[9px] text-emerald-600 font-bold block mt-0.5">↑ 12,4% vs ontem</span>
+                <span className="text-[9px] text-slate-400 font-bold block mt-0.5">sem dados anteriores</span>
               </div>
 
               <div className="bg-white p-3.5 rounded-2xl border border-slate-300 text-left shadow-3xs">
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Tempo Médio Resposta</span>
-                <span className="text-base font-black text-slate-800 font-mono block mt-1">{aiStats.avgResponseTime}</span>
-                <span className="text-[9px] text-emerald-600 font-bold block mt-0.5">↓ 0.3s vs ontem</span>
+                <span className="text-base font-black text-slate-400 font-mono block mt-1">{aiStats.avgResponseTime}</span>
+                <span className="text-[9px] text-slate-400 font-bold block mt-0.5">sem dados anteriores</span>
               </div>
 
               <div className="bg-white p-3.5 rounded-2xl border border-slate-300 text-left shadow-3xs">
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Taxa de Sucesso</span>
-                <span className="text-base font-black text-indigo-700 font-mono block mt-1">{aiStats.resolutionRate}%</span>
-                <span className="text-[9px] text-emerald-600 font-bold block mt-0.5">↑ 2,1% vs ontem</span>
+                <span className="text-base font-black text-slate-400 font-mono block mt-1">{aiStats.totalConversations === 0 ? '—' : `${aiStats.resolutionRate}%`}</span>
+                <span className="text-[9px] text-slate-400 font-bold block mt-0.5">sem dados anteriores</span>
               </div>
 
               <div className="bg-white p-3.5 rounded-2xl border border-slate-300 text-left shadow-3xs">
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Utilizadores Atendidos</span>
                 <span className="text-base font-black text-slate-800 font-mono block mt-1">{aiStats.activeUsers.toLocaleString('pt-AO')}</span>
-                <span className="text-[9px] text-emerald-600 font-bold block mt-0.5">↑ 15,8% vs ontem</span>
+                <span className="text-[9px] text-slate-400 font-bold block mt-0.5">sem dados anteriores</span>
               </div>
 
               <div className="bg-white p-3.5 rounded-2xl border border-slate-300 text-left shadow-3xs">
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Docs Consultados</span>
                 <span className="text-base font-black text-slate-800 font-mono block mt-1">{aiStats.docsConsulted.toLocaleString('pt-AO')}</span>
-                <span className="text-[9px] text-emerald-600 font-bold block mt-0.5">↑ 18,6% vs ontem</span>
+                <span className="text-[9px] text-slate-400 font-bold block mt-0.5">sem dados anteriores</span>
               </div>
 
               <div className="bg-white p-3.5 rounded-2xl border border-slate-300 text-left shadow-3xs">
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Taxa de Escalonamento</span>
-                <span className="text-base font-black text-orange-600 font-mono block mt-1">{aiStats.escalationRate}%</span>
-                <span className="text-[9px] text-emerald-600 font-bold block mt-0.5">↓ 1,2% para humano</span>
+                <span className="text-base font-black text-slate-400 font-mono block mt-1">{aiStats.totalConversations === 0 ? '—' : `${aiStats.escalationRate}%`}</span>
+                <span className="text-[9px] text-slate-400 font-bold block mt-0.5">sem dados anteriores</span>
               </div>
 
             </div>
@@ -953,6 +993,15 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
               </div>
             </div>
 
+            {currentChartData.length === 0 ? (
+              <div className="h-[180px] w-full mt-4 flex flex-col items-center justify-center bg-slate-50/60 border border-dashed border-slate-200 rounded-2xl text-center px-6">
+                <BarChart2 size={22} className="text-slate-300 mb-2" />
+                <span className="text-[11px] font-black text-slate-500 uppercase tracking-wide">Ainda sem conversas medidas</span>
+                <span className="text-[10px] text-slate-400 font-semibold mt-1 leading-relaxed">
+                  O gráfico de volume aparece aqui quando a plataforma tiver telemetria de conversas activa. A plataforma não mostra séries de exemplo.
+                </span>
+              </div>
+            ) : (
             <div className="h-[180px] w-full mt-4">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={currentChartData} margin={{ top: 10, right: 5, left: -20, bottom: 0 }}>
@@ -972,24 +1021,25 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
+            )}
 
             <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3.5 mt-2">
               <div className="text-left">
                 <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block">Total Período</span>
                 <span className="text-xs font-black text-slate-800 tracking-tight block mt-0.5">
-                  {selectedRange === '7d' ? '145.832' : '355.000'}
+                  {currentChartData.reduce((a, p) => a + p.volume, 0).toLocaleString('pt-AO')}
                 </span>
               </div>
               <div className="text-left">
                 <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block">Média Diária</span>
                 <span className="text-xs font-black text-indigo-700 tracking-tight block mt-0.5">
-                  {selectedRange === '7d' ? '20.833' : '11.833'}
+                  {currentChartData.length ? Math.round(currentChartData.reduce((a, p) => a + p.volume, 0) / currentChartData.length).toLocaleString('pt-AO') : '—'}
                 </span>
               </div>
               <div className="text-left">
                 <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block">Pico Diário</span>
                 <span className="text-xs font-black text-slate-800 tracking-tight block mt-0.5">
-                  {selectedRange === '7d' ? '25.680' : '32.100'}
+                  {currentChartData.length ? Math.max(...currentChartData.map(p => p.volume)).toLocaleString('pt-AO') : '—'}
                 </span>
               </div>
             </div>
@@ -1010,14 +1060,16 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
             </div>
 
             <div className="space-y-3.5 mt-4">
-              
-              {[
-                { rank: 1, topic: 'Documentos de Identificação (BI/NIF)', count: 3245, pct: 13.2, color: 'bg-indigo-600' },
-                { rank: 2, topic: 'Processos e Requerimentos', count: 2876, pct: 11.7, color: 'bg-indigo-500' },
-                { rank: 3, topic: 'Saúde e Serviços MINSA', count: 2456, pct: 10.0, color: 'bg-blue-500' },
-                { rank: 4, topic: 'Educação e Bolsas de Estudo', count: 2134, pct: 8.7, color: 'bg-teal-500' },
-                { rank: 5, topic: 'Impostos e Taxas (AGT)', count: 1987, pct: 8.1, color: 'bg-slate-500' },
-              ].map(item => (
+
+              <div className="flex flex-col items-center justify-center bg-slate-50/60 border border-dashed border-slate-200 rounded-2xl text-center px-6 py-8">
+                <BarChart2 size={22} className="text-slate-300 mb-2" />
+                <span className="text-[11px] font-black text-slate-500 uppercase tracking-wide">Ainda sem temas medidos</span>
+                <span className="text-[10px] text-slate-400 font-semibold mt-1 leading-relaxed">
+                  Quando a telemetria de conversas estiver activa, os temas mais consultados aparecem aqui — sem listas de exemplo.
+                </span>
+              </div>
+
+              {([] as { rank: number; topic: string; count: number; pct: number; color: string }[]).map(item => (
                 <div key={item.rank} className="space-y-1">
                   <div className="flex justify-between text-xs font-bold text-slate-800">
                     <div className="flex items-center gap-2">
@@ -1036,7 +1088,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
           </div>
 
           <button
-            onClick={() => triggerToast('Carregando classificação integral de tópicos...', 'info')}
+            onClick={() => triggerToast('A classificação de temas será activada quando houver telemetria de conversas.', 'info')}
             className="w-full mt-4 py-3 bg-[#0E2B64] hover:bg-[#0C2454] text-white border border-[#0E2B64] rounded-[16px] text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 shadow-xs"
           >
             <span>Ver todos os temas</span>
@@ -1182,7 +1234,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
             <div className="flex items-center justify-between pb-3 border-b border-gray-150">
               <div className="flex items-center gap-2">
                 <Database className="text-indigo-600" size={20} />
-                <span className="text-sm font-black text-[#0c2340] uppercase tracking-wider">Nova Base de Conhecimento</span>
+                <span className="text-sm font-black text-[#0c2340] uppercase tracking-wider">Bases de Conhecimento (apenas leitura)</span>
               </div>
               <button onClick={() => setIsManageKnowledgeOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer bg-slate-50 rounded-full border-0">✕</button>
             </div>
@@ -1208,10 +1260,10 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
                 <input type="text" placeholder="Ex: 1.500" className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs text-slate-800 font-mono" />
               </div>
 
-              <div className="p-3 bg-indigo-50 text-indigo-800 rounded-xl space-y-1 text-left">
-                <span className="text-[10px] font-black block uppercase tracking-wider">⚠️ Processamento Vetorial Automatizado</span>
+              <div className="p-3 bg-slate-50 text-slate-600 rounded-xl space-y-1 text-left border border-slate-200">
+                <span className="text-[10px] font-black block uppercase tracking-wider">ℹ️ Gestão feita por cada instituição</span>
                 <span className="text-[9px] block font-semibold leading-normal">
-                  Ao salvar, o sistema fará a leitura e conversão dos ficheiros em chunks semânticos optimizados via Groq.
+                  As bases de conhecimento entram na plataforma pela área da própria instituição (separador «Base de Conhecimento») — esta consola central é apenas de leitura.
                 </span>
               </div>
             </div>
@@ -1221,7 +1273,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
                 Voltar
               </button>
               <button onClick={handleAddKb} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-wider rounded-xl cursor-pointer border-0 shadow-sm">
-                Vetorizar e Guardar
+                Percebi
               </button>
             </div>
           </div>
@@ -1254,7 +1306,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
                           m.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
                         }`}>{m.status}</span>
                         <span className="text-[9px] text-slate-400">⏱ {m.responseTime}</span>
-                        <span className="text-[9px] text-slate-400 font-mono">{m.cost}/h</span>
+                        <span className="text-[9px] text-slate-400 font-mono">{m.cost === '—' ? '—' : `${m.cost}/h`}</span>
                       </div>
                     </div>
                     <button
