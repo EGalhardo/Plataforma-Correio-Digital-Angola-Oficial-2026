@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import { Message, Document, Contact, UserRequest, DocRequest, Correspondence, AppNotification } from '../types';
+import { Message, Document, Contact, UserRequest, DocRequest, Correspondence, AppNotification, DigitalProtocol } from '../types';
 import { MOCK_CITIZENS, MOCK_USERS, MOCK_SESSION_USER } from '../constants/mocks';
 
 // ----------------------------------------------------------------------------
@@ -15,6 +15,7 @@ interface LinhaMensagem {
   deadline_text: string; state_indicator: string; actions: string[];
   attachments: string[]; sensitivity: string; priority_scale: string;
   deadline_hours_remaining: number; sender_bi: string; recipient_bi: string;
+  protocol_number?: string | null;
 }
 interface LinhaPerfilNome { bi: string; name: string; }
 interface LinhaDocumento {
@@ -868,7 +869,16 @@ export const supabaseService = {
           deadlineHoursRemaining: item.deadline_hours_remaining,
           // P0-A — chaves reais da nuvem para verificacao de integridade no detalhe.
           senderKey: item.sender_bi,
-          recipientBi: item.recipient_bi
+          recipientBi: item.recipient_bi,
+          // v27 (2026-08-10) — o protocolo ligado na nuvem viaja COM a mensagem:
+          // sem esta linha, o botao «CLIQUE PARA VALIDAR» mandava '' para a RPC
+          // e caiía sempre em «nao_encontrado», mesmo com o protocolo selado
+          // existente (apanhado no e2e de producao apos a v27b). O cast e
+          // seguro: o detalhe usa apenas protocol.protocolNumber para validar;
+          // os restantes campos visuais caem no fallback generateProtocol.
+          protocol: item.protocol_number
+            ? ({ protocolNumber: item.protocol_number } as DigitalProtocol)
+            : undefined
         };
       });
     } catch (e) {
