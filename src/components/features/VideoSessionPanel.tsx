@@ -1,32 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { notify } from '../../lib/notify';
-import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Video, 
-  Calendar, 
-  Clock, 
-  User, 
-  CheckCircle, 
-  XCircle, 
-  ExternalLink, 
-  Copy, 
-  Plus, 
-  Play, 
-  Square, 
-  FileText, 
-  RefreshCw, 
-  AlertCircle, 
-  ShieldCheck,
-  Users,
-  Maximize2,
-  Minimize2,
-  Mic,
-  MicOff,
-  Camera,
-  CameraOff,
-  Signal,
-  Timer
-} from 'lucide-react';
+import { Video, Calendar, User, Copy, Plus, Play, Square, RefreshCw, ShieldCheck, Users } from 'lucide-react';
 import { Message, VideoSession, VideoSessionEvent } from '../../types';
 import { useSession } from '../../services/sessionStore';
 import { VideoSessionService } from '../../services/videoSessionService';
@@ -187,7 +161,7 @@ function LocalWebcamOverlay() {
   );
 }
 
-function JitsiEmbed({ roomName, subject, isActive, sessionId }: JitsiEmbedProps) {
+function JitsiEmbed({ subject, isActive, sessionId }: JitsiEmbedProps) {
   const t = useLanguage().t;
   
   // Generate unique room name with timestamp for security

@@ -6,24 +6,16 @@
 import { useState, useMemo, useEffect, FormEvent, useRef } from 'react';
 import { notify } from '../../lib/notify';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Search, 
-  Folder, 
-  FileText, 
-  Calendar, 
-  Building2, 
-  Tag, 
-  ShieldCheck, 
-  Download, 
-  Share2, 
-  X, 
-  Eye, 
-  ChevronRight, 
-  Info, 
-  Plus, 
-  Sparkles,
+import {
+  Search,
+  Folder,
+  ShieldCheck,
+  Download,
+  Share2,
+  X,
+  Eye,
+  Plus,
   Lock,
-  UploadCloud,
   Check,
   RefreshCw,
   QrCode,
@@ -286,19 +278,16 @@ interface PastaDigitalContentProps {
 
 export function PastaDigitalContent({ 
   documents, 
-  docRequests, 
-  onCreateRequest, 
-  setSelectedDoc: setGlobalSelectedDoc, 
   setTab, 
   logSecurityEvent,
   emergencyMode = false,
   correspondences = []
 }: PastaDigitalContentProps) {
-  const { currentLanguage, t } = useLanguage();
+  const { t } = useLanguage();
   const [showArchiveGuide, setShowArchiveGuide] = useState(false);
 
   // Local document states
-  const [permanentDocs, setPermanentDocs] = useState<ActionableDoc[]>(INITIAL_PERMANENT_DOCS);
+  const [permanentDocs] = useState<ActionableDoc[]>(INITIAL_PERMANENT_DOCS);
 
   // UI state filters
   const [search, setSearch] = useState('');

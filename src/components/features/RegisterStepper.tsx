@@ -1,21 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  User, 
-  Mail, 
-  Lock, 
-  Eye, 
-  EyeOff, 
-  Check, 
-  CheckCircle2, 
-  UploadCloud, 
-  X, 
-  ArrowRight, 
-  ArrowLeft, 
-  ShieldCheck, 
+import {
+  User,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  Check,
+  CheckCircle2,
+  UploadCloud,
+  ArrowRight,
+  ArrowLeft,
+  ShieldCheck,
   Shield,
-  FileText, 
-  Fingerprint, 
+  FileText,
+  Fingerprint,
   Sparkles,
   Loader2,
   AlertTriangle
@@ -107,7 +106,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   // Step 3: Biometria States
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
-  const [scanStateText, setScanStateText] = useState('Pronto para Captura');
+  const [, setScanStateText] = useState('Pronto para Captura');
   const [captureFinished, setCaptureFinished] = useState(false);
   const [savedFacePhoto, setSavedFacePhoto] = useState<string>('');
 

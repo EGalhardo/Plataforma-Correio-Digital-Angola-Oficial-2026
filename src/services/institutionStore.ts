@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Institution, InstitutionCategory, InstitutionStatus } from '../types';
+import { Institution, InstitutionStatus } from '../types';
 import { MOCK_INSTITUTIONS } from '../constants/mocks';
 
 export const CANONICAL_INSTITUTIONS: Institution[] = MOCK_INSTITUTIONS;

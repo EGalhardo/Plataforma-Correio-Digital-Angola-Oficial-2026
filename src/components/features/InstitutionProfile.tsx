@@ -46,7 +46,6 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
   setTab,
   profileName: originalProfileName,
   nif: originalNif,
-  showSensitiveData,
   phone: originalPhone,
   bi: originalBi,
   email: originalEmail,

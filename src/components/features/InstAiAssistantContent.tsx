@@ -3,40 +3,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import InstKbSelfService, { carregarResumoKb } from './InstKbSelfService';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Bot, 
-  Eye, 
-  Activity, 
-  MessageSquare, 
-  Users, 
-  CheckCircle2, 
-  Clock, 
-  Trash2, 
-  Send, 
-  Check, 
-  ChevronRight, 
-  Upload, 
-  FileText, 
-  BookOpen, 
-  Plus, 
-  Settings, 
-  HelpCircle, 
-  AlertCircle,
+import {
+  Bot,
+  Eye,
+  MessageSquare,
+  Users,
+  CheckCircle2,
+  Clock,
+  Trash2,
+  Send,
+  Plus,
+  Settings,
   Pencil,
-  ToggleLeft,
-  ToggleRight,
   ShieldCheck,
-  Search,
   CheckCircle,
   X,
-  FileCode,
-  Sparkles,
   Globe,
   Sliders,
-  RefreshCw,
   Info,
   Save,
   ArrowLeft,
@@ -44,7 +30,6 @@ import {
   Cpu,
   Database,
   Zap,
-  Link2,
   RefreshCw as ReloadIcon
 } from 'lucide-react';
 
@@ -94,7 +79,7 @@ interface AIStats {
   knowledgeDocs: number;
 }
 
-export function InstAiAssistantContent({ addAuditLog, setTab, onNavigate, appMode = 'institution', bi = '', profileName = '', institutionCode = '' }: InstAiAssistantProps) {
+export function InstAiAssistantContent({ addAuditLog, setTab, profileName = '', institutionCode = '' }: InstAiAssistantProps) {
   // Navigation Sub Tab State
   const [activeSubTab, setActiveSubTab] = useState<'config' | 'knowledge' | 'history' | 'chat'>('config');
 
@@ -108,7 +93,7 @@ export function InstAiAssistantContent({ addAuditLog, setTab, onNavigate, appMod
     knowledgeDocs: 0,
   });
   const [aiStatus, setAiStatus] = useState<'connected' | 'disconnected' | 'loading'>('loading');
-  const [healthData, setHealthData] = useState<{ ai_key_configured?: boolean; groq_key_configured?: boolean; status?: string } | null>(null);
+  const [, setHealthData] = useState<{ ai_key_configured?: boolean; groq_key_configured?: boolean; status?: string } | null>(null);
 
   // Fetch AI status from server
   useEffect(() => {
@@ -195,12 +180,12 @@ export function InstAiAssistantContent({ addAuditLog, setTab, onNavigate, appMod
 
   // Configuration States
   const [assistantName, setAssistantName] = useState<string>('Assistente AGT');
-  const [description, setDescription] = useState<string>(
+  const [description] = useState<string>(
     'Assistente virtual da Administração Geral Tributária que ajuda cidadãos e empresas com serviços fiscais, impostos, NIF, multas e declarações.'
   );
   const [model, setModel] = useState<string>('llama-3.1-8b-instant');
   const [temperature, setTemperature] = useState<string>('0.3');
-  const [language, setLanguage] = useState<string>('Português (Angola)');
+  const [] = useState<string>('Português (Angola)');
 
   // System Instruction (personalizada para a instituição)
   const [instructions, setInstructions] = useState<string>(
@@ -232,7 +217,7 @@ REGRAS OPERATIVAS:
   const [isEditingNameInline, setIsEditingNameInline] = useState<boolean>(false);
 
   // Context Configuration (dados que a IA pode consultar)
-  const [contextConfig, setContextConfig] = useState({
+  const [contextConfig] = useState({
     readMail: true,
     readProcessStatus: true,
     readTaxpayerData: true,
@@ -261,7 +246,7 @@ REGRAS OPERATIVAS:
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
 
   // Custom System Prompt for this chat
-  const [customPrompt, setCustomPrompt] = useState<string>(instructions);
+  const [, setCustomPrompt] = useState<string>(instructions);
 
   // Preview channel Chat message state (Inside modal)
   const [previewMessages, setPreviewMessages] = useState<ChatMessage[]>([

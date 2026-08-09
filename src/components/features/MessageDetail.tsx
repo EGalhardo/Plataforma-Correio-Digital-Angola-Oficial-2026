@@ -3,27 +3,24 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, Fragment } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  ArrowLeft, 
-  LogOut,
-  Calendar, 
-  Clock, 
-  MapPin, 
-  Check, 
-  ShieldCheck, 
-  FileText, 
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  MapPin,
+  Check,
+  ShieldCheck,
+  FileText,
   Info,
   Fingerprint,
   QrCode,
-  Tag,
   UserCheck,
   ShieldAlert,
   AlertTriangle,
-  Hash,
   Inbox,
   Eye,
   CheckCircle,
@@ -49,13 +46,8 @@ import {
   Scale,
   Lock,
   EyeOff,
-  Share2,
   Paperclip,
   Send,
-  RefreshCw,
-  Sparkles,
-  ArrowRight,
-  Plus,
   Trash2,
   Undo,
   Redo,
@@ -72,10 +64,9 @@ import {
   Eraser,
   Download
 } from 'lucide-react';
-import { Message, SENSITIVITY_LEVELS, SensitivityConfig, PRIORITY_CONFIGS } from '../../types';
+import { Message, SENSITIVITY_LEVELS, PRIORITY_CONFIGS } from '../../types';
 import { generateProtocol, generateTimelineEvents, getCategoryMetadata, canonicalProtocolPayload, sealProtocolContent } from '../../utils/protocolGenerator';
 import { supabaseService } from '../../services/supabaseService';
-import { GovernmentAIPanel } from './GovernmentAIPanel';
 import { VideoSessionPanel } from './VideoSessionPanel';
 import { useLanguage } from '../../hooks/useLanguage';
 import { QrCodeImage } from '../ui/QrCodeImage';
@@ -399,8 +390,8 @@ export function MessageDetail({
 
   const [showQRValidation, setShowQRValidation] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
-  const [showAIPanel, setShowAIPanel] = useState(false);
-  const [showAdvancedData, setShowAdvancedData] = useState(false);
+  const [] = useState(false);
+  const [] = useState(false);
   const [detailReplyText, setDetailReplyText] = useState('');
   const [isReplyingInDetails, setIsReplyingInDetails] = useState(false);
   const [detailReplySuccess, setDetailReplySuccess] = useState<{
@@ -992,7 +983,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
   const [contestJustification, setContestJustification] = useState('');
   const [contestCategory, setContestCategory] = useState('Atos Administrativos');
   const [attachedFileName, setAttachedFileName] = useState('');
-  const [attachedFileBase64, setAttachedFileBase64] = useState<string | null>(null);
+  const [, setAttachedFileBase64] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState('2026-05-25');
   const [scheduleMode, setScheduleMode] = useState('Videoconferência');
   const [scheduleLocation, setScheduleLocation] = useState('Posto Central AGT (Luanda)');

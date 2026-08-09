@@ -5,15 +5,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  ArrowLeft, 
-  Send, 
-  ShieldCheck, 
-  Mail, 
-  Plus, 
-  Clock, 
-  Search, 
-  Fingerprint,
+import {
+  ArrowLeft,
+  Send,
+  Mail,
+  Plus,
+  Search,
   Bell,
   Scroll,
   ShieldAlert,
@@ -28,7 +25,6 @@ import {
   Coins,
   Scale,
   FileText,
-  Lock,
   Undo,
   Redo,
   Bold,
@@ -45,8 +41,7 @@ import {
   Paperclip,
   Edit2
 } from 'lucide-react';
-import { Message, SENSITIVITY_LEVELS, PRIORITY_CONFIGS, LanguageCode } from '../../types';
-import { getCategoryMetadata } from '../../utils/protocolGenerator';
+import { Message, LanguageCode } from '../../types';
 import { translateText } from '../../utils/translator';
 import { useLanguage } from '../../hooks/useLanguage';
 import { Video, Loader2, CheckCircle2, AlertTriangle, Sparkles } from 'lucide-react';
@@ -174,7 +169,6 @@ export function MailContent({
   hiddenMessageIds = [],
   onNavigateToVideoAtendimento,
   videoSessionCount = 0,
-  currentLanguage: propLanguage = 'pt',
   recipientLookup,
   onRecipientLookup,
   onEmergencyBroadcast,

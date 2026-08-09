@@ -7,13 +7,12 @@ import { useState, useMemo, useEffect } from 'react';
 import { notify } from '../../lib/notify';
 import { useInstitutions } from '../../services/institutionStore';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  ArrowLeft, 
-  Send, 
-  ShieldCheck, 
-  Folder, 
-  Plus, 
-  Search, 
+import {
+  ArrowLeft,
+  Send,
+  ShieldCheck,
+  Folder,
+  Plus,
   Bell,
   Scroll,
   ShieldAlert,
@@ -30,15 +29,10 @@ import {
   FileText,
   Building2,
   CheckCircle2,
-  XCircle,
   Info,
-  CreditCard,
   Smartphone,
   Check,
-  HelpCircle,
   Copy,
-  RotateCcw,
-  Building,
   Printer
 } from 'lucide-react';
 import { Message, LanguageCode } from '../../types';
@@ -118,20 +112,13 @@ export function DocumentsContent({
   setComposeData,
   handleSendMessage,
   unreadTotal,
-  correspondenciaTab,
-  setCorrespondenciaTab,
   inbox = [],
   sentMessages = [],
-  searchMail,
-  setSearchMail,
-  filteredMessages = [],
   handleSelectMessage,
   setTab,
   bi,
   isInst,
-  sessionDemo,
-  currentLanguage = 'pt'
-}: DocumentsContentProps) {
+  sessionDemo}: DocumentsContentProps) {
   const { institutions } = useInstitutions();
   const { t: translate } = useLanguage();
   const [selectedInst, setSelectedInst] = useState<string>('Todas');

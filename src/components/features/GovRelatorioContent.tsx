@@ -6,32 +6,27 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AnimatedCounter } from '../ui/AnimatedCounter';
-import { 
-  FileText, 
-  Download, 
-  TrendingUp, 
+import {
+  FileText,
+  Download,
+  TrendingUp,
   ArrowUpRight,
   ArrowDownRight,
   Calendar,
-  ChevronDown,
   Check,
   Briefcase,
   Users,
   Building2,
-  Lock,
   Globe,
-  Settings,
   ShieldAlert,
   Loader2,
   Printer,
   Sparkles,
-  Fingerprint,
   FileSignature,
   FileCheck,
   History,
   Activity,
-  X,
-  Plus
+  X
 } from 'lucide-react';
 import { 
   ComposedChart, 

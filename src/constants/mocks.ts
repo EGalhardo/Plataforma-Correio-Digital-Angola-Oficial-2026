@@ -3,17 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { 
-  SessionUser, 
-  ActiveProfile, 
-  AppMode, 
-  Institution, 
-  InstitutionCategory, 
+import {
+  SessionUser,
+  ActiveProfile,
+  AppMode,
+  Institution,
+  InstitutionCategory,
   InstitutionStatus,
-  Message, 
-  Document, 
-  Contact, 
-  Slide, 
+  Message,
+  Document,
+  Contact,
   AppNotification,
   UserRequest,
   DocRequest,

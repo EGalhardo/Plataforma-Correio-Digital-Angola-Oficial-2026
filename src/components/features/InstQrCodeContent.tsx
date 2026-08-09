@@ -4,28 +4,23 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  QrCode, 
-  Camera, 
-  FileUp, 
-  FileText, 
-  History, 
-  Trash2, 
-  Download, 
-  Copy, 
-  Check, 
-  ExternalLink,
-  ChevronDown,
-  Info,
+import {
+  QrCode,
+  Camera,
+  FileUp,
+  FileText,
+  History,
+  Trash2,
+  Download,
+  Copy,
+  Check,
   RefreshCw,
   Mail,
-  ListFilter,
   Shield,
   ShieldCheck,
   ShieldAlert,
   Key,
   FileCheck,
-  Eye,
   Keyboard,
   ArrowLeft
 } from 'lucide-react';
@@ -66,7 +61,7 @@ interface ScanHistoryItem {
   time: string;
 }
 
-export function InstQrCodeContent({ documents, messages, onSelectMessage, addAuditLog, setTab }: InstQrCodeContentProps) {
+export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: InstQrCodeContentProps) {
   // Main Top Mode: 'reader' | 'generator' | 'history'
   const [activeMainTab, setActiveMainTab] = useState<'reader' | 'generator' | 'history'>('reader');
 
@@ -96,7 +91,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
 
   // USB/Keyboard Wedge HID inputs state
   const [usbInputValue, setUsbInputValue] = useState('');
-  const [showFullMessageDetailModal, setShowFullMessageDetailModal] = useState(false);
+  const [] = useState(false);
   const usbTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const usbInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -115,7 +110,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
   const qrReaderRef = useRef<Html5Qrcode | null>(null);
 
   // Scanner - File State
-  const [readSelectedFile, setReadSelectedFile] = useState<File | null>(null);
+  const [, setReadSelectedFile] = useState<File | null>(null);
   const [readImgPreview, setReadImgPreview] = useState<string>('');
   const [readStatusText, setReadStatusText] = useState<string>('');
 
@@ -123,7 +118,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
   const [pastedTextInput, setPastedTextInput] = useState<string>('');
 
   // Scanner - Scan Result
-  const [scanResult, setScanResult] = useState<ScanHistoryItem | null>(null);
+  const [, setScanResult] = useState<ScanHistoryItem | null>(null);
 
   // Scanner - History State
   const [historyData, setHistoryData] = useState<ScanHistoryItem[]>(() => {
@@ -137,8 +132,8 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
 
   // Generator - File State (PDF / Image)
   const [genSelectedFile, setGenSelectedFile] = useState<File | null>(null);
-  const [pdfProgress, setPdfProgress] = useState<number>(0);
-  const [pdfStatus, setPdfStatus] = useState<string>('');
+  const [, setPdfProgress] = useState<number>(0);
+  const [, setPdfStatus] = useState<string>('');
   const [pdfPages, setPdfPages] = useState<string[]>([]);
   const [selectedPageIdx, setSelectedPageIdx] = useState<number>(0);
   const [extractedFields, setExtractedFields] = useState<Record<string, string>>({});
@@ -380,7 +375,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
     }
   };
 
-  const runValidationFlow = async (rawCode: string, source: string) => {
+  const runValidationFlow = async (rawCode: string, _source: string) => {
     // 1. Initial Processing State
     setValidationState('validating');
     setValidatedItem(null);

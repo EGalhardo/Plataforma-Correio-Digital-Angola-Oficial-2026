@@ -5,28 +5,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Landmark, 
-  AlertTriangle,
-  CheckCircle2,
-  Lock,
-  History,
-  Shield,
-  ShieldCheck,
-  Plane,
-  Smartphone,
-  Eye,
-  EyeOff,
-  IdCard,
-  User,
-  Sparkles,
-  Settings,
-  Check,
-  Bell,
-  Globe,
-  BadgeCheck,
-  X
-} from 'lucide-react';
+import { Lock, History, Eye, EyeOff, Check, BadgeCheck } from 'lucide-react';
 import { USER_PROFILE_PHOTO } from '../../constants/data';
 import { supabase } from '../../lib/supabaseClient';
 import { hasValidSupabaseKeys } from '../../services/supabaseService';
@@ -59,21 +38,12 @@ interface GovPerfilContentProps {
 }
 
 export function GovPerfilContent({ 
-  logs, 
-  emergencyMode, 
-  onToggleEmergency,
+  logs,
   bi = '001928374LA092',
   phone = '+244 925 555 777',
   nif = '5401328901',
   passport = 'AO-P987654',
-  profileName = 'Carlos Afonso Alberto',
-  userBirthDate = '15/08/1978',
-  userFiliation = 'Afonso Alberto & Teresa Carlos Alberto',
-  userMaritalStatus = 'Casado',
-  hasFacialAuth = true,
-  hasTwoFactor = false,
-  govPin = '1234'
-}: GovPerfilContentProps) {
+  profileName = 'Carlos Afonso Alberto'}: GovPerfilContentProps) {
   const [showSensitiveData, setShowSensitiveData] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   

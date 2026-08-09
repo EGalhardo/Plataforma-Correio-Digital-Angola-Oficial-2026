@@ -62,7 +62,7 @@ const adminItems: MenuItem[] = [
 
 export function Sidebar({ 
   tab, setTab, setSelectedMessage, setSelectedDoc, handleLogout,
-  appMode: _propsAppMode, setAppMode: _propsSetAppMode, setStage, currentLanguage = 'pt',
+  appMode: _propsAppMode, setAppMode: _propsSetAppMode,
   theme = 'light'
 }: SidebarProps) {
   const { appMode } = useSession();

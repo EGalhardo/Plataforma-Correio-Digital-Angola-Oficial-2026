@@ -2,16 +2,12 @@ import React, { useState, useMemo } from 'react';
 import { notify } from '../../lib/notify';
 import { useInstitutions } from '../../services/institutionStore';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Search, 
-  Mail, 
-  MapPin, 
-  Building2, 
-  Filter, 
-  SlidersHorizontal, 
-  ChevronDown, 
-  CheckCircle, 
-  Inbox, 
+import {
+  Search,
+  Mail,
+  Building2,
+  SlidersHorizontal,
+  ChevronDown,
   Send,
   Eye,
   X,
@@ -20,16 +16,11 @@ import {
   AlertTriangle,
   Clock,
   Paperclip,
-  RefreshCw,
-  Archive,
-  XCircle,
   User,
   ShieldCheck,
-  AlertCircle,
   Cpu,
   Share2,
-  ArrowLeft,
-  Video
+  ArrowLeft
 } from 'lucide-react';
 import { Correspondence } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -116,7 +107,7 @@ export function GovCorrespondenciasContent({
   onUpdateStatus,
   onNavigate
 }: GovCorrespondenciasContentProps) {
-  const { currentLanguage, t } = useLanguage();
+  const { t } = useLanguage();
   const { institutions } = useInstitutions();
   const [showVideoPage, setShowVideoPage] = useState(false);
   const [localCorrespondences, setLocalCorrespondences] = useState<Correspondence[]>([]);

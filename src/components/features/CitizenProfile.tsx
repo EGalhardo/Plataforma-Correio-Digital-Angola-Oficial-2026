@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { beginProfileEdit, endProfileEdit } from '../../lib/profileEditGuard';
-import { 
-  CheckCircle2, 
-  ShieldCheck, 
-  History, 
-  Settings, 
-  Lock, 
-  ChevronRight, 
-  Users, 
-  Smartphone, 
-  IdCard, 
+import {
+  CheckCircle2,
+  ShieldCheck,
+  History,
+  Settings,
+  Lock,
+  ChevronRight,
+  Users,
+  Smartphone,
   Check,
   RefreshCw,
   Database,
@@ -58,7 +57,6 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
   setTab,
   profileName = 'Edlasio Galhardo',
   bi = '',
-  phone = '',
   email = '',
   userFiliation = 'António Galhardo & Maria Conceição',
   contactsList = [],

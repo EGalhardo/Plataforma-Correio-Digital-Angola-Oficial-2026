@@ -8,7 +8,7 @@
 
 import { supabase } from '../lib/supabaseClient';
 import { hasValidSupabaseKeys } from './supabaseService';
-import { VideoSession, VideoSessionParticipant, VideoSessionEvent } from '../types';
+import { VideoSession, VideoSessionEvent } from '../types';
 
 // UUID validation and generator helpers to prevent syntax errors with Supabase database
 const isUUID = (str: string): boolean => {

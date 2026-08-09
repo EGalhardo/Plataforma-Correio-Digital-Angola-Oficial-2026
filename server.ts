@@ -101,7 +101,7 @@ async function startServer() {
   };
 
   // API Health check
-  app.get("/api/health", (req, res) => {
+  app.get("/api/health", (_req, res) => {
     res.json({ 
       status: "ok", 
       ai_key_configured: !!process.env.GEMINI_API_KEY,
@@ -113,7 +113,7 @@ async function startServer() {
     });
   });
 
-  app.get('/api/security/readiness', async (req, res) => {
+  app.get('/api/security/readiness', async (_req, res) => {
     // FIX: handler async em Express 4 — sem try/catch qualquer exceção derruba o processo (unhandled rejection)
     try {
       const runtimeFlags = getRuntimeFlags();
@@ -1076,7 +1076,7 @@ ${JSON.stringify(texts, null, 2)}`;
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('*', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

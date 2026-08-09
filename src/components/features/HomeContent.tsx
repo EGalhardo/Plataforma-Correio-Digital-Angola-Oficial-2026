@@ -4,7 +4,7 @@
  */
 
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, Mail, FileText, Send, Clock } from 'lucide-react';
+import { ShieldCheck, Mail } from 'lucide-react';
 import { HIGHLIGHT_SLIDES, INST_HIGHLIGHT_SLIDES } from '../../constants/data';
 import { Message, LanguageCode } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -43,10 +43,8 @@ export function HomeContent({
   instSigla,
   instLogoUrl,
   instVerified,
-  onDoubleClickInstitution,
-  currentLanguage: propLanguage
-}: HomeContentProps) {
-  const { currentLanguage, t } = useLanguage();
+  onDoubleClickInstitution}: HomeContentProps) {
+  const { t } = useLanguage();
   const slides = isInst ? INST_HIGHLIGHT_SLIDES : HIGHLIGHT_SLIDES;
   const currentSlide = slides[activeSlide % slides.length];
 

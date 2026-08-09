@@ -1,25 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  QrCode, 
-  Search, 
-  FileText, 
-  Calendar, 
-  Building2, 
-  Download, 
-  ExternalLink, 
-  X, 
-  Clock, 
-  ShieldCheck, 
-  User, 
-  Check, 
-  XCircle, 
-  ChevronRight, 
-  AlertCircle, 
-  CheckCircle,
-  TrendingUp,
-  TrendingDown
-} from 'lucide-react';
+import { Search, FileText, Clock, ShieldCheck, Check, XCircle, AlertCircle } from 'lucide-react';
 import { Document as DocumentType, DocRequest } from '../../types';
 
 interface GovDocsContentProps {
@@ -268,7 +249,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
       {/* Documents List */}
       <div className="space-y-4">
         {filteredItems.length > 0 ? (
-          filteredItems.map((item, idx) => (
+          filteredItems.map((item, _idx) => (
             <div 
               key={item.id}
               className="bg-white p-4 md:p-5 rounded-[28px] border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:border-slate-350 transition-colors"

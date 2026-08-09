@@ -18,22 +18,17 @@ import {
 } from '../../services/homologationStore';
 import { parsePvicFromObservacoes } from '../../services/preVerificationService';
 import { provisionCloudAccount, markCloudAccount, isCloudBound, isSupabaseConfigured, syntheticAdminEmail, syntheticInstitutionAgentEmail } from '../../services/cloudAuthService';
-import { 
+import {
   Users,
-  Mail, 
-  Inbox, 
-  Send, 
-  FileText, 
-  TrendingUp, 
-  ArrowUpRight, 
+  Mail,
+  Send,
+  FileText,
   CheckCircle2,
   Search,
   Filter,
-  Shield,
   ShieldAlert,
   ShieldCheck,
   Lock,
-  Unlock,
   Fingerprint,
   Scan,
   IdCard,
@@ -42,19 +37,11 @@ import {
   AlertTriangle,
   Check,
   X,
-  ChevronRight,
-  Sliders,
   Eye,
   Activity,
-  Settings,
-  Layers,
   Smartphone,
-  Ban,
-  Key,
-  Plus,
   UserPlus,
   Trash2,
-  Edit,
   MapPin,
   User,
   Briefcase,
@@ -69,15 +56,6 @@ import { supabase } from '../../lib/supabaseClient';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, isInstPasswordTaken, nextMemberAgentNumber } from '../../services/institutionRegistrationStore';
 import { addAdminAgent, updateAdminAgentPassword, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber, getAdminAgentCreds } from '../../services/adminAgentStore';
-import { 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip 
-} from 'recharts';
 
 interface AuditLog {
   id: string;
@@ -133,32 +111,7 @@ interface LinhaPerfilAdmin { id?: string; name: string; email?: string; bi: stri
 export function GovContactsContent({
   appMode = 'user',
   bi = '009874562LA041',
-  setBi,
-  nif = '241098451',
-  setNif,
-  phone = '+244 923 456 789',
-  setPhone,
-  passport = 'AO-P129384',
-  setPassport,
-  profileName = 'Edlasio Galhardo',
-  setProfileName,
-  userBirthDate = '12/03/1995',
-  setUserBirthDate,
-  userFiliation = 'António Galhardo & Maria Conceição',
-  setUserFiliation,
-  userMaritalStatus = 'Solteiro',
-  setUserMaritalStatus,
-  verificationStatus = 'Totalmente verificado',
-  setVerificationStatus,
-  hasFacialAuth = true,
-  setHasFacialAuth,
-  hasTwoFactor = false,
-  setHasTwoFactor,
-  govPin = '1234',
-  setGovPin,
-  addAuditLog,
-  auditLogs = []
-}: GovContactsContentProps) {
+  addAuditLog}: GovContactsContentProps) {
   
   // Workers State for Institution Mode and Admin Central
   const AVAILABLE_ROLES = [
@@ -462,7 +415,7 @@ export function GovContactsContent({
   const [filterProvince, setFilterProvince] = useState<string>('Todas');
   const [filterMunicipio, setFilterMunicipio] = useState<string>('Todos');
   const [filterStatus, setFilterStatus] = useState<string>('Todas');
-  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [, setIsAddUserModalOpen] = useState(false);
 
   // IA review states
   const [selectedReviewCitizen, setSelectedReviewCitizen] = useState<Citizen | null>(null);
@@ -484,13 +437,13 @@ export function GovContactsContent({
   const [editEmail, setEditEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
-  const [editCategory, setEditCategory] = useState('');
+  const [, setEditCategory] = useState('');
   const [editProvince, setEditProvince] = useState('');
   const [editMunicipio, setEditMunicipio] = useState('');
 
   // New Step-by-Step validation states for the 3-step citizen verification
   const [reviewStepTab, setReviewStepTab] = useState<1 | 2 | 3>(1);
-  const [validatedFields, setValidatedFields] = useState<Record<string, boolean>>({
+  const [, setValidatedFields] = useState<Record<string, boolean>>({
     name: true,
     bi: true,
     doc: true,
@@ -503,7 +456,7 @@ export function GovContactsContent({
     fingerprint: true,
     facial: true
   });
-  const [rejectionStep, setRejectionStep] = useState<'passo1' | 'passo2' | 'passo3' | 'geral'>('geral');
+  const [, setRejectionStep] = useState<'passo1' | 'passo2' | 'passo3' | 'geral'>('geral');
 
   const [citizens, setCitizens] = useState<Citizen[]>(() => {
     const saved = localStorage.getItem('gov_admin_citizens');
@@ -1149,9 +1102,9 @@ export function GovContactsContent({
   }, []);
 
   const [addUserName, setAddUserName] = useState('');
-  const [addUserCategory, setAddUserCategory] = useState('Trabalhador');
-  const [addUserProvince, setAddUserProvince] = useState('Luanda');
-  const [addUserMunicipio, setAddUserMunicipio] = useState('Luanda');
+  const [addUserCategory] = useState('Trabalhador');
+  const [addUserProvince] = useState('Luanda');
+  const [addUserMunicipio] = useState('Luanda');
   const [addUserAddress, setAddUserAddress] = useState('');
   const [addUserContact, setAddUserContact] = useState('');
 
@@ -1251,10 +1204,10 @@ export function GovContactsContent({
   const [newWorkerEmail, setNewWorkerEmail] = useState('');
   const [newWorkerRole, setNewWorkerRole] = useState('');
   const [newWorkerDept, setNewWorkerDept] = useState('');
-  const [newWorkerAgentId, setNewWorkerAgentId] = useState('');
+  const [, setNewWorkerAgentId] = useState('');
   const [newWorkerPhone, setNewWorkerPhone] = useState('');
   const [newWorkerStatus, setNewWorkerStatus] = useState<'Ativo' | 'Desativado' | 'Suspenso' | 'Férias' | 'Pendente'>('Ativo');
-  const [newWorkerAccessProfile, setNewWorkerAccessProfile] = useState('Operador de Atendimento');
+  const [, setNewWorkerAccessProfile] = useState('Operador de Atendimento');
   const [newWorkerPassword, setNewWorkerPassword] = useState('');
 
   // F6/B4 — Nº de agente gerado pelo sistema (instituição real → 'SME-LLVV-NN'; Admin → 'ADMIN-NNNN' sequencial v10.1; restantes contextos → formato legado)
@@ -1269,7 +1222,7 @@ export function GovContactsContent({
   
   // Search state for workers
   const [workerSearch, setWorkerSearch] = useState('');
-  const [workerStatusFilter, setWorkerStatusFilter] = useState<string>('all');
+  const [] = useState<string>('all');
   
   // Selected Worker state for permissions and logs
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);

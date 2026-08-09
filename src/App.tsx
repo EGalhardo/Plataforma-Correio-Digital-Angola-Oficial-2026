@@ -6,7 +6,29 @@
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import type { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Loader2, Scan, Mail, QrCode, Users, User, Shield, ShieldAlert, Lock, Fingerprint, Smartphone, Key, ShieldCheck, Camera, Wifi, WifiOff, Database, RefreshCw, Signal, AlertTriangle, X, Mic, ArrowLeft, Check, CheckCircle, IdCard, UserPlus, ChevronRight, Lightbulb, Send, Download } from 'lucide-react';
+import {
+  Loader2,
+  Mail,
+  User,
+  Shield,
+  ShieldAlert,
+  Lock,
+  Fingerprint,
+  Smartphone,
+  ShieldCheck,
+  Database,
+  RefreshCw,
+  Signal,
+  AlertTriangle,
+  X,
+  ArrowLeft,
+  Check,
+  CheckCircle,
+  IdCard,
+  UserPlus,
+  Send,
+  Download
+} from 'lucide-react';
 
 // Components
 import {
@@ -62,7 +84,17 @@ import {
   MOCK_GOV_CORRESPONDENCES,
   MOCK_SESSION_USER
 } from './constants/mocks';
-import { Message, Document, Contact, AppNotification, AppMode, UserRequest, DocRequest, Correspondence, LanguageCode, DigitalProtocol } from './types';
+import {
+  Message,
+  Document,
+  Contact,
+  AppNotification,
+  AppMode,
+  UserRequest,
+  DocRequest,
+  Correspondence,
+  DigitalProtocol
+} from './types';
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, sealProtocolContent, canonicalProtocolPayload } from './utils/protocolGenerator';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode } from './services/supabaseService';
@@ -183,8 +215,8 @@ export default function App() {
   const [tab, setTab] = useState('home');
   const [selectedInstitution, setSelectedInstitution] = useState<string | null>(null);
   const [showAccessModal, setShowAccessModal] = useState(false);
-  const [accessModalTitle, setAccessModalTitle] = useState('');
-  const [accessModalMessage, setAccessModalMessage] = useState('');
+  const [accessModalTitle] = useState('');
+  const [accessModalMessage] = useState('');
   
   // Persisted States
   const [userRequests, setUserRequests] = useState<UserRequest[]>(() => {
@@ -988,8 +1020,8 @@ export default function App() {
   const [showVoiceGuide, setShowVoiceGuide] = useState(false);
   const [highlightSteps, setHighlightSteps] = useState(false);
   const [loginPasswordInput, setLoginPasswordInput] = useState('');
-  const [enteredOtp, setEnteredOtp] = useState('');
-  const [enteredPin, setEnteredPin] = useState('');
+  const [, setEnteredOtp] = useState('');
+  const [, setEnteredPin] = useState('');
   const [faceProgress, setFaceProgress] = useState(0);
   const [isFaceScanning, setIsFaceScanning] = useState(false);
   const [demoFaceTemplateLoaded, setDemoFaceTemplateLoaded] = useState(false);
@@ -1005,7 +1037,7 @@ export default function App() {
   const [isAddingContact, setIsAddingContact] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
-  const [messageSource, setMessageSource] = useState('correspondencias');
+  const [, setMessageSource] = useState('correspondencias');
   const [wasOpenedUnread, setWasOpenedUnread] = useState(false);
   
   // Mic Activation State (UI only)
@@ -3055,7 +3087,7 @@ export default function App() {
     setTab('video-atendimento');
   };
   // Estados para popup (modal de confirmação obrigatória) de envio
-  const [isOfficialConfirmOpen, setIsOfficialConfirmOpen] = useState(false);
+  const [, setIsOfficialConfirmOpen] = useState(false);
 
   // P0-A — Selagem REAL do protocolo ANTES de mostrar/gravar (spec aprovada):
   // hash SHA-256 WebCrypto sobre payload canónico. Sem crypto.subtle o

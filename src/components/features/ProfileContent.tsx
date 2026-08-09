@@ -5,14 +5,37 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { notify } from '../../lib/notify';
-import { 
-  BadgeCheck, EyeOff, Eye, ShieldCheck, Lock, Fingerprint, History, Settings, 
-  Languages, Bell, Users, LogOut, Trash2, Scan, IdCard, Plane, Shield, 
-  Key, Smartphone, Camera, Check, X, ChevronRight, UserCheck, AlertTriangle, ShieldAlert, 
-  RefreshCw, Award, Landmark, CheckCircle2, CircleDot, Globe, Cpu, Server, 
-  Laptop, WifiOff, Clock, Sparkles
+import {
+  BadgeCheck,
+  ShieldCheck,
+  Lock,
+  Fingerprint,
+  History,
+  Settings,
+  Languages,
+  Bell,
+  Scan,
+  IdCard,
+  Plane,
+  Key,
+  Smartphone,
+  Camera,
+  Check,
+  X,
+  ChevronRight,
+  UserCheck,
+  AlertTriangle,
+  RefreshCw,
+  Award,
+  Landmark,
+  CheckCircle2,
+  Cpu,
+  Server,
+  Laptop,
+  WifiOff,
+  Clock,
+  Sparkles
 } from 'lucide-react';
-import { USER_PROFILE_PHOTO } from '../../constants/data';
 import { OfflineManager } from '../../utils/offlineManager';
 import { motion, AnimatePresence } from 'motion/react';
 import { Message, Document, Contact, UserRequest, DocRequest } from '../../types';
@@ -72,12 +95,10 @@ export function ProfileContent({
   isInst = false,
   sessionDemo,
   showSensitiveData,
-  setShowSensitiveData,
   bi,
   phone,
   nif,
   passport,
-  verificationStatus,
   hasFacialAuth,
   hasTwoFactor,
   govPin,
@@ -93,9 +114,7 @@ export function ProfileContent({
   setHasFacialAuth,
   setHasTwoFactor,
   setGovPin,
-  contactsCount,
   setTab,
-  handleLogout,
   inbox = [],
   docInbox = [],
   sentMessages = [],
@@ -119,7 +138,7 @@ export function ProfileContent({
   const [prefNotificationSMS, setPrefNotificationSMS] = useState(() => localStorage.getItem('gov_pref_notif_sms') !== 'false');
   const [prefNotificationEmail, setPrefNotificationEmail] = useState(() => localStorage.getItem('gov_pref_notif_email') !== 'false');
   const [prefNotificationPush, setPrefNotificationPush] = useState(() => localStorage.getItem('gov_pref_notif_push') !== 'false');
-  const [prefNotificationApp, setPrefNotificationApp] = useState(() => localStorage.getItem('gov_pref_notif_app') !== 'false');
+  const [prefNotificationApp] = useState(() => localStorage.getItem('gov_pref_notif_app') !== 'false');
   const [prefPreferredHours, setPrefPreferredHours] = useState(() => localStorage.getItem('gov_pref_hours') || 'business'); // 'any' | 'business' | 'night'
   const [prefBiometricsEnabled, setPrefBiometricsEnabled] = useState(() => localStorage.getItem('gov_pref_biometrics') !== 'false');
   const [prefPrivacyLevel, setPrefPrivacyLevel] = useState(() => localStorage.getItem('gov_pref_privacy') || 'standard'); // 'standard' | 'maximum'

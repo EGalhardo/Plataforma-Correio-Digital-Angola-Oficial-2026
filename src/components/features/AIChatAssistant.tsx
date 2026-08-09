@@ -5,10 +5,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, X, Bot, User, Loader2, Mic, Shield, ArrowRight, Check, XCircle, Navigation } from 'lucide-react';
+import { Send, X, Bot, Loader2, Shield, ArrowRight, Check, XCircle, Navigation } from 'lucide-react';
 import { AppMode, LanguageCode } from '../../types';
 import { USER_PROFILE_PHOTO } from '../../constants/data';
-import { PAGE_PRESENTATIONS, hasPagePresentation } from '../../services/voicePresentations';
+import { PAGE_PRESENTATIONS } from '../../services/voicePresentations';
 
 const WELCOME_MESSAGES = {
   pt: {
@@ -207,7 +207,6 @@ export function AIChatAssistant({
   stopIaVoice,
   startIaVoice,
   appMode,
-  onCreateRequest,
   onNavigate,
   activeTab,
   pageContextHint,

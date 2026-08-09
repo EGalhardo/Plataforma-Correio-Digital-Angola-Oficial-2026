@@ -6,11 +6,30 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AnimatedCounter } from '../ui/AnimatedCounter';
-import { 
-  Bot, Clock, Activity, Users, Database, BookOpen, MessageSquare, ArrowRight, ChevronRight, CheckCircle, 
-  Search, Sliders, Play, Settings, Upload, FileText, Check, Sparkles, TrendingUp, Cpu, Landmark,
-  ShieldCheck, ShieldAlert, Key, Lock, AlertTriangle, HelpCircle, RefreshCw, BarChart2, Plus, Trash2, HeartPulse, Scale, DollarSign,
-  Loader2, Wifi, WifiOff, Eye, EyeOff, Zap, Globe, Server, Cpu as CpuIcon, Link2,
+import {
+  Bot,
+  Activity,
+  Users,
+  Database,
+  ArrowRight,
+  ChevronRight,
+  CheckCircle,
+  Search,
+  Settings,
+  Upload,
+  FileText,
+  Check,
+  Sparkles,
+  ShieldCheck,
+  Key,
+  Lock,
+  AlertTriangle,
+  BarChart2,
+  Plus,
+  Loader2,
+  Zap,
+  Server,
+  Cpu as CpuIcon,
   X
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
@@ -90,8 +109,8 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
   });
 
   // Health check data from server
-  const [healthData, setHealthData] = useState<any>(null);
-  const [isLoadingHealth, setIsLoadingHealth] = useState(true);
+  const [, setHealthData] = useState<any>(null);
+  const [, setIsLoadingHealth] = useState(true);
 
   // Fetch real health from /api/health
   useEffect(() => {
@@ -221,7 +240,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
 
   const [newKbTitle, setNewKbTitle] = useState<string>('');
   const [newInstName, setNewInstName] = useState<string>('');
-  const [newInstDocs, setNewInstDocs] = useState<string>('5.000');
+  const [newInstDocs] = useState<string>('5.000');
 
   const handleAddInstitution = () => {
     if (!newInstName.trim()) {

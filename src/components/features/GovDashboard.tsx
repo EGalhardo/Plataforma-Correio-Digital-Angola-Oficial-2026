@@ -3,52 +3,21 @@ import { notify } from '../../lib/notify';
 import {
   ShieldCheck,
   Mail,
-  FileText,
-  Send,
   Clock,
-  ArrowRight,
   RefreshCcw,
   X,
-  Activity,
-  Database,
-  AlertCircle,
   TrendingUp,
-  TrendingDown,
   CheckCircle2,
-  MapPin,
-  User,
-  Shield,
-  Scan,
-  Fingerprint,
-  Lock,
   ShieldAlert,
-  UserCheck,
-  Plus,
-  FolderArchive,
   Ban,
-  Share2,
   Search,
   Brain,
-  QrCode,
-  Bell,
   Building2,
   Users,
-  Video,
+  Video
 } from "lucide-react";
 import React, { useState, useEffect, useMemo } from "react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Label as RechartsLabel,
-} from "recharts";
+import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 import { Document, AppMode, UserRequest, VideoSession, VideoSessionEvent } from "../../types";
 import { GOV_HIGHLIGHT_SLIDES } from "../../constants/data";
@@ -229,11 +198,6 @@ const ROLE_PERMISSIONS: Record<GovRole, { label: string; desc: string; perms: Pe
 
 export function GovDashboard({
   onNavigate,
-  documents = [],
-  emergencyMode = false,
-  appMode = "admin",
-  userRequests = [],
-  isMobile = false,
   logSecurityEvent,
   bi = '009874562LA041',
   setBi,
@@ -256,20 +220,20 @@ export function GovDashboard({
     }, 6000);
     return () => clearInterval(timer);
   }, []);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [selectedInst, setSelectedInst] = useState<Institution | null>(null);
-  const [hoveredProvince, setHoveredProvince] = useState<string | null>(null);
-  const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
-  const [matchingThreshold, setMatchingThreshold] = useState(85);
-  const [antiSpoofingEnforced, setAntiSpoofingEnforced] = useState(true);
+  const [, setIsSyncing] = useState(false);
+  const [] = useState<Institution | null>(null);
+  const [] = useState<string | null>(null);
+  const [] = useState<string | null>(null);
+  const [] = useState(85);
+  const [] = useState(true);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showSmartServices, setShowSmartServices] = useState(false);
   const [showRecentActivity, setShowRecentActivity] = useState(false);
 
   // Operational State Hooks
   const [activeRole, setActiveRole] = useState<GovRole>('administrador');
-  const [activeQueue, setActiveQueue] = useState<'pendentes' | 'urgentes' | 'criticas' | 'expiradas'>('pendentes');
-  const [queueSearch, setQueueSearch] = useState('');
+  const [activeQueue] = useState<'pendentes' | 'urgentes' | 'criticas' | 'expiradas'>('pendentes');
+  const [queueSearch] = useState('');
   const [queueItems, setQueueItems] = useState<QueueItem[]>(INITIAL_QUEUE_ITEMS);
   const [selectedQueueItemId, setSelectedQueueItemId] = useState<string>("OP-PEN-101");
   const [rejectionReason, setRejectionReason] = useState('');

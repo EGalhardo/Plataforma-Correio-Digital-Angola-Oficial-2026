@@ -5,7 +5,23 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, QrCode, ShieldCheck, Info, CreditCard, Globe, Car, FileText, ArrowLeft, Plus, Clock, CheckCircle2, XCircle, Building2, ChevronRight, X } from 'lucide-react';
+import {
+  Search,
+  QrCode,
+  ShieldCheck,
+  Info,
+  CreditCard,
+  Globe,
+  Car,
+  FileText,
+  Plus,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Building2,
+  ChevronRight,
+  X
+} from 'lucide-react';
 import { Document, DocRequest, LanguageCode } from '../../types';
 import { useInstitutions } from '../../services/institutionStore';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -49,9 +65,7 @@ export function WalletContent({
   logSecurityEvent,
   docRequests,
   onCreateRequest,
-  emergencyMode = false,
-  currentLanguage = 'pt'
-}: WalletContentProps) {
+  emergencyMode = false}: WalletContentProps) {
   const { institutions } = useInstitutions();
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [showRequestsHistory, setShowRequestsHistory] = useState(false);

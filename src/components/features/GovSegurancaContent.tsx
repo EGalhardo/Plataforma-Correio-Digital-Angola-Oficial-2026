@@ -1,21 +1,20 @@
 import React, { useState } from 'react';
 import { notify } from '../../lib/notify';
 import { motion } from 'motion/react';
-import { 
-  ShieldCheck, 
-  Scan, 
-  Search, 
-  RefreshCw, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Sliders, 
-  Eye, 
-  Trash2, 
-  UserSquare, 
-  FileLock2, 
-  Fingerprint, 
-  TrendingUp, 
-  HelpCircle 
+import {
+  ShieldCheck,
+  Scan,
+  Search,
+  RefreshCw,
+  CheckCircle2,
+  AlertTriangle,
+  Sliders,
+  Eye,
+  Trash2,
+  UserSquare,
+  FileLock2,
+  Fingerprint,
+  TrendingUp
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 

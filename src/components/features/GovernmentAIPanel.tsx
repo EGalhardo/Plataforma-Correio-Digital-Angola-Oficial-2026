@@ -5,7 +5,17 @@
 
 import { useState, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Loader2, FileText, AlertTriangle, ShieldCheck, HelpCircle, Eye, RefreshCw, Send, ArrowRight } from 'lucide-react';
+import {
+  Sparkles,
+  Loader2,
+  FileText,
+  AlertTriangle,
+  ShieldCheck,
+  HelpCircle,
+  Eye,
+  RefreshCw,
+  Send
+} from 'lucide-react';
 
 interface GovernmentAIPanelProps {
   documentTitle: string;

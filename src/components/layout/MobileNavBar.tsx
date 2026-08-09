@@ -56,8 +56,7 @@ const adminItems: MenuItem[] = [
 
 export function MobileNavBar({ 
   tab, setTab, setSelectedMessage, setSelectedDoc,
-  appMode: _propsAppMode, currentLanguage = 'pt'
-}: MobileNavBarProps) {
+  appMode: _propsAppMode}: MobileNavBarProps) {
   const { appMode } = useSession();
   const { t: translate } = useLanguage();
 

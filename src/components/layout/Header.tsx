@@ -192,7 +192,6 @@ export function Header({
   startIaVoice, 
   stopIaVoice, 
   notifications, 
-  showNotifications, 
   setShowNotifications,
   NotificationDropdown,
   isChatOpen,

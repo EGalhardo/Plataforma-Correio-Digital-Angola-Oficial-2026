@@ -5,24 +5,19 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { 
-  ArrowLeft, 
-  Mail, 
-  Send, 
-  FileText, 
-  Clock, 
-  Receipt, 
-  ShieldCheck, 
-  AlertCircle,
-  TrendingUp,
+import {
+  ArrowLeft,
+  Mail,
+  Send,
+  FileText,
+  Receipt,
+  ShieldCheck,
   Inbox,
   FileCheck,
   X,
   Download,
-  Printer,
   Copy,
   Check,
-  QrCode,
   ChevronDown,
   Building
 } from 'lucide-react';

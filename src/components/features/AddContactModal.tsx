@@ -5,18 +5,16 @@
 
 import type { Dispatch, SetStateAction } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Plus, 
-  UserPlus, 
-  User, 
-  Bell, 
-  CreditCard, 
-  Users, 
-  Phone, 
-  CheckCircle, 
-  Info, 
-  X, 
-  Check, 
+import {
+  User,
+  Bell,
+  CreditCard,
+  Users,
+  Phone,
+  CheckCircle,
+  Info,
+  X,
+  Check,
   ChevronDown,
   Edit
 } from 'lucide-react';

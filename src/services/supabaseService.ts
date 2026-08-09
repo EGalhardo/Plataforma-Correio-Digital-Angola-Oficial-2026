@@ -273,7 +273,7 @@ export const supabaseService = {
 
     try {
       // Attempt a simple head query on 'profiles' or dynamic PostgreSQL healthcheck to verify tables exist
-      const { data, error, status } = await supabase
+      const { error, status } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true });
 
@@ -313,7 +313,7 @@ export const supabaseService = {
   async uploadFile(bucketName: string, filePath: string, file: File | Blob): Promise<string | null> {
     if (!hasValidSupabaseKeys()) return null;
     try {
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from(bucketName)
         .upload(filePath, file, { cacheControl: '3600', upsert: true });
         

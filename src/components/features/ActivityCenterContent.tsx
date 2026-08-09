@@ -1,4 +1,4 @@
-import { History, Mail, FileText, Bell, CheckCircle2, Clock3, Send, Building2 } from 'lucide-react';
+import { History, Mail, FileText, Bell, CheckCircle2, Clock3, Building2 } from 'lucide-react';
 import { AppMode, AppNotification, Correspondence, DocRequest, Document, Message, UserRequest } from '../../types';
 
 interface ActivityCenterContentProps {

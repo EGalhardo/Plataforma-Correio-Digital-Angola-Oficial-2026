@@ -7,33 +7,21 @@ import React, { useState, useEffect, useRef } from 'react';
 import { notify } from '../../lib/notify';
 import { motion, AnimatePresence } from 'motion/react';
 import { LazyImage } from '../ui/LazyImage';
-import { 
-  FileText, 
-  UploadCloud, 
-  CheckCircle2, 
-  CreditCard, 
-  Award, 
-  ShieldCheck, 
-  ChevronRight, 
-  ChevronLeft, 
-  Download, 
-  QrCode, 
-  RefreshCw, 
-  AlertTriangle, 
-  X, 
-  File, 
-  AlertCircle, 
-  Trash2, 
-  Clock, 
-  ArrowUpRight, 
-  Check,
+import {
+  UploadCloud,
+  CheckCircle2,
+  ShieldCheck,
+  ChevronRight,
+  ChevronLeft,
+  Download,
+  RefreshCw,
+  File,
+  Trash2,
+  ArrowUpRight,
   Building2,
-  Calendar,
   Layers,
   Sparkles,
   History,
-  Landmark,
-  Receipt,
   Smartphone,
   Wallet
 } from 'lucide-react';
@@ -76,12 +64,10 @@ interface UploadedFile {
 export function SolicitarDocumentoContent({
   setTab,
   bi,
-  nif,
   onEmitDocument,
-  isOnline,
   addAuditLog
 }: SolicitarDocumentoContentProps) {
-  const { currentLanguage, t } = useLanguage();
+  const { t } = useLanguage();
   // Current step in the request flow
   const [currentStep, setCurrentStep] = useState<Step>('solicitacao');
   
@@ -109,12 +95,12 @@ export function SolicitarDocumentoContent({
   const [paymentOption, setPaymentOption] = useState<'EXPRESS' | 'DUC' | 'UNITEL_MONEY' | 'TRANSFER' | 'NOT_PAID'>('NOT_PAID');
   const [paymentPhone, setPaymentPhone] = useState('923456789');
   const [unitelPhone, setUnitelPhone] = useState('923985112');
-  const [paymentRefCode, setPaymentRefCode] = useState('');
+  const [] = useState('');
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
 
   // Bank Transfer Specifics
-  const [selectedBank, setSelectedBank] = useState<'BAI' | 'BFA' | 'BIC' | 'SOL'>('BAI');
+  const [] = useState<'BAI' | 'BFA' | 'BIC' | 'SOL'>('BAI');
   const [transferSlipUploaded, setTransferSlipUploaded] = useState(false);
   const [activeSlipName, setActiveSlipName] = useState('');
 

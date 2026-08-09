@@ -11,7 +11,6 @@
 
 import { useRef, useState } from 'react';
 import { Lock, CheckCircle2, AlertTriangle, UploadCloud, ShieldCheck, Landmark, KeyRound } from 'lucide-react';
-import { supabase } from '../../lib/supabaseClient';
 import type { InstitutionIdentity } from '../../services/institutionSessionService';
 import {
   getLocalInstReg, isInstPasswordTaken, setInstResponsiblePassword,

@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mic, MicOff, Volume2, VolumeX, Sparkles, Navigation2, ArrowRight, Check, X, ShieldAlert, Radio } from 'lucide-react';
+import { Mic, Volume2, VolumeX, Sparkles, ArrowRight, Check, X, ShieldAlert, Radio } from 'lucide-react';
 
 interface VoiceGuideAssistantProps {
   onScrollDown: () => void;

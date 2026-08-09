@@ -7,10 +7,26 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion } from 'motion/react';
-import { 
-  Video, Calendar, Clock, User, CheckCircle, Play, ShieldCheck,
-  Users, Monitor, Phone, PhoneOff, Bell, Camera, CameraOff,
-  Mic, MicOff, ArrowLeft, History, Shield, VideoOff, MonitorPlay,
+import {
+  Video,
+  Calendar,
+  Clock,
+  User,
+  CheckCircle,
+  Play,
+  Users,
+  Monitor,
+  PhoneOff,
+  Bell,
+  Camera,
+  CameraOff,
+  Mic,
+  MicOff,
+  ArrowLeft,
+  History,
+  Shield,
+  VideoOff,
+  MonitorPlay,
   RefreshCw
 } from 'lucide-react';
 import { useLanguage } from '../../hooks/useLanguage';

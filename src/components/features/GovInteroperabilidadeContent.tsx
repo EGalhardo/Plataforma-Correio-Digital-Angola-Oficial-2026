@@ -1,24 +1,21 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Building2, 
-  Plus, 
-  Search, 
-  MapPin, 
-  Users, 
-  Mail, 
-  Activity, 
+import {
+  Building2,
+  Plus,
+  MapPin,
+  Mail,
+  Activity,
   AlertTriangle,
-  Clock, 
-  Cpu, 
-  CheckCircle, 
-  Power, 
-  X, 
-  Edit, 
+  Clock,
+  Cpu,
+  CheckCircle,
+  Power,
+  X,
+  Edit,
   SlidersHorizontal,
   ChevronDown,
   Trash2,
-  Trash,
   Phone,
   User,
   Briefcase,
@@ -358,7 +355,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   // Form states
   const [formName, setFormName] = useState('');
   const [formFullName, setFormFullName] = useState('');
-  const [formCategory, setFormCategory] = useState<'Finanças' | 'Infraestrutura' | 'Serviços' | 'Segurança' | 'Saúde' | 'Justiça'>('Finanças');
+  const [, setFormCategory] = useState<'Finanças' | 'Infraestrutura' | 'Serviços' | 'Segurança' | 'Saúde' | 'Justiça'>('Finanças');
   const [formTypeInst, setFormTypeInst] = useState('Ministério');
   const [formProvince, setFormProvince] = useState('Luanda');
   const [formCidade, setFormCidade] = useState('Luanda (Capital)');
