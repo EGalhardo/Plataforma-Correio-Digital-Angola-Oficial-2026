@@ -2043,12 +2043,16 @@ export default function App() {
           }
         }
 
-        // Auto-seed check: Check if messages are empty for this user, seed all default data if database is fresh
-        const dbMessagesTest = await supabaseService.getMessages(bi);
+        // Auto-seed check + leitura das caixas: UMA consulta serve os dois
+        // (advisory N-3 da auditoria master: antes havia DUAS consultas
+        // idênticas em seguida por execução — 4 por sessão). A nuvem só é
+        // relida no ramo raro em que há semeadura; a frescura normal já é
+        // garantida pelo canal Realtime (triggerRefetch abaixo).
+        let dbMessages = await supabaseService.getMessages(bi);
         // F9 — a semeadura automática é um recurso da DEMO (cidadão/AGT-9921-SR):
         // nunca semear fictícios da AGT numa conta institucional real.
         const isDemoInstitutionSeed = !isInstMode || homologationStore.isExempt(bi);
-        if (shouldAutoSeedSupabase() && isDemoInstitutionSeed && (dbMessagesTest === null || dbMessagesTest.length === 0)) {
+        if (shouldAutoSeedSupabase() && isDemoInstitutionSeed && (dbMessages === null || dbMessages.length === 0)) {
           console.log('CADA: Nenhum dado de mensagens encontrado para este utilizador no Supabase. Efetuando semeadura automática...');
           const seedPayload = {
             profile: {
@@ -2076,6 +2080,8 @@ export default function App() {
           };
           await supabaseService.seedAll(seedPayload);
           console.log('CADA: Semeadura automática para o Supabase concluída!');
+          // Re-ler UMA vez para hidratar com as linhas acabadas de semear.
+          dbMessages = await supabaseService.getMessages(bi);
         }
 
         // Define document classifier for messages
@@ -2124,8 +2130,7 @@ export default function App() {
           }
         }
 
-        // 2. Fetch Citizen Messages / Institution Messages / Sent messages
-        const dbMessages = await supabaseService.getMessages(bi);
+        // 2. Citizen/Institution messages — já lidas acima (consulta única, N-3)
         if (dbMessages !== null && isSubscribed) {
           // F12 — marca de titularidade: o cidadão/instituição REAL só vê o que
           // foi efectivamente endereçado à sua chave (query da nuvem já filtra).
