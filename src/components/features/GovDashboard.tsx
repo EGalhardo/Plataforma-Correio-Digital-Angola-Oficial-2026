@@ -167,10 +167,6 @@ export interface PermMatrix {
   archive: boolean;
 }
 
-  // A role é FIXA nesta versão do painel (não há selector de role); o valor
-  // faz gate de secções do JSX (ex.: registo anti-fraude só p/ operadores).
-  const [activeRole] = useState<GovRole>('administrador');
-
 export function GovDashboard({
   onNavigate,
   logSecurityEvent,
@@ -187,6 +183,9 @@ export function GovDashboard({
   addAuditLog,
 }: GovDashboardProps & { appMode?: AppMode }) {
   const { institutions: masterInstitutions } = useInstitutions();
+  // A role é FIXA nesta versão do painel (não há selector de role); o valor
+  // faz gate de secções do JSX (ex.: registo anti-fraude só p/ operadores).
+  const [activeRole] = useState<GovRole>('administrador');
   const [activeSlide, setActiveSlide] = useState(0);
 
   useEffect(() => {
