@@ -234,14 +234,17 @@ export const isRealInstitutionalCode = (raw?: string): boolean =>
   /^[A-Z0-9]{2,8}-[A-Z0-9]{2,8}$/.test((raw || '').trim().toUpperCase());
 
 // ---- N-3 (auditoria master 2026-08-09) — micro-cache de LEITURA das caixas ----
-// A hidratação inicial pode correr várias vezes em poucos segundos (arranque
-// do React + deps de identidade). Este cache de ~6 s faz com que só a
-// primeira execução toque na rede; as seguintes, sem nenhuma alteração na
-// base, reutilizam o resultado. É INVALIDADO em qualquer mudança na tabela
-// `messages` (o canal Realtime em App.tsx chama invalidateMessagesReadCache)
-// e purgado quando a leitura falha — a integridade da correspondência fica
-// intacta e a frescura continua a ser dirigida pelos eventos Realtime.
-const MSG_READ_CACHE_TTL_MS = 6000;
+// A hidratação inicial corre várias vezes nos primeiros ~dez segundos de
+// sessão (deps de identidade + eventos Realtime das escritas de arranque da
+// conta, ex.: reposição do perfil canónico demo). Este cache de ~30 s faz com
+// que só a primeira execução toque na rede; as seguintes, sem nenhuma
+// alteração na base, reutilizam o resultado. É INVALIDADO em qualquer mudança
+// na tabela `messages` (o canal Realtime em App.tsx chama
+// invalidateMessagesReadCache ANTES de pedir o refetch) e purgado quando a
+// leitura falha — qualquer escrita na nuvem dispara evento, fura o cache e o
+// re-carregamento vai à rede buscar os dados novos: a integridade da
+// correspondência e a frescura dirigida por Realtime ficam intactas.
+const MSG_READ_CACHE_TTL_MS = 30000;
 const messagesReadCache = new Map<string, { ts: number; value: Promise<unknown> }>();
 const readThroughMessagesCache = <T>(key: string, producer: () => Promise<T>): Promise<T> => {
   const hit = messagesReadCache.get(key);
