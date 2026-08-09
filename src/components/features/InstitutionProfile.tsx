@@ -45,7 +45,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
   setIsConfiguringSecurity,
   setTab,
   profileName: originalProfileName,
-  nif: originalNif,
+  nif: _originalNif,
   phone: originalPhone,
   bi: originalBi,
   email: originalEmail,
@@ -61,7 +61,6 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
     ? originalProfileName
     : (typeof originalInstitution === 'string' && originalInstitution.trim() ? originalInstitution.replace(/\s*\([^)]*\)\s*$/, '') : 'Agente Institucional');
   const bi = typeof originalBi === 'string' && originalBi ? originalBi : '';
-  const nif = typeof originalNif === 'string' && originalNif ? originalNif : '';
   const phone = typeof originalPhone === 'string' && originalPhone ? originalPhone : '';
   const email = typeof originalEmail === 'string' && originalEmail ? originalEmail : '';
   const role = typeof originalRole === 'string' && originalRole ? originalRole : 'Agente Institucional';
@@ -155,8 +154,6 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
   const normalizedInstitution = institution;
   const institutionAcronymMatch = typeof normalizedInstitution === 'string' ? normalizedInstitution.match(/\(([^)]+)\)/) : null;
   const institutionAcronym = institutionAcronymMatch?.[1] || (typeof normalizedInstitution === 'string' ? normalizedInstitution.split(' ').map(word => word ? word[0] : '').join('').slice(0, 8).toUpperCase() : 'AGT');
-  const institutionalDomain = (institutionAcronym || 'gov').toLowerCase() === 'agt' ? 'agt.gov.ao' : `${(institutionAcronym || 'gov').toLowerCase()}.gov.ao`;
-  const safeProfileName = profileName || 'Utilizador';
   // F8 — sem e-mail registado não se inventa um endereço a partir do nome: mostra-se "—".
   const derivedEmail = email;
   const derivedPersonalEmail = '';

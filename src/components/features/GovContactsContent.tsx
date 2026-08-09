@@ -114,23 +114,6 @@ export function GovContactsContent({
   addAuditLog}: GovContactsContentProps) {
   
   // Workers State for Institution Mode and Admin Central
-  const AVAILABLE_ROLES = [
-    'Administrador Central',
-    'Supervisor Nacional',
-    'Operador',
-    'Auditor',
-    'Suporte Técnico',
-    'Gestor da Plataforma'
-  ];
-
-  const AVAILABLE_DEPARTMENTS = [
-    'Sede Executiva / Gestão Unificada',
-    'Auditoria Territorial / Inspeção Geral',
-    'Homologações de Documentos / Backoffice',
-    'Prevenção de Fraude / Compliance',
-    'Criptografia / Chaves Privadas',
-    'Políticas / Parâmetros API'
-  ];
 
   const ALL_PERMISSIONS = [
     { id: 'Visualizar', label: 'Visualizar Cadastros', desc: 'Consultar dados dactiloscópicos e fichas de cidadão' },
@@ -415,7 +398,7 @@ export function GovContactsContent({
   const [filterProvince, setFilterProvince] = useState<string>('Todas');
   const [filterMunicipio, setFilterMunicipio] = useState<string>('Todos');
   const [filterStatus, setFilterStatus] = useState<string>('Todas');
-  const [, setIsAddUserModalOpen] = useState(false);
+
 
   // IA review states
   const [selectedReviewCitizen, setSelectedReviewCitizen] = useState<Citizen | null>(null);
@@ -1101,12 +1084,12 @@ export function GovContactsContent({
     fetchSupabaseCitizens();
   }, []);
 
-  const [addUserName, setAddUserName] = useState('');
-  const [addUserCategory] = useState('Trabalhador');
-  const [addUserProvince] = useState('Luanda');
-  const [addUserMunicipio] = useState('Luanda');
-  const [addUserAddress, setAddUserAddress] = useState('');
-  const [addUserContact, setAddUserContact] = useState('');
+
+
+
+
+
+
 
   const filteredCitizens = useMemo(() => {
     return citizens.filter((citizen) => {
@@ -1117,58 +1100,6 @@ export function GovContactsContent({
       return matchCategory && matchProvince && matchMunicipio && matchStatus;
     });
   }, [citizens, selectedCategory, filterProvince, filterMunicipio, filterStatus]);
-
-  const handleAddUser = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!addUserName || !addUserAddress || !addUserContact) {
-      notify('Por favor, preencha todos os campos obrigatórios (Nome, Residência e Telefone/Contacto).');
-      return;
-    }
-
-    const newUser: Citizen = {
-      id: `u-${Date.now()}`,
-      name: addUserName,
-      category: addUserCategory,
-      province: addUserProvince,
-      municipio: addUserMunicipio,
-      address: addUserAddress,
-      contact: addUserContact,
-      status: 'Pendente de Validação',
-      biNumber: `00${Math.floor(100000 + Math.random() * 900000)}LA041`,
-      email: `${addUserName.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
-      phone: addUserContact,
-      registrationDate: '12/06/2026',
-      lastAccess: 'Pendente',
-      coherenceLevel: 85,
-      facialMatch: 82,
-      imageQuality: 90,
-      ocrDataMatch: 100,
-      iaResult: 'Revisão Administrativa',
-      iaReport: 'Registo e captura biométrica de auto-cadastro concluída. Aguardando processamento.',
-      numDigitalDocs: 1,
-      numCorrespondences: 0,
-      facePhotos: [
-        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face',
-        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=250&h=250&fit=crop&crop=face',
-        'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=250&h=250&fit=crop&crop=face',
-        'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=250&h=250&fit=crop&crop=face',
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face'
-      ],
-      activityHistory: [
-        { action: 'Submissão de Cadastro Oficial', timestamp: '12/06/2026 11:45', ip: '197.231.40.10' }
-      ],
-      facePhoto: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face'
-    };
-
-    setCitizens(prev => [newUser, ...prev]);
-    setIsAddUserModalOpen(false);
-
-    setAddUserName('');
-    setAddUserAddress('');
-    setAddUserContact('');
-
-    addAuditLog?.(`Cadastro: Cidadão "${newUser.name}" submetido para validação inteligente da IA em ${newUser.province}.`, 'info');
-  };
 
   const MUNICIPALITIES_BY_PROVINCE: { [key: string]: string[] } = {
     'Todas': ['Todos'],
@@ -1476,24 +1407,6 @@ export function GovContactsContent({
       if (selectedWorkerId === id) setSelectedWorkerId(null);
       addAuditLog?.(`[EQUIPA] Membro da equipa ${name} foi removido do ecossistema institucional.`, 'warning');
     }
-  };
-
-  const handleToggleWorkerStatus = (id: string, name: string, currentStatus: string) => {
-    const nextStatus = currentStatus === 'Ativo' ? 'Desativado' : 'Ativo';
-    setWorkers(prev => prev.map(w => w.id === id ? { 
-      ...w, 
-      status: nextStatus as any,
-      activityLogs: [
-        { 
-          action: nextStatus === 'Ativo' ? 'Acesso dactiloscópico reativado' : 'Acesso dactiloscópico revogado', 
-          timestamp: '12/06/2026 ' + new Date().toTimeString().slice(0, 5), 
-          ip: '197.231.42.15' 
-        },
-        ...(w.activityLogs || [])
-      ]
-    } : w));
-    playToggleSound(nextStatus === 'Ativo');
-    addAuditLog?.(`[EQUIPA] Estado do membro da equipa ${name} alterado para ${nextStatus}.`, 'info');
   };
 
   // Filtered workers list

@@ -3135,10 +3135,6 @@ export default function App() {
     };
   };
 
-  const handleSendMessage = () => {
-    // Para satisfazer as regras de negócio de confirmação do popup
-    setIsOfficialConfirmOpen(true);
-  };
 
   const executeOfficialSend = async () => {
     setIsOfficialConfirmOpen(false);
@@ -3202,7 +3198,7 @@ export default function App() {
     setSuccessProtocolModal(protocolData);
 
     if (!isOnline) {
-      const q = OfflineManager.queueAction('SEND_MESSAGE', { messageId, to: composeData.to, subject: effectiveSubject });
+      OfflineManager.queueAction('SEND_MESSAGE', { messageId, to: composeData.to, subject: effectiveSubject });
       setOfflineQueue(OfflineManager.getQueue());
       
       const fallback = OfflineManager.triggerFallback('SMS', `Enviar Correspondência: ${effectiveSubject}`);
@@ -3324,7 +3320,7 @@ export default function App() {
     setSuccessProtocolModal(protocolData);
 
     if (!isOnline) {
-      const q = OfflineManager.queueAction('SEND_DOCUMENT', { messageId, to: docComposeData.to, subject: docComposeData.subject });
+      OfflineManager.queueAction('SEND_DOCUMENT', { messageId, to: docComposeData.to, subject: docComposeData.subject });
       setOfflineQueue(OfflineManager.getQueue());
       
       const fallback = OfflineManager.triggerFallback('SMS', `Enviar Documento: ${docComposeData.subject}`);
@@ -3369,15 +3365,6 @@ export default function App() {
     }
   };
 
-  const handleDocReply = (msg: Message) => {
-    setDocComposeData({
-      to: msg.org,
-      subject: `RE: ${msg.details?.subject || msg.preview.substring(0, 30)}`,
-      body: `\n\n--------------------------------\nEm resposta ao documento de ${msg.date}:\n"${msg.preview}"`
-    });
-    setTab('documentos');
-    setIsDocComposing(true);
-  };
 
   const handleDeleteContact = () => {
     if (contactToDelete) {

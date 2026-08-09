@@ -16,7 +16,7 @@ import {
   Users,
   Video
 } from "lucide-react";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 import { Document, AppMode, UserRequest, VideoSession, VideoSessionEvent } from "../../types";
@@ -31,12 +31,6 @@ interface Institution {
   status: "online" | "manutenção" | "offline";
   delay: string;
   baseDelay: number;
-}
-
-interface ProvinceData {
-  name: string;
-  count: number;
-  id: string;
 }
 
 interface GovDashboardProps {
@@ -173,28 +167,9 @@ export interface PermMatrix {
   archive: boolean;
 }
 
-const ROLE_PERMISSIONS: Record<GovRole, { label: string; desc: string; perms: PermMatrix }> = {
-  operador: {
-    label: "Operador",
-    desc: "Suporta criação inicial de processos e encaminhamento setorial governamental.",
-    perms: { create: true, sign: false, approve: false, reject: false, forward: true, archive: false }
-  },
-  supervisor: {
-    label: "Supervisor",
-    desc: "Despacha decisões, aplica assinaturas criptográficas oficiais e julga aprovações.",
-    perms: { create: false, sign: true, approve: true, reject: true, forward: true, archive: false }
-  },
-  auditor: {
-    label: "Auditor",
-    desc: "Acompanha a legalidade, emite perícias, audita ocorrências e arquiva expedientes.",
-    perms: { create: false, sign: false, approve: false, reject: false, forward: false, archive: true }
-  },
-  administrador: {
-    label: "Administrador",
-    desc: "Gestor principal. Detém autorização integral regulamentar do Estado.",
-    perms: { create: true, sign: true, approve: true, reject: true, forward: true, archive: true }
-  }
-};
+  // A role é FIXA nesta versão do painel (não há selector de role); o valor
+  // faz gate de secções do JSX (ex.: registo anti-fraude só p/ operadores).
+  const [activeRole] = useState<GovRole>('administrador');
 
 export function GovDashboard({
   onNavigate,
@@ -220,7 +195,6 @@ export function GovDashboard({
     }, 6000);
     return () => clearInterval(timer);
   }, []);
-  const [, setIsSyncing] = useState(false);
   const [] = useState<Institution | null>(null);
   const [] = useState<string | null>(null);
   const [] = useState<string | null>(null);
@@ -231,12 +205,7 @@ export function GovDashboard({
   const [showRecentActivity, setShowRecentActivity] = useState(false);
 
   // Operational State Hooks
-  const [activeRole, setActiveRole] = useState<GovRole>('administrador');
-  const [activeQueue] = useState<'pendentes' | 'urgentes' | 'criticas' | 'expiradas'>('pendentes');
-  const [queueSearch] = useState('');
   const [queueItems, setQueueItems] = useState<QueueItem[]>(INITIAL_QUEUE_ITEMS);
-  const [selectedQueueItemId, setSelectedQueueItemId] = useState<string>("OP-PEN-101");
-  const [rejectionReason, setRejectionReason] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // New item form states
@@ -349,198 +318,14 @@ export function GovDashboard({
     });
   };
 
-  const mapPins = useMemo(
-    () => [
-      { id: "cabinda", name: "Cabinda", top: "5%", left: "21%", count: 86732 },
-      { id: "zaire", name: "Zaire", top: "18%", left: "30%", count: 42150 },
-      { id: "uige", name: "Uíge", top: "22%", left: "45%", count: 78940 },
-      { id: "bengo", name: "Bengo", top: "31%", left: "27%", count: 35420 },
-      { id: "luanda", name: "Luanda", top: "33%", left: "21%", count: 412540 },
-      { id: "cuanza-norte", name: "Cuanza Norte", top: "31%", left: "38%", count: 52130 },
-      { id: "cuanza-sul", name: "Cuanza Sul", top: "45%", left: "33%", count: 89450 },
-      { id: "malanje", name: "Malanje", top: "33%", left: "51%", count: 71200 },
-      { id: "lunda-norte", name: "Lunda Norte", top: "24%", left: "68%", count: 65410 },
-      { id: "lunda-sul", name: "Lunda Sul", top: "38%", left: "74%", count: 58920 },
-      { id: "moxico", name: "Moxico", top: "55%", left: "75%", count: 83240 },
-      { id: "bie", name: "Bié", top: "53%", left: "52%", count: 76430 },
-      { id: "huambo", name: "Huambo", top: "54%", left: "41%", count: 114530 },
-      { id: "benguela", name: "Benguela", top: "56%", left: "25%", count: 125430 },
-      { id: "huila", name: "Huíla", top: "72%", left: "33%", count: 98234 },
-      { id: "namibe", name: "Namibe", top: "74%", left: "18%", count: 62540 },
-      { id: "cunene", name: "Cunene", top: "85%", left: "34%", count: 49750 },
-      { id: "cuando", name: "Cuando", top: "76%", left: "59%", count: 30744 },
-      { id: "cubango", name: "Cubango", top: "78%", left: "64%", count: 20496 },
-    ],
-    [],
-  );
-
   // BI Data
-  const categoryData = useMemo(
-    () => [
-      { name: "SME", value: 12, color: "#3b82f6" },
-      { name: "AGT", value: 15, color: "#dc2626" },
-      { name: "ENDE", value: 8, color: "#f59e0b" },
-      { name: "EPAL", value: 7, color: "#06b6d4" },
-      { name: "Tribunal", value: 10, color: "#8b5cf6" },
-      { name: "Hospital", value: 9, color: "#10b981" },
-      { name: "Ministerios", value: 11, color: "#0f172a" },
-      { name: "Polícia Nacional", value: 6, color: "#1d4ed8" },
-      { name: "Notário", value: 5, color: "#ec4899" },
-      { name: "Registo Civil", value: 6, color: "#14b8a6" },
-      { name: "Seguro Social", value: 6, color: "#f97316" },
-      { name: "Administradoras", value: 5, color: "#64748b" },
-      { name: "INE", value: 4, color: "#6366f1" },
-    ],
-    [],
-  );
-
-  const provinceData = useMemo<ProvinceData[]>(
-    () => [
-      { id: "luanda", name: "Luanda", count: 412540 },
-      { id: "benguela", name: "Benguela", count: 125430 },
-      { id: "huambo", name: "Huambo", count: 114530 },
-      { id: "huila", name: "Huíla", count: 98234 },
-      { id: "cuanza-sul", name: "Cuanza Sul", count: 89450 },
-      { id: "cabinda", name: "Cabinda", count: 86732 },
-      { id: "moxico", name: "Moxico", count: 83240 },
-      { id: "uige", name: "Uíge", count: 78940 },
-      { id: "bie", name: "Bié", count: 76430 },
-      { id: "malanje", name: "Malanje", count: 71200 },
-      { id: "lunda-norte", name: "Lunda Norte", count: 65410 },
-      { id: "namibe", name: "Namibe", count: 62540 },
-      { id: "lunda-sul", name: "Lunda Sul", count: 58920 },
-      { id: "cuanza-norte", name: "Cuanza Norte", count: 52130 },
-      { id: "cuando", name: "Cuando", count: 30744 },
-      { id: "cubango", name: "Cubango", count: 20496 },
-      { id: "cunene", name: "Cunene", count: 49750 },
-      { id: "zaire", name: "Zaire", count: 42150 },
-      { id: "bengo", name: "Bengo", count: 35420 },
-    ],
-    [],
-  );
 
   // KPI Data
-  const kpis = useMemo(
-    () => [
-      {
-        label: "Correspondências Enviadas",
-        value: "1.248.752",
-        change: "+12,5% vs mês anterior",
-        up: true,
-        color: "text-emerald-500",
-      },
-      {
-        label: "Correspondências Entregues",
-        value: "1.000.000",
-        change: "+9,8% vs mês anterior",
-        up: true,
-        color: "text-emerald-500",
-      },
-      {
-        label: "Pendentes",
-        value: "100",
-        change: "-5,3% vs mês anterior",
-        up: false,
-        color: "text-red-500",
-      },
-      {
-        label: "Taxa de Sucesso",
-        value: "100%",
-        change: "+7,6% vs mês anterior",
-        up: true,
-        color: "text-emerald-500",
-      },
-    ],
-    [],
-  );
 
-  const monthlyData = useMemo(() => [
-    { name: "Jan", correspondencias: 102400, documentos: 45000 },
-    { name: "Fev", correspondencias: 115000, documentos: 52000 },
-    { name: "Mar", correspondencias: 135400, documentos: 61000 },
-    { name: "Abr", correspondencias: 158200, documentos: 78000 },
-    { name: "Mai", correspondencias: 184500, documentos: 95000 },
-    { name: "Jun", correspondencias: 248752, documentos: 125000 }
-  ], []);
 
-  const topInstitutions = useMemo(() => [
-    { name: "SME - Serviço de Migração e Estrangeiros", volume: 342150, color: "bg-indigo-600" },
-    { name: "AGT - Administração Geral Tributária", volume: 298450, color: "bg-emerald-600" },
-    { name: "MINJUS - Ministério da Justiça", volume: 184200, color: "bg-slate-900" },
-    { name: "INSS - Segurança Social", volume: 156300, color: "bg-indigo-500" },
-    { name: "MINSA - Ministério da Saúde", volume: 112400, color: "bg-rose-500" },
-    { name: "ENDE - Electricidade de Angola", volume: 92100, color: "bg-amber-500" },
-    { name: "EPAL - Empresa Pública de Águas", volume: 84300, color: "bg-sky-500" },
-    { name: "PNA - Polícia Nacional", volume: 76500, color: "bg-blue-600" },
-    { name: "CNE - Comissão Nacional Eleitoral", volume: 62400, color: "bg-red-500" },
-    { name: "BPC - Banco Poupança e Crédito", volume: 54100, color: "bg-teal-500" }
-  ], []);
-
-  const activities = useMemo(
-    () => [
-      {
-        id: 1,
-        action: "Correspondência Fiscal enviada",
-        time: "20/05/2025 10:42",
-        org: "AGT",
-        status: "success",
-      },
-      {
-        id: 2,
-        action: "Notificação de Educação entregue",
-        time: "20/05/2025 10:35",
-        org: "MED",
-        status: "success",
-      },
-      {
-        id: 3,
-        action: "BI Digital emitido",
-        time: "20/05/2025 10:28",
-        org: "SME",
-        status: "success",
-      },
-      {
-        id: 4,
-        action: "Validação por QR Code realizada",
-        time: "20/05/2025 10:15",
-        org: "Gov",
-        status: "success",
-      },
-      {
-        id: 5,
-        action: "Correspondência de Justiça entregue",
-        time: "20/05/2025 10:05",
-        org: "MINJUS",
-        status: "success",
-      },
-    ],
-    [],
-  );
-
-  const [institutions] = useState<Institution[]>([
-    { name: "SME", status: "online", delay: "12ms", baseDelay: 12 },
-    { name: "AGT", status: "online", delay: "24ms", baseDelay: 24 },
-    { name: "ENDE", status: "online", delay: "18ms", baseDelay: 18 },
-    { name: "EPAL", status: "online", delay: "15ms", baseDelay: 15 },
-  ]);
-
-  const chartData = useMemo(
-    () => [
-      { time: "08:00", reqs: 400 },
-      { time: "10:00", reqs: 600 },
-      { time: "12:00", reqs: 800 },
-      { time: "14:00", reqs: 700 },
-      { time: "16:00", reqs: 900 },
-      { time: "18:00", reqs: 1200 },
-      { time: "20:00", reqs: 500 },
-    ],
-    [],
-  );
-
-  const handleRoleChange = (role: GovRole) => {
-    setActiveRole(role);
-    logSecurityEvent?.(`OPERACIONAL: Alterado perfil activo para ${ROLE_PERMISSIONS[role].label}`, 'info');
-  };
+  // A seleção é MARCADA ao criar expediente (prepara um realce futuro);
+  // nesta versão do painel nada consome ainda o id selecionado.
+  const [, setSelectedQueueItemId] = useState<string | null>(null);
 
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -571,91 +356,6 @@ export function GovDashboard({
     setNewDescription('');
 
     logSecurityEvent?.(`OPERACIONAL: Criado novo expediente ${newItem.id} (${newItem.documentType}) para ${newItem.citizenName}`, 'success');
-  };
-
-  const updateItemStatus = (id: string, newStatus: QueueItem['status'], reason?: string, targetDept?: string) => {
-    setQueueItems(prev => prev.map(item => {
-      if (item.id === id) {
-        let updatedInstitution = item.institution;
-        if (targetDept) {
-          updatedInstitution = targetDept;
-        }
-        return {
-          ...item,
-          status: newStatus,
-          description: reason ? `${item.description} (Motivo: ${reason})` : item.description,
-          institution: updatedInstitution
-        };
-      }
-      return item;
-    }));
-  };
-
-  const handleActionSign = (item: QueueItem) => {
-    updateItemStatus(item.id, 'Assinado');
-    logSecurityEvent?.(`OPERACIONAL: Assinado digitalmente o expediente ${item.id} (${item.documentType}) de ${item.citizenName}`, 'success');
-  };
-
-  const handleActionApprove = (item: QueueItem) => {
-    updateItemStatus(item.id, 'Aprovado');
-    logSecurityEvent?.(`OPERACIONAL: Aprovado o expediente ${item.id} (${item.documentType}) de ${item.citizenName}`, 'success');
-  };
-
-  const handleActionReject = (item: QueueItem) => {
-    if (!rejectionReason) {
-      notify("Por favor, indique um motivo para a rejeição.");
-      return;
-    }
-    updateItemStatus(item.id, 'Rejeitado', rejectionReason);
-    logSecurityEvent?.(`OPERACIONAL: Rejeitado o expediente ${item.id} (${item.documentType}) de ${item.citizenName}. Motivo: ${rejectionReason}`, 'warning');
-    setRejectionReason('');
-  };
-
-  const handleActionForward = (item: QueueItem, target: string) => {
-    updateItemStatus(item.id, 'Encaminhado', undefined, target);
-    logSecurityEvent?.(`OPERACIONAL: Encaminhado o expediente ${item.id} (${item.documentType}) para ${target}`, 'info');
-  };
-
-  const handleActionArchive = (item: QueueItem) => {
-    updateItemStatus(item.id, 'Arquivado');
-    logSecurityEvent?.(`OPERACIONAL: Arquivado o expediente ${item.id} (${item.documentType}) no registo permanente`, 'info');
-  };
-
-  const filteredQueueItems = useMemo(() => {
-    return queueItems.filter(item => {
-      // Filter by current active queue tab
-      const matchesQueue = 
-        (activeQueue === 'pendentes' && item.priority === 'normal') ||
-        (activeQueue === 'urgentes' && item.priority === 'urgente') ||
-        (activeQueue === 'criticas' && item.priority === 'critica') ||
-        (activeQueue === 'expiradas' && item.priority === 'expirada');
-      
-      const matchesSearch = 
-        item.citizenName.toLowerCase().includes(queueSearch.toLowerCase()) ||
-        item.id.toLowerCase().includes(queueSearch.toLowerCase()) ||
-        item.documentType.toLowerCase().includes(queueSearch.toLowerCase()) ||
-        item.description.toLowerCase().includes(queueSearch.toLowerCase());
-
-      return matchesQueue && matchesSearch;
-    });
-  }, [queueItems, activeQueue, queueSearch]);
-
-  const selectedQueueItem = useMemo(() => {
-    return queueItems.find(item => item.id === selectedQueueItemId) || filteredQueueItems[0] || null;
-  }, [queueItems, selectedQueueItemId, filteredQueueItems]);
-
-  const queueCounts = useMemo(() => {
-    return {
-      pendentes: queueItems.filter(i => i.priority === 'normal').length,
-      urgentes: queueItems.filter(i => i.priority === 'urgente').length,
-      criticas: queueItems.filter(i => i.priority === 'critica').length,
-      expiradas: queueItems.filter(i => i.priority === 'expirada').length,
-    };
-  }, [queueItems]);
-
-  const handleForceSync = () => {
-    setIsSyncing(true);
-    setTimeout(() => setIsSyncing(false), 2000);
   };
 
   return (

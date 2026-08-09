@@ -315,10 +315,6 @@ export function Header({
     }
   };
 
-  const getThemeColorClass = (activeClass: string, inactiveClass: string) => {
-    if (iaLiveActive) return activeClass;
-    return inactiveClass;
-  };
 
   return (
     <>

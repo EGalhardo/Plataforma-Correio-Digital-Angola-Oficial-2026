@@ -316,7 +316,6 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
 
   const [newKbTitle, setNewKbTitle] = useState<string>('');
   const [newInstName, setNewInstName] = useState<string>('');
-  const [newInstDocs] = useState<string>('5.000');
 
   const handleAddInstitution = () => {
     // HONESTIDADE: adicionar uma linha só no ecrã fingia uma integração que não

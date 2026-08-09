@@ -214,16 +214,6 @@ REGRAS OPERATIVAS:
   const [isEditingNameInline, setIsEditingNameInline] = useState<boolean>(false);
 
   // Context Configuration (dados que a IA pode consultar)
-  const [contextConfig] = useState({
-    readMail: true,
-    readProcessStatus: true,
-    readTaxpayerData: true,
-    readSchedules: true,
-    readHistory: true,
-    readAttachments: true,
-    readNotifications: true,
-    readDocuments: false,
-  });
 
   // Preview Modal state
   const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false);
@@ -243,7 +233,7 @@ REGRAS OPERATIVAS:
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
 
   // Custom System Prompt for this chat
-  const [, setCustomPrompt] = useState<string>(instructions);
+
 
   // Preview channel Chat message state (Inside modal)
   const [previewMessages, setPreviewMessages] = useState<ChatMessage[]>([
@@ -386,15 +376,6 @@ REGRAS OPERATIVAS:
   };
 
   // Action: Save IA prompt instructions
-  const handleSaveInstructions = () => {
-    setInstructions(tempInstructions);
-    setCustomPrompt(tempInstructions);
-    try {
-      localStorage.setItem(cfgKey, JSON.stringify({ assistantName, model, temperature, instructions: tempInstructions }));
-    } catch { /* idem */ }
-    triggerToast('Instruções operacionais do assistente atualizadas com sucesso!', 'success');
-    addAuditLog?.('Instruções operacionais do Assistente de IA atualizadas por agente autorizado.', 'success');
-  };
 
   // REAL AI CHAT LOGIC (using Groq via /api/chat)
   const runRealAIResponse = async (query: string) => {
@@ -568,8 +549,6 @@ Contexto adicional:
       setIsPreviewTyping(false);
     }
   };
-
-  const activeCheckboxesCount = Object.values(contextConfig).filter(Boolean).length;
 
   return (
     <div className="space-y-6 max-w-none w-full pb-12 text-[#1e293b] font-sans antialiased" id="inst-ai-assistant-root">

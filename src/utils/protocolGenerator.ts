@@ -249,9 +249,6 @@ export function generateProtocol(
     priority = 'Alta';
   }
 
-  const randMin = String(10 + (seed % 50)).padStart(2, '0');
-  const hourNum = 8 + (seed % 8);
-  const hour = `${String(hourNum).padStart(2, '0')}:${randMin}`;
   
   // P0-A — VERDADE JURÍDICA HONESTA: apenas dados REAIS passam a constar do
   // protocolo. Data/hora de emissão passam a ser as REAIS (antes: hardcoded

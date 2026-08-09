@@ -436,7 +436,6 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
       for (const msg of messages) {
         const msgId = msg.id?.toString() || '';
         const msgProt = msg.protocol?.protocolNumber?.toUpperCase() || '';
-        const msgSubject = msg.preview?.toUpperCase() || msg.details?.subject?.toUpperCase() || '';
 
         const isMatch = searchKeys.some(key => 
           key === msgId || 
@@ -708,12 +707,6 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
       return;
     }
     processResult(text, 'texto');
-  };
-
-  const copyResultRaw = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      showToast('Copiado para a área de transferência!', 'success');
-    });
   };
 
   const openHistoryItem = (item: ScanHistoryItem) => {

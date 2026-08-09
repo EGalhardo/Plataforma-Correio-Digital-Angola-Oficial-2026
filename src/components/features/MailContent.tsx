@@ -11,19 +11,19 @@ import {
   Mail,
   Plus,
   Search,
-  Bell,
-  Scroll,
+
+
   ShieldAlert,
-  Receipt,
-  Megaphone,
-  FolderOpen,
+
+
+
   Landmark,
-  CheckSquare,
-  Key,
-  Award,
-  User,
-  Coins,
-  Scale,
+
+
+
+
+
+
   FileText,
   Undo,
   Redo,
@@ -78,25 +78,6 @@ const getOrgBadgeStyles = (org: string) => {
   }
   return 'bg-slate-50 text-slate-700 border-slate-200';
 };
-
-function renderCategoryIcon(iconName: string, size = 10) {
-  switch (iconName) {
-    case 'Bell': return <Bell size={size} />;
-    case 'Scroll': return <Scroll size={size} />;
-    case 'ShieldAlert': return <ShieldAlert size={size} />;
-    case 'Receipt': return <Receipt size={size} />;
-    case 'Megaphone': return <Megaphone size={size} />;
-    case 'FolderOpen': return <FolderOpen size={size} />;
-    case 'Landmark': return <Landmark size={size} />;
-    case 'CheckSquare': return <CheckSquare size={size} />;
-    case 'Key': return <Key size={size} />;
-    case 'Award': return <Award size={size} />;
-    case 'User': return <User size={size} />;
-    case 'Coins': return <Coins size={size} />;
-    case 'Scale': return <Scale size={size} />;
-    default: return <FileText size={size} />;
-  }
-}
 
 interface MailContentProps {
   isComposing: boolean;
@@ -476,23 +457,6 @@ export function MailContent({
       ...composeData,
       attachments: currentList.filter(f => f !== rawString)
     });
-  };
-
-  const handleCreateVirtualAttachment = () => {
-    const defaultName = `anexo_correspondencia_${Date.now().toString().slice(-4)}.txt`;
-    const newAttachment = JSON.stringify({
-      name: defaultName,
-      size: '1.0 KB',
-      content: `Este é o conteúdo do documento anexado '${defaultName}'.`,
-      type: 'text/plain'
-    });
-    const currentList = composeData.attachments || [];
-    setComposeData({
-      ...composeData,
-      attachments: [...currentList, newAttachment]
-    });
-    setEditingAttachmentIdx(currentList.length);
-    setEditingAttachmentContent(`Este é o conteúdo do documento anexado '${defaultName}'.`);
   };
 
   const handleSaveAttachmentContent = (newName: string) => {

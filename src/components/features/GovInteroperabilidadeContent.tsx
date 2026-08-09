@@ -262,10 +262,9 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
       };
 
       try {
-        let result: unknown = null;
-        if (step.action === 'citizen_to_inst') {
+                if (step.action === 'citizen_to_inst') {
           // Send Citizen to AGT
-          result = await supabaseService.sendCitizenMessage(msgObj, citizenBi, 'AGT', citizenName);
+          await supabaseService.sendCitizenMessage(msgObj, citizenBi, 'AGT', citizenName);
           await supabaseService.insertMessageStateEvent({
             messageId,
             state: 'Enviada',
@@ -274,7 +273,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
           });
         } else if (step.action === 'inst_to_citizen') {
           // Send AGT to Citizen
-          result = await supabaseService.sendOfficialMessage(msgObj, citizenBi, 'AGT');
+          await supabaseService.sendOfficialMessage(msgObj, citizenBi, 'AGT');
           await supabaseService.insertMessageStateEvent({
             messageId,
             state: 'Respondida',
@@ -283,7 +282,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
           });
         } else if (step.action === 'admin_to_inst') {
           // Admin to AGT
-          result = await supabaseService.sendOfficialMessage(msgObj, 'AGT', 'CDA');
+          await supabaseService.sendOfficialMessage(msgObj, 'AGT', 'CDA');
           await supabaseService.insertMessageStateEvent({
             messageId,
             state: 'Dispatched',
@@ -292,7 +291,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
           });
         } else if (step.action === 'inst_to_admin') {
           // AGT to Admin
-          result = await supabaseService.sendCitizenMessage(msgObj, 'AGT', 'CDA', 'AGT');
+          await supabaseService.sendCitizenMessage(msgObj, 'AGT', 'CDA', 'AGT');
           await supabaseService.insertMessageStateEvent({
             messageId,
             state: 'Enviada',
@@ -301,7 +300,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
           });
         } else if (step.action === 'admin_to_citizen') {
           // Admin to Citizen
-          result = await supabaseService.sendOfficialMessage(msgObj, citizenBi, 'CDA');
+          await supabaseService.sendOfficialMessage(msgObj, citizenBi, 'CDA');
           await supabaseService.insertMessageStateEvent({
             messageId,
             state: 'Enviada',
@@ -310,7 +309,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
           });
         } else if (step.action === 'citizen_to_admin') {
           // Citizen to Admin
-          result = await supabaseService.sendCitizenMessage(msgObj, citizenBi, 'CDA', citizenName);
+          await supabaseService.sendCitizenMessage(msgObj, citizenBi, 'CDA', citizenName);
           await supabaseService.insertMessageStateEvent({
             messageId,
             state: 'Respondida',
@@ -797,12 +796,6 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   const totalPages = Math.ceil(filteredInstitutions.length / itemsPerPage) || 1;
 
   // Mocked activity logs for details
-  const activityHistory = useMemo(() => [
-    { desc: "Credenciais de API sincronizadas com sucesso pelo barramento", time: "Há 5 mins", user: "AGENTE_ADMIN_40" },
-    { desc: "Assinatura eletrónica renovada e selada digitalmente", time: "Há 12 mins", user: "AUTORIDADE_SER_SME" },
-    { desc: "Tráfego de 1.450 correspondências processadas na fila normal", time: "Há 1 hora", user: "SISTEMA_BOT" },
-    { desc: "Auditoria de segurança de chaves realizada pelo Gabinete de Operações", time: "Há 1 dia", user: "GAB_SEG_AUT" }
-  ], []);
 
   return (
     <div className="pb-32 font-sans text-xs">

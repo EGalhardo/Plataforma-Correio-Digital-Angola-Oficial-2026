@@ -58,65 +58,7 @@ const WELCOME_MESSAGES = {
   }
 };
 
-const SUGGESTED_ACTIONS_TITLE: Record<string, string> = {
-  pt: "Sugestões de Acções",
-  um: "Ovilula Viavatilako",
-  ki: "Mbanzila ya Jijinga",
-  kk: "Yindulula kia Nsadisi",
-  ch: "Jinji Jikalila",
-  ng: "Vihandeka Vyavo",
-  kw: "Omadhiladhilo Omayambidhidho",
-  nh: "Omilandu viovola",
-  fi: "Nzila ya lusolo"
-};
 
-const SUGGESTED_ACTIONS: Record<string, Array<{label: string, type: string, priority: 'Alta' | 'Média' | 'Baixa', ack: string}>> = {
-  pt: [
-    { label: 'Solicitar NIF (AGT)', type: 'NIF', priority: 'Média', ack: 'Entendido! Já enviei o seu pedido de NIF para a fila de processamento da AGT. Você será notificado assim que o documento for emitido.' },
-    { label: 'Solicitar IPU (AGT)', type: 'IPU', priority: 'Alta', ack: 'Entendido! Já enviei o seu pedido de IPU para a fila de processamento da AGT. Você será notificado assim que o documento for emitido.' },
-    { label: 'Certidão de Endereço', type: 'Certidão', priority: 'Baixa', ack: 'Entendido! Já registei o seu pedido de Certidão de Endereço. Brevemente estará disponível para consulta na sua QR Code.' },
-  ],
-  um: [
-    { label: 'Ondaka yo NIF (AGT)', type: 'NIF', priority: 'Média', ack: 'Ndacetila! Nda tuma ale ocipango cove co NIF ko AGT ndeti. Olandu woke yove amala vakuavisa.' },
-    { label: 'Ondaka yo IPU (AGT)', type: 'IPU', priority: 'Alta', ack: 'Ndacetila! Nda tuma ale ocipango cove co IPU ko AGT ndeti. Olandu woke yove amala vakuavisa.' },
-    { label: 'Okanda Komboha', type: 'Certidão', priority: 'Baixa', ack: 'Ndacetila! Nda soneha kenda yove yombola. Woki-feka amala ayulamo ndeti mu okanda cove.' },
-  ],
-  ki: [
-    { label: 'Kuita o NIF (AGT)', type: 'NIF', priority: 'Média', ack: 'Ngabetula! Nga tumene kiá o banzela yé ya NIF mu upange wa AGT. Wa tula o mutume, unda jimbidila.' },
-    { label: 'Kuita o IPU (AGT)', type: 'IPU', priority: 'Alta', ack: 'Ngabetula! Nga tumene kiá o banzela yé ya IPU mu upange wa AGT. Wa tula o mutume, unda jimbidila.' },
-    { label: 'O Kikoka kia Kunda', type: 'Certidão', priority: 'Baixa', ack: 'Ngabetula! Nga soneha o mukanda wé wa kunda. Mukolo wé mwandu unda tula mu carteira.' },
-  ],
-  kk: [
-    { label: 'Lomba o NIF (AGT)', type: 'NIF', priority: 'Média', ack: 'Kiambote! Ntumene dio kinkulu muna AGT. Kuna nima lenda landa o mambu maku.' },
-    { label: 'Lomba o IPU (AGT)', type: 'IPU', priority: 'Alta', ack: 'Kiambote! Ntumene dio kinkulu muna AGT. Kuna nima lenda landa o mambu maku.' },
-    { label: 'O nkenda nzila', type: 'Certidão', priority: 'Baixa', ack: 'Kiambote! Sonekani kwa mambu mia nzo we vo lenda tula kaka mu nkenda kaku.' },
-  ],
-  ch: [
-    { label: 'Kusola o NIF (AGT)', type: 'NIF', priority: 'Média', ack: 'Mwenya! Unjape o mukanda wa NIF muna AGT. Nda mutambula o mutume ha ku hita.' },
-    { label: 'Kusola o IPU (AGT)', type: 'IPU', priority: 'Alta', ack: 'Mwenya! Unjape o mukanda wa IPU muna AGT. Nda mutambula o mutume ha ku hita.' },
-    { label: 'O mukanda wa nzo', type: 'Certidão', priority: 'Baixa', ack: 'Mwenya! Unjape o mukanda wa mufu. Mukolo wenu wa tula kala muna carteira.' },
-  ],
-  ng: [
-    { label: 'Kulomba o NIF (AGT)', type: 'NIF', priority: 'Média', ack: 'Kawa muwa! Nda tuma mukanda wenu wa NIF mu AGT. Mu kunona vyuma vyenu.' },
-    { label: 'Kulomba o IPU (AGT)', type: 'IPU', priority: 'Alta', ack: 'Kawa muwa! Nda tuma mukanda wenu wa IPU mu AGT. Mu kunona vyuma vyenu.' },
-    { label: 'O mukanda wa kunda', type: 'Certidão', priority: 'Baixa', ack: 'Kawa muwa! Nda soneha mukanda wenu wa kunda mu carteira.' },
-  ],
-  kw: [
-    { label: 'Oshilonga sho NIF (AGT)', type: 'NIF', priority: 'Média', ack: 'Oye! Onda tuma eindilo loye lo NIF ku AGT. Oto mono omukanda goye mbala.' },
-    { label: 'Oshilonga sho IPU (AGT)', type: 'IPU', priority: 'Alta', ack: 'Oye! Onda tuma eindilo loye lo IPU ku AGT. Oto mono omukanda goye mbala.' },
-    { label: 'Omukanda weumbo', type: 'Certidão', priority: 'Baixa', ack: 'Oye! Onda kwatha eindilo loye lo sanduka. Otali aluka mu carteira yoye nena.' },
-  ],
-  nh: [
-    { label: 'Oityi tyi NIF (AGT)', type: 'NIF', priority: 'Média', ack: 'Elau! Otyi tyakuata NIF ko AGT. Okanda koye katula mbala.' },
-    { label: 'Oityi tyi IPU (AGT)', type: 'IPU', priority: 'Alta', ack: 'Elau! Otyi tyakuata IPU ko AGT. Okanda koye katula mbala.' },
-    { label: 'Okanda kofuka', type: 'Certidão', priority: 'Baixa', ack: 'Elau! Okanda koye kokutyi katula kala mu carteira.' },
-  ],
-  fi: [
-    { label: 'Lomba NIF (AGT)', type: 'NIF', priority: 'Média', ack: 'Mamboti! Lombele kiá NIF muna AGT. Tukusadisa mu nkenda kaku.' },
-    { label: 'Lomba IPU (AGT)', type: 'IPU', priority: 'Alta', ack: 'Mamboti! Lombele kiá IPU muna AGT. Tukusadisa mu nkenda kaku.' },
-    { label: 'Mukanda wa kunda', type: 'Certidão', priority: 'Baixa', ack: 'Mamboti! Okanda kofuka katula kala mu carteira yetu.' },
-  ]
-};
 
 // Confirmação de navegação
 const NAV_CONFIRM_MESSAGES = {

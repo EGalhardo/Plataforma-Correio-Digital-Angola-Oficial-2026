@@ -366,13 +366,6 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
     .filter((c): c is { name: string; relation: string } => c !== null);
   const safeProfileName = profileName || 'Cidadão';
   const derivedEmail = email || `${safeProfileName.toLowerCase().replace(/\s+/g, '.')}@cidadao.ao`;
-  const visibleDocuments = documentsList.length > 0
-    ? documentsList.slice(0, 3).map((doc) => ({ name: doc.name, status: 'Activo' }))
-    : [
-        { name: 'B.I. Digital', status: 'Activo' },
-        { name: 'Passaporte Digital', status: 'Activo' },
-        { name: 'Carta de Condução', status: 'Activo' }
-      ];
 
   const isSyncBusy = isSyncingSupabase || localSyncing;
 

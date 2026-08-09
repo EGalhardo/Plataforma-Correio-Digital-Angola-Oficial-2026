@@ -24,7 +24,6 @@ import {
   ShieldCheck,
   Mail,
   Check,
-  ArrowLeft,
   Eye,
   EyeOff,
   Loader2,
@@ -49,7 +48,10 @@ interface ResetPasswordStepperProps {
   recoveryMode?: boolean;
 }
 
-export function ResetPasswordStepper({ onCancel, onSuccess, addAuditLog, appMode = 'user', recoveryMode = false }: ResetPasswordStepperProps) {
+// appMode faz parte da interface pública (a App passa-o sempre); o fluxo real
+// por e-mail é idêntico para os três portais, por isso o valor não é lido
+// aqui — o prefixo mantém o contrato sem lint-falso-positivo.
+export function ResetPasswordStepper({ onCancel, onSuccess, addAuditLog, appMode: _appMode = 'user', recoveryMode = false }: ResetPasswordStepperProps) {
   type Step = 'identificar' | 'enviado' | 'nova_senha' | 'success';
   const [step, setStep] = useState<Step>(recoveryMode ? 'nova_senha' : 'identificar');
 

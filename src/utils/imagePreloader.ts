@@ -170,7 +170,7 @@ export function preloadSingleImage(url: string, optimizeWebp: boolean = false): 
       resolve(img);
     };
 
-    img.onerror = (event) => {
+    img.onerror = () => {
       failedUrls.add(url);
       reject(new Error(`Failed to load advertising image at ${url}`));
     };

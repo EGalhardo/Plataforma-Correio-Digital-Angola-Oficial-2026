@@ -125,26 +125,6 @@ const INSTITUTION_FULL_NAMES: Record<string, { full: string; desc: string; categ
   }
 };
 
-const getOrgBadgeStyles = (org: string) => {
-  const o = org.toUpperCase();
-  if (o.includes('SOC') || o.includes('EMERG')) {
-    return 'bg-red-50 text-red-700 border-red-200';
-  } else if (o === 'AGT' || o.includes('TRIBUT') || o.includes('FINAN')) {
-    return 'bg-amber-50 text-amber-800 border-amber-200';
-  } else if (o === 'SME' || o.includes('MIGRA')) {
-    return 'bg-blue-50 text-blue-800 border-blue-200';
-  } else if (o === 'MINJUS' || o.includes('REGISTO') || o.includes('CIVIL')) {
-    return 'bg-teal-50 text-teal-800 border-teal-200';
-  } else if (o.includes('TRIBUNAL') || o.includes('JUDIC')) {
-    return 'bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200';
-  } else if (o === 'ENDE' || o.includes('ELECTRIC') || o.includes('ENERG')) {
-    return 'bg-orange-50 text-orange-850 border-orange-200';
-  } else if (o === 'EPAL' || o.includes('AGUA')) {
-    return 'bg-sky-50 text-sky-850 border-sky-200';
-  }
-  return 'bg-slate-50 text-slate-700 border-slate-200';
-};
-
 const ANGOLA_MINISTRIES = [
   {
     acronym: "MINDENVPM",

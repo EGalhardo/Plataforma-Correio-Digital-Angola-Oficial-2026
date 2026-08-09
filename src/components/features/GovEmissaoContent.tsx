@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, ShieldCheck, FileText, Send, User, ArrowLeft, CheckCircle2, Clock, Upload, X, Paperclip, ArrowRight, Search, Plus } from 'lucide-react';
 import { Document, AppNotification, UserRequest } from '../../types';
-import { useLanguage } from '../../hooks/useLanguage';
 
 interface GovEmissaoContentProps {
   onEmit: (doc: Document, notification: AppNotification) => void;
@@ -18,7 +17,6 @@ export function GovEmissaoContent({
   emergencyMode = false,
   userRequests = []
 }: GovEmissaoContentProps) {
-  const { t } = useLanguage();
   const [showForm, setShowForm] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isEmitting, setIsEmitting] = useState(false);

@@ -30,10 +30,6 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
   };
 
   // Metrics calculation
-  const totalRequests = requests.length || 1;
-  const approvedDocs = requests.filter(r => r.status === 'Aprovado').length + documents.length;
-  const pendingDocs = requests.filter(r => r.status === 'Pendente').length;
-  const rejectedDocs = requests.filter(r => r.status === 'Rejeitado').length;
 
   const emissionRate = 89.5; // Institutional default
   const validationRate = 91.2; // Institutional default

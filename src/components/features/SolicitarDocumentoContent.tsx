@@ -357,19 +357,19 @@ export function SolicitarDocumentoContent({
     setAutomaticConfirmationMessage(messages[method][0]);
 
     // Timer step 1
-    const t1 = setTimeout(() => {
+    setTimeout(() => {
       setAutomaticConfirmationProgress(35);
       setAutomaticConfirmationMessage(messages[method][1]);
     }, 850);
 
     // Timer step 2
-    const t2 = setTimeout(() => {
+    setTimeout(() => {
       setAutomaticConfirmationProgress(70);
       setAutomaticConfirmationMessage(messages[method][2]);
     }, 1750);
 
     // Timer step 3 (final confirmation)
-    const t3 = setTimeout(() => {
+    setTimeout(() => {
       setAutomaticConfirmationProgress(100);
       setAutomaticConfirmationMessage(messages[method][3]);
       

@@ -664,8 +664,7 @@ export function GovRelatorioContent({
                 {/* Upper Metrics Grid: 4 Top KPI Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                   {kpiData.metrics.map((m) => {
-                    const diffVal = m.current - m.prev;
-                    const diffPct = m.prev > 0 ? (diffVal / m.prev) * 100 : 0;
+
                     return (
                       <div 
                         key={m.id}
