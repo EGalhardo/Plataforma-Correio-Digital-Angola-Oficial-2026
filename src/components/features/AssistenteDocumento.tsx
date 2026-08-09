@@ -11,6 +11,7 @@ import type { ReactNode } from 'react';
 import {
   Sparkles, MessageCircleQuestion, AlignLeft, ListOrdered, CalendarClock,
   Languages, Volume2, Square, Loader2, AlertTriangle, PenLine, Send, BookOpen,
+  ChevronDown, Check, Clock3, Scale,
 } from 'lucide-react';
 import { assistenteDocumento, seloKb } from '../../services/aiDocumentoService';
 import type { AssistenteKb } from '../../services/aiDocumentoService';
@@ -47,6 +48,50 @@ const RASCUNHOS: Array<{ id: TipoRascunho; label: string }> = [
   { id: 'prorrogacao', label: 'Prorrogar prazo' },
 ];
 
+// Ícones dos rascunhos (só apresentação — as ações continuam as mesmas)
+const RASCUNHO_ICONES: Record<TipoRascunho, ReactNode> = {
+  confirmacao: <Check size={13} />,
+  esclarecimento: <MessageCircleQuestion size={13} />,
+  recurso: <Scale size={13} />,
+  prorrogacao: <Clock3 size={13} />,
+};
+
+// Secção expansível comum (200–300 ms: fade + expansão vertical + chevron).
+// Fechada: título + ícone + ▼ · Aberta: título + ícone + ▲ + conteúdo.
+function Sec({ titulo, icone, subtitulo, aberto, onAlternar, children }: {
+  titulo: string;
+  icone: ReactNode;
+  subtitulo?: string;
+  aberto: boolean;
+  onAlternar: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-indigo-200 bg-white overflow-hidden">
+      <button
+        type="button"
+        onClick={onAlternar}
+        aria-expanded={aberto}
+        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-indigo-50/60 transition-colors"
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          <span className="text-indigo-500 shrink-0">{icone}</span>
+          <span className="min-w-0">
+            <span className="block text-[11px] font-black uppercase tracking-wider text-indigo-800 truncate">{titulo}</span>
+            {subtitulo && <span className="block text-[10px] font-bold text-indigo-400">{subtitulo}</span>}
+          </span>
+        </span>
+        <ChevronDown size={14} className={`shrink-0 text-indigo-400 transition-transform duration-300 ${aberto ? 'rotate-180' : ''}`} />
+      </button>
+      <div className={`grid transition-all duration-300 ease-in-out ${aberto ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+        <div className="overflow-hidden">
+          <div className="px-3 pb-3 pt-2.5 border-t border-indigo-100">{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface AssistenteDocumentoProps {
   texto: string;
   titulo?: string;
@@ -66,6 +111,12 @@ export function AssistenteDocumento({ texto, titulo, remetente, className, onUsa
   const [kb, setKb] = useState<AssistenteKb | null>(null);
   const [aFalar, setAFalar] = useState<'documento' | 'resposta' | null>(null);
   const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  // Reorganização UX (2026-08-10, a pedido do dono): secções expansíveis
+  // DENTRO deste container — TODAS nascem FECHADAS. Fora dele, nada muda.
+  const [infoAberta, setInfoAberta] = useState(false);
+  const [traduzirAberto, setTraduzirAberto] = useState(false);
+  const [responderAberto, setResponderAberto] = useState(false);
 
   const vozSuportada = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
@@ -156,14 +207,13 @@ export function AssistenteDocumento({ texto, titulo, remetente, className, onUsa
 
   return (
     <div className={`rounded-2xl border border-indigo-200 bg-indigo-50/40 p-4 md:p-5 ${className || ''}`}>
-      <div className="flex items-center justify-between gap-2 mb-3">
+      <div className="flex items-center justify-between gap-2 mb-1.5">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm shrink-0">
             <Sparkles size={15} />
           </div>
           <div className="min-w-0">
             <h4 className="text-xs md:text-sm font-black text-indigo-950 tracking-tight">Assistente do Documento</h4>
-            <p className="text-[10px] text-indigo-500 font-bold">Analisa apenas o texto visível desta correspondência</p>
           </div>
         </div>
         {vozSuportada && (
@@ -179,27 +229,58 @@ export function AssistenteDocumento({ texto, titulo, remetente, className, onUsa
         )}
       </div>
 
+      {/* Subtítulo → informação expansível (nasce fechada) */}
+      <div className="mb-3">
+        <button
+          type="button"
+          onClick={() => setInfoAberta((v) => !v)}
+          aria-expanded={infoAberta}
+          className="w-full flex items-center justify-between gap-2 -mx-1 px-1 py-1 rounded-lg text-left hover:bg-indigo-100/50 transition-colors"
+        >
+          <p className="text-[10px] text-indigo-500 font-bold">Analisa apenas o texto visível desta correspondência</p>
+          <ChevronDown size={12} className={`shrink-0 text-indigo-400 transition-transform duration-300 ${infoAberta ? 'rotate-180' : ''}`} />
+        </button>
+        <div className={`grid transition-all duration-300 ease-in-out ${infoAberta ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+          <div className="overflow-hidden">
+            <p className="mt-1.5 text-[11px] leading-relaxed font-medium text-indigo-700 bg-indigo-100/60 border border-indigo-200 rounded-lg p-2.5">
+              A IA analisa apenas o texto atualmente visível desta correspondência. As sugestões apresentadas devem ser revistas pelo cidadão antes de qualquer envio.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Ações principais — sempre visíveis (não colapsam) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {ACOES_ANALISE.map((a) => botaoChave(a.id, a.label, a.icon))}
       </div>
 
-      <div className="mt-2 flex items-center gap-2">
-        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-wider flex items-center gap-1">
-          <Languages size={12} /> Traduzir:
-        </span>
-        <div className="flex gap-2 flex-1">
-          {IDIOMAS.map((i) => botaoChave(`traduzir:${i.id}`, i.label, null))}
-        </div>
+      {/* Traduzir → accordion (idiomas nascem escondidos; mobile: quebram linha) */}
+      <div className="mt-2">
+        <Sec
+          titulo="Traduzir"
+          icone={<Languages size={13} />}
+          aberto={traduzirAberto}
+          onAlternar={() => setTraduzirAberto((v) => !v)}
+        >
+          <div className="flex flex-wrap gap-2">
+            {IDIOMAS.map((i) => botaoChave(`traduzir:${i.id}`, i.label, null))}
+          </div>
+        </Sec>
       </div>
 
       {onUsarRascunho && (
-        <div className="mt-3 pt-3 border-t border-indigo-100">
-          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-            <PenLine size={12} /> Responder com ajuda da IA (tu revês sempre):
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {RASCUNHOS.map((r) => botaoChave(`rascunho:${r.id}`, r.label, null))}
-          </div>
+        <div className="mt-2">
+          <Sec
+            titulo="Responder com ajuda da IA"
+            subtitulo="Tu revês sempre"
+            icone={<PenLine size={13} />}
+            aberto={responderAberto}
+            onAlternar={() => setResponderAberto((v) => !v)}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {RASCUNHOS.map((r) => botaoChave(`rascunho:${r.id}`, r.label, RASCUNHO_ICONES[r.id]))}
+            </div>
+          </Sec>
         </div>
       )}
 
