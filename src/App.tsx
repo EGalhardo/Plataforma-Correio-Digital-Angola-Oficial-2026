@@ -65,7 +65,7 @@ import {
 import { Message, Document, Contact, AppNotification, AppMode, UserRequest, DocRequest, Correspondence, LanguageCode, DigitalProtocol } from './types';
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, sealProtocolContent, canonicalProtocolPayload } from './utils/protocolGenerator';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
-import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, isRealInstitutionalCode } from './services/supabaseService';
+import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode } from './services/supabaseService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, preloginLookupInstitution, purgeInstitutionLocalResidues, mapRowStatus, type InstitutionIdentity } from './services/institutionSessionService';
 import { getLocalInstReg, normalizeInstCode, parseInstPack } from './services/institutionRegistrationStore';
@@ -2285,6 +2285,7 @@ export default function App() {
       .channel('schema-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
         console.log('CADA: Supabase Realtime detectou alteração em mensagens!');
+        invalidateMessagesReadCache(); // N-3 — qq mudança na nuvem fura o micro-cache
         setTriggerRefetch(t => t + 1);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => {

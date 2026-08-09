@@ -233,6 +233,29 @@ export interface InstitutionMailboxBundle { messages: Message[]; legacyIds: numb
 export const isRealInstitutionalCode = (raw?: string): boolean =>
   /^[A-Z0-9]{2,8}-[A-Z0-9]{2,8}$/.test((raw || '').trim().toUpperCase());
 
+// ---- N-3 (auditoria master 2026-08-09) — micro-cache de LEITURA das caixas ----
+// A hidratação inicial pode correr várias vezes em poucos segundos (arranque
+// do React + deps de identidade). Este cache de ~6 s faz com que só a
+// primeira execução toque na rede; as seguintes, sem nenhuma alteração na
+// base, reutilizam o resultado. É INVALIDADO em qualquer mudança na tabela
+// `messages` (o canal Realtime em App.tsx chama invalidateMessagesReadCache)
+// e purgado quando a leitura falha — a integridade da correspondência fica
+// intacta e a frescura continua a ser dirigida pelos eventos Realtime.
+const MSG_READ_CACHE_TTL_MS = 6000;
+const messagesReadCache = new Map<string, { ts: number; value: Promise<unknown> }>();
+const readThroughMessagesCache = <T>(key: string, producer: () => Promise<T>): Promise<T> => {
+  const hit = messagesReadCache.get(key);
+  if (hit && Date.now() - hit.ts < MSG_READ_CACHE_TTL_MS) return hit.value as Promise<T>;
+  const value = producer();
+  messagesReadCache.set(key, { ts: Date.now(), value });
+  void value.then(
+    (v) => { if (v === null) messagesReadCache.delete(key); },
+    () => { messagesReadCache.delete(key); },
+  );
+  return value;
+};
+export const invalidateMessagesReadCache = (): void => { messagesReadCache.clear(); };
+
 export const supabaseService = {
   /**
    * Check connection and verify if tables are created.
@@ -810,6 +833,7 @@ export const supabaseService = {
    */
   async getMessages(bi: string): Promise<Message[] | null> {
     if (!hasValidSupabaseKeys()) return null;
+    return readThroughMessagesCache(`inbox:${bi}`, async () => {
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -848,6 +872,7 @@ export const supabaseService = {
       console.error('Supabase getMessages error:', e);
       return null;
     }
+    });
   },
 
   async getInstitutionMessages(institutionLabel: string): Promise<InstitutionMailboxBundle | null> {
@@ -919,6 +944,7 @@ export const supabaseService = {
 
   async getSentMessagesBySender(senderBi: string): Promise<Message[] | null> {
     if (!hasValidSupabaseKeys()) return null;
+    return readThroughMessagesCache(`sent:${senderBi}`, async () => {
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -953,6 +979,7 @@ export const supabaseService = {
       console.error('Supabase getSentMessagesBySender error:', e);
       return null;
     }
+    });
   },
 
   /**
