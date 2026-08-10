@@ -1,13 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
+import ws from 'ws';
 
 // Load client-side environment variables - SECURITY FIX: removed hardcoded credentials
 // Integração Supabase 2026 - Correio Digital Angola
 // Project ID: klrclczcahfycfdxzdqs
-const rawUrl = (import.meta as any).env.VITE_SUPABASE_URL || 'https://klrclczcahfycfdxzdqs.supabase.co';
+const rawUrl = (import.meta as any)?.env?.VITE_SUPABASE_URL || 'https://klrclczcahfycfdxzdqs.supabase.co';
 // Suporta tanto ANON_KEY clássico quanto PUBLISHABLE_KEY novo formato
 const supabaseAnonKey = 
-  (import.meta as any).env.VITE_SUPABASE_ANON_KEY || 
-  (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY || 
+  (import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY || 
+  (import.meta as any)?.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 
   '';
 
 // Fallback warning in console if keys are missing during development
@@ -33,8 +34,13 @@ try {
   console.warn('Supabase URL is invalid, using fallback placeholder.', e);
 }
 
+const clientOptions: any = typeof window === 'undefined' 
+  ? { auth: { persistSession: false }, realtime: { transport: ws as any } } 
+  : {};
+
 // Create and export the Supabase Client
 export const supabase = createClient(
   supabaseUrl,
-  supabaseAnonKey || 'placeholder-anon-key'
+  supabaseAnonKey || 'placeholder-anon-key',
+  clientOptions
 );

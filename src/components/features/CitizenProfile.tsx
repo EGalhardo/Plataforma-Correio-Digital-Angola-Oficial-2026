@@ -766,13 +766,13 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[
-                  { label: 'Nome Completo', value: user?.name || '', type: 'text' },
-                  { label: 'B.I. (Nº Bilhete de Identidade)', value: user?.bi || '', type: 'mono' },
-                  { label: 'Email Registado', value: user?.email || derivedEmail, type: 'email', verified: true },
-                  { label: 'Telemóvel Registado', value: '', type: 'phone' },
+                  { label: 'Nome Completo', value: user?.name || profileName || '—', type: 'text' },
+                  { label: 'B.I. (Nº Bilhete de Identidade)', value: user?.bi || bi || '—', type: 'mono' },
+                  { label: 'Email Registado', value: user?.email || derivedEmail || '—', type: 'email', verified: true },
+                  { label: 'Telemóvel Registado', value: user?.phone || phone || '—', type: 'phone' },
                   { label: 'Estado Civil', value: user?.maritalStatus || 'Solteiro(a)', type: 'text' },
                   { label: 'Filiação (Paternidade & Maternidade)', value: user?.filiation || 'António Galhardo & Maria Conceição', type: 'text' },
-                  { label: 'Morada Residencial', value: user?.address || '', type: 'text', colSpan: 'md:col-span-2' },
+                  { label: 'Morada Residencial', value: user?.address || 'Não associado', type: 'text', colSpan: 'md:col-span-2' },
                   { label: 'Registo do Sistema Central', value: 'Conta criada em: 16 de Junho de 2025', type: 'text', colSpan: 'md:col-span-2', subtle: true }
                 ].map((field, index) => (
                   <div 

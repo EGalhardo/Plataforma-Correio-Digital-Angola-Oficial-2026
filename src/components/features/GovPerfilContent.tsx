@@ -45,7 +45,7 @@ export function GovPerfilContent({
   nif = '5401328901',
   passport = 'AO-P987654',
   profileName = 'Carlos Afonso Alberto'}: GovPerfilContentProps) {
-  const { updateUserFields } = useSession();
+  const { user, updateUserFields } = useSession();
   const [isEditingAdmin, setIsEditingAdmin] = useState(false);
   const [editAdminName, setEditAdminName] = useState(profileName || '');
   const [editAdminPhone, setEditAdminPhone] = useState(phone || '');
@@ -243,7 +243,7 @@ export function GovPerfilContent({
                 {/* Nome Completo */}
                 <div className="bg-white border border-slate-200 p-4 rounded-2xl">
                   <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Nome Completo</span>
-                  <span className="text-xs font-bold text-slate-800 block">{profileName}</span>
+                  <span className="text-xs font-bold text-slate-800 block">{user?.name || profileName}</span>
                 </div>
 
               {/* B.I. */}
@@ -258,7 +258,7 @@ export function GovPerfilContent({
               <div className="bg-white border border-slate-200 p-4 rounded-2xl">
                 <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Email Funcional</span>
                 <span className="text-xs font-bold text-slate-800 block mb-1 font-mono">
-                  {((profileName || 'Utilizador').toLowerCase().replace(/\s+/g, '.'))}@mindis.gov.ao
+                  {user?.email || `${((profileName || 'Utilizador').toLowerCase().replace(/\s+/g, '.'))}@mindis.gov.ao`}
                 </span>
                 <span className="text-[9px] text-amber-600 font-bold bg-amber-50 rounded-lg px-2 py-0.5 border border-amber-100 italic block w-fit">
                   Não é possível alterar o email funcional
@@ -269,7 +269,7 @@ export function GovPerfilContent({
               <div className="bg-white border border-slate-200 p-4 rounded-2xl">
                 <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Telefone Principal</span>
                 <span className="text-xs font-mono font-bold text-slate-800 block">
-                  {showSensitiveData ? (phone || 'Não associado') : (phone ? phone.replace(/\d{3} \d{3}$/, '*** ***') : 'Não associado')}
+                  {showSensitiveData ? (user?.phone || phone || 'Não associado') : ((user?.phone || phone) ? (user?.phone || phone).replace(/\d{3} \d{3}$/, '*** ***') : 'Não associado')}
                 </span>
               </div>
 

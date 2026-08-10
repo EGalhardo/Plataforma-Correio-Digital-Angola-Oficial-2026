@@ -468,6 +468,24 @@ export const supabaseService = {
     }
   },
 
+  async updateProfile(bi: string, fields: Record<string, any>) {
+    if (!hasValidSupabaseKeys() || !bi) return null;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(fields)
+        .eq('bi', bi)
+        .select();
+      if (error) {
+        console.warn('Supabase updateProfile warn:', error.message);
+        return null;
+      }
+      return data;
+    } catch (e) {
+      return null;
+    }
+  },
+
   /**
    * Push a local message/correspondence to the database using the legacy default behaviour.
    * Prefer sendCitizenMessage / sendOfficialMessage for explicit flows.
