@@ -246,6 +246,48 @@ const resolveHashToTab = (hash: string, mode: string): string | null => {
   return (HASH_TAB_FALLBACKS[mode] || {})[raw] || raw;
 };
 
+const resolveHashToLoginSubMode = (hash: string): 'normal' | 'register' | 'forgot' | 'face-capture' | 'email' | null => {
+  const raw = hash.replace(/^#\/?/, '').split('?')[0].trim().toLowerCase();
+  switch (raw) {
+    case 'login':
+      return 'normal';
+    case 'registar':
+    case 'registrar':
+    case 'registo':
+    case 'registro':
+      return 'register';
+    case 'recuperar-senha':
+    case 'esqueci-senha':
+    case 'forgot':
+      return 'forgot';
+    case 'login-facial':
+    case 'facial':
+      return 'face-capture';
+    case 'login-email':
+    case 'email':
+      return 'email';
+    default:
+      return null;
+  }
+};
+
+const getLoginHashForSubMode = (subMode: 'normal' | 'register' | 'forgot' | 'face-capture' | 'email'): string => {
+  switch (subMode) {
+    case 'normal':
+      return 'login';
+    case 'register':
+      return 'registar';
+    case 'forgot':
+      return 'recuperar-senha';
+    case 'face-capture':
+      return 'login-facial';
+    case 'email':
+      return 'login-email';
+    default:
+      return 'login';
+  }
+};
+
 export default function App() {
   const { currentLanguage, setCurrentLanguage, t } = useLanguage();
 
@@ -1064,7 +1106,13 @@ export default function App() {
   }, [userMaritalStatus]);
 
   // UI States
-  const [loginSubMode, setLoginSubMode] = useState<'normal' | 'face-capture' | 'register' | 'forgot' | 'email'>('normal');
+  const [loginSubMode, setLoginSubMode] = useState<'normal' | 'face-capture' | 'register' | 'forgot' | 'email'>(() => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const fromHash = resolveHashToLoginSubMode(window.location.hash);
+      if (fromHash) return fromHash;
+    }
+    return 'normal';
+  });
   // ITEM 3 (2026-08-09) — recuperação REAL por e-mail: o link enviado pelo
   // mailer do Supabase cria uma sessão temporária (evento PASSWORD_RECOVERY);
   // nesse momento forçamos o ecrã de nova senha. E login por E-MAIL para as
@@ -1182,12 +1230,18 @@ export default function App() {
   // escritos ANTES do login (transição splash→login não é logout).
   const prevStageForHashRef = useRef(stage);
   useEffect(() => {
-    if (prevStageForHashRef.current === 'app' && stage === 'login' && window.location.hash) {
+    if (stage === 'login') {
       const pathPrefix = getModePathPrefix(appMode);
-      window.history.replaceState(null, '', (pathPrefix || '/') + window.location.search);
+      const targetPath = pathPrefix || '/';
+      const hashName = getLoginHashForSubMode(loginSubMode);
+      const targetUrl = `${targetPath}#/${hashName}`;
+      const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+      if (window.location.hash !== `#/${hashName}` || currentPath !== targetPath) {
+        window.history.replaceState(null, '', targetUrl);
+      }
     }
     prevStageForHashRef.current = stage;
-  }, [stage, appMode]);
+  }, [stage, loginSubMode, appMode]);
   const institutionCode = resolveInstitutionCode(activeProfile?.institutionName || '');
   // F3/F7 — estado da conta institucional: 'restricted' = pendente/em correções (a área abre na mesma; o estado alimenta o tom do indicador Online); 'full' = aprovada
   const [instGate, setInstGate] = useState<'none' | 'restricted' | 'full'>('none');
