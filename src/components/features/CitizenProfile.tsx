@@ -57,6 +57,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
   setTab,
   profileName = 'Edlasio Galhardo',
   bi = '',
+  phone = '',
   email = '',
   userFiliation = 'António Galhardo & Maria Conceição',
   contactsList = [],
@@ -73,7 +74,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
   const [localSyncStep, setLocalSyncStep] = useState('');
   // F54 — carimbo da ÚLTIMA sincronização REAL (só escrito quando a nuvem confirma)
   const [lastSyncTime, setLastSyncTime] = useState<string>(
-    () => localStorage.getItem('supabase_last_sync_time') || ''
+    () => (typeof localStorage !== 'undefined' ? (localStorage.getItem('supabase_last_sync_time') || '') : '')
   );
   const [showMissingKeysDialog, setShowMissingKeysDialog] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; text: string; details?: string } | null>(null);
