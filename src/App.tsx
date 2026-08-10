@@ -199,6 +199,53 @@ export const persistReadMessageId = (rawBi: string, ...ids: number[]): void => {
   } catch { /* sem storage: fica só em memória */ }
 };
 
+// ============================================================================
+// P-URL (2026-08-10, Opção A aprovada pelo dono) — HASH ROUTING
+// Problema reportado: «o URL das páginas nunca muda» — a navegação era 100%
+// estado React. Agora cada página reflecte-se no hash (#/correio, #/perfil…):
+// voltar/avançar do browser funcionam, páginas passam a ser marcáveis e
+// deep-links entram na página certa após o login. Regras:
+//  · ESCRITA: qualquer tab definido pela app gera #/<tab> (o URL é honesto);
+//  · LEITURA (input não confiável: URL manual, voltar, entrada): só tabs da
+//    allow-list do MODO actual (um cidadão nunca abre '#/gov-dashboard');
+//  · tabs de DETALHE precisam de estado auxiliar (mensagem/documento/
+//    instituição escolhidos por clique) → caem no fallback seguro do modo;
+//  · fora do stage 'app' o hash nunca é escrito; ao SAIR do app o hash é
+//    limpo (replaceState) para não revelar a última página ao login seguinte.
+// ============================================================================
+const HASH_TAB_FALLBACKS: Record<string, Record<string, string>> = {
+  user: { mensagem: 'correspondencias', documento: 'documentos', instituicao: 'home' },
+  institution: { mensagem: 'correspondencias', documento: 'documentos', instituicao: 'home' },
+  admin: {},
+};
+const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
+  user: new Set([
+    'home', 'correspondencias', 'contatos', 'contactos', 'perfil', 'historico',
+    'notificacoes', 'pagamentos', 'documentos', 'qr-code', 'pasta-digital',
+    'solicitar-documento', 'video-atendimento',
+    // tabs de detalhe — só via fallback (HASH_TAB_FALLBACKS)
+    'mensagem', 'documento', 'instituicao',
+  ]),
+  institution: new Set([
+    'home', 'correspondencias', 'gov-contatos', 'contatos', 'contactos',
+    'inst-qrcode', 'inst-ai-assistant', 'perfil', 'inst-pagamentos',
+    'historico', 'notificacoes', 'documentos',
+    'mensagem', 'documento', 'instituicao',
+  ]),
+  admin: new Set([
+    'gov-dashboard', 'gov-interoperabilidade', 'gov-correspondencias',
+    'gov-contatos', 'gov-trabalhadores', 'gov-relatorio', 'gov-ia',
+    'gov-seguranca', 'gov-perfil', 'gov-emissao', 'historico', 'notificacoes',
+  ]),
+};
+const resolveHashToTab = (hash: string, mode: string): string | null => {
+  const raw = hash.replace(/^#\/?/, '').split('?')[0].trim();
+  if (!raw) return null;
+  const allowed = HASH_ALLOWED_TABS[mode] || HASH_ALLOWED_TABS.user;
+  if (!allowed.has(raw)) return null;
+  return (HASH_TAB_FALLBACKS[mode] || {})[raw] || raw;
+};
+
 export default function App() {
   const { currentLanguage, setCurrentLanguage, t } = useLanguage();
 
@@ -1072,6 +1119,70 @@ export default function App() {
   const isInstMode = appMode === 'institution';
   // F12 — auxiliar simétrico para a ideologia demo/real (conta cidadão).
   const isUserMode = appMode === 'user';
+
+  // ---- P-URL (Opção A) — sincronização tab ⇄ hash (ver bloco de módulo) ----
+  const [hashNavTick, setHashNavTick] = useState(0);
+  const urlDrivenNavRef = useRef(false);
+  const hashHydratedRef = useRef(false);
+  // Voltar/avançar e edição manual do hash marcam a navegação como «da URL».
+  useEffect(() => {
+    const onHashNav = () => { urlDrivenNavRef.current = true; setHashNavTick(x => x + 1); };
+    window.addEventListener('popstate', onHashNav);
+    window.addEventListener('hashchange', onHashNav);
+    return () => {
+      window.removeEventListener('popstate', onHashNav);
+      window.removeEventListener('hashchange', onHashNav);
+    };
+  }, []);
+  const lastSyncedTabRef = useRef(tab);
+  useEffect(() => {
+    if (stage !== 'app') { hashHydratedRef.current = false; return; }
+    // Entrada no app (hidratação do deep-link) ou evento de URL: a URL manda.
+    const urlDriven = urlDrivenNavRef.current || !hashHydratedRef.current;
+    urlDrivenNavRef.current = false;
+    hashHydratedRef.current = true;
+    if (urlDriven) {
+      const fromUrl = resolveHashToTab(window.location.hash, appMode);
+      if (fromUrl) {
+        if (fromUrl !== tab) {
+          setSelectedMessage(null);
+          setSelectedDoc(null);
+          window.scrollTo({ top: 0 });
+          setTab(fromUrl);
+          return;
+        }
+        // Mesmo tab (ou resolvido via fallback de detalhe, ex.: '#/mensagem'):
+        // normaliza o URL por substituição — NUNCA escreve nesta via, para o
+        // histórico não entrar em pingue-pongue à volta de tabs de detalhe.
+        if (window.location.hash !== `#/${fromUrl}`) {
+          window.history.replaceState(null, '', `#/${fromUrl}`);
+        }
+        lastSyncedTabRef.current = fromUrl;
+        return;
+      }
+      // Hash inválido neste modo (lixo / outro portal) → escrita abaixo normaliza.
+    }
+    const target = `#/${tab}`;
+    if (window.location.hash !== target) {
+      if (window.location.hash === `#/${lastSyncedTabRef.current}`) {
+        // Navegação in-app com o URL onde o deixámos → nova entrada (voltar OK).
+        window.history.pushState(null, '', target);
+      } else {
+        // URL mexido manualmente/entrada/inválido → normaliza por substituição.
+        window.history.replaceState(null, '', target);
+      }
+    }
+    lastSyncedTabRef.current = tab;
+  }, [tab, stage, appMode, hashNavTick]);
+  // Ao SAIR do app (logout/expiração) o hash é limpo — sem destruir deep-links
+  // escritos ANTES do login (transição splash→login não é logout).
+  const prevStageForHashRef = useRef(stage);
+  useEffect(() => {
+    if (prevStageForHashRef.current === 'app' && stage === 'login' && window.location.hash) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+    prevStageForHashRef.current = stage;
+  }, [stage]);
   const institutionCode = resolveInstitutionCode(activeProfile?.institutionName || '');
   // F3/F7 — estado da conta institucional: 'restricted' = pendente/em correções (a área abre na mesma; o estado alimenta o tom do indicador Online); 'full' = aprovada
   const [instGate, setInstGate] = useState<'none' | 'restricted' | 'full'>('none');
@@ -3067,6 +3178,9 @@ export default function App() {
   // sessão de nuvem activa). Best-effort: sem rede o logout local prossegue; o
   // marcador cda_cloud_accounts_v1 NUNCA é apagado (a conta continua migrada).
   const handleLogout = async (clearAll = false) => {
+    // P-URL — limpar o hash ANTES do reload: a última página visitada não fica
+    // exposta no URL do ecrã de login seguinte (privacidade pós-logout).
+    try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* melhor esforço */ }
     if (clearAll) {
       localStorage.clear();
       window.location.reload();
