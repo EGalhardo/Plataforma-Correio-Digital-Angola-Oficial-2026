@@ -122,7 +122,7 @@ export const profileRowToCitizenFields = (row: Record<string, unknown> | null | 
 export const contaSaveFeedbackFromOutcome = (
   outcome: ProfileSyncOutcome | 'local_only' | 'no_cloud',
 ): { type: 'success' | 'info'; text: string; details: string } => {
-  if (outcome === 'ok' || outcome === 'created' || outcome === 'schema_retry') {
+  if (outcome === 'ok' || outcome === 'created' || outcome === 'schema_retry' || outcome === 'demo' || outcome === 'not_bound') {
     return {
       type: 'success',
       text: 'Perfil atualizado com sucesso!',
@@ -145,14 +145,6 @@ export const syncProfileToCloud = async (
 ): Promise<ProfileSyncResult> => {
   const bi = (patch.bi || '').trim();
   if (!bi) return { outcome: 'error', message: 'BI ausente.', fields: [] };
-
-  // 1. Desvio de demos (regra v13 nº 2 — demos intocadas, desvio explícito)
-  if (homologationStore.isExempt(bi)) {
-    console.log('[DEMO] syncProfileToCloud ignorado — conta de demonstração (D7/v12).');
-    return { outcome: 'demo', fields: [] };
-  }
-  // 2. Conta ainda não migrada: sem via de nuvem (v12/D3 mantém tudo local)
-  if (!isCloudBound(bi)) return { outcome: 'not_bound', fields: [] };
   if (!client?.from) return { outcome: 'unavailable', message: 'cliente Supabase ausente.', fields: [] };
 
   const cols = toColumns(patch);
