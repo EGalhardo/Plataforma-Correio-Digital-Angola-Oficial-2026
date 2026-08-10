@@ -1,6 +1,21 @@
 import { supabase } from '../lib/supabaseClient';
 import { Message, Document, Contact, UserRequest, DocRequest, Correspondence, AppNotification, DigitalProtocol } from '../types';
 import { MOCK_CITIZENS, MOCK_USERS, MOCK_SESSION_USER } from '../constants/mocks';
+import {
+  buildEmergencyAlertRow,
+  insertEmergencyAlertWithClient,
+  type EmergencyAlertInput,
+  type EmergencyAlertOutcome,
+} from './emergencyContactsService';
+import {
+  lookupCidadaoByBi,
+  fetchRedeEmergencia,
+  recordInstitutionBroadcast,
+  type InstCitizenLookupResult,
+  type FetchRedeResult,
+  type BroadcastRecordRow,
+  type RecordBroadcastResult,
+} from './institutionEmergencyService';
 
 // ----------------------------------------------------------------------------
 // Linhas cruas do PostgREST (travessia de tipagem 2026-08-07 — item 4 do
@@ -670,9 +685,8 @@ export const supabaseService = {
    * injectável e testado) com o cliente real. NUNCA simula envio: o estado
    * do gateway vem de EMERGENCY_GATEWAY_CONFIGURED (hoje 'sem_gateway').
    */
-  async insertEmergencyAlert(input: import('./emergencyContactsService').EmergencyAlertInput) {
-    const svc = await import('./emergencyContactsService');
-    const row = svc.buildEmergencyAlertRow(input);
+  async insertEmergencyAlert(input: EmergencyAlertInput): Promise<EmergencyAlertOutcome> {
+    const row = buildEmergencyAlertRow(input);
     if (!hasValidSupabaseKeys()) {
       return {
         recorded: false,
@@ -680,9 +694,9 @@ export const supabaseService = {
         errorCode: 'SEM_CHAVES',
         errorMessage: 'Ligação à nuvem indisponível.',
         sandbox: false,
-      } as import('./emergencyContactsService').EmergencyAlertOutcome;
+      };
     }
-    return svc.insertEmergencyAlertWithClient(supabase, row);
+    return insertEmergencyAlertWithClient(supabase, row);
   },
 
   /**
@@ -690,35 +704,32 @@ export const supabaseService = {
    * (RPC security definer; gate duro instituição/admin). Delega no núcleo
    * puro injectável; erros chegam com código real (P0001/P0002/PGRST202…).
    */
-  async institutionLookupCidadao(bi: string) {
+  async institutionLookupCidadao(bi: string): Promise<InstCitizenLookupResult> {
     if (!hasValidSupabaseKeys()) {
-      return { found: false, citizen: null, errorCode: 'SEM_CHAVES' } as import('./institutionEmergencyService').InstCitizenLookupResult;
+      return { found: false, citizen: null, errorCode: 'SEM_CHAVES' };
     }
-    const svc = await import('./institutionEmergencyService');
-    return svc.lookupCidadaoByBi(supabase, bi);
+    return lookupCidadaoByBi(supabase, bi);
   },
 
   /**
    * F58/v20 — rede de emergência do cidadão (RPC security definer).
    */
-  async institutionFetchRedeEmergencia(bi: string) {
+  async institutionFetchRedeEmergencia(bi: string): Promise<FetchRedeResult> {
     if (!hasValidSupabaseKeys()) {
-      return { members: null, errorCode: 'SEM_CHAVES' } as import('./institutionEmergencyService').FetchRedeResult;
+      return { members: null, errorCode: 'SEM_CHAVES' };
     }
-    const svc = await import('./institutionEmergencyService');
-    return svc.fetchRedeEmergencia(supabase, bi);
+    return fetchRedeEmergencia(supabase, bi);
   },
 
   /**
    * F58/v20 — registo REAL da difusão em emergency_alerts (append-only,
    * ramo instituição). NUNCA simula: o resultado diz se ficou gravado.
    */
-  async institutionRecordEmergencyBroadcast(row: import('./institutionEmergencyService').BroadcastRecordRow) {
+  async institutionRecordEmergencyBroadcast(row: BroadcastRecordRow): Promise<RecordBroadcastResult> {
     if (!hasValidSupabaseKeys()) {
-      return { recorded: false, errorCode: 'SEM_CHAVES' } as import('./institutionEmergencyService').RecordBroadcastResult;
+      return { recorded: false, errorCode: 'SEM_CHAVES' };
     }
-    const svc = await import('./institutionEmergencyService');
-    return svc.recordInstitutionBroadcast(supabase, row);
+    return recordInstitutionBroadcast(supabase, row);
   },
 
   /**
