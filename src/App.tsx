@@ -4184,7 +4184,26 @@ Ficha civil do titular:
         );
       case 'instituicao':
         if (!selectedInstitution) {
-          return null;
+          return (
+            <div className="bg-white border border-slate-200 rounded-3xl p-8 max-w-xl mx-auto my-12 text-center shadow-sm">
+              <div className="w-16 h-16 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Shield size={32} />
+              </div>
+              <h3 className="text-base font-black text-slate-800 uppercase tracking-wide mb-2">
+                Nenhuma Instituição Selecionada
+              </h3>
+              <p className="text-xs font-semibold text-slate-500 mb-6 leading-relaxed">
+                Por favor, retorne ao catálogo de instituições para escolher uma entidade oficial.
+              </p>
+              <button
+                type="button"
+                onClick={() => setTab('home')}
+                className="bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-widest px-6 py-3 rounded-xl transition-all cursor-pointer shadow-xs"
+              >
+                Voltar ao Painel
+              </button>
+            </div>
+          );
         }
         return (
           <InstitutionDetail
@@ -4264,7 +4283,28 @@ Ficha civil do titular:
           />
         );
       case 'mensagem':
-        if (!selectedMessage) return null;
+        if (!selectedMessage) {
+          return (
+            <div className="bg-white border border-slate-200 rounded-3xl p-8 max-w-xl mx-auto my-12 text-center shadow-sm">
+              <div className="w-16 h-16 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <FileText size={32} />
+              </div>
+              <h3 className="text-base font-black text-slate-800 uppercase tracking-wide mb-2">
+                Nenhuma Correspondência Selecionada
+              </h3>
+              <p className="text-xs font-semibold text-slate-500 mb-6 leading-relaxed">
+                Por favor, volte à Caixa de Correio para selecionar um ofício ou mensagem oficial e visualizar os seus detalhes e histórico.
+              </p>
+              <button
+                type="button"
+                onClick={() => setTab('correspondencias')}
+                className="bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-widest px-6 py-3 rounded-xl transition-all cursor-pointer shadow-xs"
+              >
+                Voltar à Caixa de Correio
+              </button>
+            </div>
+          );
+        }
         return (
           <PainelSuspense>
           <div className="flex flex-col gap-4">
@@ -4316,7 +4356,28 @@ Ficha civil do titular:
           />
         );
       case 'documento':
-        if (!selectedDoc) return null;
+        if (!selectedDoc) {
+          return (
+            <div className="bg-white border border-slate-200 rounded-3xl p-8 max-w-xl mx-auto my-12 text-center shadow-sm">
+              <div className="w-16 h-16 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <FileText size={32} />
+              </div>
+              <h3 className="text-base font-black text-slate-800 uppercase tracking-wide mb-2">
+                Nenhum Documento Selecionado
+              </h3>
+              <p className="text-xs font-semibold text-slate-500 mb-6 leading-relaxed">
+                Por favor, consulte os seus Documentos ou a sua Pasta Digital para selecionar um ficheiro oficial.
+              </p>
+              <button
+                type="button"
+                onClick={() => setTab('documentos')}
+                className="bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-widest px-6 py-3 rounded-xl transition-all cursor-pointer shadow-xs"
+              >
+                Voltar aos Documentos
+              </button>
+            </div>
+          );
+        }
         return (
           <DocumentDetail
             selectedDoc={selectedDoc}
