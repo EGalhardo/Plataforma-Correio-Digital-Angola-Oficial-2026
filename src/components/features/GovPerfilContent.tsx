@@ -5,8 +5,9 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Lock, History, Eye, EyeOff, Check, BadgeCheck } from 'lucide-react';
+import { Lock, History, Eye, EyeOff, Check, BadgeCheck, Settings } from 'lucide-react';
 import { USER_PROFILE_PHOTO } from '../../constants/data';
+import { useSession } from '../../services/sessionStore';
 import { supabase } from '../../lib/supabaseClient';
 import { hasValidSupabaseKeys } from '../../services/supabaseService';
 import { cloudChangePassword, hasActiveCloudSession, isCloudBound } from '../../services/cloudAuthService';
@@ -44,6 +45,30 @@ export function GovPerfilContent({
   nif = '5401328901',
   passport = 'AO-P987654',
   profileName = 'Carlos Afonso Alberto'}: GovPerfilContentProps) {
+  const { updateUserFields } = useSession();
+  const [isEditingAdmin, setIsEditingAdmin] = useState(false);
+  const [editAdminName, setEditAdminName] = useState(profileName || '');
+  const [editAdminPhone, setEditAdminPhone] = useState(phone || '');
+  const [editAdminEmail, setEditAdminEmail] = useState('admin@cda.gov.ao');
+  const [editAdminNif, setEditAdminNif] = useState(nif || '');
+
+  React.useEffect(() => {
+    setEditAdminName(profileName || '');
+    setEditAdminPhone(phone || '');
+    setEditAdminNif(nif || '');
+  }, [profileName, phone, nif]);
+
+  const handleSaveAdminEdit = () => {
+    updateUserFields({
+      name: editAdminName,
+      phone: editAdminPhone,
+      email: editAdminEmail,
+      nif: editAdminNif
+    });
+    setIsEditingAdmin(false);
+    setPasswordSuccess(true);
+    setPasswordSuccessMsg('Informações da conta administrativa atualizadas com sucesso!');
+  };
   const [showSensitiveData, setShowSensitiveData] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   
@@ -165,28 +190,61 @@ export function GovPerfilContent({
             <div className="border-b border-slate-100 pb-4 flex justify-between items-center">
               <div>
                 <h4 className="font-black text-slate-900 text-lg uppercase tracking-tight">Informações de Conta</h4>
-                <p className="text-xs text-slate-500 font-medium">Histórico e dados de autoridade na infraestrutura digital do Estado</p>
+                <p className="text-xs text-slate-500 font-medium">
+                  {isEditingAdmin ? 'A editar dados do perfil de administrador' : 'Histórico e dados de autoridade na infraestrutura digital do Estado'}
+                </p>
               </div>
-              <button 
-                type="button"
-                onClick={() => setShowSensitiveData(!showSensitiveData)}
-                className={`p-2 border rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider ${
-                  showSensitiveData 
-                    ? 'bg-[#0E2B64] border-[#0E2B64] text-white hover:bg-[#0E2B64]/90 shadow-sm' 
-                    : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50 border-slate-200 bg-white'
-                }`}
-              >
-                {showSensitiveData ? <EyeOff size={14} className={showSensitiveData ? 'text-white' : 'text-slate-400'} /> : <Eye size={14} />}
-                <span>{showSensitiveData ? 'Ocultar' : 'Revelar'}</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {!isEditingAdmin ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingAdmin(true)}
+                    className="p-2.5 bg-[#0E2B64] hover:bg-[#081a3d] text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm cursor-pointer border-0"
+                  >
+                    <Settings size={14} />
+                    <span>Editar Perfil</span>
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleSaveAdminEdit}
+                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 shadow-sm cursor-pointer border-0"
+                    >
+                      <Check size={14} />
+                      <span>Gravar</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingAdmin(false)}
+                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border-0"
+                    >
+                      <span>Cancelar</span>
+                    </button>
+                  </>
+                )}
+                <button 
+                  type="button"
+                  onClick={() => setShowSensitiveData(!showSensitiveData)}
+                  className={`p-2 border rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider ${
+                    showSensitiveData 
+                      ? 'bg-[#0E2B64] border-[#0E2B64] text-white hover:bg-[#0E2B64]/90 shadow-sm' 
+                      : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50 border-slate-200 bg-white'
+                  }`}
+                >
+                  {showSensitiveData ? <EyeOff size={14} className={showSensitiveData ? 'text-white' : 'text-slate-400'} /> : <Eye size={14} />}
+                  <span>{showSensitiveData ? 'Ocultar' : 'Revelar'}</span>
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Nome Completo */}
-              <div className="bg-white border border-slate-200 p-4 rounded-2xl">
-                <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Nome Completo</span>
-                <span className="text-xs font-bold text-slate-800 block">Edlasio Galhardo</span>
-              </div>
+            {!isEditingAdmin ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Nome Completo */}
+                <div className="bg-white border border-slate-200 p-4 rounded-2xl">
+                  <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Nome Completo</span>
+                  <span className="text-xs font-bold text-slate-800 block">{profileName}</span>
+                </div>
 
               {/* B.I. */}
               <div className="bg-white border border-slate-200 p-4 rounded-2xl">
@@ -243,6 +301,46 @@ export function GovPerfilContent({
                 <span className="text-xs font-bold text-slate-800 block">Administrador de Sistema (Infraestrutura Central - CDA)</span>
               </div>
             </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl">
+                  <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Nome Completo</label>
+                  <input
+                    type="text"
+                    value={editAdminName}
+                    onChange={(e) => setEditAdminName(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl">
+                  <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Telefone Principal</label>
+                  <input
+                    type="text"
+                    value={editAdminPhone}
+                    onChange={(e) => setEditAdminPhone(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl">
+                  <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Email Funcional</label>
+                  <input
+                    type="email"
+                    value={editAdminEmail}
+                    onChange={(e) => setEditAdminEmail(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl">
+                  <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">NIF</label>
+                  <input
+                    type="text"
+                    value={editAdminNif}
+                    onChange={(e) => setEditAdminNif(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Security Section */}

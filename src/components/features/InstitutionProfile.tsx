@@ -71,7 +71,37 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
   // F8 — sem foto própria, mostra-se um marcador neutro institucional (nunca a foto do cidadão demo).
   const finalPhoto = (userProfilePhoto && !userProfilePhoto.includes("Foto-Edlasio") && (userProfilePhoto.includes("unsplash") || userProfilePhoto.includes("foto_perfil_edlasio") || userProfilePhoto.includes("sxWsYGX2"))) ? "https://i.postimg.cc/J73QvnGv/Foto-Edlasio.png" : (userProfilePhoto || "");
 
-  const { updateUserFields } = useSession();
+  const { updateUserFields, updateActiveProfileFields } = useSession();
+  const [isEditingInst, setIsEditingInst] = useState(false);
+  const [editInstName, setEditInstName] = useState(profileName || '');
+  const [editInstRole, setEditInstRole] = useState(role || 'Funcionário Oficial');
+  const [editInstDept, setEditInstDept] = useState(department || '');
+  const [editInstPhone, setEditInstPhone] = useState(phone || '');
+  const [editInstEmail, setEditInstEmail] = useState(email || '');
+
+  useEffect(() => {
+    setEditInstName(profileName || '');
+    setEditInstRole(role || 'Funcionário Oficial');
+    setEditInstDept(department || '');
+    setEditInstPhone(phone || '');
+    setEditInstEmail(email || '');
+  }, [profileName, role, department, phone, email]);
+
+  const handleSaveInstEdit = () => {
+    updateUserFields({ name: editInstName, phone: editInstPhone, email: editInstEmail });
+    updateActiveProfileFields({
+      role: editInstRole,
+      departmentName: editInstDept,
+    });
+    if (addAuditLog) {
+      addAuditLog('Perfil Institucional e credenciais funcionais atualizados com sucesso', 'success');
+    }
+    setIsEditingInst(false);
+    setFeedback({
+      type: 'success',
+      text: 'Perfil Institucional atualizado com sucesso!'
+    });
+  };
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; text: string; details?: string } | null>(null);
 
@@ -319,38 +349,122 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
           
           {/* INFORMAÇÕES DA CONTA */}
           <div className="bg-white border border-slate-200 rounded-[32px] p-6 md:p-8 space-y-6 shadow-sm">
-            <div className="border-b border-slate-100 pb-4">
-              <h3 className="font-black text-slate-950 text-xl uppercase tracking-tight">Informações da Conta</h3>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">Credenciais funcionais e sector público</p>
+            <div className="border-b border-slate-100 pb-4 flex justify-between items-center">
+              <div>
+                <h3 className="font-black text-slate-950 text-xl uppercase tracking-tight">Informações da Conta</h3>
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+                  {isEditingInst ? 'A editar credenciais funcionais' : 'Credenciais funcionais e sector público'}
+                </p>
+              </div>
+              <div>
+                {!isEditingInst ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingInst(true)}
+                    className="px-4 py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-sm cursor-pointer border-0"
+                  >
+                    <Settings size={14} />
+                    Editar Perfil
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveInstEdit}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1 shadow-sm cursor-pointer border-0"
+                    >
+                      <Check size={14} />
+                      Gravar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingInst(false)}
+                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer border-0"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[
-                { label: 'Nome Completo', value: profileName },
-                { label: 'Função no Sistema', value: role },
-                { label: 'Nível de Acesso', value: 'Padrão', highlight: true },
-                { label: 'Perfil de Permissões', value: 'Operacional' },
-                { label: 'Instituição Sincronizada', value: institution, colSpan: 'md:col-span-2' },
-                { label: 'Departamento / Repartição', value: department || '—', colSpan: 'md:col-span-2' },
-                { label: 'Email Alternativo (Pessoal)', value: derivedPersonalEmail || '—' },
-                { label: 'Telefone Pessoal', value: phone || '—' }
-              ].map((field, idx) => (
-                <div key={idx} className={`bg-slate-50/50 border border-slate-150 p-4 rounded-2xl flex flex-col justify-center ${field.colSpan || ''}`}>
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">{field.label}</span>
-                  <div className="flex items-center gap-2">
-                    {field.highlight ? (
-                      <span className="text-xs font-black bg-blue-100 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-md uppercase tracking-wider">
-                        {field.value}
-                      </span>
-                    ) : (
-                      <span className="text-xs font-bold text-slate-800">
-                        {field.value}
-                      </span>
-                    )}
+            {!isEditingInst ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  { label: 'Nome Completo', value: profileName },
+                  { label: 'Função no Sistema', value: role },
+                  { label: 'Nível de Acesso', value: 'Padrão', highlight: true },
+                  { label: 'Perfil de Permissões', value: 'Operacional' },
+                  { label: 'Instituição Sincronizada', value: institution, colSpan: 'md:col-span-2' },
+                  { label: 'Departamento / Repartição', value: department || '—', colSpan: 'md:col-span-2' },
+                  { label: 'Email Alternativo (Pessoal)', value: derivedPersonalEmail || '—' },
+                  { label: 'Telefone Pessoal', value: phone || '—' }
+                ].map((field, idx) => (
+                  <div key={idx} className={`bg-slate-50/50 border border-slate-150 p-4 rounded-2xl flex flex-col justify-center ${field.colSpan || ''}`}>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">{field.label}</span>
+                    <div className="flex items-center gap-2">
+                      {field.highlight ? (
+                        <span className="text-xs font-black bg-blue-100 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                          {field.value}
+                        </span>
+                      ) : (
+                        <span className="text-xs font-bold text-slate-800">
+                          {field.value}
+                        </span>
+                      )}
+                    </div>
                   </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col justify-center">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Nome Completo</label>
+                  <input
+                    type="text"
+                    value={editInstName}
+                    onChange={(e) => setEditInstName(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
                 </div>
-              ))}
-            </div>
+                <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col justify-center">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Função no Sistema</label>
+                  <input
+                    type="text"
+                    value={editInstRole}
+                    onChange={(e) => setEditInstRole(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col justify-center md:col-span-2">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Departamento / Repartição</label>
+                  <input
+                    type="text"
+                    value={editInstDept}
+                    onChange={(e) => setEditInstDept(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col justify-center">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Email Alternativo</label>
+                  <input
+                    type="email"
+                    value={editInstEmail}
+                    onChange={(e) => setEditInstEmail(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col justify-center">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Telefone Pessoal</label>
+                  <input
+                    type="text"
+                    value={editInstPhone}
+                    onChange={(e) => setEditInstPhone(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 3 Lower Bento Cards */}

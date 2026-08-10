@@ -191,6 +191,18 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
       return updated;
     });
+    setActiveProfiles(prev => {
+      const currentModeProfile = prev[appMode] || PROFILES_MAP[appMode] || {};
+      const updatedProfile = {
+        ...currentModeProfile,
+        ...(fields.name ? { name: fields.name } : {}),
+        ...(fields.email ? { email: fields.email } : {}),
+        ...(fields.phone ? { phone: fields.phone } : {})
+      };
+      const newProfiles = { ...prev, [appMode]: updatedProfile };
+      localStorage.setItem("gov_active_profiles", JSON.stringify(newProfiles));
+      return newProfiles;
+    });
   };
 
   const updateActiveProfileFields = (fields: Partial<ActiveProfile>) => {

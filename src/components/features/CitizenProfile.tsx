@@ -82,8 +82,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [editName, setEditName] = useState(user?.name || '');
-  // O telemóvel não é recolhido no registo — arranca sempre vazio na ficha do cidadão.
-  const [editPhone, setEditPhone] = useState('');
+  const [editPhone, setEditPhone] = useState(user?.phone || phone || '');
   const [editEmail, setEditEmail] = useState(user?.email || '');
   const [editFiliation, setEditFiliation] = useState(user?.filiation || 'António Galhardo & Maria Conceição');
   const [editMaritalStatus, setEditMaritalStatus] = useState(user?.maritalStatus || 'Solteiro');
@@ -91,12 +90,12 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
 
   useEffect(() => {
     setEditName(user?.name || '');
-    setEditPhone('');
+    setEditPhone(user?.phone || phone || '');
     setEditEmail(user?.email || '');
     setEditFiliation(user?.filiation || 'António Galhardo & Maria Conceição');
     setEditMaritalStatus(user?.maritalStatus || 'Solteiro');
     setEditMorada(user?.address || '');
-  }, [user]);
+  }, [user, phone]);
 
   // F45 (Auditoria F42 · Médio#10 — corrida F39): edição directa aberta ⇒ a
   // hidratação da nuvem (App.tsx) não sobrescreve os campos em edição.
