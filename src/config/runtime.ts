@@ -5,6 +5,6 @@ export const RUNTIME_FLAGS = {
   mockFallback: ((import.meta as any).env.VITE_ENABLE_MOCK_FALLBACK || 'false') !== 'false',
 };
 
-export const shouldUseLocalBootstrap = () => RUNTIME_FLAGS.localBootstrap;
+export const shouldUseLocalBootstrap = () => typeof localStorage !== 'undefined' && RUNTIME_FLAGS.localBootstrap;
 export const shouldUseMockFallback = () => RUNTIME_FLAGS.mockFallback;
 export const shouldAutoSeedSupabase = () => RUNTIME_FLAGS.supabaseAutoSeed;

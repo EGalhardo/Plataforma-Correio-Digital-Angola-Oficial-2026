@@ -96,12 +96,14 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const [user, setUser] = useState<SessionUser>(() => {
-    const saved = localStorage.getItem("correio_digital_session_user");
-    if (saved) {
-      try {
-        return sanitizeSessionUser(JSON.parse(saved));
-      } catch (e) {
-        // ignore
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem("correio_digital_session_user");
+      if (saved) {
+        try {
+          return sanitizeSessionUser(JSON.parse(saved));
+        } catch (e) {
+          // ignore
+        }
       }
     }
     return CANONICAL_USER;
@@ -110,25 +112,33 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [appMode, setAppModeState] = useState<AppMode>(() => {
     const fromPath = resolveAppModeFromPath();
     if (fromPath) return fromPath;
-    return (localStorage.getItem("gov_app_mode") as AppMode) || "user";
+    if (typeof localStorage !== 'undefined') {
+      return (localStorage.getItem("gov_app_mode") as AppMode) || "user";
+    }
+    return "user";
   });
 
   const [isEmergencyActive, setIsEmergencyActive] = useState(() => {
-    return localStorage.getItem("gov_emergency_mode") === "true";
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem("gov_emergency_mode") === "true";
+    }
+    return false;
   });
 
   const [activeProfiles, setActiveProfiles] = useState<Record<AppMode, ActiveProfile>>(() => {
-    const saved = localStorage.getItem("gov_active_profiles");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return {
-          user: { ...PROFILES_MAP.user, ...(parsed.user || {}) },
-          institution: { ...PROFILES_MAP.institution, ...(parsed.institution || {}) },
-          admin: { ...PROFILES_MAP.admin, ...(parsed.admin || {}) }
-        };
-      } catch (e) {
-        // ignore
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem("gov_active_profiles");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          return {
+            user: { ...PROFILES_MAP.user, ...(parsed.user || {}) },
+            institution: { ...PROFILES_MAP.institution, ...(parsed.institution || {}) },
+            admin: { ...PROFILES_MAP.admin, ...(parsed.admin || {}) }
+          };
+        } catch (e) {
+          // ignore
+        }
       }
     }
     return PROFILES_MAP;

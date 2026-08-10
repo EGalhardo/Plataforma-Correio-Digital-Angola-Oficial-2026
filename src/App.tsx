@@ -293,7 +293,7 @@ export default function App() {
   const { currentLanguage, setCurrentLanguage, t } = useLanguage();
 
   const [stage, setStage] = useState(() => {
-    if (localStorage.getItem('skip_splash_and_show_login') === 'true') {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('skip_splash_and_show_login') === 'true') {
       localStorage.removeItem('skip_splash_and_show_login');
       return 'login';
     }

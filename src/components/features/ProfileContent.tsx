@@ -127,6 +127,15 @@ export function ProfileContent({
   auditLogs: passedAuditLogs = [],
   addAuditLog
 }: ProfileContentProps) {
+const safeGetItem = (key: string, defaultVal: string = ''): string => {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return defaultVal;
+  try {
+    return localStorage.getItem(key) || defaultVal;
+  } catch {
+    return defaultVal;
+  }
+};
+
   const { user, activeProfile } = useSession();
   // Modal states
   const [isVerifying, setIsVerifying] = useState(false);
@@ -135,18 +144,18 @@ export function ProfileContent({
   // Citizen Preferences states
   const [isPrefsOpen, setIsPrefsOpen] = useState(false);
   const [prefSubTab, setPrefSubTab] = useState<'geral' | 'notificacoes' | 'conectividade' | 'privacidade' | 'supabase'>('geral');
-  const [prefLanguage, setPrefLanguage] = useState(() => localStorage.getItem('gov_pref_language') || 'pt');
-  const [prefNotificationSMS, setPrefNotificationSMS] = useState(() => localStorage.getItem('gov_pref_notif_sms') !== 'false');
-  const [prefNotificationEmail, setPrefNotificationEmail] = useState(() => localStorage.getItem('gov_pref_notif_email') !== 'false');
-  const [prefNotificationPush, setPrefNotificationPush] = useState(() => localStorage.getItem('gov_pref_notif_push') !== 'false');
-  const [prefNotificationApp] = useState(() => localStorage.getItem('gov_pref_notif_app') !== 'false');
-  const [prefPreferredHours, setPrefPreferredHours] = useState(() => localStorage.getItem('gov_pref_hours') || 'business'); // 'any' | 'business' | 'night'
-  const [prefBiometricsEnabled, setPrefBiometricsEnabled] = useState(() => localStorage.getItem('gov_pref_biometrics') !== 'false');
-  const [prefPrivacyLevel, setPrefPrivacyLevel] = useState(() => localStorage.getItem('gov_pref_privacy') || 'standard'); // 'standard' | 'maximum'
-  const [prefPrivacyLogs, setPrefPrivacyLogs] = useState(() => localStorage.getItem('gov_pref_privacy_logs') !== 'false');
-  const [prefEcoMode, setPrefEcoMode] = useState(() => localStorage.getItem('gov_pref_eco_mode') === 'true');
-  const [prefOfflineUse, setPrefOfflineUse] = useState(() => localStorage.getItem('gov_pref_offline') === 'true');
-  const [prefCommChannel, setPrefCommChannel] = useState(() => localStorage.getItem('gov_pref_comm_channel') || 'Notificação Push'); // 'SMS' | 'E-mail' | 'Notificação Push' | 'Correio Físico'
+  const [prefLanguage, setPrefLanguage] = useState(() => safeGetItem('gov_pref_language', 'pt'));
+  const [prefNotificationSMS, setPrefNotificationSMS] = useState(() => safeGetItem('gov_pref_notif_sms') !== 'false');
+  const [prefNotificationEmail, setPrefNotificationEmail] = useState(() => safeGetItem('gov_pref_notif_email') !== 'false');
+  const [prefNotificationPush, setPrefNotificationPush] = useState(() => safeGetItem('gov_pref_notif_push') !== 'false');
+  const [prefNotificationApp] = useState(() => safeGetItem('gov_pref_notif_app') !== 'false');
+  const [prefPreferredHours, setPrefPreferredHours] = useState(() => safeGetItem('gov_pref_hours', 'business')); // 'any' | 'business' | 'night'
+  const [prefBiometricsEnabled, setPrefBiometricsEnabled] = useState(() => safeGetItem('gov_pref_biometrics') !== 'false');
+  const [prefPrivacyLevel, setPrefPrivacyLevel] = useState(() => safeGetItem('gov_pref_privacy', 'standard')); // 'standard' | 'maximum'
+  const [prefPrivacyLogs, setPrefPrivacyLogs] = useState(() => safeGetItem('gov_pref_privacy_logs') !== 'false');
+  const [prefEcoMode, setPrefEcoMode] = useState(() => safeGetItem('gov_pref_eco_mode') === 'true');
+  const [prefOfflineUse, setPrefOfflineUse] = useState(() => safeGetItem('gov_pref_offline') === 'true');
+  const [prefCommChannel, setPrefCommChannel] = useState(() => safeGetItem('gov_pref_comm_channel', 'Notificação Push')); // 'SMS' | 'E-mail' | 'Notificação Push' | 'Correio Físico'
   
   // Edit profile states
   const { updateUserFields, updateActiveProfileFields } = useSession();
@@ -182,7 +191,7 @@ export function ProfileContent({
   
   // Dynamic arrays for Sessions and Devices that can be removed/updated
   const [activeSessions, setActiveSessions] = useState(() => {
-    const cached = localStorage.getItem('gov_pref_sessions');
+    const cached = safeGetItem('gov_pref_sessions');
     if (cached) {
       try {
         return JSON.parse(cached);
@@ -198,7 +207,7 @@ export function ProfileContent({
   });
 
   const [connectedDevices, setConnectedDevices] = useState(() => {
-    const cached = localStorage.getItem('gov_pref_devices');
+    const cached = safeGetItem('gov_pref_devices');
     if (cached) {
       try {
         return JSON.parse(cached);
