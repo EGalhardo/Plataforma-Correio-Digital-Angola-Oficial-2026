@@ -27,7 +27,8 @@ import {
   IdCard,
   UserPlus,
   Send,
-  Download
+  Download,
+  FileText
 } from 'lucide-react';
 
 // Components
@@ -4897,7 +4898,14 @@ Ficha civil do titular:
           </>
         );
       case 'gov-stats':
-        return null; // Removido ou integrado no painel principal
+        return (
+          <PainelSuspense>
+          <GovRelatorioContent 
+            correspondences={currentCorrespondences}
+            auditLogs={auditLogs}
+          />
+          </PainelSuspense>
+        );
       case 'gov-interoperabilidade':
         return <PainelSuspense><GovInteroperabilidadeContent onLog={addAuditLog} /></PainelSuspense>;
       case 'gov-relatorio':
@@ -4986,7 +4994,26 @@ Ficha civil do titular:
         );
 
       default:
-        return null;
+        return (
+          <div className="bg-white border border-slate-200 rounded-3xl p-8 max-w-xl mx-auto my-12 text-center shadow-sm">
+            <div className="w-16 h-16 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Shield size={32} />
+            </div>
+            <h3 className="text-base font-black text-slate-800 uppercase tracking-wide mb-2">
+              Página Não Encontrada
+            </h3>
+            <p className="text-xs font-semibold text-slate-500 mb-6 leading-relaxed">
+              O módulo ou endereço selecionado ("{tab}") não existe ou foi arquivado pelo sistema.
+            </p>
+            <button
+              type="button"
+              onClick={() => setTab('home')}
+              className="bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-widest px-6 py-3 rounded-xl transition-all cursor-pointer shadow-xs"
+            >
+              Voltar ao Painel Principal
+            </button>
+          </div>
+        );
     }
   };
 
