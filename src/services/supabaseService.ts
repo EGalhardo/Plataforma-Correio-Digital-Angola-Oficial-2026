@@ -1052,7 +1052,12 @@ export const supabaseService = {
             priorityScale: item.priority_scale as Message['priorityScale'],
             deadlineHoursRemaining: item.deadline_hours_remaining,
             senderKey,
-            recipientBi
+            recipientBi,
+            // v27 — numero de protocolo ligado na nuvem (validacao real do QR):
+            // a caixa REAL do cidadao vem desta consulta OR; sem esta linha o
+            // detalhe gerava um protocolo LOCAL e a validacao caia sempre em
+            // «nao_encontrado» (apanhado no e2e de producao).
+            protocol: protocoloDaLinha(item.protocol_number)
           };
         };
         const mapped = rows.map(mapRow);
