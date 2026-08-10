@@ -17,6 +17,18 @@ interface LinhaMensagem {
   deadline_hours_remaining: number; sender_bi: string; recipient_bi: string;
   protocol_number?: string | null;
 }
+
+// v27 (2026-08-10) — hidrata message.protocol a partir da coluna
+// messages.protocol_number. Sem isto, os mappers de leitura deixavam
+// protocol indefinido, o detalhe gerava um numero LOCAL e o botao
+// «CLIQUE PARA VALIDAR» validava um protocolo que a nuvem nao conhece
+// (cai invariavelmente em «nao_encontrado»). O cast e seguro: o detalhe
+// usa apenas protocol.protocolNumber para a RPC; os restantes campos
+// visuais caem no fallback generateProtocol de MessageDetail.
+function protocoloDaLinha(protocolNumber?: string | null): DigitalProtocol | undefined {
+  const numero = (protocolNumber || '').trim();
+  return numero ? ({ protocolNumber: numero } as DigitalProtocol) : undefined;
+}
 interface LinhaPerfilNome { bi: string; name: string; }
 interface LinhaDocumento {
   name: string; validity: string; code: string; holder_bi: string;
@@ -876,9 +888,7 @@ export const supabaseService = {
           // existente (apanhado no e2e de producao apos a v27b). O cast e
           // seguro: o detalhe usa apenas protocol.protocolNumber para validar;
           // os restantes campos visuais caem no fallback generateProtocol.
-          protocol: item.protocol_number
-            ? ({ protocolNumber: item.protocol_number } as DigitalProtocol)
-            : undefined
+          protocol: protocoloDaLinha(item.protocol_number)
         };
       });
     } catch (e) {
@@ -936,7 +946,9 @@ export const supabaseService = {
         // P0-A — chaves reais guardadas na nuvem (base do payload canonico CDA-P1
         // usado na verificacao de integridade do protocolo no detalhe da mensagem).
         senderKey: item.sender_bi,
-        recipientBi: item.recipient_bi
+        recipientBi: item.recipient_bi,
+        // v27 — numero de protocolo ligado na nuvem (validacao real do QR).
+        protocol: protocoloDaLinha(item.protocol_number)
       }));
 
       // F14 — IDs do canal legado por sigla: cópias locais etiquetadas por
@@ -986,7 +998,9 @@ export const supabaseService = {
         deadlineHoursRemaining: item.deadline_hours_remaining,
         // P0-A — chaves reais da nuvem para verificacao de integridade no detalhe.
         senderKey: item.sender_bi,
-        recipientBi: item.recipient_bi
+        recipientBi: item.recipient_bi,
+        // v27 — numero de protocolo ligado na nuvem (validacao real do QR).
+        protocol: protocoloDaLinha(item.protocol_number)
       }));
     } catch (e) {
       console.error('Supabase getSentMessagesBySender error:', e);
