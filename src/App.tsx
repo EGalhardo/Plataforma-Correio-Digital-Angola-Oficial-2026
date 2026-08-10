@@ -4915,7 +4915,14 @@ Ficha civil do titular:
         const typedCode = bi.trim().toUpperCase();
         const instPreset = DEMO_CREDENTIALS.institution;
         if (!typedCode || typedCode === instPreset.identifier) {
-          // Via demo intacta (AGT-9921-SR): entra como responsável com tudo
+          // Via demo (AGT-9921-SR): entra como responsável com tudo — MAS a
+          // senha demo passa a ser verificada (P1: antes QUALQUER senha abria
+          // sessão plena nesta via).
+          if (loginPasswordInput !== instPreset.password) {
+            setLoginError('Credenciais incorrectas: a senha não corresponde a este Código Institucional.');
+            addAuditLog(`Login institucional recusado: senha inválida na via demo (${instPreset.identifier}) — P1.`, 'warning');
+            return;
+          }
           setInstGate('full');
           setInstIdentity({ type: 'responsible' });
           setInstMustChangePwd(false);
@@ -4956,6 +4963,7 @@ Ficha civil do titular:
       // F6/C7 — Agentes criados na página Equipa (Nº 'ADMIN-NNNN'; legado 'Admin-NN') entram com senha local
       if (isGovMode) {
         const typedAgent = bi.trim().toUpperCase();
+        let adminAgentOk = false; // P1 — sessão de agente REAL verificada neste submit
         if (typedAgent && typedAgent !== DEMO_CREDENTIALS.admin.identifier) {
           // F32 (v12/D4-a) — a palavra-passe do agente vive no Supabase Auth: nuvem
           // primeiro, migração just-in-time (D2), transição local marcada (até F-c)
@@ -5012,6 +5020,7 @@ Ficha civil do titular:
             // F13 — Agente ADMIN-NNNN (conta REAL): sessão limpa com a ficha do
             // próprio agente. O perfil "Administrador Geral / Central" e os
             // dados pessoais do cidadão demo pertencem apenas à conta ADM-8812-OP.
+            adminAgentOk = true; // P1 — resolveAdminAgentLogin já verificou a senha
             setProfileName(cred.name);
             setPhoneLocal(''); setNifLocal(''); setPassportLocal('');
             setUserBirthDate(''); setUserFiliation(''); setUserMaritalStatus('');
@@ -5028,7 +5037,15 @@ Ficha civil do titular:
             addAuditLog(`Login da Administração recusado para ${typedAgent}: senha inválida.`, 'warning');
             return;
           }
-          // Identificadores fora do formato ADMIN-NNNN (ou legado 'Admin-NN') seguem a via demo existente (intacta)
+          // Identificadores fora do formato ADMIN-NNNN (ou legado 'Admin-NN') seguem a via demo existente
+        }
+        // P1 — via demo da Administração (conta ADM-8812-OP, campo vazio que
+        // assume a demo, ou identificador legado sem credencial própria): a
+        // senha demo passa a ser exigida (antes QUALQUER senha abria sessão).
+        if (!adminAgentOk && loginPasswordInput !== DEMO_CREDENTIALS.admin.password) {
+          setLoginError('Credenciais incorrectas: a senha não corresponde a este Nº Agente Admin.');
+          addAuditLog(`Login da Administração recusado: senha inválida na via demo (${typedAgent || DEMO_CREDENTIALS.admin.identifier}) — P1.`, 'warning');
+          return;
         }
       }
 
@@ -5044,7 +5061,22 @@ Ficha civil do titular:
           addAuditLog('Login do cidadão recusado: campos de acesso vazios (fecho S2).', 'warning');
           return;
         }
-        // Contas demo (v7) NUNCA tocam no Auth — via da demonstração intacta (D7)
+        // P1 — contas demo (v7) NUNCA tocam no Auth, MAS a senha da própria
+        // identidade demo passa a ser verificada (antes QUALQUER senha abria
+        // sessão nesta via): cada identidade isenta usa a SUA senha do preset.
+        if (homologationStore.isExempt(typedCitizenBi)) {
+          const demoPresetPass = typedCitizenBi === DEMO_CREDENTIALS.user.identifier
+            ? DEMO_CREDENTIALS.user.password
+            : typedCitizenBi === DEMO_CREDENTIALS.institution.identifier
+              ? DEMO_CREDENTIALS.institution.password
+              : DEMO_CREDENTIALS.admin.password;
+          if (loginPasswordInput !== demoPresetPass) {
+            setLoginError('Credenciais incorrectas: a senha não corresponde a este Nº de B.I.');
+            addAuditLog(`Login do cidadão ${typedCitizenBi} recusado: senha inválida (identidade demo — P1).`, 'warning');
+            return;
+          }
+        }
+        // Contas demo (v7) NUNCA tocam no Auth — via da demonstração (senha já verificada acima, P1)
         if (typedCitizenBi && !homologationStore.isExempt(typedCitizenBi) && isSupabaseConfigured()) {
           const cloudEmail = syntheticCitizenEmail(typedCitizenBi);
           const cloudMarked = isCloudBound(typedCitizenBi);

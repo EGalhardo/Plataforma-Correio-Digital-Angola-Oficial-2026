@@ -625,7 +625,9 @@ export function AIChatAssistant({
         targetTab = "documentos";
         tabLabel = "Documentos e Tramitação";
       } else if (normalizedText.includes("carteira") || normalizedText.includes("wallet") || normalizedText.includes("bi") || normalizedText.includes("passaporte") || normalizedText.includes("offline")) {
-        targetTab = "carteira";
+        // P2 — a Carteira vive sob o tab 'qr-code' (o id 'carteira' não existe
+        // no switch do App e deixava a área principal em branco).
+        targetTab = "qr-code";
         tabLabel = "QR Code Segura";
       } else if (normalizedText.includes("perfil") || normalizedText.includes("dados") || normalizedText.includes("biometria") || normalizedText.includes("minha conta")) {
         targetTab = "perfil";
