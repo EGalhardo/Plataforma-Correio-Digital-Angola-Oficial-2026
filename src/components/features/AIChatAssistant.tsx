@@ -73,14 +73,21 @@ const PAGE_FRIENDLY_NAMES: Record<AppMode, Record<string, string>> = {
   user: {
     home: "Painel Principal",
     correspondencias: "Correio Digital",
+    documentos: "Documentos e Certificados",
+    "pasta-digital": "Pasta Digital",
+    "qr-code": "QR Code e Carteira",
+    historico: "Histórico de Atividades",
+    notificacoes: "Central de Notificações",
     contactos: "Círculo de Confiança",
+    contatos: "Círculo de Confiança",
+    pagamentos: "Pagamentos e Emolumentos",
     perfil: "Meu Perfil",
-    pagamentos: "Pagamentos",
     "video-atendimento": "Video Atendimento"
   },
   institution: {
     home: "Painel Principal",
     correspondencias: "Correio Institucional",
+    documentos: "Gestão de Documentos",
     "gov-contatos": "Equipa",
     "inst-qrcode": "Validação por QR Code",
     "inst-ai-assistant": "Assistência IA",
@@ -94,10 +101,15 @@ const PAGE_FRIENDLY_NAMES: Record<AppMode, Record<string, string>> = {
     "gov-correspondencias": "Correspondências",
     "gov-contatos": "Cidadãos",
     "gov-trabalhadores": "Equipa",
+    "gov-emissao": "Emissão de Documentos",
+    "gov-docs": "Arquivo de Documentos",
+    "gov-documentos": "Arquivo de Documentos",
     "gov-relatorio": "Relatórios",
     "gov-ia": "IA (Nacional)",
     "gov-seguranca": "Auditoria de Segurança",
     "gov-perfil": "Perfil Admin",
+    historico: "Histórico Geral",
+    notificacoes: "Central de Notificações",
     "video-atendimento": "Video Atendimento"
   }
 };
@@ -621,20 +633,54 @@ export function AIChatAssistant({
       } else if (normalizedText.includes("correio") || normalizedText.includes("mensagem") || normalizedText.includes("mensagens") || normalizedText.includes("correspondência") || normalizedText.includes("correspondencia") || normalizedText.includes("caixa")) {
         targetTab = "correspondencias";
         tabLabel = "Caixa de Correio e Correspondência Oficial";
-      } else if (normalizedText.includes("documento") || normalizedText.includes("fatura") || normalizedText.includes("factura") || normalizedText.includes("trâmite") || normalizedText.includes("tramitação")) {
+      } else if (normalizedText.includes("pasta digital") || normalizedText.includes("minha pasta") || normalizedText.includes("processos digitais")) {
+        targetTab = "pasta-digital";
+        tabLabel = "Pasta Digital";
+      } else if (normalizedText.includes("histórico") || normalizedText.includes("historico") || normalizedText.includes("atividade") || normalizedText.includes("atividades")) {
+        targetTab = "historico";
+        tabLabel = "Histórico de Atividades";
+      } else if (normalizedText.includes("notificação") || normalizedText.includes("notificacao") || normalizedText.includes("notificações") || normalizedText.includes("notificacoes") || normalizedText.includes("alerta") || normalizedText.includes("alertas")) {
+        targetTab = "notificacoes";
+        tabLabel = "Central de Notificações";
+      } else if (normalizedText.includes("pagamento") || normalizedText.includes("pagamentos") || normalizedText.includes("taxa") || normalizedText.includes("taxas") || normalizedText.includes("cobrança") || normalizedText.includes("cobranca") || normalizedText.includes("emolumento") || normalizedText.includes("emolumentos")) {
+        targetTab = isInst ? "inst-pagamentos" : "pagamentos";
+        tabLabel = isInst ? "Pagamentos e Cobranças" : "Pagamentos e Emolumentos";
+      } else if (normalizedText.includes("vídeo") || normalizedText.includes("video") || normalizedText.includes("videochamada") || normalizedText.includes("chamada") || normalizedText.includes("conferência") || normalizedText.includes("conferencia")) {
+        targetTab = "video-atendimento";
+        tabLabel = "Video Atendimento";
+      } else if (normalizedText.includes("interoperabilidade") || normalizedText.includes("sge") || normalizedText.includes("federad")) {
+        targetTab = "gov-interoperabilidade";
+        tabLabel = "Interoperabilidade";
+      } else if (normalizedText.includes("cidadão") || normalizedText.includes("cidadao") || normalizedText.includes("cidadãos") || normalizedText.includes("homologação")) {
+        targetTab = "gov-contatos";
+        tabLabel = "Cidadãos";
+      } else if (normalizedText.includes("equipa") || normalizedText.includes("colaborador") || normalizedText.includes("trabalhador") || normalizedText.includes("membro") || normalizedText.includes("operador")) {
+        targetTab = isInst ? "gov-contatos" : "gov-trabalhadores";
+        tabLabel = isInst ? "Equipa Institucional" : "Equipa Central";
+      } else if (normalizedText.includes("relatório") || normalizedText.includes("relatorio") || normalizedText.includes("estatística") || normalizedText.includes("estatistica")) {
+        targetTab = "gov-relatorio";
+        tabLabel = "Relatórios e Estatísticas";
+      } else if (normalizedText.includes("inteligência artificial") || normalizedText.includes("ia") || normalizedText.includes("assistente ia") || normalizedText.includes("base de conhecimento") || normalizedText.includes("conhecimento")) {
+        targetTab = isInst ? "inst-ai-assistant" : "gov-ia";
+        tabLabel = isInst ? "Assistência IA" : "IA (Nacional)";
+      } else if (normalizedText.includes("auditoria") || normalizedText.includes("segurança") || normalizedText.includes("logs") || normalizedText.includes("log")) {
+        targetTab = "gov-seguranca";
+        tabLabel = "Auditoria de Segurança";
+      } else if (normalizedText.includes("emissão") || normalizedText.includes("emissao") || normalizedText.includes("emitir")) {
+        targetTab = "gov-emissao";
+        tabLabel = "Emissão de Documentos";
+      } else if (normalizedText.includes("documento") || normalizedText.includes("fatura") || normalizedText.includes("factura") || normalizedText.includes("trâmite") || normalizedText.includes("tramitação") || normalizedText.includes("arquivo") || normalizedText.includes("certidão") || normalizedText.includes("certidao")) {
         targetTab = "documentos";
         tabLabel = "Documentos e Tramitação";
-      } else if (normalizedText.includes("carteira") || normalizedText.includes("wallet") || normalizedText.includes("bi") || normalizedText.includes("passaporte") || normalizedText.includes("offline")) {
-        // P2 — a Carteira vive sob o tab 'qr-code' (o id 'carteira' não existe
-        // no switch do App e deixava a área principal em branco).
-        targetTab = "qr-code";
-        tabLabel = "QR Code Segura";
-      } else if (normalizedText.includes("perfil") || normalizedText.includes("dados") || normalizedText.includes("biometria") || normalizedText.includes("minha conta")) {
-        targetTab = "perfil";
-        tabLabel = "Meu Perfil de Cidadão";
-      } else if (normalizedText.includes("painel") || normalizedText.includes("início") || normalizedText.includes("inicio") || normalizedText.includes("home") || normalizedText.includes("principal") || normalizedText.includes("página inicial") || normalizedText.includes("pagina inicial")) {
-        targetTab = "home";
-        tabLabel = "Painel Principal";
+      } else if (normalizedText.includes("carteira") || normalizedText.includes("wallet") || normalizedText.includes("bi") || normalizedText.includes("passaporte") || normalizedText.includes("offline") || normalizedText.includes("qr")) {
+        targetTab = isInst ? "inst-qrcode" : "qr-code";
+        tabLabel = isInst ? "Validação por QR Code" : "QR Code Segura";
+      } else if (normalizedText.includes("perfil") || normalizedText.includes("dados") || normalizedText.includes("biometria") || normalizedText.includes("minha conta") || normalizedText.includes("conta")) {
+        targetTab = isAdmin ? "gov-perfil" : "perfil";
+        tabLabel = isAdmin ? "Perfil Admin" : "Meu Perfil";
+      } else if (normalizedText.includes("painel") || normalizedText.includes("início") || normalizedText.includes("inicio") || normalizedText.includes("home") || normalizedText.includes("principal") || normalizedText.includes("página inicial") || normalizedText.includes("pagina inicial") || normalizedText.includes("soc") || normalizedText.includes("dashboard")) {
+        targetTab = isAdmin ? "gov-dashboard" : "home";
+        tabLabel = isAdmin ? "Painel Principal SOC" : "Painel Principal";
       }
     }
 
