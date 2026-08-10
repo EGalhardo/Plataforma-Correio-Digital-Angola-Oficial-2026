@@ -140,7 +140,7 @@ import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
 import { resolveStorageUrl } from './lib/secureStorage';
 import { isProfileEditActive } from './lib/profileEditGuard';
-import { useSession } from './services/sessionStore';
+import { useSession, getModePathPrefix } from './services/sessionStore';
 import { VideoSessionService } from './services/videoSessionService';
 import { useLanguage } from './hooks/useLanguage';
 import { startImagePreloading, subscribeToPreload } from './utils/imagePreloader';
@@ -1141,6 +1141,9 @@ export default function App() {
     const urlDriven = urlDrivenNavRef.current || !hashHydratedRef.current;
     urlDrivenNavRef.current = false;
     hashHydratedRef.current = true;
+    const pathPrefix = getModePathPrefix(appMode);
+    const targetPath = pathPrefix || '/';
+    const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
     if (urlDriven) {
       const fromUrl = resolveHashToTab(window.location.hash, appMode);
       if (fromUrl) {
@@ -1154,8 +1157,8 @@ export default function App() {
         // Mesmo tab (ou resolvido via fallback de detalhe, ex.: '#/mensagem'):
         // normaliza o URL por substituição — NUNCA escreve nesta via, para o
         // histórico não entrar em pingue-pongue à volta de tabs de detalhe.
-        if (window.location.hash !== `#/${fromUrl}`) {
-          window.history.replaceState(null, '', `#/${fromUrl}`);
+        if (window.location.hash !== `#/${fromUrl}` || currentPath !== targetPath) {
+          window.history.replaceState(null, '', `${targetPath}#/${fromUrl}`);
         }
         lastSyncedTabRef.current = fromUrl;
         return;
@@ -1163,13 +1166,14 @@ export default function App() {
       // Hash inválido neste modo (lixo / outro portal) → escrita abaixo normaliza.
     }
     const target = `#/${tab}`;
-    if (window.location.hash !== target) {
-      if (window.location.hash === `#/${lastSyncedTabRef.current}`) {
+    const targetUrl = `${targetPath}${target}`;
+    if (window.location.hash !== target || currentPath !== targetPath) {
+      if (window.location.hash === `#/${lastSyncedTabRef.current}` && currentPath === targetPath) {
         // Navegação in-app com o URL onde o deixámos → nova entrada (voltar OK).
-        window.history.pushState(null, '', target);
+        window.history.pushState(null, '', targetUrl);
       } else {
         // URL mexido manualmente/entrada/inválido → normaliza por substituição.
-        window.history.replaceState(null, '', target);
+        window.history.replaceState(null, '', targetUrl);
       }
     }
     lastSyncedTabRef.current = tab;
@@ -1179,10 +1183,11 @@ export default function App() {
   const prevStageForHashRef = useRef(stage);
   useEffect(() => {
     if (prevStageForHashRef.current === 'app' && stage === 'login' && window.location.hash) {
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      const pathPrefix = getModePathPrefix(appMode);
+      window.history.replaceState(null, '', (pathPrefix || '/') + window.location.search);
     }
     prevStageForHashRef.current = stage;
-  }, [stage]);
+  }, [stage, appMode]);
   const institutionCode = resolveInstitutionCode(activeProfile?.institutionName || '');
   // F3/F7 — estado da conta institucional: 'restricted' = pendente/em correções (a área abre na mesma; o estado alimenta o tom do indicador Online); 'full' = aprovada
   const [instGate, setInstGate] = useState<'none' | 'restricted' | 'full'>('none');

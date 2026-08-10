@@ -30,6 +30,25 @@ export const INSTITUTION_BASE_USER: SessionUser = {
   lastAccess: '',
 };
 
+export const resolveAppModeFromPath = (): AppMode | null => {
+  if (typeof window === 'undefined') return null;
+  const path = window.location.pathname.toLowerCase();
+  if (path.startsWith('/institucional') || path.startsWith('/instituicao') || path.startsWith('/inst')) return 'institution';
+  if (path.startsWith('/admin')) return 'admin';
+  return null;
+};
+
+export const getModePathPrefix = (mode: AppMode): string => {
+  switch (mode) {
+    case 'institution':
+      return '/institucional';
+    case 'admin':
+      return '/admin';
+    default:
+      return '';
+  }
+};
+
 interface SessionContextType {
   user: SessionUser;
   activeProfile: ActiveProfile;
@@ -89,6 +108,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   });
 
   const [appMode, setAppModeState] = useState<AppMode>(() => {
+    const fromPath = resolveAppModeFromPath();
+    if (fromPath) return fromPath;
     return (localStorage.getItem("gov_app_mode") as AppMode) || "user";
   });
 
@@ -146,7 +167,17 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const setAppMode = (mode: AppMode) => {
     setAppModeState(mode);
+    localStorage.setItem("gov_app_mode", mode);
     setUser(prev => sanitizeSessionUser(prev));
+    const prefix = getModePathPrefix(mode);
+    if (typeof window !== 'undefined') {
+      const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+      const targetPath = prefix || '/';
+      if (currentPath !== targetPath) {
+        const newUrl = `${targetPath}${window.location.search}${window.location.hash}`;
+        try { window.history.replaceState(null, '', newUrl); } catch { /* melhor esforço */ }
+      }
+    }
   };
 
   const updateUserFields = (fields: Partial<SessionUser>) => {
