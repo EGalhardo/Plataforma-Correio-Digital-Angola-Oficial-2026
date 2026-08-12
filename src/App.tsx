@@ -217,7 +217,7 @@ export const persistReadMessageId = (rawBi: string, ...ids: number[]): void => {
 const HASH_TAB_FALLBACKS: Record<string, Record<string, string>> = {
   user: { mensagem: 'correspondencias', documento: 'documentos', instituicao: 'home' },
   institution: { mensagem: 'correspondencias', documento: 'documentos', instituicao: 'home' },
-  admin: {},
+  admin: { home: 'gov-dashboard', mensagem: 'gov-correspondencias', documento: 'gov-docs', instituicao: 'gov-interoperabilidade' },
 };
 const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
   user: new Set([
@@ -234,9 +234,10 @@ const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
     'mensagem', 'documento', 'instituicao',
   ]),
   admin: new Set([
-    'gov-dashboard', 'gov-interoperabilidade', 'gov-correspondencias',
+    'home', 'gov-dashboard', 'gov-interoperabilidade', 'gov-correspondencias',
     'gov-contatos', 'gov-trabalhadores', 'gov-relatorio', 'gov-ia',
     'gov-seguranca', 'gov-perfil', 'gov-emissao', 'historico', 'notificacoes',
+    'mensagem', 'documento', 'instituicao',
   ]),
 };
 const resolveHashToTab = (hash: string, mode: string): string | null => {
@@ -302,7 +303,13 @@ export default function App() {
   const [triggerRefetch, setTriggerRefetch] = useState(0);
   // Tick para forçar re-render quando a conta é ativada no ecrã de homologação
   const [gateRefreshTick, setGateRefreshTick] = useState(0);
-  const [tab, setTab] = useState('home');
+  const [tab, setTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      if (path.startsWith('/admin')) return 'gov-dashboard';
+    }
+    return 'home';
+  });
   const [selectedInstitution, setSelectedInstitution] = useState<string | null>(null);
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [accessModalTitle] = useState('');
@@ -1807,6 +1814,7 @@ export default function App() {
           }
           await applyIdentityForLoggedUser();
           stopLoginFaceCamera();
+          if (isGovMode) setTab('gov-dashboard');
           setStage('app');
           addAuditLog('Acesso concedido via Biometria Facial Local de Demonstração', 'success');
         })();
@@ -4161,6 +4169,52 @@ Ficha civil do titular:
     }
     switch (tab) {
       case 'home':
+        if (isGovMode) {
+          return (
+            <PainelSuspense>
+            <GovDashboard 
+              onNavigate={setTab} 
+              documents={currentDocuments} 
+              emergencyMode={emergencyMode} 
+              appMode={appMode} 
+              userRequests={userRequests}
+              isMobile={isMobile}
+              logSecurityEvent={logSecurityEvent}
+              bi={bi}
+              setBi={setBi}
+              profileName={profileName}
+              setProfileName={setProfileName}
+              userBirthDate={userBirthDate}
+              setUserBirthDate={setUserBirthDate}
+              userFiliation={userFiliation}
+              setUserFiliation={setUserFiliation}
+              userMaritalStatus={userMaritalStatus}
+              setUserMaritalStatus={setUserMaritalStatus}
+              verificationStatus={verificationStatus}
+              setVerificationStatus={setVerificationStatus}
+              hasFacialAuth={hasFacialAuth}
+              setHasFacialAuth={setHasFacialAuth}
+              hasTwoFactor={hasTwoFactor}
+              setHasTwoFactor={setHasTwoFactor}
+              govPin={govPin}
+              setGovPin={setGovPin}
+              phone={phone}
+              setPhone={setPhone}
+              nif={nif}
+              setNif={setNif}
+              passport={passport}
+              setPassport={setPassport}
+              addAuditLog={addAuditLog}
+              inbox={currentInbox}
+              sentMessages={currentSentMessages}
+              contactsList={currentContacts}
+              docInbox={currentDocInbox}
+              docRequests={docRequests}
+              auditLogs={auditLogs}
+            />
+            </PainelSuspense>
+          );
+        }
         return (
           <HomeContent
             activeSlide={activeSlide}
@@ -5446,6 +5500,7 @@ Ficha civil do titular:
       }
 
       await applyIdentityForLoggedUser();
+      if (isGovMode) setTab('gov-dashboard');
       setStage('app');
       addAuditLog(isInstMode ? 'Login de Instituição via Autenticação Segura' : isGovMode ? 'Login da Administração via Autenticação Segura' : 'Login de Cidadão via Autenticação Segura', 'success');
     };
@@ -5515,6 +5570,7 @@ Ficha civil do titular:
         console.warn('[AUTH-CLOUD] Leitura do estado na nuvem indisponível no login por e-mail (D3):', statusErr);
       }
       await applyIdentityForLoggedUser(emailBi);
+      if (isGovMode) setTab('gov-dashboard');
       setStage('app');
       addAuditLog('Login de Cidadão via e-mail real', 'success');
     };
