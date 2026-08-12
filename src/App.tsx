@@ -142,6 +142,7 @@ import { supabase } from './lib/supabaseClient';
 import { resolveStorageUrl } from './lib/secureStorage';
 import { isProfileEditActive } from './lib/profileEditGuard';
 import { useSession, getModePathPrefix } from './services/sessionStore';
+import { computeFaceSignature, computeFaceSignatureAsync, compareFaceSignatures, FACE_MATCH_THRESHOLD } from './services/faceAuth';
 import { VideoSessionService } from './services/videoSessionService';
 import { useLanguage } from './hooks/useLanguage';
 import { startImagePreloading, subscribeToPreload } from './utils/imagePreloader';
@@ -1336,28 +1337,6 @@ export default function App() {
     return `cda_demo_face_${appMode}_${identifier}`;
   };
 
-  const computeFaceSignature = (canvas: HTMLCanvasElement): number[] => {
-    const temp = document.createElement('canvas');
-    temp.width = 16;
-    temp.height = 16;
-    const ctx = temp.getContext('2d');
-    if (!ctx) return [];
-    ctx.drawImage(canvas, 0, 0, temp.width, temp.height);
-    const { data } = ctx.getImageData(0, 0, temp.width, temp.height);
-    const signature: number[] = [];
-    for (let i = 0; i < data.length; i += 4) {
-      const gray = Math.round((data[i] + data[i + 1] + data[i + 2]) / 3);
-      signature.push(gray);
-    }
-    return signature;
-  };
-
-  const compareFaceSignatures = (a: number[], b: number[]) => {
-    if (!a.length || !b.length || a.length !== b.length) return 999;
-    const totalDiff = a.reduce((sum, value, index) => sum + Math.abs(value - b[index]), 0);
-    return totalDiff / a.length;
-  };
-
   const stopLoginFaceCamera = () => {
     if (loginFaceStreamRef.current) {
       loginFaceStreamRef.current.getTracks().forEach(track => track.stop());
@@ -1403,11 +1382,8 @@ export default function App() {
       canvas.height = 300;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        // Draw a premium looking futuristic face mapping silhouette on the canvas
         ctx.fillStyle = '#0f172a'; // dark background
         ctx.fillRect(0, 0, 300, 300);
-        
-        // Draw some grid lines
         ctx.strokeStyle = 'rgba(37, 99, 235, 0.2)';
         ctx.lineWidth = 1;
         for (let i = 0; i < 300; i += 30) {
@@ -1420,42 +1396,96 @@ export default function App() {
           ctx.lineTo(300, i);
           ctx.stroke();
         }
-        
-        // Draw glowing face oval
         ctx.beginPath();
         ctx.ellipse(150, 150, 70, 100, 0, 0, 2 * Math.PI);
         ctx.strokeStyle = '#2563eb';
         ctx.lineWidth = 2;
         ctx.stroke();
-        
-        // Face points and coordinates
         ctx.fillStyle = '#60a5fa';
-        // Eyes
         ctx.beginPath();
         ctx.arc(120, 130, 4, 0, 2 * Math.PI);
         ctx.fill();
         ctx.beginPath();
         ctx.arc(180, 130, 4, 0, 2 * Math.PI);
         ctx.fill();
-        // Nose
         ctx.beginPath();
         ctx.moveTo(150, 150);
         ctx.lineTo(145, 175);
         ctx.lineTo(155, 175);
         ctx.closePath();
         ctx.stroke();
-        // Mouth
         ctx.beginPath();
         ctx.ellipse(150, 200, 20, 8, 0, 0, Math.PI);
         ctx.stroke();
-        
         const imageDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        // Compute signature based on this drawn canvas
         const signature = computeFaceSignature(canvas);
         return { imageDataUrl, signature };
       }
     }
+    return null;
+  };
+
+  const captureLoginFaceFrameAsync = async () => {
+    const video = loginFaceVideoRef.current;
+    const canvas = loginFaceCanvasRef.current;
     
+    if (video && canvas && video.videoWidth > 0 && video.videoHeight > 0) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const signature = await computeFaceSignatureAsync(canvas);
+        return { imageDataUrl, signature };
+      }
+    }
+    
+    if (canvas) {
+      canvas.width = 300;
+      canvas.height = 300;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, 300, 300);
+        ctx.strokeStyle = 'rgba(37, 99, 235, 0.2)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 300; i += 30) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i, 300);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, i);
+          ctx.lineTo(300, i);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.ellipse(150, 150, 70, 100, 0, 0, 2 * Math.PI);
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#60a5fa';
+        ctx.beginPath();
+        ctx.arc(120, 130, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(180, 130, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(150, 150);
+        ctx.lineTo(145, 175);
+        ctx.lineTo(155, 175);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(150, 200, 20, 8, 0, 0, Math.PI);
+        ctx.stroke();
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const signature = await computeFaceSignatureAsync(canvas);
+        return { imageDataUrl, signature };
+      }
+    }
     return null;
   };
   
@@ -5150,7 +5180,7 @@ Ficha civil do titular:
         addAuditLog("Interrupção de segurança: captura facial recusada (SOC-AN-2026)", "critical");
         return;
       }
-      const captured = captureLoginFaceFrame();
+      const captured = await captureLoginFaceFrameAsync();
       if (!captured) {
         setFaceCaptureError('Não foi possível capturar a imagem facial. Aguarde a ativação da câmara e tente novamente.');
         return;

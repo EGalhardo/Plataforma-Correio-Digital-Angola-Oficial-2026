@@ -12,7 +12,7 @@
 import { useRef, useState } from 'react';
 import { ScanFace, ShieldCheck, Trash2, Camera, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import {
-  buildFaceStorageKey, readFaceTemplate, computeFaceSignature,
+  buildFaceStorageKey, readFaceTemplate, computeFaceSignature, computeFaceSignatureAsync,
   makeSimulatedSignature, type FaceTemplate
 } from '../../services/faceAuth';
 
@@ -72,59 +72,69 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
     capturesRef.current = [];
   };
 
-  const doCapture = () => {
-    let signature: number[] = [];
-    let imageDataUrl: string | undefined;
-    if (!cameraError && videoRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current || document.createElement('canvas');
-      canvas.width = video.videoWidth || 320;
-      canvas.height = video.videoHeight || 240;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        signature = computeFaceSignature(canvas);
-        imageDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-      }
-    }
-    if (!signature.length) {
-      // Fallback simulado: semente mista (pessoa + passo) para assinatura sintética estável
-      signature = makeSimulatedSignature(personId.length * 97 + step * 131 + 17);
-      setSimulated(true);
-    }
+  const [isProcessingCapture, setIsProcessingCapture] = useState(false);
 
-    const next = [...capturesRef.current, signature];
-    capturesRef.current = next;
-
-    if (next.length < 3) {
-      setStep(next.length);
-      return;
-    }
-
-    // 3.ª captura: compila o template (média das 3 assinaturas)
-    const avg: number[] = [];
-    const len = next[0].length;
-    for (let i = 0; i < len; i += 1) {
-      avg.push(Math.round((next[0][i] + next[1][i] + next[2][i]) / 3));
-    }
-    const payload: FaceTemplate = {
-      identifier: personId.toUpperCase().replace(/\s+/g, ''),
-      profileMode: mode,
-      displayName: displayName || undefined,
-      capturedAt: new Date().toLocaleString('pt-AO'),
-      imageDataUrl,
-      signature: avg,
-      signatures: next,
-    };
+  const doCapture = async () => {
+    if (isProcessingCapture) return;
+    setIsProcessingCapture(true);
     try {
-      localStorage.setItem(storageKey, JSON.stringify(payload));
-      setTemplate(payload);
-      onAudit?.(`LOGIN FACIAL: rosto registado na página Conta (${mode} · ${payload.identifier}).`, 'success');
-    } catch (e) {
-      console.warn('[FacialLoginSettings] Falha ao gravar template local:', e);
-      onAudit?.('LOGIN FACIAL: falha ao gravar o registo facial neste dispositivo.', 'warning');
+      let signature: number[] = [];
+      let imageDataUrl: string | undefined;
+      if (!cameraError && videoRef.current) {
+        const video = videoRef.current;
+        const canvas = canvasRef.current || document.createElement('canvas');
+        canvas.width = video.videoWidth || 320;
+        canvas.height = video.videoHeight || 240;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          signature = await computeFaceSignatureAsync(canvas);
+          imageDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        }
+      }
+      if (!signature.length) {
+        // Fallback simulado: semente mista (pessoa + passo) para assinatura sintética estável
+        signature = makeSimulatedSignature(personId.length * 97 + step * 131 + 17);
+        setSimulated(true);
+      }
+
+      const next = [...capturesRef.current, signature];
+      capturesRef.current = next;
+
+      if (next.length < 3) {
+        setStep(next.length);
+        return;
+      }
+
+      // 3.ª captura: compila o template (média das 3 assinaturas)
+      const avg: number[] = [];
+      const len = next[0].length;
+      for (let i = 0; i < len; i += 1) {
+        let sum = 0;
+        for (const s of next) sum += s[i];
+        avg.push(Math.round(sum / next.length));
+      }
+      const payload: FaceTemplate = {
+        identifier: personId.toUpperCase().replace(/\s+/g, ''),
+        profileMode: mode,
+        displayName: displayName || undefined,
+        capturedAt: new Date().toLocaleString('pt-AO'),
+        imageDataUrl,
+        signature: avg,
+        signatures: next,
+      };
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(payload));
+        setTemplate(payload);
+        onAudit?.(`LOGIN FACIAL: rosto registado na página Conta (${mode} · ${payload.identifier}).`, 'success');
+      } catch (e) {
+        console.warn('[FacialLoginSettings] Falha ao gravar template local:', e);
+        onAudit?.('LOGIN FACIAL: falha ao gravar o registo facial neste dispositivo.', 'warning');
+      }
+      cancelEnrollment();
+    } finally {
+      setIsProcessingCapture(false);
     }
-    cancelEnrollment();
   };
 
   const removeTemplate = () => {
