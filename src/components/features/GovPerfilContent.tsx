@@ -5,11 +5,11 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Lock, History, Eye, EyeOff, Check, BadgeCheck, Settings } from 'lucide-react';
+import { Lock, History, Eye, EyeOff, Check, BadgeCheck, Settings, Camera, Loader2 } from 'lucide-react';
 import { USER_PROFILE_PHOTO } from '../../constants/data';
 import { useSession } from '../../services/sessionStore';
 import { supabase } from '../../lib/supabaseClient';
-import { hasValidSupabaseKeys } from '../../services/supabaseService';
+import { hasValidSupabaseKeys, supabaseService } from '../../services/supabaseService';
 import { cloudChangePassword, hasActiveCloudSession, isCloudBound } from '../../services/cloudAuthService';
 import { homologationStore } from '../../services/homologationStore';
 
@@ -69,6 +69,41 @@ export function GovPerfilContent({
     setPasswordSuccess(true);
     setPasswordSuccessMsg('Informações da conta administrativa atualizadas com sucesso!');
   };
+
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsUploadingPhoto(true);
+      if (hasValidSupabaseKeys()) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `admin_${bi || 'SOC'}_${Date.now()}.${fileExt}`;
+        const filePath = `avatars/${fileName}`;
+        const publicUrl = await supabaseService.uploadFile('fotos_perfil', filePath, file);
+        if (publicUrl) {
+          updateUserFields({ avatarUrl: publicUrl });
+          setPasswordSuccess(true);
+          setPasswordSuccessMsg('Foto do administrador atualizada no Supabase Storage.');
+        }
+      } else {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64String = event.target?.result as string;
+          updateUserFields({ avatarUrl: base64String });
+          setPasswordSuccess(true);
+          setPasswordSuccessMsg('Foto do administrador atualizada na sessão interativa.');
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch (e) {
+      setPasswordError('Falha ao carregar a nova foto de perfil.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
   const [showSensitiveData, setShowSensitiveData] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   
@@ -152,13 +187,26 @@ export function GovPerfilContent({
           <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
           
           <div className="relative mt-4 mb-4">
-            <div className="w-32 h-32 md:w-36 md:h-36 rounded-[28px] border border-slate-200 p-1.5 bg-white relative">
+            <div className="w-32 h-32 md:w-36 md:h-36 rounded-[28px] border border-slate-200 p-1.5 bg-white relative group">
               <img 
-                src={USER_PROFILE_PHOTO} 
+                src={user?.avatarUrl || USER_PROFILE_PHOTO} 
                 alt={profileName} 
-                className="w-full h-full rounded-[20px] object-cover"
+                className="w-full h-full rounded-[20px] object-cover transition-all group-hover:scale-105"
                 referrerPolicy="no-referrer"
               />
+              <label className="absolute inset-0 bg-slate-900/40 rounded-[20px] flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                <Camera className="text-white mb-1" size={24} />
+                <span className="text-[9px] font-black uppercase tracking-wider text-white">
+                  {isUploadingPhoto ? 'A carregar...' : 'Mudar Foto'}
+                </span>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={handlePhotoChange}
+                  disabled={isUploadingPhoto}
+                />
+              </label>
               <div className="absolute -bottom-1 -right-1 text-white p-1.5 rounded-xl border border-slate-200 bg-emerald-500">
                 <BadgeCheck size={16} />
               </div>
