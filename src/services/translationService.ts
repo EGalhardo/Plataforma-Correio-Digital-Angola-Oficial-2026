@@ -142,6 +142,7 @@ let dynamicCache: TranslationCache = {};
 
 // Load dynamic cache from localStorage on startup
 export function initTranslationCache(): void {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
   try {
     const saved = localStorage.getItem('cda_dynamic_translation_cache');
     if (saved) {
@@ -157,10 +158,12 @@ export function initTranslationCache(): void {
 export function updateDynamicCache(lang: LanguageCode, translations: Record<string, string>): void {
   if (lang !== 'pt') {
     dynamicCache[lang] = { ...(dynamicCache[lang] || {}), ...translations };
-    try {
-      localStorage.setItem('cda_dynamic_translation_cache', JSON.stringify(dynamicCache));
-    } catch (e) {
-      console.warn('Failed to save translation cache:', e);
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('cda_dynamic_translation_cache', JSON.stringify(dynamicCache));
+      } catch (e) {
+        console.warn('Failed to save translation cache:', e);
+      }
     }
   }
 }
