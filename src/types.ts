@@ -27,7 +27,7 @@ export interface DigitalProtocol {
 }
 
 export interface CorrespondenceStateEvent {
-  state: 'Recebida' | 'Entregue' | 'Visualizada' | 'Confirmada' | 'Respondida' | 'Em análise' | 'Aprovada' | 'Rejeitada' | 'Contestada' | 'Expirada' | 'Arquivada' | 'Encaminhada';
+  state: 'Enviada' | 'Recebida' | 'Entregue' | 'Visualizada' | 'Confirmada' | 'Respondida' | 'Em análise' | 'Aprovada' | 'Rejeitada' | 'Contestada' | 'Expirada' | 'Arquivada' | 'Encaminhada';
   date: string;
   time: string;
   responsible: string;

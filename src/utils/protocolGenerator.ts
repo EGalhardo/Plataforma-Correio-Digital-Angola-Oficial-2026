@@ -311,33 +311,33 @@ export function generateProtocol(
 }
 
 export function generateTimelineEvents(msg: Message, protocol: DigitalProtocol): CorrespondenceStateEvent[] {
-  // P1 — linha temporal HONESTA (fallback para quando não há historial real
-  // gravado na nuvem). Antes: datas fixas 2026-05-2x, responsáveis inventados,
-  // estados fabricados consoante o assunto (consultas médicas, multas,
-  // verificação biométrica…) e nº de lote aleatório a cada chamada. Tudo
-  // removido: o fallback passa a conter APENAS factos que a plataforma conhece
-  // da mensagem/protocolo reais.
   const events: CorrespondenceStateEvent[] = [];
   const date = protocol.officialIssueDate || msg.date || '—';
   const time = protocol.officialTime || '—';
 
-  // Facto real 1: a correspondência existe na caixa do destinatário.
+  events.push({
+    state: 'Enviada',
+    date,
+    time,
+    responsible: msg.org || protocol.issuerInstitution || 'MINTTICS / Emissor',
+    description: `Carta oficial enviada por ${msg.org || protocol.issuerInstitution || 'Entidade Emissora'}.`,
+  });
+
   events.push({
     state: 'Recebida',
     date,
     time,
     responsible: msg.org || protocol.issuerInstitution || 'Remetente',
-    description: 'Correspondência registada no endereço digital do destinatário.',
+    description: 'Correspondência registada e entregue no endereço digital do destinatário.',
   });
 
-  // Facto real 2: quando já não está por ler, foi aberta pelo destinatário.
   if (msg.unread === 0) {
     events.push({
       state: 'Visualizada',
       date,
       time,
       responsible: 'Destinatário',
-      description: 'Correspondência aberta pelo destinatário.',
+      description: 'Correspondência aberta e lida pelo cidadão/destinatário.',
     });
   }
 

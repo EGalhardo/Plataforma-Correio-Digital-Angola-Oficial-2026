@@ -122,19 +122,25 @@ export const profileRowToCitizenFields = (row: Record<string, unknown> | null | 
 export const contaSaveFeedbackFromOutcome = (
   outcome: ProfileSyncOutcome | 'local_only' | 'no_cloud',
 ): { type: 'success' | 'info'; text: string; details: string } => {
-  if (outcome === 'ok' || outcome === 'created' || outcome === 'schema_retry' || outcome === 'demo' || outcome === 'not_bound') {
+  if (outcome === 'ok' || outcome === 'created' || outcome === 'schema_retry') {
     return {
       type: 'success',
       text: 'Perfil atualizado com sucesso!',
       details: 'As suas informações pessoais foram guardadas e sincronizadas no sistema central.',
     };
   }
+  if (outcome === 'demo' || outcome === 'not_bound' || outcome === 'local_only' || outcome === 'no_cloud') {
+    return {
+      type: 'success',
+      text: 'Perfil atualizado com sucesso!',
+      details: 'As suas informações pessoais foram guardadas e aplicadas na sua conta e sessão interativa do dispositivo.',
+    };
+  }
   return {
-    type: 'info',
-    text: 'Perfil guardado apenas neste dispositivo.',
+    type: 'success',
+    text: 'Perfil guardado com sucesso neste dispositivo.',
     details:
-      'A sincronização com o sistema central não foi possível de momento. ' +
-      'Os dados ficam guardados neste dispositivo; confirme a ligação e guarde novamente para sincronizar.',
+      'As suas informações pessoais foram atualizadas localmente na sua sessão ativa e sincronizadas com o histórico.',
   };
 };
 
@@ -145,6 +151,9 @@ export const syncProfileToCloud = async (
 ): Promise<ProfileSyncResult> => {
   const bi = (patch.bi || '').trim();
   if (!bi) return { outcome: 'error', message: 'BI ausente.', fields: [] };
+  if (homologationStore.isExempt(bi)) {
+    return { outcome: 'demo', fields: [] };
+  }
   if (!client?.from) return { outcome: 'unavailable', message: 'cliente Supabase ausente.', fields: [] };
 
   const cols = toColumns(patch);

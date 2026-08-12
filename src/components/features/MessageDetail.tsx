@@ -73,6 +73,7 @@ import { QrCodeImage } from '../ui/QrCodeImage';
 import { AssistenteDocumento } from './AssistenteDocumento';
 
 const STATE_STYLING: Record<string, { bg: string; text: string; border: string; bgDot: string; textIcon: string }> = {
+  'Enviada': { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', bgDot: 'bg-emerald-150', textIcon: 'text-emerald-600' },
   'Recebida': { bg: 'bg-slate-50', text: 'text-slate-800', border: 'border-slate-200', bgDot: 'bg-slate-150', textIcon: 'text-slate-600' },
   'Entregue': { bg: 'bg-blue-50', text: 'text-blue-800', border: 'border-blue-100', bgDot: 'bg-blue-100/60', textIcon: 'text-blue-600' },
   'Visualizada': { bg: 'bg-teal-50', text: 'text-teal-800', border: 'border-teal-100', bgDot: 'bg-teal-100/60', textIcon: 'text-teal-600' },
@@ -222,6 +223,7 @@ function renderCategoryIcon(iconName: string, size = 16) {
 
 function renderStateIcon(state: string, size = 14) {
   switch (state) {
+    case 'Enviada': return <Send size={size} />;
     case 'Recebida': return <Inbox size={size} />;
     case 'Entregue': return <Check size={size} />;
     case 'Visualizada': return <Eye size={size} />;
