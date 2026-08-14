@@ -152,7 +152,7 @@ function LocalWebcamOverlay() {
           <div className="w-full h-full relative flex items-center justify-center overflow-hidden bg-slate-950">
             <div className="absolute inset-0 bg-[linear-gradient(rgba(14,165,233,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(14,165,233,0.05)_1px,transparent_1px)] bg-[size:10px_10px] pointer-events-none" />
             <img 
-              src="https://i.postimg.cc/J73QvnGv/Foto-Edlasio.png" 
+              src="https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png" 
               alt="Edlasio Galhardo - Biometric Photo" 
               className="w-full h-full object-cover opacity-80 animate-pulse-subtle"
               referrerPolicy="no-referrer"

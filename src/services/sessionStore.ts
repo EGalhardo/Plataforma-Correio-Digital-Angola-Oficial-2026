@@ -71,7 +71,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const base: SessionUser = mode === "institution" ? INSTITUTION_BASE_USER : CANONICAL_USER;
     let avatar = candidate?.avatarUrl || base.avatarUrl;
     if (avatar && (avatar.includes("sxWsYGX2") || avatar.includes("foto_perfil_edlasio"))) {
-      avatar = mode === "institution" ? base.avatarUrl : "https://i.postimg.cc/J73QvnGv/Foto-Edlasio.png";
+      avatar = mode === "institution" ? base.avatarUrl : "https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png";
     }
     return {
       ...base,

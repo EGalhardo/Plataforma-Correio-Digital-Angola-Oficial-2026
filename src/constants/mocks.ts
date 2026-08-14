@@ -36,7 +36,7 @@ export const MOCK_SESSION_USER: SessionUser = {
   birthDate: "12/03/1995",
   filiation: "António Galhardo & Maria Conceição",
   maritalStatus: "Solteiro",
-  avatarUrl: "https://i.postimg.cc/J73QvnGv/Foto-Edlasio.png", // Consistent premium photo
+  avatarUrl: "https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png", // Consistent premium photo
   verificationLevel: "Totalmente Verificado",
   confidenceScore: 98,
   lastAccess: "Hoje às 18:45"
@@ -429,7 +429,7 @@ export const MOCK_USERS: MockUserEntity[] = [
     bi: "009874562LA041",
     nif: "5401329188",
     role: "citizen",
-    avatarUrl: "https://i.postimg.cc/J73QvnGv/Foto-Edlasio.png",
+    avatarUrl: "https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png",
     status: "Ativo",
     lastLogin: "Hoje às 18:45"
   },
@@ -1785,7 +1785,7 @@ export const MOCK_AI_ASSISTANTS: MockAIAssistantConfig[] = [
   {
     id: "ai-gove-voice",
     name: "Guia de Voz Angola Digital",
-    avatarUrl: "https://i.postimg.cc/J73QvnGv/Foto-Edlasio.png",
+    avatarUrl: "https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png",
     promptTheme: "Guia falado inclusivo e acessível",
     greetingMessage: "Olá Edlasio! Sou o seu Guia de Voz Oficial do Correio Digital de Angola. Em que posso auxiliá-lo hoje?",
     voicePitch: 1.0,
@@ -1794,7 +1794,7 @@ export const MOCK_AI_ASSISTANTS: MockAIAssistantConfig[] = [
   {
     id: "ai-agt-chat",
     name: "Assistente Fiscal Integrado AGT",
-    avatarUrl: "https://i.postimg.cc/J73QvnGv/Foto-Edlasio.png",
+    avatarUrl: "https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png",
     promptTheme: "Consultor Técnico de Impostos do Estado",
     greetingMessage: "Olá! Sou o Assistente Integrado de Inteligência Tributária da AGT. Posso ajudar com levantamento de NIF, cálculo de IPU ou regularização fiscal voluntária.",
     voicePitch: 1.05,

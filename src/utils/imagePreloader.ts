@@ -66,7 +66,7 @@ export function getAdvertisingImageUrls(): string[] {
   urls.add("https://i.postimg.cc/7PWwyst7/QR-Code.jpg");
   urls.add("https://i.postimg.cc/rp2hhzfK/mapa-Angola.jpg");
   urls.add("https://i.postimg.cc/Rq5TKbdk/Correio-Digital-Angola.png");
-  urls.add("https://i.postimg.cc/J73QvnGv/Foto-Edlasio.png");
+  urls.add("https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png");
   urls.add("https://i.postimg.cc/4x1mS4hQ/AGT.jpg");
 
   // Use optional chaining and type assertions to safe-guard against structure variations

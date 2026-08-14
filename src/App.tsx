@@ -6009,17 +6009,6 @@ Ficha civil do titular:
                           <Lock size={15.5} className="text-[#2563eb]" />
                           {t("Esqueci Senha")}
                         </button>
-                        {!isInstMode && !isGovMode && (
-                          <button
-                            type="button"
-                            onClick={() => { setLoginError(null); setLoginSubMode('email'); }}
-                            className="text-slate-600 hover:text-[#0c2340] transition-colors bg-transparent border-none cursor-pointer text-[10px] font-black uppercase tracking-widest font-sans flex items-center gap-1"
-                            title="Para contas que associaram um e-mail real no Perfil"
-                          >
-                            <Mail size={14} className="text-[#2563eb]" />
-                            {t("Entrar com e-mail")}
-                          </button>
-                        )}
                       </div>
                     </div>
                   </div>

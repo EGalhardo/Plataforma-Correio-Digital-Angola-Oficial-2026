@@ -69,7 +69,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
   const lastAccess = typeof originalLastAccess === 'string' && originalLastAccess ? originalLastAccess : '—';
 
   // F8 — sem foto própria, mostra-se um marcador neutro institucional (nunca a foto do cidadão demo).
-  const finalPhoto = (userProfilePhoto && !userProfilePhoto.includes("Foto-Edlasio") && (userProfilePhoto.includes("unsplash") || userProfilePhoto.includes("foto_perfil_edlasio") || userProfilePhoto.includes("sxWsYGX2"))) ? "https://i.postimg.cc/J73QvnGv/Foto-Edlasio.png" : (userProfilePhoto || "");
+  const finalPhoto = (userProfilePhoto && !userProfilePhoto.includes("Foto-Edlasio") && (userProfilePhoto.includes("unsplash") || userProfilePhoto.includes("foto_perfil_edlasio") || userProfilePhoto.includes("sxWsYGX2"))) ? "https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png" : (userProfilePhoto || "");
 
   const { updateUserFields, updateActiveProfileFields } = useSession();
   const [isEditingInst, setIsEditingInst] = useState(false);
