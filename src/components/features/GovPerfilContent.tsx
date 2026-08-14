@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Lock, History, Eye, EyeOff, Check, BadgeCheck, Settings, Camera, Loader2 } from 'lucide-react';
+import { Lock, History, Eye, EyeOff, Check, BadgeCheck, Settings, Camera } from 'lucide-react';
 import { USER_PROFILE_PHOTO } from '../../constants/data';
 import { useSession } from '../../services/sessionStore';
 import { supabase } from '../../lib/supabaseClient';

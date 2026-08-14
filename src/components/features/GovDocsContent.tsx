@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, FileText, Clock, ShieldCheck, Check, XCircle, AlertCircle } from 'lucide-react';
 import { Document as DocumentType, DocRequest } from '../../types';

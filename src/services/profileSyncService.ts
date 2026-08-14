@@ -18,7 +18,7 @@
 
 import { homologationStore } from './homologationStore';
 import type { SupabaseClient, PostgrestError } from '@supabase/supabase-js';
-import { classifyAuthError, isCloudBound } from './cloudAuthService';
+import { classifyAuthError } from './cloudAuthService';
 
 export type ProfileSyncOutcome =
   | 'ok'           // linha existente actualizada

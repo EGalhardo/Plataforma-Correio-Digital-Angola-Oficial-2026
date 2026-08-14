@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BadgeCheck, ShieldAlert, Info, X, ExternalLink, Send } from 'lucide-react';
 import { AppNotification } from '../../types';
@@ -21,6 +21,16 @@ export function NotificationDetailModal({
   onNavigateToTab
 }: NotificationDetailModalProps) {
   const { t } = useLanguage();
+
+  // G4 — fecho por tecla Escape (acessibilidade de teclado)
+  useEffect(() => {
+    if (!notification) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [notification, onClose]);
 
   if (!notification) return null;
 

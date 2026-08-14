@@ -12,7 +12,7 @@
 import { useRef, useState } from 'react';
 import { ScanFace, ShieldCheck, Trash2, Camera, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import {
-  buildFaceStorageKey, readFaceTemplate, computeFaceSignature, computeFaceSignatureAsync,
+  buildFaceStorageKey, readFaceTemplate, computeFaceSignatureAsync,
   makeSimulatedSignature, type FaceTemplate
 } from '../../services/faceAuth';
 

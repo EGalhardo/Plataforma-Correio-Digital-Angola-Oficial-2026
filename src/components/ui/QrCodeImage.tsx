@@ -13,7 +13,7 @@
  * rede). Registos legados com URL externo têm o parâmetro `data=` extraído e
  * são renderizados localmente — NUNCA se contacta o serviço externo.
  */
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 
 /** Extrai o payload CDA de um valor guardado. Nunca devolve URL externo. */

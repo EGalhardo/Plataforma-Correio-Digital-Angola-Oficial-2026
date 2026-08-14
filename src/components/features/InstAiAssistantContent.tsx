@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import InstKbSelfService, { carregarResumoKb } from './InstKbSelfService';
 import { supabaseService } from '../../services/supabaseService';
 import { motion, AnimatePresence } from 'motion/react';

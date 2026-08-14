@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Trash2, ShieldAlert } from 'lucide-react';
 import { Contact } from '../../types';
@@ -21,6 +22,16 @@ export function DeleteContactModal({
   handleDeleteContact,
   blockReason = null,
 }: DeleteContactModalProps) {
+  // G4 — fecho por tecla Escape (acessibilidade de teclado)
+  useEffect(() => {
+    if (!contactToDelete) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setContactToDelete(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [contactToDelete, setContactToDelete]);
+
   return (
     <AnimatePresence>
       {contactToDelete && (

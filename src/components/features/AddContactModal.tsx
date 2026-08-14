@@ -4,6 +4,7 @@
  */
 
 import type { Dispatch, SetStateAction } from 'react';
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   User,
@@ -45,6 +46,16 @@ export function AddContactModal({
   onAddContact,
   formErrors = [],
 }: AddContactModalProps) {
+  // G4 — fecho por tecla Escape (acessibilidade de teclado)
+  useEffect(() => {
+    if (!isAddingContact) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsAddingContact(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isAddingContact, setIsAddingContact]);
+
   return (
     <AnimatePresence>
       {isAddingContact && (
