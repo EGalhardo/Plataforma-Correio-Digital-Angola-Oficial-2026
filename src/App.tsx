@@ -3252,6 +3252,50 @@ export default function App() {
     setTab('mensagem');
   };
 
+  /**
+   * Abre (por voz ou texto) a correspondência mais relevante para a pergunta.
+   * Reutiliza a mesma pesquisa local das 4 caixas do próprio utilizador.
+   * Devolve true se abriu uma mensagem, false se não encontrou nada claro.
+   * Só abre quando a pergunta contém termos específicos de conteúdo — pedidos
+   * genéricos ("mostra as mensagens") devolvem false e caem na navegação normal.
+   */
+  const abrirCorrespondenciaPorVoz = (query: string): boolean => {
+    const q = String(query || '').toLowerCase().trim();
+    if (q.length < 3) return false;
+
+    // Palavras de comando/estrutura — NÃO são termos de conteúdo.
+    const STOP = new Set([
+      'ir','para','abre','abrir','aberta','mostra','mostrar','navega','navegar',
+      'muda','mudar','sobre','por','favor','me','a','o','e','de','da','do','das','dos',
+      'mensagem','mensagens','correspondência','correspondencia','correspondências',
+      'correspondencias','correio','caixa','documento','documentos','alguma','algum',
+      'qual','quais','que','esta','este','minha','meu','por','favor','vou','quero',
+    ]);
+    const termos = q.split(/[^a-z0-9à-úãõâêîôûçáéíóú]+/i)
+      .map(t => t.toLowerCase())
+      .filter(t => t.length >= 3 && !STOP.has(t));
+    if (!termos.length) return false;
+
+    const fonte: { m: Message; enviada: boolean }[] = [
+      ...inbox.map(m => ({ m, enviada: false })),
+      ...docInbox.map(m => ({ m, enviada: false })),
+      ...sentMessages.map(m => ({ m, enviada: true })),
+      ...docSentMessages.map(m => ({ m, enviada: true })),
+    ];
+    let melhor: { m: Message; score: number } | null = null;
+    for (const { m, enviada } of fonte) {
+      const textoBruto = `${m.org || ''} ${m.preview || ''} ${m.details?.subject || ''} ${m.institution || ''} ${m.details?.body || ''}`.toLowerCase();
+      const score = termos.reduce((acc, t) => acc + (textoBruto.includes(t) ? 1 : 0), 0);
+      if (score > 0 && (!melhor || score > melhor.score)) {
+        melhor = { m, score };
+      }
+    }
+    if (!melhor) return false;
+
+    handleSelectMessage(melhor.m);
+    return true;
+  };
+
   const handleUpdateMessage = (updatedMsg: Message) => {
     setSelectedMessage(updatedMsg);
     setInbox(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
@@ -6521,6 +6565,7 @@ Ficha civil do titular:
         activeTab={tab}
         pageContextHint={getPageContentDescription(tab)}
         buscarCorrespondencias={buscarCorrespondenciasParaIA}
+        onAbrirCorrespondencia={abrirCorrespondenciaPorVoz}
         recognitionRefOut={chatAssistantRecognitionRef} // Exportar ref de voz do assistente para o App
       />
 

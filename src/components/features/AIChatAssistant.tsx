@@ -137,6 +137,8 @@ interface AIChatAssistantProps {
   pageContextHint?: string;
   /** Pesquisa local das correspondências do utilizador (devolve resumo formatado). */
   buscarCorrespondencias?: (query: string) => string;
+  /** Abre a correspondência mais relevante para a pergunta (por voz ou texto). */
+  onAbrirCorrespondencia?: (query: string) => boolean;
   currentLanguage?: LanguageCode;
   recognitionRefOut?: { current: ReconhecimentoVoz | null };
 }
@@ -167,6 +169,7 @@ export function AIChatAssistant({
   activeTab,
   pageContextHint,
   buscarCorrespondencias,
+  onAbrirCorrespondencia,
   currentLanguage = 'pt',
   recognitionRefOut
 }: AIChatAssistantProps) {
@@ -630,6 +633,36 @@ export function AIChatAssistant({
       normalizedText.includes("mostrar") || 
       normalizedText.includes("mostra")
     ) {
+      // ABRIR correspondência específica (voz ou texto): se a intenção é
+      // "mostrar/abrir a mensagem X" (com conteúdo específico), abre direto o
+      // detalhe — só cai na navegação genérica para a caixa se não encontrar.
+      if (onAbrirCorrespondencia) {
+        const mencionaCorrespondencia = normalizedText.includes("mensagem") || normalizedText.includes("mensagens") ||
+          normalizedText.includes("correspondência") || normalizedText.includes("correspondencia") ||
+          normalizedText.includes("correio") || normalizedText.includes("caixa") ||
+          normalizedText.includes("ofício") || normalizedText.includes("oficio") ||
+          normalizedText.includes("fatura") || normalizedText.includes("factura") ||
+          normalizedText.includes("aviso") || normalizedText.includes("notificação") || normalizedText.includes("notificacao");
+        // Conteúdo específico = palavras que sobram depois de remover comandos
+        // e estrutura ("mostra", "a mensagem", "sobre", "por favor"...).
+        const restante = normalizedText
+          .replace(/mostra|mostrar|abre|abrir|navega|navegar|por favor|me|sobre|qual|quais|alguma|algum|a |o |as |os |de |da |do |das |dos |para /gi, '')
+          .replace(/mensagem|mensagens|correspondência|correspondencia|correspondências|correspondencias|correio|caixa|ofício|oficio|fatura|factura|aviso/gi, '')
+          .replace(/[^a-z0-9à-úãõâêîôûçáéíóú]+/gi, ' ')
+          .trim();
+        const temConteudoEspecifico = restante.length >= 3;
+        if (mencionaCorrespondencia && temConteudoEspecifico) {
+          const abriu = onAbrirCorrespondencia(currentInput);
+          if (abriu) {
+            const okMsg = "Vou abrir a correspondência para si.";
+            setMessages(prev => [...prev, userMsg, { role: 'assistant', content: okMsg }]);
+            setInput('');
+            if (iaLiveActive) speak(okMsg);
+            return;
+          }
+        }
+      }
+
       if (normalizedText.includes("contacto") || normalizedText.includes("vizinho") || normalizedText.includes("emergência") || normalizedText.includes("emergencia") || normalizedText.includes("civil") || normalizedText.includes("parentes")) {
         targetTab = "contactos";
         tabLabel = "Contactos Civis e de Emergência";
