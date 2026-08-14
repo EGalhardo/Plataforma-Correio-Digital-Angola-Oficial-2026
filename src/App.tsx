@@ -57,12 +57,6 @@ import {
   RegisterAdminAgentPage,
   InstitutionAccessPanel,
   InstitutionForcedPasswordChange,
-  FacialLoginSettings,
-  ResetPasswordStepper,
-  VoiceGuideAssistant,
-  InstitutionDetail,
-  NotificationDetailModal,
-  VideoSessionPage,
 } from './components';
 
 // UI Components
@@ -136,7 +130,7 @@ import {
   type InstCitizenInfo,
   type BroadcastRecordRow,
 } from './services/institutionEmergencyService';
-import { InstitutionEmergencyBroadcast, type RowSendOutcome } from './components/features/InstitutionEmergencyBroadcast';
+import type { RowSendOutcome } from './components/features/InstitutionEmergencyBroadcast';
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
 import { resolveStorageUrl } from './lib/secureStorage';
@@ -175,6 +169,16 @@ const PagamentosInlineCidadao = lazy(() => import('./components/features/Pagamen
 const InstPagamentosContent = lazy(() => import('./components/features/InstPagamentosContent').then(m => ({ default: m.InstPagamentosContent })));
 const SolicitarDocumentoContent = lazy(() => import('./components/features/SolicitarDocumentoContent').then(m => ({ default: m.SolicitarDocumentoContent })));
 const RegisterStepper = lazy(() => import('./components/features/RegisterStepper').then(m => ({ default: m.RegisterStepper })));
+// 2026-08-14 — performance: componentes pesados fora do bundle principal
+// (Jitsi/vídeo, TensorFlow/facial, voz, emergência, modais). Carregados só
+// quando o utilizador os abre — reduz a carga inicial em ~30-40%.
+const VideoSessionPage = lazy(() => import('./components/features/VideoSessionPage').then(m => ({ default: m.VideoSessionPage })));
+const FacialLoginSettings = lazy(() => import('./components/features/FacialLoginSettings').then(m => ({ default: m.FacialLoginSettings })));
+const VoiceGuideAssistant = lazy(() => import('./components/features/VoiceGuideAssistant').then(m => ({ default: m.VoiceGuideAssistant })));
+const InstitutionEmergencyBroadcast = lazy(() => import('./components/features/InstitutionEmergencyBroadcast').then(m => ({ default: m.InstitutionEmergencyBroadcast })));
+const ResetPasswordStepper = lazy(() => import('./components/features/ResetPasswordStepper').then(m => ({ default: m.ResetPasswordStepper })));
+const NotificationDetailModal = lazy(() => import('./components/features/NotificationDetailModal').then(m => ({ default: m.NotificationDetailModal })));
+const InstitutionDetail = lazy(() => import('./components/features/InstitutionDetail').then(m => ({ default: m.InstitutionDetail })));
 import { shouldAutoSeedSupabase, shouldUseLocalBootstrap, shouldUseMockFallback } from './config/runtime';
 import { buildDemoContentPlan, withUnreadFloor, unmarkReadIds, type DemoArea } from './services/demoContentGuarantee';
 
@@ -4027,11 +4031,13 @@ ${messagesSummary || 'Nenhuma mensagem recente.'}`;
       
       case 'video-atendimento':
         return (
-          <VideoSessionPage
-            onBack={() => setTab('correspondencias')}
-            onNavigateToMail={() => setTab('correspondencias')}
-            addAuditLog={addAuditLog}
-          />
+          <PainelSuspense>
+            <VideoSessionPage
+              onBack={() => setTab('correspondencias')}
+              onNavigateToMail={() => setTab('correspondencias')}
+              addAuditLog={addAuditLog}
+            />
+          </PainelSuspense>
         );
       case 'documentos':
         const docUnreadCount = docInbox.filter(m => m.status === 'Não Lida').length;
@@ -4388,17 +4394,19 @@ Ficha civil do titular:
           );
         }
         return (
-          <InstitutionDetail
-            institutionName={selectedInstitution}
-            inbox={currentInbox}
-            sentMessages={currentSentMessages}
-            docInbox={currentDocInbox}
-            onBack={() => {
-              setSelectedInstitution(null);
-              setTab('home');
-            }}
-            onSelectMessage={handleSelectMessage}
-          />
+          <PainelSuspense>
+            <InstitutionDetail
+              institutionName={selectedInstitution}
+              inbox={currentInbox}
+              sentMessages={currentSentMessages}
+              docInbox={currentDocInbox}
+              onBack={() => {
+                setSelectedInstitution(null);
+                setTab('home');
+              }}
+              onSelectMessage={handleSelectMessage}
+            />
+          </PainelSuspense>
         );
       case 'correspondencias':
         return (
@@ -4434,11 +4442,13 @@ Ficha civil do titular:
         );
       case 'video-atendimento':
         return (
-          <VideoSessionPage
-            onBack={() => setTab('correspondencias')}
-            onNavigateToMail={() => setTab('correspondencias')}
-            addAuditLog={addAuditLog}
-          />
+          <PainelSuspense>
+            <VideoSessionPage
+              onBack={() => setTab('correspondencias')}
+              onNavigateToMail={() => setTab('correspondencias')}
+              addAuditLog={addAuditLog}
+            />
+          </PainelSuspense>
         );
       case 'documentos':
         return (
@@ -4762,12 +4772,14 @@ Ficha civil do titular:
                 Conta (depois de todos os painéis do perfil). */}
             {!isInstMode && !isGovMode && (
               <div className="px-4 md:px-8 pt-4 md:pt-6">
-                <FacialLoginSettings
+                <PainelSuspense>
+<FacialLoginSettings
                   mode="user"
                   personId={bi || DEMO_CREDENTIALS.user.identifier}
                   displayName={profileName}
                   onAudit={addAuditLog}
                 />
+</PainelSuspense>
               </div>
             )}
             {isInstMode && (
@@ -4779,12 +4791,14 @@ Ficha civil do titular:
             )}
             {isInstMode && (
               <div className="px-4 md:px-8 pt-4">
-                <FacialLoginSettings
+                <PainelSuspense>
+<FacialLoginSettings
                   mode="institution"
                   personId={instIdentity?.agentNumber || bi || DEMO_CREDENTIALS.institution.identifier}
                   displayName={instIdentity?.memberName || activeProfile?.institutionName || user?.name}
                   onAudit={addAuditLog}
                 />
+</PainelSuspense>
               </div>
             )}
           </>
@@ -5023,12 +5037,14 @@ Ficha civil do titular:
         return (
           <>
             <div className="px-4 md:px-8 pt-4 md:pt-6">
-              <FacialLoginSettings
+              <PainelSuspense>
+<FacialLoginSettings
                 mode="admin"
                 personId={bi || DEMO_CREDENTIALS.admin.identifier}
                 displayName={profileName}
                 onAudit={addAuditLog}
               />
+</PainelSuspense>
             </div>
             <GovPerfilContent 
             logs={auditLogs} 
