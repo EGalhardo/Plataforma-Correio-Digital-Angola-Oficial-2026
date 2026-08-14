@@ -711,18 +711,22 @@ export function AIChatAssistant({
 
     // 1) ABRIR correspondência específica (voz ou texto): "mostra/abre a
     //    mensagem X" (com conteúdo específico) abre o detalhe diretamente.
+    //    SÓ abre quando há um VERBO DE COMANDO explícito (mostra/abre/vê).
+    //    Perguntas como "Já recebi alguma correspondência da AGT?" NÃO têm
+    //    verbo de comando → seguem para o chat normal (resposta da IA).
     if (onAbrirCorrespondencia) {
       const mencionaCorrespondencia = normalizedText.includes("mensagem") || normalizedText.includes("mensagens") ||
         normalizedText.includes("correspondencia") || normalizedText.includes("correio") ||
         normalizedText.includes("caixa") || normalizedText.includes("oficio") ||
         normalizedText.includes("fatura") || normalizedText.includes("factura") ||
         normalizedText.includes("aviso");
+      const temVerboAbrir = /mostra|mostrar|abre|abrir|aberta|abre-me|mostra-me|v[eê] |ver |exibe|exibir|quero ver|quero abrir|abrir a|abre a|mostra a/.test(' ' + normalizedText + ' ');
       const restante = normalizedText
         .replace(/mostra|mostrar|abre|abrir|navega|navegar|por favor|me|sobre|qual|quais|alguma|algum|a |o |as |os |de |da |do |das |dos |para /gi, '')
         .replace(/mensagem|mensagens|correspondencia|correspondencias|correio|caixa|oficio|fatura|factura|aviso/gi, '')
         .replace(/[^a-z0-9]+/gi, ' ')
         .trim();
-      if (mencionaCorrespondencia && restante.length >= 3) {
+      if (mencionaCorrespondencia && temVerboAbrir && restante.length >= 3) {
         const abriu = onAbrirCorrespondencia(currentInput);
         if (abriu) {
           const okMsg = "Vou abrir a correspondência para si.";
