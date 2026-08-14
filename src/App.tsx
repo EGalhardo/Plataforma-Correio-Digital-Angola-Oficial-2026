@@ -4062,12 +4062,21 @@ Ficha civil do titular:
       .filter(t => t.length >= 3 && !['para', 'onde', 'como', 'pode', 'posso', 'uma', 'com', 'que', 'das', 'dos', 'saber', 'quero', 'sobre'].includes(t));
     if (!termos.length) return '';
 
-    const fonte = [...inbox, ...docInbox];
+    // Pesquisa em TODAS as caixas do próprio utilizador: recebidas (inbox),
+    // documentos (docInbox), enviadas do correio (sentMessages) e enviadas de
+    // documentos (docSentMessages). Tudo já filtrado por RLS — só o dono vê.
+    // A origem (recebida/enviada) é marcada para o rótulo De:/Para: ser honesto.
+    const fonte: { m: Message; enviada: boolean }[] = [
+      ...inbox.map(m => ({ m, enviada: false })),
+      ...docInbox.map(m => ({ m, enviada: false })),
+      ...sentMessages.map(m => ({ m, enviada: true })),
+      ...docSentMessages.map(m => ({ m, enviada: true })),
+    ];
     const hits = fonte
-      .map(m => {
-        const textoBruto = `${m.org || ''} ${m.preview || ''} ${m.subject || ''} ${m.institution || ''} ${m.details?.subject || ''} ${m.details?.body || ''}`.toLowerCase();
+      .map(({ m, enviada }) => {
+        const textoBruto = `${m.org || ''} ${m.preview || ''} ${m.details?.subject || ''} ${m.institution || ''} ${m.details?.body || ''}`.toLowerCase();
         const relevancia = termos.reduce((acc, t) => acc + (textoBruto.includes(t) ? 1 : 0), 0);
-        return { m, relevancia };
+        return { m, enviada, relevancia };
       })
       .filter(x => x.relevancia > 0)
       .sort((a, b) => b.relevancia - a.relevancia)
@@ -4075,12 +4084,13 @@ Ficha civil do titular:
 
     if (!hits.length) return '';
 
-    return hits.map(({ m }) => {
-      const de = m.org || m.institution || m.senderKey || 'Instituição';
-      const assunto = m.subject || m.preview || 'Sem assunto';
+    return hits.map(({ m, enviada }) => {
+      const alvo = m.org || m.institution || m.senderKey || 'Instituição';
+      const assunto = m.details?.subject || m.preview || 'Sem assunto';
       const corpo = (m.details?.body || m.preview || '').slice(0, MAX_BODY_CHARS);
       const corpoLinha = corpo ? ` | Conteúdo: ${corpo}` : '';
-      return `- De: ${de}, Assunto: ${assunto}, Data: ${m.date || m.timestamp || ''}, Estado: ${m.status || 'Recebida'}${corpoLinha}`;
+      const rotulo = enviada ? 'Para' : 'De';
+      return `- ${rotulo}: ${alvo}, Assunto: ${assunto}, Data: ${m.date || ''}, Estado: ${m.status || 'Recebida'}${corpoLinha}`;
     }).join('\n');
   };
 
