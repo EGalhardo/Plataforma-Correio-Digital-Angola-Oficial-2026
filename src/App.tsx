@@ -51,7 +51,6 @@ import {
   GovEmissaoContent,
   GovDocsContent,
   GovPerfilContent,
-  GovSegurancaContent,
   PastaDigitalContent,
   RegisterInstitutionPage,
   RegisterAdminAgentPage,
@@ -179,6 +178,9 @@ const InstitutionEmergencyBroadcast = lazy(() => import('./components/features/I
 const ResetPasswordStepper = lazy(() => import('./components/features/ResetPasswordStepper').then(m => ({ default: m.ResetPasswordStepper })));
 const NotificationDetailModal = lazy(() => import('./components/features/NotificationDetailModal').then(m => ({ default: m.NotificationDetailModal })));
 const InstitutionDetail = lazy(() => import('./components/features/InstitutionDetail').then(m => ({ default: m.InstitutionDetail })));
+// 2026-08-14 — GovSegurancaContent usa recharts (262 KB): fora do entry para
+// não pré-carregar gráficos no login.
+const GovSegurancaContent = lazy(() => import('./components/features/GovSegurancaContent').then(m => ({ default: m.GovSegurancaContent })));
 import { shouldAutoSeedSupabase, shouldUseLocalBootstrap, shouldUseMockFallback } from './config/runtime';
 import { buildDemoContentPlan, withUnreadFloor, unmarkReadIds, type DemoArea } from './services/demoContentGuarantee';
 
@@ -5120,7 +5122,8 @@ Ficha civil do titular:
         );
       case 'gov-seguranca':
         return (
-          <GovSegurancaContent 
+          <PainelSuspense>
+            <GovSegurancaContent 
             emergencyMode={emergencyMode}
             onToggleEmergencyMode={(enabled) => {
               setEmergencyMode(enabled);
@@ -5187,7 +5190,8 @@ Ficha civil do titular:
                 setVerificationStatus('Totalmente verificado');
               }
             }}
-          />
+            />
+            </PainelSuspense>
         );
 
       default:
