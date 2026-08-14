@@ -4042,6 +4042,48 @@ Ficha civil do titular:
     }
   };
 
+  /**
+   * Pesquisa local das correspondências DO PRÓPRIO utilizador para o assistente IA.
+   * A caixa de entrada já vem filtrada pelo RLS do Supabase (só o dono vê as suas),
+   * por isso esta pesquisa nunca expõe dados de terceiros.
+   * Devolve um resumo formatado das correspondências mais relevantes para a pergunta,
+   * limitado a MAX_HITS itens e com conteúdo truncado (proteção contra estouro de
+   * tokens do modelo e contra injeção de instruções no prompt).
+   */
+  const buscarCorrespondenciasParaIA = (query: string): string => {
+    const MAX_HITS = 5;
+    const MAX_BODY_CHARS = 300;
+    const q = String(query || '').toLowerCase().trim();
+    if (q.length < 3) return '';
+
+    // Termos de pesquisa: ignora palavras demasiado curtas/comuns.
+    const termos = q.split(/[^a-z0-9à-úãõâêîôûçáéíóú]+/i)
+      .map(t => t.toLowerCase())
+      .filter(t => t.length >= 3 && !['para', 'onde', 'como', 'pode', 'posso', 'uma', 'com', 'que', 'das', 'dos', 'saber', 'quero', 'sobre'].includes(t));
+    if (!termos.length) return '';
+
+    const fonte = [...inbox, ...docInbox];
+    const hits = fonte
+      .map(m => {
+        const textoBruto = `${m.org || ''} ${m.preview || ''} ${m.subject || ''} ${m.institution || ''} ${m.details?.subject || ''} ${m.details?.body || ''}`.toLowerCase();
+        const relevancia = termos.reduce((acc, t) => acc + (textoBruto.includes(t) ? 1 : 0), 0);
+        return { m, relevancia };
+      })
+      .filter(x => x.relevancia > 0)
+      .sort((a, b) => b.relevancia - a.relevancia)
+      .slice(0, MAX_HITS);
+
+    if (!hits.length) return '';
+
+    return hits.map(({ m }) => {
+      const de = m.org || m.institution || m.senderKey || 'Instituição';
+      const assunto = m.subject || m.preview || 'Sem assunto';
+      const corpo = (m.details?.body || m.preview || '').slice(0, MAX_BODY_CHARS);
+      const corpoLinha = corpo ? ` | Conteúdo: ${corpo}` : '';
+      return `- De: ${de}, Assunto: ${assunto}, Data: ${m.date || m.timestamp || ''}, Estado: ${m.status || 'Recebida'}${corpoLinha}`;
+    }).join('\n');
+  };
+
   const logSecurityEvent = (action: string, type: 'info' | 'warning' | 'critical' | 'success' = 'info') => {
     addAuditLog(action, type);
   };
@@ -6468,6 +6510,7 @@ Ficha civil do titular:
         onNavigate={setTab}
         activeTab={tab}
         pageContextHint={getPageContentDescription(tab)}
+        buscarCorrespondencias={buscarCorrespondenciasParaIA}
         recognitionRefOut={chatAssistantRecognitionRef} // Exportar ref de voz do assistente para o App
       />
 
