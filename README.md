@@ -208,3 +208,7 @@ Este comando devolve:
 ## Nota
 
 O projeto está preparado para continuar a evoluir sem alterar a identidade visual do portal, preservando simplicidade, atratividade e foco institucional.
+
+---
+
+*Última atualização: 2026-08-14 — teste de deploy contínuo (commit inofensivo).*
