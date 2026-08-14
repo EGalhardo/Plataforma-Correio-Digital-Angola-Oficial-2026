@@ -69,6 +69,89 @@ const NAV_CONFIRM_MESSAGES = {
   }
 };
 
+// ============================================================================
+// NAVEGAÇÃO ROBUSTA POR VOZ/TEXTO (2026-08-14)
+// ----------------------------------------------------------------------------
+// Problema corrigido: o comando de navegação falhava intermitentemente porque
+// (1) os gatilhos eram poucos ("vai para", "quero ver", "acessa", "leva-me"
+// não estavam cobertos), (2) não havia normalização de acentos (voz transcreve
+// com variações) e (3) comandos apontavam para páginas admin não permitidas no
+// papel do utilizador (setTab não valida → falha silenciosa).
+//
+// Solução: um mapa central de destinos POR PAPEL (só rotas permitidas), verbos
+// de navegação alargados, texto normalizado (sem acentos) e navegação IMEDIATA
+// (sem o passo de confirmação de 2 etapas, que era a causa da intermitência na
+// voz). O chat normal (perguntas de IA) continua a funcionar como antes: só há
+// navegação quando a frase contém verbo de navegação + destino reconhecido.
+// ============================================================================
+
+/** Normaliza texto para comparação: minúsculas + sem acentos + espaços colapsados. */
+const normTexto = (s: string): string =>
+  String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/** Verbos/frases que indicam intenção de navegar. */
+const VERBOS_NAVEGACAO = [
+  'ir para', 'vai para', 'vou para', 'va para', 'vai', 'vou', 'va',
+  'abre', 'abrir', 'aberta', 'abre-me', 'navega', 'navegar', 'muda para',
+  'mostra', 'mostrar', 'mostra-me', 'leva', 'leva-me', 'acessa', 'acessar',
+  'entra', 'entrar', 'quero ver', 'quero ir', 'quero', 'vamos', 'vamos para',
+  'conduz', 'dirige', 'acesso a', 'vamos a', 'acessar a',
+];
+
+interface DestinoNav {
+  termos: string[];
+  tab: string;
+  label: string;
+  papeis: AppMode[];
+}
+
+/** Mapa de destinos de navegação por papel (só rotas permitidas no papel). */
+const NAV_DESTINOS: DestinoNav[] = [
+  // ---- Áreas comuns a todos ----
+  // NOTA: 'admin' está propositadamente FORA das entradas comuns de painel e
+  // correio — para admin existem variantes gov-* (gov-dashboard,
+  // gov-correspondencias) definidas mais abaixo, e a ordem do mapa dá
+  // prioridade à primeira entrada cujo papel bate.
+  { termos: ['pagina inicial', 'página inicial', 'inicio', 'início', 'home', 'dashboard', 'painel principal', 'painel', 'principal'], tab: 'home', label: 'Painel Principal', papeis: ['user', 'institution'] },
+  { termos: ['correio', 'caixa de correio', 'caixa', 'correspondencia', 'correspondência', 'mensagens', 'mensagem'], tab: 'correspondencias', label: 'Correio', papeis: ['user', 'institution'] },
+  { termos: ['historico', 'histórico', 'atividades', 'atividade', 'linha do tempo'], tab: 'historico', label: 'Histórico de Atividades', papeis: ['user', 'institution', 'admin'] },
+  { termos: ['notificacoes', 'notificações', 'notificacao', 'notificação', 'alerta', 'alertas', 'central de alertas'], tab: 'notificacoes', label: 'Central de Notificações', papeis: ['user', 'institution', 'admin'] },
+  { termos: ['video atendimento', 'videoatendimento', 'vídeo atendimento', 'videochamada', 'vídeo chamada', 'chamada', 'conferencia', 'conferência'], tab: 'video-atendimento', label: 'Video Atendimento', papeis: ['user', 'institution', 'admin'] },
+  { termos: ['documentos', 'documento', 'certidoes', 'certidões', 'certidao', 'certidão', 'arquivo'], tab: 'documentos', label: 'Documentos', papeis: ['user', 'institution'] },
+
+  // ---- Cidadão / comum ----
+  { termos: ['contactos', 'contacto', 'contatos', 'contato', 'vizinhos', 'vizinho', 'emergencia', 'emergência', 'parentes', 'circulo de confiança', 'círculo de confiança', 'confianca', 'confiança'], tab: 'contactos', label: 'Contactos', papeis: ['user'] },
+  { termos: ['perfil', 'minha conta', 'meu perfil', 'dados pessoais', 'biometria'], tab: 'perfil', label: 'Meu Perfil', papeis: ['user', 'institution'] },
+  { termos: ['pagamentos', 'pagamento', 'taxas', 'taxa', 'cobranca', 'cobrança', 'emolumentos', 'emolumento'], tab: 'pagamentos', label: 'Pagamentos', papeis: ['user'] },
+  { termos: ['pasta digital', 'minha pasta', 'processos digitais', 'dossier'], tab: 'pasta-digital', label: 'Pasta Digital', papeis: ['user'] },
+  { termos: ['qr code', 'qr', 'codigo qr', 'código qr', 'carteira digital', 'carteira', 'passaporte', 'offline'], tab: 'qr-code', label: 'QR Code', papeis: ['user'] },
+  { termos: ['solicitar documento', 'pedir documento', 'solicitacao de documento', 'pedido de documento'], tab: 'solicitar-documento', label: 'Solicitar Documento', papeis: ['user'] },
+
+  // ---- Instituição ----
+  { termos: ['equipa', 'colaboradores', 'colaborador', 'trabalhadores', 'trabalhador', 'membros', 'membro', 'operadores', 'operador', 'funcionarios', 'funcionário'], tab: 'gov-contatos', label: 'Equipa', papeis: ['institution'] },
+  { termos: ['pagamentos', 'pagamento', 'cobrancas', 'cobrança', 'cobrancas', 'taxas', 'emolumentos'], tab: 'inst-pagamentos', label: 'Pagamentos e Cobranças', papeis: ['institution'] },
+  { termos: ['qr code', 'qr', 'validacao', 'validação', 'validar', 'codigo qr'], tab: 'inst-qrcode', label: 'Validação por QR Code', papeis: ['institution'] },
+  { termos: ['ia', 'assistente ia', 'assistente', 'inteligencia artificial', 'inteligência artificial', 'base de conhecimento', 'conhecimento'], tab: 'inst-ai-assistant', label: 'Assistência IA', papeis: ['institution'] },
+
+  // ---- Admin ----
+  { termos: ['dashboard', 'painel principal', 'painel', 'soc', 'governo'], tab: 'gov-dashboard', label: 'Painel Principal SOC', papeis: ['admin'] },
+  { termos: ['interoperabilidade', 'sge', 'federacao', 'federação', 'federado'], tab: 'gov-interoperabilidade', label: 'Interoperabilidade', papeis: ['admin'] },
+  { termos: ['correspondencias', 'correspondências', 'correio', 'mensagens', 'mensagem', 'caixa'], tab: 'gov-correspondencias', label: 'Correspondências', papeis: ['admin'] },
+  { termos: ['cidadaos', 'cidadãos', 'cidadao', 'cidadão', 'homologacao', 'homologação', 'cadastro'], tab: 'gov-contatos', label: 'Cidadãos', papeis: ['admin'] },
+  { termos: ['equipa', 'trabalhadores', 'trabalhador', 'colaboradores', 'membros', 'operadores'], tab: 'gov-trabalhadores', label: 'Equipa Central', papeis: ['admin'] },
+  { termos: ['relatorio', 'relatório', 'relatorios', 'relatórios', 'estatisticas', 'estatísticas', 'estatistica', 'estatística', 'indicadores'], tab: 'gov-relatorio', label: 'Relatórios', papeis: ['admin'] },
+  { termos: ['ia', 'inteligencia artificial', 'inteligência artificial', 'assistente ia', 'nacional'], tab: 'gov-ia', label: 'IA (Nacional)', papeis: ['admin'] },
+  { termos: ['seguranca', 'segurança', 'auditoria', 'logs', 'log', 'seguranca nacional'], tab: 'gov-seguranca', label: 'Auditoria de Segurança', papeis: ['admin'] },
+  { termos: ['emissao', 'emissão', 'emitir', 'emissao de documentos'], tab: 'gov-emissao', label: 'Emissão de Documentos', papeis: ['admin'] },
+  { termos: ['documentos', 'documento', 'arquivo', 'certidoes', 'certidões'], tab: 'gov-docs', label: 'Arquivo de Documentos', papeis: ['admin'] },
+  { termos: ['perfil', 'minha conta', 'perfil admin'], tab: 'gov-perfil', label: 'Perfil Admin', papeis: ['admin'] },
+];
+
 const PAGE_FRIENDLY_NAMES: Record<AppMode, Record<string, string>> = {
   user: {
     home: "Painel Principal",
@@ -619,118 +702,74 @@ export function AIChatAssistant({
       }
     }
     
-    // Command interception (Voice navigation commands)
-    const normalizedText = currentInput.toLowerCase().trim();
+    // Command interception (Voice navigation commands) — versão robusta
+    // (2026-08-14): texto normalizado (sem acentos), verbos alargados, mapa de
+    // destinos por papel e navegação IMEDIATA (sem confirmação de 2 passos).
+    const normalizedText = normTexto(currentInput);
     let targetTab: string | null = null;
     let tabLabel = "";
-    
-    if (
-      normalizedText.includes("ir para") || 
-      normalizedText.includes("abre") || 
-      normalizedText.includes("abrir") || 
-      normalizedText.includes("navega") || 
-      normalizedText.includes("muda para") || 
-      normalizedText.includes("mostrar") || 
-      normalizedText.includes("mostra")
-    ) {
-      // ABRIR correspondência específica (voz ou texto): se a intenção é
-      // "mostrar/abrir a mensagem X" (com conteúdo específico), abre direto o
-      // detalhe — só cai na navegação genérica para a caixa se não encontrar.
-      if (onAbrirCorrespondencia) {
-        const mencionaCorrespondencia = normalizedText.includes("mensagem") || normalizedText.includes("mensagens") ||
-          normalizedText.includes("correspondência") || normalizedText.includes("correspondencia") ||
-          normalizedText.includes("correio") || normalizedText.includes("caixa") ||
-          normalizedText.includes("ofício") || normalizedText.includes("oficio") ||
-          normalizedText.includes("fatura") || normalizedText.includes("factura") ||
-          normalizedText.includes("aviso") || normalizedText.includes("notificação") || normalizedText.includes("notificacao");
-        // Conteúdo específico = palavras que sobram depois de remover comandos
-        // e estrutura ("mostra", "a mensagem", "sobre", "por favor"...).
-        const restante = normalizedText
-          .replace(/mostra|mostrar|abre|abrir|navega|navegar|por favor|me|sobre|qual|quais|alguma|algum|a |o |as |os |de |da |do |das |dos |para /gi, '')
-          .replace(/mensagem|mensagens|correspondência|correspondencia|correspondências|correspondencias|correio|caixa|ofício|oficio|fatura|factura|aviso/gi, '')
-          .replace(/[^a-z0-9à-úãõâêîôûçáéíóú]+/gi, ' ')
-          .trim();
-        const temConteudoEspecifico = restante.length >= 3;
-        if (mencionaCorrespondencia && temConteudoEspecifico) {
-          const abriu = onAbrirCorrespondencia(currentInput);
-          if (abriu) {
-            const okMsg = "Vou abrir a correspondência para si.";
-            setMessages(prev => [...prev, userMsg, { role: 'assistant', content: okMsg }]);
+
+    // 1) ABRIR correspondência específica (voz ou texto): "mostra/abre a
+    //    mensagem X" (com conteúdo específico) abre o detalhe diretamente.
+    if (onAbrirCorrespondencia) {
+      const mencionaCorrespondencia = normalizedText.includes("mensagem") || normalizedText.includes("mensagens") ||
+        normalizedText.includes("correspondencia") || normalizedText.includes("correio") ||
+        normalizedText.includes("caixa") || normalizedText.includes("oficio") ||
+        normalizedText.includes("fatura") || normalizedText.includes("factura") ||
+        normalizedText.includes("aviso");
+      const restante = normalizedText
+        .replace(/mostra|mostrar|abre|abrir|navega|navegar|por favor|me|sobre|qual|quais|alguma|algum|a |o |as |os |de |da |do |das |dos |para /gi, '')
+        .replace(/mensagem|mensagens|correspondencia|correspondencias|correio|caixa|oficio|fatura|factura|aviso/gi, '')
+        .replace(/[^a-z0-9]+/gi, ' ')
+        .trim();
+      if (mencionaCorrespondencia && restante.length >= 3) {
+        const abriu = onAbrirCorrespondencia(currentInput);
+        if (abriu) {
+          const okMsg = "Vou abrir a correspondência para si.";
+          setMessages(prev => [...prev, userMsg, { role: 'assistant', content: okMsg }]);
+          setInput('');
+          if (iaLiveActive) speak(okMsg);
+          return;
+        }
+      }
+    }
+
+    // 2) Detetar intenção de navegação (verbo) + destino reconhecido.
+    const temVerboNavegacao = VERBOS_NAVEGACAO.some(v => normalizedText.includes(v));
+    let destinoEncontrado: DestinoNav | null = null;
+    if (temVerboNavegacao) {
+      // Procura o destino mais específico (ordem do mapa) permitido no papel.
+      for (const d of NAV_DESTINOS) {
+        if (!d.papeis.includes(appMode)) continue;
+        if (d.termos.some(t => normalizedText.includes(t))) {
+          destinoEncontrado = d;
+          break;
+        }
+      }
+      // Destino admin mencionado num papel que não o permite → aviso honesto.
+      if (!destinoEncontrado) {
+        for (const d of NAV_DESTINOS) {
+          if (d.papeis.includes(appMode)) continue;
+          if (d.termos.some(t => normalizedText.includes(t))) {
+            const avisoMsg = `A página de ${d.label} não está disponível para o seu perfil de ${isAdmin ? 'Administração' : isInst ? 'Instituição' : 'Cidadão'}. Posso ajudá-lo com outra coisa?`;
+            setMessages(prev => [...prev, userMsg, { role: 'assistant', content: avisoMsg }]);
             setInput('');
-            if (iaLiveActive) speak(okMsg);
+            if (iaLiveActive) speak(avisoMsg);
             return;
           }
         }
       }
-
-      if (normalizedText.includes("contacto") || normalizedText.includes("vizinho") || normalizedText.includes("emergência") || normalizedText.includes("emergencia") || normalizedText.includes("civil") || normalizedText.includes("parentes")) {
-        targetTab = "contactos";
-        tabLabel = "Contactos Civis e de Emergência";
-      } else if (normalizedText.includes("correio") || normalizedText.includes("mensagem") || normalizedText.includes("mensagens") || normalizedText.includes("correspondência") || normalizedText.includes("correspondencia") || normalizedText.includes("caixa")) {
-        targetTab = "correspondencias";
-        tabLabel = "Caixa de Correio e Correspondência Oficial";
-      } else if (normalizedText.includes("pasta digital") || normalizedText.includes("minha pasta") || normalizedText.includes("processos digitais")) {
-        targetTab = "pasta-digital";
-        tabLabel = "Pasta Digital";
-      } else if (normalizedText.includes("histórico") || normalizedText.includes("historico") || normalizedText.includes("atividade") || normalizedText.includes("atividades")) {
-        targetTab = "historico";
-        tabLabel = "Histórico de Atividades";
-      } else if (normalizedText.includes("notificação") || normalizedText.includes("notificacao") || normalizedText.includes("notificações") || normalizedText.includes("notificacoes") || normalizedText.includes("alerta") || normalizedText.includes("alertas")) {
-        targetTab = "notificacoes";
-        tabLabel = "Central de Notificações";
-      } else if (normalizedText.includes("pagamento") || normalizedText.includes("pagamentos") || normalizedText.includes("taxa") || normalizedText.includes("taxas") || normalizedText.includes("cobrança") || normalizedText.includes("cobranca") || normalizedText.includes("emolumento") || normalizedText.includes("emolumentos")) {
-        targetTab = isInst ? "inst-pagamentos" : "pagamentos";
-        tabLabel = isInst ? "Pagamentos e Cobranças" : "Pagamentos e Emolumentos";
-      } else if (normalizedText.includes("vídeo") || normalizedText.includes("video") || normalizedText.includes("videochamada") || normalizedText.includes("chamada") || normalizedText.includes("conferência") || normalizedText.includes("conferencia")) {
-        targetTab = "video-atendimento";
-        tabLabel = "Video Atendimento";
-      } else if (normalizedText.includes("interoperabilidade") || normalizedText.includes("sge") || normalizedText.includes("federad")) {
-        targetTab = "gov-interoperabilidade";
-        tabLabel = "Interoperabilidade";
-      } else if (normalizedText.includes("cidadão") || normalizedText.includes("cidadao") || normalizedText.includes("cidadãos") || normalizedText.includes("homologação")) {
-        targetTab = "gov-contatos";
-        tabLabel = "Cidadãos";
-      } else if (normalizedText.includes("equipa") || normalizedText.includes("colaborador") || normalizedText.includes("trabalhador") || normalizedText.includes("membro") || normalizedText.includes("operador")) {
-        targetTab = isInst ? "gov-contatos" : "gov-trabalhadores";
-        tabLabel = isInst ? "Equipa Institucional" : "Equipa Central";
-      } else if (normalizedText.includes("relatório") || normalizedText.includes("relatorio") || normalizedText.includes("estatística") || normalizedText.includes("estatistica")) {
-        targetTab = "gov-relatorio";
-        tabLabel = "Relatórios e Estatísticas";
-      } else if (normalizedText.includes("inteligência artificial") || normalizedText.includes("ia") || normalizedText.includes("assistente ia") || normalizedText.includes("base de conhecimento") || normalizedText.includes("conhecimento")) {
-        targetTab = isInst ? "inst-ai-assistant" : "gov-ia";
-        tabLabel = isInst ? "Assistência IA" : "IA (Nacional)";
-      } else if (normalizedText.includes("auditoria") || normalizedText.includes("segurança") || normalizedText.includes("logs") || normalizedText.includes("log")) {
-        targetTab = "gov-seguranca";
-        tabLabel = "Auditoria de Segurança";
-      } else if (normalizedText.includes("emissão") || normalizedText.includes("emissao") || normalizedText.includes("emitir")) {
-        targetTab = "gov-emissao";
-        tabLabel = "Emissão de Documentos";
-      } else if (normalizedText.includes("documento") || normalizedText.includes("fatura") || normalizedText.includes("factura") || normalizedText.includes("trâmite") || normalizedText.includes("tramitação") || normalizedText.includes("arquivo") || normalizedText.includes("certidão") || normalizedText.includes("certidao")) {
-        targetTab = "documentos";
-        tabLabel = "Documentos e Tramitação";
-      } else if (normalizedText.includes("carteira") || normalizedText.includes("wallet") || normalizedText.includes("bi") || normalizedText.includes("passaporte") || normalizedText.includes("offline") || normalizedText.includes("qr")) {
-        targetTab = isInst ? "inst-qrcode" : "qr-code";
-        tabLabel = isInst ? "Validação por QR Code" : "QR Code Segura";
-      } else if (normalizedText.includes("perfil") || normalizedText.includes("dados") || normalizedText.includes("biometria") || normalizedText.includes("minha conta") || normalizedText.includes("conta")) {
-        targetTab = isAdmin ? "gov-perfil" : "perfil";
-        tabLabel = isAdmin ? "Perfil Admin" : "Meu Perfil";
-      } else if (normalizedText.includes("painel") || normalizedText.includes("início") || normalizedText.includes("inicio") || normalizedText.includes("home") || normalizedText.includes("principal") || normalizedText.includes("página inicial") || normalizedText.includes("pagina inicial") || normalizedText.includes("soc") || normalizedText.includes("dashboard")) {
-        targetTab = isAdmin ? "gov-dashboard" : "home";
-        tabLabel = isAdmin ? "Painel Principal SOC" : "Painel Principal";
-      }
     }
 
-    if (targetTab && onNavigate) {
-      setPendingNavigation({ targetTab, tabLabel });
-      
-      const askMsg = NAV_CONFIRM_MESSAGES.pt.ask.replace('{page}', tabLabel);
-      setMessages(prev => [...prev, userMsg, { role: 'assistant', content: askMsg }]);
-      
+    // 3) Navegação IMEDIATA quando há verbo + destino permitido.
+    if (destinoEncontrado && onNavigate) {
+      targetTab = destinoEncontrado.tab;
+      tabLabel = destinoEncontrado.label;
+      const navMsg = NAV_CONFIRM_MESSAGES.pt.confirmed.replace('{page}', tabLabel);
+      onNavigate(targetTab);
+      setMessages(prev => [...prev, userMsg, { role: 'assistant', content: navMsg }]);
       setInput('');
-      
-      if (iaLiveActive) {
-        speak(askMsg);
-      }
+      if (iaLiveActive) speak(navMsg);
       return;
     }
 

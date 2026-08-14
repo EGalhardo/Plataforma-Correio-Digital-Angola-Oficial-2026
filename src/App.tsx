@@ -3270,6 +3270,7 @@ export default function App() {
       'mensagem','mensagens','correspondência','correspondencia','correspondências',
       'correspondencias','correio','caixa','documento','documentos','alguma','algum',
       'qual','quais','que','esta','este','minha','meu','por','favor','vou','quero',
+      'vamos','leva','leva-me','acessa','entra','pagina','página','central','ver','pode',
     ]);
     const termos = q.split(/[^a-z0-9à-úãõâêîôûçáéíóú]+/i)
       .map(t => t.toLowerCase())
