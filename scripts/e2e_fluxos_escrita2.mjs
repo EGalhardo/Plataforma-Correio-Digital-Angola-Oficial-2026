@@ -172,6 +172,7 @@ const limparCidadao = async (bi) => {
 const homologarHarness = async (codigo) => {
   const up = await supaRest(`solicitacoes_registo?bi_numero=eq.${encodeURIComponent(codigo)}`, {
     method: 'PATCH', body: JSON.stringify({ status: 'Aprovado' }),
+    headers: { Prefer: 'return=representation' },
   });
   return up.status < 300 && Array.isArray(up.body) && up.body.length === 1;
 };
@@ -212,7 +213,7 @@ async function parteC(browser) {
     // C2 — circuito «Esqueci Senha» completo com NOVA senha
     const executarReset = async (senhaNova) => {
       await page.getByRole('button', { name: /Esqueci Senha/ }).first().click();
-      await page.getByText(/verificação de identidade civil|Dica de Simulação/i).first().waitFor({ state: 'visible', timeout: 15000 });
+      await page.getByText(/verificação de identidade civil|Dica de Simulação|Recuperar Senha|Receba um link de recuperação no seu e-mail/i).first().waitFor({ state: 'visible', timeout: 15000 });
       await page.getByPlaceholder(/LA041|540132918/).first().fill(CID_BI);
       await clicarQuandoActivo(page, /Enviar|Receber|Continuar/i);
       const otp = page.locator('input[inputmode="numeric"], input[maxlength="6"]').first();

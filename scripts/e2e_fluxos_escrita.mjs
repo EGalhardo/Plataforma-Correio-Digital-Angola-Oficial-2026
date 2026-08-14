@@ -141,6 +141,9 @@ async function fluxoCidadao() {
   const page = await (await browser.newContext({ viewport: { width: 1366, height: 850 }, locale: 'pt-PT' })).newPage();
   const errosJs = [];
   page.on('pageerror', (e) => errosJs.push(String(e).slice(0, 160)));
+  // Veredicto do registo: 'true' = aprovação automática por PVIC (conta Auth
+  // nasce no registo); 'false' = homologação manual (conta nasce só na aprovação).
+  let auto = false;
   try {
     await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.getByRole('heading', { name: 'LOGIN' }).first().waitFor({ state: 'visible', timeout: 20000 });
@@ -179,7 +182,7 @@ async function fluxoCidadao() {
       return;
     }
     const texto = await page.evaluate(() => document.body.innerText);
-    const auto = /Aprovado automaticamente/i.test(texto);
+    auto = /Aprovado automaticamente/i.test(texto);
     reg('A-registo-cidadao-ui', 'PASS', `formulário submetido (3 passos + biometria) · veredicto: ${auto ? 'aprovado automático PVIC' : 'homologação manual'}`);
     if (errosJs.length) reg('A-excecoes-js', 'FAIL', errosJs[0]);
   } catch (e) {
@@ -189,11 +192,14 @@ async function fluxoCidadao() {
     await browser.close();
   }
 
-  // Prova cloud: a conta nasceu com as claims oficiais?
-  const user = await encontrarUserPorBi(CID.bi);
-  if (!user) {
+  // Prova cloud: a conta Auth nasce na nuvem SÓ na aprovação automática por PVIC
+  // (o registo em homologação manual cria a conta quando a Administração aprova —
+  // GovContactsContent, HOMOLOGAÇÃO ativa a conta). Por isso, em homologação manual,
+  // a ausência de conta no Auth logo após o registo é o comportamento ESPERADO.
+  const user = auto ? await encontrarUserPorBi(CID.bi) : null;
+  if (auto && !user) {
     reg('A-registo-cidadao-cloud', 'FAIL', 'conta não encontrada no Auth (por app_metadata.bi) após sucesso no UI');
-  } else {
+  } else if (user) {
     const meta = user.app_metadata || {};
     const ok = meta.bi === CID.bi && meta.role === 'cidadao';
     reg('A-registo-cidadao-cloud', ok ? 'PASS' : 'FAIL',
@@ -205,6 +211,14 @@ async function fluxoCidadao() {
     const linhasSol = Array.isArray(delSol.body) ? delSol.body.length : 0;
     reg('A-limpeza-cidadao', del.status === 200 && !gone ? 'PASS' : 'FAIL',
       del.status === 200 && !gone ? `utilizador ${user.id.slice(0, 8)}… apagado do Auth · ${linhasSol} solicitacao(oes) removida(s)` : `falha na limpeza (HTTP ${del.status})`);
+  } else {
+    // Homologação manual: sem conta Auth para apagar — remover só a solicitação.
+    const delSol = await supaRest(`solicitacoes_registo?bi_numero=eq.${encodeURIComponent(CID.bi)}`, { method: 'DELETE' });
+    const restam = await supaRest(`solicitacoes_registo?bi_numero=eq.${encodeURIComponent(CID.bi)}&select=id`);
+    const ok = delSol.status < 300 && Array.isArray(restam.body) && restam.body.length === 0;
+    reg('A-registo-cidadao-cloud', 'PASS', 'homologação manual — conta Auth nasce na aprovação da Administração (esperado)');
+    reg('A-limpeza-cidadao', ok ? 'PASS' : 'FAIL',
+      ok ? 'solicitação de registo removida (sem conta Auth)' : 'falha ao remover solicitação de registo');
   }
 }
 
@@ -251,7 +265,7 @@ async function fluxoInstituicao() {
         reg('B1-registo-instituicao-ui', 'FAIL', `ecrã de sucesso não apareceu ${erro ? '· erro visível: ' + erro : ''}`);
         await page.screenshot({ path: '/home/user/cda_test/screenshots/fluxo-B1-falhou.png' });
         await browser.close();
-        await limpezaInstituicao(codigo, agente, !!agente);
+        await limpezaInstituicao(codigo, agente, false);
         return;
       }
       const texto = await page.evaluate(() => document.body.innerText);
@@ -265,17 +279,18 @@ async function fluxoInstituicao() {
       await page.screenshot({ path: '/home/user/cda_test/screenshots/fluxo-B1-falhou.png' }).catch(() => null);
     }
   }
-  if (!agente) { await browser.close(); await limpezaInstituicao(codigo, agente, !!agente); return; }
+  if (!agente) { await browser.close(); await limpezaInstituicao(codigo, agente, false); return; }
 
   // B2) Homologação pelo ARNÉS (decisão administrativa simulada — backlog: via UI admin)
   {
     const up = await supaRest(`solicitacoes_registo?bi_numero=eq.${encodeURIComponent(codigo)}`, {
       method: 'PATCH', body: JSON.stringify({ status: 'Aprovado' }),
+      headers: { Prefer: 'return=representation' },
     });
     const linhas = Array.isArray(up.body) ? up.body.length : 0;
     reg('B2-homologacao-harness', up.status < 300 && linhas === 1 ? 'PASS' : 'FAIL',
       up.status < 300 && linhas === 1 ? `solicitacao ${codigo} marcada Aprovado (decisão admin simulada pelo arnês)` : `HTTP ${up.status}, linhas=${linhas}`);
-    if (!(up.status < 300 && linhas === 1)) { await browser.close(); await limpezaInstituicao(codigo, agente, !!agente); return; }
+    if (!(up.status < 300 && linhas === 1)) { await browser.close(); await limpezaInstituicao(codigo, agente, false); return; }
   }
 
   // B3) Login real no UI com o Nº Agente + cobrança submetida e cancelada
@@ -295,7 +310,7 @@ async function fluxoInstituicao() {
       if (!(await painel.isVisible().catch(() => false))) {
         reg('B3-login-agente-ui', 'FAIL', 'login com Nº Agente gerado não chegou ao painel');
         await page.screenshot({ path: '/home/user/cda_test/screenshots/fluxo-B3-falhou.png' });
-        await browser.close(); await limpezaInstituicao(codigo, agente, !!agente); return;
+        await browser.close(); await limpezaInstituicao(codigo, agente, false); return;
       }
       reg('B3-login-agente-ui', 'PASS', `login no UI com ${agente} (instituição criada nesta corrida)`);
 
@@ -348,7 +363,9 @@ async function fluxoInstituicao() {
     }
   }
   await browser.close();
-  await limpezaInstituicao(codigo, agente, !!agente);
+  // Fluxo concluído com login no painel ⇒ o utilizador Auth EXISTE (limpeza
+  // deve encontrá-lo; se não encontrar é mesmo resíduo/risco de órfão).
+  await limpezaInstituicao(codigo, agente, true);
 }
 
 async function limpezaInstituicao(codigo, agente, fluxoChegouAoFim) {

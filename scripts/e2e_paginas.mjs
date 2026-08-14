@@ -177,7 +177,7 @@ async function correrPapel(role, cfg) {
         reg(role, 'redefinir-senha', 'FAIL', 'botão «Esqueci Senha» inexistente');
       } else {
         await btnEsqueci.click();
-        const marc = page.getByText(/Operação protegida por verificação de identidade civil|Dica de Simulação/i).first();
+        const marc = page.getByText(/Operação protegida por verificação de identidade civil|Dica de Simulação|Recuperar Senha|Receba um link de recuperação no seu e-mail/i).first();
         await marc.waitFor({ state: 'visible', timeout: 15000 }).catch(() => null);
         const ok = await marc.isVisible().catch(() => false);
         reg(role, 'redefinir-senha', ok ? 'PASS' : 'FAIL',
