@@ -27,11 +27,18 @@ import {
   Shield,
   VideoOff,
   MonitorPlay,
-  RefreshCw
+  RefreshCw,
+  WifiOff,
+  Loader2
 } from 'lucide-react';
 import { useLanguage } from '../../hooks/useLanguage';
 import { VideoSessionService } from '../../services/videoSessionService';
 import type { VideoSessionExtended } from '../../services/videoSessionService';
+
+// Servidor Jitsi configurável (FASE 2026-08-15): por defeito usa o serviço
+// público meet.jit.si, mas pode apontar para um servidor próprio (self-hosted)
+// via variável de ambiente VITE_JITSI_SERVER_URL — sem alterar código.
+const JITSI_SERVER = (import.meta as any).env?.VITE_JITSI_SERVER_URL || 'https://meet.jit.si';
 
 interface JitsiEmbedProps {
   roomName: string;
@@ -198,10 +205,40 @@ function LocalWebcamOverlay() {
 }
 
 function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbedProps) {
-  const jitsiUrl = useMemo(() => {
-    return `https://meet.jit.si/${roomName}#config.prejoinPageEnabled=false&config.disableDeepLinking=true&interfaceConfig.MOBILE_APP_PROMO=false`;
-  }, [roomName]);
-  
+  const [jitsiUrl, setJitsiUrl] = useState<string>(() => `${JITSI_SERVER}/${roomName}#config.prejoinPageEnabled=false&config.disableDeepLinking=true&interfaceConfig.MOBILE_APP_PROMO=false`);
+  // Estado de ligação: checking (pré-verificação) · loading (a carregar) ·
+  // ready (iframe carregado) · error (falha de rede/DNS — mostra ajuda).
+  const [linkState, setLinkState] = useState<'checking' | 'loading' | 'ready' | 'error'>('checking');
+  const [erroDetalhe, setErroDetalhe] = useState('');
+
+  const reconfigurar = (url: string) => { setJitsiUrl(url); setLinkState('loading'); setErroDetalhe(''); };
+
+  // Pré-verificação de alcance do servidor (deteta DNS/redes bloqueadas ANTES
+  // de tentar carregar o iframe) + timeout de carga. Nunca quebra o fluxo.
+  useEffect(() => {
+    if (!isActive) return;
+    let cancelado = false;
+    setLinkState('checking');
+    setErroDetalhe('');
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    fetch(JITSI_SERVER + '/', { method: 'HEAD', signal: ctrl.signal, mode: 'no-cors' })
+      .catch(() => null)
+      .finally(() => {
+        clearTimeout(timer);
+        if (cancelado) return;
+        // 'no-cors' não expõe o status; se o fetch não lançou, o domínio existe.
+        setLinkState('loading');
+      });
+    // Timeout de segurança: se o iframe não carregar em 30s, mostra ajuda.
+    const cargaTimer = setTimeout(() => {
+      if (cancelado) return;
+      setLinkState(prev => prev === 'ready' ? prev : 'error');
+      setErroDetalhe('O servidor de vídeo não respondeu a tempo.');
+    }, 30000);
+    return () => { cancelado = true; clearTimeout(timer); clearTimeout(cargaTimer); };
+  }, [isActive, roomName]);
+
   if (!isActive) {
     return (
       <div id="video-atendimento-container" className="bg-slate-950 border border-slate-700 rounded-2xl overflow-hidden relative shadow-lg">
@@ -227,20 +264,64 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
         </div>
         <span className="text-indigo-300 text-[9px] font-semibold truncate max-w-[180px]">{subject}</span>
       </div>
-      
-      <iframe
-        src={jitsiUrl}
-        style={{ border: '0px none', width: '100%' }}
-        name="Jitsi"
-        scrolling="no"
-        frameBorder="0"
-        marginHeight={0}
-        marginWidth={0}
-        allowFullScreen={true}
-        allow="camera; microphone; display-capture; autoplay; clipboard-write"
-        title="Videoatendimento Oficial Correio Digital Angola"
-        className="w-full pt-8 h-[280px] md:h-[480px]"
-      />
+
+      {/* Estado de erro: mensagem clara + causas + retry (em vez do erro técnico do browser). */}
+      {linkState === 'error' ? (
+        <div className="w-full pt-8 h-[280px] md:h-[480px] flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950 p-6">
+          <div className="text-center space-y-4 max-w-md">
+            <div className="w-14 h-14 bg-rose-500/15 rounded-2xl flex items-center justify-center mx-auto">
+              <WifiOff size={26} className="text-rose-400" />
+            </div>
+            <div>
+              <h4 className="text-white text-sm font-black uppercase tracking-wide">Não foi possível ligar ao servidor de vídeo</h4>
+              <p className="text-slate-400 text-[11px] font-medium leading-relaxed mt-2">
+                O servidor de vídeo (<span className="text-indigo-300">{JITSI_SERVER.replace('https://', '')}</span>) não está acessível a partir da sua rede.
+                {erroDetalhe ? ` ${erroDetalhe}` : ''}
+              </p>
+            </div>
+            <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-3 text-left space-y-1">
+              <p className="text-[9px] font-black uppercase tracking-widest text-amber-400">Possíveis causas e soluções</p>
+              <p className="text-[10px] text-slate-300 font-medium leading-snug">• Verifique a ligação à internet e que o DNS resolve domínios externos.</p>
+              <p className="text-[10px] text-slate-300 font-medium leading-snug">• Se usar uma rede corporativa/operadora com filtros, pode estar a bloquear o domínio de vídeo.</p>
+              <p className="text-[10px] text-slate-300 font-medium leading-snug">• Experimente outra rede (ex.: dados móveis) ou um servidor de vídeo institucional.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setLinkState('loading'); setErroDetalhe(''); setJitsiUrl(`${JITSI_SERVER}/${roomName}#config.prejoinPageEnabled=false&config.disableDeepLinking=true&interfaceConfig.MOBILE_APP_PROMO=false`); }}
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer border-none"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <iframe
+            key={jitsiUrl}
+            src={jitsiUrl}
+            onLoad={() => setLinkState('ready')}
+            style={{ border: '0px none', width: '100%' }}
+            name="Jitsi"
+            scrolling="no"
+            frameBorder="0"
+            marginHeight={0}
+            marginWidth={0}
+            allowFullScreen={true}
+            allow="camera; microphone; display-capture; autoplay; clipboard-write"
+            title="Videoatendimento Oficial Correio Digital Angola"
+            className="w-full pt-8 h-[280px] md:h-[480px]"
+          />
+          {/* Sobreposição de ligação enquanto o iframe carrega */}
+          {(linkState === 'checking' || linkState === 'loading') && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm">
+              <div className="text-center space-y-3">
+                <Loader2 size={28} className="animate-spin text-indigo-400 mx-auto" />
+                <p className="text-slate-300 text-[11px] font-bold">A ligar ao servidor de vídeo…</p>
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Floating Picture-in-Picture Local Webcam Overlay */}
       {isActive && isVideoOn && <LocalWebcamOverlay />}
