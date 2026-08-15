@@ -335,12 +335,9 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-        {/* Left Column — flex column h-full: os cards preenchem a altura da linha */}
-        <div className="lg:col-span-1 flex flex-col gap-6 h-full text-left">
-          
-          {/* Photo Card with profile stats */}
-          <div className="bg-white border border-slate-200 rounded-[32px] p-6 flex flex-col items-center text-center relative overflow-hidden shadow-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(280px,0.95fr)_minmax(500px,2fr)] gap-4 items-stretch">
+          {/* Photo Card with profile stats — h-full: altura igual à das Informações Pessoais */}
+          <div className="bg-white border border-slate-200 rounded-[32px] p-6 flex flex-col items-center text-center relative overflow-hidden shadow-sm h-full">
             
             <div className="relative mt-4 mb-4 group">
               <div className="w-32 h-32 md:w-36 md:h-36 rounded-[28px] border border-slate-150 p-1 bg-white relative overflow-hidden">
@@ -418,52 +415,8 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
             </div>
           </div>
 
-          {/* ACTIVIDADE RECENTE LOGS — mt-auto: fundo alinhado com a coluna direita */}
-          <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm mt-auto flex flex-col">
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Actividade Recente</h4>
-              <span className="w-2 h-2 rounded-full bg-emerald-505 bg-emerald-500 animate-pulse" />
-            </div>
-
-            <div className="space-y-3">
-              {(sessionDemo === false
-                ? [{ action: 'Sem actividade recente', desc: 'A actividade da sua conta aparecerá aqui.', time: '', type: 'info' }]
-                : [
-                { action: 'BI actualizado', desc: 'Ficha civil sincronizada', time: 'Hoje às 10:32', type: 'success' },
-                { action: 'Nova correspondência da AGT', desc: 'Notificação electrónica', time: 'Hoje às 09:15', type: 'info' },
-                { action: 'Passaporte validado', desc: 'Homologação pelo SME', time: 'Ontem às 16:45', type: 'success' },
-                { action: 'Factura da ENDE recebida', desc: 'Pagamento de utilidade integrado', time: 'Ontem às 11:20', type: 'warn' }
-              ]).map((act, idx) => (
-                <div key={idx} className="flex gap-3 items-start text-xs border-b border-slate-50 pb-3 last:border-0 last:pb-0">
-                  <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${
-                    act.type === 'success' ? 'bg-emerald-500' :
-                    act.type === 'warn' ? 'bg-amber-500' : 'bg-blue-500'
-                  }`} />
-                  <div className="flex-1">
-                    <div className="font-extrabold text-slate-800 leading-snug">{act.action}</div>
-                    <div className="text-[10px] text-slate-400 font-medium">{act.desc}</div>
-                  </div>
-                  <span className="text-[9px] font-bold text-slate-400 text-right shrink-0">{act.time}</span>
-                </div>
-              ))}
-            </div>
-
-            <button 
-              onClick={() => setTab('historico')}
-              className="w-full mt-auto pt-4 py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] border border-[#0E2B64] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-white flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <History size={12} />
-              Ver Toda Actividade
-            </button>
-          </div>
-
-        </div>
-
-        {/* Right Column — flex column h-full: fundo alinhado com a coluna esquerda */}
-        <div className="lg:col-span-2 flex flex-col gap-6 h-full text-left">
-
-          {/* INFORMAÇÕES PESSOAIS Card */}
-          <div className="bg-white border border-slate-200 rounded-[32px] p-6 md:p-8 space-y-6 text-left shadow-sm">
+          {/* INFORMAÇÕES PESSOAIS Card — h-full: altura igual à do Perfil */}
+          <div className="bg-white border border-slate-200 rounded-[32px] p-6 md:p-8 space-y-6 text-left shadow-sm h-full">
             <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <h2 className="font-black text-slate-950 text-xl uppercase tracking-tight">Informações Pessoais</h2>
@@ -618,12 +571,50 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
               </div>
             )}
           </div>
+      </div>
 
-          {/* Bento Grid: 4 Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch mt-auto">
-            
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
+          {/* ACTIVIDADE RECENTE LOGS — flex-col h-full: botão alinhado com os outros cards da linha */}
+          <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col h-full">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Actividade Recente</h4>
+              <span className="w-2 h-2 rounded-full bg-emerald-505 bg-emerald-500 animate-pulse" />
+            </div>
+
+            <div className="space-y-3">
+              {(sessionDemo === false
+                ? [{ action: 'Sem actividade recente', desc: 'A actividade da sua conta aparecerá aqui.', time: '', type: 'info' }]
+                : [
+                { action: 'BI actualizado', desc: 'Ficha civil sincronizada', time: 'Hoje às 10:32', type: 'success' },
+                { action: 'Nova correspondência da AGT', desc: 'Notificação electrónica', time: 'Hoje às 09:15', type: 'info' },
+                { action: 'Passaporte validado', desc: 'Homologação pelo SME', time: 'Ontem às 16:45', type: 'success' },
+                { action: 'Factura da ENDE recebida', desc: 'Pagamento de utilidade integrado', time: 'Ontem às 11:20', type: 'warn' }
+              ]).map((act, idx) => (
+                <div key={idx} className="flex gap-3 items-start text-xs border-b border-slate-50 pb-3 last:border-0 last:pb-0">
+                  <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${
+                    act.type === 'success' ? 'bg-emerald-500' :
+                    act.type === 'warn' ? 'bg-amber-500' : 'bg-blue-500'
+                  }`} />
+                  <div className="flex-1">
+                    <div className="font-extrabold text-slate-800 leading-snug">{act.action}</div>
+                    <div className="text-[10px] text-slate-400 font-medium">{act.desc}</div>
+                  </div>
+                  <span className="text-[9px] font-bold text-slate-400 text-right shrink-0">{act.time}</span>
+                </div>
+              ))}
+            </div>
+
+            <button 
+              onClick={() => setTab('historico')}
+              className="w-full mt-auto pt-4 py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] border border-[#0E2B64] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-white flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <History size={12} />
+              Ver Toda Actividade
+            </button>
+          </div>
+
             {/* 1. SEGURANÇA */}
-            <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col justify-between h-full">
+            <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col h-full">
               <div>
                 <div className="flex items-center gap-2.5 mb-2 border-b border-slate-50 pb-3">
                   <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center shrink-0 border border-orange-100">
@@ -653,7 +644,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
             </div>
 
             {/* 2. CONTACTOS DE EMERGÊNCIA */}
-            <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col justify-between h-full">
+            <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col h-full">
               <div>
                 <div className="flex items-center gap-2.5 mb-2 border-b border-slate-50 pb-3">
                   <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100">
@@ -696,15 +687,11 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
 
               <button 
                 onClick={() => setTab('contatos')}
-                className="w-full mt-4 py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] border border-[#0E2B64] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-white flex items-center justify-center gap-1 cursor-pointer"
+                className="w-full mt-auto pt-4 py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] border border-[#0E2B64] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-white flex items-center justify-center gap-1 cursor-pointer"
               >
                 Gerir Contactos
               </button>
             </div>
-
-          </div>
-          
-        </div>
       </div>
     </section>
   );
