@@ -5198,16 +5198,6 @@ Ficha civil do titular:
       case 'gov-perfil':
         return (
           <>
-            <div className="px-4 md:px-8 pt-4 md:pt-6">
-              <PainelSuspense>
-<FacialLoginSettings
-                mode="admin"
-                personId={bi || DEMO_CREDENTIALS.admin.identifier}
-                displayName={profileName}
-                onAudit={addAuditLog}
-              />
-</PainelSuspense>
-            </div>
             <GovPerfilContent 
             logs={auditLogs} 
             emergencyMode={emergencyMode} 
@@ -5254,6 +5244,19 @@ Ficha civil do titular:
               }
             }} 
           />
+            {/* F16 — Admin: o container "Login Facial" fica no FINAL da página
+                Perfil (depois de todos os painéis do perfil), tal como nas
+                áreas Cidadão e Instituição — harmonia entre as três áreas. */}
+            <div className="px-4 md:px-8 pt-4 md:pt-6">
+              <PainelSuspense>
+<FacialLoginSettings
+                mode="admin"
+                personId={bi || DEMO_CREDENTIALS.admin.identifier}
+                displayName={profileName}
+                onAudit={addAuditLog}
+              />
+</PainelSuspense>
+            </div>
           </>
         );
       case 'gov-stats':
