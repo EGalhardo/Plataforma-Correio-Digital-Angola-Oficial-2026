@@ -105,7 +105,7 @@ import {
 // F47 — revogação de contas eliminadas (pré-login via RPC v16 + purga local)
 // F48 — sincronização viva do estado oficial em sessão aberta (luz Online/gate)
 import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLocalResidues, resolveCloudGateAction } from './services/accountGateService';
-import { PROFILE_HYDRATION_COLUMNS } from './services/profileSyncService';
+import { PROFILE_HYDRATION_COLUMNS, puxarPerfilDaNuvem, reenviarPendenciasPerfil, temPendenciaPerfil } from './services/profileSyncService';
 import { buildAutoFillProfile, type CitizenAutoFillProfile } from './services/autoFillService';
 import { carregarPagamentosDoCidadao } from './services/pagamentosService';
 import {
@@ -3058,6 +3058,92 @@ export default function App() {
     () => (isDemoCitizenSession ? PAGAMENTOS_DEMO_PRAZOS() : undefined),
     [isDemoCitizenSession],
   );
+
+  // ==========================================================================
+  // Etapa #4 — SYNC AUTOMÁTICO DO PERFIL com o Supabase
+  // Corre no arranque da sessão do cidadão REAL (não demo, ligada à nuvem) e
+  // depois a cada 5 minutos, fazendo:
+  //   • PUSH: reenvia alterações locais que ficaram pendentes (fila local) —
+  //     só as remove quando a nuvem confirmar;
+  //   • PULL: lê a linha `profiles` da nuvem (multi-dispositivo) e aplica na
+  //     sessão os campos que diferem, SEM nunca sobrescrever uma edição em
+  //     curso (guarda F45). O carimbo só é escrito com confirmação real.
+  // ==========================================================================
+  const verificarSyncPerfilAutomaticamente = useCallback(async () => {
+    if (stage !== 'app' || appMode !== 'user' || !bi.trim()) return;
+    if (!hasValidSupabaseKeys() || !isOnline) return;
+    // Contas demo não têm linha real para sincronizar — nada a fazer.
+    if (homologationStore.isExempt(bi) || !isCloudBound(bi)) return;
+
+    let algoConfirmado = false;
+
+    // 1) PUSH — fila de pendências locais (alterações que a nuvem não aceitou antes).
+    try {
+      if (temPendenciaPerfil(bi)) {
+        const r = await reenviarPendenciasPerfil(supabase, bi);
+        if (r.reenviadas > 0) {
+          algoConfirmado = true;
+          addAuditLog(`[PERFIL-SYNC] Reenvio automático: ${r.reenviadas} alteração(ões) do perfil sincronizada(s) na nuvem.`, 'success');
+        }
+        if (r.falharam > 0) {
+          addAuditLog(`[PERFIL-SYNC] Reenvio automático: ${r.falharam} alteração(ões) continuam pendentes (nuvem indisponível).`, 'warning');
+        }
+      }
+    } catch (pushErr) {
+      console.warn('[PERFIL-SYNC] Reenvio automático de pendências falhou:', pushErr);
+    }
+
+    // 2) PULL — reconciliar com a nuvem (outro dispositivo pode ter editado).
+    try {
+      if (!isProfileEditActive()) {
+        const campos = await puxarPerfilDaNuvem(supabase, bi);
+        if (campos && Object.keys(campos).length > 0) {
+          const diffs: Record<string, string> = {};
+          const atuais: Record<string, string> = {
+            name: user?.name || '',
+            phone: user?.phone || '',
+            nif: user?.nif || '',
+            passport: user?.passport || '',
+            birthDate: user?.birthDate || '',
+            filiation: user?.filiation || '',
+            maritalStatus: user?.maritalStatus || '',
+            email: user?.email || '',
+            address: user?.address || '',
+          };
+          for (const [k, v] of Object.entries(campos)) {
+            if (v && v !== atuais[k]) diffs[k] = v;
+          }
+          if (Object.keys(diffs).length > 0) {
+            updateUserFields(diffs);
+            if (diffs.name) setProfileName(diffs.name);
+            if (diffs.phone) setPhone(diffs.phone);
+            if (diffs.nif) setNif(diffs.nif);
+            if (diffs.passport) setPassport(diffs.passport);
+            if (diffs.birthDate) setUserBirthDate(diffs.birthDate);
+            if (diffs.filiation) setUserFiliation(diffs.filiation);
+            if (diffs.maritalStatus) setUserMaritalStatus(diffs.maritalStatus);
+            addAuditLog(`[PERFIL-SYNC] Sincronização automática: perfil atualizado a partir da nuvem (${Object.keys(diffs).join(', ')}).`, 'info');
+          }
+        }
+        algoConfirmado = true; // o pull correu (mesmo sem alterações)
+      }
+    } catch (pullErr) {
+      console.warn('[PERFIL-SYNC] Sincronização automática (pull) falhou:', pullErr);
+    }
+
+    if (algoConfirmado) {
+      const stamp = new Date().toLocaleString();
+      localStorage.setItem('supabase_last_sync_time', stamp);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, appMode, bi, isOnline, isCloudBound, user?.name, user?.phone, user?.nif, user?.passport, user?.birthDate, user?.filiation, user?.maritalStatus, user?.email]);
+
+  useEffect(() => {
+    if (stage !== 'app' || appMode !== 'user') return;
+    void verificarSyncPerfilAutomaticamente();
+    const id = setInterval(() => void verificarSyncPerfilAutomaticamente(), 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [verificarSyncPerfilAutomaticamente, stage, appMode]);
   // F17 — Piso de não-lidas ao nível da DERIVAÇÃO (só demo): a fusão assíncrona
   // da nuvem repõe cópias lidas por cima do piso aplicado 1x no arranque; com o
   // piso derivado aqui, "Não Lidas" nunca fica vazio em sessão de demonstração.

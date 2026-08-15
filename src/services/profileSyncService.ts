@@ -213,3 +213,158 @@ export const syncProfileToCloud = async (
     };
   }
 };
+
+// ============================================================================
+// Etapa #4 — SYNC AUTOMÁTICO DO PERFIL
+// ----------------------------------------------------------------------------
+// Quando o cidadão edita o perfil e a nuvem NÃO confirma (sem rede, RLS,
+// serviço em baixo), o guardar honesto dizia "guardado localmente; sync
+// pendente" — mas NUNCA voltava a tentar. Esta camada acrescenta:
+//   • Fila local de pendências (localStorage, por BI) — o patch é guardado
+//     para reenvio automático quando a nuvem voltar;
+//   • reenviarPendenciasPerfil() — chamado periodicamente pelo App (5 min)
+//     e no regresso do online; só limpa a pendência quando a nuvem confirmar;
+//   • puxarPerfilDaNuvem() — pull dirigido (multi-dispositivo) devolvendo os
+//     campos a aplicar na sessão local (o chamador decide aplicar ou não,
+//     respeitando a guarda de edição F45).
+// NUNCA inventa sucesso: a pendência só é removida com confirmação da nuvem.
+// ============================================================================
+
+export interface PendenciaPerfil {
+  id: string;
+  bi: string;
+  patch: CitizenProfilePatch;
+  criadoEm: string; // ISO
+  ultimaTentativa?: string;
+  tentativas: number;
+}
+
+const PENDENCIAS_KEY = 'cda_profile_sync_pending_v1';
+const PENDENCIAS_MAX = 20;
+
+const lerPendenciasRaw = (): PendenciaPerfil[] => {
+  if (typeof localStorage === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(PENDENCIAS_KEY);
+    const lista = raw ? JSON.parse(raw) : [];
+    return Array.isArray(lista) ? lista : [];
+  } catch {
+    return [];
+  }
+};
+
+/** Guarda o patch como pendência de sincronização (uma por BI, fundida). */
+export const guardarPendenciaPerfil = (bi: string, patch: CitizenProfilePatch): PendenciaPerfil => {
+  const biKey = (bi || '').trim().toUpperCase();
+  const lista = lerPendenciasRaw();
+  const resto = lista.filter(p => p.bi.toUpperCase() !== biKey);
+  const nova: PendenciaPerfil = {
+    id: `${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    bi: biKey,
+    patch: { ...patch, bi: biKey },
+    criadoEm: new Date().toISOString(),
+    tentativas: 0,
+  };
+  const atualizada = [nova, ...resto].slice(0, PENDENCIAS_MAX);
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(PENDENCIAS_KEY, JSON.stringify(atualizada));
+    } catch {
+      /* sem espaço — sem espelho */
+    }
+  }
+  return nova;
+};
+
+/** Pendencias locais do cidadão (mais recentes primeiro). */
+export const lerPendenciasPerfil = (bi: string): PendenciaPerfil[] => {
+  const biKey = (bi || '').trim().toUpperCase();
+  if (!biKey) return [];
+  return lerPendenciasRaw().filter(p => p.bi.toUpperCase() === biKey);
+};
+
+export const temPendenciaPerfil = (bi: string): boolean => lerPendenciasPerfil(bi).length > 0;
+
+/** Remove uma pendência (após confirmação da nuvem). */
+export const limparPendenciaPerfil = (bi: string, id?: string): void => {
+  const biKey = (bi || '').trim().toUpperCase();
+  const lista = lerPendenciasRaw();
+  const restante = lista.filter(p =>
+    p.bi.toUpperCase() !== biKey || (id ? p.id !== id : false),
+  );
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(PENDENCIAS_KEY, JSON.stringify(restante));
+    } catch {
+      /* ignora */
+    }
+  }
+};
+
+export interface ResultadoReenvio {
+  reenviadas: number;
+  falharam: number;
+  bi: string;
+}
+
+/**
+ * Reenvia as pendências do cidadão. Só limpa cada pendência quando a nuvem
+ * confirmar (ok/created/schema_retry). Devolve o resumo honesto.
+ */
+export const reenviarPendenciasPerfil = async (
+  client: SupabaseClient,
+  bi: string,
+): Promise<ResultadoReenvio> => {
+  const pendencias = lerPendenciasPerfil(bi);
+  if (!pendencias.length) return { reenviadas: 0, falharam: 0, bi };
+  if (!client?.from) return { reenviadas: 0, falharam: pendencias.length, bi };
+
+  let reenviadas = 0;
+  let falharam = 0;
+  for (const p of pendencias) {
+    const res = await syncProfileToCloud(client, p.patch);
+    const ok = res.outcome === 'ok' || res.outcome === 'created' || res.outcome === 'schema_retry';
+    if (ok) {
+      limparPendenciaPerfil(bi, p.id);
+      reenviadas += 1;
+    } else {
+      falharam += 1;
+      // atualiza tentativas (diagnóstico honesto)
+      const lista = lerPendenciasRaw();
+      const atualizada = lista.map(item =>
+        item.id === p.id
+          ? { ...item, tentativas: item.tentativas + 1, ultimaTentativa: new Date().toISOString() }
+          : item,
+      );
+      if (typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem(PENDENCIAS_KEY, JSON.stringify(atualizada));
+        } catch {
+          /* ignora */
+        }
+      }
+    }
+  }
+  return { reenviadas, falharam, bi };
+};
+
+/**
+ * Pull dirigido: lê a linha `profiles` da nuvem e devolve os campos a aplicar
+ * na sessão local (multi-dispositivo). O chamador decide aplicar — deve
+ * respeitar a guarda de edição (isProfileEditActive) antes de updateUserFields.
+ * Devolve null em erro/ausência de linha.
+ */
+export const puxarPerfilDaNuvem = async (
+  client: SupabaseClient,
+  bi: string,
+): Promise<Record<string, string> | null> => {
+  if (!bi.trim() || !client?.from) return null;
+  const { data, error } = await client
+    .from('profiles')
+    .select(PROFILE_HYDRATION_COLUMNS)
+    .eq('bi', bi.trim())
+    .maybeSingle();
+  if (error) return null;
+  const campos = profileRowToCitizenFields(data as Record<string, unknown> | null);
+  return Object.keys(campos).length ? campos : null;
+};

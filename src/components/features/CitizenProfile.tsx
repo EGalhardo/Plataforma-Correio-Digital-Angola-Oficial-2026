@@ -20,7 +20,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { supabaseService, hasValidSupabaseKeys } from "../../services/supabaseService";
 import { supabase } from '../../lib/supabaseClient';
-import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, type ProfileSyncOutcome } from '../../services/profileSyncService';
+import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil, temPendenciaPerfil, type ProfileSyncOutcome } from '../../services/profileSyncService';
 import { useSession } from "../../services/sessionStore";
 
 import { Contact, Document } from '../../types';
@@ -80,6 +80,11 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; text: string; details?: string } | null>(null);
 
   const { user, updateUserFields } = useSession();
+  // Etapa #4 — alterações locais aguardando reenvio automático para a nuvem.
+  // (declarado APÓS useSession — `user` é usado no inicializador)
+  const [temPendenciaLocal, setTemPendenciaLocal] = useState<boolean>(() =>
+    typeof localStorage !== 'undefined' && temPendenciaPerfil(user?.bi || '')
+  );
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [editName, setEditName] = useState(user?.name || '');
@@ -143,6 +148,22 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
           } else if (res.outcome === 'error' || res.outcome === 'unavailable') {
             addAuditLog('[PERFIL-SYNC] Guardado localmente; sincronização com a nuvem pendente', 'warning');
           }
+        }
+        // Etapa #4 — se a nuvem não confirmou, a alteração fica em FILA LOCAL e
+        // é reenviada automaticamente quando a ligação voltar (nunca se perde).
+        if (res.outcome === 'error' || res.outcome === 'unavailable') {
+          guardarPendenciaPerfil(user?.bi || '', buildCitizenContaPatch(user?.bi || '', {
+            name: editName,
+            phone: editPhone,
+            email: editEmail,
+            filiation: editFiliation,
+            maritalStatus: editMaritalStatus,
+            morada: editMorada,
+          }));
+          setTemPendenciaLocal(true);
+        } else if (res.outcome === 'ok' || res.outcome === 'created' || res.outcome === 'schema_retry') {
+          limparPendenciaPerfil(user?.bi || '');
+          setTemPendenciaLocal(false);
         }
       }
 
@@ -269,6 +290,9 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
         const stamp = new Date().toLocaleString();
         localStorage.setItem('supabase_last_sync_time', stamp);
         setLastSyncTime(stamp);
+        // Etapa #4 — nuvem confirmou: limpa pendências locais do cidadão.
+        limparPendenciaPerfil(user?.bi || '');
+        setTemPendenciaLocal(false);
         if (addAuditLog) {
           addAuditLog('[PERFIL-SYNC] Sincronização manual da ficha do cidadão concluída na nuvem', 'success');
         }
@@ -395,6 +419,15 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
           {lastSyncTime && !isSyncBusy && (
             <span className="text-[10px] font-semibold text-slate-400 normal-case">
               Última sincronização real: {lastSyncTime}
+            </span>
+          )}
+          {temPendenciaLocal && (
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-black uppercase tracking-wider"
+              data-testid="profile-sync-pending-badge"
+              title="As alterações feitas ficaram guardadas neste dispositivo e serão enviadas automaticamente quando a ligação à nuvem voltar."
+            >
+              <AlertTriangle size={11} /> Sync pendente — reenvio automático ativo
             </span>
           )}
 
