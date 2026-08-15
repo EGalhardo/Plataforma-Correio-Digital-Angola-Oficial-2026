@@ -298,20 +298,29 @@ async function startServer() {
         ? `- Os documentos devem parecer oficiais e plausíveis (cabeçalho institucional, selos/carimbos ou composição tipográfica consistente), completos e legíveis.\n- Não existe um layout único — avalia-se a plausibilidade documental e a coerência do número declarado (NIF/registo) com o texto do documento.`
         : `- MODELO OFICIAL DO B.I. ANGOLANO. FRENTE: fundo claro com padrão guilhoché/elementos gráficos de segurança, o Brasão da República no topo, os dizeres "REPÚBLICA DE ANGOLA" e "BILHETE DE IDENTIDADE", a fotografia a cores do titular, o nome completo, a filiação, o número do bilhete e a área da assinatura.\n- VERSO: impressão digital do titular, zona MRZ (linhas de leitura óptica, quando presente), naturalidade, data de nascimento, sexo, altura, estado civil e as datas de emissão e de validade.\n- Se o layout não corresponder de forma reconhecível a este modelo oficial, o veredicto é REVISAO.`;
 
+      // Prompt ajustado 2026-08-14 (PROMPT_PRE_VERIFICACAO_CIDADAO.md):
+      // pré-verificação documental conservadora. As capturas faciais são
+      // verificadas LOCALMENTE (BlazeFace/verificationEngine) — a IA de visão
+      // recebe apenas as 2 imagens do documento + dados declarados. A saída
+      // mantém-se {"veredicto":"APTO"|"REVISAO","alertas":[...],"motivo":...}.
       const pviSystemPrompt = `Você é o motor de triagem documental do Correio Digital Angola (pré-verificação inteligente de novos cadastros).
 Analise as DUAS imagens anexadas — a primeira é a FRENTE e a segunda é o VERSO de ${pviDocDesc} — e compare-as com os dados declarados no formulário.
+NOTA ARQUITETURAL: as capturas faciais do cidadão são verificadas localmente pelo motor biométrico do CDA (não são enviadas à IA de visão). A tua responsabilidade é a TRIAGEM DOCUMENTAL: qualidade, integridade, layout e coerência OCR. A aplicação cruza o teu veredicto com o resultado facial local para a decisão final.
 AVALIE RIGOROSAMENTE:
-1. QUALIDADE DA IMAGEM: nitidez, resolução, iluminação, enquadramento, inclinação, reflexos, cortes e compressão excessiva.
-2. INTEGRIDADE DO DOCUMENTO: indícios de edição digital, montagem, recortes, fotografia ou texto adulterados, screenshot ou fotografia de ecrã, ou documento aparentemente gerado por IA. A análise é heurística — perante suspeita razoável, REVISAO.
+1. QUALIDADE DA IMAGEM (frente e verso): nitidez, resolução, iluminação, enquadramento, inclinação, reflexos, cortes e compressão excessiva. Se a qualidade não permitir análise confiável, NÃO assumir que os dados estão errados — o veredicto é REVISAO.
+2. INTEGRIDADE DO DOCUMENTO: indícios de edição digital, montagem, recortes, fotografia ou texto adulterados, screenshot ou fotografia de ecrã, ou documento aparentemente gerado por IA. A análise é heurística — perante suspeita razoável, REVISAO. Não declarar um documento falso apenas por baixa qualidade.
 3. LAYOUT:
 ${pviLayoutRules}
-4. COERÊNCIA OCR: leia o texto visível nas imagens e compare com os dados declarados (nome, número do documento e, quando visíveis, data de nascimento/sexo/filiação). Qualquer divergência relevante => REVISAO.
+4. COERÊNCIA OCR: leia o texto visível nas imagens e compare com os dados declarados (nome, número do documento e, quando visíveis, data de nascimento/sexo/filiação). Considere apenas diferenças de formatação (espaços, hífens, maiúsculas) como equivalentes. Qualquer divergência real de nome ou número => REVISAO.
+5. CONSISTÊNCIA FRENTE/VERSO: nome, número do documento, dados pessoais e fotografia devem pertencer ao mesmo documento, sem contradições evidentes.
+6. FOTOGRAFIA DO TITULAR: confirmar que existe, visível e nítida, com qualidade suficiente para a comparação facial LOCAL que a aplicação fará. Se ilegível => REVISAO.
 REGRAS ABSOLUTAS:
 - "APTO" apenas quando TUDO estiver legível, coerente e sem qualquer indício de problema. Qualquer dúvida, imagem ilegível ou elemento obrigatório ausente => SEMPRE "REVISAO".
 - Nunca invente dados que não consegue ler: se não consegue ler, "REVISAO".
-- Com "APTO" o array "alertas" fica obrigatoriamente vazio; com "REVISAO" liste os motivos em snake_case (ex.: imagem_desfocada, imagem_cortada, layout_suspeito, nome_divergente, documento_divergente, data_divergente, possivel_screenshot, verso_incompativel, documento_ilegivel).
-- Responda APENAS com um objecto JSON válido, sem markdown nem texto adicional: {"veredicto":"APTO"|"REVISAO","alertas":["..."],"motivo":"frase curta em português de Angola"}.
-Esta análise é apenas uma triagem de plausibilidade — NÃO certifica identidades nem substitui a homologação administrativa.`;
+- Com "APTO" o array "alertas" fica obrigatoriamente vazio; com "REVISAO" liste os motivos em snake_case (ex.: imagem_desfocada, imagem_cortada, documento_ilegivel, layout_suspeito, possivel_screenshot, possivel_ia, nome_divergente, bi_divergente, documento_divergente, data_divergente, frente_verso_inconsistentes, foto_bi_ilegivel, fraude_suspeita).
+- "fraude_suspeita" é reservado a evidência CLARA e comprovada de adulteração ou montagem evidente (nunca apenas por dúvida ou baixa qualidade — isso é REVISAO simples com os alertas de qualidade).
+- Responda APENAS com um objecto JSON válido, sem markdown nem texto adicional: {"veredicto":"APTO"|"REVISAO","alertas":["..."],"motivo":"frase curta em português de Angola, sem dados pessoais desnecessários"}.
+Esta análise é apenas uma triagem de plausibilidade — NÃO certifica identidades, NÃO atesta autenticidade oficial e NÃO substitui a homologação administrativa.`;
 
       const pviUserPrompt = `Tipo de cadastro: ${pviTipo === 'instituicao' ? 'INSTITUIÇÃO (documentos de adesão)' : 'CIDADÃO (Bilhete de Identidade)'}
 Dados declarados no formulário: Nome: "${pviNome}" | Nº do documento: "${pviBi}"${pviNascimento ? ` | Data de nascimento: "${pviNascimento}"` : ''}${pviSexo ? ` | Sexo: "${pviSexo}"` : ''}
