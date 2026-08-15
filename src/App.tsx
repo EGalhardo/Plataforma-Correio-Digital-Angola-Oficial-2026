@@ -5366,7 +5366,59 @@ Ficha civil do titular:
     };
 
 
+    // FASE 1 (2026-08-15) — BLOQUEIO AUTOMÁTICO POR TENTATIVAS FALHADAS.
+    // Proteção anti-força-bruta local: após 5 tentativas falhadas num intervalo
+    // de 10 minutos, o acesso fica temporariamente bloqueado durante 10 minutos
+    // (contador por identificador, persistido em localStorage; limpo em login
+    // com sucesso). O bloqueio é temporário e não substitui decisões do Admin.
+    const LOGIN_BLOQ_KEY = 'cda_login_attempts';
+    const getLoginBloqueio = (ident: string) => {
+      try {
+        const raw = localStorage.getItem(LOGIN_BLOQ_KEY);
+        const data = raw ? JSON.parse(raw) : {};
+        const rec = data[ident];
+        if (!rec) return { bloqueado: false, tentativas: 0, restanteMin: 0 };
+        const agora = Date.now();
+        if (rec.bloqueadoAte && agora < rec.bloqueadoAte) {
+          return { bloqueado: true, tentativas: rec.n || 0, restanteMin: Math.ceil((rec.bloqueadoAte - agora) / 60000) };
+        }
+        return { bloqueado: false, tentativas: rec.n || 0, restanteMin: 0 };
+      } catch { return { bloqueado: false, tentativas: 0, restanteMin: 0 }; }
+    };
+    const registarLoginFalha = (ident: string) => {
+      try {
+        const raw = localStorage.getItem(LOGIN_BLOQ_KEY);
+        const data = raw ? JSON.parse(raw) : {};
+        const agora = Date.now();
+        const rec = data[ident] || { n: 0, inicio: agora };
+        // janela deslizante de 10 min
+        if (agora - rec.inicio > 10 * 60 * 1000) { rec.n = 0; rec.inicio = agora; }
+        rec.n = (rec.n || 0) + 1;
+        if (rec.n >= 5) { rec.bloqueadoAte = agora + 10 * 60 * 1000; rec.n = 0; }
+        data[ident] = rec;
+        localStorage.setItem(LOGIN_BLOQ_KEY, JSON.stringify(data));
+      } catch { /* melhor esforço */ }
+    };
+    const limparLoginFalhas = (ident: string) => {
+      try {
+        const raw = localStorage.getItem(LOGIN_BLOQ_KEY);
+        const data = raw ? JSON.parse(raw) : {};
+        delete data[ident];
+        localStorage.setItem(LOGIN_BLOQ_KEY, JSON.stringify(data));
+      } catch { /* melhor esforço */ }
+    };
+
     const handleLoginSubmit = async () => {
+      const identLogin = bi.trim().toUpperCase().replace(/\s+/g, '');
+      // Verificação de bloqueio ANTES de qualquer tentativa.
+      if (identLogin) {
+        const b = getLoginBloqueio(identLogin);
+        if (b.bloqueado) {
+          setLoginError(`Demasiadas tentativas falhadas. O acesso a esta conta fica bloqueado temporariamente durante ${b.restanteMin} minuto(s). Tente novamente mais tarde.`);
+          addAuditLog(`Bloqueio automático (anti-força-bruta): tentativa de login ignorada para ${identLogin} — bloqueado temporariamente.`, 'warning');
+          return;
+        }
+      }
       if (emergencyMode && !isInstMode && !isGovMode && (bi.toLowerCase().includes('002931298') || bi.toLowerCase().includes('edlasio') || profileName.toLowerCase().includes('edlasio'))) {
         setLoginError("Credenciais e chaves biométricas suspensas / bloqueadas temporariamente ao abrigo do protocolo SOC-AN-2026 para salvaguarda de soberania digital nacional.");
         addAuditLog("BLOQUEIO IDENTITÁRIO: Tentativa de login por Edlasio Galhardo suspensa (SOC-AN-2026)", "critical");
@@ -5383,6 +5435,7 @@ Ficha civil do titular:
           if (loginPasswordInput !== instPreset.password) {
             setLoginError('Credenciais incorrectas: a senha não corresponde a este Código Institucional.');
             addAuditLog(`Login institucional recusado: senha inválida na via demo (${instPreset.identifier}) — P1.`, 'warning');
+            registarLoginFalha(identLogin);
             return;
           }
           setInstGate('full');
@@ -5396,6 +5449,7 @@ Ficha civil do titular:
             if (result.outcome === 'invalid' || result.outcome === 'deny') {
               setLoginError(result.message || 'Acesso não autorizado.');
               addAuditLog(`Login institucional recusado (${result.code}): ${result.message}`, result.outcome === 'deny' ? 'critical' : 'warning');
+              registarLoginFalha(identLogin);
               return;
             }
             applyInstitutionSessionIdentity(result);
@@ -5507,6 +5561,7 @@ Ficha civil do titular:
         if (!adminAgentOk && loginPasswordInput !== DEMO_CREDENTIALS.admin.password) {
           setLoginError('Credenciais incorrectas: a senha não corresponde a este Nº Agente Admin.');
           addAuditLog(`Login da Administração recusado: senha inválida na via demo (${typedAgent || DEMO_CREDENTIALS.admin.identifier}) — P1.`, 'warning');
+          registarLoginFalha(identLogin);
           return;
         }
       }
@@ -5535,6 +5590,7 @@ Ficha civil do titular:
           if (loginPasswordInput !== demoPresetPass) {
             setLoginError('Credenciais incorrectas: a senha não corresponde a este Nº de B.I.');
             addAuditLog(`Login do cidadão ${typedCitizenBi} recusado: senha inválida (identidade demo — P1).`, 'warning');
+            registarLoginFalha(identLogin);
             return;
           }
         }
@@ -5559,6 +5615,7 @@ Ficha civil do titular:
               } else {
                 setLoginError(wrongPassMsg);
                 addAuditLog(`Login do cidadão ${typedCitizenBi} recusado na nuvem: senha inválida.`, 'warning');
+                registarLoginFalha(identLogin);
                 return;
               }
             // Credencial local legada (pré-v12)? Se a senha confere => migração JIT (D2)
@@ -5566,6 +5623,7 @@ Ficha civil do titular:
               if (localPass !== loginPasswordInput) {
                 setLoginError(wrongPassMsg);
                 addAuditLog(`Login do cidadão ${typedCitizenBi} recusado: senha inválida (credencial local).`, 'warning');
+                registarLoginFalha(identLogin);
                 return;
               }
               const prov = await provisionCloudAccount(supabase, {
@@ -5648,6 +5706,7 @@ Ficha civil do titular:
 
       await applyIdentityForLoggedUser();
       if (isGovMode) setTab('gov-dashboard');
+      limparLoginFalhas(identLogin);
       setStage('app');
       addAuditLog(isInstMode ? 'Login de Instituição via Autenticação Segura' : isGovMode ? 'Login da Administração via Autenticação Segura' : 'Login de Cidadão via Autenticação Segura', 'success');
     };

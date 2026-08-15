@@ -1092,13 +1092,40 @@ export function GovContactsContent({
 
 
   const filteredCitizens = useMemo(() => {
-    return citizens.filter((citizen) => {
+    const filtrados = citizens.filter((citizen) => {
       const matchCategory = selectedCategory === 'Todos' || citizen.category.toLowerCase() === selectedCategory.toLowerCase();
       const matchProvince = filterProvince === 'Todas' || citizen.province === filterProvince;
       const matchMunicipio = filterMunicipio === 'Todos' || citizen.municipio === filterMunicipio;
       const matchStatus = filterStatus === 'Todas' || citizen.status === filterStatus;
       return matchCategory && matchProvince && matchMunicipio && matchStatus;
     });
+
+    // FASE 1 (2026-08-15) — FILA DE HOMOLOGAÇÃO ASSISTIDA:
+    // ordena os cadastros pendentes por GRAVIDADE dos alertas da Pré-Verificação
+    // Inteligente (PVIC) — críticos primeiro — para o admin rever o que é mais
+    // urgente. A ordenação aplica-se à vista 'Pendente de Validação' e a 'Todas'
+    // (não altera a decisão; apenas a ordem de apresentação).
+    if (filterStatus === 'Pendente de Validação' || filterStatus === 'Todas') {
+      const gravidade = (alertas?: string[]): number => {
+        const a = alertas || [];
+        if (!a.length) return 4; // sem alertas — menor urgência
+        const S = (p: string[]) => p.some(x => a.includes(x));
+        if (S(['fraude_suspeita', 'possivel_screenshot', 'possivel_ia'])) return 0; // evidência de manipulação
+        if (S(['bi_divergente', 'nome_divergente', 'documento_divergente', 'data_divergente', 'frente_verso_inconsistentes'])) return 1; // divergência de dados
+        if (S(['layout_suspeito', 'foto_bi_ilegivel'])) return 2; // suspeita / qualidade parcial
+        return 3; // apenas qualidade (desfocada, cortada, ilegível)
+      };
+      filtrados.sort((a, b) => {
+        // pendentes primeiro, depois por gravidade
+        const pA = a.status === 'Pendente de Validação' ? 0 : 1;
+        const pB = b.status === 'Pendente de Validação' ? 0 : 1;
+        if (pA !== pB) return pA - pB;
+        const gA = gravidade(a.pviAlertas);
+        const gB = gravidade(b.pviAlertas);
+        return gA - gB;
+      });
+    }
+    return filtrados;
   }, [citizens, selectedCategory, filterProvince, filterMunicipio, filterStatus]);
 
   const MUNICIPALITIES_BY_PROVINCE: { [key: string]: string[] } = {
@@ -2496,6 +2523,34 @@ export function GovContactsContent({
             </div>
           </div>
 
+          {/* FASE 1 — RESUMO DA FILA DE HOMOLOGAÇÃO (agrupado por motivo PVIC).
+              Mostra quantos cadastros pendentes existem por categoria de alerta,
+              para o admin rever em lote os casos mais urgentes. */}
+          {(() => {
+            const pendentes = citizens.filter(c => c.status === 'Pendente de Validação');
+            if (pendentes.length === 0) return null;
+            const grupos = [
+              { chave: 'críticos', label: 'Fraude/Manipulação suspeita', cor: 'bg-red-50 text-red-700 border-red-200', pred: (a?: string[]) => !!a && ['fraude_suspeita','possivel_screenshot','possivel_ia'].some(x => a.includes(x)) },
+              { chave: 'divergencias', label: 'Divergências de dados', cor: 'bg-orange-50 text-orange-700 border-orange-200', pred: (a?: string[]) => !!a && ['bi_divergente','nome_divergente','documento_divergente','data_divergente','frente_verso_inconsistentes'].some(x => a.includes(x)) },
+              { chave: 'suspeita', label: 'Suspeita/Qualidade parcial', cor: 'bg-amber-50 text-amber-700 border-amber-200', pred: (a?: string[]) => !!a && ['layout_suspeito','foto_bi_ilegivel'].some(x => a.includes(x)) },
+              { chave: 'qualidade', label: 'Apenas qualidade', cor: 'bg-slate-50 text-slate-600 border-slate-200', pred: (a?: string[]) => !!a && !['fraude_suspeita','possivel_screenshot','possivel_ia','bi_divergente','nome_divergente','documento_divergente','data_divergente','frente_verso_inconsistentes','layout_suspeito','foto_bi_ilegivel'].some(x => a.includes(x)) },
+              { chave: 'semalertas', label: 'Sem alertas (revisão)', cor: 'bg-blue-50 text-blue-700 border-blue-200', pred: (a?: string[]) => !a || a.length === 0 },
+            ];
+            return (
+              <div className="flex flex-wrap gap-2 mb-3 animate-fadeIn">
+                {grupos.map((g) => {
+                  const n = pendentes.filter(c => g.pred(c.pviAlertas)).length;
+                  if (n === 0) return null;
+                  return (
+                    <div key={g.chave} className={`px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider ${g.cor}`}>
+                      {g.label}: <span className="text-[12px]">{n}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
           {/* Beautiful tabular list layout replacing the card grid */}
           {filteredCitizens.length === 0 ? (
             <div className="py-16 text-center animate-fadeIn">
@@ -2567,6 +2622,18 @@ export function GovContactsContent({
                                 {citizen.category}
                               </span>
                               <span className="text-[9px] font-mono font-bold text-slate-400 font-sans">REGISTO: {citizen.id.toUpperCase()}</span>
+                              {/* FASE 1 — selo de gravidade do PVIC (visível só em pendentes) */}
+                              {citizen.status === 'Pendente de Validação' && citizen.pviAlertas && citizen.pviAlertas.length > 0 && (
+                                <span className={
+                                  ['fraude_suspeita','possivel_screenshot','possivel_ia'].some(x => citizen.pviAlertas!.includes(x))
+                                    ? 'text-[8px] font-black text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-wider'
+                                    : ['bi_divergente','nome_divergente','documento_divergente','data_divergente','frente_verso_inconsistentes'].some(x => citizen.pviAlertas!.includes(x))
+                                      ? 'text-[8px] font-black text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded uppercase tracking-wider'
+                                      : 'text-[8px] font-black text-slate-600 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded uppercase tracking-wider'
+                                } title={citizen.pviMotivo || ''}>
+                                  {['fraude_suspeita','possivel_screenshot','possivel_ia'].some(x => citizen.pviAlertas!.includes(x)) ? 'URGENTE' : 'REVER'}
+                                </span>
+                              )}
                             </div>
                             {citizen.reason && (citizen.status === 'Rejeitado' || citizen.status === 'Bloqueado') && (
                               <p className="text-[9.5px] text-rose-600 line-clamp-1 italic mt-1 font-semibold" title={citizen.reason}>
