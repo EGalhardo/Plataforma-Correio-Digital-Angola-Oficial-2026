@@ -62,7 +62,9 @@ import {
   ListOrdered,
   Quote,
   Eraser,
-  Download
+  Download,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { Message, SENSITIVITY_LEVELS, PRIORITY_CONFIGS } from '../../types';
 import { generateProtocol, generateTimelineEvents, getCategoryMetadata, canonicalProtocolPayload, sealProtocolContent } from '../../utils/protocolGenerator';
@@ -871,6 +873,51 @@ depende de integração futura com a infra-estrutura de chaves nacional.
   } | null>(null);
 
   const [replyText, setReplyText] = useState('');
+  // FASE CIDADÃO #1 (2026-08-15) — sugestão de resposta por IA: estado e handler.
+  const [iaSugerindoResposta, setIaSugerindoResposta] = useState(false);
+  const [iaSugestaoErro, setIaSugestaoErro] = useState<string | null>(null);
+
+  /** Gera um rascunho de resposta ESPECÍFICO para a mensagem recebida via
+   * /api/assistente-documento (ação rascunho, tipo confirmacao). Se a IA não
+   * estiver disponível, mostra aviso honesto — nunca bloqueia o envio manual. */
+  const sugerirRespostaComIa = async () => {
+    if (iaSugerindoResposta) return;
+    setIaSugerindoResposta(true);
+    setIaSugestaoErro(null);
+    try {
+      const corpo = selectedMessage.details?.body?.trim()
+        ? selectedMessage.details.body
+        : (selectedMessage.preview || '');
+      const res = await fetch('/api/assistente-documento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          acao: 'rascunho',
+          tipoRascunho: 'confirmacao',
+          texto: corpo,
+          titulo: selectedMessage.details?.subject || selectedMessage.preview,
+          remetente: selectedMessage.org,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      const rascunho = data?.resultado || data?.rascunho || '';
+      if (!rascunho || typeof rascunho !== 'string' || rascunho.trim().length < 10) {
+        setIaSugestaoErro('A IA de rascunhos não está disponível neste momento. Pode escrever a resposta manualmente.');
+        return;
+      }
+      // Entrega o rascunho ao compositor (RE: já preenchido) — fluxo principal.
+      if (onResponderComRascunho) {
+        onResponderComRascunho(selectedMessage, rascunho.trim());
+      } else {
+        updateReplyText(rascunho.trim());
+      }
+    } catch (e) {
+      setIaSugestaoErro('Falha ao gerar sugestão. Pode escrever a resposta manualmente.');
+      console.warn('[Sugestão IA] erro:', e);
+    } finally {
+      setIaSugerindoResposta(false);
+    }
+  };
   const [editorBold, setEditorBold] = useState(false);
   const [editorItalic, setEditorItalic] = useState(false);
   const [editorUnderline, setEditorUnderline] = useState(false);
@@ -2402,8 +2449,29 @@ depende de integração futura com a infra-estrutura de chaves nacional.
             {sensConfig.level === 'Ultra Restrito' && <Lock size={14} />}
             {sensConfig.level === 'Ultra Restrito' ? 'Responder Bloqueado' : 'Responder'}
           </button>
+
+          {/* FASE CIDADÃO #1 — Sugerir resposta com IA (gera rascunho e abre o compositor). */}
+          <button
+            type="button"
+            onClick={sugerirRespostaComIa}
+            disabled={iaSugerindoResposta || sensConfig.level === 'Ultra Restrito'}
+            title="Gerar um rascunho de resposta com base na mensagem recebida"
+            className={`px-4 py-2 rounded-xl font-extrabold text-sm transition-all active:scale-95 flex items-center gap-1.5 border-0 cursor-pointer ${
+              sensConfig.level === 'Ultra Restrito'
+                ? 'text-slate-400 bg-slate-50 cursor-not-allowed'
+                : iaSugerindoResposta
+                  ? 'text-indigo-400 bg-indigo-50 cursor-wait'
+                  : 'text-indigo-700 hover:bg-indigo-50 bg-indigo-50/60'
+            }`}
+          >
+            {iaSugerindoResposta ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            {iaSugerindoResposta ? 'A gerar…' : 'Sugerir com IA'}
+          </button>
         </div>
       </div>
+      {iaSugestaoErro && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-2xl text-xs font-bold mb-2">{iaSugestaoErro}</div>
+      )}
 
       {shareBlockedNotice && (
         <motion.div 
