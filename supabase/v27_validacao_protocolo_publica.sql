@@ -49,11 +49,11 @@ begin
 
   return query
     select
-      upper(dp.protocol_number),
-      dp.issuer_institution,
-      dp.official_issue_date,
-      dp.current_state,
-      (dp.document_hash is not null and btrim(dp.document_hash) <> '')
+      upper(dp.protocol_number)::text,
+      dp.issuer_institution::text,
+      dp.official_issue_date::text,
+      dp.current_state::text,
+      (dp.document_hash is not null and btrim(dp.document_hash) <> '')::boolean
     from public.digital_protocols dp
     where upper(dp.protocol_number) = v_numero
     limit 1;
