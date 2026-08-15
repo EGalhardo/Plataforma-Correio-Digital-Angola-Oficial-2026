@@ -268,7 +268,7 @@ async function startServer() {
     type PviResponderFn = (veredicto: 'APTO' | 'REVISAO', alertas: string[], motivo: string) => unknown;
     const pviEmit = (emit: PviResponderFn, veredicto: 'APTO' | 'REVISAO', alertas: string[], motivo: string) => emit(veredicto, alertas, motivo);
       const pviStartedAt = Date.now();
-      const PVI_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+      const PVI_MODEL = 'gemini-2.5-flash';
 
       const { biNumber, nome, tipo, urls, dataNascimento, sexo } = body || {};
       const pviBi = typeof biNumber === 'string' ? biNumber.trim().toUpperCase() : '';
@@ -327,28 +327,51 @@ Dados declarados no formulário: Nome: "${pviNome}" | Nº do documento: "${pviBi
 A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS com o JSON pedido.`;
 
       try {
-        const PVI_TIMEOUT_MS = 20000;
-        const completion = (await Promise.race([
-          groq.chat.completions.create({
-            messages: [
-              { role: 'system', content: pviSystemPrompt },
-              {
-                role: 'user',
-                content: [
-                  { type: 'text', text: pviUserPrompt },
-                  { type: 'image_url', image_url: { url: pviFrente } },
-                  { type: 'image_url', image_url: { url: pviVerso } },
-                ] as any,
-              },
-            ],
-            model: PVI_MODEL,
-            temperature: 0,
-            max_tokens: 600,
+        const PVI_TIMEOUT_MS = 30000;
+        // 2026-08-15 — provedor de visão trocado para GEMINI (gemini-2.5-flash):
+        // a conta Groq em uso não tem modelos de visão (llama-4-scout não
+        // está disponível). O Gemini é multimodal e já está configurado no
+        // projeto. Mantêm-se o prompt ajustado, a saída JSON e todas as regras
+        // defensivas (qualquer falha => REVISAO, nunca aprovar por erro técnico).
+        const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+        if (!geminiKey) throw new Error('GEMINI_KEY_AUSENTE');
+        // 1) Descarregar as 2 imagens (URLs assinadas do Storage), REDIMENSIONAR
+        //    (sharp — max 1024px, qualidade 80) e converter para base64.
+        //    Imagens originais (~1,2-1,6 MB) estouravam a quota de tokens do
+        //    Gemini (503/timeout); reduzidas (~150 KB) funcionam rápido e estável.
+        const [imgFResp, imgVResp] = await Promise.all([
+          fetch(pviFrente, { signal: AbortSignal.timeout(15000) }),
+          fetch(pviVerso, { signal: AbortSignal.timeout(15000) }),
+        ]);
+        if (!imgFResp.ok || !imgVResp.ok) throw new Error('IMG_INACESSIVEL ' + imgFResp.status + '/' + imgVResp.status);
+        const sharpMod = await import('sharp');
+        const [imgFBuf, imgVBuf] = await Promise.all([
+          sharpMod.default(Buffer.from(await imgFResp.arrayBuffer())).resize({ width: 1024, withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer(),
+          sharpMod.default(Buffer.from(await imgVResp.arrayBuffer())).resize({ width: 1024, withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer(),
+        ]);
+        const b64F = imgFBuf.toString('base64');
+        const b64V = imgVBuf.toString('base64');
+        // 2) Enviar ao Gemini com o prompt ajustado
+        const geminiResp = (await Promise.race([
+          fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [
+                { text: pviUserPrompt },
+                { inline_data: { mime_type: 'image/jpeg', data: b64F } },
+                { inline_data: { mime_type: 'image/jpeg', data: b64V } },
+              ] }],
+              systemInstruction: { parts: [{ text: pviSystemPrompt }] },
+              generationConfig: { temperature: 0, maxOutputTokens: 1024 },
+            }),
           }),
-          new Promise((_unused, reject) => setTimeout(() => reject(new Error('PVI_TIMEOUT_20S')), PVI_TIMEOUT_MS)),
-        ])) as { choices?: Array<{ message?: { content?: string } }> };
-
-        const rawContent: string = completion?.choices?.[0]?.message?.content || '';
+          new Promise((_unused, reject) => setTimeout(() => reject(new Error('PVI_TIMEOUT_30S')), PVI_TIMEOUT_MS)),
+        ])) as Response;
+        if (!geminiResp.ok) throw new Error('GEMINI_HTTP_' + geminiResp.status);
+        const geminiJson = (await geminiResp.json()) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+        const rawContent: string = (geminiJson?.candidates?.[0]?.content?.parts || [])
+          .map((p) => p.text || '').join('') || '';
         // Parsing conservador: qualquer anomalia => REVISAO (nunca aprovar por erro técnico)
         let parsed = null as { veredicto?: string; alertas?: unknown[]; motivo?: unknown } | null;
         try {
