@@ -22,6 +22,8 @@ import {
   Users,
   Mail,
   Send,
+  BellRing,
+  Loader2,
   FileText,
   CheckCircle2,
   Search,
@@ -112,6 +114,53 @@ export function GovContactsContent({
   appMode = 'user',
   bi = '009874562LA041',
   addAuditLog}: GovContactsContentProps) {
+  // FASE 3 — CAMPANHAS DE NOTIFICAÇÃO: estado do painel de aviso geral.
+  const [campanhaAberta, setCampanhaAberta] = useState(false);
+  const [campanhaTitulo, setCampanhaTitulo] = useState('');
+  const [campanhaMsg, setCampanhaMsg] = useState('');
+  const [campanhaTipo, setCampanhaTipo] = useState<'info' | 'warning' | 'success' | 'critical'>('info');
+  const [campanhaEnviando, setCampanhaEnviando] = useState(false);
+  const [campanhaResultado, setCampanhaResultado] = useState<string | null>(null);
+
+  /** Envia um aviso geral (campanha) para os cidadãos: grava na tabela
+   * notifications (best-effort — sem sessão admin real a escrita é bloqueada
+   * pelo RLS e o aviso fica registado na auditoria, padrão do projeto) e
+   * adiciona à auditoria local. Nunca quebra. */
+  const enviarCampanha = async () => {
+    const titulo = campanhaTitulo.trim();
+    const msg = campanhaMsg.trim();
+    if (!titulo || !msg) { setCampanhaResultado('Preencha o título e a mensagem do aviso.'); return; }
+    setCampanhaEnviando(true);
+    setCampanhaResultado(null);
+    try {
+      const alvos = citizens.filter(c => c.category === 'Cidadão' && c.biNumber).map(c => c.biNumber as string);
+      let gravadas = 0;
+      if (alvos.length > 0) {
+        const { error } = await supabase.from('notifications').insert(
+          alvos.map(biAlvo => ({
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            title: titulo,
+            message: msg,
+            type: campanhaTipo,
+            target_bi: biAlvo,
+            created_at: new Date().toISOString(),
+            read: false,
+          }))
+        );
+        if (!error) gravadas = alvos.length;
+      }
+      addAuditLog?.(`Campanha de notificação enviada: "${titulo}" → ${gravadas} cidadão(s)${gravadas === 0 ? ' (escrita cloud bloqueada por RLS — registada em auditoria)' : ' na nuvem'}.`, 'info');
+      setCampanhaResultado(gravadas > 0
+        ? `Aviso enviado para ${gravadas} cidadão(s) na nuvem.`
+        : 'Aviso registado na auditoria. (A escrita em massa na nuvem exige sessão de Administração real — RLS.)');
+      setCampanhaTitulo(''); setCampanhaMsg('');
+    } catch (e) {
+      setCampanhaResultado('Falha ao enviar a campanha. Tente novamente.');
+      console.warn('[Campanha] erro:', e);
+    } finally {
+      setCampanhaEnviando(false);
+    }
+  };
   
   // Workers State for Institution Mode and Admin Central
 
@@ -2563,6 +2612,69 @@ export function GovContactsContent({
               </div>
             );
           })()}
+
+          {/* FASE 3 — CAMPANHA DE NOTIFICAÇÃO (aviso geral aos cidadãos). */}
+          <div className="mb-3 border border-slate-200 rounded-2xl p-3 bg-white/60">
+            {!campanhaAberta ? (
+              <button
+                type="button"
+                onClick={() => { setCampanhaAberta(true); setCampanhaResultado(null); }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer"
+              >
+                <BellRing size={13} /> Criar aviso geral (campanha)
+              </button>
+            ) : (
+              <div className="space-y-3 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">Novo aviso geral aos cidadãos</span>
+                  <button type="button" onClick={() => setCampanhaAberta(false)} className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-700 cursor-pointer bg-transparent border-none">Fechar</button>
+                </div>
+                <input
+                  value={campanhaTitulo}
+                  onChange={(e) => setCampanhaTitulo(e.target.value)}
+                  placeholder="Título do aviso (ex.: Manutenção programada)"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-800 outline-none focus:border-indigo-400/50"
+                />
+                <textarea
+                  value={campanhaMsg}
+                  onChange={(e) => setCampanhaMsg(e.target.value)}
+                  rows={2}
+                  placeholder="Mensagem do aviso…"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-800 outline-none focus:border-indigo-400/50 resize-none"
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  {(['info', 'warning', 'success', 'critical'] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setCampanhaTipo(t)}
+                      className={`px-3 py-1 rounded-lg text-[8.5px] font-black uppercase tracking-widest border transition-colors cursor-pointer ${
+                        campanhaTipo === t
+                          ? t === 'critical' ? 'bg-rose-600 text-white border-rose-600'
+                            : t === 'warning' ? 'bg-amber-500 text-white border-amber-500'
+                            : t === 'success' ? 'bg-emerald-600 text-white border-emerald-600'
+                            : 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-white text-slate-500 border-slate-200'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={campanhaEnviando}
+                    onClick={enviarCampanha}
+                    className="ml-auto px-4 py-2 bg-[#0E2B64] hover:bg-[#081a3d] disabled:opacity-50 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer border-none flex items-center gap-1.5"
+                  >
+                    {campanhaEnviando ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Enviar aviso
+                  </button>
+                </div>
+                {campanhaResultado && (
+                  <p className="text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">{campanhaResultado}</p>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* FASE 1 — RESUMO DA FILA DE HOMOLOGAÇÃO (agrupado por motivo PVIC).
               Mostra quantos cadastros pendentes existem por categoria de alerta,

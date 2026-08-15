@@ -121,6 +121,45 @@ export function GovSegurancaContent({
 
   return (
     <div className="pb-24">
+      {/* FASE 3 — ALERTAS AUTOMÁTICOS DE PADRÕES ANÓMALOS: analisa o estado atual
+          (utilizadores biométricos, protocolo SOC) e destaca padrões que precisam
+          de atenção — calculado automaticamente, sem ação do admin. */}
+      {(() => {
+        const bloqueados = biometricUsers.filter(u => u.status === 'Bloqueado').length;
+        const pendentes = biometricUsers.filter(u => u.status === 'Pendente').length;
+        const ativos = biometricUsers.filter(u => u.status === 'Ativo').length;
+        const baixaConfianca = biometricUsers.filter(u => u.status === 'Ativo' && (u.confidenceRate || 0) < 90).length;
+        const alertas: { nivel: 'critico' | 'aviso' | 'info'; texto: string }[] = [];
+        if (emergencyMode) alertas.push({ nivel: 'critico', texto: 'PROTOCOLO SOC-AN-2026 ATIVO — operações restritas em curso.' });
+        if (bloqueados > 0) alertas.push({ nivel: 'critico', texto: `${bloqueados} utilizador(es) biométrico(s) bloqueado(s) — rever justificações.` });
+        if (pendentes > 0) alertas.push({ nivel: 'aviso', texto: `${pendentes} utilizador(es) com registo pendente de ativação.` });
+        if (baixaConfianca > 0) alertas.push({ nivel: 'aviso', texto: `${baixaConfianca} utilizador(es) ativo(s) com taxa de confiança abaixo de 90% — considerar re-registo biométrico.` });
+        if (ativos === 0) alertas.push({ nivel: 'info', texto: 'Nenhum utilizador biométrico ativo no momento.' });
+        if (alertas.length === 0) return null;
+        return (
+          <div className="mb-8 border border-slate-200 rounded-3xl p-5 bg-white shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+              <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-800">Alertas automáticos de segurança</h4>
+            </div>
+            <div className="space-y-2">
+              {alertas.map((a, i) => (
+                <div key={i} className={`flex items-start gap-2 rounded-xl px-3 py-2 text-[10px] font-bold leading-snug border ${
+                  a.nivel === 'critico' ? 'bg-rose-50 text-rose-800 border-rose-200' :
+                  a.nivel === 'aviso' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                  'bg-slate-50 text-slate-700 border-slate-200'
+                }`}>
+                  <span className={`mt-0.5 shrink-0 w-1.5 h-1.5 rounded-full ${
+                    a.nivel === 'critico' ? 'bg-rose-500' : a.nivel === 'aviso' ? 'bg-amber-500' : 'bg-slate-400'
+                  }`} />
+                  {a.texto}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Title Header Section */}
       <div className="mb-12">
         <div className="flex items-center gap-3 mb-2">

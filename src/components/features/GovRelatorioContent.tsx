@@ -402,7 +402,70 @@ export function GovRelatorioContent({
 
   return (
     <div className="pb-24 text-left animate-fadeIn space-y-6 w-full max-w-none mx-auto px-1 sm:px-2">
-      
+
+      {/* FASE 3 — RELATÓRIO EXECUTIVO AUTOMÁTICO: métricas REAIS agregadas dos
+          dados recebidos (correspondences + auditLogs) com exportação CSV. */}
+      {(() => {
+        const totalCorr = correspondences.length;
+        const totalLogs = auditLogs.length;
+        const criticos = auditLogs.filter(l => l.type === 'critical').length;
+        const warnings = auditLogs.filter(l => l.type === 'warning').length;
+        const sucessos = auditLogs.filter(l => l.type === 'success').length;
+        const exportarResumo = () => {
+          const linhas = [
+            ['Métrica', 'Valor'],
+            ['Total de correspondências', totalCorr],
+            ['Total de logs de auditoria', totalLogs],
+            ['Logs críticos', criticos],
+            ['Logs de aviso', warnings],
+            ['Logs de sucesso', sucessos],
+            ['Gerado em', new Date().toLocaleString('pt-AO')],
+          ];
+          const csv = linhas.map(l => l.join(';')).join('\n');
+          const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `CDA_Resumo_Executivo_${new Date().toISOString().slice(0,10)}.csv`;
+          a.click();
+          URL.revokeObjectURL(a.href);
+          setToastMessage('Relatório executivo automático exportado (CSV)!');
+          setShowToast(true);
+          setTimeout(() => setShowToast(false), 3000);
+        };
+        if (totalCorr === 0 && totalLogs === 0) return null;
+        return (
+          <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm animate-fadeIn print:hidden">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight italic">Resumo Executivo Automático</h3>
+                <p className="text-[10px] text-slate-500 font-semibold mt-0.5">Métricas reais da base — atualizado a cada abertura da página</p>
+              </div>
+              <button type="button" onClick={exportarResumo} className="px-4 py-2 bg-[#0E2B64] hover:bg-[#081a3d] text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer border-none">
+                Exportar Resumo (CSV)
+              </button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-center">
+                <div className="text-2xl font-black text-[#0E2B64]">{totalCorr}</div>
+                <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 mt-1">Correspondências</div>
+              </div>
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-center">
+                <div className="text-2xl font-black text-[#0E2B64]">{totalLogs}</div>
+                <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 mt-1">Logs de auditoria</div>
+              </div>
+              <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 text-center">
+                <div className="text-2xl font-black text-rose-600">{criticos}</div>
+                <div className="text-[9px] font-black uppercase tracking-widest text-rose-500 mt-1">Críticos</div>
+              </div>
+              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
+                <div className="text-2xl font-black text-amber-600">{warnings}</div>
+                <div className="text-[9px] font-black uppercase tracking-widest text-amber-500 mt-1">Avisos</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Dynamic Floating Toast */}
       <AnimatePresence>
         {showToast && (

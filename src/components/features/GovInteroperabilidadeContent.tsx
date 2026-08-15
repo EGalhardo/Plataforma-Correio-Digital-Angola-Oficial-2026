@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Building2,
@@ -21,7 +21,8 @@ import {
   Briefcase,
   Shield,
   UploadCloud,
-  Landmark
+  Landmark,
+  RefreshCw
 } from 'lucide-react';
 
 import { Institution, Message } from '../../types';
@@ -490,6 +491,27 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   useEffect(() => { fetchSolicitacoes(); }, []);
   void solThreadTick; // força a reavaliação da thread no modal ao enviar mensagens
 
+  // FASE 4 — SINCRONIZAÇÃO SGE AGENDADA: executa a suíte de interoperabilidade
+  // automaticamente a cada intervalo (padrão 5 min) quando ativa. O utilizador
+  // controla o toggle; nunca interfere com o fluxo (fire-and-forget com guarda).
+  const [autoSyncAtivo, setAutoSyncAtivo] = useState(false);
+  const [autoSyncUltimo, setAutoSyncUltimo] = useState<string | null>(null);
+  const autoSyncRef = useRef<{ busy: boolean }>({ busy: false });
+  useEffect(() => {
+    if (!autoSyncAtivo) return;
+    const intervalo = setInterval(() => {
+      if (autoSyncRef.current.busy) return; // evita sobreposição
+      autoSyncRef.current.busy = true;
+      runInteroperabilitySuite()
+        .catch(() => { /* a suíte já trata erros internamente */ })
+        .finally(() => {
+          autoSyncRef.current.busy = false;
+          setAutoSyncUltimo(new Date().toLocaleTimeString('pt-AO'));
+        });
+    }, 5 * 60 * 1000); // 5 minutos
+    return () => clearInterval(intervalo);
+  }, [autoSyncAtivo]);
+
   // Save new institution
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -821,6 +843,20 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
           >
             <Activity size={12} className={isRunningTests ? "animate-spin text-white" : ""} />
             {showTestPanel ? 'Fechar Painel de Testes' : 'Abrir Painel de Testes'}
+          </button>
+
+          {/* FASE 4 — SINCRONIZAÇÃO SGE AGENDADA: toggle liga/desliga o auto-sync (5 min). */}
+          <button
+            onClick={() => setAutoSyncAtivo(!autoSyncAtivo)}
+            title={autoSyncAtivo ? 'Sincronização automática SGE ATIVA (a cada 5 minutos)' : 'Ativar sincronização automática SGE (a cada 5 minutos)'}
+            className={`px-5 py-3 font-black text-[10px] uppercase tracking-widest rounded-xl shadow-md transition-all shrink-0 cursor-pointer flex items-center gap-2 border leading-none font-sans ${
+              autoSyncAtivo
+                ? 'bg-sky-500 hover:bg-sky-600 border-sky-500 text-white shadow-lg shadow-sky-500/15'
+                : 'bg-white hover:bg-slate-50 border-slate-300 text-slate-600'
+            }`}
+          >
+            <RefreshCw size={12} className={autoSyncAtivo ? 'animate-spin' : ''} />
+            {autoSyncAtivo ? `Sync SGE a cada 5 min${autoSyncUltimo ? ` · últ. ${autoSyncUltimo}` : ''}` : 'Ativar Sync SGE automático'}
           </button>
 
           <button

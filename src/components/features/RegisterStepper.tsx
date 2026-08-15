@@ -1100,6 +1100,14 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                       {appMode === 'institution' ? 'O NIF deve possuir entre 9 e 14 caracteres' : 'O B.I. deve possuir exatamente 14 caracteres'}
                     </span>
                   )}
+                  {/* FASE 4 — confirmação de leitura óptica (OCR): quando a pré-verificação
+                      local confirma o B.I. digitado com alta confiança, mostra o selo de
+                      verificação. Não altera dados — apenas feedback honesto. */}
+                  {appMode !== 'institution' && biNumber && verificationReport?.ocr?.biFound && verificationReport.ocr.biScore >= 80 && (
+                    <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 mt-1.5 uppercase tracking-wider">
+                      <Check size={9} /> B.I. confirmado por leitura óptica (OCR {verificationReport.ocr.biScore}%)
+                    </span>
+                  )}
                 </div>
 
                 {/* Grid of Double Upload Columns */}
