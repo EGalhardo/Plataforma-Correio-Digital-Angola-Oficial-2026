@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Lock, History, Eye, EyeOff, Check, BadgeCheck, Settings, Camera } from 'lucide-react';
+import { Lock, History, Eye, EyeOff, Check, BadgeCheck, Settings, Camera, CheckCircle2 } from 'lucide-react';
 import { USER_PROFILE_PHOTO } from '../../constants/data';
 import { useSession } from '../../services/sessionStore';
 import { supabase } from '../../lib/supabaseClient';
@@ -179,7 +179,29 @@ export function GovPerfilContent({
   };
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-6 text-slate-950 animate-fade-in font-sans">
+      {/* Header row — harmonizado com o Perfil do Cidadão e da Instituição:
+          «Minha Conta» + saudação + selo de estado autenticado. Aparece
+          sempre que a página renderiza (autenticado), incluindo no modo
+          simulado (conta de demonstração da Administração). */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-5 mb-2 gap-4">
+        <div>
+          <span className="text-xs uppercase font-bold tracking-widest text-slate-400">Minha Conta</span>
+          <h1 className="text-2xl md:text-3xl font-black text-slate-950 tracking-tight">
+            Bem-vindo, {(profileName || user?.name || 'Administrador').split(' ')[0]}
+          </h1>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+            Administração do Correio Digital de Angola
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-full text-emerald-700 font-extrabold text-[11px] uppercase tracking-wider">
+            <CheckCircle2 size={14} className="text-emerald-600 fill-emerald-100" />
+            <span>Conta verificada e activa</span>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Photo & Main Info Card */}
         <div className="lg:col-span-1 bg-white border border-slate-200 rounded-[32px] p-6 shadow-sm flex flex-col items-center text-center relative overflow-hidden">
