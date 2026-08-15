@@ -595,8 +595,6 @@ const safeGetItem = (key: string, defaultVal: string = ''): string => {
           correspondencesCount={correspondenceCount}
           institutionsCount={institutionsCount}
           lastAccess={user?.lastAccess}
-          onSyncSupabase={handleSyncWithSupabase}
-          isSyncingSupabase={supabaseSyncing}
           addAuditLog={addAuditLog}
           sessionDemo={sessionDemo}
         />

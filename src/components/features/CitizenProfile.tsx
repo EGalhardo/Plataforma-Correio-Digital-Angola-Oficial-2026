@@ -11,10 +11,8 @@ import {
   Smartphone,
   Check,
   RefreshCw,
-  Database,
   AlertTriangle,
   X,
-  Info,
   Camera
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -42,8 +40,6 @@ interface CitizenProfileProps {
   correspondencesCount?: number;
   institutionsCount?: number;
   lastAccess?: string;
-  onSyncSupabase?: () => Promise<any>;
-  isSyncingSupabase?: boolean;
   addAuditLog?: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
   /** F12 — conteúdo simulado apenas nas contas de demonstração. */
   sessionDemo?: boolean;
@@ -65,23 +61,13 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
   correspondencesCount = 0,
   institutionsCount = 0,
   lastAccess = 'Hoje às 18:45',
-  onSyncSupabase: _onSyncSupabaseDeprecated,
-  isSyncingSupabase = false,
   addAuditLog,
   sessionDemo,
 }) => {
-  const [localSyncing, setLocalSyncing] = useState(false);
-  const [localSyncStep, setLocalSyncStep] = useState('');
-  // F54 — carimbo da ÚLTIMA sincronização REAL (só escrito quando a nuvem confirma)
-  const [lastSyncTime, setLastSyncTime] = useState<string>(
-    () => (typeof localStorage !== 'undefined' ? (localStorage.getItem('supabase_last_sync_time') || '') : '')
-  );
-  const [showMissingKeysDialog, setShowMissingKeysDialog] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; text: string; details?: string } | null>(null);
 
   const { user, updateUserFields } = useSession();
   // Etapa #4 — alterações locais aguardando reenvio automático para a nuvem.
-  // (declarado APÓS useSession — `user` é usado no inicializador)
   const [temPendenciaLocal, setTemPendenciaLocal] = useState<boolean>(() =>
     typeof localStorage !== 'undefined' && temPendenciaPerfil(user?.bi || '')
   );
@@ -257,109 +243,6 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
     }
   }, [feedback]);
 
-  // F54 — Botão "Sincronizar Supabase" passa a correr a sincronização REAL
-  // (antes: a prop onSyncSupabase nunca era passada pelo App → o botão nada
-  // fazia; e os passos "A simular…" + o sucesso do ramo else eram fabricados).
-  const handleSyncClick = async () => {
-    setFeedback(null);
-    const hasKeys = hasValidSupabaseKeys();
-
-    if (!hasKeys) {
-      setShowMissingKeysDialog(true);
-      return;
-    }
-
-    try {
-      setLocalSyncing(true);
-      setLocalSyncStep('A enviar a ficha civil e dados de perfil para a nuvem...');
-
-      const res = await syncProfileToCloud(
-        supabase,
-        buildCitizenContaPatch(user?.bi || '', {
-          name: user?.name,
-          phone: user?.phone,
-          email: user?.email,
-          filiation: user?.filiation,
-          maritalStatus: user?.maritalStatus,
-          morada: user?.address,
-        }),
-      );
-
-      const fb = contaSaveFeedbackFromOutcome(res.outcome);
-      if (res.outcome === 'ok' || res.outcome === 'created' || res.outcome === 'schema_retry') {
-        const stamp = new Date().toLocaleString();
-        localStorage.setItem('supabase_last_sync_time', stamp);
-        setLastSyncTime(stamp);
-        // Etapa #4 — nuvem confirmou: limpa pendências locais do cidadão.
-        limparPendenciaPerfil(user?.bi || '');
-        setTemPendenciaLocal(false);
-        if (addAuditLog) {
-          addAuditLog('[PERFIL-SYNC] Sincronização manual da ficha do cidadão concluída na nuvem', 'success');
-        }
-        setFeedback({
-          type: 'success',
-          text: 'Sincronização com Supabase concluída!',
-          details: `Ficha civil e dados de perfil confirmados na nuvem (${res.fields.join(', ') || 'sem alterações'}).`,
-        });
-      } else {
-        if (addAuditLog) {
-          addAuditLog(`[PERFIL-SYNC] Sincronização manual não concluída (outcome: ${res.outcome})`, 'warning');
-        }
-        setFeedback({
-          type: 'info',
-          text: fb.text,
-          details: fb.details,
-        });
-      }
-    } catch (err) {
-      setFeedback({
-        type: 'error',
-        text: 'Falha na ligação com o servidor Supabase',
-        details: err?.message || 'Verifique a sua ligação de rede e tente novamente.'
-      });
-    } finally {
-      setLocalSyncing(false);
-      setLocalSyncStep('');
-    }
-  };
-
-  const handleSimulatedSync = async () => {
-    setShowMissingKeysDialog(false);
-    setLocalSyncing(true);
-    setFeedback(null);
-
-    try {
-      setLocalSyncStep('A simular ligação ao servidor Supabase...');
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      setLocalSyncStep('A empacotar dados locais do Bilhete de Identidade...');
-      await new Promise(resolve => setTimeout(resolve, 900));
-
-      setLocalSyncStep(`A exportar ficheiros (${documentsList.length}) e correspondências (${correspondencesCount})...`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      setLocalSyncStep('A finalizar mapeamento relacional de tabelas...');
-      await new Promise(resolve => setTimeout(resolve, 600));
-
-      localStorage.setItem('supabase_last_sync_time', new Date().toLocaleString());
-
-      setFeedback({
-        type: 'info',
-        text: 'Simulação concluída (Modo Sandbox — sem envio real).',
-        details: 'Esta pré-visualização NÃO enviou dados para a nuvem: nenhum perfil, ficheiro ou correspondência foi transferido. Configure as chaves reais do Supabase para sincronizar de verdade.'
-      });
-
-      if (addAuditLog) {
-        addAuditLog('Sincronização com Supabase simulada com sucesso no navegador', 'success');
-      }
-    } catch (e) {
-      // ignore
-    } finally {
-      setLocalSyncing(false);
-      setLocalSyncStep('');
-    }
-  };
-
   const parents = userFiliation ? userFiliation.split('&').map(p => p.trim()) : [];
   const prioritizedContacts = [...contactsList].sort((a, b) => {
     const emergencyBoost = (value?: string) => value === 'Emergência' ? 1 : 0;
@@ -391,8 +274,6 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
   const safeProfileName = profileName || 'Cidadão';
   const derivedEmail = email || `${safeProfileName.toLowerCase().replace(/\s+/g, '.')}@cidadao.ao`;
 
-  const isSyncBusy = isSyncingSupabase || localSyncing;
-
   return (
     <section className="space-y-6 text-slate-950 animate-fade-in font-sans">
       
@@ -403,24 +284,6 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
           <h1 className="text-2xl md:text-3xl font-black text-slate-950 tracking-tight">Bem-vindo, {profileName.split(' ')[0]}</h1>
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          {/* Button "Sincronizar Supabase" on the left side of the "Conta verificada e activa" container */}
-          <button
-            onClick={handleSyncClick}
-            disabled={isSyncBusy}
-            className={`flex items-center gap-2 px-4 py-2 border rounded-full font-extrabold text-[11px] uppercase tracking-wider transition-all shadow-xs cursor-pointer select-none
-              ${isSyncBusy 
-                ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' 
-                : 'bg-sky-50 hover:bg-sky-100 border-sky-100 text-sky-700 active:scale-[0.98]'
-              }`}
-          >
-            <RefreshCw size={13} className={`${isSyncBusy ? 'animate-spin' : ''}`} />
-            <span>{isSyncBusy ? 'A Sincronizar...' : 'Sincronizar Supabase'}</span>
-          </button>
-          {lastSyncTime && !isSyncBusy && (
-            <span className="text-[10px] font-semibold text-slate-400 normal-case">
-              Última sincronização real: {lastSyncTime}
-            </span>
-          )}
           {temPendenciaLocal && (
             <span
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-black uppercase tracking-wider"
@@ -440,21 +303,6 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
 
       {/* Feedback Banner */}
       <AnimatePresence>
-        {localSyncStep && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="p-4 bg-sky-50/80 border border-sky-150 rounded-2xl flex items-center gap-3 text-xs font-semibold text-sky-800 shadow-xs"
-          >
-            <RefreshCw size={16} className="animate-spin text-sky-600 shrink-0" />
-            <div className="flex-1 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
-              <span>{localSyncStep}</span>
-              <span className="text-[10px] bg-sky-100 text-sky-700 px-2.5 py-0.5 rounded-full font-mono font-bold animate-pulse">Sincronizando...</span>
-            </div>
-          </motion.div>
-        )}
-
         {feedback && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -484,65 +332,6 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
               <X size={14} />
             </button>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Missing Keys Interactive Dialog Modal */}
-      <AnimatePresence>
-        {showMissingKeysDialog && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-xs">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-[32px] border border-slate-200 max-w-md w-full p-6 md:p-8 shadow-2xl text-left font-sans text-slate-950"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 shrink-0">
-                  <Database size={24} />
-                </div>
-                <button 
-                  onClick={() => setShowMissingKeysDialog(false)}
-                  className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <h3 className="text-lg font-black text-slate-950 tracking-tight mb-2 uppercase">Integração do Supabase</h3>
-              <p className="text-xs text-slate-600 leading-relaxed mb-4">
-                As chaves de acesso ao <strong>Supabase</strong> não estão configuradas no ambiente local (<code className="font-mono bg-slate-100 px-1 py-0.5 rounded text-[10px]">.env</code>).
-              </p>
-
-              <div className="bg-slate-50 border border-slate-150 p-3.5 rounded-2xl mb-6 space-y-2 text-[11px] text-slate-600">
-                <p className="font-extrabold text-[#0c2340] flex items-center gap-1">
-                  <Info size={12} className="text-indigo-600" />
-                  O que deseja fazer?
-                </p>
-                <p>1. <strong>Simular Sincronização:</strong> Testa o fluxo visual e a atualização da ficha civil local no navegador.</p>
-                <p>2. <strong>Configurar Chaves:</strong> Abre as configurações para introduzir as chaves reais de URL e Chave Pública do seu projecto Supabase.</p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-2">
-                <button
-                  onClick={handleSimulatedSync}
-                  className="flex-1 py-3 bg-[#0E2B64] hover:bg-[#081a3d] border border-[#0E2B64] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-white cursor-pointer"
-                >
-                  Simular Sincronização
-                </button>
-                <button
-                  onClick={() => {
-                    setShowMissingKeysDialog(false);
-                    setIsPrefsOpen(true);
-                    setPrefSubTab('supabase');
-                  }}
-                  className="flex-1 py-3 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
-                >
-                  Configurar Chaves
-                </button>
-              </div>
-            </motion.div>
-          </div>
         )}
       </AnimatePresence>
 
