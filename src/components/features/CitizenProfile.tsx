@@ -335,9 +335,9 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column */}
-        <div className="lg:col-span-1 space-y-6 text-left">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+        {/* Left Column — flex column h-full: os cards preenchem a altura da linha */}
+        <div className="lg:col-span-1 flex flex-col gap-6 h-full text-left">
           
           {/* Photo Card with profile stats */}
           <div className="bg-white border border-slate-200 rounded-[32px] p-6 flex flex-col items-center text-center relative overflow-hidden shadow-sm">
@@ -418,8 +418,8 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
             </div>
           </div>
 
-          {/* ACTIVIDADE RECENTE LOGS */}
-          <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm">
+          {/* ACTIVIDADE RECENTE LOGS — mt-auto: fundo alinhado com a coluna direita */}
+          <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm mt-auto flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Actividade Recente</h4>
               <span className="w-2 h-2 rounded-full bg-emerald-505 bg-emerald-500 animate-pulse" />
@@ -450,7 +450,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
 
             <button 
               onClick={() => setTab('historico')}
-              className="w-full mt-4 py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] border border-[#0E2B64] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-white flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full mt-auto pt-4 py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] border border-[#0E2B64] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-white flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <History size={12} />
               Ver Toda Actividade
@@ -459,8 +459,8 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
 
         </div>
 
-        {/* Right Column */}
-        <div className="lg:col-span-2 space-y-6 text-left">
+        {/* Right Column — flex column h-full: fundo alinhado com a coluna esquerda */}
+        <div className="lg:col-span-2 flex flex-col gap-6 h-full text-left">
 
           {/* INFORMAÇÕES PESSOAIS Card */}
           <div className="bg-white border border-slate-200 rounded-[32px] p-6 md:p-8 space-y-6 text-left shadow-sm">
@@ -620,10 +620,10 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
           </div>
 
           {/* Bento Grid: 4 Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch mt-auto">
             
             {/* 1. SEGURANÇA */}
-            <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col justify-between">
+            <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col justify-between h-full">
               <div>
                 <div className="flex items-center gap-2.5 mb-2 border-b border-slate-50 pb-3">
                   <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center shrink-0 border border-orange-100">
@@ -653,7 +653,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
             </div>
 
             {/* 2. CONTACTOS DE EMERGÊNCIA */}
-            <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col justify-between">
+            <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col justify-between h-full">
               <div>
                 <div className="flex items-center gap-2.5 mb-2 border-b border-slate-50 pb-3">
                   <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100">

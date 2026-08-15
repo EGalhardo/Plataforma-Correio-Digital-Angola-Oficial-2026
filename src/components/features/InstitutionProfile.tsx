@@ -242,10 +242,10 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
         
-        {/* Left Column */}
-        <div className="lg:col-span-1 bg-white border border-slate-200 rounded-[32px] p-6 flex flex-col items-center text-center relative overflow-hidden shadow-sm text-left">
+        {/* Left Column — flex column h-full: o cartão preenche a altura da linha */}
+        <div className="lg:col-span-1 bg-white border border-slate-200 rounded-[32px] p-6 flex flex-col items-center text-center relative overflow-hidden shadow-sm text-left h-full">
           
           <div className="relative mt-4 mb-4 group">
             <div className="w-32 h-32 md:w-36 md:h-36 rounded-[28px] border border-slate-150 p-1 bg-white relative overflow-hidden">
@@ -337,7 +337,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
               setIsPrefsOpen(true);
               setPrefSubTab('geral');
             }}
-            className="w-full mt-4 py-3 bg-[#0E2B64] border border-[#0E2B64] hover:bg-[#081a3d] hover:border-[#081a3d] text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+            className="w-full mt-auto pt-4 py-3 bg-[#0E2B64] border border-[#0E2B64] hover:bg-[#081a3d] hover:border-[#081a3d] text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
           >
             <Settings size={13} />
             Editar Perfil
@@ -345,7 +345,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
         </div>
 
         {/* Right Column */}
-        <div className="lg:col-span-2 space-y-6 text-left">
+        <div className="lg:col-span-2 flex flex-col gap-6 h-full text-left">
           
           {/* INFORMAÇÕES DA CONTA */}
           <div className="bg-white border border-slate-200 rounded-[32px] p-6 md:p-8 space-y-6 shadow-sm">
@@ -468,10 +468,10 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
           </div>
 
           {/* 3 Lower Bento Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch mt-auto">
             
             {/* A. SEGURANÇA DA CONTA */}
-            <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col justify-between">
+            <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col justify-between h-full">
               <div className="space-y-4">
                 <div className="flex items-center gap-2 border-b border-slate-50 pb-3">
                   <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center shrink-0 border border-orange-100">
@@ -500,14 +500,14 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
 
               <button 
                 onClick={() => setIsConfiguringSecurity(true)}
-                className="w-full mt-4 py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] border border-[#0E2B64] rounded-xl text-[9px] font-black uppercase tracking-widest transition-all text-white flex items-center justify-center gap-1 cursor-pointer"
+                className="w-full mt-auto pt-4 py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] border border-[#0E2B64] rounded-xl text-[9px] font-black uppercase tracking-widest transition-all text-white flex items-center justify-center gap-1 cursor-pointer"
               >
                 Alterar Senha & 2FA
               </button>
             </div>
 
             {/* B. DISPOSITIVOS E ACESSOS */}
-            <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col justify-between">
+            <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col justify-between h-full">
               <div className="space-y-4">
                 <div className="flex items-center gap-2 border-b border-slate-50 pb-3">
                   <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100">
@@ -536,14 +536,14 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
 
               <button 
                 onClick={() => { setIsPrefsOpen(true); setPrefSubTab('conectividade'); }}
-                className="w-full mt-4 py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] border border-[#0E2B64] rounded-xl text-[9px] font-black uppercase tracking-widest transition-all text-white flex items-center justify-center gap-1 cursor-pointer"
+                className="w-full mt-auto pt-4 py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] border border-[#0E2B64] rounded-xl text-[9px] font-black uppercase tracking-widest transition-all text-white flex items-center justify-center gap-1 cursor-pointer"
               >
                 Gerir Dispositivos
               </button>
             </div>
 
             {/* C. PREFERÊNCIAS */}
-            <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col justify-between">
+            <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col justify-between h-full">
               <div className="space-y-4">
                 <div className="flex items-center gap-2 border-b border-slate-50 pb-3">
                   <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
@@ -572,7 +572,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
 
               <button 
                 onClick={() => { setIsPrefsOpen(true); setPrefSubTab('geral'); }}
-                className="w-full mt-4 py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] border border-[#0E2B64] rounded-xl text-[9px] font-black uppercase tracking-widest transition-all text-white flex items-center justify-center gap-1 cursor-pointer"
+                className="w-full mt-auto pt-4 py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] border border-[#0E2B64] rounded-xl text-[9px] font-black uppercase tracking-widest transition-all text-white flex items-center justify-center gap-1 cursor-pointer"
               >
                 Gerir Preferências
               </button>

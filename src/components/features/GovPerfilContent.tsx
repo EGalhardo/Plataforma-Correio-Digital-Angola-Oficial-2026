@@ -202,9 +202,9 @@ export function GovPerfilContent({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Photo & Main Info Card */}
-        <div className="lg:col-span-1 bg-white border border-slate-200 rounded-[32px] p-6 shadow-sm flex flex-col items-center text-center relative overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+        {/* Left Column: Photo & Main Info Card — flex column h-full: fundo alinhado com a direita */}
+        <div className="lg:col-span-1 bg-white border border-slate-200 rounded-[32px] p-6 shadow-sm flex flex-col items-center text-center relative overflow-hidden h-full">
           {/* Background decoration */}
           <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
           
@@ -241,7 +241,7 @@ export function GovPerfilContent({
           <div className="w-full border-t border-slate-100 my-4" />
 
           {/* Mini info badge */}
-          <div className="w-full space-y-3 text-left animate-fade-in">
+          <div className="w-full space-y-3 text-left animate-fade-in mt-auto">
             <div>
               <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">Nível de Autoridade</span>
               <span className="text-xs font-bold text-slate-700">Administrador Geral / Central</span>
@@ -254,7 +254,7 @@ export function GovPerfilContent({
         </div>
 
         {/* Right Column: Information fields & Security section */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 flex flex-col gap-6 h-full">
           {/* Information Container */}
           <div className="bg-white border border-slate-200 rounded-[32px] p-6 md:p-8 shadow-sm space-y-6 text-left">
             <div className="border-b border-slate-100 pb-4 flex justify-between items-center">
@@ -309,15 +309,15 @@ export function GovPerfilContent({
             </div>
 
             {!isEditingAdmin ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
                 {/* Nome Completo */}
-                <div className="bg-white border border-slate-200 p-4 rounded-2xl">
+                <div className="bg-white border border-slate-200 p-4 rounded-2xl h-full">
                   <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Nome Completo</span>
                   <span className="text-xs font-bold text-slate-800 block">{user?.name || profileName}</span>
                 </div>
 
               {/* B.I. */}
-              <div className="bg-white border border-slate-200 p-4 rounded-2xl">
+              <div className="bg-white border border-slate-200 p-4 rounded-2xl h-full">
                 <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Bilhete de Identidade (BI)</span>
                 <span className="text-xs font-mono font-bold text-slate-800 block">
                   {showSensitiveData ? (bi || 'Não associado') : (bi ? bi.replace(/\(?[A-Z0-9]{6}\)?$/, '******') : 'Não associado')}
@@ -325,7 +325,7 @@ export function GovPerfilContent({
               </div>
 
               {/* Email */}
-              <div className="bg-white border border-slate-200 p-4 rounded-2xl">
+              <div className="bg-white border border-slate-200 p-4 rounded-2xl h-full">
                 <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Email Funcional</span>
                 <span className="text-xs font-bold text-slate-800 block mb-1 font-mono">
                   {user?.email || `${((profileName || 'Utilizador').toLowerCase().replace(/\s+/g, '.'))}@mindis.gov.ao`}
@@ -336,7 +336,7 @@ export function GovPerfilContent({
               </div>
 
               {/* Telefone */}
-              <div className="bg-white border border-slate-200 p-4 rounded-2xl">
+              <div className="bg-white border border-slate-200 p-4 rounded-2xl h-full">
                 <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Telefone Principal</span>
                 <span className="text-xs font-mono font-bold text-slate-800 block">
                   {showSensitiveData ? (user?.phone || phone || 'Não associado') : ((user?.phone || phone) ? (user?.phone || phone).replace(/\d{3} \d{3}$/, '*** ***') : 'Não associado')}
@@ -344,7 +344,7 @@ export function GovPerfilContent({
               </div>
 
               {/* Contribuinte (NIF) */}
-              <div className="bg-white border border-slate-200 p-4 rounded-2xl">
+              <div className="bg-white border border-slate-200 p-4 rounded-2xl h-full">
                 <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Contribuinte (NIF)</span>
                 <span className="text-xs font-mono font-bold text-slate-800 block">
                   {showSensitiveData ? (nif || 'Não associado') : (nif ? nif.replace(/\d{4}$/, '****') : 'Não associado')}
@@ -352,7 +352,7 @@ export function GovPerfilContent({
               </div>
 
               {/* Passaporte */}
-              <div className="bg-white border border-slate-200 p-4 rounded-2xl">
+              <div className="bg-white border border-slate-200 p-4 rounded-2xl h-full">
                 <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Passaporte</span>
                 <span className="text-xs font-mono font-bold text-slate-800 block">
                   {showSensitiveData ? (passport || 'Não associado') : (passport ? passport.replace(/[A-Z0-9]{4}$/, '****') : 'Não associado')}
@@ -360,19 +360,19 @@ export function GovPerfilContent({
               </div>
 
               {/* Morada */}
-              <div className="bg-white border border-slate-200 p-4 rounded-2xl md:col-span-2">
+              <div className="bg-white border border-slate-200 p-4 rounded-2xl md:col-span-2 h-full">
                 <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Departamento / Administração</span>
                 <span className="text-xs font-bold text-slate-800 block">Ministério da Defesa e Infraestrutura de Segurança</span>
               </div>
 
               {/* Registo de Acesso */}
-              <div className="bg-white border border-slate-200 p-4 rounded-2xl md:col-span-2">
+              <div className="bg-white border border-slate-200 p-4 rounded-2xl md:col-span-2 h-full">
                 <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Nível de Acesso</span>
                 <span className="text-xs font-bold text-slate-800 block">Administrador de Sistema (Infraestrutura Central - CDA)</span>
               </div>
             </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
                 <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl">
                   <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Nome Completo</label>
                   <input
