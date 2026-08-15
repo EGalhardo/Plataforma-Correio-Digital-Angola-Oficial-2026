@@ -21,6 +21,10 @@ import {
   carregarPagamentosDoCidadao, documentoRefCombina, formatarKz,
   gerarReferenciaSimulada, marcarPagamentoSimulado,
 } from '../../services/pagamentosService';
+import {
+  classificarPrazo, diasRestantes, formatarDataCurta, formatarDiasRestantes,
+  montarAlertasDePagamentos,
+} from '../../services/prazoAlertsService';
 
 // ---------------------------------------------------------------------------
 // Blocos partilhados
@@ -35,6 +39,23 @@ const SeloGateway = () => (
     </p>
   </div>
 );
+
+// Etapa #3 — selo do prazo (vence em X dias / VENCIDO) usado no detalhe.
+const SeloPrazo = ({ prazo }: { prazo: string }) => {
+  const estado = classificarPrazo(prazo);
+  const dias = diasRestantes(prazo);
+  if (dias === null || (estado !== 'vencido' && estado !== 'urgente' && estado !== 'proximo')) return null;
+  const cls = estado === 'vencido'
+    ? 'bg-rose-100 text-rose-800 border-rose-200'
+    : estado === 'urgente'
+      ? 'bg-orange-100 text-orange-800 border-orange-200'
+      : 'bg-yellow-100 text-yellow-900 border-yellow-200';
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${cls}`}>
+      <CalendarClock className="w-3 h-3" /> {formatarDiasRestantes(dias)}
+    </span>
+  );
+};
 
 const ChipEstado = ({ estado }: { estado: Pagamento['estado'] }) => {
   if (estado === 'paga_simulada') {
@@ -292,26 +313,40 @@ function SimulacaoPagamentoModal({ pagamento, onFechar, onSucesso }: SimulacaoMo
 export interface PagamentosContentProps {
   citizenBi: string;
   setTab: (tab: string) => void;
+  /**
+   * Etapa #3 — cobranças de DEMONSTRAÇÃO com prazos próximos (só sessão demo):
+   * quando a nuvem não devolve cobranças, a página usa esta lista para que o
+   * cidadão veja o sistema de alertas de prazos a funcionar. Nunca é usada
+   * em contas reais (o App só a fornece na sessão demo).
+   */
+  pagamentosDemoFallback?: Pagamento[];
 }
 
 type FiltroEstado = 'todas' | 'pendente' | 'paga_simulada' | 'cancelado';
 
-export function PagamentosContent({ citizenBi, setTab }: PagamentosContentProps) {
+export function PagamentosContent({ citizenBi, setTab, pagamentosDemoFallback }: PagamentosContentProps) {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [selecionado, setSelecionado] = useState<Pagamento | null>(null);
   const [aSimular, setASimular] = useState<Pagamento | null>(null);
   const [filtro, setFiltro] = useState<FiltroEstado>('todas');
+  // Etapa #3 — true quando a lista mostrada vem da demonstração (sessão demo).
+  const [aUsarDemo, setAUsarDemo] = useState(false);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
     setErro('');
     const r = await carregarPagamentosDoCidadao(citizenBi);
-    setPagamentos(r.pagamentos);
-    setErro(r.erro);
+    const usouDemo = r.pagamentos.length === 0 && !!pagamentosDemoFallback && pagamentosDemoFallback.length > 0;
+    setPagamentos(usouDemo ? pagamentosDemoFallback : r.pagamentos);
+    setAUsarDemo(usouDemo);
+    setErro(usouDemo ? '' : r.erro);
     setCarregando(false);
-  }, [citizenBi]);
+  }, [citizenBi, pagamentosDemoFallback]);
+
+  // Etapa #3 — alertas de prazos calculados das cobranças pendentes em exibição.
+  const alertasPrazos = montarAlertasDePagamentos(pagamentos);
 
   useEffect(() => { void carregar(); }, [carregar]);
 
@@ -362,7 +397,10 @@ export function PagamentosContent({ citizenBi, setTab }: PagamentosContentProps)
             {selecionado.prazo && (
               <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 m-0 inline-flex items-center gap-1"><CalendarClock className="w-3 h-3" /> Prazo</p>
-                <p className="font-bold text-slate-700 m-0 mt-1">{selecionado.prazo}</p>
+                <p className="font-bold text-slate-700 m-0 mt-1 inline-flex items-center gap-2 flex-wrap">
+                  {formatarDataCurta(selecionado.prazo)}
+                  <SeloPrazo prazo={selecionado.prazo} />
+                </p>
               </div>
             )}
           </div>
@@ -443,6 +481,50 @@ export function PagamentosContent({ citizenBi, setTab }: PagamentosContentProps)
       </div>
 
       <SeloGateway />
+
+      {/* Etapa #3 — painel de alertas de prazos (cobranças pendentes) */}
+      {!carregando && alertasPrazos.length > 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 space-y-3" data-testid="prazos-alert-panel">
+          <div className="flex items-center gap-2">
+            <CalendarClock className="w-4 h-4 text-amber-700 shrink-0" />
+            <p className="text-xs font-black uppercase tracking-widest text-amber-900 m-0">Alertas de Prazos</p>
+            <span className="ml-auto rounded-full bg-amber-600 text-white text-[10px] font-black px-2 py-0.5">
+              {alertasPrazos.length}
+            </span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {alertasPrazos.map(a => {
+              const pag = pagamentos.find(p => String(p.id) === String(a.id));
+              const cores = a.estado === 'vencido'
+                ? 'border-rose-300 bg-rose-50 text-rose-900 hover:border-rose-400'
+                : a.estado === 'urgente'
+                  ? 'border-orange-300 bg-orange-50 text-orange-900 hover:border-orange-400'
+                  : 'border-yellow-300 bg-yellow-50 text-yellow-900 hover:border-yellow-400';
+              return (
+                <button
+                  key={a.chave}
+                  type="button"
+                  onClick={() => pag && setSelecionado(pag)}
+                  className={`w-full text-left rounded-xl border p-3 transition-all cursor-pointer ${cores}`}
+                >
+                  <span className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-[11px] font-black uppercase tracking-wide leading-snug">{a.descricao}</span>
+                    <span className="text-[10px] font-black whitespace-nowrap">{formatarDiasRestantes(a.dias)}</span>
+                  </span>
+                  <span className="block text-[10px] font-semibold mt-0.5 opacity-80">
+                    {a.referencia ? `ref. ${a.referencia} · ` : ''}{formatarDataCurta(a.prazo)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {aUsarDemo && (
+            <p className="text-[10px] font-semibold text-amber-800/70 m-0">
+              Cobranças de demonstração — nenhum valor real. Na sua conta, os prazos vêm das instituições.
+            </p>
+          )}
+        </div>
+      )}
 
       {carregando && (
         <div className="flex items-center justify-center gap-2 py-12 text-slate-400 text-sm font-semibold">

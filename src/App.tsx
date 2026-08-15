@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
 import type { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -107,6 +107,12 @@ import {
 import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLocalResidues, resolveCloudGateAction } from './services/accountGateService';
 import { PROFILE_HYDRATION_COLUMNS } from './services/profileSyncService';
 import { buildAutoFillProfile, type CitizenAutoFillProfile } from './services/autoFillService';
+import { carregarPagamentosDoCidadao } from './services/pagamentosService';
+import {
+  alertaJaEmitido, formatarDiasRestantes, marcarAlertaEmitido,
+  montarAlertasDePagamentos, mensagemDeAlerta, PAGAMENTOS_DEMO_PRAZOS,
+  tituloDeAlerta,
+} from './services/prazoAlertsService';
 // F55 — Contactos de Emergência (núcleo puro testado). F57: as funções de
 // alerta continuam no serviço, agora sem consumidor no lado do cidadão —
 // reservadas ao fluxo institucional (v20), sem código zombie na UI.
@@ -3003,6 +3009,55 @@ export default function App() {
   const stampNotif = (n: AppNotification): AppNotification => ({ ...n, ownerId: sessionOwnerKey });
   const isOwnCitizenMail = (m: Message) =>
     isOwnHomologationMail(m) || (!!m.recipientBi && normalizeHomologationBi(m.recipientBi) === normalizeHomologationBi(bi));
+
+  // ==========================================================================
+  // Etapa #3 — ALERTAS AUTOMÁTICOS DE PRAZOS (cobranças)
+  // Verificador que corre no arranque da sessão do cidadão e depois a cada
+  // 5 minutos: lê as cobranças pendentes (nuvem; na demo, prazos demo), e para
+  // cada prazo vencido/urgente/próximo emite UMA notificação única (anti-
+  // duplicação em localStorage). Só gera alertas novos — nunca re-notifica.
+  // ==========================================================================
+  const verificarPrazosAutomaticamente = useCallback(async () => {
+    if (stage !== 'app' || appMode !== 'user' || !bi.trim()) return;
+    const r = await carregarPagamentosDoCidadao(bi);
+    let lista = r.pagamentos;
+    // Sessão de demonstração sem cobranças na nuvem → prazos demo (visíveis).
+    if (isDemoCitizenSession && lista.length === 0) {
+      lista = PAGAMENTOS_DEMO_PRAZOS();
+    }
+    const alertas = montarAlertasDePagamentos(lista);
+    const novas = alertas.filter(a => !alertaJaEmitido(a.chave));
+    if (novas.length === 0) return;
+    const notifs: AppNotification[] = novas.map(a => {
+      marcarAlertaEmitido(a.chave);
+      return stampNotif({
+        id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
+        type: a.estado === 'proximo' ? 'info' : 'warning',
+        title: tituloDeAlerta(a),
+        message: mensagemDeAlerta(a),
+        time: 'Agora',
+        targetTab: 'pagamentos',
+        unread: true,
+      });
+    });
+    setNotifications(prev => [...notifs, ...prev]);
+    const temVencido = novas.some(a => a.estado === 'vencido');
+    addAuditLog(`[PRAZOS] ${novas.length} alerta(s) de prazo emitido(s) para o cidadão (${novas.map(a => `${a.descricao} → ${formatarDiasRestantes(a.dias)}`).join('; ')}).`, temVencido ? 'critical' : 'warning');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, appMode, bi, isDemoCitizenSession]);
+
+  useEffect(() => {
+    if (stage !== 'app' || appMode !== 'user') return;
+    void verificarPrazosAutomaticamente();
+    const id = setInterval(() => void verificarPrazosAutomaticamente(), 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [verificarPrazosAutomaticamente, stage, appMode]);
+
+  // Cobranças demo com prazos (identidade estável — prazos relativos a hoje).
+  const pagamentosDemoFallback = useMemo(
+    () => (isDemoCitizenSession ? PAGAMENTOS_DEMO_PRAZOS() : undefined),
+    [isDemoCitizenSession],
+  );
   // F17 — Piso de não-lidas ao nível da DERIVAÇÃO (só demo): a fusão assíncrona
   // da nuvem repõe cópias lidas por cima do piso aplicado 1x no arranque; com o
   // piso derivado aqui, "Não Lidas" nunca fica vazio em sessão de demonstração.
@@ -4691,6 +4746,7 @@ Ficha civil do titular:
           <PagamentosContent
             citizenBi={bi}
             setTab={setTab}
+            pagamentosDemoFallback={pagamentosDemoFallback}
           />
           </PainelSuspense>
         );
