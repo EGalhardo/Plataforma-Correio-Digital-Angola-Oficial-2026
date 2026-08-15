@@ -1698,8 +1698,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                   {/* External Share Link */}
                   <a
                     href={openInNewTabUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    target="_blank" rel="noopener noreferrer"
                     className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-150 flex items-center justify-center text-indigo-650 hover:text-indigo-850 transition-all cursor-pointer outline-none"
                     title="Abrir no Google Maps"
                   >
@@ -1712,8 +1711,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                   {/* Turn-by-turn Direction Blue Circle Button */}
                   <a
                     href={directionsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    target="_blank" rel="noopener noreferrer"
                     className="w-8 h-8 rounded-full bg-[#1a73e8] hover:bg-[#1557b0] flex items-center justify-center text-white transition-all shadow-md cursor-pointer outline-none hover:scale-105"
                     title="Como Chegar (Rotas)"
                   >
@@ -4393,8 +4391,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                                         <p className="text-xs text-slate-500 mb-4">{previewFile.size} • Ficheiro Digital Guardado</p>
                                         <a 
                                           href={resolvedPreviewUrl || previewFile.content} 
-                                          target="_blank" 
-                                          rel="noopener noreferrer" 
+                                          target="_blank" rel="noopener noreferrer" 
                                           className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer active:scale-95"
                                         >
                                           Ver / Descarregar Ficheiro Original

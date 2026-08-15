@@ -287,8 +287,7 @@ export function InstitutionEmergencyBroadcast({
                       {state.popupBlocked && state.waLink && (
                         <a
                           href={state.waLink}
-                          target="_blank"
-                          rel="noreferrer"
+                          target="_blank" rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 cursor-pointer"
                         >
                           Abrir WhatsApp
