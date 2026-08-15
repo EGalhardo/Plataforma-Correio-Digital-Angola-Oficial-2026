@@ -2523,6 +2523,47 @@ export function GovContactsContent({
             </div>
           </div>
 
+          {/* FASE 2 — LIMPEZA SEGURA DE CONTAS SINTÉTICAS INATIVAS.
+              Identifica contas de teste (e-mail sintético do CDA) na lista atual
+              e permite ARQUIVÁ-LAS (marca como Bloqueada com motivo, NUNCA apaga)
+              com dupla confirmação. É seguro: não remove dados da base. */}
+          {(() => {
+            const sinteticas = citizens.filter((c) =>
+              (c.email || '').toLowerCase().endsWith('@cidadao.correiodigital.ao') ||
+              (c.email || '').toLowerCase().endsWith('@inst.correiodigital.ao') ||
+              (c.email || '').toLowerCase().endsWith('@admin.correiodigital.ao')
+            );
+            if (sinteticas.length === 0) return null;
+            return (
+              <div className="mb-3 border border-slate-200 rounded-2xl p-3 bg-white/60 animate-fadeIn">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">
+                      {sinteticas.length} conta(s) sintética(s) de teste detetada(s)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Arquivar estas contas sintéticas de teste? Esta ação marca as contas como Bloqueadas com motivo de arquivo (NÃO apaga dados). Pretende continuar?')) {
+                        if (window.confirm('Confirmação final: arquivar as ' + sinteticas.length + ' contas sintéticas? Esta ação é reversível via reativação manual.')) {
+                          sinteticas.forEach((c) => {
+                            setCitizens(prev => prev.map(x => x.id === c.id ? { ...x, status: 'Bloqueado' as const, reason: 'Arquivada — conta sintética de teste (limpeza assistida).' } : x));
+                          });
+                          addAuditLog?.(`Limpeza assistida: ${sinteticas.length} conta(s) sintética(s) arquivada(s) (marcadas como Bloqueadas, sem apagar dados).`, 'warning');
+                        }
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[9px] font-black uppercase tracking-widest transition-colors cursor-pointer border-none"
+                  >
+                    Arquivar contas sintéticas
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* FASE 1 — RESUMO DA FILA DE HOMOLOGAÇÃO (agrupado por motivo PVIC).
               Mostra quantos cadastros pendentes existem por categoria de alerta,
               para o admin rever em lote os casos mais urgentes. */}

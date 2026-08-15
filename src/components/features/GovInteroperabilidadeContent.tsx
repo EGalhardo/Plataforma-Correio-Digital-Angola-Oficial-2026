@@ -627,8 +627,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     const code = normalizeInstCode(row.bi_numero);
     const pack = parseInstPack(row.observacoes);
     await persistSolicitationStatus(row, 'Aprovado');
-    homologationStore.setStatus(code, 'active', undefined, row.nome);
-    // Ficha 1:1 na lista de instituições da página (editável pelo popup "Editar")
+    homologationStore.setStatus(code, 'active', undefined, row.nome);    // Ficha 1:1 na lista de instituições da página (editável pelo popup "Editar")
     setInstitutions(prev => {
       if (prev.some(i => normalizeInstCode(i.instCode || '') === code)) return prev;
       const newInst: Institution = {
@@ -1903,6 +1902,38 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                         {pvi.ver === 'APTO' && (
                           <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Aprovado automaticamente por Pré-Verificação Inteligente (IA) — revogável pela Administração</p>
                         )}
+                        {/* FASE 2 — SUGESTÃO ASSISTIDA: orienta o admin com base no veredicto/alertas da IA. */}
+                        {(() => {
+                          if (!pvi) return null;
+                          const critico = ['fraude_suspeita','possivel_screenshot','possivel_ia'].some(a => pvi.al.includes(a));
+                          const diverg = ['bi_divergente','nome_divergente','documento_divergente','data_divergente','frente_verso_inconsistentes'].some(a => pvi.al.includes(a));
+                          if (pvi.ver === 'APTO') {
+                            return (
+                              <p className="text-[8.5px] font-black uppercase tracking-widest text-emerald-600">
+                                Sugestão assistida: pode aprovar — a IA não detetou divergências.
+                              </p>
+                            );
+                          }
+                          if (critico) {
+                            return (
+                              <p className="text-[8.5px] font-black uppercase tracking-widest text-rose-700">
+                                Sugestão assistida: evidência de possível fraude/manipulação — solicitar correções ou rejeitar.
+                              </p>
+                            );
+                          }
+                          if (diverg) {
+                            return (
+                              <p className="text-[8.5px] font-black uppercase tracking-widest text-orange-700">
+                                Sugestão assistida: há divergências de dados — solicitar correções antes de aprovar.
+                              </p>
+                            );
+                          }
+                          return (
+                            <p className="text-[8.5px] font-black uppercase tracking-widest text-amber-700">
+                              Sugestão assistida: rever manualmente — sem indícios graves, mas com ressalvas de qualidade.
+                            </p>
+                          );
+                        })()}
                       </div>
                     );
                   })()}
@@ -1922,6 +1953,24 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           <span className="block text-[8px] font-black uppercase tracking-widest opacity-60 mb-0.5">{m.from === 'admin' ? 'Área de Administração' : 'Instituição'} · {m.at}</span>
                           {m.text}
                         </div>
+                      ))}
+                    </div>
+                    {/* FASE 2 — TEMPLATES DE RESPOSTA RÁPIDA: preenchem o input com texto oficial padrão. */}
+                    <div className="border-t border-slate-100 p-2.5 flex flex-wrap gap-1.5">
+                      {[
+                        { label: 'Confirmar receção', txt: 'Exmos. Senhores, confirmamos a receção da vossa solicitação. A Área de Administração do Correio Digital Angola irá analisá-la e responder dentro do prazo regulamentar.' },
+                        { label: 'Aprovar adesão', txt: 'Exmos. Senhores, informamos que a vossa adesão ao Correio Digital Angola foi APROVADA pela Área de Administração. A conta da instituição encontra-se oficialmente ATIVA.' },
+                        { label: 'Pedir documentos', txt: 'Exmos. Senhores, para concluirmos a análise da vossa solicitação, solicitamos o envio dos documentos comprovativos em falta (registo comercial, NIF ou alvará atualizado).' },
+                        { label: 'Solicitar correções', txt: 'Exmos. Senhores, identificámos divergências nos dados submetidos. Solicitamos a correção dos campos indicados para prosseguirmos com a homologação.' },
+                      ].map((t) => (
+                        <button
+                          key={t.label}
+                          type="button"
+                          onClick={() => setAdminSolInput(t.txt)}
+                          className="text-[8px] font-black uppercase tracking-widest bg-slate-50 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                        >
+                          {t.label}
+                        </button>
                       ))}
                     </div>
                     <div className="border-t border-slate-100 p-3 flex items-center gap-2">
