@@ -28,6 +28,15 @@ import {
 import { Document, DigitalProtocol } from '../../types';
 import { generateProtocol } from '../../utils/protocolGenerator';
 import { useLanguage } from '../../hooks/useLanguage';
+import {
+  camposDoPerfil,
+  jaAutoPreenchido,
+  marcarAutoPreenchido,
+  normalizarTelefoneAo,
+  registarAutoFillAudit,
+  temDadosAutoFill,
+  type CitizenAutoFillProfile,
+} from '../../services/autoFillService';
 
 export interface FinancialTransaction {
   id: string;
@@ -50,6 +59,12 @@ interface SolicitarDocumentoContentProps {
   onEmitDocument: (doc: Document, notification: { title: string; message: string; type?: string; targetTab?: string }) => void;
   isOnline: boolean;
   addAuditLog: (action: string, type: 'info' | 'warning' | 'critical' | 'success') => void;
+  /**
+   * Etapa #2 — auto-preenchimento: perfil do cidadão (sessão) usado para
+   * preencher os dados do titular e os telefones de pagamento. Opcional:
+   * sem perfil, o formulário mantém o comportamento original.
+   */
+  autoFillProfile?: CitizenAutoFillProfile;
 }
 
 type Step = 'solicitacao' | 'upload' | 'validacao' | 'pagamento' | 'aprovacao' | 'emissao_final';
@@ -65,7 +80,8 @@ export function SolicitarDocumentoContent({
   setTab,
   bi,
   onEmitDocument,
-  addAuditLog
+  addAuditLog,
+  autoFillProfile
 }: SolicitarDocumentoContentProps) {
   const { t } = useLanguage();
   // Current step in the request flow
@@ -78,6 +94,70 @@ export function SolicitarDocumentoContent({
   const [identityCode, setIdentityCode] = useState(bi);
   const [purpose, setPurpose] = useState('Apresentação Orgão Público');
   const [urgency, setUrgency] = useState<'Alta' | 'Média'>('Média');
+
+  // Etapa #2 — auto-preenchimento com dados do perfil (sessão)
+  const [autoFillCampos, setAutoFillCampos] = useState<string[]>([]);
+  // Guarda real anti-sobrescrita: enquanto o utilizador NÃO tocar nos campos,
+  // o auto-preenchimento pode (re)aplicar quando o perfil chega/sincroniza.
+  const touchedRef = useRef(false);
+  const marcarTocado = () => { touchedRef.current = true; };
+
+  // Aplica os dados do perfil ao formulário. `origem === 'auto'` respeita o
+  // `touchedRef` (edições manuais) — nunca sobrescreve o que o utilizador
+  // digitou; `origem === 'manual'` força (botão explícito do utilizador).
+  // A auditoria (log) só é escrita na PRIMEIRA aplicação da sessão — as
+  // remontagens do formulário restauram os dados sem ruído de logs.
+  const aplicarAutoPreenchimento = (origem: 'auto' | 'manual') => {
+    if (!temDadosAutoFill(autoFillProfile)) return;
+    if (origem === 'auto' && touchedRef.current) return;
+    const perfil = autoFillProfile!;
+    const preenchidos: string[] = [];
+
+    if (perfil.name && perfil.name !== holderName) {
+      setHolderName(perfil.name);
+      preenchidos.push('Nome do titular');
+    }
+    const codigoIdentificacao = perfil.bi || perfil.nif;
+    if (codigoIdentificacao && codigoIdentificacao !== identityCode) {
+      setIdentityCode(codigoIdentificacao);
+      preenchidos.push('Código de identificação (B.I./NIF)');
+    }
+    const telemovel = normalizarTelefoneAo(perfil.phone);
+    if (telemovel) {
+      if (telemovel !== paymentPhone) {
+        setPaymentPhone(telemovel);
+        preenchidos.push('Telemóvel de pagamento');
+      }
+      if (telemovel !== unitelPhone) {
+        setUnitelPhone(telemovel);
+        preenchidos.push('Telemóvel Unitel Money');
+      }
+    }
+
+    if (preenchidos.length > 0) {
+      const primeiraVez = !jaAutoPreenchido('solicitar-documento');
+      setAutoFillCampos(prev => Array.from(new Set([...prev, ...preenchidos])));
+      if (origem === 'auto' && primeiraVez) {
+        registarAutoFillAudit('solicitar-documento', preenchidos, origem);
+        addAuditLog(`[AUTOPREENCHIMENTO] Formulário preenchido automaticamente com os dados do perfil (${preenchidos.join(', ')}).`, 'info');
+        marcarAutoPreenchido('solicitar-documento');
+      } else if (origem === 'manual') {
+        registarAutoFillAudit('solicitar-documento', preenchidos, origem);
+        addAuditLog(`[AUTOPREENCHIMENTO] Dados do perfil aplicados ao formulário a pedido do utilizador (${preenchidos.join(', ')}).`, 'info');
+      }
+    }
+  };
+
+  // Auto-preenchimento reactivo: quando o perfil chega (ou é sincronizado da
+  // nuvem após o login) e o utilizador ainda não tocou nos campos, aplica.
+  // Deps [autoFillProfile] garantem que uma conta real (perfil próprio) é
+  // aplicada mesmo que o primeiro perfil recebido seja o simulado.
+  useEffect(() => {
+    if (!temDadosAutoFill(autoFillProfile)) return;
+    if (touchedRef.current) return;
+    aplicarAutoPreenchimento('auto');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFillProfile]);
 
   // Drag and Drop simulation
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([
@@ -591,29 +671,68 @@ export function SolicitarDocumentoContent({
 
               {/* Personal validation form */}
               <div className="bg-white border border-slate-150 rounded-[32px] p-6 md:p-8 space-y-5 shadow-sm">
-                <div>
-                  <h4 className="text-slate-800 font-extrabold text-sm md:text-base uppercase tracking-tight">Dados de Concessão de Certificação</h4>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Preencha com exatidão as informações do titular para que o despachante estatal legalize o ficheiro</p>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <h4 className="text-slate-800 font-extrabold text-sm md:text-base uppercase tracking-tight">Dados de Concessão de Certificação</h4>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Preencha com exatidão as informações do titular para que o despachante estatal legalize o ficheiro</p>
+                  </div>
+
+                  {temDadosAutoFill(autoFillProfile) && (
+                    <button
+                      type="button"
+                      onClick={() => aplicarAutoPreenchimento('manual')}
+                      data-testid="autofill-profile-button"
+                      title={camposDoPerfil(autoFillProfile).map(c => `${c.campo}: ${c.valor}`).join(' · ')}
+                      className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 active:scale-[0.98] transition-all cursor-pointer"
+                    >
+                      <Sparkles size={13} />
+                      Preencher com os meus dados
+                    </button>
+                  )}
                 </div>
+
+                {autoFillCampos.length > 0 && (
+                  <div className="flex items-start gap-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 p-3" data-testid="autofill-applied-banner">
+                    <CheckCircle2 size={15} className="text-emerald-600 shrink-0 mt-0.5" />
+                    <p className="text-[10.5px] text-emerald-800 font-bold leading-relaxed">
+                      Preenchido automaticamente a partir do seu perfil: {autoFillCampos.join(' · ')}.
+                      Pode corrigir qualquer campo antes de avançar.
+                    </p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Nome Completo do Titular</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">
+                      Nome Completo do Titular
+                      {autoFillCampos.includes('Nome do titular') && (
+                        <span className="ml-2 inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 uppercase tracking-wider align-middle">
+                          <CheckCircle2 size={9} /> perfil
+                        </span>
+                      )}
+                    </label>
                     <input 
                       type="text" 
                       value={holderName}
-                      onChange={(e) => setHolderName(e.target.value)}
+                      onChange={(e) => { marcarTocado(); setHolderName(e.target.value); }}
                       className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs md:text-sm font-bold text-slate-800 focus:bg-white outline-none"
                       placeholder="e.g. Edlasio Galhardo"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Código de Identificação (BI / NIF)</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">
+                      Código de Identificação (BI / NIF)
+                      {autoFillCampos.includes('Código de identificação (B.I./NIF)') && (
+                        <span className="ml-2 inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 uppercase tracking-wider align-middle">
+                          <CheckCircle2 size={9} /> perfil
+                        </span>
+                      )}
+                    </label>
                     <input 
                       type="text" 
                       value={identityCode}
-                      onChange={(e) => setIdentityCode(e.target.value)}
+                      onChange={(e) => { marcarTocado(); setIdentityCode(e.target.value); }}
                       className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs md:text-sm font-mono font-bold text-slate-850 focus:bg-white outline-none"
                       placeholder="Identificação Oficial"
                     />
@@ -1077,7 +1196,7 @@ export function SolicitarDocumentoContent({
                                     <input 
                                       type="tel"
                                       value={paymentPhone}
-                                      onChange={(e) => setPaymentPhone(e.target.value.replace(/\D/g, ''))}
+                                      onChange={(e) => { marcarTocado(); setPaymentPhone(e.target.value.replace(/\D/g, '')); }}
                                       maxLength={9}
                                       className="w-full bg-white border border-slate-205 rounded-xl py-2.5 pl-12 pr-4 text-xs font-mono font-bold outline-none uppercase"
                                       placeholder="Telemóvel Express"
@@ -1146,7 +1265,7 @@ export function SolicitarDocumentoContent({
                                     <input 
                                       type="tel"
                                       value={unitelPhone}
-                                      onChange={(e) => setUnitelPhone(e.target.value.replace(/\D/g, ''))}
+                                      onChange={(e) => { marcarTocado(); setUnitelPhone(e.target.value.replace(/\D/g, '')); }}
                                       maxLength={9}
                                       className="w-full bg-white border border-slate-205 rounded-xl py-2.5 pl-12 pr-4 text-xs font-mono font-bold outline-none uppercase"
                                       placeholder="Telemóvel Unitel Money"

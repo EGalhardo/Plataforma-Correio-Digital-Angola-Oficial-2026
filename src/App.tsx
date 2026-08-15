@@ -106,6 +106,7 @@ import {
 // F48 — sincronização viva do estado oficial em sessão aberta (luz Online/gate)
 import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLocalResidues, resolveCloudGateAction } from './services/accountGateService';
 import { PROFILE_HYDRATION_COLUMNS } from './services/profileSyncService';
+import { buildAutoFillProfile, type CitizenAutoFillProfile } from './services/autoFillService';
 // F55 — Contactos de Emergência (núcleo puro testado). F57: as funções de
 // alerta continuam no serviço, agora sem consumidor no lado do cidadão —
 // reservadas ao fluxo institucional (v20), sem código zombie na UI.
@@ -1182,6 +1183,22 @@ export default function App() {
   const isInstMode = appMode === 'institution';
   // F12 — auxiliar simétrico para a ideologia demo/real (conta cidadão).
   const isUserMode = appMode === 'user';
+
+  // Etapa #2 (Cidadão) — perfil de auto-preenchimento dos formulários, montado
+  // da sessão. Apenas leitura; os formulários preenchem-se localmente e a
+  // utilização fica em auditoria local (autoFillService).
+  const autoFillProfile = useMemo<CitizenAutoFillProfile>(() => buildAutoFillProfile({
+    bi: bi || user?.bi || '',
+    name: profileName || user?.name || '',
+    nif: nif || user?.nif || '',
+    phone: phone || user?.phone || '',
+    email: user?.email || '',
+    morada: user?.address || '',
+    birthDate: userBirthDate || user?.birthDate || '',
+    filiation: userFiliation || user?.filiation || '',
+    maritalStatus: userMaritalStatus || user?.maritalStatus || '',
+    passport: passport || user?.passport || '',
+  }), [bi, nif, phone, passport, profileName, userBirthDate, userFiliation, userMaritalStatus, user]);
 
   // ---- P-URL (Opção A) — sincronização tab ⇄ hash (ver bloco de módulo) ----
   const [hashNavTick, setHashNavTick] = useState(0);
@@ -4590,6 +4607,7 @@ Ficha civil do titular:
             onEmitDocument={handleEmitDocument}
             isOnline={isOnline}
             addAuditLog={addAuditLog}
+            autoFillProfile={autoFillProfile}
           />
           </PainelSuspense>
         );
