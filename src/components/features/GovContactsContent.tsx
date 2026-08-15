@@ -136,20 +136,25 @@ export function GovContactsContent({
       const alvos = citizens.filter(c => c.category === 'Cidadão' && c.biNumber).map(c => c.biNumber as string);
       let gravadas = 0;
       if (alvos.length > 0) {
+        // FIX 2026-08-15 (detetado no ensaio do piloto INAPEM): o insert usava
+        // colunas inexistentes na tabela (id string, created_at, read) e faltavam
+        // as OBRIGATÓRIAS (time_text, target_tab) — a gravação falhava sempre
+        // com PGRST204 e o erro era apresentado como "bloqueada por RLS".
+        // Agora usa o schema real (id BIGSERIAL auto; time_text; target_tab).
+        const tipoGravar = campanhaTipo === 'critical' ? 'warning' : campanhaTipo;
         const { error } = await supabase.from('notifications').insert(
           alvos.map(biAlvo => ({
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            target_bi: biAlvo,
             title: titulo,
             message: msg,
-            type: campanhaTipo,
-            target_bi: biAlvo,
-            created_at: new Date().toISOString(),
-            read: false,
+            time_text: 'Agora',
+            type: tipoGravar,
+            target_tab: 'home',
           }))
         );
         if (!error) gravadas = alvos.length;
       }
-      addAuditLog?.(`Campanha de notificação enviada: "${titulo}" → ${gravadas} cidadão(s)${gravadas === 0 ? ' (escrita cloud bloqueada por RLS — registada em auditoria)' : ' na nuvem'}.`, 'info');
+      addAuditLog?.(`Campanha de notificação enviada: "${titulo}" → ${gravadas} cidadão(s)${gravadas === 0 ? ' (escrita na nuvem recusada — sessão de Administração real necessária / RLS)' : ' na nuvem'}.`, 'info');
       setCampanhaResultado(gravadas > 0
         ? `Aviso enviado para ${gravadas} cidadão(s) na nuvem.`
         : 'Aviso registado na auditoria. (A escrita em massa na nuvem exige sessão de Administração real — RLS.)');
