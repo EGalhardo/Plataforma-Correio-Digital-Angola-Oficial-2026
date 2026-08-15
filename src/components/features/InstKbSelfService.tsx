@@ -6,9 +6,12 @@
 // do Assistente de Documentos — sem fingimento: listagens, criar, ativar/
 // desativar e eliminar acontecem de verdade na base de dados.
 // ============================================================================
-import { useCallback, useEffect, useState } from 'react';
-import { BookOpen, Plus, Trash2, Loader2, AlertTriangle, Globe, Info } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { BookOpen, Plus, Trash2, Loader2, AlertTriangle, Globe, Info, Sparkles, Wand2, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import {
+  analisarConteudoKb, ROTULO_TIPO_KB, type KbMetaSugestoes,
+} from '../../services/kbMetaAssistService';
 
 export interface KbFonteRow {
   id: string;
@@ -73,6 +76,51 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
   const [fonteUrl, setFonteUrl] = useState('');
   const [formErro, setFormErro] = useState('');
 
+  // Etapa #5 — preenchimento assistido de metadados (heurística local, sem IA)
+  const [assistSugestoes, setAssistSugestoes] = useState<KbMetaSugestoes | null>(null);
+  const [assistAplicado, setAssistAplicado] = useState<string[]>([]);
+  // Nunca sobrescrever o que o utilizador escreveu à mão:
+  const tituloEditadoManual = useRef(false);
+  const tipoEditadoManual = useRef(false);
+
+  // Análise assistida reativa (debounce 700ms) quando o conteúdo é suficiente.
+  useEffect(() => {
+    if (texto.trim().length < MIN_TEXTO) {
+      setAssistSugestoes(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setAssistSugestoes(analisarConteudoKb(texto));
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [texto]);
+
+  // Aplicar título sugerido (só se o utilizador não escreveu título à mão).
+  const aplicarTituloAssistido = () => {
+    if (!assistSugestoes?.tituloSugerido) return;
+    if (tituloEditadoManual.current && titulo.trim()) return;
+    setTitulo(assistSugestoes.tituloSugerido);
+    setAssistAplicado(prev => Array.from(new Set([...prev, 'título'])));
+    addAuditLog?.('KB-ASSIST: título sugerido aplicado a partir do conteúdo', 'info');
+  };
+
+  // Aplicar tipo sugerido (só se o utilizador não escolheu tipo à mão).
+  const aplicarTipoAssistido = () => {
+    if (!assistSugestoes) return;
+    if (tipoEditadoManual.current) return;
+    setTipo(assistSugestoes.tipoSugerido);
+    setAssistAplicado(prev => Array.from(new Set([...prev, 'tipo'])));
+    addAuditLog?.(`KB-ASSIST: tipo "${ROTULO_TIPO_KB[assistSugestoes.tipoSugerido]}" sugerido aplicado`, 'info');
+  };
+
+  // Aplicar todas as sugestões de uma vez (respeitando edições manuais).
+  const aplicarTudoAssistido = () => {
+    if (!assistSugestoes) return;
+    aplicarTituloAssistido();
+    aplicarTipoAssistido();
+    addAuditLog?.('KB-ASSIST: metadados sugeridos aplicados ao formulário', 'success');
+  };
+
   const publicarResumo = useCallback((lista: KbFonteRow[]) => {
     onResumo?.({ total: lista.length, ativas: lista.filter(f => f.ativo).length });
   }, [onResumo]);
@@ -132,6 +180,9 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
     }
     addAuditLog?.(`KB: nova fonte "${titulo.trim()}" adicionada à base de conhecimento da ${sigla}`, 'success');
     setTitulo(''); setTexto(''); setFonteUrl(''); setTipo('procedimento');
+    setAssistSugestoes(null); setAssistAplicado([]);
+    tituloEditadoManual.current = false;
+    tipoEditadoManual.current = false;
     await carregar();
   };
 
@@ -256,7 +307,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-wide">Título oficial do documento</label>
             <input
               value={titulo}
-              onChange={e => setTitulo(e.target.value)}
+              onChange={e => { tituloEditadoManual.current = true; setTitulo(e.target.value); }}
               placeholder="Ex.: Instrução de atendimento ao contribuinte — 2026"
               className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold outline-none focus:border-indigo-400"
             />
@@ -266,7 +317,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-wide">Tipo</label>
               <select
                 value={tipo}
-                onChange={e => setTipo(e.target.value as KbFonteRow['tipo'])}
+                onChange={e => { tipoEditadoManual.current = true; setTipo(e.target.value as KbFonteRow['tipo']); }}
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold outline-none focus:border-indigo-400 bg-white"
               >
                 {TIPOS_FONTE.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
@@ -294,6 +345,84 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
               className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold outline-none focus:border-indigo-400 resize-y"
             />
           </div>
+          {/* Etapa #5 — painel de preenchimento assistido de metadados */}
+          {assistSugestoes && assistSugestoes.pronto && (
+            <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-3.5 space-y-2.5" data-testid="kb-assist-panel">
+              <div className="flex items-center gap-2">
+                <Sparkles size={13} className="text-indigo-600 shrink-0" />
+                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-900 m-0">
+                  Metadados sugeridos a partir do conteúdo
+                </p>
+                <button
+                  type="button"
+                  onClick={aplicarTudoAssistido}
+                  data-testid="kb-assist-aplicar-tudo"
+                  className="ml-auto inline-flex items-center gap-1 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase tracking-wider px-2.5 py-1 transition-colors cursor-pointer"
+                >
+                  <Wand2 size={10} /> Aplicar
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-[10.5px]">
+                <div className="rounded-xl bg-white border border-indigo-100 p-2.5">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 m-0">Tipo recomendado</p>
+                  <p className="font-black text-slate-800 m-0 mt-0.5 inline-flex items-center gap-1.5 flex-wrap">
+                    {ROTULO_TIPO_KB[assistSugestoes.tipoSugerido]}
+                    <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-1.5 py-0.5">
+                      confiança {Math.round(assistSugestoes.confiancaTipo * 100)}%
+                    </span>
+                    {assistAplicado.includes('tipo') && (
+                      <CheckCircle2 size={12} className="text-emerald-600" />
+                    )}
+                  </p>
+                  {!tipoEditadoManual.current && (
+                    <button
+                      type="button"
+                      onClick={aplicarTipoAssistido}
+                      className="mt-1.5 text-[9px] font-black uppercase tracking-wider text-indigo-600 hover:text-indigo-800 underline underline-offset-2 cursor-pointer"
+                    >
+                      Usar este tipo
+                    </button>
+                  )}
+                </div>
+                <div className="rounded-xl bg-white border border-indigo-100 p-2.5">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 m-0">Palavras-chave detectadas</p>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {assistSugestoes.palavrasChave.map(p => (
+                      <span key={p} className="rounded-full bg-slate-100 border border-slate-200 text-slate-600 text-[9px] font-bold px-2 py-0.5">
+                        {p}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {assistSugestoes.tituloSugerido && (
+                <div className="rounded-xl bg-white border border-indigo-100 p-2.5 text-[10.5px]">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 m-0">Título sugerido</p>
+                  <p className="font-bold text-slate-700 m-0 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    “{assistSugestoes.tituloSugerido}”
+                    {assistAplicado.includes('título') && <CheckCircle2 size={12} className="text-emerald-600" />}
+                  </p>
+                  {!tituloEditadoManual.current && (
+                    <button
+                      type="button"
+                      onClick={aplicarTituloAssistido}
+                      data-testid="kb-assist-aplicar-titulo"
+                      className="mt-1.5 text-[9px] font-black uppercase tracking-wider text-indigo-600 hover:text-indigo-800 underline underline-offset-2 cursor-pointer"
+                    >
+                      Usar este título
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <p className="text-[9px] font-semibold text-indigo-900/60 m-0 leading-snug">
+                Assistência local e determinística — revê sempre antes de publicar. Se já escreveste o título ou escolheste o tipo à mão, nada é sobrescrito.
+              </p>
+            </div>
+          )}
+
           {formErro && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[10.5px] font-bold text-amber-900">{formErro}</div>
           )}
