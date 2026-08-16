@@ -25,6 +25,7 @@ import { requestPviVerification, buildPvicMarker, type PviVerdict } from '../../
 import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticCitizenEmail } from '../../services/cloudAuthService';
 import { runRegistrationVerification, prewarmVerificationEngine, type RegistrationVerificationReport } from '../../services/verificationEngine';
 import { buildStorageRef } from '../../lib/secureStorage';
+import { normalizarNome, normalizarTitulo, corrigirDominioEmail } from '../../services/textNormalizeService';
 
 const base64ToBlob = (base64Str: string): Blob => {
   try {
@@ -929,6 +930,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
+                      onBlur={() => setName(appMode === 'institution' ? normalizarTitulo(name) : normalizarNome(name))}
                       className="w-full bg-transparent font-bold tracking-wider text-slate-800 border-none outline-none text-[13px] placeholder-slate-400"
                       placeholder={appMode === 'institution' ? 'Ex: ENDE - Empresa Nacional de Distribuição de Electricidade' : 'Ex: Manuel António da Silva'}
                     />
@@ -951,8 +953,10 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     </div>
                     <input 
                       type="email"
+                      list="cda-dominios-email"
                       value={email}
                       onChange={(e) => { setEmail(e.target.value); setSubmitError(''); }}
+                      onBlur={() => { const c = corrigirDominioEmail(email); if (c && c !== email) { setEmail(c); setSubmitError(''); } }}
                       className="w-full bg-transparent font-bold tracking-wider text-slate-800 border-none outline-none text-[13px] placeholder-slate-400"
                       placeholder={appMode === 'institution' ? 'geral@ende.co.ao' : 'manuel.silva@netangola.ao'}
                     />
@@ -1582,6 +1586,18 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
           animation: scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
+      <datalist id="cda-dominios-email">
+        <option value="@gmail.com" />
+        <option value="@yahoo.com" />
+        <option value="@hotmail.com" />
+        <option value="@outlook.com" />
+        <option value="@icloud.com" />
+        <option value="@correiodigital.ao" />
+        <option value="@inapem.ao" />
+        <option value="@agt.ao" />
+        <option value="@sme.ao" />
+        <option value="@minfin.gov.ao" />
+      </datalist>
     </div>
   );
 }

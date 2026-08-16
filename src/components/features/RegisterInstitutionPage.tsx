@@ -25,6 +25,7 @@ import {
   collectInstitutionUniqueness, nextGlobalSeq, normalizeInstCode, saveLocalInstReg,
   type InstitutionRegPack
 } from '../../services/institutionRegistrationStore';
+import { normalizarNome, normalizarTitulo, normalizarTexto, corrigirDominioEmail } from '../../services/textNormalizeService';
 
 interface RegisterInstitutionPageProps {
   onCancel: () => void;
@@ -352,6 +353,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
               type="text"
               value={fullName}
               onChange={(e) => { handleHeightName(e.target.value); setErr('fullName', ''); }}
+              onBlur={() => { const n = normalizarTitulo(fullName); if (n !== fullName) handleHeightName(n); }}
               placeholder="Ex: Serviço de Migração e Estrangeiros"
               className={inputCls + (fieldErrors.fullName ? ' ' + errCls : '')}
             />
@@ -433,6 +435,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
               type="text"
               value={endereco}
               onChange={(e) => { setEndereco(e.target.value); setErr('endereco', ''); }}
+              onBlur={() => { const n = normalizarTexto(endereco); if (n !== endereco) setEndereco(n); }}
               placeholder="Ex: Rua dos Correios, Casa 25, Maianga"
               className={inputCls + (fieldErrors.endereco ? ' ' + errCls : '')}
             />
@@ -455,8 +458,10 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"><Mail size={14} /></span>
                 <input
                   type="email"
+                  list="cda-dominios-email"
                   value={emailContacto}
                   onChange={(e) => { setEmailContacto(e.target.value); setErr('emailContacto', ''); }}
+                  onBlur={() => { const c = corrigirDominioEmail(emailContacto); if (c && c !== emailContacto) { setEmailContacto(c); setErr('emailContacto', ''); } }}
                   placeholder="Ex: geral@sme.gov.ao"
                   className={inputCls + ' pl-10' + (fieldErrors.emailContacto ? ' ' + errCls : '')}
                 />
@@ -497,6 +502,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
                   type="text"
                   value={respName}
                   onChange={(e) => { setRespName(e.target.value); setErr('respName', ''); }}
+                  onBlur={() => { const n = normalizarNome(respName); if (n !== respName) setRespName(n); }}
                   placeholder="Ex: Dr. António Fernando"
                   className={inputCls + ' pl-10' + (fieldErrors.respName ? ' ' + errCls : '')}
                 />
@@ -511,6 +517,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
                   type="text"
                   value={respCargo}
                   onChange={(e) => { setRespCargo(e.target.value); setErr('respCargo', ''); }}
+                  onBlur={() => { const n = normalizarTitulo(respCargo); if (n !== respCargo) setRespCargo(n); }}
                   placeholder="Ex: Director Geral"
                   className={inputCls + ' pl-10' + (fieldErrors.respCargo ? ' ' + errCls : '')}
                 />
@@ -534,8 +541,10 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"><Mail size={14} /></span>
               <input
                 type="email"
+                list="cda-dominios-email"
                 value={emailAcesso}
                 onChange={(e) => { setEmailAcesso(e.target.value); setErr('emailAcesso', ''); }}
+                onBlur={() => { const c = corrigirDominioEmail(emailAcesso); if (c && c !== emailAcesso) { setEmailAcesso(c); setErr('emailAcesso', ''); } }}
                 placeholder="Ex: director@sme.gov.ao"
                 className={inputCls + ' pl-10' + (fieldErrors.emailAcesso ? ' ' + errCls : '')}
               />
@@ -625,6 +634,19 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
           </button>
         </div>
       </form>
-    </div>
+    
+      <datalist id="cda-dominios-email">
+        <option value="@gmail.com" />
+        <option value="@yahoo.com" />
+        <option value="@hotmail.com" />
+        <option value="@outlook.com" />
+        <option value="@icloud.com" />
+        <option value="@correiodigital.ao" />
+        <option value="@inapem.ao" />
+        <option value="@agt.ao" />
+        <option value="@sme.ao" />
+        <option value="@minfin.gov.ao" />
+      </datalist>
+</div>
   );
 }

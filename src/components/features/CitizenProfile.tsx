@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { supabaseService, hasValidSupabaseKeys } from "../../services/supabaseService";
 import { supabase } from '../../lib/supabaseClient';
 import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil, temPendenciaPerfil, type ProfileSyncOutcome } from '../../services/profileSyncService';
+import { normalizarNome } from '../../services/textNormalizeService';
 import { useSession } from "../../services/sessionStore";
 
 import { Contact, Document } from '../../types';
@@ -474,6 +475,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
+                    onBlur={() => { const n = normalizarNome(editName); if (n !== editName) setEditName(n); }}
                     className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-855 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800"
                   />
                 </div>

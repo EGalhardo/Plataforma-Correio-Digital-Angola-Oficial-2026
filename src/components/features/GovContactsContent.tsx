@@ -16,6 +16,7 @@ import {
   notifyAccountReopened,
   notifyAccountUnblocked,
 } from '../../services/homologationStore';
+import { normalizarTitulo } from '../../services/textNormalizeService';
 import { parsePvicFromObservacoes } from '../../services/preVerificationService';
 import { provisionCloudAccount, markCloudAccount, isCloudBound, isSupabaseConfigured, syntheticAdminEmail, syntheticInstitutionAgentEmail } from '../../services/cloudAuthService';
 import {
@@ -2637,6 +2638,7 @@ export function GovContactsContent({
                 <input
                   value={campanhaTitulo}
                   onChange={(e) => setCampanhaTitulo(e.target.value)}
+                  onBlur={() => { const n = normalizarTitulo(campanhaTitulo); if (n !== campanhaTitulo) setCampanhaTitulo(n); }}
                   placeholder="Título do aviso (ex.: Manutenção programada)"
                   className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-800 outline-none focus:border-indigo-400/50"
                 />

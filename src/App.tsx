@@ -6676,6 +6676,19 @@ Ficha civil do titular:
 
   return (
     <main className={`min-h-screen bg-bg text-primary md:flex md:gap-5 md:p-5 font-sans selection:bg-primary selection:text-white transition-all ${emergencyMode && isGovMode ? 'pt-[32px] md:pt-[44px]' : ''}`}>
+      {/* Sugestão de domínio de e-mail (autocomplete nativo — invisível, global) */}
+      <datalist id="cda-dominios-email">
+        <option value="@gmail.com" />
+        <option value="@yahoo.com" />
+        <option value="@hotmail.com" />
+        <option value="@outlook.com" />
+        <option value="@icloud.com" />
+        <option value="@correiodigital.ao" />
+        <option value="@inapem.ao" />
+        <option value="@agt.ao" />
+        <option value="@sme.ao" />
+        <option value="@minfin.gov.ao" />
+      </datalist>
       {/* Navigation */}
       <AnimatePresence>
         {emergencyMode && isGovMode && (

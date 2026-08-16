@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 
 import { CONTACT_RELATION_OPTIONS } from '../../services/emergencyContactsService';
+import { normalizarNome } from '../../services/textNormalizeService';
 
 // Espelha o useState do compositor de contactos no App (fonte única da forma).
 interface ContactoForm {
@@ -150,6 +151,7 @@ export function AddContactModal({
                         placeholder="Ex: Edlasio Galhardo" 
                         value={contactForm.name}
                         onChange={e => setContactForm((prev) => ({ ...prev, name: e.target.value }))}
+                        onBlur={() => { const n = normalizarNome(contactForm.name); if (n !== contactForm.name) setContactForm((prev) => ({ ...prev, name: n })); }}
                         className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
                         id="contact-name-input"
                       />

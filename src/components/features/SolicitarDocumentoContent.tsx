@@ -37,6 +37,7 @@ import {
   temDadosAutoFill,
   type CitizenAutoFillProfile,
 } from '../../services/autoFillService';
+import { normalizarNome, normalizarTitulo } from '../../services/textNormalizeService';
 
 export interface FinancialTransaction {
   id: string;
@@ -715,6 +716,7 @@ export function SolicitarDocumentoContent({
                       type="text" 
                       value={holderName}
                       onChange={(e) => { marcarTocado(); setHolderName(e.target.value); }}
+                      onBlur={() => { const n = normalizarNome(holderName); if (n !== holderName) { marcarTocado(); setHolderName(n); } }}
                       className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs md:text-sm font-bold text-slate-800 focus:bg-white outline-none"
                       placeholder="e.g. Edlasio Galhardo"
                     />
@@ -744,6 +746,7 @@ export function SolicitarDocumentoContent({
                       type="text" 
                       value={purpose}
                       onChange={(e) => setPurpose(e.target.value)}
+                      onBlur={() => { const n = normalizarTitulo(purpose); if (n !== purpose) setPurpose(n); }}
                       className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs md:text-sm font-bold text-slate-800 focus:bg-white outline-none"
                     />
                   </div>

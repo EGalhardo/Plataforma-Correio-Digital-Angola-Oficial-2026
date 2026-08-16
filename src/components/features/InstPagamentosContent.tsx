@@ -19,6 +19,7 @@ import {
   MetodoPagamento, Pagamento, cancelarPagamento, carregarPagamentosDaInstituicao,
   criarPagamento, formatarKz, limparBi, normalizarValorAoa,
 } from '../../services/pagamentosService';
+import { normalizarTexto, normalizarTitulo } from '../../services/textNormalizeService';
 
 export interface InstPagamentosContentProps {
   institutionCode?: string;
@@ -201,6 +202,7 @@ export function InstPagamentosContent({ institutionCode = '', addAuditLog }: Ins
             <input
               value={form.descricao}
               onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))}
+              onBlur={() => { const n = normalizarTexto(form.descricao); if (n !== form.descricao) setForm(f => ({ ...f, descricao: n })); }}
               placeholder="Ex.: Taxa de emissão de certidão comercial — 2.ª via"
               maxLength={MAX_DESCRICAO + 20}
               className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0c2340]/30"
@@ -222,6 +224,7 @@ export function InstPagamentosContent({ institutionCode = '', addAuditLog }: Ins
               <input
                 value={form.documento_ref}
                 onChange={e => setForm(f => ({ ...f, documento_ref: e.target.value }))}
+                onBlur={() => { const n = normalizarTitulo(form.documento_ref); if (n !== form.documento_ref) setForm(f => ({ ...f, documento_ref: n })); }}
                 placeholder="Assunto/protocolo do documento"
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0c2340]/30"
               />
