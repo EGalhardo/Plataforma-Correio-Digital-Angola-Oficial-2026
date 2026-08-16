@@ -22,6 +22,8 @@ import {
   Building
 } from 'lucide-react';
 import { Message } from '../../types';
+import { InstitutionLogo } from '../ui/InstitutionLogo';
+import { getInstitutionLogoUrl } from '../../config/institutionLogos';
 
 const safeCopyToClipboard = (text: string): boolean => {
   try {
@@ -322,6 +324,11 @@ export function InstitutionDetail({
     category: "Serviço Público"
   };
 
+  // Logomarca institucional DINÂMICA — vinda do catálogo genérico (nunca
+  // hardcoded por instituição neste componente). Se a entidade ainda não tem
+  // logomarca registada, o InstitutionLogo mostra o placeholder com a sigla.
+  const logoUrl = getInstitutionLogoUrl(institutionName);
+
   // Safe normalize matching key
   const matchesOrg = (orgField: string) => {
     if (!orgField) return false;
@@ -422,7 +429,16 @@ export function InstitutionDetail({
       <section className={`bg-white border border-slate-200 rounded-[24px] md:rounded-[32px] p-6 shadow-sm relative group ${isDropdownOpen ? 'overflow-visible z-20' : 'overflow-hidden'}`}>
         <div className="absolute right-0 top-0 -mr-20 -mt-20 w-80 h-80 bg-primary/2.5 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-1000" />
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10 w-full">
-          <div className="space-y-3 max-w-2xl min-w-0 flex-1">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-5 max-w-2xl min-w-0 flex-1">
+            {/* Logomarca institucional DINÂMICA — genérica, com fallback elegante */}
+            <InstitutionLogo
+              name={selectedMinistry ? selectedMinistry.name : institutionName}
+              logoUrl={logoUrl}
+              size={64}
+              className="mx-auto sm:mx-0 sm:mt-1 w-16 h-16 md:w-20 md:h-20"
+              data-testid="institution-logo"
+            />
+            <div className="space-y-3 min-w-0 flex-1">
             <div className="flex flex-row items-center justify-between gap-4 w-full">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase bg-blue-900 text-white tracking-wider border border-blue-800 shrink-0">
                 <ShieldCheck size={12} className="text-white" />
@@ -508,6 +524,7 @@ export function InstitutionDetail({
                 </span>
               </div>
             )}
+            </div>
           </div>
 
           {/* Quick Metrics */}
