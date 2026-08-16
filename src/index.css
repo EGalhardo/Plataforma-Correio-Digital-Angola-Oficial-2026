@@ -461,3 +461,46 @@ html.dark .custom-scrollbar-h::-webkit-scrollbar-thumb {
 }
 
 
+
+/* ==========================================
+   CDA — VideoAtendimento: "Atendimentos Disponíveis" (acabamento premium dark)
+   ==========================================
+   Aplicado apenas no modo escuro (html.dark), apenas ao container da agenda.
+   Modo claro permanece 100% inalterado (nenhuma regra fora de html.dark).
+   Fundo #091124 + cards com glassmorphism discreto, bordas sutis e
+   rótulos de estado coloridos (verde=Disponível, azul=Agendada, vermelho=Em Curso).
+   ========================================== */
+html.dark .cda-video-agenda {
+  background-color: #091124 !important;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+
+html.dark .cda-video-agenda-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 14px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+html.dark .cda-video-agenda-card:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05)) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+html.dark .cda-video-agenda-title {
+  color: #ffffff !important;
+}
+
+html.dark .cda-video-agenda-meta {
+  color: #94a3b8 !important;
+}
+
+/* Rótulos de estado coloridos (cores preservadas em dark) */
+html.dark .cda-video-agenda-label.cda-st-disponivel { color: #34d399 !important; }
+html.dark .cda-video-agenda-label.cda-st-agendada { color: #60a5fa !important; }
+html.dark .cda-video-agenda-label.cda-st-em_curso { color: #f87171 !important; }

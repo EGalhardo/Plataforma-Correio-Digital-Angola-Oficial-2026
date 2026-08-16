@@ -449,9 +449,9 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
   const getStatusConfig = (status: string) => {
     // Variantes dark incluídas (corrige visibilidade da lista no modo escuro).
     switch (status) {
-      case 'disponivel': return { color: 'bg-emerald-500', text: 'Disponível', bg: 'bg-emerald-50', border: 'border-emerald-200', bgDark: 'dark:bg-emerald-900/40', borderDark: 'dark:border-emerald-700' };
-      case 'agendada': return { color: 'bg-blue-500', text: 'Agendada', bg: 'bg-blue-50', border: 'border-blue-200', bgDark: 'dark:bg-blue-900/40', borderDark: 'dark:border-blue-700' };
-      case 'em_curso': return { color: 'bg-red-500 animate-pulse', text: 'Em Curso', bg: 'bg-red-50', border: 'border-red-200', bgDark: 'dark:bg-red-900/40', borderDark: 'dark:border-red-700' };
+      case 'disponivel': return { color: 'bg-emerald-500', text: 'Disponível', bg: 'bg-emerald-50', border: 'border-emerald-200', bgDark: 'dark:bg-emerald-900/40', borderDark: 'dark:border-emerald-700', semClass: 'cda-st-disponivel' };
+      case 'agendada': return { color: 'bg-blue-500', text: 'Agendada', bg: 'bg-blue-50', border: 'border-blue-200', bgDark: 'dark:bg-blue-900/40', borderDark: 'dark:border-blue-700', semClass: 'cda-st-agendada' };
+      case 'em_curso': return { color: 'bg-red-500 animate-pulse', text: 'Em Curso', bg: 'bg-red-50', border: 'border-red-200', bgDark: 'dark:bg-red-900/40', borderDark: 'dark:border-red-700', semClass: 'cda-st-em_curso' };
       case 'concluida': return { color: 'bg-slate-400', text: 'Concluída', bg: 'bg-slate-50', border: 'border-slate-200', bgDark: 'dark:bg-slate-800', borderDark: 'dark:border-slate-700' };
       case 'cancelada': return { color: 'bg-rose-500', text: 'Cancelada', bg: 'bg-rose-50', border: 'border-rose-200', bgDark: 'dark:bg-rose-900/40', borderDark: 'dark:border-rose-700' };
       default: return { color: 'bg-slate-400', text: status, bg: 'bg-slate-50', border: 'border-slate-200', bgDark: 'dark:bg-slate-800', borderDark: 'dark:border-slate-700' };
@@ -576,36 +576,41 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
               </div>
             ) : (
               <div className="space-y-3">
-                {/* Agenda */}
-                {activeTab === 'agenda' && sessions
-                  .filter(s => s.status === 'disponivel' || s.status === 'agendada' || s.status === 'em_curso')
-                  .map(session => {
-                    const statusConfig = getStatusConfig(session.status);
-                    return (
-                      <motion.div
-                        key={session.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`p-4 border ${statusConfig.border} ${statusConfig.bg} ${statusConfig.borderDark} ${statusConfig.bgDark} rounded-2xl hover:shadow-md transition-all cursor-pointer`}
-                        onClick={() => handleStartCall(session)}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className={`w-2 h-2 rounded-full ${statusConfig.color}`} />
-                              <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">{statusConfig.text}</span>
+                {/* Agenda — container "Atendimentos Disponíveis" com acabamento premium no modo escuro
+                    (fundo #091124 + cards glassmorphism; modo claro inalterado — ver index.css html.dark .cda-video-agenda*) */}
+                {activeTab === 'agenda' && (
+                  <div className="space-y-3 cda-video-agenda">
+                    {sessions
+                      .filter(s => s.status === 'disponivel' || s.status === 'agendada' || s.status === 'em_curso')
+                      .map(session => {
+                        const statusConfig = getStatusConfig(session.status);
+                        return (
+                          <motion.div
+                            key={session.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className={`p-4 border ${statusConfig.border} ${statusConfig.bg} rounded-2xl hover:shadow-md transition-all cursor-pointer cda-video-agenda-card`}
+                            onClick={() => handleStartCall(session)}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className={`w-2 h-2 rounded-full ${statusConfig.color}`} />
+                                  <span className={`text-[10px] font-black uppercase text-slate-500 cda-video-agenda-label ${statusConfig.semClass}`}>{statusConfig.text}</span>
+                                </div>
+                                <h5 className="text-sm font-black text-slate-800 mb-1 cda-video-agenda-title">{session.subject}</h5>
+                                <div className="flex items-center gap-3 text-[10px] text-slate-500 cda-video-agenda-meta">
+                                  <span className="flex items-center gap-1"><User size={10} />{session.hostName}</span>
+                                  <span className="flex items-center gap-1"><Clock size={10} />{session.time}</span>
+                                </div>
+                              </div>
+                              <button onClick={(e) => { e.stopPropagation(); handleStartCall(session); }} className="px-3 py-1.5 bg-primary text-white text-[10px] font-black uppercase rounded-lg hover:bg-primary/90 transition-all border-0 cursor-pointer">Entrar</button>
                             </div>
-                            <h5 className="text-sm font-black text-slate-800 mb-1 dark:text-slate-100">{session.subject}</h5>
-                            <div className="flex items-center gap-3 text-[10px] text-slate-500 dark:text-slate-400">
-                              <span className="flex items-center gap-1"><User size={10} />{session.hostName}</span>
-                              <span className="flex items-center gap-1"><Clock size={10} />{session.time}</span>
-                            </div>
-                          </div>
-                          <button onClick={(e) => { e.stopPropagation(); handleStartCall(session); }} className="px-3 py-1.5 bg-primary text-white text-[10px] font-black uppercase rounded-lg hover:bg-primary/90 transition-all border-0 cursor-pointer">Entrar</button>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                          </motion.div>
+                        );
+                      })}
+                  </div>
+                )}
 
                 {/* Histórico */}
                 {activeTab === 'historico' && sessions
