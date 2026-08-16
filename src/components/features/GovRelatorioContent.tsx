@@ -488,7 +488,7 @@ export function GovRelatorioContent({
       </AnimatePresence>
 
       {/* top general filters / Control Dashboard Panel */}
-      <div id="reporting-central-header" className="bg-white border-2 border-slate-200 text-slate-800 rounded-[24px] p-6 shadow-sm relative overflow-hidden transition-all duration-300">
+      <div id="reporting-central-header" className="bg-white border-2 border-slate-200 text-slate-800 rounded-[24px] p-6 shadow-sm relative overflow-hidden transition-all duration-300 cda-rel-header">
         {/* Background abstract decoration elements */}
         <div className="absolute right-0 top-0 w-80 h-80 bg-slate-50/60 rounded-full blur-3xl -z-1" />
         <div className="absolute left-1/3 bottom-0 w-60 h-60 bg-emerald-50/20 rounded-full blur-3xl -z-1" />
@@ -553,7 +553,7 @@ export function GovRelatorioContent({
           
           <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-600">
             {/* Compare switch pill */}
-            <div className="flex items-center gap-2 bg-white border border-slate-300 rounded-[16px] p-1 shadow-sm">
+            <div className="flex items-center gap-2 bg-white border border-slate-300 rounded-[16px] p-1 shadow-sm cda-rel-seg">
               <button 
                 onClick={() => { playInteractionSound('click'); setComparePeriod(true); }}
                 className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border-0 cursor-pointer ${comparePeriod ? 'bg-[#0E2B64] text-white shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-800'}`}
@@ -629,7 +629,7 @@ export function GovRelatorioContent({
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start font-sans">
         
         {/* Navigation Sidebar Drawer Panel */}
-        <div id="side-reports-navigation" className="lg:col-span-1 bg-white border border-slate-200 rounded-[24px] p-4.5 shadow-3xs space-y-4 print:hidden">
+        <div id="side-reports-navigation" className="lg:col-span-1 bg-white border border-slate-200 rounded-[24px] p-4.5 shadow-3xs space-y-4 print:hidden cda-rel-nav">
           <div className="pb-2 border-b border-slate-100 flex items-center justify-between">
             <span className="text-[10px] font-black uppercase text-slate-450 tracking-widest block font-sans">Menu de Relatórios</span>
             <span className="text-[9px] px-2 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold rounded-md uppercase font-mono tracking-wider">
@@ -699,7 +699,7 @@ export function GovRelatorioContent({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.15 }}
-                className="bg-white border border-slate-200/80 rounded-[24px] p-24 text-center min-h-[500px] flex flex-col justify-center items-center font-sans space-y-4"
+                className="bg-white border border-slate-200/80 rounded-[24px] p-24 text-center min-h-[500px] flex flex-col justify-center items-center font-sans space-y-4 cda-rel-loading"
               >
                 <div className="relative">
                   <div className="w-16 h-16 rounded-full border-4 border-indigo-100 animate-pulse" />
@@ -731,7 +731,7 @@ export function GovRelatorioContent({
                     return (
                       <div 
                         key={m.id}
-                        className="bg-white border border-slate-200 rounded-[22px] p-4 shadow-3xs bg-gradient-to-br from-white to-slate-50/20 relative overflow-hidden group hover:border-slate-300 transition-all flex flex-col justify-between"
+                        className="bg-white border border-slate-200 rounded-[22px] p-4 shadow-3xs bg-gradient-to-br from-white to-slate-50/20 relative overflow-hidden group hover:border-slate-300 transition-all flex flex-col justify-between cda-rel-kpi"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block font-sans truncate pr-1">
@@ -781,7 +781,7 @@ export function GovRelatorioContent({
                 </div>
 
                 {/* Combined Recharts Visual Trends Card */}
-                <div id="recharts-visuals-panel" className="bg-white border border-slate-200/80 rounded-[24px] p-5 shadow-xs">
+                <div id="recharts-visuals-panel" className="bg-white border border-slate-200/80 rounded-[24px] p-5 shadow-xs cda-rel-charts">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -825,12 +825,12 @@ export function GovRelatorioContent({
                         margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                         barGap={6}
                       >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--cda-chart-grid, #f1f5f9)" vertical={false} />
                         <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} fontWeight={600} tickLine={false} />
                         <YAxis stroke="#94a3b8" fontSize={11} fontWeight={600} tickLine={false} />
                         <Tooltip 
-                          contentStyle={{ borderRadius: '16px', border: '1px solid #e1e8f0', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.05)', fontFamily: 'Inter' }}
-                          labelClassName="font-black text-slate-800"
+                          contentStyle={{ borderRadius: '16px', border: '1px solid var(--cda-chart-tooltip-border, #e1e8f0)', background: 'var(--cda-chart-tooltip-bg, #ffffff)', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.05)', fontFamily: 'Inter', color: 'var(--cda-chart-tooltip-text, inherit)' }}
+                          labelClassName="font-black cda-chart-tooltip-label"
                         />
                         <Legend wrapperStyle={{ fontSize: 11, fontWeight: 'bold', paddingTop: 10 }} />
                         
@@ -879,11 +879,11 @@ export function GovRelatorioContent({
                 </div>
 
                 {/* Columns Lists & Audit Table Log Section */}
-                <div className="bg-white border border-slate-200/80 rounded-[24px] p-5 shadow-xs">
+                <div className="bg-white border border-slate-200/80 rounded-[24px] p-5 shadow-xs cda-rel-table">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
                     <div className="flex items-center gap-2">
                       <History size={16} className="text-[#0c2340]" />
-                      <h3 className="font-sans font-black text-xs sm:text-sm text-slate-800 uppercase tracking-tight m-0">
+                      <h3 className="font-sans font-black text-xs sm:text-sm text-slate-800 uppercase tracking-tight m-0 cda-rel-table-title">
                         {kpiData.infoTitle}
                       </h3>
                     </div>
@@ -899,7 +899,7 @@ export function GovRelatorioContent({
                           ))}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 text-[#334155]">
+                      <tbody className="divide-y divide-slate-100 text-[#334155] cda-rel-tbody">
                         {activeTab === 'correspondences' ? (
                           resolvedCorrespondences.map((c) => (
                             <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">

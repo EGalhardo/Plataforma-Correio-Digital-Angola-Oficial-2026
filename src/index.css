@@ -504,3 +504,98 @@ html.dark .cda-video-agenda-meta {
 html.dark .cda-video-agenda-label.cda-st-disponivel { color: #34d399 !important; }
 html.dark .cda-video-agenda-label.cda-st-agendada { color: #60a5fa !important; }
 html.dark .cda-video-agenda-label.cda-st-em_curso { color: #f87171 !important; }
+
+/* ==========================================
+   CDA — Relatório (Admin): dark premium na área central
+   ==========================================
+   Aplicado apenas no modo escuro (html.dark), apenas aos containers da
+   página Relatório. Modo claro permanece 100% inalterado.
+   Fundo #091124 + cards azul-marinho muito escuro, bordas finas,
+   cantos arredondados, profundidade suave, gráficos e tabela legíveis.
+   ========================================== */
+html.dark {
+  /* Variáveis de gráfico (usadas via var(--cda-chart-*) nos componentes) */
+  --cda-chart-grid: rgba(148, 163, 184, 0.25);
+  --cda-chart-tooltip-bg: #0e1a35;
+  --cda-chart-tooltip-border: rgba(255, 255, 255, 0.15);
+  --cda-chart-tooltip-text: #f1f5f9;
+}
+
+/* Header central do relatório */
+html.dark .cda-rel-header {
+  background-color: #091124 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f1f5f9 !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* Navegação lateral de relatórios (dentro da área central) */
+html.dark .cda-rel-nav {
+  background-color: #0b1428 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Cards de estatísticas (KPI) */
+html.dark .cda-rel-kpi {
+  background: linear-gradient(180deg, rgba(30, 58, 138, 0.35), rgba(11, 20, 40, 0.6)) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+}
+html.dark .cda-rel-kpi:hover {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+/* Painel de gráficos */
+html.dark .cda-rel-charts {
+  background-color: #0b1428 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Container da tabela */
+html.dark .cda-rel-table {
+  background-color: #0b1428 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+html.dark .cda-rel-table-title {
+  color: #f1f5f9 !important;
+}
+html.dark .cda-rel-tbody {
+  color: #e2e8f0 !important;
+}
+html.dark .cda-rel-tbody tr {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+html.dark .cda-rel-tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Seletor de período (segmentado) */
+html.dark .cda-rel-seg {
+  background-color: #0b1428 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Placeholder de carregamento */
+html.dark .cda-rel-loading {
+  background-color: #0b1428 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Tooltip de gráfico — rótulo */
+html.dark .cda-chart-tooltip-label {
+  color: #f1f5f9 !important;
+}
+
+/* Botões "Exportar CSV" (claro → dark) e inputs de data dentro da área central */
+html.dark .cda-rel-charts button.bg-white,
+html.dark .cda-rel-header button.bg-white {
+  background-color: #0e1a35 !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+html.dark .cda-rel-header select,
+html.dark .cda-rel-header input {
+  background-color: #0e1a35 !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
