@@ -1249,7 +1249,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         const buf = Buffer.from(base64, 'base64');
         if (buf.length === 0) return res.status(400).json({ ok: false, erro: 'Ficheiro vazio.' });
         if (buf.length > 10 * 1024 * 1024) return res.status(400).json({ ok: false, erro: 'Ficheiro demasiado grande (máx. 10 MB).' });
-        const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+        const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
         const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
         if (!supaUrl || !serviceKey) return res.status(500).json({ ok: false, erro: 'Serviço de armazenamento não configurado.' });
         const sanitizado = nome.replace(/[^\w.\-]+/g, '_');
