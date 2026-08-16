@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   QrCode,
+  ScanLine,
   Camera,
   FileUp,
   FileText,
@@ -1235,7 +1236,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
                   : 'bg-white text-slate-650 border-slate-200 hover:border-blue-400 hover:bg-slate-50/50'
               }`}
             >
-              <Camera className="w-4 h-4 shrink-0" />
+              <ScanLine className="w-4 h-4 shrink-0" />
               Webcam/Câmara
             </button>
             <button 

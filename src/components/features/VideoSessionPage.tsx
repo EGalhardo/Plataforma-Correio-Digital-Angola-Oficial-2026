@@ -447,13 +447,14 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
   };
   
   const getStatusConfig = (status: string) => {
+    // Variantes dark incluídas (corrige visibilidade da lista no modo escuro).
     switch (status) {
-      case 'disponivel': return { color: 'bg-emerald-500', text: 'Disponível', bg: 'bg-emerald-50', border: 'border-emerald-200' };
-      case 'agendada': return { color: 'bg-blue-500', text: 'Agendada', bg: 'bg-blue-50', border: 'border-blue-200' };
-      case 'em_curso': return { color: 'bg-red-500 animate-pulse', text: 'Em Curso', bg: 'bg-red-50', border: 'border-red-200' };
-      case 'concluida': return { color: 'bg-slate-400', text: 'Concluída', bg: 'bg-slate-50', border: 'border-slate-200' };
-      case 'cancelada': return { color: 'bg-rose-500', text: 'Cancelada', bg: 'bg-rose-50', border: 'border-rose-200' };
-      default: return { color: 'bg-slate-400', text: status, bg: 'bg-slate-50', border: 'border-slate-200' };
+      case 'disponivel': return { color: 'bg-emerald-500', text: 'Disponível', bg: 'bg-emerald-50', border: 'border-emerald-200', bgDark: 'dark:bg-emerald-900/40', borderDark: 'dark:border-emerald-700' };
+      case 'agendada': return { color: 'bg-blue-500', text: 'Agendada', bg: 'bg-blue-50', border: 'border-blue-200', bgDark: 'dark:bg-blue-900/40', borderDark: 'dark:border-blue-700' };
+      case 'em_curso': return { color: 'bg-red-500 animate-pulse', text: 'Em Curso', bg: 'bg-red-50', border: 'border-red-200', bgDark: 'dark:bg-red-900/40', borderDark: 'dark:border-red-700' };
+      case 'concluida': return { color: 'bg-slate-400', text: 'Concluída', bg: 'bg-slate-50', border: 'border-slate-200', bgDark: 'dark:bg-slate-800', borderDark: 'dark:border-slate-700' };
+      case 'cancelada': return { color: 'bg-rose-500', text: 'Cancelada', bg: 'bg-rose-50', border: 'border-rose-200', bgDark: 'dark:bg-rose-900/40', borderDark: 'dark:border-rose-700' };
+      default: return { color: 'bg-slate-400', text: status, bg: 'bg-slate-50', border: 'border-slate-200', bgDark: 'dark:bg-slate-800', borderDark: 'dark:border-slate-700' };
     }
   };
   
@@ -486,7 +487,7 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <button onClick={onBack} className="w-10 h-10 md:w-12 md:h-12 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-200">
+          <button onClick={onBack} className="w-10 h-10 md:w-12 md:h-12 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700">
             <ArrowLeft size={18} className="md:w-5 md:h-5" />
           </button>
           <div className="flex items-center gap-3">
@@ -502,14 +503,14 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl dark:bg-emerald-900/40 dark:border-emerald-700">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-black text-emerald-700 uppercase">{availableCount} Agendados</span>
+            <span className="text-[10px] font-black text-emerald-700 uppercase dark:text-emerald-300">{availableCount} Agendados</span>
           </div>
           {inProgressCount > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-xl">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-xl dark:bg-red-900/40 dark:border-red-700">
               <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-[10px] font-black text-red-700 uppercase">{inProgressCount} Em Curso</span>
+              <span className="text-[10px] font-black text-red-700 uppercase dark:text-red-300">{inProgressCount} Em Curso</span>
             </div>
           )}
         </div>
@@ -519,7 +520,7 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
         {/* Left Column */}
         <div className={`${activeTab === 'video' && selectedSession ? 'w-full' : 'lg:col-span-2'} space-y-4`}>
           {/* Tabs */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-1.5 flex gap-1">
+          <div className="bg-white border border-slate-200 rounded-2xl p-1.5 flex gap-1 dark:bg-slate-900 dark:border-slate-700">
             {[
               { id: 'agenda', label: 'Agenda', icon: <Calendar size={14} /> },
               { id: 'historico', label: 'Histórico', icon: <History size={14} /> },
@@ -537,7 +538,7 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
                   }
                 }}
                 className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-tight transition-all border-0 cursor-pointer ${
-                  activeTab === tab.id ? 'bg-primary text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
+                  activeTab === tab.id ? 'bg-primary text-white shadow-md' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
                 }`}
               >
                 {tab.icon}
@@ -559,8 +560,8 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
           )}
 
           {/* Content */}
-          <div className="bg-white border border-slate-200 rounded-[24px] p-4 md:p-6 shadow-sm">
-            <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-4 flex items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-[24px] p-4 md:p-6 shadow-sm dark:bg-slate-900 dark:border-slate-700">
+            <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-4 flex items-center gap-2 dark:text-slate-100">
               <Users size={16} className="text-primary" />
               {activeTab === 'agenda' && 'Atendimentos Disponíveis'}
               {activeTab === 'historico' && 'Histórico de Sessões'}
@@ -585,17 +586,17 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
                         key={session.id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className={`p-4 border ${statusConfig.border} ${statusConfig.bg} rounded-2xl hover:shadow-md transition-all cursor-pointer`}
+                        className={`p-4 border ${statusConfig.border} ${statusConfig.bg} ${statusConfig.borderDark} ${statusConfig.bgDark} rounded-2xl hover:shadow-md transition-all cursor-pointer`}
                         onClick={() => handleStartCall(session)}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <span className={`w-2 h-2 rounded-full ${statusConfig.color}`} />
-                              <span className="text-[10px] font-black uppercase text-slate-500">{statusConfig.text}</span>
+                              <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">{statusConfig.text}</span>
                             </div>
-                            <h5 className="text-sm font-black text-slate-800 mb-1">{session.subject}</h5>
-                            <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                            <h5 className="text-sm font-black text-slate-800 mb-1 dark:text-slate-100">{session.subject}</h5>
+                            <div className="flex items-center gap-3 text-[10px] text-slate-500 dark:text-slate-400">
                               <span className="flex items-center gap-1"><User size={10} />{session.hostName}</span>
                               <span className="flex items-center gap-1"><Clock size={10} />{session.time}</span>
                             </div>
@@ -612,12 +613,12 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
                   .map(session => {
                     const statusConfig = getStatusConfig(session.status);
                     return (
-                      <div key={session.id} className={`p-4 border ${statusConfig.border} ${statusConfig.bg} rounded-2xl opacity-75`}>
+                      <div key={session.id} className={`p-4 border ${statusConfig.border} ${statusConfig.bg} ${statusConfig.borderDark} ${statusConfig.bgDark} rounded-2xl opacity-75`}>
                         <div className="flex items-center justify-between">
                           <div>
-                            <span className="text-[10px] font-black uppercase text-slate-500 mb-1 block">{statusConfig.text}</span>
-                            <h5 className="text-xs font-black text-slate-700">{session.subject}</h5>
-                            <p className="text-[9px] text-slate-500 mt-0.5">{session.date} - {session.time}</p>
+                            <span className="text-[10px] font-black uppercase text-slate-500 mb-1 block dark:text-slate-400">{statusConfig.text}</span>
+                            <h5 className="text-xs font-black text-slate-700 dark:text-slate-200">{session.subject}</h5>
+                            <p className="text-[9px] text-slate-500 mt-0.5 dark:text-slate-400">{session.date} - {session.time}</p>
                           </div>
                           <CheckCircle size={16} className={statusConfig.color.replace('bg-', 'text-').replace('animate-pulse', '')} />
                         </div>
@@ -631,30 +632,30 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
                     <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Calendar size={32} className="text-primary" />
                     </div>
-                    <h5 className="text-sm font-black text-slate-700 mb-1">Calendário de Videoatendimentos</h5>
-                    <p className="text-[10px] mt-1">{availableCount} atendimentos agendados</p>
+                    <h5 className="text-sm font-black text-slate-700 mb-1 dark:text-slate-200">Calendário de Videoatendimentos</h5>
+                    <p className="text-[10px] mt-1 dark:text-slate-400">{availableCount} atendimentos agendados</p>
                   </div>
                 )}
 
                 {/* Ajuda */}
                 {activeTab === 'ajuda' && (
                   <div className="space-y-4">
-                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
-                      <h5 className="text-sm font-black text-slate-800 mb-2 flex items-center gap-2">
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl dark:bg-slate-800 dark:border-slate-700">
+                      <h5 className="text-sm font-black text-slate-800 mb-2 flex items-center gap-2 dark:text-slate-100">
                         <CheckCircle size={16} className="text-emerald-500" />Como usar o VideoAtendimento
                       </h5>
-                      <ul className="text-[11px] text-slate-600 space-y-2">
+                      <ul className="text-[11px] text-slate-600 space-y-2 dark:text-slate-300">
                         <li>1. Selecione um atendimento disponível na aba "Agenda"</li>
                         <li>2. Clique no botão "Entrar" para iniciar a videochamada</li>
                         <li>3. Permita o acesso à câmera e microfone quando solicitado</li>
                         <li>4. Aguarde a conexão com o atendente</li>
                       </ul>
                     </div>
-                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
-                      <h5 className="text-sm font-black text-slate-800 mb-2 flex items-center gap-2">
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl dark:bg-slate-800 dark:border-slate-700">
+                      <h5 className="text-sm font-black text-slate-800 mb-2 flex items-center gap-2 dark:text-slate-100">
                         <Shield size={16} />Segurança
                       </h5>
-                      <p className="text-[11px] text-slate-600">
+                      <p className="text-[11px] text-slate-600 dark:text-slate-300">
                         Todas as sessões são gravadas e auditadas. Sua identidade é verificada através do BI digital. 
                         Os atendimentos têm valor jurídico perante o Estado angolano.
                       </p>
@@ -667,14 +668,14 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
                   <div className="space-y-4">
                     {selectedSession ? (
                       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-3">
-                        <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4">
+                        <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 dark:bg-indigo-950/40 dark:border-indigo-800">
                           <div className="flex items-center gap-3">
                             <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
                               <User size={20} className="text-primary" />
                             </div>
                             <div className="flex-1">
-                              <p className="text-sm font-black text-slate-800">{selectedSession.subject}</p>
-                              <p className="text-[10px] text-slate-500">Com: <span className="font-semibold">{selectedSession.hostName}</span></p>
+                              <p className="text-sm font-black text-slate-800 dark:text-slate-100">{selectedSession.subject}</p>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400">Com: <span className="font-semibold">{selectedSession.hostName}</span></p>
                               {selectedSession.protocol && (
                                 <p className="text-[9px] text-indigo-600 font-mono mt-1 bg-indigo-100 px-2 py-0.5 rounded inline-block">{selectedSession.protocol}</p>
                               )}
@@ -687,14 +688,14 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
                           </div>
                         </div>
                         
-                        <div className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center justify-center gap-2 shadow-sm">
-                          <button onClick={() => setIsAudioOn(!isAudioOn)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isAudioOn ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-red-500 text-white'}`}>
+                        <div className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center justify-center gap-2 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                          <button onClick={() => setIsAudioOn(!isAudioOn)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isAudioOn ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600' : 'bg-red-500 text-white'}`}>
                             {isAudioOn ? <Mic size={18} /> : <MicOff size={18} />}
                           </button>
-                          <button onClick={() => setIsVideoOn(!isVideoOn)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isVideoOn ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-red-500 text-white'}`}>
+                          <button onClick={() => setIsVideoOn(!isVideoOn)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isVideoOn ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600' : 'bg-red-500 text-white'}`}>
                             {isVideoOn ? <Camera size={18} /> : <CameraOff size={18} />}
                           </button>
-                          <button onClick={() => setIsScreenSharing(!isScreenSharing)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isScreenSharing ? 'bg-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                          <button onClick={() => setIsScreenSharing(!isScreenSharing)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isScreenSharing ? 'bg-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600'}`}>
                             <Monitor size={18} />
                           </button>
                           {isInCall ? (
@@ -720,7 +721,7 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
                 )}
                 
                 {activeTab === 'agenda' && sessions.filter(s => s.status === 'disponivel' || s.status === 'agendada' || s.status === 'em_curso').length === 0 && (
-                  <div className="text-center py-8 text-slate-500">
+                  <div className="text-center py-8 text-slate-500 dark:text-slate-400">
                     <VideoOff size={40} className="mx-auto mb-2 text-slate-300" />
                     <p className="text-sm font-medium">Nenhum atendimento disponível</p>
                     <p className="text-[10px] mt-1">Aguarde novo agendamento da instituição</p>
@@ -779,14 +780,14 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
                     </button>
                   )}
                 </div>
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 dark:bg-slate-800 dark:border-slate-700">
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
                       <User size={18} className="text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black text-slate-800 truncate">{selectedSession.subject}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">Com: <span className="font-semibold">{selectedSession.hostName}</span></p>
+                      <p className="text-xs font-black text-slate-800 truncate dark:text-slate-100">{selectedSession.subject}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 dark:text-slate-400">Com: <span className="font-semibold">{selectedSession.hostName}</span></p>
                       {selectedSession.protocol && <p className="text-[9px] text-indigo-600 font-mono mt-1 bg-indigo-50 px-2 py-0.5 rounded inline-block">{selectedSession.protocol}</p>}
                     </div>
                   </div>
