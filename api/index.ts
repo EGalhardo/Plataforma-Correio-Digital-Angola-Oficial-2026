@@ -1237,6 +1237,45 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
       }
     }
 
+    // Endpoint /api/kb-upload — upload de ficheiro da Base de Conhecimento
+    // (bucket kb_ficheiros). O upload é feito NO SERVIDOR com a service role
+    // (nunca exposta no cliente): o browser envia o ficheiro em base64.
+    if (url.includes('/api/kb-upload') && method === 'POST') {
+      try {
+        const { nome, base64, sigla, tipo } = body || {};
+        if (!nome || typeof nome !== 'string' || !base64 || typeof base64 !== 'string') {
+          return res.status(400).json({ ok: false, erro: 'nome e base64 são obrigatórios.' });
+        }
+        const buf = Buffer.from(base64, 'base64');
+        if (buf.length === 0) return res.status(400).json({ ok: false, erro: 'Ficheiro vazio.' });
+        if (buf.length > 10 * 1024 * 1024) return res.status(400).json({ ok: false, erro: 'Ficheiro demasiado grande (máx. 10 MB).' });
+        const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+        if (!supaUrl || !serviceKey) return res.status(500).json({ ok: false, erro: 'Serviço de armazenamento não configurado.' });
+        const sanitizado = nome.replace(/[^\w.\-]+/g, '_');
+        const pasta = (sigla || 'inst').replace(/[^\w\-]+/g, '_').toUpperCase();
+        const filePath = `kb/${pasta}/${Date.now()}-${sanitizado}`;
+        // Upload via API de storage (multipart) — service role ignora RLS
+        const form = new FormData();
+        form.append('file', new Blob([buf], { type: tipo || 'application/octet-stream' }), sanitizado);
+        const upResp = await fetch(`${supaUrl}/storage/v1/object/kb_ficheiros/${filePath}`, {
+          method: 'POST',
+          headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+          body: form,
+        });
+        if (!upResp.ok) {
+          const txt = await upResp.text();
+          console.error('[KB-UPLOAD] Erro no upload:', upResp.status, txt.slice(0, 200));
+          return res.status(500).json({ ok: false, erro: txt.slice(0, 200) });
+        }
+        const publicUrl = `${supaUrl}/storage/v1/object/public/kb_ficheiros/${filePath}`;
+        return res.status(200).json({ ok: true, url: publicUrl });
+      } catch (e: any) {
+        console.error('[KB-UPLOAD] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
     // Fallback global de rotas
     return res.status(404).json({ error: "Endpoint não encontrado." });
 

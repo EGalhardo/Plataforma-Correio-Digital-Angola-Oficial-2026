@@ -7,11 +7,14 @@
 // desativar e eliminar acontecem de verdade na base de dados.
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BookOpen, Plus, Trash2, Loader2, AlertTriangle, Globe, Info, Sparkles, Wand2, CheckCircle2 } from 'lucide-react';
+import { BookOpen, Plus, Trash2, Loader2, AlertTriangle, Globe, Info, Sparkles, Wand2, CheckCircle2, UploadCloud, FileText, X } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import {
   analisarConteudoKb, ROTULO_TIPO_KB, type KbMetaSugestoes,
 } from '../../services/kbMetaAssistService';
+import {
+  extrairTextoDeFicheiro, fileToBase64, limitarTextoKb, ROTULO_TIPO_FICHEIRO,
+} from '../../services/kbFileService';
 
 export interface KbFonteRow {
   id: string;
@@ -75,6 +78,70 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
   const [texto, setTexto] = useState('');
   const [fonteUrl, setFonteUrl] = useState('');
   const [formErro, setFormErro] = useState('');
+  // Carregamento de ficheiros (PDF/Word/TXT) — etapa de melhoria KB
+  const [kbFicheiro, setKbFicheiro] = useState<File | null>(null);
+  const [aExtrairFicheiro, setAExtrairFicheiro] = useState(false);
+  const [erroFicheiro, setErroFicheiro] = useState('');
+  const [avisoFicheiro, setAvisoFicheiro] = useState<string | null>(null);
+  const [ficheiroUrl, setFicheiroUrl] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const KB_MAX_FICHEIRO_MB = 10;
+
+  /**
+   * Seleção de ficheiro: extrai o texto automaticamente (preenche o campo
+   * `texto` que a IA lê) e carrega o ficheiro original para o Supabase
+   * Storage (bucket kb_ficheiros) — a referência fica como fonte auditável.
+   */
+  const handleKbFicheiroSelecionado = async (file: File) => {
+    setErroFicheiro('');
+    setAvisoFicheiro(null);
+    if (file.size > KB_MAX_FICHEIRO_MB * 1024 * 1024) {
+      setErroFicheiro(`Ficheiro demasiado grande (máx. ${KB_MAX_FICHEIRO_MB} MB).`);
+      return;
+    }
+    setKbFicheiro(file);
+    setAExtrairFicheiro(true);
+    try {
+      const extraido = await extrairTextoDeFicheiro(file);
+      if (extraido.aviso) setAvisoFicheiro(extraido.aviso);
+      if (extraido.texto.trim()) {
+        setTexto(limitarTextoKb(extraido.texto));
+        // Sugere o título a partir da primeira frase, se o campo estiver vazio
+        if (!titulo.trim()) {
+          const primeiraFrase = extraido.texto.split(/[.!?]/)[0]?.trim().slice(0, 80);
+          if (primeiraFrase && primeiraFrase.length >= 8) setTitulo(primeiraFrase.charAt(0).toUpperCase() + primeiraFrase.slice(1));
+        }
+      }
+      // Upload do ficheiro original para o storage (auditoria/consulta) — feito
+      // NO SERVIDOR (/api/kb-upload) com a service role; o cliente nunca expõe
+      // chaves privilegiadas. O texto extraído mantém-se mesmo se o upload falhar.
+      try {
+        const base64 = await fileToBase64(file);
+        const upResp = await fetch('/api/kb-upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nome: file.name, base64, sigla, tipo: file.type }),
+        });
+        const upJson = await upResp.json().catch(() => ({ ok: false, erro: 'Resposta inválida do servidor.' }));
+        if (upJson.ok && upJson.url) {
+          setFicheiroUrl(upJson.url);
+          if (!fonteUrl.trim()) setFonteUrl(upJson.url);
+        } else {
+          console.warn('[KB-FICHEIRO] Falha no upload do ficheiro original (o texto extraído mantém-se):', upJson.erro);
+          setAvisoFicheiro(aviso => aviso ? `${aviso} O ficheiro original não foi guardado.` : 'O ficheiro original não foi guardado — o texto extraído fica na fonte.');
+        }
+      } catch (upErr) {
+        console.warn('[KB-FICHEIRO] Falha no upload do ficheiro original (o texto extraído mantém-se):', upErr);
+        setAvisoFicheiro(aviso => aviso ? `${aviso} O ficheiro original não foi guardado.` : 'O ficheiro original não foi guardado — o texto extraído fica na fonte.');
+      }
+    } catch (e) {
+      console.error('[KB-FICHEIRO] Falha ao processar o ficheiro:', e);
+      setErroFicheiro('Não foi possível ler o ficheiro. Tente outro formato (PDF, Word ou TXT) ou cole o texto manualmente.');
+    } finally {
+      setAExtrairFicheiro(false);
+    }
+  };
 
   // Etapa #5 — preenchimento assistido de metadados (heurística local, sem IA)
   const [assistSugestoes, setAssistSugestoes] = useState<KbMetaSugestoes | null>(null);
@@ -181,6 +248,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
     addAuditLog?.(`KB: nova fonte "${titulo.trim()}" adicionada à base de conhecimento da ${sigla}`, 'success');
     setTitulo(''); setTexto(''); setFonteUrl(''); setTipo('procedimento');
     setAssistSugestoes(null); setAssistAplicado([]);
+    setKbFicheiro(null); setFicheiroUrl(''); setErroFicheiro(''); setAvisoFicheiro(null);
     tituloEditadoManual.current = false;
     tipoEditadoManual.current = false;
     await carregar();
@@ -333,6 +401,81 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
               />
             </div>
           </div>
+
+          {/* Carregamento de ficheiro (PDF/Word/TXT) — extrai o texto automaticamente */}
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3.5 space-y-2.5">
+            <div className="flex items-center gap-2">
+              <UploadCloud size={14} className="text-indigo-600 shrink-0" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 m-0">
+                Carregar documento (PDF · Word · TXT)
+              </p>
+              {!kbFicheiro && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={aExtrairFicheiro}
+                  className="ml-auto inline-flex items-center gap-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase tracking-wider px-2.5 py-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {aExtrairFicheiro ? <Loader2 size={10} className="animate-spin" /> : <FileText size={10} />}
+                  {aExtrairFicheiro ? 'A ler…' : 'Escolher ficheiro'}
+                </button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.docx,.doc,.txt,.md"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  if (f) void handleKbFicheiroSelecionado(f);
+                }}
+              />
+            </div>
+
+            {kbFicheiro && (
+              <div className="flex items-center gap-2 rounded-xl bg-white border border-indigo-200 p-2.5">
+                <FileText size={14} className="text-indigo-600 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10.5px] font-bold text-slate-700 truncate m-0">{kbFicheiro.name}</p>
+                  <p className="text-[9px] text-slate-400 font-semibold m-0">
+                    {ROTULO_TIPO_FICHEIRO[(kbFicheiro.name.toLowerCase().endsWith('.pdf') ? 'pdf' : kbFicheiro.name.toLowerCase().endsWith('.docx') ? 'docx' : kbFicheiro.name.toLowerCase().endsWith('.txt') || kbFicheiro.name.toLowerCase().endsWith('.md') ? 'txt' : 'outro')]}
+                    {ficheiroUrl ? ' · guardado como fonte' : ''}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setKbFicheiro(null); setFicheiroUrl(''); setAvisoFicheiro(null); }}
+                  className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer shrink-0"
+                  title="Remover ficheiro"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            )}
+
+            {aExtrairFicheiro && (
+              <p className="text-[10px] text-indigo-700 font-bold flex items-center gap-1.5 m-0">
+                <Loader2 size={11} className="animate-spin" /> A extrair o texto do documento…
+              </p>
+            )}
+            {erroFicheiro && (
+              <p className="text-[10px] text-rose-700 font-bold flex items-start gap-1.5 m-0">
+                <AlertTriangle size={11} className="shrink-0 mt-0.5" /> {erroFicheiro}
+              </p>
+            )}
+            {avisoFicheiro && (
+              <p className="text-[10px] text-amber-700 font-bold flex items-start gap-1.5 m-0">
+                <Info size={11} className="shrink-0 mt-0.5" /> {avisoFicheiro}
+              </p>
+            )}
+            {kbFicheiro && texto.trim() && (
+              <p className="text-[9.5px] text-emerald-700 font-bold flex items-center gap-1.5 m-0">
+                <CheckCircle2 size={11} className="shrink-0" /> Texto extraído ({texto.trim().length} caracteres) — o conteúdo abaixo foi preenchido; revê antes de publicar.
+              </p>
+            )}
+          </div>
+
           <div>
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-wide">
               Conteúdo que a IA pode usar ({texto.trim().length}/{MAX_TEXTO} caracteres)

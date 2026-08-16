@@ -100,6 +100,39 @@ async function startServer() {
     });
   };
 
+  // API — Upload de ficheiro para a Base de Conhecimento (bucket kb_ficheiros)
+  // O upload é feito NO SERVIDOR com a service role (nunca exposta no cliente):
+  // o browser envia o ficheiro em base64; o servidor carrega para o storage e
+  // devolve o URL público. Tamanho máximo 10 MB.
+  app.post("/api/kb-upload", async (req, res) => {
+    try {
+      const { nome, base64, sigla } = req.body || {};
+      if (!nome || typeof nome !== 'string' || !base64 || typeof base64 !== 'string') {
+        return res.status(400).json({ ok: false, erro: 'nome e base64 são obrigatórios.' });
+      }
+      const buf = Buffer.from(base64, 'base64');
+      if (buf.length === 0) return res.status(400).json({ ok: false, erro: 'Ficheiro vazio.' });
+      if (buf.length > 10 * 1024 * 1024) return res.status(400).json({ ok: false, erro: 'Ficheiro demasiado grande (máx. 10 MB).' });
+      const admin = createSupabaseAdminClient();
+      if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço de armazenamento indisponível.' });
+      const sanitizado = nome.replace(/[^\w.\-]+/g, '_');
+      const pasta = (sigla || 'inst').replace(/[^\w\-]+/g, '_').toUpperCase();
+      const filePath = `kb/${pasta}/${Date.now()}-${sanitizado}`;
+      const { error } = await admin.storage
+        .from('kb_ficheiros')
+        .upload(filePath, buf, { cacheControl: '3600', upsert: true, contentType: req.body?.tipo || undefined });
+      if (error) {
+        console.error('[KB-UPLOAD] Erro no upload:', error.message);
+        return res.status(500).json({ ok: false, erro: error.message });
+      }
+      const { data } = admin.storage.from('kb_ficheiros').getPublicUrl(filePath);
+      return res.status(200).json({ ok: true, url: data.publicUrl });
+    } catch (e) {
+      console.error('[KB-UPLOAD] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
   // API Health check
   app.get("/api/health", (_req, res) => {
     res.json({ 
