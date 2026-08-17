@@ -1727,16 +1727,17 @@ export const TRANSLATE_MAP: Record<string, Record<LanguageCode, string>> = {
 
 };
 
-export function translateText(text: string, lang: LanguageCode): string {
-  if (!text) return "";
+export function translateText(text: unknown, lang: LanguageCode): string {
+  if (text === null || text === undefined) return "";
 
-  const trimmed = text.trim();
+  const original = String(text);
+  const trimmed = original.trim();
   const found = TRANSLATE_MAP[trimmed];
   if (found && found[lang]) {
     return found[lang];
   }
 
-  if (lang === 'pt') return text;
+  if (lang === 'pt') return original;
 
   // Tentar casamento parcial
   for (const [key, translations] of Object.entries(TRANSLATE_MAP)) {
@@ -1745,5 +1746,5 @@ export function translateText(text: string, lang: LanguageCode): string {
     }
   }
 
-  return text;
+  return original;
 }

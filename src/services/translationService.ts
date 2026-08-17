@@ -275,14 +275,17 @@ export function getDynamicTranslations(lang: LanguageCode): Record<string, strin
 }
 
 // Main translation function that checks both static and dynamic translations
-export function translateText(text: string, lang: LanguageCode): string {
-  if (!text) return "";
-  
-  const trimmed = text.trim();
-  
+// DEFENSIVO (2026-08-17): aceita qualquer tipo — campos de dados (Supabase/API)
+// podem chegar como número/objeto; String() evita "trim is not a function".
+export function translateText(text: unknown, lang: LanguageCode): string {
+  if (text === null || text === undefined) return "";
+  const original = String(text);
+  const trimmed = original.trim();
+  if (!trimmed) return original;
+
   // If language is Portuguese, return original
-  if (lang === 'pt') return text;
-  
+  if (lang === 'pt') return original;
+
   // 1. Check static TRANSLATE_MAP
   const staticTranslation = STATIC_TRANSLATE_MAP[trimmed];
   if (staticTranslation && staticTranslation[lang]) {
@@ -311,7 +314,7 @@ export function translateText(text: string, lang: LanguageCode): string {
     }
   }
   
-  return text;
+  return original;
 }
 
 // Clear translation cache
