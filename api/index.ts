@@ -871,7 +871,7 @@ Regras Críticas de Fidelidade e Integridade:
               { role: "system", content: translationSystemPrompt },
               { role: "user", content: userTranslationPrompt }
             ],
-            model: "llama-3.1-8b-instant",
+            model: "openai/gpt-oss-120b",
             temperature: 0.1
           });
 
@@ -945,7 +945,7 @@ Regras Críticas de Fidelidade e Integridade:
               { role: "system", content: systemPrompt },
               { role: "user", content: userPrompt }
             ],
-            model: "llama-3.1-8b-instant",
+            model: "openai/gpt-oss-120b",
             temperature: 0.3
           });
           if (completion.choices?.[0]?.message) {
@@ -1041,7 +1041,7 @@ Regras Críticas de Fidelidade e Integridade:
               { role: "system", content: sistema },
               { role: "user", content: utilizador }
             ],
-            model: "llama-3.1-8b-instant",
+            model: "openai/gpt-oss-120b",
             temperature: 0.3,
             // Teto de saida: texto max de entrada + margem; impede que um
             // ciclo degenerado (provado ao vivo com linguas nacionais) queime
@@ -1050,7 +1050,7 @@ Regras Críticas de Fidelidade e Integridade:
           });
           const textoGroq = completion.choices?.[0]?.message?.content;
           if (textoGroq) {
-            return res.status(200).json({ ok: true, acao: v.dados.acao, modelo: "llama-3.1-8b-instant", resultado: protegerTraducaoLinguaNacional(v.dados, textoGroq), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
+            return res.status(200).json({ ok: true, acao: v.dados.acao, modelo: "openai/gpt-oss-120b", resultado: protegerTraducaoLinguaNacional(v.dados, textoGroq), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
           }
         } catch (groqErr) {
           console.error("Groq assistente-documento erro:", groqErr);
@@ -1097,7 +1097,7 @@ O Correio Digital Angola moderniza a administração de Angola, transformando o 
                 content: m.content
               }))
             ],
-            model: "llama-3.1-8b-instant",
+            model: "openai/gpt-oss-120b",
             temperature: 0.3
           });
           if (completion.choices?.[0]?.message) {

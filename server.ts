@@ -252,7 +252,7 @@ async function startServer() {
               { role: "system", content: systemPrompt },
               { role: "user", content: userPrompt }
             ],
-            model: "llama-3.1-8b-instant",
+            model: "openai/gpt-oss-120b",
             temperature: 0.3
           });
           if (completion.choices && completion.choices[0] && completion.choices[0].message) {
@@ -528,7 +528,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
                 content: m.content
               }))
             ],
-            model: "llama-3.1-8b-instant",
+            model: "openai/gpt-oss-120b",
           });
           return res.json({ message: completion.choices[0].message.content });
         } catch (groqErr) {
@@ -670,7 +670,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
               { role: "system", content: sistema },
               { role: "user", content: utilizador }
             ],
-            model: "llama-3.1-8b-instant",
+            model: "openai/gpt-oss-120b",
             temperature: 0.3,
             // Teto de saida: impede que um ciclo degenerado (provado ao vivo
             // com linguas nacionais) queime milhares de tokens de lixo.
@@ -678,7 +678,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
           });
           const textoGroq = completion.choices?.[0]?.message?.content;
           if (textoGroq) {
-            return res.json({ ok: true, acao: v.dados.acao, modelo: "llama-3.1-8b-instant", resultado: protegerTraducaoLinguaNacional(v.dados, textoGroq), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
+            return res.json({ ok: true, acao: v.dados.acao, modelo: "openai/gpt-oss-120b", resultado: protegerTraducaoLinguaNacional(v.dados, textoGroq), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
           }
         } catch (groqErr) {
           console.error("Groq assistente-documento erro:", groqErr);
@@ -1101,7 +1101,7 @@ ${JSON.stringify(texts, null, 2)}`;
               { role: "system", content: systemPrompt + " Retorne SOMENTE a lista JSON bruta, sem explicações, marcações markdown ou comentários adicionais, começando com [ e terminando com ]." },
               { role: "user", content: userPrompt }
             ],
-            model: "llama-3.1-8b-instant",
+            model: "openai/gpt-oss-120b",
             temperature: 0.1
           });
           if (completion.choices && completion.choices[0] && completion.choices[0].message) {
