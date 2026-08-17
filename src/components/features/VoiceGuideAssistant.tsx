@@ -373,7 +373,7 @@ export function VoiceGuideAssistant({
             <Sparkles size={10} className="text-blue-500" />
             {DIALOGS[currentStep as keyof typeof DIALOGS]?.caption || "Pronto."}
           </span>
-          <span className="text-[8.5px] font-mono font-bold bg-slate-850 px-2 py-0.5 rounded text-indigo-300">
+          <span className="text-[8.5px] font-mono font-bold bg-slate-900 px-2 py-0.5 rounded text-indigo-300">
             Passo {currentStep === 'welcome' ? '1/4' : currentStep === 'presentation' ? '2/4' : currentStep === 'register_flow' ? '3/4' : '4/4'}
           </span>
         </div>
@@ -408,7 +408,7 @@ export function VoiceGuideAssistant({
                   onCloseAssistant();
                 });
               }}
-              className="py-2.5 text-[10px] items-center justify-center font-black uppercase tracking-wider bg-slate-800 text-slate-400 rounded-xl hover:bg-slate-750 transition-all cursor-pointer border-0"
+              className="py-2.5 text-[10px] items-center justify-center font-black uppercase tracking-wider bg-slate-800 text-slate-400 rounded-xl hover:bg-slate-800 transition-all cursor-pointer border-0"
             >
               Recusar
             </button>
@@ -447,7 +447,7 @@ export function VoiceGuideAssistant({
             <button
               type="button"
               onClick={() => speak("O Correio Digital Angola é a plataforma unificada para a correspondência oficial do Estado e para a comunicação segura com os cidadãos.")}
-              className="py-2.5 text-[10px] items-center justify-center font-black uppercase tracking-wider bg-slate-800 text-slate-350 rounded-xl hover:bg-slate-750 transition-all cursor-pointer border-0"
+              className="py-2.5 text-[10px] items-center justify-center font-black uppercase tracking-wider bg-slate-800 text-slate-400 rounded-xl hover:bg-slate-800 transition-all cursor-pointer border-0"
             >
               Tirar Dúvida
             </button>

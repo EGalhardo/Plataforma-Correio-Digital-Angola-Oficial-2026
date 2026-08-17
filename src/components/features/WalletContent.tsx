@@ -212,7 +212,7 @@ export function WalletContent({
                     <div className="w-12 h-12 rounded-full bg-red-650/30 flex items-center justify-center border border-red-500/40 mb-3 animate-pulse text-red-500">
                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shield-alert"><path d="M20 13c0 5-3.5 7.5-7.66 9.7a1 1 0 0 1-.68 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
                     </div>
-                    <span className="text-[10px] font-mono font-black uppercase tracking-[0.25em] text-red-150 bg-red-900/60 border border-red-700/80 px-3 py-1 rounded-full mb-1">
+                    <span className="text-[10px] font-mono font-black uppercase tracking-[0.25em] text-red-200 bg-red-900/60 border border-red-700/80 px-3 py-1 rounded-full mb-1">
                       PROTOCOLO SOC-AN-2026 ATIVO
                     </span>
                     <h5 className="text-white text-base font-black uppercase italic tracking-tight leading-none">Acesso Temporariamente Restrito</h5>

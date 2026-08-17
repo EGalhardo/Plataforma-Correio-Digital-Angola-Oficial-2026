@@ -536,7 +536,7 @@ export function SolicitarDocumentoContent({
       <div className="bg-white border border-slate-150 rounded-[32px] p-6 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3 text-left">
-            <div className="w-10 h-10 bg-indigo-65 text-indigo-700 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center">
               <Layers size={20} />
             </div>
             <div>
@@ -735,7 +735,7 @@ export function SolicitarDocumentoContent({
                       type="text" 
                       value={identityCode}
                       onChange={(e) => { marcarTocado(); setIdentityCode(e.target.value); }}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs md:text-sm font-mono font-bold text-slate-850 focus:bg-white outline-none"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs md:text-sm font-mono font-bold text-slate-900 focus:bg-white outline-none"
                       placeholder="Identificação Oficial"
                     />
                   </div>
@@ -855,7 +855,7 @@ export function SolicitarDocumentoContent({
                   className={`border-2 border-dashed rounded-[30px] p-8 text-center transition-all cursor-pointer flex flex-col items-center justify-center space-y-3.5 select-none ${
                     isDragging 
                       ? 'border-indigo-600 bg-indigo-50/10 scale-[1.01]' 
-                      : 'border-slate-250 bg-slate-50 hover:bg-slate-100 hover:border-slate-350'
+                      : 'border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-slate-400'
                   }`}
                 >
                   <input 
@@ -887,9 +887,9 @@ export function SolicitarDocumentoContent({
                   ) : (
                     <div className="space-y-2">
                       {uploadedFiles.map((file) => (
-                        <div key={file.id} className="p-3 bg-slate-50 border border-slate-155 rounded-2xl flex items-center justify-between group">
+                        <div key={file.id} className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between group">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-indigo-55 rounded-xl text-indigo-700">
+                            <div className="p-2 bg-indigo-50 rounded-xl text-indigo-700">
                               <File size={16} />
                             </div>
                             <div className="max-w-[180px] sm:max-w-xs md:max-w-md">
@@ -901,7 +901,7 @@ export function SolicitarDocumentoContent({
                           <button
                             type="button"
                             onClick={() => handleDeleteFile(file.id, file.name)}
-                            className="bg-transparent hover:bg-rose-50 text-slate-450 hover:text-rose-600 rounded-lg p-2 transition-all border-0 cursor-pointer"
+                            className="bg-transparent hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded-lg p-2 transition-all border-0 cursor-pointer"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -940,7 +940,7 @@ export function SolicitarDocumentoContent({
                   <button
                     type="button"
                     onClick={() => setCurrentStep('solicitacao')}
-                    className="w-full py-3 bg-white border border-slate-205 text-slate-700 rounded-xl font-black text-[10px] tracking-wider uppercase hover:bg-slate-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] tracking-wider uppercase hover:bg-slate-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <ChevronLeft size={14} /> Retroceder
                   </button>
@@ -1048,7 +1048,7 @@ export function SolicitarDocumentoContent({
                   <button
                     type="button"
                     onClick={() => setCurrentStep('upload')}
-                    className="w-full py-3 bg-white border border-slate-205 text-slate-700 rounded-xl font-black text-[10px] tracking-wider uppercase hover:bg-slate-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] tracking-wider uppercase hover:bg-slate-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <ChevronLeft size={14} /> Retroceder
                   </button>
@@ -1093,7 +1093,7 @@ export function SolicitarDocumentoContent({
 
                   {/* If document type is exempt, provide instant activation screen */}
                   {isDocExempt ? (
-                    <div className="bg-amber-50/60 border border-amber-150 p-6 rounded-[24px] space-y-4 text-left">
+                    <div className="bg-amber-50/60 border border-amber-200 p-6 rounded-[24px] space-y-4 text-left">
                       <div className="flex gap-3">
                         <ShieldCheck className="text-amber-600 shrink-0 mt-0.5 animate-pulse" size={22} />
                         <div>
@@ -1105,7 +1105,7 @@ export function SolicitarDocumentoContent({
                       </div>
 
                       {!paymentSuccess ? (
-                        <div className="pt-2 border-t border-amber-205/50">
+                        <div className="pt-2 border-t border-amber-200/50">
                           <button
                             type="button"
                             onClick={() => {
@@ -1133,13 +1133,13 @@ export function SolicitarDocumentoContent({
                                 addAuditLog(`Ato de ${docType} processado com isenção fiscal sob protocolo automatizado.`, 'success');
                               }, 1000);
                             }}
-                            className="w-full sm:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-755 text-white font-black text-[10px] tracking-widest uppercase rounded-xl border-0 cursor-pointer transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-600/10"
+                            className="w-full sm:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-800 text-white font-black text-[10px] tracking-widest uppercase rounded-xl border-0 cursor-pointer transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-600/10"
                           >
                             {isPaying ? <RefreshCw className="animate-spin text-white" size={12} /> : 'Ativar Emissão Isenta / Continuar'}
                           </button>
                         </div>
                       ) : (
-                        <div className="bg-emerald-50/70 border border-emerald-150 p-4 rounded-xl flex items-center gap-2.5 text-emerald-800 text-[10.5px] font-black uppercase">
+                        <div className="bg-emerald-50/70 border border-emerald-200 p-4 rounded-xl flex items-center gap-2.5 text-emerald-800 text-[10.5px] font-black uppercase">
                           <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
                           <span>Isenção Validada e Registada no Sistema Notarial Integrado. Pronto para Emissão.</span>
                         </div>
@@ -1201,7 +1201,7 @@ export function SolicitarDocumentoContent({
                                       value={paymentPhone}
                                       onChange={(e) => { marcarTocado(); setPaymentPhone(e.target.value.replace(/\D/g, '')); }}
                                       maxLength={9}
-                                      className="w-full bg-white border border-slate-205 rounded-xl py-2.5 pl-12 pr-4 text-xs font-mono font-bold outline-none uppercase"
+                                      className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-12 pr-4 text-xs font-mono font-bold outline-none uppercase"
                                       placeholder="Telemóvel Express"
                                     />
                                   </div>
@@ -1270,7 +1270,7 @@ export function SolicitarDocumentoContent({
                                       value={unitelPhone}
                                       onChange={(e) => { marcarTocado(); setUnitelPhone(e.target.value.replace(/\D/g, '')); }}
                                       maxLength={9}
-                                      className="w-full bg-white border border-slate-205 rounded-xl py-2.5 pl-12 pr-4 text-xs font-mono font-bold outline-none uppercase"
+                                      className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-12 pr-4 text-xs font-mono font-bold outline-none uppercase"
                                       placeholder="Telemóvel Unitel Money"
                                     />
                                   </div>
@@ -1353,7 +1353,7 @@ export function SolicitarDocumentoContent({
                                     type="button"
                                     onClick={() => handleSimulatePayment('TRANSFER')}
                                     disabled={!transferSlipUploaded}
-                                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-755 text-white font-black text-[10px] tracking-wider uppercase rounded-xl border-0 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-800 text-white font-black text-[10px] tracking-wider uppercase rounded-xl border-0 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                                   >
                                     Validar Comprovativo e Concluir
                                   </button>
@@ -1478,7 +1478,7 @@ export function SolicitarDocumentoContent({
                   <button
                     type="button"
                     onClick={() => setCurrentStep('validacao')}
-                    className="w-full py-3 bg-white border border-slate-205 text-slate-700 rounded-xl font-black text-[10px] tracking-wider uppercase hover:bg-slate-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] tracking-wider uppercase hover:bg-slate-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <ChevronLeft size={14} /> Retroceder
                   </button>
@@ -1569,7 +1569,7 @@ export function SolicitarDocumentoContent({
                   <button
                     type="button"
                     onClick={handleFinalizeEmission}
-                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-750 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-600/10 hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center gap-2 border-0 cursor-pointer"
+                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-600/10 hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center gap-2 border-0 cursor-pointer"
                   >
                     <Sparkles size={16} /> Emitir Documento Digital
                   </button>
@@ -1577,7 +1577,7 @@ export function SolicitarDocumentoContent({
                   <button
                     type="button"
                     onClick={() => setCurrentStep('pagamento')}
-                    className="w-full py-3 bg-white border border-slate-205 text-slate-700 rounded-xl font-black text-[10px] tracking-wider uppercase hover:bg-slate-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] tracking-wider uppercase hover:bg-slate-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <ChevronLeft size={14} /> Retroceder
                   </button>
@@ -1688,7 +1688,7 @@ export function SolicitarDocumentoContent({
                   <button
                     type="button"
                     onClick={handleAddToWalletAndClose}
-                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-750 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-600/15 hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center gap-2 border-0 cursor-pointer"
+                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-600/15 hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center gap-2 border-0 cursor-pointer"
                   >
                     Incorporar na Carteira <ArrowUpRight size={16} />
                   </button>

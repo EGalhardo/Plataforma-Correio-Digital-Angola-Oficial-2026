@@ -258,9 +258,9 @@ export function GovCorrespondenciasContent({
   const getStatusColorStyles = (status: string) => {
     switch(status) {
       case 'Enviada':
-        return 'bg-blue-50 border-blue-150 text-blue-700';
+        return 'bg-blue-50 border-blue-200 text-blue-700';
       case 'Recebida':
-        return 'bg-emerald-50 border-emerald-150 text-emerald-700';
+        return 'bg-emerald-50 border-emerald-200 text-emerald-700';
       case 'Em Análise':
         return 'bg-amber-50 border-amber-200 text-amber-700';
       case 'Respondida':
@@ -287,7 +287,7 @@ export function GovCorrespondenciasContent({
           <div className="flex items-center gap-4">
             <button
               onClick={() => setShowVideoPage(false)}
-              className="w-10 h-10 md:w-12 md:h-12 bg-slate-150 hover:bg-slate-200 text-slate-700 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-250 cursor-pointer"
+              className="w-10 h-10 md:w-12 md:h-12 bg-slate-150 hover:bg-slate-200 text-slate-700 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-300 cursor-pointer"
               title="Voltar"
             >
               <ArrowLeft size={18} className="md:w-5 md:h-5" />
@@ -344,7 +344,7 @@ export function GovCorrespondenciasContent({
         <button onClick={() => setIsDispatchModalOpen(true)} className="cda-link-text">Novo Expediente</button>
         <button 
           onClick={() => setShowVideoPage(true)} 
-          className="bg-indigo-50 hover:bg-indigo-150 text-indigo-755 border border-indigo-205 rounded-xl px-3.5 py-1.5 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer text-[10px] font-black uppercase tracking-widest"
+          className="bg-indigo-50 hover:bg-indigo-200 text-indigo-800 border border-indigo-200 rounded-xl px-3.5 py-1.5 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer text-[10px] font-black uppercase tracking-widest"
         >
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           Video Atendimento
@@ -366,7 +366,7 @@ export function GovCorrespondenciasContent({
           <div>
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block leading-none">TOTAL EXPEDIENTES</span>
             <span className="text-xl font-mono font-black text-slate-900 block mt-1 leading-none">{stats.total}</span>
-            <span className="text-[10px] text-slate-450 font-bold block mt-1.5 leading-none">Registo Histórico Unificado</span>
+            <span className="text-[10px] text-slate-500 font-bold block mt-1.5 leading-none">Registo Histórico Unificado</span>
           </div>
         </div>
 
@@ -378,7 +378,7 @@ export function GovCorrespondenciasContent({
           <div>
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block leading-none">EM TRATAMENTO / ANÁLISE</span>
             <span className="text-xl font-mono font-black text-amber-600 block mt-1 leading-none">{stats.analytical + stats.received}</span>
-            <span className="text-[10px] text-slate-450 font-bold block mt-1.5 leading-none">Aguardando Despacho Final</span>
+            <span className="text-[10px] text-slate-500 font-bold block mt-1.5 leading-none">Aguardando Despacho Final</span>
           </div>
         </div>
 
@@ -390,7 +390,7 @@ export function GovCorrespondenciasContent({
           <div>
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block leading-none">TAXA DE SUCESSO SLA</span>
             <span className="text-xl font-mono font-black text-indigo-600 block mt-1 leading-none">{stats.resolutionRate}%</span>
-            <span className="text-[10px] text-slate-450 font-bold block mt-1.5 leading-none">Tempo Médio: ~18.5 horas</span>
+            <span className="text-[10px] text-slate-500 font-bold block mt-1.5 leading-none">Tempo Médio: ~18.5 horas</span>
           </div>
         </div>
 
@@ -402,7 +402,7 @@ export function GovCorrespondenciasContent({
           <div>
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block leading-none">EXPEDIENTES EM ATRASO</span>
             <span className={`text-xl font-mono font-black block mt-1 leading-none ${stats.delayed > 0 ? 'text-red-700' : 'text-slate-900'}`}>{stats.delayed}</span>
-            <span className="text-[10px] text-slate-450 font-bold block mt-1.5 leading-none">Identificação Ativa de Atrasos</span>
+            <span className="text-[10px] text-slate-500 font-bold block mt-1.5 leading-none">Identificação Ativa de Atrasos</span>
           </div>
         </div>
       </div>
@@ -449,7 +449,7 @@ export function GovCorrespondenciasContent({
                 value={searchSender} 
                 onChange={(e) => setSearchSender(e.target.value)} 
                 placeholder="Ex: AGT, SME, MINFIN..."
-                className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-[11px] font-bold text-slate-800 outline-none focus:border-slate-850"
+                className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-[11px] font-bold text-slate-800 outline-none focus:border-slate-900"
               />
               <Building2 size={13} className="text-slate-400 absolute left-3 top-3" />
             </div>
@@ -463,7 +463,7 @@ export function GovCorrespondenciasContent({
                 value={searchRecipient} 
                 onChange={(e) => setSearchRecipient(e.target.value)} 
                 placeholder="Ex: Cidadão / Beneficiário..."
-                className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-[11px] font-bold text-slate-800 outline-none focus:border-slate-850"
+                className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-[11px] font-bold text-slate-800 outline-none focus:border-slate-900"
               />
               <Search size={13} className="text-slate-400 absolute left-3 top-3" />
             </div>
@@ -477,7 +477,7 @@ export function GovCorrespondenciasContent({
                 value={searchSubject} 
                 onChange={(e) => setSearchSubject(e.target.value)} 
                 placeholder="Assunto ou termo chave..."
-                className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-[11px] font-bold text-slate-800 outline-none focus:border-slate-850"
+                className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-[11px] font-bold text-slate-800 outline-none focus:border-slate-900"
               />
               <Mail size={13} className="text-slate-400 absolute left-3 top-3" />
             </div>
@@ -563,7 +563,7 @@ export function GovCorrespondenciasContent({
               className={`px-4 py-2 border-b-2 rounded-t-xl text-[10px] font-extrabold uppercase tracking-widest transition-all whitespace-nowrap border-r-0 border-l-0 border-t-0 cursor-pointer ${
                 activeTab === tab 
                   ? 'border-indigo-600 text-indigo-700 bg-indigo-50/20' 
-                  : 'border-transparent text-slate-450 hover:text-slate-750 hover:bg-slate-55'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
               }`}
             >
               {tab === 'Todas' ? 'Todos Expedientes' : tab}
@@ -620,7 +620,7 @@ export function GovCorrespondenciasContent({
                             {t(item.category || '')}
                           </span>
                         </div>
-                        <span className="font-sans font-extrabold text-[11px] text-slate-805 uppercase tracking-tight block truncate max-w-[200px]" title={t(item.sender)}>
+                        <span className="font-sans font-extrabold text-[11px] text-slate-800 uppercase tracking-tight block truncate max-w-[200px]" title={t(item.sender)}>
                           {t(item.sender)}
                         </span>
                       </div>
@@ -797,24 +797,24 @@ export function GovCorrespondenciasContent({
 
                       <div>
                         <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest block mb-0.5 font-sans">{t("Beneficiário Final / Destinatário")}</span>
-                        <span className="font-black text-slate-850 block text-xs">{t(selectedLetter.recipient)}</span>
+                        <span className="font-black text-slate-900 block text-xs">{t(selectedLetter.recipient)}</span>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-50">
                         <div>
                           <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">{t("Data de Envio (CDA)")}</span>
-                          <span className="font-mono font-extrabold text-slate-750">{selectedLetter.sentDate}</span>
+                          <span className="font-mono font-extrabold text-slate-800">{selectedLetter.sentDate}</span>
                         </div>
                         <div>
                           <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">{t("Data Receção (CDA)")}</span>
-                          <span className="font-mono font-extrabold text-slate-750">{selectedLetter.receivedDate}</span>
+                          <span className="font-mono font-extrabold text-slate-800">{selectedLetter.receivedDate}</span>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-50">
                         <div>
                           <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">{t("Tempo de Resposta SLA")}</span>
-                          <span className="font-mono font-extrabold text-slate-750">{t(selectedLetter.responseTime || '')}</span>
+                          <span className="font-mono font-extrabold text-slate-800">{t(selectedLetter.responseTime || '')}</span>
                         </div>
                         <div>
                           <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">{t("Prioridade de Auditoria")}</span>
@@ -838,7 +838,7 @@ export function GovCorrespondenciasContent({
                         <div key={index} className="flex gap-2 text-[10.5px] relative pl-4 border-l border-slate-200 last:border-l-0 pb-3">
                           <div className="w-2 h-2 rounded-full bg-indigo-600 absolute -left-1 top-1.5" />
                           <div className="space-y-0.5">
-                            <p className="font-black text-slate-750 leading-none">{t(log.action || '')}</p>
+                            <p className="font-black text-slate-800 leading-none">{t(log.action || '')}</p>
                             <div className="flex items-center gap-2 text-[8px] font-mono text-slate-400 uppercase">
                               <span>Inst: {log.user}</span>
                               <span>&bull;</span>
@@ -872,7 +872,7 @@ export function GovCorrespondenciasContent({
                 {/* Body Message Display */}
                 <div className="bg-slate-50 border border-slate-200/50 p-5 rounded-2xl">
                   <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest block mb-2 leading-none">{t("Corpo / Teor da Comunicação")}</span>
-                  <p className="text-slate-705 leading-relaxed text-xs">{t(selectedLetter.body)}</p>
+                  <p className="text-slate-700 leading-relaxed text-xs">{t(selectedLetter.body)}</p>
                 </div>
 
                 {/* Cryptographic Integrity seals (Auditoria de Mensagens) */}
@@ -924,7 +924,7 @@ export function GovCorrespondenciasContent({
                       <div className="flex gap-2 justify-end pt-1">
                         <button 
                           onClick={() => setIsForwarding(false)}
-                          className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-350 text-slate-700 rounded-lg text-[9px] font-black uppercase tracking-wider cursor-pointer border-0"
+                          className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-400 text-slate-700 rounded-lg text-[9px] font-black uppercase tracking-wider cursor-pointer border-0"
                         >
                           Cancelar
                         </button>
@@ -965,7 +965,7 @@ export function GovCorrespondenciasContent({
                         setForwardProvince(selectedLetter.destinationProvince);
                         setIsForwarding(true);
                       }}
-                      className="px-4.5 py-2.5 bg-white border border-slate-200 hover:border-slate-350 hover:bg-slate-50 text-indigo-750 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer font-sans flex items-center gap-1.5"
+                      className="px-4.5 py-2.5 bg-white border border-slate-200 hover:border-slate-400 hover:bg-slate-50 text-indigo-800 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer font-sans flex items-center gap-1.5"
                     >
                       <Share2 size={12} /> Reencaminhar Comunicação
                     </button>
@@ -1152,7 +1152,7 @@ export function GovCorrespondenciasContent({
                     responseTime: '24 horas'
                   });
                 }}
-                className="p-6 md:p-8 space-y-4 text-slate-755 font-sans"
+                className="p-6 md:p-8 space-y-4 text-slate-800 font-sans"
               >
                 {/* Inputs Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1170,7 +1170,7 @@ export function GovCorrespondenciasContent({
                   <label className="grid gap-1">
                     <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Sigla da Instituição</span>
                     <select
-                      className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-655 focus:bg-white text-slate-900 cursor-pointer"
+                      className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-700 focus:bg-white text-slate-900 cursor-pointer"
                       value={formData.institution}
                       onChange={(e) => setFormData(prev => ({ ...prev, institution: e.target.value }))}
                     >
@@ -1186,7 +1186,7 @@ export function GovCorrespondenciasContent({
                     <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Cidadão Destinatário</span>
                     <input 
                       type="text"
-                      className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-655 focus:bg-white text-slate-900"
+                      className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-700 focus:bg-white text-slate-900"
                       value={formData.recipient}
                       onChange={(e) => setFormData(prev => ({ ...prev, recipient: e.target.value }))}
                       placeholder="Edlasio Galhardo"
@@ -1198,7 +1198,7 @@ export function GovCorrespondenciasContent({
                     <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Assunto Principal</span>
                     <input 
                       type="text"
-                      className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-655 focus:bg-white text-slate-900"
+                      className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-700 focus:bg-white text-slate-900"
                       value={formData.subject}
                       onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
                       placeholder="Ex: Deferimento de Credencial Aduaneira"
@@ -1211,7 +1211,7 @@ export function GovCorrespondenciasContent({
                   <label className="grid gap-1">
                     <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Categoria</span>
                     <select
-                      className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-655 focus:bg-white text-slate-900 cursor-pointer"
+                      className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-700 focus:bg-white text-slate-900 cursor-pointer"
                       value={formData.category}
                       onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
                     >
@@ -1228,7 +1228,7 @@ export function GovCorrespondenciasContent({
                   <label className="grid gap-1">
                     <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">SLA Resposta</span>
                     <select
-                      className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-655 focus:bg-white text-slate-900 cursor-pointer"
+                      className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-700 focus:bg-white text-slate-900 cursor-pointer"
                       value={formData.responseTime}
                       onChange={(e) => setFormData(prev => ({ ...prev, responseTime: e.target.value }))}
                     >
@@ -1242,7 +1242,7 @@ export function GovCorrespondenciasContent({
                   <label className="grid gap-1">
                     <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Prioridade</span>
                     <select
-                      className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-655 focus:bg-white text-slate-900 cursor-pointer"
+                      className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-700 focus:bg-white text-slate-900 cursor-pointer"
                       value={formData.priority}
                       onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value }))}
                     >
@@ -1257,7 +1257,7 @@ export function GovCorrespondenciasContent({
                   <label className="grid gap-1">
                     <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Província Origem</span>
                     <select
-                      className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-655 focus:bg-white text-slate-900 cursor-pointer"
+                      className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-700 focus:bg-white text-slate-900 cursor-pointer"
                       value={formData.originProvince}
                       onChange={(e) => setFormData(prev => ({ ...prev, originProvince: e.target.value }))}
                     >
@@ -1270,7 +1270,7 @@ export function GovCorrespondenciasContent({
                   <label className="grid gap-1">
                     <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Província Destino</span>
                     <select
-                      className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-655 focus:bg-white text-slate-900 cursor-pointer"
+                      className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-700 focus:bg-white text-slate-900 cursor-pointer"
                       value={formData.destinationProvince}
                       onChange={(e) => setFormData(prev => ({ ...prev, destinationProvince: e.target.value }))}
                     >
@@ -1285,7 +1285,7 @@ export function GovCorrespondenciasContent({
                   <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Teor / Conteúdo da Comunicação Oficial</span>
                   <textarea 
                     rows={3}
-                    className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-medium outline-none focus:border-indigo-655 focus:bg-white text-slate-900 leading-relaxed resize-none"
+                    className="border border-slate-200 bg-slate-50/50 rounded-xl p-3 text-xs font-medium outline-none focus:border-indigo-700 focus:bg-white text-slate-900 leading-relaxed resize-none"
                     value={formData.body}
                     onChange={(e) => setFormData(prev => ({ ...prev, body: e.target.value }))}
                     required
@@ -1293,14 +1293,14 @@ export function GovCorrespondenciasContent({
                 </label>
 
                 {/* Simulated file uploader picker and attachment list (Anexos) */}
-                <div className="space-y-2 border border-slate-205 bg-slate-50/30 p-4 rounded-2xl">
-                  <span className="text-[9px] font-black text-slate-450 uppercase tracking-widest block leading-none">Anexos do Expediente</span>
+                <div className="space-y-2 border border-slate-200 bg-slate-50/30 p-4 rounded-2xl">
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block leading-none">Anexos do Expediente</span>
                   
                   {/* Mock file drop zone / pick */}
                   <div className="flex gap-2 items-center">
                     <input 
                       type="text"
-                      className="flex-1 border border-slate-200 bg-white rounded-xl p-2.5 text-xs outline-none focus:border-indigo-655 text-slate-800 font-medium"
+                      className="flex-1 border border-slate-200 bg-white rounded-xl p-2.5 text-xs outline-none focus:border-indigo-700 text-slate-800 font-medium"
                       value={newAttachmentName}
                       onChange={(e) => setNewAttachmentName(e.target.value)}
                       placeholder="Nome do anexo (ex: comprovativo_fiscal)"

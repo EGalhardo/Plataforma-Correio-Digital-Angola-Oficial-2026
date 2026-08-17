@@ -128,7 +128,7 @@ function LocalWebcamOverlay() {
       {/* Top Banner Status */}
       <div className="absolute top-1 left-0 right-0 z-30 px-2 flex items-center justify-between pointer-events-none bg-slate-950/60 backdrop-blur-xs">
         <div className="flex items-center gap-1.5">
-          <span className={`w-1.5 h-1.5 rounded-full ${cameraState === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-indigo-405 animate-pulse'}`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${cameraState === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-indigo-400 animate-pulse'}`} />
           <span className="text-[7.5px] md:text-[8px] font-black text-white uppercase tracking-wider font-mono">
             {cameraState === 'live' ? 'AUTO-CÂMARA' : 'CÂMARA VIRTUAL'}
           </span>

@@ -512,8 +512,8 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
                 <span className={`w-2 h-2 rounded-full ${aiStats.groqConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
                 <span className={`px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-wider border ${
                   aiStats.groqConfigured 
-                    ? 'bg-emerald-50 border-emerald-150 text-emerald-700' 
-                    : 'bg-amber-50 border-amber-150 text-amber-700'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+                    : 'bg-amber-50 border-amber-200 text-amber-700'
                 }`}>
                   {aiStats.groqConfigured ? 'GROQ ONLINE' : 'GROQ OFFLINE'}
                 </span>
@@ -524,7 +524,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
               <Server size={14} className={aiStats.geminiConfigured ? 'text-emerald-500' : 'text-slate-300'} />
               <span className={`px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-wider border ${
                 aiStats.geminiConfigured
-                  ? 'bg-blue-50 border-blue-150 text-blue-700'
+                  ? 'bg-blue-50 border-blue-200 text-blue-700'
                   : 'bg-slate-50 border-slate-150 text-slate-400'
               }`}>
                 {aiStats.geminiConfigured ? 'GEMINI LIVE' : 'GEMINI OFF'}
@@ -533,7 +533,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
 
             <div className="flex items-center gap-1.5">
               <CpuIcon size={14} className="text-indigo-500" />
-              <span className="px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-wider bg-indigo-50 border border-indigo-150 text-indigo-700">
+              <span className="px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-wider bg-indigo-50 border border-indigo-200 text-indigo-700">
                 {mainModel}
               </span>
             </div>
@@ -810,7 +810,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
               ))}
 
               {/* Sync Status Block */}
-              <div className="p-3.5 bg-emerald-50/50 border border-emerald-150 rounded-2xl flex items-center justify-between text-left">
+              <div className="p-3.5 bg-emerald-50/50 border border-emerald-200 rounded-2xl flex items-center justify-between text-left">
                 <div className="flex items-center gap-2.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
                   <div>
@@ -1154,7 +1154,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
       {isConfigOpen && (
         <div className="fixed inset-0 bg-[#0c2340]/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-[24px] max-w-lg w-full p-6 shadow-2xl border border-slate-100 text-left space-y-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-150">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
               <div className="flex items-center gap-2">
                 <Settings className="text-indigo-600" size={20} />
                 <span className="text-sm font-black text-[#0c2340] uppercase tracking-wider">Configuração Global da IA</span>
@@ -1164,7 +1164,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
 
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider block">Instrução do Sistema (Global)</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Instrução do Sistema (Global)</label>
                 <textarea
                   value={systemInstruction}
                   onChange={(e) => setSystemInstruction(e.target.value)}
@@ -1175,7 +1175,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider block">Modelo Padrão</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Modelo Padrão</label>
                   <select
                     value={mainModel}
                     onChange={(e) => setMainModel(e.target.value)}
@@ -1188,7 +1188,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider block">Temperatura</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Temperatura</label>
                   <input type="text" defaultValue="0.3" className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs text-slate-800 outline-none" />
                 </div>
               </div>
@@ -1214,7 +1214,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
               </div>
             </div>
 
-            <div className="flex gap-3 pt-3 border-t border-gray-150">
+            <div className="flex gap-3 pt-3 border-t border-gray-200">
               <button onClick={() => setIsConfigOpen(false)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black uppercase tracking-wider rounded-xl cursor-pointer border-0">
                 Voltar
               </button>
@@ -1230,7 +1230,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
       {isManageKnowledgeOpen && (
         <div className="fixed inset-0 bg-[#0c2340]/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-[24px] max-w-md w-full p-6 shadow-2xl border border-slate-100 text-left space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-150">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
               <div className="flex items-center gap-2">
                 <Database className="text-indigo-600" size={20} />
                 <span className="text-sm font-black text-[#0c2340] uppercase tracking-wider">Bases de Conhecimento (apenas leitura)</span>
@@ -1240,12 +1240,12 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
 
             <div className="space-y-3 font-sans">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider block">Título da Base</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Título da Base</label>
                 <input type="text" placeholder="Ex: Regulamento Interno AGT..." value={newKbTitle} onChange={(e) => setNewKbTitle(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs text-slate-800" />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider block">Categoria</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Categoria</label>
                 <select className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs text-slate-800 outline-none cursor-pointer">
                   <option>FAQ</option>
                   <option>Procedimentos e Portarias</option>
@@ -1255,7 +1255,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider block">Estimativa de Documentos</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Estimativa de Documentos</label>
                 <input type="text" placeholder="Ex: 1.500" className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs text-slate-800 font-mono" />
               </div>
 
@@ -1283,7 +1283,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
       {isManageModelsOpen && (
         <div className="fixed inset-0 bg-[#0c2340]/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-[24px] max-w-lg w-full p-6 shadow-2xl border border-slate-100 text-left space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-150">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
               <div className="flex items-center gap-2">
                 <Bot className="text-indigo-600 animate-pulse" size={20} />
                 <span className="text-sm font-black text-[#0c2340] uppercase tracking-wider text-left">Federação dos Modelos LLM</span>
@@ -1322,7 +1322,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
                 ))}
               </div>
 
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-250 text-amber-900 text-[10px] sm:text-[11px] font-semibold leading-relaxed text-left flex items-start gap-2">
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 text-amber-900 text-[10px] sm:text-[11px] font-semibold leading-relaxed text-left flex items-start gap-2">
                 <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-extrabold uppercase tracking-wide block">Taxas e Regulação de Tokens</span>
@@ -1343,7 +1343,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
         <div className="fixed inset-0 bg-[#0c2340]/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn font-sans">
           <div className="bg-white rounded-[28px] max-w-xl w-full p-6 shadow-2xl border border-slate-100 text-left flex flex-col h-[520px]">
             
-            <div className="flex items-center justify-between pb-3 border-b border-gray-150 shrink-0">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-200 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold relative shrink-0">
                   <Bot size={20} />

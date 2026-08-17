@@ -180,7 +180,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
   const typeConfig: Record<string, { label: string; emoji: string; badgeClass: string }> = {
     package: { label: 'Encomenda', emoji: '📦', badgeClass: 'bg-amber-50 text-amber-800 border border-amber-200' },
     invoice: { label: 'Fatura', emoji: '🧾', badgeClass: 'bg-red-50 text-red-800 border border-red-200' },
-    contract: { label: 'Contrato', emoji: '📄', badgeClass: 'bg-blue-50 text-blue-850 border border-blue-200' },
+    contract: { label: 'Contrato', emoji: '📄', badgeClass: 'bg-blue-50 text-blue-900 border border-blue-200' },
     link: { label: 'Link', emoji: '🔗', badgeClass: 'bg-emerald-50 text-emerald-800 border border-emerald-200' },
     info: { label: 'Info', emoji: 'ℹ️', badgeClass: 'bg-indigo-50 text-indigo-800 border border-indigo-200' }
   };
@@ -295,7 +295,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
   useEffect(() => {
     return () => {
       if (qrReaderRef.current && qrReaderRef.current.isScanning) {
-        qrReaderRef.current.stop().catch(() => {});
+        qrReaderRef.current.stop().catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
       }
     };
   }, []);
@@ -1051,7 +1051,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
             <QrCode className="w-[24px] h-[24px] text-white" strokeWidth={2.5} />
           </div>
           <div>
-            <h1 className="text-slate-805 font-extrabold text-base md:text-lg lg:text-xl leading-tight">QR Mail Reader</h1>
+            <h1 className="text-slate-800 font-extrabold text-base md:text-lg lg:text-xl leading-tight">QR Mail Reader</h1>
             <p className="text-blue-600 text-[12px] font-bold flex items-center gap-1.5 mt-0.5">
               <svg className="w-3 h-3 text-amber-500 fill-amber-500" viewBox="0 0 24 24">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
@@ -1142,20 +1142,20 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
                   <RefreshCw className="w-4.5 h-4.5 text-blue-600 animate-spin" />
                   <span className="text-xs font-black uppercase tracking-wider">Validando documento...</span>
                 </div>
-                <div className="w-full bg-blue-105 h-1.5 rounded-full overflow-hidden">
+                <div className="w-full bg-blue-100 h-1.5 rounded-full overflow-hidden">
                   <div className="bg-blue-600 h-full w-[40%] animate-[shimmer_1s_infinite] rounded-full" style={{
                     backgroundImage: 'linear-gradient(90deg, #2563eb 0%, #3b82f6 50%, #2563eb 100%)',
                     backgroundSize: '200% 100%'
                   }}></div>
                 </div>
-                <p className="text-[10px] text-blue-650 font-medium">
+                <p className="text-[10px] text-blue-700 font-medium">
                   A consultar assinaturas criptográficas RSA, verificação do selo oficial e estado de trâmite na rede...
                 </p>
               </div>
             )}
 
             {validationState === 'valid' && (
-              <div className="bg-emerald-50 border border-emerald-250 text-emerald-850 rounded-xl p-3.5 flex items-center justify-between gap-3 animate-fade-in" id="hud-status-valid">
+              <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-xl p-3.5 flex items-center justify-between gap-3 animate-fade-in" id="hud-status-valid">
                 <div className="flex items-center gap-3">
                   <div className="w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm shrink-0">
                     <ShieldCheck className="w-4 h-4 text-white" />
@@ -1172,7 +1172,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
             )}
 
             {validationState === 'not_found' && (
-              <div className="bg-rose-50 border border-rose-200 text-rose-850 rounded-xl p-3.5 flex items-center justify-between gap-3 animate-fade-in" id="hud-status-not_found">
+              <div className="bg-rose-50 border border-rose-200 text-rose-900 rounded-xl p-3.5 flex items-center justify-between gap-3 animate-fade-in" id="hud-status-not_found">
                 <div className="flex items-center gap-3">
                   <div className="w-7 h-7 bg-rose-500 rounded-full flex items-center justify-center shrink-0">
                     <ShieldAlert className="w-4 h-4 text-white" />
@@ -1209,7 +1209,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
             )}
 
             {validationState === 'invalid_signature' && (
-              <div className="bg-amber-50 border border-amber-250 text-amber-850 rounded-xl p-3.5 flex items-center justify-between gap-3 animate-fade-in" id="hud-status-invalid_sig">
+              <div className="bg-amber-50 border border-amber-300 text-amber-900 rounded-xl p-3.5 flex items-center justify-between gap-3 animate-fade-in" id="hud-status-invalid_sig">
                 <div className="flex items-center gap-3">
                   <div className="w-7 h-7 bg-amber-500 rounded-full flex items-center justify-center shrink-0">
                     <Key className="w-4 h-4 text-white" />
@@ -1278,8 +1278,8 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
           {activeReadTab === 'camera' && !validatedItem && validationState === 'idle' && (
             <div 
               onClick={!cameraRunning ? startCamera : undefined}
-              className={`bg-white border-2 border-dashed border-slate-205 rounded-3xl p-10 md:p-16 text-center flex flex-col items-center justify-center min-h-[350px] transition-all ${
-                !cameraRunning ? 'hover:bg-slate-50/40 hover:border-blue-450 cursor-pointer' : ''
+              className={`bg-white border-2 border-dashed border-slate-200 rounded-3xl p-10 md:p-16 text-center flex flex-col items-center justify-center min-h-[350px] transition-all ${
+                !cameraRunning ? 'hover:bg-slate-50/40 hover:border-blue-500 cursor-pointer' : ''
               }`} 
               id="camera-viewport-card"
             >
@@ -1289,8 +1289,8 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
                     <Camera className="w-12 h-12 text-blue-900 stroke-[1.5]" />
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-blue-955 font-black text-sm sm:text-base tracking-tight text-center">Autenticação por Webcam ou Câmara do Telemóvel</h3>
-                    <p className="text-slate-450 text-[11px] sm:text-xs max-w-sm mx-auto leading-relaxed text-center">
+                    <h3 className="text-blue-950 font-black text-sm sm:text-base tracking-tight text-center">Autenticação por Webcam ou Câmara do Telemóvel</h3>
+                    <p className="text-slate-500 text-[11px] sm:text-xs max-w-sm mx-auto leading-relaxed text-center">
                       O sensor deteta qualquer QR Code governamental ou do app do CDA.
                     </p>
                   </div>
@@ -1338,7 +1338,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
                 </div>
                 <div>
                   <h3 className="text-slate-800 font-extrabold text-xs md:text-sm uppercase tracking-wider">Leitor Físico USB Hardware (Keyboard Wedge)</h3>
-                  <p className="text-slate-455 text-xs">
+                  <p className="text-slate-500 text-xs">
                     Compatibilidade nativa com leitores de código de barras, bi-dimensionais (2D) e QR USB sem drivers. 
                   </p>
                 </div>
@@ -1380,20 +1380,20 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
                     placeholder="✓ Clique aqui com o cursor para ler com pistola USB..."
                     className="w-full bg-slate-50 text-slate-800 font-mono font-bold p-4 text-center border-2 border-dashed border-indigo-200 focus:border-indigo-600 rounded-xl outline-none transition-all placeholder:text-slate-400 text-xs focus:bg-white focus:ring-4 focus:ring-indigo-100"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-[9px] font-bold text-indigo-650 bg-indigo-50 border border-indigo-150 px-2 py-1 rounded">
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-[9px] font-bold text-indigo-650 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded">
                     USB ACTIVO
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-450 italic text-center">
+                <p className="text-[10px] text-slate-500 italic text-center">
                   O cursor deve estar focado neste campo. Ao bipar o QR Code, o motor valida instantaneamente sem cliques!
                 </p>
               </div>
 
               {/* USB Hardware Wedge Interactive Simulation Suite */}
-              <div className="bg-slate-50 border border-slate-205 rounded-xl p-4 space-y-3.5">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3.5">
                 <div>
                   <h4 className="text-slate-700 font-extrabold text-[11px] uppercase tracking-wide">Banco de Simulação de Pistola / Leitor USB</h4>
-                  <p className="text-slate-450 text-[10px] mt-0.5">Clique em qualquer registo abaixo para simular a escrita e o envio de sinal via emulador de teclado (Keyboard Wedge):</p>
+                  <p className="text-slate-500 text-[10px] mt-0.5">Clique em qualquer registo abaixo para simular a escrita e o envio de sinal via emulador de teclado (Keyboard Wedge):</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <button 
@@ -1405,7 +1405,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
                   </button>
                   <button 
                     onClick={() => runSimulatedUsbScan('SOC-AN-2026')}
-                    className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-red-750 font-extrabold px-3 py-2.5 rounded-lg text-xs text-left transition-all flex items-center justify-between"
+                    className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-red-800 font-extrabold px-3 py-2.5 rounded-lg text-xs text-left transition-all flex items-center justify-between"
                   >
                     <span>🚨 Documento Suspenso (SOC-AN...)</span>
                     <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded uppercase font-black">Revogado</span>
@@ -1452,7 +1452,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
 
               {readImgPreview && (
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col items-center">
-                  <img src={readImgPreview} alt="Ler preview" className="max-h-40 rounded border border-slate-205 shadow-xs" />
+                  <img src={readImgPreview} alt="Ler preview" className="max-h-40 rounded border border-slate-200 shadow-xs" />
                   <p className="text-xs font-bold text-slate-500 mt-2">{readStatusText}</p>
                 </div>
               )}
@@ -1483,10 +1483,10 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
                   Exemplos Rápidos de Leitura
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => loadExampleText('package')} className="bg-slate-50 hover:bg-blue-50 border border-slate-205 text-slate-700 font-bold px-2.5 py-2 rounded-lg text-[11px] text-left">📦 Encomenda</button>
-                  <button onClick={() => loadExampleText('invoice')} className="bg-slate-50 hover:bg-blue-50 border border-slate-205 text-slate-700 font-bold px-2.5 py-2 rounded-lg text-[11px] text-left">🧾 Fatura</button>
-                  <button onClick={() => loadExampleText('contract')} className="bg-slate-50 hover:bg-blue-50 border border-slate-205 text-slate-700 font-bold px-2.5 py-2 rounded-lg text-[11px] text-left">📄 Contrato</button>
-                  <button onClick={() => loadExampleText('link')} className="bg-slate-50 hover:bg-blue-50 border border-slate-205 text-slate-700 font-bold px-2.5 py-2 rounded-lg text-[11px] text-left">🔗 Link</button>
+                  <button onClick={() => loadExampleText('package')} className="bg-slate-50 hover:bg-blue-50 border border-slate-200 text-slate-700 font-bold px-2.5 py-2 rounded-lg text-[11px] text-left">📦 Encomenda</button>
+                  <button onClick={() => loadExampleText('invoice')} className="bg-slate-50 hover:bg-blue-50 border border-slate-200 text-slate-700 font-bold px-2.5 py-2 rounded-lg text-[11px] text-left">🧾 Fatura</button>
+                  <button onClick={() => loadExampleText('contract')} className="bg-slate-50 hover:bg-blue-50 border border-slate-200 text-slate-700 font-bold px-2.5 py-2 rounded-lg text-[11px] text-left">📄 Contrato</button>
+                  <button onClick={() => loadExampleText('link')} className="bg-slate-50 hover:bg-blue-50 border border-slate-200 text-slate-700 font-bold px-2.5 py-2 rounded-lg text-[11px] text-left">🔗 Link</button>
                 </div>
               </div>
             </div>
@@ -1507,7 +1507,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
                   </div>
                   <div className="text-left">
                     <h3 className="text-slate-800 font-black text-sm uppercase tracking-tight">Certidão de Verificação de Correspondência</h3>
-                    <p className="text-slate-450 text-[10px] font-medium uppercase font-mono tracking-widest leading-none mt-1">Selo Integrador Digital Nacional</p>
+                    <p className="text-slate-500 text-[10px] font-medium uppercase font-mono tracking-widest leading-none mt-1">Selo Integrador Digital Nacional</p>
                   </div>
                 </div>
                 
@@ -1543,7 +1543,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
 
                 <div className="text-xs">
                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Órgão Emissor Responsável</span>
-                  <p className="text-slate-805 font-bold text-xs">{validatedItem.issuer}</p>
+                  <p className="text-slate-800 font-bold text-xs">{validatedItem.issuer}</p>
                 </div>
 
                 <div className="text-xs">
@@ -1571,7 +1571,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
                 </div>
 
                 <div className="text-xs col-span-1 sm:col-span-2 bg-indigo-50/40 border border-indigo-100 rounded-lg p-2.5 font-mono space-y-1">
-                  <span className="text-[9px] font-bold text-indigo-550 block uppercase tracking-wider">Identificador Criptográfico do Selo (SHA-256)</span>
+                  <span className="text-[9px] font-bold text-indigo-600 block uppercase tracking-wider">Identificador Criptográfico do Selo (SHA-256)</span>
                   <p className="text-[9px] text-indigo-800 font-extrabold break-all">{validatedItem.hash}</p>
                   <div className="flex items-center gap-1.5 pt-1">
                     <Key className="w-3 h-3 text-indigo-500" />
@@ -1602,7 +1602,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
                     setScanResult(null);
                     showToast('Pronto para novo ciclo de leitura.', 'info');
                   }}
-                  className="flex-1 bg-slate-100 hover:bg-slate-205 text-slate-700 font-extrabold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-all border border-slate-200 cursor-pointer text-center"
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-all border border-slate-200 cursor-pointer text-center"
                 >
                   Regressar / Ler Outro Código
                 </button>
@@ -1619,7 +1619,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
               </div>
               <div>
                 <h4 className="text-slate-800 font-extrabold text-xs uppercase tracking-wide">Seguro</h4>
-                <p className="text-slate-455 text-[10px] sm:text-xs mt-1 leading-normal">
+                <p className="text-slate-500 text-[10px] sm:text-xs mt-1 leading-normal">
                   Validação e criptografia com CDA-SHIELD
                 </p>
               </div>
@@ -1631,7 +1631,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
               </div>
               <div>
                 <h4 className="text-slate-800 font-extrabold text-xs uppercase tracking-wide">Confiável</h4>
-                <p className="text-slate-455 text-[10px] sm:text-xs mt-1 leading-normal">
+                <p className="text-slate-500 text-[10px] sm:text-xs mt-1 leading-normal">
                   Verificação de assinatura digital e integridade
                 </p>
               </div>
@@ -1645,7 +1645,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
               </div>
               <div>
                 <h4 className="text-slate-800 font-extrabold text-xs uppercase tracking-wide">Rápido</h4>
-                <p className="text-slate-455 text-[10px] sm:text-xs mt-1 leading-normal">
+                <p className="text-slate-500 text-[10px] sm:text-xs mt-1 leading-normal">
                   Leitura instantânea e resposta imediata
                 </p>
               </div>
@@ -1657,7 +1657,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
               </div>
               <div>
                 <h4 className="text-slate-800 font-extrabold text-xs uppercase tracking-wide">Auditável</h4>
-                <p className="text-slate-455 text-[10px] sm:text-xs mt-1 leading-normal">
+                <p className="text-slate-500 text-[10px] sm:text-xs mt-1 leading-normal">
                   Todas as leituras são registadas no sistema
                 </p>
               </div>
@@ -1670,7 +1670,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
         <div className="space-y-4" id="section-generator">
           <div className="flex items-center gap-2">
             <QrCode className="w-5 h-5 text-blue-600" strokeWidth={2.5} />
-            <h2 className="text-slate-805 font-bold text-sm tracking-tight">Gerar QR Code de Correspondência</h2>
+            <h2 className="text-slate-800 font-bold text-sm tracking-tight">Gerar QR Code de Correspondência</h2>
           </div>
 
           <div className="bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
@@ -1679,7 +1679,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
                 onClick={() => { setActiveGenTab('pdf'); setGeneratedQrCodeUrl(''); }}
                 className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-lg transition-all ${
                   activeGenTab === 'pdf' 
-                    ? 'bg-blue-630 text-white shadow-xs font-black' 
+                    ? 'bg-blue-600 text-white shadow-xs font-black' 
                     : 'text-slate-400 hover:text-slate-600'
                 }`}
                 style={{ backgroundColor: activeGenTab === 'pdf' ? '#2563eb' : 'transparent' }}
@@ -1691,7 +1691,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
                 onClick={() => { setActiveGenTab('form'); setGeneratedQrCodeUrl(''); }}
                 className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-lg transition-all ${
                   activeGenTab === 'form' 
-                    ? 'bg-blue-640 text-white shadow-xs font-black' 
+                    ? 'bg-blue-600 text-white shadow-xs font-black' 
                     : 'text-slate-400 hover:text-slate-600'
                 }`}
                 style={{ backgroundColor: activeGenTab === 'form' ? '#2563eb' : 'transparent' }}
@@ -1703,7 +1703,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
                 onClick={() => { setActiveGenTab('free'); setGeneratedQrCodeUrl(''); }}
                 className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-lg transition-all ${
                   activeGenTab === 'free' 
-                    ? 'bg-blue-650 text-white shadow-xs font-black' 
+                    ? 'bg-blue-700 text-white shadow-xs font-black' 
                     : 'text-slate-400 hover:text-slate-600'
                 }`}
                 style={{ backgroundColor: activeGenTab === 'free' ? '#2563eb' : 'transparent' }}
@@ -1756,7 +1756,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
 
                   {pdfPages.length > 1 && (
                     <div className="space-y-1.5Col">
-                      <p className="text-[10px] font-bold text-slate-450 uppercase">Navegar páginas:</p>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase">Navegar páginas:</p>
                       <div className="flex gap-2 overflow-x-auto pb-1">
                         {pdfPages.map((src, idx) => (
                           <img 
@@ -1773,7 +1773,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
 
                   {/* Extracted Fields Form */}
                   <div className="space-y-3 bg-slate-50 border border-slate-200 p-4 rounded-xl">
-                    <p className="text-[10px] font-black text-slate-450 uppercase mb-2">Dados Extraídos / Editáveis:</p>
+                    <p className="text-[10px] font-black text-slate-500 uppercase mb-2">Dados Extraídos / Editáveis:</p>
                     {Object.entries(extractedFields).map(([key, val]) => {
                       const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
                       return (
@@ -1996,7 +1996,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
                 <Check className="w-5 h-5 text-emerald-600" /> QR Code Gerado com Sucesso!
               </p>
 
-              <div className="bg-white rounded-xl p-4 border border-blue-105 flex items-center justify-center max-w-[200px] mx-auto">
+              <div className="bg-white rounded-xl p-4 border border-blue-100 flex items-center justify-center max-w-[200px] mx-auto">
                 <img src={generatedQrCodeUrl} alt="QR Gerado" className="w-full object-contain" />
               </div>
 
@@ -2016,7 +2016,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
                 </button>
                 <button 
                   onClick={copyQRImage}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-705 font-bold py-2.5 rounded-lg text-xs uppercase flex items-center justify-center gap-1.5 border border-slate-200"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-lg text-xs uppercase flex items-center justify-center gap-1.5 border border-slate-200"
                 >
                   <Copy className="w-4 h-4" /> Copiar Imagem
                 </button>
@@ -2051,7 +2051,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
 
           {historyData.length === 0 ? (
             <div className="text-center py-8 text-slate-400 text-xs space-y-2">
-              <Mail className="w-8 h-8 mx-auto text-slate-350" />
+              <Mail className="w-8 h-8 mx-auto text-slate-400" />
               <p>Nenhum registo de leitura no rolo local.</p>
             </div>
           ) : (
@@ -2069,7 +2069,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
                         {cfg.emoji} {cfg.label}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-450">{item.time}</span>
+                        <span className="text-slate-500">{item.time}</span>
                         <button
                           onClick={(e) => deleteHistoryItem(item.id, e)}
                           className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded-lg transition-all cursor-pointer border-0 bg-transparent flex items-center justify-center"

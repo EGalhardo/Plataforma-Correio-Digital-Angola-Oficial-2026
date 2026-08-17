@@ -765,12 +765,12 @@ export function PastaDigitalContent({
             placeholder="Pesquise por nome do documento, instituição emissora ou código..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-205 focus:border-red-500 rounded-2xl pl-12 pr-4 py-3 md:py-3.5 text-xs md:text-sm font-semibold text-slate-950 focus:bg-white transition-all outline-none placeholder:text-slate-450"
+            className="w-full bg-slate-50 border border-slate-200 focus:border-red-500 rounded-2xl pl-12 pr-4 py-3 md:py-3.5 text-xs md:text-sm font-semibold text-slate-950 focus:bg-white transition-all outline-none placeholder:text-slate-500"
           />
           {search && (
             <button 
               onClick={() => setSearch('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 bg-slate-200 hover:bg-slate-305 text-slate-600 rounded-full p-1 border-0 cursor-pointer flex items-center justify-center"
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-slate-200 hover:bg-slate-300 text-slate-600 rounded-full p-1 border-0 cursor-pointer flex items-center justify-center"
             >
               <X size={10} />
             </button>
@@ -917,9 +917,9 @@ export function PastaDigitalContent({
                           className="overflow-hidden"
                           onClick={(e) => e.stopPropagation()} // Prevent closing card when clicking inside detail section
                         >
-                          <div className="pt-4 border-t border-slate-105 mt-3 space-y-4 text-left">
+                          <div className="pt-4 border-t border-slate-100 mt-3 space-y-4 text-left">
                             {/* Description */}
-                            <p className="text-[11px] text-slate-655 font-medium leading-relaxed">
+                            <p className="text-[11px] text-slate-700 font-medium leading-relaxed">
                               {doc.description}
                             </p>
 
@@ -962,7 +962,7 @@ export function PastaDigitalContent({
                                     handleCreateQrCode(doc.code);
                                   }}
                                   title="Partilhar acesso seguro"
-                                  className="p-2 bg-slate-50 border border-slate-205 rounded-xl text-slate-500 hover:text-red-700 hover:bg-white transition-colors cursor-pointer shrink-0"
+                                  className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:text-red-700 hover:bg-white transition-colors cursor-pointer shrink-0"
                                 >
                                   <Share2 size={12} />
                                 </button>
@@ -972,7 +972,7 @@ export function PastaDigitalContent({
                                     notifyDownloadLocal(doc);
                                   }}
                                   title="Descarregar cópia original"
-                                  className="p-2 bg-slate-50 border border-slate-205 rounded-xl text-slate-500 hover:text-red-700 hover:bg-white transition-colors cursor-pointer shrink-0"
+                                  className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:text-red-700 hover:bg-white transition-colors cursor-pointer shrink-0"
                                 >
                                   <Download size={12} />
                                 </button>
@@ -1073,7 +1073,7 @@ export function PastaDigitalContent({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {Object.entries(inspectedDoc.meta).map(([key, val]) => (
                       <div key={key} className="bg-slate-50 border border-slate-150 rounded-xl p-3">
-                        <span className="block text-[8px] font-black text-slate-450 uppercase tracking-wider">{t(key)}</span>
+                        <span className="block text-[8px] font-black text-slate-500 uppercase tracking-wider">{t(key)}</span>
                         <span className="text-[10px] text-slate-800 font-extrabold uppercase mt-1 block tracking-tight truncate" title={val}>{t(String(val || ''))}</span>
                       </div>
                     ))}
@@ -1104,9 +1104,9 @@ export function PastaDigitalContent({
                     <motion.div 
                       initial={{ scale: 0.95, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      className="bg-white border border-indigo-150 p-4 rounded-2xl flex flex-col items-center justify-center text-center space-y-3.5"
+                      className="bg-white border border-indigo-200 p-4 rounded-2xl flex flex-col items-center justify-center text-center space-y-3.5"
                     >
-                      <div className="flex items-center gap-1.5 bg-indigo-55 px-3 py-1 text-[9px] font-black text-indigo-700 rounded-lg uppercase tracking-widest">
+                      <div className="flex items-center gap-1.5 bg-indigo-50 px-3 py-1 text-[9px] font-black text-indigo-700 rounded-lg uppercase tracking-widest">
                         <RefreshCw size={11} className="animate-spin text-indigo-500" />
                         Código expira em: {formatTimeCounter(qrCountdown)}
                       </div>
@@ -1145,8 +1145,8 @@ export function PastaDigitalContent({
                       disabled={isVerifyingIntegrity}
                       className={`px-4 py-2 rounded-xl text-[9.5px] font-black uppercase tracking-widest transition-all cursor-pointer border flex items-center gap-1.5 ${
                         verificationResult === 'success' 
-                          ? 'bg-emerald-50 border-emerald-250 text-emerald-800' 
-                          : 'bg-white border-slate-205 text-slate-750 hover:bg-slate-50'
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800' 
+                          : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50'
                       }`}
                     >
                       {isVerifyingIntegrity ? <RefreshCw size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
@@ -1164,7 +1164,7 @@ export function PastaDigitalContent({
                     <motion.div 
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="p-3 bg-emerald-50/70 border border-emerald-150 rounded-xl text-[9.5px] text-emerald-800 font-extrabold uppercase text-left"
+                      className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-[9.5px] text-emerald-800 font-extrabold uppercase text-left"
                     >
                       ✓ Checksum do ficheiro coincide 100% com o registado no Livro de Registos CDA-Ledger. Nenhuma alteração foi efetuada desde a chancela inicial!
                     </motion.div>
@@ -1176,7 +1176,7 @@ export function PastaDigitalContent({
               <div className="bg-slate-50 border-t border-slate-100 p-6 flex flex-col sm:flex-row gap-3">
                 <button 
                   onClick={() => notifyDownloadLocal(inspectedDoc)}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-750 text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-indigo-600/10 border-0"
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-800 text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-indigo-600/10 border-0"
                 >
                   <Download size={14} /> Descarregar Assinado (PDF)
                 </button>
@@ -1185,7 +1185,7 @@ export function PastaDigitalContent({
                     handleCreateQrCode(inspectedDoc.code);
                     notify("Acesso encriptado temporário de 15 minutos exposto para balcões!");
                   }}
-                  className="bg-white border border-slate-205 text-slate-700 py-3.5 rounded-2xl px-5 font-black text-xs uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="bg-white border border-slate-200 text-slate-700 py-3.5 rounded-2xl px-5 font-black text-xs uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Share2 size={14} /> Partilhar Acesso
                 </button>
@@ -1350,7 +1350,7 @@ export function PastaDigitalContent({
                             disabled={isProcessingCode}
                             className="p-2.5 bg-slate-50 border border-slate-150 rounded-xl text-left hover:border-cyan-500 hover:bg-white transition-all cursor-pointer block w-full space-y-1 focus:outline-none"
                           >
-                            <span className="block text-[8.5px] font-black text-slate-450 uppercase truncate">{doc.categoryLabel}</span>
+                            <span className="block text-[8.5px] font-black text-slate-500 uppercase truncate">{doc.categoryLabel}</span>
                             <span className="block text-[10px] text-slate-800 font-extrabold truncate italic uppercase tracking-tight">{doc.name}</span>
                             <span className="block text-[7.5px] font-mono text-cyan-600 truncate">{doc.code}</span>
                           </button>
@@ -1366,7 +1366,7 @@ export function PastaDigitalContent({
                     className="space-y-5 text-left"
                   >
                     {/* Visual Stamp Ribbon */}
-                    <div className="p-4 bg-emerald-50 border border-emerald-250/60 rounded-3xl flex items-start gap-3">
+                    <div className="p-4 bg-emerald-50 border border-emerald-300/60 rounded-3xl flex items-start gap-3">
                       <div className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
                         <Check size={18} />
                       </div>
@@ -1390,11 +1390,11 @@ export function PastaDigitalContent({
                         <div className="grid grid-cols-2 gap-3.5 pt-1">
                           <div>
                             <span className="text-[8.5px] font-black text-slate-400 uppercase block">Titular</span>
-                            <span className="text-slate-850 font-semibold text-slate-800">{scannedDocument.holder}</span>
+                            <span className="text-slate-900 font-semibold text-slate-800">{scannedDocument.holder}</span>
                           </div>
                           <div>
                             <span className="text-[8.5px] font-black text-slate-400 uppercase block">Data de Emissão</span>
-                            <span className="text-slate-850 font-semibold text-slate-800">{scannedDocument.date}</span>
+                            <span className="text-slate-900 font-semibold text-slate-800">{scannedDocument.date}</span>
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-3.5 pt-1">
@@ -1404,7 +1404,7 @@ export function PastaDigitalContent({
                           </div>
                           <div>
                             <span className="text-[8.5px] font-black text-slate-400 uppercase block">Entidade Orgânica</span>
-                            <span className="text-slate-850 font-semibold text-slate-800">{scannedDocument.institution}</span>
+                            <span className="text-slate-900 font-semibold text-slate-800">{scannedDocument.institution}</span>
                           </div>
                         </div>
                       </div>
@@ -1423,7 +1423,7 @@ export function PastaDigitalContent({
                       </div>
                     </div>
 
-                    <div className="flex gap-2.5 border-t border-slate-105 pt-5">
+                    <div className="flex gap-2.5 border-t border-slate-100 pt-5">
                       <button
                         type="button"
                         onClick={() => {
@@ -1440,7 +1440,7 @@ export function PastaDigitalContent({
                         onClick={() => {
                           setScannedDocument(null);
                         }}
-                        className="bg-white border border-slate-205 text-slate-700 font-black px-4 py-3 rounded-xl text-[10.5px] uppercase tracking-widest hover:bg-slate-100 transition-colors cursor-pointer text-center"
+                        className="bg-white border border-slate-200 text-slate-700 font-black px-4 py-3 rounded-xl text-[10.5px] uppercase tracking-widest hover:bg-slate-100 transition-colors cursor-pointer text-center"
                       >
                         Escanear Outro
                       </button>

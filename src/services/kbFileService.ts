@@ -56,7 +56,7 @@ const extrairTextoPdf = async (arrayBuffer: ArrayBuffer): Promise<string> => {
       .join(' ');
     partes.push(linha);
   }
-  await doc.destroy().catch(() => {});
+  await doc.destroy().catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
   return partes.join('\n').replace(/\s+/g, ' ').trim();
 };
 

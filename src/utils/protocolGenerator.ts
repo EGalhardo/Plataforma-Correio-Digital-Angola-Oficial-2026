@@ -14,7 +14,7 @@ export const CATEGORY_MAP: Record<string, CategoryMetadata> = {
     name: 'Notificação',
     icon: 'Bell',
     priority: 'Alta',
-    colorClass: 'bg-indigo-55 border-indigo-200 text-indigo-800',
+    colorClass: 'bg-indigo-50 border-indigo-200 text-indigo-800',
     accentColor: 'indigo',
     flow: ['Emissão Oficial', 'Notificação por SMS/Portal', 'Confirmação do Utente', 'Efeito Legal Concluído']
   },
@@ -38,7 +38,7 @@ export const CATEGORY_MAP: Record<string, CategoryMetadata> = {
     name: 'Fatura',
     icon: 'Receipt',
     priority: 'Média',
-    colorClass: 'bg-amber-100 border-amber-300 text-amber-850',
+    colorClass: 'bg-amber-100 border-amber-300 text-amber-900',
     accentColor: 'amber',
     flow: ['Leitura de Consumo', 'Processamento de Fatura', 'Geração de Referência', 'Reconciliação e Baixa']
   },
@@ -86,7 +86,7 @@ export const CATEGORY_MAP: Record<string, CategoryMetadata> = {
     name: 'Certificado',
     icon: 'Award',
     priority: 'Média',
-    colorClass: 'bg-orange-100 border-orange-300 text-orange-850',
+    colorClass: 'bg-orange-100 border-orange-300 text-orange-900',
     accentColor: 'orange',
     flow: ['Abertura de Protocolo', 'Assinatura do Responsável', 'Selo Digital Nacional', 'Distribuição Portável']
   },
@@ -102,7 +102,7 @@ export const CATEGORY_MAP: Record<string, CategoryMetadata> = {
     name: 'Documento Fiscal',
     icon: 'Coins',
     priority: 'Alta',
-    colorClass: 'bg-pink-100 border-pink-300 text-pink-850',
+    colorClass: 'bg-pink-100 border-pink-300 text-pink-900',
     accentColor: 'pink',
     flow: ['Imposto Declarado', 'Cálculo de Guia IPU/IVA', 'Auditoria Fiscal Eletrónica', 'Quitação e Liquidação']
   },
@@ -121,7 +121,7 @@ export function getCategoryMetadata(categoryName: string): CategoryMetadata {
     name: categoryName,
     icon: 'Scroll',
     priority: 'Média',
-    colorClass: 'bg-slate-100 border-slate-350 text-slate-800',
+    colorClass: 'bg-slate-100 border-slate-400 text-slate-800',
     accentColor: 'slate',
     flow: ['Emissão', 'Processamento', 'Validação', 'Conclusão']
   };

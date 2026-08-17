@@ -202,8 +202,8 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
           <h1 className="text-2xl md:text-3xl font-black text-slate-950 tracking-tight">Perfil do Utilizador</h1>
           <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">Gerencie suas informações pessoais e preferências de acesso</p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-[#f0f4ff] border border-blue-150 rounded-full text-blue-700 font-extrabold text-[11px] uppercase tracking-wider">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-505 bg-emerald-500 animate-pulse" />
+        <div className="flex items-center gap-2 px-4 py-2 bg-[#f0f4ff] border border-blue-200 rounded-full text-blue-700 font-extrabold text-[11px] uppercase tracking-wider">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 bg-emerald-500 animate-pulse" />
           <span>Online & Autenticado</span>
         </div>
       </div>
@@ -217,9 +217,9 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
             exit={{ opacity: 0, y: -10 }}
             className={`p-4 border rounded-2xl flex items-start gap-3 text-xs relative ${
               feedback.type === 'success' 
-                ? 'bg-emerald-50/90 border-emerald-150 text-emerald-900' 
+                ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900' 
                 : feedback.type === 'error'
-                ? 'bg-rose-50/90 border-rose-150 text-rose-900'
+                ? 'bg-rose-50/90 border-rose-200 text-rose-900'
                 : 'bg-slate-50/90 border-slate-150 text-slate-800'
             }`}
           >
@@ -284,7 +284,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
             {/* Checkmark or Action Trigger overlay */}
             <label 
               htmlFor="inst-photo-upload"
-              className="absolute -bottom-1 -right-1 text-white p-2 rounded-xl border-2 border-white bg-indigo-600 hover:bg-indigo-750 shadow-md cursor-pointer transition-all active:scale-95 flex items-center justify-center"
+              className="absolute -bottom-1 -right-1 text-white p-2 rounded-xl border-2 border-white bg-indigo-600 hover:bg-indigo-800 shadow-md cursor-pointer transition-all active:scale-95 flex items-center justify-center"
               title="Carregar nova foto"
             >
               <Camera size={14} strokeWidth={2.5} />

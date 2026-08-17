@@ -920,14 +920,14 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                     return (
                       <div 
                         key={step.id} 
-                        className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-3 flex items-center justify-between gap-4 hover:border-slate-750 transition-all"
+                        className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-3 flex items-center justify-between gap-4 hover:border-slate-800 transition-all"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
                             step.status === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
                             step.status === 'running' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' :
                             step.status === 'failed' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
-                            'bg-slate-800 text-slate-550 border border-slate-750'
+                            'bg-slate-800 text-slate-600 border border-slate-800'
                           }`}>
                             <span className="font-mono text-[10px] font-black">{step.id.toUpperCase()}</span>
                           </div>
@@ -953,7 +953,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           )}
                           {step.status === 'running' && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-500/10 text-indigo-400 rounded-full font-mono text-[7.5px] font-black uppercase">
-                              <span className="w-1 h-1 rounded-full bg-indigo-450 animate-pulse" />
+                              <span className="w-1 h-1 rounded-full bg-indigo-500 animate-pulse" />
                               A Gravar...
                             </span>
                           )}
@@ -980,7 +980,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                   Consola de Transações SGE e Logs Supabase
                 </span>
 
-                <div className="flex-1 bg-black/45 border border-slate-850 rounded-2xl p-4 font-mono text-[9.5px] text-emerald-400 min-h-[200px] max-h-[250px] overflow-y-auto flex flex-col gap-1.5 custom-scrollbar">
+                <div className="flex-1 bg-black/45 border border-slate-900 rounded-2xl p-4 font-mono text-[9.5px] text-emerald-400 min-h-[200px] max-h-[250px] overflow-y-auto flex flex-col gap-1.5 custom-scrollbar">
                   {testLog.length === 0 ? (
                     <span className="text-slate-500 italic">Consola de depuração síncrona inativa...</span>
                   ) : (
@@ -1025,7 +1025,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
               <span className="text-xl font-black text-slate-800 font-mono leading-none">{metrics.totalInsts}</span>
               <span className="text-[9.5px] font-extrabold text-[#4f46e5]">({metrics.activeInsts} Ativas)</span>
             </div>
-            <p className="text-[9.5px] text-slate-450 mt-1 leading-normal font-sans">Unidades operacionais</p>
+            <p className="text-[9.5px] text-slate-500 mt-1 leading-normal font-sans">Unidades operacionais</p>
           </div>
         </div>
 
@@ -1040,7 +1040,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
               <span className="text-xl font-black text-slate-800 font-mono leading-none">{metrics.totalCorr.toLocaleString()}</span>
               <span className="text-[9.5px] text-emerald-600 font-extrabold">+12.4%</span>
             </div>
-            <p className="text-[9.5px] text-slate-450 mt-1 leading-normal font-sans">Transações efetuadas</p>
+            <p className="text-[9.5px] text-slate-500 mt-1 leading-normal font-sans">Transações efetuadas</p>
           </div>
         </div>
 
@@ -1055,7 +1055,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
               <span className="text-xl font-black text-slate-800 font-mono leading-none">{metrics.avgAiUsage}%</span>
               <span className="text-[9px] text-purple-600 font-black uppercase tracking-wider bg-purple-50 px-1.5 py-0.5 rounded-lg border border-purple-100">Inteligente</span>
             </div>
-            <p className="text-[9.5px] text-slate-450 mt-1 leading-normal font-sans">Automação assistida</p>
+            <p className="text-[9.5px] text-slate-500 mt-1 leading-normal font-sans">Automação assistida</p>
           </div>
         </div>
 
@@ -1070,7 +1070,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
               <span className="text-xl font-black text-slate-800 font-mono leading-none">{metrics.avgPerformance}%</span>
               <span className="text-[9.5px] text-amber-600 font-extrabold">SLA</span>
             </div>
-            <p className="text-[9.5px] text-slate-450 mt-1 leading-normal font-sans">Taxa de resolução média</p>
+            <p className="text-[9.5px] text-slate-500 mt-1 leading-normal font-sans">Taxa de resolução média</p>
           </div>
         </div>
       </div>
@@ -1176,7 +1176,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
               <select
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[11px] font-bold text-slate-800 outline-none focus:border-slate-850 cursor-pointer appearance-none"
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[11px] font-bold text-slate-800 outline-none focus:border-slate-900 cursor-pointer appearance-none"
               >
                 <option value="">Todas as Instituições</option>
                 {institutions.map(inst => (
@@ -1199,7 +1199,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                 setFilterMunicipio('Todos');
                 setCurrentPage(1);
               }}
-              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-850 cursor-pointer"
+              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-900 cursor-pointer"
             >
               {Object.keys(MUNICIPALITIES_BY_PROVINCE).map(prov => (
                 <option key={prov} value={prov}>{prov === 'Todas' ? 'Todas' : prov}</option>
@@ -1213,7 +1213,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
             <select
               value={filterMunicipio}
               onChange={(e) => { setFilterMunicipio(e.target.value); setCurrentPage(1); }}
-              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-850 cursor-pointer"
+              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-900 cursor-pointer"
               disabled={filterProvince === 'Todas'}
             >
               {currentMunicipalities.map(mun => (
@@ -1228,7 +1228,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
             <select
               value={filterCategory}
               onChange={(e) => { setFilterCategory(e.target.value); setCurrentPage(1); }}
-              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-850 cursor-pointer"
+              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-900 cursor-pointer"
             >
               <option value="Todas">Todas as Categorias</option>
               <option value="Finanças">Finanças / Tributos</option>
@@ -1251,7 +1251,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                   className={`px-4 py-2 border rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer ${
                     filterStatus === st 
                       ? 'bg-[#0E2B64] border-[#0E2B64] text-white' 
-                      : 'bg-white border-slate-200 text-slate-655 hover:bg-slate-50'
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   {st}
@@ -1267,7 +1267,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
         {paginatedInstitutions.length > 0 ? (
           <div className="overflow-x-auto rounded-[24px] bg-white max-h-[600px] border border-slate-200 shadow-xs">
             <table className="mobile-data-table w-full text-left border-collapse text-[10px] md:text-xs">
-              <thead className="sticky top-0 z-10 bg-[#0c2340] text-indigo-100 text-[8.5px] md:text-[10px] font-extrabold uppercase tracking-widest border-b border-slate-705">
+              <thead className="sticky top-0 z-10 bg-[#0c2340] text-indigo-100 text-[8.5px] md:text-[10px] font-extrabold uppercase tracking-widest border-b border-slate-700">
                 <tr>
                   <th className="py-4 px-4 rounded-l-[20px]">Instituição</th>
                   <th className="py-4 px-4">Localização</th>
@@ -1295,7 +1295,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-4 font-bold text-slate-755">
+                    <td className="py-4 px-4 font-bold text-slate-800">
                       <div className="flex items-center gap-1.5 text-xs">
                         <MapPin size={12} className="text-slate-400 shrink-0" />
                         <span>{inst.province} &bull; {inst.municipio}</span>
@@ -1304,7 +1304,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                     <td className="py-4 px-4">
                       {inst.responsibleName ? (
                         <div>
-                          <span className="font-bold text-slate-850 block text-xs leading-none">{inst.responsibleName}</span>
+                          <span className="font-bold text-slate-900 block text-xs leading-none">{inst.responsibleName}</span>
                           <span className="text-[9.5px] text-slate-400 block mt-1 font-semibold">{inst.responsibleRole}</span>
                         </div>
                       ) : (
@@ -1382,7 +1382,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
         {/* Pagination bar */}
         {totalPages > 1 && (
-          <div className="bg-white border border-slate-205 rounded-[32px] p-6 flex items-center justify-between text-[11px] font-bold shadow-3xs">
+          <div className="bg-white border border-slate-200 rounded-[32px] p-6 flex items-center justify-between text-[11px] font-bold shadow-3xs">
             <span className="text-slate-400">Páginas {currentPage} de {totalPages}</span>
             <div className="flex gap-2">
               <button 
@@ -1458,38 +1458,38 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                     {/* NOME INSTITUCIONAL COMPLETO */}
                     <div className="grid gap-1.5 md:col-span-5 text-left">
-                      <label className="text-[10px] font-black text-slate-450 uppercase tracking-widest ml-1">Nome Institucional Completo *</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome Institucional Completo *</label>
                       <input 
                         type="text" 
                         required
                         value={formFullName}
                         onChange={(e) => setFormFullName(e.target.value)}
                         placeholder="Ex: Serviço de Migração e Estrangeiros"
-                        className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] px-4 py-3.5 text-xs font-bold text-slate-850 outline-none transition-all placeholder:text-slate-350"
+                        className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] px-4 py-3.5 text-xs font-bold text-slate-900 outline-none transition-all placeholder:text-slate-400"
                       />
                     </div>
 
                     {/* SIGLA INSTITUCIONAL */}
                     <div className="grid gap-1.5 md:col-span-3 text-left">
-                      <label className="text-[10px] font-black text-slate-450 uppercase tracking-widest ml-1">Sigla Institucional *</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Sigla Institucional *</label>
                       <input 
                         type="text" 
                         required
                         value={formName}
                         onChange={(e) => setFormName(e.target.value)}
                         placeholder="Ex: SME"
-                        className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] px-4 py-3.5 text-xs font-bold text-slate-855 outline-none transition-all placeholder:text-slate-350"
+                        className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] px-4 py-3.5 text-xs font-bold text-slate-900 outline-none transition-all placeholder:text-slate-400"
                       />
                     </div>
 
                     {/* TIPO DE INSTITUIÇÃO */}
                     <div className="grid gap-1.5 md:col-span-4 text-left">
-                      <label className="text-[10px] font-black text-slate-450 uppercase tracking-widest ml-1">Tipo de Instituição *</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tipo de Instituição *</label>
                       <div className="relative">
                         <select
                           value={formTypeInst}
                           onChange={(e) => setFormTypeInst(e.target.value)}
-                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-4 pr-10 py-3.5 text-xs font-bold text-slate-850 outline-none appearance-none cursor-pointer transition-all"
+                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-4 pr-10 py-3.5 text-xs font-bold text-slate-900 outline-none appearance-none cursor-pointer transition-all"
                         >
                           <option value="" disabled>Selecione o tipo</option>
                           {INSTITUTION_TYPES.map(type => (
@@ -1516,7 +1516,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                     {/* PROVÍNCIA */}
                     <div className="grid gap-1.5 md:col-span-4 text-left">
-                      <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest ml-1">Província *</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Província *</label>
                       <div className="relative">
                         <select
                           value={formProvince}
@@ -1534,7 +1534,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                             const communes = COMMUNES_BY_MUNICIPALITY[nextMuni] || ['Sede'];
                             setFormComuna(communes[0] || 'Sede');
                           }}
-                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-4 pr-10 py-3.5 text-xs font-bold text-slate-850 outline-none appearance-none cursor-pointer transition-all"
+                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-4 pr-10 py-3.5 text-xs font-bold text-slate-900 outline-none appearance-none cursor-pointer transition-all"
                         >
                           {Object.keys(MUNICIPALITIES_BY_PROVINCE).filter(p => p !== 'Todas').map(prov => (
                             <option key={prov} value={prov}>{prov}</option>
@@ -1548,12 +1548,12 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                     {/* CIDADE */}
                     <div className="grid gap-1.5 md:col-span-4 text-left">
-                      <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest ml-1">Cidade *</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Cidade *</label>
                       <div className="relative">
                         <select
                           value={formCidade}
                           onChange={(e) => setFormCidade(e.target.value)}
-                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-4 pr-10 py-3.5 text-xs font-bold text-slate-850 outline-none appearance-none cursor-pointer transition-all"
+                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-4 pr-10 py-3.5 text-xs font-bold text-slate-900 outline-none appearance-none cursor-pointer transition-all"
                         >
                           {formCities.map(city => (
                             <option key={city} value={city}>{city}</option>
@@ -1567,7 +1567,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                     {/* MUNICÍPIO */}
                     <div className="grid gap-1.5 md:col-span-4 text-left">
-                      <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest ml-1">Município *</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Município *</label>
                       <div className="relative">
                         <select
                           value={formMunicipio}
@@ -1578,7 +1578,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                             const communes = COMMUNES_BY_MUNICIPALITY[nextMuni] || ['Sede'];
                             setFormComuna(communes[0] || 'Sede');
                           }}
-                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-4 pr-10 py-3.5 text-xs font-bold text-slate-850 outline-none appearance-none cursor-pointer transition-all"
+                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-4 pr-10 py-3.5 text-xs font-bold text-slate-900 outline-none appearance-none cursor-pointer transition-all"
                         >
                           {formMunicipalities.map(m => (
                             <option key={m} value={m}>{m}</option>
@@ -1592,12 +1592,12 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                     {/* COMUNA */}
                     <div className="grid gap-1.5 md:col-span-4 text-left">
-                      <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest ml-1">Comuna *</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Comuna *</label>
                       <div className="relative">
                         <select
                           value={formComuna}
                           onChange={(e) => setFormComuna(e.target.value)}
-                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-4 pr-10 py-3.5 text-xs font-bold text-slate-850 outline-none appearance-none cursor-pointer transition-all"
+                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-4 pr-10 py-3.5 text-xs font-bold text-slate-900 outline-none appearance-none cursor-pointer transition-all"
                         >
                           {formCommunes.map(c => (
                             <option key={c} value={c}>{c}</option>
@@ -1611,13 +1611,13 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                     {/* ENDEREÇO INSTITUCIONAL */}
                     <div className="grid gap-1.5 md:col-span-8 text-left">
-                      <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest ml-1">Endereço Institucional</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Endereço Institucional</label>
                       <input 
                         type="text" 
                         value={formAddress}
                         onChange={(e) => setFormAddress(e.target.value)}
                         placeholder="Ex: Rua Rainha Ginga nº 120, Luanda"
-                        className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] px-4 py-3.5 text-xs font-bold text-slate-850 outline-none transition-all placeholder:text-slate-350"
+                        className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] px-4 py-3.5 text-xs font-bold text-slate-900 outline-none transition-all placeholder:text-slate-400"
                       />
                     </div>
                   </div>
@@ -1635,7 +1635,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* EMAIL INSTITUCIONAL */}
                     <div className="grid gap-1.5 text-left">
-                      <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest ml-1">Email Institucional *</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Email Institucional *</label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                           <Mail size={16} />
@@ -1646,14 +1646,14 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           value={formContactEmail}
                           onChange={(e) => setFormContactEmail(e.target.value)}
                           placeholder="Ex: geral@sme.gov.ao"
-                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-11 pr-4 py-3.5 text-xs font-bold text-slate-850 outline-none transition-all placeholder:text-slate-350"
+                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-11 pr-4 py-3.5 text-xs font-bold text-slate-900 outline-none transition-all placeholder:text-slate-400"
                         />
                       </div>
                     </div>
 
                     {/* TELEFONE INSTITUCIONAL */}
                     <div className="grid gap-1.5 text-left">
-                      <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest ml-1">Telefone Institucional *</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Telefone Institucional *</label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                           <Phone size={16} />
@@ -1664,7 +1664,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           value={formContactPhone}
                           onChange={(e) => setFormContactPhone(e.target.value)}
                           placeholder="Ex: +244 923 000 000"
-                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-11 pr-4 py-3.5 text-xs font-bold text-slate-850 outline-none transition-all placeholder:text-slate-350 font-mono"
+                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-11 pr-4 py-3.5 text-xs font-bold text-slate-900 outline-none transition-all placeholder:text-slate-400 font-mono"
                         />
                       </div>
                     </div>
@@ -1683,7 +1683,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* NOME DO RESPONSÁVEL */}
                     <div className="grid gap-1.5 text-left">
-                      <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest ml-1">Nome do Responsável *</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome do Responsável *</label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                           <User size={16} />
@@ -1694,14 +1694,14 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           value={formResponsibleName}
                           onChange={(e) => setFormResponsibleName(e.target.value)}
                           placeholder="Ex: Dr. António Fernando"
-                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-11 pr-4 py-3.5 text-xs font-bold text-slate-850 outline-none transition-all placeholder:text-slate-350"
+                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-11 pr-4 py-3.5 text-xs font-bold text-slate-900 outline-none transition-all placeholder:text-slate-400"
                         />
                       </div>
                     </div>
 
                     {/* CARGO DO RESPONSÁVEL */}
                     <div className="grid gap-1.5 text-left">
-                      <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest ml-1">Cargo do Responsável *</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Cargo do Responsável *</label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                           <Briefcase size={16} />
@@ -1712,7 +1712,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           value={formResponsibleRole}
                           onChange={(e) => setFormResponsibleRole(e.target.value)}
                           placeholder="Ex: Ex: Director Geral"
-                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-11 pr-4 py-3.5 text-xs font-bold text-slate-850 outline-none transition-all placeholder:text-slate-350"
+                          className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-11 pr-4 py-3.5 text-xs font-bold text-slate-900 outline-none transition-all placeholder:text-slate-400"
                         />
                       </div>
                     </div>
@@ -1733,7 +1733,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                     <div className="grid gap-4">
                       {/* CÓDIGO INSTITUCIONAL */}
                       <div className="grid gap-1.5 text-left">
-                        <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest ml-1">Código Institucional *</label>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Código Institucional *</label>
                         <div className="relative">
                           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                             <Phone size={16} />
@@ -1744,7 +1744,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                             value={formInstCode}
                             onChange={(e) => setFormInstCode(e.target.value)}
                             placeholder="Ex: SME-001"
-                            className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-11 pr-4 py-3.5 text-xs font-bold text-slate-850 outline-none transition-all placeholder:text-slate-350 font-mono"
+                            className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-11 pr-4 py-3.5 text-xs font-bold text-slate-900 outline-none transition-all placeholder:text-slate-400 font-mono"
                           />
                         </div>
                         <p className="text-[10px] text-slate-400 leading-normal m-0 select-none block text-left font-medium">
@@ -1754,12 +1754,12 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                       {/* ESTADO DA INSTITUIÇÃO */}
                       <div className="grid gap-1.5 text-left">
-                        <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest ml-1">Estado da Instituição *</label>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Estado da Instituição *</label>
                         <div className="relative">
                           <select
                             value={formStatusLocal}
                             onChange={(e) => setFormStatusLocal(e.target.value as any)}
-                            className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-4 pr-10 py-3.5 text-xs font-bold text-slate-850 outline-none appearance-none cursor-pointer transition-all"
+                            className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-4 pr-10 py-3.5 text-xs font-bold text-slate-900 outline-none appearance-none cursor-pointer transition-all"
                           >
                             <option value="Ativa">Ativa</option>
                             <option value="Inativa">Inativa</option>
@@ -2207,11 +2207,11 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                         <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-50">
                           <div>
                             <span className="text-[8.5px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Telefone</span>
-                            <span className="font-mono font-extrabold text-slate-750">{selectedInstHistory.contactPhone || '+244 923 000 000'}</span>
+                            <span className="font-mono font-extrabold text-slate-800">{selectedInstHistory.contactPhone || '+244 923 000 000'}</span>
                           </div>
                           <div>
                             <span className="text-[8.5px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Email Oficial</span>
-                            <span className="font-extrabold text-slate-750 truncate block leading-normal" title={selectedInstHistory.contactEmail}>{selectedInstHistory.contactEmail || 'N/A'}</span>
+                            <span className="font-extrabold text-slate-800 truncate block leading-normal" title={selectedInstHistory.contactEmail}>{selectedInstHistory.contactEmail || 'N/A'}</span>
                           </div>
                         </div>
 
@@ -2248,11 +2248,11 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                       <div className="flex justify-between items-center bg-slate-50 p-3.5 border border-slate-100 rounded-xl text-[10px] font-bold gap-4">
                         <div className="space-y-1">
-                          <span className="text-[8.5px] font-black text-slate-450 uppercase tracking-widest block leading-none">EQUIPA</span>
+                          <span className="text-[8.5px] font-black text-slate-500 uppercase tracking-widest block leading-none">EQUIPA</span>
                           <span className="text-base text-slate-900 font-mono font-black block leading-none">{selectedInstHistory.totalAgents} agentes</span>
                         </div>
                         <div className="space-y-1 text-right">
-                          <span className="text-[8.5px] font-black text-slate-455 uppercase tracking-widest block leading-none">SLA DESEMPENHO</span>
+                          <span className="text-[8.5px] font-black text-slate-500 uppercase tracking-widest block leading-none">SLA DESEMPENHO</span>
                           <span className="text-base text-emerald-600 font-mono font-black block leading-none">{selectedInstHistory.performanceScore || selectedInstHistory.responseRate || '95%'}</span>
                         </div>
                       </div>
@@ -2292,7 +2292,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                       <div className="space-y-1">
                         <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest block mb-2 leading-none">Último Registo Operacional</span>
                         <div className="p-2.5 bg-slate-50/30 border border-slate-100 rounded-xl relative overflow-hidden text-[10px]">
-                          <p className="font-bold text-slate-705 leading-normal">Fluxo de correspondência processado com sucesso pelo barramento seguro nacional.</p>
+                          <p className="font-bold text-slate-700 leading-normal">Fluxo de correspondência processado com sucesso pelo barramento seguro nacional.</p>
                           <div className="flex items-center gap-2 mt-1.5 font-mono text-[8.5px] text-slate-400">
                             <span className="font-bold text-[#4f46e5]">AGENTE_AUTOMATED_SISTEMA</span>
                             <span>&bull;</span>

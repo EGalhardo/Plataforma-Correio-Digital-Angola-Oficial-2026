@@ -442,7 +442,7 @@ export function GovDashboard({
               </div>
               <div className="flex items-center gap-1.5 mt-1">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[9px] md:text-xs font-bold text-slate-655">Acesso Governamental Ativo (100%)</span>
+                <span className="text-[9px] md:text-xs font-bold text-slate-700">Acesso Governamental Ativo (100%)</span>
               </div>
             </div>
           </div>
@@ -707,7 +707,7 @@ export function GovDashboard({
                   </span>
                 </div>
               </div>
-              <div className="px-3 py-1 bg-indigo-50 border border-indigo-150 rounded-full text-indigo-750 text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 self-start sm:self-auto">
+              <div className="px-3 py-1 bg-indigo-50 border border-indigo-200 rounded-full text-indigo-800 text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 self-start sm:self-auto">
                 <ShieldAlert size={12} /> Exclusivo Operador
               </div>
             </div>
@@ -728,7 +728,7 @@ export function GovDashboard({
                       placeholder="e.g. 009874562LA041"
                       value={searchBiQuery}
                       onChange={(e) => setSearchBiQuery(e.target.value)}
-                      className="w-full bg-slate-55 border border-slate-200 focus:border-indigo-550 focus:bg-white rounded-xl pl-9 pr-4 py-2.5 text-xs font-bold text-slate-900 outline-none placeholder:text-slate-400 font-mono tracking-widest"
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-600 focus:bg-white rounded-xl pl-9 pr-4 py-2.5 text-xs font-bold text-slate-900 outline-none placeholder:text-slate-400 font-mono tracking-widest"
                     />
                   </div>
 
@@ -736,7 +736,7 @@ export function GovDashboard({
                     <button
                       type="button"
                       onClick={handleQueryCitizen}
-                      className="flex-1 bg-indigo-600 hover:bg-indigo-750 text-white rounded-xl py-2.5 text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer border-0 shadow-sm"
+                      className="flex-1 bg-indigo-600 hover:bg-indigo-800 text-white rounded-xl py-2.5 text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer border-0 shadow-sm"
                     >
                       Buscar Cidadão
                     </button>
@@ -753,7 +753,7 @@ export function GovDashboard({
                 </div>
 
                 {searchedCitizen ? (
-                  <div className="p-3.5 bg-emerald-50 border border-emerald-150 rounded-xl space-y-1.5 animate-fadeIn text-left">
+                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1.5 animate-fadeIn text-left">
                     <div className="flex items-center gap-1.5 text-emerald-700 text-[9px] font-black uppercase tracking-widest font-sans">
                       <CheckCircle2 size={13} className="text-emerald-500" /> Registro Localizado
                     </div>
@@ -765,7 +765,7 @@ export function GovDashboard({
                     </div>
                   </div>
                 ) : searchAttempted ? (
-                  <div className="p-3.5 bg-rose-50 border border-rose-150 rounded-xl space-y-1 text-left">
+                  <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-1 text-left">
                     <div className="text-rose-700 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 font-sans">
                       <Ban size={13} /> Sem Resultados
                     </div>
@@ -800,7 +800,7 @@ export function GovDashboard({
                         disabled={!searchedCitizen}
                         value={tempProfileName}
                         onChange={(e) => setTempProfileName(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 disabled:opacity-50 rounded-xl px-4 py-2.5 text-xs font-black text-slate-850 outline-none focus:border-indigo-500 focus:bg-white"
+                        className="w-full bg-slate-50 border border-slate-200 disabled:opacity-50 rounded-xl px-4 py-2.5 text-xs font-black text-slate-900 outline-none focus:border-indigo-500 focus:bg-white"
                       />
                     </div>
 
@@ -811,7 +811,7 @@ export function GovDashboard({
                         disabled={!searchedCitizen}
                         value={tempBiField}
                         onChange={(e) => setTempBiField(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 disabled:opacity-50 rounded-xl px-4 py-2.5 text-xs font-mono font-bold text-slate-850 outline-none focus:border-indigo-500 focus:bg-white tracking-widest"
+                        className="w-full bg-slate-50 border border-slate-200 disabled:opacity-50 rounded-xl px-4 py-2.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white tracking-widest"
                       />
                     </div>
 
@@ -822,7 +822,7 @@ export function GovDashboard({
                         disabled={!searchedCitizen}
                         value={tempBirthField}
                         onChange={(e) => setTempBirthField(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 disabled:opacity-50 rounded-xl px-4 py-2.5 text-xs font-mono font-bold text-slate-850 outline-none focus:border-indigo-500 focus:bg-white tracking-wider"
+                        className="w-full bg-slate-50 border border-slate-200 disabled:opacity-50 rounded-xl px-4 py-2.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white tracking-wider"
                       />
                     </div>
 
@@ -832,7 +832,7 @@ export function GovDashboard({
                         disabled={!searchedCitizen}
                         value={tempMaritalField}
                         onChange={(e) => setTempMaritalField(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 disabled:opacity-50 rounded-xl px-3 py-2.5 text-xs font-black text-slate-850 outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
+                        className="w-full bg-slate-50 border border-slate-200 disabled:opacity-50 rounded-xl px-3 py-2.5 text-xs font-black text-slate-900 outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
                       >
                         <option value="Solteiro">Solteiro</option>
                         <option value="Casado">Casado</option>
@@ -848,7 +848,7 @@ export function GovDashboard({
                         disabled={!searchedCitizen}
                         value={tempFiliationField}
                         onChange={(e) => setTempFiliationField(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 disabled:opacity-50 rounded-xl px-4 py-2.5 text-xs font-black text-slate-850 outline-none focus:border-indigo-500 focus:bg-white"
+                        className="w-full bg-slate-50 border border-slate-200 disabled:opacity-50 rounded-xl px-4 py-2.5 text-xs font-black text-slate-900 outline-none focus:border-indigo-500 focus:bg-white"
                       />
                     </div>
 
@@ -863,14 +863,14 @@ export function GovDashboard({
                           setTempMaritalField(searchedCitizen?.maritalStatus || '');
                           setTempFiliationField(searchedCitizen?.filiation || '');
                         }}
-                        className="flex-1 bg-white border border-slate-250 text-slate-700 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50 hover:bg-slate-50 transition-all cursor-pointer"
+                        className="flex-1 bg-white border border-slate-300 text-slate-700 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50 hover:bg-slate-50 transition-all cursor-pointer"
                       >
                         Descartar
                       </button>
                       <button
                         type="submit"
                         disabled={!searchedCitizen}
-                        className="flex-1 bg-indigo-600 hover:bg-indigo-755 text-white py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50 transition-all cursor-pointer border-0 shadow-md"
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-800 text-white py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50 transition-all cursor-pointer border-0 shadow-md"
                       >
                         Efetuar Atualização Cadastral
                       </button>
@@ -887,7 +887,7 @@ export function GovDashboard({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
-                  className="bg-emerald-50 border border-emerald-250 rounded-[20px] p-5 text-left mt-4 animate-fadeIn"
+                  className="bg-emerald-50 border border-emerald-300 rounded-[20px] p-5 text-left mt-4 animate-fadeIn"
                 >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div className="flex items-start gap-3">
@@ -898,7 +898,7 @@ export function GovDashboard({
                         <h4 className="font-sans text-[11px] font-black text-emerald-950 uppercase tracking-wider mb-1">
                           Selo Eletrónico de Homologação de Dados Cadastrais
                         </h4>
-                        <p className="text-[11px] text-emerald-850 font-bold leading-normal">
+                        <p className="text-[11px] text-emerald-900 font-bold leading-normal">
                           A ficha cadastral foi atualizada com sucesso e enviada ao Registo de Identidade Única do Cidadão. Atualização selada eletronicamente.
                         </p>
                         <div className="flex flex-wrap gap-x-3 gap-y-1.5 mt-3 text-[9px] font-mono leading-none text-emerald-700 font-black uppercase">
@@ -913,7 +913,7 @@ export function GovDashboard({
                     <button
                       type="button"
                       onClick={() => setLastUpdatedProtocol(null)}
-                      className="ml-auto text-[8px] font-mono uppercase font-black text-rose-600 border border-rose-250 hover:bg-rose-100/50 px-2.5 py-1 rounded-lg shrink-0 cursor-pointer transition-colors"
+                      className="ml-auto text-[8px] font-mono uppercase font-black text-rose-600 border border-rose-300 hover:bg-rose-100/50 px-2.5 py-1 rounded-lg shrink-0 cursor-pointer transition-colors"
                     >
                       Fechar Recibo
                     </button>
@@ -1025,13 +1025,13 @@ export function GovDashboard({
                     <button
                       type="button"
                       onClick={() => setIsCreateModalOpen(false)}
-                      className="flex-1 bg-white border border-slate-250 text-slate-700 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all cursor-pointer"
+                      className="flex-1 bg-white border border-slate-300 text-slate-700 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all cursor-pointer"
                     >
                       Anular
                     </button>
                     <button
                       type="submit"
-                      className="flex-1 bg-slate-900 border-0 text-white hover:bg-slate-850 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer shadow-md"
+                      className="flex-1 bg-slate-900 border-0 text-white hover:bg-slate-900 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer shadow-md"
                     >
                       Instaurar & Emitir
                     </button>
@@ -1101,7 +1101,7 @@ export function GovDashboard({
             {/* Left Box: Sessions Table / List */}
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-3xs space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 className="text-xs font-black text-slate-905 uppercase tracking-widest font-mono flex items-center gap-2">
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest font-mono flex items-center gap-2">
                   <Video size={14} className="text-indigo-600 animate-pulse" /> Histórico Geral de Sessões por Instituição
                 </h3>
               </div>
@@ -1121,15 +1121,15 @@ export function GovDashboard({
                     {videoSessions.length > 0 ? (
                       videoSessions.map((sess) => (
                         <tr key={sess.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-3 py-2.5 font-mono font-bold text-indigo-750 whitespace-nowrap">{sess.associatedProtocol || 'Geral'}</td>
+                          <td className="px-3 py-2.5 font-mono font-bold text-indigo-800 whitespace-nowrap">{sess.associatedProtocol || 'Geral'}</td>
                           <td className="px-3 py-2.5 font-semibold text-slate-800">{sess.subject}</td>
                           <td className="px-3 py-2.5 font-bold text-slate-650 whitespace-nowrap">{sess.hostName}</td>
                           <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{sess.guestName}</td>
                           <td className="px-3 py-2.5 whitespace-nowrap">
                             {sess.status === 'agendada' && <span className="bg-blue-50 border border-blue-200 text-blue-700 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded">Agendada</span>}
-                            {sess.status === 'disponivel' && <span className="bg-emerald-50 border border-emerald-250 text-emerald-700 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded animate-pulse">Livre</span>}
-                            {sess.status === 'em_curso' && <span className="bg-red-50 border border-red-250 text-red-700 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 w-fit"><span className="w-1 h-1 rounded-full bg-red-650 animate-ping inline-block" /> Activa</span>}
-                            {sess.status === 'concluida' && <span className="bg-purple-50 border border-purple-250 text-purple-700 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded">Concluída</span>}
+                            {sess.status === 'disponivel' && <span className="bg-emerald-50 border border-emerald-300 text-emerald-700 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded animate-pulse">Livre</span>}
+                            {sess.status === 'em_curso' && <span className="bg-red-50 border border-red-300 text-red-700 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 w-fit"><span className="w-1 h-1 rounded-full bg-red-650 animate-ping inline-block" /> Activa</span>}
+                            {sess.status === 'concluida' && <span className="bg-purple-50 border border-purple-300 text-purple-700 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded">Concluída</span>}
                             {sess.status === 'cancelada' && <span className="bg-slate-100 border border-slate-300 text-slate-500 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded">Cancelada</span>}
                           </td>
                         </tr>
@@ -1611,7 +1611,7 @@ export function GovDashboard({
                     <div key={index} className="flex justify-between items-center text-[11px] p-2 hover:bg-slate-50 rounded-xl transition-colors">
                       <div className="flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        <span className="font-bold text-slate-850 uppercase tracking-wide">
+                        <span className="font-bold text-slate-900 uppercase tracking-wide">
                           {act.desc}
                         </span>
                       </div>

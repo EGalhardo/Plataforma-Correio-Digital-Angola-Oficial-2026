@@ -227,7 +227,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
   }
 
   return (
-    <div className="bg-white border border-slate-250 rounded-3xl p-6 space-y-6 text-left shadow-xs">
+    <div className="bg-white border border-slate-300 rounded-3xl p-6 space-y-6 text-left shadow-xs">
       <div className="flex items-start md:items-center justify-between gap-4 pb-4 border-b border-slate-150">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center shadow-inner">
@@ -244,7 +244,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
           <button 
             type="button"
             onClick={() => { setSession(null); setIsJoining(false); }}
-            className="text-[10px] font-black uppercase text-indigo-755 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-xl hover:bg-indigo-100 transition-colors shrink-0"
+            className="text-[10px] font-black uppercase text-indigo-800 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-xl hover:bg-indigo-100 transition-colors shrink-0"
           >
             Voltar ao Centro de Atendimentos
           </button>
@@ -281,7 +281,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
             <div className="flex items-center gap-2">
               <button
                 onClick={handleCopyLink}
-                className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-250 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
                 title="Copiar link"
               >
                 <Copy size={13} />
@@ -304,7 +304,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 border border-slate-150 p-4 rounded-2xl">
             <div className="space-y-1.5 text-xs text-slate-700 font-medium">
               <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Assunto do Atendimento</span>
-              <p className="font-bold text-slate-850 text-sm leading-snug">{session.subject}</p>
+              <p className="font-bold text-slate-900 text-sm leading-snug">{session.subject}</p>
             </div>
             
             <div className="space-y-1.5 text-xs text-slate-700 font-medium">
@@ -369,7 +369,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
 
                 <button
                   onClick={() => handleSetStatus('disponivel')}
-                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-250 rounded-xl px-4 py-3 text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer"
+                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-xl px-4 py-3 text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer"
                 >
                   Tornar Ativo/Livre
                 </button>
@@ -378,7 +378,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
 
             <button
               onClick={handleCopyLink}
-              className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-250 rounded-xl px-4 py-3 text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1.5 ml-auto cursor-pointer"
+              className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl px-4 py-3 text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1.5 ml-auto cursor-pointer"
             >
               <Copy size={13} />
               Partilhar Detalhes
@@ -388,7 +388,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
           {/* EVENTS LOGGER AND AUDIT TRAIL PANEL */}
           <div className="space-y-3 pt-4 border-t border-slate-150">
             <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
-              <Users size={12} className="text-slate-450" /> Histórico Operacional de Conexão ({events.length})
+              <Users size={12} className="text-slate-500" /> Histórico Operacional de Conexão ({events.length})
             </span>
             
             <div className="bg-slate-50/50 border border-slate-200 rounded-2xl p-3.5 max-h-40 overflow-y-auto space-y-3 font-sans">
@@ -405,7 +405,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
                   </div>
                 ))
               ) : (
-                <p className="text-[11.5px] italic text-slate-405 leading-none">Nenhum evento gravado no barramento ainda.</p>
+                <p className="text-[11.5px] italic text-slate-400 leading-none">Nenhum evento gravado no barramento ainda.</p>
               )}
             </div>
           </div>
@@ -429,7 +429,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-[8.5px] font-black text-indigo-700 bg-indigo-50 border border-indigo-150 px-2 py-0.5 rounded-md shrink-0">{sess.associatedProtocol || 'Oficial'}</span>
+                        <span className="font-mono text-[8.5px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md shrink-0">{sess.associatedProtocol || 'Oficial'}</span>
                         <h6 className="font-extrabold text-slate-800 text-xs tracking-tight group-hover:text-indigo-600 transition-colors">{sess.subject}</h6>
                       </div>
                       <p className="text-[9.5px] text-slate-500 font-bold uppercase tracking-wider">
@@ -445,7 +445,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
               ) : (
                 <div className="text-center py-8 bg-white border border-dashed rounded-2xl">
                   <Video size={24} className="text-slate-300 mx-auto block mb-2" />
-                  <p className="text-xs italic text-slate-405 font-semibold">Sem videoatendimentos registados para o seu perfil.</p>
+                  <p className="text-xs italic text-slate-400 font-semibold">Sem videoatendimentos registados para o seu perfil.</p>
                 </div>
               )}
             </div>
@@ -466,7 +466,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
                     placeholder="Ex: Conciliação de Dúvidas de Assinatura"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    className="bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs font-bold text-slate-850 p-3 rounded-xl border border-slate-300 focus:border-indigo-600 outline-none transition-all shadow-3xs"
+                    className="bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs font-bold text-slate-900 p-3 rounded-xl border border-slate-300 focus:border-indigo-600 outline-none transition-all shadow-3xs"
                   />
                 </div>
 
@@ -478,7 +478,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
                     placeholder="Ex: Amanhã às 14:00"
                     value={scheduledFor}
                     onChange={(e) => setScheduledFor(e.target.value)}
-                    className="bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs font-bold text-slate-850 p-3 rounded-xl border border-slate-300 focus:border-indigo-600 outline-none transition-all shadow-3xs"
+                    className="bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs font-bold text-slate-900 p-3 rounded-xl border border-slate-300 focus:border-indigo-600 outline-none transition-all shadow-3xs"
                   />
                 </div>
 
@@ -489,7 +489,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
                     placeholder="Ex: CDA-2026-61849 (Opcional)"
                     value={customProtocol}
                     onChange={(e) => setCustomProtocol(e.target.value)}
-                    className="bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs font-bold text-slate-850 p-3 rounded-xl border border-slate-300 focus:border-indigo-600 outline-none transition-all shadow-3xs"
+                    className="bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs font-bold text-slate-900 p-3 rounded-xl border border-slate-300 focus:border-indigo-600 outline-none transition-all shadow-3xs"
                   />
                 </div>
               </div>
@@ -524,7 +524,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
                     placeholder="Ex: Validação Crítica da Assinatura e Documentos Omissos"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs font-bold text-slate-800 p-3 rounded-xl border border-slate-350 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all shadow-3xs"
+                    className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs font-bold text-slate-800 p-3 rounded-xl border border-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all shadow-3xs"
                   />
                 </div>
 
@@ -536,7 +536,7 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
                     placeholder="Ex: Hoje às 15:45"
                     value={scheduledFor}
                     onChange={(e) => setScheduledFor(e.target.value)}
-                    className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs font-bold text-slate-800 p-3 rounded-xl border border-slate-350 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all shadow-3xs"
+                    className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white text-xs font-bold text-slate-800 p-3 rounded-xl border border-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all shadow-3xs"
                   />
                 </div>
               </div>

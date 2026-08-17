@@ -259,7 +259,7 @@ export function GovEmissaoContent({
                 ].map(t => {
                   const isActive = correspondenciaTab === t.id;
                   let activeStyle = '';
-                  let badgeStyle = 'bg-slate-350 text-slate-700';
+                  let badgeStyle = 'bg-slate-400 text-slate-700';
 
                   if (isActive) {
                     if (t.id === 'lidas') {

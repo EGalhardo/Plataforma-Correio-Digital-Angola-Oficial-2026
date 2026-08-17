@@ -197,7 +197,7 @@ export function GovSegurancaContent({
               }`}>
                 PROTOCOL SOC-AN-2026
               </span>
-              <span className={`w-1.5 h-1.5 rounded-full ${emergencyMode ? 'bg-slate-450' : 'bg-white/30'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${emergencyMode ? 'bg-slate-500' : 'bg-white/30'}`} />
               <span className={`text-[10px] font-mono font-bold uppercase ${emergencyMode ? 'text-slate-500' : 'text-slate-300'}`}>Sovereignty Shield</span>
             </div>
             <h3 className={`text-base font-black uppercase tracking-tight leading-none italic font-sans mt-1 ${emergencyMode ? 'text-slate-900' : 'text-white'}`}>
@@ -291,8 +291,8 @@ export function GovSegurancaContent({
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Acurácia Média de Match</p>
-                  <h3 className="text-2xl font-black mt-2 text-indigo-655">98.67%</h3>
-                  <span className="text-[10px] font-mono text-slate-450 mt-1 block font-bold">
+                  <h3 className="text-2xl font-black mt-2 text-indigo-700">98.67%</h3>
+                  <span className="text-[10px] font-mono text-slate-500 mt-1 block font-bold">
                     Falsa Aceitação: 0.001%
                   </span>
                 </div>
@@ -307,7 +307,7 @@ export function GovSegurancaContent({
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Fraudes de Spoofing Bloqueadas</p>
-                  <h3 className="text-2xl font-black mt-2 text-red-655">48</h3>
+                  <h3 className="text-2xl font-black mt-2 text-red-700">48</h3>
                   <span className="text-[10px] font-bold text-red-600 flex items-center gap-0.5 mt-1 animate-pulse">
                     <AlertTriangle size={11} /> 2 tentativas hoje
                   </span>
@@ -453,7 +453,7 @@ export function GovSegurancaContent({
                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                               user.status === 'Bloqueado' 
                                 ? 'bg-rose-50 text-rose-600 border border-rose-100' 
-                                : 'bg-indigo-50 text-indigo-755 border border-indigo-100'
+                                : 'bg-indigo-50 text-indigo-800 border border-indigo-100'
                             }`}>
                               <UserSquare size={16} />
                             </div>
@@ -461,15 +461,15 @@ export function GovSegurancaContent({
                               <span className="font-display font-black text-slate-900 block uppercase leading-none">{user.name}</span>
                               <span className={`inline-block text-[8.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded leading-none mt-1.5 ${
                                 user.type === 'Instituição' 
-                                  ? 'bg-amber-50 text-amber-705 border border-amber-100' 
-                                  : 'bg-emerald-50 text-emerald-750 border border-emerald-100'
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-100' 
+                                  : 'bg-emerald-50 text-emerald-800 border border-emerald-100'
                               }`}>
                                 {user.type}
                               </span>
                             </div>
                           </div>
                         </td>
-                        <td className="py-4 px-5 font-mono text-slate-605 font-semibold">
+                        <td className="py-4 px-5 font-mono text-slate-600 font-semibold">
                           {user.docId}
                         </td>
                         <td className="py-4 px-5 font-bold text-slate-700">
@@ -478,7 +478,7 @@ export function GovSegurancaContent({
                               {user.institutionName}
                             </span>
                           ) : (
-                            <span className="text-slate-350 italic font-medium">Pessoal (Cidadão)</span>
+                            <span className="text-slate-400 italic font-medium">Pessoal (Cidadão)</span>
                           )}
                         </td>
                         <td className="py-4 px-5 font-bold text-slate-500">
@@ -510,7 +510,7 @@ export function GovSegurancaContent({
                                   e.stopPropagation();
                                   handleStatusChange(user.id, 'Ativo');
                                 }}
-                                className="py-1 px-2.5 bg-white border border-slate-200 hover:border-slate-450 rounded-lg text-slate-655 hover:text-slate-950 text-[9.5px] font-black uppercase tracking-wider cursor-pointer transition-colors"
+                                className="py-1 px-2.5 bg-white border border-slate-200 hover:border-slate-500 rounded-lg text-slate-700 hover:text-slate-950 text-[9.5px] font-black uppercase tracking-wider cursor-pointer transition-colors"
                               >
                                 Reativar
                               </button>
@@ -521,7 +521,7 @@ export function GovSegurancaContent({
                                     e.stopPropagation();
                                     handleRequestRecalibration(user.id);
                                   }}
-                                  className="py-1 px-2.5 bg-white border border-slate-200 hover:border-slate-450 rounded-lg text-slate-655 hover:text-slate-950 text-[9.5px] font-black uppercase tracking-wider cursor-pointer transition-colors"
+                                  className="py-1 px-2.5 bg-white border border-slate-200 hover:border-slate-500 rounded-lg text-slate-700 hover:text-slate-950 text-[9.5px] font-black uppercase tracking-wider cursor-pointer transition-colors"
                                   title="Solicitar Recadastramento de Face ID"
                                 >
                                   Recalibrar

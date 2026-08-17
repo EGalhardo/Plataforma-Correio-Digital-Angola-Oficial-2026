@@ -33,7 +33,7 @@ interface RegisterInstitutionPageProps {
   addAuditLog: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
 }
 
-const inputCls = "w-full bg-white border border-slate-200 focus:border-[#2563eb]/40 focus:ring-1 focus:ring-[#2563eb]/40 rounded-[14px] px-4 py-3 text-xs font-bold text-slate-800 outline-none transition-all placeholder:text-slate-350";
+const inputCls = "w-full bg-white border border-slate-200 focus:border-[#2563eb]/40 focus:ring-1 focus:ring-[#2563eb]/40 rounded-[14px] px-4 py-3 text-xs font-bold text-slate-800 outline-none transition-all placeholder:text-slate-400";
 const selectCls = inputCls + " appearance-none cursor-pointer pr-9 pl-4";
 const labelCls = "text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1";
 const errCls = "border-red-300 focus:border-red-400 focus:ring-red-300";

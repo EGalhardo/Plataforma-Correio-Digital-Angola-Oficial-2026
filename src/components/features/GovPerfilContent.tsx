@@ -484,7 +484,7 @@ export function GovPerfilContent({
                     initial={{ opacity: 0, y: -5 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
-                    className="text-[11px] text-red-650 font-black bg-red-50 border border-red-150 rounded-xl px-4 py-2.5"
+                    className="text-[11px] text-red-650 font-black bg-red-50 border border-red-200 rounded-xl px-4 py-2.5"
                   >
                     {passwordError}
                   </motion.div>
@@ -495,7 +495,7 @@ export function GovPerfilContent({
                     initial={{ opacity: 0, y: -5 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
-                    className="text-[11px] text-emerald-700 font-extrabold bg-emerald-50 border border-emerald-150 rounded-xl px-4 py-2.5 flex items-center gap-1.5"
+                    className="text-[11px] text-emerald-700 font-extrabold bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 flex items-center gap-1.5"
                   >
                     <Check size={14} className="text-emerald-600" />
                     <span>{passwordSuccessMsg || 'Palavra-passe alterada com sucesso!'}</span>

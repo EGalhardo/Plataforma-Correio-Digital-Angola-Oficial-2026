@@ -259,11 +259,11 @@ Selo Governamental de Angola: Activo e Autêntico.`}
                   </div>
                   <div>
                      <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">{translate('Data de Emissão')}</span>
-                     <span className="font-bold text-slate-350">{protocol.officialIssueDate}</span>
+                     <span className="font-bold text-slate-400">{protocol.officialIssueDate}</span>
                   </div>
                   <div>
                      <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">{translate('Hora de Emissão')}</span>
-                     <span className="font-mono font-bold text-slate-350">{protocol.officialTime}</span>
+                     <span className="font-mono font-bold text-slate-400">{protocol.officialTime}</span>
                   </div>
                   <div className="col-span-2">
                      <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">{translate('Responsável')}</span>

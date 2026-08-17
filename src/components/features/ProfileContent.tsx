@@ -672,7 +672,7 @@ return (
                   <div className="space-y-4">
                     {/* Header Badge */}
                     <div className="flex justify-start">
-                      <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#eff6ff] border border-blue-150 rounded-full text-[#1e3a8a] font-extrabold text-[9px] uppercase tracking-[0.18em]">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#eff6ff] border border-blue-200 rounded-full text-[#1e3a8a] font-extrabold text-[9px] uppercase tracking-[0.18em]">
                         <Sparkles size={11} className="text-blue-500 fill-blue-100" />
                         <span>VALIDAÇÃO DE CREDENCIAIS</span>
                       </div>
@@ -819,7 +819,7 @@ return (
                       ) : (
                         <div className="flex flex-col items-center justify-center text-slate-400 gap-2.5 p-4 text-center">
                           <Camera size={40} className="text-slate-500" />
-                          <p className="text-[10px] uppercase font-black tracking-widest text-slate-450 leading-relaxed">
+                          <p className="text-[10px] uppercase font-black tracking-widest text-slate-500 leading-relaxed">
                             Câmara em Espera
                           </p>
                           <p className="text-[8.5px] text-slate-500 font-medium">
@@ -1045,10 +1045,10 @@ return (
                       className="w-full h-10 bg-white border border-slate-200 focus:border-primary/40 rounded-xl px-4 text-xs font-semibold outline-none transition-all"
                     />
                     {passwordError && (
-                      <div className="text-[11px] text-red-650 font-black bg-red-50 border border-red-150 rounded-xl px-3 py-2">{passwordError}</div>
+                      <div className="text-[11px] text-red-650 font-black bg-red-50 border border-red-200 rounded-xl px-3 py-2">{passwordError}</div>
                     )}
                     {passwordSuccess && (
-                      <div className="text-[11px] text-emerald-700 font-extrabold bg-emerald-50 border border-emerald-150 rounded-xl px-3 py-2 flex items-center gap-1.5">
+                      <div className="text-[11px] text-emerald-700 font-extrabold bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 flex items-center gap-1.5">
                         <Check size={13} className="text-emerald-600" />
                         {passwordSuccessMsg || 'Palavra-passe alterada com sucesso!'}
                       </div>
@@ -1282,7 +1282,7 @@ return (
                             type="text" 
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
-                            className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-850 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                            className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                           />
                         </div>
 
@@ -1294,7 +1294,7 @@ return (
                             type="text" 
                             value={editPhone}
                             onChange={(e) => setEditPhone(e.target.value)}
-                            className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-850 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                            className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                           />
                         </div>
 
@@ -1306,7 +1306,7 @@ return (
                             type="email" 
                             value={editEmail}
                             onChange={(e) => setEditEmail(e.target.value)}
-                            className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-850 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                            className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                           />
                         </div>
 
@@ -1317,7 +1317,7 @@ return (
                           <select 
                             value={editMaritalStatus}
                             onChange={(e) => setEditMaritalStatus(e.target.value)}
-                            className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-850 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer"
+                            className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer"
                           >
                             <option value="Solteiro">Solteiro(a)</option>
                             <option value="Casado">Casado(a)</option>
@@ -1336,7 +1336,7 @@ return (
                               value={editFiliation}
                               onChange={(e) => setEditFiliation(e.target.value)}
                               placeholder="Pai & Mãe"
-                              className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-850 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                              className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                             />
                           </div>
                         )}
@@ -1351,7 +1351,7 @@ return (
                                 type="text" 
                                 value={editRole}
                                 onChange={(e) => setEditRole(e.target.value)}
-                                className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-850 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                                className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                               />
                             </div>
 
@@ -1363,7 +1363,7 @@ return (
                                 type="text" 
                                 value={editDepartment}
                                 onChange={(e) => setEditDepartment(e.target.value)}
-                                className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-850 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                                className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                               />
                             </div>
 
@@ -1375,7 +1375,7 @@ return (
                                 type="text" 
                                 value={editInstitution}
                                 onChange={(e) => setEditInstitution(e.target.value)}
-                                className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-850 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                                className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                               />
                             </div>
                           </>
@@ -1819,9 +1819,9 @@ return (
                             {hasValidSupabaseKeys() ? 'Estado: Chaves Detectadas' : 'Estado: Chaves Ausentes'}
                           </span>
                         </div>
-                        <h4 className="font-extrabold text-[#38bdf8] text-base font-sans leading-tight">Project ID: zwusqnrjesyfiocyhrrl</h4>
+                        <h4 className="font-extrabold text-[#38bdf8] text-base font-sans leading-tight">Project ID: klrclczcahfycfdxzdqs</h4>
                         <p className="text-[10px] text-slate-400 font-mono">
-                          Servidor: <span className="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded text-[9px]">https://zwusqnrjesyfiocyhrrl.supabase.co</span>
+                          Servidor: <span className="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded text-[9px]">https://klrclczcahfycfdxzdqs.supabase.co</span>
                         </p>
                       </div>
 
@@ -1830,7 +1830,7 @@ return (
                           type="button"
                           onClick={handleTestSupabaseConnection}
                           disabled={supabaseTesting || supabaseSyncing}
-                          className="flex-1 md:flex-none px-3.5 py-2 text-[10px] uppercase font-black tracking-wider text-white bg-slate-800 hover:bg-slate-705 rounded-xl transition-all border border-slate-700 cursor-pointer disabled:opacity-50 select-none h-10 flex items-center justify-center font-bold"
+                          className="flex-1 md:flex-none px-3.5 py-2 text-[10px] uppercase font-black tracking-wider text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-all border border-slate-700 cursor-pointer disabled:opacity-50 select-none h-10 flex items-center justify-center font-bold"
                         >
                           {supabaseTesting ? 'A Testar...' : 'Testar Ligação'}
                         </button>
@@ -1847,7 +1847,7 @@ return (
 
                     {/* Status Feedback Banners */}
                     {supabaseStatusMsg && (
-                      <div className="p-3.5 bg-sky-50 text-sky-805 border border-sky-200 rounded-xl flex items-center gap-2.5 text-xs font-medium font-sans animate-pulse">
+                      <div className="p-3.5 bg-sky-50 text-sky-800 border border-sky-200 rounded-xl flex items-center gap-2.5 text-xs font-medium font-sans animate-pulse">
                         <RefreshCw size={14} className="animate-spin text-sky-600 shrink-0" />
                         <span>{supabaseStatusMsg}</span>
                       </div>
@@ -1859,7 +1859,7 @@ return (
                         <div className="space-y-1">
                           <p className="font-bold">Aviso de Configuração:</p>
                           <p className="text-slate-600 text-[11px] leading-relaxed">{supabaseErrorMsg}</p>
-                          <div className="mt-2 text-[10px] bg-white/70 p-2.5 border border-amber-100 rounded-lg text-slate-750 font-sans space-y-1 leading-snug">
+                          <div className="mt-2 text-[10px] bg-white/70 p-2.5 border border-amber-100 rounded-lg text-slate-800 font-sans space-y-1 leading-snug">
                             <span className="font-extrabold uppercase text-[8px] tracking-wider text-slate-500 block">Como Resolver:</span>
                             <p>1. Verifique se adicionou os segredos com os nomes exatos: <code className="font-mono bg-slate-100 px-1 py-0.5 rounded text-amber-800">VITE_SUPABASE_URL</code> e <code className="font-mono bg-slate-100 px-1 py-0.5 rounded text-amber-800">VITE_SUPABASE_ANON_KEY</code>.</p>
                             <p className="mt-1">2. Abra o painel do Supabase, vá ao "SQL Editor", cole o script que preparámos em <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">/supabase/schema.sql</code> e execute para activar as tabelas estruturadas do Correio Digital.</p>
@@ -1872,7 +1872,7 @@ return (
                       <div className="p-3.5 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs font-medium font-sans">
                         <CheckCircle2 size={15} className="text-emerald-600 shrink-0 mt-0.5" />
                         <div className="space-y-1.5 flex-1 p-0.5">
-                          <p className="font-bold text-emerald-850">{supabaseSuccessMsg}</p>
+                          <p className="font-bold text-emerald-900">{supabaseSuccessMsg}</p>
                           <p className="text-slate-600 text-[11px]">Sincronização bidireccional activa nos bastidores do portal nacional de Angola!</p>
                           
                           {supabaseStats && (
@@ -1902,18 +1902,18 @@ return (
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs text-slate-650 leading-snug">
                         <div className="space-y-1.5">
-                          <span className="font-bold text-slate-805 flex items-center gap-1.5 font-sans">
-                            <span className="w-4 h-4 rounded-full bg-indigo-50 border border-indigo-150 text-indigo-600 flex items-center justify-center font-mono text-[10px] font-black">1</span>
+                          <span className="font-bold text-slate-800 flex items-center gap-1.5 font-sans">
+                            <span className="w-4 h-4 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center font-mono text-[10px] font-black">1</span>
                             Tabelas no Supabase
                           </span>
                           <p className="pl-5 text-[11px] text-slate-500 leading-normal">
-                            Abra o SQL Editor do Supabase no projecto <code className="font-mono px-1 py-0.5 bg-slate-100 rounded text-slate-700">zwusqnrjesyfiocyhrrl</code>, cole o script <code className="font-mono bg-slate-100 text-slate-700 rounded px-1">/supabase/schema.sql</code> e execute para que as tabelas sejam criadas.
+                            Abra o SQL Editor do Supabase no projecto <code className="font-mono px-1 py-0.5 bg-slate-100 rounded text-slate-700">klrclczcahfycfdxzdqs</code>, cole o script <code className="font-mono bg-slate-100 text-slate-700 rounded px-1">/supabase/schema.sql</code> e execute para que as tabelas sejam criadas.
                           </p>
                         </div>
 
                         <div className="space-y-1.5">
-                          <span className="font-bold text-slate-805 flex items-center gap-1.5 font-sans">
-                            <span className="w-4 h-4 rounded-full bg-indigo-50 border border-indigo-150 text-indigo-600 flex items-center justify-center font-mono text-[10px] font-black">2</span>
+                          <span className="font-bold text-slate-800 flex items-center gap-1.5 font-sans">
+                            <span className="w-4 h-4 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center font-mono text-[10px] font-black">2</span>
                             Segurança RLS Activa
                           </span>
                           <p className="pl-5 text-[11px] text-slate-500 leading-normal">

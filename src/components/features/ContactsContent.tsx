@@ -182,7 +182,7 @@ export function ContactsContent({
           </div>
 
           {/* Tabbar para filtro de classificação */}
-          <div className="flex bg-white p-1 rounded-2xl border border-slate-250 self-start lg:self-center shrink-0 shadow-3xs">
+          <div className="flex bg-white p-1 rounded-2xl border border-slate-300 self-start lg:self-center shrink-0 shadow-3xs">
             {(['Todos', 'Emergência', 'Normal'] as const).map((tab) => (
               <button
                 key={tab}
@@ -240,7 +240,7 @@ export function ContactsContent({
                           </div>
                           <div>
                             <span className="font-extrabold text-slate-900 text-sm block uppercase italic tracking-tight">{contact.name}</span>
-                            <span className="text-[9px] font-black text-slate-450 uppercase tracking-widest block mt-0.5">{contact.relation}</span>
+                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mt-0.5">{contact.relation}</span>
                           </div>
                         </div>
                       </td>
@@ -248,7 +248,7 @@ export function ContactsContent({
                         {contact.bi}
                       </td>
                       <td className="py-4 px-5">
-                        <div className="flex items-center gap-1.5 text-indigo-705 font-mono text-[9px] font-black mb-1 border-b border-indigo-50 pb-0.5 max-w-[120px]">
+                        <div className="flex items-center gap-1.5 text-indigo-700 font-mono text-[9px] font-black mb-1 border-b border-indigo-50 pb-0.5 max-w-[120px]">
                           <ShieldCheck size={11} className="text-indigo-500" />
                           <span>Protocolo Activo</span>
                         </div>

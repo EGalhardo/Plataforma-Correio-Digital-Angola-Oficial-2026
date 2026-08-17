@@ -233,7 +233,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
             placeholder="Procurar por cidadão, número de bilhete ou tipo de documento..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-white border border-slate-205 rounded-2xl pl-13 pr-5 py-3.5 font-bold text-slate-900 focus:border-slate-800 focus:bg-white outline-none transition-all text-xs"
+            className="w-full bg-white border border-slate-200 rounded-2xl pl-13 pr-5 py-3.5 font-bold text-slate-900 focus:border-slate-800 focus:bg-white outline-none transition-all text-xs"
           />
         </div>
         <div className="hidden md:flex items-center gap-3 px-6 italic border-l border-slate-100">
@@ -248,7 +248,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
           filteredItems.map((item, _idx) => (
             <div 
               key={item.id}
-              className="bg-white p-4 md:p-5 rounded-[28px] border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:border-slate-350 transition-colors"
+              className="bg-white p-4 md:p-5 rounded-[28px] border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:border-slate-400 transition-colors"
             >
               <div className="flex items-center gap-4">
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border shadow-xs ${
@@ -271,9 +271,9 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
                   </div>
                   
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[9px] text-slate-400 font-bold uppercase tracking-widest">
-                    <span>Requerente: <strong className="text-slate-850 font-sans">{item.userName}</strong></span>
+                    <span>Requerente: <strong className="text-slate-900 font-sans">{item.userName}</strong></span>
                     <span>&bull;</span>
-                    <span>NIF/BI: <strong className="font-mono text-slate-850">{item.userBi}</strong></span>
+                    <span>NIF/BI: <strong className="font-mono text-slate-900">{item.userBi}</strong></span>
                     <span>&bull;</span>
                     <span>Código: <strong className="font-mono text-slate-800">{item.id}</strong></span>
                     <span>&bull;</span>
@@ -287,7 +287,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => handleAction(item.id, 'Rejeitado')}
-                    className="p-3 bg-white text-slate-400 border border-slate-205 hover:bg-rose-50 hover:text-red-650 hover:border-red-200 rounded-xl transition-colors shrink-0 cursor-pointer"
+                    className="p-3 bg-white text-slate-400 border border-slate-200 hover:bg-rose-50 hover:text-red-650 hover:border-red-200 rounded-xl transition-colors shrink-0 cursor-pointer"
                     title="Rejeitar Emissão"
                   >
                     <XCircle size={15} />
@@ -300,7 +300,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-3 text-[9.5px] font-mono font-black uppercase text-slate-350 italic tracking-wider bg-white px-4 py-2.5 rounded-xl border border-slate-200 border-dashed">
+                <div className="flex items-center gap-3 text-[9.5px] font-mono font-black uppercase text-slate-400 italic tracking-wider bg-white px-4 py-2.5 rounded-xl border border-slate-200 border-dashed">
                   Documento Sincronizado <ShieldCheck size={14} className="text-emerald-500 ml-1.5" />
                 </div>
               )}

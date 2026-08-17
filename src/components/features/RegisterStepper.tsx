@@ -354,7 +354,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         faceStreamRef.current = stream;
         if (faceVideoRef.current) {
           faceVideoRef.current.srcObject = stream;
-          await faceVideoRef.current.play().catch(() => {});
+          await faceVideoRef.current.play().catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
         }
         setWebcamReady(true);
       } catch (error) {
@@ -919,7 +919,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               <div className="space-y-3.5 pt-0 max-w-lg mx-auto">
                 {/* Nome Completo */}
                 <div className="grid gap-1 text-left">
-                  <span className="text-[10.5px] text-slate-505 font-extrabold tracking-wider uppercase">
+                  <span className="text-[10.5px] text-slate-500 font-extrabold tracking-wider uppercase">
                     {appMode === 'institution' ? 'Nome da Instituição' : 'Nome Completo'}
                   </span>
                   <div className="flex items-center gap-3 bg-white border border-slate-200 focus-within:border-[#0c2340] focus-within:ring-1 focus-within:ring-[#0c2340] rounded-[15px] px-4 py-1.5 transition-all">
@@ -944,7 +944,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
                 {/* E-mail */}
                 <div className="grid gap-1 text-left">
-                  <span className="text-[10.5px] text-slate-505 font-extrabold tracking-wider uppercase">
+                  <span className="text-[10.5px] text-slate-500 font-extrabold tracking-wider uppercase">
                     {appMode === 'institution' ? 'E-mail Institucional' : 'Endereço de E-mail'}
                   </span>
                   <div className="flex items-center gap-3 bg-white border border-slate-200 focus-within:border-[#0c2340] focus-within:ring-1 focus-within:ring-[#0c2340] rounded-[15px] px-4 py-1.5 transition-all">
@@ -971,7 +971,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 {/* Password/Senha Row */}
                 <div className="grid gap-1 text-left">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10.5px] text-slate-505 font-extrabold tracking-wider uppercase">
+                    <span className="text-[10.5px] text-slate-500 font-extrabold tracking-wider uppercase">
                       Senha de Acesso
                     </span>
                     {password && (
@@ -1082,7 +1082,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                       type="text"
                       value={biNumber}
                       onChange={(e) => { handleBiChange(e.target.value); setSubmitError(''); }}
-                      className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4 py-2 pl-10.5 text-[13px] text-slate-800 outline-none transition-all font-bold tracking-widest placeholder:text-slate-350"
+                      className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4 py-2 pl-10.5 text-[13px] text-slate-800 outline-none transition-all font-bold tracking-widest placeholder:text-slate-400"
                       placeholder={appMode === 'institution' ? '540132918' : '002931298LA045'}
                       maxLength={14}
                     />
@@ -1450,7 +1450,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-2.5 flex gap-2 text-left max-w-md mx-auto">
                   <ShieldCheck size={14} className="text-emerald-500 shrink-0 mt-0.5" />
                   <div className="space-y-1">
-                    <p className="text-[10.5px] font-black text-emerald-850 uppercase tracking-tight">BIOMETRIA CONCLUÍDA</p>
+                    <p className="text-[10.5px] font-black text-emerald-900 uppercase tracking-tight">BIOMETRIA CONCLUÍDA</p>
                     <p className="text-[10px] text-[#065f46] leading-relaxed font-semibold">
                       Os seus padrões biométricos foram validados e vinculados de forma criptografada à sua identidade civil.
                     </p>
@@ -1527,7 +1527,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                   {appMode === 'institution' ? 'Pedido de Adesão Enviado!' : 'Documentação Enviada com Sucesso!'}
                 </h3>
                 <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-slate-650 text-left space-y-2 shadow-inner">
-                  <p className="text-slate-750 text-[12.5px] md:text-[13.5px] font-semibold leading-relaxed">
+                  <p className="text-slate-800 text-[12.5px] md:text-[13.5px] font-semibold leading-relaxed">
                     {appMode === 'institution' 
                       ? 'O processo de adesão da instituição ENDE foi submetido com sucesso para homologação administrativa.' 
                       : 'O seu processo de registo foi enviado com sucesso para a fila de homologação.'}
@@ -1548,7 +1548,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 <span className="text-[11px] font-black text-blue-800 select-none font-sans font-extrabold uppercase">
                   {appMode === 'institution' ? 'NIF da Instituição:' : 'B.I. de Acesso:'}
                 </span>
-                <span className="text-[12.5px] font-mono font-black text-slate-750 uppercase tracking-widest bg-white border border-blue-100 px-3 py-1 rounded-lg">
+                <span className="text-[12.5px] font-mono font-black text-slate-800 uppercase tracking-widest bg-white border border-blue-100 px-3 py-1 rounded-lg">
                   {biNumber}
                 </span>
               </div>

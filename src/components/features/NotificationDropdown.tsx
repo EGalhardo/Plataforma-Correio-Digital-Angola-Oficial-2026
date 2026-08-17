@@ -68,7 +68,7 @@ export function NotificationDropdown({
                         <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center shrink-0 shadow-sm border ${
                           n.type === 'success' ? 'bg-success/5 text-success border-success/10' :
                           n.type === 'warning' ? 'bg-orange-50 text-orange-600 border-orange-100' :
-                          'bg-blue-50 text-blue-600 border-blue-105'
+                          'bg-blue-50 text-blue-600 border-blue-100'
                         }`}>
                           {n.type === 'success' ? <BadgeCheck size={16} className="md:w-5 md:h-5" /> : 
                            n.type === 'warning' ? <ShieldCheck size={16} className="md:w-5 md:h-5" /> : <Info size={16} className="md:w-5 md:h-5" />}

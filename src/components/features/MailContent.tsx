@@ -72,9 +72,9 @@ const getOrgBadgeStyles = (org: string) => {
   } else if (o.includes('TRIBUNAL') || o.includes('SUPREMO') || o.includes('COMARCA')) {
     return 'bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200';
   } else if (o === 'ENDE' || o.includes('ELETRICIDADE') || o.includes('FORÇA')) {
-    return 'bg-orange-50 text-orange-850 border-orange-200';
+    return 'bg-orange-50 text-orange-900 border-orange-200';
   } else if (o === 'EPAL' || o.includes('ÁGUA')) {
-    return 'bg-sky-50 text-sky-850 border-sky-200';
+    return 'bg-sky-50 text-sky-900 border-sky-200';
   }
   return 'bg-slate-50 text-slate-700 border-slate-200';
 };
@@ -828,7 +828,7 @@ export function MailContent({
                   title="Negrito (Bold)"
                   className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
                     editorBold 
-                      ? 'bg-indigo-100/80 text-indigo-755 border border-indigo-200/30' 
+                      ? 'bg-indigo-100/80 text-indigo-800 border border-indigo-200/30' 
                       : 'text-slate-650 hover:bg-slate-200/60 hover:text-slate-900'
                   }`}
                 >
@@ -841,7 +841,7 @@ export function MailContent({
                   title="Itálico (Italic)"
                   className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
                     editorItalic 
-                      ? 'bg-indigo-100/80 text-indigo-755 border border-indigo-200/30' 
+                      ? 'bg-indigo-100/80 text-indigo-800 border border-indigo-200/30' 
                       : 'text-slate-650 hover:bg-slate-200/60 hover:text-slate-900'
                   }`}
                 >
@@ -854,7 +854,7 @@ export function MailContent({
                   title="Sublinhado (Underline)"
                   className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
                     editorUnderline 
-                      ? 'bg-indigo-100/80 text-indigo-755 border border-indigo-200/30' 
+                      ? 'bg-indigo-100/80 text-indigo-800 border border-indigo-200/30' 
                       : 'text-slate-650 hover:bg-slate-200/60 hover:text-slate-900'
                   }`}
                 >
@@ -915,7 +915,7 @@ export function MailContent({
                     title={align.title}
                     className={`p-1.5 rounded-xl active:scale-95 transition-all text-slate-600 cursor-pointer ${
                       editorAlignment === align.val 
-                        ? 'bg-indigo-100/85 text-indigo-755 border border-indigo-200/30' 
+                        ? 'bg-indigo-100/85 text-indigo-800 border border-indigo-200/30' 
                         : 'hover:bg-slate-200/60 hover:text-slate-900'
                     }`}
                   >
@@ -943,7 +943,7 @@ export function MailContent({
                   title="Lista de Marcadores (Bullets)"
                   className={`p-1.5 rounded-xl active:scale-95 transition-all cursor-pointer ${
                     editorListType === 'bullet'
-                      ? 'bg-indigo-100/85 text-indigo-755 border border-indigo-200/30'
+                      ? 'bg-indigo-100/85 text-indigo-800 border border-indigo-200/30'
                       : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
                   }`}
                 >
@@ -960,7 +960,7 @@ export function MailContent({
                 title="Citação (Blockquote)"
                 className={`p-1.5 rounded-xl active:scale-95 transition-all cursor-pointer ${
                   editorIsQuote
-                    ? 'bg-indigo-100/85 text-indigo-755 border border-indigo-200/30'
+                    ? 'bg-indigo-100/85 text-indigo-800 border border-indigo-200/30'
                     : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
                 }`}
               >
@@ -1002,14 +1002,14 @@ export function MailContent({
           </div>
 
           {isUploading && (
-            <div className="flex items-center gap-2.5 p-4 bg-indigo-50 border border-indigo-150 rounded-2xl text-indigo-800 text-xs font-black animate-pulse mt-4">
+            <div className="flex items-center gap-2.5 p-4 bg-indigo-50 border border-indigo-200 rounded-2xl text-indigo-800 text-xs font-black animate-pulse mt-4">
               <Loader2 size={16} className="animate-spin text-indigo-600 shrink-0" />
               <span>{uploadProgressMessage}</span>
             </div>
           )}
 
           {uploadError && (
-            <div className="flex items-start gap-3 p-4 bg-rose-50 border border-rose-150 rounded-2xl text-rose-800 text-xs font-bold mt-4 animate-fadeIn">
+            <div className="flex items-start gap-3 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs font-bold mt-4 animate-fadeIn">
               <AlertTriangle size={18} className="text-rose-600 shrink-0 mt-0.5" />
               <div>
                 <span className="font-black block uppercase tracking-wider mb-1 text-rose-950">Limite de Anexos Excedido</span>
@@ -1054,7 +1054,7 @@ export function MailContent({
                         }
                         setEditingAttachmentContent(initialContent);
                       }}
-                      className="p-0.5 hover:bg-indigo-50 text-slate-450 hover:text-indigo-600 rounded transition-colors cursor-pointer ml-1"
+                      className="p-0.5 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 rounded transition-colors cursor-pointer ml-1"
                       title="Editar conteúdo do anexo"
                     >
                       <Edit2 size={11} />
@@ -1063,7 +1063,7 @@ export function MailContent({
                     <button 
                       type="button"
                       onClick={() => handleFileRemove(item)}
-                      className="p-0.5 hover:bg-red-50 text-slate-450 hover:text-red-500 rounded transition-colors cursor-pointer ml-0.5"
+                      className="p-0.5 hover:bg-red-50 text-slate-500 hover:text-red-500 rounded transition-colors cursor-pointer ml-0.5"
                       title="Remover anexo"
                     >
                       <Trash2 size={11} />
@@ -1261,7 +1261,7 @@ export function MailContent({
                 {/* Body */}
                 <div className="p-6 space-y-4">
                   <div>
-                    <label className="block text-[11px] font-black uppercase text-slate-450 tracking-wider mb-1.5">Nome do Ficheiro</label>
+                    <label className="block text-[11px] font-black uppercase text-slate-500 tracking-wider mb-1.5">Nome do Ficheiro</label>
                     <input 
                       type="text" 
                       id="edit-att-name"
@@ -1280,7 +1280,7 @@ export function MailContent({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-black uppercase text-slate-450 tracking-wider mb-1.5">Conteúdo / Texto do Documento</label>
+                    <label className="block text-[11px] font-black uppercase text-slate-500 tracking-wider mb-1.5">Conteúdo / Texto do Documento</label>
                     <textarea
                       rows={10}
                       value={editingAttachmentContent}
@@ -1423,7 +1423,7 @@ export function MailContent({
         </div>
 
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-550" size={16} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
           <input 
             type="text"
             placeholder={translateText("Pesquisar correspondência oficial...", currentLanguage)}
@@ -1473,8 +1473,8 @@ export function MailContent({
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
                               item.unread 
-                                ? 'bg-red-600 text-white border border-red-605' 
-                                : 'bg-emerald-600 text-white border border-emerald-605'
+                                ? 'bg-red-600 text-white border border-red-600' 
+                                : 'bg-emerald-600 text-white border border-emerald-600'
                             }`}>
                               {t(item.unread ? 'Não Lida' : 'Lida')}
                             </span>
@@ -1558,7 +1558,7 @@ export function MailContent({
                           <button
                             type="button"
                             onClick={() => handleSelectMessage(item)}
-                            className="text-[9.5px] font-black uppercase text-indigo-650 hover:text-indigo-850 transition-colors tracking-widest hover:underline cursor-pointer bg-transparent border-0 outline-none"
+                            className="text-[9.5px] font-black uppercase text-indigo-650 hover:text-indigo-900 transition-colors tracking-widest hover:underline cursor-pointer bg-transparent border-0 outline-none"
                           >
                             {isInst ? 'ANALISAR' : 'ABRIR'}
                           </button>
@@ -1571,7 +1571,7 @@ export function MailContent({
                               >
                                 Restaurar
                               </button>
-                              <span className="text-slate-350">|</span>
+                              <span className="text-slate-400">|</span>
                               <button
                                 type="button"
                                 onClick={() => setMessageToDelete({ id: item.id, isPermanent: true })}

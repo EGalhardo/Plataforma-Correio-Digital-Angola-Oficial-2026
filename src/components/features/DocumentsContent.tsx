@@ -854,7 +854,7 @@ export function DocumentsContent({
                 className={`px-5 py-3 rounded-2xl text-[11px] md:text-xs font-black uppercase transition-all cursor-pointer shrink-0 text-left flex items-center gap-2.5 border ${
                   isActive 
                     ? 'bg-primary border-primary text-white shadow-lg' 
-                    : 'bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-350 shadow-none'
+                    : 'bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-400 shadow-none'
                 }`}
               >
                 <Building2 size={13} className={isActive ? 'text-white/80' : 'text-slate-400'} />
@@ -896,7 +896,7 @@ export function DocumentsContent({
                 <Coins size={16} />
               </div>
               <div>
-                <div className="text-[9px] font-black text-slate-405 uppercase tracking-widest leading-none">Saldo QR Code</div>
+                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Saldo QR Code</div>
                 <div className="text-xs md:text-sm font-mono font-black text-emerald-700 mt-1">{walletBalance.toLocaleString('de-DE')} Kz</div>
               </div>
             </div>
@@ -1143,7 +1143,7 @@ export function DocumentsContent({
                           <button
                             type="button"
                             onClick={() => handleSelectMessage(item)}
-                            className="text-[9.5px] font-black uppercase text-indigo-650 hover:text-indigo-850 transition-colors tracking-widest hover:underline cursor-pointer bg-transparent border-0 outline-none"
+                            className="text-[9.5px] font-black uppercase text-indigo-650 hover:text-indigo-900 transition-colors tracking-widest hover:underline cursor-pointer bg-transparent border-0 outline-none"
                           >
                             {isInst ? translate('ANALISAR DOCUMENTO') : translate('ABRIR DOCUMENTO')}
                           </button>
@@ -1374,7 +1374,7 @@ export function DocumentsContent({
                         disabled={payMethod === 'carteira' && walletBalance < activePayingInvoice.amountVal}
                         className={`w-full py-4 text-xs font-black uppercase tracking-widest rounded-2xl text-center shadow-lg transition-all cursor-pointer ${
                           payMethod === 'carteira' && walletBalance < activePayingInvoice.amountVal
-                            ? 'bg-slate-200 border border-slate-350 text-slate-400 cursor-not-allowed'
+                            ? 'bg-slate-200 border border-slate-400 text-slate-400 cursor-not-allowed'
                             : 'bg-primary hover:bg-primary/95 text-white shadow-primary/20 hover:scale-[1.01]'
                         }`}
                       >
@@ -1471,7 +1471,7 @@ export function DocumentsContent({
                 <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center mx-auto text-emerald-600 mb-2 border border-emerald-100">
                   <ShieldCheck size={24} />
                 </div>
-                <div className="text-[10px] font-black text-slate-450 uppercase tracking-widest">República de Angola</div>
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">República de Angola</div>
                 <h4 className="text-sm font-black text-slate-900 uppercase italic tracking-tight mt-0.5">Recibo Eletrónico Digital</h4>
                 <div className="text-[8.5px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-md px-2 py-0.5 mt-1.5 inline-block font-black uppercase tracking-wider">
                   Assinado com Sucesso CDA v4.1
@@ -1487,31 +1487,31 @@ export function DocumentsContent({
 
                 <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-slate-450 text-[10.5px]">Órgão Liquidador:</span>
+                    <span className="text-slate-500 text-[10.5px]">Órgão Liquidador:</span>
                     <span className="text-slate-900 font-extrabold">{viewedReceipt.org}</span>
                   </div>
                   <div className="flex justify-between font-mono">
-                    <span className="text-slate-450 text-[10.5px]">Nº da Factura:</span>
+                    <span className="text-slate-500 text-[10.5px]">Nº da Factura:</span>
                     <span className="text-slate-800 font-bold">{viewedReceipt.invoiceNumber}</span>
                   </div>
                   <div className="flex justify-between font-mono">
-                    <span className="text-slate-450 text-[10.5px]">Referência Utilizada:</span>
+                    <span className="text-slate-500 text-[10.5px]">Referência Utilizada:</span>
                     <span className="text-indigo-800 font-bold">
                       {viewedReceipt.reference.match(/.{1,3}/g)?.join(' ')}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-450 text-[10.5px]">NIF / Contribuinte Utente:</span>
+                    <span className="text-slate-500 text-[10.5px]">NIF / Contribuinte Utente:</span>
                     <span className="text-slate-800 font-mono font-bold">{bi}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-450 text-[10.5px]">Data Autenticação:</span>
+                    <span className="text-slate-500 text-[10.5px]">Data Autenticação:</span>
                     <span className="text-slate-800 font-mono font-bold">Hoje - 16:29</span>
                   </div>
                 </div>
 
                 <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-xl flex justify-between items-center font-mono">
-                  <span className="text-emerald-850 font-black uppercase text-[10px] font-sans">Montante Liquidado:</span>
+                  <span className="text-emerald-900 font-black uppercase text-[10px] font-sans">Montante Liquidado:</span>
                   <span className="text-[#047857] text-base font-black">{viewedReceipt.amount}</span>
                 </div>
               </div>

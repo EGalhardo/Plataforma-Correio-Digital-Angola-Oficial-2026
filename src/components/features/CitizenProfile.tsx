@@ -311,9 +311,9 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
             exit={{ opacity: 0, y: -10 }}
             className={`p-4 border rounded-2xl flex items-start gap-3 text-xs relative ${
               feedback.type === 'success' 
-                ? 'bg-emerald-50/90 border-emerald-150 text-emerald-900' 
+                ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900' 
                 : feedback.type === 'error'
-                ? 'bg-rose-50/90 border-rose-150 text-rose-900'
+                ? 'bg-rose-50/90 border-rose-200 text-rose-900'
                 : 'bg-slate-50/90 border-slate-150 text-slate-800'
             }`}
           >
@@ -372,7 +372,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
               {/* Checkmark or Action Trigger overlay */}
               <label 
                 htmlFor="profile-photo-upload"
-                className="absolute -bottom-1 -right-1 text-white p-2 rounded-xl border-2 border-white bg-indigo-600 hover:bg-indigo-750 shadow-md cursor-pointer transition-all active:scale-95 flex items-center justify-center"
+                className="absolute -bottom-1 -right-1 text-white p-2 rounded-xl border-2 border-white bg-indigo-600 hover:bg-indigo-800 shadow-md cursor-pointer transition-all active:scale-95 flex items-center justify-center"
                 title="Carregar nova foto"
               >
                 <Camera size={14} strokeWidth={2.5} />
@@ -457,7 +457,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                     </button>
                     <button 
                       onClick={() => setIsEditingInfo(false)}
-                      className="px-4 py-2.5 bg-rose-150 hover:bg-rose-200 text-rose-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-sm cursor-pointer border-0"
+                      className="px-4 py-2.5 bg-rose-200 hover:bg-rose-200 text-rose-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-sm cursor-pointer border-0"
                     >
                       <X size={14} />
                       Cancelar
@@ -476,7 +476,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     onBlur={() => { const n = normalizarNome(editName); if (n !== editName) setEditName(n); }}
-                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-855 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800"
                   />
                 </div>
 
@@ -491,7 +491,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                     type="text"
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
-                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-855 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800"
                   />
                 </div>
 
@@ -501,7 +501,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                     type="email"
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
-                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-855 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800"
                   />
                 </div>
 
@@ -510,7 +510,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                   <select 
                     value={editMaritalStatus}
                     onChange={(e) => setEditMaritalStatus(e.target.value)}
-                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-855 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 cursor-pointer text-slate-800"
+                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 cursor-pointer text-slate-800"
                   >
                     <option value="Solteiro">Solteiro(a)</option>
                     <option value="Casado">Casado(a)</option>
@@ -525,7 +525,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                     type="text"
                     value={editFiliation}
                     onChange={(e) => setEditFiliation(e.target.value)}
-                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-855 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800"
                   />
                 </div>
 
@@ -536,7 +536,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                     value={editMorada}
                     onChange={(e) => setEditMorada(e.target.value)}
                     placeholder="Ex.: Centralidade do Kilamba, Bloco T22, Luanda"
-                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-855 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800"
                   />
                 </div>
               </div>
@@ -562,7 +562,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                         {field.value}
                       </span>
                       {field.verified && (
-                        <span className="flex items-center gap-1 text-[8px] font-black text-emerald-700 bg-emerald-50 border border-emerald-150 px-1.5 py-0.5 rounded-md uppercase tracking-wider shrink-0">
+                        <span className="flex items-center gap-1 text-[8px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md uppercase tracking-wider shrink-0">
                           <Check size={10} strokeWidth={3} />
                           Verificado
                         </span>
@@ -580,7 +580,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
           <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col h-full">
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Actividade Recente</h4>
-              <span className="w-2 h-2 rounded-full bg-emerald-505 bg-emerald-500 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-emerald-500 bg-emerald-500 animate-pulse" />
             </div>
 
             <div className="space-y-3">
@@ -635,7 +635,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                     <button 
                       key={idx}
                       onClick={item.action}
-                      className="w-full py-3 flex justify-between items-center text-xs font-bold text-slate-705 hover:text-primary transition-all text-left cursor-pointer"
+                      className="w-full py-3 flex justify-between items-center text-xs font-bold text-slate-700 hover:text-primary transition-all text-left cursor-pointer"
                     >
                       <span>{item.title}</span>
                       <ChevronRight size={14} className="text-slate-400" />

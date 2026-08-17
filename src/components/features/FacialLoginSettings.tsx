@@ -138,6 +138,7 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
   };
 
   const removeTemplate = () => {
+    if (!window.confirm('Tem a certeza que deseja remover o registo facial? Poderá voltar a registar quando quiser.')) return;
     try { localStorage.removeItem(storageKey); } catch { /* ignora */ }
     setTemplate(null);
     onAudit?.(`LOGIN FACIAL: registo facial removido (${mode} · ${personId.toUpperCase().replace(/\s+/g, '')}).`, 'warning');

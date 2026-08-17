@@ -75,19 +75,19 @@ import { QrCodeImage } from '../ui/QrCodeImage';
 import { AssistenteDocumento } from './AssistenteDocumento';
 
 const STATE_STYLING: Record<string, { bg: string; text: string; border: string; bgDot: string; textIcon: string }> = {
-  'Enviada': { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', bgDot: 'bg-emerald-150', textIcon: 'text-emerald-600' },
+  'Enviada': { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', bgDot: 'bg-emerald-200', textIcon: 'text-emerald-600' },
   'Recebida': { bg: 'bg-slate-50', text: 'text-slate-800', border: 'border-slate-200', bgDot: 'bg-slate-150', textIcon: 'text-slate-600' },
   'Entregue': { bg: 'bg-blue-50', text: 'text-blue-800', border: 'border-blue-100', bgDot: 'bg-blue-100/60', textIcon: 'text-blue-600' },
   'Visualizada': { bg: 'bg-teal-50', text: 'text-teal-800', border: 'border-teal-100', bgDot: 'bg-teal-100/60', textIcon: 'text-teal-600' },
   'Confirmada': { bg: 'bg-indigo-50', text: 'text-indigo-800', border: 'border-indigo-100', bgDot: 'bg-indigo-100/60', textIcon: 'text-indigo-600' },
   'Respondida': { bg: 'bg-purple-50', text: 'text-purple-800', border: 'border-purple-100', bgDot: 'bg-purple-100/60', textIcon: 'text-purple-600' },
-  'Em análise': { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-100', bgDot: 'bg-amber-150', textIcon: 'text-amber-600' },
+  'Em análise': { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-100', bgDot: 'bg-amber-200', textIcon: 'text-amber-600' },
   'Aprovada': { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-100', bgDot: 'bg-emerald-100/65', textIcon: 'text-emerald-600' },
   'Rejeitada': { bg: 'bg-red-50', text: 'text-red-800', border: 'border-red-100', bgDot: 'bg-red-100/60', textIcon: 'text-red-650' },
   'Contestada': { bg: 'bg-rose-50', text: 'text-rose-800', border: 'border-rose-100', bgDot: 'bg-rose-100/60', textIcon: 'text-rose-650' },
   'Expirada': { bg: 'bg-zinc-50', text: 'text-zinc-800', border: 'border-zinc-200', bgDot: 'bg-zinc-150', textIcon: 'text-zinc-600' },
   'Arquivada': { bg: 'bg-neutral-50', text: 'text-neutral-800', border: 'border-neutral-200', bgDot: 'bg-neutral-155', textIcon: 'text-neutral-600' },
-  'Encaminhada': { bg: 'bg-sky-50', text: 'text-sky-800', border: 'border-sky-100', bgDot: 'bg-sky-110', textIcon: 'text-sky-600' },
+  'Encaminhada': { bg: 'bg-sky-50', text: 'text-sky-800', border: 'border-sky-100', bgDot: 'bg-sky-100', textIcon: 'text-sky-600' },
 };
 
 const CATEGORY_STYLING: Record<string, {
@@ -102,7 +102,7 @@ const CATEGORY_STYLING: Record<string, {
     bg: 'bg-indigo-50 border-indigo-100 text-indigo-800',
     text: 'text-indigo-800',
     border: 'border-indigo-200',
-    badge: 'bg-indigo-100/70 text-indigo-850',
+    badge: 'bg-indigo-100/70 text-indigo-900',
     circleBg: 'bg-indigo-600 text-white',
     circleBorder: 'border-indigo-600 ring-indigo-100',
   },
@@ -110,7 +110,7 @@ const CATEGORY_STYLING: Record<string, {
     bg: 'bg-slate-50 border-slate-200 text-slate-800',
     text: 'text-slate-800',
     border: 'border-slate-300',
-    badge: 'bg-slate-100/70 text-slate-850',
+    badge: 'bg-slate-100/70 text-slate-900',
     circleBg: 'bg-slate-600 text-white',
     circleBorder: 'border-slate-500 ring-slate-100',
   },
@@ -118,23 +118,23 @@ const CATEGORY_STYLING: Record<string, {
     bg: 'bg-rose-50 border-rose-100 text-rose-800',
     text: 'text-rose-800',
     border: 'border-rose-200',
-    badge: 'bg-rose-100/75 text-rose-850 border-rose-200',
+    badge: 'bg-rose-100/75 text-rose-900 border-rose-200',
     circleBg: 'bg-rose-600 text-white',
     circleBorder: 'border-rose-500 ring-rose-100',
   },
   'Fatura': {
     bg: 'bg-amber-50 border-amber-100 text-amber-800',
-    text: 'text-amber-805',
+    text: 'text-amber-800',
     border: 'border-amber-200',
     badge: 'bg-amber-100/70 text-amber-800',
-    circleBg: 'bg-amber-650 text-white',
+    circleBg: 'bg-amber-700 text-white',
     circleBorder: 'border-amber-500 ring-amber-100',
   },
   'Convocatória': {
     bg: 'bg-purple-50 border-purple-100 text-purple-800',
     text: 'text-purple-800',
     border: 'border-purple-200',
-    badge: 'bg-purple-100/70 text-purple-850',
+    badge: 'bg-purple-100/70 text-purple-900',
     circleBg: 'bg-purple-600 text-white',
     circleBorder: 'border-purple-500 ring-purple-100',
   },
@@ -142,7 +142,7 @@ const CATEGORY_STYLING: Record<string, {
     bg: 'bg-cyan-50 border-cyan-100 text-cyan-800',
     text: 'text-cyan-800',
     border: 'border-cyan-200',
-    badge: 'bg-cyan-100/70 text-cyan-850',
+    badge: 'bg-cyan-100/70 text-cyan-900',
     circleBg: 'bg-cyan-600 text-white',
     circleBorder: 'border-cyan-500 ring-cyan-100',
   },
@@ -150,15 +150,15 @@ const CATEGORY_STYLING: Record<string, {
     bg: 'bg-emerald-50 border-emerald-100 text-emerald-800',
     text: 'text-emerald-800',
     border: 'border-emerald-200',
-    badge: 'bg-emerald-100/70 text-emerald-850',
+    badge: 'bg-emerald-100/70 text-emerald-900',
     circleBg: 'bg-emerald-600 text-white',
     circleBorder: 'border-emerald-500 ring-emerald-100',
   },
   'Declaração': {
-    bg: 'bg-teal-50 border-teal-150 text-teal-800',
-    text: 'text-teal-805',
+    bg: 'bg-teal-50 border-teal-200 text-teal-800',
+    text: 'text-teal-800',
     border: 'border-teal-200',
-    badge: 'bg-teal-100/70 text-teal-850',
+    badge: 'bg-teal-100/70 text-teal-900',
     circleBg: 'bg-teal-600 text-white',
     circleBorder: 'border-teal-500 ring-teal-100',
   },
@@ -172,25 +172,25 @@ const CATEGORY_STYLING: Record<string, {
   },
   'Certificado': {
     bg: 'bg-orange-50 border-orange-100 text-orange-800',
-    text: 'text-orange-805',
+    text: 'text-orange-800',
     border: 'border-orange-200',
-    badge: 'bg-orange-100/70 text-orange-850',
-    circleBg: 'bg-orange-605 text-white',
+    badge: 'bg-orange-100/70 text-orange-900',
+    circleBg: 'bg-orange-600 text-white',
     circleBorder: 'border-orange-500 ring-orange-100',
   },
   'Petição do Cidadão': {
     bg: 'bg-fuchsia-50 border-fuchsia-100 text-fuchsia-800',
     text: 'text-fuchsia-800',
     border: 'border-fuchsia-200',
-    badge: 'bg-fuchsia-100/65 text-fuchsia-850',
+    badge: 'bg-fuchsia-100/65 text-fuchsia-900',
     circleBg: 'bg-fuchsia-600 text-white',
     circleBorder: 'border-fuchsia-500 ring-fuchsia-100',
   },
   'Documento Fiscal': {
     bg: 'bg-pink-50 border-pink-100 text-pink-800',
-    text: 'text-pink-805',
+    text: 'text-pink-800',
     border: 'border-pink-200',
-    badge: 'bg-pink-100/70 text-pink-850',
+    badge: 'bg-pink-100/70 text-pink-900',
     circleBg: 'bg-pink-600 text-white',
     circleBorder: 'border-pink-500 ring-pink-100',
   },
@@ -1600,7 +1600,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
         </div>
 
         {/* Map Container and Layout */}
-        <div className="bg-white rounded-[28px] md:rounded-[36px] border border-slate-250 p-4 md:p-6 shadow-md relative overflow-hidden flex flex-col gap-6">
+        <div className="bg-white rounded-[28px] md:rounded-[36px] border border-slate-300 p-4 md:p-6 shadow-md relative overflow-hidden flex flex-col gap-6">
           
           {/* Top Search Bar & Map Options */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 z-10">
@@ -1610,7 +1610,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                 placeholder="Pesquisar localidade..."
                 value={mapQuery}
                 onChange={(e) => setMapQuery(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-2xl py-3 pl-11 pr-4 text-xs font-semibold focus:outline-none focus:border-indigo-505 transition-colors"
+                className="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-2xl py-3 pl-11 pr-4 text-xs font-semibold focus:outline-none focus:border-indigo-500 transition-colors"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     // Trigger map update
@@ -1635,7 +1635,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                 className={`px-4 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all border cursor-pointer ${
                   !isSatellite 
                     ? 'bg-primary text-white border-primary shadow-3xs' 
-                    : 'bg-white text-slate-600 border-slate-250 hover:bg-slate-50'
+                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
                 }`}
               >
                 Mapa
@@ -1645,7 +1645,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                 className={`px-4 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all border cursor-pointer ${
                   isSatellite 
                     ? 'bg-primary text-white border-primary shadow-3xs' 
-                    : 'bg-white text-slate-600 border-slate-250 hover:bg-slate-50'
+                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
                 }`}
               >
                 Satélite
@@ -1654,7 +1654,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
           </div>
 
           {/* Interactive Map Wrapper with custom Float Overlay */}
-          <div className="w-full h-[400px] md:h-[520px] rounded-[24px] md:rounded-[30px] overflow-hidden relative border border-slate-250/80 shadow-inner bg-slate-100 z-0">
+          <div className="w-full h-[400px] md:h-[520px] rounded-[24px] md:rounded-[30px] overflow-hidden relative border border-slate-300/80 shadow-inner bg-slate-100 z-0">
             
             {/* Beautiful, High-Performance Skeletal Spinner overlay */}
             {mapLoading && (
@@ -1699,7 +1699,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                   <a
                     href={openInNewTabUrl}
                     target="_blank" rel="noopener noreferrer"
-                    className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-150 flex items-center justify-center text-indigo-650 hover:text-indigo-850 transition-all cursor-pointer outline-none"
+                    className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-150 flex items-center justify-center text-indigo-650 hover:text-indigo-900 transition-all cursor-pointer outline-none"
                     title="Abrir no Google Maps"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1889,18 +1889,18 @@ depende de integração futura com a infra-estrutura de chaves nacional.
 
                 <div className="bg-white border border-emerald-100 p-4 rounded-xl space-y-3 text-xs text-slate-700">
                   <div>
-                    <span className="text-[9px] font-black text-slate-450 block uppercase">Protocolo de Resposta</span>
+                    <span className="text-[9px] font-black text-slate-500 block uppercase">Protocolo de Resposta</span>
                     <span className="font-mono font-bold text-primary block text-[13px]">{detailReplySuccess.protocolNumber}</span>
                   </div>
                   <div>
-                    <span className="text-[9px] font-black text-slate-450 block uppercase">Teor Enviado</span>
+                    <span className="text-[9px] font-black text-slate-500 block uppercase">Teor Enviado</span>
                     <p className="bg-slate-50 border border-slate-150 p-2.5 rounded-lg font-mono text-slate-700 leading-relaxed max-h-32 overflow-y-auto">
                       {detailReplySuccess.text}
                     </p>
                   </div>
                   {detailReplySuccess.files && detailReplySuccess.files.length > 0 && (
                     <div>
-                      <span className="text-[9px] font-black text-slate-450 block uppercase mb-1">Ficheiros Oficiais Anexados ({detailReplySuccess.files.length})</span>
+                      <span className="text-[9px] font-black text-slate-500 block uppercase mb-1">Ficheiros Oficiais Anexados ({detailReplySuccess.files.length})</span>
                       <div className="space-y-1 bg-slate-50 border border-slate-150 p-2.5 rounded-lg">
                         {detailReplySuccess.files.map((file, fIdx) => (
                           <div key={fIdx} className="flex items-center gap-2 text-[10.5px] font-mono text-slate-600 leading-none">
@@ -1915,18 +1915,18 @@ depende de integração futura com a infra-estrutura de chaves nacional.
 
                   <div className="grid grid-cols-2 gap-3 pt-2 border-t border-dashed border-slate-150">
                     <div>
-                      <span className="text-[9px] font-black text-slate-450 block uppercase">Data & Hora Registo</span>
-                      <span className="font-bold text-slate-850 font-mono">{detailReplySuccess.timestamp}</span>
+                      <span className="text-[9px] font-black text-slate-500 block uppercase">Data & Hora Registo</span>
+                      <span className="font-bold text-slate-900 font-mono">{detailReplySuccess.timestamp}</span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-black text-slate-450 block uppercase">Estado Operacional</span>
+                      <span className="text-[9px] font-black text-slate-500 block uppercase">Estado Operacional</span>
                       <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-200 leading-none inline-block">
                         Respondida
                       </span>
                     </div>
                   </div>
                   <div>
-                    <span className="text-[9px] font-black text-slate-450 block uppercase">Referência de Registo</span>
+                    <span className="text-[9px] font-black text-slate-500 block uppercase">Referência de Registo</span>
                     <span className="font-mono text-[8px] text-slate-500 break-all block truncate">{detailReplySuccess.digitalSeal}</span>
                   </div>
                 </div>
@@ -1962,7 +1962,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                 </div>
 
                 {sensConfig.level === 'Ultra Restrito' ? (
-                  <div className="bg-red-50 border border-red-200 text-red-00 p-4 rounded-xl flex items-start gap-2 text-xs font-bold">
+                  <div className="bg-red-50 border border-red-200 text-red-50 p-4 rounded-xl flex items-start gap-2 text-xs font-bold">
                     <Lock size={16} className="text-red-500 shrink-0 mt-0.5 animate-pulse" />
                     <div>
                       <span>Este documento possui sensibilidade crítica de nível <strong>Ultra Restrito</strong>.</span>
@@ -2033,7 +2033,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                             <option value="lg">Grande</option>
                             <option value="xl">Título</option>
                           </select>
-                          <div className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-slate-405 text-[8px] font-black">▼</div>
+                          <div className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[8px] font-black">▼</div>
                         </div>
 
                         <div className="w-[1px] h-4 bg-slate-200 mx-0.5" />
@@ -2047,7 +2047,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                             className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
                               detailEditorBold 
                                 ? 'bg-indigo-100/80 text-indigo-700 border border-indigo-200/30' 
-                                : 'text-slate-655 hover:bg-slate-200/60 hover:text-slate-900'
+                                : 'text-slate-700 hover:bg-slate-200/60 hover:text-slate-900'
                             }`}
                           >
                             <Bold size={13} className="stroke-[3]" />
@@ -2060,7 +2060,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                             className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
                               detailEditorItalic 
                                 ? 'bg-indigo-100/80 text-indigo-700 border border-indigo-200/30' 
-                                : 'text-slate-655 hover:bg-slate-200/60 hover:text-slate-900'
+                                : 'text-slate-700 hover:bg-slate-200/60 hover:text-slate-900'
                             }`}
                           >
                             <Italic size={13} className="stroke-[3]" />
@@ -2073,7 +2073,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                             className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
                               detailEditorUnderline 
                                 ? 'bg-indigo-100/80 text-indigo-700 border border-indigo-200/30' 
-                                : 'text-slate-655 hover:bg-slate-200/60 hover:text-slate-900'
+                                : 'text-slate-700 hover:bg-slate-200/60 hover:text-slate-900'
                             }`}
                           >
                             <Underline size={13} className="stroke-[3]" />
@@ -2131,7 +2131,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                               type="button"
                               onClick={() => setDetailEditorAlignment(align.val)}
                               title={align.title}
-                              className={`p-1.5 rounded-xl active:scale-95 transition-all text-slate-655 ${
+                              className={`p-1.5 rounded-xl active:scale-95 transition-all text-slate-700 ${
                                 detailEditorAlignment === align.val 
                                   ? 'bg-indigo-100/85 text-indigo-700 border border-indigo-200/30' 
                                   : 'hover:bg-slate-200/60 hover:text-slate-900'
@@ -2162,7 +2162,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                             className={`p-1.5 rounded-xl active:scale-95 transition-all ${
                               detailEditorListType === 'bullet'
                                 ? 'bg-indigo-100/85 text-indigo-700 border border-indigo-200/30'
-                                : 'text-slate-605 hover:bg-slate-200/60 hover:text-slate-900'
+                                : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
                             }`}
                           >
                             <List size={13} />
@@ -2183,7 +2183,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                             className={`p-1.5 rounded-xl active:scale-95 transition-all ${
                               detailEditorListType === 'ordered'
                                 ? 'bg-indigo-100/85 text-indigo-700 border border-indigo-200/30'
-                                : 'text-slate-605 hover:bg-slate-200/60 hover:text-slate-900'
+                                : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
                             }`}
                           >
                             <ListOrdered size={13} />
@@ -2200,7 +2200,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           className={`p-1.5 rounded-xl active:scale-95 transition-all ${
                             detailEditorIsQuote
                               ? 'bg-indigo-100/85 text-indigo-700 border border-indigo-200/30'
-                              : 'text-slate-605 hover:bg-slate-200/60 hover:text-slate-900'
+                              : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
                           }`}
                         >
                           <Quote size={13} />
@@ -2211,7 +2211,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           type="button"
                           onClick={clearDetailFormatting}
                           title="Limpar Formatação"
-                          className="p-1.5 rounded-xl text-slate-600 hover:bg-slate-250 hover:text-red-650 hover:bg-red-50/70 active:scale-95 transition-all ml-auto"
+                          className="p-1.5 rounded-xl text-slate-600 hover:bg-slate-300 hover:text-red-650 hover:bg-red-50/70 active:scale-95 transition-all ml-auto"
                         >
                           <Eraser size={13} />
                         </button>
@@ -2242,7 +2242,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
 
                     <div className="flex flex-col gap-3">
                       {inlineAttachedFiles.length > 0 && (
-                        <div className="flex flex-wrap gap-2 p-3 bg-slate-50 border border-slate-205 rounded-2xl">
+                        <div className="flex flex-wrap gap-2 p-3 bg-slate-50 border border-slate-200 rounded-2xl">
                           {inlineAttachedFiles.map((file, fIdx) => (
                             <div 
                               key={fIdx} 
@@ -2350,14 +2350,14 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="text-left">
                   <h5 className="font-extrabold text-sm text-slate-900 leading-none">Precisa responder a este documento?</h5>
-                  <p className="text-xs text-slate-550 font-semibold mt-1">Envie uma resposta formal assinada registando um protocolo associado.</p>
+                  <p className="text-xs text-slate-600 font-semibold mt-1">Envie uma resposta formal assinada registando um protocolo associado.</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsReplyingInDetails(true)}
                   className={`flex items-center gap-2 px-6 py-3 rounded-full font-black text-xs md:text-sm shadow-md transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${
                     sensConfig.level === 'Ultra Restrito'
-                      ? 'bg-slate-100 text-slate-400 border border-slate-205 cursor-not-allowed'
+                      ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
                       : 'bg-[#0c2340] text-white hover:bg-[#152e4d]'
                   }`}
                   disabled={sensConfig.level === 'Ultra Restrito'}
@@ -2410,7 +2410,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                 onClick={() => {
                   setMessageToDelete({ id: selectedMessage.id, isPermanent: true });
                 }}
-                className="px-4 py-2 bg-red-50 hover:bg-red-105 text-red-650 font-extrabold text-sm rounded-xl transition-all active:scale-95 flex items-center gap-1.5 border-0 cursor-pointer"
+                className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-650 font-extrabold text-sm rounded-xl transition-all active:scale-95 flex items-center gap-1.5 border-0 cursor-pointer"
               >
                 <Trash2 size={14} />
                 Eliminar Permanentemente
@@ -2421,7 +2421,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               onClick={() => {
                 setMessageToDelete({ id: selectedMessage.id, isPermanent: false });
               }}
-              className="px-4 py-2 bg-red-50 hover:bg-red-105 text-red-650 font-extrabold text-sm rounded-xl transition-all active:scale-95 flex items-center gap-1.5 border-0 cursor-pointer"
+              className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-650 font-extrabold text-sm rounded-xl transition-all active:scale-95 flex items-center gap-1.5 border-0 cursor-pointer"
             >
               <Trash2 size={14} />
               Eliminar
@@ -2599,7 +2599,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
                             editorBold 
                               ? 'bg-indigo-100/80 text-indigo-700 border border-indigo-200/30' 
-                              : 'text-slate-655 hover:bg-slate-200/60 hover:text-slate-900'
+                              : 'text-slate-700 hover:bg-slate-200/60 hover:text-slate-900'
                           }`}
                         >
                           <Bold size={13} className="stroke-[3]" />
@@ -2612,7 +2612,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
                             editorItalic 
                               ? 'bg-indigo-100/80 text-indigo-700 border border-indigo-200/30' 
-                              : 'text-slate-655 hover:bg-slate-200/60 hover:text-slate-900'
+                              : 'text-slate-700 hover:bg-slate-200/60 hover:text-slate-900'
                           }`}
                         >
                           <Italic size={13} className="stroke-[3]" />
@@ -2625,7 +2625,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
                             editorUnderline 
                               ? 'bg-indigo-100/80 text-indigo-700 border border-indigo-200/30' 
-                              : 'text-slate-655 hover:bg-slate-200/60 hover:text-slate-900'
+                              : 'text-slate-700 hover:bg-slate-200/60 hover:text-slate-900'
                           }`}
                         >
                           <Underline size={13} className="stroke-[3]" />
@@ -2683,7 +2683,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                             type="button"
                             onClick={() => setEditorAlignment(align.val)}
                             title={align.title}
-                            className={`p-1.5 rounded-xl active:scale-95 transition-all text-slate-655 ${
+                            className={`p-1.5 rounded-xl active:scale-95 transition-all text-slate-700 ${
                               editorAlignment === align.val 
                                 ? 'bg-indigo-100/85 text-indigo-700 border border-indigo-200/30' 
                                 : 'hover:bg-slate-200/60 hover:text-slate-900'
@@ -2714,7 +2714,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           className={`p-1.5 rounded-xl active:scale-95 transition-all ${
                             editorListType === 'bullet'
                               ? 'bg-indigo-100/85 text-indigo-700 border border-indigo-200/30'
-                              : 'text-slate-605 hover:bg-slate-200/60 hover:text-slate-900'
+                              : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
                           }`}
                         >
                           <List size={13} />
@@ -2735,7 +2735,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           className={`p-1.5 rounded-xl active:scale-95 transition-all ${
                             editorListType === 'ordered'
                               ? 'bg-indigo-100/85 text-indigo-700 border border-indigo-200/30'
-                              : 'text-slate-605 hover:bg-slate-200/60 hover:text-slate-900'
+                              : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
                           }`}
                         >
                           <ListOrdered size={13} />
@@ -2752,7 +2752,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         className={`p-1.5 rounded-xl active:scale-95 transition-all ${
                           editorIsQuote
                             ? 'bg-indigo-100/85 text-indigo-700 border border-indigo-200/30'
-                            : 'text-slate-605 hover:bg-slate-200/60 hover:text-slate-900'
+                            : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
                         }`}
                       >
                         <Quote size={13} />
@@ -2763,7 +2763,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         type="button"
                         onClick={clearFormatting}
                         title="Limpar Formatação"
-                        className="p-1.5 rounded-xl text-slate-600 hover:bg-slate-250 hover:text-red-650 hover:bg-red-50/70 active:scale-95 transition-all ml-auto"
+                        className="p-1.5 rounded-xl text-slate-600 hover:bg-slate-300 hover:text-red-650 hover:bg-red-50/70 active:scale-95 transition-all ml-auto"
                       >
                         <Eraser size={13} />
                       </button>
@@ -2801,7 +2801,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                      A confirmação de leitura oficial constitui um documento oficial de <strong className="text-slate-900">Aviso de Receção (AR)</strong> que comprova legalmente perante o órgão emissor que tomou conhecimento integral dos termos deste documento.
                   </div>
 
-                  <label className="flex items-start gap-3 bg-indigo-50/40 border border-indigo-150 p-4 rounded-2xl cursor-pointer select-none">
+                  <label className="flex items-start gap-3 bg-indigo-50/40 border border-indigo-200 p-4 rounded-2xl cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={confirmReadCheckbox}
@@ -2918,7 +2918,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               {/* Contestação Form */}
               {activeOfficialAction === 'Contestação' && (
                 <div className="space-y-4">
-                  <div className="bg-red-50/50 border border-red-200 p-4 rounded-2xl text-xs text-red-855 leading-relaxed font-semibold flex gap-2.5 items-start">
+                  <div className="bg-red-50/50 border border-red-200 p-4 rounded-2xl text-xs text-red-900 leading-relaxed font-semibold flex gap-2.5 items-start">
                     <AlertTriangle size={18} className="text-red-500 shrink-0" />
                     <span>
                       A interposição de contestação oficial perante atos administrativos suspende os prazos de execução sob as leis de contencioso fiscal em vigor. Os seus dados e termos de fundamentação serão enviados diretamente à Procuradoria Geral.
@@ -2930,7 +2930,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                     <select
                       value={contestCategory}
                       onChange={(e) => setContestCategory(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs md:text-sm font-bold text-slate-705 focus:outline-none"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs md:text-sm font-bold text-slate-700 focus:outline-none"
                     >
                       <option value="Atos Administrativos Legais">Atos Administrativos Legais / Desoneração</option>
                       <option value="Sanções e Multas Pecuniárias">Sanções e Multas Pecuniárias / Coimas</option>
@@ -3106,7 +3106,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                   <Check size={26} strokeWidth={3} />
                 </div>
                 <h3 className="text-emerald-900 font-black text-sm uppercase tracking-wider leading-none">Trâmite Registado</h3>
-                <p className="text-emerald-850 text-[9px] font-black mt-1 uppercase tracking-widest leading-none">Auto-Protocolo Governamental Ativo</p>
+                <p className="text-emerald-900 text-[9px] font-black mt-1 uppercase tracking-widest leading-none">Auto-Protocolo Governamental Ativo</p>
                 <p className="text-slate-500 text-[10.5px] mt-2 max-w-sm leading-relaxed">
                   A sua ação de <strong>"{successProtocol.actionName}"</strong> foi registada e selada legalmente de forma imutável nos servidores centrais do Estado angolano.
                 </p>
@@ -3115,10 +3115,10 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4.5 space-y-4">
                 <div className="flex justify-between items-center pb-3 border-b border-rose-100">
                   <div>
-                    <span className="text-[9.5px] font-black tracking-widest text-slate-450 uppercase font-mono">REGISTO DE PROTOCOLO</span>
+                    <span className="text-[9.5px] font-black tracking-widest text-slate-500 uppercase font-mono">REGISTO DE PROTOCOLO</span>
                     <div className="text-primary font-black text-sm font-mono tracking-tight mt-0.5">{successProtocol.protocolNumber}</div>
                   </div>
-                  <span className="bg-emerald-100 text-emerald-850 text-[8px] font-black px-2 py-0.5 rounded border border-emerald-200 uppercase tracking-wider font-mono">
+                  <span className="bg-emerald-100 text-emerald-900 text-[8px] font-black px-2 py-0.5 rounded border border-emerald-200 uppercase tracking-wider font-mono">
                     VERIFICADO
                   </span>
                 </div>
@@ -3140,7 +3140,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                   </div>
                   <div className="sm:col-span-2">
                     <span className="text-[10px] font-black text-slate-400 block uppercase mb-0.5">Assinatura Digital de Validação (Selo)</span>
-                    <div className="bg-slate-900 text-slate-300 p-2 rounded-lg font-mono text-[8.5px] break-all border border-slate-850 truncate leading-none mt-0.5 flex items-center gap-1.5">
+                    <div className="bg-slate-900 text-slate-300 p-2 rounded-lg font-mono text-[8.5px] break-all border border-slate-900 truncate leading-none mt-0.5 flex items-center gap-1.5">
                       <Fingerprint size={10} className="text-emerald-400 shrink-0" />
                       {successProtocol.digitalSeal}
                     </div>
@@ -3421,7 +3421,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                       <div className="flex flex-col sm:flex-row gap-5 items-center justify-between bg-white p-4 border border-slate-200 rounded-2xl">
                         <div className="flex-1 min-w-0 space-y-1.5 text-left">
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Hash de Integridade (SHA-256)</span>
-                          <div className="bg-slate-900 text-slate-350 p-2.5 rounded-xl text-[10px] font-mono break-all border border-slate-850 flex items-center gap-2">
+                          <div className="bg-slate-900 text-slate-400 p-2.5 rounded-xl text-[10px] font-mono break-all border border-slate-900 flex items-center gap-2">
                             <Fingerprint size={14} className="text-emerald-400 shrink-0" />
                             <span className="text-slate-400">{storedProtocol?.digital_signature || protocol.digitalSignature || '—'}</span>
                           </div>
@@ -3450,7 +3450,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                   <div className="bg-white p-6 rounded-3xl border border-slate-200 space-y-5">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                       <div className="flex items-center gap-2.5 text-left">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-750">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-800">
                           <History size={16} />
                         </div>
                         <div>
@@ -3458,7 +3458,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           <p className="text-[10px] text-slate-400 font-bold leading-normal">Linha de vida governamental qualificada pelo protocolo</p>
                         </div>
                       </div>
-                      <span className="bg-indigo-55 border border-indigo-110 px-2.5 py-0.5 rounded-full text-indigo-700 font-mono text-[9px] font-black">
+                      <span className="bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full text-indigo-700 font-mono text-[9px] font-black">
                         {(selectedMessage.stateHistory || generateTimelineEvents(selectedMessage, protocol)).length} Estados
                       </span>
                     </div>
@@ -3498,7 +3498,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
 
                               {/* Responsible */}
                               <div className="mt-1 flex items-center gap-1.5 text-slate-600">
-                                <UserCheck size={11} className="text-slate-450 shrink-0" />
+                                <UserCheck size={11} className="text-slate-500 shrink-0" />
                                 <span className="text-[10px] font-bold text-slate-700 leading-none">
                                   {evt.responsible}
                                 </span>
@@ -3598,7 +3598,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                 </div>
                 
                 {/* Metadados obrigatórios do correio: Data, Hora e Localidade */}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-slate-705 bg-white border border-slate-300 rounded-[18px] p-2.5 px-4 shadow-3xs">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-slate-700 bg-white border border-slate-300 rounded-[18px] p-2.5 px-4 shadow-3xs">
                   <div className="flex items-center gap-2 min-w-0">
                     <Calendar size={13} className="text-indigo-650 shrink-0" />
                     <div>
@@ -3625,7 +3625,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                     <MapPin size={13} className="text-indigo-650 shrink-0 group-hover:scale-110 transition-transform" />
                     <div>
                       <span className="text-[8px] font-black text-slate-400 block uppercase tracking-wider font-display leading-none group-hover:text-indigo-600">Localidade</span>
-                      <span className="text-xs font-bold text-slate-850 mt-0.5 block md:max-w-md leading-relaxed underline decoration-dotted decoration-indigo-500/40 group-hover:text-indigo-700">{messageLocality}</span>
+                      <span className="text-xs font-bold text-slate-900 mt-0.5 block md:max-w-md leading-relaxed underline decoration-dotted decoration-indigo-500/40 group-hover:text-indigo-700">{messageLocality}</span>
                     </div>
                   </div>
                 </div>
@@ -3756,7 +3756,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                                   {renderCategoryIcon(meta.icon, 16)}
                                 </div>
                                 <div>
-                                  <small className="text-slate-505 text-[9px] md:text-xs font-black uppercase tracking-[0.15em] block leading-none mb-1">Tipo de Correspondência</small>
+                                  <small className="text-slate-500 text-[9px] md:text-xs font-black uppercase tracking-[0.15em] block leading-none mb-1">Tipo de Correspondência</small>
                                   <div className="flex flex-wrap items-center gap-2 mt-0.5">
                                     <span className={`text-xs md:text-sm font-bold leading-none ${style.text}`}>{meta.name}</span>
                                     <span className="bg-red-50 px-1.5 py-0.5 rounded text-[8px] font-bold text-red-650 tracking-wider font-mono uppercase">Prioridade: {meta.priority}</span>
@@ -3789,7 +3789,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                       <div className="text-[10px] font-extrabold text-slate-500 uppercase tracking-[0.2em] mb-4">QR CODE DE PROTOCOLO</div>
                       <div 
                         onClick={triggerVerification}
-                        className="p-3 bg-white border border-line/40 rounded-2xl shadow-md group relative overflow-hidden text-center w-full cursor-pointer hover:border-emerald-350 hover:bg-emerald-50/10 transition-all active:scale-95 flex flex-col items-center justify-center"
+                        className="p-3 bg-white border border-line/40 rounded-2xl shadow-md group relative overflow-hidden text-center w-full cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/10 transition-all active:scale-95 flex flex-col items-center justify-center"
                       >
                         <QrCodeImage
                           value={protocol.qrCodeUrl}
@@ -3918,7 +3918,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                   <div className="space-y-5">
                     {/* v27 — resultado REAL da validação na nuvem (nunca inventado) */}
                     {registoQR === 'encontrado' && (
-                      <div className="bg-emerald-50 border border-emerald-150 p-4 rounded-2xl flex items-start gap-3">
+                      <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex items-start gap-3">
                         <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md">
                           <Check size={16} strokeWidth={3} />
                         </div>
@@ -3980,7 +3980,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                     <div className="space-y-3.5 divide-y divide-slate-100">
                       <div className="pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                         <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">Emissor Autorizado</span>
-                        <span className="text-slate-850 text-xs font-black text-right">
+                        <span className="text-slate-900 text-xs font-black text-right">
                           {protocol.issuerInstitution}
                         </span>
                       </div>
@@ -3994,14 +3994,14 @@ depende de integração futura com a infra-estrutura de chaves nacional.
 
                       <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                         <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">Data de Emissão</span>
-                        <span className="text-slate-850 font-mono text-xs font-bold text-right">
+                        <span className="text-slate-900 font-mono text-xs font-bold text-right">
                           {storedProtocol?.official_issue_date || protocol.officialIssueDate}
                         </span>
                       </div>
 
                       <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                         <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">Referência de Registo</span>
-                        <span className="text-slate-850 font-mono text-xs font-bold text-right">
+                        <span className="text-slate-900 font-mono text-xs font-bold text-right">
                           {protocol.digitalSeal}
                         </span>
                       </div>
@@ -4015,7 +4015,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
 
                       <div className="pt-3">
                         <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider block mb-1.5">Nota de Integridade</span>
-                        <p className="text-slate-655 text-[11px] font-medium leading-relaxed bg-indigo-50/40 p-2.5 border border-indigo-100/50 rounded-lg text-left">
+                        <p className="text-slate-700 text-[11px] font-medium leading-relaxed bg-indigo-50/40 p-2.5 border border-indigo-100/50 rounded-lg text-left">
                           {storedProtocol?.legal_validity || protocol.legalValidity}
                         </p>
                       </div>
@@ -4131,7 +4131,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                     <h3 className="font-black text-[#0c2340] text-sm uppercase mt-0.5">
                       Correio Digital de Angola (CDA)
                     </h3>
-                    <div className="inline-block mt-2 px-3 py-1 bg-indigo-50 border border-indigo-150 rounded-full">
+                    <div className="inline-block mt-2 px-3 py-1 bg-indigo-50 border border-indigo-200 rounded-full">
                       <span className="text-[9px] font-extrabold tracking-widest text-indigo-700 uppercase">
                         Registo de Integridade Ativo
                       </span>
@@ -4230,7 +4230,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                               <button
                                 type="button"
                                 onClick={() => {
-                                  window.open(`https://www.google.com/maps/search/?api=1&query=Hospital+Geral+de+Luanda`, '_blank');
+                                  window.open(`https://www.google.com/maps/search/?api=1&query=Hospital+Geral+de+Luanda`, '_blank', 'noopener,noreferrer');
                                 }}
                                 className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-lg font-bold text-[10px] uppercase transition-all flex items-center gap-1 shrink-0 cursor-pointer"
                               >

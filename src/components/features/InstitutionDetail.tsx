@@ -796,7 +796,7 @@ export function InstitutionDetail({
                         setPreviewType('document');
                         setDownloadSuccess(false);
                       }}
-                      className="border border-slate-200 hover:border-slate-350 bg-white hover:bg-slate-50/85 transition-all flex items-center justify-between cursor-pointer p-3.5 rounded-2xl"
+                      className="border border-slate-200 hover:border-slate-400 bg-white hover:bg-slate-50/85 transition-all flex items-center justify-between cursor-pointer p-3.5 rounded-2xl"
                     >
                       <div className="min-w-0 flex-1 truncate mr-2">
                         <span className="text-[9px] font-black uppercase text-emerald-600 block mb-0.5">TÍTULO OFICIAL DISPONÍVEL</span>
@@ -887,7 +887,7 @@ export function InstitutionDetail({
                     </div>
                   </div>
 
-                  <p className="text-center text-slate-800 text-[11px] md:text-xs font-semibold leading-normal pb-3 select-none border-b border-slate-105 pb-4">
+                  <p className="text-center text-slate-800 text-[11px] md:text-xs font-semibold leading-normal pb-3 select-none border-b border-slate-100 pb-4">
                     A operação que efectuou foi registada com sucesso através do serviço <span className="font-extrabold text-[#004B8F]">BAIdirecto</span>.
                   </p>
 
@@ -1007,7 +1007,7 @@ export function InstitutionDetail({
                 </div>
               ) : (
                 /* Formal Document body from message */
-                <div className="bg-white rounded-2xl border-2 border-slate-350 shadow-lg p-6 md:p-8 space-y-6 relative overflow-hidden font-sans">
+                <div className="bg-white rounded-2xl border-2 border-slate-400 shadow-lg p-6 md:p-8 space-y-6 relative overflow-hidden font-sans">
                   {/* Guilloché pattern simulated border or header */}
                   <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-red-600 via-yellow-400 to-red-600" />
                   
@@ -1016,7 +1016,7 @@ export function InstitutionDetail({
                     <div className="w-12 h-12 bg-amber-50/80 border border-amber-300 rounded-full mx-auto flex items-center justify-center text-amber-700 shadow-sm">
                       <ShieldCheck size={28} />
                     </div>
-                    <h2 className="text-xs font-black tracking-widest text-slate-933 uppercase leading-none">República de Angola</h2>
+                    <h2 className="text-xs font-black tracking-widest text-slate-950 uppercase leading-none">República de Angola</h2>
                     <p className="text-[9px] font-bold tracking-wider text-slate-500 uppercase leading-none">Governo de Angola • Chapa Digital Unificada</p>
                     <p className="text-[8px] font-black text-blue-600 font-mono tracking-widest uppercase mt-0.5">INTERCONEXÃO AUTENTICADA</p>
                   </div>

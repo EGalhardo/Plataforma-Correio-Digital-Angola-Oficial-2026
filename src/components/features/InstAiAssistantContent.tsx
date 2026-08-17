@@ -700,7 +700,7 @@ Contexto adicional:
                       <h2 className="text-xl font-black text-[#0c2340] tracking-tight m-0 leading-none">{assistantName}</h2>
                       <button
                         onClick={() => setIsEditingNameInline(true)}
-                        className="p-1 bg-transparent border-none cursor-pointer text-slate-450 hover:text-slate-800 transition-colors"
+                        className="p-1 bg-transparent border-none cursor-pointer text-slate-500 hover:text-slate-800 transition-colors"
                         title="Editar Nome do Assistente"
                       >
                         <Pencil size={13} className="stroke-[2.5]" />
@@ -956,7 +956,7 @@ Contexto adicional:
 
           {/* RODAPÉ INFORMATIVO */}
           <div className="bg-indigo-50/40 border border-indigo-100 rounded-xl p-4 flex items-start gap-3 mt-2 text-left">
-            <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-150 flex items-center justify-center text-indigo-600 shrink-0 mt-0.5">
+            <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shrink-0 mt-0.5">
               <Info className="w-4 h-4 text-indigo-600" />
             </div>
             <div>
@@ -1076,7 +1076,7 @@ Contexto adicional:
             </div>
 
             {aiStatus !== 'connected' && (
-              <div className="mt-2 p-2.5 bg-amber-55 border border-amber-200 rounded-xl text-[10px] font-bold text-amber-700 text-center">
+              <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[10px] font-bold text-amber-700 text-center">
                 ⚠️ A IA não está ligada. Configure as variáveis de ambiente de IA (GEMINI_API_KEY ou GROQ_API_KEY) no painel de segredos do servidor.
               </div>
             )}
@@ -1303,7 +1303,7 @@ Contexto adicional:
                 <div className="relative">
                   <input
                     type="text"
-                    className="w-full bg-[#f8fafc] border border-slate-205 focus:border-[#0E2B64] rounded-xl pl-3.5 pr-10 py-3 text-xs text-slate-800 outline-none transition-all placeholder:text-slate-400 font-bold"
+                    className="w-full bg-[#f8fafc] border border-slate-200 focus:border-[#0E2B64] rounded-xl pl-3.5 pr-10 py-3 text-xs text-slate-800 outline-none transition-all placeholder:text-slate-400 font-bold"
                     placeholder="Escreva a sua pergunta..."
                     value={previewInput}
                     onChange={(e) => setPreviewInput(e.target.value)}

@@ -6,7 +6,7 @@
  * Cada linha tem o botão "Enviar Mensagem": 1º entrega CDA (se o familiar
  * tiver conta — desfecho REAL) → 2º abre o WhatsApp via wa.me (link honesto:
  * quem envia é o agente; "WhatsApp enviado" NÃO EXISTE aqui).
- * Truque anti-popup-blocker: window.open('', '_blank') SINCRONO no clique da
+ * Truque anti-popup-blocker: window.open('', '_blank', 'noopener,noreferrer') SINCRONO no clique da
  * linha; a navegação para wa.me acontece depois dos awaits.
  */
 
@@ -103,7 +103,7 @@ export function InstitutionEmergencyBroadcast({
     if (state.done) return;
 
     // 1 — SINCRONO: abrir a janela DENTRO do gesto do utilizador.
-    const win = window.open('', '_blank');
+    const win = window.open('', '_blank', 'noopener,noreferrer');
 
     if (isSandbox) {
       // Sandbox declarado: nada é escrito na BD e NENHUM link é aberto

@@ -164,7 +164,7 @@ export function ResetPasswordStepper({ onCancel, onSuccess, addAuditLog, appMode
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4 py-2.5 pl-10.5 text-[13px] text-slate-800 outline-none transition-all font-bold placeholder:text-slate-350"
+                    className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4 py-2.5 pl-10.5 text-[13px] text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
                     placeholder="oseuemail@exemplo.com"
                     autoComplete="email"
                   />
@@ -274,7 +274,7 @@ export function ResetPasswordStepper({ onCancel, onSuccess, addAuditLog, appMode
               <div className="space-y-3 max-w-md mx-auto w-full">
                 <div className="grid gap-1 text-left">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10.5px] text-slate-505 font-extrabold tracking-wider uppercase">
+                    <span className="text-[10.5px] text-slate-500 font-extrabold tracking-wider uppercase">
                       Nova Senha
                     </span>
                     {password && (
@@ -314,7 +314,7 @@ export function ResetPasswordStepper({ onCancel, onSuccess, addAuditLog, appMode
                 </div>
 
                 <div className="grid gap-1 text-left">
-                  <span className="text-[10.5px] text-slate-505 font-extrabold tracking-wider uppercase">
+                  <span className="text-[10.5px] text-slate-500 font-extrabold tracking-wider uppercase">
                     Confirmar Nova Senha
                   </span>
                   <div className="flex items-center gap-3 bg-white border border-slate-200 focus-within:border-[#0c2340] focus-within:ring-1 focus-within:ring-[#0c2340] rounded-[15px] px-4 py-1.5 transition-all relative">

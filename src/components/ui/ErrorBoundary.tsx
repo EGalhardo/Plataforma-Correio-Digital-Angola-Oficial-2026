@@ -91,7 +91,7 @@ export function ErrorBoundary({ children }: Props) {
                 localStorage.removeItem('correio_digital_theme');
                 window.location.reload();
               }}
-              className="py-3 bg-slate-100 hover:bg-slate-205 text-slate-700 font-black text-[10px] uppercase tracking-widest rounded-xl transition-all cursor-pointer border border-slate-250 animate-none"
+              className="py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-[10px] uppercase tracking-widest rounded-xl transition-all cursor-pointer border border-slate-300 animate-none"
             >
               Recarregar App
             </button>

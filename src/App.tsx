@@ -532,26 +532,26 @@ export default function App() {
       setDeletedMessageIds([...deletedMessageIds, id]);
       const baseId = id >= 10000 ? id - 10000 : id;
       if (isOnline && hasValidSupabaseKeys()) {
-        supabaseService.updateMessageState(baseId, { state_indicator: 'Arquivada' }).catch(() => {});
+        supabaseService.updateMessageState(baseId, { state_indicator: 'Arquivada' }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
         supabaseService.insertMessageStateEvent({
           messageId: baseId,
           state: 'Arquivada',
           responsible: user?.name || 'Edlasio Galhardo',
           description: 'Correspondência movida para as eliminadas pelo utilizador.'
-        }).catch(() => {});
+        }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
       }
     } else {
       if (!hiddenMessageIds.includes(id)) {
         setHiddenMessageIds([...hiddenMessageIds, id]);
         const baseId = id >= 10000 ? id - 10000 : id;
         if (isOnline && hasValidSupabaseKeys()) {
-          supabaseService.updateMessageState(baseId, { state_indicator: 'EliminadaPermanente' }).catch(() => {});
+          supabaseService.updateMessageState(baseId, { state_indicator: 'EliminadaPermanente' }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
           supabaseService.insertMessageStateEvent({
             messageId: baseId,
             state: 'EliminadaPermanente',
             responsible: user?.name || 'Edlasio Galhardo',
             description: 'Correspondência eliminada permanentemente da vista do utilizador.'
-          }).catch(() => {});
+          }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
         }
       }
     }
@@ -561,13 +561,13 @@ export default function App() {
     setDeletedMessageIds(deletedMessageIds.filter(mid => mid !== id));
     const baseId = id >= 10000 ? id - 10000 : id;
     if (isOnline && hasValidSupabaseKeys()) {
-      supabaseService.updateMessageState(baseId, { state_indicator: 'Ativa' }).catch(() => {});
+      supabaseService.updateMessageState(baseId, { state_indicator: 'Ativa' }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
       supabaseService.insertMessageStateEvent({
         messageId: baseId,
         state: 'Restaurada',
         responsible: user?.name || 'Edlasio Galhardo',
         description: 'Correspondência restaurada do arquivo.'
-      }).catch(() => {});
+      }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
     }
   };
 
@@ -1736,7 +1736,7 @@ export default function App() {
         loginFaceStreamRef.current = stream;
         if (loginFaceVideoRef.current) {
           loginFaceVideoRef.current.srcObject = stream;
-          await loginFaceVideoRef.current.play().catch(() => {});
+          await loginFaceVideoRef.current.play().catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
         }
         setWebcamReady(true);
       } catch (error) {
@@ -3341,7 +3341,7 @@ export default function App() {
       type
     };
     setAuditLogs(prev => [newLog, ...prev]);
-    supabaseService.insertAuditLog(newLog).catch(() => {});
+    supabaseService.insertAuditLog(newLog).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
   };
 
   // Handlers
@@ -3364,7 +3364,7 @@ export default function App() {
             }))
           } : prev);
         }
-      }).catch(() => {});
+      }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
     }
     setMessageSource(correspondenciaTab === 'enviadas' ? 'enviados' : 'correspondencias');
     
@@ -3400,13 +3400,13 @@ export default function App() {
       }));
 
       if (isOnline && hasValidSupabaseKeys()) {
-        supabaseService.updateMessageState(baseId, { unread: false, status: 'Lida' }).catch(() => {});
+        supabaseService.updateMessageState(baseId, { unread: false, status: 'Lida' }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
         supabaseService.insertMessageStateEvent({
           messageId: baseId,
           state: 'Visualizada',
           responsible: user.name,
           description: 'Correspondência aberta e marcada como lida.'
-        }).catch(() => {});
+        }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
       }
 
       // Registo de auditoria certificado para provar sincronização
@@ -3476,7 +3476,7 @@ export default function App() {
         deadline_text: updatedMsg.details?.deadline,
         state_indicator: updatedMsg.details?.state,
         actions: updatedMsg.details?.actions,
-      }).catch(() => {});
+      }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
     }
   };
 
@@ -3661,7 +3661,7 @@ export default function App() {
             }, resolveInstitutionCode(composeData.to));
           }
         })
-        .catch(() => {});
+        .catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
     }
   };
 
@@ -3782,7 +3782,7 @@ export default function App() {
             }, resolveInstitutionCode(docComposeData.to));
           }
         })
-        .catch(() => {});
+        .catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
     }
   };
 
@@ -3811,7 +3811,7 @@ export default function App() {
         addAuditLog(`Contacto removido: ${contactToDelete.name}`, 'warning');
         OfflineManager.createAutomaticBackup();
         // Background sync to Supabase (nunca em sessões demo — D7)
-        if (!isDemoSession) supabaseService.deleteContact(contactToDelete.id).catch(() => {});
+        if (!isDemoSession) supabaseService.deleteContact(contactToDelete.id).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
       }
       
       setContactToDelete(null);
@@ -3855,7 +3855,7 @@ export default function App() {
       addAuditLog(`Novo contacto adicionado: ${contactForm.name}`, 'success');
       OfflineManager.createAutomaticBackup();
       // Background sync to Supabase (nunca em sessões demo — D7)
-      if (!isDemoSession) supabaseService.insertContact(newContact, bi).catch(() => {});
+      if (!isDemoSession) supabaseService.insertContact(newContact, bi).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
     }
 
     setContactFormErrors([]);
@@ -3882,7 +3882,7 @@ export default function App() {
     addAuditLog(`Contacto actualizado: ${updatedContact.name}`, 'success');
     OfflineManager.createAutomaticBackup();
     if (isOnline && !isDemoSession) {
-      supabaseService.insertContact(updatedContact, bi).catch(() => {});
+      supabaseService.insertContact(updatedContact, bi).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
     }
     return [];
   };
@@ -3899,7 +3899,7 @@ export default function App() {
       if (c.id === id) {
         const updated = { ...c, type: newType };
         // Sync update (nunca em sessões demo — D7)
-        if (isOnline && !isDemoSession) supabaseService.insertContact(updated, bi).catch(() => {});
+        if (isOnline && !isDemoSession) supabaseService.insertContact(updated, bi).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
         return updated;
       }
       return c;
@@ -4405,7 +4405,7 @@ Ficha civil do titular:
           message: `O pedido de ${request.docType} foi rejeitado e requer regularização complementar.`,
           type: 'warning',
           targetTab: 'historico'
-        }, request.userBi).catch(() => {});
+        }, request.userBi).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
       }
       addAuditLog(`DOC_REJECTED: Solicitação de ${request.docType} para ${request.userName} rejeitada.`, 'warning');
     }
@@ -6497,7 +6497,7 @@ Ficha civil do titular:
                           type="email"
                           value={loginEmailInput}
                           onChange={(e) => setLoginEmailInput(e.target.value)}
-                          className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4 py-2.5 text-[13px] text-slate-800 outline-none transition-all font-bold placeholder:text-slate-350"
+                          className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4 py-2.5 text-[13px] text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
                           placeholder="oseuemail@exemplo.com"
                           autoComplete="email"
                         />
@@ -6512,7 +6512,7 @@ Ficha civil do titular:
                           value={loginPasswordInput}
                           onChange={(e) => setLoginPasswordInput(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter') void handleEmailSignInSubmit(); }}
-                          className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4 py-2.5 text-[13px] text-slate-800 outline-none transition-all font-bold placeholder:text-slate-350"
+                          className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4 py-2.5 text-[13px] text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
                           placeholder="••••••••••••"
                           autoComplete="current-password"
                         />
@@ -6618,7 +6618,7 @@ Ficha civil do titular:
                     <ShieldCheck size={21} className="text-primary shrink-0 mt-0.5" />
                     <div className="space-y-1">
                       <p className="text-[11px] font-black text-slate-800 uppercase tracking-tight">Segurança Validada pelo Estado</p>
-                      <p className="text-[10px] text-slate-450 font-medium leading-relaxed uppercase">
+                      <p className="text-[10px] text-slate-500 font-medium leading-relaxed uppercase">
                         Todas as transações e acessos a este portal estão associados de forma única à sua identidade civil nacional.
                       </p>
                     </div>
