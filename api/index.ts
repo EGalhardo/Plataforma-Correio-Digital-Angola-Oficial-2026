@@ -1061,54 +1061,158 @@ Regras Críticas de Fidelidade e Integridade:
     }
 
     // 4. Endpoint /api/chat (Fluxo contínuo do Chat do Cidadão)
+    // SINCRONIZADO com server.ts (dev local) — 2026-08-17.
+    // Suporta pageContext (pesquisa local das correspondências do utilizador),
+    // dialectos regionais, isGovMode e fallback Groq → Gemini → offline.
     if (url.includes('/api/chat')) {
-      const { messages } = body || {};
+      const { messages, isGovMode, currentPage, pageContext, language } = body || {};
 
       if (!messages || !Array.isArray(messages) || messages.length === 0) {
         return res.status(400).json({ error: "O array de 'messages' é obrigatório." });
       }
 
-      // INJEÇÃO DA DIRETIVA DE CONHECIMENTO DE SISTEMA DO CORREIO DIGITAL ANGOLA
-      const sysPrompt = `Você é o assistente virtual oficial do Correio Digital de Angola.
-O seu objetivo é responder de forma clara, simples, amigável e direta em português de Angola.
+      const CDA_PROJECT_INFO = `
+O Correio Digital de Angola representa a espinha dorsal da modernização administrativa em Angola. 
+O principal problema que resolvemos é a dificuldade de comunicação oficial num país com muitos endereços não mapeados, o que causa atrasos e forças as pessoas a deslocarem-se constantemente às instituições. 
+A solução que oferecemos é transformar o Bilhete de Identidade no endereço digital oficial de cada cidadão, criando um canal direto e seguro no telemóvel. 
+Os benefícios são claros: rapidez na receção de documentos, redução de custos logísticos para o Estado e uma inclusão digital real para todos, incluindo idosos ou cidadãos com baixa escolaridade através de auxílio por voz. 
+A plataforma integra de forma inteligente e direta os canais de atendimento das principais instituições, tais como a AGT (Administração Geral Tributária), o SME (Serviço de Migração e Estrangeiros), a ENDE e a EPAL. Cada instituição tem a capacidade de configurar as diretrizes e regras operacionais do seu próprio assistente de IA. No papel de assistente central do Correio Digital de Angola, caso o cidadão pergunte sobre qualquer uma destas instituições (ex: tirar NIF na AGT ou obter vistos no SME), você deve agir de acordo com o tom, diretrizes de IA e conhecimentos integrados da instituição correspondente.
 
-Regra Fundamental de Resposta (SUPER RIGOROSA):
-- Suas respostas devem ser curtas, simples, diretas e objetivas, com no máximo 2 ou 3 frases curtas. Nunca dê respostas longas ou textos extensos.
-- Não utilize de forma alguma asteriscos, aspas ou qualquer símbolo de formatação (como markdown). Apresente o texto totalmente limpo.
+A plataforma baseia-se em cinco pilares fundamentais de serviços ativos, que você deve detalhar e explicar desta forma:
+- 1. O Painel (Início / Dashboard): Funciona como um centro de comando pessoal com notificações rápidas, alertas urgentes, atalhos úteis e um resumo intuitivo das correspondências do cidadão.
+- 2. O Correio (Correspondência Oficial): A área onde o cidadão troca mensagens oficiais de forma direta e bidirecional com instituições públicas, recebendo e assinando documentos legais com validade jurídica oficial de órgãos governamentais integrados como o SME e a AGT.
+- 3. O Contacto (Apoio / Directório de Órgãos): Central de apoio onde estão listados todos os contactos importantes de utilidade pública e entidades governamentais integradas de Angola.
+- 4. O Assistente de Voz / IA (Inteligência Artificial): O assistente cognitivo inteligente por voz que simplifica a linguagem jurídica, interpreta documentos densos e auxilia na navegação acessível.
+- 5. A Conta (Configuração / Perfil): Onde o cidadão faz o controle e gestão segura dos seus dados de identidade, senha de acesso, biometria facial, preferências de recepção, configurações de segurança e histórico de auditoria completo.
 
-Conhecimento do Projeto:
-O Correio Digital Angola moderniza a administração de Angola, transformando o Bilhete de Identidade no principal endereço oficial do cidadão para envio rápido e seguro de faturas (ENDE, EPAL), notificações (AGT) e documentos (SME).`;
+Como um excelente BÓNUS extra no final da explicação dos 5 pilares, apresente o inovador "VideoAtendimento" (Vídeo-consultas integradas): uma funcionalidade fantástica que permite agendar e realizar videochamadas interativas em direto, permitindo ao cidadão falar em tempo real face a face com técnicos e funcionários de instituições oficiais e resolver problemas de imediato sem sair de casa.
 
+AVISO CRÍTICO: Não cite de forma alguma a funcionalidade 'Carteira Digital', pois ela não está disponível no sistema no momento.
+O nosso objetivo final é a transição para um Estado proativo que serve o povo na palma da mão.
+`;
+
+      let systemPrompt = isGovMode
+        ? `Você é o Consultor de Segurança e Legislação do SOC do Governo de Angola. Sua função é auxiliar administradores na gestão de protocolos de emergência, interoperabilidade e redação de normas. ${CDA_PROJECT_INFO} Inicie sempre saudando e perguntando como pode ser útil. Responda de forma eficiente, clara e profissional. Não utilize asteriscos ou símbolos de formatação na sua fala. Utilize sempre o nome completo Correio Digital de Angola. Se a explicação for muito longa, apresente primeiro o essencial e interrompa para perguntar se o usuário deseja que você continue detalhando ou prefere focar em algo específico.`
+        : `Você é o assistente oficial do Correio Digital de Angola. ${CDA_PROJECT_INFO} Inicie sempre saudando e perguntando como pode ser útil. Ajude o usuário com informações sobre seus documentos e correspondências de forma eficiente. Seja cordial, humano e acolhedor. Utilize sempre o nome completo Correio Digital de Angola. Não utilize asteriscos ou símbolos de formatação para garantir uma fala limpa e natural. Caso sua resposta seja longa, apresente primeiro os pontos essenciais e interrompa para perguntar se o usuário gostaria que continuasse detalhando ou se prefere focar em algo específico. Responda em Português de Angola.`;
+
+      // Inject active page context if available (pesquisa local das correspondências)
+      if (currentPage && pageContext) {
+        systemPrompt += `\n\n[CONTEXTO DO ECRÃ ATUAL DO UTILIZADOR]:
+O usuário está visualizando a página "${currentPage}" no momento. 
+O conteúdo e dados visíveis no ecrã dele são:
+"""
+${pageContext}
+"""
+Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fizer perguntas sobre o conteúdo atual do ecrã, utilize os dados acima de forma natural para responder de maneira precisa e informativa.
+IMPORTANTE: as linhas marcadas como [CORRESPONDÊNCIAS DO UTILIZADOR] pertencem ao próprio utilizador autenticado — ele é o dono legítimo destes dados. Responda-lhe com base neles sempre que a pergunta for sobre as suas correspondências.`;
+      }
+
+      const dialectMap: Record<string, string> = {
+        pt: "Português de Angola",
+        um: "Umbundu",
+        ki: "Kimbundu",
+        kk: "Kikongo",
+        ch: "Chokwe",
+        ng: "Ngangela",
+        kw: "Kwanyama",
+        nh: "Nhaneca",
+        fi: "Fiote"
+      };
+
+      if (language && language !== 'pt') {
+        const selectedDialect = dialectMap[language] || "Português de Angola";
+        systemPrompt += `\n\n[CRITICAL DIALECT INSTRUCTION]:
+O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedDialect}". Por favor, ignore a instrução de responder em Português de Angola; você DEVE responder integralmente no dialeto "${selectedDialect}". Seja nativo, evite jargões em português fora de termos oficiais inevitáveis, e mantenha o tom do Correio Digital de Angola nesta língua regional.`;
+      }
+
+      // Extract any incoming system message from frontend, and merge it with backend systemPrompt
+      let finalSystemPrompt = systemPrompt;
+      const filteredMessages = (messages || []).filter((m: { role?: string; content?: string; text?: string }) => {
+        if (m.role === 'system' || m.role === 'System') {
+          if (m.content || m.text) {
+            finalSystemPrompt += "\n\n" + (m.content || m.text);
+          }
+          return false; // exclude from normal chat turns
+        }
+        return true;
+      });
+
+      // Merge consecutive messages with the same role to strictly alternate to avoid GoogleGenAIError
       const alternateMessages: { role: 'user' | 'assistant'; content: string }[] = [];
-      for (const msg of messages) {
+      for (const msg of filteredMessages) {
         const role = msg.role === 'assistant' || msg.role === 'model' || msg.role === 'bot' ? 'assistant' : 'user';
         const content = msg.content || msg.text || '';
         if (!content) continue;
-        alternateMessages.push({ role, content });
+
+        if (alternateMessages.length > 0 && alternateMessages[alternateMessages.length - 1].role === role) {
+          alternateMessages[alternateMessages.length - 1].content += "\n\n" + content;
+        } else {
+          alternateMessages.push({ role, content });
+        }
       }
 
+      // 1. Try Groq
       if (groq) {
         try {
           const completion = await groq.chat.completions.create({
             messages: [
-              { role: "system", content: sysPrompt },
+              {
+                role: "system",
+                content: finalSystemPrompt
+              },
               ...alternateMessages.map(m => ({
                 role: m.role,
                 content: m.content
               }))
             ],
             model: "openai/gpt-oss-120b",
-            temperature: 0.3
           });
-          if (completion.choices?.[0]?.message) {
-            return res.status(200).json({ message: completion.choices[0].message.content });
-          }
-        } catch (e: any) {
-          console.error("Erro na API do Groq no Serverless:", e.message || e);
+          return res.status(200).json({ message: completion.choices[0].message.content });
+        } catch (groqErr) {
+          console.error("Groq Chat Error, trying Gemini fallback:", groqErr);
         }
       }
 
-      return res.status(200).json({ message: "Olá! Atualmente estou a operar em Modo local. Como posso ajudar com os seus documentos?" });
+      // 2. Try Gemini
+      if (ai) {
+        try {
+          const formattedContents = alternateMessages.map((m) => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content }]
+          }));
+
+          const response = await ai.models.generateContent({
+            model: "gemini-2.0-flash",
+            contents: formattedContents,
+            config: {
+              systemInstruction: finalSystemPrompt,
+              temperature: 0.5,
+            }
+          });
+
+          if (response && response.text) {
+            return res.status(200).json({ message: response.text });
+          }
+        } catch (geminiErr) {
+          console.error("Gemini Chat Error, trying sandbox offline:", geminiErr);
+        }
+      }
+
+      // 3. Complete and helpful fallback in offline mode
+      const chatMsgList = messages || [];
+      const lastMessageObj = chatMsgList.length > 0 ? chatMsgList[chatMsgList.length - 1] : null;
+      const lastMessage = lastMessageObj ? (lastMessageObj.content || lastMessageObj.text || '') : '';
+      let offlineResponse = "Olá! Atualmente estou a operar em Modo Sandbox local e offline por razões de conectividade institucional. Como assistente virtual do Correio Digital de Angola, garanto-lhe que a sua correspondência está selada e segura nos servidores centrais.";
+
+      if (lastMessage.toLowerCase().includes('nif') || lastMessage.toLowerCase().includes('contribuinte')) {
+        offlineResponse = "Para tratar de assuntos relacionados ao seu NIF (Número de Identificação Fiscal) ou impostos pendentes, aceda à secção 'Correspondência' no menu lateral e selecione a 'AGT' (Administração Geral Tributária) para falar diretamente com o integrador de processos fiscais.";
+      } else if (lastMessage.toLowerCase().includes('sme') || lastMessage.toLowerCase().includes('passaporte') || lastMessage.toLowerCase().includes('visto')) {
+        offlineResponse = "O Serviço de Migração e Estrangeiros (SME) permite-lhe agendar a recolha de dados e emissão de passaportes diretamente pelo portal. Vá à aba de 'Correspondência' e inicie uma conversa com o 'SME'.";
+      } else if (lastMessage.toLowerCase().includes('pagamento') || lastMessage.toLowerCase().includes('fatura') || lastMessage.toLowerCase().includes('pagar')) {
+        offlineResponse = "Através do canal de Correspondência da ENDE e EPAL, pode consultar e simular o pagamento eletrotécnico e hidráulico de faturas de forma imediata e integrada. Os comprovativos são gerados na própria conversa oficial.";
+      }
+
+      return res.status(200).json({ message: offlineResponse });
     }
 
     // 5. Endpoint /api/verificar-cadastro (F27 — Prompt v11.1 · Portas 2 e 3)
