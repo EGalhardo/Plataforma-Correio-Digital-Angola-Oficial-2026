@@ -225,7 +225,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
               return prev.map(inst => {
                 const docs = contagem.get(inst.code.toUpperCase());
                 return docs
-                  ? { ...inst, docsCount: docs, aiEnabled: true, lastSync: 'Fontes ativas na Base de Conhecimento', model: 'llama-3.1-8b-instant' }
+                  ? { ...inst, docsCount: docs, aiEnabled: true, lastSync: 'Fontes ativas na Base de Conhecimento', model: 'openai/gpt-oss-120b' }
                   : inst;
               });
             });
@@ -237,7 +237,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
   }, []);
 
   // Interactive configurations
-  const [mainModel, setMainModel] = useState<string>('llama-3.1-8b-instant');
+  const [mainModel, setMainModel] = useState<string>('openai/gpt-oss-120b');
   const [isAssistantActive, setIsAssistantActive] = useState<boolean>(true);
   const [selectedRange, setSelectedRange] = useState<string>('7d');
   const [institutionsSearch, setInstitutionsSearch] = useState<string>('');
@@ -291,10 +291,10 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
   // IDs são reais; custos, quotas e latências NÃO são medidos pela plataforma,
   // por isso mostram «—» em vez de valores inventados.
   const [modelsList, setModelsList] = useState<AIProvider[]>([
-    { id: 'm1', name: 'Llama 3.1 8B Instant', model: 'llama-3.1-8b-instant', maker: 'Meta / Groq', status: 'active', cost: '—', quota: '—', responseTime: '—', endpoint: '/api/chat', isDefault: true },
-    { id: 'm2', name: 'Llama 3.3 70B Versatile', model: 'llama-3.3-70b-versatile', maker: 'Meta / Groq', status: 'active', cost: '—', quota: '—', responseTime: '—', endpoint: '/api/chat', isDefault: false },
-    { id: 'm3', name: 'Mixtral 8x7B', model: 'mixtral-8x7b-32768', maker: 'Mistral AI / Groq', status: 'active', cost: '—', quota: '—', responseTime: '—', endpoint: '/api/chat', isDefault: false },
-    { id: 'm4', name: 'Gemma 2 9B', model: 'gemma2-9b-it', maker: 'Google / Groq', status: 'active', cost: '—', quota: '—', responseTime: '—', endpoint: '/api/chat', isDefault: false },
+    { id: 'm1', name: 'GPT-OSS 120B', model: 'openai/gpt-oss-120b', maker: 'OpenAI / Groq', status: 'active', cost: '—', quota: '—', responseTime: '—', endpoint: '/api/chat', isDefault: true },
+    { id: 'm2', name: 'GPT-OSS 20B', model: 'openai/gpt-oss-20b', maker: 'OpenAI / Groq', status: 'active', cost: '—', quota: '—', responseTime: '—', endpoint: '/api/chat', isDefault: false },
+    { id: 'm3', name: 'Qwen 3.6 27B', model: 'qwen/qwen3.6-27b', maker: 'Alibaba / Groq', status: 'active', cost: '—', quota: '—', responseTime: '—', endpoint: '/api/chat', isDefault: false },
+    { id: 'm4', name: 'Compound Mini', model: 'groq/compound-mini', maker: 'Groq', status: 'active', cost: '—', quota: '—', responseTime: '—', endpoint: '/api/chat', isDefault: false },
   ]);
 
   const selectActiveModel = (id: string, modelName: string) => {
@@ -1181,10 +1181,10 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
                     onChange={(e) => setMainModel(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs text-slate-800 outline-none cursor-pointer"
                   >
-                    <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
-                    <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile</option>
-                    <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
-                    <option value="gemma2-9b-it">Gemma 2 9B</option>
+                    <option value="openai/gpt-oss-120b">GPT-OSS 120B</option>
+                    <option value="openai/gpt-oss-20b">GPT-OSS 20B</option>
+                    <option value="qwen/qwen3.6-27b">Qwen 3.6 27B</option>
+                    <option value="groq/compound-mini">Compound Mini</option>
                   </select>
                 </div>
                 <div className="space-y-1">

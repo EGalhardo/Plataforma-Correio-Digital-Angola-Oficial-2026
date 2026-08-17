@@ -180,7 +180,7 @@ export function InstAiAssistantContent({ addAuditLog, setTab, profileName = '', 
   const [description] = useState<string>(
     'Assistente virtual da Administração Geral Tributária que ajuda cidadãos e empresas com serviços fiscais, impostos, NIF, multas e declarações.'
   );
-  const [model, setModel] = useState<string>('llama-3.1-8b-instant');
+  const [model, setModel] = useState<string>('openai/gpt-oss-120b');
   const [temperature, setTemperature] = useState<string>('0.3');
   const [] = useState<string>('Português (Angola)');
 
@@ -893,11 +893,11 @@ Contexto adicional:
                         onChange={(e) => setModel(e.target.value)}
                         className="w-full bg-[#f8fafc]/40 border border-slate-200 rounded-xl px-3 py-3 text-xs font-semibold text-slate-800 outline-none cursor-pointer"
                       >
-                        <option value="llama-3.1-8b-instant">Llama 3.1 8B (Groq)</option>
-                        <option value="mixtral-8x7b-32768">Mixtral 8x7B (Groq)</option>
-                        <option value="gemma2-9b-it">Gemma 2 9B (Groq)</option>
-                        <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Groq)</option>
-                        <option value="whisper-large-v3">Whisper (Audio)</option>
+                        <option value="openai/gpt-oss-120b">GPT-OSS 120B (Groq)</option>
+                        <option value="openai/gpt-oss-20b">GPT-OSS 20B (Groq)</option>
+                        <option value="qwen/qwen3.6-27b">Qwen 3.6 27B (Groq)</option>
+                        <option value="groq/compound-mini">Compound Mini (Groq)</option>
+                        <option value="whisper-large-v3">Whisper (Áudio)</option>
                       </select>
                     </div>
                     <div className="space-y-1.5">
