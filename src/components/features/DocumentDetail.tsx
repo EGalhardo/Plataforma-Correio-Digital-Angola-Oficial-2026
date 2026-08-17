@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, Download, ShieldCheck, QrCode, Info, ExternalLink, Printer, Fingerprint, Sparkles, ArrowRight } from 'lucide-react';
+import { useLanguage } from '../../hooks/useLanguage';
 import { Document } from '../../types';
 import { USER_PROFILE_PHOTO } from '../../constants/data';
 import { generateProtocol } from '../../utils/protocolGenerator';
@@ -26,6 +27,7 @@ export function DocumentDetail({
   setTab,
   logSecurityEvent,
 }: DocumentDetailProps) {
+  const { t: translate } = useLanguage();
   const [showAIPanel, setShowAIPanel] = useState(false);
   
   const protocol = selectedDoc.protocol || generateProtocol(
@@ -53,7 +55,7 @@ export function DocumentDetail({
           <ArrowLeft size={16} className="text-[#384e6e]" />
         </button>
         <div>
-          <h3 className="text-base md:text-xl font-black text-primary leading-none">Visualizar Documento</h3>
+          <h3 className="text-base md:text-xl font-black text-primary leading-none">{translate('Visualizar Documento')}</h3>
           <p className="text-[10px] md:text-sm text-slate-400 font-black uppercase tracking-widest mt-1">Ref: {selectedDoc.code}</p>
         </div>
       </div>
@@ -84,18 +86,18 @@ export function DocumentDetail({
                 <div className="space-y-4 md:space-y-6">
                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                         <label className="text-[8px] md:text-[9px] font-black text-white/40 uppercase tracking-widest block mb-1">NÚMERO DO DOCUMENTO</label>
+                         <label className="text-[8px] md:text-[9px] font-black text-white/40 uppercase tracking-widest block mb-1">{translate('NÚMERO DO DOCUMENTO')}</label>
                          <div className="text-sm md:text-xl font-mono font-bold tracking-[0.2em]">{selectedDoc.number || '009874562LA041'}</div>
                       </div>
                       <div className="text-right">
-                         <label className="text-[8px] md:text-[9px] font-black text-white/40 uppercase tracking-widest block mb-1">CÓDIGO DIGITAL</label>
+                         <label className="text-[8px] md:text-[9px] font-black text-white/40 uppercase tracking-widest block mb-1">{translate('CÓDIGO DIGITAL')}</label>
                          <div className="text-[#FFD700] font-mono font-bold text-sm md:text-lg">{selectedDoc.code}</div>
                       </div>
                    </div>
                    
                    <div className="flex justify-between items-end border-t border-white/10 pt-4 md:pt-6">
                       <div>
-                         <label className="text-[8px] md:text-[9px] font-black text-white/40 uppercase tracking-widest block mb-1">TITULAR</label>
+                         <label className="text-[8px] md:text-[9px] font-black text-white/40 uppercase tracking-widest block mb-1">{translate('TITULAR')}</label>
                          <div className="text-sm md:text-lg font-black uppercase tracking-tight">{selectedDoc.holder}</div>
                       </div>
                       <div className="flex flex-col items-end gap-1">
@@ -145,7 +147,7 @@ export function DocumentDetail({
                    <Sparkles size={18} className={showAIPanel ? 'animate-spin' : 'animate-pulse'} />
                 </div>
                 <div className="text-left font-sans">
-                   <span className="font-extrabold text-xs md:text-sm uppercase tracking-wider block">Resumo Inteligente (IA)</span>
+                   <span className="font-extrabold text-xs md:text-sm uppercase tracking-wider block">{translate('Resumo Inteligente (IA)')}</span>
                    <span className={`text-[9px] md:text-xs font-bold block ${showAIPanel ? 'text-white/75' : 'text-slate-500'}`}>
                       {showAIPanel ? 'Ocultar Análise de IA' : 'Resumir, Explicar termos, Auto-Classificar e Detetar Urgência'}
                    </span>
@@ -198,8 +200,8 @@ Selo Governamental de Angola: Activo e Autêntico.`}
                     <ShieldCheck size={24} />
                  </div>
                  <div>
-                    <h4 className="text-lg md:text-xl font-black text-primary leading-tight">Certificação</h4>
-                    <p className="text-[10px] md:text-sm text-slate-400 font-black uppercase tracking-widest">Validade Jurídica Total</p>
+                    <h4 className="text-lg md:text-xl font-black text-primary leading-tight">{translate('Certificação')}</h4>
+                    <p className="text-[10px] md:text-sm text-slate-400 font-black uppercase tracking-widest">{translate('Validade Jurídica Total')}</p>
                  </div>
               </div>
 
@@ -212,7 +214,7 @@ Selo Governamental de Angola: Activo e Autêntico.`}
                  ].map((item, i) => (
                     <div key={i} className="flex justify-between items-start group">
                        <div>
-                          <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{item.label}</p>
+                          <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{translate(item.label)}</p>
                           <p className={`text-sm md:text-base font-bold tracking-tight ${item.color || 'text-primary'}`}>{item.value}</p>
                        </div>
                     </div>
@@ -235,67 +237,67 @@ Selo Governamental de Angola: Activo e Autêntico.`}
                   <div className="flex items-center gap-3 text-left">
                      <Fingerprint size={22} className="text-amber-400" />
                      <div>
-                        <h4 className="text-xs font-black tracking-widest text-slate-400 uppercase font-mono">Registo de Protocolo</h4>
-                        <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest font-mono">Core Digital Ativo</p>
+                        <h4 className="text-xs font-black tracking-widest text-slate-400 uppercase font-mono">{translate('Registo de Protocolo')}</h4>
+                        <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest font-mono">{translate('Core Digital Ativo')}</p>
                      </div>
                   </div>
-                  <span className="text-[10px] font-mono font-black text-slate-400 bg-white/5 px-2.5 py-1 rounded-md">100% Autêntico</span>
+                  <span className="text-[10px] font-mono font-black text-slate-400 bg-white/5 px-2.5 py-1 rounded-md">{translate('100% Autêntico')}</span>
                </div>
 
                <div className="grid grid-cols-2 gap-x-4 gap-y-3.5 text-xs text-left">
                   <div>
-                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">ID Interno</span>
+                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">{translate('ID Interno')}</span>
                      <span className="font-mono font-bold text-slate-300">{protocol.internalId}</span>
                   </div>
                   <div>
-                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">Nº Protocolo</span>
+                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">{translate('Nº Protocolo')}</span>
                      <span className="font-mono font-black text-amber-400">{protocol.protocolNumber}</span>
                   </div>
                   <div className="col-span-2">
-                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">Instituição Emissora</span>
+                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">{translate('Instituição Emissora')}</span>
                      <span className="font-bold text-slate-300 line-clamp-1">{protocol.issuerInstitution}</span>
                   </div>
                   <div>
-                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">Data de Emissão</span>
+                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">{translate('Data de Emissão')}</span>
                      <span className="font-bold text-slate-350">{protocol.officialIssueDate}</span>
                   </div>
                   <div>
-                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">Hora de Emissão</span>
+                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">{translate('Hora de Emissão')}</span>
                      <span className="font-mono font-bold text-slate-350">{protocol.officialTime}</span>
                   </div>
                   <div className="col-span-2">
-                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">Responsável</span>
+                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">{translate('Responsável')}</span>
                      <span className="font-bold text-slate-300 line-clamp-1">{protocol.issuerResponsible}</span>
                   </div>
                   <div>
-                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">Categoria</span>
+                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">{translate('Categoria')}</span>
                      <span className="font-bold text-indigo-400">{protocol.category}</span>
                   </div>
                   <div>
-                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">Documento</span>
+                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">{translate('Documento')}</span>
                      <span className="font-bold text-slate-300 line-clamp-1">{protocol.documentType}</span>
                   </div>
                   <div>
-                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">Estado</span>
+                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">{translate('Estado')}</span>
                      <span className="font-bold text-emerald-400">{protocol.currentState}</span>
                   </div>
                   <div>
-                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">Prioridade</span>
+                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">{translate('Prioridade')}</span>
                      <span className={`font-bold ${protocol.priority === 'Alta' ? 'text-rose-400' : 'text-slate-300'}`}>{protocol.priority}</span>
                   </div>
                   <div className="col-span-2">
-                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">Data Limite</span>
+                     <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">{translate('Data Limite')}</span>
                      <span className="font-bold text-slate-300">{protocol.deadlineDate || '—'}</span>
                   </div>
                   {protocol.archiveReference && (
                     <div className="col-span-2">
-                       <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">Referência de Arquivo</span>
+                       <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">{translate('Referência de Arquivo')}</span>
                        <span className="font-mono font-black text-amber-300">{protocol.archiveReference}</span>
                     </div>
                   )}
                   {protocol.archiveLocation && (
                     <div className="col-span-2">
-                       <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">Localização Formal do Arquivo</span>
+                       <span className="text-[9px] text-white/40 font-bold block uppercase tracking-wider mb-0.5">{translate('Localização Formal do Arquivo')}</span>
                        <span className="font-bold text-slate-300 break-words">{protocol.archiveLocation}</span>
                     </div>
                   )}
@@ -304,7 +306,7 @@ Selo Governamental de Angola: Activo e Autêntico.`}
                <div className="pt-4 border-t border-white/5 space-y-3">
                   <div className="flex justify-between items-center gap-2">
                      <div className="flex-1 min-w-0 text-left">
-                        <span className="text-[8px] text-white/40 font-bold uppercase tracking-wider block">Hash de Integridade (SHA-256)</span>
+                        <span className="text-[8px] text-white/40 font-bold uppercase tracking-wider block">{translate('Hash de Integridade (SHA-256)')}</span>
                         <div className="font-mono text-[9px] break-all p-2 bg-black/40 rounded-lg text-slate-400 border border-white/5 block">
                            {protocol.digitalSignature}
                         </div>

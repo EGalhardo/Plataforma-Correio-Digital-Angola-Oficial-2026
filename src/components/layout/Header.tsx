@@ -494,7 +494,7 @@ export function Header({
               )}
               <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isOnline ? onlineDot : 'bg-amber-500'}`}></span>
             </div>
-            <span>{isOnline ? 'Online' : 'Offline'}</span>
+            <span>{translate(isOnline ? 'Online' : 'Offline')}</span>
             {offlineQueueLength > 0 && (
               <span className="bg-amber-600 text-white font-mono rounded-full px-1.5 min-w-[16px] h-[16px] flex items-center justify-center text-[9px] leading-none shrink-0 font-bold">
                 {offlineQueueLength}

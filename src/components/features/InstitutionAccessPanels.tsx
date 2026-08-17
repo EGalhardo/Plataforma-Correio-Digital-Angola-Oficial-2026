@@ -11,6 +11,7 @@
 
 import { useRef, useState } from 'react';
 import { Lock, CheckCircle2, AlertTriangle, UploadCloud, ShieldCheck, Landmark, KeyRound } from 'lucide-react';
+import { useLanguage } from '../../hooks/useLanguage';
 import type { InstitutionIdentity } from '../../services/institutionSessionService';
 import {
   getLocalInstReg, isInstPasswordTaken, setInstResponsiblePassword,
@@ -27,6 +28,7 @@ interface PanelProps {
 }
 
 export function InstitutionAccessPanel({ code, identity, onAudit }: PanelProps) {
+  const { t: translate } = useLanguage();
   const reg = getLocalInstReg(code);
   const member = identity?.type === 'member' ? (reg?.members || []).find(m => m.id === identity.memberId) : undefined;
   const isResponsible = !identity || identity.type === 'responsible';
@@ -119,21 +121,21 @@ export function InstitutionAccessPanel({ code, identity, onAudit }: PanelProps) 
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
           <div className="grid gap-1.5">
-            <label className={labelCls}>Palavra-passe actual</label>
+            <label className={labelCls}>{translate('Palavra-passe actual')}</label>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"><Lock size={13} /></span>
               <input type="password" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)} className={inputCls} placeholder="Actual" />
             </div>
           </div>
           <div className="grid gap-1.5">
-            <label className={labelCls}>Nova palavra-passe</label>
+            <label className={labelCls}>{translate('Nova palavra-passe')}</label>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"><Lock size={13} /></span>
               <input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className={inputCls} placeholder="Mín. 8 caracteres" />
             </div>
           </div>
           <div className="grid gap-1.5">
-            <label className={labelCls}>Confirmar nova</label>
+            <label className={labelCls}>{translate('Confirmar nova')}</label>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"><Lock size={13} /></span>
               <input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} className={inputCls} placeholder="Repita a nova" />
@@ -159,7 +161,7 @@ export function InstitutionAccessPanel({ code, identity, onAudit }: PanelProps) 
         <div className="bg-white border border-slate-200 rounded-[22px] p-5 md:p-6 shadow-xs">
           <div className="flex items-center gap-2 mb-3.5">
             <Landmark size={15} className="text-[#2563eb]" />
-            <span className="text-[10.5px] font-black uppercase tracking-widest text-slate-800">Logótipo Institucional</span>
+            <span className="text-[10.5px] font-black uppercase tracking-widest text-slate-800">{translate('Logótipo Institucional')}</span>
           </div>
           <div className="flex items-center gap-4 flex-wrap">
             <div key={logoVersion} className="w-20 h-20 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
@@ -205,6 +207,7 @@ interface ForcedProps {
 }
 
 export function InstitutionForcedPasswordChange({ code, memberId, memberName, onCompleted, onAudit }: ForcedProps) {
+  const { t: translate } = useLanguage();
   const [currentPwd, setCurrentPwd] = useState('');
   const [newPwd, setNewPwd] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
@@ -250,28 +253,28 @@ export function InstitutionForcedPasswordChange({ code, memberId, memberName, on
           <ShieldCheck size={26} />
         </div>
         <div>
-          <h2 className="text-base md:text-lg font-black text-[#0c2340] uppercase tracking-tight leading-tight">Defina a sua Palavra-passe Pessoal</h2>
+          <h2 className="text-base md:text-lg font-black text-[#0c2340] uppercase tracking-tight leading-tight">{translate('Defina a sua Palavra-passe Pessoal')}</h2>
           <p className="text-[10.5px] text-slate-500 font-medium leading-relaxed mt-2">
             Olá{memberName ? `, ${memberName}` : ''}. Por segurança, a palavra-passe inicial criada pelo responsável da instituição deve ser substituída no primeiro acesso. Após a confirmação, terá acesso à área da instituição.
           </p>
         </div>
         <div className="space-y-3 text-left">
           <div className="grid gap-1.5">
-            <label className={labelCls}>Palavra-passe inicial</label>
+            <label className={labelCls}>{translate('Palavra-passe inicial')}</label>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"><Lock size={13} /></span>
               <input type="password" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)} className={inputCls} placeholder="A que recebeu do responsável" />
             </div>
           </div>
           <div className="grid gap-1.5">
-            <label className={labelCls}>Nova palavra-passe</label>
+            <label className={labelCls}>{translate('Nova palavra-passe')}</label>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"><Lock size={13} /></span>
               <input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className={inputCls} placeholder="Mín. 8 caracteres" />
             </div>
           </div>
           <div className="grid gap-1.5">
-            <label className={labelCls}>Confirmar nova</label>
+            <label className={labelCls}>{translate('Confirmar nova')}</label>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"><Lock size={13} /></span>
               <input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} className={inputCls} placeholder="Repita a nova" />

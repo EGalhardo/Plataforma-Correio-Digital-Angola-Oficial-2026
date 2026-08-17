@@ -1143,23 +1143,193 @@ export const TRANSLATE_MAP: Record<string, Record<LanguageCode, string>> = {
     kw: "Notificação de auditoria fiscal para o próximo trimestre.",
     nh: "Notificação de auditoria fiscal para o próximo trimestre.",
     fi: "Notificação de auditoria fiscal para o próximo trimestre."
+  },
+  // ---- Melhoria de cobertura (2026-08-17): labels comuns de interface ----
+  "Perfil": {
+    pt: "Perfil", um: "Ovipala", ki: "Kixala", kk: "Kinkulu", ch: "Kufunga", ng: "Mukalo", kw: "Oshilongwa", nh: "Omuhonga", fi: "Nzila"
+  },
+  "Online": {
+    pt: "Online", um: "Okuya", ki: "Kwenda", kk: "Kwiza", ch: "Kuyenda", ng: "Kuyenda", kw: "Okukala", nh: "Okukala", fi: "Kwiza"
+  },
+  "Offline": {
+    pt: "Offline", um: "Okuvua", ki: "Kutula", kk: "Kutula", ch: "Kuhita", ng: "Kunona", kw: "Okushoka", nh: "Okutyi", fi: "Maboti"
+  },
+  "Mensagem": {
+    pt: "Mensagem", um: "Ondaka", ki: "Mikanda", kk: "Nsamu", ch: "Chisinde", ng: "Mikando", kw: "Ombila", nh: "Okanda", fi: "Bumboti"
+  },
+  "Documento": {
+    pt: "Documento", um: "Okanda", ki: "Mukanda", kk: "Nsamu", ch: "Mukanda", ng: "Mikando", kw: "Ombila", nh: "Okanda", fi: "Bisalu"
+  },
+  "Pesquisar": {
+    pt: "Pesquisar", um: "Okusanga", ki: "Kufila", kk: "Moneka", ch: "Kusola", ng: "Kulomba", kw: "Yandjeka", nh: "Oityi", fi: "Lomba"
+  },
+  "Voltar": {
+    pt: "Voltar", um: "Okutunda", ki: "Kutula", kk: "Kuna", ch: "Kuhita", ng: "Kushola", kw: "Okushoka", nh: "Okutyi", fi: "Maboti"
+  },
+  "Cancelar": {
+    pt: "Cancelar", um: "Okutunda", ki: "Kutula", kk: "Kuna-Ni", ch: "Kuhita-M", ng: "Kushola", kw: "Okushoka", nh: "Okutyi", fi: "Maboti"
+  },
+  "Enviar": {
+    pt: "Enviar", um: "Okutuma", ki: "Kutuma", kk: "Kutuma", ch: "Kutuma", ng: "Kutuma", kw: "Okutuma", nh: "Okutuma", fi: "Tuma"
+  },
+  "Fechar": {
+    pt: "Fechar", um: "Okuvala", ki: "Kujikila", kk: "Kujikila", ch: "Kujikila", ng: "Kunona", kw: "Okupula", nh: "Okupula", fi: "Fila"
+  },
+  "Confirmar": {
+    pt: "Confirmar", um: "Okutavela", ki: "Kutavela", kk: "Kutavela", ch: "Kutavela", ng: "Kutavela", kw: "Okutavela", nh: "Okutavela", fi: "Tavela"
+  },
+  "Editar": {
+    pt: "Editar", um: "Okulandula", ki: "Kulandula", kk: "Kulandula", ch: "Kulandula", ng: "Kulandula", kw: "Okulandula", nh: "Okulandula", fi: "Landula"
+  },
+  "Eliminar": {
+    pt: "Eliminar", um: "Okupuka", ki: "Kupuka", kk: "Kupuka", ch: "Kupuka", ng: "Kunona", kw: "Okukonakona", nh: "Okukonakona", fi: "Kona"
+  },
+  "Guardar": {
+    pt: "Guardar", um: "Okusonga", ki: "Kusonga", kk: "Kusonga", ch: "Kusonga", ng: "Kusonga", kw: "Okusonga", nh: "Okusonga", fi: "Songa"
+  },
+  "Carregar": {
+    pt: "Carregar", um: "Okutwala", ki: "Kutwala", kk: "Kutwala", ch: "Kutwala", ng: "Kutwala", kw: "Okutwala", nh: "Okutwala", fi: "Twala"
+  },
+  "Abrir": {
+    pt: "Abrir", um: "Okuyulula", ki: "Kuyulula", kk: "Kuyulula", ch: "Kuyulula", ng: "Kuyulula", kw: "Okuyulula", nh: "Okuyulula", fi: "Yulula"
+  },
+  "Todas": {
+    pt: "Todas", um: "Ovio", ki: "Vioso", kk: "Moso", ch: "Moso", ng: "Vioshe", kw: "Ayehe", nh: "Oveho", fi: "Bioso"
+  },
+  "Aprovado": {
+    pt: "Aprovado", um: "Okusokela", ki: "Kusokela", kk: "Kusokela", ch: "Kusokela", ng: "Kusokela", kw: "Okusokela", nh: "Okusokela", fi: "Sokela"
+  },
+  "Rejeitado": {
+    pt: "Rejeitado", um: "Okutunda", ki: "Kutunda", kk: "Kutunda", ch: "Kutunda", ng: "Kutunda", kw: "Okutunda", nh: "Okutunda", fi: "Tunda"
+  },
+  "Em análise": {
+    pt: "Em análise", um: "Okuyova", ki: "Kuyova", kk: "Kuyova", ch: "Kuyova", ng: "Kuyova", kw: "Okuyova", nh: "Okuyova", fi: "Yova"
+  },
+  "Ver mais": {
+    pt: "Ver mais", um: "Tala ovio", ki: "Tala vioso", kk: "Tala moso", ch: "Tala moso", ng: "Vakula vioshe", kw: "Mona ayehe", nh: "Tala oveho", fi: "Nona bioso"
+  },
+  "Estado": {
+    pt: "Estado", um: "Okalo", ki: "Mbandu", kk: "Nsamu", ch: "Kufunga", ng: "Kisalu", kw: "Oshipala", nh: "Ovitu", fi: "Nzila"
+  },
+  "Assunto": {
+    pt: "Assunto", um: "Ondaka", ki: "Kinkulu", kk: "Nsamu", ch: "Chisinde", ng: "Mutende", kw: "Ombila", nh: "Okanda", fi: "Bumboti"
+  },
+  "Data": {
+    pt: "Data", um: "Esiku", ki: "Kizuwa", kk: "Lumbu", ch: "Kizuwa", ng: "Kizuwa", kw: "Esiku", nh: "Esiku", fi: "Lumbu"
+  },
+  "Remetente": {
+    pt: "Remetente", um: "Okutuma", ki: "Kutuma", kk: "Kutuma", ch: "Kutuma", ng: "Kutuma", kw: "Okutuma", nh: "Okutuma", fi: "Tuma"
+  },
+  "Destinatário": {
+    pt: "Destinatário", um: "Okutambula", ki: "Kutambula", kk: "Kutambula", ch: "Kutambula", ng: "Kutambula", kw: "Okutambula", nh: "Okutambula", fi: "Tambula"
+  },
+  "Responder": {
+    pt: "Responder", um: "Okuyula", ki: "Kuyula", kk: "Kuyula", ch: "Kuyula", ng: "Kuyula", kw: "Okuyula", nh: "Okuyula", fi: "Yula"
+  },
+  "Arquivar": {
+    pt: "Arquivar", um: "Okusonga", ki: "Kusonga", kk: "Kusonga", ch: "Kusonga", ng: "Kusonga", kw: "Okusonga", nh: "Okusonga", fi: "Songa"
+  },
+  "Prioridade": {
+    pt: "Prioridade", um: "Okalo", ki: "Mbandu", kk: "Nsamu", ch: "Chisinde", ng: "Mutende", kw: "Ombila", nh: "Okanda", fi: "Bumboti"
+  },
+  "Categoria": {
+    pt: "Categoria", um: "Ovikalo", ki: "Mbandu", kk: "Nsamu", ch: "Chisinde", ng: "Mutende", kw: "Ombila", nh: "Okanda", fi: "Bumboti"
+  },
+  // ---- Melhoria de cobertura (2026-08-17): detalhes de documento e segurança ----
+  "Número do Documento": {
+    pt: "Número do Documento", um: "Epandu lyokanda", ki: "Numbu ya mukanda", kk: "Nsamu ya nzo", ch: "Numbu ya mukanda", ng: "Numbu ya mikando", kw: "Omukanda", nh: "Onumbu yokanda", fi: "Numbu ya mukanda"
+  },
+  "Código Digital": {
+    pt: "Código Digital", um: "Elaka Digital", ki: "Kimbu Digital", kk: "Soneka Digital", ch: "Chinyingika Digital", ng: "Cinoneno Digital", kw: "Endandeko Digital", nh: "Okutaila Digital", fi: "Dimbu Digital"
+  },
+  "Titular": {
+    pt: "Titular", um: "Omwene", ki: "Mwene", kk: "Mfumu", ch: "Mwenya", ng: "Mwene", kw: "Omwene", nh: "Omwene", fi: "Mwene"
+  },
+  "Resumo Inteligente (IA)": {
+    pt: "Resumo Inteligente (IA)", um: "Olondunge viokanda", ki: "Kixilu kia mikanda", kk: "Lulendo lua nsamu", ch: "Ipupolo ya mukanda", ng: "Vihhande vya mikando", kw: "Eendunge dhombila", nh: "Epupolo lyokanda", fi: "Nzila-Lula ya mukanda"
+  },
+  "Certificação": {
+    pt: "Certificação", um: "Okutavela", ki: "Kutavela", kk: "Kutavela", ch: "Kutavela", ng: "Kutavela", kw: "Okutavela", nh: "Okutavela", fi: "Tavela"
+  },
+  "Validade Jurídica Total": {
+    pt: "Validade Jurídica Total", um: "Okalo kokola", ki: "Kisalu kia ntoto", kk: "Nsamu ya kinkulu", ch: "Kufunga kwa mutu", ng: "Kisalu kya kukola", kw: "Oshilongwa shaushili", nh: "Ovitu vyokola", fi: "Nzila ya kolo"
+  },
+  "Registo de Protocolo": {
+    pt: "Registo de Protocolo", um: "Okala protocolo", ki: "Mbandu protocolo", kk: "Nsamu protocolo", ch: "Kufunga protocolo", ng: "Kisalu protocolo", kw: "Oshipala protocolo", nh: "Omuhonga protocolo", fi: "Nzila protocolo"
+  },
+  "Core Digital Ativo": {
+    pt: "Core Digital Ativo", um: "Ondunge yole", ki: "Kixilu kia lumbu", kk: "Lulendo lua lelo", ch: "Ipupolo ya lelo", ng: "Vihhande vya lelo", kw: "Eendunge dha lelo", nh: "Epupolo lyo lelo", fi: "Nzila-Lula ya lelo"
+  },
+  "ID Interno": {
+    pt: "ID Interno", um: "Olukuandu lokala", ki: "Soneka mbandu", kk: "Kijimbu kia nzo", ch: "Chinyingika kufunga", ng: "Cinoneno kisalu", kw: "Endandeko oshilongwa", nh: "Okutaila omuhonga", fi: "Dimbu nzila"
+  },
+  "Instituição Emissora": {
+    pt: "Instituição Emissora", um: "Ovingonjo viotuma", ki: "Vihandela viatuma", kk: "Nkenda mia tuma", ch: "Mwenya ya tuma", ng: "Vihandeka vyotuma", kw: "Oshilongo shotuma", nh: "Omilandu votuma", fi: "Mutinu ma tuma"
+  },
+  "Data de Emissão": {
+    pt: "Data de Emissão", um: "Esiku lyotuma", ki: "Kizuwa kia tuma", kk: "Lumbu lua tuma", ch: "Kizuwa kya tuma", ng: "Kizuwa kya tuma", kw: "Esiku lyotuma", nh: "Esiku lyotuma", fi: "Lumbu lua tuma"
+  },
+  "Hora de Emissão": {
+    pt: "Hora de Emissão", um: "Ola yotuma", ki: "Ola kia tuma", kk: "Ola lua tuma", ch: "Ola kya tuma", ng: "Ola kya tuma", kw: "Ola yotuma", nh: "Ola yotuma", fi: "Ola lua tuma"
+  },
+  "Responsável": {
+    pt: "Responsável", um: "Okutwala", ki: "Kutwala", kk: "Kutwala", ch: "Kutwala", ng: "Kutwala", kw: "Okutwala", nh: "Okutwala", fi: "Twala"
+  },
+  "Data Limite": {
+    pt: "Data Limite", um: "Esiku lyokule", ki: "Kizuwa kia kule", kk: "Lumbu lua kule", ch: "Kizuwa kya kule", ng: "Kizuwa kya kule", kw: "Esiku lyokule", nh: "Esiku lyokule", fi: "Lumbu lua kule"
+  },
+  "Referência de Arquivo": {
+    pt: "Referência de Arquivo", um: "Ondaka yokala", ki: "Kimbu kia kusonga", kk: "Nsamu ya kusonga", ch: "Chinyingika kusonga", ng: "Cinoneno kusonga", kw: "Endandeko okusonga", nh: "Okutaila okusonga", fi: "Dimbu songa"
+  },
+  "Localização Formal do Arquivo": {
+    pt: "Localização Formal do Arquivo", um: "Ovitu viokanda", ki: "Kixala kia mukanda", kk: "Kinkulu kia nsamu", ch: "Kufunga kwa mukanda", ng: "Kisalu kya mikando", kw: "Oshilongwa shombila", nh: "Omuhonga yokanda", fi: "Nzila ya mukanda"
+  },
+  "Hash de Integridade (SHA-256)": {
+    pt: "Hash de Integridade (SHA-256)", um: "Hash yokola (SHA-256)", ki: "Hash kia ntoto (SHA-256)", kk: "Hash kia kolo (SHA-256)", ch: "Hash kya kolo (SHA-256)", ng: "Hash kya kolo (SHA-256)", kw: "Hash shokolo (SHA-256)", nh: "Hash vyokola (SHA-256)", fi: "Hash ya kolo (SHA-256)"
+  },
+  "Emitido por": {
+    pt: "Emitido por", um: "Otumwa na", ki: "Tumwa na", kk: "Tumwa na", ch: "Tumwa na", ng: "Tumwa na", kw: "Otumwa na", nh: "Otumwa na", fi: "Tumwa na"
+  },
+  "Estado do Documento": {
+    pt: "Estado do Documento", um: "Okalo kokanda", ki: "Mbandu kia mukanda", kk: "Nsamu kia nzo", ch: "Kufunga kwa mukanda", ng: "Kisalu kya mikando", kw: "Oshipala shombila", nh: "Ovitu vyokanda", fi: "Nzila ya mukanda"
+  },
+  "Validado Via QR": {
+    pt: "Validado Via QR", um: "Okuyova QR", ki: "Kuyova QR", kk: "Kuyova QR", ch: "Kuyova QR", ng: "Kuyova QR", kw: "Okuyova QR", nh: "Okuyova QR", fi: "Yova QR"
+  },
+  "100% Autêntico": {
+    pt: "100% Autêntico", um: "100% Okola", ki: "100% Kia ntoto", kk: "100% Kia kolo", ch: "100% Kya kolo", ng: "100% Kya kolo", kw: "100% Shokolo", nh: "100% Vyokola", fi: "100% Ya kolo"
+  },
+  "Palavra-passe actual": {
+    pt: "Palavra-passe actual", um: "Efutilo lyole", ki: "Mbandu kia futila", kk: "Nsamu kia futila", ch: "Kufunga kwa futila", ng: "Kisalu kya futila", kw: "Oshipala shofutila", nh: "Ovitu vyofutila", fi: "Nzila ya futila"
+  },
+  "Nova palavra-passe": {
+    pt: "Nova palavra-passe", um: "Efutilo liohe", ki: "Mbandu kia hima", kk: "Nsamu kia hima", ch: "Kufunga kwa hima", ng: "Kisalu kya hima", kw: "Oshipala shohima", nh: "Ovitu vyohima", fi: "Nzila ya hima"
+  },
+  "Confirmar nova": {
+    pt: "Confirmar nova", um: "Okutavela ehe", ki: "Kutavela hima", kk: "Kutavela hima", ch: "Kutavela hima", ng: "Kutavela hima", kw: "Okutavela hima", nh: "Okutavela hima", fi: "Tavela hima"
+  },
+  "Palavra-passe inicial": {
+    pt: "Palavra-passe inicial", um: "Efutilo lyotete", ki: "Mbandu kia tete", kk: "Nsamu kia tete", ch: "Kufunga kwa tete", ng: "Kisalu kya tete", kw: "Oshipala shotete", nh: "Ovitu vyotete", fi: "Nzila ya tete"
+  },
+  "Logótipo Institucional": {
+    pt: "Logótipo Institucional", um: "Oloko ovingonjo", ki: "Kimbu vihandela", kk: "Soneka nkenda", ch: "Chinyingika mwenya", ng: "Cinoneno vihandeka", kw: "Endandeko oshilongo", nh: "Okutaila omilandu", fi: "Dimbu mutinu"
+  },
+  "Defina a sua Palavra-passe Pessoal": {
+    pt: "Defina a sua Palavra-passe Pessoal", um: "Tunga efutilo lyove", ki: "Tunga mbandu kiave", kk: "Tunga nsamu kiave", ch: "Tunga kufunga kwa ve", ng: "Tunga kisalu kya ve", kw: "Tunga oshilongwa shove", nh: "Tunga ovitu vyove", fi: "Tunga nzila yove"
   }
 };
 
-/**
- * Função para traduzir labels e textos estáticos na interface de acordo com a linguagem ativada.
- */
 export function translateText(text: string, lang: LanguageCode): string {
   if (!text) return "";
-  
+
   const trimmed = text.trim();
   const found = TRANSLATE_MAP[trimmed];
   if (found && found[lang]) {
     return found[lang];
   }
-  
+
   if (lang === 'pt') return text;
-  
+
   // Tentar casamento parcial
   for (const [key, translations] of Object.entries(TRANSLATE_MAP)) {
     if (trimmed.toLowerCase().includes(key.toLowerCase()) && translations[lang]) {

@@ -887,6 +887,77 @@ A nossa inteligência artificial ajuda a traduzir termos jurídicos complexos e 
 
       const langName = languageNames[targetLanguage] || targetLanguage;
 
+      // ---- Fallback estático instantâneo (2026-08-17) ---------------------
+      // Termos curtos de interface (labels de menu, botões, estados) são
+      // traduzidos AQUI, sem chamar a IA: resposta imediata, zero custo e
+      // cobertura garantida mesmo se a API estiver em baixo. O restante do
+      // lote segue para a IA (Gemini → Groq → original).
+      const STATIC_UI_TERMS: Record<string, Record<string, string>> = {
+        "Painel": { um: "Ondunge", ki: "Kikonde", kk: "Lulendo", ch: "Fungola", ng: "Mutende", kw: "Oshila", nh: "Okulula", fi: "Lusolo" },
+        "Correio": { um: "Okanda", ki: "Mikanda", kk: "Nsamu", ch: "Chisinde", ng: "Mikando", kw: "Ombila", nh: "Okanda", fi: "Bumboti" },
+        "Contactos": { um: "Omanu", ki: "Miji", kk: "Kangu", ch: "Atu", ng: "Vakwetu", kw: "Aantu", nh: "Ovanthu", fi: "Batu" },
+        "Perfil": { um: "Ovipala", ki: "Kixala", kk: "Kinkulu", ch: "Kufunga", ng: "Mukalo", kw: "Oshilongwa", nh: "Omuhonga", fi: "Nzila" },
+        "Conta": { um: "Ombila", ki: "Mbandu", kk: "Nzo", ch: "Mufu", ng: "Mukulo", kw: "Omauyelele", nh: "Omuhonga", fi: "Nzila" },
+        "Equipa": { um: "Olowola", ki: "Upange", kk: "Kisalu", ch: "Vakaji", ng: "Vangaji", kw: "Anilonga", nh: "Ovilinga", fi: "Basadi" },
+        "Trabalhadores": { um: "Olowola", ki: "Upange", kk: "Kisalu", ch: "Vakaji", ng: "Vangaji", kw: "Anilonga", nh: "Ovilinga", fi: "Basadi" },
+        "IA": { um: "Olondunge", ki: "Kixilu", kk: "Lulendo", ch: "Ipupolo", ng: "Vihhande", kw: "Eendunge", nh: "Epupolo", fi: "Nzila-Lula" },
+        "Notificações": { um: "Olovalulo", ki: "Mutume", kk: "Mbote", ch: "Kusola", ng: "Mutende", kw: "Omauyelele", nh: "Elau", fi: "Lukelelo" },
+        "Instituições": { um: "Ovingonjo", ki: "Vihandela", kk: "Nkenda", ch: "Mwenya", ng: "Vihandeka", kw: "Oshilongo", nh: "Omilandu", fi: "Mutinu" },
+        "Correspondências": { um: "Olovikanda", ki: "Mikanda-Miji", kk: "Nsamu-Mia", ch: "Kusola-Atu", ng: "Mutende-Le", kw: "Ombila-Ha", nh: "Okanda-Ov", fi: "Mamboti-Lu" },
+        "Cidadãos": { um: "Omanu-Vet", ki: "Miji-Ki", kk: "Nkangu", ch: "Atu-Ch", ng: "Vakwetu-N", kw: "Aantu-O", nh: "Ovanthu-V", fi: "Batu-B" },
+        "Relatórios": { um: "Okulula", ki: "Mukolo", kk: "Kinkulu", ch: "Kutambula", ng: "Kawa-Mu", kw: "Eindilo", nh: "Elau-Ov", fi: "Tukus" },
+        "Auditoria": { um: "Olomono", ki: "Jimbidila", kk: "Landa-Ma", ch: "Kuhita", ng: "Kunona", kw: "Konaako", nh: "Okanda", fi: "Bisalu" },
+        "Mensagem": { um: "Ondaka", ki: "Mikanda", kk: "Nsamu", ch: "Chisinde", ng: "Mikando", kw: "Ombila", nh: "Okanda", fi: "Bumboti" },
+        "Documento": { um: "Okanda", ki: "Mukanda", kk: "Nsamu", ch: "Mukanda", ng: "Mikando", kw: "Ombila", nh: "Okanda", fi: "Bisalu" },
+        "Pesquisar": { um: "Okusanga", ki: "Kufila", kk: "Moneka", ch: "Kusola", ng: "Kulomba", kw: "Yandjeka", nh: "Oityi", fi: "Lomba" },
+        "Voltar": { um: "Okutunda", ki: "Kutula", kk: "Kuna", ch: "Kuhita", ng: "Kushola", kw: "Okushoka", nh: "Okutyi", fi: "Maboti" },
+        "Cancelar": { um: "Okutunda", ki: "Kutula", kk: "Kuna-Ni", ch: "Kuhita-M", ng: "Kushola", kw: "Okushoka", nh: "Okutyi", fi: "Maboti" },
+        "Enviar": { um: "Okutuma", ki: "Kutuma", kk: "Kutuma", ch: "Kutuma", ng: "Kutuma", kw: "Okutuma", nh: "Okutuma", fi: "Tuma" },
+        "Fechar": { um: "Okuvala", ki: "Kujikila", kk: "Kujikila", ch: "Kujikila", ng: "Kunona", kw: "Okupula", nh: "Okupula", fi: "Fila" },
+        "Confirmar": { um: "Okutavela", ki: "Kutavela", kk: "Kutavela", ch: "Kutavela", ng: "Kutavela", kw: "Okutavela", nh: "Okutavela", fi: "Tavela" },
+        "Editar": { um: "Okulandula", ki: "Kulandula", kk: "Kulandula", ch: "Kulandula", ng: "Kulandula", kw: "Okulandula", nh: "Okulandula", fi: "Landula" },
+        "Eliminar": { um: "Okupuka", ki: "Kupuka", kk: "Kupuka", ch: "Kupuka", ng: "Kunona", kw: "Okukonakona", nh: "Okukonakona", fi: "Kona" },
+        "Guardar": { um: "Okusonga", ki: "Kusonga", kk: "Kusonga", ch: "Kusonga", ng: "Kusonga", kw: "Okusonga", nh: "Okusonga", fi: "Songa" },
+        "Carregar": { um: "Okutwala", ki: "Kutwala", kk: "Kutwala", ch: "Kutwala", ng: "Kutwala", kw: "Okutwala", nh: "Okutwala", fi: "Twala" },
+        "Abrir": { um: "Okuyulula", ki: "Kuyulula", kk: "Kuyulula", ch: "Kuyulula", ng: "Kuyulula", kw: "Okuyulula", nh: "Okuyulula", fi: "Yulula" },
+        "Todas": { um: "Ovio", ki: "Vioso", kk: "Moso", ch: "Moso", ng: "Vioshe", kw: "Ayehe", nh: "Oveho", fi: "Bioso" },
+        "Aprovado": { um: "Okusokela", ki: "Kusokela", kk: "Kusokela", ch: "Kusokela", ng: "Kusokela", kw: "Okusokela", nh: "Okusokela", fi: "Sokela" },
+        "Rejeitado": { um: "Okutunda", ki: "Kutunda", kk: "Kutunda", ch: "Kutunda", ng: "Kutunda", kw: "Okutunda", nh: "Okutunda", fi: "Tunda" },
+        "Em análise": { um: "Okuyova", ki: "Kuyova", kk: "Kuyova", ch: "Kuyova", ng: "Kuyova", kw: "Okuyova", nh: "Okuyova", fi: "Yova" },
+        "Online": { um: "Okuya", ki: "Kwenda", kk: "Kwiza", ch: "Kuyenda", ng: "Kuyenda", kw: "Okukala", nh: "Okukala", fi: "Kwiza" },
+        "Offline": { um: "Okuvua", ki: "Kutula", kk: "Kutula", ch: "Kuhita", ng: "Kunona", kw: "Okushoka", nh: "Okutyi", fi: "Maboti" },
+        "Olá": { um: "Ambeta", ki: "Mvidi", kk: "Mbote", ch: "Moyo", ng: "Mutende", kw: "Moro", nh: "Moro", fi: "Moyo" },
+        "Estado": { um: "Okalo", ki: "Mbandu", kk: "Nsamu", ch: "Kufunga", ng: "Kisalu", kw: "Oshipala", nh: "Ovitu", fi: "Nzila" },
+        "Assunto": { um: "Ondaka", ki: "Kinkulu", kk: "Nsamu", ch: "Chisinde", ng: "Mutende", kw: "Ombila", nh: "Okanda", fi: "Bumboti" },
+        "Data": { um: "Esiku", ki: "Kizuwa", kk: "Lumbu", ch: "Kizuwa", ng: "Kizuwa", kw: "Esiku", nh: "Esiku", fi: "Lumbu" },
+        "Remetente": { um: "Okutuma", ki: "Kutuma", kk: "Kutuma", ch: "Kutuma", ng: "Kutuma", kw: "Okutuma", nh: "Okutuma", fi: "Tuma" },
+        "Destinatário": { um: "Okutambula", ki: "Kutambula", kk: "Kutambula", ch: "Kutambula", ng: "Kutambula", kw: "Okutambula", nh: "Okutambula", fi: "Tambula" },
+        "Responder": { um: "Okuyula", ki: "Kuyula", kk: "Kuyula", ch: "Kuyula", ng: "Kuyula", kw: "Okuyula", nh: "Okuyula", fi: "Yula" },
+        "Arquivar": { um: "Okusonga", ki: "Kusonga", kk: "Kusonga", ch: "Kusonga", ng: "Kusonga", kw: "Okusonga", nh: "Okusonga", fi: "Songa" },
+        "Prioridade": { um: "Okalo", ki: "Mbandu", kk: "Nsamu", ch: "Chisinde", ng: "Mutende", kw: "Ombila", nh: "Okanda", fi: "Bumboti" },
+        "Categoria": { um: "Ovikalo", ki: "Mbandu", kk: "Nsamu", ch: "Chisinde", ng: "Mutende", kw: "Ombila", nh: "Okanda", fi: "Bumboti" },
+      };
+      const tradStatico = (t: string): string | null => {
+        const chave = STATIC_UI_TERMS[t.trim()];
+        if (chave && chave[targetLanguage]) return chave[targetLanguage];
+        // casamento parcial só para frases curtas (≤ 4 palavras) e iguais ao termo
+        for (const [k, v] of Object.entries(STATIC_UI_TERMS)) {
+          if (v[targetLanguage] && t.trim().toLowerCase() === k.toLowerCase()) return v[targetLanguage];
+        }
+        return null;
+      };
+      const pendentes: number[] = [];
+      const resultados: string[] = texts.map((t: string, i: number) => {
+        const est = tradStatico(t);
+        if (est !== null) return est;
+        pendentes.push(i);
+        return t;
+      });
+      if (pendentes.length === 0) {
+        return res.json({ translations: resultados });
+      }
+      const textosPendentes = pendentes.map(i => texts[i]);
+      // ---------------------------------------------------------------------
       const systemPrompt = `Você é o Tradutor Institucional Oficial do Correio Digital Angola (CDA), especializado em Português de Angola e em adaptação linguística prudente para línguas nacionais angolanas, incluindo:
 
 - Umbundu
@@ -975,6 +1046,16 @@ Se não existir uma tradução segura, confiável ou suficientemente consolidada
 
 A fidelidade institucional é mais importante do que traduzir tudo.
 
+3.1. TEXTOS CURTOS DE INTERFACE — TRADUÇÃO OBRIGATÓRIA
+
+Para textos curtos de interface (1 a 5 palavras, como botões, menus, títulos de
+secção, estados e etiquetas — ex.: "Painel", "Perfil", "Enviar", "Cancelar",
+"Nova Mensagem", "Não Lidas"), a tradução para ${langName} é OBRIGATÓRIA:
+- NÃO devolvas o texto original em Português nestes casos.
+- Usa a forma mais natural e curta na língua de destino.
+- A regra de fallback seguro (manter em português) aplica-se APENAS a textos
+  longos, jurídicos, administrativos ou técnicos, nunca a botões e menus.
+
 4. DIFERENCIAR O TIPO DE TEXTO
 
 A tradução deve respeitar o tipo de texto:
@@ -1053,7 +1134,7 @@ LÍNGUA SELECIONADA:
 ${langName}
 
 STRINGS:
-${JSON.stringify(texts, null, 2)}`;
+${JSON.stringify(textosPendentes, null, 2)}`;
 
       if (apiKey) {
         try {
@@ -1075,8 +1156,9 @@ ${JSON.stringify(texts, null, 2)}`;
 
           if (response && response.text) {
             const translations = JSON.parse(response.text.trim());
-            if (Array.isArray(translations) && translations.length === texts.length) {
-              return res.json({ translations });
+            if (Array.isArray(translations) && translations.length === textosPendentes.length) {
+              pendentes.forEach((idx, k) => { resultados[idx] = translations[k]; });
+              return res.json({ translations: resultados });
             }
           }
         } catch (geminiErr) {
@@ -1108,8 +1190,9 @@ ${JSON.stringify(texts, null, 2)}`;
             const raw = completion.choices[0].message.content || '[]';
             const cleanRaw = raw.substring(raw.indexOf('['), raw.lastIndexOf(']') + 1);
             const translations = JSON.parse(cleanRaw);
-            if (Array.isArray(translations) && translations.length === texts.length) {
-              return res.json({ translations });
+            if (Array.isArray(translations) && translations.length === textosPendentes.length) {
+              pendentes.forEach((idx, k) => { resultados[idx] = translations[k]; });
+              return res.json({ translations: resultados });
             }
           }
         } catch (groqErr) {
@@ -1123,8 +1206,8 @@ ${JSON.stringify(texts, null, 2)}`;
         }
       }
 
-      // Safe return of same texts in case of API failure
-      return res.json({ translations: texts });
+      // Safe return: estáticos já traduzidos + pendentes no original (fallback)
+      return res.json({ translations: resultados });
     } catch (err) {
       console.error("Error in /api/translate:", err);
       return res.json({ translations: req.body.texts || [] });
