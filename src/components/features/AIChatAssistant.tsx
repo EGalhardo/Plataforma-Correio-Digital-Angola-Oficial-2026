@@ -658,8 +658,13 @@ export function AIChatAssistant({
     return false;
   };
 
-  const handleSendMessage = async (textOverride?: string) => {
-    const currentInput = textOverride || input;
+  const handleSendMessage = async (textOverride?: unknown) => {
+    // DEFENSIVO (2026-08-17): onClick={handleSendMessage} passava o MouseEvent
+    // como textOverride -> V.trim() crash ("trim is not a function"). Só aceita
+    // string; qualquer outro tipo (evento, objeto) cai no estado `input`.
+    const currentInput = typeof textOverride === 'string' && textOverride.trim()
+      ? textOverride
+      : input;
     if (!currentInput.trim() || isLoading) return;
 
     const userMsg: Message = { role: 'user', content: currentInput };
@@ -1095,7 +1100,7 @@ export function AIChatAssistant({
                 }`}
               />
               <button 
-                onClick={handleSendMessage}
+                onClick={() => handleSendMessage()}
                 disabled={isLoading || !input.trim()}
                 className={`text-white p-2.5 rounded-xl transition-all disabled:opacity-50 disabled:grayscale ${
                   isAdmin ? 'bg-slate-900 hover:bg-slate-950' : isInst ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary/95'
