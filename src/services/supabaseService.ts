@@ -1473,7 +1473,7 @@ export const supabaseService = {
         },
         encontrado: true,
       };
-    } catch (e: any) {
+    } catch (e) {
       console.error('Supabase validarProtocolo error:', e);
       return { validacao: null, encontrado: false, errorCode: String(e?.code || 'ERRO') };
     }
@@ -1510,7 +1510,7 @@ export const supabaseService = {
       }]);
       if (error) return { written: false, reason: String((error as any)?.code || 'ERRO') };
       return { written: true };
-    } catch (e: any) {
+    } catch (e) {
       // Telemetria nunca derruba a conversa — falha silenciosa e honesta.
       return { written: false, reason: String(e?.code || 'ERRO') };
     }
@@ -1566,7 +1566,7 @@ export const supabaseService = {
           latMs: typeof l.lat_ms === 'number' ? l.lat_ms : null,
         })),
       };
-    } catch (e: any) {
+    } catch (e) {
       console.error('Supabase carregarTelemetriaInstituicao error:', e);
       return { state: 'ERRO', ...vazio };
     }

@@ -17,7 +17,8 @@
     "test:interop": "tsx scripts/testInteroperabilidade.ts",
     "test:pilot": "tsx scripts/pilotComprehensive.ts",
     "production:readiness": "tsx scripts/productionReadiness.ts",
-    "test:paginas": "node scripts/e2e_paginas.mjs"
+    "test:paginas": "node scripts/e2e_paginas.mjs",
+    "verify:v28": "tsx scripts/verifyV28.ts"
   },
   "dependencies": {
     "@google/genai": "^2.11.0",

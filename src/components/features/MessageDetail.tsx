@@ -3899,7 +3899,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                 <button
                   onClick={() => setShowQRValidation(false)}
                   className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/25 transition-all text-white/80 text-xs font-bold font-mono"
-                >
+                 aria-label="Fechar">
                   ✕
                 </button>
               </div>

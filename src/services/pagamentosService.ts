@@ -107,32 +107,55 @@ const linhaParaPagamento = (l: LinhaPagamento): Pagamento | null => {
 // CRUD (RLS decide quem vê/escreve — v26)
 // ---------------------------------------------------------------------------
 
+// Cache curto em memória (TTL 15s) — a mesma lista é pedida por até 3
+// consumidores no mesmo ecrã (página, inline do documento, verificador de
+// prazos). Evita 3 GET /rest/v1/pagamentos idênticos por render (C10).
+const cachePagamentos = new Map<string, { ts: number; res: { pagamentos: Pagamento[]; erro: string } }>();
+const CACHE_TTL_MS = 15_000;
+
 export const carregarPagamentosDoCidadao = async (
   bi: string,
 ): Promise<{ pagamentos: Pagamento[]; erro: string }> => {
+  const chave = `cid:${limparBi(bi)}`;
+  const agora = Date.now();
+  const emCache = cachePagamentos.get(chave);
+  if (emCache && agora - emCache.ts < CACHE_TTL_MS) return emCache.res;
   if (!bi.trim()) return { pagamentos: [], erro: 'BI do cidadão em falta.' };
   const { data, error } = await supabase
     .from(TABELA_PAGAMENTOS)
     .select('*')
     .eq('destinatario_bi', limparBi(bi))
     .order('created_at', { ascending: false });
-  if (error) return { pagamentos: [], erro: explicarErroPagamentos(error.message) };
-  const linhas = (Array.isArray(data) ? data : []) as LinhaPagamento[];
-  return { pagamentos: linhas.map(linhaParaPagamento).filter((p): p is Pagamento => p !== null), erro: '' };
+  const res = error
+    ? { pagamentos: [], erro: explicarErroPagamentos(error.message) }
+    : { pagamentos: ((Array.isArray(data) ? data : []) as LinhaPagamento[]).map(linhaParaPagamento).filter((p): p is Pagamento => p !== null), erro: '' };
+  cachePagamentos.set(chave, { ts: agora, res });
+  return res;
 };
 
 export const carregarPagamentosDaInstituicao = async (
   sigla: string,
 ): Promise<{ pagamentos: Pagamento[]; erro: string }> => {
+  const chave = `inst:${sigla.trim().toUpperCase()}`;
+  const agora = Date.now();
+  const emCache = cachePagamentos.get(chave);
+  if (emCache && agora - emCache.ts < CACHE_TTL_MS) return emCache.res;
   if (!sigla.trim()) return { pagamentos: [], erro: 'Sigla da instituição em falta.' };
   const { data, error } = await supabase
     .from(TABELA_PAGAMENTOS)
     .select('*')
     .ilike('instituicao_sigla', sigla.trim())
     .order('created_at', { ascending: false });
-  if (error) return { pagamentos: [], erro: explicarErroPagamentos(error.message) };
-  const linhas = (Array.isArray(data) ? data : []) as LinhaPagamento[];
-  return { pagamentos: linhas.map(linhaParaPagamento).filter((p): p is Pagamento => p !== null), erro: '' };
+  const res = error
+    ? { pagamentos: [], erro: explicarErroPagamentos(error.message) }
+    : { pagamentos: ((Array.isArray(data) ? data : []) as LinhaPagamento[]).map(linhaParaPagamento).filter((p): p is Pagamento => p !== null), erro: '' };
+  cachePagamentos.set(chave, { ts: agora, res });
+  return res;
+};
+
+/** Invalida o cache de pagamentos (chamado após criar/cancelar/simular pagamento). */
+export const invalidarCachePagamentos = (): void => {
+  cachePagamentos.clear();
 };
 
 export const criarPagamento = async (
@@ -151,6 +174,7 @@ export const criarPagamento = async (
   };
   const { error } = await supabase.from(TABELA_PAGAMENTOS).insert(payload);
   if (error) return { ok: false, erro: explicarErroPagamentos(error.message) };
+  invalidarCachePagamentos();
   return { ok: true, erro: '' };
 };
 
@@ -161,6 +185,7 @@ export const cancelarPagamento = async (id: string): Promise<{ ok: boolean; erro
     .eq('id', id)
     .eq('estado', 'pendente');
   if (error) return { ok: false, erro: explicarErroPagamentos(error.message) };
+  invalidarCachePagamentos();
   return { ok: true, erro: '' };
 };
 
@@ -189,5 +214,6 @@ export const marcarPagamentoSimulado = async (
   if (!Array.isArray(data) || data.length === 0) {
     return { ok: false, erro: 'A cobrança já não está pendente (ou a simulação ainda não está activa neste projecto — migração v29 pendente).' };
   }
+  invalidarCachePagamentos();
   return { ok: true, erro: '' };
 };

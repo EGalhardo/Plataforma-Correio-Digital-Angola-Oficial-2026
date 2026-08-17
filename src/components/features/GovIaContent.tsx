@@ -181,8 +181,8 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
           .order('criado_em', { ascending: false });
         if (!cancelado && !errRegs && Array.isArray(regs)) {
           const insts: InstitutionConfig[] = regs
-            .filter((r: any) => isInstitutionObservacao(r?.observacoes))
-            .map((r: any, i: number) => ({
+            .filter((r: Record<string, unknown>) => isInstitutionObservacao(r?.observacoes as string))
+            .map((r: Record<string, unknown>, i: number) => ({
               id: String(r.bi_numero || `reg-${i}`),
               name: String(r.nome || 'Instituição registada'),
               code: String(r.bi_numero || '??').slice(0, 4).toUpperCase(),
@@ -203,14 +203,14 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
           .eq('ativo', true)
           .order('atualizado_em', { ascending: false });
         if (!cancelado && !errKb && Array.isArray(fontes)) {
-          const bases: AIBaseConfig[] = fontes.map((f: any) => ({
+          const bases: AIBaseConfig[] = fontes.map((f: Record<string, unknown>) => ({
             id: String(f.id),
             title: String(f.titulo || 'Fonte sem título'),
             type: String(f.tipo || 'Fonte'),
             docsCount: 1,
             institution: String(f.sigla || '—'),
             status: 'synced',
-            lastUpdate: f.atualizado_em ? new Date(f.atualizado_em).toLocaleDateString('pt-AO') : '—',
+            lastUpdate: typeof f.atualizado_em === 'string' ? new Date(f.atualizado_em).toLocaleDateString('pt-AO') : '—',
           }));
           setKnowledgeBases(bases);
           setAiStats(prev => ({ ...prev, totalBases: bases.length, totalDocs: bases.length }));
@@ -1159,7 +1159,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
                 <Settings className="text-indigo-600" size={20} />
                 <span className="text-sm font-black text-[#0c2340] uppercase tracking-wider">Configuração Global da IA</span>
               </div>
-              <button onClick={() => setIsConfigOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer bg-slate-50 rounded-full border-0">✕</button>
+              <button onClick={() => setIsConfigOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer bg-slate-50 rounded-full border-0" aria-label="Fechar">✕</button>
             </div>
 
             <div className="space-y-4">
@@ -1235,7 +1235,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
                 <Database className="text-indigo-600" size={20} />
                 <span className="text-sm font-black text-[#0c2340] uppercase tracking-wider">Bases de Conhecimento (apenas leitura)</span>
               </div>
-              <button onClick={() => setIsManageKnowledgeOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer bg-slate-50 rounded-full border-0">✕</button>
+              <button onClick={() => setIsManageKnowledgeOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer bg-slate-50 rounded-full border-0" aria-label="Fechar">✕</button>
             </div>
 
             <div className="space-y-3 font-sans">
@@ -1288,7 +1288,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
                 <Bot className="text-indigo-600 animate-pulse" size={20} />
                 <span className="text-sm font-black text-[#0c2340] uppercase tracking-wider text-left">Federação dos Modelos LLM</span>
               </div>
-              <button onClick={() => setIsManageModelsOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer bg-slate-50 rounded-full border-0">✕</button>
+              <button onClick={() => setIsManageModelsOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer bg-slate-50 rounded-full border-0" aria-label="Fechar">✕</button>
             </div>
 
             <div className="text-xs text-slate-500 font-medium leading-relaxed space-y-3">

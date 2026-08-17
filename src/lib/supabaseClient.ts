@@ -39,7 +39,7 @@ try {
   console.warn('Supabase URL is invalid, using fallback placeholder.', e);
 }
 
-const clientOptions: any = typeof window === 'undefined' 
+const clientOptions: Record<string, unknown> = typeof window === 'undefined' 
   ? { auth: { persistSession: false }, realtime: { transport: ws as any } } 
   : {};
 

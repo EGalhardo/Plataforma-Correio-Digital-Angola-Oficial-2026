@@ -599,3 +599,23 @@ html.dark .cda-rel-header input {
   color: #e2e8f0 !important;
   border-color: rgba(255, 255, 255, 0.15) !important;
 }
+
+/* ============================================================================
+ * Acessibilidade — área mínima de toque (K10 da auditoria A–L)
+ * ----------------------------------------------------------------------------
+ * Em ecrãs TÁCTEIS (pointer: coarse) todos os botões ganham pelo menos 44px
+ * de altura (guia de acessibilidade). Em desktop/rato nada muda — o layout
+ * permanece idêntico; apenas a área de toque em telemóvel/tablet melhora.
+ * ========================================================================== */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  a.cda-link-text,
+  .cda-link-text {
+    min-height: 44px;
+  }
+  /* Botões de ícone puro (sem texto) também ganham largura mínima de toque */
+  button:has(svg):not(:has(span)):not(:has(div)) {
+    min-width: 44px;
+  }
+}

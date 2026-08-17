@@ -349,7 +349,7 @@ export function Header({
           {/* Claro/Escuro Single-Icon Toggle Button (Mobile) */}
           <button
             type="button"
-            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+             aria-label={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
             className={`h-8 w-8 rounded-full flex items-center justify-center cursor-pointer focus:outline-none transition-all duration-300 ${
               theme === 'light' 
                 ? 'bg-white hover:bg-slate-50' 
@@ -507,7 +507,7 @@ export function Header({
           {/* Claro/Escuro Single-Icon Toggle Button (Desktop) */}
           <button
             type="button"
-            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+             aria-label={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
             className={`h-9 w-9 rounded-full flex items-center justify-center cursor-pointer focus:outline-none transition-all duration-300 ${
               theme === 'light' 
                 ? 'bg-white hover:bg-slate-50' 

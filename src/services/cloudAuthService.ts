@@ -356,7 +356,7 @@ export const cloudResetPasswordEmail = async (
       return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: error.message };
     }
     return { outcome: 'ok' };
-  } catch (e: any) {
+  } catch (e) {
     const kind = classifyAuthError(e);
     return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
   }
@@ -389,7 +389,7 @@ export const cloudUpdatePasswordFromRecovery = async (
     // Encerra as OUTRAS sessões (best-effort) — a senha antiga deixa de valer.
     try { await client.auth.signOut({ scope: 'others' }); } catch { /* best-effort */ }
     return { outcome: 'ok' };
-  } catch (e: any) {
+  } catch (e) {
     const kind = classifyAuthError(e);
     return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
   }
@@ -422,7 +422,7 @@ export const cloudUpdateEmailReal = async (
       return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: error.message };
     }
     return { outcome: 'ok' };
-  } catch (e: any) {
+  } catch (e) {
     const kind = classifyAuthError(e);
     return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
   }

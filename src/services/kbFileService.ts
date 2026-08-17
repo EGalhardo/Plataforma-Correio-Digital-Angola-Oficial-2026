@@ -13,6 +13,7 @@
 // ============================================================================
 
 import * as pdfjsLib from 'pdfjs-dist';
+import type { TextItem, TextMarkedContent } from 'pdfjs-dist/types/src/display/api';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 // @ts-ignore — mammoth.browser não tem tipos; API estável (extractRawText)
 import mammoth from 'mammoth/mammoth.browser';
@@ -52,7 +53,7 @@ const extrairTextoPdf = async (arrayBuffer: ArrayBuffer): Promise<string> => {
     const page = await doc.getPage(i);
     const content = await page.getTextContent();
     const linha = content.items
-      .map((item: any) => (typeof item?.str === 'string' ? item.str : ''))
+      .map((item: TextItem | TextMarkedContent) => ('str' in item ? item.str : ''))
       .join(' ');
     partes.push(linha);
   }
