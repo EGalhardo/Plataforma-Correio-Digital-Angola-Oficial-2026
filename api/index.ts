@@ -901,7 +901,45 @@ export default async function handler(req: any, res: any) {
         "Responder": { um: "Okuyula", ki: "Kuyula", kk: "Kuyula", ch: "Kuyula", ng: "Kuyula", kw: "Okuyula", nh: "Okuyula", fi: "Yula" },
         "Arquivar": { um: "Okusonga", ki: "Kusonga", kk: "Kusonga", ch: "Kusonga", ng: "Kusonga", kw: "Okusonga", nh: "Okusonga", fi: "Songa" },
         "Prioridade": { um: "Okalo", ki: "Mbandu", kk: "Nsamu", ch: "Chisinde", ng: "Mutende", kw: "Ombila", nh: "Okanda", fi: "Bumboti" },
-        "Categoria": { um: "Ovikalo", ki: "Mbandu", kk: "Nsamu", ch: "Chisinde", ng: "Mutende", kw: "Ombila", nh: "Okanda", fi: "Bumboti" }
+"Categoria": { um: "Ovikalo", ki: "Mbandu", kk: "Nsamu", ch: "Chisinde", ng: "Mutende", kw: "Ombila", nh: "Okanda", fi: "Bumboti" },
+        // ---- 2026-08-17 (2.ª leva): termos reais extraídos da UI ----
+        "Nome Completo": { um: "Eliwa lyosoma", ki: "Dijina diakuala", kk: "Zina diakamana", ch: "Jina jakamana", ng: "Lina lyakamana", kw: "Edhina lyaushe", nh: "Edina lyosoma", fi: "Zina diakamana" },
+        "Ações": { um: "Ovipangiwa", ki: "Upange", kk: "Kisalu", ch: "Vakaji", ng: "Vangaji", kw: "Iilonga", nh: "Ovilinga", fi: "Bisalu" },
+        "Referência": { um: "Ondaka", ki: "Kimbu", kk: "Nsamu", ch: "Chinyingika", ng: "Cinoneno", kw: "Endandeko", nh: "Okutaila", fi: "Dimbu" },
+        "República de Angola": { um: "Ofula ya Angola", ki: "Ntotela ya Angola", kk: "Nsi ya Angola", ch: "Fuchi ya Angola", ng: "Kanda ya Angola", kw: "Oshilongo shAngola", nh: "Omuhele wa Angola", fi: "Nsi ya Angola" },
+        "Segurança": { um: "Okutela", ki: "Kutela", kk: "Kutela", ch: "Kutela", ng: "Kutela", kw: "Okutela", nh: "Okutela", fi: "Tela" },
+        "Província": { um: "Ofula", ki: "Ntotela", kk: "Nsi", ch: "Fuchi", ng: "Kanda", kw: "Oshilongo", nh: "Omuhele", fi: "Nsi" },
+        "Município": { um: "Olumwe", ki: "Kanda", kk: "Kanda", ch: "Kanda", ng: "Kanda", kw: "Oshilonga", nh: "Omukunda", fi: "Kanda" },
+        "Tipo": { um: "Ovitapo", ki: "Mbandu", kk: "Nsamu", ch: "Kufunga", ng: "Kisalu", kw: "Oshipala", nh: "Ovitu", fi: "Nzila" },
+        "Pequeno": { um: "Okaci", ki: "Kaci", kk: "Kaci", ch: "Kaci", ng: "Kaci", kw: "Okaci", nh: "Okaci", fi: "Kaci" },
+        "Grande": { um: "Okulu", ki: "Kulu", kk: "Kulu", ch: "Kulu", ng: "Kulu", kw: "Okulu", nh: "Okulu", fi: "Kulu" },
+        "Sucesso": { um: "Okusokela", ki: "Kusokela", kk: "Kusokela", ch: "Kusokela", ng: "Kusokela", kw: "Okusokela", nh: "Okusokela", fi: "Sokela" },
+        "Minha Conta": { um: "Ombila yange", ki: "Mbandu yami", kk: "Nzo yami", ch: "Mufu wami", ng: "Mukulo wami", kw: "Omauyelele ange", nh: "Omuhonga wange", fi: "Nzila yami" },
+        "Cancelada": { um: "Okuvua", ki: "Kuvua", kk: "Kuvua", ch: "Kuvua", ng: "Kuvua", kw: "Okushoka", nh: "Okutyi", fi: "Vua" },
+        "Voltar ao Painel": { um: "Okutunda ko Ondunge", ki: "Kutula ko Kikonde", kk: "Kuna ko Lulendo", ch: "Kuhita ko Fungola", ng: "Kushola ko Mutende", kw: "Okushoka ko Oshila", nh: "Okutyi ko Okulula", fi: "Maboti ko Lusolo" },
+        "Voltar ao Correio": { um: "Okutunda ko Okanda", ki: "Kutula ko Mikanda", kk: "Kuna ko Nsamu", ch: "Kuhita ko Chisinde", ng: "Kushola ko Mikando", kw: "Okushoka ko Ombila", nh: "Okutyi ko Okanda", fi: "Maboti ko Bumboti" },
+        "Remover anexo": { um: "Okupuka onanga", ki: "Kupuka kimbu", kk: "Kupuka nsamu", ch: "Kupuka chinyingika", ng: "Kupuka cinoneno", kw: "Okupuka endandeko", nh: "Okupuka okutaila", fi: "Kupuka dimbu" },
+        "Localização": { um: "Ovitu", ki: "Kixala", kk: "Kinkulu", ch: "Kufunga", ng: "Kisalu", kw: "Oshilongwa", nh: "Omuhonga", fi: "Nzila" },
+        "Entidade": { um: "Ovingonjo", ki: "Vihandela", kk: "Nkenda", ch: "Mwenya", ng: "Vihandeka", kw: "Oshilongo", nh: "Omilandu", fi: "Mutinu" },
+        "Ativo": { um: "Okuya", ki: "Kwenda", kk: "Kwiza", ch: "Kuyenda", ng: "Kuyenda", kw: "Okukala", nh: "Okukala", fi: "Kwiza" },
+        "Título": { um: "Eliwa", ki: "Dijina", kk: "Zina", ch: "Jina", ng: "Lina", kw: "Edhina", nh: "Edina", fi: "Zina" },
+        "Conteúdo do Documento": { um: "Otyo kokanda", ki: "Kimbu kia mukanda", kk: "Nsamu kia nzo", ch: "Kufunga kwa mukanda", ng: "Kisalu kya mikando", kw: "Oshipala shombila", nh: "Ovitu vyokanda", fi: "Nzila ya mukanda" },
+        "Referência de Registo": { um: "Ondaka yokala", ki: "Kimbu kia kusonga", kk: "Nsamu ya kusonga", ch: "Chinyingika kusonga", ng: "Cinoneno kusonga", kw: "Endandeko okusonga", nh: "Okutaila okusonga", fi: "Dimbu songa" },
+        "Entrar": { um: "Okuya", ki: "Kwila", kk: "Kwiza", ch: "Kuyenda", ng: "Kuyenda", kw: "Okukala", nh: "Okukala", fi: "Kwiza" },
+        "Autorizado": { um: "Okutavela", ki: "Kutavela", kk: "Kutavela", ch: "Kutavela", ng: "Kutavela", kw: "Okutavela", nh: "Okutavela", fi: "Tavela" },
+        "Conta verificada e activa": { um: "Ombila yokutavela", ki: "Mbandu yatavela", kk: "Nzo yatavela", ch: "Mufu watavela", ng: "Mukulo watavela", kw: "Omauyelele atavela", nh: "Omuhonga watavela", fi: "Nzila yatavela" },
+        "Alterar Foto": { um: "Okulandula efoto", ki: "Kulandula foto", kk: "Kulandula foto", ch: "Kulandula foto", ng: "Kulandula foto", kw: "Okulandula efoto", nh: "Okulandula efoto", fi: "Landula foto" },
+        "A Carregar...": { um: "Okuyoya...", ki: "Kuyoya...", kk: "Kuyoya...", ch: "Kuyoya...", ng: "Kuyoya...", kw: "Okuyoya...", nh: "Okuyoya...", fi: "Yoya..." },
+        "Estado Civil": { um: "Okalo komanu", ki: "Mbandu kia miji", kk: "Nsamu kia kangu", ch: "Kufunga kwa atu", ng: "Kisalu kya vakwetu", kw: "Oshipala shaantu", nh: "Ovitu vyovanthu", fi: "Nzila ya batu" },
+        "Solteiro(a)": { um: "Okaci", ki: "Kaci", kk: "Kaci", ch: "Kaci", ng: "Kaci", kw: "Okaci", nh: "Okaci", fi: "Kaci" },
+        "Casado(a)": { um: "Okufeka", ki: "Kufeka", kk: "Kufeka", ch: "Kufeka", ng: "Kufeka", kw: "Okufeka", nh: "Okufeka", fi: "Feka" },
+        "Divorciado(a)": { um: "Okupatula", ki: "Kupatula", kk: "Kupatula", ch: "Kupatula", ng: "Kupatula", kw: "Okupatula", nh: "Okupatula", fi: "Patula" },
+        "Viúvo(a)": { um: "Omufua", ki: "Mufua", kk: "Mufua", ch: "Mufua", ng: "Mufua", kw: "Omufua", nh: "Omufua", fi: "Mufua" },
+        "Carregar nova foto": { um: "Okutwala efoto ehe", ki: "Kutwala foto hima", kk: "Kutwala foto hima", ch: "Kutwala foto hima", ng: "Kutwala foto hima", kw: "Okutwala efoto hima", nh: "Okutwala efoto hima", fi: "Twala foto hima" },
+        "Último Acesso": { um: "Ovitu vyokule", ki: "Kixala kia kule", kk: "Kinkulu kia kule", ch: "Kufunga kwa kule", ng: "Kisalu kya kule", kw: "Oshilongwa shokule", nh: "Omuhonga yokule", fi: "Nzila ya kule" },
+        "Canal": { um: "Ovitu", ki: "Nzila", kk: "Nzila", ch: "Nzila", ng: "Nzila", kw: "Omukalo", nh: "Onzila", fi: "Nzila" },
+        "Temperatura": { um: "Ovitu viosi", ki: "Kixala kiosi", kk: "Kinkulu kiosi", ch: "Kufunga kwosi", ng: "Kisalu kyosi", kw: "Oshilongwa shoshi", nh: "Omuhonga yosi", fi: "Nzila yosi" },
+        "Responsável Institucional": { um: "Okutwala ovingonjo", ki: "Kutwala vihandela", kk: "Kutwala nkenda", ch: "Kutwala mwenya", ng: "Kutwala vihandeka", kw: "Okutwala oshilongo", nh: "Okutwala omilandu", fi: "Twala mutinu" }
       };
       const tradStatico = (t: string): string | null => {
         const chave = STATIC_UI_TERMS[String(t || '').trim()];
@@ -920,7 +958,39 @@ export default async function handler(req: any, res: any) {
       }
       const textosPendentes = pendentes.map(i => texts[i]);
 
-      const translationSystemPrompt = `Você é o Tradutor e Intérprete Oficial de Línguas Nacionais do Estado de Angola.\nA sua missão é traduzir com absoluto rigor e fidelidade um lote de textos dinâmicos do Português de Angola para o dialeto selecionado: \"${selectedLanguageName}\".\n\nRegras Críticas de Fidelidade e Integridade:\n1. NÃO traduzir de forma alguma nomes próprios de cidadãos, siglas institucionais oficiais (como AGT, SME, ENDE, EPAL, INSS, BI, NIF, SOC, CDA), códigos de referência, protocolos, hashes, chaves, endereços eletrónicos, datas ou valores monetários (Kz, AOA).\n2. Use linguagem formal e tom respeitoso de chancelaria eletrónica do Estado.\n3. Regra de Fallback Seguro: Caso não exista um termo traduzível consolidado ou confiável para jargões técnicos, jurídicos, fiscais ou administrativos no dialeto \"${selectedLanguageName}\", você DEVE manter a palavra ou expressão original em Português de Angola para evitar erros de interpretação por parte do cidadão.\n3.1. TEXTOS CURTOS DE INTERFACE — TRADUÇÃO OBRIGATÓRIA: para textos curtos de interface (1 a 5 palavras, como botões, menus, títulos de secção, estados e etiquetas), a tradução para \"${selectedLanguageName}\" é OBRIGATÓRIA — NÃO devolvas o texto original em Português. Usa a forma mais natural e curta na língua de destino. A regra de fallback seguro aplica-se APENAS a textos longos, jurídicos, administrativos ou técnicos, nunca a botões e menus.\n4. Devolva estritamente a resposta formatada como um array JSON bruto (começando com [ e terminando com ]), contendo as strings traduzidas na exata mesma ordem em que as recebeu. Não inclua marcas de markdown, explicações ou comentários.`;
+      // Exemplos concretos por língua (few-shot) — reforço anti-devolver-inalterado
+      const EXEMPLOS_POR_LINGUA: Record<string, string> = {
+        um: `"Painel" -> "Ondunge"\n"Correio" -> "Okanda"\n"Perfil" -> "Ovipala"\n"Contactos" -> "Omanu"\n"Enviar" -> "Okutuma"\n"Notificações" -> "Olovalulo"\n"Mensagem" -> "Ondaka"\n"Documento" -> "Okanda"\n"Pesquisar" -> "Okusanga"\n"Voltar" -> "Okutunda"`,
+        ki: `"Painel" -> "Kikonde"\n"Correio" -> "Mikanda"\n"Perfil" -> "Kixala"\n"Contactos" -> "Miji"\n"Enviar" -> "Kutuma"\n"Notificações" -> "Mutume"\n"Mensagem" -> "Mikanda"\n"Documento" -> "Mukanda"\n"Pesquisar" -> "Kufila"\n"Voltar" -> "Kutula"`,
+        kk: `"Painel" -> "Lulendo"\n"Correio" -> "Nsamu"\n"Perfil" -> "Kinkulu"\n"Contactos" -> "Kangu"\n"Enviar" -> "Kutuma"\n"Notificações" -> "Mbote"\n"Mensagem" -> "Nsamu"\n"Documento" -> "Nsamu"\n"Pesquisar" -> "Moneka"\n"Voltar" -> "Kuna"`,
+        ch: `"Painel" -> "Fungola"\n"Correio" -> "Chisinde"\n"Perfil" -> "Kufunga"\n"Contactos" -> "Atu"\n"Enviar" -> "Kutuma"\n"Notificações" -> "Kusola"\n"Mensagem" -> "Chisinde"\n"Documento" -> "Mukanda"\n"Pesquisar" -> "Kusola"\n"Voltar" -> "Kuhita"`,
+        ng: `"Painel" -> "Mutende"\n"Correio" -> "Mikando"\n"Perfil" -> "Mukalo"\n"Contactos" -> "Vakwetu"\n"Enviar" -> "Kutuma"\n"Notificações" -> "Mutende"\n"Mensagem" -> "Mikando"\n"Documento" -> "Mikando"\n"Pesquisar" -> "Kulomba"\n"Voltar" -> "Kushola"`,
+        kw: `"Painel" -> "Oshila"\n"Correio" -> "Ombila"\n"Perfil" -> "Oshilongwa"\n"Contactos" -> "Aantu"\n"Enviar" -> "Okutuma"\n"Notificações" -> "Omauyelele"\n"Mensagem" -> "Ombila"\n"Documento" -> "Ombila"\n"Pesquisar" -> "Yandjeka"\n"Voltar" -> "Okushoka"`,
+        nh: `"Painel" -> "Okulula"\n"Correio" -> "Okanda"\n"Perfil" -> "Omuhonga"\n"Contactos" -> "Ovanthu"\n"Enviar" -> "Okutuma"\n"Notificações" -> "Elau"\n"Mensagem" -> "Okanda"\n"Documento" -> "Okanda"\n"Pesquisar" -> "Oityi"\n"Voltar" -> "Okutyi"`,
+        fi: `"Painel" -> "Lusolo"\n"Correio" -> "Bumboti"\n"Perfil" -> "Nzila"\n"Contactos" -> "Batu"\n"Enviar" -> "Tuma"\n"Notificações" -> "Lukelelo"\n"Mensagem" -> "Bumboti"\n"Documento" -> "Bisalu"\n"Pesquisar" -> "Lomba"\n"Voltar" -> "Maboti"`,
+      };
+      const EXEMPLOS_TRADUCAO = EXEMPLOS_POR_LINGUA[targetLanguage] || EXEMPLOS_POR_LINGUA.um;
+
+      // Pós-processamento: texto curto devolvido inalterado → tradução parcial palavra-a-palavra
+      const traduzirParcial = (t: string): string => {
+        const limpo = String(t || '').trim();
+        const palavras = limpo.split(/\s+/);
+        if (palavras.length > 5) return limpo;
+        let mudou = false;
+        const traduzido = palavras.map(p => {
+          const semPont = p.replace(/[.,;:!?]$/, '');
+          const pont = p.slice(semPont.length);
+          const chave = STATIC_UI_TERMS[semPont];
+          if (chave && chave[targetLanguage] && chave[targetLanguage] !== semPont) {
+            mudou = true;
+            return chave[targetLanguage] + pont;
+          }
+          return p;
+        }).join(' ');
+        return mudou ? traduzido : limpo;
+      };
+
+      const translationSystemPrompt = `Você é o Tradutor e Intérprete Oficial de Línguas Nacionais do Estado de Angola.\nA sua missão é traduzir com absoluto rigor e fidelidade um lote de textos dinâmicos do Português de Angola para o dialeto selecionado: \"${selectedLanguageName}\".\n\nRegras Críticas de Fidelidade e Integridade:\n1. NÃO traduzir de forma alguma nomes próprios de cidadãos, siglas institucionais oficiais (como AGT, SME, ENDE, EPAL, INSS, BI, NIF, SOC, CDA), códigos de referência, protocolos, hashes, chaves, endereços eletrónicos, datas ou valores monetários (Kz, AOA).\n2. Use linguagem formal e tom respeitoso de chancelaria eletrónica do Estado.\n3. Regra de Fallback Seguro: Caso não exista um termo traduzível consolidado ou confiável para jargões técnicos, jurídicos, fiscais ou administrativos no dialeto \"${selectedLanguageName}\", você DEVE manter a palavra ou expressão original em Português de Angola para evitar erros de interpretação por parte do cidadão.\n3.1. TEXTOS CURTOS DE INTERFACE — TRADUÇÃO OBRIGATÓRIA: para textos curtos de interface (1 a 5 palavras, como botões, menus, títulos de secção, estados e etiquetas), a tradução para \"${selectedLanguageName}\" é OBRIGATÓRIA — NÃO devolvas o texto original em Português. Usa a forma mais natural e curta na língua de destino. A regra de fallback seguro aplica-se APENAS a textos longos, jurídicos, administrativos ou técnicos, nunca a botões e menus.\n3.2. EXEMPLOS CONCRETOS — usa a MESMA terminologia para estes termos comuns:\n${EXEMPLOS_TRADUCAO}\nIMPORTANTE: devolver um texto curto de interface SEM ALTERAÇÃO (igual ao Português) é ERRO e deve ser evitado.\n4. Devolva estritamente a resposta formatada como um array JSON bruto (começando com [ e terminando com ]), contendo as strings traduzidas na exata mesma ordem em que as recebeu. Não inclua marcas de markdown, explicações ou comentários.`;
 
       const userTranslationPrompt = `Língua de Destino: ${selectedLanguageName}\nLista de textos a traduzir:\n${JSON.stringify(textosPendentes, null, 2)}`;
 
@@ -940,7 +1010,12 @@ export default async function handler(req: any, res: any) {
           const parsedTranslations = JSON.parse(cleanRaw);
 
           if (Array.isArray(parsedTranslations) && parsedTranslations.length === textosPendentes.length) {
-            pendentes.forEach((idx, k) => { resultados[idx] = parsedTranslations[k]; });
+            pendentes.forEach((idx, k) => {
+              const tr = parsedTranslations[k];
+              resultados[idx] = (typeof tr === 'string' && tr.trim() === textosPendentes[k].trim())
+                ? traduzirParcial(tr)
+                : tr;
+            });
             return res.status(200).json({ translations: resultados });
           }
         } catch (e: any) {

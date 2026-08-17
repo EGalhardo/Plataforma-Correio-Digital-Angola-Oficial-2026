@@ -936,6 +936,44 @@ A nossa inteligência artificial ajuda a traduzir termos jurídicos complexos e 
         "Arquivar": { um: "Okusonga", ki: "Kusonga", kk: "Kusonga", ch: "Kusonga", ng: "Kusonga", kw: "Okusonga", nh: "Okusonga", fi: "Songa" },
         "Prioridade": { um: "Okalo", ki: "Mbandu", kk: "Nsamu", ch: "Chisinde", ng: "Mutende", kw: "Ombila", nh: "Okanda", fi: "Bumboti" },
         "Categoria": { um: "Ovikalo", ki: "Mbandu", kk: "Nsamu", ch: "Chisinde", ng: "Mutende", kw: "Ombila", nh: "Okanda", fi: "Bumboti" },
+        // ---- 2026-08-17 (2.ª leva): termos reais extraídos da UI ----
+        "Nome Completo": { um: "Eliwa lyosoma", ki: "Dijina diakuala", kk: "Zina diakamana", ch: "Jina jakamana", ng: "Lina lyakamana", kw: "Edhina lyaushe", nh: "Edina lyosoma", fi: "Zina diakamana" },
+        "Ações": { um: "Ovipangiwa", ki: "Upange", kk: "Kisalu", ch: "Vakaji", ng: "Vangaji", kw: "Iilonga", nh: "Ovilinga", fi: "Bisalu" },
+        "Referência": { um: "Ondaka", ki: "Kimbu", kk: "Nsamu", ch: "Chinyingika", ng: "Cinoneno", kw: "Endandeko", nh: "Okutaila", fi: "Dimbu" },
+        "República de Angola": { um: "Ofula ya Angola", ki: "Ntotela ya Angola", kk: "Nsi ya Angola", ch: "Fuchi ya Angola", ng: "Kanda ya Angola", kw: "Oshilongo shAngola", nh: "Omuhele wa Angola", fi: "Nsi ya Angola" },
+        "Segurança": { um: "Okutela", ki: "Kutela", kk: "Kutela", ch: "Kutela", ng: "Kutela", kw: "Okutela", nh: "Okutela", fi: "Tela" },
+        "Província": { um: "Ofula", ki: "Ntotela", kk: "Nsi", ch: "Fuchi", ng: "Kanda", kw: "Oshilongo", nh: "Omuhele", fi: "Nsi" },
+        "Município": { um: "Olumwe", ki: "Kanda", kk: "Kanda", ch: "Kanda", ng: "Kanda", kw: "Oshilonga", nh: "Omukunda", fi: "Kanda" },
+        "Tipo": { um: "Ovitapo", ki: "Mbandu", kk: "Nsamu", ch: "Kufunga", ng: "Kisalu", kw: "Oshipala", nh: "Ovitu", fi: "Nzila" },
+        "Pequeno": { um: "Okaci", ki: "Kaci", kk: "Kaci", ch: "Kaci", ng: "Kaci", kw: "Okaci", nh: "Okaci", fi: "Kaci" },
+        "Grande": { um: "Okulu", ki: "Kulu", kk: "Kulu", ch: "Kulu", ng: "Kulu", kw: "Okulu", nh: "Okulu", fi: "Kulu" },
+        "Sucesso": { um: "Okusokela", ki: "Kusokela", kk: "Kusokela", ch: "Kusokela", ng: "Kusokela", kw: "Okusokela", nh: "Okusokela", fi: "Sokela" },
+        "Minha Conta": { um: "Ombila yange", ki: "Mbandu yami", kk: "Nzo yami", ch: "Mufu wami", ng: "Mukulo wami", kw: "Omauyelele ange", nh: "Omuhonga wange", fi: "Nzila yami" },
+        "Cancelada": { um: "Okuvua", ki: "Kuvua", kk: "Kuvua", ch: "Kuvua", ng: "Kuvua", kw: "Okushoka", nh: "Okutyi", fi: "Vua" },
+        "Voltar ao Painel": { um: "Okutunda ko Ondunge", ki: "Kutula ko Kikonde", kk: "Kuna ko Lulendo", ch: "Kuhita ko Fungola", ng: "Kushola ko Mutende", kw: "Okushoka ko Oshila", nh: "Okutyi ko Okulula", fi: "Maboti ko Lusolo" },
+        "Voltar ao Correio": { um: "Okutunda ko Okanda", ki: "Kutula ko Mikanda", kk: "Kuna ko Nsamu", ch: "Kuhita ko Chisinde", ng: "Kushola ko Mikando", kw: "Okushoka ko Ombila", nh: "Okutyi ko Okanda", fi: "Maboti ko Bumboti" },
+        "Remover anexo": { um: "Okupuka onanga", ki: "Kupuka kimbu", kk: "Kupuka nsamu", ch: "Kupuka chinyingika", ng: "Kupuka cinoneno", kw: "Okupuka endandeko", nh: "Okupuka okutaila", fi: "Kupuka dimbu" },
+        "Localização": { um: "Ovitu", ki: "Kixala", kk: "Kinkulu", ch: "Kufunga", ng: "Kisalu", kw: "Oshilongwa", nh: "Omuhonga", fi: "Nzila" },
+        "Entidade": { um: "Ovingonjo", ki: "Vihandela", kk: "Nkenda", ch: "Mwenya", ng: "Vihandeka", kw: "Oshilongo", nh: "Omilandu", fi: "Mutinu" },
+        "Ativo": { um: "Okuya", ki: "Kwenda", kk: "Kwiza", ch: "Kuyenda", ng: "Kuyenda", kw: "Okukala", nh: "Okukala", fi: "Kwiza" },
+        "Título": { um: "Eliwa", ki: "Dijina", kk: "Zina", ch: "Jina", ng: "Lina", kw: "Edhina", nh: "Edina", fi: "Zina" },
+        "Conteúdo do Documento": { um: "Otyo kokanda", ki: "Kimbu kia mukanda", kk: "Nsamu kia nzo", ch: "Kufunga kwa mukanda", ng: "Kisalu kya mikando", kw: "Oshipala shombila", nh: "Ovitu vyokanda", fi: "Nzila ya mukanda" },
+        "Referência de Registo": { um: "Ondaka yokala", ki: "Kimbu kia kusonga", kk: "Nsamu ya kusonga", ch: "Chinyingika kusonga", ng: "Cinoneno kusonga", kw: "Endandeko okusonga", nh: "Okutaila okusonga", fi: "Dimbu songa" },
+        "Entrar": { um: "Okuya", ki: "Kwila", kk: "Kwiza", ch: "Kuyenda", ng: "Kuyenda", kw: "Okukala", nh: "Okukala", fi: "Kwiza" },
+        "Autorizado": { um: "Okutavela", ki: "Kutavela", kk: "Kutavela", ch: "Kutavela", ng: "Kutavela", kw: "Okutavela", nh: "Okutavela", fi: "Tavela" },
+        "Conta verificada e activa": { um: "Ombila yokutavela", ki: "Mbandu yatavela", kk: "Nzo yatavela", ch: "Mufu watavela", ng: "Mukulo watavela", kw: "Omauyelele atavela", nh: "Omuhonga watavela", fi: "Nzila yatavela" },
+        "Alterar Foto": { um: "Okulandula efoto", ki: "Kulandula foto", kk: "Kulandula foto", ch: "Kulandula foto", ng: "Kulandula foto", kw: "Okulandula efoto", nh: "Okulandula efoto", fi: "Landula foto" },
+        "A Carregar...": { um: "Okuyoya...", ki: "Kuyoya...", kk: "Kuyoya...", ch: "Kuyoya...", ng: "Kuyoya...", kw: "Okuyoya...", nh: "Okuyoya...", fi: "Yoya..." },
+        "Estado Civil": { um: "Okalo komanu", ki: "Mbandu kia miji", kk: "Nsamu kia kangu", ch: "Kufunga kwa atu", ng: "Kisalu kya vakwetu", kw: "Oshipala shaantu", nh: "Ovitu vyovanthu", fi: "Nzila ya batu" },
+        "Solteiro(a)": { um: "Okaci", ki: "Kaci", kk: "Kaci", ch: "Kaci", ng: "Kaci", kw: "Okaci", nh: "Okaci", fi: "Kaci" },
+        "Casado(a)": { um: "Okufeka", ki: "Kufeka", kk: "Kufeka", ch: "Kufeka", ng: "Kufeka", kw: "Okufeka", nh: "Okufeka", fi: "Feka" },
+        "Divorciado(a)": { um: "Okupatula", ki: "Kupatula", kk: "Kupatula", ch: "Kupatula", ng: "Kupatula", kw: "Okupatula", nh: "Okupatula", fi: "Patula" },
+        "Viúvo(a)": { um: "Omufua", ki: "Mufua", kk: "Mufua", ch: "Mufua", ng: "Mufua", kw: "Omufua", nh: "Omufua", fi: "Mufua" },
+        "Carregar nova foto": { um: "Okutwala efoto ehe", ki: "Kutwala foto hima", kk: "Kutwala foto hima", ch: "Kutwala foto hima", ng: "Kutwala foto hima", kw: "Okutwala efoto hima", nh: "Okutwala efoto hima", fi: "Twala foto hima" },
+        "Último Acesso": { um: "Ovitu vyokule", ki: "Kixala kia kule", kk: "Kinkulu kia kule", ch: "Kufunga kwa kule", ng: "Kisalu kya kule", kw: "Oshilongwa shokule", nh: "Omuhonga yokule", fi: "Nzila ya kule" },
+        "Canal": { um: "Ovitu", ki: "Nzila", kk: "Nzila", ch: "Nzila", ng: "Nzila", kw: "Omukalo", nh: "Onzila", fi: "Nzila" },
+        "Temperatura": { um: "Ovitu viosi", ki: "Kixala kiosi", kk: "Kinkulu kiosi", ch: "Kufunga kwosi", ng: "Kisalu kyosi", kw: "Oshilongwa shoshi", nh: "Omuhonga yosi", fi: "Nzila yosi" },
+        "Responsável Institucional": { um: "Okutwala ovingonjo", ki: "Kutwala vihandela", kk: "Kutwala nkenda", ch: "Kutwala mwenya", ng: "Kutwala vihandeka", kw: "Okutwala oshilongo", nh: "Okutwala omilandu", fi: "Twala mutinu" },
       };
       const tradStatico = (t: string): string | null => {
         const chave = STATIC_UI_TERMS[t.trim()];
@@ -957,6 +995,111 @@ A nossa inteligência artificial ajuda a traduzir termos jurídicos complexos e 
         return res.json({ translations: resultados });
       }
       const textosPendentes = pendentes.map(i => texts[i]);
+
+      // ---- Exemplos concretos por língua (few-shot, regra 3.2 do prompt) ----
+      const EXEMPLOS_POR_LINGUA: Record<string, string> = {
+        um: `"Painel" -> "Ondunge"
+"Correio" -> "Okanda"
+"Perfil" -> "Ovipala"
+"Contactos" -> "Omanu"
+"Enviar" -> "Okutuma"
+"Notificações" -> "Olovalulo"
+"Mensagem" -> "Ondaka"
+"Documento" -> "Okanda"
+"Pesquisar" -> "Okusanga"
+"Voltar" -> "Okutunda"`,
+        ki: `"Painel" -> "Kikonde"
+"Correio" -> "Mikanda"
+"Perfil" -> "Kixala"
+"Contactos" -> "Miji"
+"Enviar" -> "Kutuma"
+"Notificações" -> "Mutume"
+"Mensagem" -> "Mikanda"
+"Documento" -> "Mukanda"
+"Pesquisar" -> "Kufila"
+"Voltar" -> "Kutula"`,
+        kk: `"Painel" -> "Lulendo"
+"Correio" -> "Nsamu"
+"Perfil" -> "Kinkulu"
+"Contactos" -> "Kangu"
+"Enviar" -> "Kutuma"
+"Notificações" -> "Mbote"
+"Mensagem" -> "Nsamu"
+"Documento" -> "Nsamu"
+"Pesquisar" -> "Moneka"
+"Voltar" -> "Kuna"`,
+        ch: `"Painel" -> "Fungola"
+"Correio" -> "Chisinde"
+"Perfil" -> "Kufunga"
+"Contactos" -> "Atu"
+"Enviar" -> "Kutuma"
+"Notificações" -> "Kusola"
+"Mensagem" -> "Chisinde"
+"Documento" -> "Mukanda"
+"Pesquisar" -> "Kusola"
+"Voltar" -> "Kuhita"`,
+        ng: `"Painel" -> "Mutende"
+"Correio" -> "Mikando"
+"Perfil" -> "Mukalo"
+"Contactos" -> "Vakwetu"
+"Enviar" -> "Kutuma"
+"Notificações" -> "Mutende"
+"Mensagem" -> "Mikando"
+"Documento" -> "Mikando"
+"Pesquisar" -> "Kulomba"
+"Voltar" -> "Kushola"`,
+        kw: `"Painel" -> "Oshila"
+"Correio" -> "Ombila"
+"Perfil" -> "Oshilongwa"
+"Contactos" -> "Aantu"
+"Enviar" -> "Okutuma"
+"Notificações" -> "Omauyelele"
+"Mensagem" -> "Ombila"
+"Documento" -> "Ombila"
+"Pesquisar" -> "Yandjeka"
+"Voltar" -> "Okushoka"`,
+        nh: `"Painel" -> "Okulula"
+"Correio" -> "Okanda"
+"Perfil" -> "Omuhonga"
+"Contactos" -> "Ovanthu"
+"Enviar" -> "Okutuma"
+"Notificações" -> "Elau"
+"Mensagem" -> "Okanda"
+"Documento" -> "Okanda"
+"Pesquisar" -> "Oityi"
+"Voltar" -> "Okutyi"`,
+        fi: `"Painel" -> "Lusolo"
+"Correio" -> "Bumboti"
+"Perfil" -> "Nzila"
+"Contactos" -> "Batu"
+"Enviar" -> "Tuma"
+"Notificações" -> "Lukelelo"
+"Mensagem" -> "Bumboti"
+"Documento" -> "Bisalu"
+"Pesquisar" -> "Lomba"
+"Voltar" -> "Maboti"`,
+      };
+      const EXEMPLOS_TRADUCAO = EXEMPLOS_POR_LINGUA[targetLanguage] || EXEMPLOS_POR_LINGUA.um;
+
+      // ---- Pós-processamento: se a IA devolver um texto curto inalterado,
+      //      tenta uma tradução palavra-a-palavra via mapa estático ----
+      const traduzirParcial = (t: string): string => {
+        const limpo = String(t || '').trim();
+        const palavras = limpo.split(/\s+/);
+        if (palavras.length > 5) return limpo;
+        let mudou = false;
+        const traduzido = palavras.map(p => {
+          const semPont = p.replace(/[.,;:!?]$/, '');
+          const pont = p.slice(semPont.length);
+          const chave = STATIC_UI_TERMS[semPont];
+          if (chave && chave[targetLanguage] && chave[targetLanguage] !== semPont) {
+            mudou = true;
+            return chave[targetLanguage] + pont;
+          }
+          return p;
+        }).join(' ');
+        return mudou ? traduzido : limpo;
+      };
       // ---------------------------------------------------------------------
       const systemPrompt = `Você é o Tradutor Institucional Oficial do Correio Digital Angola (CDA), especializado em Português de Angola e em adaptação linguística prudente para línguas nacionais angolanas, incluindo:
 
@@ -1055,6 +1198,17 @@ secção, estados e etiquetas — ex.: "Painel", "Perfil", "Enviar", "Cancelar",
 - Usa a forma mais natural e curta na língua de destino.
 - A regra de fallback seguro (manter em português) aplica-se APENAS a textos
   longos, jurídicos, administrativos ou técnicos, nunca a botões e menus.
+
+3.2. EXEMPLOS CONCRETOS (usa-os como referência de qualidade e terminologia)
+
+Abaixo estão exemplos reais de como traduzir termos comuns de interface para
+${langName}. Usa a MESMA terminologia quando encontrares os mesmos termos:
+
+${EXEMPLOS_TRADUCAO}
+
+IMPORTANTE: devolver um texto curto de interface SEM ALTERAÇÃO (igual ao
+original em Português) é considerado ERRO e deve ser evitado. Se não tiveres a
+certeza, usa a tradução mais próxima e natural na língua de destino.
 
 4. DIFERENCIAR O TIPO DE TEXTO
 
@@ -1157,7 +1311,13 @@ ${JSON.stringify(textosPendentes, null, 2)}`;
           if (response && response.text) {
             const translations = JSON.parse(response.text.trim());
             if (Array.isArray(translations) && translations.length === textosPendentes.length) {
-              pendentes.forEach((idx, k) => { resultados[idx] = translations[k]; });
+              pendentes.forEach((idx, k) => {
+                const tr = translations[k];
+                // Se a IA devolveu um texto curto inalterado, tenta tradução parcial
+                resultados[idx] = (typeof tr === 'string' && tr.trim() === textosPendentes[k].trim())
+                  ? traduzirParcial(tr)
+                  : tr;
+              });
               return res.json({ translations: resultados });
             }
           }
@@ -1191,7 +1351,13 @@ ${JSON.stringify(textosPendentes, null, 2)}`;
             const cleanRaw = raw.substring(raw.indexOf('['), raw.lastIndexOf(']') + 1);
             const translations = JSON.parse(cleanRaw);
             if (Array.isArray(translations) && translations.length === textosPendentes.length) {
-              pendentes.forEach((idx, k) => { resultados[idx] = translations[k]; });
+              pendentes.forEach((idx, k) => {
+                const tr = translations[k];
+                // Se a IA devolveu um texto curto inalterado, tenta tradução parcial
+                resultados[idx] = (typeof tr === 'string' && tr.trim() === textosPendentes[k].trim())
+                  ? traduzirParcial(tr)
+                  : tr;
+              });
               return res.json({ translations: resultados });
             }
           }
