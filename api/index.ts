@@ -1062,7 +1062,7 @@ export default async function handler(req: any, res: any) {
       if (ai) {
         try {
           const response = await ai.models.generateContent({
-            model: "gemini-2.0-flash",
+            model: "gemini-3.6-flash",
             contents: userPrompt,
             config: {
               systemInstruction: systemPrompt,
@@ -1157,14 +1157,14 @@ export default async function handler(req: any, res: any) {
           // silencio). Corrida com timeout: passados 25s cai no fallback Groq.
           const response = await Promise.race([
             ai.models.generateContent({
-              model: "gemini-2.5-flash",
+              model: "gemini-3.6-flash",
               contents: [{ role: "user", parts: [{ text: utilizador }] }],
               config: { systemInstruction: sistema, temperature: 0.3 },
             }),
             new Promise<never>((_res, reject) => setTimeout(() => reject(new Error('GEMINI_TIMEOUT_25S')), 25000)),
           ]);
           if (response && response.text) {
-            return res.status(200).json({ ok: true, acao: v.dados.acao, modelo: "gemini-2.5-flash", resultado: protegerTraducaoLinguaNacional(v.dados, response.text), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
+            return res.status(200).json({ ok: true, acao: v.dados.acao, modelo: "gemini-3.6-flash", resultado: protegerTraducaoLinguaNacional(v.dados, response.text), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
           }
         } catch (geminiErr) {
           console.error("Gemini assistente-documento erro, fallback Groq:", geminiErr);
@@ -1319,7 +1319,7 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
           }));
 
           const response = await ai.models.generateContent({
-            model: "gemini-2.0-flash",
+            model: "gemini-3.6-flash",
             contents: formattedContents,
             config: {
               systemInstruction: finalSystemPrompt,
@@ -1362,7 +1362,7 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
       const pviResponderBase = (res: any, payload: any) => res.status(200).json(payload);
       const pviEmit = (emit: any, veredicto: 'APTO' | 'REVISAO', alertas: string[], motivo: string) => emit(veredicto, alertas, motivo);
       const pviStartedAt = Date.now();
-      const PVI_MODEL = 'gemini-2.5-flash';
+      const PVI_MODEL = 'gemini-3.6-flash';
 
       const { biNumber, nome, tipo, urls, dataNascimento, sexo } = body || {};
       const pviBi = typeof biNumber === 'string' ? biNumber.trim().toUpperCase() : '';
@@ -1432,7 +1432,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
           sharpMod.default(Buffer.from(await imgVResp.arrayBuffer())).resize({ width: 1024, withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer(),
         ]);
         const geminiResp = (await Promise.race([
-          fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
+          fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=' + geminiKey, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

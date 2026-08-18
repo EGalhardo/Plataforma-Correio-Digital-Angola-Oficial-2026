@@ -229,7 +229,7 @@ async function startServer() {
       if (ai) {
         try {
           const response = await ai.models.generateContent({
-            model: "gemini-2.0-flash",
+            model: "gemini-3.6-flash",
             contents: userPrompt,
             config: {
               systemInstruction: systemPrompt,
@@ -301,7 +301,7 @@ async function startServer() {
     type PviResponderFn = (veredicto: 'APTO' | 'REVISAO', alertas: string[], motivo: string) => unknown;
     const pviEmit = (emit: PviResponderFn, veredicto: 'APTO' | 'REVISAO', alertas: string[], motivo: string) => emit(veredicto, alertas, motivo);
       const pviStartedAt = Date.now();
-      const PVI_MODEL = 'gemini-2.5-flash';
+      const PVI_MODEL = 'gemini-3.6-flash';
 
       const { biNumber, nome, tipo, urls, dataNascimento, sexo } = body || {};
       const pviBi = typeof biNumber === 'string' ? biNumber.trim().toUpperCase() : '';
@@ -386,7 +386,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         const b64V = imgVBuf.toString('base64');
         // 2) Enviar ao Gemini com o prompt ajustado
         const geminiResp = (await Promise.race([
-          fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
+          fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=' + geminiKey, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -545,7 +545,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
           }));
 
           const response = await ai.models.generateContent({
-            model: "gemini-2.0-flash",
+            model: "gemini-3.6-flash",
             contents: formattedContents,
             config: {
               systemInstruction: finalSystemPrompt,
@@ -648,14 +648,14 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
           // SEM responder. Corrida com timeout: passados 25s cai no fallback.
           const response = await Promise.race([
             ai.models.generateContent({
-              model: "gemini-2.5-flash",
+              model: "gemini-3.6-flash",
               contents: [{ role: "user", parts: [{ text: utilizador }] }],
               config: { systemInstruction: sistema, temperature: 0.3 },
             }),
             new Promise<never>((_res, reject) => setTimeout(() => reject(new Error('GEMINI_TIMEOUT_25S')), 25000)),
           ]);
           if (response && response.text) {
-            return res.json({ ok: true, acao: v.dados.acao, modelo: "gemini-2.5-flash", resultado: protegerTraducaoLinguaNacional(v.dados, response.text), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
+            return res.json({ ok: true, acao: v.dados.acao, modelo: "gemini-3.6-flash", resultado: protegerTraducaoLinguaNacional(v.dados, response.text), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
           }
         } catch (geminiErr) {
           console.error("Gemini assistente-documento erro, fallback Groq:", geminiErr);
@@ -733,7 +733,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
     }, 20000);
 
     try {
-      console.log("Connecting to Gemini Live with model: gemini-2.0-flash-live-001");
+      console.log("Connecting to Gemini Live with model: gemini-3.1-flash-live-preview");
       
       const CDA_PROJECT_INFO = `
 O Correio Digital de Angola moderniza a administração ao tornar o Bilhete de Identidade o endereço oficial dos cidadãos. 
@@ -749,7 +749,7 @@ A nossa inteligência artificial ajuda a traduzir termos jurídicos complexos e 
       const govSysInstr = `Você é o Consultor de Segurança e Redação Oficial do Governo de Angola. ${CDA_PROJECT_INFO} Sua função é auxiliar administradores na gestão de protocolos e redação de normas. Inicie saudando e perguntando como pode ser útil. Seja eficiente, formal, institucional e conhecedor das normas de protocolo. Não utilize asteriscos ou símbolos na sua fala. Utilize sempre o nome completo Correio Digital de Angola.`;
 
       const session = await ai.live.connect({
-        model: "gemini-2.0-flash-live-001",
+        model: "gemini-3.1-flash-live-preview",
         callbacks: {
           onmessage: (message: LiveServerMessage) => {
             if (message.serverContent) {
@@ -1293,7 +1293,7 @@ ${JSON.stringify(textosPendentes, null, 2)}`;
       if (apiKey) {
         try {
           const response = await ai.models.generateContent({
-            model: "gemini-2.0-flash",
+            model: "gemini-3.6-flash",
             contents: userPrompt,
             config: {
               systemInstruction: systemPrompt,
