@@ -18,7 +18,8 @@
     "test:pilot": "tsx scripts/pilotComprehensive.ts",
     "production:readiness": "tsx scripts/productionReadiness.ts",
     "test:paginas": "node scripts/e2e_paginas.mjs",
-    "verify:v28": "tsx scripts/verifyV28.ts"
+    "verify:v28": "tsx scripts/verifyV28.ts",
+    "backup:supabase": "tsx scripts/backupSupabase.ts"
   },
   "dependencies": {
     "@google/genai": "^2.11.0",
