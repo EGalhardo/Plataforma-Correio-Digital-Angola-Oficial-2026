@@ -1725,6 +1725,85 @@ export const TRANSLATE_MAP: Record<string, Record<LanguageCode, string>> = {
     fi: "Twala mutinu"
   },
 
+  "Directório de Órgãos": {
+    pt: "Directório de Órgãos", um: "Ondungo vyovingonjo", ki: "Directório de Órgãos", kk: "Directório de Órgãos", ch: "Directório de Órgãos", ng: "Directório de Órgãos", kw: "Directório de Órgãos", nh: "Directório de Órgãos", fi: "Directório de Órgãos"
+  },
+  "Referência dos órgãos do Estado de Angola por categoria": {
+    pt: "Referência dos órgãos do Estado de Angola por categoria", um: "Okala kovingonjo vyofeka ya Angola", ki: "Referência dos órgãos do Estado de Angola por categoria", kk: "Referência dos órgãos do Estado de Angola por categoria", ch: "Referência dos órgãos do Estado de Angola por categoria", ng: "Referência dos órgãos do Estado de Angola por categoria", kw: "Referência dos órgãos do Estado de Angola por categoria", nh: "Referência dos órgãos do Estado de Angola por categoria", fi: "Referência dos órgãos do Estado de Angola por categoria"
+  },
+  "Pesquisar órgão (nome ou sigla)...": {
+    pt: "Pesquisar órgão (nome ou sigla)...", um: "Okusanga ovingonjo...", ki: "Pesquisar órgão (nome ou sigla)...", kk: "Pesquisar órgão (nome ou sigla)...", ch: "Pesquisar órgão (nome ou sigla)...", ng: "Pesquisar órgão (nome ou sigla)...", kw: "Pesquisar órgão (nome ou sigla)...", nh: "Pesquisar órgão (nome ou sigla)...", fi: "Pesquisar órgão (nome ou sigla)..."
+  },
+  "Serviços": {
+    pt: "Serviços", um: "Ovipangiwa", ki: "Serviços", kk: "Serviços", ch: "Serviços", ng: "Serviços", kw: "Serviços", nh: "Serviços", fi: "Serviços"
+  },
+  "Fonte": {
+    pt: "Fonte", um: "Ondaka", ki: "Fonte", kk: "Fonte", ch: "Fonte", ng: "Fonte", kw: "Fonte", nh: "Fonte", fi: "Fonte"
+  },
+  "Referência dinâmica": {
+    pt: "Referência dinâmica", um: "Okala konyala", ki: "Referência dinâmica", kk: "Referência dinâmica", ch: "Referência dinâmica", ng: "Referência dinâmica", kw: "Referência dinâmica", nh: "Referência dinâmica", fi: "Referência dinâmica"
+  },
+  "entradas": {
+    pt: "entradas", um: "ovitanda", ki: "entradas", kk: "entradas", ch: "entradas", ng: "entradas", kw: "entradas", nh: "entradas", fi: "entradas"
+  },
+  "Nenhum órgão encontrado.": {
+    pt: "Nenhum órgão encontrado.", um: "Kaviakuta ovingonjo.", ki: "Nenhum órgão encontrado.", kk: "Nenhum órgão encontrado.", ch: "Nenhum órgão encontrado.", ng: "Nenhum órgão encontrado.", kw: "Nenhum órgão encontrado.", nh: "Nenhum órgão encontrado.", fi: "Nenhum órgão encontrado."
+  },
+  "Órgão de referência — a correspondência só é possível com instituições registadas no Correio Digital Angola.": {
+    pt: "Órgão de referência — a correspondência só é possível com instituições registadas no Correio Digital Angola.", um: "Ovingonjo viola — okanda yapwa okutuma kovingonjo viola mu Correio Digital Angola.", ki: "Órgão de referência — a correspondência só é possível com instituições registadas no Correio Digital Angola.", kk: "Órgão de referência — a correspondência só é possível com instituições registadas no Correio Digital Angola.", ch: "Órgão de referência — a correspondência só é possível com instituições registadas no Correio Digital Angola.", ng: "Órgão de referência — a correspondência só é possível com instituições registadas no Correio Digital Angola.", kw: "Órgão de referência — a correspondência só é possível com instituições registadas no Correio Digital Angola.", nh: "Órgão de referência — a correspondência só é possível com instituições registadas no Correio Digital Angola.", fi: "Órgão de referência — a correspondência só é possível com instituições registadas no Correio Digital Angola."
+  },
+  "Presidência da República": {
+    pt: "Presidência da República", um: "Ofula ya Angola", ki: "Presidência da República", kk: "Presidência da República", ch: "Presidência da República", ng: "Presidência da República", kw: "Presidência da República", nh: "Presidência da República", fi: "Presidência da República"
+  },
+  "Ministérios (Executivo)": {
+    pt: "Ministérios (Executivo)", um: "Ovingonjo viola", ki: "Ministérios (Executivo)", kk: "Ministérios (Executivo)", ch: "Ministérios (Executivo)", ng: "Ministérios (Executivo)", kw: "Ministérios (Executivo)", nh: "Ministérios (Executivo)", fi: "Ministérios (Executivo)"
+  },
+  "Justiça, Registos e Notariado": {
+    pt: "Justiça, Registos e Notariado", um: "Okola, Okala", ki: "Justiça, Registos e Notariado", kk: "Justiça, Registos e Notariado", ch: "Justiça, Registos e Notariado", ng: "Justiça, Registos e Notariado", kw: "Justiça, Registos e Notariado", nh: "Justiça, Registos e Notariado", fi: "Justiça, Registos e Notariado"
+  },
+  "Administração Tributária e Finanças": {
+    pt: "Administração Tributária e Finanças", um: "Oviolombongo", ki: "Administração Tributária e Finanças", kk: "Administração Tributária e Finanças", ch: "Administração Tributária e Finanças", ng: "Administração Tributária e Finanças", kw: "Administração Tributária e Finanças", nh: "Administração Tributária e Finanças", fi: "Administração Tributária e Finanças"
+  },
+  "Bancos e Sistema Financeiro": {
+    pt: "Bancos e Sistema Financeiro", um: "Ovingonjo violombongo", ki: "Bancos e Sistema Financeiro", kk: "Bancos e Sistema Financeiro", ch: "Bancos e Sistema Financeiro", ng: "Bancos e Sistema Financeiro", kw: "Bancos e Sistema Financeiro", nh: "Bancos e Sistema Financeiro", fi: "Bancos e Sistema Financeiro"
+  },
+  "Seguradoras e Regulação": {
+    pt: "Seguradoras e Regulação", um: "Ovingonjo viosoma", ki: "Seguradoras e Regulação", kk: "Seguradoras e Regulação", ch: "Seguradoras e Regulação", ng: "Seguradoras e Regulação", kw: "Seguradoras e Regulação", nh: "Seguradoras e Regulação", fi: "Seguradoras e Regulação"
+  },
+  "Apoio às Empresas e Economia": {
+    pt: "Apoio às Empresas e Economia", um: "Ovipangiwa viosoma", ki: "Apoio às Empresas e Economia", kk: "Apoio às Empresas e Economia", ch: "Apoio às Empresas e Economia", ng: "Apoio às Empresas e Economia", kw: "Apoio às Empresas e Economia", nh: "Apoio às Empresas e Economia", fi: "Apoio às Empresas e Economia"
+  },
+  "Energia e Águas": {
+    pt: "Energia e Águas", um: "Ondunge yosima", ki: "Energia e Águas", kk: "Energia e Águas", ch: "Energia e Águas", ng: "Energia e Águas", kw: "Energia e Águas", nh: "Energia e Águas", fi: "Energia e Águas"
+  },
+  "Petróleo, Gás e Mineração": {
+    pt: "Petróleo, Gás e Mineração", um: "Ondunge ya petroleo", ki: "Petróleo, Gás e Mineração", kk: "Petróleo, Gás e Mineração", ch: "Petróleo, Gás e Mineração", ng: "Petróleo, Gás e Mineração", kw: "Petróleo, Gás e Mineração", nh: "Petróleo, Gás e Mineração", fi: "Petróleo, Gás e Mineração"
+  },
+  "Telecomunicações e Tecnologia": {
+    pt: "Telecomunicações e Tecnologia", um: "Ondunge ya telefone", ki: "Telecomunicações e Tecnologia", kk: "Telecomunicações e Tecnologia", ch: "Telecomunicações e Tecnologia", ng: "Telecomunicações e Tecnologia", kw: "Telecomunicações e Tecnologia", nh: "Telecomunicações e Tecnologia", fi: "Telecomunicações e Tecnologia"
+  },
+  "Saúde": {
+    pt: "Saúde", um: "Okola", ki: "Saúde", kk: "Saúde", ch: "Saúde", ng: "Saúde", kw: "Saúde", nh: "Saúde", fi: "Saúde"
+  },
+  "Educação": {
+    pt: "Educação", um: "Elavoko", ki: "Educação", kk: "Educação", ch: "Educação", ng: "Educação", kw: "Educação", nh: "Educação", fi: "Educação"
+  },
+  "Agricultura e Pescas": {
+    pt: "Agricultura e Pescas", um: "Okuama", ki: "Agricultura e Pescas", kk: "Agricultura e Pescas", ch: "Agricultura e Pescas", ng: "Agricultura e Pescas", kw: "Agricultura e Pescas", nh: "Agricultura e Pescas", fi: "Agricultura e Pescas"
+  },
+  "Transportes": {
+    pt: "Transportes", um: "Okuenda", ki: "Transportes", kk: "Transportes", ch: "Transportes", ng: "Transportes", kw: "Transportes", nh: "Transportes", fi: "Transportes"
+  },
+  "Obras Públicas, Urbanismo e Habitação": {
+    pt: "Obras Públicas, Urbanismo e Habitação", um: "Ovipangiwa vyosoma", ki: "Obras Públicas, Urbanismo e Habitação", kk: "Obras Públicas, Urbanismo e Habitação", ch: "Obras Públicas, Urbanismo e Habitação", ng: "Obras Públicas, Urbanismo e Habitação", kw: "Obras Públicas, Urbanismo e Habitação", nh: "Obras Públicas, Urbanismo e Habitação", fi: "Obras Públicas, Urbanismo e Habitação"
+  },
+  "Administração Provincial e Local": {
+    pt: "Administração Provincial e Local", um: "Ofula yosoma", ki: "Administração Provincial e Local", kk: "Administração Provincial e Local", ch: "Administração Provincial e Local", ng: "Administração Provincial e Local", kw: "Administração Provincial e Local", nh: "Administração Provincial e Local", fi: "Administração Provincial e Local"
+  },
+  "Comunicação Social": {
+    pt: "Comunicação Social", um: "Ondaka yosoma", ki: "Comunicação Social", kk: "Comunicação Social", ch: "Comunicação Social", ng: "Comunicação Social", kw: "Comunicação Social", nh: "Comunicação Social", fi: "Comunicação Social"
+  },
+
 };
 
 export function translateText(text: unknown, lang: LanguageCode): string {

@@ -188,6 +188,7 @@ const InstitutionDetail = lazy(() => import('./components/features/InstitutionDe
 // 2026-08-14 — GovSegurancaContent usa recharts (262 KB): fora do entry para
 // não pré-carregar gráficos no login.
 const GovSegurancaContent = lazy(() => import('./components/features/GovSegurancaContent').then(m => ({ default: m.GovSegurancaContent })));
+const DirectorioOrgaosContent = lazy(() => import('./components/features/DirectorioOrgaosContent').then(m => ({ default: m.DirectorioOrgaosContent })));
 import { shouldAutoSeedSupabase, shouldUseLocalBootstrap, shouldUseMockFallback } from './config/runtime';
 import { buildDemoContentPlan, withUnreadFloor, unmarkReadIds, type DemoArea } from './services/demoContentGuarantee';
 
@@ -4248,6 +4249,9 @@ Ficha civil do titular:
 - Estado Civil: ${userMaritalStatus}
 - Nível de Verificação: ${verificationStatus}`;
         
+      case 'directorio-orgaos':
+        return 'Você está no Directório de Órgãos do Correio Digital de Angola. Aqui pode consultar, por categoria, os órgãos do Estado angolano: Presidência, Ministérios, Justiça e Registos, Finanças, Bancos, Seguros, Energia e Águas, Saúde, Educação e outros. É uma área de referência e consulta.';
+
       default:
         return 'Página informativa geral do utilizador no Correio Digital de Angola.';
     }
@@ -5355,6 +5359,13 @@ Ficha civil do titular:
             }}
             />
             </PainelSuspense>
+        );
+
+      case 'directorio-orgaos':
+        return (
+          <PainelSuspense>
+            <DirectorioOrgaosContent onVoltar={() => setTab('home')} />
+          </PainelSuspense>
         );
 
       default:

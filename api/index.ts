@@ -1197,6 +1197,23 @@ export default async function handler(req: any, res: any) {
       return res.status(503).json({ ok: false, erro: "Assistente de IA indisponível neste momento. Tenta novamente dentro de instantes." });
     }
 
+    // Directório Institucional de Referência — texto embutido (NÃO importar de src/
+    // no serverless: FUNCTION_INVOCATION_FAILED no passado). Fonte: directorioParaContextoIA().
+    const DIRECTORIO_IA_CTX = [
+  "- Justiça, Registos e Notariado: Conservatórias do Registo Civil (CRC); Conservatórias do Registo Predial (CRP); Conservatórias do Registo Comercial (CRCm); Conservatórias do Registo Automóvel (CRA); Conservatórias dos Registos Centrais (CRCt); Conservatórias de Registo de Pessoas Colectivas (CRPC); Cartórios Notariais (CN); Tribunal Supremo (TS); Tribunais da Relação (TR); Tribunais de Comarca (TCm); Tribunal Constitucional (TC); Tribunal de Contas (TdC); …\n",
+  "- Administração Tributária e Finanças: Administração Geral Tributária (AGT); Repartições Fiscais (RF); Serviços Aduaneiros (SA); Serviços de Grandes Contribuintes (GC); Postos Fiscais (PF)\n",
+  "- Apoio às Empresas e Economia: INAPEM — Instituto de Apoio às PMEs (INAPEM); IAPI — Instituto de Apoio à Produção (IAPI); AIPEX — Agência de Investimento Privado e Promoção de Exportações (AIPEX); Banco de Desenvolvimento de Angola (BDA); Fundo Activo de Capital de Risco Angolano (FACRA); Fundo de Garantia de Crédito (FGC); INE — Instituto Nacional de Estatística (INE); CEDESA — Centro de Desenvolvimento de Empresas (CEDESA)\n",
+  "- Energia e Águas: ENDE — Empresa Nacional de Distribuição de Eletricidade (ENDE); EPAL — Empresa Pública de Águas de Luanda (EPAL); PRODEL — Produção de Eletricidade (PRODEL); RNT — Rede Nacional de Transporte de Eletricidade (RNT); IRSEA — Instituto Regulador de Serviços de Electricidade e Águas (IRSEA)\n",
+  "- Petróleo, Gás e Mineração: ANPG — Agência Nacional de Petróleo, Gás e Biocombustíveis (ANPG); Sonangol — Sociedade Nacional de Combustíveis (Sonangol); Sonangol Distribuidora (SD); ENDIAMA — Empresa Nacional de Diamantes (ENDIAMA); Ferrangol — Empresa Nacional de Ferro (Ferrangol); Sodiam — Comercialização de Diamantes (SODIAM); Instituto Regulador dos Derivados de Petróleo (IRDP)\n",
+  "- Telecomunicações e Tecnologia: INACOM — Instituto Angolano das Comunicações (INACOM); Instituto de Modernização Administrativa (IMA); Angola Cables (AC); Unitel (UNITEL); Africell (AFRICELL); Movicel (MOVICEL); TVCabo (TVCABO); Correios de Angola (CA)\n",
+  "- Saúde: INEMA — Instituto Nacional de Emergência Médica (INEMA)\n",
+  "- Agricultura e Pescas: Instituto de Desenvolvimento Agrário (IDA); Fundo de Apoio ao Desenvolvimento Agrário (FADA); Instituto de Desenvolvimento Florestal (IDF); Instituto de Investigação Agronómica (IIA); Instituto de Pesca (IP)\n",
+  "- Transportes: ANTT — Agência Nacional de Transportes Terrestres (ANTT); Agência Marítima Nacional (AMN); TAAG — Linhas Aéreas de Angola (TAAG); ENNA — Empresa Nacional de Navegação (ENNA)\n",
+  "- Obras Públicas, Urbanismo e Habitação: INEA — Instituto Nacional de Estradas de Angola (INEA)\n",
+  "- Administração Provincial e Local: Governo Provincial de Bengo (Bengo); Governo Provincial de Benguela (Benguela); Governo Provincial de Bié (Bié); Governo Provincial de Cabinda (Cabinda); Governo Provincial de Cuando (Cuando); Governo Provincial de Cubango (Cubango); Governo Provincial de Cuanza Norte (Cuanza Norte); Governo Provincial de Cuanza Sul (Cuanza Sul); Governo Provincial de Cunene (Cunene); Governo Provincial de Huambo (Huambo); Governo Provincial de Huíla (Huíla); Governo Provincial de Icolo e Bengo (Icolo e Bengo); …\n",
+  "- Comunicação Social: TPA — Televisão Pública de Angola (TPA); RNA — Rádio Nacional de Angola (RNA); Jornal de Angola (JA)\n",
+    ].join('');
+
     // 4. Endpoint /api/chat (Fluxo contínuo do Chat do Cidadão)
     // SINCRONIZADO com server.ts (dev local) — 2026-08-17.
     // Suporta pageContext (pesquisa local das correspondências do utilizador),
@@ -1231,6 +1248,14 @@ O nosso objetivo final é a transição para um Estado proativo que serve o povo
       let systemPrompt = isGovMode
         ? `Você é o Consultor de Segurança e Legislação do SOC do Governo de Angola. Sua função é auxiliar administradores na gestão de protocolos de emergência, interoperabilidade e redação de normas. ${CDA_PROJECT_INFO} Inicie sempre saudando e perguntando como pode ser útil. Responda de forma eficiente, clara e profissional. Não utilize asteriscos ou símbolos de formatação na sua fala. Utilize sempre o nome completo Correio Digital de Angola. Se a explicação for muito longa, apresente primeiro o essencial e interrompa para perguntar se o usuário deseja que você continue detalhando ou prefere focar em algo específico.`
         : `Você é o assistente oficial do Correio Digital de Angola. ${CDA_PROJECT_INFO} Inicie sempre saudando e perguntando como pode ser útil. Ajude o usuário com informações sobre seus documentos e correspondências de forma eficiente. Seja cordial, humano e acolhedor. Utilize sempre o nome completo Correio Digital de Angola. Não utilize asteriscos ou símbolos de formatação para garantir uma fala limpa e natural. Caso sua resposta seja longa, apresente primeiro os pontos essenciais e interrompa para perguntar se o usuário gostaria que continuasse detalhando ou se prefere focar em algo específico. Responda em Português de Angola.`;
+
+      // Directório Institucional de Referência — conhecimento estruturado para a IA
+      // (papel informativo; NÃO concede envio/recepção — registo formal é obrigatório)
+      systemPrompt += `\n\n[DIRECTÓRIO INSTITUCIONAL DE REFERÊNCIA — órgãos do Estado de Angola]
+Usa esta informação para responder a perguntas do tipo "que órgão trata o quê".
+As entidades listadas são de REFERÊNCIA — nem todas estão ligadas à plataforma.
+Para correspondência, apenas instituições REGISTADAS no Correio Digital Angola podem receber/enviar.
+` + DIRECTORIO_IA_CTX;
 
       // Inject active page context if available (pesquisa local das correspondências)
       if (currentPage && pageContext) {

@@ -23,11 +23,13 @@ import {
   Sparkles,
   History,
   Smartphone,
-  Wallet
+  Wallet,
+  Info
 } from 'lucide-react';
 import { Document, DigitalProtocol } from '../../types';
 import { generateProtocol } from '../../utils/protocolGenerator';
 import { useLanguage } from '../../hooks/useLanguage';
+import { CATEGORIAS_DIRECTORIO, DIRECTORIO_INSTITUCIONAL_ANGOLA, type CategoriaDirectorio } from '../../constants/directorioInstitucionalAngola';
 import {
   camposDoPerfil,
   jaAutoPreenchido,
@@ -668,6 +670,25 @@ export function SolicitarDocumentoContent({
                     </select>
                   </div>
                 </div>
+
+                {/* Orientação contextual — Directório Institucional (referência) */}
+                {currentCategoryObj && (
+                  <div className="flex items-start gap-2 bg-indigo-50/60 border border-indigo-100 rounded-2xl px-4 py-3">
+                    <Info size={14} className="text-indigo-600 shrink-0 mt-0.5" />
+                    <p className="text-[10.5px] text-indigo-900 font-semibold leading-relaxed">
+                      {(() => {
+                        const ent = DIRECTORIO_INSTITUCIONAL_ANGOLA.find(e =>
+                          !e.referenciaDinamica &&
+                          (e.sigla === currentCategoryObj.institution ||
+                           e.nome.toLowerCase().includes(currentCategoryObj.institution.toLowerCase()))
+                        );
+                        return ent
+                          ? `Órgão competente (referência): ${ent.nome} (${ent.sigla}) — categoria ${(CATEGORIAS_DIRECTORIO.find(c => c.chave === (ent.categoria as CategoriaDirectorio))?.rotulo || ent.categoria)}.`
+                          : `Órgão competente indicado: ${currentCategoryObj.institution}.`;
+                      })()}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Personal validation form */}

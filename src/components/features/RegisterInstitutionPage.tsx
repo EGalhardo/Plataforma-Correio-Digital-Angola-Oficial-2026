@@ -20,6 +20,7 @@ import {
   MUNICIPALITIES_BY_PROVINCE, CITIES_BY_PROVINCE, COMMUNES_BY_MUNICIPALITY,
   INSTITUTION_TYPES, generateSigla
 } from '../../config/institutionCatalog';
+import { DIRECTORIO_INSTITUCIONAL_ANGOLA } from '../../constants/directorioInstitucionalAngola';
 import {
   buildInstObservacoes, buildInstCode, buildInstitutionalCode, buildAgentNumber,
   collectInstitutionUniqueness, nextGlobalSeq, normalizeInstCode, saveLocalInstReg,
@@ -355,8 +356,14 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
               onChange={(e) => { handleHeightName(e.target.value); setErr('fullName', ''); }}
               onBlur={() => { const n = normalizarTitulo(fullName); if (n !== fullName) handleHeightName(n); }}
               placeholder="Ex: Serviço de Migração e Estrangeiros"
+              list="cda-directorio-sugestoes"
               className={inputCls + (fieldErrors.fullName ? ' ' + errCls : '')}
             />
+            <datalist id="cda-directorio-sugestoes">
+              {DIRECTORIO_INSTITUCIONAL_ANGOLA
+                .filter(e => !e.referenciaDinamica)
+                .map(e => <option key={e.id} value={e.nome} />)}
+            </datalist>
             {fieldErrors.fullName && <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.fullName}</p>}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

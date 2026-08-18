@@ -151,6 +151,7 @@ export function HomeContent({
       <div className="flex flex-wrap items-center gap-4 px-1 text-[10px] font-black uppercase tracking-widest">
         <button onClick={() => setTab('historico')} className="cda-link-text">{t("Ver Histórico")}</button>
         <button onClick={() => setTab('notificacoes')} className="cda-link-text">{t("Notificações")}</button>
+        <button onClick={() => setTab('directorio-orgaos')} className="cda-link-text">{t("Directório de Órgãos")}</button>
         {isInst ? (
           <button onClick={() => setTab('inst-pagamentos')} className="cda-link-text">{t("Pagamentos")}</button>
         ) : (

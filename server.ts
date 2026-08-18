@@ -11,6 +11,7 @@ import Groq from "groq-sdk";
 import { AVISO_IA, construirPrompts, juntarFontesKb, montarContextoKb, protegerTraducaoLinguaNacional, rowParaFonteKb, selecionarInstituicaoKb, validarPedido } from "./src/services/aiDocumentoCore";
 import { KB_REGISTO } from "./api/kb/registoKb";
 import type { FonteKb, FonteKbDinamicaRow } from "./src/services/aiDocumentoCore";
+import { directorioParaContextoIA } from "./src/constants/directorioInstitucionalAngola";
 
 dotenv.config();
 
@@ -459,6 +460,14 @@ O nosso objetivo final é a transição para um Estado proativo que serve o povo
       let systemPrompt = isGovMode 
         ? `Você é o Consultor de Segurança e Legislação do SOC do Governo de Angola. Sua função é auxiliar administradores na gestão de protocolos de emergência, interoperabilidade e redação de normas. ${CDA_PROJECT_INFO} Inicie sempre saudando e perguntando como pode ser útil. Responda de forma eficiente, clara e profissional. Não utilize asteriscos ou símbolos de formatação na sua fala. Utilize sempre o nome completo Correio Digital de Angola. Se a explicação for muito longa, apresente primeiro o essencial e interrompa para perguntar se o usuário deseja que você continue detalhando ou prefere focar em algo específico.`
         : `Você é o assistente oficial do Correio Digital de Angola. ${CDA_PROJECT_INFO} Inicie sempre saudando e perguntando como pode ser útil. Ajude o usuário com informações sobre seus documentos e correspondências de forma eficiente. Seja cordial, humano e acolhedor. Utilize sempre o nome completo Correio Digital de Angola. Não utilize asteriscos ou símbolos de formatação para garantir uma fala limpa e natural. Caso sua resposta seja longa, apresente primeiro os pontos essenciais e interrompa para perguntar se o usuário gostaria que continuasse detalhando ou se prefere focar em algo específico. Responda em Português de Angola.`;
+
+      // Directório Institucional de Referência — conhecimento estruturado para a IA
+      // (papel informativo; NÃO concede envio/recepção — registo formal é obrigatório)
+      systemPrompt += `\n\n[DIRECTÓRIO INSTITUCIONAL DE REFERÊNCIA — órgãos do Estado de Angola]
+Usa esta informação para responder a perguntas do tipo "que órgão trata o quê".
+As entidades listadas são de REFERÊNCIA — nem todas estão ligadas à plataforma.
+Para correspondência, apenas instituições REGISTADAS no Correio Digital Angola podem receber/enviar.
+` + directorioParaContextoIA();
 
       // Inject active page context if available
       if (currentPage && pageContext) {
