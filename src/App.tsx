@@ -6260,7 +6260,7 @@ Ficha civil do titular:
                             className="text-slate-600 hover:text-[#0c2340] transition-colors bg-transparent border-none cursor-pointer text-[10px] font-black uppercase tracking-widest font-sans flex items-center gap-1"
                           >
                             <UserPlus size={14} className="text-[#2563eb]" />
-                            {t("Registar")}
+                            {isGovMode ? t("Registar Admin Alfa") : t("Registar")}
                           </button>
                         )}
                         <button
