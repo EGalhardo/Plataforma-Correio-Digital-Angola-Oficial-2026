@@ -1024,12 +1024,25 @@ export function GovContactsContent({
           return;
         }
       }
-      // Defesa extra: eliminar por BI (pode falhar por RLS no admin demo — o
-      // marcador local cobre; com agente admin autenticado persiste na nuvem).
+      // A eliminação por B.I. é a confirmação canónica: só removemos a pessoa
+      // da interface depois de a fila central confirmar a remoção. Assim o
+      // utilizador não reaparece após refresh ou noutro dispositivo.
       if (target.biNumber) {
         try {
-          await supabase.from('solicitacoes_registo').delete().eq('bi_numero', target.biNumber);
-        } catch (e) { /* ignora — marcador local cobre o demo */ }
+          const { error } = await supabase
+            .from('solicitacoes_registo')
+            .delete()
+            .eq('bi_numero', target.biNumber);
+          if (error && error.code !== 'PGRST205') {
+            console.error('Falha ao eliminar registo por B.I.:', error);
+            notify('Não foi possível concluir a eliminação no Supabase. Nenhum dado foi removido apenas localmente.');
+            return;
+          }
+        } catch (error) {
+          console.error('Falha de rede ao eliminar registo por B.I.:', error);
+          notify('Não foi possível concluir a eliminação no Supabase. Verifique a ligação e tente novamente.');
+          return;
+        }
       }
       setCitizens(prev => prev.filter(c => c.id !== target.id));
 
