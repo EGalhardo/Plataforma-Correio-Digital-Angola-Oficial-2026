@@ -97,7 +97,7 @@ import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveC
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, preloginLookupInstitution, purgeInstitutionLocalResidues, mapRowStatus, type InstitutionIdentity } from './services/institutionSessionService';
 import { getLocalInstReg, normalizeInstCode, parseInstPack } from './services/institutionRegistrationStore';
-import { resolveAdminAgentLogin, hasActiveAdminAlfa } from './services/adminAgentStore';
+import { resolveAdminAgentLogin } from './services/adminAgentStore';
 import { getAdminAgentCred, addAdminAgent } from './services/adminAgentStore';
 import {
   cloudSignIn, provisionCloudAccount, markCloudAccount, isCloudBound,
@@ -6248,21 +6248,18 @@ Ficha civil do titular:
 
                       {/* Footer border and buttons for Citizen */}
                       <div className="pt-3 mt-1.5 border-t border-slate-100 flex items-center justify-between gap-3">
-                        {/* O registo no Login Admin existe exclusivamente para criar o
-                            Admin Alfa. Após a criação, a opção desaparece; os restantes
-                            administradores são geridos pelo Alfa na página Equipa. */}
-                        {(!isGovMode || !hasActiveAdminAlfa()) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setLoginSubMode('register');
-                            }}
-                            className="text-slate-600 hover:text-[#0c2340] transition-colors bg-transparent border-none cursor-pointer text-[10px] font-black uppercase tracking-widest font-sans flex items-center gap-1"
-                          >
-                            <UserPlus size={14} className="text-[#2563eb]" />
-                            {isGovMode ? t("Registar Admin Alfa") : t("Registar")}
-                          </button>
-                        )}
+                        {/* A opção de registo fica sempre visível e activa no Login Admin.
+                            A validação do formulário continua a impedir duplicação do Admin Alfa. */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLoginSubMode('register');
+                          }}
+                          className="text-slate-600 hover:text-[#0c2340] transition-colors bg-transparent border-none cursor-pointer text-[10px] font-black uppercase tracking-widest font-sans flex items-center gap-1"
+                        >
+                          <UserPlus size={14} className="text-[#2563eb]" />
+                          {isGovMode ? t("Registar Admin Alfa") : t("Registar")}
+                        </button>
                         <button
                           type="button"
                           onClick={() => {
