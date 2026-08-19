@@ -779,15 +779,17 @@ export function AIChatAssistant({
       }
     }
 
-    // 3) Navegação IMEDIATA quando há verbo + destino permitido.
+    // 3) Confirmação OBRIGATÓRIA antes de navegar (2026-08-18):
+    // a navegação NUNCA é executada automaticamente — pergunta ao utilizador
+    // e só navega quando ele confirmar (botão Confirmar ou "Sim").
     if (destinoEncontrado && onNavigate) {
       targetTab = destinoEncontrado.tab;
       tabLabel = destinoEncontrado.label;
-      const navMsg = NAV_CONFIRM_MESSAGES.pt.confirmed.replace('{page}', tabLabel);
-      onNavigate(targetTab);
-      setMessages(prev => [...prev, userMsg, { role: 'assistant', content: navMsg }]);
+      const askMsg = `Confirma que pretende ir para a página ${tabLabel}?`;
+      setPendingNavigation({ targetTab, tabLabel });
+      setMessages(prev => [...prev, userMsg, { role: 'assistant', content: askMsg }]);
       setInput('');
-      if (iaLiveActive) speak(navMsg);
+      if (iaLiveActive) speak(askMsg);
       return;
     }
 
@@ -989,7 +991,7 @@ export function AIChatAssistant({
                     </span>
                   </div>
                   <p className="text-xs font-medium text-slate-600">
-                    Pretende ir para <strong className={isAdmin ? 'text-slate-900' : isInst ? 'text-red-700' : 'text-primary'}>{pendingNavigation.tabLabel}</strong>?
+                    Confirma que pretende ir para a página <strong className={isAdmin ? 'text-slate-900' : isInst ? 'text-red-700' : 'text-primary'}>{pendingNavigation.tabLabel}</strong>?
                   </p>
                 </div>
                 
