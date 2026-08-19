@@ -104,7 +104,7 @@ import {
 } from './services/cloudAuthService';
 // F47 — revogação de contas eliminadas (pré-login via RPC v16 + purga local)
 // F48 — sincronização viva do estado oficial em sessão aberta (luz Online/gate)
-import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLocalResidues, resolveCloudGateAction } from './services/accountGateService';
+import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLocalResidues, resolveCloudGateAction, marcarCloudAprovou } from './services/accountGateService';
 import { PROFILE_HYDRATION_COLUMNS, puxarPerfilDaNuvem, reenviarPendenciasPerfil, temPendenciaPerfil } from './services/profileSyncService';
 import { buildAutoFillProfile, type CitizenAutoFillProfile } from './services/autoFillService';
 import { carregarPagamentosDoCidadao } from './services/pagamentosService';
@@ -1913,7 +1913,7 @@ export default function App() {
         const pre = await readCitizenRegistrationStatus(supabase, liveBi);
         if (cancelled) return;
         const current = homologationStore.getStatus(liveBi)?.status ?? null;
-        const action = resolveCloudGateAction(pre, current);
+        const action = resolveCloudGateAction(pre, current, liveBi);
         if (action.type === 'revoke') {
           purgeCitizenLocalResidues(liveBi);
           await cloudSignOutBestEffort(supabase);
@@ -1926,7 +1926,7 @@ export default function App() {
         if (action.type === 'set') {
           const wasBlocked = current === 'blocked';
           homologationStore.setStatus(liveBi, action.status, undefined, undefined);
-          if (action.status === 'active') {
+          if (action.status === 'active') { marcarCloudAprovou(liveBi);
             // Canal oficial: a correspondência de activação chega também à caixa
             // do cidadão neste dispositivo (antes só existia no dispositivo do Admin).
             if (wasBlocked) notifyAccountUnblocked(liveBi, profileName || undefined);
@@ -5842,13 +5842,24 @@ Ficha civil do titular:
             // pelo Admin => acesso REVOGADO até a um NOVO registo, que nasce
             // PENDENTE e exige nova homologação (PVI nunca auto-aprova re-registos
             // de contas eliminadas — ver RegisterStepper, F47).
+            // F47-fix (2026-08-19): marca local de REVOGAÇÃO definida pelo Admin
+            // demo na eliminação (quando a RLS impede apagar a linha na nuvem).
+            // O login bloqueia o cidadão eliminado MESMO que a fila ainda tenha
+            // a linha (cenário admin demo sem sessão Auth).
+            const marcadorRevogado = (() => {
+              try {
+                const chave = 'cda_revoked_' + normalizeHomologationBi(typedCitizenBi);
+                return localStorage.getItem(chave) === '1';
+              } catch { return false; }
+            })();
             const pre = await readCitizenRegistrationStatus(supabase, typedCitizenBi);
-            if (isRevokedDeletedAccount({
+            if (marcadorRevogado || isRevokedDeletedAccount({
               read: pre,
               sessionLive: cloudRes.outcome === 'ok',
               hasLocalEvidence: cloudMarked || localPass !== null,
             })) {
               purgeCitizenLocalResidues(typedCitizenBi);
+              try { localStorage.removeItem('cda_revoked_' + normalizeHomologationBi(typedCitizenBi)); } catch { /* ignora */ }
               await cloudSignOutBestEffort(supabase);
               setLoginError('Este registo foi ELIMINADO pela Área de Administração. Para voltar a usar a plataforma, efectue um NOVO registo — a conta só ficará activa após nova aprovação da Administração.');
               addAuditLog(`Login do cidadão ${typedCitizenBi} recusado: registo INEXISTENTE na base central (conta eliminada pela Administração) — acesso revogado até NOVO registo + nova homologação (F47).`, 'critical');
@@ -5856,8 +5867,15 @@ Ficha civil do titular:
             }
             const cloudSt = pre.ok && pre.status ? pre.status : '';
             if (cloudSt) {
-              if (cloudSt === 'Aprovado') homologationStore.setStatus(typedCitizenBi, 'active', undefined, undefined);
-              else if (cloudSt === 'Pendente') homologationStore.setStatus(typedCitizenBi, 'pending', undefined, undefined);
+              if (cloudSt === 'Aprovado') { marcarCloudAprovou(typedCitizenBi); homologationStore.setStatus(typedCitizenBi, 'active', undefined, undefined); }
+              else if (cloudSt === 'Pendente') {
+                // Não rebaixar 'active' local → 'pending': a homologação feita pelo
+                // Admin demo é local (a BD pode ainda dizer Pendente porque o admin
+                // demo não tem sessão Auth para persistir). Rebaixar aqui punha o
+                // indicador Online vermelho num cidadão já homologado localmente.
+                const localAtual = homologationStore.getStatus(typedCitizenBi)?.status ?? null;
+                if (localAtual !== 'active') homologationStore.setStatus(typedCitizenBi, 'pending', undefined, undefined);
+              }
               else if (cloudSt === 'Bloqueado') homologationStore.setStatus(typedCitizenBi, 'blocked', undefined, undefined);
               else if (cloudSt === 'Reprovado' || cloudSt === 'Rejeitado' || cloudSt === 'Não Aprovado') homologationStore.setStatus(typedCitizenBi, 'rejected', undefined, undefined);
 
@@ -5922,8 +5940,12 @@ Ficha civil do titular:
       addAuditLog(`[AUTH-CLOUD] Login por e-mail real: B.I. ${emailBi} resolvido da conta autenticada — a palavra-passe foi verificada pela plataforma.`, 'success');
       try {
         const pre = await readCitizenRegistrationStatus(supabase, emailBi);
-        if (isRevokedDeletedAccount({ read: pre, sessionLive: true, hasLocalEvidence: isCloudBound(emailBi) })) {
+        const marcadorRevogadoEmail = (() => {
+          try { return localStorage.getItem('cda_revoked_' + emailBi) === '1'; } catch { return false; }
+        })();
+        if (marcadorRevogadoEmail || isRevokedDeletedAccount({ read: pre, sessionLive: true, hasLocalEvidence: isCloudBound(emailBi) })) {
           purgeCitizenLocalResidues(emailBi);
+          try { localStorage.removeItem('cda_revoked_' + emailBi); } catch { /* ignora */ }
           await cloudSignOutBestEffort(supabase);
           setLoginError('Este registo foi ELIMINADO pela Área de Administração. Para voltar a usar a plataforma, efectue um NOVO registo — a conta só ficará activa após nova aprovação.');
           addAuditLog(`Login por e-mail real recusado: registo de ${emailBi} INEXISTENTE na base central (conta eliminada) — F47.`, 'critical');
@@ -5931,8 +5953,11 @@ Ficha civil do titular:
         }
         const cloudSt = pre.ok && pre.status ? pre.status : '';
         if (cloudSt) {
-          if (cloudSt === 'Aprovado') homologationStore.setStatus(emailBi, 'active', undefined, undefined);
-          else if (cloudSt === 'Pendente') homologationStore.setStatus(emailBi, 'pending', undefined, undefined);
+          if (cloudSt === 'Aprovado') { marcarCloudAprovou(emailBi); homologationStore.setStatus(emailBi, 'active', undefined, undefined); }
+          else if (cloudSt === 'Pendente') {
+            const localAtualEmail = homologationStore.getStatus(emailBi)?.status ?? null;
+            if (localAtualEmail !== 'active') homologationStore.setStatus(emailBi, 'pending', undefined, undefined);
+          }
           else if (cloudSt === 'Bloqueado') homologationStore.setStatus(emailBi, 'blocked', undefined, undefined);
           else if (cloudSt === 'Reprovado' || cloudSt === 'Rejeitado' || cloudSt === 'Não Aprovado') homologationStore.setStatus(emailBi, 'rejected', undefined, undefined);
           if (cloudSt === 'Bloqueado') {

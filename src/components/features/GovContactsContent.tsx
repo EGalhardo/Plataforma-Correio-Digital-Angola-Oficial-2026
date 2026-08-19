@@ -1002,12 +1002,23 @@ export function GovContactsContent({
     if (!target) return;
     setIsDeletingCitizen(true);
     try {
+      // F47-fix (2026-08-19): apagar SEMPRE por bi_numero como defesa extra
+      // (cobre cidadãos sem dbUUID/id curto, cuja linha da BD não era removida —
+      // permitia ao eliminado continuar a entrar). O marcador local de revogação
+      // abaixo garante o bloqueio mesmo quando a RLS recusa o delete (admin demo).
       if (target.dbUUID || target.id.length > 20) {
         const ok = await deleteRegistrationRecord(target.dbUUID || target.id);
         if (!ok) {
           notify('Não foi possível eliminar o registo na base de dados central. Verifique a ligação à internet e tente novamente.');
           return;
         }
+      }
+      // Defesa extra: eliminar por BI (pode falhar por RLS no admin demo — o
+      // marcador local cobre; com agente admin autenticado persiste na nuvem).
+      if (target.biNumber) {
+        try {
+          await supabase.from('solicitacoes_registo').delete().eq('bi_numero', target.biNumber);
+        } catch (e) { /* ignora — marcador local cobre o demo */ }
       }
       setCitizens(prev => prev.filter(c => c.id !== target.id));
 
@@ -1016,6 +1027,12 @@ export function GovContactsContent({
       // matrizes biométricas locais e ficheiros do registo no storage central.
       const biKey = target.biNumber || '';
       if (biKey) {
+        // F47-fix (2026-08-19): marca de REVOGAÇÃO local — garante que, mesmo que
+        // a linha da fila na nuvem não seja apagada (admin demo sem sessão Auth,
+        // RLS recusa delete), o login deste dispositivo BLOQUEIA o cidadão
+        // eliminado. Persistência real multi-dispositivo exige agente admin
+        // autenticado (ADMIN-0001), cuja escrita na BD funciona.
+        try { localStorage.setItem('cda_revoked_' + normalizeHomologationBi(biKey), '1'); } catch (e) { /* ignora */ }
         try { homologationStore.clearStatus(biKey); } catch (e) { /* ignora */ }
         try { homologationStore.clearThread(biKey); } catch (e) { /* ignora */ }
         try { localStorage.removeItem(`citizen_pass_${biKey}`); } catch (e) { /* ignora */ }

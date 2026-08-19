@@ -180,6 +180,7 @@ export const CLOUD_STATUS_TO_LOCAL: Record<string, HomologationStatus> = {
 export const resolveCloudGateAction = (
   read: CitizenRegistrationRead,
   currentLocal: HomologationStatus | null,
+  bi?: string,
 ): CloudGateAction => {
   if (!read.ok) return { type: 'noop' };
   if (read.status === null) {
@@ -188,5 +189,24 @@ export const resolveCloudGateAction = (
   }
   const next = CLOUD_STATUS_TO_LOCAL[read.status];
   if (!next || next === currentLocal) return { type: 'noop' };
+  // F47-fix (2026-08-19): não rebaixar uma conta localmente ACTIVA para 'pending'
+  // quando a nuvem diz 'Pendente' mas NUNCA aprovou esta conta (cenário admin demo
+  // sem sessão Auth: a homologação local não persistiu na BD). Mantém-se activa.
+  // Se a nuvem JÁ aprovou antes (marca local cda_cloud_approved_<bi>) e agora diz
+  // Pendente, é uma REABERTURA real → rebaixa (segurança preservada).
+  if (next === 'pending' && currentLocal === 'active' && bi) {
+    let cloudApprovedAntes = false;
+    try {
+      cloudApprovedAntes = typeof localStorage !== 'undefined'
+        && localStorage.getItem('cda_cloud_approved_' + bi) === '1';
+    } catch { cloudApprovedAntes = false; }
+    if (!cloudApprovedAntes) return { type: 'noop' };
+  }
   return { type: 'set', status: next };
+};
+
+/** F47-fix — grava que a NUVEM já aprovou este B.I. (usada para distinguir uma
+ *  reabertura real de uma homologação local demo não persistida). */
+export const marcarCloudAprovou = (bi: string): void => {
+  try { localStorage.setItem('cda_cloud_approved_' + bi, '1'); } catch { /* ignora */ }
 };

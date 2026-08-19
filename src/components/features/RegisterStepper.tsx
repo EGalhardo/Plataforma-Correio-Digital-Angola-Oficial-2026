@@ -805,6 +805,9 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       // F28 (v11.1): quando a Pré-Verificação Inteligente aprova as TRÊS portas, a conta
       // nasce ACTIVA e recebe a correspondência oficial de boas-vindas (substitui a de
       // 'em homologação'). Qualquer dúvida/falha => caminho pendente, inalterado.
+      // F47-fix (2026-08-19): novo registo submetido — limpa a marca de revogação
+      // local (se existir) para que este B.I. volte a ser elegível a novo acesso.
+      try { localStorage.removeItem('cda_revoked_' + newUser.biNumber.replace(/\s+/g, '').toUpperCase()); } catch { /* ignora */ }
       if (effectiveAutoApproved) {
         homologationStore.setStatus(newUser.biNumber, 'active', undefined, newUser.name);
         homologationStore.clearThread(newUser.biNumber);
