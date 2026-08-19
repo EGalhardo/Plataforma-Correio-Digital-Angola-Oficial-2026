@@ -1987,7 +1987,10 @@ export default function App() {
         const current = homologationStore.getStatus(code)?.status ?? null;
         if (target !== current) {
           homologationStore.setStatus(code, target, undefined, undefined);
-          if (target === 'active') addAuditLog('F49: instituição APROVADA pela Administração — activação detectada em sessão aberta (o acesso total sobe no próximo tick de 4s).', 'success');
+          // O indicador e o acesso acompanham a decisão persistida imediatamente;
+          // não dependem de um estado local antigo ou de novo login.
+          setInstGate(target === 'active' ? 'full' : 'restricted');
+          if (target === 'active') addAuditLog('F49: instituição APROVADA pela Administração — activação detectada em sessão aberta (indicador Online verde).', 'success');
           else if (target === 'blocked') addAuditLog('F49: instituição BLOQUEADA pela Administração — detectado em sessão aberta (luz Online amarela).', 'critical');
           else if (target === 'rejected') addAuditLog('F49: adesão institucional REJEITADA pela Administração — detectado em sessão aberta.', 'warning');
           setGateRefreshTick(t => t + 1);
@@ -2967,13 +2970,11 @@ export default function App() {
     if (!isInstMode) return null;
     void gateRefreshTick; // reavalia a cada tick
     const rec = homologationStore.getStatus(bi);
-    if (instGate === 'restricted') {
-      if (rec?.status === 'blocked') return 'yellow' as const;
-      return 'red' as const; // pendente/em correções/rejeitada → conta ainda não activa
-    }
+    // `full` só é atribuído após decisão oficial active; por isso uma instituição
+    // aprovada fica verde mesmo que exista uma cópia local antiga da homologação.
+    if (instGate === 'full') return 'green' as const;
     if (rec?.status === 'blocked') return 'yellow' as const;
-    if (rec?.status === 'pending' || rec?.status === 'correcao' || rec?.status === 'rejected') return 'red' as const;
-    return 'green' as const;
+    return 'red' as const; // pendente, correção ou rejeitada
   })();
 
   // Filtro do canal de homologação: durante a pendência o cidadão SÓ vê as
