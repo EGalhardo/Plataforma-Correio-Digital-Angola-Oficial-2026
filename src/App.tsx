@@ -1985,11 +1985,16 @@ export default function App() {
         if (pre.kind !== 'found' || !pre.status) return;
         const target = mapRowStatus(pre.status);
         const current = homologationStore.getStatus(code)?.status ?? null;
+        const desiredGate = target === 'active' ? 'full' : 'restricted';
+
+        // A fonte de verdade é sempre o Supabase. Mesmo quando o cache local
+        // já contém o mesmo estado, o gate React pode estar desfasado (por
+        // exemplo: cache=active mas instGate=restricted), o que deixava o
+        // indicador Online vermelho depois de uma aprovação.
+        if (instGate !== desiredGate) setInstGate(desiredGate);
+
         if (target !== current) {
           homologationStore.setStatus(code, target, undefined, undefined);
-          // O indicador e o acesso acompanham a decisão persistida imediatamente;
-          // não dependem de um estado local antigo ou de novo login.
-          setInstGate(target === 'active' ? 'full' : 'restricted');
           if (target === 'active') addAuditLog('F49: instituição APROVADA pela Administração — activação detectada em sessão aberta (indicador Online verde).', 'success');
           else if (target === 'blocked') addAuditLog('F49: instituição BLOQUEADA pela Administração — detectado em sessão aberta (luz Online amarela).', 'critical');
           else if (target === 'rejected') addAuditLog('F49: adesão institucional REJEITADA pela Administração — detectado em sessão aberta.', 'warning');
