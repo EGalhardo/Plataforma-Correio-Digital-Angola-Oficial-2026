@@ -28,7 +28,9 @@ import {
   UserPlus,
   Send,
   Download,
-  FileText
+  FileText,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 // Components
@@ -1157,6 +1159,7 @@ export default function App() {
   const [showVoiceGuide, setShowVoiceGuide] = useState(false);
   const [highlightSteps, setHighlightSteps] = useState(false);
   const [loginPasswordInput, setLoginPasswordInput] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [, setEnteredOtp] = useState('');
   const [, setEnteredPin] = useState('');
   const [faceProgress, setFaceProgress] = useState(0);
@@ -6166,12 +6169,21 @@ Ficha civil do titular:
                           <Lock size={16} className="text-[#2563eb]" />
                         </div>
                         <input 
-                          type="password"
+                          type={showLoginPassword ? "text" : "password"}
                           className="w-full bg-transparent font-bold tracking-wider text-slate-800 border-none outline-none text-xs placeholder-slate-400"
                           placeholder="••••••••••••"
                           value={loginPasswordInput}
                           onChange={(e) => setLoginPasswordInput(e.target.value)}
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowLoginPassword((visible) => !visible)}
+                          className="shrink-0 rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-[#0c2340] focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
+                          aria-label={showLoginPassword ? "Ocultar senha" : "Mostrar senha"}
+                          title={showLoginPassword ? "Ocultar senha" : "Mostrar senha"}
+                        >
+                          {showLoginPassword ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
+                        </button>
                       </div>
                     </div>
 
