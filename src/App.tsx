@@ -6248,22 +6248,10 @@ Ficha civil do titular:
 
                       {/* Footer border and buttons for Citizen */}
                       <div className="pt-3 mt-1.5 border-t border-slate-100 flex items-center justify-between gap-3">
-                        {isGovMode && hasActiveAdminAlfa() ? (
-                          <div className="flex flex-col items-start gap-1 text-left min-w-0">
-                            <button
-                              type="button"
-                              disabled
-                              title={t("Registo encerrado — o Administrador Geral já foi registado.")}
-                              className="text-slate-300 bg-transparent border-none cursor-not-allowed text-[10px] font-black uppercase tracking-widest font-sans flex items-center gap-1"
-                            >
-                              <UserPlus size={14} className="text-slate-300" />
-                              {t("Registar")}
-                            </button>
-                            <span className="text-[8.5px] font-bold text-slate-400 leading-snug max-w-[190px]">
-                              {t("Registo encerrado — novos membros são adicionados pelo Administrador Geral na página Equipa.")}
-                            </span>
-                          </div>
-                        ) : (
+                        {/* O registo no Login Admin existe exclusivamente para criar o
+                            Admin Alfa. Após a criação, a opção desaparece; os restantes
+                            administradores são geridos pelo Alfa na página Equipa. */}
+                        {(!isGovMode || !hasActiveAdminAlfa()) && (
                           <button
                             type="button"
                             onClick={() => {
