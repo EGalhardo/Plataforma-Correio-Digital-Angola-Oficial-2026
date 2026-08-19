@@ -338,6 +338,7 @@ async function seccaoV(browser) {
     await page.getByPlaceholder(/Manuel António da Silva/i).fill('Ana Maria de Teste Válido');
     await page.getByPlaceholder(/netangola/i).fill('ana.teste@exemplo.ao');
     await page.locator('input[type="password"]').first().fill('Senha#Valida#123');
+    await page.locator('input[type="password"]').nth(1).fill('Senha#Valida#123');
     const habilitado = await btn.isEnabled().catch(() => false);
     reg('V1-cidadao-gate-continuar', desVazio && desInvalido && habilitado ? 'PASS' : 'FAIL',
       `CONTINUAR: vazio=${desVazio ? 'desativado' : 'ACTIVO'} · nome inválido=${desInvalido ? 'desativado' : 'ACTIVO'} · válido=${habilitado ? 'activo' : 'DESATIVADO'}`);

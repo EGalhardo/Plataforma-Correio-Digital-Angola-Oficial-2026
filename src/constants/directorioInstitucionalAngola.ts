@@ -153,7 +153,7 @@ export const DIRECTORIO_INSTITUCIONAL_ANGOLA: EntidadeDirectorio[] = [
   })),
 
   // ── ECONOMIA ────────────────────────────────────────────────────────────
-  { id: 'inapem', categoria: 'Economia', sigla: 'INAPEM', nome: 'INAPEM — Instituto de Apoio às PMEs', referenciaDinamica: false, servicos: ['Aprovação de candidaturas', 'Certificados digitais', 'Editais', 'Avisos', 'Formação online', 'Incubação'], fonte: 'INAPEM' },
+  { id: 'inapem', categoria: 'Economia', sigla: 'INAPEM', nome: 'INAPEM — Instituto Nacional de Apoio as Micro, Pequenas e Médias Empresas', referenciaDinamica: false, servicos: ['Aprovação de candidaturas', 'Certificados digitais', 'Editais', 'Avisos', 'Formação online', 'Incubação'], fonte: 'INAPEM' },
   { id: 'iapi', categoria: 'Economia', sigla: 'IAPI', nome: 'IAPI — Instituto de Apoio à Produção', referenciaDinamica: false, servicos: ['Avisos', 'Editais', 'Licenciamento'], fonte: 'IAPI' },
   { id: 'aipex', categoria: 'Economia', sigla: 'AIPEX', nome: 'AIPEX — Agência de Investimento Privado e Promoção de Exportações', referenciaDinamica: false, servicos: ['Investimento', 'Exportações', 'Avisos'], fonte: 'AIPEX' },
   { id: 'bda', categoria: 'Economia', sigla: 'BDA', nome: 'Banco de Desenvolvimento de Angola', referenciaDinamica: false, servicos: ['Financiamento', 'Avisos'], fonte: 'BDA' },

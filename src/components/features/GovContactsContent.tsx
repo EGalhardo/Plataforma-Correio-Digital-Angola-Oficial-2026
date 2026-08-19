@@ -234,7 +234,13 @@ export function GovContactsContent({
 
   const [workers, setWorkers] = useState<Trabajador[]>(() => {
     const isPlatformAdmin = appMode === 'admin-workers';
-    const key = isPlatformAdmin ? 'correio_digital_admin_workers' : 'correio_digital_workers';
+    // A equipa institucional é isolada por instituição e nasce sem membros;
+    // nunca reutiliza a lista fictícia genérica de demonstração.
+    const key = isPlatformAdmin
+      ? 'correio_digital_admin_workers'
+      : appMode === 'institution'
+        ? `correio_digital_workers_${normalizeInstCode(bi)}`
+        : 'correio_digital_workers';
     const saved = localStorage.getItem(key);
     if (saved) {
       try {
@@ -243,6 +249,7 @@ export function GovContactsContent({
         // Fallback
       }
     }
+    if (appMode === 'institution') return [];
     if (isPlatformAdmin) {
       return [
         {
@@ -375,9 +382,13 @@ export function GovContactsContent({
   });
 
   React.useEffect(() => {
-    const key = appMode === 'admin-workers' ? 'correio_digital_admin_workers' : 'correio_digital_workers';
+    const key = appMode === 'admin-workers'
+      ? 'correio_digital_admin_workers'
+      : appMode === 'institution'
+        ? `correio_digital_workers_${normalizeInstCode(bi)}`
+        : 'correio_digital_workers';
     localStorage.setItem(key, JSON.stringify(workers));
-  }, [workers, appMode]);
+  }, [workers, appMode, bi]);
 
   const PROVINCES = [
     'Bengo',
@@ -1763,7 +1774,7 @@ export function GovContactsContent({
             <div className="py-16 bg-white border border-slate-200 rounded-[32px] text-center text-slate-400 shadow-3xs w-full">
               <Users size={28} className="mx-auto text-slate-300 mb-2" />
               <span className="text-[10.5px] font-black uppercase tracking-wider block">
-                {isPlatformAdmin ? 'Nenhum membro da equipa localizado...' : 'Nenhum membro da equipa localizado...'}
+                {isPlatformAdmin ? 'Nenhum membro da equipa localizado...' : appMode === 'institution' ? 'Ainda não existem membros na equipa.' : 'Nenhum membro da equipa localizado...'}
               </span>
               <p className="text-[9.5px] font-bold uppercase mt-1">Experimente alterar os critérios de filtro ou pesquisa.</p>
             </div>

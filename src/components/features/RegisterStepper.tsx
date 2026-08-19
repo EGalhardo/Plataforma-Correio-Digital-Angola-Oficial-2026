@@ -90,7 +90,10 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // Confirmação é usada apenas para validação no cliente; nunca é persistida.
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [pwdStrength, setPwdStrength] = useState<'Fraca' | 'Média' | 'Forte'>('Fraca');
 
   // Step 2: Identidade States
@@ -160,7 +163,8 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
     }
     return trimmed.length >= 6 && trimmed.split(/\s+/).length >= 2;
   };
-  const isStep1Valid = isNameValid(name) && isEmailValid(email) && password.length >= 8;
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
+  const isStep1Valid = isNameValid(name) && isEmailValid(email) && password.length >= 8 && passwordsMatch;
 
   // Angolan NIF validator
   const isNifValid = (nif: string) => {
@@ -490,6 +494,11 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
   // Form submission and registration inside Supabase (with fallback to local storage)
   const handleFinalSubmit = async () => {
+    // Defesa em profundidade: nunca prosseguir para upload/criação sem confirmação.
+    if (password !== confirmPassword) {
+      setSubmitError('As senhas não coincidem. Confirme a senha para concluir o registo.');
+      return;
+    }
     setIsSubmitting(true);
     setSubmitError('');
     setSubmitMessage('Enviando documentos para o Supabase Storage...');
@@ -1009,6 +1018,34 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                   {password && password.length < 8 && (
                     <span className="text-[10px] text-red-500 font-extrabold uppercase tracking-tight block mt-0.5 pl-2" id="pwd-error-msg">
                       Utilize no mínimo 8 caracteres
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="confirm-password" className="text-[10.5px] text-slate-800 font-extrabold tracking-widest uppercase">
+                    Confirmar Senha
+                  </label>
+                  <div className={`flex items-center gap-3 bg-white border focus-within:border-[#0c2340] focus-within:ring-1 focus-within:ring-[#0c2340] rounded-[15px] px-4 py-1.5 transition-all relative ${confirmPassword && !passwordsMatch ? 'border-red-400' : 'border-slate-200'}`}>
+                    <div className="w-10 h-10 bg-[#f0f4f9] text-[#1e3a8a] rounded-lg flex items-center justify-center shrink-0">
+                      <Lock size={18} className="text-[#2563eb]" />
+                    </div>
+                    <input
+                      id="confirm-password"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      autoComplete="new-password"
+                      className="w-full bg-transparent font-bold tracking-wider text-slate-800 border-none outline-none text-[13px] placeholder-slate-400 pr-10"
+                      placeholder="••••••••••••"
+                    />
+                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} aria-label={showConfirmPassword ? 'Ocultar confirmação de senha' : 'Mostrar confirmação de senha'} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 bg-transparent border-none cursor-pointer flex items-center justify-center transition-all">
+                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  {confirmPassword && !passwordsMatch && (
+                    <span className="text-[10px] text-red-500 font-extrabold uppercase tracking-tight block mt-0.5 pl-2" role="alert">
+                      As senhas não coincidem.
                     </span>
                   )}
                 </div>

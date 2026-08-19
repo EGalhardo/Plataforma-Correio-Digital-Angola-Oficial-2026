@@ -226,7 +226,12 @@ export const resolveInstitutionFaceLogin = async (
 
   const rec = homologationStore.getStatus(code);
   const fichaSuspensa = isInstitutionFichaSuspended(code);
-  const status: HomologationStatus = rec?.status || mapRowStatus(row?.status || reg?.status || preRow?.status);
+  // A decisão administrativa persistida na nuvem é canónica. O espelho
+  // local só é fallback offline e não pode sobrepor aprovação/rejeição remota.
+  const persistedStatus = row?.status || preRow?.status;
+  const status: HomologationStatus = persistedStatus
+    ? mapRowStatus(persistedStatus)
+    : (rec?.status || mapRowStatus(reg?.status));
   if (status === 'rejected') {
     return {
       outcome: 'deny', code, name, pack, status,
@@ -423,7 +428,12 @@ export const resolveInstitutionLogin = async (
   // 3. Estado da instituição (homologação local ganha; depois ficha suspensa; depois linha)
   const rec = homologationStore.getStatus(code);
   const fichaSuspensa = isInstitutionFichaSuspended(code);
-  const status: HomologationStatus = rec?.status || mapRowStatus(row?.status || reg?.status || preRow?.status);
+  // A decisão administrativa persistida na nuvem é canónica. O espelho
+  // local só é fallback offline e não pode sobrepor aprovação/rejeição remota.
+  const persistedStatus = row?.status || preRow?.status;
+  const status: HomologationStatus = persistedStatus
+    ? mapRowStatus(persistedStatus)
+    : (rec?.status || mapRowStatus(reg?.status));
 
   if (status === 'rejected') {
     return {

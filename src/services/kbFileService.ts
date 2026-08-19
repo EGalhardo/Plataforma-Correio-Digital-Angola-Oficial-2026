@@ -20,7 +20,7 @@ import mammoth from 'mammoth/mammoth.browser';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
-export type KbFileTipo = 'pdf' | 'docx' | 'txt' | 'outro';
+export type KbFileTipo = 'pdf' | 'docx' | 'doc' | 'txt' | 'outro';
 
 export interface KbFileExtraido {
   texto: string;
@@ -33,6 +33,8 @@ export const detectarTipoFicheiro = (name: string): KbFileTipo => {
   const n = (name || '').toLowerCase();
   if (n.endsWith('.pdf')) return 'pdf';
   if (n.endsWith('.docx')) return 'docx';
+  // .doc é o formato binário legado do Word; mammoth extrai apenas OOXML (.docx).
+  if (n.endsWith('.doc')) return 'doc';
   if (n.endsWith('.txt') || n.endsWith('.md')) return 'txt';
   return 'outro';
 };
@@ -40,6 +42,7 @@ export const detectarTipoFicheiro = (name: string): KbFileTipo => {
 export const ROTULO_TIPO_FICHEIRO: Record<KbFileTipo, string> = {
   pdf: 'PDF',
   docx: 'Word (.docx)',
+  doc: 'Word legado (.doc)',
   txt: 'Texto (.txt/.md)',
   outro: 'Formato não suportado',
 };
@@ -78,15 +81,26 @@ const extrairTextoTxt = (arrayBuffer: ArrayBuffer): string =>
 export const extrairTextoDeFicheiro = async (file: File): Promise<KbFileExtraido> => {
   const tipo = detectarTipoFicheiro(file.name);
   const arrayBuffer = await file.arrayBuffer();
-  switch (tipo) {
-    case 'pdf':
-      return { texto: await extrairTextoPdf(arrayBuffer), tipo };
-    case 'docx':
-      return { texto: await extrairTextoDocx(arrayBuffer), tipo };
-    case 'txt':
-      return { texto: extrairTextoTxt(arrayBuffer), tipo };
-    default:
-      return { texto: '', tipo, aviso: 'Formato não suportado para extração automática (use PDF, Word ou TXT). Pode carregar o ficheiro na mesma — o conteúdo ficará disponível por ligação, mas cole o texto manualmente.' };
+  try {
+    switch (tipo) {
+      case 'pdf': {
+        const texto = await extrairTextoPdf(arrayBuffer);
+        return { texto, tipo, aviso: texto ? undefined : 'O PDF não contém texto extraível. Se for um documento digitalizado, utilize OCR ou forneça uma versão com texto.' };
+      }
+      case 'docx': {
+        const texto = await extrairTextoDocx(arrayBuffer);
+        return { texto, tipo, aviso: texto ? undefined : 'O documento Word não contém texto extraível.' };
+      }
+      case 'doc':
+        return { texto: '', tipo, aviso: 'O formato Word legado (.doc) não permite extração automática neste navegador. Converta o ficheiro para .docx e carregue-o novamente.' };
+      case 'txt':
+        return { texto: extrairTextoTxt(arrayBuffer), tipo };
+      default:
+        return { texto: '', tipo, aviso: 'Formato não suportado para extração automática. Utilize PDF, Word (.docx) ou TXT.' };
+    }
+  } catch (error) {
+    const formato = tipo === 'docx' ? 'documento Word (.docx)' : tipo === 'pdf' ? 'PDF' : 'ficheiro';
+    return { texto: '', tipo, aviso: `Não foi possível extrair o texto do ${formato}. O ficheiro pode estar corrompido ou protegido por palavra-passe.` };
   }
 };
 
