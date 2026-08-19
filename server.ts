@@ -22,6 +22,28 @@ async function startServer() {
   
   app.use(express.json());
 
+  // Limpa caracteres especiais/markdown das respostas da IA (2026-08-18).
+  // Remove # * _ ` ~ > e formatação markdown, preservando pontuação, números,
+  // acentos e termos úteis (Kz, %, etc.). Aplicada a TODAS as respostas IA.
+  const limparTextoIA = (texto: string): string => {
+    if (!texto) return '';
+    let t = String(texto);
+    // títulos markdown (###, ##, #) e citações (>) no início de linha
+    t = t.replace(/^[#>]{1,6}\s*/gm, '');
+    // linhas de separação horizontal (---, ***, ___) — remover a linha inteira
+    t = t.replace(/^[\s]*[-*_]{3,}[\s]*$/gm, '');
+    // asteriscos, underscores, backticks, til (negrito/itálico/código/riscado)
+    t = t.replace(/[*_`~]+/g, '');
+    // bullets markdown no início de linha -> texto sem marcador
+    t = t.replace(/^[\s]*[-+]\s+/gm, '');
+    // múltiplos espaços em branco -> um
+    t = t.replace(/[ \t]{2,}/g, ' ');
+    // quebras de linha múltiplas -> uma
+    t = t.replace(/\n{3,}/g, '\n\n');
+    return t.trim();
+  };
+
+
   // Initialize AI Studio Gemini Client
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
   
@@ -238,7 +260,7 @@ async function startServer() {
             }
           });
           if (response && response.text) {
-            return res.json({ result: response.text });
+            return res.json({ result: limparTextoIA(response.text) });
           }
         } catch (geminiErr) {
           console.error("Gemini failed in /api/gov-ai, falling back to Groq... Error:", geminiErr);
@@ -257,7 +279,7 @@ async function startServer() {
             temperature: 0.3
           });
           if (completion.choices && completion.choices[0] && completion.choices[0].message) {
-            return res.json({ result: completion.choices[0].message.content });
+            return res.json({ result: limparTextoIA(completion.choices[0].message.content) });
           }
         } catch (groqErr) {
           console.error("Groq fallback failed in /api/gov-ai:", groqErr);
@@ -539,7 +561,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
             ],
             model: "openai/gpt-oss-120b",
           });
-          return res.json({ message: completion.choices[0].message.content });
+          return res.json({ message: limparTextoIA(completion.choices[0].message.content) });
         } catch (groqErr) {
           console.error("Groq Chat Error, trying Gemini fallback:", groqErr);
         }
@@ -563,7 +585,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
           });
 
           if (response && response.text) {
-            return res.json({ message: response.text });
+            return res.json({ message: limparTextoIA(response.text) });
           }
         } catch (geminiErr) {
           console.error("Gemini Chat Error, trying sandbox offline:", geminiErr);
@@ -584,7 +606,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
         offlineResponse = "Através do canal de Correspondência da ENDE e EPAL, pode consultar e simular o pagamento eletrotécnico e hidráulico de faturas de forma imediata e integrada. Os comprovativos são gerados na própria conversa oficial.";
       }
 
-      return res.json({ message: offlineResponse });
+      return res.json({ message: limparTextoIA(offlineResponse) });
 
     } catch (error) {
       console.error("Groq & Gemini Chat Error:", error);
@@ -664,7 +686,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
             new Promise<never>((_res, reject) => setTimeout(() => reject(new Error('GEMINI_TIMEOUT_25S')), 25000)),
           ]);
           if (response && response.text) {
-            return res.json({ ok: true, acao: v.dados.acao, modelo: "gemini-3.6-flash", resultado: protegerTraducaoLinguaNacional(v.dados, response.text), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
+            return res.json({ ok: true, acao: v.dados.acao, modelo: "gemini-3.6-flash", resultado: protegerTraducaoLinguaNacional(v.dados, limparTextoIA(response.text)), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
           }
         } catch (geminiErr) {
           console.error("Gemini assistente-documento erro, fallback Groq:", geminiErr);
@@ -687,7 +709,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
           });
           const textoGroq = completion.choices?.[0]?.message?.content;
           if (textoGroq) {
-            return res.json({ ok: true, acao: v.dados.acao, modelo: "openai/gpt-oss-120b", resultado: protegerTraducaoLinguaNacional(v.dados, textoGroq), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
+            return res.json({ ok: true, acao: v.dados.acao, modelo: "openai/gpt-oss-120b", resultado: protegerTraducaoLinguaNacional(v.dados, limparTextoIA(textoGroq)), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
           }
         } catch (groqErr) {
           console.error("Groq assistente-documento erro:", groqErr);

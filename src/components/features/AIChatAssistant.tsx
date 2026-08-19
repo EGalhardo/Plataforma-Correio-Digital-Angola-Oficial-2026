@@ -304,6 +304,9 @@ export function AIChatAssistant({
   const recognitionRef = useRef<any>(null);
   const isTranscribingRef = useRef(false);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Acumula a transcrição FINAL completa da fala do utilizador (2026-08-18):
+  // antes, cada segmento final substituía o input — frases longas ficavam truncadas.
+  const transcriptAcumuladoRef = useRef('');
   const iaLiveActiveRef = useRef(iaLiveActive);
   const skipAutoPresentationRef = useRef(false);
 
@@ -390,6 +393,7 @@ export function AIChatAssistant({
     if (recognitionRef.current && isTranscribingRef.current) {
       try { recognitionRef.current.stop(); } catch(e) {}
     }
+    transcriptAcumuladoRef.current = '';
 
     // Filter out asterisks and markdown formatting symbols so the speech synthesis engine doesn't verbalize stars/asterisks
     const cleanText = text.replace(/\*/g, '').trim();
@@ -532,20 +536,25 @@ export function AIChatAssistant({
     recognition.lang = 'pt-AO';
 
     recognition.onresult = (event: ResultadoReconhecimento) => {
-      let finalTranscript = '';
+      // Acumula TODOS os segmentos finais — nunca substitui (frases longas
+      // ou com pausas deixavam de aparecer completas).
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
+          const seg = event.results[i][0].transcript.trim();
+          if (seg) transcriptAcumuladoRef.current = (transcriptAcumuladoRef.current + ' ' + seg).trim();
         }
       }
 
-      if (finalTranscript) {
-        setInput(finalTranscript);
+      const total = transcriptAcumuladoRef.current;
+      if (total) {
+        setInput(total);
         
         // Debounce: Wait for a short pause of silence before sending
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = setTimeout(() => {
-          handleSendMessage(finalTranscript);
+          handleSendMessage(total);
+          // limpa após envio para a próxima fala começar do zero
+          transcriptAcumuladoRef.current = '';
         }, 1200); // 1.2s of silence before sending
       }
     };

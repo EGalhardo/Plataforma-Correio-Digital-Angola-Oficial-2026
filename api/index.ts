@@ -42,6 +42,28 @@ if (apiKey) {
   }
 }
 
+// Limpa caracteres especiais/markdown das respostas da IA (2026-08-18).
+// Remove # * _ ` ~ > e formatação markdown, preservando pontuação, números,
+// acentos e termos úteis (Kz, %, etc.). Aplicada a TODAS as respostas IA.
+const limparTextoIA = (texto: string): string => {
+    if (!texto) return '';
+    let t = String(texto);
+    // títulos markdown (###, ##, #) e citações (>) no início de linha
+    t = t.replace(/^[#>]{1,6}\s*/gm, '');
+    // linhas de separação horizontal (---, ***, ___) — remover a linha inteira
+    t = t.replace(/^[\s]*[-*_]{3,}[\s]*$/gm, '');
+    // asteriscos, underscores, backticks, til (negrito/itálico/código/riscado)
+    t = t.replace(/[*_`~]+/g, '');
+    // bullets markdown no início de linha -> texto sem marcador
+    t = t.replace(/^[\s]*[-+]\s+/gm, '');
+    // múltiplos espaços em branco -> um
+    t = t.replace(/[ \t]{2,}/g, ' ');
+    // quebras de linha múltiplas -> uma
+    t = t.replace(/\n{3,}/g, '\n\n');
+    return t.trim();
+  };
+
+
 // ============================================================================
 // NUCLEO EMBUTIDO do Assistente de Documentos (Fase 1 / S1).
 // COPIA SINCRONIZADA MANUALMENTE de src/services/aiDocumentoCore.ts
@@ -1070,7 +1092,7 @@ export default async function handler(req: any, res: any) {
             }
           });
           if (response && response.text) {
-            return res.status(200).json({ result: response.text });
+            return res.status(200).json({ result: limparTextoIA(response.text) });
           }
         } catch (e) {}
       }
@@ -1086,7 +1108,7 @@ export default async function handler(req: any, res: any) {
             temperature: 0.3
           });
           if (completion.choices?.[0]?.message) {
-            return res.status(200).json({ result: completion.choices[0].message.content });
+            return res.status(200).json({ result: limparTextoIA(completion.choices[0].message.content) });
           }
         } catch (e) {}
       }
@@ -1164,7 +1186,7 @@ export default async function handler(req: any, res: any) {
             new Promise<never>((_res, reject) => setTimeout(() => reject(new Error('GEMINI_TIMEOUT_25S')), 25000)),
           ]);
           if (response && response.text) {
-            return res.status(200).json({ ok: true, acao: v.dados.acao, modelo: "gemini-3.6-flash", resultado: protegerTraducaoLinguaNacional(v.dados, response.text), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
+            return res.status(200).json({ ok: true, acao: v.dados.acao, modelo: "gemini-3.6-flash", resultado: protegerTraducaoLinguaNacional(v.dados, limparTextoIA(response.text)), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
           }
         } catch (geminiErr) {
           console.error("Gemini assistente-documento erro, fallback Groq:", geminiErr);
@@ -1187,7 +1209,7 @@ export default async function handler(req: any, res: any) {
           });
           const textoGroq = completion.choices?.[0]?.message?.content;
           if (textoGroq) {
-            return res.status(200).json({ ok: true, acao: v.dados.acao, modelo: "openai/gpt-oss-120b", resultado: protegerTraducaoLinguaNacional(v.dados, textoGroq), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
+            return res.status(200).json({ ok: true, acao: v.dados.acao, modelo: "openai/gpt-oss-120b", resultado: protegerTraducaoLinguaNacional(v.dados, limparTextoIA(textoGroq)), aviso: AVISO_IA, ...(kbUsada ? { kb: kbUsada } : {}) });
           }
         } catch (groqErr) {
           console.error("Groq assistente-documento erro:", groqErr);
@@ -1329,7 +1351,7 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
             ],
             model: "openai/gpt-oss-120b",
           });
-          return res.status(200).json({ message: completion.choices[0].message.content });
+          return res.status(200).json({ message: limparTextoIA(completion.choices[0].message.content) });
         } catch (groqErr) {
           console.error("Groq Chat Error, trying Gemini fallback:", groqErr);
         }
@@ -1353,7 +1375,7 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
           });
 
           if (response && response.text) {
-            return res.status(200).json({ message: response.text });
+            return res.status(200).json({ message: limparTextoIA(response.text) });
           }
         } catch (geminiErr) {
           console.error("Gemini Chat Error, trying sandbox offline:", geminiErr);
@@ -1374,7 +1396,7 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
         offlineResponse = "Através do canal de Correspondência da ENDE e EPAL, pode consultar e simular o pagamento eletrotécnico e hidráulico de faturas de forma imediata e integrada. Os comprovativos são gerados na própria conversa oficial.";
       }
 
-      return res.status(200).json({ message: offlineResponse });
+      return res.status(200).json({ message: limparTextoIA(offlineResponse) });
     }
 
     // 5. Endpoint /api/verificar-cadastro (F27 — Prompt v11.1 · Portas 2 e 3)
