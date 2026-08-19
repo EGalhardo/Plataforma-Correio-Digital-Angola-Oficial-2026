@@ -3005,7 +3005,7 @@ export default function App() {
     const reg = getLocalInstReg(code);
     const pack = parseInstPack(reg?.observacoes || '');
     const sigla = (pack?.sigla || code.split('-')[0] || 'INST').toUpperCase();
-    return { sigla, logoUrl: reg?.logoDataUrl || makeInstNeutralAvatar(sigla), verified: instGate === 'active' };
+    return { sigla, logoUrl: reg?.logoDataUrl || makeInstNeutralAvatar(sigla), verified: instGate === 'full' };
   }, [isInstMode, isDemoInstitutionSession, institutionCode, bi, instGate, gateRefreshTick]);
 
   // F12 — Ideologia "conta nova = zero dados simulados" (prompt v7): apenas as

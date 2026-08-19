@@ -50,12 +50,16 @@ export const isInstitutionFichaSuspended = (code: string): boolean => {
 };
 
 const mapRowStatus = (status?: string): HomologationStatus => {
-  if (status === 'Aprovado') return 'active';
-  if (status === 'Rejeitado' || status === 'Reprovado' || status === 'Não Aprovado') return 'rejected';
-  if (status === 'Em Correções') return 'correcao';
-  // F44 (v15): o bloqueio administrativo lido da fila passa a valer também
-  // cross-device (antes só no dispositivo onde o admin actuou).
-  if (status === 'Bloqueado') return 'blocked';
+  // A RPC e a tabela podem devolver variantes de maiúsculas, sem acento ou
+  // estados internos em inglês. Normalizar aqui evita que "active"/"Ativa"
+  // caiam no fallback pending e façam o indicador Online voltar a vermelho.
+  const normalized = (status || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .trim().toUpperCase();
+  if (['APROVADO', 'APROVADA', 'ATIVO', 'ATIVA', 'ACTIVE', 'APPROVED'].includes(normalized)) return 'active';
+  if (['REJEITADO', 'REJEITADA', 'REPROVADO', 'REPROVADA', 'NAO APROVADO', 'NAO APROVADA', 'REJECTED'].includes(normalized)) return 'rejected';
+  if (['EM CORRECOES', 'CORRECAO', 'CORRECOES'].includes(normalized)) return 'correcao';
+  if (['BLOQUEADO', 'BLOQUEADA', 'BLOCKED'].includes(normalized)) return 'blocked';
   return 'pending';
 };
 // F49: exportado para a sondagem viva institucional no App (mesma matriz).
