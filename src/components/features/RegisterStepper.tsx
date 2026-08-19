@@ -1026,8 +1026,14 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                   <label htmlFor="confirm-password" className="text-[10.5px] text-slate-800 font-extrabold tracking-widest uppercase">
                     Confirmar Senha
                   </label>
-                  <div className={`flex items-center gap-3 bg-white border focus-within:border-[#0c2340] focus-within:ring-1 focus-within:ring-[#0c2340] rounded-[15px] px-4 py-1.5 transition-all relative ${confirmPassword && !passwordsMatch ? 'border-red-400' : 'border-slate-200'}`}>
-                    <div className="w-10 h-10 bg-[#f0f4f9] text-[#1e3a8a] rounded-lg flex items-center justify-center shrink-0">
+                  <div className={`flex items-center gap-3 bg-white border focus-within:ring-1 rounded-[15px] px-4 py-1.5 transition-all relative ${
+                    confirmPassword && !passwordsMatch
+                      ? 'border-red-400 focus-within:border-red-500 focus-within:ring-red-200'
+                      : passwordsMatch
+                        ? 'border-emerald-400 focus-within:border-emerald-500 focus-within:ring-emerald-200'
+                        : 'border-slate-200 focus-within:border-[#0c2340] focus-within:ring-[#0c2340]'
+                  }`}>
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${passwordsMatch ? 'bg-emerald-50 text-emerald-700' : 'bg-[#f0f4f9] text-[#1e3a8a]'}`}>
                       <Lock size={18} className="text-[#2563eb]" />
                     </div>
                     <input
@@ -1044,8 +1050,13 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     </button>
                   </div>
                   {confirmPassword && !passwordsMatch && (
-                    <span className="text-[10px] text-red-500 font-extrabold uppercase tracking-tight block mt-0.5 pl-2" role="alert">
-                      As senhas não coincidem.
+                    <span className="text-[10px] text-red-600 font-extrabold uppercase tracking-tight block mt-0.5 pl-2" role="alert">
+                      As senhas não coincidem. Verifique e tente novamente.
+                    </span>
+                  )}
+                  {passwordsMatch && (
+                    <span className="text-[10px] text-emerald-600 font-extrabold uppercase tracking-tight flex items-center gap-1 mt-0.5 pl-2" role="status">
+                      <Check size={12} aria-hidden="true" /> As senhas coincidem.
                     </span>
                   )}
                 </div>
