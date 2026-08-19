@@ -225,6 +225,14 @@ export const mapTypeToCategory = (type: string): 'Finanças' | 'Infraestrutura' 
 };
 
 export const generateSigla = (fullName: string): string => {
+  // Instituições com sigla oficial não devem ser recalculadas a partir do
+  // nome expandido (ex.: “INAPEM — Instituto ...” gerava IINA... ).
+  const normalizedName = (fullName || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/gi, '')
+    .toUpperCase();
+  if (normalizedName.startsWith('INAPEMINSTITUTONACIONALDEAPOIOASMICROPEQUENASEMEDIAS') || normalizedName === 'INAPEM') return 'INAPEM';
+
   const wordsToSkip = ['de', 'da', 'do', 'das', 'dos', 'e', 'a', 'o', 'para', 'em', 'público', 'pública'];
   const sigla = fullName
     .split(/\s+/)
