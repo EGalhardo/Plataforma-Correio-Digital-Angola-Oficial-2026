@@ -61,7 +61,7 @@ export function GovEmissaoContent({
       ...formData,
       holder: item.user,
       bi: item.bi || '',
-      subject: item.subject.startsWith('Pedido:') ? `Resposta ao ${item.subject}` : `Comunicação: ${item.subject}`,
+      subject: (item.subject || '').startsWith('Pedido:') ? `Resposta ao ${item.subject}` : `Comunicação: ${item.subject}`,
       content: `Prezado(a) ${item.user},\n\nEm resposta à sua solicitação/mensagem de ${item.date}, informamos que...`
     });
     setCorrespondenciaTab('lidas'); // Keep context

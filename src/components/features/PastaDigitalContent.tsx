@@ -327,7 +327,7 @@ export function PastaDigitalContent({
   // Convert default custom state `documents` from App.tsx into equivalent ActionableDoc objects
   const systemOfficialDocs = useMemo<ActionableDoc[]>(() => {
     const defaultDocsMapped = documents.map(doc => {
-      const nameLower = doc.name.toLowerCase();
+      const nameLower = (doc.name || '').toLowerCase();
       let category: ActionableDoc['category'] = 'certificados';
       let categoryLabel = 'Certificados';
 

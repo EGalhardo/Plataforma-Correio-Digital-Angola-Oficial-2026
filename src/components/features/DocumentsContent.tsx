@@ -1081,7 +1081,7 @@ export function DocumentsContent({
                             <div className="font-black italic text-slate-900 text-[11px] md:text-sm uppercase tracking-tight leading-none">
                               {isInst 
                                 ? `CIDADÃO: ${item.org}` 
-                                : (item.org.startsWith('SOC - ') 
+                                : ((item.org || '').startsWith('SOC - ') 
                                     ? item.org.replace('SOC - ', '') 
                                     : `ÓRGÃO: ${item.org}`
                                   )

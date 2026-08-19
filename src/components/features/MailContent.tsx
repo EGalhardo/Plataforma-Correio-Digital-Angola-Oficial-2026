@@ -1479,7 +1479,7 @@ export function MailContent({
                               {t(item.unread ? 'Não Lida' : 'Lida')}
                             </span>
                             <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${getOrgBadgeStyles(item.org)}`}>
-                              {t(item.org.toUpperCase().startsWith('SOC - ') ? 'SOC' : item.org)}
+                              {t((item.org || '').toUpperCase().startsWith('SOC - ') ? 'SOC' : item.org)}
                             </span>
                             <span className="text-[9px] font-bold text-slate-400 font-mono">ID: #{item.id}</span>
                             {item.unread && (
@@ -1495,7 +1495,7 @@ export function MailContent({
                                   .replace(/^Cidadão:\s*CIDADÃO:\s*/i, '')
                                   .replace(/^Cidadão:\s*/i, '')
                                   .replace(/^CIDADÃO:\s*/i, '')
-: (item.org.startsWith('SOC - ') 
+: ((item.org || '').startsWith('SOC - ') 
                                    ? item.org.replace('SOC - ', '') 
                                    : item.org
                                  )
