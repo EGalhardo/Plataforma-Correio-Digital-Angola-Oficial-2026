@@ -50,6 +50,21 @@ export const clearAdminAlfa = (): void => {
   try { localStorage.removeItem(ALFA_KEY); } catch { /* sem storage */ }
 };
 
+/** Remove exclusivamente a credencial e a marca local do Admin Alfa. Usado
+ * antes de um novo registo autorizado, para não bloquear este dispositivo. */
+export const resetAdminAlfaLocal = (): void => {
+  const alfa = normalizeAgentNumber(ADMIN_ALFA_AGENT);
+  writeCreds(readCreds().filter(c => normalizeAgentNumber(c.agent) !== alfa));
+  try {
+    const raw = localStorage.getItem('correio_digital_admin_workers');
+    const workers = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(workers)) {
+      localStorage.setItem('correio_digital_admin_workers', JSON.stringify(workers.filter(w => normalizeAgentNumber(w?.agentId) !== alfa)));
+    }
+  } catch { /* sem armazenamento local */ }
+  clearAdminAlfa();
+};
+
 export const normalizeAgentNumber = (agent?: string): string =>
   (agent || '').toUpperCase().replace(/\s+/g, '').trim();
 

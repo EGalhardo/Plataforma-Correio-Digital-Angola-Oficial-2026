@@ -34,6 +34,7 @@ import {
   hasActiveAdminAlfa,
   isAdminAgentPasswordTaken,
   setAdminAlfa,
+  resetAdminAlfaLocal,
 } from '../../services/adminAgentStore';
 import { supabase } from '../../lib/supabaseClient';
 import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticAdminEmail } from '../../services/cloudAuthService';
@@ -143,10 +144,10 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    if (hasActiveAdminAlfa()) { // F26 — a marcação só bloqueia com a credencial do Alfa existente
-      setError('O registo está encerrado — o Administrador Geral já foi registado neste dispositivo. Os restantes membros são adicionados por ele na página Equipa (ADMIN-0002, ADMIN-0003, …).');
-      return;
-    }
+    // Se existir uma marca local antiga, ela não pode bloquear um novo Admin
+    // Alfa depois de a conta central ter sido removida. Substitui-se apenas a
+    // credencial local ADMIN-0001; os restantes agentes permanecem intactos.
+    if (hasActiveAdminAlfa()) resetAdminAlfaLocal();
     if (!name.trim() || !email.trim() || !phone.trim() || !role.trim() || !dept.trim()) {
       setError('Preencha todos os campos obrigatórios (Nome, Email, Telefone, Perfil Funcional e Departamento).');
       return;
