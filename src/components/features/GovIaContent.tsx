@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { supabase } from '../../lib/supabaseClient';
+import { registoPublicoProxy } from '../../services/supabaseService';
 import { isInstitutionObservacao } from '../../services/institutionRegistrationStore';
 
 interface GovIaContentProps {
@@ -175,11 +176,20 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
     let cancelado = false;
     (async () => {
       try {
-        const { data: regs, error: errRegs } = await supabase
-          .from('solicitacoes_registo')
-          .select('nome, bi_numero, status, observacoes, criado_em')
-          .order('criado_em', { ascending: false });
-        if (!cancelado && !errRegs && Array.isArray(regs)) {
+        let regs: Record<string, unknown>[] | null = null;
+        const viaProxy = await registoPublicoProxy('select');
+        if (viaProxy === null) {
+          const d = await supabase
+            .from('solicitacoes_registo')
+            .select('nome, bi_numero, status, observacoes, criado_em')
+            .order('criado_em', { ascending: false });
+          if (!d.error && Array.isArray(d.data)) regs = d.data as Record<string, unknown>[];
+        } else if (viaProxy.ok) {
+          regs = (viaProxy.linhas || []) as Record<string, unknown>[];
+        } else {
+          console.warn('[GOV-IA] leitura da fila via servidor falhou:', viaProxy.erro);
+        }
+        if (!cancelado && Array.isArray(regs)) {
           const insts: InstitutionConfig[] = regs
             .filter((r: Record<string, unknown>) => isInstitutionObservacao(r?.observacoes as string))
             .map((r: Record<string, unknown>, i: number) => ({

@@ -14,6 +14,7 @@ import {
   CheckCircle, CheckCircle2, Loader2, ArrowLeft, Copy, Check, Landmark
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import { registoPublicoProxy } from '../../services/supabaseService';
 import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticInstitutionAgentEmail } from '../../services/cloudAuthService';
 import { homologationStore } from '../../services/homologationStore';
 import {
@@ -174,7 +175,8 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
       const ready = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
       if (ready) {
         setSubmitMessage('A enviar a solicitação para a Área de Administração...');
-        const { error } = await supabase.from('solicitacoes_registo').insert([{
+        // 2026-08-20 — Modo Real: gravar via proxy do servidor (service role).
+        const payloadAdesao = {
           nome: fullName.trim(),
           email: eA,
           // F43 (Auditoria F42 #3): password_hash removido — nunca persistir
@@ -186,7 +188,18 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
           url_selfie: null,
           status: 'Pendente',
           observacoes,
-        }]);
+        };
+        let error: any = null;
+        const viaProxy = await registoPublicoProxy('insert', undefined, payloadAdesao);
+        if (viaProxy !== null) {
+          if (!viaProxy.ok && viaProxy.erro !== 'demo') {
+            error = { code: 'PROXY', message: viaProxy.erro || 'Falha ao registar a adesão na base central.' };
+          }
+        }
+        if (viaProxy === null || (viaProxy && viaProxy.erro === 'demo')) {
+          const direct = await supabase.from('solicitacoes_registo').insert([payloadAdesao]);
+          error = direct.error;
+        }
         if (error) {
           if (error.code === '23505') {
             setSubmitError('Não é possível efectuar o registo: este Código Institucional já se encontra registado. Tente novamente.');

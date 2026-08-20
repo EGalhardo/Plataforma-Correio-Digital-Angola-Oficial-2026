@@ -57,6 +57,7 @@ import {
   KeyRound
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import { registoPublicoProxy } from '../../services/supabaseService';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, isInstPasswordTaken, nextMemberAgentNumber } from '../../services/institutionRegistrationStore';
 import { addAdminAgent, updateAdminAgentPassword, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber, getAdminAgentCreds } from '../../services/adminAgentStore';
@@ -962,6 +963,14 @@ export function GovContactsContent({
 
   const updateRegistrationRecord = async (recordId: string, payload: Record<string, unknown>) => {
     try {
+      // 2026-08-20 — Modo Real: gravar via proxy do servidor (service role);
+      // sem sessão (demo) mantém-se o caminho directo de sempre.
+      const viaProxy = await registoPublicoProxy('update', { id: recordId }, payload);
+      if (viaProxy !== null) {
+        if (viaProxy.ok) return true;
+        console.warn('[REGISTOS] atualização via servidor falhou:', viaProxy.erro);
+        return false;
+      }
       const { error } = await supabase
         .from('solicitacoes_registo')
         .update(payload)
@@ -996,6 +1005,12 @@ export function GovContactsContent({
   // nesse caso a linha NÃO é removida da consola, para não ressuscitar no próximo load.
   const deleteRegistrationRecord = async (recordId: string): Promise<boolean> => {
     try {
+      const viaProxy = await registoPublicoProxy('delete', { id: recordId });
+      if (viaProxy !== null) {
+        if (viaProxy.ok) return true;
+        console.warn('[REGISTOS] eliminação via servidor falhou:', viaProxy.erro);
+        return false;
+      }
       const { error } = await supabase
         .from('solicitacoes_registo')
         .delete()
@@ -1034,6 +1049,14 @@ export function GovContactsContent({
       // utilizador não reaparece após refresh ou noutro dispositivo.
       if (target.biNumber) {
         try {
+          const viaProxy = await registoPublicoProxy('delete', { bi_numero: target.biNumber });
+          if (viaProxy !== null) {
+            if (!viaProxy.ok) {
+              console.error('Falha ao eliminar registo por B.I. via servidor:', viaProxy.erro);
+              notify('Não foi possível concluir a eliminação no Supabase. Nenhum dado foi removido apenas localmente.');
+              return;
+            }
+          } else {
           const { error } = await supabase
             .from('solicitacoes_registo')
             .delete()
@@ -1042,6 +1065,7 @@ export function GovContactsContent({
             console.error('Falha ao eliminar registo por B.I.:', error);
             notify('Não foi possível concluir a eliminação no Supabase. Nenhum dado foi removido apenas localmente.');
             return;
+          }
           }
         } catch (error) {
           console.error('Falha de rede ao eliminar registo por B.I.:', error);
@@ -1114,10 +1138,23 @@ export function GovContactsContent({
       if (!isSupabaseReady) return;
 
       try {
-        const { data, error } = await supabase
-          .from('solicitacoes_registo')
-          .select('*')
-          .order('criado_em', { ascending: false });
+        // 2026-08-20 — Modo Real: ler a fila de registos via proxy do servidor
+        // (service role). Sem sessão (demo) mantém-se o caminho directo.
+        const viaProxy = await registoPublicoProxy('select');
+        let data: any[] | null = null;
+        let error: any = null;
+        if (viaProxy === null) {
+          const direct = await supabase
+            .from('solicitacoes_registo')
+            .select('*')
+            .order('criado_em', { ascending: false });
+          data = direct.data as any[] | null; error = direct.error;
+        } else if (viaProxy.ok) {
+          data = (viaProxy.linhas || []) as any[];
+        } else {
+          console.warn('[REGISTOS] leitura via servidor falhou:', viaProxy.erro);
+          return;
+        }
 
         if (error) {
           if (error.code === 'PGRST205') {

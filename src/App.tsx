@@ -2508,17 +2508,24 @@ export default function App() {
           const incoming = dbMessages.filter(m => !isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage).map(m => ({ ...m, recipientBi: bi }));
           const docs = dbMessages.filter(m => isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage).map(m => ({ ...m, recipientBi: bi }));
           
-          setInbox(prevLocal => {
-            const dbIds = new Set(incoming.map(m => m.id));
-            const onlyLocal = prevLocal.filter(m => !dbIds.has(m.id));
-            return [...incoming, ...onlyLocal];
-          });
-          
-          setDocInbox(prevLocal => {
-            const dbIds = new Set(docs.map(m => m.id));
-            const onlyLocal = prevLocal.filter(m => !dbIds.has(m.id));
-            return [...docs, ...onlyLocal];
-          });
+          // 2026-08-20 — Modo Real: a nuvem é a fonte ÚNICA (sem fusão com
+          // estado local/mock). Eliminadas/arquivadas ficam fora da caixa em
+          // qualquer dispositivo. Demo mantém a fusão de sempre.
+          if (!isDemoSession) {
+            setInbox(incoming.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+            setDocInbox(docs.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+          } else {
+            setInbox(prevLocal => {
+              const dbIds = new Set(incoming.map(m => m.id));
+              const onlyLocal = prevLocal.filter(m => !dbIds.has(m.id));
+              return [...incoming, ...onlyLocal];
+            });
+            setDocInbox(prevLocal => {
+              const dbIds = new Set(docs.map(m => m.id));
+              const onlyLocal = prevLocal.filter(m => !dbIds.has(m.id));
+              return [...docs, ...onlyLocal];
+            });
+          }
         }
 
         // "Enviadas" já vieram na consulta OR única acima (N-3)
@@ -2528,17 +2535,21 @@ export default function App() {
           const sentNormal = dbSentMessages.filter(m => !isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey }));
           const sentDoc = dbSentMessages.filter(m => isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey }));
           
-          setSentMessages(prevLocal => {
-            const dbIds = new Set(sentNormal.map(m => m.id));
-            const onlyLocal = prevLocal.filter(m => !dbIds.has(m.id));
-            return [...sentNormal, ...onlyLocal];
-          });
-          
-          setDocSentMessages(prevLocal => {
-            const dbIds = new Set(sentDoc.map(m => m.id));
-            const onlyLocal = prevLocal.filter(m => !dbIds.has(m.id));
-            return [...sentDoc, ...onlyLocal];
-          });
+          if (!isDemoSession) {
+            setSentMessages(sentNormal.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+            setDocSentMessages(sentDoc.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+          } else {
+            setSentMessages(prevLocal => {
+              const dbIds = new Set(sentNormal.map(m => m.id));
+              const onlyLocal = prevLocal.filter(m => !dbIds.has(m.id));
+              return [...sentNormal, ...onlyLocal];
+            });
+            setDocSentMessages(prevLocal => {
+              const dbIds = new Set(sentDoc.map(m => m.id));
+              const onlyLocal = prevLocal.filter(m => !dbIds.has(m.id));
+              return [...sentDoc, ...onlyLocal];
+            });
+          }
         }
 
         if (isInstMode) {
@@ -2552,19 +2563,23 @@ export default function App() {
             const instDoc = mailbox.messages.map(ensureProtocolOnMessage).map(m => ({ ...m, id: m.id + 10000, recipientInst: institutionCode }));
             const legacyIds = new Set(mailbox.legacyIds);
             
-            setInstInbox(prevLocal => {
-              const dbIds = new Set(instNormal.map(m => m.id));
-              const purgedLocal = legacyIds.size ? prevLocal.filter(m => !legacyIds.has(m.id)) : prevLocal;
-              const onlyLocal = purgedLocal.filter(m => !dbIds.has(m.id));
-              return [...instNormal, ...onlyLocal];
-            });
-            
-            setInstDocInbox(prevLocal => {
-              const dbIds = new Set(instDoc.map(m => m.id));
-              const purgedLocal = legacyIds.size ? prevLocal.filter(m => !legacyIds.has(m.id - 10000)) : prevLocal;
-              const onlyLocal = purgedLocal.filter(m => !dbIds.has(m.id));
-              return [...instDoc, ...onlyLocal];
-            });
+            if (!isDemoSession) {
+              setInstInbox(instNormal.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+              setInstDocInbox(instDoc.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+            } else {
+              setInstInbox(prevLocal => {
+                const dbIds = new Set(instNormal.map(m => m.id));
+                const purgedLocal = legacyIds.size ? prevLocal.filter(m => !legacyIds.has(m.id)) : prevLocal;
+                const onlyLocal = purgedLocal.filter(m => !dbIds.has(m.id));
+                return [...instNormal, ...onlyLocal];
+              });
+              setInstDocInbox(prevLocal => {
+                const dbIds = new Set(instDoc.map(m => m.id));
+                const purgedLocal = legacyIds.size ? prevLocal.filter(m => !legacyIds.has(m.id - 10000)) : prevLocal;
+                const onlyLocal = purgedLocal.filter(m => !dbIds.has(m.id));
+                return [...instDoc, ...onlyLocal];
+              });
+            }
           }
         }
 
@@ -2573,11 +2588,16 @@ export default function App() {
         if (dbDocs !== null && isSubscribed) {
           // F12 — titularidade do documento (sessões reais só vêem os seus).
           const taggedDocs = dbDocs.map(d => ({ ...d, holderBi: bi }));
-          setDocuments(prevLocal => {
-            const dbCodes = new Set(taggedDocs.map(d => d.code));
-            const onlyLocal = prevLocal.filter(d => !dbCodes.has(d.code));
-            return [...taggedDocs, ...onlyLocal];
-          });
+          // 2026-08-20 — Modo Real: nuvem como fonte única dos documentos.
+          if (!isDemoSession) {
+            setDocuments(taggedDocs);
+          } else {
+            setDocuments(prevLocal => {
+              const dbCodes = new Set(taggedDocs.map(d => d.code));
+              const onlyLocal = prevLocal.filter(d => !dbCodes.has(d.code));
+              return [...taggedDocs, ...onlyLocal];
+            });
+          }
         }
 
         // 4. Fetch Contacts
@@ -2585,62 +2605,86 @@ export default function App() {
         if (dbContacts !== null && isSubscribed) {
           // F12 — cada contacto fica marcado com o dono da sessão que o fundiu.
           const taggedContacts = dbContacts.map(c => ({ ...c, ownerId: bi }));
-          setContacts(prevLocal => {
-            const dbIds = new Set(taggedContacts.map(c => c.id));
-            const onlyLocal = prevLocal.filter(c => !dbIds.has(c.id));
-            return [...taggedContacts, ...onlyLocal];
-          });
+          if (!isDemoSession) {
+            setContacts(taggedContacts);
+          } else {
+            setContacts(prevLocal => {
+              const dbIds = new Set(taggedContacts.map(c => c.id));
+              const onlyLocal = prevLocal.filter(c => !dbIds.has(c.id));
+              return [...taggedContacts, ...onlyLocal];
+            });
+          }
         }
 
         // 5. Fetch User requests
         const dbUserRequests = await supabaseService.getUserRequests(isGovMode ? undefined : bi);
         if (dbUserRequests !== null && isSubscribed) {
-          setUserRequests(prevLocal => {
-            const dbIds = new Set(dbUserRequests.map(r => r.id));
-            const onlyLocal = prevLocal.filter(r => !dbIds.has(r.id));
-            return [...dbUserRequests, ...onlyLocal];
-          });
+          if (!isDemoSession) {
+            setUserRequests(dbUserRequests);
+          } else {
+            setUserRequests(prevLocal => {
+              const dbIds = new Set(dbUserRequests.map(r => r.id));
+              const onlyLocal = prevLocal.filter(r => !dbIds.has(r.id));
+              return [...dbUserRequests, ...onlyLocal];
+            });
+          }
         }
 
         // 6. Fetch Doc Requests
         const dbDocRequests = await supabaseService.getDocRequests(isGovMode ? undefined : bi);
         if (dbDocRequests !== null && isSubscribed) {
-          setDocRequests(prevLocal => {
-            const dbIds = new Set(dbDocRequests.map(r => r.id));
-            const onlyLocal = prevLocal.filter(r => !dbIds.has(r.id));
-            return [...dbDocRequests, ...onlyLocal];
-          });
+          if (!isDemoSession) {
+            setDocRequests(dbDocRequests);
+          } else {
+            setDocRequests(prevLocal => {
+              const dbIds = new Set(dbDocRequests.map(r => r.id));
+              const onlyLocal = prevLocal.filter(r => !dbIds.has(r.id));
+              return [...dbDocRequests, ...onlyLocal];
+            });
+          }
         }
 
         // 7. Fetch Notifications
         const notificationTarget = isGovMode ? 'CDA' : isInstMode ? institutionCode : bi;
         const dbNotifs = await supabaseService.getNotifications(notificationTarget);
         if (dbNotifs !== null && isSubscribed) {
-          setNotifications(prevLocal => {
-            const dbIds = new Set(dbNotifs.map(n => n.id));
-            const onlyLocal = prevLocal.filter(n => !dbIds.has(n.id));
-            return [...dbNotifs, ...onlyLocal];
-          });
+          if (!isDemoSession) {
+            setNotifications(dbNotifs);
+          } else {
+            setNotifications(prevLocal => {
+              const dbIds = new Set(dbNotifs.map(n => n.id));
+              const onlyLocal = prevLocal.filter(n => !dbIds.has(n.id));
+              return [...dbNotifs, ...onlyLocal];
+            });
+          }
         }
 
         // 8. Fetch Audit Logs
         const dbLogs = await supabaseService.getAuditLogs();
         if (dbLogs !== null && isSubscribed) {
-          setAuditLogs(prevLocal => {
-            const dbIds = new Set(dbLogs.map(l => l.id));
-            const onlyLocal = prevLocal.filter(l => !dbIds.has(l.id));
-            return [...dbLogs, ...onlyLocal];
-          });
+          if (!isDemoSession) {
+            setAuditLogs(dbLogs);
+          } else {
+            setAuditLogs(prevLocal => {
+              const dbIds = new Set(dbLogs.map(l => l.id));
+              const onlyLocal = prevLocal.filter(l => !dbIds.has(l.id));
+              return [...dbLogs, ...onlyLocal];
+            });
+          }
         }
 
         // 9. Fetch Official Correspondences
         const dbCorrespondences = await supabaseService.getCorrespondences();
         if (dbCorrespondences !== null && isSubscribed) {
-          setCorrespondences(prevLocal => {
-            const dbIds = new Set(dbCorrespondences.map(c => c.id));
-            const onlyLocal = prevLocal.filter(c => !dbIds.has(c.id));
-            return [...dbCorrespondences, ...onlyLocal];
-          });
+          if (!isDemoSession) {
+            setCorrespondences(dbCorrespondences);
+          } else {
+            setCorrespondences(prevLocal => {
+              const dbIds = new Set(dbCorrespondences.map(c => c.id));
+              const onlyLocal = prevLocal.filter(c => !dbIds.has(c.id));
+              return [...dbCorrespondences, ...onlyLocal];
+            });
+          }
         }
 
         console.log('CADA: Sincronização e carregamento do Supabase efectuados com sucesso!');

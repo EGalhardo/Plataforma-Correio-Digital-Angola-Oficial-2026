@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { registoPublicoProxy } from './supabaseService';
 // ============================================================================
 // Loja Local de Registos de Instituições — Correio Digital Angola
 // ----------------------------------------------------------------------------
@@ -279,10 +280,17 @@ export const collectInstitutionUniqueness = async (supabase: SupabaseClient): Pr
   // 2. Nuvem (se disponível)
   if (isSupabaseReady() && supabase) {
     try {
-      const { data, error } = await supabase
-        .from('solicitacoes_registo')
-        .select('bi_numero, email, observacoes');
-      if (!error && data) {
+      let data: any[] | null = null;
+      const viaProxy = await registoPublicoProxy('select');
+      if (viaProxy === null) {
+        const d = await supabase
+          .from('solicitacoes_registo')
+          .select('bi_numero, email, observacoes');
+        if (!d.error && d.data) data = d.data as any[];
+      } else if (viaProxy.ok) {
+        data = (viaProxy.linhas || []) as any[];
+      }
+      if (data) {
         for (const row of data as any[]) {
           if (row?.email) result.takenEmails.push(String(row.email).toLowerCase().trim());
           const pack = parseInstPack(row?.observacoes);

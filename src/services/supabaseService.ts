@@ -287,6 +287,110 @@ const readThroughMessagesCache = <T>(key: string, producer: () => Promise<T>): P
 };
 export const invalidateMessagesReadCache = (): void => { messagesReadCache.clear(); };
 
+/** Proxy genérico para ficheiros/fluxos que usavam `solicitacoes_registo`
+ *  diretamente (registo de cidadão/instituição, consola de administração).
+ *  Devolve null quando não há sessão (demo — usar caminho directo). */
+export const registoPublicoProxy = async (
+  operacao: 'select' | 'insert' | 'update' | 'delete',
+  filtros?: Record<string, string | number>,
+  dados?: Record<string, unknown>,
+): Promise<{ ok: boolean; linhas?: any[]; erro?: string } | null> => {
+  try {
+    const token = await obterTokenSessao();
+    const resp = await fetch('/api/dados', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({
+        tabela: 'solicitacoes_registo', operacao,
+        filtros: filtros || {}, dados: dados ?? {},
+        ...(operacao === 'select' ? { limite: 2000 } : {}),
+      }),
+    });
+    return await resp.json().catch(() => null);
+  } catch {
+    return { ok: false, erro: 'rede' };
+  }
+};
+
+// ============================================================================
+// PROXY CRUD — MODO REAL (2026-08-20)
+// ----------------------------------------------------------------------------
+// A RLS endurecida de produção oculta TODAS as tabelas do cliente anon:
+// leituras voltam vazias e escritas falham em silêncio (o Modo Real parecia
+// gravar mas nada persistia). Quando existe SESSÃO Supabase (contas reais),
+// todo o CRUD passa pelo proxy do servidor (/api/dados — service role,
+// escopo de titularidade por tabela). Sem sessão (contas demo), mantém-se o
+// caminho directo de sempre: o Modo Demo fica 100% intocado. Erro real do
+// proxy (401/403/500) NUNCA é mascarado com o caminho directo cego — o
+// chamador recebe null e o UI mostra o estado honesto.
+// ============================================================================
+let dadosTokenCache: string | null = null;
+let dadosTokenCacheTs = 0;
+
+const obterTokenSessao = async (): Promise<string | null> => {
+  try {
+    const agora = Date.now();
+    if (dadosTokenCache && agora - dadosTokenCacheTs < 60_000) return dadosTokenCache;
+    const { data } = await supabase.auth.getSession();
+    dadosTokenCache = data?.session?.access_token || null;
+    dadosTokenCacheTs = agora;
+    return dadosTokenCache;
+  } catch {
+    return null;
+  }
+};
+
+const proxyDados = async (payload: Record<string, unknown>): Promise<any | null> => {
+  try {
+    const token = await obterTokenSessao();
+    const resp = await fetch('/api/dados', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(payload),
+    });
+    return await resp.json().catch(() => null);
+  } catch {
+    return null; // servidor inacessível — o chamador decide (direct/cache)
+  }
+};
+
+/** Lê linhas: proxy quando há sessão; senão caminho directo (demo/dev). */
+const lerLinhasDados = async <T,>(
+  tabela: string,
+  filtros: Record<string, string | number> | undefined,
+  ordem: { col: string; dir: 'asc' | 'desc' } | undefined,
+  direto: () => Promise<T[] | null>,
+): Promise<T[] | null> => {
+  const token = await obterTokenSessao();
+  if (!token) return direto();
+  const r = await proxyDados({ tabela, operacao: 'select', filtros: filtros || {}, ordem, limite: 2000 });
+  if (r && r.ok) return (r.linhas || []) as T[];
+  if (r && r.erro === 'demo') return direto();
+  console.warn(`[CDA-proxy] leitura ${tabela} via servidor falhou:`, r?.erro || 'rede');
+  return null;
+};
+
+/** Grava (insert/update/delete): proxy quando há sessão; senão directo. */
+const gravarDados = async <T,>(
+  tabela: string,
+  operacao: 'insert' | 'update' | 'delete',
+  filtros: Record<string, string | number> | undefined,
+  dados: Record<string, unknown> | Record<string, unknown>[] | undefined,
+  extra: { upsert?: boolean; onConflict?: string; retorno?: boolean } | undefined,
+  direto: () => Promise<T | null>,
+): Promise<T | null> => {
+  const token = await obterTokenSessao();
+  if (!token) return direto();
+  const r = await proxyDados({ tabela, operacao, filtros: filtros || {}, dados: dados ?? {}, ...(extra || {}) });
+  if (r && r.ok) {
+    invalidateMessagesReadCache();
+    return (extra?.retorno && Array.isArray(r.linhas) ? r.linhas : { escrito: true }) as unknown as T;
+  }
+  if (r && r.erro === 'demo') return direto();
+  console.warn(`[CDA-proxy] escrita ${operacao} ${tabela} via servidor falhou:`, r?.erro || 'rede');
+  return null;
+};
+
 export const supabaseService = {
   /**
    * Check connection and verify if tables are created.
@@ -341,6 +445,26 @@ export const supabaseService = {
   async uploadFile(bucketName: string, filePath: string, file: File | Blob): Promise<string | null> {
     if (!hasValidSupabaseKeys()) return null;
     try {
+      // 2026-08-20 — Modo Real: o cliente sem claims não escreve nos buckets
+      // (RLS de storage). Com sessão Supabase, o upload vai pelo servidor
+      // (/api/upload — service role). Sem sessão (demo), caminho directo.
+      const token = await obterTokenSessao();
+      if (token) {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+          reader.onerror = () => reject(new Error('falha ao ler ficheiro'));
+          reader.readAsDataURL(file);
+        });
+        const r = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ bucket: bucketName, caminho: filePath, base64, tipo: (file as File).type || undefined }),
+        });
+        const j = await r.json().catch(() => null);
+        if (j && j.ok) return j.url as string;
+        throw new Error(j?.erro || 'Falha no upload via servidor');
+      }
       const { error } = await supabase.storage
         .from(bucketName)
         .upload(filePath, file, { cacheControl: '3600', upsert: true });
@@ -501,13 +625,18 @@ export const supabaseService = {
         unread: !!msg.unread,
       });
 
-      const { data, error } = await supabase
-        .from('messages')
-        .upsert([payload])
-        .select();
-
-      if (error) throw error;
-      return data;
+      return await gravarDados(
+        'messages', 'insert', undefined, [payload],
+        { upsert: true, onConflict: 'id' },
+        async () => {
+          const { data, error } = await supabase
+            .from('messages')
+            .upsert([payload])
+            .select();
+          if (error) throw error;
+          return data;
+        },
+      );
     } catch (e) {
       console.error('Supabase insertMessage error:', e);
       throw e;
@@ -527,9 +656,15 @@ export const supabaseService = {
         org: institutionCode,
         unread: msg.unread !== undefined ? (typeof msg.unread === 'number' ? msg.unread !== 0 : !!msg.unread) : true,
       });
-      const { data, error } = await supabase.from('messages').upsert([payload]).select();
-      if (error) throw error;
-      return data;
+      return await gravarDados(
+        'messages', 'insert', undefined, [payload],
+        { upsert: true, onConflict: 'id' },
+        async () => {
+          const { data, error } = await supabase.from('messages').upsert([payload]).select();
+          if (error) throw error;
+          return data;
+        },
+      );
     } catch (e) {
       console.error('Supabase sendCitizenMessage error:', e);
       throw e;
@@ -550,9 +685,15 @@ export const supabaseService = {
         org: institutionCode,
         unread: msg.unread !== undefined ? (typeof msg.unread === 'number' ? msg.unread !== 0 : !!msg.unread) : true,
       });
-      const { data, error } = await supabase.from('messages').upsert([payload]).select();
-      if (error) throw error;
-      return data;
+      return await gravarDados(
+        'messages', 'insert', undefined, [payload],
+        { upsert: true, onConflict: 'id' },
+        async () => {
+          const { data, error } = await supabase.from('messages').upsert([payload]).select();
+          if (error) throw error;
+          return data;
+        },
+      );
     } catch (e) {
       console.error('Supabase sendOfficialMessage error:', e);
       throw e;
@@ -562,9 +703,15 @@ export const supabaseService = {
   async updateMessageState(messageId: number, changes: Partial<{ unread: boolean; status: string; preview: string; subject: string; body: string; deadline_text: string; state_indicator: string; actions: string[] }>) {
     if (!hasValidSupabaseKeys()) return null;
     try {
-      const { data, error } = await supabase.from('messages').update(changes).eq('id', messageId).select();
-      if (error) throw error;
-      return data;
+      return await gravarDados(
+        'messages', 'update', { id: messageId }, changes,
+        undefined,
+        async () => {
+          const { data, error } = await supabase.from('messages').update(changes).eq('id', messageId).select();
+          if (error) throw error;
+          return data;
+        },
+      );
     } catch (e) {
       console.error('Supabase updateMessageState error:', e);
       return null;
@@ -596,9 +743,15 @@ export const supabaseService = {
       }
 
       const payload = createStateHistoryPayload({ messageId, state, responsible, description });
-      const { data, error } = await supabase.from('message_state_history').insert([payload]).select();
-      if (error) throw error;
-      return data;
+      return await gravarDados(
+        'message_state_history', 'insert', undefined, [payload],
+        undefined,
+        async () => {
+          const { data, error } = await supabase.from('message_state_history').insert([payload]).select();
+          if (error) throw error;
+          return data;
+        },
+      );
     } catch (e) {
       console.error('Supabase insertMessageStateEvent error:', e);
       return null;
@@ -608,14 +761,23 @@ export const supabaseService = {
   async getMessageStateHistory(messageId: number): Promise<any[] | null> {
     if (!hasValidSupabaseKeys()) return null;
     try {
-      const { data, error } = await supabase
-        .from('message_state_history')
-        .select('*')
-        .eq('message_id', messageId)
-        .order('event_date', { ascending: true })
-        .order('event_time', { ascending: true });
-      if (error) throw error;
-      return data || [];
+      const linhas = await lerLinhasDados<any>(
+        'message_state_history',
+        { message_id: messageId },
+        undefined,
+        async () => {
+          const { data, error } = await supabase
+            .from('message_state_history')
+            .select('*')
+            .eq('message_id', messageId)
+            .order('event_date', { ascending: true })
+            .order('event_time', { ascending: true });
+          if (error) throw error;
+          return (data || []) as any[];
+        },
+      );
+      if (linhas === null) return null;
+      return linhas;
     } catch (e) {
       console.error('Supabase getMessageStateHistory error:', e);
       return null;
@@ -638,12 +800,18 @@ export const supabaseService = {
         issuer: doc.issuer,
         issued_at: doc.issuedAt
       };
-      const { data, error } = await supabase
-        .from('documents')
-        .upsert([payload], { onConflict: 'code' })
-        .select();
-      if (error) throw error;
-      return data;
+      return await gravarDados(
+        'documents', 'insert', undefined, [payload],
+        { upsert: true, onConflict: 'code' },
+        async () => {
+          const { data, error } = await supabase
+            .from('documents')
+            .upsert([payload], { onConflict: 'code' })
+            .select();
+          if (error) throw error;
+          return data;
+        },
+      );
     } catch (e) {
       console.error('Supabase insertDocument error:', e);
       throw e;
@@ -670,27 +838,33 @@ export const supabaseService = {
         phone: contact.phone || null,
         whatsapp: contact.whatsapp || null
       };
-      const { data, error } = await supabase
-        .from('contacts')
-        .upsert([payload])
-        .select();
-      if (error) {
-        // Janela antes do v19 ser aplicado no SQL Editor: as colunas
-        // phone/whatsapp ainda não existem (PGRST204). Tenta de novo sem elas
-        // em vez de falhar a gravação do contacto inteiro — honesto: se o
-        // segundo upsert falhar, o erro propaga-se normalmente.
-        if (error.code === 'PGRST204') {
-          const { phone: _p, whatsapp: _w, ...legacyPayload } = payload;
-          const retry = await supabase
+      return await gravarDados(
+        'contacts', 'insert', undefined, [payload],
+        { upsert: true, onConflict: 'id' },
+        async () => {
+          const { data, error } = await supabase
             .from('contacts')
-            .upsert([legacyPayload])
+            .upsert([payload])
             .select();
-          if (retry.error) throw retry.error;
-          return retry.data;
-        }
-        throw error;
-      }
-      return data;
+          if (error) {
+            // Janela antes do v19 ser aplicado no SQL Editor: as colunas
+            // phone/whatsapp ainda não existem (PGRST204). Tenta de novo sem elas
+            // em vez de falhar a gravação do contacto inteiro — honesto: se o
+            // segundo upsert falhar, o erro propaga-se normalmente.
+            if (error.code === 'PGRST204') {
+              const { phone: _p, whatsapp: _w, ...legacyPayload } = payload;
+              const retry = await supabase
+                .from('contacts')
+                .upsert([legacyPayload])
+                .select();
+              if (retry.error) throw retry.error;
+              return retry.data;
+            }
+            throw error;
+          }
+          return data;
+        },
+      );
     } catch (e) {
       console.error('Supabase insertContact error:', e);
       throw e;
@@ -756,12 +930,18 @@ export const supabaseService = {
   async deleteContact(contactId: number) {
     if (!hasValidSupabaseKeys()) return null;
     try {
-      const { data, error } = await supabase
-        .from('contacts')
-        .delete()
-        .eq('id', contactId);
-      if (error) throw error;
-      return data;
+      return await gravarDados(
+        'contacts', 'delete', { id: contactId }, undefined,
+        undefined,
+        async () => {
+          const { data, error } = await supabase
+            .from('contacts')
+            .delete()
+            .eq('id', contactId);
+          if (error) throw error;
+          return data;
+        },
+      );
     } catch (e) {
       console.error('Supabase deleteContact error:', e);
       return null;
@@ -788,11 +968,17 @@ export const supabaseService = {
       // statement INTEIRA falhava (insert revertido) e o catch engolia o erro
       // em silêncio: a auditoria desses papéis nunca era gravada. Sem .select()
       // o PostgREST usa return=minimal → escrita garantida; leitura segue admin.
-      const { error } = await supabase
-        .from('audit_logs')
-        .insert([payload]);
-      if (error) throw error;
-      return { written: true };
+      return await gravarDados(
+        'audit_logs', 'insert', undefined, [payload],
+        undefined,
+        async () => {
+          const { error } = await supabase
+            .from('audit_logs')
+            .insert([payload]);
+          if (error) throw error;
+          return { written: true };
+        },
+      );
     } catch (e) {
       console.warn('Supabase auditLog sync warning (non-blocking):', e?.message || e);
       return null;
@@ -815,12 +1001,18 @@ export const supabaseService = {
         status: req.status,
         institution: req.institution || 'AGT'
       };
-      const { data, error } = await supabase
-        .from('user_requests')
-        .upsert([payload])
-        .select();
-      if (error) throw error;
-      return data;
+      return await gravarDados(
+        'user_requests', 'insert', undefined, [payload],
+        { upsert: true, onConflict: 'id' },
+        async () => {
+          const { data, error } = await supabase
+            .from('user_requests')
+            .upsert([payload])
+            .select();
+          if (error) throw error;
+          return data;
+        },
+      );
     } catch (e) {
       console.error('Supabase userRequest error:', e);
       throw e;
@@ -842,12 +1034,18 @@ export const supabaseService = {
         status: req.status,
         ai_status: req.aiStatus || 'pre-approved'
       };
-      const { data, error } = await supabase
-        .from('document_requests')
-        .upsert([payload])
-        .select();
-      if (error) throw error;
-      return data;
+      return await gravarDados(
+        'document_requests', 'insert', undefined, [payload],
+        { upsert: true, onConflict: 'id' },
+        async () => {
+          const { data, error } = await supabase
+            .from('document_requests')
+            .upsert([payload])
+            .select();
+          if (error) throw error;
+          return data;
+        },
+      );
     } catch (e) {
       console.error('Supabase docRequest error:', e);
       throw e;
@@ -892,16 +1090,23 @@ export const supabaseService = {
     if (!hasValidSupabaseKeys()) return null;
     return readThroughMessagesCache(`inbox:${bi}`, async () => {
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('recipient_bi', bi)
-        .order('created_at', { ascending: false });
+      const linhas = await lerLinhasDados<LinhaMensagem>(
+        'messages',
+        { recipient_bi: bi },
+        { col: 'created_at', dir: 'desc' },
+        async () => {
+          const { data, error } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('recipient_bi', bi)
+            .order('created_at', { ascending: false });
+          if (error) throw error;
+          return (data || []) as LinhaMensagem[];
+        },
+      );
+      if (linhas === null) return null;
 
-      if (error) throw error;
-      if (!data) return [];
-
-      return data.map((item: LinhaMensagem) => {
+      return linhas.map((item: LinhaMensagem) => {
         return {
           id: Number(item.id),
           org: item.org,
@@ -950,23 +1155,30 @@ export const supabaseService = {
       // à conta demo/etiquetas antigas — fundi-lo numa conta real era a fuga que
       // mostrava correspondências de outras contas (BD partilhada).
       const target = realCode ? rawLabel.toUpperCase() : legacyTarget;
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('recipient_bi', target)
-        .order('created_at', { ascending: false });
+      const linhas = await lerLinhasDados<LinhaMensagem>(
+        'messages',
+        { recipient_bi: target },
+        { col: 'created_at', dir: 'desc' },
+        async () => {
+          const { data, error } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('recipient_bi', target)
+            .order('created_at', { ascending: false });
+          if (error) throw error;
+          return (data || []) as LinhaMensagem[];
+        },
+      );
+      if (linhas === null) return null;
 
-      if (error) throw error;
-      if (!data) return { messages: [], legacyIds: [] };
-
-      const senderBis = Array.from(new Set(data.map((item: LinhaMensagem) => item.sender_bi).filter((value: string) => !!value && !['AGT','SME','ENDE','EPAL','MINSA','TRIBUNAL','SYSTEM'].includes(value))));
+      const senderBis = Array.from(new Set(linhas.map((item: LinhaMensagem) => item.sender_bi).filter((value: string) => !!value && !['AGT','SME','ENDE','EPAL','MINSA','TRIBUNAL','SYSTEM'].includes(value))));
       let profilesByBi = new Map<string, string>();
       if (senderBis.length > 0) {
         const { data: profiles } = await supabase.from('profiles').select('bi,name').in('bi', senderBis);
         profilesByBi = new Map((profiles || []).map((item: LinhaPerfilNome) => [item.bi, item.name]));
       }
 
-      const mapped: Message[] = data.map((item: LinhaMensagem) => ({
+      const mapped: Message[] = linhas.map((item: LinhaMensagem) => ({
         id: Number(item.id),
         org: profilesByBi.has(item.sender_bi) ? `Cidadão: ${profilesByBi.get(item.sender_bi)}` : `Cidadão: ${item.sender_bi}`,
         preview: item.preview,
@@ -998,7 +1210,7 @@ export const supabaseService = {
       let legacyIds: number[] = [];
       if (realCode && legacyTarget !== target) {
         const { data: legacyRows } = await supabase.from('messages').select('id').eq('recipient_bi', legacyTarget);
-        const exactIds = new Set(data.map((item: LinhaMensagem) => Number(item.id)));
+        const exactIds = new Set(linhas.map((item: LinhaMensagem) => Number(item.id)));
         legacyIds = (legacyRows || []).map((item: LinhaMensagem) => Number(item.id)).filter(id => !exactIds.has(id));
       }
       return { messages, legacyIds } as InstitutionMailboxBundle;
@@ -1012,14 +1224,22 @@ export const supabaseService = {
     if (!hasValidSupabaseKeys()) return null;
     return readThroughMessagesCache(`sent:${senderBi}`, async () => {
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('sender_bi', senderBi)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      if (!data) return [];
-      return data.map((item: LinhaMensagem) => ({
+      const linhas = await lerLinhasDados<LinhaMensagem>(
+        'messages',
+        { sender_bi: senderBi },
+        { col: 'created_at', dir: 'desc' },
+        async () => {
+          const { data, error } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('sender_bi', senderBi)
+            .order('created_at', { ascending: false });
+          if (error) throw error;
+          return (data || []) as LinhaMensagem[];
+        },
+      );
+      if (linhas === null) return null;
+      return linhas.map((item: LinhaMensagem) => ({
         id: Number(item.id),
         org: item.org,
         preview: item.preview,
@@ -1062,13 +1282,20 @@ export const supabaseService = {
     if (!hasValidSupabaseKeys()) return null;
     return readThroughMessagesCache(`own:${recipientKey}|${senderKey}`, async () => {
       try {
-        const { data, error } = await supabase
-          .from('messages')
-          .select('*')
-          .or(`recipient_bi.eq.${recipientKey},sender_bi.eq.${senderKey}`)
-          .order('created_at', { ascending: false });
-        if (error) throw error;
-        const rows = (data || []) as LinhaMensagem[];
+        const rows = (await lerLinhasDados<LinhaMensagem>(
+          'messages',
+          undefined,
+          { col: 'created_at', dir: 'desc' },
+          async () => {
+            const { data, error } = await supabase
+              .from('messages')
+              .select('*')
+              .or(`recipient_bi.eq.${recipientKey},sender_bi.eq.${senderKey}`)
+              .order('created_at', { ascending: false });
+            if (error) throw error;
+            return (data || []) as LinhaMensagem[];
+          },
+        )) || [];
         const norm = (v?: string | null) => (v || '').toUpperCase();
         const mapRow = (item: LinhaMensagem): Message => {
           // P0-A — chaves reais da nuvem (desestruturado: o contrato da
@@ -1119,15 +1346,22 @@ export const supabaseService = {
   async getDocuments(bi: string): Promise<Document[] | null> {
     if (!hasValidSupabaseKeys()) return null;
     try {
-      const { data, error } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('holder_bi', bi);
+      const linhas = await lerLinhasDados<LinhaDocumento>(
+        'documents',
+        { holder_bi: bi },
+        undefined,
+        async () => {
+          const { data, error } = await supabase
+            .from('documents')
+            .select('*')
+            .eq('holder_bi', bi);
+          if (error) throw error;
+          return (data || []) as LinhaDocumento[];
+        },
+      );
+      if (linhas === null) return null;
 
-      if (error) throw error;
-      if (!data) return [];
-
-      return data.map((item: LinhaDocumento) => ({
+      return linhas.map((item: LinhaDocumento) => ({
         name: item.name,
         validity: item.validity,
         code: item.code,
@@ -1148,15 +1382,22 @@ export const supabaseService = {
   async getContacts(bi: string): Promise<Contact[] | null> {
     if (!hasValidSupabaseKeys()) return null;
     try {
-      const { data, error } = await supabase
-        .from('contacts')
-        .select('*')
-        .eq('owner_bi', bi);
+      const linhas = await lerLinhasDados<LinhaContacto>(
+        'contacts',
+        { owner_bi: bi },
+        undefined,
+        async () => {
+          const { data, error } = await supabase
+            .from('contacts')
+            .select('*')
+            .eq('owner_bi', bi);
+          if (error) throw error;
+          return (data || []) as LinhaContacto[];
+        },
+      );
+      if (linhas === null) return null;
 
-      if (error) throw error;
-      if (!data) return [];
-
-      return data.map((item: LinhaContacto) => ({
+      return linhas.map((item: LinhaContacto) => ({
         id: Number(item.id),
         name: item.name,
         bi: item.bi,
@@ -1180,16 +1421,23 @@ export const supabaseService = {
   async getNotifications(bi: string): Promise<any[] | null> {
     if (!hasValidSupabaseKeys()) return null;
     try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('target_bi', bi)
-        .order('id', { ascending: false });
+      const linhas = await lerLinhasDados<LinhaNotificacaoRow>(
+        'notifications',
+        { target_bi: bi },
+        { col: 'id', dir: 'desc' },
+        async () => {
+          const { data, error } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('target_bi', bi)
+            .order('id', { ascending: false });
+          if (error) throw error;
+          return (data || []) as LinhaNotificacaoRow[];
+        },
+      );
+      if (linhas === null) return null;
 
-      if (error) throw error;
-      if (!data) return [];
-
-      return data.map((item: LinhaNotificacaoRow) => ({
+      return linhas.map((item: LinhaNotificacaoRow) => ({
         id: Number(item.id),
         title: item.title,
         message: item.message,
@@ -1226,12 +1474,17 @@ export const supabaseService = {
       // engolia o erro: o cidadao nunca recebia notificacoes de institucoes.
       // Sem .select() o PostgREST usa return=minimal → escrita garantida pela
       // policy de INSERT; a leitura continua restrita ao destinatario/admin.
-      const { error } = await supabase
-        .from('notifications')
-        .insert([payload]);
-
-      if (error) throw error;
-      return { written: true };
+      return await gravarDados(
+        'notifications', 'insert', undefined, [payload],
+        undefined,
+        async () => {
+          const { error } = await supabase
+            .from('notifications')
+            .insert([payload]);
+          if (error) throw error;
+          return { written: true };
+        },
+      );
     } catch (e) {
       console.error('Supabase insertNotification error:', e);
       return null;
@@ -1244,16 +1497,23 @@ export const supabaseService = {
   async getUserRequests(bi?: string): Promise<UserRequest[] | null> {
     if (!hasValidSupabaseKeys()) return null;
     try {
-      let query = supabase.from('user_requests').select('*');
-      if (bi) {
-        query = query.eq('user_bi', bi);
-      }
-      const { data, error } = await query.order('id', { ascending: false });
+      const linhas = await lerLinhasDados<LinhaUserRequest>(
+        'user_requests',
+        bi ? { user_bi: bi } : undefined,
+        { col: 'id', dir: 'desc' },
+        async () => {
+          let query = supabase.from('user_requests').select('*');
+          if (bi) {
+            query = query.eq('user_bi', bi);
+          }
+          const { data, error } = await query.order('id', { ascending: false });
+          if (error) throw error;
+          return (data || []) as LinhaUserRequest[];
+        },
+      );
+      if (linhas === null) return null;
 
-      if (error) throw error;
-      if (!data) return [];
-
-      return data.map((item: LinhaUserRequest) => ({
+      return linhas.map((item: LinhaUserRequest) => ({
         id: Number(item.id),
         user: item.user_name,
         type: item.service_type,
@@ -1276,16 +1536,23 @@ export const supabaseService = {
   async getDocRequests(bi?: string): Promise<DocRequest[] | null> {
     if (!hasValidSupabaseKeys()) return null;
     try {
-      let query = supabase.from('document_requests').select('*');
-      if (bi) {
-        query = query.eq('user_bi', bi);
-      }
-      const { data, error } = await query.order('id', { ascending: false });
+      const linhas = await lerLinhasDados<LinhaDocRequest>(
+        'document_requests',
+        bi ? { user_bi: bi } : undefined,
+        { col: 'id', dir: 'desc' },
+        async () => {
+          let query = supabase.from('document_requests').select('*');
+          if (bi) {
+            query = query.eq('user_bi', bi);
+          }
+          const { data, error } = await query.order('id', { ascending: false });
+          if (error) throw error;
+          return (data || []) as LinhaDocRequest[];
+        },
+      );
+      if (linhas === null) return null;
 
-      if (error) throw error;
-      if (!data) return [];
-
-      return data.map((item: LinhaDocRequest) => ({
+      return linhas.map((item: LinhaDocRequest) => ({
         id: Number(item.id),
         userName: item.user_name,
         userBi: item.user_bi,
@@ -1307,16 +1574,23 @@ export const supabaseService = {
   async getAuditLogs(): Promise<any[] | null> {
     if (!hasValidSupabaseKeys()) return null;
     try {
-      const { data, error } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .order('id', { ascending: false })
-        .limit(100);
+      const linhas = await lerLinhasDados<LinhaAuditLog>(
+        'audit_logs',
+        undefined,
+        { col: 'id', dir: 'desc' },
+        async () => {
+          const { data, error } = await supabase
+            .from('audit_logs')
+            .select('*')
+            .order('id', { ascending: false })
+            .limit(100);
+          if (error) throw error;
+          return (data || []) as LinhaAuditLog[];
+        },
+      );
+      if (linhas === null) return null;
 
-      if (error) throw error;
-      if (!data) return [];
-
-      return data.map((item: LinhaAuditLog) => ({
+      return linhas.map((item: LinhaAuditLog) => ({
         id: String(item.id),
         action: item.action,
         user: item.username,
@@ -1352,12 +1626,18 @@ export const supabaseService = {
         actions: [cor.status], // Store current status value in text array
         sensitivity: 'Correspondencia'
       };
-      const { data, error } = await supabase
-        .from('messages')
-        .upsert([payload])
-        .select();
-      if (error) throw error;
-      return data;
+      return await gravarDados(
+        'messages', 'insert', undefined, [payload],
+        { upsert: true, onConflict: 'id' },
+        async () => {
+          const { data, error } = await supabase
+            .from('messages')
+            .upsert([payload])
+            .select();
+          if (error) throw error;
+          return data;
+        },
+      );
     } catch (e) {
       console.error('Supabase insertCorrespondence error:', e);
       return null;
@@ -1373,18 +1653,26 @@ export const supabaseService = {
     // GET à tabela messages por execução do carregador).
     return readThroughMessagesCache('corr:all', async () => {
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .order('id', { ascending: false });
-      if (error) throw error;
-      if (!data) return [];
+      const linhas = await lerLinhasDados<LinhaMensagem>(
+        'messages',
+        undefined,
+        { col: 'id', dir: 'desc' },
+        async () => {
+          const { data, error } = await supabase
+            .from('messages')
+            .select('*')
+            .order('id', { ascending: false });
+          if (error) throw error;
+          return (data || []) as LinhaMensagem[];
+        },
+      );
+      if (linhas === null) return null;
       
       const provinces = ['luanda', 'benguela', 'cabinda', 'cuanza norte', 'cuanza sul', 'cunene', 'huambo', 'huíla', 'cuando cubango', 'lunda norte', 'lunda sul', 'moxico', 'namibe', 'uíge', 'zaire', 'bengo', 'bié', 'malanje'];
       
       // Filter out messages that represent general personal messages of citizen
       // Keep only those with sensitivity 'Correspondencia' or that fallback to provinces in deadline_text
-      const filtered = data.filter((item: LinhaMensagem) => {
+      const filtered = linhas.filter((item: LinhaMensagem) => {
         if (item.sensitivity === 'Correspondencia') return true;
         if (item.deadline_text && provinces.includes(item.deadline_text.toLowerCase())) return true;
         return false;
@@ -1416,12 +1704,20 @@ export const supabaseService = {
   async getDigitalProtocols(): Promise<any[] | null> {
     if (!hasValidSupabaseKeys()) return null;
     try {
-      const { data, error } = await supabase
-        .from('digital_protocols')
-        .select('*')
-        .order('official_issue_date', { ascending: false });
-      if (error) throw error;
-      return data;
+      const linhas = await lerLinhasDados<any>(
+        'digital_protocols',
+        undefined,
+        { col: 'id', dir: 'desc' },
+        async () => {
+          const { data, error } = await supabase
+            .from('digital_protocols')
+            .select('*')
+            .order('official_issue_date', { ascending: false });
+          if (error) throw error;
+          return (data || []) as any[];
+        },
+      );
+      return linhas || [];
     } catch (e) {
       console.error('Supabase getDigitalProtocols error:', e);
       return null;
@@ -1438,13 +1734,22 @@ export const supabaseService = {
     if (!hasValidSupabaseKeys()) return { protocol: null, errorCode: 'SEM_CHAVES' };
     if (!protocolNumber) return { protocol: null, errorCode: 'SEM_NUMERO' };
     try {
-      const { data, error } = await supabase
-        .from('digital_protocols')
-        .select('protocol_number, digital_signature, legal_validity, official_issue_date, official_time, issuer_responsible, current_state, qr_code_url')
-        .eq('protocol_number', protocolNumber)
-        .maybeSingle();
-      if (error) return { protocol: null, errorCode: String((error as any)?.code || 'ERRO') };
-      return { protocol: data || null };
+      const linhas = await lerLinhasDados<any>(
+        'digital_protocols',
+        { protocol_number: protocolNumber },
+        undefined,
+        async () => {
+          const { data, error } = await supabase
+            .from('digital_protocols')
+            .select('protocol_number, digital_signature, legal_validity, official_issue_date, official_time, issuer_responsible, current_state, qr_code_url')
+            .eq('protocol_number', protocolNumber)
+            .maybeSingle();
+          if (error) throw error;
+          return data ? [data] : [];
+        },
+      );
+      if (linhas === null) return { protocol: null, errorCode: 'ERRO_LEITURA' };
+      return { protocol: linhas[0] || null };
     } catch (e) {
       console.error('Supabase getDigitalProtocolByNumber error:', e);
       return { protocol: null, errorCode: String(e?.code || 'ERRO') };
@@ -1634,11 +1939,17 @@ export const supabaseService = {
       // existentes na base sao so de instituicoes). Sem .select() o PostgREST
       // usa return=minimal → escrita garantida pela policy de INSERT; a
       // leitura continua restrita por RLS como antes.
-      const { error } = await supabase
-        .from('digital_protocols')
-        .insert([payload]);
-      if (error) throw error;
-      return { written: true };
+      return await gravarDados(
+        'digital_protocols', 'insert', undefined, [payload],
+        undefined,
+        async () => {
+          const { error } = await supabase
+            .from('digital_protocols')
+            .insert([payload]);
+          if (error) throw error;
+          return { written: true };
+        },
+      );
     } catch (e) {
       console.error('Supabase insertDigitalProtocol error:', e);
       return null;

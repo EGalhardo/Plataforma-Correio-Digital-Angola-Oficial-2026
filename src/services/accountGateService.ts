@@ -36,7 +36,7 @@ export interface CitizenRegistrationRead {
   /** Estado da linha MAIS RECENTE da fila oficial; null = B.I. sem registo. */
   status: string | null;
   /** Via usada: RPC security-definer (v16) → SELECT directo → indisponível. */
-  source: 'rpc' | 'select' | 'unavailable';
+  source: 'rpc' | 'select' | 'proxy' | 'unavailable';
 }
 
 /**
@@ -68,7 +68,20 @@ export const readCitizenRegistrationStatus = async (
     } catch { /* fallback */ }
   }
 
-  // 2) Fallback: SELECT directo (verdadeiro apenas com sessão do titular/admin)
+  // 2) Fallback: SELECT directo + proxy do servidor (2026-08-20). O gate corre
+  // ANTES do login (sem sessão) — o proxy responde a leitura pública restrita
+  // (bi_numero+status) e devolve o estado real mesmo com a RLS endurecida.
+  try {
+    const r = await fetch('/api/dados', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tabela: 'solicitacoes_registo', operacao: 'select', filtros: { bi_numero: cleanBi }, limite: 5 }),
+    });
+    const j = await r.json().catch(() => null);
+    if (j && j.ok && Array.isArray(j.linhas) && j.linhas.length) {
+      return { ok: true, status: j.linhas[0].status ? String(j.linhas[0].status) : null, source: 'proxy' };
+    }
+  } catch { /* indisponível */ }
   if (client.from) {
     try {
       const { data, error } = await client

@@ -30,6 +30,7 @@ import { MUNICIPALITIES_BY_PROVINCE, CITIES_BY_PROVINCE, COMMUNES_BY_MUNICIPALIT
 import { useInstitutions } from '../../services/institutionStore';
 import { useSession } from '../../services/sessionStore';
 import { supabaseService } from '../../services/supabaseService';
+import { registoPublicoProxy } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore } from '../../services/homologationStore';
 import { parseInstPack, isInstitutionObservacao, normalizeInstCode, getLocalInstRegs, updateLocalInstReg } from '../../services/institutionRegistrationStore';
@@ -410,10 +411,19 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     const ready = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
     if (ready) {
       try {
-        const { data, error } = await supabase
-          .from('solicitacoes_registo')
-          .select('*')
-          .order('criado_em', { ascending: false });
+        let data: any[] | null = null; let error: any = null;
+        const viaProxy = await registoPublicoProxy('select');
+        if (viaProxy === null) {
+          const d = await supabase
+            .from('solicitacoes_registo')
+            .select('*')
+            .order('criado_em', { ascending: false });
+          data = (d.data as any[] | null); error = d.error;
+        } else if (viaProxy.ok) {
+          data = (viaProxy.linhas || []) as any[];
+        } else {
+          console.warn('[INSTREG] leitura da fila via servidor falhou:', viaProxy.erro);
+        }
         if (!error && data) {
           for (const row of data as any[]) {
             if (isInstitutionObservacao(row?.observacoes)) {
@@ -642,6 +652,11 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     const ready = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
     if (!ready || !row.id || String(row.id) === String(row.bi_numero)) return;
     try {
+      const viaProxy = await registoPublicoProxy('update', { id: row.id }, { status });
+      if (viaProxy !== null) {
+        if (!viaProxy.ok) console.warn('Actualização da solicitação via servidor falhou:', viaProxy.erro);
+        return;
+      }
       const { error } = await supabase.from('solicitacoes_registo').update({ status }).eq('id', row.id);
       if (error) console.error('Erro a actualizar estado da solicitação na nuvem:', error);
     } catch (e) { console.warn('Actualização cloud indisponível:', e); }

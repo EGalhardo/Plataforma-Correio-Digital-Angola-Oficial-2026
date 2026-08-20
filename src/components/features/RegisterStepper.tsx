@@ -20,6 +20,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import { registoPublicoProxy } from '../../services/supabaseService';
 import { homologationStore, notifyRegistrationSubmitted, notifyAccountApproved } from '../../services/homologationStore';
 import { requestPviVerification, buildPvicMarker, type PviVerdict } from '../../services/preVerificationService';
 import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticCitizenEmail } from '../../services/cloudAuthService';
@@ -704,9 +705,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         setSubmitMessage('Registando dados no Supabase Database...');
 
         // Insert to Supabase table: solicitacoes_registo
-        const { error: insertErr } = await supabase
-          .from('solicitacoes_registo')
-          .insert([{
+        const payloadRegisto = {
             nome: newUser.name,
             email: newUser.contact,
             // F43 (Auditoria F42 #3): password_hash removido — a senha REAL vive
@@ -728,7 +727,23 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
             + (pviVerdict ? ` ${buildPvicMarker(pviVerdict)}` : '')
             + (effectiveAutoApproved ? ' | Aprovado automaticamente por Pré-Verificação Inteligente (IA).' : '')
             + (cloudPreExisting ? ' | Re-registo após eliminação da conta anterior — aprovação automática suprimida (F47): aguarda nova decisão da Administração.' : '')
-          }]);
+          };
+        // 2026-08-20 — Modo Real: gravar via proxy do servidor (service role).
+        // Contas demo são recusadas pelo servidor (403 'demo') e seguem o
+        // caminho directo de sempre. Erros reais do proxy param o fluxo.
+        let insertErr: any = null;
+        const viaProxy = await registoPublicoProxy('insert', undefined, payloadRegisto);
+        if (viaProxy !== null) {
+          if (!viaProxy.ok && viaProxy.erro !== 'demo') {
+            insertErr = { code: 'PROXY', message: viaProxy.erro || 'Falha ao registar na base central.' };
+          }
+        }
+        if (viaProxy === null || (viaProxy && viaProxy.erro === 'demo')) {
+          const { error: directErr } = await supabase
+            .from('solicitacoes_registo')
+            .insert([payloadRegisto]);
+          insertErr = directErr;
+        }
 
         if (insertErr) {
           if (insertErr.code === '23505') {

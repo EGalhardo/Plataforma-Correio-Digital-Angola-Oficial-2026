@@ -117,6 +117,26 @@ export const resolveStorageUrl = async (
     } catch { /* nada a fazer */ }
   }
 
+  // 2026-08-20 — Modo Real: com a RLS de storage endurecida o cliente sem
+  // claims não assina objetos de buckets privados. Com sessão Supabase, o
+  // servidor assina com a service role (/api/url-assinada).
+  try {
+    const { data: sessao } = await supabase.auth.getSession();
+    const token = sessao?.session?.access_token;
+    if (token) {
+      const r = await fetch('/api/url-assinada', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ref: s }),
+      });
+      const j = await r.json().catch(() => null);
+      if (j && j.ok && j.url) {
+        signedCache.set(key, { url: j.url, expiresAt: Date.now() + ttlSeconds * 1000 });
+        return j.url;
+      }
+    }
+  } catch { /* melhor esforço */ }
+
   return '';
 };
 

@@ -1651,6 +1651,441 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
       }
     }
 
+// ============================================================================
+// PROXY CRUD /api/dados — persistência do MODO REAL (2026-08-20)
+// ----------------------------------------------------------------------------
+// A RLS endurecida de produção oculta TODAS as tabelas do cliente anon:
+// leituras voltam vazias e escritas falham em silêncio (o "Modo Real" parecia
+// funcionar mas nada era persistido — os dados "voltavam ao estado anterior").
+// Este proxy executa o CRUD NO SERVIDOR com a service role, autenticado pelo
+// token da sessão Supabase do utilizador, com escopo de titularidade por
+// tabela (espelha a intenção do production_hardening.sql) e colunas em
+// whitelist. Contas demo canónicas são recusadas (403 'demo') — o Modo Demo
+// permanece 100% local e intocado. O INSERT em `solicitacoes_registo` é o
+// único permitido sem token (é o passo público de registo).
+// ============================================================================
+
+const DADOS_DEMO_BIS = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP'];
+
+// Colunas permitidas por tabela (escrita); leitura devolve a linha completa.
+const DADOS_COLUNAS: Record<string, Record<string, boolean>> = {
+  messages: {
+    id: true, sender_bi: true, recipient_bi: true, org: true, preview: true, unread: true,
+    status: true, subject: true, body: true, deadline_text: true, state_indicator: true,
+    actions: true, attachments: true, sensitivity: true, priority_scale: true,
+    deadline_hours_remaining: true, protocol_number: true, created_at: true,
+  },
+  contacts: { id: true, owner_bi: true, name: true, bi: true, relation: true, status: true, type: true, phone: true, whatsapp: true },
+  notifications: { id: true, target_bi: true, title: true, message: true, time_text: true, type: true, target_tab: true, unread: true },
+  user_requests: { id: true, user_bi: true, user_name: true, service_type: true, priority: true, time_text: true, status: true, institution: true, request_date: true },
+  document_requests: { id: true, user_bi: true, user_name: true, doc_type: true, institution: true, request_date: true, status: true, ai_status: true },
+  documents: { name: true, validity: true, code: true, holder_bi: true, document_number: true, issuer: true, issued_at: true },
+  digital_protocols: {
+    protocol_number: true, issuer_institution: true, official_issue_date: true, official_time: true,
+    issuer_responsible: true, category: true, document_type: true, current_state: true, priority: true,
+    qr_code_url: true, digital_signature: true, legal_validity: true, document_hash: true,
+    org: true, internal_id: true, digital_seal: true, deadline_date: true,
+  },
+  audit_logs: { action: true, username: true, action_type: true, timestamp: true },
+  message_state_history: { message_id: true, state: true, responsible: true, description: true, created_at: true },
+  solicitacoes_registo: { nome: true, email: true, bi_numero: true, url_frente: true, url_verso: true, url_selfie: true, status: true, observacoes: true, criado_em: true },
+};
+
+interface DadosIdentidade {
+  bi: string; email: string; role: string;
+  isAdmin: boolean; isInst: boolean; instCode: string; demo: boolean;
+}
+
+type EscopoFiltros = { or: string[]; and: Record<string, string> } | null;
+
+const DADOS_TABELAS: Record<string, {
+  select: boolean; insert: boolean; update: boolean; delete: boolean;
+  publicInsert?: boolean; upsert?: boolean;
+  escopo: (ident: DadosIdentidade) => EscopoFiltros;
+  injetar: (ident: DadosIdentidade, dados: Record<string, any>) => Record<string, any> | null;
+}> = {
+  messages: {
+    select: true, insert: true, update: true, delete: false, upsert: true,
+    escopo: (i) => i.isAdmin ? { or: [], and: {} }
+      : i.isInst ? { or: [`recipient_bi.eq.${i.instCode || i.bi}`, `sender_bi.eq.${i.instCode || i.bi}`, `org.eq.${i.instCode || i.bi}`], and: {} }
+      : { or: [`recipient_bi.eq.${i.bi}`, `sender_bi.eq.${i.bi}`], and: {} },
+    injetar: (i, d) => {
+      if (i.isAdmin) return { ...d, sender_bi: d.sender_bi || 'CDA' };
+      const sender = i.isInst ? (i.instCode || i.bi) : i.bi;
+      return { ...d, sender_bi: sender, ...(i.isInst ? { org: i.instCode || i.bi } : {}) };
+    },
+  },
+  contacts: {
+    select: true, insert: true, update: true, delete: true, upsert: true,
+    escopo: (i) => i.isAdmin || i.isInst ? { or: [], and: {} } : { or: [], and: { owner_bi: i.bi } },
+    injetar: (i, d) => (i.isAdmin || i.isInst) ? d : { ...d, owner_bi: i.bi },
+  },
+  notifications: {
+    select: true, insert: true, update: true, delete: false,
+    escopo: (i) => i.isAdmin ? { or: [], and: {} }
+      : { or: [], and: {} }, // leitura abaixo tratada por filtro do cliente (target_bi próprio)
+    injetar: (i, d) => d,
+  },
+  user_requests: {
+    select: true, insert: true, update: true, delete: false, upsert: true,
+    escopo: (i) => i.isAdmin ? { or: [], and: {} } : { or: [], and: { user_bi: i.bi } },
+    injetar: (i, d) => i.isAdmin ? d : { ...d, user_bi: i.bi },
+  },
+  document_requests: {
+    select: true, insert: true, update: true, delete: false, upsert: true,
+    escopo: (i) => i.isAdmin ? { or: [], and: {} } : { or: [], and: { user_bi: i.bi } },
+    injetar: (i, d) => i.isAdmin ? d : { ...d, user_bi: i.bi },
+  },
+  documents: {
+    select: true, insert: true, update: true, delete: true, upsert: true,
+    escopo: (i) => i.isAdmin ? { or: [], and: {} } : { or: [], and: { holder_bi: i.bi } },
+    injetar: (i, d) => i.isAdmin ? d : { ...d, holder_bi: i.bi },
+  },
+  digital_protocols: {
+    select: true, insert: true, update: false, delete: false,
+    // Cidadão/instituição só leem por número de protocolo — a guarda está no
+    // handler (filtros.protocol_number obrigatório para não-admin).
+    escopo: (_i) => ({ or: [], and: {} }),
+    injetar: (_i, d) => d,
+  },
+  audit_logs: {
+    select: true, insert: true, update: false, delete: false,
+    escopo: (i) => (i.isAdmin ? { or: [], and: {} } : null),
+    injetar: (i, d) => ({ ...d, username: d.username || i.bi || i.email || 'Utilizador' }),
+  },
+  message_state_history: {
+    select: true, insert: true, update: false, delete: false,
+    escopo: (i) => i.isAdmin ? { or: [], and: {} } : { or: [], and: {} },
+    injetar: (_i, d) => d,
+  },
+  solicitacoes_registo: {
+    select: true, insert: true, update: true, delete: true,
+    publicInsert: true,
+    escopo: (i) => (i && i.isAdmin) ? { or: [], and: {} } : (i ? { or: [], and: { bi_numero: i.bi } } : { or: [], and: {} }),
+    injetar: (i, d) => (i && !i.isAdmin) ? { ...d, bi_numero: i.bi } : d,
+  },
+};
+
+// Resolve a identidade a partir do token de sessão Supabase.
+async function dadosResolverIdentidade(supaUrl: string, serviceKey: string, token: string): Promise<DadosIdentidade | { erro: string }> {
+  try {
+    const r = await fetch(`${supaUrl}/auth/v1/user`, {
+      headers: { apikey: serviceKey, Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) return { erro: 'Sessão inválida ou expirada. Inicie sessão novamente.' };
+    const u = await r.json();
+    const meta: any = { ...(u.app_metadata || {}), ...(u.user_metadata || {}) };
+    let bi = String(meta.bi || '').trim().toUpperCase();
+    if (!bi && u.email) {
+      try {
+        const pr = await fetch(`${supaUrl}/rest/v1/profiles?email=eq.${encodeURIComponent(u.email)}&select=bi&limit=1`, {
+          headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+        });
+        const rows = await pr.json().catch(() => []);
+        bi = (rows && rows[0] && rows[0].bi) ? String(rows[0].bi).toUpperCase() : '';
+      } catch { /* melhor esforço */ }
+    }
+    const role = String(meta.role || '').toLowerCase();
+    return {
+      bi, email: u.email || '', role,
+      isAdmin: role === 'admin',
+      isInst: role === 'instituicao',
+      instCode: String(meta.instituicao || '').trim().toUpperCase(),
+      demo: !!bi && DADOS_DEMO_BIS.includes(bi),
+    };
+  } catch {
+    return { erro: 'Serviço de identidade indisponível. Tente novamente.' };
+  }
+}
+
+// Filtros de cliente: só colunas conhecidas; valores limitados.
+function dadosSanitizarFiltros(tabela: string, filtros: any): Record<string, string> | null {
+  if (!filtros || typeof filtros !== 'object' || Array.isArray(filtros)) return {};
+  const cols = DADOS_COLUNAS[tabela];
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(filtros)) {
+    if (!cols[k]) return null;
+    out[k] = String(v).slice(0, 200);
+  }
+  return out;
+}
+
+function dadosSanitizarLinha(tabela: string, linha: any): Record<string, any> | null {
+  if (!linha || typeof linha !== 'object' || Array.isArray(linha)) return null;
+  const cols = DADOS_COLUNAS[tabela];
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(linha)) {
+    if (!cols[k]) continue;
+    if (typeof v === 'string' && v.length > 10000) out[k] = v.slice(0, 10000);
+    else if (v === null || ['string', 'number', 'boolean'].includes(typeof v)) out[k] = v;
+    else if (Array.isArray(v) && v.every(x => typeof x === 'string')) out[k] = v.slice(0, 50);
+  }
+  return out;
+}
+
+function dadosMontarQuery(filtros: Record<string, string>, escopo: EscopoFiltros): string {
+  const partes: string[] = [];
+  const and = { ...filtros, ...(escopo?.and || {}) };
+  for (const [k, v] of Object.entries(and)) {
+    if (v === undefined || v === null || v === '') continue;
+    partes.push(`${k}=eq.${encodeURIComponent(String(v))}`);
+  }
+  if (escopo?.or && escopo.or.length) partes.push(`or=(${escopo.or.join(',')})`);
+  return partes.join('&');
+}
+
+// Handler principal (idêntico em server.ts e api/index.ts).
+async function dadosExecutarPedido(opts: {
+  supaUrl: string; serviceKey: string; body: any; authorization?: string;
+}) {
+  const { supaUrl, serviceKey, body, authorization } = opts;
+  const tabela = String(body?.tabela || '');
+  const operacao = String(body?.operacao || '');
+  const tab = DADOS_TABELAS[tabela];
+  if (!tab) return { status: 400, json: { ok: false, erro: 'Tabela desconhecida.' } };
+  if (!(operacao === 'select' && tab.select) && !(operacao === 'insert' && tab.insert)
+    && !(operacao === 'update' && tab.update) && !(operacao === 'delete' && tab.delete)) {
+    return { status: 400, json: { ok: false, erro: 'Operação não suportada para esta tabela.' } };
+  }
+  const token = String(authorization || '').replace(/^Bearer\s+/i, '').trim();
+  let ident: DadosIdentidade | null = null;
+  if (token) {
+    const res = await dadosResolverIdentidade(supaUrl, serviceKey, token);
+    if ('erro' in res) return { status: 401, json: { ok: false, erro: res.erro } };
+    if (res.demo) return { status: 403, json: { ok: false, erro: 'demo' } };
+    ident = res;
+  } else if (!((operacao === 'insert' && tab.publicInsert)
+    || (operacao === 'select' && tabela === 'solicitacoes_registo'))) {
+    return { status: 401, json: { ok: false, erro: 'Sessão obrigatória para esta operação.' } };
+  }
+
+  const filtros = dadosSanitizarFiltros(tabela, body?.filtros);
+  if (filtros === null) return { status: 400, json: { ok: false, erro: 'Filtro inválido.' } };
+
+  // Leitura de digital_protocols por cidadão/instituição: só por número de protocolo.
+  if (tabela === 'digital_protocols' && ident && !ident.isAdmin && operacao === 'select') {
+    if (!filtros.protocol_number) return { status: 403, json: { ok: false, erro: 'Sem permissão para ler todos os protocolos.' } };
+  }
+  // Histórico de estados: não-admin só por message_id.
+  if (tabela === 'message_state_history' && ident && !ident.isAdmin && operacao === 'select') {
+    if (!filtros.message_id) return { status: 403, json: { ok: false, erro: 'Sem permissão para ler todo o histórico.' } };
+  }
+  // Notificações: leitura restrita ao próprio destino (ou admin).
+  if (tabela === 'notifications' && ident && !ident.isAdmin && operacao === 'select') {
+    const destino = filtros.target_bi || ident.bi || ident.instCode;
+    filtros.target_bi = destino;
+  }
+  // update/delete exigem filtro de linha (nunca em massa).
+  if ((operacao === 'update' || operacao === 'delete') && !Object.keys(filtros).length) {
+    return { status: 400, json: { ok: false, erro: 'Filtro de linha obrigatório para atualizar/eliminar.' } };
+  }
+
+  const headers: Record<string, string> = {
+    apikey: serviceKey,
+    Authorization: `Bearer ${serviceKey}`,
+    'Content-Type': 'application/json',
+  };
+
+  try {
+    if (operacao === 'select') {
+      const ordem = body?.ordem && body.ordem.col && ['id', 'created_at', 'request_date'].includes(body.ordem.col)
+        ? `order=${body.ordem.col}.${body.ordem.dir === 'asc' ? 'asc' : 'desc'}` : 'order=id.desc';
+      const limite = Number(body?.limite) > 0 && Number(body.limite) <= 2000 ? Number(body.limite) : 200;
+      const escopo = tab.escopo(ident as DadosIdentidade);
+      if (escopo === null) return { status: 403, json: { ok: false, erro: 'Sem permissão para ler esta tabela.' } };
+      const q = dadosMontarQuery(filtros, escopo);
+      // Registo público (sem sessão): só metadados mínimos da fila de registo.
+      let selectCols = '*';
+      if (tabela === 'solicitacoes_registo' && !ident) {
+        selectCols = filtros.bi_numero ? 'bi_numero,status' : 'bi_numero,status,observacoes';
+      }
+      const r = await fetch(`${supaUrl}/rest/v1/${tabela}?select=${selectCols}&${q}&${ordem}&limit=${limite}`, { headers });
+      if (!r.ok) return { status: r.status, json: { ok: false, erro: `Leitura falhou (${r.status}).` } };
+      const linhas = await r.json().catch(() => []);
+      return { status: 200, json: { ok: true, linhas: Array.isArray(linhas) ? linhas : [] } };
+    }
+
+    if (operacao === 'insert') {
+      const cru = Array.isArray(body?.dados) ? body.dados : [body?.dados];
+      if (!cru.length || !cru[0] || typeof cru[0] !== 'object') return { status: 400, json: { ok: false, erro: 'dados ausentes.' } };
+      const linhas: Record<string, any>[] = [];
+      for (const l of cru) {
+        const limpa = dadosSanitizarLinha(tabela, l);
+        if (!limpa) return { status: 400, json: { ok: false, erro: 'Linha inválida.' } };
+        // Contas demo canónicas nunca entram na base real (protege o Modo Demo).
+        if (limpa.bi_numero && DADOS_DEMO_BIS.includes(String(limpa.bi_numero).toUpperCase())) {
+          return { status: 403, json: { ok: false, erro: 'demo' } };
+        }
+        const inj = tab.injetar(ident as DadosIdentidade, limpa);
+        if (inj === null) return { status: 403, json: { ok: false, erro: 'Sem permissão para inserir nesta tabela.' } };
+        linhas.push(inj);
+      }
+      // Garantia de perfil (FK owner_bi/sender_bi/recipient_bi → profiles):
+      // espelha ensureProfileExists, agora com service role (o cliente real
+      // não consegue criar a própria linha sob RLS endurecida).
+      const perfisAGarantir = new Set<string>();
+      for (const linha of linhas) {
+        if (tabela === 'contacts' && linha.owner_bi) perfisAGarantir.add(String(linha.owner_bi));
+        if (tabela === 'messages') {
+          if (linha.sender_bi) perfisAGarantir.add(String(linha.sender_bi));
+          if (linha.recipient_bi) perfisAGarantir.add(String(linha.recipient_bi));
+        }
+      }
+      for (const biPerfil of perfisAGarantir) {
+        try {
+          await fetch(`${supaUrl}/rest/v1/profiles?on_conflict=bi`, {
+            method: 'POST',
+            headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json', Prefer: 'resolution=ignore-duplicates,return=minimal' },
+            body: JSON.stringify([{ bi: biPerfil, name: biPerfil, role: 'user' }]),
+          });
+        } catch { /* melhor esforço — FK decide */ }
+      }
+      let pref = 'Prefer: return=minimal';
+      if (body?.retorno) pref = 'Prefer: return=representation';
+      if (tab.upsert && body?.upsert) pref += ', resolution=merge-duplicates';
+      const q = tab.upsert && body?.upsert ? `?on_conflict=${body.onConflict || 'id'}` : '';
+      const r = await fetch(`${supaUrl}/rest/v1/${tabela}${q}`, {
+        method: 'POST', headers: { ...headers, Prefer: pref }, body: JSON.stringify(linhas),
+      });
+      if (!r.ok) {
+        const txt = await r.text().catch(() => '');
+        return { status: r.status, json: { ok: false, erro: `Gravação falhou (${r.status}). ${txt.slice(0, 160)}` } };
+      }
+      const resp = body?.retorno ? await r.json().catch(() => []) : [];
+      return { status: 200, json: { ok: true, linhas: Array.isArray(resp) ? resp : [resp].filter(Boolean), gravado: true } };
+    }
+
+    if (operacao === 'update' || operacao === 'delete') {
+      const escopo = tab.escopo(ident as DadosIdentidade);
+      if (escopo === null) return { status: 403, json: { ok: false, erro: 'Sem permissão para alterar esta tabela.' } };
+      const q = dadosMontarQuery(filtros, escopo);
+      if (operacao === 'update') {
+        const limpa = dadosSanitizarLinha(tabela, body?.dados);
+        if (!limpa || !Object.keys(limpa).length) return { status: 400, json: { ok: false, erro: 'Nada para atualizar.' } };
+        // return=representation: deteta o no-op silencioso (RLS/escopo sem match).
+        const r = await fetch(`${supaUrl}/rest/v1/${tabela}?${q}`, {
+          method: 'PATCH', headers: { ...headers, Prefer: 'return=representation' }, body: JSON.stringify(limpa),
+        });
+        if (!r.ok) {
+          const txt = await r.text().catch(() => '');
+          return { status: r.status, json: { ok: false, erro: `Atualização falhou (${r.status}). ${txt.slice(0, 160)}` } };
+        }
+        const tocadas = await r.json().catch(() => []);
+        if (!Array.isArray(tocadas) || tocadas.length === 0) {
+          return { status: 404, json: { ok: false, erro: 'Registo não encontrado (ou sem permissão sobre ele).' } };
+        }
+        return { status: 200, json: { ok: true, atualizado: true } };
+      }
+      const r = await fetch(`${supaUrl}/rest/v1/${tabela}?${q}`, {
+        method: 'DELETE', headers: { ...headers, Prefer: 'return=representation' },
+      });
+      if (!r.ok) {
+        const txt = await r.text().catch(() => '');
+        return { status: r.status, json: { ok: false, erro: `Eliminação falhou (${r.status}). ${txt.slice(0, 160)}` } };
+      }
+      const removidas = await r.json().catch(() => []);
+      if (!Array.isArray(removidas) || removidas.length === 0) {
+        return { status: 404, json: { ok: false, erro: 'Registo não encontrado (ou sem permissão sobre ele).' } };
+      }
+      return { status: 200, json: { ok: true, removido: true } };
+    }
+    return { status: 400, json: { ok: false, erro: 'Operação desconhecida.' } };
+  } catch (e: any) {
+    return { status: 500, json: { ok: false, erro: String(e).slice(0, 200) } };
+  }
+}
+
+async function dadosResolverEExecutar(opts: {
+  supaUrl: string; serviceKey: string; req: any;
+  body: any;
+}) {
+  const auth = String((opts.req.headers && (opts.req.headers.authorization || opts.req.headers.Authorization)) || '');
+  return dadosExecutarPedido({ supaUrl: opts.supaUrl, serviceKey: opts.serviceKey, body: opts.body, authorization: auth });
+}
+
+
+    // Rota do proxy CRUD do Modo Real (ver bloco PROXY CRUD acima).
+    if (url.includes('/api/dados') && method === 'POST') {
+      const supaUrlDados = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+      const serviceKeyDados = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+      if (!supaUrlDados || !serviceKeyDados) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      const r = await dadosResolverEExecutar({ supaUrl: supaUrlDados, serviceKey: serviceKeyDados, req, body: body || {} });
+      return res.status(r.status).json(r.json);
+    }
+
+    // /api/upload (Modo Real) — whitelist de buckets, máx. 10 MB.
+    const UPLOAD_BUCKETS_PERMITIDOS = ['fotos_perfil', 'kb_ficheiros', 'documentos_registo', 'correspondencias_anexos'];
+    if (url.includes('/api/upload') && method === 'POST') {
+      try {
+        const { bucket, caminho, base64, tipo } = body || {};
+        const serviceKeyUpload = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+        const supaUrlUpload = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+        if (!supaUrlUpload || !serviceKeyUpload) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        if (!bucket || !caminho || !base64) return res.status(400).json({ ok: false, erro: 'bucket, caminho e base64 são obrigatórios.' });
+        if (!UPLOAD_BUCKETS_PERMITIDOS.includes(String(bucket))) return res.status(400).json({ ok: false, erro: 'Bucket não permitido.' });
+        const caminhoLimpo = String(caminho).split('/').map((s: string) => s.replace(/[^\w.\-]+/g, '_')).join('/').replace(/^\.+/, '');
+        if (!caminhoLimpo || caminhoLimpo.includes('..')) return res.status(400).json({ ok: false, erro: 'Caminho inválido.' });
+        const buf = Buffer.from(base64, 'base64');
+        if (buf.length === 0 || buf.length > 10 * 1024 * 1024) return res.status(400).json({ ok: false, erro: 'Ficheiro vazio ou demasiado grande (máx. 10 MB).' });
+        const form = new FormData();
+        form.append('file', new Blob([buf], { type: tipo || 'application/octet-stream' }), caminhoLimpo.split('/').pop() || 'ficheiro');
+        const upResp = await fetch(`${supaUrlUpload}/storage/v1/object/${bucket}/${caminhoLimpo}`, {
+          method: 'POST',
+          headers: { apikey: serviceKeyUpload, Authorization: `Bearer ${serviceKeyUpload}` },
+          body: form,
+        });
+        if (!upResp.ok) {
+          const txt = await upResp.text();
+          return res.status(500).json({ ok: false, erro: txt.slice(0, 200) });
+        }
+        const publicUrl = `${supaUrlUpload}/storage/v1/object/public/${bucket}/${caminhoLimpo}`;
+        return res.status(200).json({ ok: true, url: publicUrl });
+      } catch (e: any) {
+        console.error('[UPLOAD] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
+    // /api/url-assinada (Modo Real) — assina objetos de storage com service role.
+    if (url.includes('/api/url-assinada') && method === 'POST') {
+      try {
+        const { ref } = body || {};
+        const s = String(ref || '').trim();
+        const serviceKeySign = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+        const supaUrlSign = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+        if (!supaUrlSign || !serviceKeySign) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        if (!s) return res.status(400).json({ ok: false, erro: 'ref ausente.' });
+        let bucket = ''; let path = '';
+        if (s.startsWith('storage:')) {
+          const rest = s.slice('storage:'.length);
+          const sep = rest.indexOf('/');
+          if (sep <= 0) return res.status(400).json({ ok: false, erro: 'Ref inválida.' });
+          bucket = rest.slice(0, sep); path = rest.slice(sep + 1);
+        } else {
+          const m = s.match(/\/storage\/v1\/object\/(?:public|sign)\/([^\/]+)\/(.+?)(?:\?.*)?$/);
+          if (!m) return res.status(400).json({ ok: false, erro: 'Ref inválida.' });
+          bucket = m[1]; path = decodeURIComponent(m[2]);
+        }
+        if (!UPLOAD_BUCKETS_PERMITIDOS.includes(bucket)) return res.status(400).json({ ok: false, erro: 'Bucket não permitido.' });
+        const signResp = await fetch(`${supaUrlSign}/storage/v1/object/sign/${bucket}/${path}`, {
+          method: 'POST',
+          headers: { apikey: serviceKeySign, Authorization: `Bearer ${serviceKeySign}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ expiresIn: 3600 }),
+        });
+        if (!signResp.ok) {
+          const txt = await signResp.text();
+          return res.status(500).json({ ok: false, erro: txt.slice(0, 200) });
+        }
+        const signJson = await signResp.json().catch(() => null);
+        const signed = signJson && (signJson.signedURL || signJson.signedUrl);
+        if (!signed) return res.status(500).json({ ok: false, erro: 'Falha ao assinar.' });
+        return res.status(200).json({ ok: true, url: signed });
+      } catch (e: any) {
+        console.error('[URL-ASSINADA] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
     // Fallback global de rotas
     return res.status(404).json({ error: "Endpoint não encontrado." });
 

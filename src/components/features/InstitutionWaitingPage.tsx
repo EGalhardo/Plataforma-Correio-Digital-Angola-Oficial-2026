@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { Landmark, RefreshCw, ShieldCheck, Clock, Send, AlertTriangle, Ban } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import { registoPublicoProxy } from '../../services/supabaseService';
 import { homologationStore } from '../../services/homologationStore';
 import { updateLocalInstReg } from '../../services/institutionRegistrationStore';
 
@@ -48,8 +49,13 @@ export function InstitutionWaitingPage({ code, name, onRefresh }: InstitutionWai
       if (ready) {
         void (async () => {
           try {
-            const { error } = await supabase.from('solicitacoes_registo').update({ status: 'Pendente' }).eq('bi_numero', code);
-            if (error) console.error('Erro ao devolver o pedido à análise na nuvem:', error);
+            const viaProxy = await registoPublicoProxy('update', { bi_numero: code }, { status: 'Pendente' });
+            if (viaProxy !== null) {
+              if (!viaProxy.ok) console.warn('Devolução à análise via servidor falhou:', viaProxy.erro);
+            } else {
+              const { error } = await supabase.from('solicitacoes_registo').update({ status: 'Pendente' }).eq('bi_numero', code);
+              if (error) console.error('Erro ao devolver o pedido à análise na nuvem:', error);
+            }
           } catch (e) { console.warn('Nuvem indisponível:', e); }
         })();
       }
