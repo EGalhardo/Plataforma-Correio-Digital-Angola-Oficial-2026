@@ -16,17 +16,24 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 
-/** Extrai o payload CDA de um valor guardado. Nunca devolve URL externo. */
+/** Extrai o payload CDA de um valor guardado. Nunca devolve URL externo de terceiros. */
 export function qrPayloadFromStored(stored?: string | null): string | null {
   const v = (stored || '').trim();
   if (!v) return null;
-  // Payload directo (formato actual)
+  // Payload directo (formato legado)
   if (v.startsWith('AO-PROTOCOL:')) return v;
-  // URL externo legado: resgata o payload do parâmetro data= e renderiza local
   if (/^https?:\/\//i.test(v)) {
     try {
-      const data = new URL(v).searchParams.get('data');
-      return data ? data : null;
+      const u = new URL(v);
+      // URL externo legado (api.qrserver.com): resgata o payload do parâmetro
+      // data= e renderiza local — nunca contacta o serviço externo.
+      const data = u.searchParams.get('data');
+      if (data) return data;
+      // Q-2 — deep-link da própria plataforma (?correspondencia=...): o QR
+      // renderiza o PRÓPRIO URL para o telemóvel abrir a correspondência.
+      if (u.searchParams.get('correspondencia')) return v;
+      // Qualquer outro domínio: nunca é renderizado (sem fuga de dados).
+      return null;
     } catch {
       return null;
     }

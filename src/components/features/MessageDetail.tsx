@@ -1453,6 +1453,24 @@ depende de integração futura com a infra-estrutura de chaves nacional.
     selectedMessage.details?.subject || selectedMessage.preview
   );
 
+  // Q-2 — ligação deep-link da correspondência (o QR codifica exactamente este
+  // endereço: digitalizar abre a mensagem na plataforma).
+  const [qrLinkCopiado, setQrLinkCopiado] = useState(false);
+  const copiarLinkQr = () => {
+    try {
+      const base = window.location.origin.replace(/\/+$/, '');
+      const link = `${base}/?correspondencia=${encodeURIComponent(protocol.protocolNumber)}`;
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(link)
+          .then(() => {
+            setQrLinkCopiado(true);
+            setTimeout(() => setQrLinkCopiado(false), 2000);
+          })
+          .catch(() => { /* clipboard indisponível — melhor esforço */ });
+      }
+    } catch { /* melhor esforço */ }
+  };
+
   const generatePreviewDataUrl = (fileName: string) => {
     const canvas = document.createElement('canvas');
     canvas.width = 800;
@@ -2606,6 +2624,43 @@ depende de integração futura com a infra-estrutura de chaves nacional.
       )}
 
 
+
+      {/* Q-2 — QR de localização: todas as correspondências têm QR para abrir
+          directamente na plataforma (deep-link) e validar na nuvem. */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-center gap-4 print:hidden">
+        <div
+          onClick={triggerVerification}
+          className="flex flex-col items-center shrink-0 border border-emerald-200 bg-emerald-50/40 p-2 rounded-xl shadow-sm cursor-pointer hover:bg-emerald-50 hover:border-emerald-300 active:scale-95 transition-all group"
+          title="Digitalize para localizar esta correspondência na plataforma"
+        >
+          <QrCodeImage
+            value={protocol.qrCodeUrl}
+            size={92}
+            className="w-[92px] h-[92px] object-contain transition-transform group-hover:scale-105"
+          />
+          <span className="text-[7.5px] font-mono text-emerald-700 uppercase mt-1.5 tracking-wider font-black flex items-center gap-1 leading-none">
+            <QrCode size={8} /> VALIDAR QR
+          </span>
+        </div>
+        <div className="flex-1 min-w-0 text-left space-y-1.5">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">QR Code de Localização</span>
+          <p className="text-xs font-bold text-slate-700 leading-relaxed">
+            Digitalize com o telemóvel para abrir esta correspondência directamente na plataforma.
+          </p>
+          <p className="font-mono text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1 inline-block">
+            {protocol.protocolNumber}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={copiarLinkQr}
+          className="shrink-0 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-extrabold text-[10px] uppercase tracking-wide transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+          title="Copiar ligação da correspondência"
+        >
+          <QrCode size={13} />
+          {qrLinkCopiado ? 'Copiado ✓' : 'Copiar ligação'}
+        </button>
+      </div>
 
       <section className={`border border-line rounded-2xl p-5 bg-white shadow-sm relative overflow-hidden select-none print:hidden ${sensConfig.screenshotProtection ? 'selection:bg-transparent' : ''}`}>
         <AnimatePresence mode="wait">

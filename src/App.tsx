@@ -24,6 +24,7 @@ import {
   ArrowLeft,
   Check,
   CheckCircle,
+  QrCode,
   IdCard,
   UserPlus,
   Send,
@@ -1181,7 +1182,7 @@ export default function App() {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [, setMessageSource] = useState('correspondencias');
   const [wasOpenedUnread, setWasOpenedUnread] = useState(false);
-  
+
   // Mic Activation State (UI only)
   const [iaLiveActive, setIaLiveActive] = useState(false);
   const chatAssistantRecognitionRef = useRef<any>(null); // Referência compartilhada do microfone
@@ -1195,6 +1196,71 @@ export default function App() {
   const isInstMode = appMode === 'institution';
   // F12 — auxiliar simétrico para a ideologia demo/real (conta cidadão).
   const isUserMode = appMode === 'user';
+
+  // ==========================================================================
+  // Q-2 — QR DEEP-LINK (?correspondencia=<protocolo>): digitalizar o QR de uma
+  // correspondência abre a própria mensagem na plataforma. O parâmetro é lido
+  // no arranque; a resolução acontece quando o utilizador entra no app (stage
+  // 'app'), procurando a mensagem nas caixas locais. Sem match após o prazo de
+  // merge da nuvem, verifica o registo REAL (RPC cda_validar_protocolo) e
+  // mostra um aviso honesto — nunca inventa a correspondência.
+  // ==========================================================================
+  const [qrTarget, setQrTarget] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const p = new URL(window.location.href).searchParams.get('correspondencia');
+      return p ? p.trim() : null;
+    } catch { return null; }
+  });
+  const qrTargetResolvedRef = useRef<string | null>(null);
+  const [qrNotice, setQrNotice] = useState<null | { protocolo: string; tipo: 'nao_encontrada' | 'outra_conta' | 'indisponivel' }>(null);
+
+  const limparQrDaUrl = () => {
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.delete('correspondencia');
+      u.searchParams.delete('id');
+      u.searchParams.delete('reg');
+      window.history.replaceState(null, '', `${u.pathname}${u.search}${u.hash}`);
+    } catch { /* melhor esforço */ }
+  };
+
+  // 1) Match local: a cada alteração das caixas, procura a mensagem pelo
+  // número de protocolo (formato normalizado — caixa alta, sem espaços).
+  useEffect(() => {
+    if (stage !== 'app' || !qrTarget) return;
+    if (qrTargetResolvedRef.current === qrTarget) return;
+    const alvoNormalizado = qrTarget.trim().toUpperCase();
+    const todas = [...inbox, ...instInbox, ...sentMessages];
+    const alvo = todas.find(m => (m.protocol?.protocolNumber || '').trim().toUpperCase() === alvoNormalizado);
+    if (!alvo) return; // caixas ainda podem estar a fundir — o deadline decide o negativo
+    qrTargetResolvedRef.current = qrTarget;
+    setQrTarget(null);
+    limparQrDaUrl();
+    setSelectedMessage(alvo);
+    setTab(isGovMode ? 'gov-correspondencias' : 'correspondencias');
+    window.scrollTo({ top: 0 });
+  }, [stage, qrTarget, inbox, instInbox, sentMessages, isGovMode]);
+
+  // 2) Prazo de resolução: passado o tempo de merge da nuvem sem match local,
+  // valida o protocolo no registo público e mostra o aviso honesto.
+  useEffect(() => {
+    if (stage !== 'app' || !qrTarget) return;
+    if (qrTargetResolvedRef.current === qrTarget) return;
+    const numero = qrTarget;
+    const t = setTimeout(async () => {
+      if (qrTargetResolvedRef.current === numero) return; // entretanto resolvido
+      qrTargetResolvedRef.current = numero;
+      const res = await supabaseService.validarProtocolo(numero);
+      setQrTarget(null);
+      limparQrDaUrl();
+      setQrNotice({
+        protocolo: numero,
+        tipo: res.errorCode ? 'indisponivel' : (res.encontrado ? 'outra_conta' : 'nao_encontrada'),
+      });
+    }, 3500);
+    return () => clearTimeout(t);
+  }, [stage, qrTarget]);
 
   // Etapa #2 (Cidadão) — perfil de auto-preenchimento dos formulários, montado
   // da sessão. Apenas leitura; os formulários preenchem-se localmente e a
@@ -6758,6 +6824,43 @@ Ficha civil do titular:
         <option value="@sme.ao" />
         <option value="@minfin.gov.ao" />
       </datalist>
+
+      {/* Q-2 — aviso honesto da resolução do QR deep-link */}
+      <AnimatePresence>
+        {qrNotice && (
+          <motion.div
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[2100] w-[min(94vw,560px)] bg-white border border-amber-200 shadow-2xl rounded-2xl p-4 flex items-start gap-3"
+          >
+            <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+              <QrCode size={18} />
+            </div>
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-[11px] font-black text-slate-800 uppercase tracking-wide">
+                {qrNotice.tipo === 'nao_encontrada' && 'Correspondência não encontrada'}
+                {qrNotice.tipo === 'outra_conta' && 'Correspondência de outra conta'}
+                {qrNotice.tipo === 'indisponivel' && 'Verificação indisponível'}
+              </p>
+              <p className="text-[11px] font-bold text-slate-500 mt-0.5 leading-relaxed">
+                {qrNotice.tipo === 'nao_encontrada' && <>O protocolo <span className="font-mono text-slate-700">{qrNotice.protocolo}</span> não consta do registo público da plataforma. Confirme o código digitalizado.</>}
+                {qrNotice.tipo === 'outra_conta' && <>A correspondência <span className="font-mono text-slate-700">{qrNotice.protocolo}</span> existe na plataforma, mas não consta desta conta. Inicie sessão com a conta destinatária.</>}
+                {qrNotice.tipo === 'indisponivel' && <>Não foi possível confirmar o protocolo <span className="font-mono text-slate-700">{qrNotice.protocolo}</span> — serviço de registo indisponível. Tente novamente dentro de momentos.</>}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setQrNotice(null)}
+              className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center shrink-0 transition-all cursor-pointer"
+              title="Fechar aviso"
+            >
+              <X size={14} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Navigation */}
       <AnimatePresence>
         {emergencyMode && isGovMode && (

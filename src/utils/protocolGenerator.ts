@@ -273,18 +273,24 @@ export function generateProtocol(
   const legalValidity = PROTOCOL_INTEGRITY_NOTE;
   const archiveReference = `ARQ-${cleanOrg}-${province}-${year}-${sequenceStr}`;
   const archiveLocation = `Arquivo Institucional > ${institution} > ${province} > Série ${type === 'message' ? 'Correspondência' : 'Documento'} > ${archiveReference}`;
+
+  // Q-2 — base do deep-link QR: em runtime usa a origem actual (dev/preview/
+  // produção); fora do browser (geração server-side de protocolos) cai no
+  // endereço oficial da plataforma.
+  const platformBase =
+    (typeof window !== 'undefined' && (() => {
+      try { return window.location.origin.replace(/\/+$/, ''); } catch { return ''; }
+    })()) || 'https://correio-digital-angola-oficial.vercel.app';
   
-  const qrPayload = [
-    `AO-PROTOCOL:${protocolNumber}`,
-    `ID:${internalId}`,
-    `REG:${digitalSeal}`,
-    `ARCHIVE:${archiveReference}`,
-    `LOCATION:${archiveLocation}`
-  ].join('|');
+  const qrPayload = `${platformBase}/?correspondencia=${encodeURIComponent(protocolNumber)}&id=${encodeURIComponent(internalId)}&reg=${encodeURIComponent(digitalSeal)}`;
   // Q-1 (backlog) — QR 100% local: o valor guardado passa a ser o PRÓPRIO
   // payload; a imagem é desenhada offline pelo componente QrCodeImage (pacote
   // 'qrcode', já dependência). Antes: URL api.qrserver.com — fuga do conteúdo
   // do protocolo a serviço externo em cada registo (e URL gravado na nuvem).
+  // Q-2 (2026-08-20) — o payload passa a ser um DEEP-LINK da plataforma: ao
+  // digitalizar, o telemóvel abre a correspondência directamente (a app lê
+  // ?correspondencia= no arranque e localiza a mensagem na conta). Registos
+  // legados (AO-PROTOCOL:...) continuam a renderizar e a validar sem quebra.
   const qrCodeUrl = qrPayload;
 
   return {
