@@ -2975,6 +2975,8 @@ export default function App() {
     if (!isInstMode) return null;
     void gateRefreshTick; // reavalia a cada tick
     const rec = homologationStore.getStatus(bi);
+    // Sessões de demonstração são canais internos sempre activos.
+    if (homologationStore.isExempt(bi)) return 'green' as const;
     const isRealInstitution = !!bi.trim() && !homologationStore.isExempt(bi);
     // Para uma instituição real, uma aprovação já sincronizada do Supabase
     // (`active`) é suficiente para verde, mesmo no intervalo curto até o gate
