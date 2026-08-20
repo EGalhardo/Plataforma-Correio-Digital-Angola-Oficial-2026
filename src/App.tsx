@@ -2975,9 +2975,11 @@ export default function App() {
     if (!isInstMode) return null;
     void gateRefreshTick; // reavalia a cada tick
     const rec = homologationStore.getStatus(bi);
-    // `full` só é atribuído após decisão oficial active; por isso uma instituição
-    // aprovada fica verde mesmo que exista uma cópia local antiga da homologação.
-    if (instGate === 'full') return 'green' as const;
+    const isRealInstitution = !!bi.trim() && !homologationStore.isExempt(bi);
+    // Para uma instituição real, uma aprovação já sincronizada do Supabase
+    // (`active`) é suficiente para verde, mesmo no intervalo curto até o gate
+    // React ser atualizado. Isto evita que uma conta aprovada fique vermelha.
+    if (isRealInstitution && (instGate === 'full' || rec?.status === 'active')) return 'green' as const;
     if (rec?.status === 'blocked') return 'yellow' as const;
     return 'red' as const; // pendente, correção ou rejeitada
   })();
