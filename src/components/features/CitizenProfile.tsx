@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabaseService, hasValidSupabaseKeys } from "../../services/supabaseService";
+import { guardarAvatar } from '../../services/avatarService';
 import { supabase } from '../../lib/supabaseClient';
 import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil, temPendenciaPerfil, type ProfileSyncOutcome } from '../../services/profileSyncService';
 import { normalizarNome } from '../../services/textNormalizeService';
@@ -189,6 +190,10 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
         const publicUrl = await supabaseService.uploadFile('fotos_perfil', filePath, file);
         if (publicUrl) {
           updateUserFields({ avatarUrl: publicUrl });
+          // 2026-08-20 — persistir o avatar escolhido: localStorage por conta
+          // + user_metadata do Auth (senão o login seguinte reaplicava a
+          // selfie KYC/face antiga e a foto revertia).
+          guardarAvatar('user', user?.bi || bi || '', publicUrl);
           
           if (addAuditLog) {
             addAuditLog('Foto de perfil atualizada e sincronizada com sucesso no Supabase Storage', 'success');
@@ -207,6 +212,8 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
         reader.onload = (event) => {
           const base64String = event.target?.result as string;
           updateUserFields({ avatarUrl: base64String });
+          // 2026-08-20 — mesmo em offline a foto fica guardada por conta.
+          guardarAvatar('user', user?.bi || bi || '', base64String);
           
           if (addAuditLog) {
             addAuditLog('Foto de perfil atualizada com sucesso localmente (Modo Offline)', 'success');

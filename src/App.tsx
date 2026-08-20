@@ -97,6 +97,7 @@ import {
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, sealProtocolContent, canonicalProtocolPayload } from './utils/protocolGenerator';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode } from './services/supabaseService';
+import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, preloginLookupInstitution, purgeInstitutionLocalResidues, mapRowStatus, type InstitutionIdentity } from './services/institutionSessionService';
 import { getLocalInstReg, normalizeInstCode, parseInstPack } from './services/institutionRegistrationStore';
@@ -958,8 +959,12 @@ export default function App() {
     const normalized = (biBase.trim() || DEMO_CREDENTIALS.user.identifier).toUpperCase();
     if (biBase.trim().toUpperCase() !== normalized) setBi(normalized);
     if (normalized === DEMO_CREDENTIALS.user.identifier) {
-      // Conta demo canonica: garante que a foto canonica e restaurada
-      updateUserFields?.({ avatarUrl: MOCK_SESSION_USER.avatarUrl });
+      // Conta demo canónica: mantém a foto canónica, SALVO se o utilizador
+      // tiver escolhido outra neste dispositivo (2026-08-20 — a foto deixa de
+      // reverter para a canónica a cada login; chave por BI, sem contaminação
+      // entre contas).
+      const localAvatar = lerAvatarLocal('user', normalized);
+      updateUserFields?.({ avatarUrl: localAvatar || MOCK_SESSION_USER.avatarUrl });
       return;
     }
     try {
@@ -1037,6 +1042,13 @@ export default function App() {
           if (faceData?.imageDataUrl) resolvedAvatar = faceData.imageDataUrl;
         }
       } catch (_) { /* ignora */ }
+
+      // 4) Foto de PERFIL escolhida pelo cidadão na página Perfil (2026-08-20):
+      // tem prioridade sobre a selfie KYC/face — sem isto a nova foto revertia
+      // para a antiga no login seguinte. Fontes: Auth metadata (nuvem) e
+      // localStorage deste dispositivo (por BI).
+      const fotoPerfil = (await lerAvatarAuth()) || lerAvatarLocal('user', normalized);
+      if (fotoPerfil) resolvedAvatar = fotoPerfil;
 
       if (!resolvedName) {
         // F12 — B.I. sem registo (conta real desconhecida): a sessão entra LIMPA

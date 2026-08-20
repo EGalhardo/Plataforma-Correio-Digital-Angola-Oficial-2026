@@ -16,6 +16,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useSession } from "../../services/sessionStore";
 import { supabaseService, hasValidSupabaseKeys } from "../../services/supabaseService";
+import { guardarAvatar } from '../../services/avatarService';
 import { getLocalInstReg, normalizeInstCode } from "../../services/institutionRegistrationStore";
 
 interface InstitutionProfileProps {
@@ -134,6 +135,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
         if (publicUrl) {
           updateUserFields({ avatarUrl: publicUrl });
           try { if (bi) localStorage.setItem(`cda_inst_profile_photo_${bi.toUpperCase()}`, publicUrl); } catch { /* ignora */ }
+          guardarAvatar('institution', bi || '', publicUrl);
           
           if (addAuditLog) {
             addAuditLog('Foto de perfil institucional atualizada com sucesso no Supabase Storage', 'success');
@@ -153,6 +155,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
           const base64String = event.target?.result as string;
           updateUserFields({ avatarUrl: base64String });
           try { if (bi) localStorage.setItem(`cda_inst_profile_photo_${bi.toUpperCase()}`, base64String); } catch { /* ignora */ }
+          guardarAvatar('institution', bi || '', base64String);
           
           if (addAuditLog) {
             addAuditLog('Foto de perfil institucional atualizada com sucesso localmente', 'success');
