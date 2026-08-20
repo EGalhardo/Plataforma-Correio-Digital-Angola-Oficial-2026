@@ -53,15 +53,17 @@ interface BiometricUser {
 export interface GovSegurancaContentProps {
   emergencyMode?: boolean;
   onToggleEmergencyMode?: (enabled: boolean) => void;
+  isDemo?: boolean;
 }
 
 export function GovSegurancaContent({
   emergencyMode = false,
-  onToggleEmergencyMode
+  onToggleEmergencyMode,
+  isDemo = false
 }: GovSegurancaContentProps = {}) {
   const [biometricUsers, setBiometricUsers] = useState<BiometricUser[]>(() => {
     // Registos biométricos pré-definidos pertencem exclusivamente ao modo demo.
-    if (!shouldUseMockFallback()) return [];
+    if (!(isDemo || shouldUseMockFallback())) return [];
     return [
       { id: '1', name: 'Edlasio Galhardo', docId: '003291820LA045', type: 'Cidadão', registeredAt: '12/02/2026', lastUsed: 'Hoje, 20:15', status: 'Ativo', confidenceRate: 98.8 },
       { id: '2', name: 'Dr. Afonso Henriques', docId: '005481920NA011', type: 'Instituição', institutionName: 'Ministério das Finanças (MINFIN)', registeredAt: '03/03/2026', lastUsed: 'Hoje, 18:42', status: 'Ativo', confidenceRate: 99.4 },

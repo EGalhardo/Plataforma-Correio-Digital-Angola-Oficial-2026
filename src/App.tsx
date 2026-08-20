@@ -5280,6 +5280,7 @@ Ficha civil do titular:
           <GovRelatorioContent 
             correspondences={currentCorrespondences}
             auditLogs={auditLogs}
+            isDemo={isDemoAdminSession}
           />
           </PainelSuspense>
         );
@@ -5291,6 +5292,7 @@ Ficha civil do titular:
           <GovRelatorioContent 
             correspondences={currentCorrespondences}
             auditLogs={auditLogs}
+            isDemo={isDemoAdminSession}
           />
           </PainelSuspense>
         );
@@ -5303,6 +5305,7 @@ Ficha civil do titular:
           <PainelSuspense>
             <GovSegurancaContent 
             emergencyMode={emergencyMode}
+            isDemo={isDemoAdminSession}
             onToggleEmergencyMode={(enabled) => {
               setEmergencyMode(enabled);
               localStorage.setItem('gov_emergency_mode', enabled ? 'true' : 'false');
