@@ -136,7 +136,9 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
   const role = ALFA_ROLE;
   const dept = ALFA_DEPT;
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
   const [error, setError] = useState('');
   const [createdAgent, setCreatedAgent] = useState('');
   const [copied, setCopied] = useState(false);
@@ -158,6 +160,10 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
     }
     if (!password || password.length < 8) {
       setError('Defina a Palavra-passe inicial do agente (mínimo 8 caracteres). O login Admin será: Nº Agente Admin + esta palavra-passe.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('As palavras-passe não coincidem. Confirme a senha antes de concluir o registo.');
       return;
     }
     if (isAdminAgentPasswordTaken(password)) {
@@ -387,6 +393,26 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
                 {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </Field>
+            <Field label="Confirmar Palavra-passe *" icon={<KeyRound size={16} className="text-blue-500" />}>
+              <input
+                type={showConfirmPwd ? 'text' : 'password'}
+                autoComplete="new-password"
+                placeholder="Repita a palavra-passe definida"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className={`${passwordCls} ${confirmPassword && password !== confirmPassword ? 'border-red-400 focus:border-red-500' : confirmPassword && password === confirmPassword ? 'border-emerald-400 focus:border-emerald-500' : ''}`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPwd(v => !v)}
+                aria-label={showConfirmPwd ? 'Ocultar confirmação da palavra-passe' : 'Mostrar confirmação da palavra-passe'}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors bg-transparent border-none cursor-pointer p-0.5"
+              >
+                {showConfirmPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </Field>
+            {confirmPassword && password !== confirmPassword && <p className="text-[10px] text-red-600 font-bold px-1 m-0">As palavras-passe não coincidem. Verifique e tente novamente.</p>}
+            {confirmPassword && password === confirmPassword && <p className="text-[10px] text-emerald-600 font-bold px-1 m-0 flex items-center gap-1"><Check size={12} /> As palavras-passe coincidem.</p>}
             <div className="flex items-center justify-between gap-3 px-1">
               <p className="text-[9px] text-slate-400 font-bold leading-snug m-0 select-none">
                 Login: <strong>Nº Agente Admin + esta palavra-passe</strong>. Não pode repetir outra credencial activa; fica guardada apenas neste dispositivo.
@@ -420,7 +446,8 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
           </button>
           <button
             type="submit"
-            className="flex-1 bg-[#2563eb] hover:bg-[#1d4ed8] text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2.5 transition-all duration-300 cursor-pointer active:scale-98 border-0"
+            disabled={!password || password !== confirmPassword}
+            className="flex-1 bg-[#2563eb] hover:bg-[#1d4ed8] text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2.5 transition-all duration-300 cursor-pointer active:scale-98 border-0 disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed"
           >
             <Check size={15} className="stroke-[3]" />
             Submeter Cadastro do Membro
