@@ -11,11 +11,11 @@
 // ============================================================================
 import { supabase } from '../lib/supabaseClient';
 
-const chaveLocal = (modo: 'user' | 'institution', ident: string): string =>
+const chaveLocal = (modo: 'user' | 'institution' | 'admin', ident: string): string =>
   `cda_avatar_${modo}_${String(ident || '').toUpperCase().replace(/\s+/g, '')}`;
 
 /** Guarda o avatar do utilizador (local + Auth metadata quando aplicável). */
-export const guardarAvatar = (modo: 'user' | 'institution', ident: string, url: string): void => {
+export const guardarAvatar = (modo: 'user' | 'institution' | 'admin', ident: string, url: string): void => {
   if (!url) return;
   try {
     localStorage.setItem(chaveLocal(modo, ident), url);
@@ -31,7 +31,7 @@ export const guardarAvatar = (modo: 'user' | 'institution', ident: string, url: 
 };
 
 /** Lê o avatar guardado neste dispositivo para a conta indicada. */
-export const lerAvatarLocal = (modo: 'user' | 'institution', ident: string): string => {
+export const lerAvatarLocal = (modo: 'user' | 'institution' | 'admin', ident: string): string => {
   try { return localStorage.getItem(chaveLocal(modo, ident)) || ''; } catch { return ''; }
 };
 

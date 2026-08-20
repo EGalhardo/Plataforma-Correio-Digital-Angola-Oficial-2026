@@ -10,6 +10,8 @@ import { USER_PROFILE_PHOTO } from '../../constants/data';
 import { useSession } from '../../services/sessionStore';
 import { supabase } from '../../lib/supabaseClient';
 import { hasValidSupabaseKeys, supabaseService } from '../../services/supabaseService';
+import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil } from '../../services/profileSyncService';
+import { guardarAvatar } from '../../services/avatarService';
 import { cloudChangePassword, hasActiveCloudSession, isCloudBound } from '../../services/cloudAuthService';
 import { homologationStore } from '../../services/homologationStore';
 
@@ -58,16 +60,37 @@ export function GovPerfilContent({
     setEditAdminNif(nif || '');
   }, [profileName, phone, nif]);
 
-  const handleSaveAdminEdit = () => {
+  const handleSaveAdminEdit = async () => {
     updateUserFields({
       name: editAdminName,
       phone: editAdminPhone,
       email: editAdminEmail,
       nif: editAdminNif
     });
+    // 2026-08-20 — persistência real (mesmo padrão da página Perfil do cidadão):
+    // nome/telefone/e-mail/NIF vão para `profiles` (bi = Nº de Agente) via
+    // /api/perfil-sync (service role). Contas demo (ADM-8812-OP) ficam locais
+    // (outcome 'demo'); falhas de nuvem ficam em fila local — feedback honesto.
+    if (hasValidSupabaseKeys() && bi) {
+      const patch = buildCitizenContaPatch(bi, {
+        name: editAdminName,
+        phone: editAdminPhone,
+        email: editAdminEmail,
+        nif: editAdminNif,
+      });
+      const res = await syncProfileToCloud(supabase, patch);
+      if (res.outcome === 'error' || res.outcome === 'unavailable') {
+        guardarPendenciaPerfil(bi, patch);
+      } else if (res.outcome === 'ok' || res.outcome === 'created' || res.outcome === 'schema_retry') {
+        limparPendenciaPerfil(bi);
+      }
+      const fb = contaSaveFeedbackFromOutcome(res.outcome);
+      setPasswordSuccessMsg(fb.text);
+    } else {
+      setPasswordSuccessMsg('Informações da conta administrativa atualizadas com sucesso!');
+    }
     setIsEditingAdmin(false);
     setPasswordSuccess(true);
-    setPasswordSuccessMsg('Informações da conta administrativa atualizadas com sucesso!');
   };
 
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -84,6 +107,10 @@ export function GovPerfilContent({
         const publicUrl = await supabaseService.uploadFile('fotos_perfil', filePath, file);
         if (publicUrl) {
           updateUserFields({ avatarUrl: publicUrl });
+          // 2026-08-20 — persistir a foto por conta (localStorage por Nº de
+          // Agente + user_metadata do Auth): sem isto o login seguinte repunha
+          // o avatar neutro e a foto revertia.
+          guardarAvatar('admin', bi || '', publicUrl);
           setPasswordSuccess(true);
           setPasswordSuccessMsg('Foto do administrador atualizada no Supabase Storage.');
         }
@@ -92,6 +119,7 @@ export function GovPerfilContent({
         reader.onload = (event) => {
           const base64String = event.target?.result as string;
           updateUserFields({ avatarUrl: base64String });
+          guardarAvatar('admin', bi || '', base64String);
           setPasswordSuccess(true);
           setPasswordSuccessMsg('Foto do administrador atualizada na sessão interativa.');
         };

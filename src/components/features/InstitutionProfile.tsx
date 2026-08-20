@@ -16,7 +16,9 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useSession } from "../../services/sessionStore";
 import { supabaseService, hasValidSupabaseKeys } from "../../services/supabaseService";
+import { supabase } from '../../lib/supabaseClient';
 import { guardarAvatar } from '../../services/avatarService';
+import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil, type ProfileSyncOutcome } from '../../services/profileSyncService';
 import { getLocalInstReg, normalizeInstCode } from "../../services/institutionRegistrationStore";
 
 interface InstitutionProfileProps {
@@ -88,20 +90,37 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
     setEditInstEmail(email || '');
   }, [profileName, role, department, phone, email]);
 
-  const handleSaveInstEdit = () => {
+  const handleSaveInstEdit = async () => {
     updateUserFields({ name: editInstName, phone: editInstPhone, email: editInstEmail });
     updateActiveProfileFields({
       role: editInstRole,
       departmentName: editInstDept,
     });
+    // 2026-08-20 — persistência real (mesmo padrão da página Perfil do cidadão):
+    // nome/telefone/e-mail vão para `profiles` via /api/perfil-sync (service role,
+    // com deteção do UPDATE silencioso por RLS); contas demo ficam locais (outcome
+    // 'demo') e falhas de nuvem ficam em fila local com feedback honesto.
+    let syncOutcome: ProfileSyncOutcome | 'no_cloud' = 'no_cloud';
+    if (hasValidSupabaseKeys() && bi) {
+      const patch = buildCitizenContaPatch(bi, {
+        name: editInstName,
+        phone: editInstPhone,
+        email: editInstEmail,
+      });
+      const res = await syncProfileToCloud(supabase, patch);
+      syncOutcome = res.outcome;
+      if (res.outcome === 'error' || res.outcome === 'unavailable') {
+        guardarPendenciaPerfil(bi, patch);
+      } else if (res.outcome === 'ok' || res.outcome === 'created' || res.outcome === 'schema_retry') {
+        limparPendenciaPerfil(bi);
+      }
+    }
     if (addAuditLog) {
       addAuditLog('Perfil Institucional e credenciais funcionais atualizados com sucesso', 'success');
     }
     setIsEditingInst(false);
-    setFeedback({
-      type: 'success',
-      text: 'Perfil Institucional atualizado com sucesso!'
-    });
+    const fb = contaSaveFeedbackFromOutcome(syncOutcome);
+    setFeedback({ type: fb.type, text: fb.text, details: fb.details });
   };
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; text: string; details?: string } | null>(null);

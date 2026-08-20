@@ -856,10 +856,11 @@ export default function App() {
       birthDate: preset.birthDate,
       filiation: preset.filiation,
       maritalStatus: preset.maritalStatus,
-      // Repõe SEMPRE a foto canónica do perfil demo: sem isto, a selfie do último
-      // cidadão registado (guardada no user de sessão partilhado) infiltrava-se na
-      // área de Administração/Instituição, cujos logins não resolvem avatar próprio.
-      avatarUrl: MOCK_SESSION_USER.avatarUrl,
+      // Repõe a foto canónica do perfil demo — salvo se o utilizador tiver
+      // escolhido outra neste dispositivo (2026-08-20: a foto deixa de
+      // reverter a cada login; chave por identificador, sem contaminação
+      // entre contas).
+      avatarUrl: lerAvatarLocal(mode, preset.identifier) || MOCK_SESSION_USER.avatarUrl,
     });
   };
 
@@ -873,7 +874,7 @@ export default function App() {
   // F8 — Cada conta institucional vê apenas os SEUS dados: aplica a identidade
   // (nome, e-mail, telefone, cargo, foto) do responsável/colaborador autenticado,
   // limpando os campos do cidadão demo que a sessão partilhada trazia.
-  const applyInstitutionSessionIdentity = (result: { code: string; name: string; identity?: InstitutionIdentity | null; pack?: ReturnType<typeof parseInstPack>; status?: string }) => {
+  const applyInstitutionSessionIdentity = async (result: { code: string; name: string; identity?: InstitutionIdentity | null; pack?: ReturnType<typeof parseInstPack>; status?: string }) => {
     const code = normalizeInstCode(result.code);
     // F14 — Multi-dispositivo: garante o canal oficial da Área de Administração
     // quando a thread local não existe neste dispositivo (a conta REAL tem
@@ -885,11 +886,19 @@ export default function App() {
     const pack = result.pack || parseInstPack(reg?.observacoes || '');
     const isMember = result.identity?.type === 'member';
     const memberRec = isMember ? (reg?.members || []).find(m => m.id === result.identity?.memberId) : undefined;
+    // 2026-08-20 — dados editados na página Perfil da Instituição voltam no
+    // próximo login: lê a linha `profiles` do código (via /api/perfil com
+    // service role) ANTES dos valores do registo; contas demo (isExempt)
+    // mantêm o comportamento local de sempre.
+    let perfilPersistido: Record<string, any> | null = null;
+    if (!homologationStore.isExempt(code) && hasValidSupabaseKeys()) {
+      try { perfilPersistido = await supabaseService.getProfile(code); } catch { /* best-effort */ }
+    }
     const personName = (isMember && result.identity?.memberName)
       ? result.identity.memberName
-      : (pack?.responsavel || result.name.replace(/\s*\([^)]*\)\s*$/, '') || 'Agente Institucional');
-    const email = (pack?.emailAcesso || pack?.emailContacto || reg?.email || '').trim();
-    const phone = (pack?.telefone || '').trim();
+      : ((!isMember && perfilPersistido?.name) || (pack?.responsavel || result.name.replace(/\s*\([^)]*\)\s*$/, '') || 'Agente Institucional'));
+    const email = (perfilPersistido?.email || pack?.emailAcesso || pack?.emailContacto || reg?.email || '').trim();
+    const phone = (perfilPersistido?.phone || pack?.telefone || '').trim();
     // Foto do agente: 1) captura facial desta pessoa (registada na página Conta);
     // 2) foto de perfil carregada por esta conta; 3) logótipo (responsável);
     // 4) avatar neutro gerado — nunca fotos de terceiros.
@@ -907,6 +916,16 @@ export default function App() {
         const pp = localStorage.getItem(`cda_inst_profile_photo_${code}`);
         if (pp) avatar = pp;
       } catch { /* ignora */ }
+    }
+    // 2026-08-20 — a foto escolhida na página Perfil volta no próximo login:
+    // Auth metadata (contas reais, qualquer dispositivo) e localStorage por
+    // conta. Sem isto a foto revertia para a face/logo/neutro.
+    if (!avatar && !homologationStore.isExempt(code)) {
+      try { const authAv = await lerAvatarAuth(); if (authAv) avatar = authAv; } catch { /* ignora */ }
+    }
+    if (!avatar) {
+      const lav = lerAvatarLocal('institution', code);
+      if (lav) avatar = lav;
     }
     if (!avatar && !isMember && reg?.logoDataUrl) avatar = reg.logoDataUrl;
     if (!avatar) avatar = makeInstNeutralAvatar(pack?.sigla || personName);
@@ -3205,7 +3224,10 @@ export default function App() {
   //     curso (guarda F45). O carimbo só é escrito com confirmação real.
   // ==========================================================================
   const verificarSyncPerfilAutomaticamente = useCallback(async () => {
-    if (stage !== 'app' || appMode !== 'user' || !bi.trim()) return;
+    // 2026-08-20 — os três modos (cidadão/instituição/admin) partilham o mesmo
+    // ciclo push/pull do perfil; as contas demo continuam excluídas pelas
+    // guardas isExempt/isCloudBound abaixo.
+    if (stage !== 'app' || !bi.trim()) return;
     if (!hasValidSupabaseKeys() || !isOnline) return;
     // Contas demo não têm linha real para sincronizar — nada a fazer.
     if (homologationStore.isExempt(bi) || !isCloudBound(bi)) return;
@@ -3246,6 +3268,9 @@ export default function App() {
             address: user?.address || '',
           };
           for (const [k, v] of Object.entries(campos)) {
+            // 2026-08-20 — um COLABORADOR institucional (sessão partilhada pelo
+            // código) nunca herda o nome do responsável gravado em `profiles`.
+            if (appMode === 'institution' && instIdentity?.type === 'member' && k === 'name') continue;
             if (v && v !== atuais[k]) diffs[k] = v;
           }
           if (Object.keys(diffs).length > 0) {
@@ -3271,14 +3296,14 @@ export default function App() {
       localStorage.setItem('supabase_last_sync_time', stamp);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, appMode, bi, isOnline, isCloudBound, user?.name, user?.phone, user?.nif, user?.passport, user?.birthDate, user?.filiation, user?.maritalStatus, user?.email]);
+  }, [stage, appMode, bi, isOnline, isCloudBound, instIdentity?.type, user?.name, user?.phone, user?.nif, user?.passport, user?.birthDate, user?.filiation, user?.maritalStatus, user?.email]);
 
   useEffect(() => {
-    if (stage !== 'app' || appMode !== 'user') return;
+    if (stage !== 'app') return;
     void verificarSyncPerfilAutomaticamente();
     const id = setInterval(() => void verificarSyncPerfilAutomaticamente(), 5 * 60 * 1000);
     return () => clearInterval(id);
-  }, [verificarSyncPerfilAutomaticamente, stage, appMode]);
+  }, [verificarSyncPerfilAutomaticamente, stage]);
   // F17 — Piso de não-lidas ao nível da DERIVAÇÃO (só demo): a fusão assíncrona
   // da nuvem repõe cópias lidas por cima do piso aplicado 1x no arranque; com o
   // piso derivado aqui, "Não Lidas" nunca fica vazio em sessão de demonstração.
@@ -5878,6 +5903,29 @@ Ficha civil do titular:
               birthDate: '', filiation: '', maritalStatus: '', email: '',
               avatarUrl: makeInstNeutralAvatar('AD'),
             });
+            // 2026-08-20 — hidratação do perfil persistido do agente (mesmo
+            // padrão do cidadão): dados editados na página Perfil da
+            // Administração e a foto voltam no próximo login (nuvem + dispositivo).
+            void (async () => {
+              try {
+                const dbAg = await supabaseService.getProfile(typedAgent);
+                if (dbAg) {
+                  setProfileName(dbAg.name || cred.name);
+                  setPhoneLocal(dbAg.phone || '');
+                  setNifLocal(dbAg.nif || '');
+                  updateUserFields?.({
+                    name: dbAg.name || cred.name,
+                    phone: dbAg.phone || '',
+                    nif: dbAg.nif || '',
+                    email: dbAg.email || '',
+                  });
+                }
+                const fotoAg = (await lerAvatarAuth()) || lerAvatarLocal('admin', typedAgent);
+                if (fotoAg) updateUserFields?.({ avatarUrl: fotoAg });
+              } catch (e) {
+                console.warn('CADA: hidratação do perfil do agente falhou (best-effort):', e);
+              }
+            })();
             setLoginError(null);
             addAuditLog(`Login da Administração: agente ${cred.agent} (${cred.name}) autenticado por Nº + senha local.`, 'success');
           } else if (/^ADMIN-\d+$/.test(typedAgent.replace(/\s+/g, ''))) {

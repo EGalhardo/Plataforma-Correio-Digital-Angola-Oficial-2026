@@ -41,6 +41,7 @@ export interface CitizenProfilePatch {
   name?: string;
   phone?: string;
   email?: string;
+  nif?: string;
   morada?: string;
   filiation?: string;
   maritalStatus?: string;
@@ -56,6 +57,7 @@ const toColumns = (patch: CitizenProfilePatch): Record<string, string> => {
   put('name', patch.name);
   put('phone', patch.phone);
   put('email', patch.email);
+  put('nif', patch.nif);
   put('morada', patch.morada);
   put('filiation', patch.filiation);
   put('marital_status', patch.maritalStatus);
@@ -83,7 +85,7 @@ export const PROFILE_HYDRATION_COLUMNS =
 export const buildCitizenContaPatch = (
   bi: string,
   fields: {
-    name?: string; phone?: string; email?: string;
+    name?: string; phone?: string; email?: string; nif?: string;
     filiation?: string; maritalStatus?: string; morada?: string;
   },
 ): CitizenProfilePatch => ({
@@ -91,6 +93,7 @@ export const buildCitizenContaPatch = (
   name: fields.name,
   phone: fields.phone,
   email: fields.email,
+  nif: fields.nif,
   filiation: fields.filiation,
   maritalStatus: fields.maritalStatus,
   morada: fields.morada,
