@@ -41,6 +41,7 @@ import {
   Area 
 } from 'recharts';
 import { Correspondence } from '../../types';
+import { shouldUseMockFallback } from '../../config/runtime';
 
 export interface GovRelatorioContentProps {
   correspondences?: Correspondence[];
@@ -158,6 +159,7 @@ export function GovRelatorioContent({
   // Static Fallback Correspondences Data
   const resolvedCorrespondences = useMemo(() => {
     if (correspondences && correspondences.length > 0) return correspondences;
+    if (!shouldUseMockFallback()) return [];
     return [
       { id: 'C-01', sender: 'AGT', recipient: 'Mindis', subject: 'Ofício de Liquidação Fiscal Coletiva', originProvince: 'Luanda', destinationProvince: 'Benguela', institution: 'AGT', status: 'Enviada', date: '2026-06-11', body: 'Submete-se o termo de deferimento fiscal.' },
       { id: 'C-02', sender: 'SME', recipient: 'Registo Civil', subject: 'Consulta Migratória Urgente', originProvince: 'Cabinda', destinationProvince: 'Luanda', institution: 'SME', status: 'Recebida', date: '2026-06-10', body: 'Solicitação de rastreio de passaporte biométrico.' },
@@ -169,6 +171,7 @@ export function GovRelatorioContent({
   // Static Fallback Audit Logs Data
   const resolvedAuditLogs = useMemo(() => {
     if (auditLogs && auditLogs.length > 0) return auditLogs;
+    if (!shouldUseMockFallback()) return [];
     return [
       { id: 'AL-101', action: 'Restauro emergencial de chaves criptográficas HSM', user: 'Edlasio Galhardo (Admin)', timestamp: '12/06/2026 10:22', type: 'success' },
       { id: 'AL-102', action: 'Bloqueio preventivo de IP suspeito por múltiplas assinaturas falhadas', user: 'Filtro Firewall Central', timestamp: '12/06/2026 09:12', type: 'critical' },

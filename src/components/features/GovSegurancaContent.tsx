@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { notify } from '../../lib/notify';
+import { shouldUseMockFallback } from '../../config/runtime';
 import { motion } from 'motion/react';
 import {
   ShieldCheck,
@@ -58,14 +59,18 @@ export function GovSegurancaContent({
   emergencyMode = false,
   onToggleEmergencyMode
 }: GovSegurancaContentProps = {}) {
-  const [biometricUsers, setBiometricUsers] = useState<BiometricUser[]>([
-    { id: '1', name: 'Edlasio Galhardo', docId: '003291820LA045', type: 'Cidadão', registeredAt: '12/02/2026', lastUsed: 'Hoje, 20:15', status: 'Ativo', confidenceRate: 98.8 },
-    { id: '2', name: 'Dr. Afonso Henriques', docId: '005481920NA011', type: 'Instituição', institutionName: 'Ministério das Finanças (MINFIN)', registeredAt: '03/03/2026', lastUsed: 'Hoje, 18:42', status: 'Ativo', confidenceRate: 99.4 },
-    { id: '3', name: 'AGT Angola Admin', docId: '009182390LA112', type: 'Instituição', institutionName: 'Administração Geral Tributária', registeredAt: '15/01/2026', lastUsed: 'Ontem, 14:10', status: 'Ativo', confidenceRate: 97.6 },
-    { id: '4', name: 'Emanuel Garcia', docId: '004128911LA092', type: 'Cidadão', registeredAt: '08/04/2026', lastUsed: '19/05/2026', status: 'Pendente', confidenceRate: 85.2 },
-    { id: '5', name: 'Isabel de Sousa', docId: '002910398HU034', type: 'Cidadão', registeredAt: '22/03/2026', lastUsed: '15/05/2026', status: 'Bloqueado', confidenceRate: 0.0 },
-    { id: '6', name: 'Cláudia Simões', docId: '006129837BA029', type: 'Cidadão', registeredAt: '19/04/2026', lastUsed: 'Hoje, 10:24', status: 'Ativo', confidenceRate: 96.5 },
-  ]);
+  const [biometricUsers, setBiometricUsers] = useState<BiometricUser[]>(() => {
+    // Registos biométricos pré-definidos pertencem exclusivamente ao modo demo.
+    if (!shouldUseMockFallback()) return [];
+    return [
+      { id: '1', name: 'Edlasio Galhardo', docId: '003291820LA045', type: 'Cidadão', registeredAt: '12/02/2026', lastUsed: 'Hoje, 20:15', status: 'Ativo', confidenceRate: 98.8 },
+      { id: '2', name: 'Dr. Afonso Henriques', docId: '005481920NA011', type: 'Instituição', institutionName: 'Ministério das Finanças (MINFIN)', registeredAt: '03/03/2026', lastUsed: 'Hoje, 18:42', status: 'Ativo', confidenceRate: 99.4 },
+      { id: '3', name: 'AGT Angola Admin', docId: '009182390LA112', type: 'Instituição', institutionName: 'Administração Geral Tributária', registeredAt: '15/01/2026', lastUsed: 'Ontem, 14:10', status: 'Ativo', confidenceRate: 97.6 },
+      { id: '4', name: 'Emanuel Garcia', docId: '004128911LA092', type: 'Cidadão', registeredAt: '08/04/2026', lastUsed: '19/05/2026', status: 'Pendente', confidenceRate: 85.2 },
+      { id: '5', name: 'Isabel de Sousa', docId: '002910398HU034', type: 'Cidadão', registeredAt: '22/03/2026', lastUsed: '15/05/2026', status: 'Bloqueado', confidenceRate: 0.0 },
+      { id: '6', name: 'Cláudia Simões', docId: '006129837BA029', type: 'Cidadão', registeredAt: '19/04/2026', lastUsed: 'Hoje, 10:24', status: 'Ativo', confidenceRate: 96.5 },
+    ];
+  });
 
   // Sync Edlasio's status based on emergencyMode
   React.useEffect(() => {
