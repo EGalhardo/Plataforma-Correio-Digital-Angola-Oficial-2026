@@ -57,7 +57,7 @@ import {
   KeyRound
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import { registoPublicoProxy } from '../../services/supabaseService';
+import { registoPublicoProxy, eliminarCidadaoAdmin } from '../../services/supabaseService';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, isInstPasswordTaken, nextMemberAgentNumber } from '../../services/institutionRegistrationStore';
 import { addAdminAgent, updateAdminAgentPassword, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber, getAdminAgentCreds } from '../../services/adminAgentStore';
@@ -1001,74 +1001,36 @@ export function GovContactsContent({
     addAuditLog?.(`[F48] ${what} NÃO persistida na nuvem (sem sessão Auth de administração / RLS) — efeito apenas local.`, 'critical');
   };
 
-  // Remove o registo da nuvem (solicitacoes_registo). Devolve false se falhar —
-  // nesse caso a linha NÃO é removida da consola, para não ressuscitar no próximo load.
-  const deleteRegistrationRecord = async (recordId: string): Promise<boolean> => {
-    try {
-      const viaProxy = await registoPublicoProxy('delete', { id: recordId });
-      if (viaProxy !== null) {
-        if (viaProxy.ok) return true;
-        console.warn('[REGISTOS] eliminação via servidor falhou:', viaProxy.erro);
-        return false;
-      }
-      const { error } = await supabase
-        .from('solicitacoes_registo')
-        .delete()
-        .eq('id', recordId);
-      if (error) {
-        if (error.code === 'PGRST205') return true; // tabela ausente: nada a remover na nuvem
-        console.error(error);
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.error(err);
-      return false;
-    }
-  };
-
   // Acção confirmada no popup de eliminação
   const confirmDeleteCitizen = async () => {
     const target = deleteConfirmCitizen;
     if (!target) return;
     setIsDeletingCitizen(true);
     try {
-      // F47-fix (2026-08-19): apagar SEMPRE por bi_numero como defesa extra
-      // (cobre cidadãos sem dbUUID/id curto, cuja linha da BD não era removida —
-      // permitia ao eliminado continuar a entrar). O marcador local de revogação
-      // abaixo garante o bloqueio mesmo quando a RLS recusa o delete (admin demo).
-      if (target.dbUUID || target.id.length > 20) {
-        const ok = await deleteRegistrationRecord(target.dbUUID || target.id);
-        if (!ok) {
-          notify('Não foi possível eliminar o registo na base de dados central. Verifique a ligação à internet e tente novamente.');
-          return;
-        }
-      }
-      // A eliminação por B.I. é a confirmação canónica: só removemos a pessoa
-      // da interface depois de a fila central confirmar a remoção. Assim o
-      // utilizador não reaparece após refresh ou noutro dispositivo.
+      // 2026-08-20 — eliminação em cascata na base central via servidor
+      // (/api/admin-cidadao, service role + papel admin): apaga registo na
+      // fila, perfil, pedidos, notificações, contactos, documentos e a conta
+      // Auth — cobre também cidadãos que só existem em `profiles` (o caso do
+      // "registo não encontrado" que bloqueava a consola). Sem sessão Auth
+      // (conta demo), mantém o comportamento histórico: remoção local com
+      // aviso honesto — o Modo Demo nunca toca na nuvem.
       if (target.biNumber) {
         try {
-          const viaProxy = await registoPublicoProxy('delete', { bi_numero: target.biNumber });
-          if (viaProxy !== null) {
-            if (!viaProxy.ok) {
-              console.error('Falha ao eliminar registo por B.I. via servidor:', viaProxy.erro);
-              notify('Não foi possível concluir a eliminação no Supabase. Nenhum dado foi removido apenas localmente.');
+          const central = await eliminarCidadaoAdmin(target.biNumber);
+          if (central !== null) {
+            if (!central.ok) {
+              console.error('Falha na eliminação central do cidadão:', central.erro);
+              notify('Não foi possível eliminar o registo na base de dados central. Verifique a ligação à internet e tente novamente.');
               return;
             }
           } else {
-          const { error } = await supabase
-            .from('solicitacoes_registo')
-            .delete()
-            .eq('bi_numero', target.biNumber);
-          if (error && error.code !== 'PGRST205') {
-            console.error('Falha ao eliminar registo por B.I.:', error);
-            notify('Não foi possível concluir a eliminação no Supabase. Nenhum dado foi removido apenas localmente.');
-            return;
-          }
+            warnIfCloudDecisionNotPersisted(false, 'A eliminação do cadastro');
+            try {
+              await supabase.from('solicitacoes_registo').delete().eq('bi_numero', target.biNumber);
+            } catch { /* demo: efeito local */ }
           }
         } catch (error) {
-          console.error('Falha de rede ao eliminar registo por B.I.:', error);
+          console.error('Falha de rede ao eliminar o cidadão:', error);
           notify('Não foi possível concluir a eliminação no Supabase. Verifique a ligação e tente novamente.');
           return;
         }

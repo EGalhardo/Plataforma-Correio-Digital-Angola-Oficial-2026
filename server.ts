@@ -567,6 +567,69 @@ async function dadosResolverEExecutar(opts: {
 }
 
 
+  // /api/admin-cidadao — eliminação em cascata de um cadastro de cidadão
+  // (2026-08-20): só administradores REAIS (role admin no Auth metadata).
+  // Executa com a service role: registo na fila, perfil, pedidos, notificações,
+  // contactos, documentos e a conta Auth (localizada por user_metadata.bi).
+  // Contas demo canónicas são recusadas (403 demo) — Modo Demo intocado.
+  app.post("/api/admin-cidadao", async (req, res) => {
+    try {
+      const { bi } = req.body || {};
+      const biNorm = String(bi || '').trim().toUpperCase();
+      if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(biNorm)) return res.status(400).json({ ok: false, erro: 'BI inválido.' });
+      if (DADOS_DEMO_BIS.includes(biNorm)) return res.status(403).json({ ok: false, erro: 'demo' });
+      const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+      const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+      if (!supaUrl || !serviceKey) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      const ident = await dadosResolverIdentidade(supaUrl, serviceKey, token);
+      if ('erro' in ident) return res.status(401).json({ ok: false, erro: ident.erro });
+      if (!ident.isAdmin) return res.status(403).json({ ok: false, erro: 'Apenas a Administração pode eliminar cadastros.' });
+      const h = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+      const detalhes: Record<string, number> = {};
+      const apagar = async (tabela: string, filtro: string) => {
+        try {
+          const r = await fetch(`${supaUrl}/rest/v1/${tabela}?${filtro}`, { method: 'DELETE', headers: { ...h, Prefer: 'return=representation' } });
+          if (r.ok) {
+            const rows = await r.json().catch(() => []);
+            detalhes[tabela] = Array.isArray(rows) ? rows.length : 0;
+          }
+        } catch { /* best-effort */ }
+      };
+      await apagar('solicitacoes_registo', `bi_numero=eq.${encodeURIComponent(biNorm)}`);
+      await apagar('profiles', `bi=eq.${encodeURIComponent(biNorm)}`);
+      await apagar('user_requests', `user_bi=eq.${encodeURIComponent(biNorm)}`);
+      await apagar('notifications', `target_bi=eq.${encodeURIComponent(biNorm)}`);
+      await apagar('contacts', `owner_bi=eq.${encodeURIComponent(biNorm)}`);
+      await apagar('documents', `holder_bi=eq.${encodeURIComponent(biNorm)}`);
+      let authRemovido = false;
+      try {
+        let pagina = 1;
+        while (pagina <= 5) {
+          const lu = await fetch(`${supaUrl}/auth/v1/admin/users?per_page=100&page=${pagina}`, { headers: h });
+          if (!lu.ok) break;
+          const lista = await lu.json();
+          const users = lista?.users || [];
+          if (!users.length) break;
+          const alvo = users.find((u: any) => String((u?.user_metadata?.bi || '')).toUpperCase() === biNorm);
+          if (alvo) {
+            const du = await fetch(`${supaUrl}/auth/v1/admin/users/${alvo.id}`, { method: 'DELETE', headers: h });
+            authRemovido = du.ok;
+            break;
+          }
+          pagina++;
+        }
+      } catch { /* best-effort */ }
+      detalhes['auth'] = authRemovido ? 1 : 0;
+      return res.status(200).json({ ok: true, detalhes });
+    } catch (e) {
+      console.error('[ADMIN-CIDADAO] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0,200) });
+    }
+  });
+
+
   // Rota do proxy CRUD do Modo Real (ver bloco PROXY CRUD acima).
   app.post("/api/dados", async (req, res) => {
     try {

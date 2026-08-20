@@ -312,6 +312,27 @@ export const registoPublicoProxy = async (
   }
 };
 
+/** Eliminação em cascata de um cidadão (2026-08-20) — via servidor com service
+ *  role e verificação do papel admin. Devolve null quando não há sessão Auth
+ *  (conta demo — o chamador segue o caminho local histórico com aviso honesto). */
+export const eliminarCidadaoAdmin = async (bi: string): Promise<{ ok: boolean; erro?: string } | null> => {
+  try {
+    const token = await obterTokenSessao();
+    if (!token) return null;
+    const resp = await fetch('/api/admin-cidadao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ bi }),
+    });
+    const j = await resp.json().catch(() => null);
+    if (j && j.ok === true) return { ok: true };
+    if (j && j.erro === 'demo') return null;
+    return { ok: false, erro: (j && j.erro) || 'Falha na eliminação central.' };
+  } catch {
+    return { ok: false, erro: 'Rede indisponível.' };
+  }
+};
+
 // ============================================================================
 // PROXY CRUD — MODO REAL (2026-08-20)
 // ----------------------------------------------------------------------------
