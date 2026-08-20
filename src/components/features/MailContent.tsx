@@ -589,25 +589,10 @@ export function MailContent({
                     >
                       <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mt-2 flex items-start gap-3" id="recipient-verified-card">
                         <CheckCircle2 className="text-emerald-600 shrink-0 mt-0.5" size={18} />
-                        <div className="flex-1 min-w-0 space-y-1.5">
-                          <span className="text-xs font-extrabold text-emerald-950 block">
-                            Cidadão registado na plataforma CDA{recipientLookup.sandbox ? ' (Modo Sandbox — dados fictícios)' : ''}
-                          </span>
-                          <p className="text-[11px] text-emerald-800 font-bold">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] text-emerald-800 font-bold m-0">
                             {recipientLookup.citizen.name} — BI {recipientLookup.citizen.bi}
                           </p>
-                          <p className="text-[10px] font-bold text-emerald-700">
-                            Rede de emergência: {recipientLookup.citizen.emergencyContactsCount} contacto(s)
-                          </p>
-                          {recipientLookup.citizen.redeCompleta ? (
-                            <span className="inline-block text-[10px] font-black uppercase tracking-widest text-emerald-800 bg-emerald-100 border border-emerald-200 rounded-full px-2.5 py-0.5">
-                              Rede completa
-                            </span>
-                          ) : (
-                            <span className="inline-block text-[10px] font-black uppercase tracking-widest text-amber-800 bg-amber-100 border border-amber-200 rounded-full px-2.5 py-0.5">
-                              Rede incompleta ({recipientLookup.citizen.emergencyContactsCount} de 2 obrigatórios)
-                            </span>
-                          )}
                         </div>
                       </div>
                     </motion.div>
