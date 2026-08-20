@@ -18,6 +18,7 @@ import {
 } from '../../services/homologationStore';
 import { normalizarTitulo } from '../../services/textNormalizeService';
 import { parsePvicFromObservacoes } from '../../services/preVerificationService';
+import { shouldUseMockFallback } from '../../config/runtime';
 import { provisionCloudAccount, markCloudAccount, isCloudBound, isSupabaseConfigured, syntheticAdminEmail, syntheticInstitutionAgentEmail } from '../../services/cloudAuthService';
 import {
   Users,
@@ -241,6 +242,8 @@ export function GovContactsContent({
       : appMode === 'institution'
         ? `correio_digital_workers_${normalizeInstCode(bi)}`
         : 'correio_digital_workers';
+    // Dados de equipa demonstrativos nunca entram no Modo Real.
+    if (!shouldUseMockFallback()) return [];
     const saved = localStorage.getItem(key);
     if (saved) {
       try {
@@ -508,6 +511,9 @@ export function GovContactsContent({
   const [, setRejectionStep] = useState<'passo1' | 'passo2' | 'passo3' | 'geral'>('geral');
 
   const [citizens, setCitizens] = useState<Citizen[]>(() => {
+    // No Modo Real, a lista nasce vazia e é preenchida apenas pela consulta
+    // Supabase abaixo; nunca reutiliza cidadãos sintéticos de localStorage.
+    if (!shouldUseMockFallback()) return [];
     const saved = localStorage.getItem('gov_admin_citizens');
     if (saved) {
       try {
