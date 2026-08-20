@@ -427,21 +427,84 @@ export function MessageDetail({
     return () => { alive = false; };
   }, [previewFile?.content]);
 
-  const handleDownloadFile = async (fileName: string) => {
-    let c = previewFile?.content || '';
+  // "Visualizar" (👁): abre o anexo numa NOVA PÁGINA/separador.
+  // Conteúdo real: storage ref → URL assinado e abre diretamente; data URL → Blob → object URL.
+  // Sem conteúdo real: abre a representação visual certificada do anexo (canvas).
+  const handleViewAttachment = async (file: { name: string; size?: string; content?: string; type?: string }) => {
+    // Abre o separador no gesto do utilizador (evita o bloqueador de pop-ups)
+    // e navega assim que o URL final estiver resolvido.
+    const win = window.open('', '_blank', 'noopener,noreferrer');
+    try {
+      let c = file.content || '';
+      if (c && isStorageRef(c)) {
+        try { c = (await resolveStorageUrl(supabase, c)) || c; } catch { /* mantém cru */ }
+      }
+      if (!c) c = generatePreviewDataUrl(file.name); // representação visual certificada
+
+      const navegar = (url: string) => {
+        if (win) { win.location.href = url; } else { window.open(url, '_blank', 'noopener,noreferrer'); }
+      };
+
+      if (c.startsWith('http://') || c.startsWith('https://')) {
+        navegar(c);
+      } else if (c.startsWith('data:')) {
+        const blob = await (await fetch(c)).blob();
+        navegar(URL.createObjectURL(blob));
+      } else {
+        navegar(URL.createObjectURL(new Blob([c], { type: 'text/plain;charset=utf-8' })));
+      }
+      addAuditLogToMessage(`Anexo visualizado em nova página: ${file.name}`);
+    } catch (e) {
+      if (win) win.close();
+      console.warn('[Anexo] falha ao abrir a visualização:', e);
+    }
+  };
+
+  // "Descarregar" (⬇): faz SEMPRE download do ficheiro. Com conteúdo real, passa por
+  // fetch → Blob → object URL (o atributo download direto é ignorado pelos browsers
+  // em URLs cross-origin — era isso que abria nova aba em vez de descarregar).
+  const handleDownloadFile = async (file: { name: string; size?: string; content?: string; type?: string }) => {
+    const fileName = file.name;
+    let c = file.content || '';
     if (c && isStorageRef(c)) {
       try { c = (await resolveStorageUrl(supabase, c)) || c; } catch { /* mantém cru */ }
     }
-    if (c && (c.startsWith('http://') || c.startsWith('https://'))) {
-      const link = document.createElement('a');
-      link.href = c;
-      link.download = fileName;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      return;
+    if (c) {
+      try {
+        let blob: Blob;
+        if (c.startsWith('data:')) {
+          blob = await (await fetch(c)).blob();
+        } else if (c.startsWith('http://') || c.startsWith('https://')) {
+          const resp = await fetch(c);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          blob = await resp.blob();
+        } else {
+          blob = new Blob([c], { type: 'text/plain;charset=utf-8' });
+        }
+        // Garante extensão no nome quando o ficheiro real não a transporta
+        let outName = fileName;
+        if (!/\.[a-z0-9]{2,5}$/i.test(outName)) {
+          const extMap: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'application/pdf': 'pdf', 'text/plain': 'txt' };
+          const ext = extMap[blob.type];
+          if (ext) outName = `${outName}.${ext}`;
+        }
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = outName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        return;
+      } catch (err) {
+        // CORS/rede indisponível: último recurso, abre em nova aba
+        console.warn('[Anexo] download direto falhou:', err);
+        if (c.startsWith('http://') || c.startsWith('https://')) {
+          window.open(c, '_blank', 'noopener,noreferrer');
+          return;
+        }
+      }
     }
 
     const org = selectedMessage.org;
@@ -1841,11 +1904,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                       <button
                         type="button"
                         onClick={() => {
-                          const fileWithContent = {
-                            ...file,
-                            content: file.content || generatePreviewDataUrl(file.name)
-                          };
-                          setPreviewFile(fileWithContent);
+                          handleViewAttachment(file);
                         }}
                         className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 rounded-xl transition-all border-0 bg-transparent cursor-pointer flex items-center justify-center"
                         title={t("Visualizar documento")}
@@ -1855,7 +1914,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                       <button
                         type="button"
                         onClick={() => {
-                          handleDownloadFile(file.name);
+                          handleDownloadFile(file);
                         }}
                         className="p-2 text-slate-400 hover:text-[#0c2340] hover:bg-slate-100 rounded-xl transition-all border-0 bg-transparent cursor-pointer flex items-center justify-center"
                         title={t("Descarregar ficheiro")}
@@ -3256,11 +3315,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                                  <button
                                    type="button"
                                    onClick={() => {
-                                     const fileWithContent = {
-                                        ...file,
-                                        content: file.content || generatePreviewDataUrl(file.name)
-                                      };
-                                      setPreviewFile(fileWithContent);
+                                     handleViewAttachment(file);
                                    }}
                                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 rounded-xl transition-all border-0 bg-transparent cursor-pointer flex items-center justify-center"
                                    title={t("Visualizar documento")}
@@ -3270,7 +3325,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                                  <button
                                    type="button"
                                    onClick={() => {
-                                     handleDownloadFile(file.name);
+                                     handleDownloadFile(file);
                                    }}
                                    className="p-2 text-slate-400 hover:text-[#0c2340] hover:bg-slate-100 rounded-xl transition-all border-0 bg-transparent cursor-pointer flex items-center justify-center"
                                    title={t("Descarregar ficheiro")}
@@ -4449,7 +4504,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                 <div className="flex items-center gap-2.5">
                   <button
                     onClick={() => {
-                      handleDownloadFile(previewFile.name);
+                      handleDownloadFile(previewFile);
                     }}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl active:scale-95 transition-all flex items-center gap-1.5 shadow-md shadow-indigo-600/20"
                   >
