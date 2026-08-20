@@ -463,7 +463,6 @@ export function GovContactsContent({
     pviTs?: string;
   }
 
-  const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [filterProvince, setFilterProvince] = useState<string>('Todas');
   const [filterMunicipio, setFilterMunicipio] = useState<string>('Todos');
   const [filterStatus, setFilterStatus] = useState<string>('Todas');
@@ -1200,11 +1199,10 @@ export function GovContactsContent({
 
   const filteredCitizens = useMemo(() => {
     const filtrados = citizens.filter((citizen) => {
-      const matchCategory = selectedCategory === 'Todos' || citizen.category.toLowerCase() === selectedCategory.toLowerCase();
       const matchProvince = filterProvince === 'Todas' || citizen.province === filterProvince;
       const matchMunicipio = filterMunicipio === 'Todos' || citizen.municipio === filterMunicipio;
       const matchStatus = filterStatus === 'Todas' || citizen.status === filterStatus;
-      return matchCategory && matchProvince && matchMunicipio && matchStatus;
+      return matchProvince && matchMunicipio && matchStatus;
     });
 
     // FASE 1 (2026-08-15) — FILA DE HOMOLOGAÇÃO ASSISTIDA:
@@ -1233,7 +1231,7 @@ export function GovContactsContent({
       });
     }
     return filtrados;
-  }, [citizens, selectedCategory, filterProvince, filterMunicipio, filterStatus]);
+  }, [citizens, filterProvince, filterMunicipio, filterStatus]);
 
   const MUNICIPALITIES_BY_PROVINCE: { [key: string]: string[] } = {
     'Todas': ['Todos'],
@@ -2511,52 +2509,13 @@ export function GovContactsContent({
 
       <div className="space-y-8 animate-fadeIn">
 
-        {/* 1. Contentor "Categorias de Usuários" */}
-        <section className="bg-white border border-slate-200 rounded-[32px] p-6 overflow-hidden relative group text-left">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2.5">
-               <div className="w-1.5 h-6 bg-indigo-600 rounded-full" />
-               <h3 className="text-slate-950 font-black text-xs md:text-md italic tracking-tighter uppercase">Categorias de Usuários</h3>
-            </div>
-            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded border border-slate-100">Controle Administrativo</div>
-          </div>
-          
-          <div className="flex flex-nowrap gap-2 md:gap-3 overflow-x-auto custom-scrollbar pb-3">
-            {["Todos", "Instituição", "Trabalhador", "Estudante", "Aposentado", "Empresário", "Funcionário Público", "Militar", "Técnico de Saúde", "Agente Policial", "Outros"].map((name) => {
-              const isActive = selectedCategory.toLowerCase() === name.toLowerCase();
-              const countForCat = name === 'Todos' ? citizens.length : citizens.filter(c => c.category.toLowerCase() === name.toLowerCase()).length;
-              return (
-                <button 
-                  key={name}
-                  onClick={() => {
-                    setSelectedCategory(name);
-                  }}
-                  className={`px-5 py-3 rounded-2xl text-[11px] md:text-xs font-black uppercase transition-all cursor-pointer shrink-0 text-left flex items-center gap-2.5 border ${
-                    isActive 
-                      ? 'bg-[#0e2b64] border-[#0e2b64] text-white font-bold' 
-                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
-                  }`}
-                >
-                  <Users size={13} className={isActive ? 'text-white/80' : 'text-slate-400'} />
-                  <span>{name}</span>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
-                    isActive ? 'bg-[#0a204b] text-white' : 'bg-slate-200 text-slate-500'
-                  }`}>
-                    {countForCat}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* 2 & 3. Real-Time Dynamic Listing and Location Filters Row */}
+        {/* Quadro de cadastros em tempo real + filtros territoriais */}
         <div className="bg-white border border-slate-200 rounded-[32px] p-6 md:p-8 shadow-sm space-y-6 text-left">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 pb-6 border-b border-slate-100">
             <div>
               <h4 className="font-black text-slate-900 text-lg md:text-xl italic uppercase tracking-tight flex items-center gap-2">
                 <Users size={20} className="text-indigo-600" />
-                Quadro de Cadastros Nacionais: {selectedCategory}
+                Quadro de Cadastros Nacionais
               </h4>
               <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">
                 Visualização, controle regulamentar e filtragem territorial dos cidadãos
@@ -2776,7 +2735,7 @@ export function GovContactsContent({
                 </div>
                 <h5 className="font-extrabold text-slate-950 text-sm uppercase">Nenhum Usuário Corresponde</h5>
                 <p className="text-xs text-slate-400 leading-normal max-w-sm mx-auto">
-                  De momento, não existem dados para exibir na categoria <strong className="text-slate-800">{selectedCategory}</strong> com o estado de validação <strong className={`font-black ${
+                  De momento, não existem dados para exibir com o estado de validação <strong className={`font-black ${
                     filterStatus.toLowerCase().includes('aprovado') || filterStatus === 'Ativo' ? 'text-emerald-600' :
                     filterStatus.toLowerCase().includes('pendente') || filterStatus.toLowerCase().includes('análise') || filterStatus.toLowerCase().includes('revisão') ? 'text-orange-500' :
                     'text-red-700 font-bold'
