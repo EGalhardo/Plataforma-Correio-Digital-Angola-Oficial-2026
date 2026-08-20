@@ -6,8 +6,10 @@
  * Cada linha tem o botão "Enviar Mensagem": 1º entrega CDA (se o familiar
  * tiver conta — desfecho REAL) → 2º abre o WhatsApp via wa.me (link honesto:
  * quem envia é o agente; "WhatsApp enviado" NÃO EXISTE aqui).
- * Truque anti-popup-blocker: window.open('', '_blank', 'noopener,noreferrer') SINCRONO no clique da
- * linha; a navegação para wa.me acontece depois dos awaits.
+ * Truque anti-popup-blocker: window.open('', '_blank') SINCRONO no clique da
+ * linha; a navegação para wa.me acontece depois dos awaits. NOTA (fix 2026-08-20):
+ * SEM 'noopener' — com essa flag o window.open devolve null e a referência
+ * perdia-se (a janela nunca navegava). A ligação opener é cortada depois de navegar.
  */
 
 import { useState } from 'react';
@@ -103,7 +105,7 @@ export function InstitutionEmergencyBroadcast({
     if (state.done) return;
 
     // 1 — SINCRONO: abrir a janela DENTRO do gesto do utilizador.
-    const win = window.open('', '_blank', 'noopener,noreferrer');
+    const win = window.open('', '_blank');
 
     if (isSandbox) {
       // Sandbox declarado: nada é escrito na BD e NENHUM link é aberto
@@ -135,6 +137,7 @@ export function InstitutionEmergencyBroadcast({
     if (outcome.waLink) {
       if (win && !win.closed) {
         win.location.href = outcome.waLink;
+        try { win.opener = null; } catch { /* melhor esforço (anti-tabnabbing) */ }
         whatsappChip = 'link_aberto';
       } else {
         popupBlocked = true;

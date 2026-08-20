@@ -431,19 +431,38 @@ export function MessageDetail({
   // Conteúdo real: storage ref → URL assinado e abre diretamente; data URL → Blob → object URL.
   // Sem conteúdo real: abre a representação visual certificada do anexo (canvas).
   const handleViewAttachment = async (file: { name: string; size?: string; content?: string; type?: string }) => {
-    // Abre o separador no gesto do utilizador (evita o bloqueador de pop-ups)
+    // Abre o separador DENTRO do gesto do utilizador (evita o bloqueador de pop-ups)
     // e navega assim que o URL final estiver resolvido.
-    const win = window.open('', '_blank', 'noopener,noreferrer');
+    // NOTA (fix 2026-08-20): SEM a flag 'noopener'. Com 'noopener' o window.open
+    // devolve null e a referência da janela perdia-se — a aba ficava em about:blank
+    // e o fallback assíncrono era bloqueado pelo popup blocker (anexo nunca exibia).
+    // A ligação opener é cortada logo após a navegação (win.opener = null).
+    const win = window.open('', '_blank');
+    const navegar = (url: string) => {
+      if (win && !win.closed) {
+        try {
+          win.location.href = url;
+          try { win.opener = null; } catch { /* melhor esforço */ }
+          return;
+        } catch {
+          try { win.close(); } catch { /* ignora */ }
+        }
+      }
+      // Janela indisponível (pop-up bloqueado / iframe restrito):
+      // fallback para o visualizador interno da app — o anexo fica SEMPRE visível.
+      setPreviewFile({
+        name: file.name,
+        size: file.size || '1.2 MB',
+        type: file.type,
+        content: /^(https?:|data:)/.test(url) ? url : file.content,
+      });
+    };
     try {
       let c = file.content || '';
       if (c && isStorageRef(c)) {
         try { c = (await resolveStorageUrl(supabase, c)) || c; } catch { /* mantém cru */ }
       }
       if (!c) c = generatePreviewDataUrl(file.name); // representação visual certificada
-
-      const navegar = (url: string) => {
-        if (win) { win.location.href = url; } else { window.open(url, '_blank', 'noopener,noreferrer'); }
-      };
 
       if (c.startsWith('http://') || c.startsWith('https://')) {
         navegar(c);
@@ -455,7 +474,7 @@ export function MessageDetail({
       }
       addAuditLogToMessage(`Anexo visualizado em nova página: ${file.name}`);
     } catch (e) {
-      if (win) win.close();
+      if (win) { try { win.close(); } catch { /* ignora */ } }
       console.warn('[Anexo] falha ao abrir a visualização:', e);
     }
   };
