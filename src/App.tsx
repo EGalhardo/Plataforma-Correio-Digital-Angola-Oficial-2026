@@ -3680,8 +3680,11 @@ export default function App() {
   };
 
   const handleReply = (msg: Message) => {
+    // `org` é apenas o rótulo exibido. Para entregar a resposta, usar a chave
+    // canónica do remetente original (BI/código institucional), não o texto.
+    const recipient = msg.senderKey || msg.recipientBi || resolveInstitutionCode(msg.org);
     setComposeData({
-      to: msg.org,
+      to: recipient,
       subject: `RE: ${msg.details?.subject || msg.preview.substring(0, 30)}`,
       body: `\n\n--------------------------------\nEm resposta à mensagem de ${msg.date}:\n"${msg.preview}"`,
       attachments: []
