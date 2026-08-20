@@ -34,6 +34,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { homologationStore } from '../../services/homologationStore';
 import { parseInstPack, isInstitutionObservacao, normalizeInstCode, getLocalInstRegs, updateLocalInstReg } from '../../services/institutionRegistrationStore';
 import { parsePvicFromObservacoes } from '../../services/preVerificationService';
+import { shouldUseMockFallback } from '../../config/runtime';
 
 
 interface GovInteroperabilidadeContentProps {
@@ -399,6 +400,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     const byCode = new Map<string, any>();
     // 1. Espelho local (funciona offline e cobre registos criados neste dispositivo)
     for (const r of getLocalInstRegs()) {
+      if (!shouldUseMockFallback() && (normalizeInstCode(r.code) === 'AGT-9921-SR' || r.observacoes?.includes('Seed demo'))) continue;
       byCode.set(normalizeInstCode(r.code), {
         id: r.code, nome: r.nome, email: r.email, bi_numero: r.code,
         status: r.status, observacoes: r.observacoes, criado_em: r.criadoEm,
@@ -415,7 +417,8 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
         if (!error && data) {
           for (const row of data as any[]) {
             if (isInstitutionObservacao(row?.observacoes)) {
-              byCode.set(normalizeInstCode(row.bi_numero), row);
+              const isDemoSeed = normalizeInstCode(row.bi_numero) === 'AGT-9921-SR' || row?.observacoes?.includes('Seed demo');
+              if (shouldUseMockFallback() || !isDemoSeed) byCode.set(normalizeInstCode(row.bi_numero), row);
             }
           }
         } else if (error && error.code !== 'PGRST205') {

@@ -1145,7 +1145,12 @@ export function GovContactsContent({
 
         if (data && data.length > 0) {
           // Instituições vivem na página Instituições (secção "Solicitações de Registo") — saem da fila de cidadãos.
-          const citizenRows = (data as LinhaSolicitacaoCidadao[]).filter((item) => !item?.observacoes?.includes('[Instituição]'));
+          const citizenRows = (data as LinhaSolicitacaoCidadao[]).filter((item) => {
+            if (item?.observacoes?.includes('[Instituição]')) return false;
+            // Seeds institucionais de demonstração não podem aparecer como cidadãos no modo real.
+            if (!shouldUseMockFallback() && (item?.bi_numero === 'AGT-9921-SR' || item?.observacoes?.includes('Seed demo'))) return false;
+            return true;
+          });
           const supabaseCitizens: Citizen[] = await resolveCitizenDocUrls(mapRegistrationRowsToCitizens(citizenRows));
 
           setCitizens(prev => {
