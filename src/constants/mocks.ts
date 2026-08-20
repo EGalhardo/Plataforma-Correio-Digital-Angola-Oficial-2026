@@ -71,7 +71,7 @@ export const MOCK_INSTITUTIONS: Institution[] = [
   {
     id: "inst-inapem",
     name: "INAPEM",
-    fullName: "Instituto de Apoio às Micro, Pequenas e Médias Empresas",
+    fullName: "Instituto Nacional de Apoio as Micro, Pequenas e Médias Empresas.",
     category: InstitutionCategory.SERVICOS,
     province: "Luanda",
     municipio: "Talatona",

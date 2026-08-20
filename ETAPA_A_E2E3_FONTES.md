@@ -25,7 +25,7 @@ nem dos regulamentos disponíveis." e indica onde confirmar.
 | Simulador Tributário (IVM, Imposto Predial, IRT) e passos do Imposto sobre Veículos Motorizados (cadastro com NIF + código por e-mail/telemóvel, liquidação, pagamento, selo) | https://portaldocontribuinte.minfin.gov.ao/noticia?id=809086 |
 | Onde consultar legislação fiscal/aduaneira, notificações pelo Portal do Contribuinte, WhatsApp oficial +244 923 167 011 | https://agt.minfin.gov.ao |
 
-## 2. INAPEM — Instituto Nacional de Apoio às Micro, Pequenas e Médias Empresas (3 fontes)
+## 2. INAPEM — Instituto Nacional de Apoio as Micro, Pequenas e Médias Empresas. (3 fontes)
 
 | Conteúdo carregado | De onde veio |
 |---|---|

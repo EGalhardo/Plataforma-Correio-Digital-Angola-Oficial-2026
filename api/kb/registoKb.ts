@@ -330,7 +330,7 @@ export const KB_EPAL: KbInstituicaoLocal = {
 
 export const KB_INAPEM: KbInstituicaoLocal = {
   sigla: 'INAPEM',
-  nome: 'Instituto Nacional de Apoio às Micro, Pequenas e Médias Empresas',
+  nome: 'Instituto Nacional de Apoio as Micro, Pequenas e Médias Empresas.',
   fontes: [
     {
       id: 'inapem-cert-oque',

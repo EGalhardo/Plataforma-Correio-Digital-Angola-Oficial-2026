@@ -20,7 +20,7 @@ export interface EntidadeCatalogo {
 }
 
 export const CATALOGO_INSTITUICOES: EntidadeCatalogo[] = [
-  { sigla: 'INAPEM', nome: 'INAPEM — Instituto Nacional de Apoio as Micro, Pequenas e Médias Empresas', codigoSugerido: 'INAPEM-001', emDemonstracao: true,
+  { sigla: 'INAPEM', nome: 'INAPEM — Instituto Nacional de Apoio as Micro, Pequenas e Médias Empresas.', codigoSugerido: 'INAPEM-001', emDemonstracao: true,
     servicos: ['Aprovação de candidaturas', 'Convites para programas', 'Certificados digitais', 'Editais', 'Avisos', 'Renovação de licenças', 'Formação online', 'Convites para eventos', 'Incubação de startups', 'Comunicação consultores-empresas'] },
   { sigla: 'MINSA', nome: 'Ministério da Saúde', codigoSugerido: null, emDemonstracao: false,
     servicos: ['Marcação de consultas', 'Resultados de exames', 'Receitas médicas digitais', 'Lembretes de vacinação', 'Avisos de campanhas', 'Alertas epidemiológicos', 'Relatórios e estatísticas', 'Notificação de surtos', 'Inventário de medicamentos', 'Transferência de doentes'] },
