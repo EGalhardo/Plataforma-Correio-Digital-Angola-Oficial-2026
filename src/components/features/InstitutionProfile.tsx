@@ -18,6 +18,7 @@ import { useSession } from "../../services/sessionStore";
 import { supabaseService, hasValidSupabaseKeys } from "../../services/supabaseService";
 import { supabase } from '../../lib/supabaseClient';
 import { guardarAvatar } from '../../services/avatarService';
+import { guardarPerfilLocal } from '../../services/perfilLocalService';
 import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil, type ProfileSyncOutcome } from '../../services/profileSyncService';
 import { getLocalInstReg, normalizeInstCode } from "../../services/institutionRegistrationStore";
 
@@ -95,6 +96,13 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
     updateActiveProfileFields({
       role: editInstRole,
       departmentName: editInstDept,
+    });
+    // 2026-08-20 — espelho local por conta (mesmo padrão do avatar): os dados
+    // editados voltam no próximo login, também em contas demo.
+    guardarPerfilLocal('institution', bi || '', {
+      name: editInstName,
+      phone: editInstPhone,
+      email: editInstEmail,
     });
     // 2026-08-20 — persistência real (mesmo padrão da página Perfil do cidadão):
     // nome/telefone/e-mail vão para `profiles` via /api/perfil-sync (service role,

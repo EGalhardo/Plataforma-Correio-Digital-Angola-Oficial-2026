@@ -12,6 +12,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { hasValidSupabaseKeys, supabaseService } from '../../services/supabaseService';
 import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil } from '../../services/profileSyncService';
 import { guardarAvatar } from '../../services/avatarService';
+import { guardarPerfilLocal } from '../../services/perfilLocalService';
 import { cloudChangePassword, hasActiveCloudSession, isCloudBound } from '../../services/cloudAuthService';
 import { homologationStore } from '../../services/homologationStore';
 
@@ -66,6 +67,14 @@ export function GovPerfilContent({
       phone: editAdminPhone,
       email: editAdminEmail,
       nif: editAdminNif
+    });
+    // 2026-08-20 — espelho local por conta: os dados editados voltam no
+    // próximo login, também na conta demo da Administração.
+    guardarPerfilLocal('admin', bi || '', {
+      name: editAdminName,
+      phone: editAdminPhone,
+      email: editAdminEmail,
+      nif: editAdminNif,
     });
     // 2026-08-20 — persistência real (mesmo padrão da página Perfil do cidadão):
     // nome/telefone/e-mail/NIF vão para `profiles` (bi = Nº de Agente) via

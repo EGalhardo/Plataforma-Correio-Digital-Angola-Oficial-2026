@@ -98,6 +98,7 @@ import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, se
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode } from './services/supabaseService';
 import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
+import { lerPerfilLocal } from './services/perfilLocalService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, preloginLookupInstitution, purgeInstitutionLocalResidues, mapRowStatus, type InstitutionIdentity } from './services/institutionSessionService';
 import { getLocalInstReg, normalizeInstCode, parseInstPack } from './services/institutionRegistrationStore';
@@ -3304,6 +3305,38 @@ export default function App() {
     const id = setInterval(() => void verificarSyncPerfilAutomaticamente(), 5 * 60 * 1000);
     return () => clearInterval(id);
   }, [verificarSyncPerfilAutomaticamente, stage]);
+
+  // 2026-08-20 — reaplicar as EDIÇÕES LOCAIS do perfil guardadas por conta
+  // (perfilLocalService): cobre contas demo (nuvem fora de âmbito — era o que
+  // fazia o contacto/foto reverterem) e falhas de leitura da nuvem em contas
+  // reais. Corre na entrada do app (e por mudança de modo), DEPOIS da
+  // hidratação de login — a última palavra é sempre a do utilizador.
+  useEffect(() => {
+    if (stage !== 'app') return;
+    const ident = (bi || '').trim().toUpperCase();
+    if (!ident) return;
+    const loc = lerPerfilLocal(appMode, ident);
+    if (!loc || !Object.keys(loc).length) return;
+    // Um COLABORADOR institucional mantém o seu nome (o espelho é do código).
+    const isInstMember = appMode === 'institution' && instIdentity?.type === 'member';
+    const mud: Record<string, string> = {};
+    if (loc.name && !isInstMember) mud.name = loc.name;
+    if (loc.phone) mud.phone = loc.phone;
+    if (loc.email) mud.email = loc.email;
+    if (loc.nif) mud.nif = loc.nif;
+    if (loc.filiation) mud.filiation = loc.filiation;
+    if (loc.maritalStatus) mud.maritalStatus = loc.maritalStatus;
+    if (loc.birthDate) mud.birthDate = loc.birthDate;
+    if (loc.address) mud.address = loc.address;
+    if (!Object.keys(mud).length) return;
+    updateUserFields?.(mud);
+    if (mud.name) setProfileName(mud.name);
+    if (mud.phone) setPhone(mud.phone);
+    if (mud.nif) setNif(mud.nif);
+    if (mud.filiation) setUserFiliation(mud.filiation);
+    if (mud.maritalStatus) setUserMaritalStatus(mud.maritalStatus);
+    if (mud.birthDate) setUserBirthDate(mud.birthDate);
+  }, [stage, appMode, bi, instIdentity?.type]);
   // F17 — Piso de não-lidas ao nível da DERIVAÇÃO (só demo): a fusão assíncrona
   // da nuvem repõe cópias lidas por cima do piso aplicado 1x no arranque; com o
   // piso derivado aqui, "Não Lidas" nunca fica vazio em sessão de demonstração.
@@ -5909,15 +5942,26 @@ Ficha civil do titular:
             void (async () => {
               try {
                 const dbAg = await supabaseService.getProfile(typedAgent);
+                const locAg = lerPerfilLocal('admin', typedAgent);
                 if (dbAg) {
-                  setProfileName(dbAg.name || cred.name);
-                  setPhoneLocal(dbAg.phone || '');
-                  setNifLocal(dbAg.nif || '');
+                  setProfileName(dbAg.name || locAg.name || cred.name);
+                  setPhoneLocal(dbAg.phone || locAg.phone || '');
+                  setNifLocal(dbAg.nif || locAg.nif || '');
                   updateUserFields?.({
-                    name: dbAg.name || cred.name,
-                    phone: dbAg.phone || '',
-                    nif: dbAg.nif || '',
-                    email: dbAg.email || '',
+                    name: dbAg.name || locAg.name || cred.name,
+                    phone: dbAg.phone || locAg.phone || '',
+                    nif: dbAg.nif || locAg.nif || '',
+                    email: dbAg.email || locAg.email || '',
+                  });
+                } else if (locAg && Object.keys(locAg).length) {
+                  setProfileName(locAg.name || cred.name);
+                  setPhoneLocal(locAg.phone || '');
+                  setNifLocal(locAg.nif || '');
+                  updateUserFields?.({
+                    name: locAg.name || cred.name,
+                    phone: locAg.phone || '',
+                    nif: locAg.nif || '',
+                    email: locAg.email || '',
                   });
                 }
                 const fotoAg = (await lerAvatarAuth()) || lerAvatarLocal('admin', typedAgent);

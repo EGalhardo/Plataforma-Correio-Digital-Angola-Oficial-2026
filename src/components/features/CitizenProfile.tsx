@@ -18,6 +18,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { supabaseService, hasValidSupabaseKeys } from "../../services/supabaseService";
 import { guardarAvatar } from '../../services/avatarService';
+import { guardarPerfilLocal } from '../../services/perfilLocalService';
 import { supabase } from '../../lib/supabaseClient';
 import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil, temPendenciaPerfil, type ProfileSyncOutcome } from '../../services/profileSyncService';
 import { normalizarNome } from '../../services/textNormalizeService';
@@ -108,6 +109,17 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
         filiation: editFiliation,
         maritalStatus: editMaritalStatus,
         address: editMorada
+      });
+
+      // 2026-08-20 — espelho local por conta: as edições voltam no próximo
+      // login mesmo em contas demo (ou quando a nuvem não está acessível).
+      guardarPerfilLocal('user', user?.bi || bi || '', {
+        name: editName,
+        phone: editPhone,
+        email: editEmail,
+        filiation: editFiliation,
+        maritalStatus: editMaritalStatus,
+        address: editMorada,
       });
 
       // F53: o outcome da nuvem governa o feedback (C3 — nunca sucesso fabricado).
