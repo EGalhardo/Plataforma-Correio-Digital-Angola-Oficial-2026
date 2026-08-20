@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Institution, InstitutionStatus } from '../types';
 import { MOCK_INSTITUTIONS } from '../constants/mocks';
+import { shouldUseMockFallback } from '../config/runtime';
 
 export const CANONICAL_INSTITUTIONS: Institution[] = MOCK_INSTITUTIONS;
 
@@ -71,18 +72,22 @@ const InstitutionContext = createContext<InstitutionContextType | undefined>(und
 
 export const InstitutionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [institutions, setInstitutions] = useState<Institution[]>(() => {
+    const demoEnabled = shouldUseMockFallback();
     const saved = localStorage.getItem("correio_digital_institutions");
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as Institution[];
+        if (!demoEnabled) {
+          // Modo real nunca reutiliza as entidades canónicas de demonstração
+          // guardadas localmente por uma sessão anterior.
+          const demoIds = new Set(CANONICAL_INSTITUTIONS.map(inst => inst.id));
+          return parsed.filter(inst => !demoIds.has(inst.id));
+        }
         const hasInapem = parsed.some(inst => inst.name === 'INAPEM' || inst.id === 'inst-inapem');
         if (!hasInapem) {
           const canonicalInapem = CANONICAL_INSTITUTIONS.find(inst => inst.name === 'INAPEM');
-          if (canonicalInapem) {
-            parsed.push(canonicalInapem);
-          }
+          if (canonicalInapem) parsed.push(canonicalInapem);
         }
-        // Garante que INAPEM está em primeiro lugar da lista
         const inapemIndex = parsed.findIndex(inst => inst.name === 'INAPEM' || inst.id === 'inst-inapem');
         if (inapemIndex > 0) {
           const [inapem] = parsed.splice(inapemIndex, 1);
@@ -93,7 +98,7 @@ export const InstitutionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         // use default
       }
     }
-    return CANONICAL_INSTITUTIONS;
+    return shouldUseMockFallback() ? CANONICAL_INSTITUTIONS : [];
   });
 
   useEffect(() => {

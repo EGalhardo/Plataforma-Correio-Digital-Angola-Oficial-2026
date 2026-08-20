@@ -726,7 +726,25 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   const handleDeleteSolicitacao = async (row: LinhaSolicitacao) => {
     setSolBusy(true);
     const code = normalizeInstCode(row.bi_numero);
-    // Cascata idêntica à do cidadão: registo + homologação + thread + lidos
+    const ready = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+    // No modo real, confirmar a exclusão central ANTES de limpar qualquer cache local.
+    if (ready) {
+      try {
+        const { data, error } = await supabase.rpc('cda_admin_alfa_eliminar_registo', { p_identificador: code });
+        if (error || !data?.ok) {
+          console.error('Erro na exclusão administrativa central:', error || data);
+          setSolError('Não foi possível eliminar a instituição na base central. Confirme a sessão do Admin Alfa e tente novamente.');
+          setSolBusy(false);
+          return;
+        }
+      } catch (e) {
+        console.error('Remoção cloud indisponível:', e);
+        setSolError('A exclusão central está indisponível. A instituição não foi removida da lista.');
+        setSolBusy(false);
+        return;
+      }
+    }
+    // Cascata local só é limpa depois da confirmação central: registo + homologação + thread + lidos
     try { homologationStore.clearStatus(code); } catch { /* ignora */ }
     try { homologationStore.clearThread(code); } catch { /* ignora */ }
     try { localStorage.removeItem(`cda_read_msgs_${code.replace(/\s+/g, '')}`); } catch { /* ignora */ }
@@ -737,13 +755,6 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
         localStorage.setItem('cda_inst_regs_v1', JSON.stringify(regs));
       }
     } catch { /* ignora */ }
-    const ready = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
-    if (ready && row.id && String(row.id) !== String(row.bi_numero)) {
-      try {
-        const { error } = await supabase.from('solicitacoes_registo').delete().eq('id', row.id);
-        if (error) console.error('Erro a remover solicitação na nuvem:', error);
-      } catch (e) { console.warn('Remoção cloud indisponível:', e); }
-    }
     setInstitutions(prev => prev.filter(i => normalizeInstCode(i.instCode || '') !== code));
     onLog?.(`Solicitação de ${row.nome} (${code}) eliminada em cascata (registo, homologação, thread, lidos, ficha da página).`, 'critical');
     await fetchSolicitacoes();
