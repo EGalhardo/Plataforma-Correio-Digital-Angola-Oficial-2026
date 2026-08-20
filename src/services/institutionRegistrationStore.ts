@@ -49,6 +49,18 @@ const PACK_SUFFIX = ']';
 export const normalizeInstCode = (code?: string): string =>
   (code || '').toUpperCase().replace(/\s+/g, '').trim();
 
+/** Normaliza o NOME da instituição (2026-08-20): corrige a variante em
+ *  minúsculas do INAPEM gravada na nuvem para a forma canónica exibida na
+ *  plataforma. Outros nomes passam intactos. */
+export const normalizarNomeInstituicao = (nome?: string | null): string => {
+  const n = (nome || '').trim();
+  if (!n) return n;
+  if (/^INAPEM\s*[—-]\s*instituto nacional de apoio as micro, pequenas e médias empresas\.?$/i.test(n)) {
+    return 'INAPEM — Instituto Nacional de Apoio as Micro, Pequenas e Médias Empresas';
+  }
+  return n;
+};
+
 export const buildInstObservacoes = (pack: InstitutionRegPack, humanText?: string): string =>
   `${INST_MARKER} ${humanText?.trim() || 'Pedido de adesão institucional ao Correio Digital Angola.'} ${PACK_PREFIX}${JSON.stringify(pack)}${PACK_SUFFIX}`;
 

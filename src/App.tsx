@@ -101,7 +101,7 @@ import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
 import { lerPerfilLocal } from './services/perfilLocalService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, preloginLookupInstitution, purgeInstitutionLocalResidues, mapRowStatus, type InstitutionIdentity } from './services/institutionSessionService';
-import { getLocalInstReg, normalizeInstCode, parseInstPack } from './services/institutionRegistrationStore';
+import { getLocalInstReg, normalizeInstCode, parseInstPack, normalizarNomeInstituicao } from './services/institutionRegistrationStore';
 import { resolveAdminAgentLogin } from './services/adminAgentStore';
 import { getAdminAgentCred, addAdminAgent } from './services/adminAgentStore';
 import {
@@ -877,6 +877,9 @@ export default function App() {
   // limpando os campos do cidadão demo que a sessão partilhada trazia.
   const applyInstitutionSessionIdentity = async (result: { code: string; name: string; identity?: InstitutionIdentity | null; pack?: ReturnType<typeof parseInstPack>; status?: string }) => {
     const code = normalizeInstCode(result.code);
+    // 2026-08-20 — nome canónico da instituição em toda a área (a nuvem
+    // guardava a variante em minúsculas do INAPEM).
+    const nomeExibicao = normalizarNomeInstituicao(result.name) || result.name;
     // F14 — Multi-dispositivo: garante o canal oficial da Área de Administração
     // quando a thread local não existe neste dispositivo (a conta REAL tem
     // sempre a correspondência de confirmação/aprovação da sua adesão).
@@ -897,7 +900,7 @@ export default function App() {
     }
     const personName = (isMember && result.identity?.memberName)
       ? result.identity.memberName
-      : ((!isMember && perfilPersistido?.name) || (pack?.responsavel || result.name.replace(/\s*\([^)]*\)\s*$/, '') || 'Agente Institucional'));
+      : ((!isMember && perfilPersistido?.name) || (pack?.responsavel || nomeExibicao.replace(/\s*\([^)]*\)\s*$/, '') || 'Agente Institucional'));
     const email = (perfilPersistido?.email || pack?.emailAcesso || pack?.emailContacto || reg?.email || '').trim();
     const phone = (perfilPersistido?.phone || pack?.telefone || '').trim();
     // Foto do agente: 1) captura facial desta pessoa (registada na página Conta);

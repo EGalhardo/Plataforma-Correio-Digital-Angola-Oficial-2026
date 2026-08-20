@@ -14,7 +14,7 @@ import { cloudSignIn, provisionCloudAccount, isCloudBound, markCloudAccount, unm
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   getLocalInstReg, normalizeInstCode, parseInstPack, splitAgentNumber,
-  removeLocalInstReg,
+  removeLocalInstReg, normalizarNomeInstituicao,
   type LocalInstitutionRegistration
 } from './institutionRegistrationStore';
 
@@ -196,7 +196,10 @@ export const resolveInstitutionFaceLogin = async (
     };
   }
 
-  const name: string = row?.nome || preRow?.nome || reg?.nome || code;
+  // 2026-08-20 — o nome da instituição é normalizado na origem: a variante em
+  // minúsculas do INAPEM gravada na nuvem passa a exibir a forma canónica em
+  // toda a área da Instituição (título, perfil, avisos e consolas).
+  const name: string = normalizarNomeInstituicao(row?.nome || preRow?.nome || reg?.nome) || code;
   const pack = parseInstPack(row?.observacoes || reg?.observacoes || '');
   if (!reg && !row && !preRow) {
     return {
@@ -318,7 +321,7 @@ export const resolveInstitutionLogin = async (
 
   // F44 (v15): `let` — a re-hidratação pós-Auth (abaixo) pode chegar aos dados
   // completos DEPOIS desta primeira composição pré-Auth (nome via RPC/local).
-  let name: string = row?.nome || preRow?.nome || reg?.nome || code;
+  let name: string = normalizarNomeInstituicao(row?.nome || preRow?.nome || reg?.nome) || code;
   let pack = parseInstPack(row?.observacoes || reg?.observacoes || '');
 
   // 2. A senha confirma a PESSOA (F6/C5: o NN do agente identifica; a senha valida essa pessoa)
