@@ -211,4 +211,4 @@ O projeto está preparado para continuar a evoluir sem alterar a identidade visu
 
 ---
 
-*Última atualização: 2026-08-14 — teste de deploy contínuo (commit inofensivo).*
+*Última atualização: 2026-08-20 — teste de deploy contínuo (commit inofensivo).*
