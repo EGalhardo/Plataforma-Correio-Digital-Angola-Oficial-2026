@@ -30,12 +30,15 @@ export function DocumentDetail({
   const { t: translate } = useLanguage();
   const [showAIPanel, setShowAIPanel] = useState(false);
   
-  const protocol = selectedDoc.protocol || generateProtocol(
-    selectedDoc.issuer || 'GOV',
-    'document',
-    selectedDoc.code || selectedDoc.number,
-    selectedDoc.name
-  );
+  const protocol = {
+    ...generateProtocol(
+      selectedDoc.issuer || 'GOV',
+      'document',
+      selectedDoc.code || selectedDoc.number,
+      selectedDoc.name
+    ),
+    ...(selectedDoc.protocol || {})
+  };
 
   return (
     <motion.div 

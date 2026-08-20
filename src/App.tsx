@@ -110,7 +110,7 @@ import {
 // F47 — revogação de contas eliminadas (pré-login via RPC v16 + purga local)
 // F48 — sincronização viva do estado oficial em sessão aberta (luz Online/gate)
 import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLocalResidues, resolveCloudGateAction, marcarCloudAprovou } from './services/accountGateService';
-import { PROFILE_HYDRATION_COLUMNS, puxarPerfilDaNuvem, reenviarPendenciasPerfil, temPendenciaPerfil } from './services/profileSyncService';
+import { puxarPerfilDaNuvem, reenviarPendenciasPerfil, temPendenciaPerfil } from './services/profileSyncService';
 import { buildAutoFillProfile, type CitizenAutoFillProfile } from './services/autoFillService';
 import { carregarPagamentosDoCidadao } from './services/pagamentosService';
 import {
@@ -976,15 +976,12 @@ export default function App() {
       let resolvedMorada = '';
       let resolvedEmail = '';
 
-      // 1) Nuvem: tabela profiles (RLS permissivo no schema atual)
+      // 1) Nuvem: tabela profiles — via supabaseService.getProfile (2026-08-20):
+      // com a RLS endurecida a leitura directa devolvia vazio e a hidratação
+      // caía no fallback local (dados editados "voltavam ao estado antigo").
       const isSupabaseReady = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
       if (isSupabaseReady) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select(PROFILE_HYDRATION_COLUMNS)
-          .eq('bi', normalized)
-          .maybeSingle();
-        if (error) console.error('CADA: erro ao carregar perfil da nuvem no login:', error);
+        const data = await supabaseService.getProfile(normalized);
         if (data) {
           resolvedName = data.name || '';
           resolvedPhone = data.phone || '';

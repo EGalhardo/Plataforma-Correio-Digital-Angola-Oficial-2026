@@ -156,6 +156,64 @@ async function startServer() {
     }
   });
 
+  // API — Perfil do cidadão (2026-08-20): com a RLS endurecida de produção,
+  // o cliente sem claims JWT não lê nem escreve a linha própria em `profiles`
+  // (o UPDATE falha SILENCIOSAMENTE — 204 com zero linhas) e o guardar do
+  // Perfil mostrava "sucesso" sem gravar nada. Estas rotas leem/escrevem NO
+  // SERVIDOR com a service role (colunas em whitelist, BI validado).
+  const PERFIL_COLUNAS = ['name','phone','nif','passport','birth_date','filiation','marital_status','email','morada'] as const;
+  const BI_VALIDO = /^[A-Z0-9][A-Z0-9\-]{3,23}$/;
+
+  app.get("/api/perfil", async (req, res) => {
+    try {
+      const bi = String((req.query as any)?.bi || '').trim().toUpperCase();
+      if (!BI_VALIDO.test(bi)) return res.status(400).json({ ok: false, erro: 'BI inválido.' });
+      const admin = createSupabaseAdminClient();
+      if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      const { data, error } = await admin.from('profiles').select('*').eq('bi', bi).maybeSingle();
+      if (error) return res.status(500).json({ ok: false, erro: error.message });
+      return res.status(200).json({ ok: true, perfil: data || null });
+    } catch (e) {
+      console.error('[PERFIL-GET] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
+  app.post("/api/perfil-sync", async (req, res) => {
+    try {
+      const { bi, campos } = req.body || {};
+      const biNorm = String(bi || '').trim().toUpperCase();
+      if (!BI_VALIDO.test(biNorm)) return res.status(400).json({ ok: false, erro: 'BI inválido.' });
+      if (!campos || typeof campos !== 'object' || Array.isArray(campos)) {
+        return res.status(400).json({ ok: false, erro: 'campos ausentes.' });
+      }
+      const cols: Record<string, string> = {};
+      for (const col of PERFIL_COLUNAS) {
+        const v = String((campos as any)[col] ?? '').trim();
+        if (v) cols[col] = v;
+      }
+      // birth_date: aceita dd/mm/aaaa e converte para aaaa-mm-dd (formato da BD)
+      if (cols.birth_date && /^\d{2}\/\d{2}\/\d{4}$/.test(cols.birth_date)) {
+        const [d, m, y] = cols.birth_date.split('/');
+        cols.birth_date = `${y}-${m}-${d}`;
+      } else if (cols.birth_date && !/^\d{4}-\d{2}-\d{2}$/.test(cols.birth_date)) {
+        delete cols.birth_date;
+      }
+      if (!Object.keys(cols).length) return res.status(400).json({ ok: false, erro: 'Nenhuma coluna válida para gravar.' });
+      const admin = createSupabaseAdminClient();
+      if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      const { data: upd, error: updErr } = await admin.from('profiles').update(cols).eq('bi', biNorm).select('bi');
+      if (updErr) return res.status(500).json({ ok: false, erro: updErr.message });
+      if (upd && upd.length > 0) return res.status(200).json({ ok: true, gravado: Object.keys(cols) });
+      const { error: insErr } = await admin.from('profiles').insert({ bi: biNorm, ...cols });
+      if (insErr) return res.status(500).json({ ok: false, erro: insErr.message });
+      return res.status(200).json({ ok: true, gravado: Object.keys(cols), criado: true });
+    } catch (e) {
+      console.error('[PERFIL-SYNC] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
   // API Health check
   app.get("/api/health", (_req, res) => {
     res.json({ 

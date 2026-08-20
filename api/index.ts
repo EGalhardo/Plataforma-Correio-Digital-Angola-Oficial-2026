@@ -1564,6 +1564,93 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
       }
     }
 
+    // Endpoints /api/perfil e /api/perfil-sync — perfil do cidadão via service
+    // role (2026-08-20): com a RLS endurecida de produção o cliente sem claims
+    // JWT não lê nem escreve `profiles` (UPDATE falha silencioso, 204/0 linhas).
+    // O servidor faz a leitura/escrita com a service role (colunas whitelist).
+    const supaUrlPerfil = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+    const serviceKeyPerfil = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+    const PERFIL_COLUNAS_VALIDAS = ['name','phone','nif','passport','birth_date','filiation','marital_status','email','morada'] as const;
+    const BI_VALIDO_PERFIL = /^[A-Z0-9][A-Z0-9\-]{3,23}$/;
+
+    if (url.includes('/api/perfil-sync') && method === 'POST') {
+      try {
+        if (!supaUrlPerfil || !serviceKeyPerfil) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        const { bi, campos } = body || {};
+        const biNorm = String(bi || '').trim().toUpperCase();
+        if (!BI_VALIDO_PERFIL.test(biNorm)) return res.status(400).json({ ok: false, erro: 'BI inválido.' });
+        if (!campos || typeof campos !== 'object' || Array.isArray(campos)) return res.status(400).json({ ok: false, erro: 'campos ausentes.' });
+        const cols: Record<string, string> = {};
+        for (const col of PERFIL_COLUNAS_VALIDAS) {
+          const v = String((campos as any)[col] ?? '').trim();
+          if (v) cols[col] = v;
+        }
+        if (cols.birth_date && /^\d{2}\/\d{2}\/\d{4}$/.test(cols.birth_date)) {
+          const [d, m, y] = cols.birth_date.split('/');
+          cols.birth_date = `${y}-${m}-${d}`;
+        } else if (cols.birth_date && !/^\d{4}-\d{2}-\d{2}$/.test(cols.birth_date)) {
+          delete cols.birth_date;
+        }
+        if (!Object.keys(cols).length) return res.status(400).json({ ok: false, erro: 'Nenhuma coluna válida para gravar.' });
+        const patchResp = await fetch(`${supaUrlPerfil}/rest/v1/profiles?bi=eq.${encodeURIComponent(biNorm)}`, {
+          method: 'PATCH',
+          headers: {
+            apikey: serviceKeyPerfil,
+            Authorization: `Bearer ${serviceKeyPerfil}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=representation',
+          },
+          body: JSON.stringify(cols),
+        });
+        if (!patchResp.ok) {
+          const txt = await patchResp.text();
+          return res.status(500).json({ ok: false, erro: txt.slice(0, 200) });
+        }
+        const patchRows = await patchResp.json().catch(() => []);
+        if (Array.isArray(patchRows) && patchRows.length > 0) {
+          return res.status(200).json({ ok: true, gravado: Object.keys(cols) });
+        }
+        const insResp = await fetch(`${supaUrlPerfil}/rest/v1/profiles`, {
+          method: 'POST',
+          headers: {
+            apikey: serviceKeyPerfil,
+            Authorization: `Bearer ${serviceKeyPerfil}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=minimal',
+          },
+          body: JSON.stringify({ bi: biNorm, ...cols }),
+        });
+        if (!insResp.ok) {
+          const txt = await insResp.text();
+          return res.status(500).json({ ok: false, erro: txt.slice(0, 200) });
+        }
+        return res.status(200).json({ ok: true, gravado: Object.keys(cols), criado: true });
+      } catch (e: any) {
+        console.error('[PERFIL-SYNC] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
+    if (url.includes('/api/perfil') && method === 'GET') {
+      try {
+        const bi = String((req.query && (req.query as any).bi) || '').trim().toUpperCase();
+        if (!BI_VALIDO_PERFIL.test(bi)) return res.status(400).json({ ok: false, erro: 'BI inválido.' });
+        if (!supaUrlPerfil || !serviceKeyPerfil) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        const readResp = await fetch(`${supaUrlPerfil}/rest/v1/profiles?bi=eq.${encodeURIComponent(bi)}&select=*`, {
+          headers: { apikey: serviceKeyPerfil, Authorization: `Bearer ${serviceKeyPerfil}` },
+        });
+        if (!readResp.ok) {
+          const txt = await readResp.text();
+          return res.status(500).json({ ok: false, erro: txt.slice(0, 200) });
+        }
+        const rows = await readResp.json().catch(() => []);
+        return res.status(200).json({ ok: true, perfil: Array.isArray(rows) && rows.length ? rows[0] : null });
+      } catch (e: any) {
+        console.error('[PERFIL-GET] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
     // Fallback global de rotas
     return res.status(404).json({ error: "Endpoint não encontrado." });
 

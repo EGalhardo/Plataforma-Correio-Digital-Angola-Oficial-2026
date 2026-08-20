@@ -289,6 +289,7 @@ export function MessageDetail({
     legal_validity: string | null;
     official_issue_date: string | null;
     official_time: string | null;
+    qr_code_url?: string | null;
   } | null>(null);
   const [integrityCheck, setIntegrityCheck] = useState<'idle' | 'busy' | 'integro' | 'adulterado' | 'legado' | 'sem_registo' | 'erro'>('idle');
 
@@ -1446,12 +1447,19 @@ depende de integração futura com a infra-estrutura de chaves nacional.
     })();
   };
 
-  const protocol = selectedMessage.protocol || generateProtocol(
-    selectedMessage.org,
-    'message',
-    selectedMessage.id,
-    selectedMessage.details?.subject || selectedMessage.preview
-  );
+  // FIX 2026-08-20 — mensagens vindas da nuvem trazem protocolo PARCIAL
+  // (só protocolNumber): o QR ficava "indisponível" na área do cidadão.
+  // Funde o protocolo armazenado POR CIMA do gerado: todos os campos visuais
+  // (qrCodeUrl, selo, hash) ficam sempre preenchidos e o número real preserva-se.
+  const protocol = {
+    ...generateProtocol(
+      selectedMessage.org,
+      'message',
+      selectedMessage.id,
+      selectedMessage.details?.subject || selectedMessage.preview
+    ),
+    ...(selectedMessage.protocol || {})
+  };
 
   // Q-2 — ligação deep-link da correspondência (o QR codifica exactamente este
   // endereço: digitalizar abre a mensagem na plataforma).
@@ -2634,7 +2642,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
           title="Digitalize para localizar esta correspondência na plataforma"
         >
           <QrCodeImage
-            value={protocol.qrCodeUrl}
+            value={storedProtocol?.qr_code_url || protocol.qrCodeUrl}
             size={92}
             className="w-[92px] h-[92px] object-contain transition-transform group-hover:scale-105"
           />
@@ -3604,7 +3612,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           className="flex flex-col items-center shrink-0 border border-slate-200 bg-emerald-50/20 p-2 text-center rounded-xl shadow-sm cursor-pointer hover:bg-emerald-50/50 hover:border-emerald-300 active:scale-95 transition-all group"
                         >
                           <QrCodeImage
-                            value={protocol.qrCodeUrl}
+                            value={storedProtocol?.qr_code_url || protocol.qrCodeUrl}
                             size={64}
                             className="w-16 h-16 object-contain transition-transform group-hover:scale-105"
                           />
@@ -3965,7 +3973,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         className="p-3 bg-white border border-line/40 rounded-2xl shadow-md group relative overflow-hidden text-center w-full cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/10 transition-all active:scale-95 flex flex-col items-center justify-center"
                       >
                         <QrCodeImage
-                          value={protocol.qrCodeUrl}
+                          value={storedProtocol?.qr_code_url || protocol.qrCodeUrl}
                           size={144}
                           className="w-32 h-32 md:w-36 md:h-36 object-contain transition-transform duration-500 group-hover:scale-105 mx-auto"
                         />

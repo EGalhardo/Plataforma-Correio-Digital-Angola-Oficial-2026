@@ -855,7 +855,11 @@ export const supabaseService = {
   },
 
   /**
-   * Fetch a citizen's profile by BI
+   * Fetch a citizen's profile by BI.
+   * 2026-08-20 — com a RLS endurecida de produção, a leitura directa do cliente
+   * pode devolver null mesmo com a linha existente (ocultada pela política).
+   * Nesse caso reencaminha a leitura para o servidor (/api/perfil — service role),
+   * para a hidratação de login ver os dados realmente gravados.
    */
   async getProfile(bi: string) {
     if (!hasValidSupabaseKeys()) return null;
@@ -866,11 +870,19 @@ export const supabaseService = {
         .eq('bi', bi)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      if (data) return data;
     } catch (e) {
       console.error('Supabase getProfile error:', e);
-      return null;
     }
+    // Fallback via servidor (service role) — a linha pode estar oculta por RLS
+    try {
+      const resp = await fetch(`/api/perfil?bi=${encodeURIComponent(bi)}`);
+      const json = await resp.json().catch(() => null);
+      if (json && json.ok === true && json.perfil) return json.perfil;
+    } catch (e) {
+      console.error('Supabase getProfile (via servidor) error:', e);
+    }
+    return null;
   },
 
   /**
@@ -1428,7 +1440,7 @@ export const supabaseService = {
     try {
       const { data, error } = await supabase
         .from('digital_protocols')
-        .select('protocol_number, digital_signature, legal_validity, official_issue_date, official_time, issuer_responsible, current_state')
+        .select('protocol_number, digital_signature, legal_validity, official_issue_date, official_time, issuer_responsible, current_state, qr_code_url')
         .eq('protocol_number', protocolNumber)
         .maybeSingle();
       if (error) return { protocol: null, errorCode: String((error as any)?.code || 'ERRO') };

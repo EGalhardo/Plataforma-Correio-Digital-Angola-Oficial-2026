@@ -160,16 +160,41 @@ export const syncProfileToCloud = async (
   const fields = Object.keys(cols);
   if (!fields.length) return { outcome: 'ok', message: 'nenhum campo para sincronizar.', fields: [] };
 
-  const runSave = async (columns: Record<string, string>): Promise<{ error: PostgrestError | null; created: boolean }> => {
-    const { data: existing, error: findErr } = await client
-      .from('profiles').select('id').eq('bi', bi).maybeSingle();
-    if (findErr) return { error: findErr, created: false };
-    if (existing) {
-      const { error } = await client.from('profiles').update(columns).eq('bi', bi);
-      return { error, created: false };
+  // 2026-08-20 — RLS endurecida: o UPDATE do cliente pode "passar" sem tocar em
+  // nenhuma linha (204, zero rows — sem erro). Usa .select() para DETETAR o
+  // silêncio e, nesse caso, reencaminha a gravação para o servidor (service role).
+  const syncViaServidor = async (columns: Record<string, string>): Promise<{ ok: boolean }> => {
+    try {
+      const resp = await fetch('/api/perfil-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bi, campos: columns }),
+      });
+      const json = await resp.json().catch(() => null);
+      return { ok: !!(json && json.ok === true) };
+    } catch {
+      return { ok: false };
     }
-    const { error } = await client.from('profiles').insert([{ bi, ...columns }]);
-    return { error, created: true };
+  };
+
+  const runSave = async (columns: Record<string, string>): Promise<{ error: PostgrestError | null; created: boolean; silentNoop: boolean }> => {
+    // .select() devolve as linhas efectivamente tocadas — [] = RLS ocultou a linha
+    // (UPDATE "passou" sem gravar nada). Nesse caso o servidor decide (update ou insert).
+    const { data: touched, error: updErr } = await client.from('profiles').update(columns).eq('bi', bi).select('bi');
+    if (!updErr && touched && touched.length > 0) return { error: null, created: false, silentNoop: false };
+    if (updErr) {
+      // UPDATE falhou: se a linha não é visível ao cliente, tenta INSERT clássico
+      const { data: existing, error: findErr } = await client
+        .from('profiles').select('id').eq('bi', bi).maybeSingle();
+      if (findErr) return { error: updErr, created: false, silentNoop: false };
+      if (!existing) {
+        const { error: insErr } = await client.from('profiles').insert([{ bi, ...columns }]);
+        if (insErr) return { error: insErr, created: false, silentNoop: false };
+        return { error: null, created: true, silentNoop: false };
+      }
+      return { error: updErr, created: false, silentNoop: false };
+    }
+    return { error: null, created: false, silentNoop: true };
   };
 
   try {
@@ -199,6 +224,20 @@ export const syncProfileToCloud = async (
       return {
         outcome: kind === 'unavailable' ? 'unavailable' : 'error',
         message: res.error.message,
+        fields: [],
+      };
+    }
+    // 2026-08-20 — UPDATE silencioso (RLS ocultou a linha): gravar via servidor
+    // (service role). Falha do servidor → honesto: 'unavailable' (fica em fila local).
+    if (res.silentNoop) {
+      const via = await syncViaServidor(cols);
+      if (via.ok) {
+        console.log('[PERFIL-SYNC] Perfil sincronizado via servidor (service role):', fields.join('+'), '•', bi);
+        return { outcome: 'ok', fields };
+      }
+      return {
+        outcome: 'unavailable',
+        message: 'RLS bloqueou a escrita directa e o servidor não confirmou.',
         fields: [],
       };
     }
@@ -364,7 +403,19 @@ export const puxarPerfilDaNuvem = async (
     .select(PROFILE_HYDRATION_COLUMNS)
     .eq('bi', bi.trim())
     .maybeSingle();
-  if (error) return null;
-  const campos = profileRowToCitizenFields(data as Record<string, unknown> | null);
-  return Object.keys(campos).length ? campos : null;
+  if (!error && data) {
+    const campos = profileRowToCitizenFields(data as Record<string, unknown> | null);
+    if (Object.keys(campos).length) return campos;
+  }
+  // 2026-08-20 — RLS endurecida: leitura directa pode devolver vazio com a
+  // linha existente. Reencaminha para o servidor (service role).
+  try {
+    const resp = await fetch(`/api/perfil?bi=${encodeURIComponent(bi.trim())}`);
+    const json = await resp.json().catch(() => null);
+    if (json && json.ok === true && json.perfil) {
+      const campos = profileRowToCitizenFields(json.perfil as Record<string, unknown>);
+      if (Object.keys(campos).length) return campos;
+    }
+  } catch { /* melhor esforço */ }
+  return null;
 };

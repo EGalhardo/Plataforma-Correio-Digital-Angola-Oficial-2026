@@ -17,7 +17,6 @@ import {
 
 
 
-  Landmark,
 
 
 
@@ -55,7 +54,6 @@ import { validarEnvio } from '../../services/validacaoEnvio';
 import { assistenteDocumento } from '../../services/aiDocumentoService';
 import { MARCADOR_CLAREZA_SUGESTAO } from '../../services/aiDocumentoCore';
 import type { ResultadoValidacaoEnvio } from '../../services/validacaoEnvio';
-import { CATALOGO_INSTITUICOES } from '../../constants/catalogoInstituicoes';
 import { buildStorageRef } from '../../lib/secureStorage';
 
 
@@ -166,8 +164,6 @@ export function MailContent({
     | { estado: 'ok'; observacoes: string; sugestao: string }
     | { estado: 'erro'; erro: string };
   const [clareza, setClareza] = useState<EstadoClareza | null>(null);
-  // S7 — visibilidade do catalogo de instituicoes
-  const [catalogoAberto, setCatalogoAberto] = useState(false);
 
   // S6 — qualquer edicao limpa a validacao anterior (avisos exigem nova revisao)
   // e tambem a revisao de clareza (o texto revisto deixou de ser o atual)
@@ -683,61 +679,6 @@ export function MailContent({
             </div>
           )}
  
-          {/* S7 — Catálogo das 22 instituições (Parte I aprovada): escolher entidade
-              preenche o código; escolher serviço tipifica o assunto. O envio verifica
-              sempre o registo oficial da instituição (gate P0-B). */}
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/50">
-            <button
-              type="button"
-              onClick={() => setCatalogoAberto(v => !v)}
-              className="w-full px-4 py-3 flex items-center justify-between text-[11px] md:text-xs font-black text-slate-700 uppercase tracking-wider"
-            >
-              <span className="flex items-center gap-2">
-                <Landmark size={14} className="text-primary" />
-                Catálogo de instituições e serviços (22)
-              </span>
-              <span className="text-[9px] text-slate-400">{catalogoAberto ? 'Fechar' : 'Abrir'}</span>
-            </button>
-            {catalogoAberto && (
-              <div className="px-3 pb-3 max-h-72 overflow-y-auto space-y-2">
-                <p className="text-[10px] text-slate-500 font-bold px-1 leading-relaxed">
-                  Catálogo em fase de integração: toca numa instituição com código conhecido para preencher o destinatário, ou num serviço para tipificar o assunto. O envio confirma sempre o registo oficial da instituição.
-                </p>
-                {CATALOGO_INSTITUICOES.map((ent) => (
-                  <details key={ent.sigla} className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                    <summary className="px-3 py-2.5 cursor-pointer text-[11px] font-black text-slate-700 list-none flex items-center justify-between gap-2">
-                      <span className="truncate">{ent.sigla} — {ent.nome}</span>
-                      <span className="text-[9px] font-bold text-slate-400 shrink-0">{ent.codigoSugerido ? ent.codigoSugerido : 'código por atribuir'}</span>
-                    </summary>
-                    <div className="px-3 pb-3">
-                      {ent.codigoSugerido && (
-                        <button
-                          type="button"
-                          onClick={() => setComposeData({ ...composeData, to: ent.codigoSugerido as string })}
-                          className="mb-2 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
-                        >
-                          Usar código {ent.codigoSugerido}
-                        </button>
-                      )}
-                      <div className="flex flex-wrap gap-1.5">
-                        {ent.servicos.map((serv) => (
-                          <button
-                            key={serv}
-                            type="button"
-                            onClick={() => setComposeData({ ...composeData, subject: `[${serv}] ${composeData.subject.replace(/^\[[^\]]*\]\s*/, '')}` })}
-                            className="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-600 hover:bg-indigo-100 hover:text-indigo-800 transition-colors"
-                          >
-                            {serv}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </details>
-                ))}
-              </div>
-            )}
-          </div>
-
           <div className="space-y-2">
             <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">Conteúdo da Mensagem</label>
             
