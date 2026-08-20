@@ -66,9 +66,9 @@ import {
   Sparkles,
   Loader2
 } from 'lucide-react';
-import { Message, SENSITIVITY_LEVELS, PRIORITY_CONFIGS } from '../../types';
+import { Message, SENSITIVITY_LEVELS, PRIORITY_CONFIGS, ReplySendPayload, ReplySendResult } from '../../types';
 import { generateProtocol, generateTimelineEvents, getCategoryMetadata, canonicalProtocolPayload, sealProtocolContent } from '../../utils/protocolGenerator';
-import { supabaseService } from '../../services/supabaseService';
+import { supabaseService, resolveInstitutionCode } from '../../services/supabaseService';
 import { VideoSessionPanel } from './VideoSessionPanel';
 import { useLanguage } from '../../hooks/useLanguage';
 import { QrCodeImage } from '../ui/QrCodeImage';
@@ -248,6 +248,11 @@ interface MessageDetailProps {
   setTab: (tab: string) => void;
   handleReply: (msg: Message) => void;
   onResponderComRascunho?: (msg: Message, texto: string) => void;
+  /** FIX 2026-08-20 — envia a resposta do editor "Enviar Resposta Oficial" pela
+   *  MESMA pipeline oficial do compositor (executeOfficialSend, em App.tsx).
+   *  Zero duplicação: validação, protocolo selado, persistência Supabase e
+   *  fila offline ficam todos do lado do App. */
+  onEnviarRespostaDireta?: (payload: ReplySendPayload) => Promise<ReplySendResult>;
   onUpdateMessage?: (msg: Message) => void;
   onDeleteMessage?: (id: number) => void;
   onRestoreMessage?: (id: number) => void;
@@ -261,6 +266,7 @@ export function MessageDetail({
   setTab,
   handleReply,
   onResponderComRascunho,
+  onEnviarRespostaDireta,
   onUpdateMessage,
   onDeleteMessage,
   onRestoreMessage,
@@ -401,6 +407,78 @@ export function MessageDetail({
   const [] = useState(false);
   const [detailReplyText, setDetailReplyText] = useState('');
   const [isReplyingInDetails, setIsReplyingInDetails] = useState(false);
+
+  // FIX 2026-08-20 — "Enviar Resposta Oficial" entrega a resposta pela pipeline
+  // oficial (executeOfficialSend no App): validação, protocolo selado, persistência
+  // Supabase e fila offline. Só marca 'Respondida' e mostra sucesso DEPOIS do
+  // desfecho real; em falha, o texto escrito NUNCA se perde.
+  const [isSendingDetailReply, setIsSendingDetailReply] = useState(false);
+  const [detailReplyError, setDetailReplyError] = useState<string | null>(null);
+
+  const enviarRespostaOficial = async () => {
+    const texto = detailReplyText.trim();
+    if (!texto || isSendingDetailReply) return;
+    if (!onEnviarRespostaDireta) return;
+    setDetailReplyError(null);
+    setIsSendingDetailReply(true);
+    try {
+      // Destinatário canónico (BI/código institucional), NUNCA o rótulo `org`.
+      const destinatario = selectedMessage.senderKey || selectedMessage.recipientBi || resolveInstitutionCode(selectedMessage.org);
+      const assunto = `RE: ${selectedMessage.details?.subject || selectedMessage.preview}`;
+      const resultado = await onEnviarRespostaDireta({
+        to: destinatario,
+        subject: assunto,
+        body: detailReplyText,
+        attachments: inlineAttachedFiles,
+      });
+      if (!resultado.ok) {
+        setDetailReplyError(resultado.error || 'Não foi possível enviar a resposta. Tente novamente.');
+        return;
+      }
+      // Desfecho real concluído: histórico da conversa + estado 'Respondida' + cartão de sucesso.
+      const now = new Date();
+      const timestampStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      const dmyStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+      const fullTimestamp = `${dmyStr} ${timestampStr}`;
+      const filesListLog = inlineAttachedFiles.length > 0
+        ? ` contendo ${inlineAttachedFiles.length} anexo(s) [${inlineAttachedFiles.map(f => f.name).join(', ')}]`
+        : '';
+      const protocolNumber = resultado.protocol?.protocolNumber || '—';
+      const auditLogAction = `Resposta Oficial submetida via Conteúdo do Documento (Prot: ${protocolNumber})${filesListLog}`;
+      const logEntry = `${timestampStr} - ${auditLogAction}`;
+      const updatedLogs = [...(selectedMessage.auditLogs || []), logEntry];
+      if (onUpdateMessage) {
+        onUpdateMessage({
+          ...selectedMessage,
+          details: selectedMessage.details ? {
+            ...selectedMessage.details,
+            state: 'Respondida'
+          } : {
+            subject: selectedMessage.preview,
+            body: selectedMessage.preview,
+            state: 'Respondida'
+          },
+          auditLogs: updatedLogs
+        });
+      }
+      setDetailReplySuccess({
+        protocolNumber,
+        timestamp: fullTimestamp,
+        text: detailReplyText,
+        digitalSeal: resultado.protocol?.digitalSeal || '',
+        documentHash: resultado.protocol?.documentHash || '',
+        files: inlineAttachedFiles
+      });
+      setDetailReplyText('');
+      setInlineAttachedFiles([]);
+      setIsReplyingInDetails(false);
+    } catch (e) {
+      console.warn('[Resposta Oficial] falha ao enviar:', e);
+      setDetailReplyError('Falha inesperada ao enviar. O texto foi mantido — tente novamente.');
+    } finally {
+      setIsSendingDetailReply(false);
+    }
+  };
   const [detailReplySuccess, setDetailReplySuccess] = useState<{
     protocolNumber: string;
     timestamp: string;
@@ -2297,7 +2375,10 @@ depende de integração futura com a infra-estrutura de chaves nacional.
 
                       <textarea
                         value={detailReplyText}
-                        onChange={(e) => updateDetailReplyText(e.target.value)}
+                        onChange={(e) => {
+                          if (detailReplyError) setDetailReplyError(null);
+                          updateDetailReplyText(e.target.value);
+                        }}
                         placeholder="Escreva aqui a sua resposta oficial..."
                         rows={12}
                         className={`w-full bg-slate-50 border border-slate-300 rounded-xl p-3.5 text-xs md:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0c2340]/20 focus:border-[#0c2340] shadow-inner transition-all min-h-[260px] ${
@@ -2342,63 +2423,26 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         </div>
                       )}
 
+                      {detailReplyError && (
+                        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-[11px] font-bold text-red-700">
+                          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                          <span>{detailReplyError}</span>
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => {
-                            if (!detailReplyText.trim()) return;
-
-                            const newProtocol = generateProtocol(
-                              selectedMessage.org,
-                              'message',
-                              selectedMessage.id,
-                              `Resposta: ${selectedMessage.details?.subject || selectedMessage.preview}`
-                            );
-                            const now = new Date();
-                            const timestampStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-                            const dmyStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
-                            const fullTimestamp = `${dmyStr} ${timestampStr}`;
-
-                            const filesListLog = inlineAttachedFiles.length > 0 
-                              ? ` contendo ${inlineAttachedFiles.length} anexo(s) [${inlineAttachedFiles.map(f => f.name).join(', ')}]`
-                              : '';
-                            const auditLogAction = `Resposta Oficial submetida via Conteúdo do Documento (Prot: ${newProtocol.protocolNumber})${filesListLog}`;
-                            const logEntry = `${timestampStr} - ${auditLogAction}`;
-                            const updatedLogs = [...(selectedMessage.auditLogs || []), logEntry];
-
-                            if (onUpdateMessage) {
-                              onUpdateMessage({
-                                ...selectedMessage,
-                                details: selectedMessage.details ? {
-                                  ...selectedMessage.details,
-                                  state: 'Respondida'
-                                } : {
-                                  subject: selectedMessage.preview,
-                                  body: selectedMessage.preview,
-                                  state: 'Respondida'
-                                },
-                                auditLogs: updatedLogs
-                              });
-                            }
-
-                            setDetailReplySuccess({
-                              protocolNumber: newProtocol.protocolNumber,
-                              timestamp: fullTimestamp,
-                              text: detailReplyText,
-                              digitalSeal: newProtocol.digitalSeal,
-                              documentHash: newProtocol.documentHash,
-                              files: inlineAttachedFiles
-                            });
-
-                            setDetailReplyText('');
-                            setInlineAttachedFiles([]);
-                            setIsReplyingInDetails(false);
-                          }}
-                          disabled={!detailReplyText.trim()}
+                          onClick={enviarRespostaOficial}
+                          disabled={!detailReplyText.trim() || isSendingDetailReply}
                           className="flex items-center gap-2 px-5 py-2.5 bg-[#0c2340] text-white font-extrabold text-xs md:text-sm rounded-full shadow-md hover:bg-[#152e4d] transition-all hover:scale-[1.02] active:scale-95 cursor-pointer disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
                         >
-                          <Send size={14} className="text-white" />
-                          <span>Enviar Resposta Oficial</span>
+                          {isSendingDetailReply ? (
+                            <Loader2 size={14} className="text-white animate-spin" />
+                          ) : (
+                            <Send size={14} className="text-white" />
+                          )}
+                          <span>{isSendingDetailReply ? 'A enviar…' : 'Enviar Resposta Oficial'}</span>
                         </button>
 
                         <label 

@@ -89,7 +89,9 @@ import {
   UserRequest,
   DocRequest,
   Correspondence,
-  DigitalProtocol
+  DigitalProtocol,
+  ReplySendPayload,
+  ReplySendResult
 } from './types';
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, sealProtocolContent, canonicalProtocolPayload } from './utils/protocolGenerator';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
@@ -3571,59 +3573,74 @@ export default function App() {
   };
 
 
-  const executeOfficialSend = async () => {
+  const executeOfficialSend = async (override?: ReplySendPayload): Promise<ReplySendResult> => {
     setIsOfficialConfirmOpen(false);
     // F34 — a Nova Mensagem do cidadão já não tem campo Assunto: deriva-se do corpo.
-    if (!composeData.to || !composeData.body) return;
+    // FIX 2026-08-20 — aceita um payload opcional ("Enviar Resposta Oficial" do
+    // Detalhe da Correspondência) para REUTILIZAR esta pipeline sem duplicar código.
+    // Sem override, o comportamento é exactamente o do compositor ("Enviar Mensagem Oficial").
+    const to = (override ? override.to : composeData.to).trim();
+    const body = override ? override.body : composeData.body;
+    const rawSubject = override ? override.subject : composeData.subject;
+    const attachments = override
+      ? (override.attachments || [])
+      : (composeData.attachments || []);
+    // Validação do conteúdo: destinatário e corpo obrigatórios (corpo só com espaços não envia).
+    if (!to || !body.trim()) {
+      return { ok: false, error: 'A mensagem está vazia. Escreva o conteúdo antes de enviar.' };
+    }
     // P0-B — anti void-delivery (decisão §0.1 do dono: BLOQUEAR): destinatário
     // com formato de código institucional TEM de constar (aprovado) do registo
     // oficial. Falha de infra (errorCode) NÃO bloqueia — o registo volta a
     // impor-se quando a nuvem responder (fail-open só em erro, nunca em resposta
     // negativa definitiva).
-    if (isRealInstitutionalCode(composeData.to)) {
-      const reg = await supabaseService.institutionRegistered(composeData.to);
+    if (isRealInstitutionalCode(to)) {
+      const reg = await supabaseService.institutionRegistered(to);
       if (!reg.errorCode && !reg.registered) {
-        addAuditLog(`P0-B — Envio bloqueado: o código institucional ${composeData.to.trim().toUpperCase()} não consta (aprovado) do registo oficial. Confirme o código ou peça à instituição para formalizar o registo.`, 'warning');
-        return;
+        addAuditLog(`P0-B — Envio bloqueado: o código institucional ${to.toUpperCase()} não consta (aprovado) do registo oficial. Confirme o código ou peça à instituição para formalizar o registo.`, 'warning');
+        return { ok: false, blocked: true, error: `Envio bloqueado: o código institucional ${to.toUpperCase()} não consta (aprovado) do registo oficial.` };
       }
     }
-    const effectiveSubject = composeData.subject.trim()
-      || composeData.body.trim().replace(/\s+/g, ' ').slice(0, 60).trim()
+    const effectiveSubject = rawSubject.trim()
+      || body.trim().replace(/\s+/g, ' ').slice(0, 60).trim()
       || 'Correspondência Oficial';
     
     const messageId = Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);
     const protocol = await sealProtocolForSend(
-      generateProtocol(composeData.to, 'message', messageId, effectiveSubject),
+      generateProtocol(to, 'message', messageId, effectiveSubject),
       isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi),
-      resolveCitizenBi(composeData.to),
+      resolveCitizenBi(to),
       effectiveSubject,
-      composeData.body,
+      body,
     );
 
     const newMessage: Message = {
       id: messageId,
-      org: composeData.to,
+      org: to,
       preview: effectiveSubject,
       date: "hoje",
       status: "Informativo",
       details: {
         subject: effectiveSubject,
-        body: composeData.body,
+        body: body,
         deadline: "Sem prazo",
         state: "Entregue & Autenticado",
         actions: ["Ver detalhes"],
-        attachments: composeData.attachments || []
+        attachments: attachments
       },
       protocol: protocol
     };
 
     setSentMessages(prev => [{ ...newMessage, senderKey: isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi) }, ...prev]);
-    setIsComposing(false);
-    setComposeData({ to: '', subject: '', body: '', attachments: [] });
+    // Resposta directa do Detalhe da Correspondência NÃO mexe no compositor.
+    if (!override) {
+      setIsComposing(false);
+      setComposeData({ to: '', subject: '', body: '', attachments: [] });
+    }
 
     const protocolData = {
       protocolNumber: protocol.protocolNumber,
-      org: composeData.to,
+      org: to,
       subject: effectiveSubject,
       digitalSignature: protocol.digitalSignature,
       documentHash: protocol.documentHash,
@@ -3633,50 +3650,52 @@ export default function App() {
     setSuccessProtocolModal(protocolData);
 
     if (!isOnline) {
-      OfflineManager.queueAction('SEND_MESSAGE', { messageId, to: composeData.to, subject: effectiveSubject });
+      OfflineManager.queueAction('SEND_MESSAGE', { messageId, to, subject: effectiveSubject });
       setOfflineQueue(OfflineManager.getQueue());
       
       const fallback = OfflineManager.triggerFallback('SMS', `Enviar Correspondência: ${effectiveSubject}`);
       setActiveFallback({ channel: 'SMS', message: fallback.message, protocol: fallback.protocol });
       
       addAuditLog(`Ação Offline: Mensagem guardada em fila local. Canal SMS ativo.`, 'warning');
-    } else {
-      addAuditLog(`Correspondência enviada com Protocolo ${protocol.protocolNumber}`, 'info');
-      OfflineManager.createAutomaticBackup();
-      // Sync to Supabase
-      const isOfficialDispatch = isInstMode || isGovMode;
-      const sendPromise = isOfficialDispatch
-        ? supabaseService.sendOfficialMessage(newMessage, composeData.to, isInstMode ? institutionCode : 'CDA')
-        : supabaseService.sendCitizenMessage(newMessage, bi, composeData.to, user.name || profileName);
-      sendPromise
-        .then(async () => {
-          // Store protocol in database for QR code reference
-          await supabaseService.insertDigitalProtocol(protocol);
-          
-          await supabaseService.insertMessageStateEvent({
-            messageId,
-            state: 'Enviada',
-            responsible: user.name,
-            description: `Correspondência enviada para ${composeData.to}.`
-          });
-          if (isOfficialDispatch) {
-            await supabaseService.insertNotification({
-              title: 'Nova Correspondência Oficial',
-              message: `${newMessage.preview} foi disponibilizada no seu endereço digital oficial.`,
-              type: 'info',
-              targetTab: 'correspondencias'
-            }, composeData.to);
-          } else {
-            await supabaseService.insertNotification({
-              title: 'Nova Solicitação do Cidadão',
-              message: `${user.name} enviou uma nova correspondência para ${composeData.to}.`,
-              type: 'info',
-              targetTab: 'correspondencias'
-            }, resolveInstitutionCode(composeData.to));
-          }
-        })
-        .catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+      return { ok: true, queued: true, protocol };
     }
+    addAuditLog(`Correspondência enviada com Protocolo ${protocol.protocolNumber}`, 'info');
+    OfflineManager.createAutomaticBackup();
+    // Sync to Supabase (falha de sincronização NÃO bloqueia a ação local — comportamento original)
+    const isOfficialDispatch = isInstMode || isGovMode;
+    try {
+      const sendPromise = isOfficialDispatch
+        ? supabaseService.sendOfficialMessage(newMessage, to, isInstMode ? institutionCode : 'CDA')
+        : supabaseService.sendCitizenMessage(newMessage, bi, to, user.name || profileName);
+      await sendPromise;
+      // Store protocol in database for QR code reference
+      await supabaseService.insertDigitalProtocol(protocol);
+      
+      await supabaseService.insertMessageStateEvent({
+        messageId,
+        state: 'Enviada',
+        responsible: user.name,
+        description: `Correspondência enviada para ${to}.`
+      });
+      if (isOfficialDispatch) {
+        await supabaseService.insertNotification({
+          title: 'Nova Correspondência Oficial',
+          message: `${newMessage.preview} foi disponibilizada no seu endereço digital oficial.`,
+          type: 'info',
+          targetTab: 'correspondencias'
+        }, to);
+      } else {
+        await supabaseService.insertNotification({
+          title: 'Nova Solicitação do Cidadão',
+          message: `${user.name} enviou uma nova correspondência para ${to}.`,
+          type: 'info',
+          targetTab: 'correspondencias'
+        }, resolveInstitutionCode(to));
+      }
+    } catch (err) {
+      console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err);
+    }
+    return { ok: true, protocol };
   };
 
   const handleReply = (msg: Message) => {
@@ -4686,6 +4705,7 @@ Ficha civil do titular:
             setTab={setTab}
             handleReply={handleReply}
             onResponderComRascunho={handleResponderComRascunho}
+            onEnviarRespostaDireta={executeOfficialSend}
             onUpdateMessage={handleUpdateMessage}
             onDeleteMessage={handleDeleteMessage}
             onRestoreMessage={handleRestoreMessage}

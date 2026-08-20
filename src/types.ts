@@ -40,7 +40,26 @@ export interface MessageDetail {
   deadline?: string;
   state?: string;
   actions?: string[];
-  attachments?: string[];
+  attachments?: (string | { name?: string; size?: string; content?: string; type?: string })[];
+}
+
+export interface ReplySendPayload {
+  /** Destinatário canónico (BI do cidadão ou código institucional real) — nunca o rótulo. */
+  to: string;
+  subject: string;
+  body: string;
+  attachments?: { name: string; size: string }[];
+}
+
+export interface ReplySendResult {
+  ok: boolean;
+  /** true quando o envio foi bloqueado pela guarda P0-B (código institucional não registado). */
+  blocked?: boolean;
+  /** true quando o envio caiu na fila offline (canal SMS ativo). */
+  queued?: boolean;
+  error?: string;
+  /** Protocolo selado do envio real (para o cartão de sucesso). */
+  protocol?: DigitalProtocol;
 }
 
 export interface Message {
