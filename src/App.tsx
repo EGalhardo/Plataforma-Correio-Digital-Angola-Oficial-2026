@@ -2712,7 +2712,12 @@ export default function App() {
         const dbCorrespondences = await supabaseService.getCorrespondences();
         if (dbCorrespondences !== null && isSubscribed) {
           if (!isDemoSession) {
-            setCorrespondences(dbCorrespondences);
+            // 2026-08-21 — Modo Real: só dados REAIS na página "Correspondências"
+            // da Administração. As linhas da nuvem são marcadas com
+            // createdBy='nuvem'; os mocks (sem createdBy) ficam fora da visão
+            // real — inclusive antes de a nuvem responder e em caso de falha
+            // (página vazia honesta, nunca dados simulados).
+            setCorrespondences(dbCorrespondences.map(c => ({ ...c, createdBy: c.createdBy || 'nuvem' })));
           } else {
             setCorrespondences(prevLocal => {
               const dbIds = new Set(dbCorrespondences.map(c => c.id));
@@ -3401,14 +3406,16 @@ export default function App() {
   // partilham apenas os expedientes efectivamente registados (createdBy);
   // cidadão/instituição real não vê dados gov simulados no histórico.
   const currentCorrespondences = useMemo(() => {
-    // 2026-08-20 — a Administração é a autoridade CENTRAL: em modo real vê
-    // TODAS as correspondências da plataforma (o filtro legado `createdBy`
-    // escondia tudo o que vinha da nuvem — página vazia). Cidadão/instituição
-    // mantêm o comportamento demo/local de sempre.
-    if (isGovMode) return correspondences;
+    // 2026-08-21 — Modo Real: a Administração vê apenas as correspondências
+    // REAIS da plataforma (linhas da nuvem marcadas 'nuvem' + expedientes
+    // criados por este agente, createdBy = BI/Nº de agente). Os dados
+    // simulados/demo (mocks sem createdBy) nunca aparecem no modo real —
+    // ficam exclusivos da conta demo. Cidadão/instituição mantêm o
+    // comportamento demo/local de sempre.
+    if (isGovMode) return isDemoAdminSession ? correspondences : correspondences.filter(c => !!c.createdBy);
     if (isUserMode) return isDemoCitizenSession ? correspondences : [];
     return isDemoInstitutionSession ? correspondences : [];
-  }, [correspondences, isGovMode, isUserMode, isDemoCitizenSession, isInstMode, isDemoInstitutionSession]);
+  }, [correspondences, isGovMode, isDemoAdminSession, isUserMode, isDemoCitizenSession, isInstMode, isDemoInstitutionSession]);
 
   // F15/v7 — Caixas "Enviadas" isoladas por conta (senderKey): sessões reais só
   // vêem o que enviaram; a demo (qualquer uma das 3) mantém o histórico completo.
