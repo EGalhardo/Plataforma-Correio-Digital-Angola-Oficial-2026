@@ -30,7 +30,7 @@ import { MUNICIPALITIES_BY_PROVINCE, CITIES_BY_PROVINCE, COMMUNES_BY_MUNICIPALIT
 import { useInstitutions } from '../../services/institutionStore';
 import { useSession } from '../../services/sessionStore';
 import { supabaseService } from '../../services/supabaseService';
-import { registoPublicoProxy } from '../../services/supabaseService';
+import { registoPublicoProxy, enviarMensagemAdministrativa } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore } from '../../services/homologationStore';
 import { parseInstPack, isInstitutionObservacao, normalizeInstCode, getLocalInstRegs, updateLocalInstReg } from '../../services/institutionRegistrationStore';
@@ -699,6 +699,14 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     });
     homologationStore.addMessage(
       code, 'admin',
+      `Exmos. Senhores da ${row.nome} (${code}), informamos que a vossa adesão ao Correio Digital Angola foi APROVADA pela Área de Administração e a conta da instituição encontra-se oficialmente ATIVA. Todas as funcionalidades da área institucional ficam disponíveis de imediato. Bem-vindos à rede nacional de correio digital.`
+    );
+    // 2026-08-21 — em modo real a mensagem de aprovação é persistida na nuvem
+    // (protocolo selado): aparece na página "Correspondências" do admin e na
+    // caixa da instituição em qualquer dispositivo. Demo mantém só o local.
+    void enviarMensagemAdministrativa(
+      code,
+      'Adesão Aprovada — Conta Institucional Ativa',
       `Exmos. Senhores da ${row.nome} (${code}), informamos que a vossa adesão ao Correio Digital Angola foi APROVADA pela Área de Administração e a conta da instituição encontra-se oficialmente ATIVA. Todas as funcionalidades da área institucional ficam disponíveis de imediato. Bem-vindos à rede nacional de correio digital.`
     );
     onLog?.(`Instituição APROVADA: ${row.nome} (${code}) — conta activa e ficha criada na página Instituições.`, 'success');

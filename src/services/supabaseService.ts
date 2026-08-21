@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { Message, Document, Contact, UserRequest, DocRequest, Correspondence, AppNotification, DigitalProtocol } from '../types';
+import { generateProtocol } from '../utils/protocolGenerator';
 import { MOCK_CITIZENS, MOCK_USERS, MOCK_SESSION_USER } from '../constants/mocks';
 import {
   buildEmergencyAlertRow,
@@ -330,6 +331,80 @@ export const eliminarCidadaoAdmin = async (bi: string): Promise<{ ok: boolean; e
     return { ok: false, erro: (j && j.erro) || 'Falha na eliminação central.' };
   } catch {
     return { ok: false, erro: 'Rede indisponível.' };
+  }
+};
+
+/** Envia uma mensagem administrativa (Área de Administração → cidadão ou
+ *  instituição) PERSISTIDA NA NUVEM (2026-08-21): mensagem com protocolo selado
+ *  + registo em digital_protocols, via proxy /api/dados (service role).
+ *  Devolve null sem sessão (demo) ou para destinatários de demonstração —
+ *  nesses casos o chamador mantém apenas o canal local de sempre. */
+export const enviarMensagemAdministrativa = async (
+  para: string,
+  assunto: string,
+  corpo: string,
+): Promise<{ ok: boolean } | null> => {
+  if (!hasValidSupabaseKeys()) return null;
+  try {
+    const token = await obterTokenSessao();
+    if (!token) return null;
+    const alvo = (para || '').toUpperCase().replace(/\s+/g, '');
+    if (!alvo || ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP', '009999999LA099'].includes(alvo) || /-LLVV$/.test(alvo)) return null;
+    const messageId = Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);
+    const protocolo = generateProtocol('CDA', 'message', messageId, assunto);
+    const payload = {
+      id: messageId,
+      sender_bi: 'CDA',
+      recipient_bi: alvo,
+      org: alvo,
+      preview: assunto,
+      unread: true,
+      status: 'Informativo',
+      subject: assunto,
+      body: corpo,
+      deadline_text: 'Sem prazo',
+      state_indicator: 'Entregue & Autenticado',
+      actions: ['Ver detalhes'],
+      sensitivity: 'Privado',
+      protocol_number: protocolo.protocolNumber,
+    };
+    const gravado = await gravarDados(
+      'messages', 'insert', undefined, [payload],
+      { upsert: true, onConflict: 'id' },
+      async () => {
+        const { data, error } = await supabase.from('messages').upsert([payload]).select();
+        if (error) throw error;
+        return data;
+      },
+    );
+    if (!gravado) return { ok: false };
+    const protoPayload = {
+      protocol_number: protocolo.protocolNumber,
+      issuer_institution: 'CDA',
+      official_issue_date: new Date().toISOString().split('T')[0],
+      official_time: new Date().toTimeString().slice(0, 8),
+      issuer_responsible: 'Área de Administração',
+      category: 'Geral',
+      document_type: 'Correspondência',
+      current_state: 'Ativo',
+      priority: 'Normal',
+      qr_code_url: (protocolo.qrCodeUrl || '').slice(0, 100),
+      digital_signature: protocolo.digitalSignature || 'NAO_SELADO',
+      legal_validity: (protocolo.legalValidity || 'Registo técnico de integridade').slice(0, 100),
+    };
+    await gravarDados(
+      'digital_protocols', 'insert', undefined, [protoPayload],
+      undefined,
+      async () => {
+        const { error } = await supabase.from('digital_protocols').insert([protoPayload]);
+        if (error) throw error;
+        return { escrito: true } as unknown as any;
+      },
+    );
+    return { ok: true };
+  } catch (e) {
+    console.warn('[ADMIN-MSG] Falha ao persistir mensagem administrativa:', e);
+    return { ok: false };
   }
 };
 
@@ -1963,7 +2038,7 @@ export const supabaseService = {
         document_type: p.documentType || 'Correspondência',
         current_state: p.currentState || 'Ativo',
         priority: p.priority || 'Normal',
-        qr_code_url: p.qrCodeUrl || '',
+        qr_code_url: (p.qrCodeUrl || '').slice(0, 100),
         // P0-A — sem chave/honra inventadas: nunca preencher com assinatura
         // fabricada quando o selo não foi aplicado (marcador honesto).
         digital_signature: p.digitalSignature || 'NAO_SELADO',

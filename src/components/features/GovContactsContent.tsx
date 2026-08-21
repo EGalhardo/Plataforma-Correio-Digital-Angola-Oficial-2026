@@ -57,7 +57,7 @@ import {
   KeyRound
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import { registoPublicoProxy, eliminarCidadaoAdmin } from '../../services/supabaseService';
+import { registoPublicoProxy, eliminarCidadaoAdmin, enviarMensagemAdministrativa } from '../../services/supabaseService';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, isInstPasswordTaken, nextMemberAgentNumber } from '../../services/institutionRegistrationStore';
 import { addAdminAgent, updateAdminAgentPassword, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber, getAdminAgentCreds } from '../../services/adminAgentStore';
@@ -3804,6 +3804,10 @@ export function GovContactsContent({
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && adminMsgInput.trim()) {
                           homologationStore.addMessage(selectedReviewCitizen.biNumber || '', 'admin', adminMsgInput.trim());
+                          // 2026-08-21 — persistir na nuvem em modo real (a página
+                          // "Correspondências" do admin e a caixa do destinatário
+                          // mostram a mensagem em qualquer dispositivo).
+                          void enviarMensagemAdministrativa(selectedReviewCitizen.biNumber || '', 'Correspondência da Área de Administração', adminMsgInput.trim());
                           setAdminMsgInput('');
                           setAdminThreadRefresh(t => t + 1);
                           addAuditLog?.(`Correspondência da Área de Administração enviada ao cidadão "${selectedReviewCitizen.name}" (BI: ${selectedReviewCitizen.biNumber})`, 'info');
@@ -3817,6 +3821,8 @@ export function GovContactsContent({
                       onClick={() => {
                         if (!adminMsgInput.trim()) return;
                         homologationStore.addMessage(selectedReviewCitizen.biNumber || '', 'admin', adminMsgInput.trim());
+                        // 2026-08-21 — persistir na nuvem em modo real.
+                        void enviarMensagemAdministrativa(selectedReviewCitizen.biNumber || '', 'Correspondência da Área de Administração', adminMsgInput.trim());
                         setAdminMsgInput('');
                         setAdminThreadRefresh(t => t + 1);
                         addAuditLog?.(`Correspondência da Área de Administração enviada ao cidadão "${selectedReviewCitizen.name}" (BI: ${selectedReviewCitizen.biNumber})`, 'info');
@@ -4006,6 +4012,16 @@ export function GovContactsContent({
                           // HOMOLOGAÇÃO: aprovação ativa a conta + correspondência oficial automática ao cidadão
                           homologationStore.setStatus(selectedReviewCitizen.biNumber || '', 'active', undefined, selectedReviewCitizen.name);
                           notifyAccountApproved(selectedReviewCitizen.biNumber || '', selectedReviewCitizen.name);
+                          // 2026-08-21 — em modo real a mensagem de aprovação é
+                          // PERSISTIDA na nuvem (protocolo selado): aparece na
+                          // página "Correspondências" do admin e na caixa do
+                          // cidadão em qualquer dispositivo. Demo mantém só o
+                          // canal local (o serviço devolve null sem sessão).
+                          void enviarMensagemAdministrativa(
+                            selectedReviewCitizen.biNumber || '',
+                            'Conta Ativada — Homologação Aprovada pela Área de Administração',
+                            `Exmo(a). ${selectedReviewCitizen.name || 'Cidadão(ã)'}, informamos que a sua identidade foi HOMOLOGADA e a sua conta no Correio Digital de Angola está oficialmente ATIVA. A partir deste momento pode receber correspondência oficial de todas as instituições integradas. Bem-vindo à rede nacional de correio digital.`
+                          );
 
                           addAuditLog?.(`Auditoria: Cadastro do cidadão "${selectedReviewCitizen.name}" homologado e ativado biometricamente pelo agente Admin.`, 'success');
                           setSelectedReviewCitizen(null);
