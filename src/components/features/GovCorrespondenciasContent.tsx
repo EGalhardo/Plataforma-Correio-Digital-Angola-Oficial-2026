@@ -177,8 +177,8 @@ export function GovCorrespondenciasContent({
   const [filterDelayedOnly, setFilterDelayedOnly] = useState(false);
 
   // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  // 2026-08-21 — paginação removida a pedido: o Expediente lista TODAS as
+  // correspondências com rolagem vertical (o container tem max-h + overflow).
 
   const provinces = ["Todas", "Luanda", "Benguela", "Huíla", "Cabinda", "Bengo", "Huambo"];
   const categoriesList = ["Todas", "Finanças", "Segurança", "Justiça", "Operações", "Saúde", "Educação", "Geral"];
@@ -230,13 +230,8 @@ export function GovCorrespondenciasContent({
     };
   }, [correspondences]);
 
-  // Pagination Logic
-  const paginatedItems = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredCorrespondences.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredCorrespondences, currentPage]);
-
-  const totalPages = Math.ceil(filteredCorrespondences.length / itemsPerPage) || 1;
+  // 2026-08-21 — sem paginação: o Expediente mostra TODAS as correspondências
+  // e o container da tabela faz rolagem vertical (max-h + overflow auto).
 
   // Add mock attachment in dispatch form
   const handleAddNewAttachment = () => {
@@ -558,7 +553,6 @@ export function GovCorrespondenciasContent({
               key={tab}
               onClick={() => {
                 setActiveTab(tab);
-                setCurrentPage(1);
               }}
               className={`px-4 py-2 border-b-2 rounded-t-xl text-[10px] font-extrabold uppercase tracking-widest transition-all whitespace-nowrap border-r-0 border-l-0 border-t-0 cursor-pointer ${
                 activeTab === tab 
@@ -566,7 +560,7 @@ export function GovCorrespondenciasContent({
                   : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
               }`}
             >
-              {tab === 'Todas' ? 'Todos Expedientes' : tab}
+              {tab === 'Todas' ? 'Todos Expedientes' : tab === 'Enviada' ? 'Enviadas' : tab === 'Recebida' ? 'Recebidas' : tab}
               <span className={`ml-2 px-2 py-0.5 rounded-full text-[8.5px] font-mono leading-none ${
                 activeTab === tab ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
               }`}>
@@ -579,8 +573,8 @@ export function GovCorrespondenciasContent({
 
       {/* Tabular/List Layout representing professional system design */}
       <div className="space-y-6">
-        {paginatedItems.length > 0 ? (
-          <div className="overflow-x-auto rounded-[24px] bg-white border border-slate-200 shadow-3xs max-h-[650px] custom-scrollbar">
+        {filteredCorrespondences.length > 0 ? (
+          <div className="overflow-auto rounded-[24px] bg-white border border-slate-200 shadow-3xs max-h-[640px] custom-scrollbar">
             <table className="mobile-data-table w-full text-left border-collapse min-w-[1100px]">
               <thead className="sticky top-0 z-15 bg-[#0E2B64] border-b border-[#0E2B64]/90 text-white text-[9.5px] font-black uppercase tracking-widest">
                 <tr>
@@ -594,7 +588,7 @@ export function GovCorrespondenciasContent({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {paginatedItems.map((item) => (
+                {filteredCorrespondences.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50/50 transition-all font-sans">
                     {/* ID & Date */}
                     <td className="py-4.5 px-6 font-bold text-slate-900">
@@ -708,26 +702,13 @@ export function GovCorrespondenciasContent({
           </div>
         )}
 
-        {/* List Pagination Footer */}
-        {totalPages > 1 && (
+        {/* 2026-08-21 — sem paginação: contador + dica de rolagem */}
+        {filteredCorrespondences.length > 0 && (
           <div className="bg-white border border-slate-200 rounded-[32px] p-5 flex items-center justify-between text-[10.5px] font-black uppercase tracking-wide shadow-3xs">
-            <span className="text-slate-400 font-medium">Página {currentPage} de {totalPages}</span>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
-                disabled={currentPage === 1}
-                className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl disabled:opacity-50 transition-colors cursor-pointer inline-flex items-center"
-              >
-                Anterior
-              </button>
-              <button 
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
-                disabled={currentPage === totalPages}
-                className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl disabled:opacity-50 transition-colors cursor-pointer inline-flex items-center"
-              >
-                Próximo
-              </button>
-            </div>
+            <span className="text-slate-400 font-medium">
+              {filteredCorrespondences.length} correspondência(s) no Expediente — deslize a tabela para ver todas
+            </span>
+            <span className="text-indigo-700">Rolagem vertical ativa</span>
           </div>
         )}
       </div>

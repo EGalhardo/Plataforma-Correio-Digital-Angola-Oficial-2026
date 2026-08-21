@@ -1790,6 +1790,17 @@ export const supabaseService = {
           const statusLegado = ['Enviada', 'Recebida', 'Em Análise', 'Respondida', 'Arquivada', 'Cancelada'].includes(acao)
             ? acao
             : (item.state_indicator || 'Recebida');
+          // 2026-08-21 — a visão central da Administração classifica por
+          // direcção: mensagens ENVIADAS pelo admin (CDA) → "Enviada" (aba
+          // Enviadas); recebidas pela Administração → "Recebida"; as trocas
+          // cidadão↔instituição mantêm o estado derivado (Expediente/Todas).
+          const senderNorm = (item.sender_bi || '').toUpperCase().replace(/\s+/g, '');
+          const recipientNorm = (item.recipient_bi || '').toUpperCase().replace(/\s+/g, '');
+          const status = senderNorm === 'CDA' || /^ADMIN-/.test(senderNorm)
+            ? 'Enviada'
+            : recipientNorm === 'CDA'
+              ? 'Recebida'
+              : statusLegado;
           return {
             id: `COR-${item.id}`,
             sender: item.sender_bi,
@@ -1798,7 +1809,7 @@ export const supabaseService = {
             originProvince: item.deadline_text || 'Luanda',
             destinationProvince: item.state_indicator || 'Luanda',
             institution: item.org,
-            status: statusLegado,
+            status,
             date: new Date(item.created_at).toLocaleDateString('pt-AO'),
             body: item.body,
             priority: item.priority_scale || item.status || 'Média'
