@@ -280,8 +280,10 @@ const DADOS_TABELAS: Record<string, {
   },
   contacts: {
     select: true, insert: true, update: true, delete: true, upsert: true,
-    escopo: (i) => i.isAdmin || i.isInst ? { or: [], and: {} } : { or: [], and: { owner_bi: i.bi } },
-    injetar: (i, d) => (i.isAdmin || i.isInst) ? d : { ...d, owner_bi: i.bi },
+    // 2026-08-21 — titularidade respeitada em TODOS os papéis: admin vê tudo;
+    // instituição só os contactos do próprio código; cidadão só os seus.
+    escopo: (i) => i.isAdmin ? { or: [], and: {} } : { or: [], and: { owner_bi: i.instCode || i.bi } },
+    injetar: (i, d) => (i.isAdmin) ? d : { ...d, owner_bi: i.instCode || i.bi },
   },
   notifications: {
     select: true, insert: true, update: true, delete: false,
@@ -360,6 +362,12 @@ async function dadosResolverIdentidadeRaw(supaUrl: string, serviceKey: string, t
       } catch { /* melhor esforço */ }
     }
     const role = String(meta.role || '').toLowerCase();
+    // 2026-08-21 — contas institucionais/admin não têm `bi` no metadata: usar
+    // o código institucional / nº de agente como chave de identidade, senão o
+    // escopo de titularidade ficava vazio e o proxy devolvia TODAS as linhas
+    // (ex.: o leitor QR recebia documentos de demonstração de outras contas).
+    if (!bi && role === 'instituicao' && meta.instituicao) bi = String(meta.instituicao).toUpperCase();
+    if (!bi && role === 'admin' && meta.agent) bi = String(meta.agent).toUpperCase();
     return {
       bi, email: u.email || '', role,
       isAdmin: role === 'admin',

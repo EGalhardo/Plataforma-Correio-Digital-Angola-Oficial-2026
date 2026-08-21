@@ -475,15 +475,19 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
       const docCode = doc.code?.toUpperCase() || '';
       const docProt = doc.protocol?.protocolNumber?.toUpperCase() || '';
       const docNum = doc.number?.toUpperCase() || '';
-      
-      const isMatch = searchKeys.some(key => 
-        key === docCode || 
-        key === docProt || 
-        key === docNum || 
-        docProt.includes(key) || 
-        key.includes(docProt) ||
-        docCode.includes(key)
-      ) || normalizedCode.includes(docCode) || normalizedCode.includes(docProt);
+
+      // 2026-08-21 — GUARDA anti falso-positivo: `x.includes('')` é SEMPRE
+      // verdadeiro, por isso campos vazios nunca podem participar nas
+      // comparações — antes o PRIMEIRO documento da lista "casava" com
+      // QUALQUER QR (ex.: a "Carta de condução" de demonstração a mascarar a
+      // correspondência real).
+      const isMatch = searchKeys.some(key => {
+        if (!key) return false;
+        if (key === docCode || key === docProt || key === docNum) return true;
+        if (docProt && (docProt.includes(key) || key.includes(docProt))) return true;
+        if (docCode && docCode.includes(key)) return true;
+        return false;
+      }) || (docCode && normalizedCode.includes(docCode)) || (docProt && normalizedCode.includes(docProt));
 
       if (isMatch) {
          foundDoc = doc;
@@ -498,12 +502,15 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
         const msgId = msg.id?.toString() || '';
         const msgProt = msg.protocol?.protocolNumber?.toUpperCase() || '';
 
-        const isMatch = searchKeys.some(key => 
-          key === msgId || 
-          key === msgProt || 
-          msgProt.includes(key) || 
-          key.includes(msgProt)
-        ) || normalizedCode.includes(msgProt) || normalizedCode.includes(msgId)
+        // 2026-08-21 — mesmas guardas anti falso-positivo do bloco de
+        // documentos: campos vazios não participam em includes().
+        const isMatch = searchKeys.some(key => {
+          if (!key) return false;
+          if (key === msgId || key === msgProt) return true;
+          if (msgProt && (msgProt.includes(key) || key.includes(msgProt))) return true;
+          if (msgId && key.includes(msgId)) return true;
+          return false;
+        }) || (msgProt && normalizedCode.includes(msgProt)) || (msgId && normalizedCode.includes(msgId))
         // Q-3 — localização pelo id real do deep-link (QR legado com número divergente)
         || (!!qrMessageId && (msgId === qrMessageId || String(msg.id).includes(qrMessageId) || qrMessageId.includes(msgId)));
 
