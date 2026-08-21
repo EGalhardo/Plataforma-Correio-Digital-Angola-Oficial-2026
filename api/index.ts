@@ -1687,7 +1687,7 @@ const DADOS_COLUNAS: Record<string, Record<string, boolean>> = {
     org: true, internal_id: true, digital_seal: true, deadline_date: true,
   },
   audit_logs: { action: true, username: true, action_type: true, timestamp: true },
-  message_state_history: { message_id: true, state: true, responsible: true, description: true, created_at: true },
+  message_state_history: { id: true, message_id: true, state: true, responsible: true, description: true, created_at: true, event_date: true, event_time: true },
   solicitacoes_registo: { id: true, nome: true, email: true, bi_numero: true, url_frente: true, url_verso: true, url_selfie: true, status: true, observacoes: true, criado_em: true },
 };
 

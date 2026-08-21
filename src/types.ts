@@ -49,6 +49,8 @@ export interface ReplySendPayload {
   subject: string;
   body: string;
   attachments?: { name: string; size: string }[];
+  /** Id da correspondência original a que esta resposta responde (2026-08-21). */
+  inReplyTo?: number;
 }
 
 export interface ReplySendResult {
@@ -327,6 +329,10 @@ export interface Correspondence {
   institution: 'AGT' | 'SME' | 'Tribunal Supremo' | 'Registo Civil' | 'ENDE' | 'MINJUS' | string;
   status: 'Enviada' | 'Recebida' | 'Em Análise' | 'Respondida' | 'Arquivada' | 'Cancelada' | string;
   date: string;
+  /** Hora do registo (2026-08-21 — expediente completo). */
+  time?: string;
+  /** Tipo de documento da correspondência (2026-08-21). */
+  documentType?: string;
   body: string;
   category?: string;
   sentDate?: string;
@@ -337,6 +343,8 @@ export interface Correspondence {
   history?: { action: string; dateTime: string; user: string }[];
   isDelayed?: boolean;
   delayDays?: number;
+  /** Id da correspondência original a que esta linha responde (2026-08-21). */
+  responseTo?: string;
 }
 
 export interface SessionUser {

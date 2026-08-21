@@ -32,6 +32,7 @@ interface LinhaMensagem {
   attachments: string[]; sensitivity: string; priority_scale: string;
   deadline_hours_remaining: number; sender_bi: string; recipient_bi: string;
   protocol_number?: string | null;
+  document_type?: string | null;
 }
 
 // v27 (2026-08-10) — hidrata message.protocol a partir da coluna
@@ -1787,20 +1788,23 @@ export const supabaseService = {
           ehChaveReal(item.recipient_bi))
         .map((item: LinhaMensagem) => {
           const acao = item.actions?.[0] || '';
-          const statusLegado = ['Enviada', 'Recebida', 'Em Análise', 'Respondida', 'Arquivada', 'Cancelada'].includes(acao)
-            ? acao
-            : (item.state_indicator || 'Recebida');
-          // 2026-08-21 — a visão central da Administração classifica por
-          // direcção: mensagens ENVIADAS pelo admin (CDA) → "Enviada" (aba
-          // Enviadas); recebidas pela Administração → "Recebida"; as trocas
-          // cidadão↔instituição mantêm o estado derivado (Expediente/Todas).
+          const estadoGuardado = (item.state_indicator || '');
+          // 2026-08-21 — classificação completa do Expediente:
+          //  · enviado pelo admin (CDA/ADMIN-*) → 'Enviada' (aba Enviadas);
+          //  · recebido pela Administração → 'Recebida';
+          //  · restantes seguem o CICLO de vida: Recebida → Em análise →
+          //    Respondida → Arquivada → Cancelada (estado real da nuvem).
+          const ESTADOS_CICLO = ['Recebida', 'Em Análise', 'Respondida', 'Arquivada', 'Cancelada'];
           const senderNorm = (item.sender_bi || '').toUpperCase().replace(/\s+/g, '');
           const recipientNorm = (item.recipient_bi || '').toUpperCase().replace(/\s+/g, '');
-          const status = senderNorm === 'CDA' || /^ADMIN-/.test(senderNorm)
-            ? 'Enviada'
-            : recipientNorm === 'CDA'
-              ? 'Recebida'
-              : statusLegado;
+          let status: string;
+          if (senderNorm === 'CDA' || /^ADMIN-/.test(senderNorm)) status = 'Enviada';
+          else if (recipientNorm === 'CDA') status = 'Recebida';
+          else if (estadoGuardado === 'Em análise' || estadoGuardado === 'Em Análise') status = 'Em Análise';
+          else if (ESTADOS_CICLO.includes(estadoGuardado)) status = estadoGuardado;
+          else status = 'Recebida';
+          const criado = item.created_at ? new Date(item.created_at) : new Date();
+          const respondeA = (item.actions || []).find((a: string) => String(a).startsWith('RESPONDE_A:'));
           return {
             id: `COR-${item.id}`,
             sender: item.sender_bi,
@@ -1810,9 +1814,13 @@ export const supabaseService = {
             destinationProvince: item.state_indicator || 'Luanda',
             institution: item.org,
             status,
-            date: new Date(item.created_at).toLocaleDateString('pt-AO'),
+            date: criado.toLocaleDateString('pt-AO'),
+            time: criado.toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' }),
+            documentType: item.document_type || 'Correspondência',
             body: item.body,
-            priority: item.priority_scale || item.status || 'Média'
+            priority: item.priority_scale || item.status || 'Média',
+            // ligação à correspondência original (respostas)
+            ...(respondeA ? { responseTo: respondeA.replace('RESPONDE_A:', '') } : {})
           };
         });
     } catch (e) {

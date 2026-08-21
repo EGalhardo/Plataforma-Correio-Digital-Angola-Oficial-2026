@@ -3816,7 +3816,9 @@ export default function App() {
         body: body,
         deadline: "Sem prazo",
         state: "Entregue & Autenticado",
-        actions: ["Ver detalhes"],
+        // 2026-08-21 — resposta vinculada à correspondência original
+        // (marcador RESPONDE_A lido pelo Expediente da Administração).
+        actions: override?.inReplyTo ? ["Ver detalhes", `RESPONDE_A:${override.inReplyTo}`] : ["Ver detalhes"],
         attachments: attachments
       },
       protocol: protocol
@@ -5339,10 +5341,21 @@ Ficha civil do titular:
               setCorrespondences(prev => prev.map(c => c.id === id ? { ...c, status: newStatus as any } : c));
               addAuditLog(`Expediente ${id} marcado como ${newStatus}`, 'info');
 
+              // 2026-08-21 — alteração de estado PERSISTIDA na nuvem: atualiza
+              // state_indicator na tabela messages + regista o evento no
+              // histórico (message_state_history: data, hora e responsável).
+              // O Expediente volta com o mesmo estado noutro dispositivo.
               const matchedCor = correspondences.find(c => c.id === id);
-              if (matchedCor && isOnline && hasValidSupabaseKeys()) {
-                const updated = { ...matchedCor, status: newStatus };
-                supabaseService.insertCorrespondence(updated).catch(err => console.error('Erro ao atualizar estado do expediente no Supabase:', err));
+              const baseId = Number(String(id).replace(/\D/g, '')) || 0;
+              if (matchedCor && baseId > 0 && isOnline && hasValidSupabaseKeys()) {
+                void supabaseService.updateMessageState(baseId, { state_indicator: String(newStatus) })
+                  .then(() => supabaseService.insertMessageStateEvent({
+                    messageId: baseId,
+                    state: String(newStatus),
+                    responsible: user?.name || 'Administração Central',
+                    description: `Estado do expediente ${id} alterado para "${newStatus}" pela Administração.`,
+                  }))
+                  .catch(err => console.warn('[Expediente] Persistência do estado falhou (não bloqueia a ação local):', err));
               }
             }}
           />

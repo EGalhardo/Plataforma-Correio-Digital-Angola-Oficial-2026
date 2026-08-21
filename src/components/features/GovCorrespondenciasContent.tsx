@@ -59,8 +59,10 @@ const prepareCorrespondence = (c: Correspondence) => {
   }
 
   // default dates & timelines
-  const sentDate = c.sentDate || c.date;
-  const receivedDate = c.receivedDate || (status !== 'Enviada' ? c.date : 'Pendente');
+  // 2026-08-21 — data E hora completas no Expediente.
+  const dateWithTime = c.time ? `${c.date} ${c.time}` : c.date;
+  const sentDate = c.sentDate || dateWithTime;
+  const receivedDate = c.receivedDate || (status !== 'Enviada' ? dateWithTime : 'Pendente');
   const responseTime = c.responseTime || (status === 'Respondida' ? '18 horas' : status === 'Arquivada' ? '36 horas' : 'Pendente');
   const priority = c.priority || (c.id === 'CDA-90118' || c.id === 'CDA-77123' ? 'Alta' : c.id === 'CDA-88123' ? 'Média' : 'Baixa');
   
@@ -560,7 +562,7 @@ export function GovCorrespondenciasContent({
                   : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
               }`}
             >
-              {tab === 'Todas' ? 'Todos Expedientes' : tab === 'Enviada' ? 'Enviadas' : tab === 'Recebida' ? 'Recebidas' : tab}
+              {tab === 'Todas' ? 'Expediente' : tab === 'Enviada' ? 'Enviadas' : tab === 'Recebida' ? 'Recebidas' : tab === 'Em Análise' ? 'Em análise' : tab === 'Respondida' ? 'Respondidas' : tab === 'Arquivada' ? 'Arquivadas' : tab === 'Cancelada' ? 'Canceladas' : tab}
               <span className={`ml-2 px-2 py-0.5 rounded-full text-[8.5px] font-mono leading-none ${
                 activeTab === tab ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
               }`}>
@@ -574,7 +576,7 @@ export function GovCorrespondenciasContent({
       {/* Tabular/List Layout representing professional system design */}
       <div className="space-y-6">
         {filteredCorrespondences.length > 0 ? (
-          <div className="overflow-auto rounded-[24px] bg-white border border-slate-200 shadow-3xs max-h-[640px] custom-scrollbar">
+          <div className={`overflow-auto rounded-[24px] bg-white border border-slate-200 shadow-3xs custom-scrollbar ${filteredCorrespondences.length > 4 ? 'max-h-[350px]' : ''}`}>
             <table className="mobile-data-table w-full text-left border-collapse min-w-[1100px]">
               <thead className="sticky top-0 z-15 bg-[#0E2B64] border-b border-[#0E2B64]/90 text-white text-[9.5px] font-black uppercase tracking-widest">
                 <tr>
@@ -600,6 +602,11 @@ export function GovCorrespondenciasContent({
                           <Clock size={10} />
                           <span>{item.sentDate}</span>
                         </div>
+                        {item.responseTo && (
+                          <div className="text-[8px] font-mono text-indigo-500 font-bold">
+                            ↳ responde a: COR-{item.responseTo}
+                          </div>
+                        )}
                       </div>
                     </td>
 
@@ -706,7 +713,7 @@ export function GovCorrespondenciasContent({
         {filteredCorrespondences.length > 0 && (
           <div className="bg-white border border-slate-200 rounded-[32px] p-5 flex items-center justify-between text-[10.5px] font-black uppercase tracking-wide shadow-3xs">
             <span className="text-slate-400 font-medium">
-              {filteredCorrespondences.length} correspondência(s) no Expediente — deslize a tabela para ver todas
+              {filteredCorrespondences.length} correspondência(s) no Expediente — deslize a tabela para ver todas (rolagem vertical ativa)
             </span>
             <span className="text-indigo-700">Rolagem vertical ativa</span>
           </div>
@@ -953,83 +960,36 @@ export function GovCorrespondenciasContent({
                   )}
                 </div>
 
-                {/* Administrative Intervention Control panel (Estados: Enviada, Recebida, Em Análise, Respondida, Arquivada, Cancelada) */}
+                {/* Intervenção Administrativa — fluxo de estados (2026-08-21):
+                    Recebida → Em análise → Respondida → Arquivada / Cancelada.
+                    Cada alteração é PERSISTIDA na nuvem (estado + histórico com
+                    data, hora e responsável) e reflete-se nas abas. */}
                 <div className="pt-4 border-t border-slate-100 space-y-3">
-                  <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest block mb-1">Intervenção Administrativa Direta de Supervisão</span>
+                  <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest block mb-1">Intervenção Administrativa — Gestão de Estado</span>
                   <div className="flex flex-wrap gap-2">
-                    
-                    {/* Status change block */}
-                    {selectedLetter.status !== 'Em Análise' && (
-                      <button
-                        onClick={() => {
-                          const logEntry = {
-                            action: `Instaurado em regime de Análise Administrativa`,
-                            dateTime: new Date().toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-                            user: "FISCAL_CDA"
-                          };
-                          selectedLetter.status = 'Em Análise';
-                          selectedLetter.history = [logEntry, ...selectedLetter.history];
-                          handleUpdateStatus(selectedLetter.id, 'Em Análise');
-                        }}
-                        className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-[9px] font-black uppercase tracking-wider cursor-pointer"
-                      >
-                        Iniciar Análise
-                      </button>
-                    )}
-
-                    {selectedLetter.status !== 'Respondida' && (
-                      <button
-                        onClick={() => {
-                          const logEntry = {
-                            action: `Assinalado como Respondido e Concluído pelo Ofício`,
-                            dateTime: new Date().toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-                            user: "DIRETOR_CDA"
-                          };
-                          selectedLetter.status = 'Respondida';
-                          selectedLetter.history = [logEntry, ...selectedLetter.history];
-                          handleUpdateStatus(selectedLetter.id, 'Respondida');
-                        }}
-                        className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-[9px] font-black uppercase tracking-wider cursor-pointer"
-                      >
-                        Marcar Respondida
-                      </button>
-                    )}
-
-                    {selectedLetter.status !== 'Arquivada' && (
-                      <button
-                        onClick={() => {
-                          const logEntry = {
-                            action: `Processo Arquivado Compulsoriamente`,
-                            dateTime: new Date().toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-                            user: "AUDITOR_CDA"
-                          };
-                          selectedLetter.status = 'Arquivada';
-                          selectedLetter.history = [logEntry, ...selectedLetter.history];
-                          handleUpdateStatus(selectedLetter.id, 'Arquivada');
-                        }}
-                        className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-wider cursor-pointer"
-                      >
-                        Arquivar Expediente
-                      </button>
-                    )}
-
-                    {selectedLetter.status !== 'Cancelada' && (
-                      <button
-                        onClick={() => {
-                          const logEntry = {
-                            action: `Ordem de Emissão Cancelada por Anomalia de Dados`,
-                            dateTime: new Date().toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-                            user: "SUPERVISOR_GERAL"
-                          };
-                          selectedLetter.status = 'Cancelada';
-                          selectedLetter.history = [logEntry, ...selectedLetter.history];
-                          handleUpdateStatus(selectedLetter.id, 'Cancelada');
-                        }}
-                        className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-[9px] font-black uppercase tracking-wider cursor-pointer"
-                      >
-                        Cancelar Expediente
-                      </button>
-                    )}
+                    {([['Recebida', 'Marcar Recebida', 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-200', 'Estado reposto para Recebida'],
+                       ['Em Análise', 'Iniciar Análise', 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200', 'Instaurado em regime de Análise Administrativa'],
+                       ['Respondida', 'Marcar Respondida', 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200', 'Assinalado como Respondido e Concluído pelo Ofício'],
+                       ['Arquivada', 'Arquivar Expediente', 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200', 'Processo Arquivado Compulsoriamente'],
+                       ['Cancelada', 'Cancelar Expediente', 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200', 'Ordem de Emissão Cancelada por Anomalia de Dados']] as const).map(([estado, label, cls, acao]) => (
+                      selectedLetter.status !== estado && (
+                        <button
+                          key={estado}
+                          onClick={() => {
+                            const logEntry = {
+                              action: acao,
+                              dateTime: new Date().toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                              user: 'ADMINISTRACAO_CDA'
+                            };
+                            setSelectedLetter((prev: any) => prev ? { ...prev, status: estado, history: [logEntry, ...(prev.history || [])] } : prev);
+                            handleUpdateStatus(selectedLetter.id, estado);
+                          }}
+                          className={`px-3.5 py-2 border rounded-xl text-[9px] font-black uppercase tracking-wider cursor-pointer ${cls}`}
+                        >
+                          {label}
+                        </button>
+                      )
+                    ))}
                   </div>
                 </div>
 

@@ -431,6 +431,8 @@ export function MessageDetail({
         subject: assunto,
         body: detailReplyText,
         attachments: inlineAttachedFiles,
+        // 2026-08-21 — a resposta fica vinculada à correspondência original.
+        inReplyTo: selectedMessage.id,
       });
       if (!resultado.ok) {
         setDetailReplyError(resultado.error || 'Não foi possível enviar a resposta. Tente novamente.');
