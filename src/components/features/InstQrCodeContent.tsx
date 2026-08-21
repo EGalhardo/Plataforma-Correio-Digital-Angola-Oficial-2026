@@ -112,6 +112,69 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
     });
   }, []);
   const qrReaderRef = useRef<Html5Qrcode | null>(null);
+  // 2026-08-21 — refs SEMPRE atualizadas com as listas mais recentes: o scan
+  // pode acontecer segundos após o login, antes de as correspondências
+  // terminarem de carregar — a pesquisa de validação lê daqui e volta a
+  // tentar (ver runValidationFlow), evitando "não encontrado" enganador.
+  const messagesRef = useRef<Message[] | undefined>(messages);
+  messagesRef.current = messages;
+  const documentsRef = useRef<Document[]>(documents);
+  documentsRef.current = documents;
+  // 2026-08-21 — MOTOR DE DESCODIFICAÇÃO DA CÂMARA (jsQR):
+  // o ZXing empacotado no html5-qrcode falha em QR Codes DENSOS quando o
+  // canvas passa dos ~250px (provado em browser com o QR real do utilizador:
+  // 150px LÊ, 298px FALHA, 318px pixel-perfect FALHA, 600px FALHA). A câmara
+  // alimenta o ZXing SEMPRE com ~250px (proporção vídeo/caixa fixa) — a
+  // leitura por câmara falhava em qualquer dispositivo, enquanto a via
+  // Ficheiro funciona (imagens ~150-180px). O jsQR descodifica exatamente os
+  // mesmos frames da câmara (verificado no canvas real da app). O html5-qrcode
+  // continua a gerir o stream da câmara e a via Ficheiro; o jsQR substitui
+  // apenas o decodificador do vídeo.
+  const jsQrLoopRef = useRef<number | null>(null);
+  const jsQrCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const jsQrPromiseRef = useRef<Promise<typeof import('jsqr')> | null>(null);
+  const scanResolvedRef = useRef(false);
+
+  const stopJsQrLoop = () => {
+    if (jsQrLoopRef.current !== null) {
+      clearInterval(jsQrLoopRef.current);
+      jsQrLoopRef.current = null;
+    }
+  };
+
+  const startJsQrLoop = () => {
+    stopJsQrLoop();
+    scanResolvedRef.current = false;
+    jsQrLoopRef.current = window.setInterval(async () => {
+      try {
+        const video = document.querySelector<HTMLVideoElement>('#react-reader-camera-view video');
+        if (!video || video.readyState < 2 || video.videoWidth === 0 || scanResolvedRef.current) return;
+        if (!jsQrCanvasRef.current) jsQrCanvasRef.current = document.createElement('canvas');
+        const canvas = jsQrCanvasRef.current;
+        // tamanho controlado (~400px) — o jsQR lê com folga nesta escala
+        const scale = Math.min(1, 400 / video.videoWidth);
+        const w = Math.round(video.videoWidth * scale);
+        const h = Math.round(video.videoHeight * scale);
+        if (canvas.width !== w) canvas.width = w;
+        if (canvas.height !== h) canvas.height = h;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return;
+        ctx.drawImage(video, 0, 0, w, h);
+        const img = ctx.getImageData(0, 0, w, h);
+        if (!jsQrPromiseRef.current) jsQrPromiseRef.current = import('jsqr');
+        const jsQR = (await jsQrPromiseRef.current).default;
+        const code = jsQR(img.data, w, h);
+        if (code && code.data && !scanResolvedRef.current) {
+          scanResolvedRef.current = true;
+          stopJsQrLoop();
+          stopCamera();
+          processResult(code.data, 'câmera');
+        }
+      } catch {
+        /* frame ilegível — tenta a próxima */
+      }
+    }, 150);
+  };
 
   // Scanner - File State
   const [, setReadSelectedFile] = useState<File | null>(null);
@@ -274,11 +337,30 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
           }
           const html5QrCode = new Html5Qrcode("react-reader-camera-view");
           qrReaderRef.current = html5QrCode;
+          // 2026-08-21 — FIX CRÍTICO da câmara: o seletor 'cameraIdOrConfig' do
+          // html5-qrcode 2.3.8 aceita EXATAMENTE 1 chave (deviceId OU facingMode).
+          // Passar { facingMode, width, height } faz o start() rejeitar de
+          // imediato ("should have exactly 1 key... found 3 keys") e a câmara
+          // nunca abria — em qualquer dispositivo (reproduzido em teste E2E
+          // com câmara virtual; a via Ficheiro nunca foi afetada).
+          // A resolução alta (para QRs exibidos em ecrãs) passa a ir em
+          // videoConstraints (passado diretamente ao getUserMedia).
           await html5QrCode.start(
-            { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+            { facingMode: "environment" },
             {
               fps: 15,
               aspectRatio: 1.0,
+              videoConstraints: {
+                // O runtime do html5-qrcode passa este objeto DIRETO ao
+                // getUserMedia (MediaStreamConstraints), embora o .d.ts o
+                // tipe erradamente como MediaTrackConstraints — daí o cast.
+                video: {
+                  facingMode: "environment",
+                  width: { ideal: 1920 },
+                  height: { ideal: 1080 },
+                },
+                audio: false,
+              } as unknown as MediaTrackConstraints,
               qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
                 const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
                 const qrboxSize = Math.floor(minEdge * 0.75);
@@ -286,6 +368,10 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
               },
             },
             (decodedText) => {
+              // guarda anti dupla-deteção (o jsQR pode disparar primeiro)
+              if (scanResolvedRef.current) return;
+              scanResolvedRef.current = true;
+              stopJsQrLoop();
               stopCamera();
               processResult(decodedText, 'câmera');
             },
@@ -297,6 +383,10 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
             }
           );
           setReadStatusText('📷 Aponte a câmara ao QR Code — mantenha-o dentro do quadrado.');
+          // 2026-08-21 — arranca o decodificador jsQR sobre o vídeo (ver
+          // comentário em jsQrLoopRef): o ZXing interno falha em QRs densos
+          // no tamanho que a câmara produz.
+          startJsQrLoop();
         } catch (err) {
           console.error("Camera start failed:", err);
           if (active) {
@@ -325,6 +415,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
   // Clean camera up on unmount
   useEffect(() => {
     return () => {
+      stopJsQrLoop();
       if (qrReaderRef.current && qrReaderRef.current.isScanning) {
         qrReaderRef.current.stop().catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
       }
@@ -340,6 +431,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
   };
 
   const stopCamera = async () => {
+    stopJsQrLoop();
     if (qrReaderRef.current) {
       if (qrReaderRef.current.isScanning) {
         try {
@@ -469,55 +561,73 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
       ? String(deepLink.id).match(/^INT-(?:MESSAGE|DOCUMENT)-2026-(\d+)$/i)?.[1]
       : undefined;
 
-    // Let's check matching document
-    let foundDoc: Document | null = null;
-    for (const doc of documents) {
-      const docCode = doc.code?.toUpperCase() || '';
-      const docProt = doc.protocol?.protocolNumber?.toUpperCase() || '';
-      const docNum = doc.number?.toUpperCase() || '';
+    // 2026-08-21 — pesquisa local com RETRY: lê SEMPRE as listas mais
+    // recentes (via refs) e volta a tentar até 3× (1,5s entre tentativas)
+    // quando o QR é um deep-link da plataforma e nada foi localizado ainda —
+    // a câmara pode detetar o código segundos depois do login, antes de as
+    // correspondências chegarem do servidor.
+    const procurar = (): { foundDoc: Document | null; foundMsg: Message | null } => {
+      // Let's check matching document
+      let foundDoc: Document | null = null;
+      for (const doc of documentsRef.current || []) {
+        const docCode = doc.code?.toUpperCase() || '';
+        const docProt = doc.protocol?.protocolNumber?.toUpperCase() || '';
+        const docNum = doc.number?.toUpperCase() || '';
 
-      // 2026-08-21 — GUARDA anti falso-positivo: `x.includes('')` é SEMPRE
-      // verdadeiro, por isso campos vazios nunca podem participar nas
-      // comparações — antes o PRIMEIRO documento da lista "casava" com
-      // QUALQUER QR (ex.: a "Carta de condução" de demonstração a mascarar a
-      // correspondência real).
-      const isMatch = searchKeys.some(key => {
-        if (!key) return false;
-        if (key === docCode || key === docProt || key === docNum) return true;
-        if (docProt && (docProt.includes(key) || key.includes(docProt))) return true;
-        if (docCode && docCode.includes(key)) return true;
-        return false;
-      }) || (docCode && normalizedCode.includes(docCode)) || (docProt && normalizedCode.includes(docProt));
-
-      if (isMatch) {
-         foundDoc = doc;
-         break;
-      }
-    }
-
-    // Let's check matching message (Inbox or InstInbox)
-    let foundMsg: Message | null = null;
-    if (!foundDoc && messages) {
-      for (const msg of messages) {
-        const msgId = msg.id?.toString() || '';
-        const msgProt = msg.protocol?.protocolNumber?.toUpperCase() || '';
-
-        // 2026-08-21 — mesmas guardas anti falso-positivo do bloco de
-        // documentos: campos vazios não participam em includes().
+        // 2026-08-21 — GUARDA anti falso-positivo: `x.includes('')` é SEMPRE
+        // verdadeiro, por isso campos vazios nunca podem participar nas
+        // comparações — antes o PRIMEIRO documento da lista "casava" com
+        // QUALQUER QR (ex.: a "Carta de condução" de demonstração a mascarar a
+        // correspondência real).
         const isMatch = searchKeys.some(key => {
           if (!key) return false;
-          if (key === msgId || key === msgProt) return true;
-          if (msgProt && (msgProt.includes(key) || key.includes(msgProt))) return true;
-          if (msgId && key.includes(msgId)) return true;
+          if (key === docCode || key === docProt || key === docNum) return true;
+          if (docProt && (docProt.includes(key) || key.includes(docProt))) return true;
+          if (docCode && docCode.includes(key)) return true;
           return false;
-        }) || (msgProt && normalizedCode.includes(msgProt)) || (msgId && normalizedCode.includes(msgId))
-        // Q-3 — localização pelo id real do deep-link (QR legado com número divergente)
-        || (!!qrMessageId && (msgId === qrMessageId || String(msg.id).includes(qrMessageId) || qrMessageId.includes(msgId)));
+        }) || (docCode && normalizedCode.includes(docCode)) || (docProt && normalizedCode.includes(docProt));
 
         if (isMatch) {
-          foundMsg = msg;
-          break;
+           foundDoc = doc;
+           break;
         }
+      }
+
+      // Let's check matching message (Inbox or InstInbox)
+      let foundMsg: Message | null = null;
+      if (!foundDoc && messagesRef.current) {
+        for (const msg of messagesRef.current) {
+          const msgId = msg.id?.toString() || '';
+          const msgProt = msg.protocol?.protocolNumber?.toUpperCase() || '';
+
+          // 2026-08-21 — mesmas guardas anti falso-positivo do bloco de
+          // documentos: campos vazios não participam em includes().
+          const isMatch = searchKeys.some(key => {
+            if (!key) return false;
+            if (key === msgId || key === msgProt) return true;
+            if (msgProt && (msgProt.includes(key) || key.includes(msgProt))) return true;
+            if (msgId && key.includes(msgId)) return true;
+            return false;
+          }) || (msgProt && normalizedCode.includes(msgProt)) || (msgId && normalizedCode.includes(msgId))
+          // Q-3 — localização pelo id real do deep-link (QR legado com número divergente)
+          || (!!qrMessageId && (msgId === qrMessageId || String(msg.id).includes(qrMessageId) || qrMessageId.includes(msgId)));
+
+          if (isMatch) {
+            foundMsg = msg;
+            break;
+          }
+        }
+      }
+      return { foundDoc, foundMsg };
+    };
+
+    let { foundDoc, foundMsg } = procurar();
+    if (!foundDoc && !foundMsg && isPlatformUrl) {
+      for (let tentativa = 0; tentativa < 3 && !foundDoc && !foundMsg; tentativa++) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        const r = procurar();
+        foundDoc = r.foundDoc;
+        foundMsg = r.foundMsg;
       }
     }
 
@@ -1352,7 +1462,13 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
                       height: 100% !important;
                     }
                   `}</style>
-                  <div className="relative rounded-2xl overflow-hidden bg-slate-950 flex flex-col items-center justify-center h-[320px] md:h-[400px] w-full max-w-lg shadow-inner border border-slate-800">
+                  {/* 2026-08-21 — caixa do vídeo QUADRADA (aspect-square): o
+                      html5-qrcode calcula qrbox/canvas pelo TAMANHO CSS do
+                      elemento; uma caixa não quadrada esmaga o frame quadrado
+                      (540×540) e o decodificador nunca lia (provado em teste
+                      E2E com câmara virtual: vídeo a tocar, zero deteções;
+                      com caixa quadrada a deteção é imediata). */}
+                  <div className="relative rounded-2xl overflow-hidden bg-slate-950 flex flex-col items-center justify-center aspect-square h-[320px] md:h-[400px] shadow-inner border border-slate-800">
                     <div id="react-reader-camera-view" className="w-full h-full rounded-2xl overflow-hidden"></div>
                     {/* 2026-08-21 — moldura alinhada com a zona de leitura ADAPTATIVA
                         (~75% do viewfinder, como o qrbox real do html5-qrcode). */}
