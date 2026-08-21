@@ -62,7 +62,7 @@ interface ScanHistoryItem {
   time: string;
 }
 
-export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: InstQrCodeContentProps) {
+export function InstQrCodeContent({ documents, messages, onSelectMessage, addAuditLog, setTab }: InstQrCodeContentProps) {
   // Main Top Mode: 'reader' | 'generator' | 'history'
   const [activeMainTab, setActiveMainTab] = useState<'reader' | 'generator' | 'history'>('reader');
 
@@ -73,6 +73,9 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
 
   // Advanced zero-click validation states representing current reader cycle
   const [validationState, setValidationState] = useState<'idle' | 'validating' | 'valid' | 'not_found' | 'revoked' | 'invalid_signature'>('idle');
+  // 2026-08-21 — mensagem localizada pelo leitor: permite ACEDER à
+  // correspondência validada (botão "Abrir Correspondência" no certificado).
+  const [qrFoundMessage, setQrFoundMessage] = useState<Message | null>(null);
   const [validatedItem, setValidatedItem] = useState<{
     type: 'document' | 'message';
     title: string;
@@ -380,6 +383,7 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
     // 1. Initial Processing State
     setValidationState('validating');
     setValidatedItem(null);
+    setQrFoundMessage(null);
     showToast('📡 Sincronizando com a base de dados central CDA...', 'info');
 
     // Wait 1200ms to simulate official digital ledger verification & cryptographic seal validity queries
@@ -387,6 +391,24 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
 
     const trimmed = rawCode.trim();
     const normalizedCode = trimmed.toUpperCase();
+
+    // 2026-08-21 — QR DEEP-LINK da plataforma: os QRs das correspondências
+    // codificam o endereço ?correspondencia=<protocolo>&id=...&reg=...
+    // Extrair os parâmetros dá pesquisa ROBUSTA (antes a localização só
+    // funcionava por coincidência de substring no URL inteiro).
+    let deepLink: { correspondencia?: string; id?: string; reg?: string } | null = null;
+    let isPlatformUrl = false;
+    if (/^https?:\/\//i.test(trimmed)) {
+      try {
+        const u = new URL(trimmed);
+        deepLink = {
+          correspondencia: u.searchParams.get('correspondencia') || undefined,
+          id: u.searchParams.get('id') || undefined,
+          reg: u.searchParams.get('reg') || undefined,
+        };
+        if (deepLink.correspondencia) isPlatformUrl = true;
+      } catch { /* mantém null */ }
+    }
 
     // Try parsing JSON if rawCode is JSON
     let parsedJson: PayloadQr | null = null;
@@ -401,6 +423,8 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
     const searchKeys = [
       normalizedCode,
       parsedJson?.protocolNumber?.toUpperCase() || '',
+      deepLink?.correspondencia?.toUpperCase() || '',
+      deepLink?.id?.toUpperCase() || '',
       parsedJson?.rastreamento?.toUpperCase() || '',
       parsedJson?.code?.toUpperCase() || '',
       parsedJson?.id?.toString() || '',
@@ -530,13 +554,24 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
       else {
         setValidationState('valid');
         setValidatedItem(item);
+        setQrFoundMessage(foundMsg); // 2026-08-21 — permite ACEDER à correspondência validada
         showToast('✅ Correspondência/Documento validado com sucesso!', 'success');
         logAudit(trimmed, 'Documento válido');
       }
 
     } else {
+      // 2026-08-21 — QR deep-link da PLATAFORMA que não corresponde a nenhuma
+      // mensagem/documento desta conta: resultado HONESTO "não localizado".
+      // Nunca inventar um documento sintético para QRs da própria plataforma
+      // (o fallback legado abaixo serve apenas códigos físicos externos).
+      if (isPlatformUrl) {
+        setValidationState('not_found');
+        setValidatedItem(null);
+        showToast('❌ Correspondência não localizada na conta desta instituição!', 'error');
+        logAudit(trimmed, 'Documento não encontrado');
+      }
       // If code looks like a synthetic JSON or typical protocol pattern, let's treat it as valid synthetic
-      if (trimmed.length > 5 && (trimmed.includes('{') || trimmed.includes('PROT-') || trimmed.includes('MINIS-') || trimmed.includes('CDA-'))) {
+      else if (trimmed.length > 5 && (trimmed.includes('{') || trimmed.includes('PROT-') || trimmed.includes('MINIS-') || trimmed.includes('CDA-'))) {
         const isSuspended = trimmed.includes('SUSPENSO') || trimmed.includes('REVOGADO') || trimmed.includes('REVOKED') || trimmed.includes('SOC-AN-2026');
         const isNoSignature = trimmed.includes('SEM_ASSINATURA') || trimmed.includes('UNSIGNED') || trimmed.includes('ERR_SIG');
 
@@ -1582,6 +1617,23 @@ export function InstQrCodeContent({ documents, messages, addAuditLog, setTab }: 
 
               {/* Action and Reset triggers */}
               <div className="flex flex-col sm:flex-row gap-3">
+                {validationState === 'valid' && qrFoundMessage && onSelectMessage && (
+                  <button
+                    onClick={() => {
+                      // 2026-08-21 — ACEDER à correspondência validada: abre o
+                      // detalhe da mensagem localizada (mesma ação de abrir na
+                      // caixa de correio da instituição).
+                      const msg = qrFoundMessage;
+                      if (addAuditLog) {
+                        addAuditLog(`Correspondência aberta a partir do leitor QR (protocolo: ${validatedItem.protocolNumber})`, 'info');
+                      }
+                      onSelectMessage(msg);
+                    }}
+                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md shadow-indigo-500/10 cursor-pointer text-center"
+                  >
+                    Abrir Correspondência
+                  </button>
+                )}
                 {validationState === 'valid' && (
                   <button
                     onClick={() => {
