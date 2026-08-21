@@ -4425,13 +4425,27 @@ Neste painel, há um alerta oficial sobre emergência civil e um painel lateral 
 Status de verificação da conta: ${verificationStatus}.
 Serviços ativos: Notificações em tempo real e interconexão garantida.`;
       
-      case 'correspondencias':
-        const unreadCount = inbox.filter(m => m.status === 'Não Lida').length;
-        const messagesSummary = inbox.slice(0, 3).map(m => `- De: ${m.sender || m.org}, Assunto: ${m.subject || m.preview}, Status: ${m.status}`).join('\n');
-        return `Você está na aba de Correspondência Oficial (Recebidas).
-Total de correspondências na caixa de entrada: ${inbox.length} mensagens, das quais ${unreadCount} não foram lidas.
-Aqui estão algumas correspondências em destaque no ecrã:
-${messagesSummary || 'Nenhuma mensagem recente.'}`;
+      case 'correspondencias': {
+        // 2026-08-21 — contexto completo para a IA: TODAS as correspondências
+        // reais (recebidas + enviadas) com remetente/destinatário correctos.
+        // Antes só iam 3 itens e as mensagens de instituições como o INAPEM
+        // ficavam fora do contexto — a IA respondia "não encontrei".
+        const visiveis = currentInbox;
+        const naoLidas = visiveis.filter(m => m.unread).length;
+        const rotuloDe = (m: Message) => {
+          const senderKeyNorm = normalizeHomologationBi(m.senderKey || '');
+          const biNorm2 = normalizeHomologationBi(bi);
+          if (senderKeyNorm && senderKeyNorm !== biNorm2) return m.senderKey;
+          return m.org || 'Instituição';
+        };
+        const resumoRecebidas = visiveis.slice(0, 12).map(m =>
+          `- De: ${rotuloDe(m)}, Assunto: ${m.details?.subject || m.preview}, Data: ${m.date}, Estado: ${m.unread ? 'Não Lida' : 'Lida'}`
+        ).join('\n');
+        const resumoEnviadas = currentSentMessages.slice(0, 8).map(m =>
+          `- Para: ${m.org || m.recipientBi || 'Instituição'}, Assunto: ${m.details?.subject || m.preview}, Data: ${m.date}`
+        ).join('\n');
+        return `Você está na aba de Correspondência Oficial (Recebidas).\nTotal de correspondências recebidas: ${visiveis.length} (das quais ${naoLidas} não lidas).\n\nRECEBIDAS:\n${resumoRecebidas || 'Nenhuma correspondência recebida.'}\n\nENVIADAS (recentes):\n${resumoEnviadas || 'Nenhuma correspondência enviada.'}`;
+      }
       
       case 'video-atendimento':
         return (
@@ -4509,7 +4523,7 @@ Ficha civil do titular:
    * tokens do modelo e contra injeção de instruções no prompt).
    */
   const buscarCorrespondenciasParaIA = (query: string): string => {
-    const MAX_HITS = 5;
+    const MAX_HITS = 8;
     const MAX_BODY_CHARS = 300;
     const q = String(query || '').toLowerCase().trim();
     if (q.length < 3) return '';
@@ -4524,6 +4538,10 @@ Ficha civil do titular:
     // documentos (docInbox), enviadas do correio (sentMessages) e enviadas de
     // documentos (docSentMessages). Tudo já filtrado por RLS — só o dono vê.
     // A origem (recebida/enviada) é marcada para o rótulo De:/Para: ser honesto.
+    // 2026-08-21 — o texto pesquisado passa a incluir as CHAVES (sender/recipient)
+    // para perguntas como "mensagens do INAPEM" baterem mesmo quando o rótulo
+    // da org não traz o código institucional.
+    const biNorm = normalizeHomologationBi(bi);
     const fonte: { m: Message; enviada: boolean }[] = [
       ...inbox.map(m => ({ m, enviada: false })),
       ...docInbox.map(m => ({ m, enviada: false })),
@@ -4532,7 +4550,7 @@ Ficha civil do titular:
     ];
     const hits = fonte
       .map(({ m, enviada }) => {
-        const textoBruto = `${m.org || ''} ${m.preview || ''} ${m.details?.subject || ''} ${m.institution || ''} ${m.details?.body || ''}`.toLowerCase();
+        const textoBruto = `${m.org || ''} ${m.senderKey || ''} ${m.recipientBi || ''} ${m.preview || ''} ${m.details?.subject || ''} ${m.institution || ''} ${m.details?.body || ''}`.toLowerCase();
         const relevancia = termos.reduce((acc, t) => acc + (textoBruto.includes(t) ? 1 : 0), 0);
         return { m, enviada, relevancia };
       })
@@ -4543,12 +4561,19 @@ Ficha civil do titular:
     if (!hits.length) return '';
 
     return hits.map(({ m, enviada }) => {
-      const alvo = m.org || m.institution || m.senderKey || 'Instituição';
+      // 2026-08-21 — rótulo honesto: nas RECEBIDAS o remetente é a chave do
+      // emissor (senderKey, ex.: CDA, INAPEM-LLMM); só cai no `org` quando a
+      // chave não existe ou coincide com o próprio BI. Nas ENVIADAS o destino
+      // é a instituição (org). Nunca se mostra o próprio BI como remetente.
+      const senderKeyNorm = normalizeHomologationBi(m.senderKey || '');
+      const alvo = enviada
+        ? (m.org || m.recipientBi || m.institution || 'Instituição')
+        : (senderKeyNorm && senderKeyNorm !== biNorm ? m.senderKey : (m.org || m.institution || 'Instituição'));
       const assunto = m.details?.subject || m.preview || 'Sem assunto';
       const corpo = (m.details?.body || m.preview || '').slice(0, MAX_BODY_CHARS);
       const corpoLinha = corpo ? ` | Conteúdo: ${corpo}` : '';
       const rotulo = enviada ? 'Para' : 'De';
-      return `- ${rotulo}: ${alvo}, Assunto: ${assunto}, Data: ${m.date || ''}, Estado: ${m.status || 'Recebida'}${corpoLinha}`;
+      return `- ${rotulo}: ${alvo}, Assunto: ${assunto}, Data: ${m.date || ''}, Estado: ${m.unread ? 'Não Lida' : (m.status || 'Lida')}${corpoLinha}`;
     }).join('\n');
   };
 
