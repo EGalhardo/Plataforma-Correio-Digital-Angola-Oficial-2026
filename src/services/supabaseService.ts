@@ -1689,30 +1689,46 @@ export const supabaseService = {
       );
       if (linhas === null) return null;
 
-      // 2026-08-20 — a página "Correspondências" da Administração é a visão
-      // CENTRAL da plataforma: em modo real deve mostrar TODAS as mensagens
-      // existentes (ex.: a troca INAPEM ↔ cidadão). O filtro legado de
-      // sensitivity/província descartava as mensagens reais (Privado / "Sem
-      // prazo") e deixava a página vazia — removido.
-      return linhas.map((item: LinhaMensagem) => {
-        const acao = item.actions?.[0] || '';
-        const statusLegado = ['Enviada', 'Recebida', 'Em Análise', 'Respondida', 'Arquivada', 'Cancelada'].includes(acao)
-          ? acao
-          : (item.state_indicator || 'Recebida');
-        return {
-          id: `COR-${item.id}`,
-          sender: item.sender_bi,
-          recipient: resolveCitizenName(item.recipient_bi),
-          subject: item.subject || item.preview,
-          originProvince: item.deadline_text || 'Luanda',
-          destinationProvince: item.state_indicator || 'Luanda',
-          institution: item.org,
-          status: statusLegado,
-          date: new Date(item.created_at).toLocaleDateString('pt-AO'),
-          body: item.body,
-          priority: item.priority_scale || item.status || 'Média'
-        };
-      });
+      // 2026-08-21 — a página "Correspondências" da Administração em modo real
+      // mostra APENAS as trocas reais da plataforma. A tabela messages acumula:
+      //   · seeds/mocks semeados (sem protocol_number) — 493 linhas;
+      //   · envios feitos pela CONTA DEMO (009874562LA041 / AGT-9921-SR /
+      //     ADM-8812-OP), que também gravam na nuvem;
+      //   · artefactos de piloto E2E (códigos fictícios *-LLVV e BI 009999999LA099).
+      // Critério de REAL: protocolo selado (protocol_number presente) E
+      // remetente/destinatário fora dos identificadores de demonstração/ficção.
+      const CHAVES_DEMO_OU_FICTICIAS = new Set(['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP', '009999999LA099', 'CIDADO']);
+      const ehChaveReal = (chave?: string | null): boolean => {
+        const k = (chave || '').toUpperCase().replace(/\s+/g, '');
+        if (!k) return false;
+        if (CHAVES_DEMO_OU_FICTICIAS.has(k)) return false;
+        if (/-LLVV$/.test(k)) return false; // delegações fictícias dos scripts de piloto
+        return true;
+      };
+      return linhas
+        .filter((item: LinhaMensagem) =>
+          !!item.protocol_number &&
+          ehChaveReal(item.sender_bi) &&
+          ehChaveReal(item.recipient_bi))
+        .map((item: LinhaMensagem) => {
+          const acao = item.actions?.[0] || '';
+          const statusLegado = ['Enviada', 'Recebida', 'Em Análise', 'Respondida', 'Arquivada', 'Cancelada'].includes(acao)
+            ? acao
+            : (item.state_indicator || 'Recebida');
+          return {
+            id: `COR-${item.id}`,
+            sender: item.sender_bi,
+            recipient: resolveCitizenName(item.recipient_bi),
+            subject: item.subject || item.preview,
+            originProvince: item.deadline_text || 'Luanda',
+            destinationProvince: item.state_indicator || 'Luanda',
+            institution: item.org,
+            status: statusLegado,
+            date: new Date(item.created_at).toLocaleDateString('pt-AO'),
+            body: item.body,
+            priority: item.priority_scale || item.status || 'Média'
+          };
+        });
     } catch (e) {
       console.error('Supabase getCorrespondences error:', e);
       return null;
