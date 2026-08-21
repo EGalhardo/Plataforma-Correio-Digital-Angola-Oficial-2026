@@ -181,12 +181,50 @@ async function startServer() {
 
   app.post("/api/perfil-sync", async (req, res) => {
     try {
-      const { bi, campos } = req.body || {};
+      const { bi, campos, agente } = req.body || {};
       const biNorm = String(bi || '').trim().toUpperCase();
       if (!BI_VALIDO.test(biNorm)) return res.status(400).json({ ok: false, erro: 'BI inválido.' });
       if (!campos || typeof campos !== 'object' || Array.isArray(campos)) {
         return res.status(400).json({ ok: false, erro: 'campos ausentes.' });
       }
+      const admin = createSupabaseAdminClient();
+      if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+
+      // 2026-08-21 — RAMO AGENTE INSTITUCIONAL (membro da equipa):
+      // o Perfil de um COLABORADOR nunca pode gravar na linha `profiles` da
+      // instituição (essa pertence ao responsável — antes a edição do membro
+      // sobrescrevia o nome/telefone/e-mail do responsável na nuvem). Com
+      // `agente` presente, o servidor confirma que o utilizador do TOKEN da
+      // sessão é o próprio membro e actualiza apenas os user_metadata da
+      // conta Auth DELE (name/phone/email — nunca senha nem role).
+      const agenteNorm = String(agente || '').trim().toUpperCase();
+      if (agenteNorm) {
+        const auth = String(req.headers.authorization || req.headers.Authorization || '');
+        const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+        if (!token) return res.status(401).json({ ok: false, erro: 'Sessão não autenticada.' });
+        const { data: sess, error: sessErr } = await admin.auth.getUser(token);
+        if (sessErr || !sess || !sess.user) {
+          return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+        }
+        const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
+        const metaAgent = String(meta.agent || '').trim().toUpperCase();
+        if (metaAgent !== agenteNorm) {
+          return res.status(403).json({ ok: false, erro: 'O Nº Agente não corresponde à sessão autenticada.' });
+        }
+        const allowed = ['name', 'phone', 'email'];
+        const patch: Record<string, unknown> = {};
+        for (const k of allowed) {
+          const v = String((campos as any)[k] ?? '').trim();
+          if (v) patch[k] = v;
+        }
+        if (!Object.keys(patch).length) return res.status(400).json({ ok: false, erro: 'Nenhum campo do agente para gravar.' });
+        const { error: updErr } = await admin.auth.admin.updateUserById(sess.user.id, {
+          user_metadata: { ...meta, ...patch },
+        });
+        if (updErr) return res.status(500).json({ ok: false, erro: updErr.message });
+        return res.status(200).json({ ok: true, gravado: Object.keys(patch), agente: true });
+      }
+
       const cols: Record<string, string> = {};
       for (const col of PERFIL_COLUNAS) {
         const v = String((campos as any)[col] ?? '').trim();
@@ -200,8 +238,6 @@ async function startServer() {
         delete cols.birth_date;
       }
       if (!Object.keys(cols).length) return res.status(400).json({ ok: false, erro: 'Nenhuma coluna válida para gravar.' });
-      const admin = createSupabaseAdminClient();
-      if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: upd, error: updErr } = await admin.from('profiles').update(cols).eq('bi', biNorm).select('bi');
       if (updErr) return res.status(500).json({ ok: false, erro: updErr.message });
       if (upd && upd.length > 0) return res.status(200).json({ ok: true, gravado: Object.keys(cols) });

@@ -19,8 +19,8 @@ import { supabaseService, hasValidSupabaseKeys } from "../../services/supabaseSe
 import { supabase } from '../../lib/supabaseClient';
 import { guardarAvatar } from '../../services/avatarService';
 import { guardarPerfilLocal } from '../../services/perfilLocalService';
-import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil, type ProfileSyncOutcome } from '../../services/profileSyncService';
-import { getLocalInstReg, normalizeInstCode } from "../../services/institutionRegistrationStore";
+import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil, syncInstitutionMemberToCloud, type ProfileSyncOutcome } from '../../services/profileSyncService';
+import { getLocalInstReg, normalizeInstCode, updateInstMemberProfile, buildAgentNumber } from "../../services/institutionRegistrationStore";
 
 interface InstitutionProfileProps {
   userProfilePhoto: string;
@@ -97,19 +97,60 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
       role: editInstRole,
       departmentName: editInstDept,
     });
-    // 2026-08-20 — espelho local por conta (mesmo padrão do avatar): os dados
-    // editados voltam no próximo login, também em contas demo.
-    guardarPerfilLocal('institution', bi || '', {
+
+    // 2026-08-21 — a gravação distingue QUEM edita:
+    //  · COLABORADOR (sessão com Nº de agente diferente do responsável): os
+    //    dados vão para o REGISTO DO PRÓPRIO MEMBRO (local) e para os
+    //    user_metadata da conta Auth DELE (nuvem, via /api/perfil-sync com
+    //    `agente`). A linha `profiles` da instituição NUNCA é tocada — antes
+    //    a edição do membro sobrescrevia o nome/telefone/e-mail do RESPONSÁVEL
+    //    na nuvem e o nome editado pelo membro nem ficava para ele.
+    //  · RESPONSÁVEL: comportamento anterior intacto (profiles + espelho por
+    //    código).
+    const reg = (() => { try { return bi ? getLocalInstReg(normalizeInstCode(bi)) : undefined; } catch { return undefined; } })();
+    const respAgent = (reg?.agentNumber || (bi ? buildAgentNumber(normalizeInstCode(bi), 1) : '')).toUpperCase().replace(/\s+/g, '');
+    const sessionAgent = (agentNumberProp || '').toUpperCase().replace(/\s+/g, '');
+    const isMemberSession = !!sessionAgent && !!respAgent && sessionAgent !== respAgent;
+    const personKey = isMemberSession ? sessionAgent : bi;
+    const memberRec = isMemberSession
+      ? (reg?.members || []).find(m => (m.agentNumber || '').toUpperCase().replace(/\s+/g, '') === sessionAgent)
+      : undefined;
+
+    // espelho local POR PESSOA (2026-08-20 padrão; membros agora por Nº de agente)
+    guardarPerfilLocal('institution', personKey || '', {
       name: editInstName,
       phone: editInstPhone,
       email: editInstEmail,
     });
-    // 2026-08-20 — persistência real (mesmo padrão da página Perfil do cidadão):
-    // nome/telefone/e-mail vão para `profiles` via /api/perfil-sync (service role,
-    // com deteção do UPDATE silencioso por RLS); contas demo ficam locais (outcome
-    // 'demo') e falhas de nuvem ficam em fila local com feedback honesto.
+
     let syncOutcome: ProfileSyncOutcome | 'no_cloud' = 'no_cloud';
-    if (hasValidSupabaseKeys() && bi) {
+    if (isMemberSession && memberRec) {
+      // grava no registo do próprio membro (Equipa reflecte as alterações)
+      updateInstMemberProfile(normalizeInstCode(bi), memberRec.id, {
+        name: editInstName,
+        email: editInstEmail,
+        phone: editInstPhone,
+        role: editInstRole,
+        dept: editInstDept,
+      });
+      if (hasValidSupabaseKeys()) {
+        const res = await syncInstitutionMemberToCloud(supabase, sessionAgent, {
+          name: editInstName,
+          phone: editInstPhone,
+          email: editInstEmail,
+        });
+        syncOutcome = res;
+        if (res === 'error' || res === 'unavailable') {
+          guardarPendenciaPerfil(personKey, buildCitizenContaPatch(personKey, {
+            name: editInstName,
+            phone: editInstPhone,
+            email: editInstEmail,
+          }));
+        } else if (res === 'ok') {
+          limparPendenciaPerfil(personKey);
+        }
+      }
+    } else if (hasValidSupabaseKeys() && bi) {
       const patch = buildCitizenContaPatch(bi, {
         name: editInstName,
         phone: editInstPhone,
@@ -124,7 +165,9 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
       }
     }
     if (addAuditLog) {
-      addAuditLog('Perfil Institucional e credenciais funcionais atualizados com sucesso', 'success');
+      addAuditLog(isMemberSession
+        ? `Perfil do colaborador ${memberRec?.name || sessionAgent} atualizado — registo do membro + nuvem (conta própria).`
+        : 'Perfil Institucional e credenciais funcionais atualizados com sucesso', 'success');
     }
     setIsEditingInst(false);
     const fb = contaSaveFeedbackFromOutcome(syncOutcome);
@@ -155,14 +198,20 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
 
       if (hasValidSupabaseKeys()) {
         const fileExt = file.name.split('.').pop();
-        const fileName = `${bi || 'institution'}_${Date.now()}.${fileExt}`;
+        // 2026-08-21 — foto POR PESSOA: um colaborador não substitui a foto do
+        // responsável/instituição (chave = Nº de agente próprio).
+        const reg = (() => { try { return bi ? getLocalInstReg(normalizeInstCode(bi)) : undefined; } catch { return undefined; } })();
+        const respAgent = (reg?.agentNumber || (bi ? buildAgentNumber(normalizeInstCode(bi), 1) : '')).toUpperCase().replace(/\s+/g, '');
+        const sessionAgent = (agentNumberProp || '').toUpperCase().replace(/\s+/g, '');
+        const personKey = (sessionAgent && respAgent && sessionAgent !== respAgent) ? sessionAgent : bi;
+        const fileName = `${personKey || 'institution'}_${Date.now()}.${fileExt}`;
         const filePath = `avatars/${fileName}`;
 
         const publicUrl = await supabaseService.uploadFile('fotos_perfil', filePath, file);
         if (publicUrl) {
           updateUserFields({ avatarUrl: publicUrl });
-          try { if (bi) localStorage.setItem(`cda_inst_profile_photo_${bi.toUpperCase()}`, publicUrl); } catch { /* ignora */ }
-          guardarAvatar('institution', bi || '', publicUrl);
+          try { if (personKey) localStorage.setItem(`cda_inst_profile_photo_${personKey.toUpperCase()}`, publicUrl); } catch { /* ignora */ }
+          guardarAvatar('institution', personKey || '', publicUrl);
           
           if (addAuditLog) {
             addAuditLog('Foto de perfil institucional atualizada com sucesso no Supabase Storage', 'success');

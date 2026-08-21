@@ -905,13 +905,26 @@ export default function App() {
     const personName = (isMember && result.identity?.memberName)
       ? result.identity.memberName
       : ((!isMember && perfilPersistido?.name) || (pack?.responsavel || nomeExibicao.replace(/\s*\([^)]*\)\s*$/, '') || 'Agente Institucional'));
-    const email = (perfilPersistido?.email || pack?.emailAcesso || pack?.emailContacto || reg?.email || '').trim();
-    const phone = (perfilPersistido?.phone || pack?.telefone || '').trim();
+    // 2026-08-21 — COLABORADOR: e-mail/telefone vêm do REGISTO DO PRÓPRIO
+    // membro (com o espelho local por Nº de agente a ganhar), nunca da linha
+    // `profiles` da instituição — essa pertence ao responsável (antes o
+    // membro via os contactos do responsável e, pior, ao gravar o Perfil
+    // sobrescrevia-os na nuvem).
+    const personKey = (result.identity?.agentNumber || code).toUpperCase().replace(/\s+/g, '');
+    const perfilAgente = (() => { try { return lerPerfilLocal('institution', personKey); } catch { return null; } })();
+    const email = (isMember
+      ? (perfilAgente?.email || memberRec?.email || '')
+      : (perfilPersistido?.email || pack?.emailAcesso || pack?.emailContacto || reg?.email || '')).trim();
+    const phone = (isMember
+      ? (perfilAgente?.phone || memberRec?.phone || '')
+      : (perfilPersistido?.phone || pack?.telefone || '')).trim();
     // Foto do agente: 1) captura facial desta pessoa (registada na página Conta);
     // 2) foto de perfil carregada por esta conta; 3) logótipo (responsável);
     // 4) avatar neutro gerado — nunca fotos de terceiros.
     let avatar = '';
-    const personKey = (result.identity?.agentNumber || code).toUpperCase().replace(/\s+/g, '');
+    // 2026-08-21 — a foto de perfil é POR PESSOA: o colaborador usa as chaves
+    // do seu Nº de agente (nunca a foto do responsável/instituição).
+    const avatarKey = isMember ? personKey : code;
     try {
       const faceRaw = localStorage.getItem(`cda_demo_face_institution_${personKey}`);
       if (faceRaw) {
@@ -921,7 +934,7 @@ export default function App() {
     } catch { /* ignora */ }
     if (!avatar) {
       try {
-        const pp = localStorage.getItem(`cda_inst_profile_photo_${code}`);
+        const pp = localStorage.getItem(`cda_inst_profile_photo_${avatarKey}`);
         if (pp) avatar = pp;
       } catch { /* ignora */ }
     }
@@ -932,7 +945,7 @@ export default function App() {
       try { const authAv = await lerAvatarAuth(); if (authAv) avatar = authAv; } catch { /* ignora */ }
     }
     if (!avatar) {
-      const lav = lerAvatarLocal('institution', code);
+      const lav = lerAvatarLocal('institution', avatarKey);
       if (lav) avatar = lav;
     }
     if (!avatar && !isMember && reg?.logoDataUrl) avatar = reg.logoDataUrl;
@@ -1410,6 +1423,13 @@ export default function App() {
   // F3/F7 — estado da conta institucional: 'restricted' = pendente/em correções (a área abre na mesma; o estado alimenta o tom do indicador Online); 'full' = aprovada
   const [instGate, setInstGate] = useState<'none' | 'restricted' | 'full'>('none');
   const [instIdentity, setInstIdentity] = useState<InstitutionIdentity | null>(null);
+  // 2026-08-21 — espelho SEMPRE atual da identidade institucional para os
+  // efeitos de fundo (carregador Supabase/realtime): estes correm com closures
+  // antigas e precisam de saber ao vivo se a sessão é de um COLABORADOR — o
+  // perfil do membro nunca pode ser hidratado com a linha `profiles` do
+  // responsável.
+  const instIdentityRef = useRef<InstitutionIdentity | null>(null);
+  instIdentityRef.current = instIdentity;
   const [instMustChangePwd, setInstMustChangePwd] = useState(false);
   void instIdentity; // consumida pela F4 (equipa/perfil)
 
@@ -2525,7 +2545,14 @@ export default function App() {
         };
 
         // 1. Fetch Profile
-        const dbProfile = await supabaseService.getProfile(bi);
+        // 2026-08-21 — sessão de COLABORADOR institucional: a linha `profiles`
+        // pertence ao responsável/instituição. Este carregador de fundo corre
+        // também a cada evento realtime e REESCREVIA o nome/telefone do membro
+        // com os dados do responsável (provado em E2E: o Perfil do membro
+        // mostrava 'Edlasio Galhardo' + telefone da instituição). O membro
+        // mantém SEMPRE os seus próprios dados (registo do membro + Auth).
+        const instMemberSession = appMode === 'institution' && instIdentityRef.current?.type === 'member';
+        const dbProfile = instMemberSession ? null : await supabaseService.getProfile(bi);
         if (dbProfile && isSubscribed) {
           const isCanonicalCitizen = appMode === 'user' && bi === DEMO_CREDENTIALS.user.identifier;
           const canonicalPreset = DEMO_CREDENTIALS.user;
@@ -3298,7 +3325,13 @@ export default function App() {
 
     // 2) PULL — reconciliar com a nuvem (outro dispositivo pode ter editado).
     try {
-      if (!isProfileEditActive()) {
+      // 2026-08-21 — sessão de COLABORADOR: a linha `profiles` é do
+      // responsável/instituição — o pull não pode reescrever os dados do
+      // membro com ela (antes o telefone/e-mail da instituição aterravam na
+      // sessão do membro a cada 5 minutos).
+      if (appMode === 'institution' && instIdentity?.type === 'member') {
+        algoConfirmado = true;
+      } else if (!isProfileEditActive()) {
         const campos = await puxarPerfilDaNuvem(supabase, bi);
         if (campos && Object.keys(campos).length > 0) {
           const diffs: Record<string, string> = {};
@@ -3358,14 +3391,16 @@ export default function App() {
   // hidratação de login — a última palavra é sempre a do utilizador.
   useEffect(() => {
     if (stage !== 'app') return;
-    const ident = (bi || '').trim().toUpperCase();
+    // 2026-08-21 — o espelho local de um COLABORADOR é POR PESSOA (Nº de
+    // agente); o do responsável continua por código. O nome do membro já pode
+    // ser reaplicado (as edições dele agora gravam no registo do membro).
+    const isInstMember = appMode === 'institution' && instIdentity?.type === 'member';
+    const ident = (isInstMember ? (instIdentity?.agentNumber || bi) : bi || '').trim().toUpperCase();
     if (!ident) return;
     const loc = lerPerfilLocal(appMode, ident);
     if (!loc || !Object.keys(loc).length) return;
-    // Um COLABORADOR institucional mantém o seu nome (o espelho é do código).
-    const isInstMember = appMode === 'institution' && instIdentity?.type === 'member';
     const mud: Record<string, string> = {};
-    if (loc.name && !isInstMember) mud.name = loc.name;
+    if (loc.name) mud.name = loc.name;
     if (loc.phone) mud.phone = loc.phone;
     if (loc.email) mud.email = loc.email;
     if (loc.nif) mud.nif = loc.nif;

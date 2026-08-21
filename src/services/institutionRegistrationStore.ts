@@ -38,7 +38,7 @@ export interface LocalInstitutionRegistration {
   criadoEm: string;
   logoDataUrl?: string;      // F4 — logótipo carregado no Perfil
   agentNumber?: string;   // F6 — Nº Agente do responsável (código + '-01')
-  members: { id: string; name: string; email: string; role: string; dept: string; password: string; mustChangePassword: boolean; agentNumber?: string; }[];
+  members: { id: string; name: string; email: string; phone?: string; role: string; dept: string; password: string; mustChangePassword: boolean; agentNumber?: string; }[];
 }
 
 const LOCAL_REGS_KEY = 'cda_inst_regs_v1';
@@ -157,6 +157,22 @@ export const updateInstMemberPassword = (code: string, memberId: string, passwor
   if (!reg) return;
   updateLocalInstReg(code, {
     members: (reg.members || []).map(m => m.id === memberId ? { ...m, password, mustChangePassword: requireChangeOnNextLogin } : m),
+  });
+};
+
+// 2026-08-21 — perfil do COLABORADOR editado por ELE na página Perfil:
+// grava nos dados do próprio membro (nunca na linha `profiles` da instituição,
+// que pertence ao responsável). A nuvem (Auth metadata) é sincronizada à parte
+// via /api/perfil-sync?agente=...
+export const updateInstMemberProfile = (
+  code: string,
+  memberId: string,
+  patch: Partial<Pick<InstMember, 'name' | 'email' | 'phone' | 'role' | 'dept'>>
+): void => {
+  const reg = getLocalInstReg(code);
+  if (!reg) return;
+  updateLocalInstReg(code, {
+    members: (reg.members || []).map(m => m.id === memberId ? { ...m, ...patch } : m),
   });
 };
 

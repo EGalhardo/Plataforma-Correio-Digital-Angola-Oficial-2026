@@ -59,7 +59,7 @@ import {
 import { supabase } from '../../lib/supabaseClient';
 import { registoPublicoProxy, eliminarCidadaoAdmin, enviarMensagemAdministrativa } from '../../services/supabaseService';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
-import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, isInstPasswordTaken, nextMemberAgentNumber } from '../../services/institutionRegistrationStore';
+import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, updateInstMemberProfile, isInstPasswordTaken, nextMemberAgentNumber } from '../../services/institutionRegistrationStore';
 import { addAdminAgent, updateAdminAgentPassword, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber, getAdminAgentCreds } from '../../services/adminAgentStore';
 
 interface AuditLog {
@@ -1386,6 +1386,19 @@ export function GovContactsContent({
           }
         }
       }
+      // 2026-08-21 — a ficha do MEMBRO (registo que o login lê) passa a
+      // reflectir as alterações feitas na Equipa: antes só a tabela UI era
+      // actualizada e o colaborador continuava a ver os dados antigos no
+      // próprio login.
+      if (instReg && editingWorkerId) {
+        updateInstMemberProfile(regCode, editingWorkerId, {
+          name: newWorkerName,
+          email: newWorkerEmail,
+          phone: newWorkerPhone,
+          role: newWorkerRole,
+          dept: newWorkerDept || 'Geral',
+        });
+      }
       setWorkers(prev => prev.map(w => w.id === editingWorkerId ? {
         ...w,
         name: newWorkerName,
@@ -1414,6 +1427,8 @@ export function GovContactsContent({
           id: newWorkerId,
           name: newWorkerName,
           email: newWorkerEmail,
+          phone: newWorkerPhone, // 2026-08-21 — antes o telefone pedido no
+          // formulário era DESCARTADO (o registo do membro não o guardava).
           role: newWorkerRole,
           dept: newWorkerDept || 'Geral',
           password: newWorkerPassword,

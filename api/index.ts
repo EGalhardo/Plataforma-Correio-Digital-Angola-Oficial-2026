@@ -1576,10 +1576,54 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
     if (url.includes('/api/perfil-sync') && method === 'POST') {
       try {
         if (!supaUrlPerfil || !serviceKeyPerfil) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
-        const { bi, campos } = body || {};
+        const { bi, campos, agente } = body || {};
         const biNorm = String(bi || '').trim().toUpperCase();
         if (!BI_VALIDO_PERFIL.test(biNorm)) return res.status(400).json({ ok: false, erro: 'BI inválido.' });
         if (!campos || typeof campos !== 'object' || Array.isArray(campos)) return res.status(400).json({ ok: false, erro: 'campos ausentes.' });
+
+        // 2026-08-21 — RAMO AGENTE INSTITUCIONAL (membro da equipa):
+        // o Perfil de um COLABORADOR nunca pode gravar na linha `profiles` da
+        // instituição (essa pertence ao responsável). Com `agente` presente,
+        // confirma-se que o utilizador do TOKEN é o próprio membro e
+        // actualizam-se apenas os user_metadata da conta Auth DELE.
+        const agenteNorm = String(agente || '').trim().toUpperCase();
+        if (agenteNorm) {
+          const authHdr = String(req.headers.authorization || (req.headers as any).Authorization || '');
+          const token = authHdr.startsWith('Bearer ') ? authHdr.slice(7).trim() : '';
+          if (!token) return res.status(401).json({ ok: false, erro: 'Sessão não autenticada.' });
+          const sessResp = await fetch(`${supaUrlPerfil}/auth/v1/user`, {
+            headers: { apikey: serviceKeyPerfil, Authorization: `Bearer ${token}` },
+          });
+          if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+          const sess = await sessResp.json().catch(() => null);
+          const user = sess && (sess.user || sess);
+          const meta = (user && user.user_metadata) || {};
+          const metaAgent = String(meta.agent || '').trim().toUpperCase();
+          if (metaAgent !== agenteNorm) {
+            return res.status(403).json({ ok: false, erro: 'O Nº Agente não corresponde à sessão autenticada.' });
+          }
+          const patch: Record<string, string> = {};
+          for (const k of ['name', 'phone', 'email']) {
+            const v = String((campos as any)[k] ?? '').trim();
+            if (v) patch[k] = v;
+          }
+          if (!Object.keys(patch).length) return res.status(400).json({ ok: false, erro: 'Nenhum campo do agente para gravar.' });
+          const updResp = await fetch(`${supaUrlPerfil}/auth/v1/admin/users/${user.id}`, {
+            method: 'PUT',
+            headers: {
+              apikey: serviceKeyPerfil,
+              Authorization: `Bearer ${serviceKeyPerfil}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ user_metadata: { ...meta, ...patch } }),
+          });
+          if (!updResp.ok) {
+            const txt = await updResp.text();
+            return res.status(500).json({ ok: false, erro: txt.slice(0, 200) });
+          }
+          return res.status(200).json({ ok: true, gravado: Object.keys(patch), agente: true });
+        }
+
         const cols: Record<string, string> = {};
         for (const col of PERFIL_COLUNAS_VALIDAS) {
           const v = String((campos as any)[col] ?? '').trim();

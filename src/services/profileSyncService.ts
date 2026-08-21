@@ -147,6 +147,38 @@ export const contaSaveFeedbackFromOutcome = (
   };
 };
 
+// 2026-08-21 — Perfil do COLABORADOR institucional editado por ELE: a gravação
+// vai para os user_metadata da conta Auth do PRÓPRIO membro (via
+// /api/perfil-sync com `agente`; o servidor confirma que o token da sessão
+// pertence ao Nº de agente). Nunca toca na linha `profiles` da instituição —
+// essa pertence ao responsável. Sem sessão/token => 'unavailable' (fica local).
+export const syncInstitutionMemberToCloud = async (
+  client: SupabaseClient,
+  agente: string,
+  campos: { name?: string; phone?: string; email?: string },
+): Promise<ProfileSyncOutcome> => {
+  const agenteNorm = String(agente || '').trim().toUpperCase();
+  if (!agenteNorm) return 'error';
+  try {
+    const { data: { session } } = await client.auth.getSession();
+    const token = session?.access_token || '';
+    const resp = await fetch('/api/perfil-sync', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ bi: agenteNorm, agente: agenteNorm, campos }),
+    });
+    const json = await resp.json().catch(() => null);
+    if (json && json.ok === true) return 'ok';
+    if (resp.status === 401 || resp.status === 403) return 'not_bound';
+    return 'error';
+  } catch {
+    return 'unavailable';
+  }
+};
+
 /** NUNCA lança — classifica sempre. */
 export const syncProfileToCloud = async (
   client: SupabaseClient,
