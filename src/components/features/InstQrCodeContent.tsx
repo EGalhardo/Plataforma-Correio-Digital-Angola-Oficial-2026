@@ -259,22 +259,50 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
         }
 
         try {
+          // 2026-08-21 — correção do leitor de câmara:
+          //  · qrbox ADAPTATIVO (função): antes o quadrado fixo de 220px não
+          //    cabia nos ecrãs pequenos/laptops e o QR do telemóvel nunca
+          //    ficava dentro da zona de leitura — a leitura falhava;
+          //  · resolução ideal alta (1920×1080) para QRs exibidos em ecrãs;
+          //  · fps 15 + aspectRatio 1.0;
+          //  · callback de erro com feedback visível.
+          // Para-se qualquer instância anterior antes de arrancar (evita
+          // "camera in use" ao reabrir o separador).
+          if (qrReaderRef.current) {
+            try { await qrReaderRef.current.stop(); } catch { /* ignora */ }
+            qrReaderRef.current = null;
+          }
           const html5QrCode = new Html5Qrcode("react-reader-camera-view");
           qrReaderRef.current = html5QrCode;
           await html5QrCode.start(
-            { facingMode: "environment" },
-            { fps: 10, qrbox: { width: 220, height: 220 } },
+            { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+            {
+              fps: 15,
+              aspectRatio: 1.0,
+              qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+                const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                const qrboxSize = Math.floor(minEdge * 0.75);
+                return { width: qrboxSize, height: qrboxSize };
+              },
+            },
             (decodedText) => {
               stopCamera();
               processResult(decodedText, 'câmera');
             },
-            () => {}
+            (errMsg) => {
+              // feedback honesto: falhas contínuas de leitura aparecem no ecrã
+              if (active && errMsg && !String(errMsg).includes('No MultiFormat Readers')) {
+                setReadStatusText('⏳ A procurar QR Code… mantenha o código dentro do quadrado.');
+              }
+            }
           );
+          setReadStatusText('📷 Aponte a câmara ao QR Code — mantenha-o dentro do quadrado.');
         } catch (err) {
           console.error("Camera start failed:", err);
           if (active) {
             setCameraRunning(false);
-            showToast('Câmera não disponível ou permissão recusada.', 'error');
+            setReadStatusText('');
+            showToast('Câmara não disponível ou permissão recusada. Pode usar o separador "Ficheiro" para carregar a imagem do QR Code.', 'error');
           }
         }
       }
@@ -1346,11 +1374,19 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
                   `}</style>
                   <div className="relative rounded-2xl overflow-hidden bg-slate-950 flex flex-col items-center justify-center h-[320px] md:h-[400px] w-full max-w-lg shadow-inner border border-slate-800">
                     <div id="react-reader-camera-view" className="w-full h-full rounded-2xl overflow-hidden"></div>
+                    {/* 2026-08-21 — moldura alinhada com a zona de leitura ADAPTATIVA
+                        (~75% do viewfinder, como o qrbox real do html5-qrcode). */}
                     <div className="scan-overlay absolute inset-0 pointer-events-none flex items-center justify-center z-10">
-                      <div className="scan-frame w-[200px] h-[200px] border-2 border-dashed border-blue-400 rounded-xl relative flex items-center justify-center bg-transparent animate-pulse shadow-[0_0_20px_rgba(37,99,235,0.25)]">
+                      <div className="scan-frame w-[70%] h-[70%] max-w-[300px] max-h-[300px] border-2 border-dashed border-blue-400 rounded-xl relative flex items-center justify-center bg-transparent animate-pulse shadow-[0_0_20px_rgba(37,99,235,0.25)]">
                         <span className="scan-line absolute w-full h-[2px] bg-gradient-to-r from-transparent via-blue-400 to-transparent left-0 right-0 animate-bounce" />
                       </div>
                     </div>
+                  </div>
+                  {readStatusText && (
+                    <p className="text-[11px] font-bold text-slate-500 -mt-2 text-center max-w-md">{readStatusText}</p>
+                  )}
+                  <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-2.5 text-[11px] font-semibold max-w-md text-center leading-relaxed">
+                    💡 Não consegue ler o QR da câmara? Use o separador <strong>Ficheiro</strong> para carregar a imagem do QR Code — o sistema localiza a correspondência/documento digital na mesma.
                   </div>
                   <button 
                     onClick={(e) => { e.stopPropagation(); stopCamera(); }}
@@ -1476,13 +1512,13 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
                 <input 
                   type="file" 
                   id="file-input-read" 
-                  accept="image/*" 
+                  accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/bmp" 
                   className="hidden" 
                   onChange={handleFileRead}
                 />
                 <FileUp className="w-10 h-10 text-slate-400 mb-3" />
-                <p className="text-slate-700 text-sm font-semibold">Selecione ou arraste imagem com QR Code</p>
-                <p className="text-slate-400 text-xs mt-1">PNG, JPG, WEBP suportados</p>
+                <p className="text-slate-700 text-sm font-semibold">Selecione ou arraste uma imagem com o QR Code</p>
+                <p className="text-slate-400 text-xs mt-1">PNG, JPG, WEBP suportados — o sistema localiza a correspondência/documento digital e permite aceder</p>
               </div>
 
               {readImgPreview && (
