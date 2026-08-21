@@ -509,19 +509,21 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
       // Formulate validated item object, merging any custom parsed JSON properties
       const item = {
         type: 'document' as const,
-        title: parsedJson?.tipo || parsedJson?.type || parsedJson?.assunto || foundDoc.name,
-        protocolNumber: parsedJson?.protocolNumber || parsedJson?.referencia || parsedJson?.tracking || parsedJson?.rastreamento || foundDoc.protocol?.protocolNumber || `PROT-${foundDoc.code}-CDA`,
-        holder: parsedJson?.recipient || parsedJson?.destinatario || parsedJson?.holder || parsedJson?.customer || foundDoc.holder || 'Utente Autenticado',
-        date: parsedJson?.data || foundDoc.issuedAt || foundDoc.protocol?.officialIssueDate || new Date().toLocaleDateString('pt-BR'),
-        time: parsedJson?.hora || foundDoc.protocol?.officialTime || '09:00',
-        locality: parsedJson?.origin || parsedJson?.localidade || (foundDoc.protocol?.currentState ? 'Repartição Pública de Luanda' : 'Direção Nacional de Identificação'),
-        status: parsedJson?.status || foundDoc.validity || 'Ativo',
-        issuer: parsedJson?.sender || parsedJson?.remetente || foundDoc.issuer || foundDoc.protocol?.issuerInstitution || 'Conservatória Geral de Registos',
-        signature: parsedJson?.signature || foundDoc.protocol?.digitalSignature || 'SECURE-RSA-SEAL-2026-CDA-AO',
-        hash: parsedJson?.hash || foundDoc.protocol?.documentHash || 'SHA256:0d9f8e7d8c7b6a5b4c3d2e1f0a',
-        archiveReference: parsedJson?.archiveReference || foundDoc.protocol?.archiveReference,
-        archiveLocation: parsedJson?.archiveLocation || foundDoc.protocol?.archiveLocation,
-        detailsBody: parsedJson?.observacoes || parsedJson?.body || `Documento oficial certificado digitalmente sob a tutela do Ministério da Justiça e dos Direitos Humanos digitalizado com sucesso.`
+        title: foundDoc.name || parsedJson?.tipo || 'Documento oficial',
+        protocolNumber: foundDoc.protocol?.protocolNumber || parsedJson?.protocolNumber || '—',
+        holder: foundDoc.holder || parsedJson?.recipient || '—',
+        date: foundDoc.issuedAt || foundDoc.protocol?.officialIssueDate || new Date().toLocaleDateString('pt-BR'),
+        time: foundDoc.protocol?.officialTime || '—',
+        locality: foundDoc.protocol?.issuerResponsible || '—',
+        status: foundDoc.validity || foundDoc.protocol?.currentState || '—',
+        issuer: foundDoc.issuer || foundDoc.protocol?.issuerInstitution || '—',
+        // 2026-08-21 — HONESTO: selo e hash REAIS; nunca inventar valores
+        // criptográficos para dados que os não têm.
+        signature: foundDoc.protocol?.digitalSignature || 'NAO_SELADO',
+        hash: foundDoc.protocol?.documentHash || '—',
+        archiveReference: foundDoc.protocol?.archiveReference || '—',
+        archiveLocation: foundDoc.protocol?.archiveLocation || '—',
+        detailsBody: parsedJson?.observacoes || parsedJson?.body || foundDoc.protocol?.legalValidity || 'Documento registado na plataforma.'
       };
 
       // Check for Revocation (e.g. if title/name has "Cancelado", "Revogado", or list matches "SOC-AN-2026")
@@ -551,18 +553,19 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
       const item = {
         type: 'message' as const,
         title: foundMsg.details?.subject || foundMsg.preview || 'Correspondência Oficial',
-        protocolNumber: foundMsg.protocol?.protocolNumber || `PROT-${foundMsg.id}-CDA`,
-        holder: foundMsg.org || 'Ministério do Interior',
+        protocolNumber: foundMsg.protocol?.protocolNumber || '—',
+        holder: foundMsg.org || '—',
         date: foundMsg.date || foundMsg.protocol?.officialIssueDate || new Date().toLocaleDateString('pt-BR'),
-        time: foundMsg.protocol?.officialTime || '14:30',
-        locality: foundMsg.protocol?.issuerResponsible || 'Gabinete de Expedição Digital',
-        status: foundMsg.status || 'Ativo',
-        issuer: foundMsg.org || 'Ministério do Interior',
-        signature: foundMsg.protocol?.digitalSignature || 'SECURE-RSA-SEAL-2026-CDA-AO',
-        hash: foundMsg.protocol?.documentHash || 'SHA256:7f1e2d3c4b5a69788d7c6b5a4',
-          archiveReference: foundMsg.protocol?.archiveReference,
-          archiveLocation: foundMsg.protocol?.archiveLocation,
-          detailsBody: foundMsg.details?.body || 'Conteúdo oficial tramitado e autenticado pelo Correio Digital de Angola para uso intergovernamental.'
+        time: foundMsg.protocol?.officialTime || '—',
+        locality: foundMsg.protocol?.issuerResponsible || '—',
+        status: foundMsg.status || '—',
+        issuer: foundMsg.org || '—',
+        // 2026-08-21 — HONESTO: selo/hash reais; corpo real da mensagem.
+        signature: foundMsg.protocol?.digitalSignature || 'NAO_SELADO',
+        hash: foundMsg.protocol?.documentHash || '—',
+        archiveReference: foundMsg.protocol?.archiveReference || '—',
+        archiveLocation: foundMsg.protocol?.archiveLocation || '—',
+        detailsBody: foundMsg.details?.body || foundMsg.preview || '—'
       };
 
       // Check for Revocation or Emergency block
@@ -589,73 +592,33 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
 
     } else {
       // 2026-08-21 — QR deep-link da PLATAFORMA que não corresponde a nenhuma
-      // mensagem/documento desta conta: resultado HONESTO "não localizado".
-      // Nunca inventar um documento sintético para QRs da própria plataforma
-      // (o fallback legado abaixo serve apenas códigos físicos externos).
+      // mensagem/documento desta conta: resultado HONESTO "não localizado". Não
+      // existe qualquer fabricação de documentos — só dados reais são validados.
       if (isPlatformUrl) {
         setValidationState('not_found');
         setValidatedItem(null);
         showToast('❌ Correspondência não localizada na conta desta instituição!', 'error');
         logAudit(trimmed, 'Documento não encontrado');
       }
-      // If code looks like a synthetic JSON or typical protocol pattern, let's treat it as valid synthetic
-      else if (trimmed.length > 5 && (trimmed.includes('{') || trimmed.includes('PROT-') || trimmed.includes('MINIS-') || trimmed.includes('CDA-'))) {
-        const isSuspended = trimmed.includes('SUSPENSO') || trimmed.includes('REVOGADO') || trimmed.includes('REVOKED') || trimmed.includes('SOC-AN-2026');
-        const isNoSignature = trimmed.includes('SEM_ASSINATURA') || trimmed.includes('UNSIGNED') || trimmed.includes('ERR_SIG');
-
-        const protocolNum = parsedJson?.protocolNumber || parsedJson?.referencia || parsedJson?.tracking || (trimmed.startsWith('PROT-') || trimmed.startsWith('MINIS-') ? trimmed : `CDA-LUA-${Math.floor(100000 + Math.random()*900000)}`);
-        const holderName = parsedJson?.recipient || parsedJson?.destinatario || parsedJson?.holder || parsedJson?.customer || 'Edlasio Galhardo';
-        
-        const item = {
-          type: 'document' as const,
-          title: parsedJson?.tipo || parsedJson?.type || parsedJson?.assunto || 'Guia de Correspondência Oficial Transmitida',
-          protocolNumber: protocolNum,
-          holder: holderName,
-          date: parsedJson?.data || new Date().toLocaleDateString('pt-BR'),
-          time: parsedJson?.hora || new Date().toLocaleTimeString('pt-BR').substring(0, 5),
-          locality: parsedJson?.origin || parsedJson?.localidade || 'Centro Geral de Distribuição (Luanda)',
-          status: parsedJson?.status || 'Válido / Em Trânsito',
-          issuer: parsedJson?.sender || parsedJson?.remetente || 'Direção Nacional de Correios',
-          signature: parsedJson?.signature || 'RSA-KEY-SHA256-AUTHENTIC-2026',
-          hash: parsedJson?.hash || 'SHA256:d82ebd908e09f87c6533010b9876274',
-          archiveReference: parsedJson?.archiveReference,
-          archiveLocation: parsedJson?.archiveLocation,
-          detailsBody: parsedJson?.observacoes || parsedJson?.body || 'Metadados interpretados e assinados eletronicamente com sucesso.'
-        };
-
-        if (isSuspended) {
-          setValidationState('revoked');
-          setValidatedItem(item);
-          showToast('🛑 Documento listado como suspenso / revogado no banco nacional!', 'error');
-          logAudit(trimmed, 'Documento revogado');
-        } else if (isNoSignature) {
-          setValidationState('invalid_signature');
-          setValidatedItem(item);
-          showToast('⚠️ Erro crítico: Falha na validação da assinatura digital!', 'error');
-          logAudit(trimmed, 'Falha na validação da assinatura');
-        } else {
-          setValidationState('valid');
-          setValidatedItem(item);
-          showToast('✅ Correspondência decodificada e autenticada!', 'success');
-          logAudit(trimmed, 'Documento válido');
-        }
-      } else {
-        // Definitely not found
-        setValidationState('not_found');
-        setValidatedItem(null);
-        showToast('❌ Correspondência / Documento não localizado!', 'error');
-        logAudit(trimmed, 'Documento não encontrado');
-      }
+      // 2026-08-21 — HONESTO: nada foi localizado nas correspondências ou
+      // documentos REAIS desta conta. QRs de demonstração, códigos externos ou
+      // formatos desconhecidos NUNCA são transformados em documentos válidos
+      // (antes o leitor fabricava uma "Carta de condução" falsa a partir de
+      // qualquer JSON/QR de demonstração).
+      setValidationState('not_found');
+      setValidatedItem(null);
+      setQrFoundMessage(null);
+      showToast('❌ QR não corresponde a nenhum documento/correspondência oficial desta conta.', 'error');
+      logAudit(trimmed, 'Documento não encontrado');
     }
   };
 
   const logAudit = (code: string, resultLabel: string) => {
-    const ip = `10.224.${Math.floor(Math.random() * 254) + 1}.${Math.floor(Math.random() * 254) + 1}`;
+    // 2026-08-21 — auditoria HONESTO: sem IP fabricado nem operador hardcoded.
     if (addAuditLog) {
-      addAuditLog(`Validação Automática - Código: "${code}" | Resultado: [${resultLabel}] - IP Autenticado: ${ip} (Operador: Edlasio Galhardo)`, resultLabel === 'Documento válido' ? 'success' : resultLabel === 'Documento não encontrado' ? 'warning' : 'critical');
+      addAuditLog(`Validação QR - Código: "${code}" | Resultado: [${resultLabel}]`, resultLabel === 'Documento válido' ? 'success' : resultLabel === 'Documento não encontrado' ? 'warning' : 'critical');
     }
   };
-
   const processResult = (raw: string, source: string) => {
     const parsed = parseContent(raw);
     const entry: ScanHistoryItem = {
