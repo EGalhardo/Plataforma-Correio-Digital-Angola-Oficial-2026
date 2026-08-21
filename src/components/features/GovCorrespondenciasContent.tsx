@@ -1,5 +1,5 @@
 import {
-  Loader2, useState, useMemo } from 'react';
+  useState, useMemo } from 'react';
 import { notify } from '../../lib/notify';
 import { useInstitutions } from '../../services/institutionStore';
 import { motion, AnimatePresence } from 'motion/react';
@@ -21,7 +21,8 @@ import {
   ShieldCheck,
   Cpu,
   Share2,
-  ArrowLeft
+  ArrowLeft,
+  Loader2
 } from 'lucide-react';
 import { Correspondence } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -751,7 +752,7 @@ export function GovCorrespondenciasContent({
               <div className="bg-[#0c2340] text-indigo-100 p-6 relative">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center font-mono font-black text-sm uppercase text-white shadow-inner select-none border border-white/15">
-                    {selectedLetter.institution.slice(0, 3)}
+                    {(selectedLetter.institution || 'CDA').slice(0, 3)}
                   </div>
                   <div>
                     <span className="text-[9px] font-black tracking-widest uppercase text-indigo-300 block leading-none">
