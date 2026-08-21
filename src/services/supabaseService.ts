@@ -1688,30 +1688,31 @@ export const supabaseService = {
         },
       );
       if (linhas === null) return null;
-      
-      const provinces = ['luanda', 'benguela', 'cabinda', 'cuanza norte', 'cuanza sul', 'cunene', 'huambo', 'huíla', 'cuando cubango', 'lunda norte', 'lunda sul', 'moxico', 'namibe', 'uíge', 'zaire', 'bengo', 'bié', 'malanje'];
-      
-      // Filter out messages that represent general personal messages of citizen
-      // Keep only those with sensitivity 'Correspondencia' or that fallback to provinces in deadline_text
-      const filtered = linhas.filter((item: LinhaMensagem) => {
-        if (item.sensitivity === 'Correspondencia') return true;
-        if (item.deadline_text && provinces.includes(item.deadline_text.toLowerCase())) return true;
-        return false;
-      });
 
-      return filtered.map((item: LinhaMensagem) => ({
-        id: `COR-${item.id}`,
-        sender: item.sender_bi,
-        recipient: resolveCitizenName(item.recipient_bi),
-        subject: item.subject || item.preview,
-        originProvince: item.deadline_text || 'Luanda',
-        destinationProvince: item.state_indicator || 'Luanda',
-        institution: item.org,
-        status: item.actions?.[0] || item.state_indicator || 'Recebida',
-        date: new Date(item.created_at).toLocaleDateString('pt-AO'),
-        body: item.body,
-        priority: item.priority_scale || item.status || 'Média'
-      }));
+      // 2026-08-20 — a página "Correspondências" da Administração é a visão
+      // CENTRAL da plataforma: em modo real deve mostrar TODAS as mensagens
+      // existentes (ex.: a troca INAPEM ↔ cidadão). O filtro legado de
+      // sensitivity/província descartava as mensagens reais (Privado / "Sem
+      // prazo") e deixava a página vazia — removido.
+      return linhas.map((item: LinhaMensagem) => {
+        const acao = item.actions?.[0] || '';
+        const statusLegado = ['Enviada', 'Recebida', 'Em Análise', 'Respondida', 'Arquivada', 'Cancelada'].includes(acao)
+          ? acao
+          : (item.state_indicator || 'Recebida');
+        return {
+          id: `COR-${item.id}`,
+          sender: item.sender_bi,
+          recipient: resolveCitizenName(item.recipient_bi),
+          subject: item.subject || item.preview,
+          originProvince: item.deadline_text || 'Luanda',
+          destinationProvince: item.state_indicator || 'Luanda',
+          institution: item.org,
+          status: statusLegado,
+          date: new Date(item.created_at).toLocaleDateString('pt-AO'),
+          body: item.body,
+          priority: item.priority_scale || item.status || 'Média'
+        };
+      });
     } catch (e) {
       console.error('Supabase getCorrespondences error:', e);
       return null;

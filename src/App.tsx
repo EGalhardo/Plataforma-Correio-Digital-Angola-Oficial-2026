@@ -3401,10 +3401,14 @@ export default function App() {
   // partilham apenas os expedientes efectivamente registados (createdBy);
   // cidadão/instituição real não vê dados gov simulados no histórico.
   const currentCorrespondences = useMemo(() => {
-    if (isGovMode) return isDemoAdminSession ? correspondences : correspondences.filter(c => !!c.createdBy);
+    // 2026-08-20 — a Administração é a autoridade CENTRAL: em modo real vê
+    // TODAS as correspondências da plataforma (o filtro legado `createdBy`
+    // escondia tudo o que vinha da nuvem — página vazia). Cidadão/instituição
+    // mantêm o comportamento demo/local de sempre.
+    if (isGovMode) return correspondences;
     if (isUserMode) return isDemoCitizenSession ? correspondences : [];
     return isDemoInstitutionSession ? correspondences : [];
-  }, [correspondences, isGovMode, isDemoAdminSession, isUserMode, isDemoCitizenSession, isInstMode, isDemoInstitutionSession]);
+  }, [correspondences, isGovMode, isUserMode, isDemoCitizenSession, isInstMode, isDemoInstitutionSession]);
 
   // F15/v7 — Caixas "Enviadas" isoladas por conta (senderKey): sessões reais só
   // vêem o que enviaram; a demo (qualquer uma das 3) mantém o histórico completo.
