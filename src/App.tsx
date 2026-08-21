@@ -197,7 +197,7 @@ const InstitutionDetail = lazy(() => import('./components/features/InstitutionDe
 const GovSegurancaContent = lazy(() => import('./components/features/GovSegurancaContent').then(m => ({ default: m.GovSegurancaContent })));
 const DirectorioOrgaosContent = lazy(() => import('./components/features/DirectorioOrgaosContent').then(m => ({ default: m.DirectorioOrgaosContent })));
 import { shouldAutoSeedSupabase, shouldUseLocalBootstrap, shouldUseMockFallback } from './config/runtime';
-import { buildDemoContentPlan, withUnreadFloor, unmarkReadIds, type DemoArea } from './services/demoContentGuarantee';
+import { buildDemoContentPlan, type DemoArea } from './services/demoContentGuarantee';
 
 
 // ---- Estado "Lida" persistente por BI: sobrevive a terminar/iniciar sessão ----
@@ -2210,8 +2210,10 @@ export default function App() {
 
   // Persistência do estado "Lida" entre sessões: re-aplica as leituras guardadas
   // deste BI sempre que a caixa for (re)construída (novo login, seed, espelho).
+  // 2026-08-21 — alargado às caixas da INSTITUIÇÃO: uma mensagem lida pelo
+  // agente não volta a "Não Lida" depois de sair e entrar na conta.
   useEffect(() => {
-    if (appMode !== 'user' || !bi) return;
+    if ((appMode !== 'user' && appMode !== 'institution') || !bi) return;
     const readIds = getReadMessageIds(bi);
     if (readIds.size === 0) return;
     const baseOfId = (id: number) => (id >= 10000 && id < 90000000 ? id - 10000 : id);
@@ -2227,6 +2229,8 @@ export default function App() {
     };
     setInbox(prev => applyRead(prev));
     setDocInbox(prev => applyRead(prev));
+    setInstInbox(prev => applyRead(prev));
+    setInstDocInbox(prev => applyRead(prev));
   }, [appMode, bi, gateRefreshTick]);
 
   // Auto-scroll to top on tab/stage change
@@ -3360,17 +3364,18 @@ export default function App() {
     if (mud.maritalStatus) setUserMaritalStatus(mud.maritalStatus);
     if (mud.birthDate) setUserBirthDate(mud.birthDate);
   }, [stage, appMode, bi, instIdentity?.type]);
-  // F17 — Piso de não-lidas ao nível da DERIVAÇÃO (só demo): a fusão assíncrona
-  // da nuvem repõe cópias lidas por cima do piso aplicado 1x no arranque; com o
-  // piso derivado aqui, "Não Lidas" nunca fica vazio em sessão de demonstração.
+  // 2026-08-21 — piso de não-lidas REMOVIDO (decisão do dono): uma mensagem
+  // lida fica LIDA em todas as sessões seguintes. "Não lida" = apenas as que
+  // nunca foram abertas. As listas demo continuam com dados, mas sem forçar
+  // o estado de leitura.
   const currentInbox = isInstMode
     ? (isDemoInstitutionSession
-        ? withUnreadFloor(instInbox.filter(m => !m.homologation || isOwnHomologationMail(m)))
+        ? instInbox.filter(m => !m.homologation || isOwnHomologationMail(m))
         : instInbox.filter(m => isOwnHomologationMail(m) || isInstitutionAddressedMail(m)))
     : homologationPendingForCitizen
       ? inbox.filter(isOwnHomologationMail)
       : isDemoCitizenSession
-        ? withUnreadFloor(inbox.filter(m => !m.homologation || isOwnHomologationMail(m)))
+        ? inbox.filter(m => !m.homologation || isOwnHomologationMail(m))
         : inbox.filter(isOwnCitizenMail);
   const unreadTotal = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id)).reduce((sum, msg) => sum + (msg.unread || 0), 0), [currentInbox, deletedMessageIds, hiddenMessageIds]);
   const unreadMessagesList = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id) && !!msg.unread), [currentInbox, deletedMessageIds, hiddenMessageIds]);
@@ -3386,9 +3391,9 @@ export default function App() {
   // apenas o canal oficial da própria instituição + o que lhe foi endereçado.
   const currentDocInbox = isInstMode
     ? (isDemoInstitutionSession
-        ? withUnreadFloor(instDocInbox)
+        ? instDocInbox
         : instDocInbox.filter(m => isOwnHomologationMail(m) || isInstitutionAddressedMail(m)))
-    : (homologationPendingForCitizen ? [] : (isDemoCitizenSession ? withUnreadFloor(docInbox) : docInbox.filter(isOwnCitizenMail)));
+    : (homologationPendingForCitizen ? [] : (isDemoCitizenSession ? docInbox : docInbox.filter(isOwnCitizenMail)));
 
   // F12 — Documentos (carteira/pasta digital/QR/emissão): sessões reais só vêem
   // os documentos marcados com a SUA chave na fusão da nuvem.
@@ -3458,24 +3463,19 @@ export default function App() {
     if (demoGuaranteeRef.current === runKey) return;
     demoGuaranteeRef.current = runKey;
     const plan = buildDemoContentPlan(area, sessionOwnerKey);
-    const unreadFloorMail = (list: Message[]): Message[] => {
-      const next = withUnreadFloor(list);
-      if (next !== list && next.length) {
-        const fid = next[0].id;
-        unmarkReadIds(sessionOwnerKey, fid, fid >= 10000 && fid < 90000000 ? fid - 10000 : fid);
-      }
-      return next;
-    };
+    // 2026-08-21 — piso de não-lidas REMOVIDO: as listas demo só são
+    // preenchidas quando VAZIAS; nunca se força uma mensagem lida a voltar
+    // a não-lida (a leitura persiste entre sessões).
     if (area === 'user') {
-      setInbox(prev => prev.length ? unreadFloorMail(prev) : plan.inbox);
-      setDocInbox(prev => prev.length ? unreadFloorMail(prev) : plan.docInbox);
+      setInbox(prev => prev.length ? prev : plan.inbox);
+      setDocInbox(prev => prev.length ? prev : plan.docInbox);
       setContacts(prev => prev.length ? prev : plan.contacts);
     }
     setSentMessages(prev => prev.length ? prev : plan.sentMessages);
     setDocSentMessages(prev => prev.length ? prev : plan.docSentMessages);
     if (area === 'institution') {
-      setInstInbox(prev => prev.length ? unreadFloorMail(prev) : plan.instInbox);
-      setInstDocInbox(prev => prev.length ? unreadFloorMail(prev) : plan.instDocInbox);
+      setInstInbox(prev => prev.length ? prev : plan.instInbox);
+      setInstDocInbox(prev => prev.length ? prev : plan.instDocInbox);
     }
     setNotifications(prev => prev.length
       ? (prev.some(n => n.unread) ? prev : [{ ...prev[0], unread: true }, ...prev.slice(1)])
