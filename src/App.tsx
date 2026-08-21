@@ -4526,13 +4526,16 @@ Ficha civil do titular:
     const MAX_HITS = 8;
     const MAX_BODY_CHARS = 300;
     const q = String(query || '').toLowerCase().trim();
-    if (q.length < 3) return '';
+    // 2026-08-21 — sentinela SEM_PESQUISA: distinguir "pesquisa não aplicável"
+    // (saudação/pergunta curta) de "pesquisado e nada encontrado" (marcador
+    // honesto para a IA não inventar correspondências).
+    if (q.length < 3) return '__SEM_PESQUISA__';
 
     // Termos de pesquisa: ignora palavras demasiado curtas/comuns.
     const termos = q.split(/[^a-z0-9à-úãõâêîôûçáéíóú]+/i)
       .map(t => t.toLowerCase())
-      .filter(t => t.length >= 3 && !['para', 'onde', 'como', 'pode', 'posso', 'uma', 'com', 'que', 'das', 'dos', 'saber', 'quero', 'sobre'].includes(t));
-    if (!termos.length) return '';
+      .filter(t => t.length >= 3 && !['para', 'onde', 'como', 'pode', 'posso', 'uma', 'com', 'que', 'das', 'dos', 'saber', 'quero', 'sobre', 'olá', 'ola', 'tudo', 'bem', 'bom', 'boa', 'dia', 'tarde', 'noite', 'obrigado', 'obrigada', 'está', 'esta'].includes(t));
+    if (!termos.length) return '__SEM_PESQUISA__';
 
     // Pesquisa em TODAS as caixas do próprio utilizador: recebidas (inbox),
     // documentos (docInbox), enviadas do correio (sentMessages) e enviadas de
@@ -4548,6 +4551,27 @@ Ficha civil do titular:
       ...sentMessages.map(m => ({ m, enviada: true })),
       ...docSentMessages.map(m => ({ m, enviada: true })),
     ];
+    // 2026-08-21 — INTENÇÃO DE LISTAGEM/RECÊNCIA: perguntas como "qual é a
+    // mais recente", "o que recebi hoje", "quais as minhas mensagens" recebem
+    // a lista COMPLETA e ordenada (mais recentes primeiro) em vez dos hits
+    // parciais por termo — sem isto a IA respondia "só há uma mensagem hoje"
+    // ou apontava a correspondência errada como mais recente.
+    const intencaoListagem = /recente|hoje|ultim|nova|novas|quais|quantas|correspond|mensag|caixa|recebi|receb|chegou|chegaram/.test(q);
+
+    if (intencaoListagem) {
+      const recebidas = fonte.filter(x => !x.enviada).slice(0, 12);
+      const enviadas = fonte.filter(x => x.enviada).slice(0, 8);
+      if (!recebidas.length && !enviadas.length) return '';
+      const fmt = (m: Message, enviada: boolean) => {
+        const senderKeyNorm = normalizeHomologationBi(m.senderKey || '');
+        const alvo = enviada
+          ? (m.org || m.recipientBi || m.institution || 'Instituição')
+          : (senderKeyNorm && senderKeyNorm !== biNorm ? m.senderKey : (m.org || m.institution || 'Instituição'));
+        return `- ${enviada ? 'Para' : 'De'}: ${alvo}, Assunto: ${m.details?.subject || m.preview || 'Sem assunto'}, Data: ${m.date || ''}, Estado: ${m.unread ? 'Não Lida' : 'Lida'}`;
+      };
+      return `RECEBIDAS (mais recentes primeiro):\n${recebidas.map(({ m }) => fmt(m, false)).join('\n') || 'Nenhuma.'}\n\nENVIADAS (mais recentes primeiro):\n${enviadas.map(({ m }) => fmt(m, true)).join('\n') || 'Nenhuma.'}`;
+    }
+
     const hits = fonte
       .map(({ m, enviada }) => {
         const textoBruto = `${m.org || ''} ${m.senderKey || ''} ${m.recipientBi || ''} ${m.preview || ''} ${m.details?.subject || ''} ${m.institution || ''} ${m.details?.body || ''}`.toLowerCase();
