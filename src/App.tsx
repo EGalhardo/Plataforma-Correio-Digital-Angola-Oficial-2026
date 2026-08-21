@@ -5490,6 +5490,32 @@ Ficha civil do titular:
           />
         );
       case 'gov-contatos':
+        // 2026-08-21 — página EQUIPA exclusiva do responsável: um colaborador
+        // (sessão 'member') nunca vê a consola de gestão de membros, mesmo que
+        // o tab chegue por URL/hash — vê o aviso de acesso restrito.
+        if (isInstMode && instIdentity?.type === 'member') {
+          return (
+            <div className="flex-1 flex flex-col items-center justify-center gap-5 py-24 px-6 text-center animate-fade-in font-sans">
+              <div className="p-6 bg-slate-100 rounded-full border border-slate-200 shadow-inner">
+                <Lock className="w-9 h-9 text-slate-400" />
+              </div>
+              <div className="space-y-2 max-w-md">
+                <h3 className="text-slate-900 font-black text-sm uppercase tracking-[0.2em]">Acesso Restrito</h3>
+                <p className="text-slate-500 text-xs leading-relaxed">
+                  A página <strong className="text-slate-700">Equipa</strong> é exclusiva do responsável da instituição.
+                  A sua sessão ({instIdentity?.agentNumber || 'colaborador'}) tem perfil de colaborador e não possui
+                  permissão para gerir membros da equipa.
+                </p>
+              </div>
+              <button
+                onClick={() => setTab('home')}
+                className="px-6 py-3 bg-[#0E2B64] hover:bg-[#081a3d] text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer border-0 shadow-md"
+              >
+                Voltar ao Painel
+              </button>
+            </div>
+          );
+        }
         return (
           <PainelSuspense>
           <GovContactsContent
@@ -7183,6 +7209,7 @@ Ficha civil do titular:
         }}
         currentLanguage={currentLanguage}
         theme={theme}
+        equipaBloqueada={isInstMode && instIdentity?.type === 'member'}
       />
       <MobileNavBar 
         tab={tab} 
@@ -7191,6 +7218,7 @@ Ficha civil do titular:
         setSelectedDoc={setSelectedDoc}
         appMode={appMode}
         currentLanguage={currentLanguage}
+        equipaBloqueada={isInstMode && instIdentity?.type === 'member'}
       />
 
       <div className="flex-1 md:bg-white md:rounded-[24px] md:shadow-xl md:border-2 md:border-[#E2E8F0] dark:md:border-[#141d31] md:overflow-hidden flex flex-col min-h-screen md:min-h-0 relative">

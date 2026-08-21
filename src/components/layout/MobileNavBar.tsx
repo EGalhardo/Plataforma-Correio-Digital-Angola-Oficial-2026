@@ -4,7 +4,7 @@
  */
 
 import { motion } from 'motion/react';
-import { Home, Mail, QrCode, Users, User, BarChart3, Shield, FileText, Landmark, Settings, Bot } from 'lucide-react';
+import { Home, Mail, QrCode, Users, User, BarChart3, Shield, FileText, Landmark, Settings, Bot, Lock } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 import { Message, Document, AppMode, LanguageCode } from '../../types';
 import { useSession } from '../../services/sessionStore';
@@ -23,6 +23,9 @@ interface MobileNavBarProps {
   setSelectedDoc: (doc: Document | null) => void;
   appMode: AppMode;
   currentLanguage?: LanguageCode;
+  // 2026-08-21 — colaborador institucional: a página Equipa é exclusiva do
+  // responsável — o item fica VISÍVEL mas INACTIVO (não navega).
+  equipaBloqueada?: boolean;
 }
 
 // Menu citizen SEM QR Code
@@ -56,7 +59,8 @@ const adminItems: MenuItem[] = [
 
 export function MobileNavBar({ 
   tab, setTab, setSelectedMessage, setSelectedDoc,
-  appMode: _propsAppMode}: MobileNavBarProps) {
+  appMode: _propsAppMode,
+  equipaBloqueada = false}: MobileNavBarProps) {
   const { appMode } = useSession();
   const { t: translate } = useLanguage();
 
@@ -75,10 +79,16 @@ export function MobileNavBar({
     <nav className={`md:hidden fixed bottom-0 left-0 right-0 h-16 border-t flex items-center px-2 z-50 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)] transition-colors bg-white border-[#D1D5DB] ${
       isAdminOrInst ? 'overflow-x-auto justify-start gap-2 scrollbar-none snap-x snap-mandatory' : 'justify-around'
     }`}>
-      {currentItems.map(({ id, label, icon: Icon }) => (
+      {currentItems.map(({ id, label, icon: Icon }) => {
+        const bloqueado = equipaBloqueada && id === 'gov-contatos';
+        return (
         <button
           key={id}
+          disabled={bloqueado}
+          aria-disabled={bloqueado}
+          title={bloqueado ? translate('Apenas o responsável da instituição pode aceder à página Equipa.') : undefined}
           onClick={() => {
+            if (bloqueado) return;
             setTab(id);
             if (id !== 'correspondencias' && id !== 'documentos' && id !== 'mensagem') setSelectedMessage(null);
             if (id !== 'documento') setSelectedDoc(null);
@@ -86,19 +96,21 @@ export function MobileNavBar({
           }}
           className={`flex flex-col items-center justify-center gap-0.5 transition-all px-2.5 h-full relative shrink-0 ${
             isAdminOrInst ? 'min-w-[72px] snap-start' : 'flex-1'
-          } ${tab === id ? 'text-indigo-600' : 'text-slate-400'}`}
+          } ${bloqueado ? 'opacity-40 cursor-not-allowed text-slate-300 select-none' : tab === id ? 'text-indigo-600' : 'text-slate-400'}`}
         >
           <div className={`transition-all duration-300 ${tab === id ? 'scale-110' : 'scale-100'}`}>
             <Icon size={19} strokeWidth={tab === id ? '2.5' : '2'} />
           </div>
-          <span className={`text-[8px] font-black uppercase tracking-tight transition-all ${tab === id ? 'opacity-100' : 'opacity-60'}`}>
+          <span className={`text-[8px] font-black uppercase tracking-tight transition-all ${bloqueado ? 'opacity-50' : tab === id ? 'opacity-100' : 'opacity-60'}`}>
             {translate(label)}
           </span>
+          {bloqueado && <Lock size={10} className="absolute -top-0.5 right-1.5 text-slate-300" />}
           {tab === id && (
             <motion.div layoutId="activeTab" className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-1 rounded-b-full bg-indigo-600" />
           )}
         </button>
-      ))}
+        );
+      })}
     </nav>
   );
 }

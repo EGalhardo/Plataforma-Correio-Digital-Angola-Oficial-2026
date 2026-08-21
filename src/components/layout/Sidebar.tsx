@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Home, Mail, QrCode, Users, User, LogOut, Landmark, BarChart3, Shield, Settings, FileText, Bot } from 'lucide-react';
+import { Home, Mail, QrCode, Users, User, LogOut, Landmark, BarChart3, Shield, Settings, FileText, Bot, Lock } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 import { Message, Document, AppMode, LanguageCode } from '../../types';
 import { useSession } from '../../services/sessionStore';
@@ -29,6 +29,9 @@ interface SidebarProps {
   setStage?: (stage: string) => void;
   currentLanguage?: LanguageCode;
   theme?: 'light' | 'dark';
+  // 2026-08-21 — colaborador institucional: a página Equipa é exclusiva do
+  // responsável — o item fica VISÍVEL mas INACTIVO (não navega).
+  equipaBloqueada?: boolean;
 }
 
 // Menu citizen SEM QR Code
@@ -63,7 +66,8 @@ const adminItems: MenuItem[] = [
 export function Sidebar({ 
   tab, setTab, setSelectedMessage, setSelectedDoc, handleLogout,
   appMode: _propsAppMode, setAppMode: _propsSetAppMode,
-  theme = 'light'
+  theme = 'light',
+  equipaBloqueada = false
 }: SidebarProps) {
   const { appMode } = useSession();
   const { t: translate } = useLanguage();
@@ -104,22 +108,32 @@ export function Sidebar({
         {translate(appMode === 'admin' ? 'ADMINISTRAÇÃO CENTRAL' : appMode === 'institution' ? 'INSTITUIÇÃO / PRIVADO' : 'ÁREA DO CIDADÃO')}
       </div>
       <nav className="space-y-0.5">
-        {currentItems.map(({ id, label, icon: Icon }) => (
+        {currentItems.map(({ id, label, icon: Icon }) => {
+          const bloqueado = equipaBloqueada && id === 'gov-contatos';
+          return (
           <button
             key={id}
+            disabled={bloqueado}
+            aria-disabled={bloqueado}
+            title={bloqueado ? translate('Apenas o responsável da instituição pode aceder à página Equipa.') : undefined}
             onClick={() => {
+              if (bloqueado) return;
               setTab(id);
               if (id !== 'correspondencias' && id !== 'documentos' && id !== 'mensagem') setSelectedMessage(null);
               if (id !== 'documento') setSelectedDoc(null);
             }}
             className={`w-full flex items-center gap-3 px-2 py-2 rounded-xl font-bold transition-all ${
-              tab === id ? 'text-indigo-600' : 'bg-transparent text-slate-700 hover:text-slate-900'
+              bloqueado
+                ? 'opacity-40 cursor-not-allowed text-slate-400 select-none'
+                : tab === id ? 'text-indigo-600' : 'bg-transparent text-slate-700 hover:text-slate-900'
             }`}
           >
-            <Icon size={16} className={tab === id ? 'text-indigo-600' : 'text-slate-600'} />
+            <Icon size={16} className={bloqueado ? 'text-slate-300' : tab === id ? 'text-indigo-600' : 'text-slate-600'} />
             <span className="text-xs tracking-tight">{translate(label)}</span>
+            {bloqueado && <Lock size={12} className="ml-auto shrink-0 text-slate-300" />}
           </button>
-        ))}
+          );
+        })}
       </nav>
 
       <div className="mt-auto pt-6 border-t space-y-2 border-slate-300/80">

@@ -243,8 +243,39 @@ export function GovContactsContent({
       : appMode === 'institution'
         ? `correio_digital_workers_${normalizeInstCode(bi)}`
         : 'correio_digital_workers';
+    const lerEspelho = (): Trabajador[] => {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? (JSON.parse(raw) as Trabajador[]) : [];
+      } catch { return []; }
+    };
+    // 2026-08-21 — MODO REAL: a fonte canónica da equipa é o REGISTO da
+    // instituição (membros criados na página Equipa via addInstMember —
+    // espelho `cda_inst_regs_v1`). Antes o Modo Real devolvia SEMPRE [] e a
+    // lista do responsável nunca mostrava os colaboradores adicionados
+    // (só apareciam na sessão em que tinham sido criados).
+    if (!shouldUseMockFallback()) {
+      if (appMode === 'institution') {
+        const reg = getLocalInstReg(normalizeInstCode(bi || ''));
+        const membros = (reg?.members || []).map<Trabajador>((m) => ({
+          id: m.id,
+          name: m.name,
+          email: m.email,
+          phone: m.phone || '',
+          role: m.role,
+          department: m.dept,
+          agentId: m.agentNumber || '',
+          status: 'Ativo',
+          lastAccess: 'Nunca acedeu',
+          registrationDate: '12/06/2026',
+          permissions: ['Visualizar'],
+          activityLogs: [],
+        }));
+        return membros.length ? membros : lerEspelho();
+      }
+      return lerEspelho();
+    }
     // Dados de equipa demonstrativos nunca entram no Modo Real.
-    if (!shouldUseMockFallback()) return [];
     const saved = localStorage.getItem(key);
     if (saved) {
       try {
