@@ -1767,7 +1767,18 @@ const DADOS_TABELAS: Record<string, {
 };
 
 // Resolve a identidade a partir do token de sessão Supabase.
+// 2026-08-21 (desempenho) — cache em memória de 60s por token: evita o
+// round-trip /auth/v1/user em CADA pedido do proxy.
+const dadosIdentCache = new Map<string, { ts: number; val: DadosIdentidade | { erro: string } }>();
 async function dadosResolverIdentidade(supaUrl: string, serviceKey: string, token: string): Promise<DadosIdentidade | { erro: string }> {
+  const cacheKey = `${supaUrl}|${token}`;
+  const hit = dadosIdentCache.get(cacheKey);
+  if (hit && Date.now() - hit.ts < 60_000) return hit.val;
+  const val = await dadosResolverIdentidadeRaw(supaUrl, serviceKey, token);
+  dadosIdentCache.set(cacheKey, { ts: Date.now(), val });
+  return val;
+}
+async function dadosResolverIdentidadeRaw(supaUrl: string, serviceKey: string, token: string): Promise<DadosIdentidade | { erro: string }> {
   try {
     const r = await fetch(`${supaUrl}/auth/v1/user`, {
       headers: { apikey: serviceKey, Authorization: `Bearer ${token}` },
@@ -1899,7 +1910,24 @@ async function dadosExecutarPedido(opts: {
       if (tabela === 'solicitacoes_registo' && !ident) {
         selectCols = filtros.bi_numero ? 'bi_numero,status' : 'bi_numero,status,observacoes';
       }
-      const r = await fetch(`${supaUrl}/rest/v1/${tabela}?select=${selectCols}&${q}&${ordem}&limit=${limite}`, { headers });
+      // 2026-08-21 (desempenho) — filtros avançados NO SERVIDOR (notNull/notIn):
+      // o Expediente do admin deixa de transferir centenas de linhas para as
+      // filtrar no cliente — a resposta já vem pequena e filtrada.
+      const extrasQ: string[] = [];
+      if (Array.isArray(body?.notNull)) {
+        for (const col of body.notNull) {
+          if (typeof col === 'string' && DADOS_COLUNAS[tabela][col]) extrasQ.push(`${col}=not.is.null`);
+        }
+      }
+      if (body?.notIn && typeof body.notIn === 'object' && !Array.isArray(body.notIn)) {
+        for (const [col, vals] of Object.entries(body.notIn)) {
+          if (!DADOS_COLUNAS[tabela][col] || !Array.isArray(vals)) continue;
+          const lista = vals.slice(0, 50).map((v) => String(v).replace(/,/g, ''));
+          if (lista.length) extrasQ.push(`${col}=not.in.(${lista.map((v) => encodeURIComponent(v)).join(',')})`);
+        }
+      }
+      const queryExtra = extrasQ.length ? `&${extrasQ.join('&')}` : '';
+      const r = await fetch(`${supaUrl}/rest/v1/${tabela}?select=${selectCols}&${q}${queryExtra}&${ordem}&limit=${limite}`, { headers });
       if (!r.ok) return { status: r.status, json: { ok: false, erro: `Leitura falhou (${r.status}).` } };
       const linhas = await r.json().catch(() => []);
       return { status: 200, json: { ok: true, linhas: Array.isArray(linhas) ? linhas : [] } };

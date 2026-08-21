@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import {
+  Loader2, useState, useMemo } from 'react';
 import { notify } from '../../lib/notify';
 import { useInstitutions } from '../../services/institutionStore';
 import { motion, AnimatePresence } from 'motion/react';
@@ -31,6 +32,9 @@ export interface GovCorrespondenciasContentProps {
   onAddCorrespondence?: (newCor: Correspondence) => void;
   onUpdateStatus?: (id: string, newStatus: string) => void;
   onNavigate?: (tab: string) => void;
+  /** 2026-08-21 (UX) — verdadeiro enquanto a primeira sincronização com a
+   *  nuvem decorre: a lista mostra um indicador de carregamento honesto. */
+  carregando?: boolean;
 }
 
 // Prepare Correspondence function: acts as a data normalizer / enhancer
@@ -107,7 +111,8 @@ export function GovCorrespondenciasContent({
   correspondences: propsCorrespondences,
   onAddCorrespondence,
   onUpdateStatus,
-  onNavigate
+  onNavigate,
+  carregando = false
 }: GovCorrespondenciasContentProps) {
   const { t } = useLanguage();
   const { institutions } = useInstitutions();
@@ -575,7 +580,12 @@ export function GovCorrespondenciasContent({
 
       {/* Tabular/List Layout representing professional system design */}
       <div className="space-y-6">
-        {filteredCorrespondences.length > 0 ? (
+        {carregando && filteredCorrespondences.length === 0 ? (
+          <div className="p-16 bg-white border border-slate-200 rounded-[32px] text-center shadow-3xs">
+            <Loader2 className="w-6 h-6 animate-spin text-indigo-500 mx-auto mb-3" />
+            <p className="text-slate-400 italic font-sans text-xs">A carregar o Expediente a partir da base central…</p>
+          </div>
+        ) : filteredCorrespondences.length > 0 ? (
           <div className={`overflow-auto rounded-[24px] bg-white border border-slate-200 shadow-3xs custom-scrollbar ${filteredCorrespondences.length > 4 ? 'max-h-[350px]' : ''}`}>
             <table className="mobile-data-table w-full text-left border-collapse min-w-[1100px]">
               <thead className="sticky top-0 z-15 bg-[#0E2B64] border-b border-[#0E2B64]/90 text-white text-[9.5px] font-black uppercase tracking-widest">

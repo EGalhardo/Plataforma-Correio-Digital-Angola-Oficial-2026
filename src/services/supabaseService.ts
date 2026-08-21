@@ -452,15 +452,22 @@ const proxyDados = async (payload: Record<string, unknown>): Promise<any | null>
 };
 
 /** Lê linhas: proxy quando há sessão; senão caminho directo (demo/dev). */
+interface ExtrasLeitura { limite?: number; notNull?: string[]; notIn?: Record<string, (string | number)[]>; }
 const lerLinhasDados = async <T,>(
   tabela: string,
   filtros: Record<string, string | number> | undefined,
   ordem: { col: string; dir: 'asc' | 'desc' } | undefined,
   direto: () => Promise<T[] | null>,
+  extra?: ExtrasLeitura,
 ): Promise<T[] | null> => {
   const token = await obterTokenSessao();
   if (!token) return direto();
-  const r = await proxyDados({ tabela, operacao: 'select', filtros: filtros || {}, ordem, limite: 2000 });
+  const r = await proxyDados({
+    tabela, operacao: 'select', filtros: filtros || {}, ordem,
+    limite: extra?.limite ?? 2000,
+    ...(extra?.notNull?.length ? { notNull: extra.notNull } : {}),
+    ...(extra?.notIn ? { notIn: extra.notIn } : {}),
+  });
   if (r && r.ok) return (r.linhas || []) as T[];
   if (r && r.erro === 'demo') return direto();
   console.warn(`[CDA-proxy] leitura ${tabela} via servidor falhou:`, r?.erro || 'rede');
@@ -1388,10 +1395,12 @@ export const supabaseService = {
               .from('messages')
               .select('*')
               .or(`recipient_bi.eq.${recipientKey},sender_bi.eq.${senderKey}`)
-              .order('created_at', { ascending: false });
+              .order('created_at', { ascending: false })
+              .limit(500);
             if (error) throw error;
             return (data || []) as LinhaMensagem[];
           },
+          { limite: 500 },
         )) || [];
         const norm = (v?: string | null) => (v || '').toUpperCase();
         const mapRow = (item: LinhaMensagem): Message => {
@@ -1750,18 +1759,25 @@ export const supabaseService = {
     // GET à tabela messages por execução do carregador).
     return readThroughMessagesCache('corr:all', async () => {
     try {
+      // 2026-08-21 (desempenho) — o filtro de correspondências REAIS passa a
+      // ser aplicado NO SERVIDOR (protocol_number not null + exclusão das
+      // chaves demo) com limite de 200 linhas: em vez de transferir ~585
+      // mensagens com corpos inteiros, chegam apenas as reais (poucas).
+      const CHAVES_FILTRO_SRV = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP', '009999999LA099', 'CIDADO'];
       const linhas = await lerLinhasDados<LinhaMensagem>(
         'messages',
         undefined,
-        { col: 'id', dir: 'desc' },
+        { col: 'created_at', dir: 'desc' },
         async () => {
           const { data, error } = await supabase
             .from('messages')
             .select('*')
-            .order('id', { ascending: false });
+            .order('id', { ascending: false })
+            .limit(200);
           if (error) throw error;
           return (data || []) as LinhaMensagem[];
         },
+        { limite: 200, notNull: ['protocol_number'], notIn: { sender_bi: CHAVES_FILTRO_SRV, recipient_bi: CHAVES_FILTRO_SRV } },
       );
       if (linhas === null) return null;
 

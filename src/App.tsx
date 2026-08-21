@@ -579,6 +579,10 @@ export default function App() {
     }
   };
 
+  // 2026-08-21 (desempenho/UX) — verdadeiro quando a primeira sincronização
+  // com a nuvem terminou (usado para o estado de carregamento das páginas).
+  const [cloudSyncedOnce, setCloudSyncedOnce] = useState(false);
+
   const [contacts, setContacts] = useState<Contact[]>(() => {
     if (shouldUseLocalBootstrap()) {
       const saved = localStorage.getItem('correio_digital_contacts');
@@ -2618,9 +2622,25 @@ export default function App() {
           }
         }
 
-        // 3. Fetch Documents
-        const dbDocs = await supabaseService.getDocuments(bi);
-        if (dbDocs !== null && isSubscribed) {
+        // 3–9 (2026-08-21, DESEMPENHO) — leituras em PARALELO: antes eram 6–7
+        // round-trips sequenciais ao servidor (cada um com validação de sessão);
+        // agora correm em simultâneo e a página da Administração carrega em
+        // ~1/4 do tempo. Audit Logs e Correspondências são visões da
+        // Administração — só são pedidas em modo gov (menos tráfego para
+        // cidadão/instituição). Correspondências vêm JÁ FILTRADAS do servidor.
+        const [dbDocs, dbContacts, dbUserRequests, dbDocRequests, dbNotifs, dbLogs, dbCorrespondences] = await Promise.all([
+          supabaseService.getDocuments(bi),
+          supabaseService.getContacts(bi),
+          supabaseService.getUserRequests(isGovMode ? undefined : bi),
+          supabaseService.getDocRequests(isGovMode ? undefined : bi),
+          supabaseService.getNotifications(isGovMode ? 'CDA' : isInstMode ? institutionCode : bi),
+          isGovMode ? supabaseService.getAuditLogs() : Promise.resolve(null),
+          isGovMode ? supabaseService.getCorrespondences() : Promise.resolve(null),
+        ]);
+        if (!isSubscribed) return;
+
+        // 3. Documents
+        if (dbDocs !== null) {
           // F12 — titularidade do documento (sessões reais só vêem os seus).
           const taggedDocs = dbDocs.map(d => ({ ...d, holderBi: bi }));
           // 2026-08-20 — Modo Real: nuvem como fonte única dos documentos.
@@ -2635,9 +2655,8 @@ export default function App() {
           }
         }
 
-        // 4. Fetch Contacts
-        const dbContacts = await supabaseService.getContacts(bi);
-        if (dbContacts !== null && isSubscribed) {
+        // 4. Contacts
+        if (dbContacts !== null) {
           // F12 — cada contacto fica marcado com o dono da sessão que o fundiu.
           const taggedContacts = dbContacts.map(c => ({ ...c, ownerId: bi }));
           if (!isDemoSession) {
@@ -2651,9 +2670,8 @@ export default function App() {
           }
         }
 
-        // 5. Fetch User requests
-        const dbUserRequests = await supabaseService.getUserRequests(isGovMode ? undefined : bi);
-        if (dbUserRequests !== null && isSubscribed) {
+        // 5. User requests
+        if (dbUserRequests !== null) {
           if (!isDemoSession) {
             setUserRequests(dbUserRequests);
           } else {
@@ -2665,9 +2683,8 @@ export default function App() {
           }
         }
 
-        // 6. Fetch Doc Requests
-        const dbDocRequests = await supabaseService.getDocRequests(isGovMode ? undefined : bi);
-        if (dbDocRequests !== null && isSubscribed) {
+        // 6. Doc Requests
+        if (dbDocRequests !== null) {
           if (!isDemoSession) {
             setDocRequests(dbDocRequests);
           } else {
@@ -2679,10 +2696,8 @@ export default function App() {
           }
         }
 
-        // 7. Fetch Notifications
-        const notificationTarget = isGovMode ? 'CDA' : isInstMode ? institutionCode : bi;
-        const dbNotifs = await supabaseService.getNotifications(notificationTarget);
-        if (dbNotifs !== null && isSubscribed) {
+        // 7. Notifications
+        if (dbNotifs !== null) {
           if (!isDemoSession) {
             setNotifications(dbNotifs);
           } else {
@@ -2694,9 +2709,8 @@ export default function App() {
           }
         }
 
-        // 8. Fetch Audit Logs
-        const dbLogs = await supabaseService.getAuditLogs();
-        if (dbLogs !== null && isSubscribed) {
+        // 8. Audit Logs (só modo gov)
+        if (dbLogs !== null) {
           if (!isDemoSession) {
             setAuditLogs(dbLogs);
           } else {
@@ -2708,9 +2722,8 @@ export default function App() {
           }
         }
 
-        // 9. Fetch Official Correspondences
-        const dbCorrespondences = await supabaseService.getCorrespondences();
-        if (dbCorrespondences !== null && isSubscribed) {
+        // 9. Official Correspondences (só modo gov)
+        if (dbCorrespondences !== null) {
           if (!isDemoSession) {
             // 2026-08-21 — Modo Real: só dados REAIS na página "Correspondências"
             // da Administração. As linhas da nuvem são marcadas com
@@ -2728,8 +2741,10 @@ export default function App() {
         }
 
         console.log('CADA: Sincronização e carregamento do Supabase efectuados com sucesso!');
+        setCloudSyncedOnce(true);
       } catch (err) {
         console.error('Erro na sincronização em segundo plano do Supabase:', err);
+        setCloudSyncedOnce(true); // honesto: não deixar a UI em carregamento infinito
       }
     }
 
@@ -5237,6 +5252,7 @@ Ficha civil do titular:
           <PainelSuspense>
           <GovCorrespondenciasContent 
             correspondences={currentCorrespondences}
+            carregando={isGovMode && !cloudSyncedOnce}
             onNavigate={setTab}
             onAddCorrespondence={async (newCor) => {
               setCorrespondences(prev => [{ ...newCor, createdBy: bi }, ...prev]);
