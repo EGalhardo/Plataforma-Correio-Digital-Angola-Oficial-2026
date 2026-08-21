@@ -1248,6 +1248,18 @@ export default function App() {
       return p ? p.trim() : null;
     } catch { return null; }
   });
+  // Q-3 (2026-08-21) — id real do deep-link: QRs legados podem ter número de
+  // protocolo divergente do gravado (o protocol_number é imutável após envio);
+  // o id identifica a mensagem real e serve de chave de localização.
+  const [qrTargetId, setQrTargetId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = new URL(window.location.href).searchParams.get('id');
+      if (!raw) return null;
+      const m = String(raw).match(/^INT-(?:MESSAGE|DOCUMENT)-2026-(\d+)$/i);
+      return m ? m[1] : null;
+    } catch { return null; }
+  });
   const qrTargetResolvedRef = useRef<string | null>(null);
   const [qrNotice, setQrNotice] = useState<null | { protocolo: string; tipo: 'nao_encontrada' | 'outra_conta' | 'indisponivel' }>(null);
 
@@ -1262,21 +1274,26 @@ export default function App() {
   };
 
   // 1) Match local: a cada alteração das caixas, procura a mensagem pelo
-  // número de protocolo (formato normalizado — caixa alta, sem espaços).
+  // número de protocolo (formato normalizado — caixa alta, sem espaços) OU
+  // pelo id real do deep-link (QR legado com número divergente).
   useEffect(() => {
     if (stage !== 'app' || !qrTarget) return;
     if (qrTargetResolvedRef.current === qrTarget) return;
     const alvoNormalizado = qrTarget.trim().toUpperCase();
     const todas = [...inbox, ...instInbox, ...sentMessages];
-    const alvo = todas.find(m => (m.protocol?.protocolNumber || '').trim().toUpperCase() === alvoNormalizado);
+    let alvo = todas.find(m => (m.protocol?.protocolNumber || '').trim().toUpperCase() === alvoNormalizado);
+    if (!alvo && qrTargetId) {
+      alvo = todas.find(m => String(m.id) === qrTargetId || String(m.id).includes(qrTargetId) || qrTargetId.includes(String(m.id)));
+    }
     if (!alvo) return; // caixas ainda podem estar a fundir — o deadline decide o negativo
     qrTargetResolvedRef.current = qrTarget;
     setQrTarget(null);
+    setQrTargetId(null);
     limparQrDaUrl();
     setSelectedMessage(alvo);
     setTab(isGovMode ? 'gov-correspondencias' : 'correspondencias');
     window.scrollTo({ top: 0 });
-  }, [stage, qrTarget, inbox, instInbox, sentMessages, isGovMode]);
+  }, [stage, qrTarget, qrTargetId, inbox, instInbox, sentMessages, isGovMode]);
 
   // 2) Prazo de resolução: passado o tempo de merge da nuvem sem match local,
   // valida o protocolo no registo público e mostra o aviso honesto.
@@ -1289,6 +1306,7 @@ export default function App() {
       qrTargetResolvedRef.current = numero;
       const res = await supabaseService.validarProtocolo(numero);
       setQrTarget(null);
+      setQrTargetId(null);
       limparQrDaUrl();
       setQrNotice({
         protocolo: numero,

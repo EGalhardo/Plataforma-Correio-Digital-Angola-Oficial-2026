@@ -461,6 +461,14 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
       parsedJson?.referencia?.toUpperCase() || '',
     ].filter(Boolean);
 
+    // Q-3 (2026-08-21) — QR legados podem codificar um número de protocolo
+    // diferente do gravado na mensagem (o trigger de produção imutabiliza o
+    // protocol_number). O id do deep-link (INT-MESSAGE-2026-<id>) identifica a
+    // mensagem REAL: usa-o como chave de localização.
+    const qrMessageId = (deepLink?.id && /^INT-(?:MESSAGE|DOCUMENT)-2026-(\d+)$/i.test(deepLink.id))
+      ? String(deepLink.id).match(/^INT-(?:MESSAGE|DOCUMENT)-2026-(\d+)$/i)?.[1]
+      : undefined;
+
     // Let's check matching document
     let foundDoc: Document | null = null;
     for (const doc of documents) {
@@ -495,7 +503,9 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
           key === msgProt || 
           msgProt.includes(key) || 
           key.includes(msgProt)
-        ) || normalizedCode.includes(msgProt) || normalizedCode.includes(msgId);
+        ) || normalizedCode.includes(msgProt) || normalizedCode.includes(msgId)
+        // Q-3 — localização pelo id real do deep-link (QR legado com número divergente)
+        || (!!qrMessageId && (msgId === qrMessageId || String(msg.id).includes(qrMessageId) || qrMessageId.includes(msgId)));
 
         if (isMatch) {
           foundMsg = msg;

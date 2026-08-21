@@ -9,7 +9,7 @@ import { ArrowLeft, Download, ShieldCheck, QrCode, Info, ExternalLink, Printer, 
 import { useLanguage } from '../../hooks/useLanguage';
 import { Document } from '../../types';
 import { USER_PROFILE_PHOTO } from '../../constants/data';
-import { generateProtocol } from '../../utils/protocolGenerator';
+import { generateProtocol, buildQrCodeDeepLink } from '../../utils/protocolGenerator';
 import { QrCodeImage } from '../ui/QrCodeImage';
 import { GovernmentAIPanel } from './GovernmentAIPanel';
 import { AssistenteDocumento } from './AssistenteDocumento';
@@ -39,6 +39,12 @@ export function DocumentDetail({
     ),
     ...(selectedDoc.protocol || {})
   };
+  // Q-3 (2026-08-21) — QR codifica o número REAL gravado (nunca o regenerado).
+  protocol.qrCodeUrl = buildQrCodeDeepLink(
+    protocol.protocolNumber,
+    protocol.internalId,
+    protocol.digitalSeal
+  );
 
   return (
     <motion.div 

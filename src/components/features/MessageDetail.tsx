@@ -67,7 +67,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { Message, SENSITIVITY_LEVELS, PRIORITY_CONFIGS, ReplySendPayload, ReplySendResult } from '../../types';
-import { generateProtocol, generateTimelineEvents, getCategoryMetadata, canonicalProtocolPayload, sealProtocolContent } from '../../utils/protocolGenerator';
+import { generateProtocol, generateTimelineEvents, getCategoryMetadata, canonicalProtocolPayload, sealProtocolContent, buildQrCodeDeepLink } from '../../utils/protocolGenerator';
 import { supabaseService, resolveInstitutionCode } from '../../services/supabaseService';
 import { VideoSessionPanel } from './VideoSessionPanel';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -1462,6 +1462,14 @@ depende de integração futura com a infra-estrutura de chaves nacional.
     ),
     ...(selectedMessage.protocol || {})
   };
+  // Q-3 (2026-08-21) — o QR passa a codificar SEMPRE o número REAL gravado na
+  // mensagem (antes codificava o número do protocolo REGENERADO, que divergia
+  // do gravado — a validação devolvia "REGISTO NÃO ENCONTRADO").
+  protocol.qrCodeUrl = buildQrCodeDeepLink(
+    protocol.protocolNumber,
+    protocol.internalId,
+    protocol.digitalSeal
+  );
 
   // Q-2 — ligação deep-link da correspondência (o QR codifica exactamente este
   // endereço: digitalizar abre a mensagem na plataforma).

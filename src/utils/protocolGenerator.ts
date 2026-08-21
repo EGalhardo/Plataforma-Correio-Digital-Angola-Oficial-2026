@@ -282,8 +282,7 @@ export function generateProtocol(
       try { return window.location.origin.replace(/\/+$/, ''); } catch { return ''; }
     })()) || 'https://correio-digital-angola-oficial.vercel.app';
   
-  const qrPayload = `${platformBase}/?correspondencia=${encodeURIComponent(protocolNumber)}&id=${encodeURIComponent(internalId)}&reg=${encodeURIComponent(digitalSeal)}`;
-  // Q-1 (backlog) — QR 100% local: o valor guardado passa a ser o PRÓPRIO
+  const qrPayload = `${platformBase}/?correspondencia=${encodeURIComponent(protocolNumber)}&id=${encodeURIComponent(internalId)}&reg=${encodeURIComponent(digitalSeal)}`;  // Q-1 (backlog) — QR 100% local: o valor guardado passa a ser o PRÓPRIO
   // payload; a imagem é desenhada offline pelo componente QrCodeImage (pacote
   // 'qrcode', já dependência). Antes: URL api.qrserver.com — fuga do conteúdo
   // do protocolo a serviço externo em cada registo (e URL gravado na nuvem).
@@ -542,3 +541,29 @@ export async function sealProtocolContent(canonical: string): Promise<string | n
     return null;
   }
 }
+
+// ============================================================================
+// Q-3 (2026-08-21) — deep-link QR CONSISTENTE com um protocolo já existente.
+// ----------------------------------------------------------------------------
+// Problema real: o envio gera o protocolo com org=destinatário (ex. "LA-…"),
+// mas o Detalhe regenera outro protocolo com org da mensagem (ex. "INAPE-…") —
+// o QR codificava um NÚMERO diferente do gravado na mensagem e a validação
+// devolvia "REGISTO NÃO ENCONTRADO". Esta função constrói o deep-link a partir
+// do NÚMERO REAL (o gravado), para o QR apontar sempre ao registo correcto.
+// ============================================================================
+export const buildQrCodeDeepLink = (
+  protocolNumber: string,
+  internalId?: string,
+  digitalSeal?: string,
+): string => {
+  const base =
+    (typeof window !== 'undefined' && (() => {
+      try { return window.location.origin.replace(/\/+$/, ''); } catch { return ''; }
+    })()) || 'https://correio-digital-angola-oficial.vercel.app';
+  const partes = [
+    `correspondencia=${encodeURIComponent(protocolNumber || '')}`,
+  ];
+  if (internalId) partes.push(`id=${encodeURIComponent(internalId)}`);
+  if (digitalSeal) partes.push(`reg=${encodeURIComponent(digitalSeal)}`);
+  return `${base}/?${partes.join('&')}`;
+};

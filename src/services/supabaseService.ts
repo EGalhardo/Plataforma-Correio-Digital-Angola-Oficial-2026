@@ -2064,20 +2064,23 @@ export const supabaseService = {
     if (!hasValidSupabaseKeys()) return null;
     try {
       const payload = {
-        protocol_number: p.protocolNumber,
-        issuer_institution: p.issuerInstitution,
+        protocol_number: (p.protocolNumber || '').slice(0, 100),
+        issuer_institution: (p.issuerInstitution || '').slice(0, 100),
         official_issue_date: p.officialIssueDate || new Date().toISOString().split('T')[0],
         official_time: p.officialTime ? p.officialTime.split(" ")[0].padStart(8, "0") : "12:00:00",
-        issuer_responsible: p.issuerResponsible || 'Sistema CADA',
-        category: p.category || 'Geral',
-        document_type: p.documentType || 'Correspondência',
-        current_state: p.currentState || 'Ativo',
-        priority: p.priority || 'Normal',
+        issuer_responsible: (p.issuerResponsible || 'Sistema CADA').slice(0, 100),
+        category: (p.category || 'Geral').slice(0, 100),
+        document_type: (p.documentType || 'Correspondência').slice(0, 100),
+        current_state: (p.currentState || 'Ativo').slice(0, 100),
+        priority: (p.priority || 'Normal').slice(0, 100),
         qr_code_url: (p.qrCodeUrl || '').slice(0, 100),
         // P0-A — sem chave/honra inventadas: nunca preencher com assinatura
         // fabricada quando o selo não foi aplicado (marcador honesto).
-        digital_signature: p.digitalSignature || 'NAO_SELADO',
-        legal_validity: p.legalValidity || 'Registo tecnico de integridade (sem assinatura qualificada)'
+        digital_signature: (p.digitalSignature || 'NAO_SELADO').slice(0, 100),
+        // Q-4 (2026-08-21) — legal_validity da produção é VARCHAR(100): sem
+        // este corte o insert falhava 22001 EM SILÊNCIO e o protocolo nunca
+        // era gravado → validação QR "REGISTO NÃO ENCONTRADO".
+        legal_validity: (p.legalValidity || 'Registo tecnico de integridade (sem assinatura qualificada)').slice(0, 100)
       };
       // v25 (familia do bug de auditoria — provado por sonda REST em 2026-08-05):
       // NAO encadear .select(). O SELECT em digital_protocols exige papel
