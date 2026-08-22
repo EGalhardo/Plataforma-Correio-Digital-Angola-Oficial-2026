@@ -530,7 +530,7 @@ const proxyDados = async (payload: Record<string, unknown>): Promise<any | null>
 
 /** Lê linhas: proxy quando há sessão; senão caminho directo (demo/dev). */
 interface ExtrasLeitura { limite?: number; notNull?: string[]; notIn?: Record<string, (string | number)[]>; }
-const lerLinhasDados = async <T,>(
+export const lerLinhasDados = async <T,>(
   tabela: string,
   filtros: Record<string, string | number> | undefined,
   ordem: { col: string; dir: 'asc' | 'desc' } | undefined,
@@ -552,7 +552,7 @@ const lerLinhasDados = async <T,>(
 };
 
 /** Grava (insert/update/delete): proxy quando há sessão; senão directo. */
-const gravarDados = async <T,>(
+export const gravarDados = async <T,>(
   tabela: string,
   operacao: 'insert' | 'update' | 'delete',
   filtros: Record<string, string | number> | undefined,

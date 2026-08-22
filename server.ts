@@ -373,6 +373,13 @@ const DADOS_COLUNAS: Record<string, Record<string, boolean>> = {
   audit_logs: { action: true, username: true, action_type: true, timestamp: true },
   message_state_history: { id: true, message_id: true, state: true, responsible: true, description: true, created_at: true, event_date: true, event_time: true },
   solicitacoes_registo: { id: true, nome: true, email: true, bi_numero: true, url_frente: true, url_verso: true, url_selfie: true, status: true, observacoes: true, criado_em: true },
+  video_sessions: {
+    id: true, room_name: true, subject: true, associated_protocol: true,
+    associated_message_id: true, status: true, host_bi: true, host_name: true,
+    guest_bi: true, guest_name: true, scheduled_for: true, created_at: true,
+    closed_at: true, agenda: true, notes: true, duration: true, quality: true,
+    participant_count: true,
+  },
 };
 
 interface DadosIdentidade {
@@ -449,6 +456,57 @@ const DADOS_TABELAS: Record<string, {
     publicInsert: true,
     escopo: (i) => (i && i.isAdmin) ? { or: [], and: {} } : (i ? { or: [], and: { bi_numero: i.bi } } : { or: [], and: {} }),
     injetar: (i, d) => (i && !i.isAdmin) ? { ...d, bi_numero: i.bi } : d,
+  },
+  video_sessions: {
+    select: true, insert: true, update: true, delete: true, upsert: true,
+    // 2026-08-22 — Video-atendimento: a instituição vê/gera as sessões de que
+    // é ANFITRIÃ; o cidadão vê as sessões agendadas PARA ele; admin vê tudo.
+    // A tabela de produção usa citizen_bi/institution_code como colunas
+    // canónicas e mantém host_bi/guest_bi legadas — o escopo cobre ambas.
+    escopo: (i) => i.isAdmin ? { or: [], and: {} }
+      : i.isInst ? { or: [`institution_code.eq.${i.instCode || i.bi}`, `host_bi.eq.${i.instCode || i.bi}`], and: {} }
+      : { or: [`citizen_bi.eq.${i.bi}`, `guest_bi.eq.${i.bi}`], and: {} },
+    injetar: (i, d) => {
+      // titularidade FORÇADA + preenchimento das colunas OBRIGATÓRIAS da
+      // tabela de produção (reference_code, title, origin_type, citizen_*,
+      // institution_*, scheduled_date/time, meeting_* — o cliente legado só
+      // conhece as colunas antigas).
+      if (i.isAdmin) return d;
+      const host = i.isInst ? (i.instCode || i.bi) : '';
+      const guest = i.isInst ? '' : i.bi;
+      const subject = String(d.subject || d.title || 'Video-atendimento');
+      const raw = String(d.scheduled_for || '');
+      const iso = raw.match(/(\d{4})-(\d{2})-(\d{2})/);
+      const horaM = raw.match(/(\d{2}):(\d{2})/);
+      const scheduled_date = iso ? `${iso[1]}-${iso[2]}-${iso[3]}` : new Date().toISOString().slice(0, 10);
+      const scheduled_time = horaM ? `${horaM[1]}:${horaM[2]}` : '09:00';
+      const ref = `VID-${scheduled_date.replace(/-/g, '')}-${String(d.id || '').replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+      const room = String(d.room_name || d.meeting_room || `cda-${String(d.id || '').slice(0, 8)}`);
+      return {
+        ...d,
+        reference_code: d.reference_code || ref,
+        title: d.title || subject,
+        description: d.description || d.agenda || null,
+        origin_type: d.origin_type || (i.isInst ? 'institucional' : 'cidadao'),
+        origin_id: d.origin_id || (i.isInst ? host : guest),
+        citizen_bi: d.citizen_bi || d.guest_bi || guest,
+        citizen_name: d.citizen_name || d.guest_name || 'Cidadão',
+        institution_code: d.institution_code || d.host_bi || host,
+        institution_name: d.institution_name || d.host_name || 'Instituição',
+        created_by: d.created_by || (i.isInst ? host : guest),
+        scheduled_date: d.scheduled_date || scheduled_date,
+        scheduled_time: d.scheduled_time || scheduled_time,
+        duration_minutes: d.duration_minutes || 30,
+        status: d.status || 'agendada',
+        priority: d.priority || 'Normal',
+        meeting_provider: d.meeting_provider || 'jitsi',
+        meeting_room: d.meeting_room || room,
+        meeting_url: d.meeting_url || `https://meet.jit.si/${room}`,
+        allow_reschedule: true,
+        allow_recording_request: false,
+        reminder_sent: false,
+      };
+    },
   },
 };
 

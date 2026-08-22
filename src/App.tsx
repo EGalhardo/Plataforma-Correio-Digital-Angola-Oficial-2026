@@ -4578,6 +4578,13 @@ Serviços ativos: Notificações em tempo real e interconexão garantida.`;
               onBack={() => setTab('correspondencias')}
               onNavigateToMail={() => setTab('correspondencias')}
               addAuditLog={addAuditLog}
+              // 2026-08-22 — contexto do papel: a instituição agenda com o
+              // cidadão; o cidadão vê as sessões agendadas PARA ele.
+              isInst={isInstMode}
+              bi={bi}
+              instCode={institutionCode || bi}
+              instDisplayName={activeProfile?.institutionName || sessionInstBrand.sigla || (isInstMode ? bi : '')}
+              sessionDemo={(isUserMode && isDemoCitizenSession) || (isInstMode && isDemoInstitutionSession)}
             />
           </PainelSuspense>
         );
@@ -5055,6 +5062,13 @@ Ficha civil do titular:
               onBack={() => setTab('correspondencias')}
               onNavigateToMail={() => setTab('correspondencias')}
               addAuditLog={addAuditLog}
+              // 2026-08-22 — contexto do papel: a instituição agenda com o
+              // cidadão; o cidadão vê as sessões agendadas PARA ele.
+              isInst={isInstMode}
+              bi={bi}
+              instCode={institutionCode || bi}
+              instDisplayName={activeProfile?.institutionName || sessionInstBrand.sigla || (isInstMode ? bi : '')}
+              sessionDemo={(isUserMode && isDemoCitizenSession) || (isInstMode && isDemoInstitutionSession)}
             />
           </PainelSuspense>
         );

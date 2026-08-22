@@ -7,7 +7,7 @@
  */
 
 import { supabase } from '../lib/supabaseClient';
-import { hasValidSupabaseKeys } from './supabaseService';
+import { hasValidSupabaseKeys, lerLinhasDados, gravarDados } from './supabaseService';
 import { VideoSession, VideoSessionEvent } from '../types';
 
 // UUID validation and generator helpers to prevent syntax errors with Supabase database
@@ -212,47 +212,54 @@ const saveLocalNotifications = (notifications: VideoSessionNotification[]) => {
   localStorage.setItem('cda_video_notifications', JSON.stringify(notifications));
 };
 
+// 2026-08-22 — mapeia uma linha crua (snake/camel) da tabela video_sessions
+// para o modelo da página (o proxy devolve as colunas da BD).
+const mapearLinhaSessao = (d: LinhaVideoSessao): VideoSessionExtended | null => {
+  if (!d) return null;
+  const id = String(d.id ?? '');
+  if (!id) return null;
+  return {
+    id,
+    roomName: d.room_name || d.roomName || `cda-video-${id.slice(0, 8)}`,
+    subject: d.subject || 'Video-atendimento',
+    associatedProtocol: d.associated_protocol || d.associatedProtocol,
+    associatedMessageId: d.associated_message_id || d.associatedMessageId,
+    status: d.status as VideoSessionExtended['status'],
+    hostBi: d.host_bi || d.hostBi || '',
+    hostName: d.host_name || d.hostName || 'Instituição',
+    guestBi: d.guest_bi || d.guestBi || '',
+    guestName: d.guest_name || d.guestName || 'Cidadão',
+    scheduledFor: d.scheduled_for || d.scheduledFor || '',
+    createdAt: d.created_at || d.createdAt || new Date().toISOString(),
+    closedAt: d.closed_at || d.closedAt,
+    agenda: d.agenda,
+    notes: d.notes,
+    duration: d.duration,
+    quality: d.quality as VideoSessionExtended['quality'],
+    participantCount: d.participant_count || d.participantCount || 2,
+  };
+};
+
 export const VideoSessionService = {
   /**
    * Lists all video sessions with enhanced metadata
    */
   async listSessions(): Promise<VideoSessionExtended[]> {
     const local = getLocalSessions();
-    if (!hasValidSupabaseKeys()) {
-      return local;
-    }
-    try {
-      const { data, error } = await supabase
-        .from('video_sessions')
-        .select('*')
-        .order('created_at', { ascending: false });
-        
-      if (error) throw error;
-      if (data && data.length > 0) {
-        const mapped: VideoSessionExtended[] = data.map((d: LinhaVideoSessao) => ({
-          id: String(d.id ?? ''),
-          roomName: d.room_name || d.roomName,
-          subject: d.subject,
-          associatedProtocol: d.associated_protocol || d.associatedProtocol,
-          associatedMessageId: d.associated_message_id || d.associatedMessageId,
-          status: d.status as VideoSessionExtended['status'],
-          hostBi: d.host_bi || d.hostBi,
-          hostName: d.host_name || d.hostName,
-          guestBi: d.guest_bi || d.guestBi,
-          guestName: d.guest_name || d.guestName,
-          scheduledFor: d.scheduled_for || d.scheduledFor,
-          createdAt: d.created_at || d.createdAt,
-          closedAt: d.closed_at || d.closedAt,
-          agenda: d.agenda,
-          notes: d.notes,
-          duration: d.duration,
-          quality: d.quality as VideoSessionExtended['quality'],
-          participantCount: d.participant_count || 2
-        }));
-        return mapped;
-      }
-    } catch (e) {
-      console.warn('Supabase key error or query failed, serving fallback:', e);
+    // 2026-08-22 — MODO REAL: a leitura passa pelo proxy /api/dados com o
+    // escopo de titularidade de video_sessions (instituição → host_bi;
+    // cidadão → guest_bi; admin → tudo). Sem sessão (demo) ou com o proxy
+    // indisponível, mantém-se o espelho local de sempre (D3).
+    const linhas = await lerLinhasDados<LinhaVideoSessao>(
+      'video_sessions',
+      undefined,
+      { col: 'created_at', dir: 'desc' },
+      async () => null,
+    );
+    if (linhas) {
+      if (linhas.length === 0) return [];
+      const mapeadas = linhas.map(mapearLinhaSessao).filter((s): s is VideoSessionExtended => s !== null);
+      return mapeadas;
     }
     return local;
   },
@@ -320,9 +327,13 @@ export const VideoSessionService = {
     local.unshift(newSession);
     saveLocalSessions(local);
 
+    // 2026-08-22 — MODO REAL: persistência NA NUVEM via proxy /api/dados
+    // (RLS endurecida bloqueia o insert directo do cliente). O servidor
+    // injeta host_bi (instituição) ou guest_bi (cidadão) conforme a sessão.
     if (hasValidSupabaseKeys()) {
-      try {
-        await supabase.from('video_sessions').insert([{
+      await gravarDados(
+        'video_sessions', 'insert', undefined,
+        [{
           id,
           room_name: session.roomName,
           subject: session.subject,
@@ -338,11 +349,11 @@ export const VideoSessionService = {
           agenda: (session as any).agenda || null,
           notes: (session as any).notes || null,
           quality: 'excellent',
-          participant_count: 2
-        }]);
-      } catch (err) {
-        console.warn('Error saving session to Supabase, fallback to client state:', err);
-      }
+          participant_count: 2,
+        }],
+        undefined,
+        async () => null,
+      );
     }
 
     await this.addSessionEvent(
@@ -364,42 +375,43 @@ export const VideoSessionService = {
   async updateSessionStatus(id: string, status: VideoSession['status']): Promise<VideoSessionExtended | null> {
     const local = getLocalSessions();
     const index = local.findIndex(s => s.id === id);
-    if (index === -1) return null;
+    // 2026-08-22 — sessões vindas do proxy (Modo Real) podem NÃO existir no
+    // espelho local: o estado é persistido na nuvem na mesma; o espelho local
+    // só é tocado quando a sessão está nele (demo/offline).
+    const prevSession = index >= 0 ? local[index] : null;
 
     const now = new Date().toISOString();
-    const prevSession = local[index];
-    
-    let duration = prevSession.duration;
+    let duration = prevSession?.duration;
     if (status === 'concluida' || status === 'cancelada') {
-      const startTime = new Date(prevSession.createdAt).getTime();
-      const endTime = Date.now();
-      duration = Math.floor((endTime - startTime) / 1000);
+      const startTime = prevSession?.createdAt ? new Date(prevSession.createdAt).getTime() : Date.now();
+      duration = Math.floor((Date.now() - startTime) / 1000);
     }
 
-    const updated: VideoSessionExtended = {
-      ...prevSession,
-      status,
-      closedAt: (status === 'concluida' || status === 'cancelada') ? now : undefined,
-      duration: duration || prevSession.duration,
-      quality: status === 'em_curso' ? 'excellent' : prevSession.quality
-    };
-    
-    local[index] = updated;
-    saveLocalSessions(local);
+    let updated: VideoSessionExtended | null = null;
+    if (prevSession) {
+      updated = {
+        ...prevSession,
+        status,
+        closedAt: (status === 'concluida' || status === 'cancelada') ? now : undefined,
+        duration: duration || prevSession.duration,
+        quality: status === 'em_curso' ? 'excellent' : prevSession.quality
+      };
+      local[index] = updated;
+      saveLocalSessions(local);
+    }
 
+    // 2026-08-22 — MODO REAL: estado persistido na nuvem via proxy.
     if (hasValidSupabaseKeys() && isUUID(id)) {
-      try {
-        await supabase
-          .from('video_sessions')
-          .update({ 
-            status,
-            closed_at: (status === 'concluida' || status === 'cancelada') ? now : null,
-            duration: duration || null
-          })
-          .eq('id', id);
-      } catch (err) {
-        console.warn('Supabase Status Update failed:', err);
-      }
+      await gravarDados(
+        'video_sessions', 'update', { id },
+        {
+          status,
+          closed_at: (status === 'concluida' || status === 'cancelada') ? now : null,
+          duration: duration || null,
+        },
+        undefined,
+        async () => null,
+      );
     }
 
     const eventDescriptions: Record<string, string> = {
@@ -413,8 +425,8 @@ export const VideoSessionService = {
     await this.addSessionEvent(
       id,
       status === 'em_curso' ? 'iniciada' : status === 'concluida' ? 'encerrada' : status === 'cancelada' ? 'cancelada' : 'agendada',
-      updated.hostBi,
-      updated.hostName,
+      updated?.hostBi || prevSession?.hostBi || '',
+      updated?.hostName || prevSession?.hostName || 'Instituição',
       eventDescriptions[status] || `Estado da sessão atualizado para "${status}".`
     );
 

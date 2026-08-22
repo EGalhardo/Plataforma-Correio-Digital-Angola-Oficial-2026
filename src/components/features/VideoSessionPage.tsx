@@ -10,6 +10,10 @@ import { motion } from 'motion/react';
 import {
   Video,
   Calendar,
+  CalendarPlus,
+  Search,
+  X,
+  Plus,
   Clock,
   User,
   CheckCircle,
@@ -32,8 +36,10 @@ import {
   Loader2
 } from 'lucide-react';
 import { useLanguage } from '../../hooks/useLanguage';
+import { notify } from '../../lib/notify';
 import { VideoSessionService } from '../../services/videoSessionService';
 import type { VideoSessionExtended } from '../../services/videoSessionService';
+import { supabaseService } from '../../services/supabaseService';
 
 // Servidor Jitsi configurável (FASE 2026-08-15): por defeito usa o serviço
 // público meet.jit.si, mas pode apontar para um servidor próprio (self-hosted)
@@ -339,6 +345,15 @@ interface VideoSessionPageProps {
   onBack?: () => void;
   onNavigateToMail?: () => void;
   addAuditLog?: (action: string, type: 'info' | 'success' | 'warning' | 'critical') => void;
+  // 2026-08-22 — contexto da sessão: a página passa a distinguir os papéis.
+  //  · Instituição: agenda video-atendimentos com QUALQUER cidadão registado
+  //    (lookup por BI) e vê as sessões de que é anfitriã.
+  //  · Cidadão: vê as sessões agendadas PARA ele e entra na sala em tempo real.
+  isInst?: boolean;
+  bi?: string;
+  instCode?: string;
+  instDisplayName?: string;
+  sessionDemo?: boolean;
 }
 
 // mockSessions com atendimentos disponíveis e 1 sessão de demonstração sempre activa
@@ -386,10 +401,101 @@ const mockSessions = [
   }
 ];
 
-export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps) {
+export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '', instCode = '', instDisplayName = '', sessionDemo = false }: VideoSessionPageProps) {
   const { t } = useLanguage();
   
   const [sessions, setSessions] = useState<any[]>([]);
+
+  // ==========================================================================
+  // 2026-08-22 — AGENDAMENTO pela INSTITUIÇÃO (qualquer cidadão registado)
+  // ==========================================================================
+  const [showAgendar, setShowAgendar] = useState(false);
+  const [formAgendar, setFormAgendar] = useState({
+    assunto: '', data: '', hora: '', agenda: '', biCidadao: '', nomeCidadao: '',
+  });
+  const [lookupEstado, setLookupEstado] = useState<'idle' | 'checking' | 'found' | 'not_found'>('idle');
+  const [formErro, setFormErro] = useState('');
+  const [aAgendar, setAAgendar] = useState(false);
+
+  const normalizar = (s?: string) => String(s || '').toUpperCase().replace(/\s+/g, '');
+
+  /** Filtra as sessões para o papel da sessão (o proxy já devolve escopado;
+   *  este filtro cobre o fallback local e as listas demo). */
+  const filtrarParaSessao = useCallback((lista: any[]): any[] => {
+    if (sessionDemo) return lista;
+    if (isInst) return lista.filter(s => normalizar(s.hostBi) === normalizar(instCode || bi));
+    return lista.filter(s => normalizar(s.guestBi) === normalizar(bi));
+  }, [sessionDemo, isInst, instCode, bi]);
+
+  const handleVerificarCidadao = async () => {
+    setFormErro('');
+    const alvo = normalizar(formAgendar.biCidadao);
+    if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(alvo)) {
+      setLookupEstado('not_found');
+      setFormErro('Escreva um Nº de B.I. válido (ex.: 002399714LA030).');
+      return;
+    }
+    setLookupEstado('checking');
+    const res = await supabaseService.institutionLookupCidadao(alvo);
+    if (res.found && res.citizen) {
+      const nome = res.citizen.name || '';
+      setFormAgendar(prev => ({ ...prev, biCidadao: alvo, nomeCidadao: nome }));
+      setLookupEstado('found');
+    } else {
+      setLookupEstado('not_found');
+      setFormErro(res.errorCode === 'SEM_CHAVES'
+        ? 'A verificação de cidadãos está indisponível (nuvem sem chaves).'
+        : `Cidadão não localizado na plataforma (${res.errorCode || 'não registado'}). O video-atendimento só pode ser agendado para cidadãos registados no Correio Digital de Angola.`);
+    }
+  };
+
+  const handleAgendar = async () => {
+    setFormErro('');
+    const { assunto, data, hora, biCidadao, nomeCidadao } = formAgendar;
+    if (assunto.trim().length < 4) { setFormErro('Escreva o assunto do atendimento.'); return; }
+    if (!data || !hora) { setFormErro('Escolha a data e a hora do atendimento.'); return; }
+    if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(normalizar(biCidadao))) { setFormErro('Indique o Nº de B.I. do cidadão.'); return; }
+    if (lookupEstado !== 'found' || !nomeCidadao.trim()) {
+      setFormErro('Verifique primeiro o cidadão (botão Verificar) — o agendamento fica registado com o nome oficial.');
+      return;
+    }
+    setAAgendar(true);
+    try {
+      const codigo = normalizar(instCode || bi) || 'INST';
+      const agora = Date.now();
+      const nova = await VideoSessionService.createSession({
+        roomName: `cda-video-${codigo}-${agora}`,
+        subject: assunto.trim(),
+        status: 'agendada',
+        hostBi: codigo,
+        hostName: instDisplayName || codigo,
+        guestBi: normalizar(biCidadao),
+        guestName: nomeCidadao.trim(),
+        scheduledFor: `${data} às ${hora}`,
+        agenda: formAgendar.agenda.trim() || undefined,
+      } as any);
+      // Aviso ao cidadão: notificação persistida na nuvem (Modo Real via proxy)
+      // + notificação local deste dispositivo.
+      void supabaseService.insertNotification({
+        title: 'Video-atendimento agendado',
+        message: `${instDisplayName || codigo} agendou um video-atendimento: "${assunto.trim()}" para ${data} às ${hora}.`,
+        type: 'info',
+        targetTab: 'video-atendimento',
+      }, normalizar(biCidadao));
+      VideoSessionService.createNotification(String(nova.id), 'reminder', `Novo video-atendimento agendado: ${assunto.trim()}`);
+      addAuditLog?.(`Agendou video-atendimento com o cidadão ${nomeCidadao.trim()} (${normalizar(biCidadao)}) — "${assunto.trim()}" em ${data} às ${hora}.`, 'success');
+      setShowAgendar(false);
+      setFormAgendar({ assunto: '', data: '', hora: '', agenda: '', biCidadao: '', nomeCidadao: '' });
+      setLookupEstado('idle');
+      notify(`Video-atendimento agendado com ${nomeCidadao.trim()} para ${data} às ${hora}.`, 'success');
+      await loadSessions();
+    } catch (e) {
+      setFormErro('Não foi possível agendar. Tente novamente.');
+      console.error('[VIDEO-AGENDAR]', e);
+    } finally {
+      setAAgendar(false);
+    }
+  };
   type SessaoPagina = VideoSessionExtended | (typeof mockSessions)[number];
   const [selectedSession, setSelectedSession] = useState<SessaoPagina | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -415,18 +521,22 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
     setIsLoading(true);
     try {
       const allSessions = await VideoSessionService.listSessions();
-      // Garantir que a sessão demo de teste esteja sempre ativa e incluída na lista para demonstração
-      let finalSessions: SessaoPagina[] = allSessions.length > 0 ? [...allSessions] : [...mockSessions];
-      if (!finalSessions.some(s => s.id === 'sessao-demo')) {
+      // 2026-08-22 — contas REAIS nunca veem mocks/demo: a lista vem do proxy
+      // com o escopo do papel (instituição → host; cidadão → convidado).
+      // Contas demo mantêm as sessões de demonstração de sempre.
+      let finalSessions: SessaoPagina[] = sessionDemo
+        ? (allSessions.length > 0 ? [...allSessions] : [...mockSessions])
+        : [...allSessions];
+      if (sessionDemo && !finalSessions.some(s => s.id === 'sessao-demo')) {
         finalSessions = [mockSessions[0], ...finalSessions];
       }
-      setSessions(finalSessions);
+      setSessions(filtrarParaSessao(finalSessions));
     } catch (e) {
-      setSessions(mockSessions);
+      setSessions(sessionDemo ? mockSessions : []);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [sessionDemo, filtrarParaSessao]);
   
   useEffect(() => { loadSessions(); }, [loadSessions]);
   
@@ -468,6 +578,12 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
     setActiveTab('video');
     setIsVideoOn(true);
     setIsAudioOn(true);
+    // 2026-08-22 — estado persistido (Modo Real via proxy): o outro
+    // participante vê a sessão "Em Curso" e entra na MESMA sala Jitsi —
+    // a chamada é em tempo real (áudio/vídeo WebRTC do meet.jit.si).
+    if (!String(session.id).startsWith('sessao-') && !String(session.id).startsWith('vs-')) {
+      void VideoSessionService.updateSessionStatus(session.id, 'em_curso');
+    }
     addAuditLog?.(`Iniciou videoatendimento: ${session.subject}`, 'info');
   };
   
@@ -512,6 +628,16 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
               <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               <span className="text-[10px] font-black text-red-700 uppercase dark:text-red-300">{inProgressCount} Em Curso</span>
             </div>
+          )}
+          {/* 2026-08-22 — AGENDAMENTO: exclusivo da instituição (anfitriã) */}
+          {isInst && (
+            <button
+              onClick={() => { setFormErro(''); setLookupEstado('idle'); setShowAgendar(true); }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer border-0 shadow-md"
+            >
+              <CalendarPlus size={15} />
+              Agendar Video-atendimento
+            </button>
           )}
         </div>
       </div>
@@ -600,8 +726,12 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
                                 </div>
                                 <h5 className="text-sm font-black text-slate-800 mb-1 cda-video-agenda-title">{session.subject}</h5>
                                 <div className="flex items-center gap-3 text-[10px] text-slate-500 cda-video-agenda-meta">
-                                  <span className="flex items-center gap-1"><User size={10} />{session.hostName}</span>
-                                  <span className="flex items-center gap-1"><Clock size={10} />{session.time}</span>
+                                  {isInst ? (
+                                    <span className="flex items-center gap-1"><User size={10} />Cidadão: {session.guestName}{session.guestBi ? ` (${session.guestBi})` : ''}</span>
+                                  ) : (
+                                    <span className="flex items-center gap-1"><User size={10} />{session.hostName}</span>
+                                  )}
+                                  <span className="flex items-center gap-1"><Clock size={10} />{session.scheduledFor || session.time || session.date}</span>
                                 </div>
                               </div>
                               <button onClick={(e) => { e.stopPropagation(); handleStartCall(session); }} className="px-3 py-1.5 bg-primary text-white text-[10px] font-black uppercase rounded-lg hover:bg-primary/90 transition-all border-0 cursor-pointer">Entrar</button>
@@ -609,6 +739,18 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
                           </motion.div>
                         );
                       })}
+                    {sessions.filter(s => s.status === 'disponivel' || s.status === 'agendada' || s.status === 'em_curso').length === 0 && (
+                      <div className="text-center py-10 px-4">
+                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 dark:bg-slate-800">
+                          <Calendar size={26} className="text-slate-400" />
+                        </div>
+                        <p className="text-[11px] font-black text-slate-500 uppercase tracking-wide dark:text-slate-400">
+                          {isInst
+                            ? 'Nenhum video-atendimento agendado. Use "Agendar Video-atendimento" para criar a primeira sessão com um cidadão.'
+                            : 'Nenhum video-atendimento agendado para si. Quando uma instituição agendar, a sessão aparece aqui.'}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -813,8 +955,114 @@ export function VideoSessionPage({ onBack, addAuditLog }: VideoSessionPageProps)
           </div>
         )}
       </div>
+
+      {/* ==========================================================================
+          2026-08-22 — MODAL DE AGENDAMENTO (instituição): marcar video-
+          atendimento com QUALQUER cidadão registado na plataforma (lookup por
+          B.I. real — nada de nomes inventados).
+          ========================================================================== */}
+      {showAgendar && isInst && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setShowAgendar(false)} />
+          <div className="relative bg-white w-full max-w-lg rounded-[28px] shadow-2xl border border-slate-200 p-6 md:p-7 space-y-4 max-h-[90vh] overflow-y-auto text-left font-sans">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                  <CalendarPlus size={19} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none">Agendar Video-atendimento</h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">{instDisplayName || 'Instituição'} • anfitriã da sessão</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAgendar(false)} className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer border-0" aria-label="Fechar">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="grid gap-1.5">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Assunto do atendimento *</label>
+              <input
+                type="text"
+                value={formAgendar.assunto}
+                onChange={(e) => setFormAgendar(prev => ({ ...prev, assunto: e.target.value }))}
+                placeholder="Ex.: Esclarecimento sobre o Certificado MPME"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data *</label>
+                <input type="date" value={formAgendar.data} onChange={(e) => setFormAgendar(prev => ({ ...prev, data: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400" />
+              </div>
+              <div className="grid gap-1.5">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Hora *</label>
+                <input type="time" value={formAgendar.hora} onChange={(e) => setFormAgendar(prev => ({ ...prev, hora: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400" />
+              </div>
+            </div>
+
+            {/* CIDADÃO — lookup real por BI */}
+            <div className="grid gap-1.5">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Cidadão (Nº de B.I.) *</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={formAgendar.biCidadao}
+                  onChange={(e) => { setFormAgendar(prev => ({ ...prev, biCidadao: e.target.value.toUpperCase(), nomeCidadao: '' })); setLookupEstado('idle'); }}
+                  placeholder="Ex.: 002399714LA030"
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-mono font-bold text-slate-800 outline-none focus:border-indigo-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleVerificarCidadao()}
+                  disabled={lookupEstado === 'checking'}
+                  className="flex items-center gap-1.5 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer border-0 shrink-0"
+                >
+                  <Search size={13} />
+                  {lookupEstado === 'checking' ? 'A verificar…' : 'Verificar'}
+                </button>
+              </div>
+              {lookupEstado === 'found' && (
+                <p className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 m-0">
+                  ✓ Cidadão localizado: <span className="font-black">{formAgendar.nomeCidadao}</span> ({formAgendar.biCidadao})
+                </p>
+              )}
+            </div>
+
+            <div className="grid gap-1.5">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Agenda do atendimento</label>
+              <textarea
+                value={formAgendar.agenda}
+                onChange={(e) => setFormAgendar(prev => ({ ...prev, agenda: e.target.value }))}
+                rows={3}
+                placeholder="Pontos a tratar na videochamada (fica visível para o cidadão)…"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-400 resize-y"
+              />
+            </div>
+
+            {formErro && (
+              <p className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 m-0">{formErro}</p>
+            )}
+
+            <p className="text-[10px] text-slate-500 font-semibold leading-relaxed m-0">
+              Ao agendar, o cidadão recebe a notificação oficial e vê a sessão na página Video-atendimento dele. No horário marcado, ambos entram na MESMA sala de vídeo (Jitsi Meet) — a chamada é em tempo real, com áudio e vídeo.
+            </p>
+
+            <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
+              <button onClick={() => setShowAgendar(false)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer border-0">Cancelar</button>
+              <button
+                onClick={() => void handleAgendar()}
+                disabled={aAgendar}
+                className="flex-1 py-3 bg-primary hover:bg-primary/90 disabled:opacity-60 text-white rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer border-0 shadow-md flex items-center justify-center gap-2"
+              >
+                <Plus size={14} />
+                {aAgendar ? 'A agendar…' : 'Agendar Atendimento'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
-
-export default VideoSessionPage;
