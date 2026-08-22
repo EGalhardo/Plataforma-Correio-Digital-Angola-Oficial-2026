@@ -64,7 +64,8 @@ import {
   Eraser,
   Download,
   Sparkles,
-  Loader2
+  Loader2,
+  Video
 } from 'lucide-react';
 import { Message, SENSITIVITY_LEVELS, PRIORITY_CONFIGS, ReplySendPayload, ReplySendResult } from '../../types';
 import { generateProtocol, generateTimelineEvents, getCategoryMetadata, canonicalProtocolPayload, sealProtocolContent, buildQrCodeDeepLink } from '../../utils/protocolGenerator';
@@ -2642,6 +2643,29 @@ depende de integração futura com a infra-estrutura de chaves nacional.
       )}
 
 
+
+      {/* 2026-08-22 — VIDEO-ATENDIMENTO: mensagem de agendamento recebida pela
+          instituição → botão que leva o cidadão à página de agendamento. */}
+      {(selectedMessage.details?.actions || []).includes('video-atendimento') && (
+        <div className="bg-gradient-to-r from-indigo-950 to-slate-900 border border-indigo-800 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center gap-4 print:hidden">
+          <div className="w-12 h-12 bg-indigo-500/15 border border-indigo-400/30 rounded-2xl flex items-center justify-center shrink-0">
+            <Video size={22} className="text-indigo-300" />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-white text-xs font-black uppercase tracking-wide m-0">Video-atendimento agendado</p>
+            <p className="text-indigo-200/80 text-[11px] font-semibold leading-relaxed mt-1 m-0">
+              Esta correspondência confirma o agendamento de uma videochamada. Entre na sala no horário marcado.
+            </p>
+          </div>
+          <button
+            onClick={() => { setSelectedMessage(null); setTab('video-atendimento'); }}
+            className="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer border-0 shadow-lg shadow-indigo-950/40 transition-colors shrink-0 flex items-center gap-2"
+          >
+            <Video size={14} />
+            Ir para o Video-atendimento
+          </button>
+        </div>
+      )}
 
       {/* Q-2 — QR de localização: todas as correspondências têm QR para abrir
           directamente na plataforma (deep-link) e validar na nuvem. */}

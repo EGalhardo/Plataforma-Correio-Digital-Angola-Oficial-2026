@@ -42,6 +42,8 @@ import { notify } from '../../lib/notify';
 import { VideoSessionService } from '../../services/videoSessionService';
 import type { VideoSessionExtended } from '../../services/videoSessionService';
 import { supabaseService } from '../../services/supabaseService';
+import { generateProtocol } from '../../utils/protocolGenerator';
+import type { Message } from '../../types';
 
 // Servidor Jitsi configurável (FASE 2026-08-15): por defeito usa o serviço
 // público meet.jit.si, mas pode apontar para um servidor próprio (self-hosted)
@@ -227,6 +229,7 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
   const containerRef = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<any>(null);
   const estadoRef = useRef<string>('checking');
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [remoteCount, setRemoteCount] = useState(0);
   const [callState, setCallState] = useState<'checking' | 'connecting' | 'connected' | 'error'>('checking');
@@ -302,6 +305,8 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
         });
         api.on('participantJoined', atualizarParticipantes);
         api.on('participantLeft', atualizarParticipantes);
+        // backup: poll periódico (alguns clientes não disparam os eventos).
+        pollRef.current = setInterval(atualizarParticipantes, 4000);
         api.on('videoConferenceLeft', () => {
           if (cancelado) return;
           setCallState('error');
@@ -343,6 +348,8 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
     return () => {
       cancelado = true;
       clearTimeout(timer);
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
       try { apiRef.current?.dispose?.(); } catch { /* melhor esforço */ }
       apiRef.current = null;
     };
@@ -405,10 +412,15 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
             cima — o ecrã grande NUNCA mostra a filmagem própria (a self-view
             fica apenas no PiP do canto inferior direito). */}
         {(callState === 'checking' || callState === 'connecting') && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/90">
-            <div className="text-center space-y-3">
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/95">
+            <div className="text-center space-y-4 max-w-sm px-6">
               <Loader2 size={28} className="animate-spin text-indigo-400 mx-auto" />
-              <p className="text-slate-300 text-[11px] font-bold">A ligar à sala de vídeo…</p>
+              <div>
+                <h4 className="text-white text-sm font-black uppercase tracking-wide">A ligar à sala de vídeo…</h4>
+                <p className="text-slate-400 text-[11px] font-medium leading-relaxed mt-2">
+                  O outro participante ainda não se encontra na sala. Aguarde, por favor — quando ele entrar, a imagem dele aparece aqui no ecrã grande.
+                </p>
+              </div>
             </div>
           </div>
         )}
@@ -420,14 +432,14 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
                 <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-amber-500 animate-pulse border-2 border-slate-950" />
               </div>
               <div>
-                <h4 className="text-white text-sm font-black uppercase tracking-wide">O outro participante ainda não entrou</h4>
+                <h4 className="text-white text-sm font-black uppercase tracking-wide">O outro participante ainda não se encontra na sala</h4>
                 <p className="text-slate-400 text-[11px] font-medium leading-relaxed mt-2">
-                  Você está ligado à sala e a sua imagem aparece no ecrã pequeno (canto inferior direito). Quando o outro participante entrar, a imagem dele aparece AQUI, no ecrã grande.
+                  Deve aguardar. Você está ligado e a sua imagem aparece no ecrã pequeno (canto inferior direito). Assim que o outro participante entrar, a imagem dele aparece AQUI, no ecrã grande.
                 </p>
               </div>
               <div className="inline-flex items-center gap-2 bg-slate-800/70 border border-slate-700 rounded-full px-4 py-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">Sala ativa • à espera</span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">Sala ativa • a aguardar o outro participante</span>
               </div>
             </div>
           </div>
@@ -593,14 +605,51 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
         scheduledFor: `${data} às ${hora}`,
         agenda: formAgendar.agenda.trim() || undefined,
       } as any);
-      // Aviso ao cidadão: notificação persistida na nuvem (Modo Real via proxy)
-      // + notificação local deste dispositivo.
+      // 2026-08-22 — AVISO AO CIDADÃO (formato oficial pedido pelo dono):
+      // 1) NOTIFICAÇÃO (dropdown da foto de perfil) com o texto "Caro cidadão
+      //    X, o instituto X agendou uma videochamada consigo…" — ao clicar,
+      //    o botão da notificação abre a página Video-atendimento.
+      // 2) CORRESPONDÊNCIA OFICIAL (caixa de entrada, NÃO LIDA — aparece no
+      //    contador de não-lidas da foto de perfil) com o mesmo texto e um
+      //    botão "Ir para o Video-atendimento" no detalhe da mensagem.
+      const nomeInst = instDisplayName || codigo;
+      const corpoAviso = `Caro cidadão ${nomeCidadao.trim()}, o(a) ${nomeInst} agendou uma videochamada consigo para o dia ${data} às ${hora}. Caso não seja possível comparecer, informe o(a) ${nomeInst} da sua indisponibilidade.\n\nAssunto da chamada: ${assunto.trim()}\nPara entrar: abra a página Video-atendimento no horário marcado.`;
       void supabaseService.insertNotification({
         title: 'Video-atendimento agendado',
-        message: `${instDisplayName || codigo} agendou um video-atendimento: "${assunto.trim()}" para ${data} às ${hora}.`,
+        message: corpoAviso.replace(/\n/g, ' '),
         type: 'info',
         targetTab: 'video-atendimento',
       }, normalizar(biCidadao));
+
+      // Correspondência oficial (unread) + protocolo selado (mesmo padrão do
+      // compositor oficial — executeOfficialSend).
+      try {
+        const messageId = Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);
+        const protocolo = generateProtocol(normalizar(biCidadao), 'message', messageId, `Video-atendimento: ${assunto.trim()}`);
+        const novaMensagem: Message = {
+          id: messageId,
+          org: normalizar(biCidadao),
+          preview: `Video-atendimento agendado: ${assunto.trim()}`,
+          date: 'hoje',
+          status: 'Informativo',
+          details: {
+            subject: `Video-atendimento agendado: ${assunto.trim()}`,
+            body: corpoAviso,
+            deadline: 'Sem prazo',
+            state: 'Entregue & Autenticado',
+            // marcador 'video-atendimento' → o Detalhe da Mensagem mostra o
+            // botão "Ir para o Video-atendimento".
+            actions: ['Ver detalhes', 'video-atendimento'],
+            attachments: [],
+          },
+          protocol: protocolo,
+        };
+        await supabaseService.sendOfficialMessage(novaMensagem, normalizar(biCidadao), codigo);
+        await supabaseService.insertDigitalProtocol(protocolo);
+        addAuditLog?.(`Correspondência oficial de agendamento enviada ao cidadão ${nomeCidadao.trim()} (${normalizar(biCidadao)}) — protocolo ${protocolo.protocolNumber}.`, 'success');
+      } catch (msgErr) {
+        console.warn('[VIDEO-AGENDAR] Correspondência oficial não pôde ser enviada (a sessão/notificação mantêm-se):', msgErr);
+      }
       VideoSessionService.createNotification(String(nova.id), 'reminder', `Novo video-atendimento agendado: ${assunto.trim()}`);
       addAuditLog?.(`Agendou video-atendimento com o cidadão ${nomeCidadao.trim()} (${normalizar(biCidadao)}) — "${assunto.trim()}" em ${data} às ${hora}.`, 'success');
       setShowAgendar(false);

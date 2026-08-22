@@ -2563,6 +2563,11 @@ export default function App() {
         const isDocumentMailboxMessage = (message: Message) => {
           const actionFlags = message.details?.actions || [];
           const compositeText = `${message.preview} ${message.details?.subject || ''}`.toLowerCase();
+          // 2026-08-22 — a correspondência de AGENDAMENTO de video-atendimento
+          // é sempre da CAIXA normal (nunca Documentos), mesmo que o assunto
+          // contenha "Certificado"/"certid" (ex.: 'Esclarecimento sobre o
+          // Certificado MPME').
+          if (actionFlags.includes('video-atendimento')) return false;
           return actionFlags.includes('__DOC__')
             || (message.id >= 10000 && /fatura|certid|documento|passaporte|bi digital|carta de condução|vacina|receita|guia|tramita/.test(compositeText));
         };
