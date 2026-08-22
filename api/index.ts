@@ -1675,6 +1675,82 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
       }
     }
 
+    // ELIMINAÇÃO COMPLETA DE AGENTE (2026-08-22) — espelho de server.ts:
+    // conta Auth + avatares no Storage; autorização por papel do token
+    // (responsável da instituição elimina membros da SUA instituição; admin
+    // elimina agentes ADMIN-NNNN). Contas demo nunca tocam na nuvem.
+    if (url.includes('/api/eliminar-agente') && method === 'POST') {
+      try {
+        if (!supaUrlPerfil || !serviceKeyPerfil) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        const { agente } = body || {};
+        const agenteNorm = String(agente || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(agenteNorm)) return res.status(400).json({ ok: false, erro: 'Nº de agente inválido.' });
+        if (['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP'].includes(agenteNorm)) return res.status(403).json({ ok: false, demo: true, erro: 'demo' });
+        const token = String(req.headers.authorization || (req.headers as any).Authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+        const sessResp = await fetch(`${supaUrlPerfil}/auth/v1/user`, {
+          headers: { apikey: serviceKeyPerfil, Authorization: `Bearer ${token}` },
+        });
+        if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+        const sess = await sessResp.json().catch(() => null);
+        const user = sess && (sess.user || sess);
+        const meta = (user && user.user_metadata) || {};
+        const roleCaller = String(meta.role || '').toLowerCase();
+        const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
+        const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+        const ehAdminAgente = /^ADMIN-\d+$/.test(agenteNorm);
+        let autorizado = false;
+        if (roleCaller === 'admin' && ehAdminAgente) {
+          autorizado = true;
+        } else if (roleCaller === 'instituicao' && !ehAdminAgente && instCaller && agentCaller === `${instCaller}-01`) {
+          const mSeq = agenteNorm.match(/-(\d+)$/);
+          const seq = mSeq ? parseInt(mSeq[1], 10) : 0;
+          autorizado = agenteNorm.startsWith(`${instCaller}-`) && seq >= 2;
+        }
+        if (!autorizado) return res.status(403).json({ ok: false, erro: 'Sem autorização para eliminar este agente.' });
+        const dominio = ehAdminAgente ? 'admin.correiodigital.ao' : 'inst.correiodigital.ao';
+        const emailAlvo = `agente.${agenteNorm.toLowerCase()}@${dominio}`;
+        const h = { apikey: serviceKeyPerfil, Authorization: `Bearer ${serviceKeyPerfil}` };
+        let conta = 'nao_encontrada';
+        try {
+          for (let pagina = 1; pagina <= 10; pagina++) {
+            const lu = await fetch(`${supaUrlPerfil}/auth/v1/admin/users?per_page=200&page=${pagina}`, { headers: h });
+            if (!lu.ok) break;
+            const lista = await lu.json().catch(() => null);
+            const users = lista?.users || [];
+            if (!users.length) break;
+            const alvo = users.find((u: any) => String(u.email || '').toLowerCase() === emailAlvo);
+            if (alvo) {
+              const du = await fetch(`${supaUrlPerfil}/auth/v1/admin/users/${alvo.id}`, { method: 'DELETE', headers: h });
+              conta = du.ok ? 'eliminada' : 'falha';
+              break;
+            }
+          }
+        } catch { conta = 'falha'; }
+        let avatares = 0;
+        try {
+          const lr = await fetch(`${supaUrlPerfil}/storage/v1/object/list/fotos_perfil`, {
+            method: 'POST',
+            headers: { ...h, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prefix: 'avatars', limit: 200, offset: 0 }),
+          });
+          if (lr.ok) {
+            const arquivos = await lr.json().catch(() => []);
+            const alvos = (Array.isArray(arquivos) ? arquivos : []).filter((f: any) => String(f.name || '').startsWith(`${agenteNorm}_`));
+            for (const f of alvos) {
+              const path = `avatars/${encodeURIComponent(f.name)}`;
+              const dr = await fetch(`${supaUrlPerfil}/storage/v1/object/fotos_perfil/${path}`, { method: 'DELETE', headers: h });
+              if (dr.ok) avatares++;
+            }
+          }
+        } catch { /* best-effort */ }
+        return res.status(200).json({ ok: true, conta, avatares });
+      } catch (e: any) {
+        console.error('[ELIMINAR-AGENTE] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
     if (url.includes('/api/perfil') && method === 'GET') {
       try {
         const bi = String((req.query && (req.query as any).bi) || '').trim().toUpperCase();

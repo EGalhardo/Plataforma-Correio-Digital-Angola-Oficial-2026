@@ -702,6 +702,79 @@ async function dadosResolverEExecutar(opts: {
   });
 
 
+  // ============================================================================
+  // ELIMINAÇÃO COMPLETA DE AGENTE (2026-08-22)
+  // ----------------------------------------------------------------------------
+  // A página Equipa elimina colaboradores/agentes SEM deixar restos: conta Auth
+  // na nuvem, avatares no Storage e (do lado do cliente) credenciais/espelhos
+  // locais. Autorização:
+  //   · responsável da instituição (meta.agent = CODIGO-01) elimina membros da
+  //     SUA instituição (CODIGO-NN com NN >= 2);
+  //   · admin da plataforma (meta.role = 'admin') elimina agentes ADMIN-NNNN.
+  // Contas demo canónicas nunca tocam na nuvem (403 demo — defesa).
+  app.post("/api/eliminar-agente", async (req, res) => {
+    try {
+      const { agente } = req.body || {};
+      const agenteNorm = String(agente || '').trim().toUpperCase().replace(/\s+/g, '');
+      if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(agenteNorm)) return res.status(400).json({ ok: false, erro: 'Nº de agente inválido.' });
+      if (DADOS_DEMO_BIS.includes(agenteNorm)) return res.status(403).json({ ok: false, demo: true, erro: 'demo' });
+      const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+      const admin = createSupabaseAdminClient();
+      if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      const { data: sess, error: sessErr } = await admin.auth.getUser(token);
+      if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+      const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
+      const roleCaller = String(meta.role || '').toLowerCase();
+      const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
+      const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+
+      const ehAdminAgente = /^ADMIN-\d+$/.test(agenteNorm);
+      let autorizado = false;
+      if (roleCaller === 'admin' && ehAdminAgente) {
+        autorizado = true;
+      } else if (roleCaller === 'instituicao' && !ehAdminAgente && instCaller && agentCaller === `${instCaller}-01`) {
+        const mSeq = agenteNorm.match(/-(\d+)$/);
+        const seq = mSeq ? parseInt(mSeq[1], 10) : 0;
+        autorizado = agenteNorm.startsWith(`${instCaller}-`) && seq >= 2;
+      }
+      if (!autorizado) return res.status(403).json({ ok: false, erro: 'Sem autorização para eliminar este agente.' });
+
+      // 1) Conta Auth (e-mail sintético determinístico)
+      const dominio = ehAdminAgente ? 'admin.correiodigital.ao' : 'inst.correiodigital.ao';
+      const emailAlvo = `agente.${agenteNorm.toLowerCase()}@${dominio}`;
+      let conta = 'nao_encontrada';
+      try {
+        for (let pagina = 1; pagina <= 10; pagina++) {
+          const { data: lista, error: listErr } = await admin.auth.admin.listUsers({ page: pagina, perPage: 200 });
+          if (listErr || !lista || !lista.users || !lista.users.length) break;
+          const alvo = lista.users.find((u: any) => String(u.email || '').toLowerCase() === emailAlvo.toLowerCase());
+          if (alvo) {
+            const { error: delErr } = await admin.auth.admin.deleteUser(alvo.id);
+            conta = delErr ? 'falha' : 'eliminada';
+            break;
+          }
+        }
+      } catch { conta = 'falha'; }
+
+      // 2) Avatares no Storage (prefixo AGENTE_)
+      let avatares = 0;
+      try {
+        const { data: arquivos } = await admin.storage.from('fotos_perfil').list('avatars', { limit: 200 });
+        const alvos = (arquivos || []).filter((f: any) => String(f.name || '').startsWith(`${agenteNorm}_`));
+        if (alvos.length) {
+          const { error: rmErr } = await admin.storage.from('fotos_perfil').remove(alvos.map((f: any) => `avatars/${f.name}`));
+          if (!rmErr) avatares = alvos.length;
+        }
+      } catch { /* best-effort */ }
+
+      return res.status(200).json({ ok: true, conta, avatares });
+    } catch (e) {
+      console.error('[ELIMINAR-AGENTE] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
   // Rota do proxy CRUD do Modo Real (ver bloco PROXY CRUD acima).
   app.post("/api/dados", async (req, res) => {
     try {

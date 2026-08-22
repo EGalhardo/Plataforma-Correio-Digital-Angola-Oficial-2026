@@ -335,6 +335,29 @@ export const eliminarCidadaoAdmin = async (bi: string): Promise<{ ok: boolean; e
   }
 };
 
+/** ELIMINAÇÃO COMPLETA DE AGENTE (2026-08-22) — página Equipa: o servidor
+ *  remove a conta Auth (e-mail sintético determinístico) e os avatares do
+ *  Storage; o cliente remove credenciais/espelhos locais. Autorização do
+ *  servidor: responsável da instituição elimina membros da SUA instituição;
+ *  admin elimina agentes ADMIN-NNNN. Contas demo nunca tocam na nuvem. */
+export const eliminarAgente = async (agente: string): Promise<{ ok: boolean; demo?: boolean; conta?: string; erro?: string }> => {
+  try {
+    const token = await obterTokenSessao();
+    if (!token) return { ok: false, erro: 'Sem sessão de nuvem.' };
+    const resp = await fetch('/api/eliminar-agente', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ agente }),
+    });
+    const j = await resp.json().catch(() => null);
+    if (j && j.demo) return { ok: false, demo: true };
+    if (j && j.ok === true) return { ok: true, conta: String(j.conta || 'nao_encontrada') };
+    return { ok: false, erro: (j && j.erro) || `HTTP ${resp.status}` };
+  } catch {
+    return { ok: false, erro: 'Rede indisponível.' };
+  }
+};
+
 /** Envia uma mensagem administrativa (Área de Administração → cidadão ou
  *  instituição) PERSISTIDA NA NUVEM (2026-08-21): mensagem com protocolo selado
  *  + registo em digital_protocols, via proxy /api/dados (service role).

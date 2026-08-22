@@ -19,7 +19,7 @@ import {
 import { normalizarTitulo } from '../../services/textNormalizeService';
 import { parsePvicFromObservacoes } from '../../services/preVerificationService';
 import { shouldUseMockFallback } from '../../config/runtime';
-import { provisionCloudAccount, markCloudAccount, isCloudBound, isSupabaseConfigured, syntheticAdminEmail, syntheticInstitutionAgentEmail } from '../../services/cloudAuthService';
+import { provisionCloudAccount, markCloudAccount, isCloudBound, unmarkCloudAccount, isSupabaseConfigured, syntheticAdminEmail, syntheticInstitutionAgentEmail } from '../../services/cloudAuthService';
 import {
   Users,
   Mail,
@@ -57,10 +57,11 @@ import {
   KeyRound
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import { registoPublicoProxy, eliminarCidadaoAdmin, enviarMensagemAdministrativa } from '../../services/supabaseService';
+import { registoPublicoProxy, eliminarCidadaoAdmin, eliminarAgente, enviarMensagemAdministrativa } from '../../services/supabaseService';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
+import { limparPendenciaPerfil } from '../../services/profileSyncService';
 import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, updateInstMemberProfile, isInstPasswordTaken, nextMemberAgentNumber } from '../../services/institutionRegistrationStore';
-import { addAdminAgent, updateAdminAgentPassword, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber, getAdminAgentCreds } from '../../services/adminAgentStore';
+import { addAdminAgent, updateAdminAgentPassword, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber, getAdminAgentCreds, ADMIN_ALFA_AGENT } from '../../services/adminAgentStore';
 
 interface AuditLog {
   id: string;
@@ -1571,19 +1572,84 @@ export function GovContactsContent({
     }
   };
 
-  const handleDeleteWorker = (id: string, name: string) => {
-    if (confirm(`Tem a certeza que deseja remover o membro da equipa ${name} do sistema?`)) {
-      const regCode = normalizeInstCode(bi);
-      if (appMode === 'institution' && regCode && getLocalInstReg(regCode)) {
-        removeInstMember(regCode, id); // a senha do colaborador deixa de ser reconhecida no login
-      }
-      if (appMode === 'admin-workers') {
-        removeAdminAgentByWorker(id); // F6 — o Nº Agente Admin deixa de entrar no login
-      }
-      setWorkers(prev => prev.filter(w => w.id !== id));
-      if (selectedWorkerId === id) setSelectedWorkerId(null);
-      addAuditLog?.(`[EQUIPA] Membro da equipa ${name} foi removido do ecossistema institucional.`, 'warning');
+  // 2026-08-22 — ELIMINAÇÃO COMPLETA do colaborador/agente: sem restos.
+  // 1) NUVEM: o servidor apaga a conta Auth (e-mail sintético determinístico)
+  //    e os avatares do Storage (prefixo AGENTE_);
+  // 2) LOCAL: registo da instituição / credenciais do admin + marcadores de
+  //    nuvem, face, avatar, perfil local e pendências de sincronização.
+  // Com a conta Auth eliminada, o Nº Agente deixa de entrar em QUALQUER
+  // dispositivo (nuvem primária) e os espelhos locais desaparecem também.
+  const handleDeleteWorker = async (id: string, name: string) => {
+    const alvo = workers.find(w => w.id === id);
+    const agente = (alvo?.agentId || '').toUpperCase().replace(/\s+/g, '');
+    const ehDemo = homologationStore.isExempt(bi || '');
+    if (!confirm(`Tem a certeza que deseja ELIMINAR definitivamente ${name}${agente ? ` (${agente})` : ''} do sistema?\n\nA eliminação é completa: revoga o acesso de login, remove a conta da nuvem e apaga todos os vestígios (credenciais, foto, perfil local). Esta ação não pode ser desfeita.`)) {
+      return;
     }
+    if (appMode === 'admin-workers' && agente === ADMIN_ALFA_AGENT) {
+      notify(`O Admin Alfa (${ADMIN_ALFA_AGENT}) é o elemento mais alto da hierarquia e não pode ser eliminado pela página Equipa.`, 'error');
+      return;
+    }
+    if (agente === (bi || '').toUpperCase().replace(/\s+/g, '')) {
+      notify('Não pode eliminar a credencial da sessão actual.', 'error');
+      return;
+    }
+
+    // 1) NUVEM — conta Auth + avatares (servidor; contas demo nunca tocam)
+    let nuvem: 'eliminada' | 'nao_encontrada' | 'falha' | 'demo' = ehDemo ? 'demo' : 'nao_encontrada';
+    if (agente && !ehDemo && isSupabaseConfigured()) {
+      const res = await eliminarAgente(agente);
+      if (res.demo) nuvem = 'demo';
+      else if (res.ok && res.conta === 'eliminada') nuvem = 'eliminada';
+      else if (res.ok && res.conta === 'nao_encontrada') nuvem = 'nao_encontrada';
+      else nuvem = 'falha';
+    }
+
+    // 2) LOCAL — registo da instituição / credenciais do admin
+    const regCode = normalizeInstCode(bi);
+    if (appMode === 'institution' && regCode && getLocalInstReg(regCode)) {
+      removeInstMember(regCode, id); // a senha do colaborador deixa de ser reconhecida no login
+    }
+    if (appMode === 'admin-workers') {
+      removeAdminAgentByWorker(id); // F6 — o Nº Agente Admin deixa de entrar no login
+    }
+
+    // 3) VESTÍGIOS LOCAIS por Nº de agente (completude)
+    if (agente) {
+      try { unmarkCloudAccount(agente); } catch { /* ignora */ }
+      const modo = appMode === 'admin-workers' ? 'admin' : 'institution';
+      const chaves = [
+        `cda_demo_face_${modo}_${agente}`,
+        `cda_avatar_${modo}_${agente}`,
+        `cda_perfil_dados_${modo}_${agente}`,
+        `cda_inst_profile_photo_${agente}`,
+        `cda_admin_profile_photo_${agente}`,
+        `cda_read_msgs_${agente}`,
+        `cda_perfil_dados_admin_${agente}`,
+        `cda_perfil_dados_institution_${agente}`,
+        `cda_avatar_admin_${agente}`,
+        `cda_avatar_institution_${agente}`,
+        `cda_demo_face_admin_${agente}`,
+        `cda_demo_face_institution_${agente}`,
+      ];
+      for (const k of chaves) {
+        try { localStorage.removeItem(k); } catch { /* ignora */ }
+      }
+      try { limparPendenciaPerfil(agente); } catch { /* ignora */ }
+    }
+
+    setWorkers(prev => prev.filter(w => w.id !== id));
+    if (selectedWorkerId === id) setSelectedWorkerId(null);
+
+    const msgNuvem = nuvem === 'eliminada'
+      ? 'conta da nuvem e avatares removidos'
+      : nuvem === 'nao_encontrada'
+        ? 'conta da nuvem já não existia'
+        : nuvem === 'demo'
+          ? 'via demonstração — sem nuvem'
+          : 'nuvem indisponível — eliminação local confirmada';
+    addAuditLog?.(`[EQUIPA] ${name}${agente ? ` (${agente})` : ''} ELIMINADO definitivamente — acesso revogado, ${msgNuvem}, vestígios locais apagados.`, 'critical');
+    notify(`${name} eliminado definitivamente (${msgNuvem}).`, 'success');
   };
 
   // Filtered workers list
