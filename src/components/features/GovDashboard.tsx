@@ -378,11 +378,13 @@ export function GovDashboard({
             </p>
           </div>
           
-          {/* Symmetrical central monitoring badge */}
+          {/* Symmetrical central monitoring badge — 2026-08-22: bolinha VERDE
+              (estado ativo/operacional); antes estava vermelha, a sugerir
+              alarme num painel saudável. */}
           <div className="flex items-center gap-2 bg-slate-100/50 border border-slate-200/50 px-3.5 py-1.5 rounded-full shrink-0">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
             </span>
             <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 font-mono">
               Monitoramento Ativo
@@ -432,8 +434,11 @@ export function GovDashboard({
         {/* ID Digital & Novas Mensagens Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="bg-white border border-slate-200 rounded-[28px] md:rounded-[32px] p-5 md:p-6 flex items-center gap-4 md:gap-6 relative overflow-hidden text-left font-sans">
-            <div className="w-12 h-12 md:w-16 md:h-16 bg-red-50 border border-red-100 rounded-2xl flex items-center justify-center shrink-0">
-              <ShieldCheck size={24} className="md:w-8 md:h-8 text-red-600" />
+            {/* 2026-08-22 — ícone VERDE (identidade verificada/activa): antes a
+                caixa e o escudo eram vermelhos, a contradizer o texto
+                "Acesso Governamental Ativo (100%)" do próprio cartão. */}
+            <div className="w-12 h-12 md:w-16 md:h-16 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center justify-center shrink-0">
+              <ShieldCheck size={24} className="md:w-8 md:h-8 text-emerald-600" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">ID Digital do Admin</div>
