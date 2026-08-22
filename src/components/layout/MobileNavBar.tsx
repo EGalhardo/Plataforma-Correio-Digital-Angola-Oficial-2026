@@ -27,6 +27,10 @@ interface MobileNavBarProps {
   // (instituição: 'gov-contatos'; admin: 'gov-trabalhadores'). Para os demais
   // o item fica VISÍVEL mas INACTIVO (não navega).
   equipaBloqueadaId?: string;
+  // 2026-08-22 — PERMISSÕES DE PÁGINA: se definida (colaborador/agente
+  // restrito), o menu mostra APENAS as páginas desta lista (fonte: Supabase,
+  // revalidada no backend). null/undefined = sem restrições.
+  paginasPermitidas?: string[] | null;
 }
 
 // Menu citizen SEM QR Code
@@ -61,7 +65,8 @@ const adminItems: MenuItem[] = [
 export function MobileNavBar({ 
   tab, setTab, setSelectedMessage, setSelectedDoc,
   appMode: _propsAppMode,
-  equipaBloqueadaId}: MobileNavBarProps) {
+  equipaBloqueadaId,
+  paginasPermitidas = null}: MobileNavBarProps) {
   const { appMode } = useSession();
   const { t: translate } = useLanguage();
 
@@ -74,13 +79,17 @@ export function MobileNavBar({
   };
 
   const currentItems = getItemsForMode();
+  // 2026-08-22 — o colaborador/agente restrito SÓ vê as páginas concedidas.
+  const itensVisiveis = Array.isArray(paginasPermitidas)
+    ? currentItems.filter((item) => paginasPermitidas!.includes(item.id))
+    : currentItems;
   const isAdminOrInst = appMode === 'admin' || appMode === 'institution';
 
   return (
     <nav className={`md:hidden fixed bottom-0 left-0 right-0 h-16 border-t flex items-center px-2 z-50 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)] transition-colors bg-white border-[#D1D5DB] ${
       isAdminOrInst ? 'overflow-x-auto justify-start gap-2 scrollbar-none snap-x snap-mandatory' : 'justify-around'
     }`}>
-      {currentItems.map(({ id, label, icon: Icon }) => {
+      {itensVisiveis.map(({ id, label, icon: Icon }) => {
         const bloqueado = equipaBloqueadaId === id;
         return (
         <button

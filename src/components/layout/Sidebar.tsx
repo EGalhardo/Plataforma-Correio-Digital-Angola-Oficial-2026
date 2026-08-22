@@ -33,6 +33,10 @@ interface SidebarProps {
   // (instituição: 'gov-contatos'; admin: 'gov-trabalhadores'). Para os demais
   // o item fica VISÍVEL mas INACTIVO (não navega).
   equipaBloqueadaId?: string;
+  // 2026-08-22 — PERMISSÕES DE PÁGINA: se definida (colaborador/agente
+  // restrito), o menu mostra APENAS as páginas desta lista (fonte: Supabase,
+  // revalidada no backend). null/undefined = sem restrições.
+  paginasPermitidas?: string[] | null;
 }
 
 // Menu citizen SEM QR Code
@@ -68,7 +72,8 @@ export function Sidebar({
   tab, setTab, setSelectedMessage, setSelectedDoc, handleLogout,
   appMode: _propsAppMode, setAppMode: _propsSetAppMode,
   theme = 'light',
-  equipaBloqueadaId
+  equipaBloqueadaId,
+  paginasPermitidas = null
 }: SidebarProps) {
   const { appMode } = useSession();
   const { t: translate } = useLanguage();
@@ -82,6 +87,10 @@ export function Sidebar({
   };
 
   const currentItems = getItemsForMode();
+  // 2026-08-22 — o colaborador/agente restrito SÓ vê as páginas concedidas.
+  const itensVisiveis = Array.isArray(paginasPermitidas)
+    ? currentItems.filter((item) => paginasPermitidas!.includes(item.id))
+    : currentItems;
 
   return (
     <aside className={`hidden md:flex p-5 md:w-[250px] md:rounded-[36px] shadow-2xl transition-all duration-500 shrink-0 md:sticky md:top-5 md:h-[calc(100vh-2.5rem)] flex-col border border-slate-200 dark:border-[#141d31] ${
@@ -109,7 +118,7 @@ export function Sidebar({
         {translate(appMode === 'admin' ? 'ADMINISTRAÇÃO CENTRAL' : appMode === 'institution' ? 'INSTITUIÇÃO / PRIVADO' : 'ÁREA DO CIDADÃO')}
       </div>
       <nav className="space-y-0.5">
-        {currentItems.map(({ id, label, icon: Icon }) => {
+        {itensVisiveis.map(({ id, label, icon: Icon }) => {
           const bloqueado = equipaBloqueadaId === id;
           return (
           <button

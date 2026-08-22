@@ -26,6 +26,9 @@ export interface InstitutionIdentity {
   memberName?: string;
   mustChangePassword?: boolean;
   agentNumber?: string; // F6 — Nº Agente da pessoa autenticada (ex.: SME-LLVV-01)
+  /** 2026-08-22 — páginas que o colaborador pode abrir (nuvem/Supabase é a
+   *  fonte canónica; undefined = sem restrições — legado). */
+  paginasPermitidas?: string[];
 }
 
 export interface InstitutionLoginResult {
@@ -218,7 +221,7 @@ export const resolveInstitutionFaceLogin = async (
         const own = splitAgentNumber(m.agentNumber || '');
         return own.seq === agentSeq && own.code === code;
       });
-      if (member) identity = { type: 'member', memberId: member.id, memberName: member.name, mustChangePassword: false, agentNumber: typed };
+      if (member) identity = { type: 'member', memberId: member.id, memberName: member.name, mustChangePassword: false, agentNumber: typed, paginasPermitidas: member.paginasPermitidas };
     }
   } else {
     // Formato antigo (código simples) → assume o responsável (via demo conservadora)
@@ -358,15 +361,20 @@ export const resolveInstitutionLogin = async (
           }
         } catch { /* best-effort: já se entrou com dados pré-Auth */ }
       }
+      // 2026-08-22 — permissões de página: a NUVEM é a fonte canónica
+      // (user_metadata.paginasPermitidas); o espelho local é fallback.
+      const cloudPaginas = Array.isArray(cloudRes.metadata?.paginasPermitidas)
+        ? (cloudRes.metadata.paginasPermitidas as string[]).map((x) => String(x).trim()).filter(Boolean)
+        : undefined;
       if (agentSeq === 1) {
         identity = { type: 'responsible', agentNumber: typed };
       } else if (reg) {
         const cloudMember = (reg.members || []).find(m => { const own = splitAgentNumber(m.agentNumber || ''); return own.seq === agentSeq && own.code === code; });
-        if (cloudMember) identity = { type: 'member', memberId: cloudMember.id, memberName: cloudMember.name, mustChangePassword: !!cloudMember.mustChangePassword, agentNumber: typed };
+        if (cloudMember) identity = { type: 'member', memberId: cloudMember.id, memberName: cloudMember.name, mustChangePassword: !!cloudMember.mustChangePassword, agentNumber: typed, paginasPermitidas: cloudPaginas ?? cloudMember.paginasPermitidas };
       }
       if (!identity && cloudRes.metadata?.name && agentSeq !== 1) {
         // Login noutro dispositivo sem espelho local: metadados do Auth identificam a pessoa
-        identity = { type: 'member', memberName: String(cloudRes.metadata.name), mustChangePassword: false, agentNumber: typed };
+        identity = { type: 'member', memberName: String(cloudRes.metadata.name), mustChangePassword: false, agentNumber: typed, paginasPermitidas: cloudPaginas };
       }
       if (!identity) {
         return {
@@ -392,7 +400,7 @@ export const resolveInstitutionLogin = async (
         return own.seq === agentSeq && own.code === code;
       });
       if (member && member.password === password && password.length > 0) {
-        identity = { type: 'member', memberId: member.id, memberName: member.name, mustChangePassword: !!member.mustChangePassword, agentNumber: typed };
+        identity = { type: 'member', memberId: member.id, memberName: member.name, mustChangePassword: !!member.mustChangePassword, agentNumber: typed, paginasPermitidas: member.paginasPermitidas };
       }
     }
     if (!identity) {
@@ -407,7 +415,7 @@ export const resolveInstitutionLogin = async (
       identity = { type: 'responsible', agentNumber: reg?.agentNumber || (parseInstPack(row?.observacoes || reg?.observacoes || '')?.agentNumber) };
     } else if (reg) {
       const member = (reg.members || []).find(m => m.password === password && password.length > 0);
-      if (member) identity = { type: 'member', memberId: member.id, memberName: member.name, mustChangePassword: !!member.mustChangePassword, agentNumber: member.agentNumber };
+      if (member) identity = { type: 'member', memberId: member.id, memberName: member.name, mustChangePassword: !!member.mustChangePassword, agentNumber: member.agentNumber, paginasPermitidas: member.paginasPermitidas };
     }
     if (!identity) {
       return {

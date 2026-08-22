@@ -775,6 +775,94 @@ async function dadosResolverEExecutar(opts: {
     }
   });
 
+  // ============================================================================
+  // PERMISSÕES DE PÁGINA DO AGENTE (2026-08-22)
+  // ----------------------------------------------------------------------------
+  // As páginas que cada colaborador/agente pode abrir vivem nos user_metadata
+  // da conta Auth (Supabase = fonte canónica). Este endpoint É a verificação
+  // de backend: ler devolve o que está NA NUVEM (o cliente nunca decide); e
+  // gravar só é aceite do RESPONSÁVEL da área (instituição '-01' ou Admin
+  // Alfa ADMIN-0001). Whitelist por área — páginas fora dela são recusadas.
+  // ============================================================================
+  const PAGINAS_INSTITUICAO = ['home', 'correspondencias', 'inst-qrcode', 'inst-ai-assistant', 'perfil'];
+  const PAGINAS_ADMIN = ['gov-dashboard', 'gov-interoperabilidade', 'gov-correspondencias', 'gov-contatos', 'gov-relatorio', 'gov-ia', 'gov-seguranca', 'gov-perfil'];
+  app.post("/api/agente-permissoes", async (req, res) => {
+    try {
+      const { acao, agente, paginas } = req.body || {};
+      const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+      const admin = createSupabaseAdminClient();
+      if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      const { data: sess, error: sessErr } = await admin.auth.getUser(token);
+      if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+      const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
+      const roleCaller = String(meta.role || '').toLowerCase();
+      const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
+      const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+
+      const ehResponsavelInst = roleCaller === 'instituicao' && !!instCaller && agentCaller === `${instCaller}-01`;
+      const ehAlfa = roleCaller === 'admin' && agentCaller === 'ADMIN-0001';
+
+      // ---- LER: devolve as permissões do PRÓPRIO token (canónico) ----
+      if (acao === 'ler') {
+        if (ehResponsavelInst || ehAlfa) return res.status(200).json({ ok: true, responsavel: true, paginasPermitidas: null });
+        const alvo = (roleCaller === 'admin' ? PAGINAS_ADMIN : roleCaller === 'instituicao' ? PAGINAS_INSTITUICAO : []);
+        const raw = Array.isArray(meta.paginasPermitidas) ? (meta.paginasPermitidas as unknown[]).map((x) => String(x).trim()).filter(Boolean) : null;
+        const validas = raw === null ? null : raw.filter((p) => alvo.includes(p));
+        return res.status(200).json({ ok: true, responsavel: false, paginasPermitidas: validas });
+      }
+
+      // ---- GRAVAR: só o responsável da área; whitelist obrigatória ----
+      if (acao === 'gravar') {
+        const agenteNorm = String(agente || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(agenteNorm)) return res.status(400).json({ ok: false, erro: 'Nº de agente inválido.' });
+        const ehAdminAlvo = /^ADMIN-\d+$/.test(agenteNorm);
+        let autorizado = false;
+        let whitelist: string[] = [];
+        let dominio = '';
+        if (ehAdminAlvo) {
+          autorizado = ehAlfa && agenteNorm !== 'ADMIN-0001';
+          whitelist = PAGINAS_ADMIN;
+          dominio = 'admin.correiodigital.ao';
+        } else {
+          const mSeq = agenteNorm.match(/-(\d+)$/);
+          const seq = mSeq ? parseInt(mSeq[1], 10) : 0;
+          autorizado = ehResponsavelInst && agenteNorm.startsWith(`${instCaller}-`) && seq >= 2;
+          whitelist = PAGINAS_INSTITUICAO;
+          dominio = 'inst.correiodigital.ao';
+        }
+        if (!autorizado) return res.status(403).json({ ok: false, erro: 'Sem autorização para gerir as permissões deste agente.' });
+        if (!Array.isArray(paginas)) return res.status(400).json({ ok: false, erro: 'paginas deve ser uma lista.' });
+        const validas = (paginas as unknown[]).map((x) => String(x).trim()).filter((x) => whitelist.includes(x));
+        if (validas.length !== (paginas as unknown[]).length) return res.status(400).json({ ok: false, erro: 'Lista contém páginas inválidas para esta área.' });
+
+        const emailAlvo = `agente.${agenteNorm.toLowerCase()}@${dominio}`;
+        let alvoMeta: Record<string, unknown> | null = null;
+        let alvoId: string | null = null;
+        for (let pagina = 1; pagina <= 10 && !alvoId; pagina++) {
+          const { data: lista, error: listErr } = await admin.auth.admin.listUsers({ page: pagina, perPage: 200 });
+          if (listErr || !lista || !lista.users || !lista.users.length) break;
+          const achado = lista.users.find((u: any) => String(u.email || '').toLowerCase() === emailAlvo.toLowerCase());
+          if (achado) {
+            alvoId = achado.id;
+            alvoMeta = (achado.user_metadata || {}) as Record<string, unknown>;
+          }
+        }
+        if (!alvoId) return res.status(404).json({ ok: false, erro: 'Conta do agente não encontrada na nuvem (a gravação local mantém-se).' });
+        const { error: updErr } = await admin.auth.admin.updateUserById(alvoId, {
+          user_metadata: { ...(alvoMeta || {}), paginasPermitidas: validas },
+        });
+        if (updErr) return res.status(500).json({ ok: false, erro: updErr.message });
+        return res.status(200).json({ ok: true, agente: agenteNorm, paginas: validas });
+      }
+
+      return res.status(400).json({ ok: false, erro: 'Ação desconhecida.' });
+    } catch (e) {
+      console.error('[AGENTE-PERMISSOES] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
   // Rota do proxy CRUD do Modo Real (ver bloco PROXY CRUD acima).
   app.post("/api/dados", async (req, res) => {
     try {

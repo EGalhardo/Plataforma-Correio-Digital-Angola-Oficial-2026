@@ -358,6 +358,38 @@ export const eliminarAgente = async (agente: string): Promise<{ ok: boolean; dem
   }
 };
 
+/** PERMISSÕES DE PÁGINA (2026-08-22) — o servidor É a verificação:
+ *  · 'ler': devolve as páginas permitidas do PRÓPRIO token (user_metadata na
+ *    nuvem) — o cliente nunca decide por si; null = responsável/sem restrições;
+ *  · 'gravar': pede ao servidor para gravar as páginas do agente alvo (só o
+ *    responsável da área é autorizado; whitelist por área). */
+export const permissoesAgente = async (
+  acao: 'ler' | 'gravar',
+  agente?: string,
+  paginas?: string[],
+): Promise<{ ok: boolean; responsavel?: boolean; paginasPermitidas?: string[] | null; erro?: string }> => {
+  try {
+    const token = await obterTokenSessao();
+    if (!token) return { ok: false, erro: 'Sem sessão de nuvem.' };
+    const resp = await fetch('/api/agente-permissoes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(acao === 'ler' ? { acao } : { acao, agente, paginas }),
+    });
+    const j = await resp.json().catch(() => null);
+    if (j && j.ok === true) {
+      return {
+        ok: true,
+        responsavel: j.responsavel === true,
+        paginasPermitidas: Array.isArray(j.paginasPermitidas) ? (j.paginasPermitidas as string[]) : null,
+      };
+    }
+    return { ok: false, erro: (j && j.erro) || `HTTP ${resp.status}` };
+  } catch {
+    return { ok: false, erro: 'Rede indisponível.' };
+  }
+};
+
 /** Envia uma mensagem administrativa (Área de Administração → cidadão ou
  *  instituição) PERSISTIDA NA NUVEM (2026-08-21): mensagem com protocolo selado
  *  + registo em digital_protocols, via proxy /api/dados (service role).
@@ -2331,5 +2363,12 @@ export const supabaseService = {
         message: `Falha na semeadura geral: ${e?.message || e}`
       };
     }
-  }
+  },
+
+  /** 2026-08-22 — PERMISSÕES DE PÁGINA do agente (a decisão é do BACKEND):
+   *  'ler' devolve as páginas autorizadas do próprio token (nuvem canónica);
+   *  'gravar' pede ao servidor para gravar as páginas do agente alvo (só o
+   *  responsável da área é autorizado). */
+  permissoesAgente: (acao: 'ler' | 'gravar', agente?: string, paginas?: string[]) =>
+    permissoesAgente(acao, agente, paginas),
 };

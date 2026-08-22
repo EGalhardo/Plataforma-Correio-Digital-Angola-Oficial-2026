@@ -101,9 +101,8 @@ import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
 import { lerPerfilLocal } from './services/perfilLocalService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, preloginLookupInstitution, purgeInstitutionLocalResidues, mapRowStatus, type InstitutionIdentity } from './services/institutionSessionService';
-import { getLocalInstReg, normalizeInstCode, parseInstPack, normalizarNomeInstituicao } from './services/institutionRegistrationStore';
-import { resolveAdminAgentLogin, ADMIN_ALFA_AGENT } from './services/adminAgentStore';
-import { getAdminAgentCred, addAdminAgent } from './services/adminAgentStore';
+import { getLocalInstReg, normalizeInstCode, parseInstPack, normalizarNomeInstituicao, updateInstMemberProfile } from './services/institutionRegistrationStore';
+import { resolveAdminAgentLogin, getAdminAgentCred, addAdminAgent, updateAdminAgentPermissions, ADMIN_ALFA_AGENT } from './services/adminAgentStore';
 import {
   cloudSignIn, provisionCloudAccount, markCloudAccount, isCloudBound,
   isSupabaseConfigured, syntheticCitizenEmail, syntheticAdminEmail, hasActiveCloudSession,
@@ -1439,6 +1438,21 @@ export default function App() {
   const instIdentityRef = useRef<InstitutionIdentity | null>(null);
   instIdentityRef.current = instIdentity;
   const [instMustChangePwd, setInstMustChangePwd] = useState(false);
+  // 2026-08-22 — PERMISSÕES DE PÁGINA (fonte: Supabase user_metadata, com
+  // espelho local): páginas que o colaborador/agente pode abrir. null/undefined
+  // = sem restrições (responsável, Alfa, demo e membros legados). O menu filtra
+  // por esta lista, a navegação por URL é bloqueada no render e o backend
+  // (/api/agente-permissoes) revalida a sessão.
+  const adminAgentCred = isGovMode && adminBiNorm ? getAdminAgentCred(adminBiNorm) : undefined;
+  const paginasMenu: string[] | null = (isInstMode && instIdentity?.type === 'member')
+    ? (instIdentity.paginasPermitidas ?? null)
+    : (isGovMode && adminEquipaBloqueada && Array.isArray(adminAgentCred?.paginasPermitidas))
+      ? (adminAgentCred!.paginasPermitidas as string[])
+      : null;
+  const paginasMenuKey = paginasMenu ? paginasMenu.join('|') : '';
+  // Navegação/tabs que nunca são "páginas" — detalhes e sobreposições
+  // (mensagem aberta, documento, notificações, histórico…) ficam livres.
+  const TAB_PAGINAS_LIVRES = new Set(['mensagem', 'documento', 'notificacoes', 'historico', 'video-atendimento', 'inst-pagamentos']);
   void instIdentity; // consumida pela F4 (equipa/perfil)
 
   // Claro/Escuro Theme State
@@ -3425,6 +3439,54 @@ export default function App() {
     if (mud.maritalStatus) setUserMaritalStatus(mud.maritalStatus);
     if (mud.birthDate) setUserBirthDate(mud.birthDate);
   }, [stage, appMode, bi, instIdentity?.type]);
+
+  // 2026-08-22 — PERMISSÕES DE PÁGINA: revalidação NO BACKEND
+  // (/api/agente-permissoes lê os user_metadata NA NUVEM — fonte canónica) e
+  // reconciliação do espelho local; o frontend nunca decide sozinho.
+  const [permissoesTick, setPermissoesTick] = useState(0);
+  useEffect(() => {
+    if (stage !== 'app') return;
+    const agente = isInstMode ? (instIdentity?.agentNumber || '') : isGovMode ? adminBiNorm : '';
+    if (!agente || !isSupabaseConfigured()) return;
+    const ehResponsavel = isInstMode
+      ? instIdentity?.type !== 'member'
+      : (isDemoGovSession || adminBiNorm === ADMIN_ALFA_AGENT);
+    if (ehResponsavel) return;
+    let ativo = true;
+    void (async () => {
+      const res = await supabaseService.permissoesAgente('ler');
+      if (!ativo || !res.ok || res.responsavel) return;
+      const validas = res.paginasPermitidas ?? null;
+      if (validas === null) return; // sem restrições na nuvem — mantém actual
+      if (isInstMode && instIdentity?.memberId) {
+        updateInstMemberProfile(normalizeInstCode(bi || ''), instIdentity.memberId, { paginasPermitidas: validas });
+        setInstIdentity(prev => (prev && prev.type === 'member') ? { ...prev, paginasPermitidas: validas } : prev);
+      } else if (isGovMode) {
+        const cred = getAdminAgentCred(adminBiNorm);
+        if (cred) {
+          updateAdminAgentPermissions(adminBiNorm, validas);
+          setPermissoesTick(t => t + 1);
+        }
+      }
+    })();
+    return () => { ativo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, isInstMode, isGovMode, instIdentity?.agentNumber, instIdentity?.memberId, adminBiNorm]);
+
+  // 2026-08-22 — sessão restrita fora de uma página autorizada (ex.: login
+  // devolveu o tab 'home' e 'home' não foi concedido): redireciona para a
+  // primeira página autorizada. Corre APENAS na mudança de sessão/permissões
+  // (não em cada mudança de tab) — a navegação EXPLÍCITA por URL para uma
+  // página não autorizada deve mostrar o painel "Acesso Restrito" da guarda
+  // de renderização, e não ser redirecionada silenciosamente.
+  useEffect(() => {
+    if (stage !== 'app' || !paginasMenu || paginasMenu.length === 0) return;
+    if (!paginasMenu.includes(tab) && !TAB_PAGINAS_LIVRES.has(tab)) {
+      setTab(paginasMenu[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, paginasMenuKey]);
+
   // 2026-08-21 — piso de não-lidas REMOVIDO (decisão do dono): uma mensagem
   // lida fica LIDA em todas as sessões seguintes. "Não lida" = apenas as que
   // nunca foram abertas. As listas demo continuam com dados, mas sem forçar
@@ -4797,6 +4859,34 @@ Ficha civil do titular:
 
   // Rendering Helpers
   const renderContent = () => {
+    // 2026-08-22 — PERMISSÕES DE PÁGINA: bloqueio do ACESSO DIRECTO por
+    // URL/hash a páginas não autorizadas (o menu já as esconde; o backend
+    // revalida via /api/agente-permissoes). Tabs de detalhe/sobreposição
+    // ficam livres.
+    if (paginasMenu && !paginasMenu.includes(tab) && !TAB_PAGINAS_LIVRES.has(tab)) {
+      const primeira = paginasMenu[0] || (isInstMode ? 'perfil' : 'gov-perfil');
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center gap-5 py-24 px-6 text-center animate-fade-in font-sans">
+          <div className="p-6 bg-slate-100 rounded-full border border-slate-200 shadow-inner">
+            <Lock className="w-9 h-9 text-slate-400" />
+          </div>
+          <div className="space-y-2 max-w-md">
+            <h3 className="text-slate-900 font-black text-sm uppercase tracking-[0.2em]">Acesso Restrito</h3>
+            <p className="text-slate-500 text-xs leading-relaxed">
+              A página <strong className="text-slate-700">{tab}</strong> não faz parte das páginas autorizadas
+              para a sua sessão ({isInstMode ? (instIdentity?.agentNumber || 'colaborador') : (adminBiNorm || 'agente')}).
+              Contacte o responsável da área para alterar as suas permissões de acesso.
+            </p>
+          </div>
+          <button
+            onClick={() => setTab(primeira)}
+            className="px-6 py-3 bg-[#0E2B64] hover:bg-[#081a3d] text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer border-0 shadow-md"
+          >
+            Voltar à primeira página autorizada
+          </button>
+        </div>
+      );
+    }
     // F7 — SEM página informativa de espera: a instituição PENDENTE entra na área
     // normal. O aviso de validação chega como correspondência NÃO LIDA da Área de
     // Administração (espelho do canal de homologação na caixa de entrada), com badge
@@ -6086,16 +6176,22 @@ Ficha civil do titular:
             const cloudRes = await cloudSignIn(supabase, agentEmail, loginPasswordInput);
             if (cloudRes.outcome === 'ok') {
               if (!agentMarked) markCloudAccount(typedAgent, agentEmail, 'admin');
+              // 2026-08-22 — permissões de página vêm da NUVEM (canónicas)
+              const cloudPag = Array.isArray(cloudRes.metadata?.paginasPermitidas)
+                ? (cloudRes.metadata.paginasPermitidas as string[]).map((x) => String(x).trim()).filter(Boolean)
+                : undefined;
               if (!cred) {
                 // Login noutro dispositivo: reconstrói a credencial local a partir dos metadados do Auth
                 const metaName = typeof cloudRes.metadata?.name === 'string' && cloudRes.metadata.name ? cloudRes.metadata.name : typedAgent;
                 const metaWorkerId = typeof cloudRes.metadata?.workerId === 'string' ? cloudRes.metadata.workerId : `agent-${typedAgent.toUpperCase()}`;
                 if (!getAdminAgentCred(typedAgent)) {
-                  addAdminAgent({ agent: typedAgent.toUpperCase().replace(/\s+/g, ''), name: metaName, password: loginPasswordInput, workerId: metaWorkerId });
+                  addAdminAgent({ agent: typedAgent.toUpperCase().replace(/\s+/g, ''), name: metaName, password: loginPasswordInput, workerId: metaWorkerId, paginasPermitidas: cloudPag });
                 }
                 cred = resolveAdminAgentLogin(typedAgent, loginPasswordInput);
                 addAuditLog(`[AUTH-CLOUD] Agente ${typedAgent} autenticado noutro dispositivo — credencial espelhada localmente a partir da nuvem.`, 'info');
               } else {
+                addAdminAgent({ ...cred, paginasPermitidas: cloudPag ?? cred.paginasPermitidas });
+                cred = resolveAdminAgentLogin(typedAgent, loginPasswordInput);
                 addAuditLog(`[AUTH-CLOUD] Agente ${cred.agent} (${cred.name}) validado na nuvem (Supabase Auth).`, 'success');
               }
             } else if (cloudRes.outcome === 'invalid') {
@@ -7250,6 +7346,7 @@ Ficha civil do titular:
               ? 'gov-trabalhadores'
               : undefined
         }
+        paginasPermitidas={paginasMenu}
       />
       <MobileNavBar 
         tab={tab} 
@@ -7265,6 +7362,7 @@ Ficha civil do titular:
               ? 'gov-trabalhadores'
               : undefined
         }
+        paginasPermitidas={paginasMenu}
       />
 
       <div className="flex-1 md:bg-white md:rounded-[24px] md:shadow-xl md:border-2 md:border-[#E2E8F0] dark:md:border-[#141d31] md:overflow-hidden flex flex-col min-h-screen md:min-h-0 relative">

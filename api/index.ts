@@ -1751,6 +1751,99 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
       }
     }
 
+    // PERMISSÕES DE PÁGINA DO AGENTE (2026-08-22) — espelho de server.ts:
+    // fonte canónica = user_metadata no Auth; ler devolve o que está NA NUVEM;
+    // gravar só é aceite do responsável da área (instituição '-01' / Alfa
+    // ADMIN-0001); whitelist por área.
+    if (url.includes('/api/agente-permissoes') && method === 'POST') {
+      try {
+        if (!supaUrlPerfil || !serviceKeyPerfil) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        const { acao, agente, paginas } = body || {};
+        const token = String(req.headers.authorization || (req.headers as any).Authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+        const sessResp = await fetch(`${supaUrlPerfil}/auth/v1/user`, {
+          headers: { apikey: serviceKeyPerfil, Authorization: `Bearer ${token}` },
+        });
+        if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+        const sess = await sessResp.json().catch(() => null);
+        const user = sess && (sess.user || sess);
+        const meta = (user && user.user_metadata) || {};
+        const roleCaller = String(meta.role || '').toLowerCase();
+        const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
+        const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+        const ehResponsavelInst = roleCaller === 'instituicao' && !!instCaller && agentCaller === `${instCaller}-01`;
+        const ehAlfa = roleCaller === 'admin' && agentCaller === 'ADMIN-0001';
+        const PAGINAS_INST = ['home', 'correspondencias', 'inst-qrcode', 'inst-ai-assistant', 'perfil'];
+        const PAGINAS_ADM = ['gov-dashboard', 'gov-interoperabilidade', 'gov-correspondencias', 'gov-contatos', 'gov-relatorio', 'gov-ia', 'gov-seguranca', 'gov-perfil'];
+
+        if (acao === 'ler') {
+          if (ehResponsavelInst || ehAlfa) return res.status(200).json({ ok: true, responsavel: true, paginasPermitidas: null });
+          const alvo = (roleCaller === 'admin' ? PAGINAS_ADM : roleCaller === 'instituicao' ? PAGINAS_INST : []);
+          const raw = Array.isArray(meta.paginasPermitidas) ? meta.paginasPermitidas.map((x: unknown) => String(x).trim()).filter(Boolean) : null;
+          const validas = raw === null ? null : raw.filter((p: string) => alvo.includes(p));
+          return res.status(200).json({ ok: true, responsavel: false, paginasPermitidas: validas });
+        }
+
+        if (acao === 'gravar') {
+          const agenteNorm = String(agente || '').trim().toUpperCase().replace(/\s+/g, '');
+          if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(agenteNorm)) return res.status(400).json({ ok: false, erro: 'Nº de agente inválido.' });
+          const ehAdminAlvo = /^ADMIN-\d+$/.test(agenteNorm);
+          let autorizado = false;
+          let whitelist: string[] = [];
+          let dominio = '';
+          if (ehAdminAlvo) {
+            autorizado = ehAlfa && agenteNorm !== 'ADMIN-0001';
+            whitelist = PAGINAS_ADM;
+            dominio = 'admin.correiodigital.ao';
+          } else {
+            const mSeq = agenteNorm.match(/-(\d+)$/);
+            const seq = mSeq ? parseInt(mSeq[1], 10) : 0;
+            autorizado = ehResponsavelInst && agenteNorm.startsWith(`${instCaller}-`) && seq >= 2;
+            whitelist = PAGINAS_INST;
+            dominio = 'inst.correiodigital.ao';
+          }
+          if (!autorizado) return res.status(403).json({ ok: false, erro: 'Sem autorização para gerir as permissões deste agente.' });
+          if (!Array.isArray(paginas)) return res.status(400).json({ ok: false, erro: 'paginas deve ser uma lista.' });
+          const norm = (paginas as unknown[]).map((x) => String(x).trim());
+          const validas = norm.filter((x) => whitelist.includes(x));
+          if (validas.length !== norm.length) return res.status(400).json({ ok: false, erro: 'Lista contém páginas inválidas para esta área.' });
+
+          const emailAlvo = `agente.${agenteNorm.toLowerCase()}@${dominio}`;
+          const h = { apikey: serviceKeyPerfil, Authorization: `Bearer ${serviceKeyPerfil}` };
+          let alvoMeta: Record<string, unknown> | null = null;
+          let alvoId: string | null = null;
+          for (let pagina = 1; pagina <= 10 && !alvoId; pagina++) {
+            const lu = await fetch(`${supaUrlPerfil}/auth/v1/admin/users?per_page=200&page=${pagina}`, { headers: h });
+            if (!lu.ok) break;
+            const lista = await lu.json().catch(() => null);
+            const users = lista?.users || [];
+            if (!users.length) break;
+            const achado = users.find((u: any) => String(u.email || '').toLowerCase() === emailAlvo);
+            if (achado) {
+              alvoId = achado.id;
+              alvoMeta = (achado.user_metadata || {}) as Record<string, unknown>;
+            }
+          }
+          if (!alvoId) return res.status(404).json({ ok: false, erro: 'Conta do agente não encontrada na nuvem (a gravação local mantém-se).' });
+          const updResp = await fetch(`${supaUrlPerfil}/auth/v1/admin/users/${alvoId}`, {
+            method: 'PUT',
+            headers: { ...h, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_metadata: { ...(alvoMeta || {}), paginasPermitidas: validas } }),
+          });
+          if (!updResp.ok) {
+            const txt = await updResp.text();
+            return res.status(500).json({ ok: false, erro: txt.slice(0, 200) });
+          }
+          return res.status(200).json({ ok: true, agente: agenteNorm, paginas: validas });
+        }
+
+        return res.status(400).json({ ok: false, erro: 'Ação desconhecida.' });
+      } catch (e: any) {
+        console.error('[AGENTE-PERMISSOES] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
     if (url.includes('/api/perfil') && method === 'GET') {
       try {
         const bi = String((req.query && (req.query as any).bi) || '').trim().toUpperCase();

@@ -38,7 +38,12 @@ export interface LocalInstitutionRegistration {
   criadoEm: string;
   logoDataUrl?: string;      // F4 — logótipo carregado no Perfil
   agentNumber?: string;   // F6 — Nº Agente do responsável (código + '-01')
-  members: { id: string; name: string; email: string; phone?: string; role: string; dept: string; password: string; mustChangePassword: boolean; agentNumber?: string; }[];
+  members: {
+    id: string; name: string; email: string; phone?: string; role: string; dept: string;
+    password: string; mustChangePassword: boolean; agentNumber?: string;
+    /** 2026-08-22 — páginas (tabs) que o colaborador pode abrir. undefined = sem restrições (legado). */
+    paginasPermitidas?: string[];
+  }[];
 }
 
 const LOCAL_REGS_KEY = 'cda_inst_regs_v1';
@@ -167,7 +172,7 @@ export const updateInstMemberPassword = (code: string, memberId: string, passwor
 export const updateInstMemberProfile = (
   code: string,
   memberId: string,
-  patch: Partial<Pick<InstMember, 'name' | 'email' | 'phone' | 'role' | 'dept'>>
+  patch: Partial<Pick<InstMember, 'name' | 'email' | 'phone' | 'role' | 'dept' | 'paginasPermitidas'>>
 ): void => {
   const reg = getLocalInstReg(code);
   if (!reg) return;

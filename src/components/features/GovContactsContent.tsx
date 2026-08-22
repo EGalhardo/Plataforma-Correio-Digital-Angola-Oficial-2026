@@ -54,14 +54,15 @@ import {
   Info,
   Zap,
   Pencil,
-  KeyRound
+  KeyRound,
+  LayoutGrid
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import { registoPublicoProxy, eliminarCidadaoAdmin, eliminarAgente, enviarMensagemAdministrativa } from '../../services/supabaseService';
+import { registoPublicoProxy, eliminarCidadaoAdmin, eliminarAgente, permissoesAgente, enviarMensagemAdministrativa } from '../../services/supabaseService';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { limparPendenciaPerfil } from '../../services/profileSyncService';
 import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, updateInstMemberProfile, isInstPasswordTaken, nextMemberAgentNumber } from '../../services/institutionRegistrationStore';
-import { addAdminAgent, updateAdminAgentPassword, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber, getAdminAgentCreds, ADMIN_ALFA_AGENT } from '../../services/adminAgentStore';
+import { addAdminAgent, updateAdminAgentPassword, updateAdminAgentPermissions, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber, getAdminAgentCreds, ADMIN_ALFA_AGENT } from '../../services/adminAgentStore';
 
 interface AuditLog {
   id: string;
@@ -220,6 +221,31 @@ export function GovContactsContent({
     }
   };
 
+  // ============================================================================
+  // 2026-08-22 — PERMISSÕES DE PÁGINA (simples: página + checkbox)
+  // Lista dinâmica por área: só as páginas do menu da área onde o colaborador
+  // é criado. 'Equipa' fica de fora (exclusiva do responsável). A página de
+  // Perfil é OBRIGATÓRIA (o colaborador tem sempre de gerir a própria conta).
+  // ============================================================================
+  interface PaginaArea { id: string; label: string; obrigatoria?: boolean; }
+  const PAGINAS_INSTITUICAO: PaginaArea[] = [
+    { id: 'home', label: 'Painel' },
+    { id: 'correspondencias', label: 'Correio' },
+    { id: 'inst-qrcode', label: 'QR Code' },
+    { id: 'inst-ai-assistant', label: 'IA' },
+    { id: 'perfil', label: 'Perfil', obrigatoria: true },
+  ];
+  const PAGINAS_ADMIN: PaginaArea[] = [
+    { id: 'gov-dashboard', label: 'Painel' },
+    { id: 'gov-interoperabilidade', label: 'Instituições' },
+    { id: 'gov-correspondencias', label: 'Correspondências' },
+    { id: 'gov-contatos', label: 'Cidadãos' },
+    { id: 'gov-relatorio', label: 'Relatórios' },
+    { id: 'gov-ia', label: 'IA' },
+    { id: 'gov-seguranca', label: 'Auditoria' },
+    { id: 'gov-perfil', label: 'Perfil', obrigatoria: true },
+  ];
+
   interface Trabajador {
     id: string;
     name: string;
@@ -232,6 +258,8 @@ export function GovContactsContent({
     phone: string;
     registrationDate: string;
     permissions: string[];
+    /** 2026-08-22 — páginas concedidas (tabs). undefined = sem restrições (legado). */
+    paginas?: string[];
     activityLogs: { action: string; timestamp: string; ip: string }[];
   }
 
@@ -270,6 +298,7 @@ export function GovContactsContent({
           lastAccess: 'Nunca acedeu',
           registrationDate: '12/06/2026',
           permissions: ['Visualizar'],
+          paginas: m.paginasPermitidas,
           activityLogs: [],
         }));
         return membros.length ? membros : lerEspelho();
@@ -1303,6 +1332,23 @@ export function GovContactsContent({
   const [newWorkerStatus, setNewWorkerStatus] = useState<'Ativo' | 'Desativado' | 'Suspenso' | 'Férias' | 'Pendente'>('Ativo');
   const [, setNewWorkerAccessProfile] = useState('Operador de Atendimento');
   const [newWorkerPassword, setNewWorkerPassword] = useState('');
+  // 2026-08-22 — PERMISSÕES DE PÁGINA: páginas seleccionadas no popup
+  const [newWorkerPaginas, setNewWorkerPaginas] = useState<string[]>([]);
+
+  const paginasDaArea = (appMode === 'admin-workers' ? PAGINAS_ADMIN : PAGINAS_INSTITUICAO);
+  const paginaObrigatoriaId = appMode === 'admin-workers' ? 'gov-perfil' : 'perfil';
+
+  const togglePagina = (id: string) => {
+    const p = paginasDaArea.find((x) => x.id === id);
+    if (p?.obrigatoria) return; // a página obrigatória fica sempre concedida
+    setNewWorkerPaginas((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  /** Páginas efectivas ao gravar: seleccionadas + página obrigatória. */
+  const paginasEfetivas = (): string[] => {
+    const base = newWorkerPaginas.filter((x) => x !== paginaObrigatoriaId && paginasDaArea.some((p) => p.id === x));
+    return [...base, paginaObrigatoriaId];
+  };
 
   // F6/B4 — Nº de agente gerado pelo sistema (instituição real → 'SME-LLVV-NN'; Admin → 'ADMIN-NNNN' sequencial v10.1; restantes contextos → formato legado)
   const autoWorkerAgentId = (() => {
@@ -1337,6 +1383,7 @@ export function GovContactsContent({
     setNewWorkerStatus('Ativo');
     setNewWorkerAccessProfile('Operador de Atendimento');
     setNewWorkerPassword('');
+    setNewWorkerPaginas([]);
     setIsEditingWorker(false);
     setEditingWorkerId(null);
   };
@@ -1429,7 +1476,25 @@ export function GovContactsContent({
           phone: newWorkerPhone,
           role: newWorkerRole,
           dept: newWorkerDept || 'Geral',
+          paginasPermitidas: paginasEfetivas(), // 2026-08-22 — páginas concedidas
         });
+      }
+      // 2026-08-22 — permissões de página do AGENTE ADMIN (espelho local)
+      if (adminCredsOn && editingWorkerId) {
+        const editedAgentNum = workers.find(w => w.id === editingWorkerId)?.agentId;
+        if (editedAgentNum) updateAdminAgentPermissions(editedAgentNum, paginasEfetivas());
+      }
+      // 2026-08-22 — persistência NA NUVEM (Modo Real): o servidor grava as
+      // páginas nos user_metadata do agente e valida a autoridade do
+      // responsável (best-effort — falha de rede não quebra a edição local).
+      {
+        const editedAgentNum = workers.find(w => w.id === editingWorkerId)?.agentId;
+        if (editedAgentNum && isSupabaseConfigured()) {
+          void permissoesAgente('gravar', editedAgentNum, paginasEfetivas()).then((res) => {
+            if (res.ok) addAuditLog?.(`[EQUIPA] Permissões de página de ${editedAgentNum} gravadas na nuvem (Supabase).`, 'success');
+            else addAuditLog?.(`[EQUIPA] Nuvem indisponível ao gravar permissões de ${editedAgentNum} (${res.erro || 'erro'}) — mantidas localmente.`, 'warning');
+          });
+        }
       }
       setWorkers(prev => prev.map(w => w.id === editingWorkerId ? {
         ...w,
@@ -1442,6 +1507,7 @@ export function GovContactsContent({
         status: newWorkerStatus || 'Ativo',
         registrationDate: w.registrationDate || '12/06/2026',
         permissions: w.permissions || ['Visualizar'],
+        paginas: paginasEfetivas(),
         activityLogs: [
           { action: 'Dados cadastrais atualizados pelo painel central', timestamp: currentTime, ip: '197.231.42.15' },
           ...(w.activityLogs || [])
@@ -1466,6 +1532,7 @@ export function GovContactsContent({
           password: newWorkerPassword,
           mustChangePassword: true,
           agentNumber: autoWorkerAgentId, // F6 — 'SME-LLVV-NN'
+          paginasPermitidas: paginasEfetivas(), // 2026-08-22 — páginas concedidas
         });
       }
       if (adminCredsOn) {
@@ -1474,6 +1541,7 @@ export function GovContactsContent({
           password: newWorkerPassword,
           workerId: newWorkerId,
           name: newWorkerName,
+          paginasPermitidas: paginasEfetivas(), // 2026-08-22 — páginas concedidas
         });
         addAuditLog?.(`[EQUIPA] Agente ${autoWorkerAgentId} (${newWorkerName}) criado — login Admin com Nº + senha inicial.`, 'success');
       }
@@ -1489,8 +1557,8 @@ export function GovContactsContent({
           email: cloudEmail,
           password: newWorkerPassword,
           metadata: adminCredsOn
-            ? { agent: autoWorkerAgentId, name: newWorkerName, workerId: newWorkerId, role: 'admin' }
-            : { agent: autoWorkerAgentId, instituicao: regCode, name: newWorkerName, role: 'instituicao' },
+            ? { agent: autoWorkerAgentId, name: newWorkerName, workerId: newWorkerId, role: 'admin', email: newWorkerEmail, phone: newWorkerPhone, paginasPermitidas: paginasEfetivas() }
+            : { agent: autoWorkerAgentId, instituicao: regCode, name: newWorkerName, role: 'instituicao', email: newWorkerEmail, phone: newWorkerPhone, paginasPermitidas: paginasEfetivas() },
         }).then((prov) => {
           if (prov.outcome === 'ok' || prov.outcome === 'linked_existing') {
             markCloudAccount(autoWorkerAgentId, cloudEmail, cloudRole);
@@ -1514,6 +1582,7 @@ export function GovContactsContent({
         lastAccess: 'Nunca acedeu',
         registrationDate: '12/06/2026',
         permissions: defaultPerms,
+        paginas: paginasEfetivas(),
         activityLogs: [
           { action: 'Conta criada e ativada no sistema dactiloscópico', timestamp: currentTime, ip: '197.231.42.15' }
         ]
@@ -1537,6 +1606,20 @@ export function GovContactsContent({
     setNewWorkerAgentId(w.agentId || '');
     setNewWorkerPhone(w.phone);
     setNewWorkerStatus(w.status || 'Ativo');
+    // 2026-08-22 — os checkboxes de páginas vêm pré-seleccionados com as
+    // permissões actuais (membro/agente LEGADO sem lista = todas concedidas,
+    // preservando o acesso actual).
+    {
+      const todas = paginasDaArea.map((x) => x.id);
+      if (appMode === 'institution') {
+        const reg = getLocalInstReg(normalizeInstCode(bi || ''));
+        const m = (reg?.members || []).find((x) => x.id === w.id);
+        setNewWorkerPaginas(m?.paginasPermitidas ? [...m.paginasPermitidas] : todas);
+      } else {
+        const cred = getAdminAgentCreds().find((c) => c.workerId === w.id);
+        setNewWorkerPaginas(cred?.paginasPermitidas ? [...cred.paginasPermitidas] : todas);
+      }
+    }
     setShowAddWorkerModal(true);
   };
 
@@ -2175,6 +2258,62 @@ export function GovContactsContent({
                         </div>
                       </>
                     )}
+
+                    {/* 2026-08-22 — PÁGINAS COM ACESSO: checkbox por página da área.
+                        Simples e intuitivo: o responsável marca exactamente o que o
+                        colaborador pode abrir. A página de Perfil é obrigatória.
+                        'Equipa' não aparece (exclusiva do responsável). */}
+                    <div className="border-t border-dashed border-slate-150" />
+                    <div className="space-y-3 text-left">
+                      <div className="flex items-center gap-2 text-indigo-500">
+                        <LayoutGrid size={15} className="stroke-[2.5]" />
+                        <span className="font-extrabold text-[11px] uppercase tracking-widest">Páginas com acesso</span>
+                        <span className="ml-auto text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                          {newWorkerPaginas.filter((p) => p !== paginaObrigatoriaId && paginasDaArea.some((x) => x.id === p)).length} de {paginasDaArea.length} marcadas
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-semibold leading-relaxed m-0 select-none">
+                        Marque as páginas da plataforma às quais pretende dar acesso a este {isPlatformAdmin ? 'agente' : 'colaborador'}. O menu dele mostrará apenas as páginas marcadas — e o acesso directo por endereço a páginas não marcadas fica bloqueado (verificado no servidor).
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[210px] overflow-y-auto custom-scrollbar pr-1">
+                        {paginasDaArea.map((pag) => {
+                          const marcada = pag.obrigatoria ? true : newWorkerPaginas.includes(pag.id);
+                          return (
+                            <label
+                              key={pag.id}
+                              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all select-none ${
+                                pag.obrigatoria
+                                  ? 'bg-emerald-50/60 border-emerald-200 cursor-default'
+                                  : marcada
+                                    ? 'bg-indigo-50/70 border-indigo-200 cursor-pointer hover:border-indigo-300'
+                                    : 'bg-white border-slate-200 cursor-pointer hover:border-indigo-300'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={marcada}
+                                disabled={!!pag.obrigatoria}
+                                onChange={() => togglePagina(pag.id)}
+                                className="w-4 h-4 accent-indigo-600 shrink-0"
+                              />
+                              <span className={`text-[11px] font-bold ${pag.obrigatoria ? 'text-emerald-800' : 'text-slate-700'}`}>
+                                {pag.label}
+                              </span>
+                              {pag.obrigatoria && (
+                                <span className="ml-auto text-[8px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                  Obrigatória
+                                </span>
+                              )}
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[9px] text-slate-400 font-bold m-0 select-none">
+                        {isPlatformAdmin
+                          ? 'A página "Equipa" da Administração é exclusiva do Admin Alfa e não está disponível para atribuição.'
+                          : 'A página "Equipa" da instituição é exclusiva do responsável e não está disponível para atribuição.'}
+                      </p>
+                    </div>
 
                     {/* Separator before buttons */}
                     <div className="border-t border-dashed border-slate-150 mt-4" />

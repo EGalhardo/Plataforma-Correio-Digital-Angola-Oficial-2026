@@ -16,6 +16,8 @@ export interface AdminAgentCred {
   password: string;    // demo — apenas neste dispositivo
   workerId: string;    // liga ao trabalhador da Equipa (correio_digital_admin_workers)
   name: string;
+  /** 2026-08-22 — páginas (tabs) que o agente pode abrir. undefined = sem restrições (legado/Alfa). */
+  paginasPermitidas?: string[];
 }
 
 const CREDS_KEY = 'cda_admin_agent_creds_v1';
@@ -112,6 +114,12 @@ export const addAdminAgent = (cred: AdminAgentCred): void => {
   const creds = readCreds().filter(c => normalizeAgentNumber(c.agent) !== normalizeAgentNumber(cred.agent));
   creds.push(cred);
   writeCreds(creds);
+};
+
+/** 2026-08-22 — Actualiza APENAS as páginas permitidas do agente (mantém o resto). */
+export const updateAdminAgentPermissions = (agent: string, paginasPermitidas: string[] | undefined): void => {
+  const key = normalizeAgentNumber(agent);
+  writeCreds(readCreds().map(c => normalizeAgentNumber(c.agent) === key ? { ...c, paginasPermitidas } : c));
 };
 
 /** Actualiza a senha do agente (mantém o resto). */
