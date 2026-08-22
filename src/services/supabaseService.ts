@@ -85,6 +85,9 @@ interface LinhaNotificacao {
 interface LinhaNotificacaoRow {
   id: number | string; target_bi: string; title: string; message: string;
   time_text: string; type: string; target_tab: string;
+  // 2026-08-22 — a tabela de PRODUÇÃO usa read_at (null = não lida);
+  // não existe a coluna 'unread' (o insert com ela falhava 42703).
+  read_at?: string | null;
 }
 interface ProfileUpsertPayload {
   bi: string; name: string; phone: string | null; nif: string | null;
@@ -1626,7 +1629,11 @@ export const supabaseService = {
         message: item.message,
         time: item.time_text,
         type: item.type as Contact['type'],
-        targetTab: item.target_tab
+        targetTab: item.target_tab,
+        // 2026-08-22 — dono da notificação: sessões reais filtram por ownerId
+        // (sem isto a notificação da nuvem NUNCA aparecia ao destinatário).
+        ownerId: String(item.target_bi || '').toUpperCase(),
+        unread: item.read_at === null || item.read_at === undefined || item.read_at === '',
       }));
     } catch (e) {
       console.error('Supabase getNotifications error:', e);
@@ -1647,7 +1654,8 @@ export const supabaseService = {
         message: notif.message,
         time_text: notif.time || 'Agora',
         type: notif.type || 'info',
-        target_tab: notif.targetTab || 'home'
+        target_tab: notif.targetTab || 'home',
+        // read_at fica NULL (não lida) — a tabela de produção não tem 'unread'.
       };
       // v25 (familia do bug de auditoria — provado por sonda REST em 2026-08-05):
       // NAO encadear .select(). O RETURNING forca SELECT da linha inserida;

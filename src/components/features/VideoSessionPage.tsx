@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import {
   Video,
@@ -33,7 +34,8 @@ import {
   MonitorPlay,
   RefreshCw,
   WifiOff,
-  Loader2
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 import { useLanguage } from '../../hooks/useLanguage';
 import { notify } from '../../lib/notify';
@@ -45,13 +47,6 @@ import { supabaseService } from '../../services/supabaseService';
 // público meet.jit.si, mas pode apontar para um servidor próprio (self-hosted)
 // via variável de ambiente VITE_JITSI_SERVER_URL — sem alterar código.
 const JITSI_SERVER = (import.meta as any).env?.VITE_JITSI_SERVER_URL || 'https://meet.jit.si';
-
-interface JitsiEmbedProps {
-  roomName: string;
-  subject: string;
-  isActive: boolean;
-  isVideoOn?: boolean;
-}
 
 function LocalWebcamOverlay() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -210,44 +205,153 @@ function LocalWebcamOverlay() {
   );
 }
 
+interface JitsiEmbedProps {
+  roomName: string;
+  subject: string;
+  isActive: boolean;
+  isVideoOn?: boolean;
+}
+
+/**
+ * 2026-08-22 — DOIS ECRÃS (semântica correcta de videochamada):
+ *  · ECRÃ GRANDE = o OUTRO participante. Usa a API externa do Jitsi
+ *    (external_api.js) para saber QUEM está na sala: sem participante remoto,
+ *    o ecrã grande mostra a TELA DE OFFLINE ("A aguardar o outro
+ *    participante…") — nunca a filmagem própria.
+ *  · ECRÃ PEQUENO (canto inferior direito, PiP) = SEMPRE a filmagem LOCAL
+ *    (self-view) do utilizador que está a ver o ecrã.
+ * Se a API externa não carregar (rede/DNS), o ecrã grande mostra o estado de
+ * erro honesto com ajuda — a filmagem própria continua apenas no PiP.
+ */
 function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbedProps) {
-  const [jitsiUrl, setJitsiUrl] = useState<string>(() => `${JITSI_SERVER}/${roomName}#config.prejoinPageEnabled=false&config.disableDeepLinking=true&interfaceConfig.MOBILE_APP_PROMO=false`);
-  // Estado de ligação: checking (pré-verificação) · loading (a carregar) ·
-  // ready (iframe carregado) · error (falha de rede/DNS — mostra ajuda).
-  const [linkState, setLinkState] = useState<'checking' | 'loading' | 'ready' | 'error'>('checking');
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const apiRef = useRef<any>(null);
+  const estadoRef = useRef<string>('checking');
+
+  const [remoteCount, setRemoteCount] = useState(0);
+  const [callState, setCallState] = useState<'checking' | 'connecting' | 'connected' | 'error'>('checking');
   const [erroDetalhe, setErroDetalhe] = useState('');
 
-  const reconfigurar = (url: string) => { setJitsiUrl(url); setLinkState('loading'); setErroDetalhe(''); };
-
-  // Pré-verificação de alcance do servidor (deteta DNS/redes bloqueadas ANTES
-  // de tentar carregar o iframe) + timeout de carga. Nunca quebra o fluxo.
   useEffect(() => {
     if (!isActive) return;
     let cancelado = false;
-    setLinkState('checking');
+    setCallState('checking');
     setErroDetalhe('');
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 8000);
-    fetch(JITSI_SERVER + '/', { method: 'HEAD', signal: ctrl.signal, mode: 'no-cors' })
-      .catch(() => null)
-      .finally(() => {
-        clearTimeout(timer);
+    setRemoteCount(0);
+    estadoRef.current = 'checking';
+
+    const marcar = (s: string) => { estadoRef.current = s; };
+
+    const carregarScript = (): Promise<void> => new Promise((resolve, reject) => {
+      const w = window as any;
+      if (w.JitsiMeetExternalAPI) { resolve(); return; }
+      const existente = document.getElementById('cda-jitsi-external-api') as HTMLScriptElement | null;
+      if (existente) {
+        existente.addEventListener('load', () => resolve(), { once: true });
+        existente.addEventListener('error', () => reject(new Error('script falhou')), { once: true });
+        return;
+      }
+      const s = document.createElement('script');
+      s.id = 'cda-jitsi-external-api';
+      s.src = `${JITSI_SERVER}/external_api.js`;
+      s.async = true;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('script indisponível'));
+      document.body.appendChild(s);
+    });
+
+    const criarSala = () => {
+      const w = window as any;
+      if (!w.JitsiMeetExternalAPI || !containerRef.current) return;
+      try {
+        const api = new w.JitsiMeetExternalAPI(JITSI_SERVER.replace('https://', ''), {
+          roomName,
+          parentNode: containerRef.current,
+          width: '100%',
+          height: '100%',
+          configOverwrite: {
+            prejoinPageEnabled: false,
+            disableDeepLinking: true,
+            startWithAudioMuted: false,
+            startWithVideoMuted: false,
+            disableSimulcast: false,
+          },
+          interfaceConfigOverwrite: {
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_BRAND_WATERMARK: false,
+            SHOW_POWERED_BY: false,
+            DEFAULT_REMOTE_DISPLAY_NAME: 'Outro participante',
+            MOBILE_APP_PROMO: false,
+          },
+        });
+        apiRef.current = api;
+
+        const atualizarParticipantes = () => {
+          try {
+            const partes = api.getParticipantsInfo ? api.getParticipantsInfo() : [];
+            const n = Array.isArray(partes) ? Math.max(0, partes.length - 1) : 0;
+            if (!cancelado) setRemoteCount(n);
+          } catch { /* melhor esforço */ }
+        };
+
+        api.on('videoConferenceJoined', () => {
+          if (cancelado) return;
+          setCallState('connected');
+          marcar('connected');
+          atualizarParticipantes();
+        });
+        api.on('participantJoined', atualizarParticipantes);
+        api.on('participantLeft', atualizarParticipantes);
+        api.on('videoConferenceLeft', () => {
+          if (cancelado) return;
+          setCallState('error');
+          setErroDetalhe('A sala de vídeo terminou ou a ligação caiu.');
+        });
+      } catch (e) {
+        if (!cancelado) {
+          setCallState('error');
+          setErroDetalhe('Não foi possível criar a sala de vídeo.');
+        }
+      }
+    };
+
+    const iniciar = async () => {
+      try {
+        setCallState('connecting');
+        marcar('connecting');
+        await carregarScript();
         if (cancelado) return;
-        // 'no-cors' não expõe o status; se o fetch não lançou, o domínio existe.
-        setLinkState('loading');
-      });
-    // Timeout de segurança: se o iframe não carregar em 30s, mostra ajuda.
-    const cargaTimer = setTimeout(() => {
-      if (cancelado) return;
-      setLinkState(prev => prev === 'ready' ? prev : 'error');
-      setErroDetalhe('O servidor de vídeo não respondeu a tempo.');
+        criarSala();
+      } catch (e) {
+        if (!cancelado) {
+          setCallState('error');
+          setErroDetalhe('O módulo de vídeo não carregou a partir do servidor (rede/DNS bloqueado?).');
+        }
+      }
+    };
+
+    // Timeout de segurança: 30s sem ligar a sala → ajuda honesta.
+    const timer = setTimeout(() => {
+      if (!cancelado && estadoRef.current !== 'connected') {
+        setCallState('error');
+        setErroDetalhe('O servidor de vídeo não respondeu a tempo.');
+      }
     }, 30000);
-    return () => { cancelado = true; clearTimeout(timer); clearTimeout(cargaTimer); };
+
+    void iniciar();
+
+    return () => {
+      cancelado = true;
+      clearTimeout(timer);
+      try { apiRef.current?.dispose?.(); } catch { /* melhor esforço */ }
+      apiRef.current = null;
+    };
   }, [isActive, roomName]);
 
-  if (!isActive) {
-    return (
-      <div id="video-atendimento-container" className="bg-slate-950 border border-slate-700 rounded-2xl overflow-hidden relative shadow-lg">
+  // ---------- Ecrã grande (o outro participante) ----------
+  const renderEcrãGrande = () => {
+    if (!isActive) {
+      return (
         <div className="aspect-video flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
           <div className="text-center space-y-3">
             <div className="w-16 h-16 bg-indigo-600/20 rounded-full flex items-center justify-center mx-auto">
@@ -257,29 +361,18 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
             <p className="text-slate-500 text-[10px]">Selecione uma sessão e clique em "Entrar"</p>
           </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  return (
-    <div id="video-atendimento-container" className="bg-slate-950 border border-slate-700 rounded-2xl overflow-hidden relative shadow-xl">
-      <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-r from-indigo-900/80 to-slate-900/80 backdrop-blur-sm px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-white text-[10px] font-black uppercase tracking-wider">Correio Digital Angola</span>
-        </div>
-        <span className="text-indigo-300 text-[9px] font-semibold truncate max-w-[180px]">{subject}</span>
-      </div>
-
-      {/* Estado de erro: mensagem clara + causas + retry (em vez do erro técnico do browser). */}
-      {linkState === 'error' ? (
-        <div className="w-full pt-8 h-[280px] md:h-[480px] flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950 p-6">
+    if (callState === 'error') {
+      return (
+        <div className="w-full h-[280px] md:h-[480px] flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950 p-6">
           <div className="text-center space-y-4 max-w-md">
             <div className="w-14 h-14 bg-rose-500/15 rounded-2xl flex items-center justify-center mx-auto">
               <WifiOff size={26} className="text-rose-400" />
             </div>
             <div>
-              <h4 className="text-white text-sm font-black uppercase tracking-wide">Não foi possível ligar ao servidor de vídeo</h4>
+              <h4 className="text-white text-sm font-black uppercase tracking-wide">Sala de vídeo indisponível</h4>
               <p className="text-slate-400 text-[11px] font-medium leading-relaxed mt-2">
                 O servidor de vídeo (<span className="text-indigo-300">{JITSI_SERVER.replace('https://', '')}</span>) não está acessível a partir da sua rede.
                 {erroDetalhe ? ` ${erroDetalhe}` : ''}
@@ -288,53 +381,79 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
             <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-3 text-left space-y-1">
               <p className="text-[9px] font-black uppercase tracking-widest text-amber-400">Possíveis causas e soluções</p>
               <p className="text-[10px] text-slate-300 font-medium leading-snug">• Verifique a ligação à internet e que o DNS resolve domínios externos.</p>
-              <p className="text-[10px] text-slate-300 font-medium leading-snug">• Se usar uma rede corporativa/operadora com filtros, pode estar a bloquear o domínio de vídeo.</p>
-              <p className="text-[10px] text-slate-300 font-medium leading-snug">• Experimente outra rede (ex.: dados móveis) ou um servidor de vídeo institucional.</p>
+              <p className="text-[10px] text-slate-300 font-medium leading-snug">• Redes corporativas/operadoras com filtros podem bloquear o domínio de vídeo.</p>
+              <p className="text-[10px] text-slate-300 font-medium leading-snug">• Experimente outra rede (ex.: dados móveis) e tente novamente.</p>
             </div>
             <button
               type="button"
-              onClick={() => { setLinkState('loading'); setErroDetalhe(''); setJitsiUrl(`${JITSI_SERVER}/${roomName}#config.prejoinPageEnabled=false&config.disableDeepLinking=true&interfaceConfig.MOBILE_APP_PROMO=false`); }}
+              onClick={() => { setCallState('connecting'); setErroDetalhe(''); setRemoteCount(0); }}
               className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer border-none"
             >
               Tentar novamente
             </button>
           </div>
         </div>
-      ) : (
-        <>
-          <iframe
-            key={jitsiUrl}
-            src={jitsiUrl}
-            onLoad={() => setLinkState('ready')}
-            style={{ border: '0px none', width: '100%' }}
-            name="Jitsi"
-            scrolling="no"
-            frameBorder="0"
-            marginHeight={0}
-            marginWidth={0}
-            allowFullScreen={true}
-            allow="camera; microphone; display-capture; autoplay; clipboard-write"
-            title="Videoatendimento Oficial Correio Digital Angola"
-            className="w-full pt-8 h-[280px] md:h-[480px]"
-          />
-          {/* Sobreposição de ligação enquanto o iframe carrega */}
-          {(linkState === 'checking' || linkState === 'loading') && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm">
-              <div className="text-center space-y-3">
-                <Loader2 size={28} className="animate-spin text-indigo-400 mx-auto" />
-                <p className="text-slate-300 text-[11px] font-bold">A ligar ao servidor de vídeo…</p>
+      );
+    }
+
+    return (
+      <>
+        {/* A sala Jitsi monta AQUI (ecrã grande = o outro participante). */}
+        <div ref={containerRef} className="w-full h-[280px] md:h-[480px]" />
+
+        {/* ENQUANTO O OUTRO PARTICIPANTE NÃO ESTÁ NA SALA: tela de OFFLINE por
+            cima — o ecrã grande NUNCA mostra a filmagem própria (a self-view
+            fica apenas no PiP do canto inferior direito). */}
+        {(callState === 'checking' || callState === 'connecting') && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/90">
+            <div className="text-center space-y-3">
+              <Loader2 size={28} className="animate-spin text-indigo-400 mx-auto" />
+              <p className="text-slate-300 text-[11px] font-bold">A ligar à sala de vídeo…</p>
+            </div>
+          </div>
+        )}
+        {callState === 'connected' && remoteCount === 0 && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/95">
+            <div className="text-center space-y-4 max-w-sm px-6">
+              <div className="w-20 h-20 bg-slate-800/80 border border-slate-700 rounded-full flex items-center justify-center mx-auto relative">
+                <VideoOff size={30} className="text-slate-400" />
+                <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-amber-500 animate-pulse border-2 border-slate-950" />
+              </div>
+              <div>
+                <h4 className="text-white text-sm font-black uppercase tracking-wide">O outro participante ainda não entrou</h4>
+                <p className="text-slate-400 text-[11px] font-medium leading-relaxed mt-2">
+                  Você está ligado à sala e a sua imagem aparece no ecrã pequeno (canto inferior direito). Quando o outro participante entrar, a imagem dele aparece AQUI, no ecrã grande.
+                </p>
+              </div>
+              <div className="inline-flex items-center gap-2 bg-slate-800/70 border border-slate-700 rounded-full px-4 py-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">Sala ativa • à espera</span>
               </div>
             </div>
-          )}
-        </>
-      )}
+          </div>
+        )}
+      </>
+    );
+  };
 
-      {/* Floating Picture-in-Picture Local Webcam Overlay */}
+  return (
+    <div id="video-atendimento-container" className="bg-slate-950 border border-slate-700 rounded-2xl overflow-hidden relative shadow-xl">
+      <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-r from-indigo-900/80 to-slate-900/80 backdrop-blur-sm px-4 py-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-white text-[10px] font-black uppercase tracking-wider">Correio Digital Angola</span>
+        </div>
+        <span className="text-indigo-300 text-[9px] font-semibold truncate max-w-[180px]">{subject}</span>
+      </div>
+
+      {renderEcrãGrande()}
+
+      {/* ECRÃ PEQUENO (PiP) — SEMPRE a filmagem LOCAL do utilizador. */}
       {isActive && isVideoOn && <LocalWebcamOverlay />}
 
       <div className="absolute bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-sm px-4 py-2 border-t border-slate-700">
         <p className="text-[9px] text-slate-400 text-center">
-          💡 Atributo de Segurança: A diretiva <code className="bg-slate-800 px-1 rounded text-indigo-300">allow="camera; microphone..."</code> autoriza acesso aos dispositivos
+          💡 O ecrã grande mostra o outro participante; a sua filmagem aparece no ecrã pequeno (canto inferior direito).
         </p>
       </div>
     </div>
@@ -961,107 +1080,125 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
           atendimento com QUALQUER cidadão registado na plataforma (lookup por
           B.I. real — nada de nomes inventados).
           ========================================================================== */}
-      {showAgendar && isInst && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setShowAgendar(false)} />
-          <div className="relative bg-white w-full max-w-lg rounded-[28px] shadow-2xl border border-slate-200 p-6 md:p-7 space-y-4 max-h-[90vh] overflow-y-auto text-left font-sans">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
-                  <CalendarPlus size={19} />
+      {showAgendar && isInst && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          {/* 2026-08-22 — fundo PRETO translúcido (preto cinzento) com blur;
+              o popup fica SEMPRE por cima (portal no <body>, acima de todo o
+              layout da aplicação). */}
+          <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-md" onClick={() => setShowAgendar(false)} />
+
+          <div className="relative w-full max-w-[520px] bg-white rounded-[28px] shadow-[0_25px_80px_rgba(2,6,23,0.55)] border border-white/10 overflow-hidden animate-fadeIn">
+            {/* Cabeçalho do popup */}
+            <div className="bg-gradient-to-r from-indigo-950 to-slate-900 px-6 py-5 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 bg-white/10 border border-white/15 rounded-2xl flex items-center justify-center shrink-0">
+                  <CalendarPlus size={20} className="text-indigo-200" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none">Agendar Video-atendimento</h3>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">{instDisplayName || 'Instituição'} • anfitriã da sessão</p>
+                  <h3 className="text-white text-sm font-black uppercase tracking-wide leading-none">Agendar Video-atendimento</h3>
+                  <p className="text-indigo-200/80 text-[10px] font-bold uppercase tracking-wider mt-1.5">
+                    {instDisplayName || 'Instituição'} • anfitriã da sessão
+                  </p>
                 </div>
               </div>
-              <button onClick={() => setShowAgendar(false)} className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer border-0" aria-label="Fechar">
+              <button
+                onClick={() => setShowAgendar(false)}
+                aria-label="Fechar"
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white cursor-pointer border-0 transition-colors shrink-0"
+              >
                 <X size={16} />
               </button>
             </div>
 
-            <div className="grid gap-1.5">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Assunto do atendimento *</label>
-              <input
-                type="text"
-                value={formAgendar.assunto}
-                onChange={(e) => setFormAgendar(prev => ({ ...prev, assunto: e.target.value }))}
-                placeholder="Ex.: Esclarecimento sobre o Certificado MPME"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Corpo do popup */}
+            <div className="px-6 py-5 space-y-4 max-h-[62vh] overflow-y-auto custom-scrollbar">
               <div className="grid gap-1.5">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data *</label>
-                <input type="date" value={formAgendar.data} onChange={(e) => setFormAgendar(prev => ({ ...prev, data: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400" />
-              </div>
-              <div className="grid gap-1.5">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Hora *</label>
-                <input type="time" value={formAgendar.hora} onChange={(e) => setFormAgendar(prev => ({ ...prev, hora: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400" />
-              </div>
-            </div>
-
-            {/* CIDADÃO — lookup real por BI */}
-            <div className="grid gap-1.5">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Cidadão (Nº de B.I.) *</label>
-              <div className="flex gap-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Assunto do atendimento *</label>
                 <input
                   type="text"
-                  value={formAgendar.biCidadao}
-                  onChange={(e) => { setFormAgendar(prev => ({ ...prev, biCidadao: e.target.value.toUpperCase(), nomeCidadao: '' })); setLookupEstado('idle'); }}
-                  placeholder="Ex.: 002399714LA030"
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-mono font-bold text-slate-800 outline-none focus:border-indigo-400"
+                  value={formAgendar.assunto}
+                  onChange={(e) => setFormAgendar(prev => ({ ...prev, assunto: e.target.value }))}
+                  placeholder="Ex.: Esclarecimento sobre o Certificado MPME"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-400 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none transition-colors"
                 />
-                <button
-                  type="button"
-                  onClick={() => void handleVerificarCidadao()}
-                  disabled={lookupEstado === 'checking'}
-                  className="flex items-center gap-1.5 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer border-0 shrink-0"
-                >
-                  <Search size={13} />
-                  {lookupEstado === 'checking' ? 'A verificar…' : 'Verificar'}
-                </button>
               </div>
-              {lookupEstado === 'found' && (
-                <p className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 m-0">
-                  ✓ Cidadão localizado: <span className="font-black">{formAgendar.nomeCidadao}</span> ({formAgendar.biCidadao})
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid gap-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data *</label>
+                  <input type="date" value={formAgendar.data} onChange={(e) => setFormAgendar(prev => ({ ...prev, data: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-400 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none transition-colors" />
+                </div>
+                <div className="grid gap-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Hora *</label>
+                  <input type="time" value={formAgendar.hora} onChange={(e) => setFormAgendar(prev => ({ ...prev, hora: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-400 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none transition-colors" />
+                </div>
+              </div>
+
+              <div className="grid gap-1.5">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Cidadão (Nº de B.I.) *</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formAgendar.biCidadao}
+                    onChange={(e) => { setFormAgendar(prev => ({ ...prev, biCidadao: e.target.value.toUpperCase(), nomeCidadao: '' })); setLookupEstado('idle'); }}
+                    placeholder="Ex.: 002399714LA030"
+                    className="flex-1 bg-slate-50 border border-slate-200 focus:border-indigo-400 rounded-xl px-4 py-3 text-xs font-mono font-bold text-slate-800 outline-none transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleVerificarCidadao()}
+                    disabled={lookupEstado === 'checking'}
+                    className="flex items-center gap-1.5 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer border-0 shrink-0 transition-colors"
+                  >
+                    <Search size={13} />
+                    {lookupEstado === 'checking' ? 'A verificar…' : 'Verificar'}
+                  </button>
+                </div>
+                {lookupEstado === 'found' && (
+                  <p className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 m-0 flex items-center gap-1.5">
+                    <CheckCircle size={13} className="shrink-0" />
+                    Cidadão localizado: <span className="font-black">{formAgendar.nomeCidadao}</span> ({formAgendar.biCidadao})
+                  </p>
+                )}
+              </div>
+
+              <div className="grid gap-1.5">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Agenda do atendimento</label>
+                <textarea
+                  value={formAgendar.agenda}
+                  onChange={(e) => setFormAgendar(prev => ({ ...prev, agenda: e.target.value }))}
+                  rows={3}
+                  placeholder="Pontos a tratar na videochamada (fica visível para o cidadão)…"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-400 rounded-xl px-4 py-3 text-xs font-semibold text-slate-800 outline-none transition-colors resize-y"
+                />
+              </div>
+
+              {formErro && (
+                <p className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 m-0 flex items-start gap-1.5">
+                  <AlertTriangle size={13} className="shrink-0 mt-0.5" /> {formErro}
                 </p>
               )}
+
+              <p className="text-[10px] text-slate-500 font-semibold leading-relaxed m-0 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5">
+                Ao agendar, o cidadão recebe a notificação oficial e vê a sessão na página Video-atendimento dele. No horário marcado, ambos entram na MESMA sala de vídeo (Jitsi Meet) — a chamada é em tempo real, com áudio e vídeo.
+              </p>
             </div>
 
-            <div className="grid gap-1.5">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Agenda do atendimento</label>
-              <textarea
-                value={formAgendar.agenda}
-                onChange={(e) => setFormAgendar(prev => ({ ...prev, agenda: e.target.value }))}
-                rows={3}
-                placeholder="Pontos a tratar na videochamada (fica visível para o cidadão)…"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-400 resize-y"
-              />
-            </div>
-
-            {formErro && (
-              <p className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 m-0">{formErro}</p>
-            )}
-
-            <p className="text-[10px] text-slate-500 font-semibold leading-relaxed m-0">
-              Ao agendar, o cidadão recebe a notificação oficial e vê a sessão na página Video-atendimento dele. No horário marcado, ambos entram na MESMA sala de vídeo (Jitsi Meet) — a chamada é em tempo real, com áudio e vídeo.
-            </p>
-
-            <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
-              <button onClick={() => setShowAgendar(false)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer border-0">Cancelar</button>
+            {/* Rodapé do popup */}
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/60 flex items-center gap-3">
+              <button onClick={() => setShowAgendar(false)} className="flex-1 py-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer transition-colors">Cancelar</button>
               <button
                 onClick={() => void handleAgendar()}
                 disabled={aAgendar}
-                className="flex-1 py-3 bg-primary hover:bg-primary/90 disabled:opacity-60 text-white rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer border-0 shadow-md flex items-center justify-center gap-2"
+                className="flex-1 py-3 bg-indigo-950 hover:bg-indigo-900 disabled:opacity-60 text-white rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer border-0 shadow-md flex items-center justify-center gap-2 transition-colors"
               >
-                <Plus size={14} />
+                {aAgendar ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                 {aAgendar ? 'A agendar…' : 'Agendar Atendimento'}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );
