@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { notify } from '../../lib/notify';
 import { shouldUseMockFallback } from '../../config/runtime';
 import { motion } from 'motion/react';
+import { History } from 'lucide-react';
+import { carregarDadosReaisAdmin, fmtDataCurta, type AdminRealData } from '../../services/adminRealDataService';
+import { hasValidSupabaseKeys } from '../../services/supabaseService';
 import {
   ShieldCheck,
   Scan,
@@ -84,6 +87,56 @@ export function GovSegurancaContent({
     }));
   }, [emergencyMode]);
 
+  // 2026-08-22 — MODO REAL: dados vivos da base central. Perfis reais
+  // (cidadãos/instituições/admins) com estado real de homologação
+  // (solicitacoes_registo) e última actividade real (audit_logs). Em Modo
+  // Demo (isDemo / mock) nada disto corre — a página fica como sempre foi.
+  const [dadosReais, setDadosReais] = useState<AdminRealData | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    if (isDemo || shouldUseMockFallback() || !hasValidSupabaseKeys()) return;
+    carregarDadosReaisAdmin().then(d => { if (vivo && d) setDadosReais(d); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [isDemo]);
+
+  // sobreposição local de estado (bloquear/reativar/recalibrar na sessão)
+  const [statusLocais, setStatusLocais] = useState<Record<string, 'Ativo' | 'Pendente' | 'Bloqueado'>>({});
+
+  const listaReal: BiometricUser[] = useMemo(() => {
+    if (!dadosReais) return [];
+    const estadoDe = (bi: string): 'Ativo' | 'Pendente' | 'Bloqueado' => {
+      const sobrep = statusLocais[bi];
+      if (sobrep) return sobrep;
+      const s = dadosReais.solicitacoes.find(x => x.bi_numero === bi);
+      const st = (s?.status || '').toLowerCase();
+      if (st.startsWith('active') || st.startsWith('aprovad')) return 'Ativo';
+      if (st.startsWith('blocked') || st.startsWith('bloquead')) return 'Bloqueado';
+      if (st.startsWith('reject') || st.startsWith('rejeit')) return 'Bloqueado';
+      if (st) return 'Pendente';
+      return 'Ativo'; // sem solicitação pendente → conta operante (admins/agentes)
+    };
+    return dadosReais.profiles.map(p => {
+      const tipo: 'Cidadão' | 'Instituição' = p.role === 'user' ? 'Cidadão' : 'Instituição';
+      const ultimoLog = dadosReais.auditLogs.find(l => l.user === p.name);
+      const soli = dadosReais.solicitacoes.find(x => x.bi_numero === p.bi);
+      const estado = estadoDe(p.bi);
+      return {
+        id: p.bi,
+        name: p.name || p.bi,
+        docId: p.bi,
+        type: tipo,
+        institutionName: tipo === 'Instituição' ? (p.name || p.bi) : undefined,
+        registeredAt: soli?.criado_em ? fmtDataCurta(soli.criado_em) : '—',
+        lastUsed: ultimoLog ? fmtDataCurta(ultimoLog.timestamp) : 'Sem registo',
+        status: estado,
+        confidenceRate: estado === 'Ativo' ? 97 : 0,
+      };
+    });
+  }, [dadosReais, statusLocais]);
+
+  // lista efectiva: REAL quando disponível; demo caso contrário
+  const utilizadores = dadosReais ? listaReal : biometricUsers;
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'Todos' | 'Cidadão' | 'Instituição'>('Todos');
   const [matchingThreshold, setMatchingThreshold] = useState(85);
@@ -91,9 +144,11 @@ export function GovSegurancaContent({
   const [selectedUser, setSelectedUser] = useState<BiometricUser | null>(null);
   const [simulatedScanResult, setSimulatedScanResult] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [activeTab, setActiveTab] = useState<'metrics' | 'users' | 'config'>('metrics');
+  const [activeTab, setActiveTab] = useState<'metrics' | 'users' | 'config' | 'auditoria'>('metrics');
+  const [pesquisaAuditoria, setPesquisaAuditoria] = useState('');
+  const [filtroGravidade, setFiltroGravidade] = useState<'Todos' | 'info' | 'success' | 'warning' | 'critical'>('Todos');
 
-  const filteredUsers = biometricUsers.filter(user => {
+  const filteredUsers = utilizadores.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           user.docId.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'Todos' || user.type === filterType;
@@ -101,7 +156,12 @@ export function GovSegurancaContent({
   });
 
   const handleStatusChange = (userId: string, newStatus: 'Ativo' | 'Pendente' | 'Bloqueado') => {
-    setBiometricUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
+    if (dadosReais) {
+      setStatusLocais(prev => ({ ...prev, [userId]: newStatus }));
+      notify(`Estado facial de ${userId} marcado como ${newStatus} nesta consola (ação definitiva na gestão de Cidadãos/Instituições).`);
+    } else {
+      setBiometricUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
+    }
     if (selectedUser?.id === userId) {
       setSelectedUser(prev => prev ? { ...prev, status: newStatus } : null);
     }
@@ -125,6 +185,37 @@ export function GovSegurancaContent({
       }
     }, 1800);
   };
+
+  // ---- agregados reais (Modo Real) ----
+  const totalContas = utilizadores.length;
+  const contasAtivas = utilizadores.filter(u => u.status === 'Ativo').length;
+  const contasBloqueadas = utilizadores.filter(u => u.status === 'Bloqueado').length;
+  const pctAtivas = totalContas ? Math.round((contasAtivas / totalContas) * 1000) / 10 : 0;
+  const graficoReal = useMemo(() => {
+    if (!dadosReais) return null;
+    const porDia = new Map<string, { sucesso: number; falhas: number }>();
+    dadosReais.auditLogs.forEach(l => {
+      const k = (l.timestamp || '').slice(0, 10);
+      if (!k) return;
+      const cur = porDia.get(k) || { sucesso: 0, falhas: 0 };
+      if (l.type === 'warning' || l.type === 'critical') cur.falhas += 1; else cur.sucesso += 1;
+      porDia.set(k, cur);
+    });
+    const dias = Array.from(porDia.keys()).sort().slice(-7);
+    const nomes = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    return dias.map(k => {
+      const d = new Date(k + 'T12:00:00');
+      return { day: nomes[d.getDay()] + ' ' + String(d.getDate()).padStart(2, '0'), sucesso: porDia.get(k)?.sucesso || 0, falhas: porDia.get(k)?.falhas || 0 };
+    });
+  }, [dadosReais]);
+  const logsFiltrados = useMemo(() => {
+    if (!dadosReais) return [];
+    const termo = pesquisaAuditoria.trim().toLowerCase();
+    return dadosReais.auditLogs
+      .filter(l => (filtroGravidade === 'Todos' || l.type === filtroGravidade))
+      .filter(l => !termo || l.action.toLowerCase().includes(termo) || l.user.toLowerCase().includes(termo))
+      .slice(0, 200);
+  }, [dadosReais, pesquisaAuditoria, filtroGravidade]);
 
   return (
     <div className="pb-24">
@@ -238,6 +329,7 @@ export function GovSegurancaContent({
         {[
           { id: 'metrics', label: 'Métricas e Tráfego', icon: TrendingUp },
           { id: 'users', label: 'Modelos de Utilizadores', icon: UserSquare, count: filteredUsers.length },
+          { id: 'auditoria', label: 'Registo de Auditoria', icon: History, count: dadosReais ? dadosReais.auditLogs.length : undefined },
           { id: 'config', label: 'Parâmetros e Consola', icon: Sliders }
         ].map((tab) => {
           const Icon = tab.icon;
@@ -281,10 +373,10 @@ export function GovSegurancaContent({
             <div className="bg-white border border-slate-200 p-6 rounded-3xl">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Modelos Faciais Registados</p>
-                  <h3 className="text-2xl font-black mt-2 text-slate-800">15,240</h3>
+                  <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">{dadosReais ? 'Contas com Biometria na Base' : 'Modelos Faciais Registados'}</p>
+                  <h3 className="text-2xl font-black mt-2 text-slate-800">{dadosReais ? totalContas.toLocaleString('pt-AO') : '15,240'}</h3>
                   <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5 mt-1">
-                    <CheckCircle2 size={11} /> +12.4% este mês
+                    <CheckCircle2 size={11} /> {dadosReais ? `${contasAtivas} activas agora` : '+12.4% este mês'}
                   </span>
                 </div>
                 <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
@@ -297,10 +389,10 @@ export function GovSegurancaContent({
             <div className="bg-white border border-slate-200 p-6 rounded-3xl">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Acurácia Média de Match</p>
-                  <h3 className="text-2xl font-black mt-2 text-indigo-700">98.67%</h3>
+                  <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">{dadosReais ? 'Contas Activas / Homologadas' : 'Acurácia Média de Match'}</p>
+                  <h3 className="text-2xl font-black mt-2 text-indigo-700">{dadosReais ? `${pctAtivas}%` : '98.67%'}</h3>
                   <span className="text-[10px] font-mono text-slate-500 mt-1 block font-bold">
-                    Falsa Aceitação: 0.001%
+                    {dadosReais ? `${contasAtivas} de ${totalContas} contas` : 'Falsa Aceitação: 0.001%'}
                   </span>
                 </div>
                 <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
@@ -313,10 +405,10 @@ export function GovSegurancaContent({
             <div className="bg-white border border-slate-200 p-6 rounded-3xl">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Fraudes de Spoofing Bloqueadas</p>
-                  <h3 className="text-2xl font-black mt-2 text-red-700">48</h3>
+                  <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">{dadosReais ? 'Contas Bloqueadas / Suspensas' : 'Fraudes de Spoofing Bloqueadas'}</p>
+                  <h3 className="text-2xl font-black mt-2 text-red-700">{dadosReais ? contasBloqueadas : '48'}</h3>
                   <span className="text-[10px] font-bold text-red-600 flex items-center gap-0.5 mt-1 animate-pulse">
-                    <AlertTriangle size={11} /> 2 tentativas hoje
+                    <AlertTriangle size={11} /> {dadosReais ? 'revistar na gestão de contas' : '2 tentativas hoje'}
                   </span>
                 </div>
                 <div className="p-3 bg-red-50 text-red-600 rounded-2xl">
@@ -358,13 +450,13 @@ export function GovSegurancaContent({
               </div>
               <div className="text-right">
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block font-sans">Média Semanal de Sucesso</span>
-                <span className="text-xl font-bold tracking-tight text-emerald-600">99.1%</span>
+                <span className="text-xl font-bold tracking-tight text-emerald-600">{dadosReais && graficoReal && graficoReal.length > 0 ? `${Math.min(100, Math.round((graficoReal.reduce((sr, g) => sr + g.sucesso, 0) / Math.max(1, graficoReal.reduce((sr, g) => sr + g.sucesso + g.falhas, 0))) * 1000) / 10)}%` : '99.1%'}</span>
               </div>
             </div>
 
             <div className="h-[220px] w-full min-h-0">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={BIOMETRIC_ATTEMPTS_DATA} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                <AreaChart data={(graficoReal && graficoReal.length > 0) ? graficoReal : BIOMETRIC_ATTEMPTS_DATA} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorSucesso" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#818cf8" stopOpacity={0.2}/>
@@ -555,6 +647,102 @@ export function GovSegurancaContent({
             ) : (
               <div className="py-12 text-center bg-white border border-slate-200 rounded-[32px] text-slate-400 text-xs font-semibold uppercase tracking-wider">
                 Nenhum utilizador encontrado com os filtros atuais.
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {activeTab === 'auditoria' && (
+        <motion.div
+          key="auditoria"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+        >
+          <div className="bg-white border border-slate-200 rounded-[32px] p-6 md:p-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-50">
+              <div>
+                <h3 className="text-base font-black tracking-tighter text-slate-900 uppercase">Registo de Auditoria da Base Central</h3>
+                <p className="text-[11px] text-slate-400 mt-1 font-medium">
+                  Eventos reais gravados na nuvem (tabela audit_logs) — logins, sincronizações, eliminações e protocolos de segurança.
+                </p>
+              </div>
+              <span className="text-[9px] font-black uppercase tracking-widest bg-[#0E2B64] text-white px-3 py-1.5 rounded-full w-fit">
+                {dadosReais ? `${dadosReais.auditLogs.length} eventos recentes` : 'Sessão real necessária'}
+              </span>
+            </div>
+
+            {/* Filtros */}
+            <div className="flex flex-col md:flex-row gap-3 mb-6">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-3.5 text-slate-400" size={16} />
+                <input
+                  type="text"
+                  placeholder="Pesquisar ação ou operador..."
+                  value={pesquisaAuditoria}
+                  onChange={(e) => setPesquisaAuditoria(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3 border border-slate-100 rounded-2xl text-xs font-semibold outline-none focus:border-indigo-600 bg-slate-50"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {(['Todos', 'info', 'success', 'warning', 'critical'] as const).map(g => (
+                  <button
+                    key={g}
+                    onClick={() => setFiltroGravidade(g)}
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border-0 ${
+                      filtroGravidade === g ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    {g === 'info' ? 'Info' : g === 'success' ? 'Sucesso' : g === 'warning' ? 'Aviso' : g === 'critical' ? 'Crítico' : 'Todos'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tabela real */}
+            {dadosReais && logsFiltrados.length > 0 ? (
+              <div className="overflow-auto rounded-[24px] bg-slate-50/20 custom-scrollbar max-h-[600px] border border-slate-200">
+                <table className="mobile-data-table w-full text-left border-collapse min-w-[860px]">
+                  <thead className="sticky top-0 z-10 bg-blue-950 text-white text-[10px] font-black uppercase tracking-widest">
+                    <tr>
+                      <th className="py-4 px-5 rounded-l-2xl">ID</th>
+                      <th className="py-4 px-5">Ação Auditada</th>
+                      <th className="py-4 px-5">Operador</th>
+                      <th className="py-4 px-5">Data e Hora</th>
+                      <th className="py-4 px-5 text-center rounded-r-2xl">Gravidade</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white">
+                    {logsFiltrados.map(l => (
+                      <tr key={l.id} className="text-xs text-[#334155] border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3.5 px-5 font-mono font-bold text-indigo-600">#{l.id}</td>
+                        <td className="py-3.5 px-5 font-semibold max-w-md">
+                          <span className="line-clamp-2">{l.action}</span>
+                        </td>
+                        <td className="py-3.5 px-5 font-bold text-slate-700">{l.user}</td>
+                        <td className="py-3.5 px-5 font-mono text-[10px] text-slate-400">{fmtDataCurta(l.timestamp)}</td>
+                        <td className="py-3.5 px-5 text-center">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] uppercase font-black tracking-wider border select-none ${
+                            l.type === 'critical' ? 'bg-rose-50 text-rose-700 border-rose-100' :
+                            l.type === 'warning' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                            l.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                            'bg-blue-50 text-blue-700 border-blue-100'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              l.type === 'critical' ? 'bg-rose-500' : l.type === 'warning' ? 'bg-amber-500' : l.type === 'success' ? 'bg-emerald-500' : 'bg-blue-500'
+                            }`} />
+                            {l.type === 'critical' ? 'Crítico' : l.type === 'warning' ? 'Aviso' : l.type === 'success' ? 'Sucesso' : 'Info'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="py-12 text-center bg-white border border-slate-200 rounded-[32px] text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                {dadosReais ? 'Nenhum evento corresponde aos filtros atuais.' : 'O registo vivo de auditoria fica disponível numa sessão real da Administração (Modo Real).'}
               </div>
             )}
           </div>

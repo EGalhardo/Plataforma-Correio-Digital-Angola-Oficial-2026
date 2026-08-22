@@ -1309,26 +1309,24 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
           {/* 2026-08-22 — fundo PRETO translúcido (preto cinzento) com blur;
               o popup fica SEMPRE por cima (portal no <body>, acima de todo o
               layout da aplicação). */}
-          <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-md" onClick={() => setShowAgendar(false)} />
+          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" onClick={() => setShowAgendar(false)} />
 
-          <div className="relative w-full max-w-[520px] bg-white rounded-[28px] shadow-[0_25px_80px_rgba(2,6,23,0.55)] border border-white/10 overflow-hidden animate-fadeIn">
+          <div className="relative w-full max-w-[520px] bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 overflow-hidden animate-fadeIn">
             {/* Cabeçalho do popup */}
-            <div className="bg-gradient-to-r from-indigo-950 to-slate-900 px-6 py-5 flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 bg-white/10 border border-white/15 rounded-2xl flex items-center justify-center shrink-0">
-                  <CalendarPlus size={20} className="text-indigo-200" />
-                </div>
-                <div>
-                  <h3 className="text-white text-sm font-black uppercase tracking-wide leading-none">Agendar Video-atendimento</h3>
-                  <p className="text-indigo-200/80 text-[10px] font-bold uppercase tracking-wider mt-1.5">
-                    {instDisplayName || 'Instituição'} • anfitriã da sessão
-                  </p>
-                </div>
+            <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+              <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center shrink-0 border border-indigo-100/40 shadow-sm">
+                <CalendarPlus size={26} strokeWidth={2.5} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">Agendar Video-atendimento</h3>
+                <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none">
+                  {instDisplayName || 'Instituição'} • anfitriã da sessão
+                </p>
               </div>
               <button
                 onClick={() => setShowAgendar(false)}
                 aria-label="Fechar"
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white cursor-pointer border-0 transition-colors shrink-0"
+                className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-none bg-transparent cursor-pointer shrink-0"
               >
                 <X size={16} />
               </button>
@@ -1428,12 +1426,18 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
       {/* 2026-08-22 — MODAL DE CONFIRMAÇÃO: eliminar agendamento (instituição) */}
       {sessaoAEliminar && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-md" onClick={() => { if (!aEliminar) setSessaoAEliminar(null); }} />
-          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden">
-            <div className="bg-rose-600 px-6 py-4 flex items-center justify-between">
-              <h3 className="text-white text-sm font-black uppercase tracking-wide leading-none">Eliminar Agendamento</h3>
-              <button onClick={() => { if (!aEliminar) setSessaoAEliminar(null); }} className="text-white/80 hover:text-white transition-colors border-0 bg-transparent cursor-pointer p-1">
-                <X size={16} />
+          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" onClick={() => { if (!aEliminar) setSessaoAEliminar(null); }} />
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 dark:border-slate-700 overflow-hidden">
+            <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+              <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center shrink-0 border border-rose-100/40 shadow-sm">
+                <Trash2 size={26} strokeWidth={2.5} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">Eliminar Agendamento</h3>
+                <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none">Confirmação definitiva</p>
+              </div>
+              <button onClick={() => { if (!aEliminar) setSessaoAEliminar(null); }} className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-0 bg-transparent cursor-pointer">
+                <X size={20} />
               </button>
             </div>
             <div className="p-6 space-y-4">

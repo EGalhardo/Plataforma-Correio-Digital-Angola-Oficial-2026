@@ -7158,34 +7158,33 @@ Ficha civil do titular:
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setShowAccessModal(false)}
-                className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm z-[300]"
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[300]"
               />
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="fixed inset-x-4 bottom-4 md:bottom-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:max-w-sm bg-white rounded-[32px] shadow-2xl z-[301] overflow-hidden border border-[#E2E8F0] text-left font-sans flex flex-col max-h-[85vh]"
+                className="fixed inset-x-4 bottom-4 md:bottom-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:max-w-sm bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[301] overflow-hidden border border-slate-100 text-left font-sans flex flex-col max-h-[85vh]"
               >
                 {/* Header */}
-                <div className="bg-gradient-to-r from-slate-900 to-indigo-950 p-6 text-white relative">
+                <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+                  <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center border border-indigo-100/40 shadow-sm shrink-0">
+                    <Shield size={26} strokeWidth={2.5} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#4f46e5] font-bold">Correio Digital de Angola</div>
+                    <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic tracking-tighter uppercase leading-none mt-1">
+                      {accessModalTitle}
+                    </h3>
+                  </div>
                   <button
                     onClick={() => setShowAccessModal(false)}
-                    className="absolute top-5 right-5 p-1.5 hover:bg-white/10 rounded-full transition-all cursor-pointer border-0 text-white bg-transparent flex items-center justify-center placeholder:hidden"
+                    className="absolute -top-1 -right-1 p-2 hover:bg-slate-50 rounded-full transition-all cursor-pointer border-0 text-slate-400 hover:text-slate-600 bg-transparent flex items-center justify-center"
                     type="button"
+                    title="Fechar"
                   >
-                    <X size={18} />
+                    <X size={20} />
                   </button>
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-12 h-12 bg-white/10 rounded-[14px] flex items-center justify-center text-white border border-white/20">
-                      <Shield size={23} className="text-indigo-200" />
-                    </div>
-                    <div>
-                      <div className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-300 font-bold">Correio Digital de Angola</div>
-                      <h3 className="text-lg font-black italic tracking-tight uppercase leading-none mt-1">
-                        {accessModalTitle}
-                      </h3>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Content */}
@@ -7531,29 +7530,28 @@ Ficha civil do titular:
       {/* Connectivity Central Modal */}
       <AnimatePresence>
         {showOfflineManagerWidget && (
-          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[99999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[99999] flex items-center justify-center p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-[32px] border border-slate-200 shadow-2xl w-full max-w-sm overflow-hidden text-left mx-3"
+              className="bg-white rounded-[32px] border border-slate-100 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] w-full max-w-sm overflow-hidden text-left mx-auto relative z-10"
             >
-              <div className="p-5 bg-slate-950 text-white flex justify-between items-center">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-primary/20 text-primary rounded-xl">
-                    <Database size={18} />
-                  </div>
-                  <div>
-                    <h4 className="font-extrabold text-[12px] uppercase tracking-wider text-white font-sans">Gestor Híbrido de Conectividade</h4>
-                    <span className="text-[9px] uppercase tracking-widest text-slate-400 block font-sans">Cache Local, Redundância SMS & USSD</span>
-                  </div>
+              <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center border border-indigo-100/40 shadow-sm shrink-0">
+                  <Database size={26} strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-black text-xl md:text-[23px] text-[#0c2340] italic uppercase tracking-tighter font-sans leading-none">Gestor Híbrido de Conectividade</h4>
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#4f46e5] block font-sans mt-1">Cache Local, Redundância SMS & USSD</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowOfflineManagerWidget(false)}
-                  className="text-white/60 hover:text-white p-1 rounded-full hover:bg-white/10"
+                  className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-50"
+                  title="Fechar"
                 >
-                  <X size={18} />
+                  <X size={20} />
                 </button>
               </div>
 
@@ -7665,23 +7663,22 @@ Ficha civil do titular:
       {/* Modal de Sucesso com Selo de QR Code Gov */}
       <AnimatePresence>
         {successProtocolModal && (
-          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[99999] flex items-center justify-center p-4 overflow-y-auto">
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: -20 }}
               onMouseEnter={() => setPauseCountdown(true)}
               onMouseLeave={() => setPauseCountdown(false)}
-              className="bg-white rounded-[28px] border border-slate-200 shadow-2xl w-full max-w-[360px] overflow-hidden text-left mx-4 my-8"
+              className="bg-white rounded-[32px] border border-slate-100 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] w-full max-w-[360px] overflow-hidden text-left mx-auto my-8 relative z-10"
             >
-              <div className="p-4 bg-gradient-to-r from-blue-900 to-indigo-950 text-white relative flex items-center gap-3">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl font-sans"></div>
-                <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center text-white shrink-0 shadow-lg shadow-emerald-500/20">
-                  <Check size={18} className="stroke-[3]" />
+              <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+                <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100/40 flex items-center justify-center shrink-0 shadow-sm">
+                  <Check size={26} className="stroke-[3]" />
                 </div>
-                <div className="relative z-10 font-sans leading-tight">
-                  <h4 className="font-extrabold text-[13px] uppercase tracking-wider text-white">Comprovativo Enviado</h4>
-                  <span className="text-[7.5px] uppercase font-bold tracking-wider text-[#93c5fd] block mt-0.5 leading-none">Seu comprovante de envio/BI foi registrado</span>
+                <div className="relative z-10 font-sans leading-tight flex-1 min-w-0">
+                  <h4 className="font-black text-xl md:text-[23px] text-[#0c2340] italic uppercase tracking-tighter">Comprovativo Enviado</h4>
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#4f46e5] block mt-1 leading-none">Seu comprovante de envio/BI foi registrado</span>
                 </div>
                 <button
                   type="button"

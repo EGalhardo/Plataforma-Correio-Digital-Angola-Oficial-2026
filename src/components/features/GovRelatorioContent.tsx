@@ -42,6 +42,8 @@ import {
 } from 'recharts';
 import { Correspondence } from '../../types';
 import { shouldUseMockFallback } from '../../config/runtime';
+import { carregarDadosReaisAdmin, fmtDataCurta, nomeMesCurto, type AdminRealData } from '../../services/adminRealDataService';
+import { hasValidSupabaseKeys } from '../../services/supabaseService';
 
 export interface GovRelatorioContentProps {
   correspondences?: Correspondence[];
@@ -84,6 +86,48 @@ export function GovRelatorioContent({
   );
   const [executiveTitle, setExecutiveTitle] = useState<string>('MEMÓRIA DESCRITIVA INTEGRADA DE RESULTADOS');
   const [executiveDepartment, setExecutiveDepartment] = useState<string>('Direção Unificada de Auditoria e Tecnologia do CDA');
+
+  // 2026-08-22 — MODO REAL: conjunto agregado vivo da base central
+  // (profiles, messages, video_sessions, documents, digital_protocols,
+  // pagamentos, ia_conversas_log, ia_telemetria_resumo, audit_logs...).
+  // Presente apenas em sessões reais — em demo fica null e TODOS os valores
+  // estáticos de demonstração se mantêm exatamente como antes.
+  const [dadosReais, setDadosReais] = useState<AdminRealData | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    if (isDemo || shouldUseMockFallback() || !hasValidSupabaseKeys()) return;
+    carregarDadosReaisAdmin().then(d => { if (vivo && d) setDadosReais(d); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [isDemo]);
+
+  // ---- utilitários de agregação REAL (mensal e diária) ----
+  const _chaveMes = (iso: string | null | undefined): string => {
+    if (!iso) return '';
+    try { const d = new Date(iso); return isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; } catch { return ''; }
+  };
+  const _ultimosMeses = (n: number): string[] => {
+    const out: string[] = [];
+    const agora = new Date();
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1);
+      out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    return out;
+  };
+  const _agregarPorMes = (linhas: any[], campo: (l: any) => string | null | undefined, meses: string[]) => {
+    const totais = new Map<string, number>(meses.map(m => [m, 0]));
+    linhas.forEach(l => {
+      const k = _chaveMes(campo(l));
+      if (totais.has(k)) totais.set(k, (totais.get(k) || 0) + 1);
+    });
+    return totais;
+  };
+  const _paraGrafico = (totais: Map<string, number>, meses: string[]) => meses.map(m => ({ name: nomeMesCurto(`${m}-01`), Entradas: totais.get(m) || 0, Saidas: 0, Corrente: 0, Anterior: 0 }));
+  const _pct = (curr: number, prev: number): { pct: string; up: boolean } => {
+    if (!prev) return { pct: 'n/d', up: curr > 0 };
+    const v = ((curr - prev) / prev) * 100;
+    return { pct: `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`, up: v >= 0 };
+  };
 
   // Calculate selected date range in days for dynamic indicators scaling
   const dateRangeDays = useMemo(() => {
@@ -172,6 +216,8 @@ export function GovRelatorioContent({
 
   // Static Fallback Audit Logs Data
   const resolvedAuditLogs = useMemo(() => {
+    // MODO REAL: os logs vivos da nuvem têm prioridade sobre o espelho local.
+    if (dadosReais && dadosReais.auditLogs.length > 0) return dadosReais.auditLogs as any[];
     if (auditLogs && auditLogs.length > 0) return auditLogs;
     if (!(isDemo || shouldUseMockFallback())) return [];
     return [
@@ -180,10 +226,200 @@ export function GovRelatorioContent({
       { id: 'AL-103', action: 'Geração de novos parâmetros de barramento dactiloscópico API', user: 'Karina Neto (Consular)', timestamp: '11/06/2026 14:15', type: 'info' },
       { id: 'AL-104', action: 'Modificação manual de privilégio operacional de nível intermédio', user: 'Sílvia Viana (Auditora)', timestamp: '11/06/2026 11:30', type: 'warning' }
     ] as any[];
-  }, [auditLogs]);
+  }, [auditLogs, dadosReais]);
 
   // Comprehensive Metrics & Dynamic KPI Data Generator
   const kpiData = useMemo(() => {
+    // ==================== MODO REAL (base central viva) ====================
+    // Prioridade total sobre os valores estáticos de demonstração: quando a
+    // sessão é real, TODAS as métricas, gráficos e cabeçalhos de tabela saem
+    // das tabelas do Supabase (profiles, messages, video_sessions, documents,
+    // digital_protocols, pagamentos, ia_conversas_log/telemetria, audit_logs).
+    if (dadosReais) {
+      const dR = dadosReais;
+      const meses = _ultimosMeses(6);
+      const agoraMs = Date.now();
+      const dia = 86_400_000;
+      const dentroDe = (iso: string | null | undefined, dias: number) => {
+        if (!iso) return false;
+        try { const t = new Date(iso).getTime(); return !isNaN(t) && t >= agoraMs - dias * dia; } catch { return false; }
+      };
+      const entre = (iso: string | null | undefined, deDias: number, ateDias: number) => {
+        if (!iso) return false;
+        try { const t = new Date(iso).getTime(); return !isNaN(t) && t >= agoraMs - deDias * dia && t < agoraMs - ateDias * dia; } catch { return false; }
+      };
+      const grafico = (totais: Map<string, number>) => {
+        let acumulado = 0;
+        return meses.map(m => {
+          const v = totais.get(m) || 0;
+          acumulado += v;
+          return { name: nomeMesCurto(`${m}-01`), Entradas: v, Saidas: 0, Corrente: acumulado, Anterior: acumulado - v };
+        });
+      };
+      switch (activeTab) {
+        case 'correspondences': {
+          const msgs = dR.mensagens;
+          const total = dR.mensagensTotal ?? msgs.length;
+          const ult30 = msgs.filter(m => dentroDe(m.created_at, 30)).length;
+          const prev30 = msgs.filter(m => entre(m.created_at, 60, 30)).length;
+          const respondidas = msgs.filter(m => (m.status || '').toLowerCase() === 'respondida').length;
+          const aguardam = total - respondidas;
+          const t1 = _pct(ult30, prev30);
+          return {
+            title: 'Relatório Real de Correspondências',
+            metrics: [
+              { id: 'co-1', label: 'Correspondências Registadas', current: total, prev: prev30, text: `Base central · ${ult30} nos últimos 30 dias`, suffix: ' un', isTrendUp: true, pct: t1.pct },
+              { id: 'co-2', label: 'Respondidas', current: respondidas, prev: 0, text: 'Ciclo de resposta concluído', suffix: ' un', isTrendUp: true, pct: total ? `+${Math.round((respondidas / total) * 100)}%` : 'n/d' },
+              { id: 'co-3', label: 'Aguardam Resposta', current: aguardam, prev: 0, text: 'Em trâmite nas caixas', suffix: ' un', isTrendUp: false, pct: 'n/d' },
+              { id: 'co-4', label: 'Volume Recente', current: ult30, prev: prev30, text: 'Últimos 30 dias vs 30 anteriores', suffix: ' un', isTrendUp: t1.up, pct: t1.pct },
+            ],
+            chart: grafico(_agregarPorMes(msgs, m => m.created_at, meses)),
+            infoTitle: 'Últimos Trâmites Reais da Caixa Central',
+            csvHeader: ['ID de Trâmite', 'Estado', 'Orgão', 'Assunto', 'Data de Emissão'],
+          };
+        }
+        case 'institutions': {
+          const insts = dR.instituicoes;
+          const prots = dR.protocolos;
+          const pags = dR.pagamentos;
+          const valor = pags.reduce((s, p) => s + (p.valor || 0), 0);
+          return {
+            title: 'Dados Reais de Integração Institucional',
+            metrics: [
+              { id: 'in-1', label: 'Instituições Integradas', current: insts.length, prev: 0, text: 'Perfis institucionais na base central', suffix: ' entidades', isTrendUp: true, pct: 'n/d' },
+              { id: 'in-2', label: 'Protocolos Digitais', current: prots.length, prev: 0, text: 'Selo e assinatura digital', suffix: ' protocolos', isTrendUp: true, pct: 'n/d' },
+              { id: 'in-3', label: 'Pagamentos Registados', current: pags.length, prev: 0, text: 'Referências na plataforma', suffix: ' un', isTrendUp: true, pct: 'n/d' },
+              { id: 'in-4', label: 'Valor Registado', current: valor, prev: 0, text: 'Soma das referências activas', suffix: ' Kz', isTrendUp: true, pct: 'n/d' },
+            ],
+            chart: grafico(_agregarPorMes(prots, p => p.official_issue_date, meses)),
+            infoTitle: 'Organismos Ligados à Plataforma (perfis reais)',
+            csvHeader: ['Organismo', 'Sigla / BI', 'Email', 'Contacto'],
+          };
+        }
+        case 'citizens': {
+          const cids = dR.cidadaos;
+          const solis = dR.solicitacoes;
+          const aprovados = solis.filter(s => (s.status || '').toLowerCase() === 'active' || (s.status || '').toLowerCase() === 'aprovado').length;
+          const pendentes = solis.filter(s => !(s.status || '').toLowerCase().startsWith('active') && !(s.status || '').toLowerCase().startsWith('aprovado') && !(s.status || '').toLowerCase().startsWith('blocked') && !(s.status || '').toLowerCase().startsWith('bloqueado')).length;
+          const bloqueados = solis.filter(s => (s.status || '').toLowerCase().startsWith('blocked') || (s.status || '').toLowerCase().startsWith('bloqueado')).length;
+          return {
+            title: 'Auditoria Real de Adesão e Cadastros',
+            metrics: [
+              { id: 'ci-1', label: 'Cidadãos Registados', current: cids.length, prev: 0, text: 'Perfis com BI na base central', suffix: ' cidadãos', isTrendUp: true, pct: 'n/d' },
+              { id: 'ci-2', label: 'Registos Aprovados', current: aprovados, prev: 0, text: 'Homologação concluída', suffix: ' un', isTrendUp: true, pct: 'n/d' },
+              { id: 'ci-3', label: 'Pendentes de Homologação', current: pendentes, prev: 0, text: 'Aguardam decisão da Administração', suffix: ' un', isTrendUp: false, pct: 'n/d' },
+              { id: 'ci-4', label: 'Contas Bloqueadas', current: bloqueados, prev: 0, text: 'Acesso suspenso pela Administração', suffix: ' un', isTrendUp: false, pct: 'n/d' },
+            ],
+            chart: grafico(_agregarPorMes(solis, s => s.criado_em, meses)),
+            infoTitle: 'Fichas Reais de Cidadão na Base Central',
+            csvHeader: ['Nome', 'BI', 'Contacto', 'Morada'],
+          };
+        }
+        case 'workers': {
+          const equipa = dR.profiles.filter(p => p.role === 'admin' || /^[A-Z]{2,}-\d{2,}-[A-Z]{2,}$/.test(p.bi));
+          const vids = dR.videoSessions;
+          const concluidas = vids.filter(v => (v.status || '').toLowerCase().startsWith('conclu')).length;
+          const agendadas = vids.filter(v => (v.status || '').toLowerCase().startsWith('agendada')).length;
+          const pedidos = dR.userRequests.length;
+          const ultimaAtividade = (nome: string | null) => {
+            if (!nome) return '—';
+            const l = dR.auditLogs.find(a => a.user === nome);
+            return l ? fmtDataCurta(l.timestamp) : '—';
+          };
+          return {
+            title: 'Produtividade Real da Equipa e Operadores',
+            metrics: [
+              { id: 'wo-1', label: 'Membros da Equipa', current: equipa.length, prev: 0, text: 'Admins, agentes e colaboradores', suffix: ' membros', isTrendUp: true, pct: 'n/d' },
+              { id: 'wo-2', label: 'Atendimentos Vídeo Concluídos', current: concluidas, prev: 0, text: 'Sessões encerradas na nuvem', suffix: ' sessões', isTrendUp: true, pct: 'n/d' },
+              { id: 'wo-3', label: 'Sessões Agendadas', current: agendadas, prev: 0, text: 'Activas na Agenda', suffix: ' sessões', isTrendUp: true, pct: 'n/d' },
+              { id: 'wo-4', label: 'Pedidos de Serviço', current: pedidos, prev: 0, text: 'user_requests na base central', suffix: ' pedidos', isTrendUp: true, pct: 'n/d' },
+            ],
+            chart: grafico(_agregarPorMes(vids, v => v.created_at, meses)),
+            infoTitle: 'Desempenho Real dos Membros (última actividade na nuvem)',
+            csvHeader: ['Membro', 'Nº Agente / BI', 'Papel', 'Última Actividade'],
+          };
+        }
+        case 'ai_assist': {
+          const logsIa = dR.iaLogs;
+          const tel = dR.iaTelemetria;
+          const totalIa = tel.reduce((s, t) => s + (t.total || 0), 0) || logsIa.length;
+          const okIa = tel.reduce((s, t) => s + (t.ok || 0), 0) || logsIa.filter(l => l.resposta_ok).length;
+          const latMedia = tel.length ? Math.round(tel.reduce((s, t) => s + (t.lat_media_ms || 0), 0) / tel.length) : Math.round(logsIa.reduce((s, l) => s + (l.lat_ms || 0), 0) / Math.max(1, logsIa.length));
+          const sessoes = tel.reduce((s, t) => s + (t.sessoes || 0), 0);
+          return {
+            title: 'Utilização Real do Assistente IA',
+            metrics: [
+              { id: 'ai-1', label: 'Interações IA Registadas', current: totalIa, prev: 0, text: 'Telemetria + log de conversas', suffix: ' interações', isTrendUp: true, pct: 'n/d' },
+              { id: 'ai-2', label: 'Respostas com Sucesso', current: okIa, prev: 0, text: totalIa ? `${Math.round((okIa / totalIa) * 100)}% de sucesso real` : 'sem dados', suffix: ' un', isTrendUp: true, pct: 'n/d' },
+              { id: 'ai-3', label: 'Latência Média', current: latMedia, prev: 0, text: 'Tempo médio de resposta', suffix: ' ms', isTrendUp: false, pct: 'n/d' },
+              { id: 'ai-4', label: 'Sessões IA', current: sessoes, prev: 0, text: 'Sessões de assistência abertas', suffix: ' sessões', isTrendUp: true, pct: 'n/d' },
+            ],
+            chart: (() => {
+              const porDia = new Map<string, number>();
+              tel.forEach(t => { if (t.dia) porDia.set(t.dia, (porDia.get(t.dia) || 0) + (t.total || 0)); });
+              logsIa.forEach(l => { const k = l.created_at?.slice(0, 10) || ''; if (k) porDia.set(k, (porDia.get(k) || 0) + 1); });
+              const dias = Array.from(porDia.keys()).sort().slice(-6);
+              let acumulado = 0;
+              return dias.map(k => {
+                const v = porDia.get(k) || 0;
+                acumulado += v;
+                return { name: k.slice(8, 10) + '/' + k.slice(5, 7), Entradas: v, Saidas: 0, Corrente: acumulado, Anterior: acumulado - v };
+              });
+            })(),
+            infoTitle: 'Conversas Reais com o Assistente IA',
+            csvHeader: ['Papel', 'Sigla', 'Canal', 'Resposta OK', 'Latência (ms)', 'Data'],
+          };
+        }
+        case 'digital_docs': {
+          const docs = dR.documentos;
+          const prots = dR.protocolos;
+          const ult30 = docs.filter(dc => dentroDe(dc.issued_at, 30)).length;
+          return {
+            title: 'Controle Real de Emissões de Documentos Digitais',
+            metrics: [
+              { id: 'do-1', label: 'Documentos Digitais', current: docs.length, prev: 0, text: 'Registos na tabela documents', suffix: ' un', isTrendUp: true, pct: 'n/d' },
+              { id: 'do-2', label: 'Emitidos (30 dias)', current: ult30, prev: 0, text: 'Emissões recentes reais', suffix: ' un', isTrendUp: true, pct: 'n/d' },
+              { id: 'do-3', label: 'Protocolos Digitais', current: prots.length, prev: 0, text: 'Trâmite selado digitalmente', suffix: ' protocolos', isTrendUp: true, pct: 'n/d' },
+              { id: 'do-4', label: 'Estado Actual', current: prots.filter(p => (p.current_state || '').toLowerCase().includes('conclu')).length, prev: 0, text: 'Protocolos concluídos', suffix: ' un', isTrendUp: true, pct: 'n/d' },
+            ],
+            chart: grafico(_agregarPorMes(docs, dc => dc.issued_at, meses)),
+            infoTitle: 'Emissões Reais de Documentos e Protocolos',
+            csvHeader: ['Documento', 'Titular (BI)', 'Estado', 'Emitido em'],
+          };
+        }
+        case 'audit_security':
+        default: {
+          const logs = dR.auditLogs;
+          const totalEv = dR.auditTotal ?? logs.length;
+          const criticos = logs.filter(l => l.type === 'critical').length;
+          const avisos = logs.filter(l => l.type === 'warning').length;
+          const seteDias = logs.filter(l => dentroDe(l.timestamp, 7)).length;
+          return {
+            title: 'Monitorização e Auditoria Real de Segurança',
+            metrics: [
+              { id: 'au-1', label: 'Eventos de Auditoria (total)', current: totalEv, prev: 0, text: 'Tabela audit_logs da base central', suffix: ' eventos', isTrendUp: true, pct: 'n/d' },
+              { id: 'au-2', label: 'Críticos (amostra recente)', current: criticos, prev: 0, text: `Nos últimos ${logs.length} eventos`, suffix: ' eventos', isTrendUp: false, pct: 'n/d' },
+              { id: 'au-3', label: 'Avisos (amostra recente)', current: avisos, prev: 0, text: `Nos últimos ${logs.length} eventos`, suffix: ' eventos', isTrendUp: false, pct: 'n/d' },
+              { id: 'au-4', label: 'Eventos Últimos 7 Dias', current: seteDias, prev: 0, text: 'Actividade real da semana', suffix: ' eventos', isTrendUp: true, pct: 'n/d' },
+            ],
+            chart: (() => {
+              const porDia = new Map<string, number>();
+              logs.forEach(l => { const k = (l.timestamp || '').slice(0, 10); if (k) porDia.set(k, (porDia.get(k) || 0) + 1); });
+              const dias = Array.from(porDia.keys()).sort().slice(-6);
+              let acumulado = 0;
+              return dias.map(k => {
+                const v = porDia.get(k) || 0;
+                acumulado += v;
+                return { name: k.slice(8, 10) + '/' + k.slice(5, 7), Entradas: v, Saidas: 0, Corrente: acumulado, Anterior: acumulado - v };
+              });
+            })(),
+            infoTitle: 'Últimos Logs Reais de Auditoria e Segurança',
+            csvHeader: ['ID Alerta', 'Ação Auditada', 'Operador Responsável', 'Data e Hora', 'Gravidade'],
+          };
+        }
+      }
+    }
+    // ============ MODO DEMO (valores estáticos originais) ============
     switch (activeTab) {
       case 'correspondences':
         return {
@@ -327,7 +563,7 @@ export function GovRelatorioContent({
           csvHeader: ["ID Alerta", "Ação Auditada", "Operador Responsável", "Data e Hora do Registo", "Gravidade"]
         };
     }
-  }, [activeTab, scaleFactor]);
+  }, [activeTab, scaleFactor, dadosReais]);
 
   // Handle formatted CSV exporting
   const executeExporter = (format: 'CSV' | 'Excel') => {
@@ -350,14 +586,31 @@ export function GovRelatorioContent({
       ];
 
       // Dynamic subrows according to chosen tab
-      if (activeTab === 'correspondences') {
+      if (dadosReais && activeTab === 'correspondences') {
+        dadosReais.mensagens.slice(0, 500).forEach(m => {
+          csvContentRows.push([m.id, m.status || '—', m.org || '—', m.subject || (m.preview || '').slice(0, 60), fmtDataCurta(m.created_at)]);
+        });
+      } else if (activeTab === 'correspondences') {
         resolvedCorrespondences.forEach(c => {
           csvContentRows.push([c.id, c.status, c.sender, c.recipient, c.date]);
         });
       } else if (activeTab === 'audit_security') {
         resolvedAuditLogs.forEach(l => {
-          csvContentRows.push([l.id, l.action, l.user, l.timestamp, l.type]);
+          csvContentRows.push([l.id, l.action, l.user, (l.timestamp && l.timestamp.includes('T')) ? fmtDataCurta(l.timestamp) : l.timestamp, l.type]);
         });
+      } else if (dadosReais && activeTab === 'citizens') {
+        dadosReais.cidadaos.forEach(c => csvContentRows.push([c.name || '—', c.bi, c.phone || '—', c.morada || '—']));
+      } else if (dadosReais && activeTab === 'workers') {
+        dadosReais.profiles.filter(pp => pp.role === 'admin' || /^[A-Z]{2,}-\d{2,}-[A-Z]{2,}$/.test(pp.bi)).forEach(w => {
+          const ultimo = dadosReais.auditLogs.find(a => a.user === w.name);
+          csvContentRows.push([w.name || '—', w.bi, w.role === 'admin' ? 'Administração' : 'Agente/Colaborador', ultimo ? fmtDataCurta(ultimo.timestamp) : '—']);
+        });
+      } else if (dadosReais && activeTab === 'ai_assist') {
+        dadosReais.iaLogs.forEach(l => csvContentRows.push([l.papel || '—', l.sigla || '—', l.canal || '—', l.resposta_ok ? 'OK' : 'Falha', l.lat_ms != null ? String(Math.round(l.lat_ms)) : '—', fmtDataCurta(l.created_at)]));
+      } else if (dadosReais && activeTab === 'digital_docs') {
+        dadosReais.documentos.forEach(dc => csvContentRows.push([dc.name || '—', dc.holder_bi || '—', dc.status || 'emitido', fmtDataCurta(dc.issued_at)]));
+      } else if (dadosReais && activeTab === 'institutions') {
+        dadosReais.instituicoes.forEach(i => csvContentRows.push([i.name || i.bi, i.bi, i.email || '—', i.phone || '—']));
       } else if (activeTab === 'citizens') {
         csvContentRows.push(["PRV-LU", "Luanda", "88.2%", "52.400"]);
         csvContentRows.push(["PRV-BE", "Benguela", "74.1%", "28.100"]);
@@ -931,7 +1184,7 @@ export function GovRelatorioContent({
                               <td className="py-3 px-4 font-mono font-bold text-rose-600">{l.id}</td>
                               <td className="py-3 px-4 font-semibold max-w-xs truncate" title={l.action}>{l.action}</td>
                               <td className="py-3 px-4 font-medium text-slate-600">{l.user}</td>
-                              <td className="py-3 px-4 font-mono text-[10px] text-slate-400">{l.timestamp}</td>
+                              <td className="py-3 px-4 font-mono text-[10px] text-slate-400">{(l.timestamp && l.timestamp.includes('T')) ? fmtDataCurta(l.timestamp) : l.timestamp}</td>
                               <td className="py-3 px-4">
                                 <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
                                   l.type === 'critical'
@@ -948,6 +1201,18 @@ export function GovRelatorioContent({
                             </tr>
                           ))
                         ) : activeTab === 'citizens' ? (
+                          dadosReais && dadosReais.cidadaos.length > 0 ? (
+                            dadosReais.cidadaos.slice(0, 60).map((c) => (
+                              <tr key={c.bi} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="py-3 px-4 font-semibold">{c.name || '—'}</td>
+                                <td className="py-3 px-4 font-mono font-bold text-indigo-600">{c.bi}</td>
+                                <td className="py-3 px-4 font-mono text-[10px] text-slate-500">{c.phone || '—'}</td>
+                                <td className="py-3 px-4 text-[10px] text-slate-500 font-semibold">{c.morada || '—'}</td>
+                              </tr>
+                            ))
+                          ) : dadosReais ? (
+                            <tr><td colSpan={4} className="py-8 px-4 text-center text-slate-400 text-[10px] font-black uppercase tracking-widest">Nenhum cidadão registado na base central.</td></tr>
+                          ) : (
                           <>
                             <tr className="hover:bg-slate-50/50 transition-colors">
                               <td className="py-3 px-4 font-semibold">Luanda</td>
@@ -989,7 +1254,23 @@ export function GovRelatorioContent({
                               <td className="py-3 px-4 font-mono text-[10px] text-slate-400">3.910 h/dia</td>
                             </tr>
                           </>
+                          )
                         ) : activeTab === 'workers' ? (
+                          dadosReais && dadosReais.profiles.length > 0 ? (
+                            dadosReais.profiles
+                              .filter(pp => pp.role === 'admin' || /^[A-Z]{2,}-\d{2,}-[A-Z]{2,}$/.test(pp.bi))
+                              .slice(0, 60)
+                              .map((w) => (
+                              <tr key={w.bi} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="py-3 px-4 font-semibold">{w.name || '—'}</td>
+                                <td className="py-3 px-4 font-mono font-bold text-indigo-600">{w.bi}</td>
+                                <td className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-slate-500">{w.role === 'admin' ? 'Administração' : 'Agente/Colaborador'}</td>
+                                <td className="py-3 px-4 font-mono text-[10px] text-slate-400">
+                                  {(() => { const l = dadosReais.auditLogs.find(a => a.user === w.name); return l ? fmtDataCurta(l.timestamp) : '—'; })()}
+                                </td>
+                              </tr>
+                              ))
+                          ) : (
                           <>
                             <tr className="hover:bg-slate-50/50 transition-colors">
                               <td className="py-3 px-4 font-semibold">Edlasio Galhardo (Operador Geral)</td>
@@ -1013,7 +1294,24 @@ export function GovRelatorioContent({
                               <td className="py-3 px-4 font-mono text-[10px] text-slate-400">Hoje, 08:30 no HSM central</td>
                             </tr>
                           </>
+                          )
                         ) : activeTab === 'ai_assist' ? (
+                          dadosReais && (dadosReais.iaLogs.length > 0 || dadosReais.iaTelemetria.length > 0) ? (
+                            (dadosReais.iaLogs.length > 0 ? dadosReais.iaLogs : dadosReais.iaTelemetria.map((t, i) => ({ id: `tel-${i}`, papel: '—', sigla: t.sigla, canal: t.canal, resposta_ok: (t.ok || 0) >= (t.total || 1), lat_ms: t.lat_media_ms, created_at: t.dia } as any))).slice(0, 60).map((l) => (
+                              <tr key={l.id} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="py-3 px-4 font-semibold">{l.papel || '—'}</td>
+                                <td className="py-3 px-4 font-mono font-bold text-indigo-600">{l.sigla || '—'}</td>
+                                <td className="py-3 px-4 text-[10px] font-bold uppercase text-slate-500">{l.canal || '—'}</td>
+                                <td className="py-3 px-4">
+                                  <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border ${l.resposta_ok ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                                    {l.resposta_ok ? 'OK' : 'Falha'}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 font-mono text-[10px] text-slate-500">{l.lat_ms != null ? `${Math.round(l.lat_ms)} ms` : '—'}</td>
+                                <td className="py-3 px-4 font-mono text-[10px] text-slate-400">{fmtDataCurta(l.created_at)}</td>
+                              </tr>
+                            ))
+                          ) : (
                           <>
                             <tr className="hover:bg-slate-50/50 transition-colors">
                               <td className="py-3 px-4 font-semibold">Triagem de Correspondências dactiloscópicas</td>
@@ -1030,7 +1328,24 @@ export function GovRelatorioContent({
                               <td className="py-3 px-4 font-mono text-[11px] text-slate-400">197.231.40.89</td>
                             </tr>
                           </>
+                          )
                         ) : activeTab === 'digital_docs' ? (
+                          dadosReais && dadosReais.documentos.length > 0 ? (
+                            dadosReais.documentos.slice(0, 60).map((dc) => (
+                              <tr key={dc.id} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="py-3 px-4 font-mono font-bold text-[#0c2340]">{dc.name || '—'}</td>
+                                <td className="py-3 px-4 font-medium text-slate-500">{dc.holder_bi || '—'}</td>
+                                <td className="py-3 px-4 font-semibold">
+                                  <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border bg-emerald-50 text-emerald-700 border-emerald-200">
+                                    {(dc.status || 'emitido').slice(0, 14)}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 font-mono text-slate-400">{fmtDataCurta(dc.issued_at)}</td>
+                              </tr>
+                            ))
+                          ) : dadosReais ? (
+                            <tr><td colSpan={4} className="py-8 px-4 text-center text-slate-400 text-[10px] font-black uppercase tracking-widest">Nenhum documento emitido na base central.</td></tr>
+                          ) : (
                           <>
                             <tr className="hover:bg-slate-50/50 transition-colors">
                               <td className="py-3 px-4 font-mono font-bold text-[#0c2340]">BI-D-129402</td>
@@ -1047,7 +1362,17 @@ export function GovRelatorioContent({
                               <td className="py-3 px-4 font-mono text-slate-400">11/06/2026</td>
                             </tr>
                           </>
-                        ) : (
+                          )
+                        ) : dadosReais && dadosReais.instituicoes.length > 0 ? (
+                            dadosReais.instituicoes.slice(0, 60).map((inst) => (
+                              <tr key={inst.bi} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="py-3 px-4 font-semibold text-slate-900">{inst.name || inst.bi}</td>
+                                <td className="py-3 px-4 font-mono font-bold text-indigo-600">{inst.bi}</td>
+                                <td className="py-3 px-4 font-mono text-[10px] text-slate-500">{inst.email || '—'}</td>
+                                <td className="py-3 px-4 font-mono text-[10px] text-slate-500">{inst.phone || '—'}</td>
+                              </tr>
+                            ))
+                          ) : (
                           <>
                             <tr className="hover:bg-slate-50/50 transition-colors">
                               <td className="py-3 px-4 font-semibold text-slate-900">AGT - Administração Geral Tributária</td>
@@ -1068,7 +1393,7 @@ export function GovRelatorioContent({
                               <td className="py-3 px-4 font-mono text-[10px] font-bold text-slate-400">99.95%</td>
                             </tr>
                           </>
-                        )}
+                          )}
                       </tbody>
                     </table>
                   </div>
@@ -1092,7 +1417,7 @@ export function GovRelatorioContent({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsExecutiveModalOpen(false)}
-              className="absolute inset-0 bg-[#0c2340]/60 backdrop-blur-xs"
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
             />
 
             {/* Modal Box */}
@@ -1100,18 +1425,23 @@ export function GovRelatorioContent({
               initial={{ scale: 0.95, opacity: 0, y: 15 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 15 }}
-              className="bg-white w-full max-w-4xl h-[90vh] rounded-[24px] shadow-2xl flex flex-col overflow-hidden relative z-10 border border-slate-100 print:w-full print:h-auto print:shadow-none print:border-0 print:m-0"
+              className="bg-white w-full max-w-4xl max-h-[95vh] rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] flex flex-col overflow-hidden relative z-10 border border-slate-100 print:w-full print:h-auto print:shadow-none print:border-0 print:m-0"
             >
               
               {/* Modal top bars control (Ignored in print with standard print:hidden classes) */}
-              <div className="bg-slate-100 px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0 select-none print:hidden">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                  <span className="font-sans font-black text-[10px] uppercase tracking-widest text-slate-500 ml-2">
-                    Editor de Relatório Executivo
-                  </span>
+              <div className="flex items-center gap-4 text-left relative shrink-0 px-6 md:px-10 pt-6 md:pt-10 pb-4 select-none print:hidden">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center border border-indigo-100/40 shadow-sm shrink-0">
+                    <FileCheck size={26} strokeWidth={2.5} />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">
+                      Memória Descritiva
+                    </h3>
+                    <span className="font-sans font-black text-[10px] uppercase tracking-[0.16em] text-[#4f46e5]">
+                      Editor de Relatório Executivo
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -1125,10 +1455,12 @@ export function GovRelatorioContent({
                   
                   <button
                     onClick={() => setIsExecutiveModalOpen(false)}
-                    aria-label="FEchar modal"
-                    className="p-1.5 hover:bg-slate-200 text-slate-500 rounded-lg transition-colors cursor-pointer border-0"
+                    aria-label="Fechar modal"
+                    className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-none bg-transparent cursor-pointer"
+                    type="button"
+                    title="Fechar"
                   >
-                    <X size={18} />
+                    <X size={20} />
                   </button>
                 </div>
               </div>

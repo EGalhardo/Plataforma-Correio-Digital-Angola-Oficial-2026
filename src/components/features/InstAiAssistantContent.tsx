@@ -1229,21 +1229,21 @@ Contexto adicional:
       {/* FLOATING WEB CHAT PREVIEW MODAL */}
       <AnimatePresence>
         {isPreviewOpen && (
-          <div className="fixed inset-0 bg-[#0c2340]/40 backdrop-blur-xs z-[300] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[300] flex items-center justify-center p-4">
             <motion.div 
               initial={{ scale: 0.93, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.93, opacity: 0 }}
-              className="bg-white rounded-[24px] border border-[#0E2B64]/15 shadow-none w-full max-w-md h-[550px] flex flex-col justify-between overflow-hidden relative"
+              className="bg-white rounded-[32px] border border-slate-100 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] w-full max-w-md h-[550px] flex flex-col justify-between overflow-hidden relative"
             >
-              <div className="bg-[#0E2B64] text-white p-5 flex items-center justify-between select-none">
-                <div className="flex items-center gap-3 text-left">
-                  <div className="w-9 h-9 bg-indigo-900 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none uppercase tracking-tighter border border-white/20">
+              <div className="flex items-center gap-4 text-left p-6 pb-0 select-none relative shrink-0">
+                <div className="flex items-center gap-4 text-left flex-1 min-w-0">
+                  <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-black text-sm shrink-0 select-none uppercase tracking-tighter border border-indigo-100/40 shadow-sm">
                     {institutionCode || 'AGT'}
                   </div>
-                  <div>
-                    <h4 className="font-extrabold text-[#f8fafc] text-xs m-0 tracking-tight">{assistantName}</h4>
-                    <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest leading-none block mt-0.5">
+                  <div className="min-w-0">
+                    <h4 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter m-0 leading-none">{assistantName}</h4>
+                    <span className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] leading-none block mt-1">
                       ● Assistente Governamental — Groq IA
                     </span>
                   </div>

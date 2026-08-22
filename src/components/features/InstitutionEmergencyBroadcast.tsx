@@ -168,13 +168,13 @@ export function InstitutionEmergencyBroadcast({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
           />
           <motion.div
             initial={{ scale: 0.93, opacity: 0, y: 15 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.93, opacity: 0, y: 15 }}
-            className="relative bg-white w-full max-w-[640px] max-h-[92vh] rounded-[28px] shadow-2xl border border-red-100 flex flex-col overflow-hidden"
+            className="relative bg-white w-full max-w-[640px] max-h-[95vh] rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 flex flex-col overflow-hidden z-10"
           >
             {/* Header */}
             <div className="p-6 md:p-7 border-b border-slate-100 space-y-3 shrink-0">
@@ -183,10 +183,10 @@ export function InstitutionEmergencyBroadcast({
                   <ShieldAlert size={26} strokeWidth={2.2} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg md:text-xl font-black text-red-700 uppercase tracking-tight leading-none mb-1">
+                  <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">
                     Difusão de Mensagem de Emergência
                   </h3>
-                  <p className="text-red-500 font-extrabold text-[10px] uppercase tracking-widest leading-none">
+                  <p className="text-[#4f46e5] font-extrabold text-[10px] uppercase tracking-[0.16em] leading-none">
                     {isSandbox ? 'Modo Sandbox — destinatários fictícios, nada é enviado' : `Rede de emergência de ${citizenName} (BI ${citizenBi})`}
                   </p>
                 </div>

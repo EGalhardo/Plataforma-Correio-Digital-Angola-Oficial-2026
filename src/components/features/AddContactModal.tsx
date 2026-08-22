@@ -66,13 +66,13 @@ export function AddContactModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsAddingContact(false)}
-            className="absolute inset-0 bg-slate-950/40 backdrop-blur-md" 
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" 
           />
           <motion.div 
             initial={{ scale: 0.93, opacity: 0, y: 15 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.93, opacity: 0, y: 15 }}
-            className="relative bg-white w-full max-w-[540px] max-h-[95vh] rounded-[28px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 flex flex-col overflow-hidden mx-auto p-6 md:p-8 space-y-6"
+            className="relative bg-white w-full max-w-[540px] max-h-[95vh] rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 flex flex-col overflow-hidden mx-auto p-6 md:p-10 space-y-6 z-10"
           >
             {/* Header Area - MESMO ESTILO DO EDITAR CONTACTO */}
             <div className="flex items-center gap-4 text-left relative shrink-0">

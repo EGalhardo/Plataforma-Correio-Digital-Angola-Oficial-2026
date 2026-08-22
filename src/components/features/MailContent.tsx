@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
+  X,
   ArrowLeft,
   Send,
   Mail,
@@ -1154,7 +1155,7 @@ export function MailContent({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[110] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto font-sans"
+              className="fixed inset-0 z-[110] bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto font-sans"
               onClick={() => setEditingAttachmentIdx(null)}
             >
               <motion.div
@@ -1162,25 +1163,25 @@ export function MailContent({
                 animate={{ scale: 1, y: 0, opacity: 1 }}
                 exit={{ scale: 0.95, y: 15, opacity: 0 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                className="bg-white rounded-[24px] border border-slate-150 shadow-2xl w-full max-w-xl flex flex-col overflow-hidden text-left"
+                className="relative bg-white rounded-[32px] border border-slate-100 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] w-full max-w-xl max-h-[95vh] flex flex-col overflow-hidden text-left mx-auto z-10"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Header */}
-                <div className="bg-[#0c2340] p-5 text-white flex justify-between items-center shrink-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center">
-                      <FileText size={16} className="text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-extrabold text-xs uppercase tracking-wider text-white">Editar Conteúdo do Anexo</h3>
-                      <p className="text-[10px] text-slate-300 font-mono tracking-tight">O conteúdo editado será guardado digitalmente no anexo</p>
-                    </div>
+                <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+                  <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center shrink-0 border border-indigo-100/40 shadow-sm">
+                    <FileText size={26} strokeWidth={2.5} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">Editar Conteúdo do Anexo</h3>
+                    <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none">O conteúdo editado será guardado digitalmente no anexo</p>
                   </div>
                   <button
                     onClick={() => setEditingAttachmentIdx(null)}
-                    className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all text-white font-bold text-xs"
+                    className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-none bg-transparent cursor-pointer"
+                    type="button"
+                    title="Fechar"
                   >
-                    ✕
+                    <X size={20} />
                   </button>
                 </div>
 
@@ -1546,13 +1547,13 @@ export function MailContent({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMessageToDelete(null)}
-              className="absolute inset-0 bg-primary/40 backdrop-blur-sm"
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative bg-white rounded-[28px] md:rounded-[32px] p-5 sm:p-6 md:p-8 shadow-2xl max-w-md w-full text-center max-h-[92vh] overflow-y-auto"
+              className="relative bg-white rounded-[32px] p-6 md:p-10 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 max-w-md w-full text-center max-h-[95vh] overflow-y-auto mx-auto space-y-6 z-10"
             >
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Trash2 size={32} className="text-red-600" />

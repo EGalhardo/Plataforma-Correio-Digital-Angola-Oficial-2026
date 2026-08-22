@@ -1180,7 +1180,7 @@ export function DocumentsContent({
               animate={{ opacity: 1 }} 
               exit={{ opacity: 0 }}
               onClick={() => { if (!isPayingActive) setActivePayingInvoice(null); }}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
             />
             
             {/* Modal Body */}
@@ -1450,7 +1450,7 @@ export function DocumentsContent({
               animate={{ opacity: 1 }} 
               exit={{ opacity: 0 }}
               onClick={() => setViewedReceipt(null)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
             />
             
             {/* Receipt Body */}

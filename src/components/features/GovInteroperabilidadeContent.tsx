@@ -1450,29 +1450,29 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => { setIsCreateModalOpen(false); setEditingInstitution(null); }}
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[600]"
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[600]"
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-4xl bg-white rounded-[32px] overflow-hidden shadow-2xl z-[601] border border-slate-100 flex flex-col max-h-[95vh]"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-4xl bg-white rounded-[32px] overflow-hidden shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[601] border border-slate-100 flex flex-col max-h-[95vh]"
             >
-              <div className="bg-[#0b1329] text-white p-6 md:px-10 md:py-6 relative flex-shrink-0 select-none flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center border border-white/20 shrink-0">
-                  <Building2 size={22} className="text-white" />
+              <div className="flex items-center gap-4 text-left relative shrink-0 select-none p-6 md:p-10 pb-0">
+                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center border border-indigo-100/40 shadow-sm shrink-0">
+                  <Building2 size={26} strokeWidth={2.5} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-base md:text-[23px] font-black uppercase italic tracking-tighter text-white m-0 leading-none mb-1">
+                  <h3 className="text-xl md:text-[23px] font-black uppercase italic tracking-tighter text-[#0c2340] m-0 leading-none mb-1">
                     {editingInstitution ? 'Editar Instituição' : 'Criar Instituição'}
                   </h3>
-                  <p className="text-[10px] font-black text-indigo-200/80 uppercase tracking-widest leading-none m-0 mt-1">
-                    REGISTE OS DADOS DA NOVA INSTITUIÇÃO NO SISTEMA
+                  <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] leading-none m-0 mt-1">
+                    Registe os dados da nova instituição no sistema
                   </p>
                 </div>
                 <button 
                   onClick={() => { setIsCreateModalOpen(false); setEditingInstitution(null); }}
-                  className="absolute right-6 top-6 md:right-10 md:top-7 text-slate-400 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-2 border-none cursor-pointer transition-all flex items-center justify-center w-8 h-8"
+                  className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full p-2 border-none bg-transparent cursor-pointer transition-all flex items-center justify-center"
                   type="button"
                   title="Fechar"
                 >
@@ -1900,24 +1900,24 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
               <motion.div
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 onClick={() => { setSelectedSolicitacao(null); setSolError(''); setSolReason(''); }}
-                className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[150]"
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[150]"
               />
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 16 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 16 }}
-                className="fixed inset-x-3 top-[3%] bottom-[3%] md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-[720px] bg-white rounded-[28px] shadow-2xl z-[160] flex flex-col overflow-hidden border border-slate-100"
+                className="fixed inset-x-3 top-[3%] bottom-[3%] md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-[720px] bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[160] flex flex-col overflow-hidden border border-slate-100"
               >
                 {/* Cabeçalho */}
-                <div className="bg-slate-950 p-5 md:p-6 text-white relative shrink-0">
-                  <button onClick={() => { setSelectedSolicitacao(null); setSolError(''); setSolReason(''); }} className="absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-full transition-colors cursor-pointer border-0 text-white bg-transparent" type="button"><X size={17} /></button>
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 bg-white/10 rounded-2xl flex items-center justify-center border border-white/15"><Landmark size={21} /></div>
-                    <div className="min-w-0">
-                      <div className="text-[8.5px] font-black uppercase tracking-[0.2em] text-indigo-300">Solicitação de Adesão — {code}</div>
-                      <h3 className="text-base md:text-lg font-black uppercase tracking-tight leading-tight truncate">{row.nome}</h3>
-                    </div>
+                <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+                  <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center border border-indigo-100/40 shadow-sm shrink-0">
+                    <Landmark size={26} strokeWidth={2.5} />
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#4f46e5]">Solicitação de Adesão — {code}</div>
+                    <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-tight truncate">{row.nome}</h3>
+                  </div>
+                  <button onClick={() => { setSelectedSolicitacao(null); setSolError(''); setSolReason(''); }} className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full p-2 transition-colors cursor-pointer border-0 bg-transparent" type="button" title="Fechar"><X size={20} /></button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-5 md:p-6 space-y-5 text-left">
@@ -2100,13 +2100,13 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
               <motion.div
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 onClick={() => { if (!solBusy) setSolToDelete(null); }}
-                className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[170]"
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[170]"
               />
               <motion.div
                 initial={{ opacity: 0, scale: 0.94, y: 14 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.94, y: 14 }}
-                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-[480px] bg-white rounded-[24px] shadow-2xl z-[180] border border-slate-100 overflow-hidden text-center relative"
+                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-[480px] bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[180] border border-slate-100 overflow-hidden text-center relative"
               >
                 {/* Fechar (X) */}
                 <button
@@ -2189,38 +2189,38 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setSelectedInstHistory(null)}
-                className="fixed inset-0 bg-slate-900/35 backdrop-blur-xs z-[600]"
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[600]"
               />
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95, y: 15 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 15 }}
-                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] max-w-2xl bg-white rounded-[32px] overflow-hidden shadow-2xl z-[601] border border-slate-100 font-sans"
+                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] max-w-2xl bg-white rounded-[32px] overflow-hidden shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[601] border border-slate-100 font-sans"
               >
                 {/* Banner Header */}
-                <div className="bg-[#0c2340] text-indigo-100 p-6 relative">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center font-mono font-black text-sm uppercase text-white shadow-inner select-none border border-white/10">
-                      {selectedInstHistory.name.slice(0, 3)}
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-black tracking-widest uppercase text-indigo-300 block leading-none">
-                        Dossiê de Performance & Auditoria Síncrona
-                      </span>
-                      <h3 className="text-base md:text-lg font-black uppercase tracking-tight text-white mt-1 border-0 leading-none">
-                        {selectedInstHistory.fullName}
-                      </h3>
-                      <p className="text-[10.5px] text-slate-400 font-bold mt-1 block">
-                        Código: <span className="font-mono">{selectedInstHistory.instCode || 'N/A'}</span> &bull; {selectedInstHistory.typeInst || selectedInstHistory.category}
-                      </p>
-                    </div>
+                <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+                  <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-mono font-black text-sm uppercase shadow-sm select-none border border-indigo-100/40 shrink-0">
+                    {selectedInstHistory.name.slice(0, 3)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[10px] font-black tracking-[0.16em] uppercase text-[#4f46e5] block leading-none">
+                      Dossiê de Performance & Auditoria Síncrona
+                    </span>
+                    <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter mt-1 border-0 leading-none">
+                      {selectedInstHistory.fullName}
+                    </h3>
+                    <p className="text-[10.5px] text-slate-400 font-bold mt-1 block">
+                      Código: <span className="font-mono">{selectedInstHistory.instCode || 'N/A'}</span> &bull; {selectedInstHistory.typeInst || selectedInstHistory.category}
+                    </p>
                   </div>
                   
                   <button 
                     onClick={() => setSelectedInstHistory(null)}
-                    className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white border-0 rounded-full p-2.5 cursor-pointer transition-colors"
+                    className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 bg-transparent border-0 rounded-full p-2 cursor-pointer transition-all"
+                    type="button"
+                    title="Fechar"
                   >
-                    <X size={14} />
+                    <X size={20} />
                   </button>
                 </div>
 

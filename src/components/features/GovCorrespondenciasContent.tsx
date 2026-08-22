@@ -740,36 +740,34 @@ export function GovCorrespondenciasContent({
               animate={{ bgOpacity: 1, opacity: 1 }}
               exit={{ bgOpacity: 0, opacity: 0 }}
               onClick={() => setSelectedLetter(null)}
-              className="fixed inset-0 bg-slate-900/35 backdrop-blur-xs z-[600]"
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[600]"
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] max-w-2xl bg-white rounded-[32px] overflow-hidden shadow-2xl z-[601] border border-slate-100 max-h-[92vh] overflow-y-auto custom-scrollbar"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] max-w-2xl bg-white rounded-[32px] overflow-hidden shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[601] border border-slate-100 max-h-[95vh] overflow-y-auto custom-scrollbar"
             >
               {/* Modal Banner Header */}
-              <div className="bg-[#0c2340] text-indigo-100 p-6 relative">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center font-mono font-black text-sm uppercase text-white shadow-inner select-none border border-white/15">
-                    {(selectedLetter.institution || 'CDA').slice(0, 3)}
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black tracking-widest uppercase text-indigo-300 block leading-none">
-                      {t("Centro de Fiscalização Governamental e Interoperabilidade")}
-                    </span>
-                    <h3 className="text-base md:text-lg font-black uppercase tracking-tight text-white mt-1.5 border-0 leading-none">
-                      {t("Ofício Código:")} {selectedLetter.id}
-                    </h3>
-                    <p className="text-[10px] text-slate-400 font-bold mt-1.5 block">
-                      {t("Matéria:")} <span className="font-mono text-indigo-300 uppercase">{t(selectedLetter.category || '')}</span> &bull; {t("Trânsito:")} {t(selectedLetter.originProvince || '')} &rarr; {t(selectedLetter.destinationProvince || '')}
-                    </p>
-                  </div>
+              <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-mono font-black text-sm uppercase shrink-0 border border-indigo-100/40 shadow-sm select-none">
+                  {(selectedLetter.institution || 'CDA').slice(0, 3)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">
+                    {t("Ofício Código:")} {selectedLetter.id}
+                  </h3>
+                  <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none">
+                    {t("Centro de Fiscalização Governamental e Interoperabilidade")}
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-bold mt-1.5 block">
+                    {t("Matéria:")} <span className="font-mono text-indigo-500 uppercase">{t(selectedLetter.category || '')}</span> &bull; {t("Trânsito:")} {t(selectedLetter.originProvince || '')} &rarr; {t(selectedLetter.destinationProvince || '')}
+                  </p>
                 </div>
                 
                 <button 
                   onClick={() => setSelectedLetter(null)}
-                  className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white border-0 rounded-full p-2.5 cursor-pointer transition-colors"
+                  className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-none bg-transparent cursor-pointer"
                 >
                   <X size={14} />
                 </button>
@@ -1028,22 +1026,29 @@ export function GovCorrespondenciasContent({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsDispatchModalOpen(false)}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-[600]"
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[600]"
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] max-w-xl bg-white rounded-[32px] overflow-hidden shadow-2xl z-[601] border border-slate-100 max-h-[90vh] overflow-y-auto custom-scrollbar"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] max-w-xl bg-white rounded-[32px] overflow-hidden shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[601] border border-slate-100 max-h-[95vh] overflow-y-auto custom-scrollbar"
             >
-              <div className="bg-[#0c2340] text-white p-6 relative">
-                <span className="text-[9px] font-mono tracking-widest uppercase text-indigo-300 font-bold block">Expedição Administrativa Segura</span>
-                <h3 className="text-base font-black uppercase italic tracking-tight text-white mt-1 mb-0">Despachar Novo Ofício Real-Time</h3>
-                <button 
+              <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center shrink-0 border border-indigo-100/40 shadow-sm">
+                  <Send size={26} strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">Despachar Novo Ofício Real-Time</h3>
+                  <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none">Expedição Administrativa Segura</p>
+                </div>
+                <button
                   onClick={() => setIsDispatchModalOpen(false)}
-                  className="absolute right-6 top-6 bg-white/10 hover:bg-white/20 text-white border-0 rounded-full p-2 cursor-pointer transition-colors"
+                  className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-none bg-transparent cursor-pointer"
+                  type="button"
+                  title="Fechar"
                 >
-                  <X size={15} />
+                  <X size={20} />
                 </button>
               </div>
 

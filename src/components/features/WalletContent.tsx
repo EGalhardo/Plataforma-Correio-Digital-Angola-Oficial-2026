@@ -338,29 +338,30 @@ export function WalletContent({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsRequestModalOpen(false)}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[500]"
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[500]"
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md bg-white rounded-[32px] shadow-3xl z-[501] overflow-hidden max-h-[90vh] overflow-y-auto"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[501] overflow-hidden max-h-[95vh] overflow-y-auto border border-slate-100 flex flex-col space-y-6"
             >
-              <div className="bg-primary p-6 md:p-8 text-white relative">
-                 <button 
+              <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center shrink-0 border border-indigo-100/40 shadow-sm">
+                  <FileText size={26} strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">Solicitar Documento</h3>
+                  <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none">CDA Emission System · selecione o organismo e o acto digital</p>
+                </div>
+                <button
                   onClick={() => setIsRequestModalOpen(false)}
-                  className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-full transition-colors"
+                  className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-none bg-transparent cursor-pointer"
+                  type="button"
+                  title="Fechar"
                 >
                   <X size={20} />
                 </button>
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-white/10 rounded-xl border border-white/20">
-                    <FileText size={18} />
-                  </div>
-                  <span className="text-[9px] font-black uppercase tracking-[0.3em]">CDA Emission System</span>
-                </div>
-                <h2 className="text-2xl font-black italic tracking-tighter uppercase">Solicitar Documento</h2>
-                <p className="text-white/60 text-[10px] font-medium uppercase tracking-widest mt-1 px-1">Selecione o organismo e o acto digital</p>
               </div>
 
               <div className="p-6 md:p-8 space-y-6">

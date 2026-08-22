@@ -14,7 +14,8 @@ import {
   Brain,
   Building2,
   Users,
-  Video
+  Video,
+  FolderPlus
 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -938,24 +939,31 @@ export function GovDashboard({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setIsCreateModalOpen(false)}
-                className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[600]"
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[600]"
               />
               <motion.div
                 initial={{ opacity: 0, scale: 0.96, y: 30 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.96, y: 30 }}
-                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-md bg-white rounded-[40px] shadow-3xl z-[601] overflow-hidden flex flex-col border border-slate-100"
+                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-md bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[601] overflow-hidden flex flex-col border border-slate-100 space-y-6"
               >
-                <div className="bg-slate-900 p-6 md:p-8 text-white relative">
-                  <span className="text-[10px] font-mono font-black text-red-500 uppercase tracking-widest block font-bold">Operação Governamental Integrada</span>
-                  <h3 className="text-base md:text-lg font-black uppercase italic tracking-tight mt-1 mb-0 pb-0 text-white">Instaurar Novo Expediente</h3>
-                  <button
-                    onClick={() => setIsCreateModalOpen(false)}
-                    className="absolute right-6 top-6 bg-white/10 hover:bg-white/20 text-white rounded-full p-2.5 transition-colors border-0 cursor-pointer"
-                  >
-                    <X size={16} />
-                  </button>
+                <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center shrink-0 border border-indigo-100/40 shadow-sm">
+                  <FolderPlus size={26} strokeWidth={2.5} />
                 </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">Instaurar Novo Expediente</h3>
+                  <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none">Operação Governamental Integrada</p>
+                </div>
+                <button
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-none bg-transparent cursor-pointer"
+                  type="button"
+                  title="Fechar"
+                >
+                  <X size={20} />
+                </button>
+              </div>
 
                 <form onSubmit={handleCreateItem} className="p-6 md:p-8 space-y-4 font-sans text-xs">
                   <div className="space-y-1.5 animate-fadeIn">

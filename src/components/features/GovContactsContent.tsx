@@ -3348,28 +3348,27 @@ export function GovContactsContent({
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[96vw] max-w-6xl bg-white rounded-[24px] md:rounded-[40px] shadow-3xl z-[201] overflow-hidden border border-slate-150 text-left font-sans flex flex-col h-[94vh]"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[96vw] max-w-6xl bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[201] overflow-hidden border border-slate-100 text-left font-sans flex flex-col h-[94vh]"
             >
               {/* Header do Modal */}
-              <div className="bg-[#0c2340] p-6 text-white relative flex-shrink-0">
+              <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-4">
+                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center border border-indigo-100/40 shadow-sm shrink-0">
+                  <ShieldCheck size={26} strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#4f46e5]">Auditoria Governamental e Validação Civil</div>
+                  <h2 className="text-xl md:text-[23px] font-black text-[#0c2340] italic tracking-tighter uppercase leading-none mt-1">
+                    Portal de Homologação de Identidade
+                  </h2>
+                </div>
                 <button 
                   onClick={() => setSelectedReviewCitizen(null)}
-                  className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-full transition-all cursor-pointer border-0 text-white bg-transparent flex items-center justify-center"
+                  className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-none bg-transparent cursor-pointer"
                   type="button"
+                  title="Fechar"
                 >
                   <X size={20} />
                 </button>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-[#2563eb] rounded-[18px] flex items-center justify-center text-white border border-[#3b82f6]">
-                     <ShieldCheck size={24} className="text-white" />
-                  </div>
-                  <div>
-                     <div className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-400">Auditoria Governamental e Validação Civil</div>
-                     <h2 className="text-xl md:text-[23px] font-black tracking-tight uppercase leading-none mt-1">
-                       Portal de Homologação de Identidade
-                     </h2>
-                  </div>
-                </div>
               </div>
 
               {/* Navegação do Portal — barra fixa, visível durante toda a leitura */}
@@ -4420,15 +4419,15 @@ export function GovContactsContent({
               initial={{ opacity: 0, scale: 0.92, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.92, y: 12 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[94vw] max-w-lg bg-white rounded-[28px] shadow-3xl z-[301] border border-rose-100 text-left font-sans overflow-hidden"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[94vw] max-w-lg bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[301] border border-slate-100 text-left font-sans overflow-hidden"
             >
-              <div className="bg-rose-600 px-6 py-5 text-white flex items-start gap-3">
-                <div className="w-11 h-11 bg-white/15 rounded-2xl flex items-center justify-center shrink-0">
-                  <AlertTriangle size={22} className="text-white" />
+              <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+                <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center border border-rose-100/40 shadow-sm shrink-0">
+                  <AlertTriangle size={26} strokeWidth={2.5} />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-rose-100">Acção irreversível · Requer confirmação</p>
-                  <h3 className="text-base font-black uppercase tracking-tight mt-0.5">Eliminar Cadastro do Cidadão</h3>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#4f46e5]">Acção irreversível · Requer confirmação</p>
+                  <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter mt-0.5 leading-none">Eliminar Cadastro do Cidadão</h3>
                 </div>
               </div>
               <div className="p-6 space-y-4">

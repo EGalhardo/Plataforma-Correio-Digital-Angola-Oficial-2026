@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { motion, AnimatePresence } from 'motion/react';
 import {
+  X,
   ArrowLeft,
   Calendar,
   Clock,
@@ -4089,7 +4090,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+            className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
             onClick={() => setShowQRValidation(false)}
           >
             <motion.div
@@ -4097,25 +4098,27 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.95, y: 15, opacity: 0 }}
               transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-              className="bg-white rounded-3xl border border-slate-150 shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden text-left"
+              className="relative bg-white rounded-[32px] border border-slate-100 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] w-full max-w-lg max-h-[95vh] flex flex-col overflow-hidden text-left mx-auto z-10"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="bg-slate-900 p-6 text-white flex justify-between items-center shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-                    <QrCode size={18} className="text-white" />
+              <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center border border-indigo-100/40 shadow-sm shrink-0">
+                    <QrCode size={26} strokeWidth={2.5} />
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-xs uppercase tracking-wider">Verificador de Autenticidade</h3>
-                    <p className="text-[9px] text-slate-400 font-mono tracking-tight">{protocol.protocolNumber}</p>
+                    <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none">Verificador de Autenticidade</h3>
+                    <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] font-mono mt-1 leading-none">{protocol.protocolNumber}</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowQRValidation(false)}
-                  className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/25 transition-all text-white/80 text-xs font-bold font-mono"
-                 aria-label="Fechar">
-                  ✕
+                  className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 bg-transparent border-0 rounded-full p-2 cursor-pointer transition-all"
+                  type="button"
+                  aria-label="Fechar"
+                  title="Fechar">
+                  <X size={20} />
                 </button>
               </div>
 
@@ -4295,7 +4298,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+            className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
             onClick={() => setPreviewFile(null)}
           >
             <motion.div
@@ -4303,25 +4306,27 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.95, y: 15, opacity: 0 }}
               transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-              className="bg-white rounded-3xl border border-slate-150 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-left"
+              className="relative bg-white rounded-[32px] border border-slate-100 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden text-left mx-auto z-10"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="bg-[#0c2340] p-5 text-white flex justify-between items-center shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
-                    <FileText size={18} className="text-white" />
+              <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center border border-indigo-100/40 shadow-sm shrink-0">
+                    <FileText size={26} strokeWidth={2.5} />
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-xs uppercase tracking-wider">Visualizador de Ficheiro Oficial</h3>
-                    <p className="text-[10px] text-slate-300 font-mono tracking-tight">{previewFile.name} ({previewFile.size})</p>
+                    <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none">Visualizador de Ficheiro Oficial</h3>
+                    <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] font-mono mt-1 leading-none truncate">{previewFile.name} ({previewFile.size})</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setPreviewFile(null)}
-                  className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/25 transition-all text-white/80 text-xs font-bold font-mono"
-                >
-                  ✕
+                  className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 bg-transparent border-0 rounded-full p-2 cursor-pointer transition-all"
+                  type="button"
+                  aria-label="Fechar"
+                  title="Fechar">
+                  <X size={20} />
                 </button>
               </div>
 
@@ -4692,13 +4697,13 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMessageToDelete(null)}
-              className="absolute inset-0 bg-primary/40 backdrop-blur-sm"
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
             />
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              initial={{ scale: 0.93, opacity: 0, y: 15 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative bg-white rounded-[28px] md:rounded-[32px] p-5 sm:p-6 md:p-8 shadow-2xl max-w-md w-full text-center max-h-[92vh] overflow-y-auto"
+              exit={{ scale: 0.93, opacity: 0, y: 15 }}
+              className="relative bg-white rounded-[32px] p-6 md:p-10 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 max-w-md w-full text-center max-h-[95vh] overflow-y-auto mx-auto space-y-6 z-10"
             >
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Trash2 size={32} className="text-red-600" />

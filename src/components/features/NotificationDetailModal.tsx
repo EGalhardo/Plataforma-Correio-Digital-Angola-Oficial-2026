@@ -75,7 +75,7 @@ export function NotificationDetailModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+          className="absolute inset-0 bg-slate-950/60 backdrop-blur-md transition-opacity"
         />
 
         {/* Modal body */}
@@ -83,7 +83,7 @@ export function NotificationDetailModal({
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          className="relative w-full max-w-[500px] bg-white border border-slate-200 rounded-[32px] shadow-2xl p-8 overflow-hidden z-10 mx-3"
+          className="relative w-full max-w-[500px] bg-white border border-slate-100 rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] p-6 md:p-10 overflow-hidden z-10 mx-auto space-y-6"
         >
           {/* Close button */}
           <button

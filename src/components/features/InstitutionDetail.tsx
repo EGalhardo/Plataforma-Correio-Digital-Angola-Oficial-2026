@@ -818,12 +818,12 @@ export function InstitutionDetail({
 
       {/* EXIBIÇÃO DE DOCUMENTO OFICIAL / FACTURA EM POPUP */}
       {previewDoc && (
-        <div className="fixed inset-0 bg-[#020817]/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white rounded-[28px] max-w-2xl w-full border border-slate-200 shadow-2xl flex flex-col overflow-hidden max-h-[95vh]"
+            className="bg-white rounded-[32px] max-w-2xl w-full border border-slate-100 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] flex flex-col overflow-hidden max-h-[95vh]"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 shrink-0">
@@ -838,8 +838,8 @@ export function InstitutionDetail({
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
-                  <span className="p-2 rounded-xl bg-slate-100 md:p-2.5 text-slate-800 border border-slate-200/60 block shrink-0">
-                    <FileText size={20} className="text-slate-700" />
+                  <span className="w-16 h-16 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100/40 flex items-center justify-center shrink-0 shadow-sm">
+                    <FileText size={26} strokeWidth={2.5} />
                   </span>
                   <div>
                     <h4 className="text-base md:text-lg font-black text-slate-900 uppercase tracking-tight leading-none">

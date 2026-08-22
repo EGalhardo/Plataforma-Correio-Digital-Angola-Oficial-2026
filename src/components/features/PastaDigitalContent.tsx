@@ -1004,41 +1004,45 @@ export function PastaDigitalContent({
                 setQrSharingCode(null);
                 setVerificationResult('none');
               }}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[600]"
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[600]"
             />
             {/* Modal Drawer */}
             <motion.div 
               initial={{ opacity: 0, scale: 0.96, y: 30 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 30 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-lg bg-white rounded-[40px] shadow-3xl z-[601] overflow-hidden max-h-[85vh] flex flex-col border border-slate-100"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-lg bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[601] overflow-hidden max-h-[95vh] flex flex-col border border-slate-100 space-y-6"
             >
               {/* Header */}
-              <div className="bg-slate-950 p-6 md:p-8 text-white relative">
-                <div className="space-y-2 max-w-[85%] text-left">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-[8px] font-black px-2 py-0.5 rounded font-mono uppercase tracking-widest">
+              <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center shrink-0 border border-indigo-100/40 shadow-sm">
+                  <ShieldCheck size={26} strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[8px] font-black px-2 py-0.5 rounded font-mono uppercase tracking-widest">
                       {inspectedDoc.id}
                     </span>
-                    <span className="bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-[8px] font-black px-2 py-0.5 rounded flex items-center gap-1 uppercase tracking-widest font-mono">
+                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[8px] font-black px-2 py-0.5 rounded flex items-center gap-1 uppercase tracking-widest font-mono">
                       <ShieldCheck size={11} /> ASSINADO (ICP-AO)
                     </span>
                   </div>
-                  <h3 className="text-base md:text-lg font-black uppercase italic tracking-tight">{t(inspectedDoc.name)}</h3>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                  <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">{t(inspectedDoc.name)}</h3>
+                  <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none">
                     {t("Origem de Emissão:")} {t(inspectedDoc.issuer)}
                   </p>
                 </div>
-                
-                <button 
+                <button
                   onClick={() => {
                     setInspectedDoc(null);
                     setQrSharingCode(null);
                     setVerificationResult('none');
                   }}
-                  className="absolute top-6 right-6 bg-white/10 hover:bg-white/20 rounded-full p-2.5 text-white transition-colors cursor-pointer border-0"
+                  className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-none bg-transparent cursor-pointer"
+                  type="button"
+                  title="Fechar"
                 >
-                  <X size={16} />
+                  <X size={20} />
                 </button>
               </div>
 
@@ -1205,33 +1209,33 @@ export function PastaDigitalContent({
                 setIsScannerOpen(false);
                 stopScannerCamera();
               }}
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[700]"
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[700]"
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 40 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 40 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[94%] max-w-lg bg-white rounded-[40px] shadow-3xl z-[701] overflow-hidden max-h-[90vh] flex flex-col border border-slate-100"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[94%] max-w-lg bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[701] overflow-hidden max-h-[95vh] flex flex-col border border-slate-100 space-y-6"
             >
               {/* Header */}
-              <div className="bg-[#0c2340] p-6 text-white relative">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-white/10 rounded-xl">
-                    <Camera size={20} className="text-cyan-400" />
-                  </div>
-                  <div>
-                    <span className="text-[8px] font-black tracking-[0.2em] text-cyan-400 uppercase">Validador Instantâneo</span>
-                    <h3 className="text-sm md:text-base font-black uppercase tracking-tight italic">Câmara de Verificação QR CDA</h3>
-                  </div>
+              <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
+                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center shrink-0 border border-indigo-100/40 shadow-sm">
+                  <Camera size={26} strokeWidth={2.5} />
                 </div>
-                <button 
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">Câmara de Verificação QR CDA</h3>
+                  <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none">Validador Instantâneo</p>
+                </div>
+                <button
                   onClick={() => {
                     setIsScannerOpen(false);
                     stopScannerCamera();
                   }}
-                  className="absolute top-6 right-6 bg-white/15 hover:bg-white/25 rounded-full p-2.5 text-white border-0 cursor-pointer flex items-center justify-center"
+                  className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-none bg-transparent cursor-pointer"
+                  type="button"
+                  title="Fechar"
                 >
-                  <X size={16} />
+                  <X size={20} />
                 </button>
               </div>
 

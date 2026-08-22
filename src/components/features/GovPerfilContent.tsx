@@ -11,6 +11,7 @@ import { useSession } from '../../services/sessionStore';
 import { supabase } from '../../lib/supabaseClient';
 import { hasValidSupabaseKeys, supabaseService } from '../../services/supabaseService';
 import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil } from '../../services/profileSyncService';
+import { carregarDadosReaisAdmin } from '../../services/adminRealDataService';
 import { guardarAvatar } from '../../services/avatarService';
 import { guardarPerfilLocal } from '../../services/perfilLocalService';
 import { cloudChangePassword, hasActiveCloudSession, isCloudBound } from '../../services/cloudAuthService';
@@ -60,6 +61,47 @@ export function GovPerfilContent({
     setEditAdminPhone(phone || '');
     setEditAdminNif(nif || '');
   }, [profileName, phone, nif]);
+
+  // 2026-08-22 — MODO REAL: dados vivos da nuvem para a página Perfil.
+  // (a) email funcional real (linha profiles do próprio agente/admin);
+  // (b) data de criação REAL da conta (Supabase Auth do titular);
+  // (c) logs de auditoria REAIS da nuvem (tabela audit_logs) em vez do
+  //     espelho localStorage — em Modo Demo nada disto corre.
+  const [contaCriadaEm, setContaCriadaEm] = useState('');
+  const [logsNuvem, setLogsNuvem] = useState<AuditLog[] | null>(null);
+  React.useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        // Modo Demo (conta ADM de demonstração isenta) NÃO consulta a nuvem:
+        // a página fica exactamente como sempre esteve nessa modalidade.
+        if (!hasValidSupabaseKeys() || homologationStore.isExempt(bi || '')) return;
+        // data de criação real (conta de autenticação do próprio titular)
+        try {
+          const { data: authUser } = await supabase.auth.getUser();
+          const criado = authUser?.user?.created_at;
+          if (criado && vivo) {
+            const d = new Date(criado);
+            if (!isNaN(d.getTime())) {
+              setContaCriadaEm(d.toLocaleDateString('pt-AO', { day: 'numeric', month: 'long', year: 'numeric' }));
+            }
+          }
+        } catch { /* best-effort */ }
+        // linha profiles do titular (email/nif/telefone reais) + logs da nuvem
+        const dados = await carregarDadosReaisAdmin();
+        if (!vivo) return;
+        if (dados) {
+          const eu = dados.profiles.find(p => p.bi === bi);
+          if (eu?.email) setEditAdminEmail(prev => (prev && prev !== 'admin@cda.gov.ao' ? prev : eu.email!));
+          const meuNome = (eu?.name || profileName || '').trim();
+          const doTitular = dados.auditLogs.filter(l => !meuNome || l.user === meuNome).slice(0, 60);
+          setLogsNuvem(doTitular.length > 0 ? doTitular : dados.auditLogs.slice(0, 60));
+        }
+      } catch { /* best-effort — a página mantém os valores locais */ }
+    })();
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bi, profileName]);
 
   const handleSaveAdminEdit = async () => {
     updateUserFields({
@@ -285,7 +327,7 @@ export function GovPerfilContent({
             </div>
             <div className="pt-1">
               <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">Data de Criação da Conta</span>
-              <span className="text-xs font-bold text-slate-700">1 de junho de 2026</span>
+              <span className="text-xs font-bold text-slate-700">{contaCriadaEm || 'Registada na base central do Estado'}</span>
             </div>
           </div>
         </div>
@@ -570,17 +612,17 @@ export function GovPerfilContent({
                 </h4>
               </div>
               <span className="font-mono text-[9px] font-black uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full">
-                {logs.length} Registros Activos
+                {(logsNuvem ?? logs).length} Registros Activos{logsNuvem ? ' · Nuvem' : ''}
               </span>
             </div>
 
             <div className="space-y-2.5 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
-              {logs.length === 0 ? (
+              {(logsNuvem ?? logs).length === 0 ? (
                 <div className="text-center py-8 text-xs text-slate-400 font-semibold uppercase tracking-widest">
                   Sem eventos registados recentemente.
                 </div>
               ) : (
-                logs.map((log) => (
+                (logsNuvem ?? logs).map((log) => (
                   <div key={log.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3.5 rounded-2xl bg-slate-50/50 border border-slate-100 hover:bg-slate-100/30 transition-all font-mono text-[10px]">
                     <div className="flex items-center gap-3">
                       <span className={`w-2 h-2 rounded-full shrink-0 ${
@@ -591,7 +633,7 @@ export function GovPerfilContent({
                       <span className="font-bold text-slate-800 uppercase">{log.action}</span>
                     </div>
                     <div className="text-slate-400 font-semibold mt-1.5 sm:mt-0">
-                      {log.timestamp} &bull; <span className="font-bold text-indigo-600 font-sans">{log.user}</span>
+                      {(log.timestamp && log.timestamp.includes('T')) ? new Date(log.timestamp).toLocaleString('pt-AO') : log.timestamp} &bull; <span className="font-bold text-indigo-600 font-sans">{log.user}</span>
                     </div>
                   </div>
                 ))

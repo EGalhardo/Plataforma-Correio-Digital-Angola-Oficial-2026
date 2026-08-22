@@ -1162,8 +1162,8 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
 
       {/* MODAL: CONFIGURAÇÃO GERAL */}
       {isConfigOpen && (
-        <div className="fixed inset-0 bg-[#0c2340]/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-[24px] max-w-lg w-full p-6 shadow-2xl border border-slate-100 text-left space-y-5 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-[32px] max-w-lg w-full p-6 md:p-10 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 text-left space-y-5 max-h-[95vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-gray-200">
               <div className="flex items-center gap-2">
                 <Settings className="text-indigo-600" size={20} />
@@ -1238,8 +1238,8 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
 
       {/* MODAL: GERIR BASES DE CONHECIMENTO */}
       {isManageKnowledgeOpen && (
-        <div className="fixed inset-0 bg-[#0c2340]/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-[24px] max-w-md w-full p-6 shadow-2xl border border-slate-100 text-left space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-[32px] max-w-md w-full p-6 md:p-10 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 text-left space-y-4 max-h-[95vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-gray-200">
               <div className="flex items-center gap-2">
                 <Database className="text-indigo-600" size={20} />
@@ -1291,8 +1291,8 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
 
       {/* MODAL: GERIR MODELOS */}
       {isManageModelsOpen && (
-        <div className="fixed inset-0 bg-[#0c2340]/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-[24px] max-w-lg w-full p-6 shadow-2xl border border-slate-100 text-left space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-[32px] max-w-lg w-full p-6 md:p-10 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 text-left space-y-4 max-h-[95vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-gray-200">
               <div className="flex items-center gap-2">
                 <Bot className="text-indigo-600 animate-pulse" size={20} />
@@ -1350,8 +1350,8 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
 
       {/* MODAL: TESTAR IA (LIVE CHAT SANDBOX) */}
       {isTestModalOpen && (
-        <div className="fixed inset-0 bg-[#0c2340]/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn font-sans">
-          <div className="bg-white rounded-[28px] max-w-xl w-full p-6 shadow-2xl border border-slate-100 text-left flex flex-col h-[520px]">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn font-sans">
+          <div className="bg-white rounded-[32px] max-w-xl w-full p-6 md:p-10 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 text-left flex flex-col h-[520px]">
             
             <div className="flex items-center justify-between pb-3 border-b border-gray-200 shrink-0">
               <div className="flex items-center gap-3">

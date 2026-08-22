@@ -637,12 +637,12 @@ return (
     {/* --- IDENTITY VERIFICATION WIZARD MODAL --- */}
       <AnimatePresence>
         {isVerifying && (
-          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-[32px] w-full max-w-lg overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] text-left"
+              className="relative bg-white rounded-[32px] w-full max-w-lg max-h-[95vh] overflow-hidden shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 flex flex-col text-left mx-auto z-10"
             >
               {/* Header */}
               <div className="p-6 border-b border-slate-150 flex justify-between items-center bg-indigo-950 text-white">
@@ -954,12 +954,12 @@ return (
       {/* --- PIN AND 2FA SECURITY CONFIGURATION PANEL --- */}
       <AnimatePresence>
         {isConfiguringSecurity && (
-          <div className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
             <motion.div 
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
-              className="bg-white rounded-[28px] w-full max-w-md overflow-hidden shadow-2xl border border-slate-100 text-left flex flex-col max-h-[90vh]"
+              className="relative bg-white rounded-[32px] w-full max-w-md max-h-[95vh] overflow-hidden shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 text-left flex flex-col mx-auto z-10"
             >
               {/* Header Box mirroring Image 3 */}
               <div className="p-5 md:p-6 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
@@ -1208,12 +1208,12 @@ return (
       {/* --- CENTRAL COMPLETA DE PREFERÊNCIAS DO CIDADÃO --- */}
       <AnimatePresence>
         {isPrefsOpen && (
-          <div className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[9999] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4 overflow-y-auto">
             <motion.div 
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
-              className="bg-white rounded-[32px] w-full max-w-2xl overflow-hidden shadow-2xl border border-slate-100 text-left flex flex-col my-4 max-h-[92vh]"
+              className="relative bg-white rounded-[32px] w-full max-w-2xl max-h-[95vh] overflow-hidden shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 text-left flex flex-col my-4 mx-auto z-10"
             >
               {/* Head */}
               <div className="p-3.5 md:p-4.5 bg-[#111A2E] text-white flex justify-between items-center shrink-0">
