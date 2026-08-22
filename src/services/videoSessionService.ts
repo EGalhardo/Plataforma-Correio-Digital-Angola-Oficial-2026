@@ -48,6 +48,10 @@ export interface VideoSessionExtended extends VideoSession {
   duration?: number;
   quality?: 'excellent' | 'good' | 'poor';
   participantCount?: number;
+  // 2026-08-22 — true quando a sessão foi escrita na nuvem; false quando a
+  // gravação na nuvem falhou (a sessão existe apenas no espelho local — o
+  // utilizador deve ser avisado para não perder o agendamento no logout).
+  cloudPersisted?: boolean;
 }
 
 // Pre-seeded Mock Video Sessions with comprehensive data
@@ -330,8 +334,12 @@ export const VideoSessionService = {
     // 2026-08-22 — MODO REAL: persistência NA NUVEM via proxy /api/dados
     // (RLS endurecida bloqueia o insert directo do cliente). O servidor
     // injeta host_bi (instituição) ou guest_bi (cidadão) conforme a sessão.
+    // 2026-08-22 (v2) — a falha de gravação deixa de ser SILENTOSA: a sessão
+    // volta marcada cloudPersisted=false para a UI avisar o utilizador (sem
+    // isto o agendamento "desaparecia" no logout — o espelho local é limpo).
+    let cloudPersisted = true;
     if (hasValidSupabaseKeys()) {
-      await gravarDados(
+      const gravado = await gravarDados(
         'video_sessions', 'insert', undefined,
         [{
           id,
@@ -354,19 +362,23 @@ export const VideoSessionService = {
         undefined,
         async () => null,
       );
+      cloudPersisted = gravado !== null;
+      if (!cloudPersisted) {
+        console.warn('[VIDEO-CREATE] gravação na nuvem FALHOU — a sessão existe apenas neste dispositivo (espelho local).');
+      }
     }
 
     await this.addSessionEvent(
-      id, 
-      'criada', 
-      session.hostBi, 
-      session.hostName, 
+      id,
+      'criada',
+      session.hostBi,
+      session.hostName,
       `Sessão criada e agendada: "${session.subject}" com ${session.guestName}.`
     );
 
     this.createNotification(id, 'reminder', `Nova sessão de videoatendimento agendada: ${session.subject}`);
 
-    return newSession;
+    return { ...newSession, cloudPersisted };
   },
 
   /**
@@ -433,6 +445,42 @@ export const VideoSessionService = {
     this.createNotification(id, 'status_change', `Sessão atualizada: ${eventDescriptions[status]}`);
 
     return updated;
+  },
+
+  /**
+   * 2026-08-22 — ELIMINAÇÃO de agendamento (área da instituição).
+   * Remove a sessão da nuvem (proxy /api/dados com escopo de titularidade —
+   * a instituição só elimina sessões de que é ANFITRIÃ) e do espelho local.
+   * Devolve true quando a eliminação na nuvem foi confirmada (ou quando não
+   * há nuvem/sessão demo — só local); false se a nuvem falhou (não remover
+   * nada localmente nesse caso, senão a sessão "reaparece" no próximo login).
+   */
+  async deleteSession(id: string): Promise<boolean> {
+    const local = getLocalSessions();
+    const alvoLocal = local.find(s => s.id === id) || null;
+
+    if (hasValidSupabaseKeys() && isUUID(id)) {
+      const r = await gravarDados(
+        'video_sessions', 'delete', { id }, undefined,
+        undefined,
+        async () => null,
+      );
+      if (r === null) {
+        console.warn('[VIDEO-DELETE] eliminação na nuvem FALHOU — nada removido localmente (manter consistência).');
+        return false;
+      }
+    }
+
+    // Espelho local + eventos locais (demo/offline ou já seguro após nuvem).
+    saveLocalSessions(local.filter(s => s.id !== id));
+    saveLocalEvents(getLocalEvents().filter(e => e.sessionId !== id));
+
+    // Evento de auditoria (melhor esforço — a sessão já não existe na nuvem,
+    // o insert do evento fica apenas no registo local de quem eliminou).
+    if (alvoLocal) {
+      this.createNotification(id, 'status_change', `Agendamento eliminado: ${alvoLocal.subject}`);
+    }
+    return true;
   },
 
   /**

@@ -28,7 +28,14 @@ export function NotificationDropdown({
   onDeleteNotification
 }: NotificationDropdownProps) {
   const { t } = useLanguage();
+  // 2026-08-22 — as notificações LIDAS continuam VISÍVEIS (por baixo das
+  // não-lidas, com estilo discreto). Antes, ler uma notificação escondia-a do
+  // dropdown de imediato — a notificação de agendamento de video-atendimento
+  // desaparecia antes do dia marcado. Agora só desaparece quando o dia do
+  // agendamento passa (App.tsx filtra) ou por eliminação manual.
   const unreadNotifications = notifications.filter(n => n.unread !== false);
+  const readNotifications = notifications.filter(n => n.unread === false);
+  const todasOrdenadas = [...unreadNotifications, ...readNotifications];
 
   return (
     <AnimatePresence>
@@ -54,15 +61,15 @@ export function NotificationDropdown({
               </div>
             </div>
             <div className="max-h-[300px] md:max-h-[380px] overflow-y-auto custom-scrollbar">
-              {unreadNotifications.length > 0 ? (
+              {todasOrdenadas.length > 0 ? (
                 <div className="divide-y divide-line/40">
-                  {unreadNotifications.map((n) => (
-                    <div 
-                      key={n.id} 
+                  {todasOrdenadas.map((n) => (
+                    <div
+                      key={n.id}
                       onClick={() => {
                         onClickNotification(n);
                       }}
-                      className="p-4 md:p-5 hover:bg-slate-50 transition-colors cursor-pointer group relative"
+                      className={`p-4 md:p-5 hover:bg-slate-50 transition-colors cursor-pointer group relative ${n.unread === false ? 'opacity-55 hover:opacity-100' : ''}`}
                     >
                       <div className="flex gap-3 md:gap-4 items-start pr-6 relative">
                         <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center shrink-0 shadow-sm border ${
@@ -70,20 +77,24 @@ export function NotificationDropdown({
                           n.type === 'warning' ? 'bg-orange-50 text-orange-600 border-orange-100' :
                           'bg-blue-50 text-blue-600 border-blue-100'
                         }`}>
-                          {n.type === 'success' ? <BadgeCheck size={16} className="md:w-5 md:h-5" /> : 
+                          {n.type === 'success' ? <BadgeCheck size={16} className="md:w-5 md:h-5" /> :
                            n.type === 'warning' ? <ShieldCheck size={16} className="md:w-5 md:h-5" /> : <Info size={16} className="md:w-5 md:h-5" />}
                         </div>
                         <div className="flex-1 space-y-0.5 md:space-y-1 min-w-0">
                           <div className="flex justify-between items-start gap-2">
                             <span className="text-[11px] md:text-sm font-black text-primary tracking-tight line-clamp-1">{t(n.title)}</span>
-                            <span className="text-[7px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-1.5 py-0.5 rounded shrink-0">{n.time}</span>
+                            {n.unread === false ? (
+                              <span className="text-[7px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-1.5 py-0.5 rounded shrink-0">Lida</span>
+                            ) : (
+                              <span className="text-[7px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-1.5 py-0.5 rounded shrink-0">{n.time}</span>
+                            )}
                           </div>
                           <p className="text-[10px] md:text-[11px] text-slate-600 leading-tight font-bold group-hover:text-slate-900 transition-colors">
                             {t(n.message)}
                           </p>
                         </div>
                       </div>
-                      
+
                       {/* Eliminate Notification Button */}
                       <button
                         type="button"

@@ -1602,6 +1602,29 @@ export const supabaseService = {
   },
 
   /**
+   * 2026-08-22 — Marca uma notificação como LIDA na nuvem (read_at). A
+   * notificação CONTINUA a ser devolvida pelo getNotifications — o estado
+   * "lida" é apenas informativo (a notificação de agendamento de
+   * video-atendimento só desaparece quando o dia do agendamento passa).
+   * Best-effort: devolve false se a nuvem não responder (nunca lança).
+   */
+  async markNotificationRead(id: number): Promise<boolean> {
+    if (!hasValidSupabaseKeys() || !id) return false;
+    try {
+      const r = await gravarDados(
+        'notifications', 'update', { id },
+        { read_at: new Date().toISOString() },
+        undefined,
+        async () => null,
+      );
+      return r !== null;
+    } catch (e) {
+      console.warn('Supabase markNotificationRead error:', e);
+      return false;
+    }
+  },
+
+  /**
    * Fetch citizen/system notifications
    */
   async getNotifications(bi: string): Promise<any[] | null> {

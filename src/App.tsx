@@ -3543,12 +3543,27 @@ export default function App() {
   // F12 — Notificações: sessões reais só vêem eventos gerados na SUA sessão;
   // o Centro de Notificações de uma conta nova nasce vazio.
   const currentNotifications = useMemo(() => {
-    if (!isDemoSession) return notifications.filter(n => n.ownerId === sessionOwnerKey);
-    // F17 — piso de não-lidas também nas notificações (simuladas, só demo)
-    if (notifications.length && !notifications.some(n => n.unread)) {
-      return [{ ...notifications[0], unread: true }, ...notifications.slice(1)];
+    let base: AppNotification[];
+    if (!isDemoSession) {
+      base = notifications.filter(n => n.ownerId === sessionOwnerKey);
+    } else {
+      // F17 — piso de não-lidas também nas notificações (simuladas, só demo)
+      if (notifications.length && !notifications.some(n => n.unread)) {
+        base = [{ ...notifications[0], unread: true }, ...notifications.slice(1)];
+      } else {
+        base = notifications;
+      }
     }
-    return notifications;
+    // 2026-08-22 — a notificação de AGENDAMENTO de video-atendimento só
+    // desaparece QUANDO O DIA DO AGENDAMENTO É ULTRAPASSADO (nunca por ter
+    // sido lida): o texto oficial traz "… para o dia AAAA-MM-DD às HH:MM" —
+    // depois desse dia a notificação esconde-se sozinha (não é apagada).
+    const hoje = new Date().toISOString().slice(0, 10);
+    return base.filter(n => {
+      if (n.targetTab !== 'video-atendimento') return true;
+      const m = /dia\s+(\d{4}-\d{2}-\d{2})/i.exec(String(n.message || ''));
+      return !m || m[1] >= hoje;
+    });
   }, [notifications, isDemoSession, sessionOwnerKey]);
 
   // F12/F13 — Correspondências gov: demo vê o histórico simulado; agentes reais
@@ -7388,9 +7403,15 @@ Ficha civil do titular:
                 setSelectedDoc={setSelectedDoc} 
                 onClickNotification={(n) => {
                   setActiveNotificationModal(n);
-                  setNotifications((prev) => 
+                  setNotifications((prev) =>
                     prev.map((item) => item.id === n.id ? { ...item, unread: false } : item)
                   );
+                  // 2026-08-22 — o estado "lida" é persistido na nuvem
+                  // (read_at) e a notificação CONTINUA VISÍVEL no dropdown
+                  // (secção "Lidas") até ao dia do agendamento passar.
+                  if (!isDemoSession && n.id) {
+                    void supabaseService.markNotificationRead(n.id);
+                  }
                   setShowNotifications(false);
                 }}
                 onDeleteNotification={(id) => {

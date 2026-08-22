@@ -35,7 +35,8 @@ import {
   RefreshCw,
   WifiOff,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  Trash2
 } from 'lucide-react';
 import { useLanguage } from '../../hooks/useLanguage';
 import { notify } from '../../lib/notify';
@@ -230,14 +231,32 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
   const apiRef = useRef<any>(null);
   const estadoRef = useRef<string>('checking');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // 2026-08-22 — recuperação robusta: `tentativa` força REMONTAGEM real da
+  // sala (o botão "Tentar novamente" antigo só mudava estado — a sala antiga
+  // ficava presa); retriesRef conta as tentativas automáticas desta montagem.
+  const [tentativa, setTentativa] = useState(0);
+  const retriesRef = useRef(0);
+  const inicioRef = useRef(Date.now());
+  const [segundosEspera, setSegundosEspera] = useState(0);
 
   const [remoteCount, setRemoteCount] = useState(0);
-  const [callState, setCallState] = useState<'checking' | 'connecting' | 'connected' | 'error'>('checking');
+  const [callState, setCallState] = useState<'checking' | 'connecting' | 'connected' | 'interrompida' | 'error'>('checking');
   const [erroDetalhe, setErroDetalhe] = useState('');
+
+  // Cronómetro da espera pelo outro participante (ecrã "a aguardar").
+  useEffect(() => {
+    setSegundosEspera(0);
+    if (callState === 'connected' && remoteCount === 0) {
+      const h = setInterval(() => setSegundosEspera((s) => s + 1), 1000);
+      return () => clearInterval(h);
+    }
+  }, [callState, remoteCount]);
 
   useEffect(() => {
     if (!isActive) return;
     let cancelado = false;
+    retriesRef.current = 0;
+    inicioRef.current = Date.now();
     setCallState('checking');
     setErroDetalhe('');
     setRemoteCount(0);
@@ -249,7 +268,11 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
       const w = window as any;
       if (w.JitsiMeetExternalAPI) { resolve(); return; }
       const existente = document.getElementById('cda-jitsi-external-api') as HTMLScriptElement | null;
-      if (existente) {
+      // 2026-08-22 — script que JÁ FALHOU nunca vai disparar 'load': marca e
+      // remove, para a próxima tentativa recarregar do zero em vez de pendurar.
+      if (existente && existente.dataset.falhou === '1') {
+        existente.remove();
+      } else if (existente) {
         existente.addEventListener('load', () => resolve(), { once: true });
         existente.addEventListener('error', () => reject(new Error('script falhou')), { once: true });
         return;
@@ -259,7 +282,7 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
       s.src = `${JITSI_SERVER}/external_api.js`;
       s.async = true;
       s.onload = () => resolve();
-      s.onerror = () => reject(new Error('script indisponível'));
+      s.onerror = () => { s.dataset.falhou = '1'; reject(new Error('script indisponível')); };
       document.body.appendChild(s);
     });
 
@@ -299,18 +322,29 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
 
         api.on('videoConferenceJoined', () => {
           if (cancelado) return;
+          // 2026-08-22 — RECUPERAÇÃO: a ligação pode confirmar-se DEPOIS de um
+          // erro/timeout ter sido mostrado (redes lentas) — volta ao estado
+          // ligado em vez de deixar o utilizador preso no ecrã de erro.
           setCallState('connected');
           marcar('connected');
+          setErroDetalhe('');
           atualizarParticipantes();
         });
         api.on('participantJoined', atualizarParticipantes);
         api.on('participantLeft', atualizarParticipantes);
         // backup: poll periódico (alguns clientes não disparam os eventos).
         pollRef.current = setInterval(atualizarParticipantes, 4000);
+        // 2026-08-22 — diagnóstico de erros do Jitsi (antes invisíveis).
+        api.on?.('errorOccurred', (e: any) => {
+          console.warn('[VIDEO-JITSI] errorOccurred:', e);
+        });
         api.on('videoConferenceLeft', () => {
           if (cancelado) return;
-          setCallState('error');
-          setErroDetalhe('A sala de vídeo terminou ou a ligação caiu.');
+          // 2026-08-22 — NÃO é erro fatal: a sessão foi interrompida (o
+          // utilizador saiu ou a rede caiu) — mostra ecrã calmo com reentrada.
+          marcar('interrompida');
+          setCallState('interrompida');
+          setErroDetalhe('A ligação de vídeo foi interrompida.');
         });
       } catch (e) {
         if (!cancelado) {
@@ -335,25 +369,38 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
       }
     };
 
-    // Timeout de segurança: 30s sem ligar a sala → ajuda honesta.
-    const timer = setTimeout(() => {
-      if (!cancelado && estadoRef.current !== 'connected') {
+    // 2026-08-22 — PACIÊNCIA COM RETRIES (substitui o timeout único de 30s que
+    // disparava o erro "O servidor de vídeo não respondeu a tempo" em redes
+    // lentas — reproduzido e confirmado em E2E). A cada ciclo de 45s sem
+    // ligação: refaz a sala do zero (até 2x). Só após ~2m15s SEM ligação é que
+    // mostra o erro honesto — e o botão "Tentar novamente" agora REMONTA a
+    // sala (tentativa+1), não apenas muda o estado.
+    const monitor = setInterval(() => {
+      if (cancelado || estadoRef.current === 'connected' || estadoRef.current === 'interrompida') return;
+      const decorrido = Date.now() - inicioRef.current;
+      if (retriesRef.current < 2 && decorrido > 45000 * (retriesRef.current + 1)) {
+        retriesRef.current += 1;
+        try { apiRef.current?.dispose?.(); } catch { /* melhor esforço */ }
+        apiRef.current = null;
+        setCallState('connecting');
+        void iniciar();
+      } else if (retriesRef.current >= 2 && decorrido > 140000) {
         setCallState('error');
-        setErroDetalhe('O servidor de vídeo não respondeu a tempo.');
+        setErroDetalhe('O servidor de vídeo não respondeu após várias tentativas.');
       }
-    }, 30000);
+    }, 5000);
 
     void iniciar();
 
     return () => {
       cancelado = true;
-      clearTimeout(timer);
+      if (monitor) clearInterval(monitor);
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
       try { apiRef.current?.dispose?.(); } catch { /* melhor esforço */ }
       apiRef.current = null;
     };
-  }, [isActive, roomName]);
+  }, [isActive, roomName, tentativa]);
 
   // ---------- Ecrã grande (o outro participante) ----------
   const renderEcrãGrande = () => {
@@ -393,10 +440,39 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
             </div>
             <button
               type="button"
-              onClick={() => { setCallState('connecting'); setErroDetalhe(''); setRemoteCount(0); }}
+              // 2026-08-22 — remontagem REAL da sala (tentativa+1 refaz o efeito):
+              // o botão antigo só mudava o estado e a sala antiga ficava presa.
+              onClick={() => { setErroDetalhe(''); setRemoteCount(0); setTentativa((t) => t + 1); }}
               className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer border-none"
             >
               Tentar novamente
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (callState === 'interrompida') {
+      return (
+        <div className="w-full h-[280px] md:h-[480px] flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950 p-6">
+          <div className="text-center space-y-4 max-w-md">
+            <div className="w-14 h-14 bg-amber-500/15 rounded-2xl flex items-center justify-center mx-auto">
+              <PhoneOff size={26} className="text-amber-400" />
+            </div>
+            <div>
+              <h4 className="text-white text-sm font-black uppercase tracking-wide">Ligação de vídeo interrompida</h4>
+              <p className="text-slate-400 text-[11px] font-medium leading-relaxed mt-2">
+                A sessão foi interrompida (queda de rede ou saída da sala). A sessão de video-atendimento
+                continua agendada — pode voltar a entrar na sala abaixo. Se o outro participante ainda
+                estiver à espera, reaparecerá assim que reentrar.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setErroDetalhe(''); setRemoteCount(0); setTentativa((t) => t + 1); }}
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer border-none"
+            >
+              Voltar a entrar na sala
             </button>
           </div>
         </div>
@@ -418,7 +494,8 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
               <div>
                 <h4 className="text-white text-sm font-black uppercase tracking-wide">A ligar à sala de vídeo…</h4>
                 <p className="text-slate-400 text-[11px] font-medium leading-relaxed mt-2">
-                  O outro participante ainda não se encontra na sala. Aguarde, por favor — quando ele entrar, a imagem dele aparece aqui no ecrã grande.
+                  A estabelecer a ligação segura com o servidor de vídeo. Em redes mais lentas isto pode
+                  demorar mais de um minuto — a plataforma tenta automaticamente até à ligação ser concluída.
                 </p>
               </div>
             </div>
@@ -439,7 +516,9 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
               </div>
               <div className="inline-flex items-center gap-2 bg-slate-800/70 border border-slate-700 rounded-full px-4 py-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">Sala ativa • a aguardar o outro participante</span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">
+                  Sala ativa • a aguardar {Math.floor(segundosEspera / 60)}m {String(segundosEspera % 60).padStart(2, '0')}s
+                </span>
               </div>
             </div>
           </div>
@@ -547,6 +626,10 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
   const [lookupEstado, setLookupEstado] = useState<'idle' | 'checking' | 'found' | 'not_found'>('idle');
   const [formErro, setFormErro] = useState('');
   const [aAgendar, setAAgendar] = useState(false);
+  // 2026-08-22 — ELIMINAÇÃO de agendamento (área da instituição): estado do
+  // modal de confirmação (nunca elimina com um clique — melhor prática).
+  const [sessaoAEliminar, setSessaoAEliminar] = useState<SessaoPagina | null>(null);
+  const [aEliminar, setAEliminar] = useState(false);
 
   const normalizar = (s?: string) => String(s || '').toUpperCase().replace(/\s+/g, '');
 
@@ -590,7 +673,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
       setFormErro('Verifique primeiro o cidadão (botão Verificar) — o agendamento fica registado com o nome oficial.');
       return;
     }
-    setAAgendar(true);
+      setAAgendar(true);
     try {
       const codigo = normalizar(instCode || bi) || 'INST';
       const agora = Date.now();
@@ -605,6 +688,13 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
         scheduledFor: `${data} às ${hora}`,
         agenda: formAgendar.agenda.trim() || undefined,
       } as any);
+      // 2026-08-22 — a falha de persistência na nuvem deixa de ser silenciosa:
+      // sem este aviso o agendamento "desapareceria" no logout (localStorage
+      // limpo + nada gravado na nuvem).
+      if ((nova as VideoSessionExtended).cloudPersisted === false) {
+        notify('Atenção: o agendamento NÃO foi sincronizado com a nuvem (servidor indisponível). Ele existe apenas neste dispositivo — ao sair da conta será perdido. Verifique a ligação e re-agende se necessário.', 'error');
+        addAuditLog?.(`Agendamento de video-atendimento com ${nomeCidadao.trim()} NÃO sincronizado com a nuvem (proxy indisponível) — sessão apenas local.`, 'warning');
+      }
       // 2026-08-22 — AVISO AO CIDADÃO (formato oficial pedido pelo dono):
       // 1) NOTIFICAÇÃO (dropdown da foto de perfil) com o texto "Caro cidadão
       //    X, o instituto X agendou uma videochamada consigo…" — ao clicar,
@@ -664,6 +754,43 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
       setAAgendar(false);
     }
   };
+  // 2026-08-22 — ELIMINAR AGENDAMENTO (instituição): remove a sessão na nuvem
+  // e AVISA o cidadão com texto oficial de cancelamento (o aviso nunca bloqueia
+  // a eliminação — best-effort, como o restante fluxo de notificações).
+  const handleEliminarAgenda = async () => {
+    if (!sessaoAEliminar) return;
+    setAEliminar(true);
+    try {
+      const ok = await VideoSessionService.deleteSession(String(sessaoAEliminar.id));
+      if (!ok) {
+        notify('Não foi possível eliminar na nuvem — verifique a sua ligação e tente novamente.', 'error');
+        return;
+      }
+      const nomeInst = instDisplayName || (isInst ? String(instCode || bi) : 'a instituição');
+      const alvoBi = String(sessaoAEliminar.guestBi || '').toUpperCase();
+      const quando = sessaoAEliminar.scheduledFor ? ` marcado para ${sessaoAEliminar.scheduledFor}` : '';
+      try {
+        await supabaseService.insertNotification({
+          title: 'Video-atendimento cancelado',
+          message: `Caro cidadão ${sessaoAEliminar.guestName || ''}, o(a) ${nomeInst} cancelou o video-atendimento "${sessaoAEliminar.subject}"${quando}. Caso seja necessário, será contactado para um novo agendamento.`,
+          type: 'warning',
+          targetTab: 'video-atendimento',
+        }, alvoBi);
+      } catch (nErr) {
+        console.warn('[VIDEO-ELIMINAR] aviso de cancelamento ao cidadão falhou (a eliminação mantém-se):', nErr);
+      }
+      addAuditLog?.(`Eliminou o agendamento de video-atendimento "${sessaoAEliminar.subject}" com ${sessaoAEliminar.guestName || 'o cidadão'}${alvoBi ? ` (${alvoBi})` : ''}.`, 'warning');
+      notify('Agendamento eliminado. O cidadão foi notificado do cancelamento.', 'success');
+      setSessaoAEliminar(null);
+      await loadSessions();
+    } catch (e) {
+      console.error('[VIDEO-ELIMINAR]', e);
+      notify('Não foi possível eliminar o agendamento.', 'error');
+    } finally {
+      setAEliminar(false);
+    }
+  };
+
   type SessaoPagina = VideoSessionExtended | (typeof mockSessions)[number];
   const [selectedSession, setSelectedSession] = useState<SessaoPagina | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -902,7 +1029,22 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                                   <span className="flex items-center gap-1"><Clock size={10} />{session.scheduledFor || session.time || session.date}</span>
                                 </div>
                               </div>
+                              <div className="flex items-center gap-1.5">
                               <button onClick={(e) => { e.stopPropagation(); handleStartCall(session); }} className="px-3 py-1.5 bg-primary text-white text-[10px] font-black uppercase rounded-lg hover:bg-primary/90 transition-all border-0 cursor-pointer">Entrar</button>
+                              {/* 2026-08-22 — ELIMINAR AGENDA (área da instituição):
+                                  só a instituição ANFITRIÃ elimina os seus
+                                  agendamentos; exige confirmação no modal. */}
+                              {isInst && !sessionDemo && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setSessaoAEliminar(session); }}
+                                  title="Eliminar agendamento"
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-[10px] font-black uppercase rounded-lg transition-all cursor-pointer"
+                                >
+                                  <Trash2 size={12} />
+                                  Eliminar
+                                </button>
+                              )}
+                              </div>
                             </div>
                           </motion.div>
                         );
@@ -1244,6 +1386,49 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                 {aAgendar ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                 {aAgendar ? 'A agendar…' : 'Agendar Atendimento'}
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* 2026-08-22 — MODAL DE CONFIRMAÇÃO: eliminar agendamento (instituição) */}
+      {sessaoAEliminar && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-md" onClick={() => { if (!aEliminar) setSessaoAEliminar(null); }} />
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden">
+            <div className="bg-rose-600 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-white text-sm font-black uppercase tracking-wide leading-none">Eliminar Agendamento</h3>
+              <button onClick={() => { if (!aEliminar) setSessaoAEliminar(null); }} className="text-white/80 hover:text-white transition-colors border-0 bg-transparent cursor-pointer p-1">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-slate-600 dark:text-slate-300 font-bold leading-relaxed">
+                Tem a certeza que pretende eliminar este video-atendimento? O cidadão
+                será notificado do cancelamento e a sessão será removida
+                definitivamente da agenda da instituição.
+              </p>
+              <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-1.5">
+                <p className="text-[11px] font-black text-slate-800 dark:text-slate-100">{sessaoAEliminar.subject}</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">
+                  Cidadão: {sessaoAEliminar.guestName}{sessaoAEliminar.guestBi ? ` (${sessaoAEliminar.guestBi})` : ''}
+                </p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">
+                  Marcado para: {sessaoAEliminar.scheduledFor || '—'}
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => { if (!aEliminar) setSessaoAEliminar(null); }} className="flex-1 py-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer transition-colors">Cancelar</button>
+                <button
+                  onClick={() => void handleEliminarAgenda()}
+                  disabled={aEliminar}
+                  className="flex-1 py-3 bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-white rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer border-0 shadow-md flex items-center justify-center gap-2 transition-colors"
+                >
+                  {aEliminar ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                  {aEliminar ? 'A eliminar…' : 'Eliminar Definitivamente'}
+                </button>
+              </div>
             </div>
           </div>
         </div>,
