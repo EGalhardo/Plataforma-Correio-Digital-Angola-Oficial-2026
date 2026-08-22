@@ -863,12 +863,22 @@ export function AIChatAssistant({
 
       const data = await response.json();
       if (response.ok && data.message) {
+        // 2026-08-22 — proveniência da Base de Conhecimento: quando o servidor
+        // usou fontes oficiais de uma instituição (kb_fontes_instituicao +
+        // registo estático), a resposta mostra a lista de fontes usadas.
+        const kbInfo = data.kbUsada && Array.isArray(data.kbUsada.fontes) && data.kbUsada.fontes.length
+          ? data.kbUsada
+          : null;
+        const fontesLinha = kbInfo
+          ? `\n\n📚 Fontes oficiais usadas (Base de Conhecimento — ${kbInfo.instituicao}): ${kbInfo.fontes.join('; ')}.`
+          : '';
         // Concatenar pergunta contínua de acompanhamento após cada resposta comum do chat da IA
-        const followUpResponse = data.message + "\n\nPrecisa de alguma ajuda com mais alguma coisa?";
+        const followUpResponse = data.message + fontesLinha + "\n\nPrecisa de alguma ajuda com mais alguma coisa?";
         
         setMessages(prev => [...prev, { role: 'assistant', content: followUpResponse }]);
         if (iaLiveActive) {
-          speak(followUpResponse);
+          // a voz lê a resposta + pergunta de acompanhamento (sem a lista de fontes)
+          speak(data.message + "\n\nPrecisa de alguma ajuda com mais alguma coisa?");
         }
       } else {
         const errorMsg = data.error || 'Falha na resposta da IA';

@@ -1481,6 +1481,93 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
         }
       }
 
+      // ============================================================================
+      // 2026-08-22 — BASE DE CONHECIMENTO DAS INSTITUIÇÕES NO CHAT DO CIDADÃO:
+      // quando a pergunta menciona uma instituição (ex.: INAPEM), o servidor
+      // vai buscar as fontes ATIVAS da base de conhecimento dela
+      // (kb_fontes_instituicao — self-service da página IA) e junta-as ao
+      // registo estático da instituição, injectando tudo no contexto da
+      // resposta. Leitura pública (política v25: ativo=true) com anon key,
+      // timeout 4s e fail-open honesto (sem KB, o chat responde como antes).
+      // ============================================================================
+      const ultimoTextoUsuario = (() => {
+        const us = alternateMessages.filter(m => m.role === 'user');
+        return us.length ? String(us[us.length - 1].content || '').trim() : '';
+      })();
+      let kbUsada: { instituicao: string; fontes: string[] } | null = null;
+      if (ultimoTextoUsuario) {
+        try {
+          const instKbBase = selecionarInstituicaoKb(KB_REGISTO, ultimoTextoUsuario);
+          const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+          const supaKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+          let siglaAlvo: string | null = instKbBase ? instKbBase.sigla : null;
+          if (!siglaAlvo && supaUrl && supaKey) {
+            // instituição fora do registo estático mas com fontes self-service:
+            // lista as siglas com fontes ativas e procura menção na pergunta
+            const ctrlS = new AbortController();
+            const timerS = setTimeout(() => ctrlS.abort(), 4000);
+            const respS = await fetch(`${supaUrl}/rest/v1/kb_fontes_instituicao?ativo=is.true&select=sigla&limit=300`, {
+              headers: { apikey: supaKey, Authorization: `Bearer ${supaKey}` },
+              signal: ctrlS.signal,
+            });
+            clearTimeout(timerS);
+            if (respS.ok) {
+              const rowsS = await respS.json();
+              const siglas = Array.from(new Set((Array.isArray(rowsS) ? rowsS : []).map((r: any) => String(r.sigla || '').trim().toUpperCase()).filter(Boolean)));
+              const alvo = ultimoTextoUsuario.toUpperCase();
+              const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const encontrada = siglas.find(s => {
+                if (new RegExp(`(^|[^A-Z0-9])${esc(s)}([^A-Z0-9]|$)`).test(alvo)) return true;
+                const base = s.split('-')[0];
+                return base.length >= 3 && new RegExp(`(^|[^A-Z0-9])${esc(base)}([^A-Z0-9]|$)`).test(alvo);
+              });
+              if (encontrada) siglaAlvo = encontrada;
+            }
+          }
+          if (siglaAlvo && supaUrl && supaKey) {
+            let fontesDinamicas: FonteKb[] = [];
+            const ctrlF = new AbortController();
+            const timerF = setTimeout(() => ctrlF.abort(), 4000);
+            // sigla exacta primeiro; se vazio, prefixo (SIGLA-LLVV…): o registo
+            // estático usa 'INAPEM' mas as fontes self-service vivem em
+            // 'INAPEM-LLMM' — sem isto a KB dinâmica ficava de fora.
+            const buscarDinamicas = async (filtro: string) => {
+              const ctrlF = new AbortController();
+              const timerF = setTimeout(() => ctrlF.abort(), 4000);
+              const respFd = await fetch(`${supaUrl}/rest/v1/kb_fontes_instituicao?${filtro}&ativo=is.true&select=titulo,tipo,texto,fonte_url,atualizado_em&order=created_at.asc`, {
+                headers: { apikey: supaKey, Authorization: `Bearer ${supaKey}` },
+                signal: ctrlF.signal,
+              });
+              clearTimeout(timerF);
+              if (respFd.ok) {
+                const rowsF = (await respFd.json()) as FonteKbDinamicaRow[];
+                return (Array.isArray(rowsF) ? rowsF : [])
+                  .map((r, i) => rowParaFonteKb(r, i))
+                  .filter((f): f is FonteKb => f !== null);
+              }
+              return [];
+            };
+            fontesDinamicas = await buscarDinamicas(`sigla=eq.${encodeURIComponent(siglaAlvo)}`);
+            if (fontesDinamicas.length === 0 && /^[A-Z0-9]{2,12}$/.test(siglaAlvo)) {
+              fontesDinamicas = await buscarDinamicas(`sigla=like.${encodeURIComponent(siglaAlvo)}*`);
+            }
+            const instKb = instKbBase
+              ? { ...instKbBase, fontes: juntarFontesKb(fontesDinamicas, instKbBase.fontes) }
+              : { sigla: siglaAlvo, nome: siglaAlvo, fontes: fontesDinamicas };
+            const montado = montarContextoKb(instKb);
+            if (montado.contexto) {
+              finalSystemPrompt += `\n\n[BASE DE CONHECIMENTO OFICIAL DA INSTITUIÇÃO MENCIONADA — ${instKb.nome} (${instKb.sigla})]\nO utilizador mencionou esta instituição e espera informação OFICIAL dela. Se a pergunta for sobre esta instituição: responde APENAS com a informação destas fontes oficiais, IGNORA o modelo genérico de apresentação da plataforma (5 pilares, VideoAtendimento) e cita o título da fonte usada. Se nenhuma fonte responder directamente à pergunta, diz honestamente que essa informação não consta da base de conhecimento da instituição. Se a pergunta NÃO for sobre esta instituição, ignora esta secção.\n${montado.contexto}`;
+              kbUsada = {
+                instituicao: instKb.nome,
+                fontes: montado.fontesUsadas.map(id => instKb.fontes.find(f => f.id === id)?.titulo || id),
+              };
+            }
+          }
+        } catch (kbErr) {
+          console.warn('[CHAT-KB] Base de conhecimento indisponível — chat prossegue sem ela:', String(kbErr).slice(0, 120));
+        }
+      }
+
       // 1. Try Groq if client is present
       if (groq) {
         try {
@@ -1497,7 +1584,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
             ],
             model: "openai/gpt-oss-120b",
           });
-          return res.json({ message: limparTextoIA(completion.choices[0].message.content) });
+          return res.json({ message: limparTextoIA(completion.choices[0].message.content), kbUsada });
         } catch (groqErr) {
           console.error("Groq Chat Error, trying Gemini fallback:", groqErr);
         }
@@ -1521,7 +1608,7 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
           });
 
           if (response && response.text) {
-            return res.json({ message: limparTextoIA(response.text) });
+            return res.json({ message: limparTextoIA(response.text), kbUsada });
           }
         } catch (geminiErr) {
           console.error("Gemini Chat Error, trying sandbox offline:", geminiErr);

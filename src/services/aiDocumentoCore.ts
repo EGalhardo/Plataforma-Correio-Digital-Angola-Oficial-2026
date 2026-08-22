@@ -110,6 +110,8 @@ export interface KbInstituicao {
 }
 
 export const LIMITE_CONTEXTO_KB = 6000;
+/** 2026-08-22 — tecto por fonte no contexto da KB (várias fontes cabem no orçamento). */
+export const LIMITE_FONTE_KB = 3000;
 export const REGRA_NAO_CONSTA_KB = 'Não consta do documento nem dos regulamentos disponíveis.';
 export const DELIMITADOR_KB = '===BASE-CONHECIMENTO===';
 
@@ -183,14 +185,26 @@ export const montarContextoKb = (inst: KbInstituicao, limite: number = LIMITE_CO
   const fontesUsadas: string[] = [];
   let truncado = false;
   for (const f of inst.fontes) {
-    const bloco = `[Fonte: ${f.titulo} — ${f.tipo}, atualizado em ${f.atualizadoEm}]\n${f.texto}`;
-    if (restante - bloco.length < 0) {
+    const cab = `[Fonte: ${f.titulo} — ${f.tipo}, atualizado em ${f.atualizadoEm}]\n`;
+    if (restante - cab.length <= 0) {
       truncado = true;
       break;
     }
-    partes.push(bloco);
+    // 2026-08-22 — fontes GRANDES (até 20k chars) são TRUNCADAS para caber no
+    // limite em vez de quebrar o contexto TODO (antes: uma fonte > limite na
+    // primeira posição deixava o contexto VAZIO — a KB nunca chegava à IA).
+    // Cada fonte tem também um TECTO individual (LIMITE_FONTE_KB): assim uma
+    // única fonte enorme não consome o orçamento todo e as restantes fontes
+    // (as que respondem à pergunta) continuam a entrar.
+    let texto = f.texto || '';
+    const disponivel = Math.min(restante - cab.length, LIMITE_FONTE_KB);
+    if (texto.length > disponivel) {
+      texto = texto.slice(0, disponivel);
+      truncado = true;
+    }
+    partes.push(cab + texto);
     fontesUsadas.push(f.id);
-    restante -= bloco.length;
+    restante -= cab.length + texto.length;
   }
   return { contexto: partes.join('\n\n'), fontesUsadas, truncado };
 };
