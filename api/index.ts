@@ -1142,8 +1142,10 @@ export default async function handler(req: any, res: any) {
       let fontesDinamicas: FonteKb[] = [];
       if (instKbBase) {
         try {
-          const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-          const supaKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+          // .trim() obrigatório: em produção a SUPABASE_URL do ambiente Vercel
+          // chegava com espaço à direita → 'Failed to parse URL' no fetch.
+          const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+          const supaKey = (process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim();
           if (supaUrl && supaKey) {
             const ctrl = new AbortController();
             const timerFd = setTimeout(() => ctrl.abort(), 4000);
@@ -1359,15 +1361,14 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
         return us.length ? String(us[us.length - 1].content || '').trim() : '';
       })();
       let kbUsada: { instituicao: string; fontes: string[] } | null = null;
-      const debugKb = body?.debugKb === true;
-      if (debugKb) kbUsada = { instituicao: 'DEBUG', fontes: [] };
       if (ultimoTextoUsuario) {
         try {
           const instKbBase = selecionarInstituicaoKb(KB_REGISTO, ultimoTextoUsuario);
-          const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-          const supaKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+          // .trim() obrigatório: em produção a SUPABASE_URL do ambiente Vercel
+          // chegava com espaço à direita → 'Failed to parse URL' no fetch.
+          const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+          const supaKey = (process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim();
           let siglaAlvo: string | null = instKbBase ? instKbBase.sigla : null;
-          if (debugKb) kbUsada = { instituicao: 'DEBUG match=' + (instKbBase ? instKbBase.sigla : 'NULL') + ' url=' + (supaUrl ? 'S' : 'N') + ' key=' + (supaKey ? 'S' : 'N'), fontes: [] };
           if (!siglaAlvo && supaUrl && supaKey) {
             // instituição fora do registo estático mas com fontes self-service:
             // lista as siglas com fontes ativas e procura menção na pergunta
@@ -1422,7 +1423,6 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
               ? { ...instKbBase, fontes: juntarFontesKb(fontesDinamicas, instKbBase.fontes) }
               : { sigla: siglaAlvo, nome: siglaAlvo, fontes: fontesDinamicas };
             const montado = montarContextoKb(instKb);
-            if (debugKb) kbUsada = { instituicao: 'DEBUG siglaAlvo=' + siglaAlvo + ' din=' + fontesDinamicas.length + ' ctx=' + montado.contexto.length, fontes: [] };
             if (montado.contexto) {
               finalSystemPrompt += `\n\n[BASE DE CONHECIMENTO OFICIAL DA INSTITUIÇÃO MENCIONADA — ${instKb.nome} (${instKb.sigla})]\nO utilizador mencionou esta instituição e espera informação OFICIAL dela. Se a pergunta for sobre esta instituição: responde APENAS com a informação destas fontes oficiais, IGNORA o modelo genérico de apresentação da plataforma (5 pilares, VideoAtendimento) e cita o título da fonte usada. Se nenhuma fonte responder directamente à pergunta, diz honestamente que essa informação não consta da base de conhecimento da instituição. Se a pergunta NÃO for sobre esta instituição, ignora esta secção.\n${montado.contexto}`;
               kbUsada = {
@@ -1433,7 +1433,6 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
           }
         } catch (kbErr) {
           console.warn('[CHAT-KB] Base de conhecimento indisponível — chat prossegue sem ela:', String(kbErr).slice(0, 120));
-          if (debugKb) kbUsada = { instituicao: 'DEBUG-ERRO', fontes: [String(kbErr).slice(0, 160)] };
         }
       }
 

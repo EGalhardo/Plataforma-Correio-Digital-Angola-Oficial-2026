@@ -1498,8 +1498,10 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
       if (ultimoTextoUsuario) {
         try {
           const instKbBase = selecionarInstituicaoKb(KB_REGISTO, ultimoTextoUsuario);
-          const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-          const supaKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+          // .trim() obrigatório: em produção a SUPABASE_URL do ambiente Vercel
+          // chegava com espaço à direita → 'Failed to parse URL' no fetch.
+          const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+          const supaKey = (process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim();
           let siglaAlvo: string | null = instKbBase ? instKbBase.sigla : null;
           if (!siglaAlvo && supaUrl && supaKey) {
             // instituição fora do registo estático mas com fontes self-service:
@@ -1655,8 +1657,10 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
       let fontesDinamicas: FonteKb[] = [];
       if (instKbBase) {
         try {
-          const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-          const supaKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+          // .trim() obrigatório: em produção a SUPABASE_URL do ambiente Vercel
+          // chegava com espaço à direita → 'Failed to parse URL' no fetch.
+          const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+          const supaKey = (process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim();
           if (supaUrl && supaKey) {
             const ctrl = new AbortController();
             const timerFd = setTimeout(() => ctrl.abort(), 4000);
