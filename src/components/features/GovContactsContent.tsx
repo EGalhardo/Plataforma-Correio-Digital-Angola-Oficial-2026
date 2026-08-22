@@ -1891,10 +1891,11 @@ export function GovContactsContent({
                               e.stopPropagation();
                               handleDeleteWorker(w.id, w.name);
                             }}
-                            title={isPlatformAdmin ? "Remover de Serviço" : "Remover de Serviço"}
-                            className="bg-transparent border-none text-rose-600 hover:text-rose-800 cursor-pointer transition-colors p-1"
+                            title={isPlatformAdmin ? "Eliminar definitivamente este agente (conta, acesso e dados)" : "Eliminar definitivamente este colaborador (conta, acesso e dados)"}
+                            className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 px-2.5 py-1.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer"
                           >
-                            <Trash2 size={12} className="mx-auto" />
+                            <Trash2 size={13} />
+                            Eliminar
                           </button>
                         </div>
                       </td>
@@ -2396,7 +2397,7 @@ export function GovContactsContent({
                             onClick={() => { handleDeleteWorker(selectedWorker.id, selectedWorker.name); }}
                             className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-5 py-3 rounded-[18px] font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2"
                           >
-                            <Trash2 size={13} /> Remover
+                            <Trash2 size={13} /> Eliminar Definitivamente
                           </button>
                         </div>
                       </div>
