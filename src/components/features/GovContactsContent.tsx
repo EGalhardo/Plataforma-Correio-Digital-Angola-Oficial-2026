@@ -58,9 +58,10 @@ import {
   LayoutGrid
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import { registoPublicoProxy, eliminarCidadaoAdmin, eliminarAgente, permissoesAgente, enviarMensagemAdministrativa } from '../../services/supabaseService';
+import { registoPublicoProxy, eliminarCidadaoAdmin, eliminarAgente, permissoesAgente, alterarSenhaAgente, enviarMensagemAdministrativa } from '../../services/supabaseService';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { limparPendenciaPerfil } from '../../services/profileSyncService';
+import { limparLoginFalhas } from '../../services/loginSecurityService';
 import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, updateInstMemberProfile, isInstPasswordTaken, nextMemberAgentNumber } from '../../services/institutionRegistrationStore';
 import { addAdminAgent, updateAdminAgentPassword, updateAdminAgentPermissions, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber, getAdminAgentCreds, ADMIN_ALFA_AGENT } from '../../services/adminAgentStore';
 
@@ -1388,7 +1389,7 @@ export function GovContactsContent({
     setEditingWorkerId(null);
   };
 
-  const handleCreateWorker = (e: React.FormEvent) => {
+  const handleCreateWorker = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWorkerName || !newWorkerEmail || !newWorkerPhone || !newWorkerRole) {
       notify('Por favor, preencha todos os campos obrigatórios (Nome Completo, Email Institucional, Telefone Profissional e Perfil Funcional).');
@@ -1451,8 +1452,18 @@ export function GovContactsContent({
       if (instReg && newWorkerPassword && editingWorkerId) {
         updateInstMemberPassword(regCode, editingWorkerId, newWorkerPassword);
         const editedMemberAgent = workers.find(w => w.id === editingWorkerId)?.agentId;
-        if (editedMemberAgent && isCloudBound(editedMemberAgent)) {
-          addAuditLog?.(`[AUTH-CLOUD] Nota (transição até F-c): a senha de ${editedMemberAgent} na nuvem só é actualizada na reposição assistida; até lá também vale a local deste dispositivo (marcado no log).`, 'warning');
+        // 2026-08-22 — a senha do colaborador vive no Supabase Auth: a nuvem
+        // passa a ser ACTUALIZADA na reposição (antes ficava com a senha
+        // antiga e o colaborador acumulava tentativas falhadas noutros
+        // dispositivos até ao bloqueio anti-força-bruta).
+        if (editedMemberAgent) {
+          if (isCloudBound(editedMemberAgent) && isSupabaseConfigured()) {
+            void alterarSenhaAgente(editedMemberAgent, newWorkerPassword).then((res) => {
+              addAuditLog?.(res.ok
+                ? `[AUTH-CLOUD] Senha de ${editedMemberAgent} actualizada na nuvem (Supabase Auth).`
+                : `[AUTH-CLOUD] Nuvem indisponível ao actualizar a senha de ${editedMemberAgent} (${res.erro || 'erro'}) — mantida local.`, res.ok ? 'success' : 'warning');
+            });
+          }
         }
       }
       if (adminCredsOn && newWorkerPassword && editingWorkerId) {
@@ -1460,8 +1471,13 @@ export function GovContactsContent({
         if (editedWorkerAgentNum && /^Admin-\d+$/i.test(editedWorkerAgentNum)) {
           updateAdminAgentPassword(editedWorkerAgentNum, newWorkerPassword);
           addAuditLog?.(`[EQUIPA] Senha do agente ${editedWorkerAgentNum} actualizada — login Admin passa a exigir a nova senha.`, 'info');
-          if (isCloudBound(editedWorkerAgentNum)) {
-            addAuditLog?.(`[AUTH-CLOUD] Nota (transição até F-c): a palavra-passe de ${editedWorkerAgentNum} na nuvem só é actualizada na reposição assistida; até lá também vale a local deste dispositivo (marcado no log).`, 'warning');
+          // 2026-08-22 — nuvem sincronizada na reposição (antes só local)
+          if (isCloudBound(editedWorkerAgentNum) && isSupabaseConfigured()) {
+            void alterarSenhaAgente(editedWorkerAgentNum, newWorkerPassword).then((res) => {
+              addAuditLog?.(res.ok
+                ? `[AUTH-CLOUD] Palavra-passe de ${editedWorkerAgentNum} actualizada na nuvem (Supabase Auth).`
+                : `[AUTH-CLOUD] Nuvem indisponível ao actualizar a palavra-passe de ${editedWorkerAgentNum} (${res.erro || 'erro'}) — mantida local.`, res.ok ? 'success' : 'warning');
+            });
           }
         }
       }
@@ -1546,20 +1562,34 @@ export function GovContactsContent({
         addAuditLog?.(`[EQUIPA] Agente ${autoWorkerAgentId} (${newWorkerName}) criado — login Admin com Nº + senha inicial.`, 'success');
       }
       // F32 (v12/D4-a) — o novo membro nasce na NUVEM: a palavra-passe vive apenas
-      // no Supabase Auth. Best-effort (D3): falha nunca quebra a criação local —
-      // a migração just-in-time ocorre no primeiro login (D2).
+      // no Supabase Auth. 2026-08-22 — o provisionamento passa a ser AGUARDADO
+      // (antes era fire-and-forget): quando o popup fecha, a conta JÁ existe na
+      // nuvem com a senha certa — o colaborador pode entrar IMEDIATAMENTE em
+      // qualquer dispositivo (antes, quem tentasse entrar logo a seguir apanhava
+      // "credenciais incorrectas" e acumulava tentativas até ao bloqueio
+      // anti-força-bruta). O signUp cria sessão para o NOVO utilizador — a
+      // sessão do responsável é restaurada logo a seguir (best-effort), para as
+      // acções seguintes (eliminar, permissões, senha) manterem a autoridade.
+      let sessaoAnterior: { access_token: string; refresh_token: string } | null = null;
+      try {
+        const { data: sd } = await supabase.auth.getSession();
+        if (sd?.session?.access_token && sd?.session?.refresh_token) {
+          sessaoAnterior = { access_token: sd.session.access_token, refresh_token: sd.session.refresh_token };
+        }
+      } catch { /* best-effort */ }
       if (isSupabaseConfigured() && newWorkerPassword && (instReg || adminCredsOn)) {
         const cloudEmail = adminCredsOn
           ? syntheticAdminEmail(autoWorkerAgentId)
           : syntheticInstitutionAgentEmail(autoWorkerAgentId);
         const cloudRole: 'instituicao' | 'admin' = adminCredsOn ? 'admin' : 'instituicao';
-        void provisionCloudAccount(supabase, {
-          email: cloudEmail,
-          password: newWorkerPassword,
-          metadata: adminCredsOn
-            ? { agent: autoWorkerAgentId, name: newWorkerName, workerId: newWorkerId, role: 'admin', email: newWorkerEmail, phone: newWorkerPhone, paginasPermitidas: paginasEfetivas() }
-            : { agent: autoWorkerAgentId, instituicao: regCode, name: newWorkerName, role: 'instituicao', email: newWorkerEmail, phone: newWorkerPhone, paginasPermitidas: paginasEfetivas() },
-        }).then((prov) => {
+        try {
+          const prov = await provisionCloudAccount(supabase, {
+            email: cloudEmail,
+            password: newWorkerPassword,
+            metadata: adminCredsOn
+              ? { agent: autoWorkerAgentId, name: newWorkerName, workerId: newWorkerId, role: 'admin', email: newWorkerEmail, phone: newWorkerPhone, paginasPermitidas: paginasEfetivas() }
+              : { agent: autoWorkerAgentId, instituicao: regCode, name: newWorkerName, role: 'instituicao', email: newWorkerEmail, phone: newWorkerPhone, paginasPermitidas: paginasEfetivas() },
+          });
           if (prov.outcome === 'ok' || prov.outcome === 'linked_existing') {
             markCloudAccount(autoWorkerAgentId, cloudEmail, cloudRole);
             addAuditLog?.(`[AUTH-CLOUD] Membro ${autoWorkerAgentId} (${newWorkerName}) nascido na nuvem — a palavra-passe vive apenas no Supabase Auth.`, 'success');
@@ -1567,9 +1597,25 @@ export function GovContactsContent({
             addAuditLog?.('[AUTH-CLOUD] ATENÇÃO: confirmação de e-mail activa no Supabase — desactivar (Authentication → Providers → Email).', 'warning');
           } else if (prov.outcome === 'unavailable') {
             addAuditLog?.('[AUTH-CLOUD] Nuvem indisponível ao criar o membro — credencial local mantida; migração just-in-time no primeiro login (D3).', 'warning');
+          } else if (prov.outcome === 'conflict') {
+            addAuditLog?.('[AUTH-CLOUD] Conflito de conta na nuvem ao criar o membro — a credencial local mantém-se.', 'warning');
           }
-        }).catch((provErr) => console.error('[AUTH-CLOUD] Falha inesperada no provisionamento do membro:', provErr));
+        } catch (provErr) {
+          console.error('[AUTH-CLOUD] Falha inesperada no provisionamento do membro:', provErr);
+        }
       }
+      // restaurar a sessão do RESPONSÁVEL (o signUp do membro substituiu-a)
+      if (sessaoAnterior) {
+        try {
+          await supabase.auth.setSession(sessaoAnterior);
+        } catch { /* best-effort */ }
+      }
+      // 2026-08-22 — CONTA NOVA LIMPA: o Nº de agente pode ser reutilizado
+      // (após eliminação de um colaborador anterior) e não pode herdar o
+      // bloqueio anti-força-bruta da conta antiga — "Demasiadas tentativas
+      // falhadas... 8 minutos" logo no primeiro login.
+      try { limparLoginFalhas(autoWorkerAgentId); } catch { /* melhor esforço */ }
+
       const newWorker: Trabajador = {
         id: newWorkerId,
         name: newWorkerName,
@@ -1635,6 +1681,17 @@ export function GovContactsContent({
         return;
       }
       updateInstMemberPassword(regCodeD, selectedWorker.id, workerDrawerPwd, true);
+      // 2026-08-22 — nuvem sincronizada na reposição (antes só local)
+      {
+        const agentD = (selectedWorker.agentId || '').toUpperCase().replace(/\s+/g, '');
+        if (agentD && isCloudBound(agentD) && isSupabaseConfigured()) {
+          void alterarSenhaAgente(agentD, workerDrawerPwd).then((res) => {
+            addAuditLog?.(res.ok
+              ? `[AUTH-CLOUD] Senha de ${agentD} actualizada na nuvem (Supabase Auth).`
+              : `[AUTH-CLOUD] Nuvem indisponível ao actualizar a senha de ${agentD} (${res.erro || 'erro'}) — mantida local.`, res.ok ? 'success' : 'warning');
+          });
+        }
+      }
       addAuditLog?.(`[EQUIPA] Senha do colaborador ${selectedWorker.name} reposicionada — terá de a substituir no próximo login.`, 'success');
       setWorkerDrawerPwd('');
       playSuccessSound();
@@ -1649,6 +1706,14 @@ export function GovContactsContent({
         return;
       }
       updateAdminAgentPassword(agentNum, workerDrawerPwd);
+      // 2026-08-22 — nuvem sincronizada na reposição (antes só local)
+      if (isCloudBound(agentNum) && isSupabaseConfigured()) {
+        void alterarSenhaAgente(agentNum, workerDrawerPwd).then((res) => {
+          addAuditLog?.(res.ok
+            ? `[AUTH-CLOUD] Palavra-passe de ${agentNum} actualizada na nuvem (Supabase Auth).`
+            : `[AUTH-CLOUD] Nuvem indisponível ao actualizar a palavra-passe de ${agentNum} (${res.erro || 'erro'}) — mantida local.`, res.ok ? 'success' : 'warning');
+        });
+      }
       addAuditLog?.(`[EQUIPA] Senha do agente ${agentNum} reposicionada — login Admin exige a nova senha.`, 'success');
       setWorkerDrawerPwd('');
       playSuccessSound();
@@ -1699,6 +1764,10 @@ export function GovContactsContent({
 
     // 3) VESTÍGIOS LOCAIS por Nº de agente (completude)
     if (agente) {
+      // 2026-08-22 — bloqueio anti-força-bruta incluído na eliminação total:
+      // sem isto, um NOVO colaborador com o MESMO Nº de agente herdava o
+      // bloqueio da conta antiga ("Demasiadas tentativas falhadas…").
+      try { limparLoginFalhas(agente); } catch { /* ignora */ }
       try { unmarkCloudAccount(agente); } catch { /* ignora */ }
       const modo = appMode === 'admin-workers' ? 'admin' : 'institution';
       const chaves = [

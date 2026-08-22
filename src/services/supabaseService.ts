@@ -390,6 +390,28 @@ export const permissoesAgente = async (
   }
 };
 
+/** SENHA DO AGENTE NA NUVEM (2026-08-22) — a senha vive no Supabase Auth:
+ *  quando o responsável da área repõe a senha de um colaborador/agente na
+ *  página Equipa, esta chamada actualiza a conta Auth correspondente. Sem
+ *  isto a nuvem ficava com a senha antiga e o colaborador acumulava
+ *  tentativas falhadas noutros dispositivos até ao bloqueio anti-força-bruta. */
+export const alterarSenhaAgente = async (agente: string, senha: string): Promise<{ ok: boolean; erro?: string }> => {
+  try {
+    const token = await obterTokenSessao();
+    if (!token) return { ok: false, erro: 'Sem sessão de nuvem.' };
+    const resp = await fetch('/api/agente-senha', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ agente, senha }),
+    });
+    const j = await resp.json().catch(() => null);
+    if (j && j.ok === true) return { ok: true };
+    return { ok: false, erro: (j && j.erro) || `HTTP ${resp.status}` };
+  } catch {
+    return { ok: false, erro: 'Rede indisponível.' };
+  }
+};
+
 /** Envia uma mensagem administrativa (Área de Administração → cidadão ou
  *  instituição) PERSISTIDA NA NUVEM (2026-08-21): mensagem com protocolo selado
  *  + registo em digital_protocols, via proxy /api/dados (service role).
@@ -2371,4 +2393,7 @@ export const supabaseService = {
    *  responsável da área é autorizado). */
   permissoesAgente: (acao: 'ler' | 'gravar', agente?: string, paginas?: string[]) =>
     permissoesAgente(acao, agente, paginas),
+
+  /** 2026-08-22 — senha do agente na NUVEM (responsável da área repõe na Equipa). */
+  alterarSenhaAgente: (agente: string, senha: string) => alterarSenhaAgente(agente, senha),
 };

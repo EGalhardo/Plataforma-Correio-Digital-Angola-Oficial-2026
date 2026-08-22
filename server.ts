@@ -776,6 +776,82 @@ async function dadosResolverEExecutar(opts: {
   });
 
   // ============================================================================
+  // SENHA DO AGENTE NA NUVEM (2026-08-22)
+  // ----------------------------------------------------------------------------
+  // A senha do colaborador/agente vive no Supabase Auth. Quando o RESPONSÁVEL
+  // da área repõe a senha na página Equipa (edição ou dossier), esta rota
+  // actualiza a conta Auth correspondente — sem isto a nuvem ficava com a
+  // senha antiga e o colaborador acumulava tentativas falhadas noutros
+  // dispositivos até ao bloqueio anti-força-bruta. Autorização idêntica à da
+  // eliminação: responsável da instituição (CODIGO-01) para membros da SUA
+  // instituição; Admin Alfa (ADMIN-0001) para agentes ADMIN-NNNN.
+  // ============================================================================
+  app.post("/api/agente-senha", async (req, res) => {
+    try {
+      const { agente, senha } = req.body || {};
+      const agenteNorm = String(agente || '').trim().toUpperCase().replace(/\s+/g, '');
+      if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(agenteNorm)) return res.status(400).json({ ok: false, erro: 'Nº de agente inválido.' });
+      if (typeof senha !== 'string' || senha.length < 8) return res.status(400).json({ ok: false, erro: 'A senha deve ter pelo menos 8 caracteres.' });
+      if (DADOS_DEMO_BIS.includes(agenteNorm)) return res.status(403).json({ ok: false, demo: true, erro: 'demo' });
+      const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+      const admin = createSupabaseAdminClient();
+      if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      const { data: sess, error: sessErr } = await admin.auth.getUser(token);
+      if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+      const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
+      const roleCaller = String(meta.role || '').toLowerCase();
+      const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
+      const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+
+      const ehAdminAlvo = /^ADMIN-\d+$/.test(agenteNorm);
+      let autorizado = false;
+      let dominio = '';
+      // 2026-08-22 — a PRÓPRIA pessoa pode mudar a própria senha: o token da
+      // sessão identifica o agente (a definição "secure password change" do
+      // Auth exige a senha actual no updateUser do cliente — a via admin não).
+      const mudaPropria = agentCaller === agenteNorm && (roleCaller === 'instituicao' || roleCaller === 'admin');
+      if (mudaPropria) {
+        autorizado = true;
+        dominio = ehAdminAlvo ? 'admin.correiodigital.ao' : 'inst.correiodigital.ao';
+      } else if (ehAdminAlvo) {
+        autorizado = roleCaller === 'admin' && agentCaller === 'ADMIN-0001' && agenteNorm !== 'ADMIN-0001';
+        dominio = 'admin.correiodigital.ao';
+      } else {
+        const mSeq = agenteNorm.match(/-(\d+)$/);
+        const seq = mSeq ? parseInt(mSeq[1], 10) : 0;
+        autorizado = roleCaller === 'instituicao' && !!instCaller && agentCaller === `${instCaller}-01`
+          && agenteNorm.startsWith(`${instCaller}-`) && seq >= 2;
+        dominio = 'inst.correiodigital.ao';
+      }
+      if (!autorizado) return res.status(403).json({ ok: false, erro: 'Sem autorização para alterar a senha deste agente.' });
+
+      // mudança da PRÓPRIA senha: o alvo é a conta do token — sem pesquisa.
+      if (mudaPropria) {
+        const { error: updErr } = await admin.auth.admin.updateUserById(sess.user.id, { password: senha });
+        if (updErr) return res.status(500).json({ ok: false, erro: updErr.message });
+        return res.status(200).json({ ok: true, agente: agenteNorm, propria: true });
+      }
+
+      const emailAlvo = `agente.${agenteNorm.toLowerCase()}@${dominio}`;
+      let alvoId: string | null = null;
+      for (let pagina = 1; pagina <= 10 && !alvoId; pagina++) {
+        const { data: lista, error: listErr } = await admin.auth.admin.listUsers({ page: pagina, perPage: 200 });
+        if (listErr || !lista || !lista.users || !lista.users.length) break;
+        const achado = lista.users.find((u: any) => String(u.email || '').toLowerCase() === emailAlvo.toLowerCase());
+        if (achado) alvoId = achado.id;
+      }
+      if (!alvoId) return res.status(404).json({ ok: false, erro: 'Conta do agente não encontrada na nuvem (a senha local mantém-se).' });
+      const { error: updErr } = await admin.auth.admin.updateUserById(alvoId, { password: senha });
+      if (updErr) return res.status(500).json({ ok: false, erro: updErr.message });
+      return res.status(200).json({ ok: true, agente: agenteNorm });
+    } catch (e) {
+      console.error('[AGENTE-SENHA] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
+  // ============================================================================
   // PERMISSÕES DE PÁGINA DO AGENTE (2026-08-22)
   // ----------------------------------------------------------------------------
   // As páginas que cada colaborador/agente pode abrir vivem nos user_metadata

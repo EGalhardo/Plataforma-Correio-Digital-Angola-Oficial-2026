@@ -17,6 +17,7 @@ import {
   getLocalInstReg, isInstPasswordTaken, setInstResponsiblePassword,
   updateInstMemberPassword, setInstLogo
 } from '../../services/institutionRegistrationStore';
+import { alterarSenhaAgente } from '../../services/supabaseService';
 
 const inputCls = "w-full bg-white border border-slate-200 focus:border-[#2563eb]/40 focus:ring-1 focus:ring-[#2563eb]/40 rounded-[14px] pl-10 pr-4 py-3 text-xs font-bold text-slate-800 outline-none transition-all placeholder:text-slate-400";
 const labelCls = "text-[9.5px] font-black text-slate-500 uppercase tracking-widest ml-1";
@@ -26,6 +27,24 @@ interface PanelProps {
   identity: InstitutionIdentity | null;
   onAudit?: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
 }
+
+// 2026-08-22 — a senha também vive no Supabase Auth: quando a PRÓPRIA
+// pessoa muda a senha, a nuvem é actualizada via /api/agente-senha (o token
+// da sessão prova a identidade — a definição "secure password change" do
+// Auth bloqueia o updateUser directo do cliente, "Current password
+// required"). Sem isto a nuvem ficava com a senha antiga e o próximo login
+// noutro dispositivo acumulava tentativas falhadas até ao bloqueio
+// anti-força-bruta.
+const sincronizarSenhaNuvem = (agente: string, novaSenha: string): void => {
+  if (!agente) return;
+  void alterarSenhaAgente(agente, novaSenha).then((res) => {
+    if (res.ok) {
+      console.log('[AUTH-CLOUD] Senha actualizada na nuvem (conta própria).');
+    } else {
+      console.warn('[AUTH-CLOUD] Nuvem não actualizou a senha: ' + (res.erro || 'erro'));
+    }
+  });
+};
 
 export function InstitutionAccessPanel({ code, identity, onAudit }: PanelProps) {
   const { t: translate } = useLanguage();
@@ -75,9 +94,12 @@ export function InstitutionAccessPanel({ code, identity, onAudit }: PanelProps) 
       setInstResponsiblePassword(code, newPwd);
       // F43 (Auditoria F42 #3/#8): espelho cloud em plaintext REMOVIDO — sob RLS
       // já era no-op silencioso (sessão local sem JWT); a via real de senha é a
-      // F40 (Auth cloud) para contas migradas + loja local para a sessão actual.
+      // conta Auth (agora sincronizada via /api/agente-senha).
+      const agenteResp = reg.agentNumber || `${String(code || '').toUpperCase().replace(/\s+/g, '')}-01`;
+      sincronizarSenhaNuvem(agenteResp, newPwd);
     } else if (member) {
       updateInstMemberPassword(code, member.id, newPwd);
+      sincronizarSenhaNuvem(member.agentNumber || '', newPwd);
     }
     setPwdMsg({ kind: 'ok', text: 'Palavra-passe alterada com sucesso. Utilize-a no próximo login.' });
     setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
@@ -242,7 +264,12 @@ export function InstitutionForcedPasswordChange({ code, memberId, memberName, on
       return;
     }
     updateInstMemberPassword(code, member.id, newPwd);
-    onAudit?.(`1.º login do colaborador ${member.name} (${code}): palavra-passe inicial substituída.`, 'success');
+    // 2026-08-22 — a nova senha passa a valer também na NUVEM (sessão do
+    // próprio colaborador activa + /api/agente-senha): antes ficava só local
+    // e o próximo login noutro dispositivo falhava na nuvem, acumulando
+    // tentativas até ao bloqueio anti-força-bruta.
+    sincronizarSenhaNuvem(member.agentNumber || '', newPwd);
+    onAudit?.(`1.º login do colaborador ${member.name} (${code}): palavra-passe inicial substituída (nuvem sincronizada).`, 'success');
     onCompleted();
   };
 

@@ -102,6 +102,7 @@ import { lerPerfilLocal } from './services/perfilLocalService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, preloginLookupInstitution, purgeInstitutionLocalResidues, mapRowStatus, type InstitutionIdentity } from './services/institutionSessionService';
 import { getLocalInstReg, normalizeInstCode, parseInstPack, normalizarNomeInstituicao, updateInstMemberProfile } from './services/institutionRegistrationStore';
+import { getLoginBloqueio, registarLoginFalha, limparLoginFalhas } from './services/loginSecurityService';
 import { resolveAdminAgentLogin, getAdminAgentCred, addAdminAgent, updateAdminAgentPermissions, ADMIN_ALFA_AGENT } from './services/adminAgentStore';
 import {
   cloudSignIn, provisionCloudAccount, markCloudAccount, isCloudBound,
@@ -6051,47 +6052,11 @@ Ficha civil do titular:
     };
 
 
-    // FASE 1 (2026-08-15) — BLOQUEIO AUTOMÁTICO POR TENTATIVAS FALHADAS.
-    // Proteção anti-força-bruta local: após 5 tentativas falhadas num intervalo
-    // de 10 minutos, o acesso fica temporariamente bloqueado durante 10 minutos
-    // (contador por identificador, persistido em localStorage; limpo em login
-    // com sucesso). O bloqueio é temporário e não substitui decisões do Admin.
-    const LOGIN_BLOQ_KEY = 'cda_login_attempts';
-    const getLoginBloqueio = (ident: string) => {
-      try {
-        const raw = localStorage.getItem(LOGIN_BLOQ_KEY);
-        const data = raw ? JSON.parse(raw) : {};
-        const rec = data[ident];
-        if (!rec) return { bloqueado: false, tentativas: 0, restanteMin: 0 };
-        const agora = Date.now();
-        if (rec.bloqueadoAte && agora < rec.bloqueadoAte) {
-          return { bloqueado: true, tentativas: rec.n || 0, restanteMin: Math.ceil((rec.bloqueadoAte - agora) / 60000) };
-        }
-        return { bloqueado: false, tentativas: rec.n || 0, restanteMin: 0 };
-      } catch { return { bloqueado: false, tentativas: 0, restanteMin: 0 }; }
-    };
-    const registarLoginFalha = (ident: string) => {
-      try {
-        const raw = localStorage.getItem(LOGIN_BLOQ_KEY);
-        const data = raw ? JSON.parse(raw) : {};
-        const agora = Date.now();
-        const rec = data[ident] || { n: 0, inicio: agora };
-        // janela deslizante de 10 min
-        if (agora - rec.inicio > 10 * 60 * 1000) { rec.n = 0; rec.inicio = agora; }
-        rec.n = (rec.n || 0) + 1;
-        if (rec.n >= 5) { rec.bloqueadoAte = agora + 10 * 60 * 1000; rec.n = 0; }
-        data[ident] = rec;
-        localStorage.setItem(LOGIN_BLOQ_KEY, JSON.stringify(data));
-      } catch { /* melhor esforço */ }
-    };
-    const limparLoginFalhas = (ident: string) => {
-      try {
-        const raw = localStorage.getItem(LOGIN_BLOQ_KEY);
-        const data = raw ? JSON.parse(raw) : {};
-        delete data[ident];
-        localStorage.setItem(LOGIN_BLOQ_KEY, JSON.stringify(data));
-      } catch { /* melhor esforço */ }
-    };
+    // FASE 1 (2026-08-15, extraído 2026-08-22) — BLOQUEIO AUTOMÁTICO POR
+    // TENTATIVAS FALHADAS: a lógica vive agora em services/loginSecurityService
+    // (mesma chave 'cda_login_attempts') para que a página Equipa também possa
+    // limpar registos ao ELIMINAR ou CRIAR colaboradores (conta nova nunca
+    // herda o bloqueio de uma conta antiga com o mesmo Nº de agente).
 
     const handleLoginSubmit = async () => {
       const identLogin = bi.trim().toUpperCase().replace(/\s+/g, '');

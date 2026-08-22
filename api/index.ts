@@ -1751,6 +1751,92 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
       }
     }
 
+    // SENHA DO AGENTE NA NUVEM (2026-08-22) — espelho de server.ts: o
+    // responsável da área repõe a senha e a conta Auth é actualizada
+    // (senão a nuvem ficava com a senha antiga e o colaborador acumulava
+    // tentativas falhadas noutros dispositivos até ao bloqueio anti-bruta).
+    if (url.includes('/api/agente-senha') && method === 'POST') {
+      try {
+        if (!supaUrlPerfil || !serviceKeyPerfil) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        const { agente, senha } = body || {};
+        const agenteNorm = String(agente || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(agenteNorm)) return res.status(400).json({ ok: false, erro: 'Nº de agente inválido.' });
+        if (typeof senha !== 'string' || senha.length < 8) return res.status(400).json({ ok: false, erro: 'A senha deve ter pelo menos 8 caracteres.' });
+        if (['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP'].includes(agenteNorm)) return res.status(403).json({ ok: false, demo: true, erro: 'demo' });
+        const token = String(req.headers.authorization || (req.headers as any).Authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+        const sessResp = await fetch(`${supaUrlPerfil}/auth/v1/user`, {
+          headers: { apikey: serviceKeyPerfil, Authorization: `Bearer ${token}` },
+        });
+        if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+        const sess = await sessResp.json().catch(() => null);
+        const user = sess && (sess.user || sess);
+        const meta = (user && user.user_metadata) || {};
+        const roleCaller = String(meta.role || '').toLowerCase();
+        const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
+        const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+        const ehAdminAlvo = /^ADMIN-\d+$/.test(agenteNorm);
+        let autorizado = false;
+        let dominio = '';
+        // 2026-08-22 — a PRÓPRIA pessoa pode mudar a própria senha: o token da
+        // sessão identifica o agente ("secure password change" do Auth exige a
+        // senha actual no updateUser do cliente — a via admin não exige).
+        const mudaPropria = agentCaller === agenteNorm && (roleCaller === 'instituicao' || roleCaller === 'admin');
+        if (mudaPropria) {
+          autorizado = true;
+          dominio = ehAdminAlvo ? 'admin.correiodigital.ao' : 'inst.correiodigital.ao';
+        } else if (ehAdminAlvo) {
+          autorizado = roleCaller === 'admin' && agentCaller === 'ADMIN-0001' && agenteNorm !== 'ADMIN-0001';
+          dominio = 'admin.correiodigital.ao';
+        } else {
+          const mSeq = agenteNorm.match(/-(\d+)$/);
+          const seq = mSeq ? parseInt(mSeq[1], 10) : 0;
+          autorizado = roleCaller === 'instituicao' && !!instCaller && agentCaller === `${instCaller}-01`
+            && agenteNorm.startsWith(`${instCaller}-`) && seq >= 2;
+          dominio = 'inst.correiodigital.ao';
+        }
+        if (!autorizado) return res.status(403).json({ ok: false, erro: 'Sem autorização para alterar a senha deste agente.' });
+        const h = { apikey: serviceKeyPerfil, Authorization: `Bearer ${serviceKeyPerfil}` };
+        if (mudaPropria) {
+          const updResp = await fetch(`${supaUrlPerfil}/auth/v1/admin/users/${user.id}`, {
+            method: 'PUT',
+            headers: { ...h, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: senha }),
+          });
+          if (!updResp.ok) {
+            const txt = await updResp.text();
+            return res.status(500).json({ ok: false, erro: txt.slice(0, 200) });
+          }
+          return res.status(200).json({ ok: true, agente: agenteNorm, propria: true });
+        }
+        const emailAlvo = `agente.${agenteNorm.toLowerCase()}@${dominio}`;
+        let alvoId: string | null = null;
+        for (let pagina = 1; pagina <= 10 && !alvoId; pagina++) {
+          const lu = await fetch(`${supaUrlPerfil}/auth/v1/admin/users?per_page=200&page=${pagina}`, { headers: h });
+          if (!lu.ok) break;
+          const lista = await lu.json().catch(() => null);
+          const users = lista?.users || [];
+          if (!users.length) break;
+          const achado = users.find((u: any) => String(u.email || '').toLowerCase() === emailAlvo);
+          if (achado) alvoId = achado.id;
+        }
+        if (!alvoId) return res.status(404).json({ ok: false, erro: 'Conta do agente não encontrada na nuvem (a senha local mantém-se).' });
+        const updResp = await fetch(`${supaUrlPerfil}/auth/v1/admin/users/${alvoId}`, {
+          method: 'PUT',
+          headers: { ...h, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: senha }),
+        });
+        if (!updResp.ok) {
+          const txt = await updResp.text();
+          return res.status(500).json({ ok: false, erro: txt.slice(0, 200) });
+        }
+        return res.status(200).json({ ok: true, agente: agenteNorm });
+      } catch (e: any) {
+        console.error('[AGENTE-SENHA] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
     // PERMISSÕES DE PÁGINA DO AGENTE (2026-08-22) — espelho de server.ts:
     // fonte canónica = user_metadata no Auth; ler devolve o que está NA NUVEM;
     // gravar só é aceite do responsável da área (instituição '-01' / Alfa
