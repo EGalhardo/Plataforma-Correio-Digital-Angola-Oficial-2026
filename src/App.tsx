@@ -102,7 +102,7 @@ import { lerPerfilLocal } from './services/perfilLocalService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, preloginLookupInstitution, purgeInstitutionLocalResidues, mapRowStatus, type InstitutionIdentity } from './services/institutionSessionService';
 import { getLocalInstReg, normalizeInstCode, parseInstPack, normalizarNomeInstituicao } from './services/institutionRegistrationStore';
-import { resolveAdminAgentLogin } from './services/adminAgentStore';
+import { resolveAdminAgentLogin, ADMIN_ALFA_AGENT } from './services/adminAgentStore';
 import { getAdminAgentCred, addAdminAgent } from './services/adminAgentStore';
 import {
   cloudSignIn, provisionCloudAccount, markCloudAccount, isCloudBound,
@@ -1245,6 +1245,14 @@ export default function App() {
   const isInstMode = appMode === 'institution';
   // F12 — auxiliar simétrico para a ideologia demo/real (conta cidadão).
   const isUserMode = appMode === 'user';
+  // 2026-08-22 — área ADMIN: a página Equipa é exclusiva do Admin Alfa
+  // (ADMIN-0001), mesmo desenho da área Instituição (responsável vs
+  // colaboradores). Agentes reais ADMIN-NNNN (NNNN >= 2) têm o item INACTIVO
+  // e o painel de acesso restrito; contas demo (ADM-8812-OP) mantêm acesso
+  // total — o Modo Demo nunca é prejudicado.
+  const adminBiNorm = (bi || '').toUpperCase().replace(/\s+/g, '').trim();
+  const isDemoGovSession = isGovMode && (homologationStore.isExempt(bi || '') || !adminBiNorm);
+  const adminEquipaBloqueada = isGovMode && !isDemoGovSession && adminBiNorm !== ADMIN_ALFA_AGENT;
 
   // ==========================================================================
   // Q-2 — QR DEEP-LINK (?correspondencia=<protocolo>): digitalizar o QR de uma
@@ -5550,6 +5558,32 @@ Ficha civil do titular:
           </PainelSuspense>
         );
       case 'gov-trabalhadores':
+        // 2026-08-22 — página EQUIPA da Administração exclusiva do Admin Alfa
+        // (ADMIN-0001): qualquer outro agente real vê o painel de acesso
+        // restrito, mesmo que o tab chegue por URL/hash/IA.
+        if (adminEquipaBloqueada) {
+          return (
+            <div className="flex-1 flex flex-col items-center justify-center gap-5 py-24 px-6 text-center animate-fade-in font-sans">
+              <div className="p-6 bg-slate-100 rounded-full border border-slate-200 shadow-inner">
+                <Lock className="w-9 h-9 text-slate-400" />
+              </div>
+              <div className="space-y-2 max-w-md">
+                <h3 className="text-slate-900 font-black text-sm uppercase tracking-[0.2em]">Acesso Restrito</h3>
+                <p className="text-slate-500 text-xs leading-relaxed">
+                  A página <strong className="text-slate-700">Equipa</strong> é exclusiva do responsável da área de
+                  Administração (Admin Alfa — {ADMIN_ALFA_AGENT}). A sua sessão ({adminBiNorm || 'agente'}) tem
+                  perfil de agente e não possui permissão para gerir membros da equipa central.
+                </p>
+              </div>
+              <button
+                onClick={() => setTab('gov-dashboard')}
+                className="px-6 py-3 bg-[#0E2B64] hover:bg-[#081a3d] text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer border-0 shadow-md"
+              >
+                Voltar ao Painel
+              </button>
+            </div>
+          );
+        }
         return (
           <PainelSuspense>
           <GovContactsContent
@@ -7209,7 +7243,13 @@ Ficha civil do titular:
         }}
         currentLanguage={currentLanguage}
         theme={theme}
-        equipaBloqueada={isInstMode && instIdentity?.type === 'member'}
+        equipaBloqueadaId={
+          (isInstMode && instIdentity?.type === 'member')
+            ? 'gov-contatos'
+            : adminEquipaBloqueada
+              ? 'gov-trabalhadores'
+              : undefined
+        }
       />
       <MobileNavBar 
         tab={tab} 
@@ -7218,7 +7258,13 @@ Ficha civil do titular:
         setSelectedDoc={setSelectedDoc}
         appMode={appMode}
         currentLanguage={currentLanguage}
-        equipaBloqueada={isInstMode && instIdentity?.type === 'member'}
+        equipaBloqueadaId={
+          (isInstMode && instIdentity?.type === 'member')
+            ? 'gov-contatos'
+            : adminEquipaBloqueada
+              ? 'gov-trabalhadores'
+              : undefined
+        }
       />
 
       <div className="flex-1 md:bg-white md:rounded-[24px] md:shadow-xl md:border-2 md:border-[#E2E8F0] dark:md:border-[#141d31] md:overflow-hidden flex flex-col min-h-screen md:min-h-0 relative">

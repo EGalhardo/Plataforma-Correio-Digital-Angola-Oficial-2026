@@ -23,9 +23,10 @@ interface MobileNavBarProps {
   setSelectedDoc: (doc: Document | null) => void;
   appMode: AppMode;
   currentLanguage?: LanguageCode;
-  // 2026-08-21 — colaborador institucional: a página Equipa é exclusiva do
-  // responsável — o item fica VISÍVEL mas INACTIVO (não navega).
-  equipaBloqueada?: boolean;
+  // 2026-08-21/22 — a página Equipa é exclusiva do RESPONSÁVEL de cada área
+  // (instituição: 'gov-contatos'; admin: 'gov-trabalhadores'). Para os demais
+  // o item fica VISÍVEL mas INACTIVO (não navega).
+  equipaBloqueadaId?: string;
 }
 
 // Menu citizen SEM QR Code
@@ -60,7 +61,7 @@ const adminItems: MenuItem[] = [
 export function MobileNavBar({ 
   tab, setTab, setSelectedMessage, setSelectedDoc,
   appMode: _propsAppMode,
-  equipaBloqueada = false}: MobileNavBarProps) {
+  equipaBloqueadaId}: MobileNavBarProps) {
   const { appMode } = useSession();
   const { t: translate } = useLanguage();
 
@@ -80,13 +81,13 @@ export function MobileNavBar({
       isAdminOrInst ? 'overflow-x-auto justify-start gap-2 scrollbar-none snap-x snap-mandatory' : 'justify-around'
     }`}>
       {currentItems.map(({ id, label, icon: Icon }) => {
-        const bloqueado = equipaBloqueada && id === 'gov-contatos';
+        const bloqueado = equipaBloqueadaId === id;
         return (
         <button
           key={id}
           disabled={bloqueado}
           aria-disabled={bloqueado}
-          title={bloqueado ? translate('Apenas o responsável da instituição pode aceder à página Equipa.') : undefined}
+          title={bloqueado ? translate('Apenas o responsável desta área pode aceder à página Equipa.') : undefined}
           onClick={() => {
             if (bloqueado) return;
             setTab(id);

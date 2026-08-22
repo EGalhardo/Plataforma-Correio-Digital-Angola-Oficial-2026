@@ -29,9 +29,10 @@ interface SidebarProps {
   setStage?: (stage: string) => void;
   currentLanguage?: LanguageCode;
   theme?: 'light' | 'dark';
-  // 2026-08-21 — colaborador institucional: a página Equipa é exclusiva do
-  // responsável — o item fica VISÍVEL mas INACTIVO (não navega).
-  equipaBloqueada?: boolean;
+  // 2026-08-21/22 — a página Equipa é exclusiva do RESPONSÁVEL de cada área
+  // (instituição: 'gov-contatos'; admin: 'gov-trabalhadores'). Para os demais
+  // o item fica VISÍVEL mas INACTIVO (não navega).
+  equipaBloqueadaId?: string;
 }
 
 // Menu citizen SEM QR Code
@@ -67,7 +68,7 @@ export function Sidebar({
   tab, setTab, setSelectedMessage, setSelectedDoc, handleLogout,
   appMode: _propsAppMode, setAppMode: _propsSetAppMode,
   theme = 'light',
-  equipaBloqueada = false
+  equipaBloqueadaId
 }: SidebarProps) {
   const { appMode } = useSession();
   const { t: translate } = useLanguage();
@@ -109,13 +110,13 @@ export function Sidebar({
       </div>
       <nav className="space-y-0.5">
         {currentItems.map(({ id, label, icon: Icon }) => {
-          const bloqueado = equipaBloqueada && id === 'gov-contatos';
+          const bloqueado = equipaBloqueadaId === id;
           return (
           <button
             key={id}
             disabled={bloqueado}
             aria-disabled={bloqueado}
-            title={bloqueado ? translate('Apenas o responsável da instituição pode aceder à página Equipa.') : undefined}
+            title={bloqueado ? translate('Apenas o responsável desta área pode aceder à página Equipa.') : undefined}
             onClick={() => {
               if (bloqueado) return;
               setTab(id);
