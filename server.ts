@@ -20,7 +20,10 @@ async function startServer() {
   const PORT = 3000;
   const server = createServer(app);
   
-  app.use(express.json());
+  // 2026-08-22 — limite do body alargado para ficheiros grandes da Base de
+  // Conhecimento (base64 inflaciona ~33%); o upload directo browser→Storage
+  // cobre os casos maiores e o servidor valida o tamanho por endpoint.
+  app.use(express.json({ limit: '150mb' }));
 
   // Limpa caracteres especiais/markdown das respostas da IA (2026-08-18).
   // Remove # * _ ` ~ > e formatação markdown, preservando pontuação, números,
@@ -123,6 +126,88 @@ async function startServer() {
     });
   };
 
+  // ============================================================================
+  // EXTRAÇÃO DE TEXTO NO SERVIDOR (2026-08-22) — Word legado (.doc) e fallbacks
+  // ----------------------------------------------------------------------------
+  // O navegador não consegue ler o formato binário .doc (OLE). Este endpoint
+  // extrai o texto de .doc/.docx com word-extractor (ambos os formatos) e cobre
+  // variantes comuns que chegam como .doc: RTF e HTML. TXT/MD também passam por
+  // aqui quando o cliente prefere. Sem extração no cliente → sem limite prático
+  // de tamanho (cap de segurança 100 MB).
+  // ============================================================================
+  app.post("/api/extrair-texto", async (req, res) => {
+    try {
+      const { nome, base64 } = req.body || {};
+      if (!base64 || typeof base64 !== 'string') {
+        return res.status(400).json({ ok: false, erro: 'base64 obrigatório.' });
+      }
+      const buf = Buffer.from(base64, 'base64');
+      if (buf.length === 0) return res.status(400).json({ ok: false, erro: 'Ficheiro vazio.' });
+      if (buf.length > 100 * 1024 * 1024) return res.status(413).json({ ok: false, erro: 'Ficheiro demasiado grande para extração no servidor (máx. 100 MB).' });
+      const nomeLimpo = String(nome || '').toLowerCase();
+      const normalizar = (t: string) => (t || '').replace(/\s+/g, ' ').trim();
+
+      // --- RTF disfarçado de .doc (muito comum) ---
+      const extrairRtf = (raw: string): string => {
+        let t = raw.replace(/\{\*?\[^}]*\}/g, ' ');   // grupos embutidos
+        t = t.replace(/\'[0-9a-fA-F]{2}/g, ' ');         // escapes hex
+        t = t.replace(/\\[a-zA-Z]+-?\d* ?/g, ' ');      // control words
+        t = t.replace(/[{}]/g, ' ');
+        return normalizar(t);
+      };
+      // --- HTML disfarçado de .doc ---
+      const extrairHtml = (raw: string): string => {
+        let t = raw.replace(/<script[\s\S]*?<\/script>/gi, ' ');
+        t = t.replace(/<style[\s\S]*?<\/style>/gi, ' ');
+        t = t.replace(/<[^>]+>/g, ' ');
+        t = t.replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'");
+        return normalizar(t);
+      };
+
+      if (nomeLimpo.endsWith('.doc') || nomeLimpo.endsWith('.docx')) {
+        // word-extractor lê .doc (OLE) e .docx — import dinâmico (ESM)
+        try {
+          const mod: any = await import('word-extractor');
+          const WordExtractor = mod.default || mod;
+          try {
+          const extractor = new WordExtractor();
+          const doc = await extractor.extract(buf);
+          const texto = normalizar(doc.getBody ? doc.getBody() : String(doc));
+          if (texto) return res.status(200).json({ ok: true, texto, tipo: nomeLimpo.endsWith('.doc') ? 'doc' : 'docx' });
+          } catch (e) {
+            console.warn('[EXTRAIR-TEXTO] word-extractor falhou — tenta fallbacks RTF/HTML:', String(e).slice(0, 120));
+          }
+        } catch (impErr) {
+          console.warn('[EXTRAIR-TEXTO] word-extractor indisponível — tenta fallbacks RTF/HTML:', String(impErr).slice(0, 120));
+        }
+        // fallbacks: RTF ou HTML gravados com extensão .doc
+        const raw = buf.toString('latin1');
+        const inicio = raw.slice(0, 400).toLowerCase();
+        if (inicio.includes('rtf')) {
+          const texto = extrairRtf(raw);
+          if (texto) return res.status(200).json({ ok: true, texto, tipo: 'doc' });
+        }
+        if (/<html|<body|<p\b|<div|<table/i.test(raw.slice(0, 2000))) {
+          const texto = extrairHtml(raw);
+          if (texto) return res.status(200).json({ ok: true, texto, tipo: 'doc' });
+        }
+        return res.status(422).json({ ok: false, erro: 'Não foi possível extrair texto do ficheiro Word. O documento pode estar corrompido ou protegido.' });
+      }
+
+      if (nomeLimpo.endsWith('.txt') || nomeLimpo.endsWith('.md')) {
+        let texto = '';
+        try { texto = buf.toString('utf-8'); } catch { /* abaixo */ }
+        if (!texto.trim()) texto = buf.toString('latin1');
+        return res.status(200).json({ ok: true, texto: normalizar(texto), tipo: 'txt' });
+      }
+
+      return res.status(415).json({ ok: false, erro: 'Formato não suportado no servidor. Utilize PDF, Word (.doc/.docx) ou TXT.' });
+    } catch (e) {
+      console.error('[EXTRAIR-TEXTO] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
   // API — Upload de ficheiro para a Base de Conhecimento (bucket kb_ficheiros)
   // O upload é feito NO SERVIDOR com a service role (nunca exposta no cliente):
   // o browser envia o ficheiro em base64; o servidor carrega para o storage e
@@ -135,7 +220,7 @@ async function startServer() {
       }
       const buf = Buffer.from(base64, 'base64');
       if (buf.length === 0) return res.status(400).json({ ok: false, erro: 'Ficheiro vazio.' });
-      if (buf.length > 10 * 1024 * 1024) return res.status(400).json({ ok: false, erro: 'Ficheiro demasiado grande (máx. 10 MB).' });
+      if (buf.length > 100 * 1024 * 1024) return res.status(413).json({ ok: false, erro: 'Ficheiro demasiado grande (máx. 100 MB).' });
       const admin = createSupabaseAdminClient();
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço de armazenamento indisponível.' });
       const sanitizado = nome.replace(/[^\w.\-]+/g, '_');

@@ -51,7 +51,10 @@ export const ROTULO_TIPO: Record<KbFonteRow['tipo'], string> = {
 
 const TABELA = 'kb_fontes_instituicao';
 const MIN_TEXTO = 200;
-const MAX_TEXTO = 4000;
+// 2026-08-22 — o campo "Conteúdo que a IA pode usar" passa a aceitar
+// 20.000 caracteres (antes 4.000). A base de dados precisa do script
+// supabase/v30_ia_kb_20000_e_sem_limite.sql para o constraint acompanhar.
+const MAX_TEXTO = 20000;
 
 /** Resumo leve (só contagem) para chips/cartões fora desta aba. */
 export async function carregarResumoKb(sigla: string): Promise<{ total: number; ativas: number } | null> {
@@ -86,20 +89,17 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
   const [ficheiroUrl, setFicheiroUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const KB_MAX_FICHEIRO_MB = 10;
-
   /**
    * Seleção de ficheiro: extrai o texto automaticamente (preenche o campo
    * `texto` que a IA lê) e carrega o ficheiro original para o Supabase
    * Storage (bucket kb_ficheiros) — a referência fica como fonte auditável.
+   * 2026-08-22 — SEM limite de tamanho (PDF, Word .doc/.docx e TXT): o
+   * upload do original passa a ser DIRETO do browser para o Storage
+   * (política pública de insert), com o /api/kb-upload como fallback.
    */
   const handleKbFicheiroSelecionado = async (file: File) => {
     setErroFicheiro('');
     setAvisoFicheiro(null);
-    if (file.size > KB_MAX_FICHEIRO_MB * 1024 * 1024) {
-      setErroFicheiro(`Ficheiro demasiado grande (máx. ${KB_MAX_FICHEIRO_MB} MB).`);
-      return;
-    }
     setKbFicheiro(file);
     setAExtrairFicheiro(true);
     try {
@@ -113,22 +113,41 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
           if (primeiraFrase && primeiraFrase.length >= 8) setTitulo(primeiraFrase.charAt(0).toUpperCase() + primeiraFrase.slice(1));
         }
       }
-      // Upload do ficheiro original para o storage (auditoria/consulta) — feito
-      // NO SERVIDOR (/api/kb-upload) com a service role; o cliente nunca expõe
-      // chaves privilegiadas. O texto extraído mantém-se mesmo se o upload falhar.
+      // Upload do ficheiro original para o storage (auditoria/consulta):
+      // 1) DIRETO do browser para o Storage (aceita QUALQUER tamanho — a
+      //    política v28 permite insert no bucket kb_ficheiros);
+      // 2) fallback /api/kb-upload (service role) para ficheiros pequenos.
+      // O texto extraído mantém-se mesmo se o upload falhar.
       try {
-        const base64 = await fileToBase64(file);
-        const upResp = await fetch('/api/kb-upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nome: file.name, base64, sigla, tipo: file.type }),
-        });
-        const upJson = await upResp.json().catch(() => ({ ok: false, erro: 'Resposta inválida do servidor.' }));
-        if (upJson.ok && upJson.url) {
-          setFicheiroUrl(upJson.url);
-          if (!fonteUrl.trim()) setFonteUrl(upJson.url);
+        let urlGuardada: string | null = null;
+        try {
+          const sanitizado = file.name.replace(/[^\w.\-]+/g, '_');
+          const pasta = (sigla || 'inst').replace(/[^\w\-]+/g, '_').toUpperCase();
+          const filePath = `kb/${pasta}/${Date.now()}-${sanitizado}`;
+          const { error: upErr } = await supabase.storage
+            .from('kb_ficheiros')
+            .upload(filePath, file, { cacheControl: '3600', upsert: true, contentType: file.type || undefined });
+          if (!upErr) {
+            const { data: pub } = supabase.storage.from('kb_ficheiros').getPublicUrl(filePath);
+            if (pub?.publicUrl) urlGuardada = pub.publicUrl;
+          }
+        } catch (dirErr) {
+          console.warn('[KB-FICHEIRO] Upload direto falhou — tenta o servidor:', dirErr);
+        }
+        if (!urlGuardada && file.size <= 4 * 1024 * 1024) {
+          const base64 = await fileToBase64(file);
+          const upResp = await fetch('/api/kb-upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: file.name, base64, sigla, tipo: file.type }),
+          });
+          const upJson = await upResp.json().catch(() => ({ ok: false, erro: 'Resposta inválida do servidor.' }));
+          if (upJson.ok && upJson.url) urlGuardada = upJson.url;
+        }
+        if (urlGuardada) {
+          setFicheiroUrl(urlGuardada);
+          if (!fonteUrl.trim()) setFonteUrl(urlGuardada);
         } else {
-          console.warn('[KB-FICHEIRO] Falha no upload do ficheiro original (o texto extraído mantém-se):', upJson.erro);
           setAvisoFicheiro(aviso => aviso ? `${aviso} O ficheiro original não foi guardado.` : 'O ficheiro original não foi guardado — o texto extraído fica na fonte.');
         }
       } catch (upErr) {
@@ -240,6 +259,10 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
     }]);
     setAGuardar(false);
     if (error) {
+      if (error.code === '23514') {
+        setFormErro('A base de dados ainda limita o conteúdo a 4.000 caracteres (constraint da versão anterior). Para aceitar 20.000, aplica o script supabase/v30_ia_kb_20000_e_sem_limite.sql no SQL Editor do Supabase — depois a gravação passa a funcionar.');
+        return;
+      }
       setFormErro(error.code === '42501'
         ? 'A base recusou a escrita: só podes adicionar fontes à TUA instituição, ligado com a conta dela.'
         : `Falha ao guardar (${error.message || 'erro desconhecido'}).`);
@@ -407,7 +430,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
             <div className="flex items-center gap-2">
               <UploadCloud size={14} className="text-indigo-600 shrink-0" />
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 m-0">
-                Carregar documento (PDF · Word · TXT)
+                Carregar documento (PDF · Word .doc/.docx · TXT · sem limite)
               </p>
               {!kbFicheiro && (
                 <button
@@ -439,7 +462,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
                 <div className="flex-1 min-w-0">
                   <p className="text-[10.5px] font-bold text-slate-700 truncate m-0">{kbFicheiro.name}</p>
                   <p className="text-[9px] text-slate-400 font-semibold m-0">
-                    {ROTULO_TIPO_FICHEIRO[(kbFicheiro.name.toLowerCase().endsWith('.pdf') ? 'pdf' : kbFicheiro.name.toLowerCase().endsWith('.docx') ? 'docx' : kbFicheiro.name.toLowerCase().endsWith('.txt') || kbFicheiro.name.toLowerCase().endsWith('.md') ? 'txt' : 'outro')]}
+                    {ROTULO_TIPO_FICHEIRO[(kbFicheiro.name.toLowerCase().endsWith('.pdf') ? 'pdf' : kbFicheiro.name.toLowerCase().endsWith('.docx') ? 'docx' : kbFicheiro.name.toLowerCase().endsWith('.doc') ? 'doc' : kbFicheiro.name.toLowerCase().endsWith('.txt') || kbFicheiro.name.toLowerCase().endsWith('.md') ? 'txt' : 'outro')]}
                     {ficheiroUrl ? ' · guardado como fonte' : ''}
                   </p>
                 </div>
@@ -483,6 +506,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
             <textarea
               value={texto}
               onChange={e => setTexto(e.target.value)}
+              maxLength={MAX_TEXTO}
               rows={7}
               placeholder="Cola aqui o texto oficial: regras, passos, prazos, contactos — tal como publicado pela instituição."
               className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold outline-none focus:border-indigo-400 resize-y"

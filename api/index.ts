@@ -1525,6 +1525,76 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
       }
     }
 
+    // EXTRAÇÃO DE TEXTO NO SERVIDOR (2026-08-22) — Word legado (.doc) e
+    // fallbacks (RTF/HTML). Espelho de server.ts; na Vercel o corpo JSON tem
+    // limite da plataforma (~4,5 MB) — ficheiros maiores usam o upload
+    // directo browser→Storage e a extração cliente (pdfjs/mammoth).
+    if (url.includes('/api/extrair-texto') && method === 'POST') {
+      try {
+        const { nome, base64 } = body || {};
+        if (!base64 || typeof base64 !== 'string') {
+          return res.status(400).json({ ok: false, erro: 'base64 obrigatório.' });
+        }
+        const buf = Buffer.from(base64, 'base64');
+        if (buf.length === 0) return res.status(400).json({ ok: false, erro: 'Ficheiro vazio.' });
+        if (buf.length > 4 * 1024 * 1024) return res.status(413).json({ ok: false, erro: 'Ficheiro demasiado grande para extração no servidor (máx. 4 MB neste ambiente).' });
+        const nomeLimpo = String(nome || '').toLowerCase();
+        const normalizar = (t: string) => (t || '').replace(/\s+/g, ' ').trim();
+        const extrairRtf = (raw: string): string => {
+          let t = raw.replace(/\{\*?\[^}]*\}/g, ' ');
+          t = t.replace(/\'[0-9a-fA-F]{2}/g, ' ');
+          t = t.replace(/\\[a-zA-Z]+-?\d* ?/g, ' ');
+          t = t.replace(/[{}]/g, ' ');
+          return normalizar(t);
+        };
+        const extrairHtml = (raw: string): string => {
+          let t = raw.replace(/<script[\s\S]*?<\/script>/gi, ' ');
+          t = t.replace(/<style[\s\S]*?<\/style>/gi, ' ');
+          t = t.replace(/<[^>]+>/g, ' ');
+          t = t.replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'");
+          return normalizar(t);
+        };
+        if (nomeLimpo.endsWith('.doc') || nomeLimpo.endsWith('.docx')) {
+          // word-extractor lê .doc (OLE) e .docx — import dinâmico (ESM)
+          try {
+            const mod: any = await import('word-extractor');
+            const WordExtractor = mod.default || mod;
+            try {
+            const extractor = new WordExtractor();
+            const doc = await extractor.extract(buf);
+            const texto = normalizar(doc.getBody ? doc.getBody() : String(doc));
+            if (texto) return res.status(200).json({ ok: true, texto, tipo: nomeLimpo.endsWith('.doc') ? 'doc' : 'docx' });
+            } catch (e) {
+              console.warn('[EXTRAIR-TEXTO] word-extractor falhou — tenta fallbacks RTF/HTML:', String(e).slice(0, 120));
+            }
+          } catch (impErr) {
+            console.warn('[EXTRAIR-TEXTO] word-extractor indisponível — tenta fallbacks RTF/HTML:', String(impErr).slice(0, 120));
+          }
+          const raw = buf.toString('latin1');
+          const inicio = raw.slice(0, 400).toLowerCase();
+          if (inicio.includes('rtf')) {
+            const texto = extrairRtf(raw);
+            if (texto) return res.status(200).json({ ok: true, texto, tipo: 'doc' });
+          }
+          if (/<html|<body|<p\b|<div|<table/i.test(raw.slice(0, 2000))) {
+            const texto = extrairHtml(raw);
+            if (texto) return res.status(200).json({ ok: true, texto, tipo: 'doc' });
+          }
+          return res.status(422).json({ ok: false, erro: 'Não foi possível extrair texto do ficheiro Word. O documento pode estar corrompido ou protegido.' });
+        }
+        if (nomeLimpo.endsWith('.txt') || nomeLimpo.endsWith('.md')) {
+          let texto = '';
+          try { texto = buf.toString('utf-8'); } catch { /* abaixo */ }
+          if (!texto.trim()) texto = buf.toString('latin1');
+          return res.status(200).json({ ok: true, texto: normalizar(texto), tipo: 'txt' });
+        }
+        return res.status(415).json({ ok: false, erro: 'Formato não suportado no servidor. Utilize PDF, Word (.doc/.docx) ou TXT.' });
+      } catch (e: any) {
+        console.error('[EXTRAIR-TEXTO] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
     // Endpoint /api/kb-upload — upload de ficheiro da Base de Conhecimento
     // (bucket kb_ficheiros). O upload é feito NO SERVIDOR com a service role
     // (nunca exposta no cliente): o browser envia o ficheiro em base64.
@@ -1536,7 +1606,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         }
         const buf = Buffer.from(base64, 'base64');
         if (buf.length === 0) return res.status(400).json({ ok: false, erro: 'Ficheiro vazio.' });
-        if (buf.length > 10 * 1024 * 1024) return res.status(400).json({ ok: false, erro: 'Ficheiro demasiado grande (máx. 10 MB).' });
+        if (buf.length > 4 * 1024 * 1024) return res.status(413).json({ ok: false, erro: 'Ficheiro demasiado grande para este caminho (máx. 4 MB) — o upload directo browser→Storage cobre ficheiros maiores.' });
         const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
         const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
         if (!supaUrl || !serviceKey) return res.status(500).json({ ok: false, erro: 'Serviço de armazenamento não configurado.' });

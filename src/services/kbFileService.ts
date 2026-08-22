@@ -2,8 +2,9 @@
 // Carregamento de ficheiros na Base de Conhecimento — extração de texto
 // ----------------------------------------------------------------------------
 // A KB da IA lê o campo `texto` (o conteúdo que fundamenta as respostas).
-// Este serviço permite ao utilizador carregar um ficheiro (PDF, DOCX, TXT) e
-// extrai AUTOMATICAMENTE o texto para preencher esse campo — sem colar à mão.
+// Este serviço permite ao utilizador carregar um ficheiro (PDF, Word .doc/.docx,
+// TXT — de QUALQUER tamanho) e extrai AUTOMATICAMENTE o texto para preencher
+// esse campo — sem colar à mão. O .doc legado é extraído NO SERVIDOR.
 // O ficheiro original é guardado no Supabase Storage (bucket kb_ficheiros) e a
 // referência fica em fonte_url para consulta/auditoria.
 //
@@ -74,6 +75,22 @@ const extrairTextoDocx = async (arrayBuffer: ArrayBuffer): Promise<string> => {
 const extrairTextoTxt = (arrayBuffer: ArrayBuffer): string =>
   new TextDecoder('utf-8').decode(arrayBuffer).replace(/\s+/g, ' ').trim();
 
+// 2026-08-22 — Word LEGADO (.doc) e fallbacks: o navegador não lê o formato
+// binário OLE do .doc — a extração passa a ser feita NO SERVIDOR
+// (/api/extrair-texto: word-extractor + RTF/HTML). Também serve de fallback
+// para .docx/.pdf muito grandes ou com parsing cliente falhado.
+const extrairTextoNoServidor = async (file: File): Promise<string> => {
+  const base64 = await fileToBase64(file);
+  const resp = await fetch('/api/extrair-texto', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nome: file.name, base64 }),
+  });
+  const j = await resp.json().catch(() => null);
+  if (j && j.ok === true && typeof j.texto === 'string') return (j.texto as string).trim();
+  throw new Error((j && j.erro) || 'Servidor indisponível para extração.');
+};
+
 /**
  * Extrai o texto de um ficheiro carregado. Devolve o texto (para preencher o
  * campo `texto` da KB) e o tipo. Formatos não suportados devolvem aviso.
@@ -84,28 +101,52 @@ export const extrairTextoDeFicheiro = async (file: File): Promise<KbFileExtraido
   try {
     switch (tipo) {
       case 'pdf': {
-        const texto = await extrairTextoPdf(arrayBuffer);
-        return { texto, tipo, aviso: texto ? undefined : 'O PDF não contém texto extraível. Se for um documento digitalizado, utilize OCR ou forneça uma versão com texto.' };
+        try {
+          const texto = await extrairTextoPdf(arrayBuffer);
+          return { texto, tipo, aviso: texto ? undefined : 'O PDF não contém texto extraível. Se for um documento digitalizado, utilize OCR ou forneça uma versão com texto.' };
+        } catch {
+          // 2026-08-22 — fallback no servidor (PDFs muito grandes/atípicos)
+          const texto = await extrairTextoNoServidor(file).catch(() => '');
+          return texto
+            ? { texto, tipo }
+            : { texto: '', tipo, aviso: 'Não foi possível extrair o texto do PDF. O ficheiro pode estar corrompido ou protegido por palavra-passe.' };
+        }
       }
       case 'docx': {
-        const texto = await extrairTextoDocx(arrayBuffer);
-        return { texto, tipo, aviso: texto ? undefined : 'O documento Word não contém texto extraível.' };
+        try {
+          const texto = await extrairTextoDocx(arrayBuffer);
+          return { texto, tipo, aviso: texto ? undefined : 'O documento Word não contém texto extraível.' };
+        } catch {
+          const texto = await extrairTextoNoServidor(file).catch(() => '');
+          return texto
+            ? { texto, tipo }
+            : { texto: '', tipo, aviso: 'Não foi possível extrair o texto do documento Word (.docx). O ficheiro pode estar corrompido ou protegido.' };
+        }
       }
-      case 'doc':
-        return { texto: '', tipo, aviso: 'O formato Word legado (.doc) não permite extração automática neste navegador. Converta o ficheiro para .docx e carregue-o novamente.' };
+      case 'doc': {
+        // 2026-08-22 — Word LEGADO (.doc) SUPORTADO: extração no servidor
+        // (word-extractor + fallbacks RTF/HTML), sem precisar de conversão.
+        try {
+          const texto = await extrairTextoNoServidor(file);
+          return { texto, tipo, aviso: texto ? undefined : 'O documento Word (.doc) não contém texto extraível.' };
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          return { texto: '', tipo, aviso: `Não foi possível extrair o texto do Word legado (.doc): ${msg}` };
+        }
+      }
       case 'txt':
         return { texto: extrairTextoTxt(arrayBuffer), tipo };
       default:
-        return { texto: '', tipo, aviso: 'Formato não suportado para extração automática. Utilize PDF, Word (.docx) ou TXT.' };
+        return { texto: '', tipo, aviso: 'Formato não suportado para extração automática. Utilize PDF, Word (.doc/.docx) ou TXT.' };
     }
   } catch (error) {
-    const formato = tipo === 'docx' ? 'documento Word (.docx)' : tipo === 'pdf' ? 'PDF' : 'ficheiro';
+    const formato = tipo === 'doc' ? 'documento Word (.doc)' : tipo === 'docx' ? 'documento Word (.docx)' : tipo === 'pdf' ? 'PDF' : 'ficheiro';
     return { texto: '', tipo, aviso: `Não foi possível extrair o texto do ${formato}. O ficheiro pode estar corrompido ou protegido por palavra-passe.` };
   }
 };
 
-/** Limita o texto extraído ao máximo da tabela (4000 chars), cortando em frase. */
-export const limitarTextoKb = (texto: string, max = 4000): string => {
+/** Limita o texto extraído ao máximo do campo (20000 chars), cortando em frase. */
+export const limitarTextoKb = (texto: string, max = 20000): string => {
   const limpo = (texto || '').trim();
   if (limpo.length <= max) return limpo;
   const corte = limpo.slice(0, max);
