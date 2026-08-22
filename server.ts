@@ -379,6 +379,11 @@ const DADOS_COLUNAS: Record<string, Record<string, boolean>> = {
     guest_bi: true, guest_name: true, scheduled_for: true, created_at: true,
     closed_at: true, agenda: true, notes: true, duration: true, quality: true,
     participant_count: true,
+    // 2026-08-22 (v2) — eliminação POR LADO: a instituição que elimina retira
+    // a própria titularidade (institution_code+host_bi → 'REMOVIDA'); o
+    // cidadão faz o equivalente com citizen_bi+guest_bi. A linha mantém-se
+    // visível ao OUTRO lado (escopo de titularidade) e para o admin (registo).
+    institution_code: true, citizen_bi: true,
   },
 };
 

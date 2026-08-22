@@ -448,37 +448,57 @@ export const VideoSessionService = {
   },
 
   /**
-   * 2026-08-22 — ELIMINAÇÃO de agendamento (área da instituição).
-   * Remove a sessão da nuvem (proxy /api/dados com escopo de titularidade —
-   * a instituição só elimina sessões de que é ANFITRIÃ) e do espelho local.
-   * Devolve true quando a eliminação na nuvem foi confirmada (ou quando não
-   * há nuvem/sessão demo — só local); false se a nuvem falhou (não remover
-   * nada localmente nesse caso, senão a sessão "reaparece" no próximo login).
+   * 2026-08-22 (v2) — ELIMINAÇÃO POR LADO (instituição ≠ cidadão):
+   * eliminar na área da instituição NÃO elimina na área do cidadão (e
+   * vice-versa) — cada lado gere a sua própria agenda. Implementação: a
+   * titularidade do lado que elimina é removida; o escopo de titularidade
+   * do proxy deixa de devolver a linha PARA ESSE LADO, mantendo-a visível
+   * ao outro. A linha permanece na nuvem (registo/auditoria — admin vê).
+   *
+   * Notas de base de dados (provado em E2E contra a produção):
+   * · host_bi/institution_code não têm FK → 'REMOVIDA' é aceite;
+   * · citizen_bi tem FK → profiles(bi) e NOT NULL → usa-se um bi VÁLIDO
+   *   (o código da instituição anfitriã; fallback 'CDA', identidade de
+   *   sistema que existe em profiles) — o escopo do cidadão deixa de
+   *   corresponder na mesma (guest_bi vira 'REMOVIDA').
+   *
+   * `lado`: 'instituicao' | 'cidadao'; `biAnfitriao`: código da instituição
+   * (usado como marcador FK-válido quando o CIDADÃO elimina).
    */
-  async deleteSession(id: string): Promise<boolean> {
+  async deleteSession(id: string, lado: 'instituicao' | 'cidadao' = 'instituicao', biAnfitriao = ''): Promise<boolean> {
     const local = getLocalSessions();
     const alvoLocal = local.find(s => s.id === id) || null;
 
     if (hasValidSupabaseKeys() && isUUID(id)) {
+      // Sanitização do marcador FK: tem de ser um bi VÁLIDO em profiles e
+      // NUNCA 'REMOVIDA' (FK) nem o bi do próprio cidadão (senão o escopo
+      // continuaria a corresponder e a linha não desapareceria para ele).
+      const marcadorBruto = String(biAnfitriao || '').trim().toUpperCase();
+      const marcador = marcadorBruto && marcadorBruto !== 'REMOVIDA' ? marcadorBruto : 'CDA';
+      const dados = lado === 'instituicao'
+        ? { host_bi: 'REMOVIDA', institution_code: 'REMOVIDA' }
+        : { guest_bi: 'REMOVIDA', citizen_bi: marcador };
       const r = await gravarDados(
-        'video_sessions', 'delete', { id }, undefined,
+        'video_sessions', 'update', { id }, dados,
         undefined,
         async () => null,
       );
       if (r === null) {
-        console.warn('[VIDEO-DELETE] eliminação na nuvem FALHOU — nada removido localmente (manter consistência).');
+        console.warn(`[VIDEO-DELETE] eliminação (${lado}) na nuvem FALHOU — nada removido localmente (manter consistência).`);
         return false;
       }
     }
 
-    // Espelho local + eventos locais (demo/offline ou já seguro após nuvem).
-    saveLocalSessions(local.filter(s => s.id !== id));
-    saveLocalEvents(getLocalEvents().filter(e => e.sessionId !== id));
+    // Espelho local (demo/offline): a sessão some apenas para o lado que
+    // eliminou — o outro lado continua a vê-la no seu próprio dispositivo.
+    if (lado === 'instituicao') {
+      saveLocalSessions(local.map(s => s.id === id ? { ...s, hostBi: 'REMOVIDA' } : s));
+    } else {
+      saveLocalSessions(local.map(s => s.id === id ? { ...s, guestBi: 'REMOVIDA' } : s));
+    }
 
-    // Evento de auditoria (melhor esforço — a sessão já não existe na nuvem,
-    // o insert do evento fica apenas no registo local de quem eliminou).
     if (alvoLocal) {
-      this.createNotification(id, 'status_change', `Agendamento eliminado: ${alvoLocal.subject}`);
+      this.createNotification(id, 'status_change', `Agendamento eliminado (${lado}): ${alvoLocal.subject}`);
     }
     return true;
   },

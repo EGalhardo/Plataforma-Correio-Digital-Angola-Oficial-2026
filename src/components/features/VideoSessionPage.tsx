@@ -754,33 +754,61 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
       setAAgendar(false);
     }
   };
-  // 2026-08-22 — ELIMINAR AGENDAMENTO (instituição): remove a sessão na nuvem
-  // e AVISA o cidadão com texto oficial de cancelamento (o aviso nunca bloqueia
-  // a eliminação — best-effort, como o restante fluxo de notificações).
+  // 2026-08-22 (v2) — ELIMINAR POR LADO: quem elimina só remove da PRÓPRIA
+  // agenda (a linha permanece visível ao outro lado + na nuvem para registo).
+  // · Instituição elimina → cidadão mantém o registo e recebe aviso oficial
+  //   de cancelamento (a notificação NÃO elimina nada no lado dele).
+  // · Cidadão elimina → instituição mantém o seu registo e recebe aviso.
   const handleEliminarAgenda = async () => {
     if (!sessaoAEliminar) return;
     setAEliminar(true);
     try {
-      const ok = await VideoSessionService.deleteSession(String(sessaoAEliminar.id));
+      const lado: 'instituicao' | 'cidadao' = isInst ? 'instituicao' : 'cidadao';
+      // Quando o CIDADÃO elimina, o marcador FK-válido é o código da
+      // instituição anfitriã (citizen_bi tem FK → profiles(bi)). Se a
+      // instituição já tiver eliminado a sua cópia (host_bi='REMOVIDA'), usa
+      // a identidade de sistema 'CDA' (existe em profiles, nunca colide com
+      // o bi de um cidadão — o escopo deixa de corresponder na mesma).
+      const rawAnfitriao = String(sessaoAEliminar.hostBi || '').trim().toUpperCase();
+      const biAnfitriao = rawAnfitriao && rawAnfitriao !== 'REMOVIDA' ? rawAnfitriao : 'CDA';
+      const ok = await VideoSessionService.deleteSession(String(sessaoAEliminar.id), lado, biAnfitriao);
       if (!ok) {
         notify('Não foi possível eliminar na nuvem — verifique a sua ligação e tente novamente.', 'error');
         return;
       }
-      const nomeInst = instDisplayName || (isInst ? String(instCode || bi) : 'a instituição');
-      const alvoBi = String(sessaoAEliminar.guestBi || '').toUpperCase();
       const quando = sessaoAEliminar.scheduledFor ? ` marcado para ${sessaoAEliminar.scheduledFor}` : '';
       try {
-        await supabaseService.insertNotification({
-          title: 'Video-atendimento cancelado',
-          message: `Caro cidadão ${sessaoAEliminar.guestName || ''}, o(a) ${nomeInst} cancelou o video-atendimento "${sessaoAEliminar.subject}"${quando}. Caso seja necessário, será contactado para um novo agendamento.`,
-          type: 'warning',
-          targetTab: 'video-atendimento',
-        }, alvoBi);
+        if (lado === 'instituicao') {
+          const nomeInst = instDisplayName || String(instCode || bi);
+          await supabaseService.insertNotification({
+            title: 'Video-atendimento cancelado',
+            message: `Caro cidadão ${sessaoAEliminar.guestName || ''}, o(a) ${nomeInst} cancelou o video-atendimento "${sessaoAEliminar.subject}"${quando}. O registo permanece na sua área de Video-atendimento até o eliminar, caso pretenda. Para novo agendamento, contacte a instituição.`,
+            type: 'warning',
+            targetTab: 'video-atendimento',
+          }, String(sessaoAEliminar.guestBi || '').toUpperCase());
+        } else {
+          await supabaseService.insertNotification({
+            title: 'Video-atendimento eliminado pelo cidadão',
+            message: `O cidadão ${sessaoAEliminar.guestName || ''} eliminou da sua área o video-atendimento "${sessaoAEliminar.subject}"${quando}. O registo permanece na agenda da instituição.`,
+            type: 'info',
+            targetTab: 'video-atendimento',
+          }, String(sessaoAEliminar.hostBi || '').toUpperCase());
+        }
       } catch (nErr) {
-        console.warn('[VIDEO-ELIMINAR] aviso de cancelamento ao cidadão falhou (a eliminação mantém-se):', nErr);
+        console.warn('[VIDEO-ELIMINAR] aviso à contraparte falhou (a eliminação mantém-se):', nErr);
       }
-      addAuditLog?.(`Eliminou o agendamento de video-atendimento "${sessaoAEliminar.subject}" com ${sessaoAEliminar.guestName || 'o cidadão'}${alvoBi ? ` (${alvoBi})` : ''}.`, 'warning');
-      notify('Agendamento eliminado. O cidadão foi notificado do cancelamento.', 'success');
+      addAuditLog?.(
+        lado === 'instituicao'
+          ? `Eliminou da agenda da instituição o video-atendimento "${sessaoAEliminar.subject}" com ${sessaoAEliminar.guestName || 'o cidadão'}${sessaoAEliminar.guestBi ? ` (${sessaoAEliminar.guestBi})` : ''}. O registo permanece na área do cidadão.`
+          : `Eliminou da sua área o video-atendimento "${sessaoAEliminar.subject}" de ${sessaoAEliminar.hostName || 'instituição'}${sessaoAEliminar.hostBi ? ` (${sessaoAEliminar.hostBi})` : ''}. O registo permanece na agenda da instituição.`,
+        'warning'
+      );
+      notify(
+        lado === 'instituicao'
+          ? 'Agendamento eliminado da agenda da instituição. O cidadão foi notificado e mantém o registo na própria área.'
+          : 'Agendamento eliminado da sua área. A instituição mantém o próprio registo.',
+        'success'
+      );
       setSessaoAEliminar(null);
       await loadSessions();
     } catch (e) {
@@ -884,8 +912,12 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
   
   const handleEndCall = () => {
     if (selectedSession) {
-      VideoSessionService.updateSessionStatus(selectedSession.id, 'concluida');
-      addAuditLog?.(`Terminou videoatendimento: ${selectedSession.subject}`, 'info');
+      // 2026-08-22 (v2) — SAIR da sala NÃO conclui o agendamento: o registo
+      // permanece na Agenda até eliminação deliberada (o dono reportou que
+      // entrar "só para verificar" + sair fazia o agendamento desaparecer —
+      // o status passava a 'concluida' e a Agenda deixa de o mostrar).
+      VideoSessionService.updateSessionStatus(selectedSession.id, 'agendada');
+      addAuditLog?.(`Saiu da sala de vídeo "${selectedSession.subject}" — o agendamento mantém-se na Agenda até ser eliminado deliberadamente.`, 'info');
     }
     setIsInCall(false);
     setSelectedSession(null);
@@ -1031,13 +1063,14 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                               </div>
                               <div className="flex items-center gap-1.5">
                               <button onClick={(e) => { e.stopPropagation(); handleStartCall(session); }} className="px-3 py-1.5 bg-primary text-white text-[10px] font-black uppercase rounded-lg hover:bg-primary/90 transition-all border-0 cursor-pointer">Entrar</button>
-                              {/* 2026-08-22 — ELIMINAR AGENDA (área da instituição):
-                                  só a instituição ANFITRIÃ elimina os seus
-                                  agendamentos; exige confirmação no modal. */}
-                              {isInst && !sessionDemo && (
+                              {/* 2026-08-22 (v2) — ELIMINAR: disponível na área da
+                                  INSTITUIÇÃO (responsável/colaboradores) e também
+                                  na área do CIDADÃO — cada lado elimina apenas da
+                                  própria agenda; o outro lado mantém o registo. */}
+                              {!sessionDemo && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setSessaoAEliminar(session); }}
-                                  title="Eliminar agendamento"
+                                  title="Eliminar da minha agenda"
                                   className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-[10px] font-black uppercase rounded-lg transition-all cursor-pointer"
                                 >
                                   <Trash2 size={12} />
@@ -1405,9 +1438,11 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
             </div>
             <div className="p-6 space-y-4">
               <p className="text-xs text-slate-600 dark:text-slate-300 font-bold leading-relaxed">
-                Tem a certeza que pretende eliminar este video-atendimento? O cidadão
-                será notificado do cancelamento e a sessão será removida
-                definitivamente da agenda da instituição.
+                {isInst ? (
+                  <>Tem a certeza que pretende eliminar este video-atendimento da agenda da instituição? O cidadão será notificado do cancelamento e <span className="font-black">o registo permanecerá na área dele</span> até o próprio eliminar.</>
+                ) : (
+                  <>Tem a certeza que pretende eliminar este video-atendimento da sua área? A instituição será notificada e <span className="font-black">manterá o registo na própria agenda</span>.</>
+                )}
               </p>
               <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-1.5">
                 <p className="text-[11px] font-black text-slate-800 dark:text-slate-100">{sessaoAEliminar.subject}</p>
