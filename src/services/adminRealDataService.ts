@@ -39,6 +39,7 @@ export interface RealMessageRow {
   org: string | null;
   preview: string | null;
   subject: string | null;
+  unread: boolean | null;
 }
 
 export interface RealVideoRow {
@@ -200,7 +201,7 @@ export async function carregarDadosReaisAdmin(forcar = false): Promise<AdminReal
       ler(supabase.from('profiles').select('bi,name,role,phone,email,nif,morada').limit(500)),
       ler(supabase.from('audit_logs').select('id,action,username,timestamp,action_type').order('id', { ascending: false }).limit(1500)),
       contar('audit_logs'),
-      ler(supabase.from('messages').select('id,status,created_at,org,preview,subject').order('created_at', { ascending: false }).limit(2000)),
+      ler(supabase.from('messages').select('id,status,created_at,org,preview,subject,unread').order('created_at', { ascending: false }).limit(2000)),
       contar('messages'),
       ler(supabase.from('video_sessions').select('id,subject,status,scheduled_for,created_at,host_bi,institution_code').order('created_at', { ascending: false }).limit(500)),
       ler(supabase.from('documents').select('id,name,holder_bi,issued_at,status').order('issued_at', { ascending: false }).limit(500)),

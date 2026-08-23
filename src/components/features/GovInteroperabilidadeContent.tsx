@@ -33,6 +33,9 @@ import { supabaseService } from '../../services/supabaseService';
 import { registoPublicoProxy, enviarMensagemAdministrativa } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore } from '../../services/homologationStore';
+// 2026-08-23 — MODO REAL: métricas da base central (nunca simuladas). Sem
+// medição real o cartão mostra «—» em vez de percentagens decorativas.
+import { carregarDadosReaisAdmin, type AdminRealData } from '../../services/adminRealDataService';
 import { parseInstPack, isInstitutionObservacao, normalizeInstCode, getLocalInstRegs, updateLocalInstReg } from '../../services/institutionRegistrationStore';
 import { parsePvicFromObservacoes } from '../../services/preVerificationService';
 import { shouldUseMockFallback } from '../../config/runtime';
@@ -796,6 +799,13 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   };
 
   // Aggregated analytics/metrics derived from the current set of institutions
+  const [dadosReais, setDadosReais] = useState<AdminRealData | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    carregarDadosReaisAdmin().then(d => { if (vivo && d) setDadosReais(d); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+
   const metrics = useMemo(() => {
     const totalInsts = institutions.length;
     const activeInsts = institutions.filter(i => i.status === 'Ativa').length;
@@ -809,6 +819,25 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     const totalPerf = parsedPerf.reduce((sum, val) => sum + val, 0);
     const avgPerformance = totalInsts > 0 ? (totalPerf / totalInsts).toFixed(1) : "0";
 
+    // MODO REAL — números da base central: contas institucionais reais,
+    // tráfego real da tabela messages e IA medida pelo log real de conversas.
+    // O que não tem medição (SLA) fica honestamente «—».
+    if (dadosReais) {
+      const totalInstsReais = dadosReais.instituicoes?.length ?? 0;
+      const ativasReais = totalInstsReais;
+      const totalCorrReais = dadosReais.mensagensTotal ?? (dadosReais.mensagens?.length ?? 0);
+      const siglasIa = new Set((dadosReais.iaLogs || []).map(l => String(l.sigla || '').toUpperCase()).filter(Boolean));
+      const avgAiUsageReais = totalInstsReais > 0
+        ? String(Math.round((siglasIa.size / totalInstsReais) * 1000) / 10)
+        : '0';
+      return {
+        totalInsts: totalInstsReais,
+        activeInsts: ativasReais,
+        totalCorr: totalCorrReais,
+        avgAiUsage: avgAiUsageReais,
+        avgPerformance: '—',
+      };
+    }
     return {
       totalInsts,
       activeInsts,
@@ -816,7 +845,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
       avgAiUsage,
       avgPerformance
     };
-  }, [institutions]);
+  }, [institutions, dadosReais]);
 
   // Main filtered institutions list
   const filteredInstitutions = useMemo(() => {
@@ -1075,7 +1104,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
             <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block leading-none">Volume de Correio</span>
             <div className="flex items-baseline gap-1.5 mt-1">
               <span className="text-xl font-black text-slate-800 font-mono leading-none">{metrics.totalCorr.toLocaleString()}</span>
-              <span className="text-[9.5px] text-emerald-600 font-extrabold">+12.4%</span>
+              <span className="text-[9.5px] text-emerald-600 font-extrabold">{dadosReais ? 'nuvem' : '+12.4%'}</span>
             </div>
             <p className="text-[9.5px] text-slate-500 mt-1 leading-normal font-sans">Transações efetuadas</p>
           </div>
@@ -2263,7 +2292,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                         <div className="flex justify-between items-center bg-slate-50 rounded-xl p-3 border border-slate-100 mt-2">
                           <div>
                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">DATA DE REGISTO</span>
-                            <span className="font-mono font-black text-slate-800 text-xs mt-1 block leading-none">{selectedInstHistory.registrationDate || '12/03/2025'}</span>
+                            <span className="font-mono font-black text-slate-800 text-xs mt-1 block leading-none">{selectedInstHistory.registrationDate || '—'}</span>
                           </div>
                           <div className="text-right">
                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">STATUS DO ECOSSISTEMA</span>

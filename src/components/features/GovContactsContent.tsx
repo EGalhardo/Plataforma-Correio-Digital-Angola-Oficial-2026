@@ -19,6 +19,11 @@ import {
 import { normalizarTitulo } from '../../services/textNormalizeService';
 import { parsePvicFromObservacoes } from '../../services/preVerificationService';
 import { shouldUseMockFallback } from '../../config/runtime';
+// 2026-08-23 — MODO REAL: moradas/agentes da base central; nada simulado.
+import { carregarDadosReaisAdmin, type AdminRealData } from '../../services/adminRealDataService';
+
+const _ehAgenteCodificado = (bi: string) =>
+  /^[A-Z]+(-[A-Z]+)*-\d{2,}(-[A-Z]{2,})?$/.test((bi || '').toUpperCase()) && (bi || '').toUpperCase() !== 'CDA';
 import { provisionCloudAccount, markCloudAccount, isCloudBound, unmarkCloudAccount, isSupabaseConfigured, syntheticAdminEmail, syntheticInstitutionAgentEmail } from '../../services/cloudAuthService';
 import {
   Users,
@@ -887,6 +892,48 @@ export function GovContactsContent({
     localStorage.setItem('gov_admin_citizens', JSON.stringify(citizens));
   }, [citizens]);
 
+  // MODO REAL — dados da base central: moradas reais dos cidadãos (join por BI)
+  // e agentes reais da equipa. Em Modo Demo nada disto corre.
+  const [dadosReais, setDadosReais] = useState<AdminRealData | null>(null);
+  const moradasReaisRef = React.useRef<Map<string, string>>(new Map());
+  React.useEffect(() => {
+    let vivo = true;
+    carregarDadosReaisAdmin().then(d => {
+      if (!vivo || !d) return;
+      const mapa = new Map<string, string>();
+      (d.profiles || []).forEach(pp => {
+        if (pp.bi && pp.morada) mapa.set(pp.bi.toUpperCase(), pp.morada);
+      });
+      moradasReaisRef.current = mapa;
+      setDadosReais(d);
+    }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+
+  // Equipa REAL: contas de agente existentes na base central (role admin ou BI
+  // codificado de agente). É a fonte canónica em Modo Real — o espelho local
+  // (membros registados nesta consola) é somado sem duplicar.
+  const agentesReais = React.useMemo(() => {
+    if (!dadosReais || appMode !== 'admin-workers') return [] as Trabajador[];
+    return (dadosReais.profiles || [])
+      .filter(pp => (pp.role || '').toLowerCase() === 'admin' || _ehAgenteCodificado(pp.bi || ''))
+      .map<Trabajador>(pp => ({
+        id: pp.bi,
+        name: pp.name || pp.bi,
+        email: pp.email || '—',
+        phone: pp.phone || '—',
+        role: 'Agente da Plataforma',
+        department: 'Administração Central',
+        agentId: pp.bi,
+        status: 'Ativo',
+        lastAccess: 'Registo na base central',
+        registrationDate: '—',
+        permissions: ['Visualizar'],
+        paginas: undefined,
+        activityLogs: [],
+      }));
+  }, [dadosReais, appMode]);
+
   // Extrai o relatório REAL da pré-verificação local embutido nas observações:
   // formato novo: marcador [KYC:{...}] | formato legado: "Pré-verificação local: X% (Y)".
   const parseKycFromObservacoes = (raw?: string): { fm: number | null; iq: number | null; ocr: number | null; coh: number | null; ia?: string } | null => {
@@ -977,9 +1024,11 @@ export function GovContactsContent({
       id: String(item.id),
       name: item.nome,
       category: item.observacoes?.includes('[Instituição]') ? 'Instituição' : 'Cidadão',
-      province: 'Luanda',
-      municipio: 'Belas',
-      address: item.observacoes?.includes('[Instituição]') ? 'Sede da ENDE, Luanda, Angola' : 'Centralidade do Kilamba, Bloco T22',
+      // 2026-08-23 — MODO REAL: território/morada vêm da base central (morada
+      // real do profile). Sem dado → «—» (nunca 'Luanda/Belas/Kilamba' fixos).
+      province: '—',
+      municipio: '—',
+      address: moradasReaisRef.current.get(String(item.bi_numero || '').toUpperCase()) || '—',
       contact: item.email,
       status: st,
       biNumber: item.bi_numero,
@@ -988,7 +1037,7 @@ export function GovContactsContent({
       urlSelfie: item.url_selfie || '',
       reason: stripKycMarker(item.observacoes),
       registrationDate: item.criado_em ? new Date(item.criado_em).toLocaleDateString('pt-AO') : undefined,
-      verificationScore: kyc?.coh ?? (item.status === 'Aprovado' ? 98.4 : undefined),
+      verificationScore: kyc?.coh ?? undefined,
       coherenceLevel: kyc?.coh ?? undefined,
       facialMatch: kyc?.fm ?? undefined,
       imageQuality: kyc?.iq ?? undefined,
@@ -1805,14 +1854,21 @@ export function GovContactsContent({
   };
 
   // Filtered workers list
+  const equipaCombinada = useMemo(() => {
+    if (!dadosReais || appMode !== 'admin-workers') return workers;
+    const vistos = new Set(agentesReais.map(a => (a.agentId || '').toUpperCase()));
+    const espelho = workers.filter(w => w.agentId && !vistos.has(w.agentId.toUpperCase()));
+    return [...agentesReais, ...espelho];
+  }, [workers, agentesReais, dadosReais, appMode]);
+
   const filteredWorkers = useMemo(() => {
-    return workers.filter(w => {
+    return equipaCombinada.filter(w => {
       const matchesSearch = w.name.toLowerCase().includes(workerSearch.toLowerCase()) || 
                             w.email.toLowerCase().includes(workerSearch.toLowerCase()) ||
                             w.role.toLowerCase().includes(workerSearch.toLowerCase());
       return matchesSearch;
     });
-  }, [workers, workerSearch]);
+  }, [equipaCombinada, workerSearch]);
 
   if (appMode === 'institution' || appMode === 'admin-workers') {
     const isPlatformAdmin = appMode === 'admin-workers';
@@ -1859,7 +1915,7 @@ export function GovContactsContent({
             </span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-3xl font-black text-slate-900 italic font-mono">
-                <AnimatedCounter to={workers.length} className="italic" />
+                <AnimatedCounter to={appMode === 'admin-workers' && dadosReais ? equipaCombinada.length : workers.length} className="italic" />
               </span>
               <span className="text-[10px] text-slate-400 font-bold">Inscritos</span>
             </div>
@@ -2822,7 +2878,7 @@ export function GovContactsContent({
           <div className="w-px h-8 bg-slate-200" />
           <div className="text-left px-3">
             <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Tráfego de Conexão</div>
-            <div className="text-lg font-black text-emerald-600">99.9% <span className="text-[9px] font-semibold text-slate-400 font-mono">DISP</span></div>
+            <div className="text-lg font-black text-emerald-600">{dadosReais ? <span title="Sem medição de tráfego na base central">—</span> : '99.9%'} <span className="text-[9px] font-semibold text-slate-400 font-mono">{dadosReais ? 'SEM MEDIÇÃO' : 'DISP'}</span></div>
           </div>
         </div>
       </div>

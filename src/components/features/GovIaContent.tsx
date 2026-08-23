@@ -34,6 +34,8 @@ import {
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { supabase } from '../../lib/supabaseClient';
+// 2026-08-23 — MODO REAL: telemetria da IA vem do log real (ia_conversas_log).
+import { carregarDadosReaisAdmin } from '../../services/adminRealDataService';
 import { registoPublicoProxy } from '../../services/supabaseService';
 import { isInstitutionObservacao } from '../../services/institutionRegistrationStore';
 
@@ -164,6 +166,28 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
         if (typeof cfg.mainModel === 'string' && cfg.mainModel.trim()) setMainModel(cfg.mainModel);
       }
     } catch { /* ignora valores corrompidos */ }
+  }, []);
+
+  // MODO REAL — telemetria medida: conversas do dia, latência média (ms→s) e
+  // taxa de resposta OK registadas pelo backend na ia_conversas_log.
+  useEffect(() => {
+    let vivo = true;
+    carregarDadosReaisAdmin().then(d => {
+      if (!vivo || !d) return;
+      const logs = d.iaLogs || [];
+      if (!logs.length) return;
+      const hoje = new Date().toISOString().slice(0, 10);
+      const deHoje = logs.filter(l => String(l.created_at || '').slice(0, 10) === hoje);
+      const lats = logs.map(l => Number(l.lat_ms)).filter(n => Number.isFinite(n) && n > 0);
+      const oks = logs.filter(l => l.resposta_ok === true).length;
+      setAiStats(prev => ({
+        ...prev,
+        totalConversations: deHoje.length,
+        resolutionRate: logs.length ? Math.round((oks / logs.length) * 1000) / 10 : 0,
+        avgResponseTime: lats.length ? `${Math.round(lats.reduce((a, b) => a + b, 0) / lats.length)} ms` : '—',
+      }));
+    }).catch(() => {});
+    return () => { vivo = false; };
   }, []);
 
   // DADOS REAIS (substitui os números fabricados que aqui existiam):

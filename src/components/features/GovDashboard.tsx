@@ -17,7 +17,7 @@ import {
   Video,
   FolderPlus
 } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 import { Document, AppMode, UserRequest, VideoSession, VideoSessionEvent } from "../../types";
@@ -26,6 +26,11 @@ import { useInstitutions } from "../../services/institutionStore";
 import { VideoSessionService } from "../../services/videoSessionService";
 import { LazyImage } from "../ui/LazyImage";
 import { AnimatedCounter } from "../ui/AnimatedCounter";
+// 2026-08-23 — MODO REAL: dados da base central (nunca simulados). Em Modo
+// Demo (carregarDadosReaisAdmin → null) as métricas mantêm o comportamento
+// demonstrativo de sempre; em Modo Real TODOS os números do painel vêm da
+// nuvem, e o que não tem medição aparece honestamente como «—».
+import { carregarDadosReaisAdmin, type AdminRealData } from "../../services/adminRealDataService";
 
 interface Institution {
   name: string;
@@ -184,6 +189,63 @@ export function GovDashboard({
   addAuditLog,
 }: GovDashboardProps & { appMode?: AppMode }) {
   const { institutions: masterInstitutions } = useInstitutions();
+  const [dadosReais, setDadosReais] = useState<AdminRealData | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    carregarDadosReaisAdmin().then(d => { if (vivo && d) setDadosReais(d); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+
+  // ===== Métricas REAIS do painel (só usadas quando dadosReais existe) =====
+  const reais = useMemo(() => {
+    const d = dadosReais;
+    if (!d) return null;
+    const msgs = d.mensagens || [];
+    const total = d.mensagensTotal ?? msgs.length;
+    const lidas = msgs.filter(m => m.unread === false).length;
+    // pendências reais: pedidos de serviço ainda não concluídos
+    const pend = (d.userRequests || []).filter(r => {
+      const st = String(r.status || '').toLowerCase();
+      return !st || st.includes('pend') || st.includes('anal') || st.includes('aguard') || st.includes('process');
+    }).length;
+    // variação real: mensagens deste mês vs mês anterior
+    const agora = new Date();
+    const mesAtual = agora.getFullYear() * 12 + agora.getMonth();
+    const desteMes = msgs.filter(m => {
+      if (!m.created_at) return false;
+      const dt = new Date(m.created_at);
+      return dt.getFullYear() * 12 + dt.getMonth() === mesAtual;
+    }).length;
+    const doMesPassado = msgs.filter(m => {
+      if (!m.created_at) return false;
+      const dt = new Date(m.created_at);
+      return dt.getFullYear() * 12 + dt.getMonth() === mesAtual - 1;
+    }).length;
+    const variacao = doMesPassado > 0 ? Math.round(((desteMes - doMesPassado) / doMesPassado) * 1000) / 10 : null;
+    // distribuição real por organismo emissor (org)
+    const porOrg = new Map<string, number>();
+    msgs.forEach(m => {
+      const k = (m.org || 'Sem organismo').trim() || 'Sem organismo';
+      porOrg.set(k, (porOrg.get(k) || 0) + 1);
+    });
+    const orgsTop = Array.from(porOrg.entries()).sort((a, b) => b[1] - a[1]);
+    const donut = orgsTop.slice(0, 4).map(([nome, v]) => ({ nome, v }));
+    const resto = orgsTop.slice(4).reduce((s2, [, v]) => s2 + v, 0);
+    if (resto > 0) donut.push({ nome: 'Outros', v: resto });
+    const paleta = ['#2563eb', '#ef4444', '#10b981', '#8b5cf6', '#f97316'];
+    const donutData = donut.map((e, i) => ({ name: e.nome, value: e.v, color: paleta[i % paleta.length] }));
+    // atividade recente real: últimos eventos de auditoria
+    const atividade = (d.auditLogs || []).slice(0, 5).map(l => ({
+      desc: l.action || 'Evento de auditoria',
+      time: l.timestamp ? new Date(l.timestamp).toLocaleString('pt-AO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—',
+    }));
+    return {
+      total, lidas, pend, desteMes, variacao, donutData, atividade,
+      instituicoes: d.instituicoes?.length ?? 0,
+      cidadaos: d.cidadaos?.length ?? 0,
+      sucesso: total > 0 ? Math.round((lidas / total) * 1000) / 10 : null,
+    };
+  }, [dadosReais]);
   // A role é FIXA nesta versão do painel (não há selector de role); o valor
   // faz gate de secções do JSX (ex.: registo anti-fraude só p/ operadores).
   const [activeRole] = useState<GovRole>('administrador');
@@ -527,7 +589,7 @@ export function GovDashboard({
             <div className="bg-white border border-[#0c2340]/12 rounded-[20px] p-6 flex flex-col justify-between min-h-[145px] text-left hover:border-[#0c2340]/25 transition-all">
               <div className="space-y-1">
                 <AnimatedCounter
-                  to={1248752}
+                  to={reais ? reais.total : 1248752}
                   duration={2000}
                   suffix=""
                   className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none font-mono"
@@ -536,8 +598,12 @@ export function GovDashboard({
                    Correspondências Enviadas
                 </div>
               </div>
-              <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-emerald-600">
-                ↑ 12,5% vs mês anterior
+              <div className={`mt-2 text-[11px] font-bold uppercase tracking-wider ${reais && reais.variacao !== null && reais.variacao < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                {reais
+                  ? (reais.variacao !== null
+                      ? `${reais.variacao >= 0 ? '↑' : '↓'} ${String(Math.abs(reais.variacao)).replace('.', ',')}% vs mês anterior`
+                      : `${reais.desteMes} este mês · sem base anterior`)
+                  : '↑ 12,5% vs mês anterior'}
               </div>
             </div>
 
@@ -545,17 +611,17 @@ export function GovDashboard({
             <div className="bg-white border border-[#0c2340]/12 rounded-[20px] p-6 flex flex-col justify-between min-h-[145px] text-left hover:border-[#0c2340]/25 transition-all">
               <div className="space-y-1">
                 <AnimatedCounter
-                  to={1000000}
+                  to={reais ? reais.lidas : 1000000}
                   duration={2200}
                   suffix=""
                   className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none font-mono"
                 />
                 <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mt-1">
-                   Correspondências Entregues
+                   Correspondências Entregues{reais ? ' / Lidas' : ''}
                 </div>
               </div>
               <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-emerald-600">
-                ↑ 9,8% vs mês anterior
+                {reais ? 'lidas pelos destinatários na base central' : '↑ 9,8% vs mês anterior'}
               </div>
             </div>
 
@@ -563,7 +629,7 @@ export function GovDashboard({
             <div className="bg-white border border-[#0c2340]/12 rounded-[20px] p-6 flex flex-col justify-between min-h-[145px] text-left hover:border-[#0c2340]/25 transition-all">
               <div className="space-y-1">
                 <AnimatedCounter
-                  to={100}
+                  to={reais ? reais.pend : 100}
                   duration={1800}
                   suffix=""
                   className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none font-mono"
@@ -573,26 +639,30 @@ export function GovDashboard({
                 </div>
               </div>
               <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-rose-600">
-                ↓ 5,3% vs mês anterior
+                {reais ? 'pedidos de serviço em curso na base central' : '↓ 5,3% vs mês anterior'}
               </div>
             </div>
 
             {/* Cartão 4 */}
             <div className="bg-white border border-[#0c2340]/12 rounded-[20px] p-6 flex flex-col justify-between min-h-[145px] text-left hover:border-[#0c2340]/25 transition-all">
               <div className="space-y-1">
-                <AnimatedCounter
-                  to={100}
-                  duration={2000}
-                  decimals={0}
-                  suffix="%"
-                  className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none font-mono"
-                />
+                {reais && reais.sucesso === null ? (
+                  <span className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none font-mono">—</span>
+                ) : (
+                  <AnimatedCounter
+                    to={reais ? reais.sucesso ?? 0 : 100}
+                    duration={2000}
+                    decimals={reais ? 1 : 0}
+                    suffix="%"
+                    className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none font-mono"
+                  />
+                )}
                 <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mt-1">
-                   Taxa de Sucesso
+                   Taxa de Sucesso{reais ? ' (leitura)' : ''}
                 </div>
               </div>
               <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-emerald-600">
-                ↑ 7,6% vs mês anterior
+                {reais ? 'mensagens lidas / total enviado' : '↑ 7,6% vs mês anterior'}
               </div>
             </div>
           </div>
@@ -610,17 +680,17 @@ export function GovDashboard({
                 </div>
                 <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 leading-none mt-1 min-w-0">
                   <AnimatedCounter
-                    to={masterInstitutions.filter(i => i.status === 'Ativa').length}
+                    to={reais ? reais.instituicoes : masterInstitutions.filter(i => i.status === 'Ativa').length}
                     duration={1500}
                     suffix=""
                     className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight italic shrink-0 font-mono"
                   />
                   <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-wider truncate max-w-full">
-                    de {masterInstitutions.length} integradas
+                    {reais ? 'contas institucionais reais' : `de ${masterInstitutions.length} integradas`}
                   </span>
                 </div>
                 <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-emerald-600 pt-1">
-                  ↑ 100% operacional
+                  {reais ? 'na base central · nuvem' : '↑ 100% operacional'}
                 </div>
               </div>
             </div>
@@ -636,7 +706,7 @@ export function GovDashboard({
                 </div>
                 <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 leading-none mt-1 min-w-0">
                   <AnimatedCounter
-                    to={2300000}
+                    to={reais ? reais.cidadaos : 2300000}
                     duration={2000}
                     suffix=""
                     className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight italic shrink-0 font-mono"
@@ -644,7 +714,7 @@ export function GovDashboard({
                   <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-wider truncate max-w-full">cidadãos</span>
                 </div>
                 <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-emerald-600 pt-1">
-                  ↑ 85.230 este mês
+                  {reais ? 'registados na base central' : '↑ 85.230 este mês'}
                 </div>
               </div>
             </div>
@@ -659,15 +729,19 @@ export function GovDashboard({
                   Tempo Médio de Resposta
                 </div>
                 <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 leading-none mt-1">
-                  <AnimatedCounter
-                    to={155}
-                    duration={1800}
-                    suffix=" min"
-                    className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight italic shrink-0 font-mono"
-                  />
+                  {reais ? (
+                    <span className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight italic shrink-0 font-mono">—</span>
+                  ) : (
+                    <AnimatedCounter
+                      to={155}
+                      duration={1800}
+                      suffix=" min"
+                      className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight italic shrink-0 font-mono"
+                    />
+                  )}
                 </div>
                 <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-[#10b981] pt-1">
-                  ↓ -18% vs mês anterior
+                  {reais ? 'sem medição na base central' : '↓ -18% vs mês anterior'}
                 </div>
               </div>
             </div>
@@ -683,15 +757,15 @@ export function GovDashboard({
                 </div>
                 <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 leading-none mt-1 min-w-0">
                   <AnimatedCounter
-                    to={12540}
+                    to={reais ? reais.pend : 12540}
                     duration={1600}
                     suffix=""
                     className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight italic shrink-0 font-mono"
                   />
-                  <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-wider truncate max-w-full block">correspondências</span>
+                  <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-wider truncate max-w-full block">{reais ? 'pedidos de serviço' : 'correspondências'}</span>
                 </div>
                 <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-rose-600 pt-1">
-                  ↓ -6,7% vs mês anterior
+                  {reais ? 'pedidos reais em aberto' : '↓ -6,7% vs mês anterior'}
                 </div>
               </div>
             </div>
@@ -1219,13 +1293,17 @@ export function GovDashboard({
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={[
-                            { name: "Fiscais", value: 35.6, color: "#2563eb" },
-                            { name: "Educação", value: 25.8, color: "#ef4444" },
-                            { name: "Saúde", value: 15.6, color: "#10b981" },
-                            { name: "Justiça", value: 12.4, color: "#8b5cf6" },
-                            { name: "Outros", value: 10.6, color: "#f97316" }
-                          ]}
+                          data={reais
+                            ? (reais.donutData.length
+                                ? reais.donutData.map(e => ({ name: e.nome, value: e.value, color: e.color }))
+                                : [{ name: "Sem tráfego", value: 1, color: "#cbd5e1" }])
+                            : [
+                                { name: "Fiscais", value: 35.6, color: "#2563eb" },
+                                { name: "Educação", value: 25.8, color: "#ef4444" },
+                                { name: "Saúde", value: 15.6, color: "#10b981" },
+                                { name: "Justiça", value: 12.4, color: "#8b5cf6" },
+                                { name: "Outros", value: 10.6, color: "#f97316" }
+                              ]}
                           cx="50%"
                           cy="50%"
                           innerRadius={45}
@@ -1233,13 +1311,18 @@ export function GovDashboard({
                           paddingAngle={3}
                           dataKey="value"
                         >
-                          {[
-                            { color: "#2563eb" },
-                            { color: "#ef4444" },
-                            { color: "#10b981" },
-                            { color: "#8b5cf6" },
-                            { color: "#f97316" }
-                          ].map((entry, index) => (
+                          {(reais
+                            ? (reais.donutData.length
+                                ? reais.donutData.map(e => ({ color: e.color }))
+                                : [{ color: "#cbd5e1" }])
+                            : [
+                                { color: "#2563eb" },
+                                { color: "#ef4444" },
+                                { color: "#10b981" },
+                                { color: "#8b5cf6" },
+                                { color: "#f97316" }
+                              ]
+                          ).map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
@@ -1250,20 +1333,29 @@ export function GovDashboard({
                         Fluxo
                       </span>
                       <span className="text-lg font-black text-slate-955 italic tracking-tighter leading-none mt-0.5">
-                        100%
+                        {reais ? (reais.total > 0 ? '100%' : '—') : '100%'}
                       </span>
                     </div>
                   </div>
 
                   {/* Legendas coloridas */}
                   <div className="w-full space-y-2">
-                    {[
-                      { name: "Fiscais", value: "35,6%", color: "#2563eb" },
-                      { name: "Educação", value: "25,8%", color: "#ef4444" },
-                      { name: "Saúde", value: "15,6%", color: "#10b981" },
-                      { name: "Justiça", value: "12,4%", color: "#8b5cf6" },
-                      { name: "Outros", value: "10,6%", color: "#f97316" }
-                    ].map((cat) => (
+                    {(reais
+                      ? (reais.donutData.length
+                          ? reais.donutData.map(e => ({
+                              name: e.nome.length > 18 ? e.nome.slice(0, 17) + '…' : e.nome,
+                              value: `${String(Math.round((e.value / Math.max(1, reais.total)) * 1000) / 10).replace('.', ',')}%`,
+                              color: e.color,
+                            }))
+                          : [])
+                      : [
+                        { name: "Fiscais", value: "35,6%", color: "#2563eb" },
+                        { name: "Educação", value: "25,8%", color: "#ef4444" },
+                        { name: "Saúde", value: "15,6%", color: "#10b981" },
+                        { name: "Justiça", value: "12,4%", color: "#8b5cf6" },
+                        { name: "Outros", value: "10,6%", color: "#f97316" }
+                      ]
+                    ).map((cat) => (
                       <div
                         key={cat.name}
                         className="flex items-center justify-between text-[11px] p-1.5 hover:bg-slate-50 rounded-xl transition-colors border border-transparent"
@@ -1324,7 +1416,9 @@ export function GovDashboard({
 
                   {/* Província list */}
                   <div className="w-full max-h-[170px] overflow-y-auto pr-2 space-y-1.5 text-slate-600 scrollbar-thin feedback-scroll">
-                    {[
+                    {(reais
+                        ? [{ name: "Sem dados territoriais na base central", count: "—", color: "bg-slate-400" }]
+                        : [
                       { name: "Luanda", count: "412.540", color: "bg-blue-600" },
                       { name: "Benguela", count: "125.450", color: "bg-purple-600" },
                       { name: "Huíla", count: "98.234", color: "bg-amber-600" },
@@ -1344,7 +1438,7 @@ export function GovDashboard({
                       { name: "Cuando", count: "8.600", color: "bg-red-500" },
                       { name: "Cubango", count: "5.720", color: "bg-orange-500" },
                       { name: "Bengo", count: "11.200", color: "bg-slate-500" }
-                    ].map((prov) => (
+                    ]).map((prov) => (
                       <div
                         key={prov.name}
                         className="flex justify-between items-center text-[11px] p-1 border-b border-slate-50"
@@ -1381,12 +1475,14 @@ export function GovDashboard({
                 </div>
 
                 <div className="space-y-3">
-                  {[
+                  {(reais
+                      ? reais.donutData.slice(0, 4).map(e => ({ name: e.nome.length > 22 ? e.nome.slice(0, 21) + '…' : e.nome, count: String(e.value), trend: 'real' }))
+                      : [
                     { name: "Fiscais", count: "128.752", trend: "↑ 11,3%" },
                     { name: "Educação", count: "96.540", trend: "↑ 8,7%" },
                     { name: "Saúde", count: "72.318", trend: "↑ 6,1%" },
                     { name: "Justiça", count: "45.897", trend: "↑ 9,4%" }
-                  ].map((notif) => (
+                  ]).map((notif) => (
                     <div
                       key={notif.name}
                       className="flex justify-between items-center p-2.5 rounded-xl bg-white border border-slate-900/10 hover:bg-slate-50 hover:border-slate-900/15 transition-colors"
@@ -1468,13 +1564,13 @@ export function GovDashboard({
 
                 <div className="space-y-2 flex flex-col items-center">
                   <div className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none">
-                    <AnimatedCounter to={1108732} className="font-mono" />
+                    <AnimatedCounter to={reais ? reais.total : 1108732} className="font-mono" />
                   </div>
                   <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
                      Validações Realizadas
                   </div>
                   <div className="text-[10px] font-black uppercase tracking-wider text-[#10b981] bg-emerald-50 w-fit px-2.5 py-1 rounded-lg border border-emerald-100 flex items-center justify-center gap-1.5">
-                    <TrendingUp size={12} /> ↑ 14,2% vs mês anterior
+                    <TrendingUp size={12} /> {reais ? (reais.variacao !== null ? `${reais.variacao >= 0 ? '↑' : '↓'} ${String(Math.abs(reais.variacao)).replace('.', ',')}% vs mês anterior` : `${reais.desteMes} este mês`) : '↑ 14,2% vs mês anterior'}
                   </div>
                 </div>
               </div>
@@ -1556,7 +1652,7 @@ export function GovDashboard({
                     Estatísticas Ativas
                   </div>
                   <div className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none flex items-center justify-center gap-2">
-                    <AnimatedCounter to={100} suffix="%" className="font-mono" />
+                    <AnimatedCounter to={reais ? (reais.sucesso ?? 0) : 100} suffix="%" className="font-mono" />
                     <span className="text-xs font-black uppercase text-emerald-600 tracking-wider">
                       Sistema Seguro
                     </span>
@@ -1614,13 +1710,15 @@ export function GovDashboard({
                 </div>
 
                 <div className="space-y-4">
-                  {[
+                  {(reais
+                    ? reais.atividade
+                    : [
                     { desc: "Correspondência Fiscal enviada", time: "20/05/2025 10:42" },
                     { desc: "Notificação de Educação entregue", time: "20/05/2025 10:35" },
                     { desc: "Documento Oficial validado por QR Code", time: "20/05/2025 10:28" },
                     { desc: "Validação por QR Code realizada", time: "20/05/2025 10:15" },
                     { desc: "Correspondência de Justiça entregue", time: "20/05/2025 10:05" }
-                  ].map((act, index) => (
+                  ]).map((act, index) => (
                     <div key={index} className="flex justify-between items-center text-[11px] p-2 hover:bg-slate-50 rounded-xl transition-colors">
                       <div className="flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
