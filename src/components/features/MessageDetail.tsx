@@ -3462,6 +3462,15 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                       onUsarRascunho={onResponderComRascunho ? (textoRascunho: string) => onResponderComRascunho(selectedMessage, textoRascunho) : undefined}
                     />
 
+                    {/* v36 — Sondagem (spec §4): cartão de resposta no fim da Assistência do Documento (vista principal) */}
+                    {!!(selectedMessage as any).sondagem_id && cidadaoBi ? (
+                      <SondagemResponderCard
+                        sondagemId={Number((selectedMessage as any).sondagem_id)}
+                        cidadaoBi={cidadaoBi}
+                        addAuditLog={addAuditLog}
+                      />
+                    ) : null}
+
                     {/* Incoming Document Attachments */}
                     {parsedAttachments.length > 0 && (
                       <div className="mt-8 pt-6 border-t border-slate-150 text-left">

@@ -1320,7 +1320,9 @@ export const supabaseService = {
           // existente (apanhado no e2e de producao apos a v27b). O cast e
           // seguro: o detalhe usa apenas protocol.protocolNumber para validar;
           // os restantes campos visuais caem no fallback generateProtocol.
-          protocol: protocoloDaLinha(item.protocol_number)
+          protocol: protocoloDaLinha(item.protocol_number),
+          // v36 — sondagem ligada à difusão
+          sondagem_id: (item as any).sondagem_id ?? null
         };
       });
     } catch (e) {
@@ -1387,7 +1389,9 @@ export const supabaseService = {
         senderKey: item.sender_bi,
         recipientBi: item.recipient_bi,
         // v27 — numero de protocolo ligado na nuvem (validacao real do QR).
-        protocol: protocoloDaLinha(item.protocol_number)
+        protocol: protocoloDaLinha(item.protocol_number),
+        // v36 — sondagem ligada à difusão
+        sondagem_id: (item as any).sondagem_id ?? null
       }));
 
       // F14 — IDs do canal legado por sigla: cópias locais etiquetadas por
@@ -1447,7 +1451,9 @@ export const supabaseService = {
         senderKey: item.sender_bi,
         recipientBi: item.recipient_bi,
         // v27 — numero de protocolo ligado na nuvem (validacao real do QR).
-        protocol: protocoloDaLinha(item.protocol_number)
+        protocol: protocoloDaLinha(item.protocol_number),
+        // v36 — sondagem ligada à difusão
+        sondagem_id: (item as any).sondagem_id ?? null
       }));
     } catch (e) {
       console.error('Supabase getSentMessagesBySender error:', e);
@@ -1513,7 +1519,9 @@ export const supabaseService = {
             // a caixa REAL do cidadao vem desta consulta OR; sem esta linha o
             // detalhe gerava um protocolo LOCAL e a validacao caia sempre em
             // «nao_encontrado» (apanhado no e2e de producao).
-            protocol: protocoloDaLinha(item.protocol_number)
+            protocol: protocoloDaLinha(item.protocol_number),
+            // v36 — sondagem ligada à difusão (enquete estilo WhatsApp)
+            sondagem_id: (item as any).sondagem_id ?? null
           };
         };
         const mapped = rows.map(mapRow);
