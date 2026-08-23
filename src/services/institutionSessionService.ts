@@ -428,7 +428,12 @@ export const resolveInstitutionLogin = async (
 
   // F32 (D2) — MIGRAÇÃO JUST-IN-TIME institucional: credencial local válida +
   // nuvem disponível + agente explícito ainda não migrado => provisiona já.
-  if (identity && supabase && agentSeq !== null && !cloudAgentMarked) {
+  // 2026-08-23 — o marcador é RELIDO com isCloudBound(typed): após cloudSignIn OK
+  // em dispositivo novo, markCloudAccount() já gravou a conta; a captura antiga
+  // (cloudAgentMarked, lida ANTES do signIn) re-disparava um signUp redundante
+  // (422 user_already_exists + round-trip inútil). Fluxos cidadão/admin já
+  // confinam o JIT ao ramo «nuvem recusou» — este fica alinhado com eles.
+  if (identity && supabase && agentSeq !== null && !isCloudBound(typed)) {
     const jitProv = await provisionCloudAccount(supabase, {
       email: cloudAgentEmail,
       password,
