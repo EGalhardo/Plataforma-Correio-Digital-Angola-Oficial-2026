@@ -1,5 +1,7 @@
-# ESPECIFICAÇÃO — SONDAGENS (v36)
+# ESPECIFICAÇÃO — SONDAGENS (v36.1)
 ## Prompt original analisado e melhorado · Correio Digital Angola · 2026-08-23
+## v36.1 (2026-08-23): regra de ÂMBITO DE DIFUSÃO — órgãos nacionais enviam a todos
+## os cidadãos; instituições locais/envias só aos cidadãos registados no seu sistema.
 
 > Este documento é o **prompt melhorado, pronto a implementar**, da funcionalidade
 > «Sondagem» (enquete estilo WhatsApp). Resulta da análise do prompt original do
@@ -36,6 +38,12 @@
    formulário, mensagens de erro exactas, agregação de resultados em tempo útil,
    permissões de colaboradores, auditoria, RLS, comportamento sem nuvem. → Todas
    definidas abaixo.
+4b. **Âmbito de difusão indefinido** (acrescentado na v36.1 a pedido do dono):
+   órgãos nacionais (Presidência, Ministérios, INE, INAPEM…) ⇒ todos os cidadãos;
+   instituições locais (conservatórias…) ⇒ só cidadãos registados no seu sistema.
+   → Regra completa no §2.1.1, com classificação por instituição, default por
+   categoria do directório, override auditado pela Administração e audiência
+   visível no popup antes do envio.
 5. **Risco de quebra evitado**: nada nesta especificação altera fluxos existentes
    (mensagens normais, QR, emergência); tudo é aditivo (nova tabela + nova coluna
    nullable + novos botões/componentes).
@@ -54,6 +62,7 @@ create table if not exists public.sondagens (
   opcoes           jsonb        not null,          -- [{"id":"a","texto":"..."}] 2..10
   permitir_varias  boolean      not null default false, -- multi-selecção num voto
   status           varchar(20)  not null default 'ativa', -- 'ativa' | 'encerrada'
+  abrangencia      varchar(10)  not null default 'nacional', -- 'nacional' | 'local' (§2.1.1)
   criada_por       varchar(40)  not null,          -- Nº Agente (ex.: INAPEM-LLMM-01)
   created_at       timestamptz  not null default now()
 );
@@ -105,14 +114,58 @@ no cliente institucional a partir de `sondagem_respostas` da própria instituiç
 - **Validação** (espelho do pedido original): pergunta vazia, <2 opções válidas ou
   opções duplicadas ⇒ o sistema **não regista** e mostra popup `CdaModal`:
   *«Na sua sondagem está a faltar preencher alguns campos.»* + lista curta do que falta.
-- **Criação bem-sucedida**: insert em `sondagens` (status `ativa`) ⇒
-  **fan-out** de uma mensagem por cidadão registado (`profiles`, papel cidadão)
-  pelo canal institucional existente (assunto: `Sondagem: <pergunta truncada>`,
-  preview, `sondagem_id` preenchido) ⇒ `addAuditLog('Sondagem criada e difundida
-  a N cidadãos', 'success')` ⇒ notificação ao cidadão (mesmo padrão do aviso de
-  agendamento: correspondência não lida + notificação com texto oficial).
+- **Criação bem-sucedida**: insert em `sondagens` (status `ativa`, `abrangencia`
+  conforme §2.1.1) ⇒ **fan-out** de uma mensagem por cidadão da audiência
+  definida pelo âmbito, pelo canal institucional existente (assunto:
+  `Sondagem: <pergunta truncada>`, preview, `sondagem_id` preenchido) ⇒
+  `addAuditLog('Sondagem criada e difundida a N cidadãos (âmbito X)', 'success')`
+  ⇒ notificação ao cidadão (mesmo padrão do aviso de agendamento: correspondência
+  não lida + notificação com texto oficial).
 - **Botão «Enviar Sondagem»** no rodapé do popup confirma a difusão (a sondagem
   só existe após envio — tal como no WhatsApp, criar = enviar).
+
+### 2.1.1 Âmbito de difusão — quem recebe a sondagem (regra v36.1)
+
+A audiência é decidida pelo **âmbito da instituição emissora**, gravado em
+`sondagens.abrangencia` no momento da criação:
+
+**A) ÂMBITO NACIONAL — órgãos responsáveis por todos os cidadãos.**
+Exemplos do dono: Presidência da República, Ministérios, INE, INAPEM, e demais
+órgãos centrais (AGT, INSS, SME, Polícia Nacional, Protecção Civil, etc. —
+categorias `Presidencia`, `Governo` e institutos nacionais do directório
+`directorioInstitucionalAngola.ts`).
+→ A sondagem é enviada a **TODOS os cidadãos registados na plataforma**
+(`profiles` com papel cidadão).
+
+**B) ÂMBITO LOCAL — instituições com público próprio.**
+Exemplos do dono: Conservatórias, Cartórios; e ainda Hospitais, Municípios/
+Governos Provinciais (`Provincial`), Instituições de Ensino, Bancos,
+Seguradoras, Operadoras, Empresas Privadas (categorias sem alcance universal).
+→ A sondagem é enviada **APENAS aos cidadãos registados no sistema dessa
+instituição**, definidos como o conjunto (UNION, deduplicado por BI) dos
+cidadãos com relação pré-existente com a instituição nas tabelas actuais:
+`document_requests` / `user_requests` (pedido dirigido ao código da instituição)
++ `messages` trocadas com ela. A resolução usa os lookups existentes de
+`supabaseService` (ou nova RPC de leitura `cda_audiencia_sondagem(p_code)` no
+mesmo espírito da v20 — STABLE, só lê, sem expor dados de outras instituições).
+→ Audiência vazia ⇒ o sistema **não cria** a sondagem e mostra popup `CdaModal`:
+*«Não há cidadãos registados no sistema desta instituição.»*
+
+**Classificação da instituição (fonte da verdade)**: campo `abrangencia`
+('nacional' | 'local') no registo de homologação da instituição, com **default
+sugerido** derivado da categoria do directório — `Presidencia`, `Governo`,
+`Financas` (AGT), `Economia` (INAPEM/INE) ⇒ 'nacional'; `Justica`
+(conservatórias/cartórios), `Provincial`, `Saude` (hospitais), `Educacao`,
+`Bancos`, `Seguros`, `Telecomunicacoes`, entidades privadas ⇒ 'local'.
+A Área de Administração pode **corrigir o âmbito na aprovação** (override
+explícito, auditado) — a categoria só fornece o default, porque dentro da mesma
+categoria podem coexistir órgãos nacionais e unidades locais (ex.: Saúde:
+MINSA nacional vs. hospital provincial).
+
+**Transparência antes do envio**: o popup «Criar Sondagem» mostra, por cima do
+botão «Enviar Sondagem», a linha *«Âmbito: Nacional — será enviada a todos os
+N cidadãos registados»* ou *«Âmbito: Local — será enviada aos M cidadãos
+registados no sistema da instituição»* (N/M calculados em tempo real, leitura).
 
 ### 2.2 Consulta de resultados (página Correio, barra de atalhos)
 - Novo botão `cda-link-text` **«Sondagens»** imediatamente **à direita** do botão
@@ -160,9 +213,15 @@ no cliente institucional a partir de `sondagem_respostas` da própria instituiç
    (incl. línguas nacionais, padrão existente).
 5. **Limites anti-abuso**: máx. 10 opções; máx. 3 sondagens activas em simultâneo
    por instituição (popup honesto se exceder); pergunta ≤ 280 chars; opção ≤ 120.
-6. **Escala**: fan-out usa o canal `messages` existente (43 cidadãos hoje); insert
-   em lote único transaccional; se a plataforma crescer >10⁴ cidadãos, migrar a
-   entrega para leitura por `sondagem_id` sem fan-out (já preparado pelo FK).
+6. **Escala**: fan-out usa o canal `messages` existente; âmbito local limita
+   naturalmente a audiência; âmbito nacional envia a todos os cidadãos registados
+   (43 hoje) em lote único transaccional; se a plataforma crescer >10⁴ cidadãos,
+   migrar a entrega para leitura por `sondagem_id` sem fan-out (já preparado pelo FK).
+7. **Âmbito (v36.1)**: órgãos nacionais (Presidência, Ministérios, INE, INAPEM…)
+   difundem a **todos** os cidadãos; instituições locais (conservatórias, etc.)
+   difundem **só aos cidadãos registados no seu sistema**; o âmbito é gravado na
+   sondagem, mostrado no popup antes do envio e corrigível (auditado) pela
+   Administração na homologação.
 
 ---
 
@@ -170,6 +229,11 @@ no cliente institucional a partir de `sondagem_respostas` da própria instituiç
 
 Instituição (conta real `INAPEM-LLMM-01`, **modo local/demo só para render**):
 - [ ] «Criar Sondagem» abre popup `CdaModal` com Pergunta, Texto A/B, +opção e toggle.
+- [ ] Popup mostra a linha de âmbito/audiência antes do envio; INAPEM (órgão
+      nacional) apresenta «Âmbito: Nacional — todos os N cidadãos registados».
+- [ ] Instituição de âmbito local (ex.: conservatória em demonstração) apresenta
+      «Âmbito: Local — M cidadãos registados no sistema»; audiência vazia ⇒
+      popup «Não há cidadãos registados no sistema desta instituição.» e nada é criado.
 - [ ] Submissão incompleta ⇒ popup de validação, nada é criado.
 - [ ] Botão «Sondagens» existe à direita de «Validação QR»; lista renderiza.
 - [ ] Sondagem expandida mostra barras/gráfico e totais.
