@@ -49,6 +49,8 @@ export interface RedeMember {
   relation: string;
   phone: string | null;
   whatsapp: string | null;
+  /** v35 — email do contacto (quando preenchido pelo cidadão). */
+  email: string | null;
   /** BI do familiar — só vem preenchido quando EXISTE conta CDA. */
   cda_bi: string | null;
   has_cda_account: boolean;
@@ -76,6 +78,18 @@ export function buildWaMeLink(rawPhone: string | null | undefined, text: string)
   const msg = (text || '').trim();
   const suffix = msg ? `?text=${encodeURIComponent(msg)}` : '';
   return `https://wa.me/244${national}${suffix}`;
+}
+
+/**
+ * v35 — link mailto: canónico para a difusão de emergência por EMAIL.
+ * Devolve null quando o endereço não tem formato válido — a UI NUNCA abre
+ * um link de email inválido (mesma regra do wa.me).
+ */
+export function buildMailtoLink(rawEmail: string | null | undefined, subject: string, body: string): string | null {
+  const email = (rawEmail || '').trim();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return null;
+  const args = [`subject=${encodeURIComponent(subject || '')}`, `body=${encodeURIComponent(body || '')}`];
+  return `mailto:${email}?${args.join('&')}`;
 }
 
 /** Melhor número para WhatsApp do membro da rede: whatsapp próprio, senão telefone. */
@@ -133,6 +147,7 @@ export async function fetchRedeEmergencia(client: SupabaseClient, rawBi: string)
       relation: r.relation || '',
       phone: r.phone ?? null,
       whatsapp: r.whatsapp ?? null,
+      email: r.email ?? null,
       cda_bi: r.cda_bi ?? null,
       has_cda_account: !!r.has_cda_account,
     }));
@@ -162,6 +177,8 @@ export interface BroadcastRecordRow {
     plataforma: 'enviado' | 'sem_conta' | 'falhou';
     plataforma_error_code: string | null;
     whatsapp_link: boolean;
+    /** v35 — true quando também foi aberto um link mailto: para o membro. */
+    email_link: boolean;
     at: string;
   };
 }
@@ -191,6 +208,7 @@ export async function recordInstitutionBroadcast(
 
 export type PlatformChip = 'a_enviar' | 'enviando' | 'enviado' | 'sem_conta' | 'falhou';
 export type WhatsappChip = 'pendente' | 'link_aberto' | 'numero_invalido' | 'popup_bloqueado';
+export type EmailChip = 'sem_email' | 'pendente' | 'link_aberto';
 export type SandboxChip = 'sandbox';
 
 /**
@@ -217,5 +235,19 @@ export function whatsappChipText(chip: WhatsappChip | SandboxChip): string {
     case 'numero_invalido': return 'Sem número de WhatsApp válido';
     case 'popup_bloqueado': return 'Pop-up bloqueado — clique "Abrir WhatsApp"';
     case 'sandbox': return 'WhatsApp: simulado (Modo Sandbox)';
+  }
+}
+
+/**
+ * v35 — Texto do chip Email: mesmo princípio honesto do WhatsApp — o link
+ * mailto: abre o cliente de email com destinatário/assunto/corpo pré-preenchidos;
+ * quem confirma o envio é o próprio agente. NUNCA "email enviado".
+ */
+export function emailChipText(chip: EmailChip | SandboxChip): string {
+  switch (chip) {
+    case 'sem_email': return 'Email: sem endereço registado';
+    case 'pendente': return 'Email: por abrir';
+    case 'link_aberto': return 'Email: cliente aberto — confirmar envio';
+    case 'sandbox': return 'Email: simulado (Modo Sandbox)';
   }
 }

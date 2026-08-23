@@ -19,8 +19,10 @@ import {
   RedeMember,
   PlatformChip,
   WhatsappChip,
+  EmailChip,
   platformChipText,
   whatsappChipText,
+  emailChipText,
   redeemerWhatsappTarget,
 } from '../../services/institutionEmergencyService';
 
@@ -28,6 +30,8 @@ export interface RowSendOutcome {
   platform: 'enviado' | 'sem_conta' | 'falhou';
   platformErrorCode: string | null;
   waLink: string | null;
+  /** v35 — link mailto: (null quando o contacto não tem email válido). */
+  emailLink: string | null;
 }
 
 interface InstitutionEmergencyBroadcastProps {
@@ -54,21 +58,25 @@ interface RowUiState {
   platformChip: PlatformChip | 'sandbox';
   platformErrorCode: string | null;
   whatsappChip: WhatsappChip | 'sandbox';
+  emailChip: EmailChip | 'sandbox';
   done: boolean;
   popupBlocked: boolean;
   waLink: string | null;
+  emailLink: string | null;
 }
 
 const initialRowState = (member: RedeMember, isSandbox: boolean): RowUiState =>
   isSandbox
-    ? { platformChip: 'sandbox', platformErrorCode: null, whatsappChip: 'sandbox', done: false, popupBlocked: false, waLink: null }
+    ? { platformChip: 'sandbox', platformErrorCode: null, whatsappChip: 'sandbox', emailChip: 'sandbox', done: false, popupBlocked: false, waLink: null, emailLink: null }
     : {
         platformChip: member.has_cda_account ? 'a_enviar' : 'sem_conta',
         platformErrorCode: null,
         whatsappChip: 'pendente',
+        emailChip: 'pendente',
         done: false,
         popupBlocked: false,
         waLink: null,
+        emailLink: null,
       };
 
 export function InstitutionEmergencyBroadcast({
@@ -122,7 +130,7 @@ export function InstitutionEmergencyBroadcast({
     try {
       outcome = await onSendRow(member);
     } catch (e) {
-      outcome = { platform: 'falhou', platformErrorCode: e?.code || 'EXCEPCAO', waLink: null };
+      outcome = { platform: 'falhou', platformErrorCode: e?.code || 'EXCEPCAO', waLink: null, emailLink: null };
     }
 
     // 2 — chips com o desfecho REAL da plataforma
@@ -152,8 +160,12 @@ export function InstitutionEmergencyBroadcast({
       platformChip,
       platformErrorCode: outcome.platformErrorCode,
       whatsappChip,
+      // v35 — email: 'pendente' mostra o botão "Abrir Email" (mailto: é
+      // gesto do agente); sem endereço válido fica honestamente 'sem_email'.
+      emailChip: outcome.emailLink ? 'pendente' : 'sem_email',
       popupBlocked,
       waLink: popupBlocked ? outcome.waLink : null,
+      emailLink: outcome.emailLink,
       done: true,
     });
     setSendingIdx(null);
@@ -296,6 +308,32 @@ export function InstitutionEmergencyBroadcast({
                           Abrir WhatsApp
                         </a>
                       )}
+                      {/* v35 — chip Email (honesto: nunca "email enviado") */}
+                      {(state.done || isSandbox) && (
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                          state.emailChip === 'link_aberto'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : state.emailChip === 'sem_email'
+                              ? 'bg-slate-50 text-slate-400 border-slate-200'
+                              : 'bg-slate-50 text-slate-500 border-slate-200'
+                        }`}>
+                          <MessageCircle size={10} />
+                          {emailChipText(state.emailChip)}
+                        </span>
+                      )}
+                      {/* v35 — botão mailto: dentro do gesto do agente; o envio
+                          é confirmado por si no cliente de email (nunca automático). */}
+                      {state.done && !isSandbox && state.emailChip === 'pendente' && state.emailLink && (
+                        <a
+                          href={state.emailLink}
+                          onClick={() => patchRow(idx, member, { emailChip: 'link_aberto' })}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border bg-[#0c2340] text-white border-[#0c2340] hover:bg-[#152e4d] cursor-pointer"
+                          id={`broadcast-email-${idx}`}
+                        >
+                          <Send size={10} />
+                          Abrir Email
+                        </a>
+                      )}
                     </div>
 
                     {/* Destino WhatsApp calculado (o número só existe dentro do separador) */}
@@ -312,9 +350,11 @@ export function InstitutionEmergencyBroadcast({
             {/* Rodapé informativo honesto */}
             <div className="p-5 border-t border-slate-100 bg-slate-50 shrink-0">
               <p className="text-[10px] text-slate-500 leading-relaxed font-semibold">
-                Cada linha envia primeiro para a conta CDA do familiar (quando existe, com resultado real) e
-                depois abre o WhatsApp — <strong>o envio no WhatsApp é confirmado por si</strong>, mensagem a
-                mensagem. A plataforma regista apenas o link aberto, nunca "mensagem enviada".
+                Cada linha envia primeiro para a conta CDA do familiar (quando existe, com resultado real),
+                depois abre o WhatsApp e, quando o contacto tem email registado, também abre o cliente de
+                email com o alerta pré-preenchido — <strong>o envio no WhatsApp e no email é confirmado
+                por si</strong>, mensagem a mensagem. A plataforma regista apenas os links abertos, nunca
+                "mensagem enviada".
               </p>
             </div>
           </motion.div>

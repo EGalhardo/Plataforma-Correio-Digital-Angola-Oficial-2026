@@ -130,7 +130,17 @@ export interface ContactFormInput {
   relation: string;
   phone?: string;
   whatsapp?: string;
+  /** v35 — opcional; validado apenas quando preenchido. */
+  email?: string;
   type?: 'Normal' | 'Emergência';
+}
+
+/** v35 — formato de email simples e honesto (nome@dominio.tld). */
+export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+export function isValidEmail(raw: string | null | undefined): boolean {
+  const v = (raw || '').trim();
+  return !!v && EMAIL_RE.test(v);
 }
 
 /**
@@ -164,6 +174,12 @@ export function validateContactForm(
 
   if (whatsapp && !isValidAoPhone(whatsapp)) {
     errors.push('Número de WhatsApp inválido — use o formato angolano: +244 9XX XXX XXX.');
+  }
+
+  // v35 — email OPCIONAL: vazio passa; preenchido tem de ter formato válido.
+  const email = (form.email || '').trim();
+  if (email && !EMAIL_RE.test(email)) {
+    errors.push('Email inválido — use o formato nome@dominio.com.');
   }
 
   // Anti-duplicados por telefone (comparação por dígitos nacionais normalizados).

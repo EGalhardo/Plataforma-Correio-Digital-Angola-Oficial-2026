@@ -12,6 +12,7 @@ import {
   CreditCard,
   Users,
   Phone,
+  Mail,
   CheckCircle,
   Info,
   X,
@@ -26,13 +27,14 @@ import { normalizarNome } from '../../services/textNormalizeService';
 // Espelha o useState do compositor de contactos no App (fonte única da forma).
 interface ContactoForm {
   name: string; bi: string; relation: string; phone: string; whatsapp: string;
+  email: string;
   type: 'Normal' | 'Emergência';
 }
 
 interface AddContactModalProps {
   isAddingContact: boolean;
   setIsAddingContact: (isAdding: boolean) => void;
-  contactForm: { name: string; bi: string; relation: string; phone?: string; whatsapp?: string; type?: 'Normal' | 'Emergência' };
+  contactForm: { name: string; bi: string; relation: string; phone?: string; whatsapp?: string; email?: string; type?: 'Normal' | 'Emergência' };
   setContactForm: Dispatch<SetStateAction<ContactoForm>>;
   onAddContact: () => void;
   /** F55 — erros de validação reais (telefone +244, duplicados, relação…). */
@@ -227,6 +229,25 @@ export function AddContactModal({
                         onChange={e => setContactForm((prev) => ({ ...prev, whatsapp: e.target.value }))}
                         className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
                         id="contact-whatsapp-input"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Email — v35 (opcional; usado na difusão de emergência) */}
+                  <div className="grid gap-1.5">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Email (opcional)</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                        <Mail size={15} />
+                      </span>
+                      <input 
+                        type="email"
+                        placeholder="exemplo@gmail.com" 
+                        value={contactForm.email || ''}
+                        onChange={e => setContactForm((prev) => ({ ...prev, email: e.target.value }))}
+                        className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
+                        id="contact-email-input"
+                        autoComplete="off"
                       />
                     </div>
                   </div>

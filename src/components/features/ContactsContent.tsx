@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, Plus, Search, ShieldCheck, ShieldAlert, Trash2, Info, Edit, User, CreditCard, CheckCircle, X, Check, Bell, Phone, ChevronDown } from 'lucide-react';
+import { Users, Plus, Search, ShieldCheck, ShieldAlert, Trash2, Info, Edit, User, CreditCard, CheckCircle, X, Check, Bell, Phone, ChevronDown, Mail } from 'lucide-react';
 import { Contact } from '../../types';
 import {
   CONTACT_RELATION_OPTIONS,
@@ -42,7 +42,7 @@ export function ContactsContent({
   const [selectedClassification, setSelectedClassification] = useState<'Todos' | 'Emergência' | 'Normal'>('Todos');
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [editErrors, setEditErrors] = useState<string[]>([]);
-  const [editForm, setEditForm] = useState<{ name: string; bi: string; relation: string; phone?: string; whatsapp?: string; type?: 'Normal' | 'Emergência' }>({
+  const [editForm, setEditForm] = useState<{ name: string; bi: string; relation: string; phone?: string; whatsapp?: string; email?: string; type?: 'Normal' | 'Emergência' }>({
     name: '',
     bi: '',
     relation: '',
@@ -60,6 +60,7 @@ export function ContactsContent({
       relation: contact.relation || '',
       phone: (contact as any).phone || '',
       whatsapp: (contact as any).whatsapp || '',
+      email: (contact as any).email || '',
       type: contact.type || 'Normal',
     });
   };
@@ -89,6 +90,7 @@ export function ContactsContent({
       relation: editForm.relation.trim(),
       phone: (editForm.phone || '').trim(),
       whatsapp: (editForm.whatsapp || '').trim(),
+      email: (editForm.email || '').trim(),
       type: editForm.type || 'Normal',
     };
 
@@ -503,6 +505,25 @@ export function ContactsContent({
                           onChange={e => setEditForm(prev => ({ ...prev, whatsapp: e.target.value }))}
                           className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
                           id="edit-contact-whatsapp-input"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Email — v35 (opcional; difusão de emergência) */}
+                    <div className="grid gap-1.5">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Email (opcional)</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                          <Mail size={15} />
+                        </span>
+                        <input
+                          type="email"
+                          placeholder="exemplo@gmail.com"
+                          value={editForm.email || ''}
+                          onChange={e => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                          className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
+                          id="edit-contact-email-input"
+                          autoComplete="off"
                         />
                       </div>
                     </div>

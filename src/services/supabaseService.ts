@@ -53,7 +53,7 @@ interface LinhaDocumento {
 }
 interface LinhaContacto {
   id: number; name: string; bi: string; relation: string; status: string;
-  type: string; phone: string | null; whatsapp: string | null;
+  type: string; phone: string | null; whatsapp: string | null; email: string | null;
 }
 interface LinhaUserRequest {
   id: number; user_name: string; service_type: string; priority: string;
@@ -1020,7 +1020,9 @@ export const supabaseService = {
         // (colunas acrescentadas pelo v19; sem elas o contacto de emergência
         // era inútil noutro dispositivo).
         phone: contact.phone || null,
-        whatsapp: contact.whatsapp || null
+        whatsapp: contact.whatsapp || null,
+        // v35 — email opcional (coluna acrescentada pelo pacote v35)
+        email: contact.email || null
       };
       return await gravarDados(
         'contacts', 'insert', undefined, [payload],
@@ -1036,7 +1038,7 @@ export const supabaseService = {
             // em vez de falhar a gravação do contacto inteiro — honesto: se o
             // segundo upsert falhar, o erro propaga-se normalmente.
             if (error.code === 'PGRST204') {
-              const { phone: _p, whatsapp: _w, ...legacyPayload } = payload;
+              const { phone: _p, whatsapp: _w, email: _e, ...legacyPayload } = payload;
               const retry = await supabase
                 .from('contacts')
                 .upsert([legacyPayload])
@@ -1593,7 +1595,9 @@ export const supabaseService = {
         // F55 — v19 passa a devolver phone/whatsapp; antes do v19 o select('*')
         // simplesmente não traz as colunas e estes campos ficam undefined.
         phone: item.phone || undefined,
-        whatsapp: item.whatsapp || undefined
+        whatsapp: item.whatsapp || undefined,
+        // v35 — email devolvido quando a coluna já existe na nuvem
+        email: item.email || undefined
       }));
     } catch (e) {
       console.error('Supabase getContacts error:', e);

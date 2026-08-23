@@ -138,6 +138,7 @@ import {
 // F58 — Difusão Institucional para Rede de Emergência (spec v20 aprovada)
 import {
   buildWaMeLink,
+  buildMailtoLink,
   redeemerWhatsappTarget,
   type RedeMember,
   type InstCitizenInfo,
@@ -1716,7 +1717,7 @@ export default function App() {
   const [isDocComposing, setIsDocComposing] = useState(false);
   const [docComposeData, setDocComposeData] = useState({ to: '', subject: '', body: '' });
 
-  const [contactForm, setContactForm] = useState({ name: '', bi: '', relation: '', phone: '', whatsapp: '', type: 'Normal' as 'Normal' | 'Emergência' });
+  const [contactForm, setContactForm] = useState({ name: '', bi: '', relation: '', phone: '', whatsapp: '', email: '', type: 'Normal' as 'Normal' | 'Emergência' });
   // F55 — Contactos de Emergência: erros de validação reais e bloqueio
   // honesto da regra dos 2. (F57 — o accionamento de alerta saiu do lado do
   // cidadão: a Mensagem de Emergência passa a ser funcionalidade institucional.)
@@ -4226,6 +4227,8 @@ export default function App() {
       type: contactForm.type || "Normal",
       phone: (contactForm.phone || '').trim(),
       whatsapp: (contactForm.whatsapp || '').trim(),
+      // v35 — email opcional do contacto (difusão de emergência)
+      email: (contactForm.email || '').trim(),
       ownerId: sessionOwnerKey,
     };
 
@@ -4248,7 +4251,7 @@ export default function App() {
 
     setContactFormErrors([]);
     setIsAddingContact(false);
-    setContactForm({ name: '', bi: '', relation: '', phone: '', whatsapp: '', type: 'Normal' });
+    setContactForm({ name: '', bi: '', relation: '', phone: '', whatsapp: '', email: '', type: 'Normal' });
   };
 
   /**
@@ -4342,8 +4345,8 @@ export default function App() {
     // DEMO — rede fictícia declarada; ZERO chamadas reais.
     if (isDemoInstitutionSession) {
       setInstEmgRecipients([
-        { name: 'Familiar Demo Um', relation: 'Pai/Mãe', phone: '+244 900 000 000', whatsapp: '+244 900 000 000', cda_bi: null, has_cda_account: false },
-        { name: 'Familiar Demo Dois', relation: 'Cônjuge', phone: '+244 900 000 001', whatsapp: null, cda_bi: null, has_cda_account: false },
+        { name: 'Familiar Demo Um', relation: 'Pai/Mãe', phone: '+244 900 000 000', whatsapp: '+244 900 000 000', email: null, cda_bi: null, has_cda_account: false },
+        { name: 'Familiar Demo Dois', relation: 'Cônjuge', phone: '+244 900 000 001', whatsapp: null, email: 'familiar.demo.dois@exemplo.ao', cda_bi: null, has_cda_account: false },
       ]);
       setInstEmgRecipientsError(null);
       setInstEmgRecipientsBusy(false);
@@ -4374,10 +4377,10 @@ export default function App() {
   ): Promise<RowSendOutcome> => {
     let platform: RowSendOutcome['platform'] = 'sem_conta';
     let platformErrorCode: string | null = null;
+    const emergencySubject = `ALERTA DE EMERGÊNCIA — ${user?.name || institutionCode || 'Instituição'}`;
 
     // 1º — Plataforma CDA (se o familiar tiver conta — desfecho REAL)
     if (member.has_cda_account && member.cda_bi) {
-      const emergencySubject = `ALERTA DE EMERGÊNCIA — ${user?.name || institutionCode || 'Instituição'}`;
       const emergencyMessage: Message = {
         id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
         org: user?.name || institutionCode || 'Instituição',
@@ -4406,6 +4409,10 @@ export default function App() {
     // 2º — link WhatsApp (wa.me); a navegação fica no componente (gesto do user)
     const waLink = buildWaMeLink(redeemerWhatsappTarget(member), composeData.body);
 
+    // 2b — v35: link de EMAIL (mailto:) para o membro com endereço registado;
+    // quem envia/confirmar é o agente no seu cliente de email (nunca simulado).
+    const emailLink = buildMailtoLink(member.email, emergencySubject, composeData.body);
+
     // 3º — Registo REAL da difusão (append-only; falha aqui não mascara o envio)
     const record: BroadcastRecordRow = {
       citizen_bi: citizen.bi,
@@ -4423,6 +4430,7 @@ export default function App() {
         plataforma: platform,
         plataforma_error_code: platformErrorCode,
         whatsapp_link: !!waLink,
+        email_link: !!emailLink,
         at: new Date().toISOString(),
       },
     };
@@ -4431,6 +4439,7 @@ export default function App() {
     if (platform === 'enviado') {
       addAuditLog(
         `Emergência: mensagem entregue na plataforma CDA de ${member.name}` +
+        (emailLink ? ' · email disponível para difusão' : '') +
         (rec.recorded ? '' : ` (registo da difusão falhou — Erro real: ${rec.errorCode})`),
         'success',
       );
@@ -4440,7 +4449,7 @@ export default function App() {
       addAuditLog(`Emergência: ${member.name} sem conta CDA — seguiu apenas via WhatsApp (link aberto)`, 'info');
     }
 
-    return { platform, platformErrorCode, waLink };
+    return { platform, platformErrorCode, waLink, emailLink };
   };
 
   // F58 — fechar a composição limpa o estado da difusão de emergência.

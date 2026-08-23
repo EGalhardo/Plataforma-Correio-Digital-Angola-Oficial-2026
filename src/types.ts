@@ -114,6 +114,8 @@ export interface Contact {
   phone?: string;
   /** F55 — WhatsApp do contacto (quando disponível). */
   whatsapp?: string;
+  /** v35 — Email do contacto (OPCIONAL; usado na difusão de emergência). */
+  email?: string;
   /** F12 — chave da sessão proprietária do contacto. */
   ownerId?: string;
 }
