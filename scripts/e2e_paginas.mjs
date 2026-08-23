@@ -8,8 +8,8 @@
 //   A) Ecrãs públicos de acesso (por papel): página de login, botão
 //      «Auto Preencher Demonstração» (funcional: preenche mesmo o campo),
 //      página de REGISTO (cidadão=RegisterStepper · instituição=Adesão ·
-//      admin=Credencial Operacional, ou "encerrado por desenho" se o Admin
-//      Alfa já existir), página REDEFINIR SENHA (ResetPasswordStepper) e,
+//      admin=Credencial Operacional — o botão «Registar Admin Alfa» está sempre
+//      activo; a duplicação é impedida pela validação do formulário (desde b8e7a26)), página REDEFINIR SENHA (ResetPasswordStepper) e,
 //      no cidadão, o ecrã de LOGIN FACIAL.
 //   B) Sessão (por papel): login com as 3 identidades de DEMONSTRAÇÃO
 //      nativas da app (constam publicamente em src/App.tsx), varredura de
@@ -152,9 +152,13 @@ async function correrPapel(role, cfg) {
 
     // 0b) página de REGISTO (render + marcador; nunca submete — ver fronteira honesta)
     {
-      const btnRegistar = page.getByRole('button', { name: 'Registar', exact: true }).last();
+      // 2026-08-23: desde b8e7a26 («destacar registo do Admin Alfa») o botão do
+      // Admin chama-se «Registar Admin Alfa»; cidadão/instituição mantêm «Registar».
+      // O botão fica sempre activo — a duplicação do Admin Alfa é impedida pela
+      // validação do próprio formulário (RegisterAdminAgentPage).
+      const btnRegistar = page.getByRole('button', { name: /^Registar/ }).last();
       if (!(await btnRegistar.isVisible().catch(() => false))) {
-        reg(role, 'registo', 'FAIL', 'botão «Registar» inexistente no rodapé do login');
+        reg(role, 'registo', 'FAIL', 'botão «Registar»/«Registar Admin Alfa» inexistente no rodapé do login');
       } else if (!(await btnRegistar.isEnabled().catch(() => false))) {
         reg(role, 'registo', 'PASS', 'registo encerrado por desenho (Admin Alfa já registado)');
       } else {
