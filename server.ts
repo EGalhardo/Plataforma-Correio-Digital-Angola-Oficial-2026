@@ -359,7 +359,7 @@ const DADOS_COLUNAS: Record<string, Record<string, boolean>> = {
     actions: true, attachments: true, sensitivity: true, priority_scale: true,
     deadline_hours_remaining: true, protocol_number: true, created_at: true,
   },
-  contacts: { id: true, owner_bi: true, name: true, bi: true, relation: true, status: true, type: true, phone: true, whatsapp: true },
+  contacts: { id: true, owner_bi: true, name: true, bi: true, relation: true, status: true, type: true, phone: true, whatsapp: true, email: true }, // v35 — email opcional (difusão de emergência)
   notifications: { id: true, target_bi: true, title: true, message: true, time_text: true, type: true, target_tab: true, read_at: true },
   user_requests: { id: true, user_bi: true, user_name: true, service_type: true, priority: true, time_text: true, status: true, institution: true, request_date: true },
   document_requests: { id: true, user_bi: true, user_name: true, doc_type: true, institution: true, request_date: true, status: true, ai_status: true },
