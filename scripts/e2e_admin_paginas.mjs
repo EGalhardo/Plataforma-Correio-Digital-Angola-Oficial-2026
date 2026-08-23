@@ -111,6 +111,24 @@ try {
   reg('P2-auditoria-real (total > 1.000 eventos)', !!mEv, `total: ${mEv ? mEv[1].trim() : '—'} (esperado ≈17.8k)`);
   await page.screenshot({ path: `${SHOTS}/p2_relatorios_auditoria.png`, fullPage: false });
 
+  // ---- P2-extra: sem dados simulados em Modo Real ----
+  // Memória Descritiva: data REAL de emissão (não '12 de Junho de 2026')
+  await page.getByRole('button', { name: /Memória Descritiva/i }).first().click();
+  await page.waitForTimeout(1200);
+  const txtModal = await tx();
+  const hojeStr = new Date().toLocaleDateString('pt-AO', { day: 'numeric', month: 'long', year: 'numeric' }).toLowerCase();
+  reg('P2x-modal-data-real-de-hoje', txtModal.includes(`luanda, ${hojeStr}`), `esperado: Luanda, ${hojeStr}`);
+  reg('P2x-modal-sem-data-fixa-antiga', !txtModal.includes('12 de junho de 2026'));
+  reg('P2x-modal-hash-derivado (sem cda_sha256_..._ok fixo)', !txtModal.includes('cda_sha256_verification_2026_ok'));
+  await page.locator('button[title="Fechar"]').first().click().catch(() => {});
+  await page.waitForTimeout(700);
+  // separador Equipa: linhas REAIS (ADMIN-0001 presente; 'Karina Neto' demo ausente)
+  await page.locator('#btn-tab-report-workers').click();
+  await page.waitForTimeout(3200);
+  const txtEq = await tx();
+  reg('P2x-equipa-admin-real (ADMIN-0001 listado)', txtEq.includes('admin-0001'));
+  reg('P2x-equipa-sem-demo (Karina/Sílvia ausentes)', !txtEq.includes('karina neto') && !txtEq.includes('sílvia viana'));
+
   // ============ P3 — AUDITORIA (Segurança) ============
   await irPara('Auditoria');
   await page.waitForTimeout(4000);
@@ -135,6 +153,27 @@ try {
   const txtFiltro = await tx();
   reg('P3-pesquisa-auditoria-funciona', txtFiltro.includes('sala de vídeo') || !txtFiltro.includes('nenhum evento'));
   await page.screenshot({ path: `${SHOTS}/p3_auditoria_registo.png`, fullPage: false });
+
+  // ---- P3-extra: sem valores simulados ----
+  await page.locator('button').filter({ hasText: /Modelos de Utilizadores/i }).first().click();
+  await page.waitForTimeout(1500);
+  const txtUsers2 = await tx();
+  reg('P3x-sem-acuracia-inventada (98.8/99.4 demo ausentes)', !txtUsers2.includes('98.8') && !txtUsers2.includes('99.4'));
+  reg('P3x-soc-sem-nome-hardcoded', !txtUsers2.includes('biometria de \"edlasio'));
+  // consola técnica de teste: abre na aba "Parâmetros e Consola" e está rotulada como SIMULAÇÃO
+  const linhaReal = page.locator('tr', { hasText: /002399714LA030|INAPEM/i }).first();
+  await linhaReal.click();
+  await page.waitForTimeout(700);
+  await page.locator('button').filter({ hasText: /Parâmetros e Consola/i }).first().click();
+  await page.waitForTimeout(1600);
+  const txtConf = await tx();
+  const consolaVisivel = txtConf.includes('consola de teste de match');
+  reg('P3x-consola-nota-simulacao', consolaVisivel && txtConf.includes('simulação técnica'));
+  await page.locator('button').filter({ hasText: /Executar Teste Biométrico/i }).first().click();
+  await page.waitForTimeout(3400); // varrimento animado de 1.800ms + render do resultado
+  const txtRes = await tx();
+  reg('P3x-consola-resultado-prefixo-simulacao', !consolaVisivel || txtRes.includes('[simulação]'));
+  await page.screenshot({ path: `${SHOTS}/p3x_consola_simulacao.png`, fullPage: false });
 
   // ============ P4 — POPUPS no padrão oficial ============
   const padraoPopup = async () => page.evaluate(() => {

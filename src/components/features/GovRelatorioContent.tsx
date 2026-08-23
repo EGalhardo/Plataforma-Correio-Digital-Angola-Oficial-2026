@@ -71,8 +71,10 @@ export function GovRelatorioContent({
   // Period settings
   const [comparePeriod, setComparePeriod] = useState<boolean>(true);
   const [comparisonPreset, setComparisonPreset] = useState<'month' | '30days'>('month');
-  const [customStartDate, setCustomStartDate] = useState('2026-05-01');
-  const [customEndDate, setCustomEndDate] = useState('2026-06-12');
+  // 2026-08-23 — intervalo REAL dinâmico (últimos 30 dias), não datas fixas
+  // de demonstração.
+  const [customStartDate, setCustomStartDate] = useState(() => new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10));
+  const [customEndDate, setCustomEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   
   // Interactive processing simulation
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -123,6 +125,10 @@ export function GovRelatorioContent({
     return totais;
   };
   const _paraGrafico = (totais: Map<string, number>, meses: string[]) => meses.map(m => ({ name: nomeMesCurto(`${m}-01`), Entradas: totais.get(m) || 0, Saidas: 0, Corrente: 0, Anterior: 0 }));
+  // Membro real da equipa = código de agente estruturado (ADMIN-0001,
+  // INAPEM-LLMM-01, AGT-9921-SR, ADM-8812-OP…) — exclui a identidade de
+  // sistema 'CDA' e BIs de cidadão.
+  const _ehAgenteCodificado = (bi: string): boolean => bi !== 'CDA' && /^[A-Z]+(-[A-Z]+)*-\d{2,}(-[A-Z]{2,})?$/.test(bi);
   const _pct = (curr: number, prev: number): { pct: string; up: boolean } => {
     if (!prev) return { pct: 'n/d', up: curr > 0 };
     const v = ((curr - prev) / prev) * 100;
@@ -248,12 +254,12 @@ export function GovRelatorioContent({
         if (!iso) return false;
         try { const t = new Date(iso).getTime(); return !isNaN(t) && t >= agoraMs - deDias * dia && t < agoraMs - ateDias * dia; } catch { return false; }
       };
-      const grafico = (totais: Map<string, number>) => {
+      const grafico = (totais: Map<string, number>, totaisSaidas?: Map<string, number>) => {
         let acumulado = 0;
         return meses.map(m => {
           const v = totais.get(m) || 0;
           acumulado += v;
-          return { name: nomeMesCurto(`${m}-01`), Entradas: v, Saidas: 0, Corrente: acumulado, Anterior: acumulado - v };
+          return { name: nomeMesCurto(`${m}-01`), Entradas: v, Saidas: totaisSaidas?.get(m) || 0, Corrente: acumulado, Anterior: acumulado - v };
         });
       };
       switch (activeTab) {
@@ -273,7 +279,7 @@ export function GovRelatorioContent({
               { id: 'co-3', label: 'Aguardam Resposta', current: aguardam, prev: 0, text: 'Em trâmite nas caixas', suffix: ' un', isTrendUp: false, pct: 'n/d' },
               { id: 'co-4', label: 'Volume Recente', current: ult30, prev: prev30, text: 'Últimos 30 dias vs 30 anteriores', suffix: ' un', isTrendUp: t1.up, pct: t1.pct },
             ],
-            chart: grafico(_agregarPorMes(msgs, m => m.created_at, meses)),
+            chart: grafico(_agregarPorMes(msgs, m => m.created_at, meses), _agregarPorMes(msgs.filter(m => (m.status || '').toLowerCase() === 'respondida'), m => m.created_at, meses)),
             infoTitle: 'Últimos Trâmites Reais da Caixa Central',
             csvHeader: ['ID de Trâmite', 'Estado', 'Orgão', 'Assunto', 'Data de Emissão'],
           };
@@ -316,7 +322,7 @@ export function GovRelatorioContent({
           };
         }
         case 'workers': {
-          const equipa = dR.profiles.filter(p => p.role === 'admin' || /^[A-Z]{2,}-\d{2,}-[A-Z]{2,}$/.test(p.bi));
+          const equipa = dR.profiles.filter(p => p.bi !== 'CDA' && (p.role === 'admin' || _ehAgenteCodificado(p.bi)));
           const vids = dR.videoSessions;
           const concluidas = vids.filter(v => (v.status || '').toLowerCase().startsWith('conclu')).length;
           const agendadas = vids.filter(v => (v.status || '').toLowerCase().startsWith('agendada')).length;
@@ -334,7 +340,7 @@ export function GovRelatorioContent({
               { id: 'wo-3', label: 'Sessões Agendadas', current: agendadas, prev: 0, text: 'Activas na Agenda', suffix: ' sessões', isTrendUp: true, pct: 'n/d' },
               { id: 'wo-4', label: 'Pedidos de Serviço', current: pedidos, prev: 0, text: 'user_requests na base central', suffix: ' pedidos', isTrendUp: true, pct: 'n/d' },
             ],
-            chart: grafico(_agregarPorMes(vids, v => v.created_at, meses)),
+            chart: grafico(_agregarPorMes(vids, v => v.created_at, meses), _agregarPorMes(vids.filter(v => (v.status || '').toLowerCase().startsWith('conclu')), v => v.created_at, meses)),
             infoTitle: 'Desempenho Real dos Membros (última actividade na nuvem)',
             csvHeader: ['Membro', 'Nº Agente / BI', 'Papel', 'Última Actividade'],
           };
@@ -404,13 +410,19 @@ export function GovRelatorioContent({
             ],
             chart: (() => {
               const porDia = new Map<string, number>();
-              logs.forEach(l => { const k = (l.timestamp || '').slice(0, 10); if (k) porDia.set(k, (porDia.get(k) || 0) + 1); });
+              const falhasDia = new Map<string, number>();
+              logs.forEach(l => {
+                const k = (l.timestamp || '').slice(0, 10);
+                if (!k) return;
+                porDia.set(k, (porDia.get(k) || 0) + 1);
+                if (l.type === 'warning' || l.type === 'critical') falhasDia.set(k, (falhasDia.get(k) || 0) + 1);
+              });
               const dias = Array.from(porDia.keys()).sort().slice(-6);
               let acumulado = 0;
               return dias.map(k => {
                 const v = porDia.get(k) || 0;
                 acumulado += v;
-                return { name: k.slice(8, 10) + '/' + k.slice(5, 7), Entradas: v, Saidas: 0, Corrente: acumulado, Anterior: acumulado - v };
+                return { name: k.slice(8, 10) + '/' + k.slice(5, 7), Entradas: v, Saidas: falhasDia.get(k) || 0, Corrente: acumulado, Anterior: acumulado - v };
               });
             })(),
             infoTitle: 'Últimos Logs Reais de Auditoria e Segurança',
@@ -601,7 +613,7 @@ export function GovRelatorioContent({
       } else if (dadosReais && activeTab === 'citizens') {
         dadosReais.cidadaos.forEach(c => csvContentRows.push([c.name || '—', c.bi, c.phone || '—', c.morada || '—']));
       } else if (dadosReais && activeTab === 'workers') {
-        dadosReais.profiles.filter(pp => pp.role === 'admin' || /^[A-Z]{2,}-\d{2,}-[A-Z]{2,}$/.test(pp.bi)).forEach(w => {
+        dadosReais.profiles.filter(pp => pp.bi !== 'CDA' && (pp.role === 'admin' || _ehAgenteCodificado(pp.bi))).forEach(w => {
           const ultimo = dadosReais.auditLogs.find(a => a.user === w.name);
           csvContentRows.push([w.name || '—', w.bi, w.role === 'admin' ? 'Administração' : 'Agente/Colaborador', ultimo ? fmtDataCurta(ultimo.timestamp) : '—']);
         });
@@ -969,7 +981,7 @@ export function GovRelatorioContent({
                     Gerando Relatório Consolidado...
                   </p>
                   <p className="text-xs text-slate-400 font-bold m-0 max-w-xs mx-auto">
-                    A purgar chaves consulares e tabelas secundárias para consolidação estatística de dados dactiloscópicos.
+                    A consultar as tabelas reais da base central do Correio Digital de Angola.
                   </p>
                 </div>
               </motion.div>
@@ -1256,9 +1268,9 @@ export function GovRelatorioContent({
                           </>
                           )
                         ) : activeTab === 'workers' ? (
-                          dadosReais && dadosReais.profiles.length > 0 ? (
+                          dadosReais && dadosReais.profiles.filter(pp => pp.bi !== 'CDA' && (pp.role === 'admin' || _ehAgenteCodificado(pp.bi))).length > 0 ? (
                             dadosReais.profiles
-                              .filter(pp => pp.role === 'admin' || /^[A-Z]{2,}-\d{2,}-[A-Z]{2,}$/.test(pp.bi))
+                              .filter(pp => pp.bi !== 'CDA' && (pp.role === 'admin' || _ehAgenteCodificado(pp.bi)))
                               .slice(0, 60)
                               .map((w) => (
                               <tr key={w.bi} className="hover:bg-slate-50/50 transition-colors">
@@ -1270,6 +1282,8 @@ export function GovRelatorioContent({
                                 </td>
                               </tr>
                               ))
+                          ) : dadosReais ? (
+                            <tr><td colSpan={4} className="py-8 px-4 text-center text-slate-400 text-[10px] font-black uppercase tracking-widest">Nenhum membro da equipa registado na base central.</td></tr>
                           ) : (
                           <>
                             <tr className="hover:bg-slate-50/50 transition-colors">
@@ -1297,6 +1311,7 @@ export function GovRelatorioContent({
                           )
                         ) : activeTab === 'ai_assist' ? (
                           dadosReais && (dadosReais.iaLogs.length > 0 || dadosReais.iaTelemetria.length > 0) ? (
+
                             (dadosReais.iaLogs.length > 0 ? dadosReais.iaLogs : dadosReais.iaTelemetria.map((t, i) => ({ id: `tel-${i}`, papel: '—', sigla: t.sigla, canal: t.canal, resposta_ok: (t.ok || 0) >= (t.total || 1), lat_ms: t.lat_media_ms, created_at: t.dia } as any))).slice(0, 60).map((l) => (
                               <tr key={l.id} className="hover:bg-slate-50/50 transition-colors">
                                 <td className="py-3 px-4 font-semibold">{l.papel || '—'}</td>
@@ -1311,6 +1326,8 @@ export function GovRelatorioContent({
                                 <td className="py-3 px-4 font-mono text-[10px] text-slate-400">{fmtDataCurta(l.created_at)}</td>
                               </tr>
                             ))
+                          ) : dadosReais ? (
+                            <tr><td colSpan={6} className="py-8 px-4 text-center text-slate-400 text-[10px] font-black uppercase tracking-widest">Sem interações IA registadas na base central.</td></tr>
                           ) : (
                           <>
                             <tr className="hover:bg-slate-50/50 transition-colors">
@@ -1372,6 +1389,8 @@ export function GovRelatorioContent({
                                 <td className="py-3 px-4 font-mono text-[10px] text-slate-500">{inst.phone || '—'}</td>
                               </tr>
                             ))
+                          ) : dadosReais ? (
+                            <tr><td colSpan={4} className="py-8 px-4 text-center text-slate-400 text-[10px] font-black uppercase tracking-widest">Nenhuma instituição registada na base central.</td></tr>
                           ) : (
                           <>
                             <tr className="hover:bg-slate-50/50 transition-colors">
@@ -1517,11 +1536,11 @@ export function GovRelatorioContent({
                   <div className="text-left space-y-1">
                     <span className="text-[9px] font-black text-slate-400 block uppercase">CONSELHO CENTRAL:</span>
                     <span className="font-black text-slate-800 block text-[10px]">{executiveDepartment}</span>
-                    <span className="text-slate-500 block text-[10px]">Cód. Identificador: CDA-REP-2026-{activeTab.toUpperCase()}</span>
+                    <span className="text-slate-500 block text-[10px]">Cód. Identificador: CDA-REP-{new Date().getFullYear()}-{activeTab.toUpperCase()}</span>
                   </div>
                   <div className="text-right space-y-1">
                     <span className="text-[9px] font-black text-slate-400 block uppercase">EMISSÃO OFICIAL:</span>
-                    <span className="font-bold text-slate-800 block text-[10px]">Luanda, 12 de Junho de 2026</span>
+                    <span className="font-bold text-slate-800 block text-[10px]">Luanda, {new Date().toLocaleDateString('pt-AO', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                     <span className="text-[#00A859] font-black text-[9px] block">CÓDIGO DE SEGURANÇA SSL</span>
                   </div>
                 </div>
@@ -1582,7 +1601,7 @@ export function GovRelatorioContent({
                     </div>
                     <div>
                       <span className="font-mono text-[8px] text-slate-400 block font-bold leading-none">CÓDIGO HASH DE CHAVE</span>
-                      <span className="font-mono text-[9px] font-bold text-slate-800 block mt-1">cda_sha256_verification_2026_ok</span>
+                      <span className="font-mono text-[9px] font-bold text-slate-800 block mt-1">cda_{(() => { let h = 5381; const src = `${executiveTitle}|${executiveSummary}|${new Date().toISOString().slice(0, 10)}`; for (let i = 0; i < src.length; i++) h = ((h * 33) ^ src.charCodeAt(i)) >>> 0; return h.toString(16).padStart(8, '0'); })()}</span>
                     </div>
                   </div>
 

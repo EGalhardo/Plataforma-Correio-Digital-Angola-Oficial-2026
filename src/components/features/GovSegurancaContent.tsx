@@ -129,7 +129,9 @@ export function GovSegurancaContent({
         registeredAt: soli?.criado_em ? fmtDataCurta(soli.criado_em) : '—',
         lastUsed: ultimoLog ? fmtDataCurta(ultimoLog.timestamp) : 'Sem registo',
         status: estado,
-        confidenceRate: estado === 'Ativo' ? 97 : 0,
+        // Modo Real NÃO inventa taxa de confiança: sem leitura biométrica
+        // real por utilizador, mostra '—' (0) em vez de um número simulado.
+        confidenceRate: 0,
       };
     });
   }, [dadosReais, statusLocais]);
@@ -179,9 +181,9 @@ export function GovSegurancaContent({
       setIsScanning(false);
       const randomRate = +(85 + Math.random() * 15).toFixed(1);
       if (randomRate >= matchingThreshold) {
-        setSimulatedScanResult(`Match Biométrico Confirmado! Confiança de ${randomRate}% para ${user.name}. Integridade garantida (Anti-Spoofing: Passou)`);
+        setSimulatedScanResult(`[SIMULAÇÃO] Match Biométrico Confirmado! Confiança de ${randomRate}% para ${user.name}. Integridade garantida (Anti-Spoofing: Passou)`);
       } else {
-        setSimulatedScanResult(`Falha no Match. Confiança de ${randomRate}% está abaixo do limite mínimo configurado (${matchingThreshold}%).`);
+        setSimulatedScanResult(`[SIMULAÇÃO] Falha no Match. Confiança de ${randomRate}% está abaixo do limite mínimo configurado (${matchingThreshold}%).`);
       }
     }, 1800);
   };
@@ -302,7 +304,7 @@ export function GovSegurancaContent({
               Interrupção de Emergência Cibernética
             </h3>
             <p className={`text-[11px] leading-relaxed max-w-xl mt-1 ${emergencyMode ? 'text-slate-500' : 'text-slate-300'}`}>
-              Quando ativado, suspende imediatamente a biometria de "Edlasio Galhardo", assinala bloqueio identitário temporário para salvaguarda de soberania digital, propaga notificações nos canais governamentais e encripta as chaves criptográficas.
+              Quando ativado, suspende imediatamente a biometria do titular autenticado nesta consola, assinala bloqueio identitário temporário para salvaguarda de soberania digital, propaga notificações nos canais governamentais e encripta as chaves criptográficas.
             </p>
           </div>
         </div>
@@ -450,10 +452,17 @@ export function GovSegurancaContent({
               </div>
               <div className="text-right">
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block font-sans">Média Semanal de Sucesso</span>
-                <span className="text-xl font-bold tracking-tight text-emerald-600">{dadosReais && graficoReal && graficoReal.length > 0 ? `${Math.min(100, Math.round((graficoReal.reduce((sr, g) => sr + g.sucesso, 0) / Math.max(1, graficoReal.reduce((sr, g) => sr + g.sucesso + g.falhas, 0))) * 1000) / 10)}%` : '99.1%'}</span>
+                <span className="text-xl font-bold tracking-tight text-emerald-600">{dadosReais && graficoReal && graficoReal.length > 0 ? `${Math.min(100, Math.round((graficoReal.reduce((sr, g) => sr + g.sucesso, 0) / Math.max(1, graficoReal.reduce((sr, g) => sr + g.sucesso + g.falhas, 0))) * 1000) / 10)}%` : (dadosReais ? '—' : '99.1%')}</span>
               </div>
             </div>
 
+            {(dadosReais && (!graficoReal || graficoReal.length === 0)) ? (
+              <div className="h-[220px] w-full flex items-center justify-center text-center">
+                <div className="text-xs text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+                  Sem eventos suficientes na base central<br />para traçar a curva real dos últimos 7 dias.
+                </div>
+              </div>
+            ) : (
             <div className="h-[220px] w-full min-h-0">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={(graficoReal && graficoReal.length > 0) ? graficoReal : BIOMETRIC_ATTEMPTS_DATA} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
@@ -473,6 +482,7 @@ export function GovSegurancaContent({
                 </AreaChart>
               </ResponsiveContainer>
             </div>
+            )}
           </div>
         </motion.div>
       )}
@@ -829,6 +839,11 @@ export function GovSegurancaContent({
               
               <p className="text-[11px] text-slate-500 leading-relaxed mb-4 font-medium">
                 Selecione qualquer utilizador na lista ("Modelos de Utilizadores" tab) e depois execute o diagnóstico na consola abaixo.
+                {dadosReais && (
+                  <span className="block mt-1.5 text-amber-600 font-bold">
+                    Nota: resultado desta consola é uma SIMULAÇÃO técnica — a verificação biométrica oficial ocorre no Login Facial.
+                  </span>
+                )}
               </p>
 
               {selectedUser ? (
