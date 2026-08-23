@@ -307,6 +307,61 @@ async function correrPapel(role, cfg) {
       }
     }
 
+    // 4b) v36 — SONDAGENS (só render + validação client-side; NUNCA envia dados)
+    if (role === 'instituicao') {
+      // garante que estamos na lista do Correio (vinha do detalhe de mensagem)
+      const navCorreioS = page.locator('nav button', { hasText: /^\s*Correio\s*$/ }).first();
+      if (await navCorreioS.isVisible().catch(() => false)) { await navCorreioS.click(); await page.waitForTimeout(1500); }
+      // toolbar do Correio: botão «Sondagens» à direita de «Validação QR» (spec §5.1)
+      const btnSond = page.locator('#btn-tab-sondagens');
+      if (!(await btnSond.isVisible().catch(() => false))) {
+        reg(role, 'sondagens-botao', 'FAIL', 'botão «Sondagens» inexistente ao lado de «Validação QR»');
+      } else {
+        reg(role, 'sondagens-botao', 'PASS');
+        await btnSond.click();
+        await page.waitForTimeout(1500);
+        const root = page.locator('[data-testid="sondagens-root"]').first();
+        const ok = await root.isVisible().catch(() => false);
+        reg(role, 'sondagens-pagina', ok ? 'PASS' : 'FAIL',
+          ok ? 'página de sondagens renderizou' : 'página de sondagens não renderizou');
+        await page.screenshot({ path: `${SHOTS}/${role}-sondagens.png` });
+      }
+      // compositor: «Criar Sondagem» + popup + validação de campos em falta (spec §1)
+      const navCorreio2 = page.locator('nav button', { hasText: /^\s*Correio\s*$/ }).first();
+      if (await navCorreio2.isVisible().catch(() => false)) {
+        await navCorreio2.click(); await page.waitForTimeout(1500);
+      }
+      const novaMsg = page.getByRole('button', { name: /Nova Mensagem/ }).first();
+      if (!(await novaMsg.isVisible().catch(() => false))) {
+        reg(role, 'sondagem-modal', 'WARN', 'compositor «Nova Mensagem» não abriu para testar');
+      } else {
+        await novaMsg.click(); await page.waitForTimeout(1200);
+        const btnCriar = page.locator('#btn-criar-sondagem');
+        if (!(await btnCriar.isVisible().catch(() => false))) {
+          reg(role, 'sondagem-modal', 'FAIL', 'botão «Criar Sondagem» inexistente no compositor');
+        } else {
+          await btnCriar.click(); await page.waitForTimeout(900);
+          const campo = page.getByPlaceholder(/Escreva a pergunta da sondagem/).first();
+          const okCampo = await campo.isVisible().catch(() => false);
+          if (!okCampo) {
+            reg(role, 'sondagem-modal', 'FAIL', 'popup «Criar Sondagem» não abriu');
+          } else {
+            await page.getByRole('button', { name: /Enviar Sondagem/ }).first().click();
+            await page.waitForTimeout(700);
+            const val = await page.getByText(/a faltar preencher alguns campos/i).first().isVisible().catch(() => false);
+            reg(role, 'sondagem-modal', val ? 'PASS' : 'WARN',
+              val ? 'validação de campos em falta funciona (nada enviado)' : 'popup de validação não apareceu');
+            const fecharAlerta = page.getByTitle('Fechar').last();
+            if (await fecharAlerta.isVisible().catch(() => false)) await fecharAlerta.click().catch(() => null);
+            await page.waitForTimeout(400);
+            const cancelar = page.getByRole('button', { name: /Cancelar/ }).first();
+            if (await cancelar.isVisible().catch(() => false)) await cancelar.click().catch(() => null);
+            await page.waitForTimeout(400);
+          }
+        }
+      }
+    }
+
     // 5) logout: «Sair do Canal» tem de terminar a sessão e voltar ao login
     {
       // NOTA (correção 2026-08-08): o botão «Sair do Canal» vive na <aside> da

@@ -39,11 +39,13 @@ import {
   Eraser,
   Trash2,
   Paperclip,
-  Edit2
+  Edit2,
+  BarChart3
 } from 'lucide-react';
 import { Message, LanguageCode } from '../../types';
 import { translateText } from '../../utils/translator';
 import { useLanguage } from '../../hooks/useLanguage';
+import { SondagemModal } from './SondagemModal';
 import { Video, Loader2, CheckCircle2, AlertTriangle, Sparkles } from 'lucide-react';
 // F59 — a pesquisa teatral de 8s com textos governamentais inventados e
 // correspondência em MOCK_CITIZENS/MOCK_USERS foi REMOVIDA: o lookup do
@@ -123,6 +125,8 @@ interface MailContentProps {
   onRecipientLookup?: (bi: string) => void;
   /** Abre o modal de difusão F58 alimentado pelo BI verificado no Destinatário. */
   onEmergencyBroadcast?: () => void;
+  /** v36 — auditoria para a criação de sondagens (opcional). */
+  addAuditLog?: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
 }
 
 export function MailContent({
@@ -152,6 +156,7 @@ export function MailContent({
   recipientLookup,
   onRecipientLookup,
   onEmergencyBroadcast,
+  addAuditLog,
 }: MailContentProps) {
   const { currentLanguage, t } = useLanguage();
 
@@ -213,6 +218,21 @@ export function MailContent({
   const [editorColor, setEditorColor] = useState('#1e293b');
   const [editorIsQuote, setEditorIsQuote] = useState(false);
   const [editorListType, setEditorListType] = useState<string | null>(null);
+
+  // v36 — Sondagens: estado do modal de criação + nome da instituição (profiles)
+  const [showSondagemModal, setShowSondagemModal] = useState(false);
+  const [instNomeSondagem, setInstNomeSondagem] = useState('');
+  useEffect(() => {
+    if (!isInst || !bi) return;
+    (async () => {
+      try {
+        const { data } = await supabase.from('profiles').select('name').eq('bi', bi).maybeSingle();
+        setInstNomeSondagem(data?.name || bi);
+      } catch {
+        setInstNomeSondagem(bi);
+      }
+    })();
+  }, [isInst, bi]);
 
   const [textHistory, setTextHistory] = useState<string[]>([composeData.body || '']);
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -497,6 +517,18 @@ export function MailContent({
     });
     setEditingAttachmentIdx(null);
   };
+
+  // v36 — modal de criação de sondagem partilhado pelas duas vistas (compositor e lista)
+  const sondagemModalJsx = isInst ? (
+    <SondagemModal
+      aberto={showSondagemModal}
+      onFechar={() => setShowSondagemModal(false)}
+      codigoInstituicao={bi}
+      nomeInstituicao={instNomeSondagem || bi}
+      criadaPor={bi}
+      addAuditLog={(a, t) => addAuditLog?.(a, t)}
+    />
+  ) : null;
 
   if (isComposing) {
     return (
@@ -1116,6 +1148,19 @@ export function MailContent({
               </button>
             )}
 
+            {/* v36 — Sondagens (spec §1): botão secundário no compositor, área Inst. */}
+            {isInst && (
+              <button
+                type="button"
+                onClick={() => setShowSondagemModal(true)}
+                className="w-full md:w-auto px-5 py-4 rounded-2xl font-black text-sm border-2 border-[#2563eb] text-[#2563eb] bg-blue-50 hover:bg-blue-100 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                id="btn-criar-sondagem"
+              >
+                <BarChart3 size={16} />
+                {translateText("Criar Sondagem", currentLanguage)}
+              </button>
+            )}
+
             <label 
               className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-4 bg-white hover:bg-slate-50 text-slate-700 font-extrabold text-sm rounded-2xl transition-all cursor-pointer active:scale-95 border border-slate-300 relative shadow-sm shrink-0"
               title="Anexar múltiplos ficheiros"
@@ -1250,6 +1295,7 @@ export function MailContent({
             </motion.div>
           )}
         </AnimatePresence>
+        {sondagemModalJsx}
       </motion.div>
     );
   }
@@ -1290,6 +1336,8 @@ export function MailContent({
           )}
         </button>
         {isInst && <button onClick={() => setTab('inst-qrcode')} className="cda-link-text">{translateText("Validação QR", currentLanguage)}</button>}
+        {/* v36 — Sondagens (spec §5.1): imediatamente à direita de «Validação QR». */}
+        {isInst && <button onClick={() => setTab('sondagens')} className="cda-link-text" id="btn-tab-sondagens">{translateText("Sondagens", currentLanguage)}</button>}
       </div>
 
       {/* Filters & Tabs Container */}
@@ -1591,6 +1639,8 @@ export function MailContent({
           </div>
         )}
       </AnimatePresence>
+
+      {sondagemModalJsx}
     </section>
   );
 }

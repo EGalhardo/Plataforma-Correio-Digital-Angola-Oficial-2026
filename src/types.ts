@@ -87,6 +87,8 @@ export interface Message {
   recipientInst?: string;
   /** F12 — BI do cidadão a quem a mensagem foi de facto endereçada (fusão da nuvem). */
   recipientBi?: string;
+  /** v36 — sondagem (enquete estilo WhatsApp) ligada à difusão; nullable. */
+  sondagem_id?: number | null;
   /** F15 — chave da sessão remetente (caixa "Enviadas" isolada por conta). */
   senderKey?: string;
 }

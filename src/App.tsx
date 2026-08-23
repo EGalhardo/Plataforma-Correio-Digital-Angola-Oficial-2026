@@ -176,6 +176,7 @@ const GovCorrespondenciasContent = lazy(() => import('./components/features/GovC
 const GovRelatorioContent = lazy(() => import('./components/features/GovRelatorioContent').then(m => ({ default: m.GovRelatorioContent })));
 const GovIaContent = lazy(() => import('./components/features/GovIaContent').then(m => ({ default: m.GovIaContent })));
 const InstQrCodeContent = lazy(() => import('./components/features/InstQrCodeContent').then(m => ({ default: m.InstQrCodeContent })));
+const SondagensContent = lazy(() => import('./components/features/SondagensContent').then(m => ({ default: m.SondagensContent }))); // v36
 const InstAiAssistantContent = lazy(() => import('./components/features/InstAiAssistantContent').then(m => ({ default: m.InstAiAssistantContent })));
 // 2026-08-08 — Pagamentos (frontend-only; gateway só após validação INAPEM)
 const PagamentosContent = lazy(() => import('./components/features/PagamentosContent').then(m => ({ default: m.PagamentosContent })));
@@ -253,6 +254,7 @@ const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
   institution: new Set([
     'home', 'correspondencias', 'gov-contatos', 'contatos', 'contactos',
     'inst-qrcode', 'inst-ai-assistant', 'perfil', 'inst-pagamentos',
+    'sondagens', // v36 — lista/resultados de sondagens da instituição
     'historico', 'notificacoes', 'documentos',
     'mensagem', 'documento', 'instituicao',
   ]),
@@ -5082,6 +5084,7 @@ Ficha civil do titular:
             recipientLookup={recipientLookup}
             onRecipientLookup={handleRecipientLookup}
             onEmergencyBroadcast={handleInstEmergencyOpen}
+            addAuditLog={addAuditLog}
           />
         );
       case 'video-atendimento':
@@ -5163,6 +5166,8 @@ Ficha civil do titular:
             onRestoreMessage={handleRestoreMessage}
             isDeleted={deletedMessageIds.includes(selectedMessage.id)}
             backTab={selectedInstitution ? 'instituicao' : 'correspondencias'}
+            cidadaoBi={isUserMode ? bi : undefined}
+            addAuditLog={addAuditLog}
           />
           {isUserMode && bi ? (
             <PagamentosInlineCidadao
@@ -5291,6 +5296,15 @@ Ficha civil do titular:
             onSelectMessage={handleSelectMessage}
             addAuditLog={addAuditLog}
             setTab={setTab}
+          />
+          </PainelSuspense>
+        );
+      case 'sondagens': // v36 — lista + resultados (spec §5)
+        return (
+          <PainelSuspense>
+          <SondagensContent
+            codigoInstituicao={bi}
+            addAuditLog={addAuditLog}
           />
           </PainelSuspense>
         );

@@ -75,6 +75,7 @@ import { VideoSessionPanel } from './VideoSessionPanel';
 import { useLanguage } from '../../hooks/useLanguage';
 import { QrCodeImage } from '../ui/QrCodeImage';
 import { AssistenteDocumento } from './AssistenteDocumento';
+import { SondagemResponderCard } from './SondagemResponderCard';
 
 const STATE_STYLING: Record<string, { bg: string; text: string; border: string; bgDot: string; textIcon: string }> = {
   'Enviada': { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', bgDot: 'bg-emerald-200', textIcon: 'text-emerald-600' },
@@ -260,6 +261,10 @@ interface MessageDetailProps {
   onRestoreMessage?: (id: number) => void;
   isDeleted?: boolean;
   backTab?: string;
+  /** v36 — BI do cidadão actual; activa o cartão de resposta quando a mensagem traz sondagem_id. */
+  cidadaoBi?: string;
+  /** v36 — auditoria global (usada pelo cartão de sondagem). */
+  addAuditLog?: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
 }
 
 export function MessageDetail({
@@ -274,6 +279,8 @@ export function MessageDetail({
   onRestoreMessage,
   isDeleted,
   backTab,
+  cidadaoBi,
+  addAuditLog,
 }: MessageDetailProps) {
   const { t } = useLanguage();
   const messageDate = selectedMessage.date && selectedMessage.date.includes('/')
@@ -2008,6 +2015,15 @@ depende de integração futura com a infra-estrutura de chaves nacional.
             className="mt-8"
             onUsarRascunho={onResponderComRascunho ? (textoRascunho: string) => onResponderComRascunho(selectedMessage, textoRascunho) : undefined}
           />
+
+          {/* v36 — Sondagem (spec §4): cartão de resposta no fim da Assistência do Documento */}
+          {!!(selectedMessage as any).sondagem_id && cidadaoBi ? (
+            <SondagemResponderCard
+              sondagemId={Number((selectedMessage as any).sondagem_id)}
+              cidadaoBi={cidadaoBi}
+              addAuditLog={addAuditLog}
+            />
+          ) : null}
 
           {/* Incoming Document Attachments */}
           {parsedAttachments.length > 0 && (
