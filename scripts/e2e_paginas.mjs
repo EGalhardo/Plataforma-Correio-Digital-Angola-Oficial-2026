@@ -67,10 +67,7 @@ const PAPEL = {
       ['gov-contatos', 'Equipa', /Equipa|Membro|Colaborador/i], ['inst-qrcode', 'QR Code', /Valida|QR/i],
       ['inst-ai-assistant', 'IA', /IA|Assistente|Groq|Conhecimento/i], ['perfil', 'Perfil', /Conta|Perfil|Verifica|Institui/i],
     ],
-    // v37.8 — a liga «Pagamentos» do painel foi removida pela regra do
-    // proprietário (Painel institucional = apenas o código); a página de
-    // cobranças continua acessível pelo Assistente de IA.
-    extras: [],
+    extras: [['inst-pagamentos', 'Pagamentos', /Cobran|gateway|Pagamentos|BI do cidad/i]],
   },
   admin: {
     tab: 'Admin', id: 'ADM-8812-OP', pass: 'GALHARDO',
@@ -237,17 +234,6 @@ async function correrPapel(role, cfg) {
       await alvo.click();
       await page.waitForTimeout(1800);
       const texto = await page.evaluate(() => document.body.innerText.trim());
-      // v37.8 — o Painel institucional exibe APENAS o código da instituição
-      // (regra do proprietário «Não apresentar outros dados ou informações
-      // nessa área»): verifica-se o código presente e a ausência dos antigos
-      // cartões/ligas do painel.
-      if (role === 'instituicao' && id === 'home') {
-        const soCodigo = /AGT|INAPEM/.test(texto) && !/Pagamentos|Interoperabilidade|Ver Histórico/.test(texto);
-        reg(role, id, soCodigo ? 'PASS' : 'FAIL',
-          soCodigo ? 'Painel apenas com o código institucional (regra v37.8)' : 'Painel institucional com conteúdo fora da regra v37.8');
-        await page.screenshot({ path: `${SHOTS}/${role}-${id}.png` });
-        continue;
-      }
       if (texto.length < 400) {
         reg(role, id, 'FAIL', `conteúdo quase vazio (${texto.length} chars)`);
         await page.screenshot({ path: `${SHOTS}/${role}-${id}-VAZIO.png` });

@@ -2308,12 +2308,7 @@ export default function App() {
     setDocInbox(prev => applyRead(prev));
     setInstInbox(prev => applyRead(prev));
     setInstDocInbox(prev => applyRead(prev));
-    // v37.8 — correio lido NUNCA volta a «Não Lido»: as leituras persistidas são
-    // re-aplicadas também após cada reconstrução das caixas (carga da nuvem,
-    // Realtime/refetch). applyRead devolve a MESMA referência quando não há
-    // nada a aplicar, por isto não gera ciclo de re-render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appMode, bi, gateRefreshTick, triggerRefetch, inbox, docInbox, instInbox, instDocInbox]);
+  }, [appMode, bi, gateRefreshTick]);
 
   // Auto-scroll to top on tab/stage change
   useEffect(() => {
@@ -5024,7 +5019,6 @@ Ficha civil do titular:
             handleSelectMessage={handleSelectMessage}
             onCreateRequest={handleCreateRequest}
             isInst={isInstMode}
-            instCodigo={isInstMode ? institutionCode : undefined}
             instSigla={isInstMode ? sessionInstBrand.sigla : undefined}
             instLogoUrl={isInstMode ? sessionInstBrand.logoUrl : undefined}
             instVerified={isInstMode ? sessionInstBrand.verified : undefined}

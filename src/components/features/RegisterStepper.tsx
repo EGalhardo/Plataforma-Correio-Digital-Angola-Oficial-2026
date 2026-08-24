@@ -22,7 +22,6 @@ import {
 import { supabase } from '../../lib/supabaseClient';
 import { registoPublicoProxy } from '../../services/supabaseService';
 import { homologationStore, notifyRegistrationSubmitted, notifyAccountApproved } from '../../services/homologationStore';
-import { CdaModal } from '../ui/CdaModal';
 import { requestPviVerification, buildPvicMarker, type PviVerdict } from '../../services/preVerificationService';
 import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticCitizenEmail } from '../../services/cloudAuthService';
 import { runRegistrationVerification, prewarmVerificationEngine, type RegistrationVerificationReport } from '../../services/verificationEngine';
@@ -100,12 +99,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
   // Step 2: Identidade States
   const [biNumber, setBiNumber] = useState('');
-  // v37.8 — dados do formulário a conferir com o B.I. pela IA (sem biometria facial)
-  const [dataNascimento, setDataNascimento] = useState('');
-  const [sexo, setSexo] = useState('');
-  // v37.8 — resultado da validação automática por IA
-  const [aprovadoPopup, setAprovadoPopup] = useState(false);
-  const [reprovacaoInfo, setReprovacaoInfo] = useState<{ motivo: string; alertas: string[] } | null>(null);
   const [documentFrente, setDocumentFrente] = useState<File | null>(null);
   const [documentVerso, setDocumentVerso] = useState<File | null>(null);
   const [frentePreview, setFrentePreview] = useState<string | null>(null);
@@ -142,14 +135,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState('');
   const [submitError, setSubmitError] = useState('');
-
-  // v37.8 — após o popup «Aprovado», a página de registo fecha automaticamente
-  // e o cidadão é redireccionado para o Login (6 s, ou já ao clicar «Entendi»).
-  useEffect(() => {
-    if (!aprovadoPopup) return;
-    const timer = setTimeout(() => onSuccess(), 6000);
-    return () => clearTimeout(timer);
-  }, [aprovadoPopup, onSuccess]);
 
   // Calculate Password Strength in real time
   useEffect(() => {
@@ -196,9 +181,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   };
   const isStep2Valid = appMode === 'institution'
     ? isNifValid(biNumber) && frenteSuccess && versoSuccess
-    // v37.8 — cidadão: BI válido + frente/verso + data de nascimento e sexo
-    // (campos usados pela IA na comparação com os dados extraídos do B.I.)
-    : isBiValid(biNumber) && frenteSuccess && versoSuccess && !!dataNascimento && !!sexo;
+    : isBiValid(biNumber) && frenteSuccess && versoSuccess;
 
   // Handle front file drop/selection
   const handleFrenteFile = (file: File) => {
@@ -364,9 +347,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
     const startCamera = async () => {
       if (step !== 3) return;
-      // v37.8 — cidadão: a etapa facial foi REMOVIDA do registo (validação só
-      // por comparação de dados do B.I.); a câmara é exclusiva do fluxo institucional.
-      if (appMode !== 'institution') return;
       setIsSimulatedCamera(false);
       setFaceCaptureHint('Posicione o rosto no centro da moldura.');
 
@@ -391,7 +371,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       }
     };
 
-    if (step === 3 && appMode === 'institution') {
+    if (step === 3) {
       startCamera();
     } else {
       stopFaceCamera();
@@ -401,7 +381,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       mounted = false;
       stopFaceCamera();
     };
-  }, [step, appMode]);
+  }, [step]);
 
   // Pré-verificação automática (Fase 1): dispara quando a captura facial termina
   useEffect(() => {
@@ -676,9 +656,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
             // F45: data-URL comprimido (o endpoint aceita data:image/ — anti-SSRF);
             // sem compressão possível cai-se na referência restante → REVISAO segura.
             urls: { frente: pviFrenteData || urlFrente, verso: pviVersoData || urlVerso },
-            // v37.8 — a IA compara também a data de nascimento e o sexo declarados
-            // com os dados extraídos do B.I. (registo do cidadão, sem biometria facial).
-            ...(appMode !== 'institution' ? { dataNascimento, sexo } : {}),
           });
         } else {
           pviVerdict = {
@@ -690,35 +667,14 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
           };
         }
         // Porta 2 local (verificationEngine) + Porta 2/3 do servidor: AMBAS têm de aprovar.
-        // v37.8 — cidadão: a etapa facial foi removida; a aprovação automática
-        // baseia-se APENAS na comparação da IA entre o formulário e o B.I.
         const pviLocalEngineOk = verificationReport != null && verificationReport.iaResult === 'Aprovado';
-        pviAutoApproved = pviVerdict.veredicto === 'APTO' && (appMode === 'institution' ? pviLocalEngineOk : true);
+        pviAutoApproved = pviVerdict.veredicto === 'APTO' && pviLocalEngineOk;
         addAuditLog(
           pviAutoApproved
             ? `[PVIC] Cadastro de ${newUser.name} APROVADO AUTOMATICAMENTE pela Pré-Verificação Inteligente (veredicto APTO — modelo ${pviVerdict.modelo}, ${pviVerdict.duracaoMs}ms).`
             : `[PVIC] Cadastro de ${newUser.name} enviado para homologação manual — veredicto ${pviVerdict.veredicto}${pviVerdict.alertas.length ? ` · alertas: ${pviVerdict.alertas.join(', ')}` : ''}${pviVerdict.motivo ? ` · ${pviVerdict.motivo}` : ''}`,
           pviAutoApproved ? 'success' : 'warning'
         );
-
-        // v37.8 — cidadão com divergências entre o formulário e o B.I.:
-        // o cadastro NÃO é aprovado nem submetido; a homologação não passa a
-        // «Aprovado»; o cidadão é informado e pode corrigir os dados e repetir
-        // a validação (volta à etapa Identidade).
-        if (appMode !== 'institution' && pviVerdict.veredicto !== 'APTO') {
-          // O cidadão permanece na etapa de validação para LER o aviso; depois
-          // usa «Voltar» para corrigir os dados e repetir a validação.
-          setReprovacaoInfo({ motivo: pviVerdict.motivo, alertas: pviVerdict.alertas });
-          setSubmitError('Existem dados que precisam de ser corrigidos ou verificados. Corrija e repita a validação.');
-          setIsSubmitting(false);
-          return;
-        }
-        if (appMode !== 'institution') {
-          setReprovacaoInfo(null);
-          // Honestidade da fila administrativa: aprovação por comparação IA = 100%.
-          newUser.verificationScore = 100;
-          newUser.reason = 'Registo aprovado automaticamente: dados do formulário conferidos com os dados extraídos do B.I. pela IA (sem biometria facial).';
-        }
 
         // F47 — CONTA ELIMINADA ⇒ NUNCA auto-aprovar: provisiona JÁ (best-effort,
         // D3 — a nuvem nunca quebra o registo) porque é o provisionamento que
@@ -888,10 +844,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
       addAuditLog(`Processo de Adesão de ${newUser.name} submetido ao SME`, 'info');
       setStep('success');
-      // v37.8 — cidadão aprovado pela validação automática: popup «Aprovado /
-      // Seu cadastro foi aprovado.» e redireccionamento para o Login (a página
-      // de registo fecha automaticamente após a confirmação).
-      if (appMode !== 'institution' && effectiveAutoApproved) setAprovadoPopup(true);
     } catch (e) {
       console.error('Erro ao guardar cidadão', e);
     } finally {
@@ -956,8 +908,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
             <span className={`text-[10px] font-black tracking-widest uppercase mt-1 ${
               step === 3 ? 'text-[#0f172a]' : 'text-slate-400'
             }`}>
-              {/* v37.8 — cidadão: etapa de validação por IA (sem biometria facial) */}
-              {appMode === 'institution' ? 'BIOMETRIA' : 'VALIDAÇÃO IA'}
+              BIOMETRIA
             </span>
           </div>
         </div>
@@ -1229,39 +1180,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                   )}
                 </div>
 
-                {/* v37.8 — dados pessoais para comparação com o B.I. (só cidadão).
-                    A IA compara estes campos com os extraídos da imagem do B.I.;
-                    não existe reconhecimento facial nesta etapa. */}
-                {appMode !== 'institution' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10.5px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-1 mb-0.5 bg-transparent">
-                        <FileText size={12} className="text-[#2563eb]" /> DATA DE NASCIMENTO
-                      </label>
-                      <input
-                        type="date"
-                        value={dataNascimento}
-                        onChange={(e) => { setDataNascimento(e.target.value); setSubmitError(''); setReprovacaoInfo(null); }}
-                        className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4 py-2 text-[13px] text-slate-800 outline-none transition-all font-bold"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10.5px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-1 mb-0.5 bg-transparent">
-                        <FileText size={12} className="text-[#2563eb]" /> SEXO
-                      </label>
-                      <select
-                        value={sexo}
-                        onChange={(e) => { setSexo(e.target.value); setSubmitError(''); setReprovacaoInfo(null); }}
-                        className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4 py-2 text-[13px] text-slate-800 outline-none transition-all font-bold"
-                      >
-                        <option value="">Seleccionar…</option>
-                        <option value="M">Masculino</option>
-                        <option value="F">Feminino</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
-
                 {/* Grid of Double Upload Columns */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Frente Card with Dashed Blue Border */}
@@ -1425,89 +1343,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               exit={{ opacity: 0, scale: 0.98 }}
               className="space-y-2.5"
             >
-              {appMode !== 'institution' ? (
-                <>
-                  {/* v37.8 — Registo do cidadão SEM biometria facial: a IA apenas
-                      compara os dados do formulário com os dados extraídos do B.I. */}
-                  <div className="text-center">
-                    <h1 className="text-[#0f172a] text-xl font-extrabold tracking-tight mb-0.5 leading-tight">
-                      Validação Automática por IA
-                    </h1>
-                    <p className="text-[11px] text-slate-500 font-semibold m-0">
-                      A IA compara os dados introduzidos com os dados extraídos do Bilhete de Identidade.
-                      Não é realizado reconhecimento facial nesta etapa.
-                    </p>
-                  </div>
-
-                  <div className="bg-white border border-slate-200 rounded-2xl p-4 max-w-md mx-auto text-left shadow-sm space-y-2">
-                    {[
-                      ['Nome completo', name],
-                      ['Número do BI', biNumber],
-                      ['Data de nascimento', dataNascimento ? new Date(dataNascimento + 'T00:00:00').toLocaleDateString('pt-PT') : '—'],
-                      ['Sexo', sexo === 'M' ? 'Masculino' : sexo === 'F' ? 'Feminino' : '—'],
-                      ['Frente do B.I.', frenteSuccess ? 'Carregada ✓' : 'Em falta'],
-                      ['Verso do B.I.', versoSuccess ? 'Carregado ✓' : 'Em falta'],
-                    ].map(([k, v]) => (
-                      <div key={k} className="flex items-center justify-between gap-3">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{k}</span>
-                        <span className="text-[12px] font-bold text-slate-800 text-right truncate max-w-[220px]">{v}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {reprovacaoInfo && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 max-w-md mx-auto text-left">
-                      <p className="text-[11px] font-black text-amber-800 uppercase tracking-widest m-0 mb-1 flex items-center gap-1.5">
-                        <AlertTriangle size={13} /> Dados não correspondem
-                      </p>
-                      <p className="text-[11.5px] font-semibold text-amber-800 m-0 leading-relaxed">
-                        {reprovacaoInfo.motivo || 'Existem dados que precisam de ser corrigidos ou verificados.'}
-                      </p>
-                      {reprovacaoInfo.alertas.length > 0 && (
-                        <p className="text-[10px] font-semibold text-amber-700 mt-1.5 m-0">
-                          Alertas: {reprovacaoInfo.alertas.join(', ')}
-                        </p>
-                      )}
-                      <p className="text-[10.5px] font-semibold text-amber-700 mt-1.5 m-0">
-                        Corrija os dados na etapa anterior e repita a validação.
-                      </p>
-                    </div>
-                  )}
-
-                  {isSubmitting && (
-                    <div className="flex items-center justify-center gap-1.5 py-0.5 text-[10px] font-bold text-blue-600 animate-pulse">
-                      <Loader2 size={13} className="animate-spin" />
-                      {submitMessage}
-                    </div>
-                  )}
-                  {submitError && !isSubmitting && (
-                    <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 text-[10.5px] font-bold text-red-700 text-left max-w-md mx-auto">
-                      <AlertTriangle size={14} className="shrink-0 mt-px text-red-500" />
-                      <span>{submitError}</span>
-                    </div>
-                  )}
-
-                  <div className="flex gap-3 w-full max-w-md mx-auto pt-1">
-                    <button
-                      type="button"
-                      disabled={isSubmitting}
-                      onClick={() => setStep(2)}
-                      className="flex-1 py-2 border border-slate-200 hover:bg-slate-50 text-slate-800 font-extrabold text-[#0f172a] text-[11.5px] uppercase tracking-widest rounded-xl transition-all cursor-pointer bg-white flex items-center justify-center gap-1.5 disabled:opacity-50"
-                    >
-                      <ArrowLeft size={13} /> VOLTAR
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isSubmitting}
-                      onClick={handleFinalSubmit}
-                      className="flex-1 py-2 text-[11.5px] font-black uppercase tracking-widest rounded-xl transition-all border-0 shadow-md flex items-center justify-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white cursor-pointer shadow-blue-500/20 disabled:opacity-60"
-                    >
-                      {isSubmitting ? 'A VALIDAR...' : 'VALIDAR COM IA E CONCLUIR'} <Check size={13} />
-                    </button>
-                  </div>
-                </>
-              ) : (
-              <>
               {/* Centered titles */}
               <div className="text-center">
                 <h1 className="text-[#0f172a] text-xl font-extrabold tracking-tight mb-0.5 leading-tight">
@@ -1739,8 +1574,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 </div>
               </div>
 
-              </>
-              )}
             </motion.div>
           )}
 
@@ -1819,27 +1652,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
           animation: scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
-      {/* v37.8 — popup de aprovação automática do registo do cidadão */}
-      <CdaModal
-        aberto={aprovadoPopup}
-        onFechar={() => { setAprovadoPopup(false); onSuccess(); }}
-        icone={CheckCircle2}
-        titulo="Aprovado"
-        subtitulo="Registo validado automaticamente"
-        tomIcone="bg-emerald-50 text-emerald-600 border-emerald-100"
-        maxW="max-w-md"
-      >
-        <p className="text-sm font-semibold text-slate-700 text-left m-0">Seu cadastro foi aprovado.</p>
-        <div className="flex justify-end pt-2">
-          <button
-            type="button"
-            onClick={() => { setAprovadoPopup(false); onSuccess(); }}
-            className="px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer border-none shadow-sm"
-          >
-            Entendi
-          </button>
-        </div>
-      </CdaModal>
       <datalist id="cda-dominios-email">
         <option value="@gmail.com" />
         <option value="@yahoo.com" />

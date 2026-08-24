@@ -22,9 +22,6 @@ interface HomeContentProps {
   handleSelectMessage: (msg: Message) => void;
   onCreateRequest?: (type: string, priority: 'Alta' | 'Média' | 'Baixa') => void;
   isInst?: boolean;
-  /** v37.8 — código institucional (cadastro); no Painel da instituição é o
-      ÚNICO conteúdo exibido na área abaixo do título «Área Institucional». */
-  instCodigo?: string;
   /** F11 — marca da instituição da sessão (sigla/logótipo/estado). */
   instSigla?: string;
   instLogoUrl?: string;
@@ -43,7 +40,6 @@ export function HomeContent({
   handleSelectMessage,
   onCreateRequest,
   isInst,
-  instCodigo,
   instSigla,
   instLogoUrl,
   instVerified,
@@ -51,19 +47,6 @@ export function HomeContent({
   const { t } = useLanguage();
   const slides = isInst ? INST_HIGHLIGHT_SLIDES : HIGHLIGHT_SLIDES;
   const currentSlide = slides[activeSlide % slides.length];
-
-  // v37.8 — Painel da Instituição: na área de conteúdo abaixo do título
-  // «Área Institucional» apresenta-SE APENAS o código institucional
-  // (obtido do cadastro). Nenhum outro dado é exibido.
-  if (isInst && instCodigo) {
-    return (
-      <div className="flex items-center justify-center py-10 md:py-16">
-        <p className="font-mono font-black text-primary text-2xl md:text-4xl tracking-[0.14em] select-all text-center m-0">
-          {instCodigo}
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="grid gap-3 md:gap-3.5">
