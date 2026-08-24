@@ -207,6 +207,11 @@ export function MailContent({
 
   const tentarEnviar = async () => {
     const v = validarEnvio(composeData);
+    // v37 — com sondagens na composição o corpo pode ir vazio (a distribuição
+    // trata do conteúdo); retira apenas o bloqueio de corpo vazio.
+    if (isInst && sondagensCompostas.length > 0) {
+      v.bloqueios = v.bloqueios.filter((b) => b !== 'Escreve o conteúdo da mensagem antes de enviar.');
+    }
     setValidacao(v);
     if (v.bloqueios.length > 0) return;
     if (v.avisos.length > 0 && !avisosConfirmados) {

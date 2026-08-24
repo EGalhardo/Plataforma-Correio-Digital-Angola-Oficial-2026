@@ -310,6 +310,17 @@ Implementação completa do `PROMPT_SONDAGEM_v37.md` (código):
 
 Verificações dinâmicas (contas reais): compositor com blocos múltiplos, remoção com confirmação, validação de campos, painel de classificação Admin (NACIONAL/REGIONAL/LOCAL + província), zero excepções JS. Varreduras: demo 52/0/0, contas reais 41 PASS + 1 WARN (sonda pré-migração) + 0 FAIL. TypeScript limpo.
 
+### v37.2 — correcção da classificação (2026-08-24, após migração aplicada)
+- Achado: as instituições não têm linha em `profiles` com o código completo da app (`INAPEM-LLMM-01` vs `INAPEM-LLMM`), logo a classificação em `profiles` nunca correspondia. Correcção: tabela dedicada `sondagens_classificacoes` + RPCs revistas (`v37_2_classificacoes.sql`, aplicada pelo dono).
+- Achado 2: `validarEnvio` bloqueava corpo vazio mesmo com sondagens na composição — corrigido no `tentarEnviar` (retira apenas esse bloqueio quando há blocos de sondagem).
+- Verificação end-to-end pós-migração (contas reais, alvo único + linhas semeadas, tudo limpo no fim):
+  - Auto-classificação: INAPEM → NACIONAL persistido automaticamente; audiência real no modal (20 cidadãos).
+  - Painel Admin: leitura da classificação actual + reclassificação REGIONAL/Luanda com auditoria.
+  - Segmentação REGIONAL: audiência = 1 cidadão da província (22 sem província excluídos com aviso honesto).
+  - Distribuição real limitada: rascunho → `ativa`, `destinatarios=1`, mensagem com `sondagem_id` + `sondagem_ids`.
+  - Cidadão: mensagem semeada com `sondagem_ids=[15,16]` mostrou DOIS cartões de resposta; resposta registada com sucesso (upsert).
+  - Estado final limpo: sondagens/mensagens/respostas de teste eliminadas; INAPEM reclassificado NACIONAL.
+
 ---
 
 ## VEREDICTO FINAL
