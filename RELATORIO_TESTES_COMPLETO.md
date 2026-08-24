@@ -438,3 +438,15 @@ Testes (build de produção local :3100, browser real): registo 10/10 asserçõe
 (sem câmara, painel IA, REVISAO corrige/repete sem criar conta, APTO ⇒ popup ⇒ Login funcional ⇒
 Homologação «Aprovado»); varreduras 51 PASS / 0 WARN / 0 FAIL (demo) e 41 PASS / 0 WARN / 0 FAIL
 (contas reais); `tsc --noEmit` 0 erros; build OK.
+
+---
+
+## TESTE AUTÓNOMO COMPLETO — v37.10 (2026-08-24, contas REAIS, build de produção)
+
+Resumo: 42 páginas analisadas (13 cidadão + 12 instituição + 12 admin + 5 públicas) + 5 modais
+transversais; varreduras 51/0/0 (demo) e 41/0/0 (reais); cobertura extra por hash 16/16; fluxo de
+registo 10/10; 0 erros JS/console em todos os perfis; `tsc --noEmit` 0 erros.
+Achados estáticos (qualidade de código, não quebram páginas): 🟡 124× `as any` (dívida de tipagem
+adiada); 🟡 1× `confirm()` nativo em ProfileContent.tsx:1812 (remover dispositivo); 🟢 30×
+`console.log` em código de produção. Sem segredos no cliente (apenas menções em comentários).
+Veredicto: ESTÁVEL — PODE AVANÇAR.
