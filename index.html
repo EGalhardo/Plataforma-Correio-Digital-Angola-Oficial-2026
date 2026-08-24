@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Correio Digital</title>
+    <!-- v37.9 — aquece as ligações aos anfitriões externos usados no primeiro
+         paint (imagens e Supabase) para reduzir latência de carregamento. -->
+    <link rel="preconnect" href="https://i.postimg.cc" crossorigin />
+    <link rel="dns-prefetch" href="https://i.postimg.cc" />
+    <link rel="preconnect" href="https://klrclczcahfycfdxzdqs.supabase.co" crossorigin />
+    <link rel="dns-prefetch" href="https://klrclczcahfycfdxzdqs.supabase.co" />
   </head>
   <body>
     <div id="root"></div>

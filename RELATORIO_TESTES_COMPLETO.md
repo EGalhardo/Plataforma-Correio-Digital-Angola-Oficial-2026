@@ -379,3 +379,31 @@ Verificações dinâmicas (contas reais): compositor com blocos múltiplos, remo
 ║                                                      ║
 ╚══════════════════════════════════════════════════════╝
 ```
+
+---
+
+## v37.9 — CARREGAMENTO MAIS RÁPIDO + CÓDIGO INSTITUCIONAL NO PAINEL (2026-08-24)
+
+Requisitos: «Melhore o carregamento das páginas» e «na área Instituição, na página Painel,
+debaixo do texto "Área Institucional" deve conter o código Institucional (ex.: INAPEM-LLVV)».
+
+Alterações:
+- `index.html`: `preconnect`/`dns-prefetch` para `i.postimg.cc` e para o Supabase, aquecendo as
+  ligações externas usadas no primeiro paint.
+- `src/App.tsx`:
+  · overlay inicial `pageLoading` 2000 ms → 400 ms;
+  · splash→login: espera do pré-carregamento com safety fallback 6000 ms → 1200 ms e atraso de
+    suavização 800 ms → 250 ms (o pré-carregamento de imagens continua em fundo);
+  · auditoria pesada de arranque adiada para `requestIdleCallback` (ou +2,5 s), sem competir com
+    o primeiro paint/login pela rede.
+- `src/components/features/HomeContent.tsx` + `src/App.tsx`: novo prop `instCodigo`; na sessão
+  institucional o Painel exibe, imediatamente abaixo do título «Área Institucional», o cartão
+  «CÓDIGO INSTITUCIONAL» com o código (p.ex. `INAPEM-LLMM`); restante conteúdo do painel mantido.
+
+Medições (browser real, 3 execuções, mediana):
+- Ecrã de LOGIN visível: antes 2,7–3,3 s → depois ≈ 1,7 s (pior caso com rede lenta: ~8,8 s → ~1,9 s).
+- Entrada no Painel após credenciais: ~1,7 s (inalterado, dominado pela autenticação em nuvem).
+
+Testes: `tsc --noEmit` 0 erros; build de produção OK; varreduras 51 PASS / 0 WARN / 0 FAIL (demo)
+e 41 PASS / 0 WARN / 0 FAIL (contas reais); banner do código verificado visualmente com o resto
+do painel intacto (ligas «Pagamentos» etc. presentes).

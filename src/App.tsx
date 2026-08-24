@@ -3143,12 +3143,20 @@ export default function App() {
     const alreadyExecuted = localStorage.getItem(auditSessionKey);
     
     if (!alreadyExecuted) {
-      runAuditAndSincronizacaoCompleta();
+      // v37.9 — a auditoria pesada arranca apenas quando o navegador fica
+      // ocioso (ou após 2,5 s), para não competir com o primeiro paint e o
+      // ecrã de login pela largura de banda.
+      const w = window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
+      if (typeof w.requestIdleCallback === 'function') {
+        w.requestIdleCallback(() => { runAuditAndSincronizacaoCompleta(); }, { timeout: 4000 });
+      } else {
+        setTimeout(() => { runAuditAndSincronizacaoCompleta(); }, 2500);
+      }
     }
 
     const timer = setTimeout(() => {
       setPageLoading(false);
-    }, 2000); // Reduced a bit for better UX
+    }, 400); // v37.9 — primeiro paint mais rápido (antes: 2000 ms)
     return () => clearTimeout(timer);
   }, []);
 
@@ -3193,14 +3201,15 @@ export default function App() {
   useEffect(() => {
     if (stage === 'splash') {
       if (preloadCompleted) {
-        // Add a slight delay for visual smoothness before entering login
-        const timer = setTimeout(() => setStage('login'), 800);
+        // v37.9 — transição quase imediata para o login (antes: 800 ms)
+        const timer = setTimeout(() => setStage('login'), 250);
         return () => clearTimeout(timer);
       } else {
         // Safety fallback timer if connection is slow or an image errors out
+        // (v37.9: 6000 ms → 1200 ms; o pré-carregamento continua em fundo)
         const safetyTimer = setTimeout(() => {
           setStage('login');
-        }, 6000);
+        }, 1200);
         return () => clearTimeout(safetyTimer);
       }
     }
@@ -5019,6 +5028,7 @@ Ficha civil do titular:
             handleSelectMessage={handleSelectMessage}
             onCreateRequest={handleCreateRequest}
             isInst={isInstMode}
+            instCodigo={isInstMode ? institutionCode : undefined}
             instSigla={isInstMode ? sessionInstBrand.sigla : undefined}
             instLogoUrl={isInstMode ? sessionInstBrand.logoUrl : undefined}
             instVerified={isInstMode ? sessionInstBrand.verified : undefined}
