@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { CdaModal } from '../ui/CdaModal';
-import { responderSondagem, type Sondagem } from '../../services/sondagemService';
+import { responderSondagem, buscarSondagem, resultadosSondagem, type Sondagem } from '../../services/sondagemService';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -69,7 +69,8 @@ import {
   Download,
   Sparkles,
   Loader2,
-  Video
+  Video,
+  BarChart3
 } from 'lucide-react';
 import { Message, SENSITIVITY_LEVELS, PRIORITY_CONFIGS, ReplySendPayload, ReplySendResult } from '../../types';
 import { generateProtocol, generateTimelineEvents, getCategoryMetadata, canonicalProtocolPayload, sealProtocolContent, buildQrCodeDeepLink } from '../../utils/protocolGenerator';
@@ -298,6 +299,97 @@ export function MessageDetail({
   const [confirmaSond, setConfirmaSond] = useState(false);
   const [popupSond, setPopupSond] = useState<{ ok: boolean; texto: string } | null>(null);
   const [registandoSond, setRegistandoSond] = useState(false);
+
+  // ---- v37.7 — «Sondagem» contextual da instituição: a opção só existe DENTRO
+  // da correspondência seleccionada (a que pertence), nunca solta no Correio.
+  const [sondInstAberta, setSondInstAberta] = useState(false);
+  const [sondInstItens, setSondInstItens] = useState<Record<number, Sondagem>>({});
+  const [sondInstVotos, setSondInstVotos] = useState<Record<number, { rotulo: string; votos: number }[]>>({});
+  const [sondInstCarregando, setSondInstCarregando] = useState(false);
+  const ehInstSondagem = !cidadaoBi && idsSondagem.length > 0;
+  const abrirSondagensInstituicao = async () => {
+    setSondInstAberta(true);
+    if (idsSondagem.every(id => sondInstItens[id] && sondInstVotos[id])) return;
+    setSondInstCarregando(true);
+    for (const id of idsSondagem) {
+      let s = sondInstItens[id];
+      if (!s) {
+        const r = await buscarSondagem(id);
+        if (r.ok && r.dados) { s = r.dados; setSondInstItens(p => ({ ...p, [id]: s as Sondagem })); }
+      }
+      if (s && !sondInstVotos[id]) {
+        const rv = await resultadosSondagem(id);
+        if (rv.ok && rv.dados) {
+          const cont: Record<string, number> = {};
+          for (const resp of rv.dados) for (const esc of resp.escolhas) cont[esc] = (cont[esc] || 0) + 1;
+          const alvo = s as Sondagem;
+          setSondInstVotos(p => ({ ...p, [id]: alvo.opcoes.map(o => ({ rotulo: o.texto, votos: cont[o.id] || 0 })) }));
+        }
+      }
+    }
+    setSondInstCarregando(false);
+  };
+  const sondInstJsx = ehInstSondagem ? (
+    <>
+      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <BarChart3 size={16} className="text-indigo-600 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[12px] font-black text-[#0c2340] uppercase tracking-widest m-0">Sondagem</p>
+            <p className="text-[11px] font-semibold text-slate-500 m-0">{idsSondagem.length} enquete(s) anexada(s) a esta correspondência</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => { void abrirSondagensInstituicao(); }}
+          className="px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer border-none shadow-sm"
+        >
+          Ver Sondagem
+        </button>
+      </div>
+      <CdaModal
+        aberto={sondInstAberta}
+        onFechar={() => setSondInstAberta(false)}
+        icone={BarChart3}
+        titulo="Sondagem"
+        subtitulo="Enquetes desta correspondência"
+        maxW="max-w-xl"
+      >
+        <div className="space-y-3 text-left">
+          {sondInstCarregando && (
+            <p className="text-[12px] font-semibold text-slate-500 m-0 flex items-center gap-2">
+              <Loader2 size={14} className="animate-spin" /> A carregar a(s) sondagem(ns)…
+            </p>
+          )}
+          {idsSondagem.map(id => {
+            const s = sondInstItens[id];
+            const votos = sondInstVotos[id];
+            return (
+              <div key={id} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 m-0 mb-1">Pergunta</p>
+                <p className="text-[13px] font-bold text-slate-800 m-0">{s?.pergunta || 'A carregar…'}</p>
+                {s && (
+                  <>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-3 mb-1.5 m-0">Opções</p>
+                    <ul className="m-0 pl-4 space-y-1">
+                      {(votos || s.opcoes.map(o => ({ rotulo: o.texto, votos: -1 }))).map((o, i) => (
+                        <li key={i} className="text-[12px] font-semibold text-slate-700">
+                          {o.rotulo}{o.votos >= 0 ? <span className="text-slate-400"> — {o.votos} voto(s)</span> : null}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-[10px] font-semibold text-slate-400 mt-2 m-0">
+                      Estado: {s.status} · Âmbito: {s.abrangencia === 'nacional' ? 'Nacional' : s.abrangencia === 'regional' ? 'Regional' : 'Local'}
+                    </p>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </CdaModal>
+    </>
+  ) : null;
 
   const carregarSondagemCidadao = (id: number, s: Sondagem, existente: string[]) => {
     setSondDetalhe(p => ({ ...p, [id]: s }));
@@ -2160,6 +2252,9 @@ depende de integração futura com a infra-estrutura de chaves nacional.
             ))
           ) : null}
 
+          {/* v37.7 — Sondagem contextual (instituição): só dentro da correspondência */}
+          {sondInstJsx}
+
           {sondModaisJsx}
 
           {/* Incoming Document Attachments */}
@@ -3623,6 +3718,9 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         </React.Fragment>
                       ))
                     ) : null}
+
+                    {/* v37.7 — Sondagem contextual (instituição): só dentro da correspondência */}
+                    {sondInstJsx}
 
                     {sondModaisJsx}
 

@@ -348,6 +348,11 @@ Verificações dinâmicas (contas reais): compositor com blocos múltiplos, remo
 - Ao clicar abre a lista de **todas as sondagens criadas pela instituição** (página «Sondagens», reutilizada); ao clicar numa sondagem é exibida a **pergunta + lista de opções** da enquete, além dos resultados (gráfico) já existentes.
 - Verificado com conta real institucional (ordem na toolbar por coordenadas, lista com 8 sondagens reais, bloco pergunta/opções), 0 erros JS. Varreduras no build de produção: **42/0/0** e **52/0/0**. TypeScript limpo.
 
+### v37.7 — «Sondagem» contextual dentro da correspondência (2026-08-24)
+- Pedido do dono (organização): a opção «Sondagem» **saiu da toolbar da página Correio** (v37.6) — solta, não se sabia a que correspondência cada sondagem pertencia.
+- Agora a opção **só existe dentro da correspondência seleccionada**: no detalhe da mensagem da instituição, quando a mensagem traz `sondagem_id`/`sondagem_ids`, aparece o cartão «Sondagem — N enquete(s) anexada(s) a esta correspondência» com o botão **«Ver Sondagem»**, que abre o popup padrão `CdaModal` com a **pergunta, opções (com contagem de votos), estado e âmbito** de cada enquete dessa correspondência (carregamento por `buscarSondagem`/`resultadosSondagem`, só ao abrir).
+- Verificado com conta real: toolbar sem o botão, expedição de teste aberta nas «Enviadas», opção contextual + modal com pergunta/opções (6/6 asserções), 0 erros JS; dados de teste removidos. Varreduras actualizadas no build de produção: **41/0/0** (reais) e **51/0/0** (demo) — um check antigo (botão+página) foi substituído pelo check da remoção. TypeScript limpo.
+
 ---
 
 ## VEREDICTO FINAL

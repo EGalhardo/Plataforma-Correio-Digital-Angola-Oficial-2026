@@ -1582,19 +1582,9 @@ export function MailContent({
             </span>
           )}
         </button>
-        {/* v37.6 — «Sondagem» imediatamente à direita de «VideoAtendimento»
-            (pedido do dono): lista de todas as sondagens criadas pela
-            instituição; cada item expande a pergunta + opções + resultados. */}
-        {isInst && (
-          <button
-            onClick={() => setTab('sondagens')}
-            className="text-indigo-600 hover:text-indigo-800 font-black uppercase tracking-widest text-[10px] transition-colors flex items-center gap-1.5 cursor-pointer bg-transparent border-0"
-            id="btn-tab-sondagens"
-          >
-            <BarChart3 size={14} className="shrink-0" />
-            {translateText("Sondagem", currentLanguage)}
-          </button>
-        )}
+        {/* v37.7 — a opção «Sondagem» deixou a toolbar do Correio: agora só
+            existe DENTRO da correspondência seleccionada (MessageDetail), para
+            se saber sempre a que correspondência cada sondagem pertence. */}
         {isInst && <button onClick={() => setTab('inst-qrcode')} className="cda-link-text">{translateText("Validação QR", currentLanguage)}</button>}
       </div>
 

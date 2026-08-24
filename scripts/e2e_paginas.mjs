@@ -312,20 +312,12 @@ async function correrPapel(role, cfg) {
       // garante que estamos na lista do Correio (vinha do detalhe de mensagem)
       const navCorreioS = page.locator('nav button', { hasText: /^\s*Correio\s*$/ }).first();
       if (await navCorreioS.isVisible().catch(() => false)) { await navCorreioS.click(); await page.waitForTimeout(1500); }
-      // toolbar do Correio: botão «Sondagem» à direita de «VideoAtendimento» (v37.6)
+      // v37.7 — «Sondagem» saiu da toolbar do Correio: só existe dentro da
+      // correspondência seleccionada (MessageDetail da instituição).
       const btnSond = page.locator('#btn-tab-sondagens');
-      if (!(await btnSond.isVisible().catch(() => false))) {
-        reg(role, 'sondagens-botao', 'FAIL', 'botão «Sondagem» inexistente ao lado de «VideoAtendimento»');
-      } else {
-        reg(role, 'sondagens-botao', 'PASS');
-        await btnSond.click();
-        await page.waitForTimeout(1500);
-        const root = page.locator('[data-testid="sondagens-root"]').first();
-        const ok = await root.isVisible().catch(() => false);
-        reg(role, 'sondagens-pagina', ok ? 'PASS' : 'FAIL',
-          ok ? 'página de sondagens renderizou' : 'página de sondagens não renderizou');
-        await page.screenshot({ path: `${SHOTS}/${role}-sondagens.png` });
-      }
+      const fora = (await btnSond.count()) === 0;
+      reg(role, 'sondagens-botao-toolbar', fora ? 'PASS' : 'FAIL',
+        fora ? 'botão removido da toolbar (opção contextual na correspondência)' : 'botão ainda presente na toolbar do Correio');
       // compositor: «Criar Sondagem» + popup + validação de campos em falta (spec §1)
       const navCorreio2 = page.locator('nav button', { hasText: /^\s*Correio\s*$/ }).first();
       if (await navCorreio2.isVisible().catch(() => false)) {
