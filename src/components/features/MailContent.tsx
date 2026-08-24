@@ -308,6 +308,11 @@ export function MailContent({
   const [distribuindoSondagens, setDistribuindoSondagens] = useState(false);
   const [avisoSondagens, setAvisoSondagens] = useState<string | null>(null);
   const [sucessoSondagens, setSucessoSondagens] = useState<string | null>(null);
+  // v37.5 §3.2 — listas longas: acima de 100 linhas renderiza as primeiras 100
+  // e oferece «Mostrar mais», evitando custo de render em caixas volumosas.
+  const LIMITE_LISTA_CORREIO = 100;
+  const [limiteListaCorreio, setLimiteListaCorreio] = useState(LIMITE_LISTA_CORREIO);
+  useEffect(() => { setLimiteListaCorreio(LIMITE_LISTA_CORREIO); }, [correspondenciaTab, searchMail]);
   useEffect(() => {
     if (!isInst || !bi) return;
     (async () => {
@@ -1680,7 +1685,7 @@ export function MailContent({
                 </tr>
               </thead>
               <tbody className="bg-white">
-                {filteredMessages.map((item) => {
+                {filteredMessages.slice(0, limiteListaCorreio).map((item) => {
                   const isUrgente = item.status === 'Urgente' || item.priorityScale === 'Crítico' || item.priorityScale === 'Urgente';
                   return (
                     <tr key={item.id} className="text-xs text-[#334155] hover:bg-slate-50/60 transition-colors">
@@ -1813,6 +1818,17 @@ export function MailContent({
                 })}
               </tbody>
             </table>
+            {filteredMessages.length > limiteListaCorreio && (
+              <div className="p-3 text-center bg-white border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setLimiteListaCorreio(l => l + 200)}
+                  className="px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-wider text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors cursor-pointer border-none"
+                >
+                  Mostrar mais ({filteredMessages.length - limiteListaCorreio} linha(s) restante(s))
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[24px] md:rounded-[32px] p-12 md:p-20 text-center space-y-4">

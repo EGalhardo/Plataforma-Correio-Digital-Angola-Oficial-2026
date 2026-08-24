@@ -340,6 +340,7 @@ Verificações dinâmicas (contas reais): compositor com blocos múltiplos, remo
   - JS descarregado até ao primeiro painel: cidadão **22,4 MB → 7,3 MB** (−67%, 139→71 ficheiros), instituição **22,5 MB → 7,4 MB** (−67%), admin **22,4 MB → 9,0 MB** (−60%).
   - Ecrã de login: ~3,3–4,7 s → ~2,7–3,0 s; tempo submissão→painel mantido (2,3–3,8 s), sem regressão.
   - `server.ts`: porta configurável via `PORT` (permite medir o build de produção sem ocupar o servidor de desenvolvimento).
+  - Listas do Correio: acima de 100 linhas renderiza as primeiras 100 + botão «Mostrar mais» (limite reinicia ao mudar de aba/pesquisa); mappers já memoizados mantidos.
 - Verificado no **build de produção** com contas reais: 5/5 asserções da instituição (popup padrão, «Entendi», compositor fechado, expedição visível sem clicar na aba) e 8/8 do cidadão (cartão sem botões, popups padrão, regresso ao «Correio», resposta na base), 0 erros JS. Limpeza total (sondagens/mensagens/respostas TESTE); INAPEM restaurado a NACIONAL com `provincia` limpa; sondagens reais do dono intocadas. Varreduras finais no build de produção: **42/0/0** (contas reais) e **52/0/0** (demo). TypeScript limpo.
 
 ---
