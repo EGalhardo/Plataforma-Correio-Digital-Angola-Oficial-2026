@@ -109,6 +109,17 @@ export function SondagensContent({ codigoInstituicao, addAuditLog }: Props) {
 
             {aberta === s.id && (
               <div className="px-5 pb-5 pt-1 border-t border-slate-100">
+                {/* v37.6 — ao clicar, exibir a pergunta e as opções da sondagem/enquete */}
+                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 m-0">Pergunta da sondagem</p>
+                  <p className="text-[13px] font-bold text-slate-800 m-0">{s.pergunta}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-3 mb-1.5 m-0">Opções</p>
+                  <ul className="m-0 pl-4 space-y-1">
+                    {s.opcoes.map(o => (
+                      <li key={o.id} className="text-[12px] font-semibold text-slate-700">{o.texto}</li>
+                    ))}
+                  </ul>
+                </div>
                 {dados[s.id] ? (
                   <>
                     <div className="h-56 w-full mt-3">

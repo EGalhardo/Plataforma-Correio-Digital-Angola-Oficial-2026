@@ -343,6 +343,11 @@ Verificações dinâmicas (contas reais): compositor com blocos múltiplos, remo
   - Listas do Correio: acima de 100 linhas renderiza as primeiras 100 + botão «Mostrar mais» (limite reinicia ao mudar de aba/pesquisa); mappers já memoizados mantidos.
 - Verificado no **build de produção** com contas reais: 5/5 asserções da instituição (popup padrão, «Entendi», compositor fechado, expedição visível sem clicar na aba) e 8/8 do cidadão (cartão sem botões, popups padrão, regresso ao «Correio», resposta na base), 0 erros JS. Limpeza total (sondagens/mensagens/respostas TESTE); INAPEM restaurado a NACIONAL com `provincia` limpa; sondagens reais do dono intocadas. Varreduras finais no build de produção: **42/0/0** (contas reais) e **52/0/0** (demo). TypeScript limpo.
 
+### v37.6 — opção «Sondagem» no Correio institucional (2026-08-24)
+- Pedido do dono: na página «Correio» da área institucional, a opção **«Sondagem» passa a ficar imediatamente à direita de «VideoAtendimento»** (antes estava depois de «Validação QR», herança da v36).
+- Ao clicar abre a lista de **todas as sondagens criadas pela instituição** (página «Sondagens», reutilizada); ao clicar numa sondagem é exibida a **pergunta + lista de opções** da enquete, além dos resultados (gráfico) já existentes.
+- Verificado com conta real institucional (ordem na toolbar por coordenadas, lista com 8 sondagens reais, bloco pergunta/opções), 0 erros JS. Varreduras no build de produção: **42/0/0** e **52/0/0**. TypeScript limpo.
+
 ---
 
 ## VEREDICTO FINAL

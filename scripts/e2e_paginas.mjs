@@ -312,10 +312,10 @@ async function correrPapel(role, cfg) {
       // garante que estamos na lista do Correio (vinha do detalhe de mensagem)
       const navCorreioS = page.locator('nav button', { hasText: /^\s*Correio\s*$/ }).first();
       if (await navCorreioS.isVisible().catch(() => false)) { await navCorreioS.click(); await page.waitForTimeout(1500); }
-      // toolbar do Correio: botão «Sondagens» à direita de «Validação QR» (spec §5.1)
+      // toolbar do Correio: botão «Sondagem» à direita de «VideoAtendimento» (v37.6)
       const btnSond = page.locator('#btn-tab-sondagens');
       if (!(await btnSond.isVisible().catch(() => false))) {
-        reg(role, 'sondagens-botao', 'FAIL', 'botão «Sondagens» inexistente ao lado de «Validação QR»');
+        reg(role, 'sondagens-botao', 'FAIL', 'botão «Sondagem» inexistente ao lado de «VideoAtendimento»');
       } else {
         reg(role, 'sondagens-botao', 'PASS');
         await btnSond.click();
