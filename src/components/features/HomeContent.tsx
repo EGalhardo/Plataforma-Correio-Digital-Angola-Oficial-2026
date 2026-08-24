@@ -22,8 +22,6 @@ interface HomeContentProps {
   handleSelectMessage: (msg: Message) => void;
   onCreateRequest?: (type: string, priority: 'Alta' | 'Média' | 'Baixa') => void;
   isInst?: boolean;
-  /** v37.9 — código institucional (p.ex. «INAPEM-LLMM») exibido sob «Área Institucional». */
-  instCodigo?: string;
   /** F11 — marca da instituição da sessão (sigla/logótipo/estado). */
   instSigla?: string;
   instLogoUrl?: string;
@@ -42,7 +40,6 @@ export function HomeContent({
   handleSelectMessage,
   onCreateRequest,
   isInst,
-  instCodigo,
   instSigla,
   instLogoUrl,
   instVerified,
@@ -53,17 +50,6 @@ export function HomeContent({
 
   return (
     <div className="grid gap-3 md:gap-3.5">
-      {/* v37.9 — código institucional imediatamente abaixo do título «Área Institucional» */}
-      {isInst && instCodigo && (
-        <div className="bg-white border border-slate-200 rounded-[20px] md:rounded-[24px] py-4 md:py-5 px-4 shadow-sm text-center">
-          <div className="text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
-            {t('Código Institucional')}
-          </div>
-          <p className="font-mono font-black text-primary text-xl md:text-3xl tracking-[0.14em] select-all m-0 leading-none">
-            {instCodigo}
-          </p>
-        </div>
-      )}
       <section className="relative h-[280px] md:h-[385px] rounded-[20px] md:rounded-[24px] overflow-hidden shadow-xl border border-line/60">
         <AnimatePresence mode="wait">
           <motion.div

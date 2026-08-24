@@ -5028,7 +5028,6 @@ Ficha civil do titular:
             handleSelectMessage={handleSelectMessage}
             onCreateRequest={handleCreateRequest}
             isInst={isInstMode}
-            instCodigo={isInstMode ? institutionCode : undefined}
             instSigla={isInstMode ? sessionInstBrand.sigla : undefined}
             instLogoUrl={isInstMode ? sessionInstBrand.logoUrl : undefined}
             instVerified={isInstMode ? sessionInstBrand.verified : undefined}

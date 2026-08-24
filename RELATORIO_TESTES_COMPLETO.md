@@ -407,3 +407,34 @@ Medições (browser real, 3 execuções, mediana):
 Testes: `tsc --noEmit` 0 erros; build de produção OK; varreduras 51 PASS / 0 WARN / 0 FAIL (demo)
 e 41 PASS / 0 WARN / 0 FAIL (contas reais); banner do código verificado visualmente com o resto
 do painel intacto (ligas «Pagamentos» etc. presentes).
+
+---
+
+## v37.10 — PAINEL HARMONIOSO SEM CARTÃO DE CÓDIGO + REGISTO DO CIDADÃO POR COMPARAÇÃO IA DO B.I. (2026-08-24)
+
+Requisitos: remover da área central da Instituição o conteúdo «Código Institucional / INAPEM-LLMM»
+(ajustando tudo para haver harmonia) e reimplementar o registo do cidadão sem etapa de
+registo/verificação facial — a IA compara apenas os dados extraídos do B.I. com os do formulário
+(nome completo, nº BI, data de nascimento, sexo), aprova com popup «Aprovado / Seu cadastro foi
+aprovado.», redirecciona para o Login com credenciais funcionais, homologa automaticamente
+«Aprovado» na Área Administrativa e, em caso de divergências, não aprova e permite corrigir e
+repetir a validação.
+
+Alterações:
+- `src/components/features/HomeContent.tsx` + `src/App.tsx`: removidos o cartão «Código
+  Institucional» e o prop `instCodigo`; o Painel institucional volta ao desenho harmonioso
+  completo (destaques, cartões, ligas, instituições conectadas e correio), sem conteúdo solto.
+- `src/components/features/RegisterStepper.tsx` (reaplicado do histórico validado `7a20c0e`):
+  · passo 2 do cidadão com «Data de Nascimento» e «Sexo»;
+  · passo 3 do cidadão = «Validação Automática por IA» (resumo + veredicto), sem câmara;
+    biometria facial mantida apenas para instituições;
+  · pedido de pré-verificação envia `dataNascimento` e `sexo`;
+  · divergências: nenhum cadastro criado, aviso «Dados não correspondem» com motivo/alertas,
+    «Voltar» para corrigir e repetir;
+  · aprovação: score 100 «IA — comparação B.I./formulário», Homologação «Aprovado» imediata,
+    popup «Aprovado / Seu cadastro foi aprovado.» e redirect automático para o Login.
+
+Testes (build de produção local :3100, browser real): registo 10/10 asserções PASS com 0 erros JS
+(sem câmara, painel IA, REVISAO corrige/repete sem criar conta, APTO ⇒ popup ⇒ Login funcional ⇒
+Homologação «Aprovado»); varreduras 51 PASS / 0 WARN / 0 FAIL (demo) e 41 PASS / 0 WARN / 0 FAIL
+(contas reais); `tsc --noEmit` 0 erros; build OK.
