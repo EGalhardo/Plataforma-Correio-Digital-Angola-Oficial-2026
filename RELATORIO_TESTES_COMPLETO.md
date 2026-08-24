@@ -321,6 +321,12 @@ Verificações dinâmicas (contas reais): compositor com blocos múltiplos, remo
   - Cidadão: mensagem semeada com `sondagem_ids=[15,16]` mostrou DOIS cartões de resposta; resposta registada com sucesso (upsert).
   - Estado final limpo: sondagens/mensagens/respostas de teste eliminadas; INAPEM reclassificado NACIONAL.
 
+### v37.3 — refinamentos pedidos pelo dono (2026-08-24)
+- **Instituição:** a sondagem composta passa a aparecer na área de conteúdo como **bolha de enquete completa** (estilo WhatsApp: pergunta a negrito, «Selecione uma opção», opções A)/B)/C) com círculo, contagem e barra, hora + visto duplo, rodapé «Mostrar votos»), conforme modelo fornecido.
+- **Destinatário automático:** ao compor sondagens o campo destinatário passa a **«Todos»** (difusão pelo âmbito oficial); ao enviar com «Todos» a difusão entrega e o compositor limpa (sem mensagem singular para "Todos").
+- **Cidadão:** o «Conteúdo do Documento» mostra apenas o texto da instituição — a listagem crua das perguntas deixou de ser duplicada no corpo; as enquetes vivem nos cartões «Sondagem · INSTITUIÇÃO» abaixo.
+- Verificado com contas reais (alvo único regional + limpeza total): bolha renderiza, «Todos» automático, envio limpa o compositor, corpo da mensagem = só texto da instituição, cartão com opções correcto. Varreduras 42/0/0 e 52/0/0.
+
 ---
 
 ## VEREDICTO FINAL

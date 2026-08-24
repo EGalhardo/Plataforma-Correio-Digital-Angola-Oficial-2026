@@ -286,18 +286,15 @@ export const distribuirSondagensCompostas = async (params: {
     }
 
     const multiplas = params.sondagens.length > 1;
-    const resumoSondagens = params.sondagens
-      .map((s) => {
-        const linhas = s.opcoes.map((o, i) => `${String.fromCharCode(65 + i)}) ${o.texto}`).join('\n');
-        return `${s.pergunta}\n${linhas}`;
-      })
-      .join('\n\n');
     const assunto = params.assuntoBase?.trim()
       ? params.assuntoBase.trim()
       : `Sondagem${multiplas ? 's' : ''}: ${params.sondagens[0].pergunta.length > 70 ? params.sondagens[0].pergunta.slice(0, 67) + '…' : params.sondagens[0].pergunta}`;
+    // v37.3 — o corpo leva apenas o texto da instituição (ou um convite limpo):
+    // as enquetes são renderizadas como cartões no detalhe do cidadão, sem
+    // duplicar a listagem crua das perguntas no «Conteúdo do Documento».
     const corpo = params.corpoExtra?.trim()
-      ? `${params.corpoExtra.trim()}\n\n— Sondagem${multiplas ? 's' : ''} incluída${multiplas ? 's' : ''} nesta mensagem —\n\n${resumoSondagens}\n\nAbra a mensagem e toque em «Responder à Sondagem».`
-      : `${params.nomeInstituicao} convida-o(a) a participar na seguinte sondagem oficial:\n\n${resumoSondagens}\n\nAbra a mensagem e toque em «Responder à Sondagem».`;
+      ? params.corpoExtra.trim()
+      : `${params.nomeInstituicao} convida-o(a) a participar na(s) sondagem(ns) oficial(is) incluída(s) nesta mensagem. Abra a mensagem e toque em «Responder à Sondagem».`;
     const ids = params.sondagens.map((s) => s.id);
     const rows = bis.map((bi) => ({
       sender_bi: params.codigo,

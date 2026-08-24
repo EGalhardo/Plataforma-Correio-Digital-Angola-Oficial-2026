@@ -51,7 +51,7 @@ import { CdaModal } from '../ui/CdaModal';
 import {
   distribuirSondagensCompostas, removerRascunhoSondagem, type Sondagem,
 } from '../../services/sondagemService';
-import { Video, Loader2, CheckCircle2, AlertTriangle, Sparkles } from 'lucide-react';
+import { Video, Loader2, CheckCircle2, AlertTriangle, Sparkles, CheckCheck } from 'lucide-react';
 // F59 — a pesquisa teatral de 8s com textos governamentais inventados e
 // correspondência em MOCK_CITIZENS/MOCK_USERS foi REMOVIDA: o lookup do
 // destinatário é REAL (RPC auditada) e chega por props do App.
@@ -243,6 +243,15 @@ export function MailContent({
         `${sondagensCompostas.length} sondagem(ns) da instituição ${instNomeSondagem || bi} distribuída(s) a ${dist.dados.audiencia} cidadãos — âmbito ${dist.dados.classificacao}, ${new Date().toLocaleString('pt-PT')}.`,
         'success',
       );
+      // Destinatário «Todos» (v37): a difusão pelo âmbito oficial já entregou —
+      // não existe BI directo, logo não se envia mensagem singular.
+      if (String(composeData.to).trim().toUpperCase() === 'TODOS') {
+        setSondagensCompostas([]);
+        setComposeData({ ...composeData, to: '', subject: '', body: '' });
+        setAvisosConfirmados(false);
+        setValidacao({ bloqueios: [], avisos: [] });
+        return;
+      }
       setSondagensCompostas([]);
       // Sem texto próprio, o corpo descreve as sondagens embutidas (pipeline
       // de envio exige corpo não vazio). O envio segue no tick seguinte para
@@ -578,6 +587,10 @@ export function MailContent({
       if (prev.length >= 5) {
         setAvisoSondagens('Limite de 5 sondagens por mensagem atingido.');
         return prev;
+      }
+      // v37 — destinatário automático «Todos» (difusão pelo âmbito oficial)
+      if (prev.length === 0 && !composeData.to.trim()) {
+        setComposeData({ ...composeData, to: 'Todos' });
       }
       return [...prev, s];
     });
@@ -1040,33 +1053,51 @@ export function MailContent({
             />
           </div>
 
-          {/* v37 — Sondagens inseridas como blocos na área de conteúdo */}
+          {/* v37 — Sondagens inseridas como blocos na área de conteúdo
+              (bolha de enquete estilo WhatsApp, conforme modelo do dono) */}
           {isInst && sondagensCompostas.length > 0 && (
             <div className="space-y-3 mt-4" data-testid="sondagens-compostas">
               <p className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-500 m-0">
                 Sondagens incluídas nesta mensagem ({sondagensCompostas.length}/5)
               </p>
               {sondagensCompostas.map((s) => (
-                <div key={s.id} className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 flex items-start gap-3">
-                  <span className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0"><BarChart3 size={15} /></span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-800 leading-snug m-0">{s.pergunta}</p>
-                    <p className="text-[11px] font-semibold text-slate-500 mt-1 m-0">
-                      {s.opcoes.map((o, i) => `${String.fromCharCode(65 + i)}) ${o.texto}`).join('  ·  ')}
-                    </p>
-                    <p className="text-[10px] font-semibold text-indigo-600 mt-1 m-0">
-                      Âmbito: {s.abrangencia === 'nacional' ? 'Nacional' : s.abrangencia === 'regional' ? 'Regional' : 'Local'}
-                      {s.permitir_varias ? ' · várias respostas por voto' : ''}
-                    </p>
-                  </div>
+                <div key={s.id} className="relative">
                   <button
                     type="button"
                     onClick={() => setSondagemARemover(s)}
                     title="Remover sondagem da mensagem"
-                    className="shrink-0 text-slate-400 hover:text-rose-500 transition-colors bg-transparent border-0 cursor-pointer p-1"
+                    className="absolute -top-2 -right-2 z-10 w-7 h-7 rounded-full bg-white shadow border border-slate-200 text-slate-400 hover:text-rose-500 transition-colors flex items-center justify-center cursor-pointer"
                   >
-                    <Trash2 size={15} />
+                    <Trash2 size={13} />
                   </button>
+                  <div className="rounded-xl bg-[#d9fdd3] shadow-sm overflow-hidden text-left">
+                    <div className="px-4 pt-3 pb-2">
+                      <p className="text-[14px] font-bold text-[#111b21] m-0 leading-snug">{s.pergunta}</p>
+                      <p className="flex items-center gap-1.5 text-[12px] text-[#546565] font-semibold mt-1.5 m-0">
+                        <CheckCheck size={13} className="text-[#53bdeb] shrink-0" />
+                        {s.permitir_varias ? 'Selecione uma ou mais opções' : 'Selecione uma opção'}
+                      </p>
+                      <div className="mt-2 space-y-3">
+                        {s.opcoes.map((o, i) => (
+                          <div key={o.id || i} className="px-1">
+                            <div className="flex items-center gap-3">
+                              <span className="w-5 h-5 rounded-full border-2 border-[#546565] shrink-0" />
+                              <span className="flex-1 min-w-0 text-[14px] text-[#111b21] font-medium truncate">{String.fromCharCode(65 + i)}) {o.texto}</span>
+                              <span className="text-[13px] text-[#111b21] font-semibold">0</span>
+                            </div>
+                            <div className="mt-1.5 ml-8 h-1.5 rounded-full bg-[#111b21]/10" />
+                          </div>
+                        ))}
+                      </div>
+                      <p className="flex items-center justify-end gap-1 text-[11px] text-[#667781] mt-2 m-0">
+                        {new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
+                        <CheckCheck size={13} className="text-[#53bdeb]" />
+                      </p>
+                    </div>
+                    <div className="bg-[#cfF8c6]/60 border-t border-[#111b21]/5 py-2 text-center text-[13px] font-semibold text-[#546565]">
+                      Mostrar votos
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1084,6 +1115,10 @@ export function MailContent({
                 const alvo = sondagemARemover;
                 setSondagemARemover(null);
                 setSondagensCompostas(prev => prev.filter(x => x.id !== alvo.id));
+                // sem sondagens, o destinatário automático «Todos» desaparece
+                if (sondagensCompostas.length <= 1 && composeData.to.trim().toUpperCase() === 'TODOS') {
+                  setComposeData({ ...composeData, to: '' });
+                }
                 await removerRascunhoSondagem(alvo.id);
               }}
               onCancelar={() => setSondagemARemover(null)}
