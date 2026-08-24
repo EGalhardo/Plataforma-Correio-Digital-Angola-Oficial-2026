@@ -73,15 +73,20 @@ export const classificarInstituicao = async (
   try {
     if (await v37Disponivel()) {
       const { data, error } = await supabase.rpc('cda_classificacao_inst', { p_code: codigo });
-      if (!error && Array.isArray(data) && data.length > 0) {
+      if (error) return { ok: false, motivo: 'erro', mensagem: error.message };
+      if (Array.isArray(data) && data.length > 0) {
         return { ok: true, dados: { classe: (data[0] as any).abrangencia as AbrangenciaSondagem, provincia: (data[0] as any).provincia || null } };
       }
-      if (!error && Array.isArray(data) && data.length === 0) {
-        return { ok: false, motivo: 'erro', mensagem: 'Instituição não encontrada.' };
-      }
-      if (error) return { ok: false, motivo: 'erro', mensagem: error.message };
+      // Ainda sem classificação oficial ⇒ sugestão heurística persistida
+      // (v37 §2.2 — automática, sem escolha manual). A heurística v36 só
+      // produz 'nacional' ou 'local', logo o RPC de definição aceita sempre.
+      const sugerida = abrangenciaSugerida(nomeInstituicao, codigo) as AbrangenciaSondagem;
+      try {
+        await supabase.rpc('cda_definir_classificacao_inst', { p_code: codigo, p_classe: sugerida });
+      } catch { /* melhor esforço */ }
+      return { ok: true, dados: { classe: sugerida, provincia: null } };
     }
-    // Pré-migração (ou RPC indisponível): heurística v36, sem persistência.
+    // Pré-migração: heurística v36, sem persistência.
     return { ok: true, dados: { classe: abrangenciaSugerida(nomeInstituicao, codigo) as AbrangenciaSondagem, provincia: null } };
   } catch (e: any) {
     return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
@@ -96,7 +101,8 @@ export const lerClassificacaoInstituicao = async (
     if (!(await v37Disponivel())) return { ok: true, dados: { classe: null, provincia: null } };
     const { data, error } = await supabase.rpc('cda_classificacao_inst', { p_code: codigo });
     if (!error && Array.isArray(data)) {
-      if (!data.length) return { ok: false, motivo: 'erro', mensagem: 'Instituição não encontrada.' };
+      // Sem registo ⇒ ainda não classificada (null honesto, sem erro)
+      if (!data.length) return { ok: true, dados: { classe: null, provincia: null } };
       return { ok: true, dados: { classe: ((data[0] as any).abrangencia as AbrangenciaSondagem) || null, provincia: (data[0] as any).provincia || null } };
     }
     return { ok: false, motivo: 'erro', mensagem: error?.message || 'Classificação indisponível.' };
