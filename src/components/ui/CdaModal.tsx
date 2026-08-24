@@ -15,7 +15,7 @@
 // classes) para uma experiência visual coerente em todas as áreas.
 // ============================================================================
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -52,6 +52,15 @@ export function CdaModal({
   semCabecalho = false,
   padding = 'p-6 md:p-10',
 }: CdaModalProps) {
+  // Auditoria 2026-08-24 (G4): fechar com a tecla Escape — acessibilidade
+  // (WCAG 2.4.3). Aplicado a todos os popups da plataforma que usam CdaModal.
+  useEffect(() => {
+    if (!aberto) return;
+    const aoTeclar = (e: KeyboardEvent) => { if (e.key === 'Escape') onFechar(); };
+    window.addEventListener('keydown', aoTeclar);
+    return () => window.removeEventListener('keydown', aoTeclar);
+  }, [aberto, onFechar]);
+
   if (!aberto) return null;
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
