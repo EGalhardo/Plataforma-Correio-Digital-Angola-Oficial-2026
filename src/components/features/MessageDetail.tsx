@@ -334,6 +334,16 @@ export function MessageDetail({
     addAuditLog?.(`Cidadão confirmou respostas a ${idsSondagem.length} sondagem(s) via «Responder ao Documento».`, 'info');
     setPopupSond({ ok: true, texto: 'Respostas registadas com sucesso. Obrigado pela sua participação.' });
   };
+  // v37.5 — fechar o popup de sucesso («Resposta Registada») volta à página
+  // «Correio» do cidadão; erros apenas fecham o popup.
+  const fecharPopupSond = () => {
+    const eraOk = !!popupSond?.ok;
+    setPopupSond(null);
+    if (eraOk) {
+      setTab(backTab || 'correspondencias');
+      setSelectedMessage(null);
+    }
+  };
   const sondModaisJsx = (
     <>
       <CdaModal
@@ -356,11 +366,12 @@ export function MessageDetail({
             </div>
           ))}
         </div>
-        <div className="flex gap-3 mt-5">
+        {/* v37.5 — botões no padrão CdaConfirmModal (raio/tipografia oficiais) */}
+        <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-2">
           <button
             type="button"
             onClick={() => setConfirmaSond(false)}
-            className="flex-1 px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-600 text-[10px] font-black uppercase tracking-widest cursor-pointer"
+            className="px-6 py-3 rounded-2xl font-bold text-xs text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer border-none"
           >
             Cancelar
           </button>
@@ -368,7 +379,7 @@ export function MessageDetail({
             type="button"
             disabled={registandoSond}
             onClick={() => { void confirmarRespostasSondagens(); }}
-            className="flex-1 px-4 py-3 rounded-xl bg-[#2563eb] hover:bg-blue-700 disabled:opacity-60 text-white text-[10px] font-black uppercase tracking-widest border-0 cursor-pointer"
+            className="px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer border-none shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {registandoSond ? 'A registar…' : 'Confirmar Respostas'}
           </button>
@@ -376,13 +387,23 @@ export function MessageDetail({
       </CdaModal>
       <CdaModal
         aberto={!!popupSond}
-        onFechar={() => setPopupSond(null)}
+        onFechar={fecharPopupSond}
         icone={popupSond?.ok ? CheckCircle2 : AlertTriangle}
         titulo={popupSond?.ok ? 'Resposta Registada' : 'Sondagem'}
+        subtitulo={popupSond?.ok ? 'Participação confirmada' : undefined}
         tomIcone={popupSond?.ok ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}
         maxW="max-w-md"
       >
         <p className="text-sm font-semibold text-slate-700 text-left m-0">{popupSond?.texto}</p>
+        <div className="flex justify-end pt-2">
+          <button
+            type="button"
+            onClick={fecharPopupSond}
+            className="px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer border-none shadow-sm"
+          >
+            {popupSond?.ok ? 'Entendi' : 'Fechar'}
+          </button>
+        </div>
       </CdaModal>
     </>
   );

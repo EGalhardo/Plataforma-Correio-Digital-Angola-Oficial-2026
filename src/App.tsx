@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, ComponentType, ComponentProps } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Loader2,
@@ -35,31 +35,13 @@ import {
 } from 'lucide-react';
 
 // Components
-import {
-  Sidebar,
-  MobileNavBar,
-  Header,
-  AIChatAssistant,
-  NotificationDropdown,
-  NotificationsCenterContent,
-  ActivityCenterContent,
-  AddContactModal,
-  DeleteContactModal,
-  HomeContent,
-  MailContent,
-  DocumentsContent,
-  WalletContent,
-  ContactsContent,
-  DocumentDetail,
-  GovEmissaoContent,
-  GovDocsContent,
-  GovPerfilContent,
-  PastaDigitalContent,
-  RegisterInstitutionPage,
-  RegisterAdminAgentPage,
-  InstitutionAccessPanel,
-  InstitutionForcedPasswordChange,
-} from './components';
+// v37.5 §3.2 — importações directas: o barrel './components' puxava TODAS as
+// features para o bundle inicial (invalidando o React.lazy já existente).
+import { Sidebar } from './components/layout/Sidebar';
+import { MobileNavBar } from './components/layout/MobileNavBar';
+import { Header } from './components/layout/Header';
+import { NotificationDropdown } from './components/features/NotificationDropdown';
+import { HomeContent } from './components/features/HomeContent';
 
 // UI Components
 import { LazyImage } from './components/ui/LazyImage';
@@ -198,6 +180,37 @@ const InstitutionDetail = lazy(() => import('./components/features/InstitutionDe
 // não pré-carregar gráficos no login.
 const GovSegurancaContent = lazy(() => import('./components/features/GovSegurancaContent').then(m => ({ default: m.GovSegurancaContent })));
 const DirectorioOrgaosContent = lazy(() => import('./components/features/DirectorioOrgaosContent').then(m => ({ default: m.DirectorioOrgaosContent })));
+
+// v37.5 §3.2 — componentes pesados que vinham pelo barrel './components'
+// passam a chunks próprios (lazy), já com fronteira Suspense incluída.
+function lazyPainel<T extends ComponentType<any>>(factory: () => Promise<{ default: T }>) {
+  const LazyComp = lazy(factory);
+  return function WithSuspense(props: ComponentProps<T>) {
+    return (
+      <PainelSuspense>
+        <LazyComp {...(props as ComponentProps<typeof LazyComp>)} />
+      </PainelSuspense>
+    );
+  };
+}
+const MailContent = lazyPainel(() => import('./components/features/MailContent').then(m => ({ default: m.MailContent })));
+const DocumentsContent = lazyPainel(() => import('./components/features/DocumentsContent').then(m => ({ default: m.DocumentsContent })));
+const WalletContent = lazyPainel(() => import('./components/features/WalletContent').then(m => ({ default: m.WalletContent })));
+const ContactsContent = lazyPainel(() => import('./components/features/ContactsContent').then(m => ({ default: m.ContactsContent })));
+const DocumentDetail = lazyPainel(() => import('./components/features/DocumentDetail').then(m => ({ default: m.DocumentDetail })));
+const PastaDigitalContent = lazyPainel(() => import('./components/features/PastaDigitalContent').then(m => ({ default: m.PastaDigitalContent })));
+const ActivityCenterContent = lazyPainel(() => import('./components/features/ActivityCenterContent').then(m => ({ default: m.ActivityCenterContent })));
+const NotificationsCenterContent = lazyPainel(() => import('./components/features/NotificationsCenterContent').then(m => ({ default: m.NotificationsCenterContent })));
+const GovEmissaoContent = lazyPainel(() => import('./components/features/GovEmissaoContent').then(m => ({ default: m.GovEmissaoContent })));
+const GovDocsContent = lazyPainel(() => import('./components/features/GovDocsContent').then(m => ({ default: m.GovDocsContent })));
+const GovPerfilContent = lazyPainel(() => import('./components/features/GovPerfilContent').then(m => ({ default: m.GovPerfilContent })));
+const AIChatAssistant = lazyPainel(() => import('./components/features/AIChatAssistant').then(m => ({ default: m.AIChatAssistant })));
+const AddContactModal = lazyPainel(() => import('./components/features/AddContactModal').then(m => ({ default: m.AddContactModal })));
+const DeleteContactModal = lazyPainel(() => import('./components/features/DeleteContactModal').then(m => ({ default: m.DeleteContactModal })));
+const RegisterInstitutionPage = lazyPainel(() => import('./components/features/RegisterInstitutionPage').then(m => ({ default: m.RegisterInstitutionPage })));
+const RegisterAdminAgentPage = lazyPainel(() => import('./components/features/RegisterAdminAgentPage').then(m => ({ default: m.RegisterAdminAgentPage })));
+const InstitutionAccessPanel = lazyPainel(() => import('./components/features/InstitutionAccessPanels').then(m => ({ default: m.InstitutionAccessPanel })));
+const InstitutionForcedPasswordChange = lazyPainel(() => import('./components/features/InstitutionAccessPanels').then(m => ({ default: m.InstitutionForcedPasswordChange })));
 import { shouldAutoSeedSupabase, shouldUseLocalBootstrap, shouldUseMockFallback } from './config/runtime';
 import { buildDemoContentPlan, type DemoArea } from './services/demoContentGuarantee';
 
@@ -5065,6 +5078,7 @@ Ficha civil do titular:
             unreadTotal={unreadTotal}
             correspondenciaTab={correspondenciaTab}
             setCorrespondenciaTab={setCorrespondenciaTab}
+            onRefreshMail={() => setTriggerRefetch(t => t + 1)}
             inbox={currentInbox}
             sentMessages={currentSentMessages}
             searchMail={searchMail}

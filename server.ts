@@ -17,7 +17,9 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  // v37.5 — porta configurável (permite servir o build de produção noutra
+  // porta para medições/testes sem ocupar o servidor de desenvolvimento).
+  const PORT = Number(process.env.PORT) || 3000;
   const server = createServer(app);
   
   // 2026-08-22 — limite do body alargado para ficheiros grandes da Base de

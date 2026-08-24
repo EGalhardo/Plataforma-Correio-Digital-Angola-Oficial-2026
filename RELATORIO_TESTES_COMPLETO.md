@@ -332,6 +332,16 @@ Verificações dinâmicas (contas reais): compositor com blocos múltiplos, remo
 - **Cidadão:** os contentores «Sondagem · INSTITUIÇÃO» **deixaram de ter botões** (sem «Responder à Sondagem»); as opções são linhas de selecção e o registo faz-se no botão **«Responder ao Documento»**, que abre **popup de confirmação** com as escolhas de cada enquete e, ao confirmar, mostra **popup de registo** + chip «Resposta registada ✔». Sem escolha em alguma sondagem, aviso honesto.
 - Verificado com contas reais (popup sucesso, expedição nas Enviadas, popup confirmação/sucesso do cidadão, resposta na base) + limpeza total; INAPEM restaurado a NACIONAL. Varreduras 42/0/0 e 52/0/0.
 
+### v37.5 — popups padrão, navegação pós-envio/resposta e performance (2026-08-24)
+- **Instituição:** popup «Correspondência Enviada» no padrão `CdaModal` (ícone verde, subtítulo, botão único «Entendi»); ao fechar (botão, X, backdrop ou Escape) o compositor fecha e é exibida a página «Correio» com a aba **«Enviadas» activa**, mostrando de imediato a expedição «TODOS» (novo `onRefreshMail` força o refetch sem depender do Realtime).
+- **Cidadão:** «Confirmar Respostas às Sondagens» com botões no padrão `CdaConfirmModal` (Cancelar/Confirmar Respostas, raio e tipografia oficiais); «Resposta Registada» no padrão `CdaModal` com botão «Entendi»; ao fechá-lo o detalhe encerra e volta à página «Correio» (mensagem lida, chip persistido). Aviso âmbar mantém-se quando falta escolha.
+- **Performance (build de produção, medida login→painel nas 3 áreas):**
+  - Chunk de entrada: **971 kB → 499 kB** (−49%) com a remoção do barrel `./components` (puxava 11 mil linhas de painéis para o bundle inicial) e 19 painéis pesados convertidos em `React.lazy` com fronteira Suspense (`lazyPainel`).
+  - JS descarregado até ao primeiro painel: cidadão **22,4 MB → 7,3 MB** (−67%, 139→71 ficheiros), instituição **22,5 MB → 7,4 MB** (−67%), admin **22,4 MB → 9,0 MB** (−60%).
+  - Ecrã de login: ~3,3–4,7 s → ~2,7–3,0 s; tempo submissão→painel mantido (2,3–3,8 s), sem regressão.
+  - `server.ts`: porta configurável via `PORT` (permite medir o build de produção sem ocupar o servidor de desenvolvimento).
+- Verificado no **build de produção** com contas reais: 5/5 asserções da instituição (popup padrão, «Entendi», compositor fechado, expedição visível sem clicar na aba) e 8/8 do cidadão (cartão sem botões, popups padrão, regresso ao «Correio», resposta na base), 0 erros JS. Limpeza total (sondagens/mensagens/respostas TESTE); INAPEM restaurado a NACIONAL com `provincia` limpa; sondagens reais do dono intocadas. Varreduras finais no build de produção: **42/0/0** (contas reais) e **52/0/0** (demo). TypeScript limpo.
+
 ---
 
 ## VEREDICTO FINAL

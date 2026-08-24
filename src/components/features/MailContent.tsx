@@ -94,6 +94,8 @@ interface MailContentProps {
   unreadTotal: number;
   correspondenciaTab: string;
   setCorrespondenciaTab: (tab: string) => void;
+  /** v37.5 — força refetch das caixas (usado após expedição «Todos»). */
+  onRefreshMail?: () => void;
   inbox: Message[];
   sentMessages: Message[];
   searchMail: string;
@@ -143,6 +145,7 @@ export function MailContent({
   unreadTotal,
   correspondenciaTab,
   setCorrespondenciaTab,
+  onRefreshMail,
   inbox = [],
   sentMessages = [],
   searchMail,
@@ -259,6 +262,9 @@ export function MailContent({
           sondagemIds: sondagensCompostas.map(s => s.id),
         });
         invalidateMessagesReadCache();
+        // v37.5 — a linha «TODOS» tem de aparecer de imediato nas «Enviadas»:
+        // fura o micro-cache e força o refetch das caixas sem esperar o Realtime.
+        onRefreshMail?.();
         setSondagensCompostas([]);
         setComposeData({ ...composeData, to: '', subject: '', body: '' });
         setAvisosConfirmados(false);
@@ -641,16 +647,33 @@ export function MailContent({
   );
 
   // v37.4 — confirmação de sucesso após expedição «Todos»
+  // v37.5 — ao fechar (botão, X, backdrop ou Escape) regressa à página
+  // «Correio» com a aba «Enviadas» activa, para ver já a expedição registada.
+  const fecharSucessoSondagens = () => {
+    setSucessoSondagens(null);
+    setIsComposing(false);
+    setCorrespondenciaTab('enviadas');
+  };
   const sucessoSondagensJsx = (
     <CdaModal
       aberto={!!sucessoSondagens}
-      onFechar={() => setSucessoSondagens(null)}
+      onFechar={fecharSucessoSondagens}
       icone={CheckCircle2}
       titulo="Correspondência Enviada"
+      subtitulo="Expedição registada"
       tomIcone="bg-emerald-50 text-emerald-600 border-emerald-100"
       maxW="max-w-md"
     >
       <p className="text-sm font-semibold text-slate-700 text-left m-0">{sucessoSondagens}</p>
+      <div className="flex justify-end pt-2">
+        <button
+          type="button"
+          onClick={fecharSucessoSondagens}
+          className="px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer border-none shadow-sm"
+        >
+          Entendi
+        </button>
+      </div>
     </CdaModal>
   );
 
