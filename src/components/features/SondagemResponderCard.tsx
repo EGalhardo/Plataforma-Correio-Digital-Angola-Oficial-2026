@@ -1,39 +1,45 @@
 // ============================================================================
-// SondagemResponderCard — área Cidadão (v36.1, spec §4)
-// Cartão da sondagem dentro do detalhe da mensagem + botão «Responder à
-// Sondagem» que confirma o preenchimento. 1 voto por cidadão; re-votável
-// enquanto ativa (upsert). Validação com popup CdaModal (spec §4.3).
+// SondagemResponderCard — área Cidadão (v36.1 → v37.4)
+// v37.4: o contentor NÃO tem botões de acção — a selecção das opções é
+// elevada ao componente pai e o registo da resposta acontece no botão
+// «Responder ao Documento», com popup de confirmação (spec do dono).
+// 1 voto por cidadão; re-votável enquanto ativa (upsert).
 // ============================================================================
 import { useEffect, useState } from 'react';
-import { AlertTriangle, BarChart3, CheckCircle2, Send } from 'lucide-react';
-import { CdaModal } from '../ui/CdaModal';
-import {
-  buscarSondagem, minhaResposta, responderSondagem, type Sondagem,
-} from '../../services/sondagemService';
+import { BarChart3, CheckCircle2 } from 'lucide-react';
+import { buscarSondagem, minhaResposta, type Sondagem } from '../../services/sondagemService';
 
 interface Props {
   sondagemId: number;
   cidadaoBi: string;
-  addAuditLog?: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
+  /** selecção actual (controlada pelo pai) */
+  escolhas: string[];
+  onEscolhas: (ids: string[]) => void;
+  /** resposta já registada (o pai controla) */
+  registada: boolean;
+  /** informa o pai quando a sondagem (e eventual resposta anterior) carrega */
+  onCarregar?: (s: Sondagem, respostaExistente: string[]) => void;
 }
 
-export function SondagemResponderCard({ sondagemId, cidadaoBi, addAuditLog }: Props) {
+export function SondagemResponderCard({ sondagemId, cidadaoBi, escolhas, onEscolhas, registada, onCarregar }: Props) {
   const [sondagem, setSondagem] = useState<Sondagem | null>(null);
-  const [escolhas, setEscolhas] = useState<string[]>([]);
   const [estado, setEstado] = useState<'a_carregar' | 'pronto' | 'indisponivel'>('a_carregar');
-  const [enviando, setEnviando] = useState(false);
-  const [registada, setRegistada] = useState(false);
-  const [alerta, setAlerta] = useState<string | null>(null);
 
   useEffect(() => {
+    let vivo = true;
     (async () => {
       const r = await buscarSondagem(sondagemId);
+      if (!vivo) return;
       if (!r.ok || !r.dados) { setEstado('indisponivel'); return; }
       setSondagem(r.dados);
       const m = await minhaResposta(sondagemId, cidadaoBi);
-      if (m.ok && m.dados && m.dados.length) { setEscolhas(m.dados); setRegistada(true); }
+      if (!vivo) return;
+      const existente = m.ok && m.dados ? m.dados : [];
+      onCarregar?.(r.dados, existente);
       setEstado('pronto');
     })();
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sondagemId, cidadaoBi]);
 
   if (estado === 'indisponivel') return null;
@@ -48,26 +54,12 @@ export function SondagemResponderCard({ sondagemId, cidadaoBi, addAuditLog }: Pr
   const fechada = sondagem.status === 'encerrada';
 
   const alternar = (id: string) => {
-    if (fechada) return;
-    setEscolhas(prev => {
-      if (sondagem.permitir_varias) return prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
-      return [id];
-    });
-    setRegistada(false);
-  };
-
-  const responder = async () => {
-    if (fechada) { setAlerta('Esta sondagem já foi encerrada pela instituição.'); return; }
-    if (escolhas.length === 0) {
-      setAlerta('Na sua sondagem está a faltar preencher alguns campos: seleccione pelo menos uma opção.');
-      return;
-    }
-    setEnviando(true);
-    const r = await responderSondagem(sondagemId, cidadaoBi, escolhas);
-    setEnviando(false);
-    if (!r.ok) { setAlerta(r.mensagem || 'Não foi possível registar a resposta.'); return; }
-    setRegistada(true);
-    addAuditLog?.(`Cidadão respondeu à sondagem «${sondagem.pergunta.slice(0, 60)}».`, 'info');
+    if (fechada || registada) return;
+    onEscolhas(
+      sondagem.permitir_varias
+        ? (escolhas.includes(id) ? escolhas.filter(x => x !== id) : [...escolhas, id])
+        : [id],
+    );
   };
 
   return (
@@ -84,14 +76,16 @@ export function SondagemResponderCard({ sondagemId, cidadaoBi, addAuditLog }: Pr
         {sondagem.opcoes.map((o) => {
           const marcada = escolhas.includes(o.id);
           return (
-            <button
+            <div
               key={o.id}
-              type="button"
+              role="radio"
+              aria-checked={marcada}
+              tabIndex={0}
               onClick={() => alternar(o.id)}
-              disabled={fechada}
-              className={`w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed bg-transparent ${
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(o.id); } }}
+              className={`w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-colors cursor-pointer select-none bg-transparent ${
                 marcada ? 'border-[#2563eb] bg-blue-50/70 text-[#0c2340]' : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}
+              } ${fechada || registada ? 'opacity-80 cursor-default' : ''}`}
             >
               <span className={`shrink-0 w-5 h-5 border-2 flex items-center justify-center ${
                 sondagem.permitir_varias ? 'rounded-md' : 'rounded-full'
@@ -99,41 +93,21 @@ export function SondagemResponderCard({ sondagemId, cidadaoBi, addAuditLog }: Pr
                 {marcada && <span className="w-2 h-2 bg-white rounded-full" />}
               </span>
               {o.texto}
-            </button>
+            </div>
           );
         })}
-        <p className="text-[10px] font-medium text-slate-400 pt-1">
+        <p className="text-[10px] font-medium text-slate-400 pt-1 m-0">
           {sondagem.permitir_varias ? 'Pode seleccionar várias opções.' : 'Seleccione uma opção.'}
           {fechada && ' Sondagem encerrada — só leitura.'}
+          {' '}Confirme a escolha no botão «Responder ao Documento».
         </p>
 
-        <div className="pt-2 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={responder}
-            disabled={enviando || fechada}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#2563eb] hover:bg-blue-700 disabled:opacity-60 text-white text-[10px] font-black uppercase tracking-widest border-0 cursor-pointer shadow"
-          >
-            <Send size={13} /> {enviando ? 'A registar…' : 'Responder à Sondagem'}
-          </button>
-          {registada && !fechada && (
-            <span className="inline-flex items-center gap-1.5 text-emerald-600 text-[11px] font-bold">
-              <CheckCircle2 size={14} /> Resposta registada ✔
-            </span>
-          )}
-        </div>
+        {registada && !fechada && (
+          <span className="inline-flex items-center gap-1.5 text-emerald-600 text-[11px] font-bold">
+            <CheckCircle2 size={14} /> Resposta registada ✔
+          </span>
+        )}
       </div>
-
-      <CdaModal
-        aberto={!!alerta}
-        onFechar={() => setAlerta(null)}
-        icone={AlertTriangle}
-        titulo="Sondagem"
-        tomIcone="bg-amber-50 text-amber-600 border-amber-100"
-        maxW="max-w-md"
-      >
-        <p className="text-sm font-semibold text-slate-700 text-left">{alerta}</p>
-      </CdaModal>
     </div>
   );
 }

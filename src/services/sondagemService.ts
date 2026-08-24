@@ -321,6 +321,39 @@ export const distribuirSondagensCompostas = async (params: {
     return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) } };
 };
 
+/** v37.4 — registo único da expedição «Todos» na lista Enviadas da instituição
+ *  (a difusão por cidadão são as entregas; esta linha é o documento expedido). */
+export const registarExpedicaoSondagens = async (params: {
+  codigo: string;
+  nomeInstituicao: string;
+  assunto: string;
+  corpo: string;
+  sondagemIds: number[];
+}): Promise<SondagemResultado<null>> => {
+  try {
+    const { error } = await supabase.from('messages').insert({
+      sender_bi: params.codigo,
+      recipient_bi: 'TODOS',
+      org: params.codigo,
+      preview: params.assunto,
+      status: 'Normal',
+      subject: params.assunto,
+      body: params.corpo,
+      unread: false,
+      sensitivity: 'Público',
+      priority_scale: 'Normal',
+      actions: [],
+      attachments: [],
+      sondagem_id: params.sondagemIds[0] ?? null,
+      sondagem_ids: params.sondagemIds,
+    });
+    if (error) return { ok: false, motivo: 'erro', mensagem: error.message };
+    return { ok: true, dados: null };
+  } catch (e: any) {
+    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
+  }
+};
+
 // ---- sonda de disponibilidade (cache em memória) ----------------------------
 let tabelaOk: boolean | null = null;
 

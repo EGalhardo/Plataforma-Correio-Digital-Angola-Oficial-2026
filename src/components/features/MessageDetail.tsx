@@ -5,6 +5,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
+import { CdaModal } from '../ui/CdaModal';
+import { responderSondagem, type Sondagem } from '../../services/sondagemService';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -22,6 +24,7 @@ import {
   UserCheck,
   ShieldAlert,
   AlertTriangle,
+  CheckCircle2,
   Inbox,
   Eye,
   CheckCircle,
@@ -283,6 +286,106 @@ export function MessageDetail({
   addAuditLog,
 }: MessageDetailProps) {
   const { t } = useLanguage();
+
+  // ---- v37.4 — respostas às sondagens consolidadas no «Responder ao Documento»
+  const idsSondagem: number[] = (
+    (selectedMessage as any).sondagem_ids?.length
+      ? ((selectedMessage as any).sondagem_ids as (number | string)[])
+      : ((selectedMessage as any).sondagem_id ? [(selectedMessage as any).sondagem_id] : [])
+  ).map(Number);
+  const [sondDetalhe, setSondDetalhe] = useState<Record<number, Sondagem>>({});
+  const [respSond, setRespSond] = useState<Record<number, { escolhas: string[]; registada: boolean }>>({});
+  const [confirmaSond, setConfirmaSond] = useState(false);
+  const [popupSond, setPopupSond] = useState<{ ok: boolean; texto: string } | null>(null);
+  const [registandoSond, setRegistandoSond] = useState(false);
+
+  const carregarSondagemCidadao = (id: number, s: Sondagem, existente: string[]) => {
+    setSondDetalhe(p => ({ ...p, [id]: s }));
+    setRespSond(p => ({ ...p, [id]: { escolhas: existente, registada: existente.length > 0 } }));
+  };
+  const mudarEscolhaSondagem = (id: number, ids: string[]) => {
+    setRespSond(p => ({ ...p, [id]: { escolhas: ids, registada: false } }));
+  };
+  const abrirRespostaDocumento = (original: () => void) => {
+    if (cidadaoBi && idsSondagem.length > 0) setConfirmaSond(true);
+    else original();
+  };
+  const confirmarRespostasSondagens = async () => {
+    if (!cidadaoBi) return;
+    const semEscolha = idsSondagem.filter(id => !(respSond[id]?.escolhas?.length));
+    if (semEscolha.length > 0) {
+      setConfirmaSond(false);
+      setPopupSond({ ok: false, texto: 'Seleccione uma opção em cada sondagem antes de confirmar o registo.' });
+      return;
+    }
+    setRegistandoSond(true);
+    for (const id of idsSondagem) {
+      const r = await responderSondagem(id, cidadaoBi, respSond[id].escolhas);
+      if (!r.ok) {
+        setRegistandoSond(false);
+        setConfirmaSond(false);
+        setPopupSond({ ok: false, texto: r.mensagem || 'Não foi possível registar a resposta.' });
+        return;
+      }
+      setRespSond(p => ({ ...p, [id]: { escolhas: p[id]?.escolhas || [], registada: true } }));
+    }
+    setRegistandoSond(false);
+    setConfirmaSond(false);
+    addAuditLog?.(`Cidadão confirmou respostas a ${idsSondagem.length} sondagem(s) via «Responder ao Documento».`, 'info');
+    setPopupSond({ ok: true, texto: 'Respostas registadas com sucesso. Obrigado pela sua participação.' });
+  };
+  const sondModaisJsx = (
+    <>
+      <CdaModal
+        aberto={confirmaSond}
+        onFechar={() => setConfirmaSond(false)}
+        icone={Send}
+        titulo="Confirmar Respostas às Sondagens"
+        tomIcone="bg-indigo-50 text-indigo-600 border-indigo-100"
+        maxW="max-w-md"
+      >
+        <div className="text-left space-y-3">
+          {idsSondagem.map(id => (
+            <div key={id} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-[12px] font-bold text-slate-800 m-0">{sondDetalhe[id]?.pergunta || `Sondagem #${id}`}</p>
+              <p className={`text-[11px] font-semibold mt-1 m-0 ${respSond[id]?.escolhas?.length ? 'text-indigo-700' : 'text-rose-600'}`}>
+                {respSond[id]?.escolhas?.length
+                  ? `A sua escolha: ${respSond[id].escolhas.map(e => sondDetalhe[id]?.opcoes.find(o => o.id === e)?.texto || e).join(', ')}`
+                  : 'Sem escolha — seleccione uma opção na sondagem.'}
+              </p>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-3 mt-5">
+          <button
+            type="button"
+            onClick={() => setConfirmaSond(false)}
+            className="flex-1 px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-600 text-[10px] font-black uppercase tracking-widest cursor-pointer"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={registandoSond}
+            onClick={() => { void confirmarRespostasSondagens(); }}
+            className="flex-1 px-4 py-3 rounded-xl bg-[#2563eb] hover:bg-blue-700 disabled:opacity-60 text-white text-[10px] font-black uppercase tracking-widest border-0 cursor-pointer"
+          >
+            {registandoSond ? 'A registar…' : 'Confirmar Respostas'}
+          </button>
+        </div>
+      </CdaModal>
+      <CdaModal
+        aberto={!!popupSond}
+        onFechar={() => setPopupSond(null)}
+        icone={popupSond?.ok ? CheckCircle2 : AlertTriangle}
+        titulo={popupSond?.ok ? 'Resposta Registada' : 'Sondagem'}
+        tomIcone={popupSond?.ok ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}
+        maxW="max-w-md"
+      >
+        <p className="text-sm font-semibold text-slate-700 text-left m-0">{popupSond?.texto}</p>
+      </CdaModal>
+    </>
+  );
   const messageDate = selectedMessage.date && selectedMessage.date.includes('/')
     ? selectedMessage.date
     : (selectedMessage.protocol?.officialIssueDate || '—');
@@ -2027,11 +2130,16 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                 <SondagemResponderCard
                   sondagemId={Number(sid)}
                   cidadaoBi={cidadaoBi}
-                  addAuditLog={addAuditLog}
+                  escolhas={respSond[Number(sid)]?.escolhas || []}
+                  onEscolhas={(ids) => mudarEscolhaSondagem(Number(sid), ids)}
+                  registada={!!respSond[Number(sid)]?.registada}
+                  onCarregar={(s, existente) => carregarSondagemCidadao(Number(sid), s, existente)}
                 />
               </React.Fragment>
             ))
           ) : null}
+
+          {sondModaisJsx}
 
           {/* Incoming Document Attachments */}
           {parsedAttachments.length > 0 && (
@@ -2538,7 +2646,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsReplyingInDetails(true)}
+                  onClick={() => abrirRespostaDocumento(() => setIsReplyingInDetails(true))}
                   className={`flex items-center gap-2 px-6 py-3 rounded-full font-black text-xs md:text-sm shadow-md transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${
                     sensConfig.level === 'Ultra Restrito'
                       ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
@@ -2617,6 +2725,11 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               if (sensConfig.level === 'Ultra Restrito') {
                 setShareBlockedNotice('Bloqueado: Política de Controle de Compartilhamento proíbe reencaminhar ou responder a documentos de nível Ultra Restrito.');
                 setTimeout(() => setShareBlockedNotice(null), 5000);
+                return;
+              }
+              // v37.4 — com sondagens embutidas, o «Responder» confirma as escolhas
+              if (cidadaoBi && idsSondagem.length > 0) {
+                setConfirmaSond(true);
                 return;
               }
               addAuditLogToMessage('Resposta enviada');
@@ -3481,11 +3594,16 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           <SondagemResponderCard
                             sondagemId={Number(sid)}
                             cidadaoBi={cidadaoBi}
-                            addAuditLog={addAuditLog}
+                            escolhas={respSond[Number(sid)]?.escolhas || []}
+                            onEscolhas={(ids) => mudarEscolhaSondagem(Number(sid), ids)}
+                            registada={!!respSond[Number(sid)]?.registada}
+                            onCarregar={(s, existente) => carregarSondagemCidadao(Number(sid), s, existente)}
                           />
                         </React.Fragment>
                       ))
                     ) : null}
+
+                    {sondModaisJsx}
 
                     {/* Incoming Document Attachments */}
                     {parsedAttachments.length > 0 && (

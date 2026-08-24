@@ -327,6 +327,11 @@ Verificações dinâmicas (contas reais): compositor com blocos múltiplos, remo
 - **Cidadão:** o «Conteúdo do Documento» mostra apenas o texto da instituição — a listagem crua das perguntas deixou de ser duplicada no corpo; as enquetes vivem nos cartões «Sondagem · INSTITUIÇÃO» abaixo.
 - Verificado com contas reais (alvo único regional + limpeza total): bolha renderiza, «Todos» automático, envio limpa o compositor, corpo da mensagem = só texto da instituição, cartão com opções correcto. Varreduras 42/0/0 e 52/0/0.
 
+### v37.4 — confirmação de envio + «Enviadas» + resposta consolidada (2026-08-24)
+- **Instituição:** após «Enviar Mensagem Oficial» com «Todos», aparece **popup de sucesso** («Correspondência enviada com sucesso: N cidadão(s) no âmbito X») e é criada a **expedição única visível na aba Enviadas** (linha com destinatário «TODOS»); a cache de leitura é invalidada para a lista actualizar de imediato.
+- **Cidadão:** os contentores «Sondagem · INSTITUIÇÃO» **deixaram de ter botões** (sem «Responder à Sondagem»); as opções são linhas de selecção e o registo faz-se no botão **«Responder ao Documento»**, que abre **popup de confirmação** com as escolhas de cada enquete e, ao confirmar, mostra **popup de registo** + chip «Resposta registada ✔». Sem escolha em alguma sondagem, aviso honesto.
+- Verificado com contas reais (popup sucesso, expedição nas Enviadas, popup confirmação/sucesso do cidadão, resposta na base) + limpeza total; INAPEM restaurado a NACIONAL. Varreduras 42/0/0 e 52/0/0.
+
 ---
 
 ## VEREDICTO FINAL

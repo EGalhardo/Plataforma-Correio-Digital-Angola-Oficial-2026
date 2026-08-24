@@ -49,7 +49,7 @@ import { SondagemModal } from './SondagemModal';
 import { CdaConfirmModal } from '../ui/CdaConfirm';
 import { CdaModal } from '../ui/CdaModal';
 import {
-  distribuirSondagensCompostas, removerRascunhoSondagem, type Sondagem,
+  distribuirSondagensCompostas, removerRascunhoSondagem, registarExpedicaoSondagens, type Sondagem,
 } from '../../services/sondagemService';
 import { Video, Loader2, CheckCircle2, AlertTriangle, Sparkles, CheckCheck } from 'lucide-react';
 // F59 — a pesquisa teatral de 8s com textos governamentais inventados e
@@ -57,7 +57,7 @@ import { Video, Loader2, CheckCircle2, AlertTriangle, Sparkles, CheckCheck } fro
 // destinatário é REAL (RPC auditada) e chega por props do App.
 import { supabase } from '../../lib/supabaseClient';
 import { isCompleteBiFormat } from '../../services/institutionEmergencyService';
-import { supabaseService, isRealInstitutionalCode } from '../../services/supabaseService';
+import { supabaseService, isRealInstitutionalCode, invalidateMessagesReadCache } from '../../services/supabaseService';
 import { validarEnvio } from '../../services/validacaoEnvio';
 import { assistenteDocumento } from '../../services/aiDocumentoService';
 import { MARCADOR_CLAREZA_SUGESTAO } from '../../services/aiDocumentoCore';
@@ -244,12 +244,28 @@ export function MailContent({
         'success',
       );
       // Destinatário «Todos» (v37): a difusão pelo âmbito oficial já entregou —
-      // não existe BI directo, logo não se envia mensagem singular.
+      // regista-se a expedição única (visível em «Enviadas») e confirma-se ao
+      // utilizador com popup de sucesso.
       if (String(composeData.to).trim().toUpperCase() === 'TODOS') {
+        const assuntoFinal = composeData.subject?.trim()
+          || `Sondagem${sondagensCompostas.length > 1 ? 's' : ''}: ${sondagensCompostas[0]?.pergunta || ''}`;
+        const corpoFinal = composeData.body?.trim()
+          || `${instNomeSondagem || bi} convida-o(a) a participar na(s) sondagem(ns) oficial(is) incluída(s) nesta mensagem. Abra a mensagem e toque em «Responder à Sondagem».`;
+        await registarExpedicaoSondagens({
+          codigo: bi,
+          nomeInstituicao: instNomeSondagem || bi,
+          assunto: assuntoFinal,
+          corpo: corpoFinal,
+          sondagemIds: sondagensCompostas.map(s => s.id),
+        });
+        invalidateMessagesReadCache();
         setSondagensCompostas([]);
         setComposeData({ ...composeData, to: '', subject: '', body: '' });
         setAvisosConfirmados(false);
         setValidacao({ bloqueios: [], avisos: [] });
+        setSucessoSondagens(
+          `Correspondência enviada com sucesso: ${dist.dados.audiencia} cidadão(s) no âmbito ${dist.dados.classificacao}. O registo da expedição está na lista «Enviadas».`,
+        );
         return;
       }
       setSondagensCompostas([]);
@@ -285,6 +301,7 @@ export function MailContent({
   const [sondagemARemover, setSondagemARemover] = useState<Sondagem | null>(null);
   const [distribuindoSondagens, setDistribuindoSondagens] = useState(false);
   const [avisoSondagens, setAvisoSondagens] = useState<string | null>(null);
+  const [sucessoSondagens, setSucessoSondagens] = useState<string | null>(null);
   useEffect(() => {
     if (!isInst || !bi) return;
     (async () => {
@@ -620,6 +637,20 @@ export function MailContent({
       maxW="max-w-md"
     >
       <p className="text-sm font-semibold text-slate-700 text-left m-0">{avisoSondagens}</p>
+    </CdaModal>
+  );
+
+  // v37.4 — confirmação de sucesso após expedição «Todos»
+  const sucessoSondagensJsx = (
+    <CdaModal
+      aberto={!!sucessoSondagens}
+      onFechar={() => setSucessoSondagens(null)}
+      icone={CheckCircle2}
+      titulo="Correspondência Enviada"
+      tomIcone="bg-emerald-50 text-emerald-600 border-emerald-100"
+      maxW="max-w-md"
+    >
+      <p className="text-sm font-semibold text-slate-700 text-left m-0">{sucessoSondagens}</p>
     </CdaModal>
   );
 
@@ -1483,6 +1514,7 @@ export function MailContent({
         </AnimatePresence>
         {sondagemModalJsx}
         {avisoSondagensJsx}
+        {sucessoSondagensJsx}
       </motion.div>
     );
   }
@@ -1829,6 +1861,7 @@ export function MailContent({
 
       {sondagemModalJsx}
       {avisoSondagensJsx}
+        {sucessoSondagensJsx}
     </section>
   );
 }
