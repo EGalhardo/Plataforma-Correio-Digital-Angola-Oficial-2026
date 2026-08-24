@@ -89,6 +89,8 @@ export interface Message {
   recipientBi?: string;
   /** v36 — sondagem (enquete estilo WhatsApp) ligada à difusão; nullable. */
   sondagem_id?: number | null;
+  /** v37 — múltiplas sondagens embutidas na mesma mensagem (retrocompatível). */
+  sondagem_ids?: number[] | null;
   /** F15 — chave da sessão remetente (caixa "Enviadas" isolada por conta). */
   senderKey?: string;
 }

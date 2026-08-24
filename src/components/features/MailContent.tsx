@@ -47,6 +47,10 @@ import { translateText } from '../../utils/translator';
 import { useLanguage } from '../../hooks/useLanguage';
 import { SondagemModal } from './SondagemModal';
 import { CdaConfirmModal } from '../ui/CdaConfirm';
+import { CdaModal } from '../ui/CdaModal';
+import {
+  distribuirSondagensCompostas, removerRascunhoSondagem, type Sondagem,
+} from '../../services/sondagemService';
 import { Video, Loader2, CheckCircle2, AlertTriangle, Sparkles } from 'lucide-react';
 // F59 — a pesquisa teatral de 8s com textos governamentais inventados e
 // correspondência em MOCK_CITIZENS/MOCK_USERS foi REMOVIDA: o lookup do
@@ -201,13 +205,50 @@ export function MailContent({
     });
   };
 
-  const tentarEnviar = () => {
+  const tentarEnviar = async () => {
     const v = validarEnvio(composeData);
     setValidacao(v);
     if (v.bloqueios.length > 0) return;
     if (v.avisos.length > 0 && !avisosConfirmados) {
       setAvisosConfirmados(true);
       return;
+    }
+    // v37 §1.5 — com sondagens na composição: ativa rascunhos e distribui por
+    // âmbito (1 mensagem por cidadão, todas as sondagens embutidas) ANTES do
+    // envio normal. Falha na distribuição ⇒ envio abortado com aviso honesto.
+    if (isInst && sondagensCompostas.length > 0) {
+      setDistribuindoSondagens(true);
+      const dist = await distribuirSondagensCompostas({
+        codigo: bi,
+        nomeInstituicao: instNomeSondagem || bi,
+        sondagens: sondagensCompostas,
+        assuntoBase: composeData.subject || '',
+        corpoExtra: composeData.body || '',
+      });
+      setDistribuindoSondagens(false);
+      if (!dist.ok || !dist.dados) {
+        setAvisoSondagens(
+          dist.motivo === 'audiencia_vazia'
+            ? 'Não há cidadãos no âmbito desta instituição para receber a sondagem. Nada foi enviado.'
+            : dist.mensagem || 'Não foi possível distribuir a sondagem. Nada foi enviado.',
+        );
+        return;
+      }
+      addAuditLog?.(
+        `${sondagensCompostas.length} sondagem(ns) da instituição ${instNomeSondagem || bi} distribuída(s) a ${dist.dados.audiencia} cidadãos — âmbito ${dist.dados.classificacao}, ${new Date().toLocaleString('pt-PT')}.`,
+        'success',
+      );
+      setSondagensCompostas([]);
+      // Sem texto próprio, o corpo descreve as sondagens embutidas (pipeline
+      // de envio exige corpo não vazio). O envio segue no tick seguinte para
+      // o estado do corpo propagar.
+      if (!composeData.body.trim()) {
+        updateBodyText(
+          `${instNomeSondagem || bi} convida-o(a) a participar na(s) sondagem(ns) oficial(is) incluída(s) nesta mensagem. Abra a mensagem e toque em «Responder à Sondagem».`,
+        );
+        setTimeout(() => handleSendMessage(), 150);
+        return;
+      }
     }
     handleSendMessage();
   };
@@ -225,6 +266,11 @@ export function MailContent({
   // v36 — Sondagens: estado do modal de criação + nome da instituição (profiles)
   const [showSondagemModal, setShowSondagemModal] = useState(false);
   const [instNomeSondagem, setInstNomeSondagem] = useState('');
+  // v37 — sondagens inseridas como blocos na área de conteúdo da composição
+  const [sondagensCompostas, setSondagensCompostas] = useState<Sondagem[]>([]);
+  const [sondagemARemover, setSondagemARemover] = useState<Sondagem | null>(null);
+  const [distribuindoSondagens, setDistribuindoSondagens] = useState(false);
+  const [avisoSondagens, setAvisoSondagens] = useState<string | null>(null);
   useEffect(() => {
     if (!isInst || !bi) return;
     (async () => {
@@ -521,7 +567,18 @@ export function MailContent({
     setEditingAttachmentIdx(null);
   };
 
-  // v36 — modal de criação de sondagem partilhado pelas duas vistas (compositor e lista)
+  // v37 — blocos de sondagem na área de conteúdo da composição
+  const adicionarSondagemBloco = (s: Sondagem) => {
+    setSondagensCompostas(prev => {
+      if (prev.length >= 5) {
+        setAvisoSondagens('Limite de 5 sondagens por mensagem atingido.');
+        return prev;
+      }
+      return [...prev, s];
+    });
+  };
+
+  // v36/v37 — modal de criação de sondagem partilhado pelas duas vistas (compositor e lista)
   const sondagemModalJsx = isInst ? (
     <SondagemModal
       aberto={showSondagemModal}
@@ -530,8 +587,23 @@ export function MailContent({
       nomeInstituicao={instNomeSondagem || bi}
       criadaPor={bi}
       addAuditLog={(a, t) => addAuditLog?.(a, t)}
+      onCriarBloco={adicionarSondagemBloco}
     />
   ) : null;
+
+  // Popup de avisos das sondagens (limite, falha de distribuição)
+  const avisoSondagensJsx = (
+    <CdaModal
+      aberto={!!avisoSondagens}
+      onFechar={() => setAvisoSondagens(null)}
+      icone={AlertTriangle}
+      titulo="Sondagens"
+      tomIcone="bg-amber-50 text-amber-600 border-amber-100"
+      maxW="max-w-md"
+    >
+      <p className="text-sm font-semibold text-slate-700 text-left m-0">{avisoSondagens}</p>
+    </CdaModal>
+  );
 
   if (isComposing) {
     return (
@@ -963,6 +1035,56 @@ export function MailContent({
             />
           </div>
 
+          {/* v37 — Sondagens inseridas como blocos na área de conteúdo */}
+          {isInst && sondagensCompostas.length > 0 && (
+            <div className="space-y-3 mt-4" data-testid="sondagens-compostas">
+              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-500 m-0">
+                Sondagens incluídas nesta mensagem ({sondagensCompostas.length}/5)
+              </p>
+              {sondagensCompostas.map((s) => (
+                <div key={s.id} className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 flex items-start gap-3">
+                  <span className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0"><BarChart3 size={15} /></span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-800 leading-snug m-0">{s.pergunta}</p>
+                    <p className="text-[11px] font-semibold text-slate-500 mt-1 m-0">
+                      {s.opcoes.map((o, i) => `${String.fromCharCode(65 + i)}) ${o.texto}`).join('  ·  ')}
+                    </p>
+                    <p className="text-[10px] font-semibold text-indigo-600 mt-1 m-0">
+                      Âmbito: {s.abrangencia === 'nacional' ? 'Nacional' : s.abrangencia === 'regional' ? 'Regional' : 'Local'}
+                      {s.permitir_varias ? ' · várias respostas por voto' : ''}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSondagemARemover(s)}
+                    title="Remover sondagem da mensagem"
+                    className="shrink-0 text-slate-400 hover:text-rose-500 transition-colors bg-transparent border-0 cursor-pointer p-1"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* v37 — confirmação de remoção de sondagem da composição */}
+          {sondagemARemover && (
+            <CdaConfirmModal
+              aberto
+              titulo="Remover Sondagem"
+              mensagem={`Remover a sondagem «${sondagemARemover.pergunta}» desta mensagem? O rascunho será eliminado.`}
+              textoConfirmar="Remover"
+              perigoso
+              onConfirmar={async () => {
+                const alvo = sondagemARemover;
+                setSondagemARemover(null);
+                setSondagensCompostas(prev => prev.filter(x => x.id !== alvo.id));
+                await removerRascunhoSondagem(alvo.id);
+              }}
+              onCancelar={() => setSondagemARemover(null)}
+            />
+          )}
+
           {isUploading && (
             <div className="flex items-center gap-2.5 p-4 bg-indigo-50 border border-indigo-200 rounded-2xl text-indigo-800 text-xs font-black animate-pulse mt-4">
               <Loader2 size={16} className="animate-spin text-indigo-600 shrink-0" />
@@ -1107,12 +1229,15 @@ export function MailContent({
           <div className="pt-2 md:pt-4 flex flex-col md:flex-row gap-3 md:gap-4 items-center">
             <button 
               onClick={tentarEnviar}
-              disabled={!composeData.to || (isInst && !composeData.subject) || !composeData.body
+              disabled={!composeData.to || (isInst && !composeData.subject)
+                || (!composeData.body && !(isInst && sondagensCompostas.length > 0))
+                || distribuindoSondagens
                 || (!isInst && !!instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && instRegistry.status === 'nao_registada')}
               className="w-full md:flex-[2] bg-primary text-white py-4 rounded-2xl font-black text-sm md:text-base shadow-xl shadow-primary/25 hover:bg-primary/95 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 md:gap-3 cursor-pointer"
             >
-              <Send size={18} />
-              {avisosConfirmados && validacao && validacao.avisos.length > 0 ? 'Enviar mesmo assim' : 'Enviar Mensagem Oficial'}
+              {distribuindoSondagens ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+              {distribuindoSondagens ? 'A distribuir sondagens…'
+                : avisosConfirmados && validacao && validacao.avisos.length > 0 ? 'Enviar mesmo assim' : 'Enviar Mensagem Oficial'}
             </button>
 
             {/* S6-camada-IA — gatilho da revisão de clareza (opcional) */}
@@ -1155,7 +1280,10 @@ export function MailContent({
             {isInst && (
               <button
                 type="button"
-                onClick={() => setShowSondagemModal(true)}
+                onClick={() => {
+                  if (sondagensCompostas.length >= 5) { setAvisoSondagens('Limite de 5 sondagens por mensagem atingido.'); return; }
+                  setShowSondagemModal(true);
+                }}
                 className="w-full md:w-auto px-5 py-4 rounded-2xl font-black text-sm border-2 border-[#2563eb] text-[#2563eb] bg-blue-50 hover:bg-blue-100 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                 id="btn-criar-sondagem"
               >
@@ -1197,7 +1325,13 @@ export function MailContent({
                 mensagem="Deseja descartar este rascunho?"
                 textoConfirmar="Descartar"
                 perigoso
-                onConfirmar={() => { setConfirmarDescarteRascunho(false); setIsComposing(false); }}
+                onConfirmar={async () => {
+                  setConfirmarDescarteRascunho(false);
+                  // v37: descartar a mensagem elimina também os rascunhos de sondagem
+                  for (const s of sondagensCompostas) { await removerRascunhoSondagem(s.id); }
+                  setSondagensCompostas([]);
+                  setIsComposing(false);
+                }}
                 onCancelar={() => setConfirmarDescarteRascunho(false)}
               />
             )}
@@ -1308,6 +1442,7 @@ export function MailContent({
           )}
         </AnimatePresence>
         {sondagemModalJsx}
+        {avisoSondagensJsx}
       </motion.div>
     );
   }
@@ -1653,6 +1788,7 @@ export function MailContent({
       </AnimatePresence>
 
       {sondagemModalJsx}
+      {avisoSondagensJsx}
     </section>
   );
 }

@@ -298,6 +298,20 @@ FICHEIRO: src/components/features/DirectorioOrgaosContent.tsx
 
 ---
 
+## SONDAGEM v37 — COMPOSIÇÃO + SEGMENTAÇÃO INTELIGENTE (2026-08-24)
+
+Implementação completa do `PROMPT_SONDAGEM_v37.md` (código):
+
+1. **Compositor** — «Enviar Sondagem» → «Criar Sondagem»; a sondagem entra como bloco na área de conteúdo (até 5 por mensagem), com remoção individual confirmada; rascunhos persistidos (`status='rascunho'`) e limpos ao descartar; «Enviar Mensagem Oficial» distribui primeiro e envia depois (falha aborta com aviso honesto).
+2. **Classificação oficial** — `profiles.abrangencia` (nacional/regional/local) + `profiles.provincia`; RPCs `security definer` (`cda_classificacao_inst`, `cda_definir_classificacao_inst`, `cda_cidadaos_sem_provincia`) imunes ao RLS; classificação automática por backend — o administrador da instituição não escolhe o alcance manualmente; consola Admin/Gov permite reclassificar com auditoria (dossiê da instituição).
+3. **Distribuição** — NACIONAL → 100% dos cidadãos; REGIONAL → província (cidadãos sem província excluídos com aviso honesto); LOCAL → relação pré-existente (RPC v36); dedupe por BI; contagem automática de destinatários; registo `sondagens.destinatarios`; compatibilidade retroactiva via `messages.sondagem_id` + novo `messages.sondagem_ids bigint[]`.
+4. **Detalhe da mensagem** — um cartão de resposta por cada sondagem embutida (`sondagem_ids`, com fallback `sondagem_id`).
+5. **Migração** — `supabase/v37_sondagens_segmentacao.sql` pronta; aplica-se no SQL Editor do Supabase (dono). Até lá o código degrada honestamente: rascunhos e modal funcionam; a distribuição multi-sondagem e a classificação ficam bloqueadas com mensagem clara. Nota: enquanto a migração não for aplicada, a varredura com contas reais regista 1 WARN (sonda única de esquema v37, uma requisição 400 por sessão).
+
+Verificações dinâmicas (contas reais): compositor com blocos múltiplos, remoção com confirmação, validação de campos, painel de classificação Admin (NACIONAL/REGIONAL/LOCAL + província), zero excepções JS. Varreduras: demo 52/0/0, contas reais 41 PASS + 1 WARN (sonda pré-migração) + 0 FAIL. TypeScript limpo.
+
+---
+
 ## VEREDICTO FINAL
 
 ```

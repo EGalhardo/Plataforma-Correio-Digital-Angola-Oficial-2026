@@ -2016,13 +2016,21 @@ depende de integração futura com a infra-estrutura de chaves nacional.
             onUsarRascunho={onResponderComRascunho ? (textoRascunho: string) => onResponderComRascunho(selectedMessage, textoRascunho) : undefined}
           />
 
-          {/* v36 — Sondagem (spec §4): cartão de resposta no fim da Assistência do Documento */}
-          {!!(selectedMessage as any).sondagem_id && cidadaoBi ? (
-            <SondagemResponderCard
-              sondagemId={Number((selectedMessage as any).sondagem_id)}
-              cidadaoBi={cidadaoBi}
-              addAuditLog={addAuditLog}
-            />
+          {/* v36/v37 — Sondagem: cartão de resposta no fim da Assistência do Documento
+              (uma sondagem por id embutido na mensagem) */}
+          {cidadaoBi ? (
+            ((selectedMessage as any).sondagem_ids?.length
+              ? ((selectedMessage as any).sondagem_ids as (number | string)[])
+              : ((selectedMessage as any).sondagem_id ? [(selectedMessage as any).sondagem_id] : [])
+            ).map((sid) => (
+              <React.Fragment key={`sond-${sid}`}>
+                <SondagemResponderCard
+                  sondagemId={Number(sid)}
+                  cidadaoBi={cidadaoBi}
+                  addAuditLog={addAuditLog}
+                />
+              </React.Fragment>
+            ))
           ) : null}
 
           {/* Incoming Document Attachments */}
@@ -3462,13 +3470,21 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                       onUsarRascunho={onResponderComRascunho ? (textoRascunho: string) => onResponderComRascunho(selectedMessage, textoRascunho) : undefined}
                     />
 
-                    {/* v36 — Sondagem (spec §4): cartão de resposta no fim da Assistência do Documento (vista principal) */}
-                    {!!(selectedMessage as any).sondagem_id && cidadaoBi ? (
-                      <SondagemResponderCard
-                        sondagemId={Number((selectedMessage as any).sondagem_id)}
-                        cidadaoBi={cidadaoBi}
-                        addAuditLog={addAuditLog}
-                      />
+                    {/* v36/v37 — Sondagem: cartões de resposta no fim da Assistência do Documento
+                        (vista principal; uma sondagem por id embutido na mensagem) */}
+                    {cidadaoBi ? (
+                      ((selectedMessage as any).sondagem_ids?.length
+                        ? ((selectedMessage as any).sondagem_ids as (number | string)[])
+                        : ((selectedMessage as any).sondagem_id ? [(selectedMessage as any).sondagem_id] : [])
+                      ).map((sid) => (
+                        <React.Fragment key={`sond-${sid}`}>
+                          <SondagemResponderCard
+                            sondagemId={Number(sid)}
+                            cidadaoBi={cidadaoBi}
+                            addAuditLog={addAuditLog}
+                          />
+                        </React.Fragment>
+                      ))
                     ) : null}
 
                     {/* Incoming Document Attachments */}

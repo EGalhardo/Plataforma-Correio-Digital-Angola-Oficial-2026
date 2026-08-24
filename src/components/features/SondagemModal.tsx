@@ -1,15 +1,16 @@
 // ============================================================================
-// SondagemModal — popup «Criar Sondagem» (v36.1, spec §1/§2/§3)
+// SondagemModal — popup «Criar Sondagem» (v37, PROMPT_SONDAGEM_v37 §1)
 // Padrão único de popups do app: CdaModal (commit 82cf4fb).
-// Criar = enviar (paridade WhatsApp): o botão «Enviar Sondagem» grava a
-// sondagem e faz a difusão segundo o âmbito (nacional/local).
+// v37: o botão «Criar Sondagem» insere a sondagem como rascunho/bloco na área
+// de conteúdo da mensagem em composição (onCriarBloco). Sem onCriarBloco
+// mantém-se o comportamento v36.1 (criar + difundir imediatamente).
 // ============================================================================
 import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Plus, Send, Trash2, AlertTriangle } from 'lucide-react';
+import { BarChart3, Plus, Trash2, AlertTriangle } from 'lucide-react';
 import { CdaModal } from '../ui/CdaModal';
 import {
-  audienciaPara, criarSondagem, sondagensDisponiveis,
-  type OpcaoSondagem, type SondagemMotivo,
+  audienciaV37, criarSondagem, criarRascunhoSondagem, sondagensDisponiveis,
+  type AbrangenciaSondagem, type OpcaoSondagem, type Sondagem,
 } from '../../services/sondagemService';
 
 const LETRAS = 'ABCDEFGHIJ';
@@ -22,15 +23,17 @@ interface Props {
   nomeInstituicao: string;
   criadaPor: string;
   addAuditLog: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
+  /** v37: quando presente, «Criar Sondagem» insere rascunho na composição. */
+  onCriarBloco?: (sondagem: Sondagem) => void;
 }
 
-export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstituicao, criadaPor, addAuditLog }: Props) {
+export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstituicao, criadaPor, addAuditLog, onCriarBloco }: Props) {
   const [pergunta, setPergunta] = useState('');
   const [opcoes, setOpcoes] = useState<OpcaoSondagem[]>([novaOpcao(0), novaOpcao(1)]);
   const [permitirVarias, setPermitirVarias] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [disponivel, setDisponivel] = useState<boolean | null>(null);
-  const [ambito, setAmbito] = useState<{ abrangencia: 'nacional' | 'local'; n: number } | null>(null);
+  const [ambito, setAmbito] = useState<{ classificacao: AbrangenciaSondagem; n: number; semProvincia?: number } | null>(null);
   const [alerta, setAlerta] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,8 +44,12 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
       const ok = await sondagensDisponiveis();
       setDisponivel(ok);
       if (ok) {
-        const aud = await audienciaPara(codigoInstituicao, nomeInstituicao);
-        if (aud.ok && aud.dados) setAmbito({ abrangencia: aud.dados.abrangencia, n: aud.dados.bis.length });
+        const aud = await audienciaV37(codigoInstituicao, nomeInstituicao);
+        if (aud.ok && aud.dados) {
+          setAmbito({ classificacao: aud.dados.classificacao, n: aud.dados.bis.length, semProvincia: aud.dados.semProvincia });
+        } else if (aud.motivo === 'validacao') {
+          setAlerta(aud.mensagem || 'Classificação da instituição necessária.');
+        }
       }
     })();
   }, [aberto, codigoInstituicao, nomeInstituicao]);
@@ -57,29 +64,54 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
     if (!pergunta.trim()) faltas.push('a Pergunta');
     if (validas.length < 2) faltas.push('pelo menos duas opções (Texto A e Texto B)');
     const dup = new Set(validas.map(t => t.toLowerCase())).size !== validas.length;
-    if (!faltas.length && dup) { setAlerta('Existem opções duplicadas. Corrija antes de enviar.'); return; }
+    if (!faltas.length && dup) { setAlerta('Existem opções duplicadas. Corrija antes de criar.'); return; }
     if (faltas.length) { setAlerta(`Na sua sondagem está a faltar preencher alguns campos: ${faltas.join(' e ')}.`); return; }
-    if (disponivel === false) { setAlerta('Funcionalidade disponível em Modo Real (Supabase) — aguarda a migração v36.'); return; }
-    if (ambito && ambito.abrangencia === 'local' && ambito.n === 0) {
+    if (disponivel === false) { setAlerta('Funcionalidade disponível em Modo Real (Supabase) — aguarda a migração.'); return; }
+    if (ambito && ambito.classificacao === 'local' && ambito.n === 0) {
       setAlerta('Não há cidadãos registados no sistema desta instituição.'); return;
     }
+    const opcoesFinais = opcoes.filter(o => o.texto.trim()).map((o, i) => ({ id: LETRAS[i], texto: o.texto.trim() }));
     setEnviando(true);
+
+    // v37: compositor → cria rascunho e devolve ao conteúdo da mensagem
+    if (onCriarBloco) {
+      const rasc = await criarRascunhoSondagem({
+        codigo: codigoInstituicao,
+        nomeInstituicao,
+        criadaPor,
+        pergunta: pergunta.trim(),
+        opcoes: opcoesFinais,
+        permitirVarias,
+      });
+      setEnviando(false);
+      if (!rasc.ok || !rasc.dados) {
+        if (rasc.motivo === 'sem_migracao') setAlerta('Funcionalidade disponível em Modo Real (Supabase) — aguarda a migração.');
+        else setAlerta(rasc.mensagem || 'Não foi possível criar a sondagem.');
+        return;
+      }
+      addAuditLog(`Sondagem «${pergunta.trim().slice(0, 60)}» adicionada à mensagem em composição (âmbito ${ambito?.classificacao || 'local'}).`, 'info');
+      onCriarBloco(rasc.dados);
+      onFechar();
+      return;
+    }
+
+    // Caminho legado v36.1 (criar + difundir imediatamente)
     const res = await criarSondagem({
       codigo: codigoInstituicao,
       nomeInstituicao,
       criadaPor,
       pergunta: pergunta.trim(),
-      opcoes: opcoes.filter(o => o.texto.trim()).map((o, i) => ({ id: LETRAS[i], texto: o.texto.trim() })),
+      opcoes: opcoesFinais,
       permitirVarias,
     });
     setEnviando(false);
     if (!res.ok) {
       if (res.motivo === 'audiencia_vazia') setAlerta('Não há cidadãos registados no sistema desta instituição.');
-      else if (res.motivo === 'sem_migracao') setAlerta('Funcionalidade disponível em Modo Real (Supabase) — aguarda a migração v36.');
+      else if (res.motivo === 'sem_migracao') setAlerta('Funcionalidade disponível em Modo Real (Supabase) — aguarda a migração.');
       else setAlerta(res.mensagem || 'Não foi possível criar a sondagem.');
       return;
     }
-    addAuditLog(`Sondagem «${pergunta.trim().slice(0, 60)}» criada e difundida a ${res.dados!.audiencia} cidadãos (âmbito ${ambito?.abrangencia || 'nacional'}).`, 'success');
+    addAuditLog(`Sondagem «${pergunta.trim().slice(0, 60)}» criada e difundida a ${res.dados!.audiencia} cidadãos (âmbito ${ambito?.classificacao || 'nacional'}).`, 'success');
     onFechar();
   };
 
@@ -161,11 +193,20 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
           {/* Âmbito / audiência (transparência antes do envio — spec §3.4) */}
           <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-[12px] font-semibold text-slate-700">
             {disponivel === false ? (
-              <span className="text-amber-700">Funcionalidade disponível em Modo Real (Supabase) — aguarda a migração v36.</span>
+              <span className="text-amber-700">Funcionalidade disponível em Modo Real (Supabase) — aguarda a migração.</span>
             ) : ambito ? (
-              ambito.abrangencia === 'nacional'
-                ? <>Âmbito: <strong>Nacional</strong> — será enviada a todos os <strong>{ambito.n}</strong> cidadãos registados.</>
-                : <>Âmbito: <strong>Local</strong> — será enviada aos <strong>{ambito.n}</strong> cidadãos registados no sistema da instituição.</>
+              <>
+                {ambito.classificacao === 'nacional' && <>Âmbito: <strong>Nacional</strong> — será enviada a todos os <strong>{ambito.n}</strong> cidadãos registados.</>}
+                {ambito.classificacao === 'regional' && (
+                  <>
+                    Âmbito: <strong>Regional</strong> — será enviada aos <strong>{ambito.n}</strong> cidadãos da província da instituição.
+                    {typeof ambito.semProvincia === 'number' && ambito.semProvincia > 0 && (
+                      <span className="block mt-1 text-amber-700">{ambito.semProvincia} cidadão(s) sem província registada não serão abrangidos.</span>
+                    )}
+                  </>
+                )}
+                {ambito.classificacao === 'local' && <>Âmbito: <strong>Local</strong> — será enviada aos <strong>{ambito.n}</strong> cidadãos registados no sistema da instituição.</>}
+              </>
             ) : (
               'A calcular audiência…'
             )}
@@ -186,7 +227,7 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
               disabled={enviando}
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#2563eb] hover:bg-blue-700 disabled:opacity-60 text-white text-[11px] font-black uppercase tracking-widest border-0 cursor-pointer shadow"
             >
-              <Send size={14} /> {enviando ? 'A enviar…' : 'Enviar Sondagem'}
+              <Plus size={14} /> {enviando ? 'A criar…' : 'Criar Sondagem'}
             </button>
           </div>
         </div>

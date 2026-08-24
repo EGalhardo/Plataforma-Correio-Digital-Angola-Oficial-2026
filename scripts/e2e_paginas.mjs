@@ -346,7 +346,7 @@ async function correrPapel(role, cfg) {
           if (!okCampo) {
             reg(role, 'sondagem-modal', 'FAIL', 'popup «Criar Sondagem» não abriu');
           } else {
-            await page.getByRole('button', { name: /Enviar Sondagem/ }).first().click();
+            await page.getByRole('button', { name: /Criar Sondagem/ }).last().click();
             await page.waitForTimeout(700);
             const val = await page.getByText(/a faltar preencher alguns campos/i).first().isVisible().catch(() => false);
             reg(role, 'sondagem-modal', val ? 'PASS' : 'WARN',

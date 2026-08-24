@@ -28,6 +28,10 @@ import {
 import { Institution, Message } from '../../types';
 import { MUNICIPALITIES_BY_PROVINCE, CITIES_BY_PROVINCE, COMMUNES_BY_MUNICIPALITY, INSTITUTION_TYPES, mapTypeToCategory, generateSigla } from '../../config/institutionCatalog';
 import { useInstitutions } from '../../services/institutionStore';
+import {
+  lerClassificacaoInstituicao, definirClassificacaoInstituicao,
+  type AbrangenciaSondagem,
+} from '../../services/sondagemService';
 import { useSession } from '../../services/sessionStore';
 import { supabaseService } from '../../services/supabaseService';
 import { registoPublicoProxy, enviarMensagemAdministrativa } from '../../services/supabaseService';
@@ -356,6 +360,10 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingInstitution, setEditingInstitution] = useState<Institution | null>(null);
   const [selectedInstHistory, setSelectedInstHistory] = useState<Institution | null>(null);
+  // v37 §2.3 — classificação oficial da instituição (âmbito das sondagens)
+  const [classifClasse, setClassifClasse] = useState<AbrangenciaSondagem | null>(null);
+  const [classifProv, setClassifProv] = useState('');
+  const [classifBusy, setClassifBusy] = useState(false);
 
   // Form states
   const [formName, setFormName] = useState('');
@@ -505,6 +513,24 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   };
 
   useEffect(() => { fetchSolicitacoes(); }, []);
+
+  // v37 — carrega a classificação oficial quando o dossier da instituição abre
+  useEffect(() => {
+    setClassifClasse(null);
+    setClassifProv('');
+    const codigo = (selectedInstHistory as any)?.instCode || '';
+    if (!selectedInstHistory || !codigo) return;
+    let vivo = true;
+    (async () => {
+      const r = await lerClassificacaoInstituicao(codigo);
+      if (!vivo) return;
+      if (r.ok && r.dados) {
+        setClassifClasse(r.dados.classe);
+        setClassifProv(r.dados.provincia || '');
+      }
+    })();
+    return () => { vivo = false; };
+  }, [selectedInstHistory]);
   void solThreadTick; // força a reavaliação da thread no modal ao enviar mensagens
 
   // FASE 4 — SINCRONIZAÇÃO SGE AGENDADA: executa a suíte de interoperabilidade
@@ -2366,6 +2392,61 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           </div>
                         </div>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* v37 §2.3 — Âmbito das Sondagens (classificação oficial) */}
+                  <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 text-left">
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-500 m-0 mb-2">
+                      Âmbito das Sondagens · Classificação Oficial
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {(['nacional', 'regional', 'local'] as AbrangenciaSondagem[]).map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setClassifClasse(c)}
+                          className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all cursor-pointer ${
+                            classifClasse === c
+                              ? 'bg-indigo-600 text-white border-indigo-600'
+                              : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'
+                          }`}
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                    {classifClasse === 'regional' && (
+                      <input
+                        value={classifProv}
+                        onChange={(e) => setClassifProv(e.target.value)}
+                        placeholder="Província (ex.: Luanda)"
+                        className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      />
+                    )}
+                    <div className="flex items-center justify-between gap-3 mt-2.5">
+                      <p className="text-[9px] font-semibold text-slate-500 m-0">
+                        NACIONAL → todos os cidadãos · REGIONAL → província · LOCAL → cidadãos com relação à instituição
+                      </p>
+                      <button
+                        type="button"
+                        disabled={classifBusy || !classifClasse}
+                        onClick={async () => {
+                          const codigo = (selectedInstHistory as any)?.instCode || '';
+                          if (!codigo || !classifClasse) return;
+                          setClassifBusy(true);
+                          const r = await definirClassificacaoInstituicao({ codigo, classe: classifClasse, provincia: classifProv || null });
+                          setClassifBusy(false);
+                          if (r.ok) {
+                            onLog?.(`Classificação de sondagens de «${selectedInstHistory?.name || codigo}» definida como ${classifClasse.toUpperCase()}${classifClasse === 'regional' ? ` (${classifProv})` : ''}.`, 'success');
+                          } else {
+                            onLog?.(`Falha ao definir classificação de «${codigo}»: ${r.mensagem || 'erro'}.`, 'warning');
+                          }
+                        }}
+                        className="shrink-0 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-[9px] font-black uppercase tracking-widest border-0 cursor-pointer"
+                      >
+                        {classifBusy ? 'A gravar…' : 'Gravar Classificação'}
+                      </button>
                     </div>
                   </div>
 

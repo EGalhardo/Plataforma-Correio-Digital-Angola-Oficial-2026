@@ -32,7 +32,8 @@ export function SondagensContent({ codigoInstituicao, addAuditLog }: Props) {
     setDisponivel(ok);
     if (ok) {
       const r = await listarSondagens(codigoInstituicao);
-      if (r.ok) setLista(r.dados || []);
+      // v37: rascunhos vivem apenas no compositor — a lista mostra ativa/encerrada
+      if (r.ok) setLista((r.dados || []).filter(s => s.status !== 'rascunho'));
     }
     setCarregando(false);
   }, [codigoInstituicao]);
@@ -99,7 +100,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog }: Props) {
               <div className="min-w-0">
                 <p className="text-sm font-bold text-slate-800 truncate">{s.pergunta}</p>
                 <p className="text-[11px] font-medium text-slate-500 mt-0.5">
-                  {new Date(s.created_at).toLocaleDateString('pt-PT')} · âmbito {s.abrangencia} · {s.audiencia_total} destinatários ·{' '}
+                  {new Date(s.created_at).toLocaleDateString('pt-PT')} · âmbito {s.abrangencia === 'nacional' ? 'Nacional' : s.abrangencia === 'regional' ? 'Regional' : 'Local'} · {s.destinatarios ?? s.audiencia_total} destinatários ·{' '}
                   <span className={s.status === 'ativa' ? 'text-emerald-600 font-bold' : 'text-slate-500 font-bold'}>{s.status}</span>
                 </p>
               </div>

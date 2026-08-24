@@ -1321,8 +1321,9 @@ export const supabaseService = {
           // seguro: o detalhe usa apenas protocol.protocolNumber para validar;
           // os restantes campos visuais caem no fallback generateProtocol.
           protocol: protocoloDaLinha(item.protocol_number),
-          // v36 — sondagem ligada à difusão
-          sondagem_id: (item as any).sondagem_id ?? null
+          // v36 — sondagem ligada à difusão; v37 — múltiplas sondagens embutidas
+          sondagem_id: (item as any).sondagem_id ?? null,
+          sondagem_ids: (item as any).sondagem_ids ?? null
         };
       });
     } catch (e) {
@@ -1390,8 +1391,9 @@ export const supabaseService = {
         recipientBi: item.recipient_bi,
         // v27 — numero de protocolo ligado na nuvem (validacao real do QR).
         protocol: protocoloDaLinha(item.protocol_number),
-        // v36 — sondagem ligada à difusão
-        sondagem_id: (item as any).sondagem_id ?? null
+        // v36 — sondagem ligada à difusão; v37 — múltiplas sondagens embutidas
+        sondagem_id: (item as any).sondagem_id ?? null,
+        sondagem_ids: (item as any).sondagem_ids ?? null
       }));
 
       // F14 — IDs do canal legado por sigla: cópias locais etiquetadas por
@@ -1452,8 +1454,9 @@ export const supabaseService = {
         recipientBi: item.recipient_bi,
         // v27 — numero de protocolo ligado na nuvem (validacao real do QR).
         protocol: protocoloDaLinha(item.protocol_number),
-        // v36 — sondagem ligada à difusão
-        sondagem_id: (item as any).sondagem_id ?? null
+        // v36 — sondagem ligada à difusão; v37 — múltiplas sondagens embutidas
+        sondagem_id: (item as any).sondagem_id ?? null,
+        sondagem_ids: (item as any).sondagem_ids ?? null
       }));
     } catch (e) {
       console.error('Supabase getSentMessagesBySender error:', e);
@@ -1520,8 +1523,9 @@ export const supabaseService = {
             // detalhe gerava um protocolo LOCAL e a validacao caia sempre em
             // «nao_encontrado» (apanhado no e2e de producao).
             protocol: protocoloDaLinha(item.protocol_number),
-            // v36 — sondagem ligada à difusão (enquete estilo WhatsApp)
-            sondagem_id: (item as any).sondagem_id ?? null
+            // v36 — sondagem ligada à difusão (enquete estilo WhatsApp); v37 — múltiplas
+            sondagem_id: (item as any).sondagem_id ?? null,
+            sondagem_ids: (item as any).sondagem_ids ?? null
           };
         };
         const mapped = rows.map(mapRow);
