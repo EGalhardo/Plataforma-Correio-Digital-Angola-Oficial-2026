@@ -5,6 +5,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { notify } from '../../lib/notify';
+import { CdaConfirmModal, CdaPromptModal } from '../ui/CdaConfirm';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { AnimatedCounter } from '../ui/AnimatedCounter';
@@ -1776,13 +1777,15 @@ export function GovContactsContent({
   //    nuvem, face, avatar, perfil local e pendências de sincronização.
   // Com a conta Auth eliminada, o Nº Agente deixa de entrar em QUALQUER
   // dispositivo (nuvem primária) e os espelhos locais desaparecem também.
-  const handleDeleteWorker = async (id: string, name: string) => {
+  // Auditoria 2026-08-24: confirmações no padrão CdaModal (sem confirm()/prompt() nativos)
+  const [pedidoEliminacao, setPedidoEliminacao] = useState<{ id: string; name: string } | null>(null);
+  const [passoArquivoSint, setPassoArquivoSint] = useState<0 | 1 | 2>(0);
+  const [motivoBloqueioAberto, setMotivoBloqueioAberto] = useState(false);
+  const handleDeleteWorker = (id: string, name: string) => setPedidoEliminacao({ id, name });
+  const executarEliminacaoWorker = async (id: string, name: string) => {
     const alvo = workers.find(w => w.id === id);
     const agente = (alvo?.agentId || '').toUpperCase().replace(/\s+/g, '');
     const ehDemo = homologationStore.isExempt(bi || '');
-    if (!confirm(`Tem a certeza que deseja ELIMINAR definitivamente ${name}${agente ? ` (${agente})` : ''} do sistema?\n\nA eliminação é completa: revoga o acesso de login, remove a conta da nuvem e apaga todos os vestígios (credenciais, foto, perfil local). Esta ação não pode ser desfeita.`)) {
-      return;
-    }
     if (appMode === 'admin-workers' && agente === ADMIN_ALFA_AGENT) {
       notify(`O Admin Alfa (${ADMIN_ALFA_AGENT}) é o elemento mais alto da hierarquia e não pode ser eliminado pela página Equipa.`, 'error');
       return;
@@ -2846,6 +2849,19 @@ export function GovContactsContent({
           </AnimatePresence>,
           document.body
         )}
+
+      {/* Auditoria 2026-08-24: confirmação de eliminação de trabalhador */}
+      {pedidoEliminacao && (
+        <CdaConfirmModal
+          aberto
+          titulo="Eliminar Definitivamente"
+          mensagem={`Tem a certeza que deseja ELIMINAR definitivamente ${pedidoEliminacao.name}${(() => { const ag = (workers.find(w => w.id === pedidoEliminacao.id)?.agentId || '').toUpperCase().replace(/\s+/g, ''); return ag ? ` (${ag})` : ''; })()} do sistema?\n\nA eliminação é completa: revoga o acesso de login, remove a conta da nuvem e apaga todos os vestígios (credenciais, foto, perfil local). Esta ação não pode ser desfeita.`}
+          textoConfirmar="Eliminar"
+          perigoso
+          onConfirmar={() => { const p = pedidoEliminacao; setPedidoEliminacao(null); void executarEliminacaoWorker(p.id, p.name); }}
+          onCancelar={() => setPedidoEliminacao(null)}
+        />
+      )}
       </div>
     );
   }
@@ -2987,20 +3003,35 @@ export function GovContactsContent({
                   </div>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (window.confirm('Arquivar estas contas sintéticas de teste? Esta ação marca as contas como Bloqueadas com motivo de arquivo (NÃO apaga dados). Pretende continuar?')) {
-                        if (window.confirm('Confirmação final: arquivar as ' + sinteticas.length + ' contas sintéticas? Esta ação é reversível via reativação manual.')) {
-                          sinteticas.forEach((c) => {
-                            setCitizens(prev => prev.map(x => x.id === c.id ? { ...x, status: 'Bloqueado' as const, reason: 'Arquivada — conta sintética de teste (limpeza assistida).' } : x));
-                          });
-                          addAuditLog?.(`Limpeza assistida: ${sinteticas.length} conta(s) sintética(s) arquivada(s) (marcadas como Bloqueadas, sem apagar dados).`, 'warning');
-                        }
-                      }
-                    }}
+                    onClick={() => setPassoArquivoSint(1)}
                     className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[9px] font-black uppercase tracking-widest transition-colors cursor-pointer border-none"
                   >
                     Arquivar contas sintéticas
                   </button>
+                  {/* Auditoria 2026-08-24: dupla confirmação no padrão CdaModal */}
+                  <CdaConfirmModal
+                    aberto={passoArquivoSint === 1}
+                    titulo="Arquivar Contas Sintéticas"
+                    mensagem="Arquivar estas contas sintéticas de teste? Esta ação marca as contas como Bloqueadas com motivo de arquivo (NÃO apaga dados). Pretende continuar?"
+                    textoConfirmar="Continuar"
+                    onConfirmar={() => setPassoArquivoSint(2)}
+                    onCancelar={() => setPassoArquivoSint(0)}
+                  />
+                  <CdaConfirmModal
+                    aberto={passoArquivoSint === 2}
+                    titulo="Confirmação Final"
+                    mensagem={`Confirmação final: arquivar as ${sinteticas.length} contas sintéticas? Esta ação é reversível via reativação manual.`}
+                    textoConfirmar="Arquivar"
+                    perigoso
+                    onConfirmar={() => {
+                      setPassoArquivoSint(0);
+                      sinteticas.forEach((c) => {
+                        setCitizens(prev => prev.map(x => x.id === c.id ? { ...x, status: 'Bloqueado' as const, reason: 'Arquivada — conta sintética de teste (limpeza assistida).' } : x));
+                      });
+                      addAuditLog?.(`Limpeza assistida: ${sinteticas.length} conta(s) sintética(s) arquivada(s) (marcadas como Bloqueadas, sem apagar dados).`, 'warning');
+                    }}
+                    onCancelar={() => setPassoArquivoSint(0)}
+                  />
                 </div>
               </div>
             );
@@ -4266,17 +4297,29 @@ export function GovContactsContent({
                     </button>
                   ) : (
                     (selectedReviewCitizen.status === 'Ativo' || selectedReviewCitizen.status === 'Aprovado Automaticamente' || selectedReviewCitizen.status === 'Aprovado Manualmente') && (
+                      <>
                       <button
                         type="button"
-                        onClick={async () => {
-                          const mot = prompt('Indique o motivo de segurança do bloqueamento da conta:');
-                          if (mot === null) return;
-                          if (!mot.trim()) {
-                            notify('Motivo obrigatório.');
-                            return;
-                          }
+                        onClick={() => setMotivoBloqueioAberto(true)}
+                        className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer font-bold w-full sm:w-auto text-center border-0 font-sans"
+                      >
+                        Bloquear Conta
+                      </button>
+                      {/* Auditoria 2026-08-24: motivo de bloqueio via CdaPromptModal (sem prompt() nativo) */}
+                      {motivoBloqueioAberto && (
+                        <CdaPromptModal
+                          aberto
+                          titulo="Bloquear Conta"
+                          subtitulo="Motivo de segurança obrigatório"
+                          mensagem="Indique o motivo de segurança do bloqueamento da conta:"
+                          placeholder="Descreva o motivo do bloqueio…"
+                          textoConfirmar="Bloquear Conta"
+                          onCancelar={() => setMotivoBloqueioAberto(false)}
+                          onConfirmar={async (mot) => {
+                            setMotivoBloqueioAberto(false);
+                            if (!mot.trim()) { notify('Motivo obrigatório.'); return; }
 
-                          setCitizens(prev => prev.map(c => c.id === selectedReviewCitizen.id ? { 
+                            setCitizens(prev => prev.map(c => c.id === selectedReviewCitizen.id ? { 
                             ...c, 
                             status: 'Bloqueado',
                             reason: mot,
@@ -4296,13 +4339,12 @@ export function GovContactsContent({
                           // indicador Online passa a amarelo.
                           homologationStore.setStatus(selectedReviewCitizen.biNumber || '', 'blocked', mot, selectedReviewCitizen.name);
 
-                          addAuditLog?.(`Auditoria: Conta de "${selectedReviewCitizen.name}" BLOQUEADA preventivamente por: "${mot}".`, 'warning');
-                          setSelectedReviewCitizen(null);
-                        }}
-                        className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer font-bold w-full sm:w-auto text-center border-0 font-sans"
-                      >
-                        Bloquear Conta
-                      </button>
+                            addAuditLog?.(`Auditoria: Conta de "${selectedReviewCitizen.name}" BLOQUEADA preventivamente por: "${mot}".`, 'warning');
+                            setSelectedReviewCitizen(null);
+                          }}
+                        />
+                      )}
+                      </>
                     )
                   )}
 

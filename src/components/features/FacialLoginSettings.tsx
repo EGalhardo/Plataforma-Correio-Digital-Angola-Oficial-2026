@@ -10,6 +10,7 @@
 // ============================================================================
 
 import { useRef, useState } from 'react';
+import { CdaConfirmModal } from '../ui/CdaConfirm';
 import { ScanFace, ShieldCheck, Trash2, Camera, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import {
   buildFaceStorageKey, readFaceTemplate, computeFaceSignatureAsync,
@@ -137,8 +138,9 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
     }
   };
 
+  // Auditoria 2026-08-24: confirmação no padrão CdaModal (sem window.confirm nativo)
+  const [pedirRemocaoFacial, setPedirRemocaoFacial] = useState(false);
   const removeTemplate = () => {
-    if (!window.confirm('Tem a certeza que deseja remover o registo facial? Poderá voltar a registar quando quiser.')) return;
     try { localStorage.removeItem(storageKey); } catch { /* ignora */ }
     setTemplate(null);
     onAudit?.(`LOGIN FACIAL: registo facial removido (${mode} · ${personId.toUpperCase().replace(/\s+/g, '')}).`, 'warning');
@@ -216,6 +218,17 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
               <Trash2 size={13} /> Remover registo facial
             </button>
           )}
+      {pedirRemocaoFacial && (
+        <CdaConfirmModal
+          aberto
+          titulo="Remover Registo Facial"
+          mensagem="Tem a certeza que deseja remover o registo facial? Poderá voltar a registar quando quiser."
+          textoConfirmar="Remover"
+          perigoso
+          onConfirmar={() => { setPedirRemocaoFacial(false); removeTemplate(); }}
+          onCancelar={() => setPedirRemocaoFacial(false)}
+        />
+      )}
           {simulated === false && cameraError && null}
           <Loader2 size={0} className="hidden" />
         </div>

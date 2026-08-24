@@ -5,6 +5,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { notify } from '../../lib/notify';
+import { CdaConfirmModal } from '../ui/CdaConfirm';
 import { useInstitutions } from '../../services/institutionStore';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -103,6 +104,8 @@ export function DocumentsContent({
   const { institutions } = useInstitutions();
   const { t: translate } = useLanguage();
   const [selectedInst, setSelectedInst] = useState<string>('Todas');
+  // Auditoria 2026-08-24: confirmação de descarte no padrão CdaModal (sem confirm() nativo)
+  const [confirmarDescarteDoc, setConfirmarDescarteDoc] = useState(false);
   const [selectedInvoiceForDetail, setSelectedInvoiceForDetail] = useState<any | null>(null);
 
   // Simulated Wallet Balance for paying invoices
@@ -460,13 +463,22 @@ export function DocumentsContent({
               Submeter Documento Oficial
             </button>
             <button 
-              onClick={() => {
-                if(confirm("Deseja descartar este rascunho de documento?")) setIsComposing(false);
-              }}
+              onClick={() => setConfirmarDescarteDoc(true)}
               className="flex-1 px-8 py-3.5 md:py-4.5 rounded-2xl font-bold text-xs md:text-sm text-slate-500 hover:bg-slate-100 transition-colors"
             >
               Descartar
             </button>
+            {confirmarDescarteDoc && (
+              <CdaConfirmModal
+                aberto
+                titulo="Descartar Rascunho"
+                mensagem="Deseja descartar este rascunho de documento?"
+                textoConfirmar="Descartar"
+                perigoso
+                onConfirmar={() => { setConfirmarDescarteDoc(false); setIsComposing(false); }}
+                onCancelar={() => setConfirmarDescarteDoc(false)}
+              />
+            )}
           </div>
         </div>
 

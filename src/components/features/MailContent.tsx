@@ -46,6 +46,7 @@ import { Message, LanguageCode } from '../../types';
 import { translateText } from '../../utils/translator';
 import { useLanguage } from '../../hooks/useLanguage';
 import { SondagemModal } from './SondagemModal';
+import { CdaConfirmModal } from '../ui/CdaConfirm';
 import { Video, Loader2, CheckCircle2, AlertTriangle, Sparkles } from 'lucide-react';
 // F59 — a pesquisa teatral de 8s com textos governamentais inventados e
 // correspondência em MOCK_CITIZENS/MOCK_USERS foi REMOVIDA: o lookup do
@@ -162,6 +163,8 @@ export function MailContent({
 
   // S6 — validacao deterministica pre-envio (gratuita e offline)
   const [validacao, setValidacao] = useState<ResultadoValidacaoEnvio | null>(null);
+  // Auditoria 2026-08-24: confirmação de descarte no padrão CdaModal (sem confirm() nativo)
+  const [confirmarDescarteRascunho, setConfirmarDescarteRascunho] = useState(false);
   const [avisosConfirmados, setAvisosConfirmados] = useState(false);
   // S6-camada-IA — revisao de clareza OPCIONAL (fail-safe: falha da IA nunca
   // bloqueia o envio; o utilizador decide se usa a versão melhorada)
@@ -1182,13 +1185,22 @@ export function MailContent({
             </label>
 
             <button 
-              onClick={() => {
-                if(confirm("Deseja descartar este rascunho?")) setIsComposing(false);
-              }}
+              onClick={() => setConfirmarDescarteRascunho(true)}
               className="w-full md:flex-1 py-4 px-8 rounded-2xl font-bold text-xs md:text-sm text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               Descartar
             </button>
+            {confirmarDescarteRascunho && (
+              <CdaConfirmModal
+                aberto
+                titulo="Descartar Rascunho"
+                mensagem="Deseja descartar este rascunho?"
+                textoConfirmar="Descartar"
+                perigoso
+                onConfirmar={() => { setConfirmarDescarteRascunho(false); setIsComposing(false); }}
+                onCancelar={() => setConfirmarDescarteRascunho(false)}
+              />
+            )}
           </div>
         </div>
 

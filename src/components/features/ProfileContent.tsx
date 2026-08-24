@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { notify } from '../../lib/notify';
+import { CdaConfirmModal } from '../ui/CdaConfirm';
 import {
   BadgeCheck,
   ShieldCheck,
@@ -205,6 +206,9 @@ const safeGetItem = (key: string, defaultVal: string = ''): string => {
       { id: 'sess-3', device: 'Safari / iPad Air', location: 'Benguela, AO', ip: '197.231.15.55', date: '21 Mai, 16:45', isCurrent: false }
     ];
   });
+
+  // Auditoria 2026-08-24: revogação de sessão no padrão CdaModal (sem confirm() nativo)
+  const [sessaoRevogar, setSessaoRevogar] = useState<{ id: string; device: string } | null>(null);
 
   const [connectedDevices, setConnectedDevices] = useState(() => {
     const cached = safeGetItem('gov_pref_devices');
@@ -1722,17 +1726,29 @@ return (
                             </div>
                             
                             {!session.isCurrent && (
+                              <>
                               <button
                                 type="button"
-                                onClick={() => {
-                                  if (confirm(`Deseja revogar e terminar a sessão no dispositivo ${session.device}?`)) {
-                                    setActiveSessions((prev) => prev.filter((s) => s.id !== session.id));
-                                  }
-                                }}
+                                onClick={() => setSessaoRevogar(session)}
                                 className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-rose-600 bg-white border border-rose-100 rounded-lg hover:bg-rose-50 cursor-pointer"
                               >
                                 Revogar
                               </button>
+                              {sessaoRevogar?.id === session.id && (
+                                <CdaConfirmModal
+                                  aberto
+                                  titulo="Revogar Sessão"
+                                  mensagem={`Deseja revogar e terminar a sessão no dispositivo ${sessaoRevogar.device}?`}
+                                  textoConfirmar="Revogar"
+                                  perigoso
+                                  onConfirmar={() => {
+                                    setActiveSessions((prev) => prev.filter((s) => s.id !== sessaoRevogar.id));
+                                    setSessaoRevogar(null);
+                                  }}
+                                  onCancelar={() => setSessaoRevogar(null)}
+                                />
+                              )}
+                              </>
                             )}
                           </div>
                         ))}

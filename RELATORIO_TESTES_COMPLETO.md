@@ -26,7 +26,7 @@ ERROS ENCONTRADOS
 
 🔴 Críticos:   0
 🟠 Altos:      1  → ✅ CORRIGIDO (commit 5d6fbbb, 2026-08-24)
-🟡 Médios:     2
+🟡 Médios:     2  → #1 CORRIGIDO (confirm()/prompt() nativos migrados para CdaModal)
 🟢 Baixos:     5
                ─────
 Total:         8 achados
