@@ -450,3 +450,24 @@ Achados estáticos (qualidade de código, não quebram páginas): 🟡 124× `as
 adiada); 🟡 1× `confirm()` nativo em ProfileContent.tsx:1812 (remover dispositivo); 🟢 30×
 `console.log` em código de produção. Sem segredos no cliente (apenas menções em comentários).
 Veredicto: ESTÁVEL — PODE AVANÇAR.
+
+---
+
+## v37.11 — BOTÃO DE LOGIN RESPONSIVO (2026-08-24)
+
+Problema reportado: «o botão de logar demora muito a responder ou não responde».
+Causas encontradas no código: (1) sem estado de loading, o clique não dava feedback e cliques
+repetidos re-disparavam o fluxo; (2) o submit aguardava em cadeia `cloudSignIn` (sem timeout),
+`readCitizenRegistrationStatus` (3 fontes sem teto) e `applyIdentityForLoggedUser` (getProfile +
+fila de registo + storage + avatares) ANTES de entrar na app.
+
+Correcções:
+- `src/App.tsx`: estado `loginSubmitting` — botão desactivado com spinner «A autenticar…» e
+  cliques repetidos ignorados; hidratação de perfil passa a correr em fundo após `setStage('app')`.
+- `src/services/cloudAuthService.ts`: `withTimeout` (9 s) no `signInWithPassword` — timeout
+  classifica como 'unavailable' e activa o fallback local (D3).
+- `src/App.tsx`: teto de 6 s no `readCitizenRegistrationStatus` (Promise.race) — rede parada não
+  bloqueia o botão.
+
+Medições (contas reais, produção local): clique→Painel 1,49 s (cidadão) / 1,48 s (instituição),
+feedback imediato verificado. Varreduras 51/0/0 e 41/0/0; `tsc --noEmit` 0 erros.

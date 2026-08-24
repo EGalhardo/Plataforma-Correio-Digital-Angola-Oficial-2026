@@ -1227,6 +1227,8 @@ export default function App() {
   const [showVoiceGuide, setShowVoiceGuide] = useState(false);
   const [highlightSteps, setHighlightSteps] = useState(false);
   const [loginPasswordInput, setLoginPasswordInput] = useState('');
+  // v37.11 — feedback imediato no botão de login + ignorar cliques repetidos
+  const [loginSubmitting, setLoginSubmitting] = useState(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [, setEnteredOtp] = useState('');
   const [, setEnteredPin] = useState('');
@@ -6139,6 +6141,18 @@ Ficha civil do titular:
     // herda o bloqueio de uma conta antiga com o mesmo Nº de agente).
 
     const handleLoginSubmit = async () => {
+      // v37.11 — o botão responde de imediato (spinner) e cliques repetidos
+      // durante a autenticação são ignorados (antes re-disparavam o fluxo).
+      if (loginSubmitting) return;
+      setLoginSubmitting(true);
+      try {
+        await handleLoginSubmitCore();
+      } finally {
+        setLoginSubmitting(false);
+      }
+    };
+
+    const handleLoginSubmitCore = async () => {
       const identLogin = bi.trim().toUpperCase().replace(/\s+/g, '');
       // Verificação de bloqueio ANTES de qualquer tentativa.
       if (identLogin) {
@@ -6448,7 +6462,12 @@ Ficha civil do titular:
                 return localStorage.getItem(chave) === '1';
               } catch { return false; }
             })();
-            const pre = await readCitizenRegistrationStatus(supabase, typedCitizenBi);
+            const pre = await Promise.race([
+              readCitizenRegistrationStatus(supabase, typedCitizenBi),
+              // v37.11 — teto de 6 s: rede parada não bloqueia o botão (D3 local)
+              new Promise<{ ok: false; status: null; source: 'unavailable' }>((res) =>
+                setTimeout(() => res({ ok: false, status: null, source: 'unavailable' }), 6000)),
+            ]);
             if (marcadorRevogado || isRevokedDeletedAccount({
               read: pre,
               sessionLive: cloudRes.outcome === 'ok',
@@ -6492,10 +6511,16 @@ Ficha civil do titular:
         }
       }
 
-      await applyIdentityForLoggedUser();
+      // v37.11 — a entrada na app NÃO espera pela hidratação de perfil
+      // (getProfile, fila de registo, storage, avatares): corre em fundo e os
+      // campos actualizam quando os dados chegam. Antes, vários await de rede
+      // encadeados bloqueavam o «Entrar no Portal» antes do setStage('app').
+      const normBi = !isInstMode && !isGovMode ? bi.trim().toUpperCase().replace(/\s+/g, '') : bi;
+      if (!isInstMode && !isGovMode && normBi && normBi !== bi) setBi(normBi);
       if (isGovMode) setTab('gov-dashboard');
       limparLoginFalhas(identLogin);
       setStage('app');
+      void applyIdentityForLoggedUser(normBi);
       addAuditLog(isInstMode ? 'Login de Instituição via Autenticação Segura' : isGovMode ? 'Login da Administração via Autenticação Segura' : 'Login de Cidadão via Autenticação Segura', 'success');
     };
 
@@ -6782,11 +6807,21 @@ Ficha civil do titular:
 
                     <div className="pt-2 flex flex-col gap-2.5">
                       {/* Button ENTRAR NO PORTAL */}
-                      <button 
+                      <button
                         onClick={handleLoginSubmit}
-                        className="w-full bg-[#0E2B64] hover:bg-[#081a3d] text-white rounded-xl py-3 font-black text-[11px] uppercase tracking-wider shadow-[#0E2B64]/15 hover:opacity-95 transition-all cursor-pointer border-none"
+                        disabled={loginSubmitting}
+                        className={`w-full bg-[#0E2B64] hover:bg-[#081a3d] text-white rounded-xl py-3 font-black text-[11px] uppercase tracking-wider shadow-[#0E2B64]/15 hover:opacity-95 transition-all border-none flex items-center justify-center gap-2 ${
+                          loginSubmitting ? 'opacity-70 cursor-wait' : 'cursor-pointer'
+                        }`}
                       >
-                        {t("Entrar no Portal")}
+                        {loginSubmitting ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                            {t("A autenticar…")}
+                          </>
+                        ) : (
+                          t("Entrar no Portal")
+                        )}
                       </button>
 
                       {/* Button AUTO PREENCHER DEMONSTRAÇÃO */}

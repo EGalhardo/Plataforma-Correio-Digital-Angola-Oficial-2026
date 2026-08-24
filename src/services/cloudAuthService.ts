@@ -112,6 +112,17 @@ export const isSupabaseConfigured = (): boolean => {
 // ---- Classificação de erros do Auth (decide se D3 pode recuar ao local) ------
 export type CloudErrorKind = 'invalid_credentials' | 'already_registered' | 'unavailable' | 'other';
 
+/** v37.11 — limita a duração de um await de rede; o reject por timeout é
+ *  classificado como 'unavailable' pelo classifyAuthError (fallback local D3). */
+export function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error('network timeout')), ms);
+    }),
+  ]);
+}
+
 export const classifyAuthError = (err: unknown): CloudErrorKind => {
   const e = err as { message?: string; status?: number; statusCode?: number } | null | undefined;
   const msg = `${e?.message || err || ''}`.toLowerCase();
@@ -165,7 +176,9 @@ export const cloudSignIn = async (
   password: string,
 ): Promise<CloudSignInResult> => {
   try {
-    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    // v37.11 — teto de 9 s: com a rede parada o await do Auth não pode deixar o
+    // botão de login «morto»; o timeout cai no catch e vira 'unavailable' (D3).
+    const { data, error } = await withTimeout(client.auth.signInWithPassword({ email, password }), 9000);
     if (error) {
       const kind = classifyAuthError(error);
       if (kind === 'unavailable') return { outcome: 'unavailable', message: error.message };
