@@ -599,3 +599,16 @@ Verificação: tsc 0 erros; build OK; varreduras 51/0/0 e 41/0/0.
 Teste funcional (demo, AGT/Luanda): dropdown abre, cabeçalho «Instituições · Finanças e Fiscalidade
 · Luanda», seleção da AGT mostra «Instituição selecionada: AGT · 📩 Não Lidas: 3 · ✓ Lidas: 0 ·
 ↑ Enviadas: 1», 0 erros JS. Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
+
+---
+
+## v37.20 — FICHA INSTITUCIONAL: SCROLL VERTICAL NAS COLUNAS DE CORRESPONDÊNCIA (2026-08-25)
+
+As três colunas do bloco de correspondências da Ficha Institucional (📩 Não Lidas, ✓ Lidas,
+↑ Enviadas) passam a comportar-se como as listas de «Painel» e «Correio»: altura máxima para
+~10 correspondências visíveis (max-h-[550px]) e scroll vertical dentro da própria coluna quando
+há mais de 10 itens (overflow-y-auto + custom-scrollbar). Com ≤10 itens nada muda (sem barra de
+rolagem). Ordenação, contadores, estados vazios e abertura de mensagem inalterados; «Painel» e
+«Correio» não foram tocados.
+
+Verificação: tsc 0 erros; build OK; varreduras 51/0/0 e 41/0/0.

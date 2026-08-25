@@ -696,7 +696,7 @@ export function InstitutionDetail({
             </span>
           </div>
 
-          <div className="space-y-2.5 w-full">
+          <div className="space-y-2.5 w-full max-h-[550px] overflow-y-auto custom-scrollbar pr-1">
             {incomingMessages.filter(m => m.unread === 1).length === 0 ? (
               <div className="flex flex-col items-center justify-center text-center py-10 text-slate-400">
                 <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-2 shadow-sm">
@@ -741,7 +741,7 @@ export function InstitutionDetail({
             </span>
           </div>
 
-          <div className="space-y-2.5 w-full">
+          <div className="space-y-2.5 w-full max-h-[550px] overflow-y-auto custom-scrollbar pr-1">
             {incomingMessages.filter(m => m.unread !== 1).length === 0 ? (
               <div className="flex flex-col items-center justify-center text-center py-10 text-slate-400">
                 <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-2 shadow-sm">
@@ -786,7 +786,7 @@ export function InstitutionDetail({
             </span>
           </div>
 
-          <div className="space-y-2.5 w-full">
+          <div className="space-y-2.5 w-full max-h-[550px] overflow-y-auto custom-scrollbar pr-1">
             {outgoingMessages.length === 0 ? (
               <div className="flex flex-col items-center justify-center text-center py-10 text-slate-400">
                 <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-2 shadow-sm">
