@@ -443,27 +443,44 @@ export function MessageDetail({
         onFechar={() => setConfirmaSond(false)}
         icone={Send}
         titulo="Confirmar Respostas às Sondagens"
+        subtitulo={`Reveja as suas escolhas · ${idsSondagem.length} sondagem${idsSondagem.length === 1 ? '' : 's'}`}
         tomIcone="bg-indigo-50 text-indigo-600 border-indigo-100"
         maxW="max-w-md"
       >
-        <div className="text-left space-y-3">
-          {idsSondagem.map(id => (
-            <div key={id} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <p className="text-[12px] font-bold text-slate-800 m-0">{sondDetalhe[id]?.pergunta || `Sondagem #${id}`}</p>
-              <p className={`text-[11px] font-semibold mt-1 m-0 ${respSond[id]?.escolhas?.length ? 'text-indigo-700' : 'text-rose-600'}`}>
-                {respSond[id]?.escolhas?.length
-                  ? `A sua escolha: ${respSond[id].escolhas.map(e => sondDetalhe[id]?.opcoes.find(o => o.id === e)?.texto || e).join(', ')}`
-                  : 'Sem escolha — seleccione uma opção na sondagem.'}
-              </p>
-            </div>
-          ))}
+        {/* v37.28 — cartões numerados, escolhas em pills, barra de estado */}
+        <div className="text-left space-y-2.5">
+          {idsSondagem.map((id, idx) => {
+            const temEscolha = !!respSond[id]?.escolhas?.length;
+            return (
+              <div key={id} className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-[0_4px_16px_-8px_rgba(15,23,42,0.08)]">
+                <div className="flex items-start gap-3 px-4 py-3.5">
+                  <span className={`w-6 h-6 rounded-full text-[11px] font-black flex items-center justify-center shrink-0 mt-0.5 ${temEscolha ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>{idx + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12.5px] font-bold text-slate-800 m-0 leading-snug">{sondDetalhe[id]?.pergunta || `Sondagem #${id}`}</p>
+                    {temEscolha ? (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {respSond[id].escolhas.map(e => (
+                          <span key={e} className="inline-flex items-center gap-1 text-[10.5px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-full px-2.5 py-1">
+                            <CheckCircle2 size={12} /> {sondDetalhe[id]?.opcoes.find(o => o.id === e)?.texto || e}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] font-semibold text-rose-600 mt-1.5 m-0 flex items-center gap-1.5"><AlertTriangle size={12} className="shrink-0" /> Sem escolha — seleccione uma opção na sondagem.</p>
+                    )}
+                  </div>
+                </div>
+                <div className={`h-[3px] w-full ${temEscolha ? 'bg-gradient-to-r from-indigo-500 to-violet-500' : 'bg-rose-200'}`} />
+              </div>
+            );
+          })}
         </div>
         {/* v37.5 — botões no padrão CdaConfirmModal (raio/tipografia oficiais) */}
-        <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-2">
+        <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:justify-end pt-2">
           <button
             type="button"
             onClick={() => setConfirmaSond(false)}
-            className="px-6 py-3 rounded-2xl font-bold text-xs text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer border-none"
+            className="px-6 py-3 rounded-full font-bold text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer border-none"
           >
             Cancelar
           </button>
@@ -471,9 +488,9 @@ export function MessageDetail({
             type="button"
             disabled={registandoSond}
             onClick={() => { void confirmarRespostasSondagens(); }}
-            className="px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer border-none shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-7 py-3 rounded-full font-black text-xs uppercase tracking-wider text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 transition-all cursor-pointer border-none shadow-md shadow-indigo-200 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
           >
-            {registandoSond ? 'A registar…' : 'Confirmar Respostas'}
+            {registandoSond ? (<><Loader2 size={14} className="animate-spin" /> A registar…</>) : (<><CheckCircle2 size={14} /> Confirmar Respostas</>)}
           </button>
         </div>
       </CdaModal>
@@ -482,20 +499,21 @@ export function MessageDetail({
         onFechar={fecharPopupSond}
         icone={popupSond?.ok ? CheckCircle2 : AlertTriangle}
         titulo={popupSond?.ok ? 'Resposta Registada' : 'Sondagem'}
-        subtitulo={popupSond?.ok ? 'Participação confirmada' : undefined}
+        subtitulo={popupSond?.ok ? 'Participação confirmada' : 'Registo não concluído'}
         tomIcone={popupSond?.ok ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}
         maxW="max-w-md"
       >
-        <p className="text-sm font-semibold text-slate-700 text-left m-0">{popupSond?.texto}</p>
-        <div className="flex justify-end pt-2">
-          <button
-            type="button"
-            onClick={fecharPopupSond}
-            className="px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer border-none shadow-sm"
-          >
-            {popupSond?.ok ? 'Entendi' : 'Fechar'}
-          </button>
+        {/* v37.28 — painel tonalizado centrado + botão pill a toda a largura */}
+        <div className={`rounded-2xl border p-5 text-center ${popupSond?.ok ? 'bg-emerald-50/70 border-emerald-100' : 'bg-amber-50/70 border-amber-100'}`}>
+          <p className="text-sm font-semibold text-slate-700 m-0 leading-relaxed">{popupSond?.texto}</p>
         </div>
+        <button
+          type="button"
+          onClick={fecharPopupSond}
+          className={`w-full py-3.5 rounded-full font-black text-xs uppercase tracking-wider text-white transition-all cursor-pointer border-none shadow-md ${popupSond?.ok ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'}`}
+        >
+          {popupSond?.ok ? 'Entendi' : 'Fechar'}
+        </button>
       </CdaModal>
     </>
   );

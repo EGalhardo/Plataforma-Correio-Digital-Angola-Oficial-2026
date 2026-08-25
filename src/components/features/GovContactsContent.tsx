@@ -4528,32 +4528,44 @@ export function GovContactsContent({
               initial={{ opacity: 0, scale: 0.92, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.92, y: 12 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[94vw] max-w-lg bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[301] border border-slate-100 text-left font-sans overflow-hidden"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[94vw] max-w-lg bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.25)] z-[301] border border-slate-100 text-left font-sans overflow-hidden"
             >
-              <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
-                <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center border border-rose-100/40 shadow-sm shrink-0">
-                  <AlertTriangle size={26} strokeWidth={2.5} />
+              {/* v37.28 — layout moderno centrado: barra de destaque, ícone com brilho,
+                  cartão do cidadão e painel de aviso */}
+              <div className="h-1.5 w-full bg-gradient-to-r from-rose-400 via-rose-600 to-rose-400" />
+              <div className="px-6 md:px-9 pt-7 pb-1 text-center">
+                <div className="mx-auto w-20 h-20 rounded-full bg-rose-50 border border-rose-100 shadow-[0_0_36px_rgba(244,63,94,0.20)] flex items-center justify-center mb-4">
+                  <AlertTriangle size={32} className="text-rose-600" strokeWidth={2.2} />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#4f46e5]">Acção irreversível · Requer confirmação</p>
-                  <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter mt-0.5 leading-none">Eliminar Cadastro do Cidadão</h3>
-                </div>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-600 m-0">Acção irreversível · Requer confirmação</p>
+                <h3 className="text-xl md:text-2xl font-black text-[#0c2340] italic uppercase tracking-tighter mt-1.5 leading-tight m-0">Eliminar Cadastro do Cidadão</h3>
               </div>
-              <div className="p-6 space-y-4">
-                <p className="text-[12px] text-slate-600 font-semibold leading-relaxed">
-                  Tem a certeza de que pretende eliminar permanentemente o cadastro de
-                  <span className="font-black text-slate-900"> "{deleteConfirmCitizen.name}"</span>
-                  {deleteConfirmCitizen.biNumber ? <> (BI: <span className="font-mono font-bold">{deleteConfirmCitizen.biNumber}</span>)</> : null}?
+              <div className="px-6 md:px-9 pb-7 pt-5 space-y-4">
+                <p className="text-[12px] text-slate-600 font-semibold leading-relaxed text-center m-0">
+                  Tem a certeza de que pretende eliminar permanentemente este cadastro?
                 </p>
-                <div className="bg-rose-50 border border-rose-100 rounded-2xl p-3.5 text-[10.5px] font-bold text-rose-700 leading-relaxed uppercase tracking-wide">
-                  Esta acção remove o registo da base de dados central e desta consola, incluindo os dados de validação associados. Não pode ser anulada.
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
+                    <IdCard size={18} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-black text-slate-900 m-0 truncate">{deleteConfirmCitizen.name}</p>
+                    {deleteConfirmCitizen.biNumber ? <p className="text-[10.5px] font-mono font-bold text-slate-500 m-0 mt-0.5">BI: {deleteConfirmCitizen.biNumber}</p> : null}
+                  </div>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-rose-600 bg-rose-50 border border-rose-100 rounded-full px-2.5 py-1 shrink-0">Alvo</span>
+                </div>
+                <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-start gap-3">
+                  <AlertTriangle size={17} className="text-rose-500 shrink-0 mt-0.5" />
+                  <p className="text-[11px] leading-relaxed text-slate-600 font-semibold m-0">
+                    Esta acção remove o registo da <span className="font-black text-slate-900">base de dados central</span> e desta consola, incluindo os dados de validação associados. <span className="font-black text-rose-600">Não pode ser anulada.</span>
+                  </p>
                 </div>
                 <div className="flex flex-col-reverse sm:flex-row gap-2.5 pt-1">
                   <button
                     type="button"
                     disabled={isDeletingCitizen}
                     onClick={() => setDeleteConfirmCitizen(null)}
-                    className="flex-1 py-2.5 px-4 border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold text-[10px] uppercase tracking-wide leading-none rounded-xl cursor-pointer bg-white transition-all disabled:opacity-50 text-center whitespace-nowrap"
+                    className="flex-1 py-3 px-4 border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold text-[10px] uppercase tracking-wide leading-none rounded-full cursor-pointer bg-white transition-all disabled:opacity-50 text-center whitespace-nowrap"
                   >
                     Cancelar
                   </button>
@@ -4561,7 +4573,7 @@ export function GovContactsContent({
                     type="button"
                     disabled={isDeletingCitizen}
                     onClick={confirmDeleteCitizen}
-                    className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] uppercase tracking-wide leading-none rounded-xl cursor-pointer border-0 shadow-md transition-all active:scale-95 disabled:opacity-60 flex items-center justify-center gap-1.5 text-center whitespace-nowrap"
+                    className="flex-1 py-3 px-4 bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] uppercase tracking-wide leading-none rounded-full cursor-pointer border-0 shadow-md shadow-rose-200 transition-all active:scale-95 disabled:opacity-60 flex items-center justify-center gap-1.5 text-center whitespace-nowrap"
                   >
                     {isDeletingCitizen ? (
                       <>

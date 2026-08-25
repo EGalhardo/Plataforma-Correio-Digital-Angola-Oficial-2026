@@ -2161,8 +2161,10 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                 initial={{ opacity: 0, scale: 0.94, y: 14 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.94, y: 14 }}
-                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-[480px] bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[180] border border-slate-100 overflow-hidden text-center relative"
+                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-[480px] bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.25)] z-[180] border border-slate-100 overflow-hidden text-center relative"
               >
+                {/* v37.28 — barra de destaque destrutiva no topo */}
+                <div className="h-1.5 w-full bg-gradient-to-r from-rose-400 via-rose-600 to-rose-400" />
                 {/* Fechar (X) */}
                 <button
                   type="button"
@@ -2198,7 +2200,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                   {/* Linha de confirmação com "?" */}
                   <div className="flex items-center gap-3 text-left mb-2 px-1">
-                    <span className="w-9 h-9 rounded-full bg-slate-200/80 text-slate-600 font-black text-[15px] flex items-center justify-center shrink-0 select-none">?</span>
+                    <span className="w-9 h-9 rounded-full bg-rose-50 border border-rose-100 text-rose-600 font-black text-[15px] flex items-center justify-center shrink-0 select-none">?</span>
                     <div>
                       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-800 leading-snug">Confirma a eliminação desta solicitação?</p>
                       <p className="text-[10.5px] font-medium text-slate-500 mt-0.5">Esta acção não poderá ser desfeita.</p>
@@ -2220,7 +2222,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                     type="button"
                     disabled={solBusy}
                     onClick={() => { void handleDeleteSolicitacao(row).finally(() => setSolToDelete(null)); }}
-                    className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white rounded-full py-3 text-[10px] font-black uppercase tracking-[0.12em] whitespace-nowrap transition-all cursor-pointer border-none flex items-center justify-center gap-2"
+                    className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white rounded-full py-3 text-[10px] font-black uppercase tracking-[0.12em] whitespace-nowrap transition-all cursor-pointer border-none shadow-md shadow-rose-200 flex items-center justify-center gap-2 active:scale-95"
                   >
                     <Trash2 size={14} /> {solBusy ? 'A eliminar…' : 'Eliminar Definitivamente'}
                   </button>

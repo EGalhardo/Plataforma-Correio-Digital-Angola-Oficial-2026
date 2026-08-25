@@ -746,3 +746,26 @@ Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
 - e2e demo (build produção): **51 PASS / 0 WARN / 0 FAIL**
 - e2e contas reais (build produção): **41 PASS / 0 WARN / 0 FAIL**
 - Painel Analítico expandido sem exceções JS (antes da correcção: crash garantido em Modo Real)
+
+---
+
+## v37.28 — Redesign dos popups «Confirmar Respostas às Sondagens», «Resposta Registada», «Eliminar Cadastro» e «Eliminar Instituição» (2026-08-25)
+
+**Pedido:** «Melhore os seguintes layouts dos popups... O layout deve ser simples, moderno e atraente.»
+
+### Alterações (só layout — comportamento 100% preservado)
+1. **Confirmar Respostas às Sondagens** (MessageDetail.tsx): subtítulo «Reveja as suas escolhas · N sondagens»; cartões numerados com badge indigo, escolhas em pills com ícone de verificação, aviso rose «Sem escolha» com ícone, barra de estado inferior em gradiente indigo (ou rose se por responder); botões pill — «Confirmar Respostas» em gradiente indigo→violeta com ícone e spinner Loader2 ao registar.
+2. **Resposta Registada** (MessageDetail.tsx): mensagem centrada num painel tonalizado (emerald no sucesso / amber no erro, com subtítulo «Registo não concluído»), botão pill a toda a largura na cor do estado.
+3. **Eliminar Cadastro do Cidadão** (GovContactsContent.tsx): barra de destaque rose em gradiente no topo, cabeçalho centrado com ícone em círculo luminoso, overline «Acção irreversível · Requer confirmação», cartão do cidadão (ícone IdCard, nome, BI em mono, chip «ALVO»), painel de aviso com ícone, botões pill (Cancelar fantasma / Eliminar rose com sombra e active-scale).
+4. **Eliminar Instituição** (GovInteroperabilidadeContent.tsx): barra de destaque rose em gradiente no topo, círculo «?» agora em tom rose coerente, botão confirmar com sombra rose e active-scale.
+
+### Verificação visual (contas reais, dev :3000)
+- Cidadão real 002399714LA030 → Correio → «Inquerito(Saude)» → «Responder ao Documento» → **popup 1** com 2 sondagens numeradas e escolhas em pills («Luanda», «Portugues») ✔ → «Confirmar Respostas» → **popup 2** «Resposta Registada» painel emerald + «Entendi» ✔ (respostas reais re-registadas na nuvem).
+- Admin real ADMIN-0001 → Cidadãos → **popup 3** com cartão «Edlasio Galhardo · BI 002399714LA030 · ALVO» ✔ (cancelado, nada eliminado).
+- Admin real → Instituições → **popup 4** «Eliminar Solicitação — INAPEM-LLMM» com barra rose e ícone luminoso ✔ (cancelado, nada eliminado).
+- Dados de teste: linha *TESTE* temporária em solicitacoes_registo criada e **eliminada**; status AGT-9921-SR reposto a «Aprovado» (nuvem verificada: 3 solicitações, todas Aprovado).
+
+### Varrimentos
+- `tsc --noEmit`: 0 erros · `npm run build`: 0 erros
+- e2e demo (build produção): **51 PASS / 0 WARN / 0 FAIL**
+- e2e contas reais (build produção): **41 PASS / 0 WARN / 0 FAIL**
