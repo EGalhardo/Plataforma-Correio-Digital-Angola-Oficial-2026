@@ -488,3 +488,17 @@ feedback imediato verificado. Varreduras 51/0/0 e 41/0/0; `tsc --noEmit` 0 erros
 
 Verificação: `tsc --noEmit` 0 erros; build de produção OK; varreduras 51 PASS / 0 WARN / 0 FAIL
 (demo) e 41 PASS / 0 WARN / 0 FAIL (contas reais).
+
+---
+
+## v37.13 — TÍTULO DA ÁREA INSTITUCIONAL = CÓDIGO (MODO REAL) (2026-08-25)
+
+Requisito: «no modo real, na área da Instituição, na área central de conteúdo, substitui
+"INAPEM — Instituto Nacional de Apoio as Micro, Pequenas e Médias Empresas (INAPEM-LLMM)"
+pelo código Institucional (ex.: INAPEM-LLMM)».
+
+Alteração (`src/components/layout/Header.tsx`): `getMainTitle()` para sessões institucionais
+resolve o código via `resolveInstitutionCode` e, sendo código real (`isRealInstitutionalCode`,
+ex.: «INAPEM-LLMM»), exibe APENAS o código; a via demo (sigla sem código real, ex.: «AGT»)
+mantém o tratamento actual. Verificado em browser: conta real mostra só o código (nome longo
+ausente), demo inalterada. Varreduras 51/0/0 e 41/0/0; tsc 0 erros.

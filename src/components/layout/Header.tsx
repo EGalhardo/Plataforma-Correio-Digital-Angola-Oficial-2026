@@ -12,6 +12,7 @@ import { useLanguage } from '../../hooks/useLanguage';
 import { LazyImage } from '../ui/LazyImage';
 import logoModoClaro from '../../assets/images/logomarca_modo_claro_crop.png';
 import { hasPagePresentation } from '../../services/voicePresentations';
+import { resolveInstitutionCode, isRealInstitutionalCode } from '../../services/supabaseService';
 import type { JSX } from 'react';
 
 interface HeaderProps {
@@ -287,7 +288,14 @@ export function Header({
 
   const getMainTitle = () => {
     if (isAdmin) return activeProfile?.role || 'Administrador';
-    if (isInst) return activeProfile?.institutionName || `Olá, ${user?.firstName || 'Utilizador'}`;
+    if (isInst) {
+      // v37.13 — modo real: a área central de conteúdo exibe APENAS o código
+      // institucional (ex.: «INAPEM-LLMM») em vez do nome longo; a via demo
+      // (sigla sem código real, ex.: «AGT») mantém o tratamento actual.
+      const codigo = resolveInstitutionCode(activeProfile?.institutionName || '');
+      if (isRealInstitutionalCode(codigo)) return codigo;
+      return activeProfile?.institutionName || `Olá, ${user?.firstName || 'Utilizador'}`;
+    }
     const nameToUse = user?.firstName || 'Cidadão';
     // Translate "Olá, " and merge with the name
     return `${translate("Olá")}, ${nameToUse}`;
