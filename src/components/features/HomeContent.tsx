@@ -5,7 +5,6 @@
 
 import { motion, AnimatePresence } from 'motion/react';
 import { ShieldCheck, Mail } from 'lucide-react';
-import { ordenarPorMaisRecente } from '../../utils/ordenarCorrespondencias';
 import { HIGHLIGHT_SLIDES, INST_HIGHLIGHT_SLIDES } from '../../constants/data';
 import { Message, LanguageCode } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -229,8 +228,8 @@ export function HomeContent({
                </div>
                <span className="text-red-500 font-black text-sm md:text-base">{(inbox || []).filter(m => m.unread).length}</span>
             </div>
-            <div className="h-[520px] overflow-y-auto pr-1 space-y-3 custom-scrollbar">
-              {ordenarPorMaisRecente((inbox || []).filter(m => m.unread)).map(m => (
+            <div className="h-[320px] overflow-y-auto pr-1 space-y-3 custom-scrollbar">
+              {(inbox || []).filter(m => m.unread).map(m => (
                 <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-3 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
                   <div className="min-w-0 flex-1 truncate mr-3">
                     <span className="font-black text-slate-900 group-hover/item:text-primary transition-colors">{t(m.org)}:</span>
@@ -251,8 +250,8 @@ export function HomeContent({
              </div>
              <span className="text-emerald-500 font-black text-sm md:text-base">{(inbox || []).filter(m => !m.unread).length}</span>
           </div>
-          <div className="h-[520px] overflow-y-auto pr-1 space-y-3 custom-scrollbar">
-            {ordenarPorMaisRecente((inbox || []).filter(m => !m.unread)).map(m => (
+          <div className="h-[320px] overflow-y-auto pr-1 space-y-3 custom-scrollbar">
+            {(inbox || []).filter(m => !m.unread).map(m => (
               <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-3 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
                 <div className="min-w-0 flex-1 truncate mr-3">
                   <span className="font-bold text-slate-700">{t(m.org)}:</span>
@@ -272,8 +271,8 @@ export function HomeContent({
              </div>
              <span className="text-blue-500 font-black text-sm md:text-base">{(sentMessages || []).length}</span>
           </div>
-          <div className="h-[520px] overflow-y-auto pr-1 space-y-3 custom-scrollbar">
-            {ordenarPorMaisRecente(sentMessages || []).map(m => (
+          <div className="h-[320px] overflow-y-auto pr-1 space-y-3 custom-scrollbar">
+            {(sentMessages || []).map(m => (
               <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-3 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
                 <div className="min-w-0 flex-1 truncate mr-3">
                   <span className="font-bold text-slate-700">{t(m.org)}:</span>

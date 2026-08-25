@@ -46,7 +46,6 @@ import { Message, LanguageCode } from '../../types';
 import { translateText } from '../../utils/translator';
 import { useLanguage } from '../../hooks/useLanguage';
 import { SondagemModal } from './SondagemModal';
-import { ordenarPorMaisRecente } from '../../utils/ordenarCorrespondencias';
 import { CdaConfirmModal } from '../ui/CdaConfirm';
 import { CdaModal } from '../ui/CdaModal';
 import {
@@ -311,7 +310,7 @@ export function MailContent({
   const [sucessoSondagens, setSucessoSondagens] = useState<string | null>(null);
   // v37.5 §3.2 — listas longas: acima de 100 linhas renderiza as primeiras 100
   // e oferece «Mostrar mais», evitando custo de render em caixas volumosas.
-  const LIMITE_LISTA_CORREIO = 10;
+  const LIMITE_LISTA_CORREIO = 100;
   const [limiteListaCorreio, setLimiteListaCorreio] = useState(LIMITE_LISTA_CORREIO);
   useEffect(() => { setLimiteListaCorreio(LIMITE_LISTA_CORREIO); }, [correspondenciaTab, searchMail]);
   useEffect(() => {
@@ -1673,7 +1672,7 @@ export function MailContent({
         </div>
 
         {filteredMessages.length > 0 ? (
-          <div className="overflow-auto rounded-[24px] bg-slate-50/20 custom-scrollbar max-h-[760px]">
+          <div className="overflow-auto rounded-[24px] bg-slate-50/20 custom-scrollbar max-h-[500px]">
             <table className="mobile-data-table w-full text-left border-collapse min-w-[900px]">
               <thead className="sticky top-0 z-10 bg-primary">
                 <tr className="bg-primary text-white text-[10px] font-black uppercase tracking-widest">
@@ -1687,7 +1686,7 @@ export function MailContent({
                 </tr>
               </thead>
               <tbody className="bg-white">
-                {ordenarPorMaisRecente(filteredMessages).slice(0, limiteListaCorreio).map((item) => {
+                {filteredMessages.slice(0, limiteListaCorreio).map((item) => {
                   const isUrgente = item.status === 'Urgente' || item.priorityScale === 'Crítico' || item.priorityScale === 'Urgente';
                   return (
                     <tr key={item.id} className="text-xs text-[#334155] hover:bg-slate-50/60 transition-colors">
@@ -1824,7 +1823,7 @@ export function MailContent({
               <div className="p-3 text-center bg-white border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setLimiteListaCorreio(l => l + 10)}
+                  onClick={() => setLimiteListaCorreio(l => l + 200)}
                   className="px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-wider text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors cursor-pointer border-none"
                 >
                   Mostrar mais ({filteredMessages.length - limiteListaCorreio} linha(s) restante(s))
