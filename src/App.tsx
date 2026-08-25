@@ -83,6 +83,7 @@ import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
 import { lerPerfilLocal } from './services/perfilLocalService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, preloginLookupInstitution, purgeInstitutionLocalResidues, mapRowStatus, type InstitutionIdentity } from './services/institutionSessionService';
+import { useInstitutions, CANONICAL_INSTITUTIONS } from './services/institutionStore';
 import { getLocalInstReg, normalizeInstCode, parseInstPack, normalizarNomeInstituicao, updateInstMemberProfile } from './services/institutionRegistrationStore';
 import { getLoginBloqueio, registarLoginFalha, limparLoginFalhas } from './services/loginSecurityService';
 import { resolveAdminAgentLogin, getAdminAgentCred, addAdminAgent, updateAdminAgentPermissions, ADMIN_ALFA_AGENT } from './services/adminAgentStore';
@@ -148,6 +149,27 @@ const PainelSuspense = ({ children }: { children: ReactNode }) => (
     {children}
   </Suspense>
 );
+
+// v37.18 — província onde o cidadão reside: primeiro pela morada declarada,
+// senão pelo código provincial embutido no BI (ex.: 009874562LA041 → LA → Luanda).
+const PROVINCIAS_ANGOLA = ['Icolo e Bengo', 'Cuando Cubango', 'Lunda Norte', 'Lunda Sul', 'Bengo', 'Benguela', 'Bié', 'Cabinda', 'Cunene', 'Huambo', 'Huíla', 'Luanda', 'Malanje', 'Moxico', 'Namibe', 'Uíge', 'Zaire'];
+const CODIGO_PROVINCIA_BI: Record<string, string> = {
+  LA: 'Luanda', BG: 'Benguela', BN: 'Bengo', BE: 'Bié', CB: 'Cabinda', CC: 'Cuando Cubango',
+  CN: 'Cunene', HM: 'Huambo', HL: 'Huíla', IB: 'Icolo e Bengo', LN: 'Lunda Norte',
+  LS: 'Lunda Sul', ML: 'Malanje', MX: 'Moxico', NM: 'Namibe', UI: 'Uíge', ZA: 'Zaire'
+};
+const normalizarProvincia = (v: string) => (v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+function derivarProvinciaCidadao(morada?: string | null, biCidadao?: string | null): string | null {
+  const texto = normalizarProvincia(String(morada || ''));
+  if (texto) {
+    for (const prov of [...PROVINCIAS_ANGOLA].sort((a, b) => b.length - a.length)) {
+      if (texto.includes(normalizarProvincia(prov))) return prov;
+    }
+  }
+  const m = String(biCidadao || '').toUpperCase().replace(/\s+/g, '').match(/([A-Z]{2})\d{3}$/);
+  if (m && CODIGO_PROVINCIA_BI[m[1]]) return CODIGO_PROVINCIA_BI[m[1]];
+  return null;
+}
 
 const MessageDetail = lazy(() => import('./components/features/MessageDetail').then(m => ({ default: m.MessageDetail })));
 const ProfileContent = lazy(() => import('./components/features/ProfileContent').then(m => ({ default: m.ProfileContent })));
@@ -1263,6 +1285,8 @@ export default function App() {
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const { user, appMode, setAppMode, activeProfile, updateUserFields, updateActiveProfileFields } = useSession();
+  // v37.18 — catálogo partilhado (Lista de Instituições na Ficha Institucional)
+  const { institutions: catalogoInstituicoes } = useInstitutions();
   const isGovMode = appMode === 'admin';
   const isInstMode = appMode === 'institution';
   // F12 — auxiliar simétrico para a ideologia demo/real (conta cidadão).
@@ -5055,7 +5079,17 @@ Ficha civil do titular:
             currentLanguage={currentLanguage}
           />
         );
-      case 'instituicao':
+      case 'instituicao': {
+        // v37.18 — província onde o cidadão reside: deriva da morada ou do
+        // sufixo do BI (ex.: 009874562LA041 → LA → Luanda).
+        const provinciaCidadao = (!isInstMode && !isGovMode)
+          ? derivarProvinciaCidadao((user as unknown as { address?: string })?.address, user?.bi || bi)
+          : null;
+        // v37.18 — em sessão de demonstração o catálogo canónico alimenta a
+        // «Lista de Instituições»; em modo real vale o catálogo partilhado.
+        const instituicoesFicha = isDemoCitizenSession
+          ? [...CANONICAL_INSTITUTIONS, ...catalogoInstituicoes.filter(i => !CANONICAL_INSTITUTIONS.some(c => c.id === i.id))]
+          : catalogoInstituicoes;
         if (!selectedInstitution) {
           return (
             <div className="bg-white border border-slate-200 rounded-3xl p-8 max-w-xl mx-auto my-12 text-center shadow-sm">
@@ -5085,6 +5119,8 @@ Ficha civil do titular:
               inbox={currentInbox}
               sentMessages={currentSentMessages}
               docInbox={currentDocInbox}
+              institutions={instituicoesFicha}
+              citizenProvince={provinciaCidadao}
               onBack={() => {
                 setSelectedInstitution(null);
                 setTab('home');
@@ -5093,6 +5129,7 @@ Ficha civil do titular:
             />
           </PainelSuspense>
         );
+      }
       case 'correspondencias':
         return (
           <MailContent

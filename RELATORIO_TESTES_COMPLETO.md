@@ -575,3 +575,27 @@ limpeza automática. Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
   deste lote para não arriscar a app.
 
 Verificação: tsc 0 erros; build OK; varreduras 51/0/0 e 41/0/0.
+
+---
+
+## v37.18 — FICHA INSTITUCIONAL: DROPDOWN «LISTA DE INSTITUIÇÕES» + CORRESPONDÊNCIAS POR INSTITUIÇÃO (2026-08-25)
+
+Área do Cidadão → Ficha Institucional, container «Serviço Público»:
+- Novo dropdown «Lista de Instituições» (mesmo padrão visual do dropdown dos Ministérios): lista
+  apenas instituições da MESMA família de categoria da instituição selecionada e situadas na
+  PROVÍNCIA ONDE O CIDADÃO RESIDE (derivada da morada declarada; fallback pelo código provincial
+  do BI, ex.: 009874562LA041 → LA → Luanda). Lista vazia mostra «Nenhuma instituição».
+- Ao selecionar uma instituição, a área de Correspondências passa a apresentar EXCLUSIVAMENTE as
+  correspondências dessa instituição, organizadas nas 3 colunas existentes: 📩 Não Lidas, ✓ Lidas,
+  ↑ Enviadas; resumo «Instituição selecionada + Correspondências» com os três contadores.
+- Troca de instituição atualiza tudo sem recarregar (estado React); estado Lida/Não Lida permanece
+  individual por correspondência e por cidadão (flag de leitura existente); facturas e documentos
+  da ficha seguem o mesmo escopo.
+- Isolamento: em modo real as correspondências são obtidas apenas para o BI do cidadão
+  (remetente/destinatário) — o filtro por instituição aplica-se sobre um conjunto já isolado por
+  cidadão; não há mistura entre instituições nem entre cidadãos.
+- «Administração Central» mantém o dropdown próprio dos Ministérios (inalterado).
+
+Teste funcional (demo, AGT/Luanda): dropdown abre, cabeçalho «Instituições · Finanças e Fiscalidade
+· Luanda», seleção da AGT mostra «Instituição selecionada: AGT · 📩 Não Lidas: 3 · ✓ Lidas: 0 ·
+↑ Enviadas: 1», 0 erros JS. Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
