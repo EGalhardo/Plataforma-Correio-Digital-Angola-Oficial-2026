@@ -1230,6 +1230,9 @@ export default function App() {
   const [loginPasswordInput, setLoginPasswordInput] = useState('');
   // v37.11 — feedback imediato no botão de login + ignorar cliques repetidos
   const [loginSubmitting, setLoginSubmitting] = useState(false);
+  // v37.15 — anti-autofill: se o browser injectar credenciais guardadas antes
+  // de qualquer interacção, os campos são limpos (nascem vazios, com placeholder).
+  const loginInteragidoRef = useRef(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [, setEnteredOtp] = useState('');
   const [, setEnteredPin] = useState('');
@@ -1498,7 +1501,18 @@ export default function App() {
       setEnteredOtp('');
       setEnteredPin('');
       setLoginError(null);
+      // v37.15 — o autofill do browser dispara onChange logo após o render;
+      // sem interacção do utilizador, limpa os campos uma vez (600 ms).
+      loginInteragidoRef.current = false;
+      const t = setTimeout(() => {
+        if (!loginInteragidoRef.current) {
+          setBiLocal('');
+          setLoginPasswordInput('');
+        }
+      }, 600);
+      return () => clearTimeout(t);
     }
+    return undefined;
   }, [appMode, stage]);
 
   const DEMO_CREDENTIALS = {
@@ -6772,10 +6786,12 @@ Ficha civil do titular:
                         <div className="w-9 h-9 bg-[#f0f4f9] text-[#1e3a8a] rounded-lg flex items-center justify-center shrink-0">
                           <IdCard size={17} className="text-[#2563eb]" />
                         </div>
-                        <input 
+                        <input
                           className="w-full bg-transparent font-mono font-bold tracking-wider text-slate-800 border-none outline-none text-xs placeholder-slate-400"
                           value={bi}
-                          onChange={(e) => setBi(e.target.value.toUpperCase())}
+                          name="cda-utilizador"
+                          autoComplete="off"
+                          onChange={(e) => { loginInteragidoRef.current = true; setBi(e.target.value.toUpperCase()); }}
                           placeholder={isInstMode ? "AGT-9921-SR" : isGovMode ? "ADM-8812-OP" : "009874562LA041"}
                           maxLength={isInstMode ? 20 : 14}
                         />
@@ -6790,12 +6806,14 @@ Ficha civil do titular:
                         <div className="w-9 h-9 bg-[#f0f4f9] text-[#1e3a8a] rounded-lg flex items-center justify-center shrink-0">
                           <Lock size={16} className="text-[#2563eb]" />
                         </div>
-                        <input 
+                        <input
                           type={showLoginPassword ? "text" : "password"}
                           className="w-full bg-transparent font-bold tracking-wider text-slate-800 border-none outline-none text-xs placeholder-slate-400"
                           placeholder="••••••••••••"
+                          name="cda-senha"
+                          autoComplete="new-password"
                           value={loginPasswordInput}
-                          onChange={(e) => setLoginPasswordInput(e.target.value)}
+                          onChange={(e) => { loginInteragidoRef.current = true; setLoginPasswordInput(e.target.value); }}
                         />
                         <button
                           type="button"
@@ -7164,7 +7182,7 @@ Ficha civil do titular:
                           onChange={(e) => setLoginEmailInput(e.target.value)}
                           className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4 py-2.5 text-[13px] text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
                           placeholder="oseuemail@exemplo.com"
-                          autoComplete="email"
+                          autoComplete="off"
                         />
                       </div>
 
@@ -7179,7 +7197,7 @@ Ficha civil do titular:
                           onKeyDown={(e) => { if (e.key === 'Enter') void handleEmailSignInSubmit(); }}
                           className="w-full bg-white border border-slate-200 focus:border-[#2563eb]/60 rounded-xl px-4 py-2.5 text-[13px] text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
                           placeholder="••••••••••••"
-                          autoComplete="current-password"
+                          autoComplete="new-password"
                         />
                       </div>
 

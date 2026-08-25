@@ -521,3 +521,21 @@ Alterações (`src/App.tsx`):
 Verificado em browser: três perfis com campos vazios + placeholders («009874562LA041»,
 «AGT-9921-SR», «ADM-8812-OP» e «••••••••••••»), comportamento digitar/apagar correcto, e login
 demo com campo vazio + senha continua a entrar. tsc 0 erros; varreduras 51/0/0 e 41/0/0.
+
+---
+
+## v37.15 — ANTI-AUTOFILL NO LOGIN (2026-08-25)
+
+Requisito: ao carregar a página, os campos «Nº de Utilizador» e «Senha» nasciam com credenciais
+injectadas pelo AUTOFILL do browser (ex.: e-mail truncado pelo maxLength=20 + senha guardada).
+
+Correcções (`src/App.tsx`):
+- `autoComplete="off"` no campo de utilizador e no e-mail (antes `autoComplete="email"`),
+  `autoComplete="new-password"` nas senhas (antes `current-password`) — deixa de pedir ao
+  browser credenciais guardadas;
+- guarda anti-autofill: sem interacção do utilizador, os campos são limpos 600 ms após o render
+  (o autofill dispara onChange mesmo em inputs controlados);
+- placeholders ilustrativos mantêm-se activos com o campo vazio.
+
+Verificação: tsc 0 erros; varreduras 51/0/0 e 41/0/0; campos vazios + placeholders confirmados
+nos três perfis (v37.14) e login demo/reais funcionais.
