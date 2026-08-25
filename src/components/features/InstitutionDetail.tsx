@@ -360,57 +360,45 @@ export function InstitutionDetail({
     return false;
   };
 
-  // v37.18 — Lista de Instituições: mesma categoria da instituição selecionada,
-  // situadas na província onde o cidadão reside.
-  const normCategoria = (v: string) => (v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-  const categoriaSelecionada = normCategoria(String(meta.category || ''));
-  // As duas fontes usam vocabulários de categoria distintos (catálogo da ficha
-  // vs. catálogo do painel) — a comparação faz-se por família de categoria.
-  const FAMILIAS_CATEGORIA: string[][] = [
-    ['financas e fiscalidade', 'financas'],
-    ['infraestruturas e energia', 'infraestruturas e recursos hidricos', 'infraestrutura'],
-    ['defesa e seguranca', 'seguranca'],
-    ['justica e direitos humanos', 'justica e registos', 'justica'],
-    ['saude e bem-estar', 'saude'],
-    ['educacao', 'educacao'],
-    ['previdencia e emprego', 'servicos', 'servico publico']
-  ];
-  const mesmaFamiliaCategoria = (a: string, b: string) => {
-    const na = normCategoria(a); const nb = normCategoria(b);
-    if (!na || !nb) return false;
-    if (na === nb) return true;
-    return FAMILIAS_CATEGORIA.some(f => f.includes(na) && f.includes(nb));
-  };
-  // v37.22 — Lista de Instituições: instituições da MESMA CATEGORIA com que o
-  // cidadão JÁ TROCOU correspondência (recebida ou enviada). Instituições fora
-  // do catálogo ficam sem categoria verificável — mantêm-se para não esconder
-  // contactos reais (ex.: códigos institucionais do modo real).
+  // v37.25 — Lista de Instituições: apenas AGÊNCIAS/FILIAIS DA INSTITUIÇÃO DESTA
+  // FICHA com que o cidadão JÁ TROCOU correspondência (recebida ou enviada).
+  // Família = sigla/entidade base (ex.: INAPEM-LLMM, INAPEM-LLVV e INAPEM-LLMV
+  // pertencem à família INAPEM). Remetentes não institucionais («Cidadão: …»,
+  // «CDA»/Administração da Plataforma) NUNCA geram opções — as mensagens
+  // enviadas pelo cidadão continuam a alimentar a coluna «Enviadas».
+  const normOrg = (v: string) => (v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, '');
+  const baseEntidade = (v: string) => normOrg(v).split('-')[0];
+  const familiaPagina = baseEntidade(institutionName);
+  const ROTULOS_NAO_INSTITUCIONAIS = ['CDA', 'CIDADAO', 'ADMINISTRACAO', 'ADMIN'];
   const orgsComContacto = (() => {
     const vistos = new Map<string, { chave: string; rotulo: string; inst?: Institution }>();
     for (const m of [...inbox, ...sentMessages]) {
       const org = (m.org || '').trim();
       if (!org) continue;
-      const chave = org.toUpperCase().replace(/\s+/g, '');
-      if (vistos.has(chave)) continue;
+      const chave = normOrg(org);
+      if (!chave || vistos.has(chave)) continue;
+      // apenas agências da família da instituição desta Ficha
+      if (baseEntidade(org) !== familiaPagina) continue;
+      // nunca criar opções com remetentes não institucionais
+      if (ROTULOS_NAO_INSTITUCIONAIS.some(r => chave === r || chave.startsWith(r + ':') || chave.startsWith(r + '-'))) continue;
       const inst = (institutions || []).find(i =>
         matchesOrg(org, i.name) || matchesOrg(org, i.fullName) || matchesOrg(org, i.id));
       vistos.set(chave, { chave, rotulo: org, inst });
     }
-    return Array.from(vistos.values())
-      .filter(item => !item.inst || mesmaFamiliaCategoria(String(item.inst.category || ''), categoriaSelecionada))
-      .sort((a, b) => a.rotulo.localeCompare(b.rotulo, 'pt'));
+    return Array.from(vistos.values()).sort((a, b) => a.rotulo.localeCompare(b.rotulo, 'pt'));
   })();
 
-  // Com uma instituição da lista escolhida, as correspondências passam a
-  // respeitar EXCLUSIVAMENTE a essa instituição (nunca misturar).
+  // Com uma agência escolhida, as correspondências passam a respeitar
+  // EXCLUSIVAMENTE essa agência (comparação EXATA normalizada — sem confusão
+  // entre filiais: INAPEM-LLMM nunca casa com INAPEM-LLVV).
   const nomesAlvoLista = selectedListInst
     ? Array.from(new Set([
         selectedListInst.rotulo,
         ...(selectedListInst.inst ? [selectedListInst.inst.name, selectedListInst.inst.fullName, selectedListInst.inst.id] : [])
-      ].filter(Boolean)))
+      ].filter(Boolean))).map(normOrg)
     : null;
   const orgDaInstituicaoLista = (orgField?: string) =>
-    !!orgField && !!nomesAlvoLista && nomesAlvoLista.some(alvo => matchesOrg(orgField, alvo));
+    !!orgField && !!nomesAlvoLista && nomesAlvoLista.includes(normOrg(String(orgField)));
 
   // Filter regular messages (incoming to user / from org)
   const incomingMessages = inbox.filter(m => {
@@ -659,7 +647,7 @@ export function InstitutionDetail({
                   <div className="fixed inset-0 z-40" onClick={() => setIsListOpen(false)} />
                   <div className="absolute right-0 mt-2 w-80 max-h-80 overflow-y-auto rounded-2xl bg-white p-2 shadow-xl ring-1 ring-black/5 focus:outline-none z-50 border border-slate-100 custom-scrollbar">
                     <div className="px-3 py-2 border-b border-slate-100 mb-1.5">
-                      <span className="text-[7.5px] font-black uppercase tracking-wider text-slate-400">Mesma categoria · correspondência trocada</span>
+                      <span className="text-[7.5px] font-black uppercase tracking-wider text-slate-400">Agências de {institutionName} · contacto trocado</span>
                     </div>
                     <div className="space-y-0.5">
                       {orgsComContacto.length === 0 ? (

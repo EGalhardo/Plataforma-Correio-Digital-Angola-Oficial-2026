@@ -675,3 +675,23 @@ Correcções:
 
 Resultado: Painel == Correio == nuvem nas 4 contas (demo/real × cidadão/instituição): 12/4/4,
 0+28/2, 29/4/4, 2/3/185. Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
+
+---
+
+## v37.25 — FICHA INSTITUCIONAL: DROPDOWN POR FAMÍLIA DA INSTITUIÇÃO DA PÁGINA (2026-08-25)
+
+O dropdown «Lista de Instituições» passa a listar apenas as AGÊNCIAS/FILIAIS DA INSTITUIÇÃO DA
+FICHA ABERTA com que o cidadão já trocou correspondência:
+- Família pela sigla/entidade base: na Ficha do INAPEM só aparecem unidades INAPEM-* (ex.:
+  INAPEM-LLMM, INAPEM-LLVV, INAPEM-LLMV, cada uma independente); na Ficha da EPAL só agências EPAL;
+- Exclusões (só na formação da lista): «Cidadão: …», «CDA»/Administração da Plataforma e
+  remetentes não institucionais nunca geram opções; as mensagens enviadas pelo cidadão continuam
+  a alimentar a coluna «Enviadas» (cidadão é remetente, não motivo de exclusão);
+- Selecção com comparação EXATA normalizada — sem confusão entre filiais (INAPEM-LLMM nunca casa
+  com INAPEM-LLVV); cada opção mostra apenas as correspondências dessa agência;
+- Sem agências contactadas da família: «Nenhuma instituição».
+
+Testes: cidadão REAL na Ficha INAPEM → opção única INAPEM-LLMM (sem CDA/Cidadão) → «Instituição
+selecionada: INAPEM-LLMM · 📩 0 · ✓ 27 · ↑ 2»; demo Ficha INAPEM → «Nenhuma instituição» (sem
+contacto) ✔; demo Ficha AGT → opção única AGT → 📩 3 · ✓ 0 · ↑ 1. Varreduras 51/0/0 e 41/0/0;
+tsc 0 erros.
