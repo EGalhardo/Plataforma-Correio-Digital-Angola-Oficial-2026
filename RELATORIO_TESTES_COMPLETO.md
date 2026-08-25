@@ -539,3 +539,23 @@ Correcções (`src/App.tsx`):
 
 Verificação: tsc 0 erros; varreduras 51/0/0 e 41/0/0; campos vazios + placeholders confirmados
 nos três perfis (v37.14) e login demo/reais funcionais.
+
+---
+
+## v37.16 — EQUIPA (ADMIN, MODO REAL): «ELIMINAR» PASSA A ELIMINAR (2026-08-25)
+
+Problema: na Área Admin → Equipa, em Modo Real, clicar em «Eliminar» não eliminava o colaborador.
+Causas: (1) o alvo era procurado apenas no espelho local `workers`, mas em Modo Real a linha vem
+de `agentesReais` (tabela profiles) — o Nº de agente resolvia '' e a eliminação não fazia nada;
+(2) o endpoint `/api/eliminar-agente` apagava a conta Auth e os avatares, mas NÃO a linha de
+`profiles`, fonte canónica da lista real — o agente reaparecia.
+
+Correcções:
+- `GovContactsContent.tsx`: alvo resolvido na lista combinada (`equipaCombinada`), refresh imediato
+  de `dadosReais.profiles` após eliminação e Nº de agente correcto na mensagem do modal;
+- `server.ts` + `api/index.ts`: passo 3 — DELETE da linha de `profiles` do agente (service role),
+  com contagem no response.
+
+Teste funcional real (ADMIN-0001): linha semeada em profiles (ADMIN-9997) → Equipa → Eliminar →
+confirmação CdaModal → linha desaparece da UI, `profiles` na nuvem = 0, API 200, 0 erros JS;
+limpeza automática. Varreduras 51/0/0 e 41/0/0; tsc 0 erros.

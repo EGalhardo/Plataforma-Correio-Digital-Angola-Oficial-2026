@@ -1783,7 +1783,10 @@ export function GovContactsContent({
   const [motivoBloqueioAberto, setMotivoBloqueioAberto] = useState(false);
   const handleDeleteWorker = (id: string, name: string) => setPedidoEliminacao({ id, name });
   const executarEliminacaoWorker = async (id: string, name: string) => {
-    const alvo = workers.find(w => w.id === id);
+    // v37.16 — no Modo Real a linha vem de `agentesReais` (base central) e não
+    // do espelho local `workers`; procurar na lista combinada, senão o Nº de
+    // agente resolvia '' e a eliminação não fazia nada.
+    const alvo = equipaCombinada.find(w => w.id === id) || workers.find(w => w.id === id);
     const agente = (alvo?.agentId || '').toUpperCase().replace(/\s+/g, '');
     const ehDemo = homologationStore.isExempt(bi || '');
     if (appMode === 'admin-workers' && agente === ADMIN_ALFA_AGENT) {
@@ -1843,6 +1846,14 @@ export function GovContactsContent({
     }
 
     setWorkers(prev => prev.filter(w => w.id !== id));
+    // v37.16 — no Modo Real a lista deriva de `dadosReais.profiles`: refresca
+    // também essa fonte para a linha desaparecer de imediato (o servidor já
+    // apaga a linha na base central; isto evita esperar novo carregamento).
+    if (agente) {
+      setDadosReais(prev => prev
+        ? { ...prev, profiles: (prev.profiles || []).filter(p => (p.bi || '').toUpperCase() !== agente) }
+        : prev);
+    }
     if (selectedWorkerId === id) setSelectedWorkerId(null);
 
     const msgNuvem = nuvem === 'eliminada'
@@ -2855,7 +2866,7 @@ export function GovContactsContent({
         <CdaConfirmModal
           aberto
           titulo="Eliminar Definitivamente"
-          mensagem={`Tem a certeza que deseja ELIMINAR definitivamente ${pedidoEliminacao.name}${(() => { const ag = (workers.find(w => w.id === pedidoEliminacao.id)?.agentId || '').toUpperCase().replace(/\s+/g, ''); return ag ? ` (${ag})` : ''; })()} do sistema?\n\nA eliminação é completa: revoga o acesso de login, remove a conta da nuvem e apaga todos os vestígios (credenciais, foto, perfil local). Esta ação não pode ser desfeita.`}
+          mensagem={`Tem a certeza que deseja ELIMINAR definitivamente ${pedidoEliminacao.name}${(() => { const ag = ((equipaCombinada.find(w => w.id === pedidoEliminacao.id) || workers.find(w => w.id === pedidoEliminacao.id))?.agentId || '').toUpperCase().replace(/\s+/g, ''); return ag ? ` (${ag})` : ''; })()} do sistema?\n\nA eliminação é completa: revoga o acesso de login, remove a conta da nuvem e apaga todos os vestígios (credenciais, foto, perfil local). Esta ação não pode ser desfeita.`}
           textoConfirmar="Eliminar"
           perigoso
           onConfirmar={() => { const p = pedidoEliminacao; setPedidoEliminacao(null); void executarEliminacaoWorker(p.id, p.name); }}

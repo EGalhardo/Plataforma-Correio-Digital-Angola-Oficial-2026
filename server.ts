@@ -918,7 +918,19 @@ async function dadosResolverEExecutar(opts: {
         }
       } catch { /* best-effort */ }
 
-      return res.status(200).json({ ok: true, conta, avatares });
+      // 3) v37.16 — linha de perfil na base central (fonte canónica da lista
+      // REAL da Equipa): sem isto, no Modo Real o agente eliminado continuava
+      // a aparecer porque a lista é derivada da tabela profiles.
+      let perfis = 0;
+      try {
+        const { count } = await admin
+          .from('profiles')
+          .delete({ count: 'exact' })
+          .or(`bi.eq.${agenteNorm},bi.eq.${agenteNorm.toLowerCase()}`);
+        perfis = count || 0;
+      } catch { /* best-effort */ }
+
+      return res.status(200).json({ ok: true, conta, avatares, perfis });
     } catch (e) {
       console.error('[ELIMINAR-AGENTE] Exceção:', e);
       return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });

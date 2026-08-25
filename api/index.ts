@@ -1915,7 +1915,17 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
             }
           }
         } catch { /* best-effort */ }
-        return res.status(200).json({ ok: true, conta, avatares });
+        // v37.16 — apaga a linha de perfil na base central (fonte da lista REAL
+        // da Equipa); sem isto o agente eliminado reaparecia no Modo Real.
+        let perfis = 0;
+        try {
+          const dp = await fetch(
+            `${supaUrlPerfil}/rest/v1/profiles?or=(bi.eq.${encodeURIComponent(agenteNorm)},bi.eq.${encodeURIComponent(agenteNorm.toLowerCase())})`,
+            { method: 'DELETE', headers: h },
+          );
+          if (dp.ok) perfis = 1;
+        } catch { /* best-effort */ }
+        return res.status(200).json({ ok: true, conta, avatares, perfis });
       } catch (e: any) {
         console.error('[ELIMINAR-AGENTE] Exceção:', e);
         return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
