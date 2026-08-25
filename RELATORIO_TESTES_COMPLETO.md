@@ -599,3 +599,25 @@ Verificação: tsc 0 erros; build OK; varreduras 51/0/0 e 41/0/0.
 Teste funcional (demo, AGT/Luanda): dropdown abre, cabeçalho «Instituições · Finanças e Fiscalidade
 · Luanda», seleção da AGT mostra «Instituição selecionada: AGT · 📩 Não Lidas: 3 · ✓ Lidas: 0 ·
 ↑ Enviadas: 1», 0 erros JS. Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
+
+---
+
+## v37.19 — FICHA INSTITUCIONAL: DROPDOWN JUNTO ÀS MENSAGENS + LISTA POR CONTACTO + ORDENAÇÃO/SCROLL (2026-08-25)
+
+1. Dropdown «Lista de Instituições» MOVIDO para junto do container de Mensagens/Correspondências
+   da Ficha Institucional (secção própria, sempre visível, acima das 3 colunas).
+2. A lista passa a mostrar apenas instituições com que o cidadão JÁ TROCOU correspondência
+   (recebida ou enviada) — ex.: se o INAPEM-LLMM já contactou o cidadão, aparece na lista; itens
+   enriquecidos com nome completo/província quando constam do catálogo. Seleção mantém o escopo
+   exclusivo das correspondências dessa instituição (📩 Não Lidas · ✓ Lidas · ↑ Enviadas).
+3. Ordenação das listas «Lidas», «Não Lidas» e «Enviadas» do MAIS RECENTE (topo) ao menos recente
+   (fim) no Painel, no Correio e na Ficha Institucional (helper partilhado
+   `ordenarPorMaisRecente`, chave id sequencial).
+4. Visíveis até 10 correspondências de cada vez com scroll vertical quando há mais: Painel
+   (520px), Correio (limite inicial 10 linhas, «Mostrar mais» +10, wrapper 760px com cabeçalho
+   fixo) e colunas da Ficha (520px).
+
+Teste funcional (demo): Correio com IDs 6,5,4,3 no topo (descendente ✔); dropdown na área de
+Correspondências lista AGT/EPAL/Hospital (instituições com contacto); seleção do Hospital →
+«Instituição selecionada: HOSPITAL · 📩 0 · ✓ 1 · ↑ 1»; 0 erros JS. Varreduras 51/0/0 e 41/0/0;
+tsc 0 erros.
