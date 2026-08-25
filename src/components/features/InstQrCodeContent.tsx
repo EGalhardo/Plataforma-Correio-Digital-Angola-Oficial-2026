@@ -2090,7 +2090,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
                     <label className="text-[10px] font-semibold text-slate-400 block uppercase">Correção do Erro</label>
                     <select 
                       value={formEcl}
-                      onChange={(e) => setFormEcl(e.target.value as any)}
+                      onChange={(e) => setFormEcl(e.target.value as 'L' | 'M' | 'Q' | 'H')}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-semibold"
                     >
                       <option value="L">L — Baixo (7%)</option>
@@ -2141,7 +2141,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
                   <label className="text-[10px] font-semibold text-slate-400 block uppercase mb-1">Correção de Erro</label>
                   <select 
                     value={freeEcl}
-                    onChange={(e) => setFreeEcl(e.target.value as any)}
+                    onChange={(e) => setFreeEcl(e.target.value as 'L' | 'M' | 'Q' | 'H')}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs font-semibold animate-none"
                   >
                     <option value="L">L — Baixo</option>

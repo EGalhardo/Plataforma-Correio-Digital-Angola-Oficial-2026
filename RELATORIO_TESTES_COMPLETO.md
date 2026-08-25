@@ -559,3 +559,19 @@ Correcções:
 Teste funcional real (ADMIN-0001): linha semeada em profiles (ADMIN-9997) → Equipa → Eliminar →
 confirmação CdaModal → linha desaparece da UI, `profiles` na nuvem = 0, API 200, 0 erros JS;
 limpeza automática. Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
+
+---
+
+## v37.17 — NOVA PASSAGEM DE LIMPEZA SEGURA (2026-08-25)
+
+- `as any` 91 → 71, sem alterar comportamento: 7× `e.target.value as any` em selects passam a
+  casts tipados às uniões reais dos estados (1× removido por ser `string`); 4× `(error as any)?.code`
+  em supabaseService passam a `(error as { code?: string } | null)?.code`; 9×
+  `(selectedMessage as any).sondagem_*` removidos (o tipo `Message` já declara `sondagem_id`/
+  `sondagem_ids` opcionais) com acesso seguro `selectedMessage?.`.
+- `confirm()/prompt()` nativos: 0 usos reais (única ocorrência é comentário).
+- `console.log`: silenciados em produção (logger gated, v37.12).
+- Restam 71 `as any` de tipagem de domínio (linhas Supabase/objectos) — dívida faseada, fora
+  deste lote para não arriscar a app.
+
+Verificação: tsc 0 erros; build OK; varreduras 51/0/0 e 41/0/0.

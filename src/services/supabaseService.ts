@@ -2046,7 +2046,7 @@ export const supabaseService = {
     try {
       const { data, error } = await supabase.rpc('cda_validar_protocolo', { p_numero: numero });
       if (error) {
-        const code = String((error as any)?.code || '');
+        const code = String((error as { code?: string } | null)?.code || '');
         // PGRST202 = função inexistente no projecto (SQL v27 ainda não aplicada)
         return { validacao: null, encontrado: false, errorCode: code === 'PGRST202' ? 'RPC_AUSENTE' : (code || 'ERRO') };
       }
@@ -2097,7 +2097,7 @@ export const supabaseService = {
         resposta_ok: ev.respostaOk,
         lat_ms: typeof ev.latMs === 'number' && isFinite(ev.latMs) ? Math.max(0, Math.round(ev.latMs)) : null,
       }]);
-      if (error) return { written: false, reason: String((error as any)?.code || 'ERRO') };
+      if (error) return { written: false, reason: String((error as { code?: string } | null)?.code || 'ERRO') };
       return { written: true };
     } catch (e) {
       // Telemetria nunca derruba a conversa — falha silenciosa e honesta.
@@ -2131,7 +2131,7 @@ export const supabaseService = {
         .order('created_at', { ascending: false })
         .limit(50);
       if (error) {
-        const code = String((error as any)?.code || '');
+        const code = String((error as { code?: string } | null)?.code || '');
         // 42P01 = tabela inexistente; PGRST204/205 = schema cache desactualizado
         const ausente = code === '42P01' || code === 'PGRST204' || code === 'PGRST205';
         return { state: ausente ? 'TABELA_AUSENTE' : 'ERRO', ...vazio };
@@ -2173,7 +2173,7 @@ export const supabaseService = {
     if (!target) return { registered: false, errorCode: 'SEM_CODIGO' };
     try {
       const { data, error } = await supabase.rpc('cda_instituicao_existe', { p_codigo: target });
-      if (error) return { registered: false, errorCode: String((error as any)?.code || 'ERRO') };
+      if (error) return { registered: false, errorCode: String((error as { code?: string } | null)?.code || 'ERRO') };
       return { registered: data === true };
     } catch (e) {
       console.error('Supabase institutionRegistered error:', e);

@@ -1084,7 +1084,7 @@ export function GovDashboard({
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">Fila de Trâmite</label>
                       <select
                         value={newQueue}
-                        onChange={(e) => setNewQueue(e.target.value as any)}
+                        onChange={(e) => setNewQueue(e.target.value as 'pendentes' | 'urgentes' | 'criticas' | 'expiradas')}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-[11px] font-bold outline-none focus:border-slate-800 appearance-none cursor-pointer text-slate-700 focus:bg-white"
                       >
                         <option value="pendentes">Pendentes (Normal)</option>

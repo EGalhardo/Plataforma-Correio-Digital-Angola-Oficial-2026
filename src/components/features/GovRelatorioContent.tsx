@@ -846,7 +846,7 @@ export function GovRelatorioContent({
                   value={comparisonPreset}
                   onChange={(e) => { 
                     playInteractionSound('click'); 
-                    setComparisonPreset(e.target.value as any);
+                    setComparisonPreset(e.target.value as 'month' | '30days');
                     setToastMessage(`Escopo de período alterado para: ${e.target.value === 'month' ? 'Mês Corrente' : 'Últimos 30 Dias'}`);
                     setShowToast(true);
                     setTimeout(() => setShowToast(false), 2500);

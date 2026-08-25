@@ -290,9 +290,9 @@ export function MessageDetail({
 
   // ---- v37.4 — respostas às sondagens consolidadas no «Responder ao Documento»
   const idsSondagem: number[] = (
-    (selectedMessage as any).sondagem_ids?.length
-      ? ((selectedMessage as any).sondagem_ids as (number | string)[])
-      : ((selectedMessage as any).sondagem_id ? [(selectedMessage as any).sondagem_id] : [])
+    selectedMessage?.sondagem_ids?.length
+      ? (selectedMessage?.sondagem_ids as (number | string)[])
+      : (selectedMessage?.sondagem_id ? [selectedMessage?.sondagem_id] : [])
   ).map(Number);
   const [sondDetalhe, setSondDetalhe] = useState<Record<number, Sondagem>>({});
   const [respSond, setRespSond] = useState<Record<number, { escolhas: string[]; registada: boolean }>>({});
@@ -2235,9 +2235,9 @@ depende de integração futura com a infra-estrutura de chaves nacional.
           {/* v36/v37 — Sondagem: cartão de resposta no fim da Assistência do Documento
               (uma sondagem por id embutido na mensagem) */}
           {cidadaoBi ? (
-            ((selectedMessage as any).sondagem_ids?.length
-              ? ((selectedMessage as any).sondagem_ids as (number | string)[])
-              : ((selectedMessage as any).sondagem_id ? [(selectedMessage as any).sondagem_id] : [])
+            (selectedMessage?.sondagem_ids?.length
+              ? (selectedMessage?.sondagem_ids as (number | string)[])
+              : (selectedMessage?.sondagem_id ? [selectedMessage?.sondagem_id] : [])
             ).map((sid) => (
               <React.Fragment key={`sond-${sid}`}>
                 <SondagemResponderCard
@@ -3702,9 +3702,9 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                     {/* v36/v37 — Sondagem: cartões de resposta no fim da Assistência do Documento
                         (vista principal; uma sondagem por id embutido na mensagem) */}
                     {cidadaoBi ? (
-                      ((selectedMessage as any).sondagem_ids?.length
-                        ? ((selectedMessage as any).sondagem_ids as (number | string)[])
-                        : ((selectedMessage as any).sondagem_id ? [(selectedMessage as any).sondagem_id] : [])
+                      (selectedMessage?.sondagem_ids?.length
+                        ? (selectedMessage?.sondagem_ids as (number | string)[])
+                        : (selectedMessage?.sondagem_id ? [selectedMessage?.sondagem_id] : [])
                       ).map((sid) => (
                         <React.Fragment key={`sond-${sid}`}>
                           <SondagemResponderCard

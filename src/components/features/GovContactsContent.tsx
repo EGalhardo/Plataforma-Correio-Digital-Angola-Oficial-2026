@@ -2343,7 +2343,7 @@ export function GovContactsContent({
                               <select
                                 required
                                 value={newWorkerStatus}
-                                onChange={(e) => setNewWorkerStatus(e.target.value as any)}
+                                onChange={(e) => setNewWorkerStatus(e.target.value as 'Ativo' | 'Desativado' | 'Suspenso' | 'Férias' | 'Pendente')}
                                 className="w-full bg-white border-2 border-slate-100 focus:border-emerald-500/30 rounded-[20px] pl-11 pr-10 py-3.5 text-xs text-slate-800 font-bold outline-none transition-all appearance-none cursor-pointer"
                               >
                                 <option value="Ativo">Ativo (Permitido)</option>
@@ -2965,7 +2965,7 @@ export function GovContactsContent({
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mr-0.5">Triagem IA:</span>
                 <select
                   value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value as any)}
+                  onChange={(e) => setFilterStatus(e.target.value)}
                   className={`bg-transparent border-0 outline-none text-xs font-black uppercase cursor-pointer pr-4 transition-colors ${
                     filterStatus === 'Pendente de Validação' ? 'text-orange-500 font-bold' :
                     filterStatus === 'Em Análise pela IA' ? 'text-purple-500 font-bold' :

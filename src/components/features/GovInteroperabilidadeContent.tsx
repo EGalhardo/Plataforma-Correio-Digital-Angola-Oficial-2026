@@ -1850,7 +1850,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                         <div className="relative">
                           <select
                             value={formStatusLocal}
-                            onChange={(e) => setFormStatusLocal(e.target.value as any)}
+                            onChange={(e) => setFormStatusLocal(e.target.value as 'Ativa' | 'Inativa')}
                             className="w-full bg-white border border-slate-200 focus:border-[#4f46e5]/30 focus:ring-1 focus:ring-[#4f46e5]/30 rounded-[14px] pl-4 pr-10 py-3.5 text-xs font-bold text-slate-900 outline-none appearance-none cursor-pointer transition-all"
                           >
                             <option value="Ativa">Ativa</option>
