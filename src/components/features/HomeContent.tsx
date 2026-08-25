@@ -218,8 +218,9 @@ export function HomeContent({
         </div>
       </section>
 
-      <div className={`grid grid-cols-1 md:grid-cols-2 ${(inbox || []).some(m => m.unread) ? 'xl:grid-cols-3' : 'xl:grid-cols-2'} gap-4`}>
-        {(inbox || []).some(m => m.unread) && (
+      {/* v37.24 — as três colunas estão SEMPRE presentes (estado vazio quando
+          não há itens), para o Painel mostrar sempre todas as correspondências. */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           <section className={`bg-white border border-slate-100 rounded-[28px] md:rounded-[32px] p-5 md:p-6 shadow-sm flex flex-col group ${isInst ? 'order-2' : ''}`}>
             <div className="flex items-center justify-between mb-5 shrink-0 px-2">
                <div className="flex items-center gap-2">
@@ -229,7 +230,15 @@ export function HomeContent({
                <span className="text-red-500 font-black text-sm md:text-base">{(inbox || []).filter(m => m.unread).length}</span>
             </div>
             <div className="h-[320px] overflow-y-auto pr-1 space-y-3 custom-scrollbar">
-              {(inbox || []).filter(m => m.unread).map(m => (
+              {(inbox || []).filter(m => m.unread).length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center py-10 text-slate-400">
+                  <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-2 shadow-sm">
+                    <Mail size={16} className="text-slate-300" />
+                  </div>
+                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">{t("Sem mensagens novas")}</p>
+                </div>
+              ) : (
+              (inbox || []).filter(m => m.unread).map(m => (
                 <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-3 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
                   <div className="min-w-0 flex-1 truncate mr-3">
                     <span className="font-black text-slate-900 group-hover/item:text-primary transition-colors">{t(m.org)}:</span>
@@ -237,10 +246,10 @@ export function HomeContent({
                   </div>
                   <span className="text-white font-black shrink-0 text-[10px] bg-red-600 px-2 py-0.5 rounded-lg shadow-lg shadow-red-100">{m.date}</span>
                 </div>
-              ))}
+              ))
+              )}
             </div>
           </section>
-        )}
 
         <section className={`bg-white border border-slate-100 rounded-[28px] md:rounded-[32px] p-5 md:p-6 shadow-sm flex flex-col group ${isInst ? 'order-1' : ''}`}>
           <div className="flex items-center justify-between mb-5 shrink-0 px-2">
@@ -263,7 +272,7 @@ export function HomeContent({
           </div>
         </section>
 
-        <section className={`bg-white border border-slate-100 rounded-[28px] md:rounded-[32px] p-5 md:p-6 shadow-sm flex flex-col group ${(inbox || []).some(m => m.unread) ? 'md:col-span-2 xl:col-span-1' : ''} ${isInst ? 'order-3' : ''}`}>
+        <section className={`bg-white border border-slate-100 rounded-[28px] md:rounded-[32px] p-5 md:p-6 shadow-sm flex flex-col group md:col-span-2 xl:col-span-1 ${isInst ? 'order-3' : ''}`}>
           <div className="flex items-center justify-between mb-5 shrink-0 px-2">
              <div className="flex items-center gap-2">
                 <Mail size={16} className="text-blue-500" />

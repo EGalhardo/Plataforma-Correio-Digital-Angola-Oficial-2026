@@ -5078,8 +5078,8 @@ Ficha civil do titular:
             isMobile={isMobile}
             setTab={setTab}
             unreadTotal={unreadTotal}
-            inbox={currentInbox}
-            sentMessages={currentSentMessages}
+            inbox={currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
+            sentMessages={currentSentMessages.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
             handleSelectMessage={handleSelectMessage}
             onCreateRequest={handleCreateRequest}
             isInst={isInstMode}

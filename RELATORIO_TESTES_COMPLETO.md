@@ -655,3 +655,23 @@ Correcções (App.tsx, carregador de arranque):
 Sem alteração de comportamento: mesma semântica de hidratação (guarda F45), mesma consulta OR,
 mesmo ramo raro de semeadura, mesmos filtros de titularidade. Teste real (cidadão 002399714LA030):
 login→painel ~2,4 s com caixas carregadas, 0 erros JS. Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
+
+---
+
+## v37.24 — PAINEL: TODAS AS CORRESPONDÊNCIAS VISÍVEIS E CONSISTENTES (2026-08-25)
+
+Problema reportado: no Painel (cidadão e institucional) não apareciam todas as correspondências.
+Auditoria com as chaves reais (Supabase service role) + browser, nas 4 contas:
+- Cidadão real: nuvem 28 recebidas/2 enviadas — Painel já mostrava tudo;
+- Instituição real (INAPEM-LLMM): nuvem 185 enviadas/3 dirigidas(+2 canal legado) — tudo mostrado;
+- DISCREPÂNCIA REAL encontrada: cidadão demo — Painel mostrava 13 não lidas vs 12 no Correio:
+  o Painel NÃO aplicava os filtros de mensagens eliminadas/ocultas que o Correio aplica;
+- Além disso o Painel ESCONDIA a coluna «Não Lidas» quando havia 0 não lidas (modo real).
+
+Correcções:
+- App.tsx: Painel recebe as listas com os MESMOS filtros do Correio (eliminadas/ocultas fora);
+- HomeContent: as três colunas (Não Lidas/Lidas/Enviadas) estão SEMPRE presentes, com estado vazio
+  «Sem mensagens novas»; grelha xl sempre com 3 colunas.
+
+Resultado: Painel == Correio == nuvem nas 4 contas (demo/real × cidadão/instituição): 12/4/4,
+0+28/2, 29/4/4, 2/3/185. Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
