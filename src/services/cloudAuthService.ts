@@ -102,7 +102,7 @@ export const unmarkCloudAccount = (identifier: string): void => {
 // ---- Helpers de ambiente ------------------------------------------------------
 export const isSupabaseConfigured = (): boolean => {
   try {
-    const env = (import.meta as any).env || {};
+    const env = import.meta.env;
     return !!env.VITE_SUPABASE_URL && !!env.VITE_SUPABASE_ANON_KEY;
   } catch {
     return false;

@@ -1040,7 +1040,7 @@ export default function App() {
       // 1) Nuvem: tabela profiles — via supabaseService.getProfile (2026-08-20):
       // com a RLS endurecida a leitura directa devolvia vazio e a hidratação
       // caía no fallback local (dados editados "voltavam ao estado antigo").
-      const isSupabaseReady = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+      const isSupabaseReady = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
       if (isSupabaseReady) {
         const data = await supabaseService.getProfile(normalized);
         if (data) {

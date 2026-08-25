@@ -172,7 +172,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
       const observacoes = buildInstObservacoes(pack, `Adesão formal da instituição ${fullName.trim()} (${s.toUpperCase()}). Pendente de homologação administrativa.`);
 
       // 4. Gravação na nuvem (mesma tabela do cidadão)
-      const ready = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+      const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
       if (ready) {
         setSubmitMessage('A enviar a solicitação para a Área de Administração...');
         // 2026-08-20 — Modo Real: gravar via proxy do servidor (service role).

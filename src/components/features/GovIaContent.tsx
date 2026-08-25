@@ -298,7 +298,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
   // Helper function for sound effects
   const playSound = (type: 'click' | 'success') => {
     try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext!)();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.connect(gain);

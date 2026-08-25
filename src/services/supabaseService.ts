@@ -102,8 +102,8 @@ interface ProfileUpsertPayload {
 
 // Simple helper to detect if we have valid non-placeholder keys set
 export const hasValidSupabaseKeys = (): boolean => {
-  const url = (import.meta as any).env.VITE_SUPABASE_URL || '';
-  const key = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || '';
+  const url = import.meta.env.VITE_SUPABASE_URL || '';
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
   return url && url !== '' && !url.includes('placeholder-url') && key && !key.includes('placeholder-anon-key');
 };
 

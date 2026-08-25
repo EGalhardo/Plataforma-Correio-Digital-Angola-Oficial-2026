@@ -209,6 +209,8 @@ const safeGetItem = (key: string, defaultVal: string = ''): string => {
 
   // Auditoria 2026-08-24: revogação de sessão no padrão CdaModal (sem confirm() nativo)
   const [sessaoRevogar, setSessaoRevogar] = useState<{ id: string; device: string } | null>(null);
+  // v37.12 — remoção de dispositivo confiável também via CdaModal (achado 🟡 #2)
+  const [dispositivoRemover, setDispositivoRemover] = useState<{ id: string; name: string } | null>(null);
 
   const [connectedDevices, setConnectedDevices] = useState(() => {
     const cached = safeGetItem('gov_pref_devices');
@@ -1808,15 +1810,25 @@ return (
 
                               <button
                                 type="button"
-                                onClick={() => {
-                                  if (confirm(`Remover dispositivo ${dev.name}? Ele precisará de nova verificação de PIN.`)) {
-                                    setConnectedDevices((prev) => prev.filter((d) => d.id !== dev.id));
-                                  }
-                                }}
+                                onClick={() => setDispositivoRemover({ id: dev.id, name: dev.name })}
                                 className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-rose-500 rounded-lg cursor-pointer"
                               >
                                 <X size={14} />
                               </button>
+                              {dispositivoRemover?.id === dev.id && (
+                                <CdaConfirmModal
+                                  aberto
+                                  titulo="Remover Dispositivo"
+                                  mensagem={`Remover dispositivo ${dispositivoRemover.name}? Ele precisará de nova verificação de PIN.`}
+                                  textoConfirmar="Remover"
+                                  perigoso
+                                  onConfirmar={() => {
+                                    setConnectedDevices((prev) => prev.filter((d) => d.id !== dispositivoRemover.id));
+                                    setDispositivoRemover(null);
+                                  }}
+                                  onCancelar={() => setDispositivoRemover(null)}
+                                />
+                              )}
                             </div>
                           </div>
                         ))}

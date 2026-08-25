@@ -546,7 +546,7 @@ export function PastaDigitalContent({
 
   const playScanBeep = () => {
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
       const audioCtx = new AudioCtx();
       const oscillator = audioCtx.createOscillator();

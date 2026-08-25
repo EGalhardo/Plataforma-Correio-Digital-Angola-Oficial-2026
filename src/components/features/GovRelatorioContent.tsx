@@ -166,7 +166,7 @@ export function GovRelatorioContent({
   // Audio effect context for successful operations
   const playInteractionSound = (type: 'success' | 'click') => {
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
       const osc = ctx.createOscillator();

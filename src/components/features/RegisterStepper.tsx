@@ -568,7 +568,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
     let effectiveAutoApproved = false;
 
     try {
-      const isSupabaseReady = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+      const isSupabaseReady = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
       
       if (isSupabaseReady) {
         const biClean = newUser.biNumber.replace(/\s+/g, '');

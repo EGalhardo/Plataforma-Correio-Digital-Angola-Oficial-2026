@@ -284,7 +284,7 @@ export const findInstitutionAgent = (
 };
 
 const isSupabaseReady = (): boolean =>
-  !!((import.meta as any).env || {}).VITE_SUPABASE_URL && !!((import.meta as any).env || {}).VITE_SUPABASE_ANON_KEY;
+  !!(import.meta.env).VITE_SUPABASE_URL && !!(import.meta.env).VITE_SUPABASE_ANON_KEY;
 
 /**
  * Anti-duplicação de dados (disponíveis na coluna + pacote) + geração do próximo código.

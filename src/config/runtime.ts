@@ -1,8 +1,8 @@
 export const RUNTIME_FLAGS = {
-  supabaseAutoSeed: ((import.meta as any).env.VITE_ENABLE_SUPABASE_AUTO_SEED || 'false') === 'true',
-  localBootstrap: ((import.meta as any).env.VITE_ENABLE_LOCAL_BOOTSTRAP || 'true') !== 'false',
+  supabaseAutoSeed: (import.meta.env.VITE_ENABLE_SUPABASE_AUTO_SEED || 'false') === 'true',
+  localBootstrap: (import.meta.env.VITE_ENABLE_LOCAL_BOOTSTRAP || 'true') !== 'false',
   // SECURITY: mockFallback agora default FALSE para produção segura
-  mockFallback: ((import.meta as any).env.VITE_ENABLE_MOCK_FALLBACK || 'false') !== 'false',
+  mockFallback: (import.meta.env.VITE_ENABLE_MOCK_FALLBACK || 'false') !== 'false',
 };
 
 export const shouldUseLocalBootstrap = () => typeof localStorage !== 'undefined' && RUNTIME_FLAGS.localBootstrap;

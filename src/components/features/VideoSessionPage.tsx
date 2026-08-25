@@ -49,7 +49,7 @@ import type { Message } from '../../types';
 // Servidor Jitsi configurável (FASE 2026-08-15): por defeito usa o serviço
 // público meet.jit.si, mas pode apontar para um servidor próprio (self-hosted)
 // via variável de ambiente VITE_JITSI_SERVER_URL — sem alterar código.
-const JITSI_SERVER = (import.meta as any).env?.VITE_JITSI_SERVER_URL || 'https://meet.jit.si';
+const JITSI_SERVER = import.meta.env?.VITE_JITSI_SERVER_URL || 'https://meet.jit.si';
 
 function LocalWebcamOverlay() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -265,7 +265,7 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
     const marcar = (s: string) => { estadoRef.current = s; };
 
     const carregarScript = (): Promise<void> => new Promise((resolve, reject) => {
-      const w = window as any;
+      const w = window;
       if (w.JitsiMeetExternalAPI) { resolve(); return; }
       const existente = document.getElementById('cda-jitsi-external-api') as HTMLScriptElement | null;
       // 2026-08-22 — script que JÁ FALHOU nunca vai disparar 'load': marca e
@@ -287,7 +287,7 @@ function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbe
     });
 
     const criarSala = () => {
-      const w = window as any;
+      const w = window;
       if (!w.JitsiMeetExternalAPI || !containerRef.current) return;
       try {
         const api = new w.JitsiMeetExternalAPI(JITSI_SERVER.replace('https://', ''), {

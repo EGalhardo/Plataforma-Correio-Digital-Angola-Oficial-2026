@@ -520,7 +520,8 @@ export function AIChatAssistant({
 
   // Initialize and Control Speech Recognition
   useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const wSp = window as unknown as { SpeechRecognition?: new () => ReconhecimentoVoz; webkitSpeechRecognition?: new () => ReconhecimentoVoz };
+    const SpeechRecognition = wSp.SpeechRecognition || wSp.webkitSpeechRecognition;
     if (!SpeechRecognition) return;
 
     let recognition: ReconhecimentoVoz;

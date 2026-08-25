@@ -45,7 +45,7 @@ export function InstitutionWaitingPage({ code, name, onRefresh }: InstitutionWai
     if (status === 'correcao') {
       homologationStore.setStatus(code, 'pending');
       updateLocalInstReg(code, { status: 'Pendente' });
-      const ready = !!((import.meta as any).env || {}).VITE_SUPABASE_URL && !!((import.meta as any).env || {}).VITE_SUPABASE_ANON_KEY;
+      const ready = !!(import.meta.env).VITE_SUPABASE_URL && !!(import.meta.env).VITE_SUPABASE_ANON_KEY;
       if (ready) {
         void (async () => {
           try {

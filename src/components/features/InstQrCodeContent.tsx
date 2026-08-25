@@ -294,11 +294,11 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
 
   // Load PDF.js dynamically if needed
   useEffect(() => {
-    if (typeof window !== 'undefined' && !(window as any).pdfjsLib) {
+    if (typeof window !== 'undefined' && !window.pdfjsLib) {
       const script = document.createElement('script');
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
       script.onload = () => {
-        (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        window.pdfjsLib!.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       };
       document.head.appendChild(script);
     }
@@ -783,7 +783,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
         clearInterval(interval);
         // Play synthetic web-audio "bip" sound indicator for high professional fidelity!
         try {
-          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext!)();
           const oscillator = audioCtx.createOscillator();
           const gainNode = audioCtx.createGain();
           oscillator.type = 'sine';
@@ -983,7 +983,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
     try {
       if (file.type === 'application/pdf') {
         const ab = await file.arrayBuffer();
-        const pdfjs = (window as any).pdfjsLib;
+        const pdfjs = window.pdfjsLib;
         if (!pdfjs) {
           setPdfProgress(100);
           setPdfStatus('PDF.js em carregamento. Fallback em execução...');

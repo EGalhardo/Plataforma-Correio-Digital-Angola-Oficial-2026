@@ -471,3 +471,20 @@ Correcções:
 
 Medições (contas reais, produção local): clique→Painel 1,49 s (cidadão) / 1,48 s (instituição),
 feedback imediato verificado. Varreduras 51/0/0 e 41/0/0; `tsc --noEmit` 0 erros.
+
+---
+
+## v37.12 — LIMPEZA DE ACHADOS DA AUDITORIA (2026-08-25)
+
+- 🟡 `confirm()` nativo (ProfileContent, remover dispositivo) substituído por `CdaConfirmModal`
+  (mesmo padrão da revogação de sessão; botão perigoso vermelho, cancelar/confirmar).
+- 🟢 `console.log`: já silenciados globalmente em PRODUÇÃO pelo logger gated de `main.tsx`
+  (F45) — mantidos em dev para diagnóstico; nenhum leak em produção.
+- 🟡 `as any`: 124 → 91. Removidos os casts mecânicos e seguros: 21× `(import.meta as any).env`
+  (tipado por `vite/client` + remoção do legado `|| {}`), 6× `webkitAudioContext`, 3× `pdfjsLib`,
+  2× `JitsiMeetExternalAPI` e 2× `SpeechRecognition` (tipagens vendor mínimas em
+  `src/globals.d.ts`, comportamento inalterado). Os 91 restantes são dívida de tipagem de domínio
+  (linhas Supabase/objectos de mensagem) — correcção faseada, fora deste lote para não arriscar a app.
+
+Verificação: `tsc --noEmit` 0 erros; build de produção OK; varreduras 51 PASS / 0 WARN / 0 FAIL
+(demo) e 41 PASS / 0 WARN / 0 FAIL (contas reais).

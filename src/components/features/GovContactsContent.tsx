@@ -192,7 +192,7 @@ export function GovContactsContent({
 
   const playSuccessSound = () => {
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const ctx = new (window.AudioContext || window.webkitAudioContext!)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
@@ -211,7 +211,7 @@ export function GovContactsContent({
 
   const playToggleSound = (isActive: boolean) => {
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const ctx = new (window.AudioContext || window.webkitAudioContext!)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'triangle';
@@ -1208,7 +1208,7 @@ export function GovContactsContent({
 
   useEffect(() => {
     const fetchSupabaseCitizens = async () => {
-      const isSupabaseReady = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+      const isSupabaseReady = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
       if (!isSupabaseReady) return;
 
       try {

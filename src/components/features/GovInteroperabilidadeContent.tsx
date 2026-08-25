@@ -419,7 +419,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
       });
     }
     // 2. Nuvem (ganha sobre o local quando presente — é a fonte canónica)
-    const ready = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+    const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
     if (ready) {
       try {
         let data: any[] | null = null; let error: any = null;
@@ -678,7 +678,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   // ---- Acções das Solicitações de Registo (modelo do cidadão) ----
   const persistSolicitationStatus = async (row: LinhaSolicitacao, status: string) => {
     updateLocalInstReg(row.bi_numero, { status });
-    const ready = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+    const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
     if (!ready || !row.id || String(row.id) === String(row.bi_numero)) return;
     try {
       const viaProxy = await registoPublicoProxy('update', { id: row.id }, { status });
@@ -781,7 +781,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   const handleDeleteSolicitacao = async (row: LinhaSolicitacao) => {
     setSolBusy(true);
     const code = normalizeInstCode(row.bi_numero);
-    const ready = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+    const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
     // No modo real, confirmar a exclusão central ANTES de limpar qualquer cache local.
     if (ready) {
       try {

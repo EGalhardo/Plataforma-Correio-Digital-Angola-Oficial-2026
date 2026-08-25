@@ -493,7 +493,7 @@ export function MailContent({
             }
           };
 
-          const isSupabaseReady = (import.meta as any).env.VITE_SUPABASE_URL && (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+          const isSupabaseReady = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
           if (isSupabaseReady) {
             const fileExt = file.name.split('.').pop() || 'dat';
             const fileCleanName = file.name.replace(/[^a-zA-Z0-9]/g, '_');
