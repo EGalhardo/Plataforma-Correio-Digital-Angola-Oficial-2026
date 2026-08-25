@@ -40,6 +40,8 @@ export interface RealMessageRow {
   preview: string | null;
   subject: string | null;
   unread: boolean | null;
+  sender_bi: string | null;
+  recipient_bi: string | null;
 }
 
 export interface RealVideoRow {
@@ -201,7 +203,7 @@ export async function carregarDadosReaisAdmin(forcar = false): Promise<AdminReal
       ler(supabase.from('profiles').select('bi,name,role,phone,email,nif,morada').limit(500)),
       ler(supabase.from('audit_logs').select('id,action,username,timestamp,action_type').order('id', { ascending: false }).limit(1500)),
       contar('audit_logs'),
-      ler(supabase.from('messages').select('id,status,created_at,org,preview,subject,unread').order('created_at', { ascending: false }).limit(2000)),
+      ler(supabase.from('messages').select('id,status,created_at,org,preview,subject,unread,sender_bi,recipient_bi').order('created_at', { ascending: false }).limit(2000)),
       contar('messages'),
       ler(supabase.from('video_sessions').select('id,subject,status,scheduled_for,created_at,host_bi,institution_code').order('created_at', { ascending: false }).limit(500)),
       ler(supabase.from('documents').select('id,name,holder_bi,issued_at,status').order('issued_at', { ascending: false }).limit(500)),
@@ -240,6 +242,18 @@ export async function carregarDadosReaisAdmin(forcar = false): Promise<AdminReal
     emCurso = null;
   }
 }
+
+/** v37.27 — província derivada do BI (sufixo provincial, ex.: ...LA045 → Luanda). */
+const CODIGO_PROVINCIA_BI: Record<string, string> = {
+  LA: 'Luanda', BG: 'Benguela', BN: 'Bengo', BE: 'Bié', CA: 'Cabinda', CB: 'Cabinda',
+  CC: 'Cuando Cubango', CN: 'Cunene', HM: 'Huambo', HL: 'Huíla', IB: 'Icolo e Bengo',
+  LN: 'Lunda Norte', LS: 'Lunda Sul', ML: 'Malanje', MX: 'Moxico', NM: 'Namibe',
+  UI: 'Uíge', ZA: 'Zaire'
+};
+export const provinciaDoBi = (bi: string): string | null => {
+  const m = String(bi || '').toUpperCase().replace(/\s+/g, '').match(/([A-Z]{2})\d{3}$/);
+  return m && CODIGO_PROVINCIA_BI[m[1]] ? CODIGO_PROVINCIA_BI[m[1]] : null;
+};
 
 /** Utilidades de formatação partilhadas pelas páginas. */
 export const fmtDataCurta = (iso: string | null | undefined): string => {

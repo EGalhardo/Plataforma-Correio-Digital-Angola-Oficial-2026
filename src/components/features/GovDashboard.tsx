@@ -30,7 +30,7 @@ import { AnimatedCounter } from "../ui/AnimatedCounter";
 // Demo (carregarDadosReaisAdmin → null) as métricas mantêm o comportamento
 // demonstrativo de sempre; em Modo Real TODOS os números do painel vêm da
 // nuvem, e o que não tem medição aparece honestamente como «—».
-import { carregarDadosReaisAdmin, type AdminRealData } from "../../services/adminRealDataService";
+import { carregarDadosReaisAdmin, provinciaDoBi, type AdminRealData } from "../../services/adminRealDataService";
 
 interface Institution {
   name: string;
@@ -222,10 +222,20 @@ export function GovDashboard({
       return dt.getFullYear() * 12 + dt.getMonth() === mesAtual - 1;
     }).length;
     const variacao = doMesPassado > 0 ? Math.round(((desteMes - doMesPassado) / doMesPassado) * 1000) / 10 : null;
-    // distribuição real por organismo emissor (org)
+    // distribuição real por organismo emissor (org) — apenas organismos
+    // institucionais (rótulos de cidadão/administração ficam fora do donut,
+    // tal como na Ficha Institucional).
+    const ROTULOS_NAO_INSTITUCIONAIS = ['CDA', 'CIDADAO', 'ADMINISTRACAO', 'ADMIN'];
+    const ehOrgInstitucional = (rotulo: string): boolean => {
+      const norm = rotulo.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]/g, '');
+      if (!norm) return false;
+      if (norm.startsWith('CIDADAO')) return false;
+      return !ROTULOS_NAO_INSTITUCIONAIS.includes(norm);
+    };
     const porOrg = new Map<string, number>();
     msgs.forEach(m => {
-      const k = (m.org || 'Sem organismo').trim() || 'Sem organismo';
+      const k = (m.org || '').trim();
+      if (!k || !ehOrgInstitucional(k)) return;
       porOrg.set(k, (porOrg.get(k) || 0) + 1);
     });
     const orgsTop = Array.from(porOrg.entries()).sort((a, b) => b[1] - a[1]);
@@ -234,15 +244,43 @@ export function GovDashboard({
     if (resto > 0) donut.push({ nome: 'Outros', v: resto });
     const paleta = ['#2563eb', '#ef4444', '#10b981', '#8b5cf6', '#f97316'];
     const donutData = donut.map((e, i) => ({ name: e.nome, value: e.v, color: paleta[i % paleta.length] }));
+    // v37.27 — instituições ATIVAS reais: organismos com tráfego na base central
+    // (RLS pode esconder o catálogo completo de profiles; o tráfego não mente).
+    const orgsAtivas = orgsTop.map(([nome, v]) => ({ nome, v }));
+    // v37.27 — cidadãos reais: perfis visíveis ∪ BIs únicos presentes nas
+    // mensagens (remetente/destinatário), com formato válido de BI.
+    const PADRAO_BI = /^\d{9}[A-Z]{2}\d{3}$/;
+    const cidadaosUnicos = new Set<string>();
+    (d.cidadaos || []).forEach(c => {
+      const bi = String(c.bi || '').toUpperCase().trim();
+      if (PADRAO_BI.test(bi)) cidadaosUnicos.add(bi);
+    });
+    msgs.forEach(m => {
+      [m.sender_bi, m.recipient_bi].forEach(biBruto => {
+        const bi = String(biBruto || '').toUpperCase().trim();
+        if (PADRAO_BI.test(bi)) cidadaosUnicos.add(bi);
+      });
+    });
     // atividade recente real: últimos eventos de auditoria
     const atividade = (d.auditLogs || []).slice(0, 5).map(l => ({
       desc: l.action || 'Evento de auditoria',
       time: l.timestamp ? new Date(l.timestamp).toLocaleString('pt-AO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—',
     }));
+    // v37.27 — distribuição territorial REAL: província derivada do BI de cada
+    // cidadão registado na base central (sufixo provincial).
+    const porProvincia = new Map<string, number>();
+    cidadaosUnicos.forEach(bi => {
+      const prov = provinciaDoBi(bi);
+      if (prov) porProvincia.set(prov, (porProvincia.get(prov) || 0) + 1);
+    });
+    const provincias = Array.from(porProvincia.entries())
+      .map(([nome, v]) => ({ nome, v }))
+      .sort((a, b) => b.v - a.v);
     return {
-      total, lidas, pend, desteMes, variacao, donutData, atividade,
-      instituicoes: d.instituicoes?.length ?? 0,
-      cidadaos: d.cidadaos?.length ?? 0,
+      total, lidas, pend, desteMes, variacao, donutData, atividade, provincias,
+      orgsAtivas,
+      instituicoes: Math.max(d.instituicoes?.length ?? 0, orgsAtivas.length),
+      cidadaos: cidadaosUnicos.size,
       sucesso: total > 0 ? Math.round((lidas / total) * 1000) / 10 : null,
     };
   }, [dadosReais]);
@@ -552,26 +590,26 @@ export function GovDashboard({
             <div className="hidden md:block" />
           </div>
           <div className="flex flex-nowrap gap-2 md:gap-3 overflow-x-auto custom-scrollbar-h pb-2">
-            {masterInstitutions.map((inst) => {
-              const isTargetColor = ['AGT', 'SME', 'ENDE', 'EPAL', 'MINJUS', 'MINSA', 'PNA', 'INSS', 'CNE', 'Registo Civil', 'Notariado', 'Tribunal de Comarca', 'Universidade Pública', 'INAPEM'].includes(inst.name);
-              return (
+            {/* v37.27 — Modo Real: instituições REAIS da base central (profiles);
+                sem dados reais mantém o catálogo local de demonstração. */}
+            {(dadosReais && dadosReais.instituicoes.length > 0
+              ? dadosReais.instituicoes.map(inst => ({ chave: inst.bi, rotulo: inst.bi, titulo: inst.name || inst.bi }))
+              : dadosReais && reais && reais.orgsAtivas.length > 0
+                ? reais.orgsAtivas.map(o => ({ chave: o.nome, rotulo: o.nome, titulo: `${o.nome} · ${o.v} mensagens` }))
+                : masterInstitutions.map(inst => ({ chave: inst.id, rotulo: inst.name, titulo: inst.fullName }))
+            ).map((inst) => (
                 <button 
-                  key={inst.id}
+                  key={inst.chave}
                   type="button" 
-                  onClick={() => {
+                                    onClick={() => {
                     onNavigate?.('gov-interoperabilidade');
                   }}
-                  className={`px-4 py-2 rounded-xl text-[10px] md:text-xs font-black text-white whitespace-nowrap transition-all cursor-pointer shrink-0 ${
-                    isTargetColor 
-                      ? 'bg-[#0E2B64] hover:bg-[#0E2B64]/90 border-[#0E2B64]' 
-                      : 'bg-[#0c2340] hover:bg-[#152e4d] border-[#1c3c66]'
-                  }`}
-                  title={`Visualizar status de interoperabilidade de ${inst.fullName}`}
+                  className="px-4 py-2 rounded-xl text-[10px] md:text-xs font-black text-white whitespace-nowrap transition-all cursor-pointer shrink-0 bg-[#0E2B64] hover:bg-[#0E2B64]/90 border-[#0E2B64]"
+                  title={`Visualizar status de interoperabilidade de ${inst.titulo}`}
                 >
-                  {inst.name}
+                  {inst.rotulo}
                 </button>
-              );
-            })}
+            ))}
           </div>
         </section>
 
@@ -1295,7 +1333,7 @@ export function GovDashboard({
                         <Pie
                           data={reais
                             ? (reais.donutData.length
-                                ? reais.donutData.map(e => ({ name: e.nome, value: e.value, color: e.color }))
+                                ? reais.donutData.map(e => ({ name: e.name, value: e.value, color: e.color }))
                                 : [{ name: "Sem tráfego", value: 1, color: "#cbd5e1" }])
                             : [
                                 { name: "Fiscais", value: 35.6, color: "#2563eb" },
@@ -1343,7 +1381,7 @@ export function GovDashboard({
                     {(reais
                       ? (reais.donutData.length
                           ? reais.donutData.map(e => ({
-                              name: e.nome.length > 18 ? e.nome.slice(0, 17) + '…' : e.nome,
+                              name: e.name.length > 18 ? e.name.slice(0, 17) + '…' : e.name,
                               value: `${String(Math.round((e.value / Math.max(1, reais.total)) * 1000) / 10).replace('.', ',')}%`,
                               color: e.color,
                             }))
@@ -1417,7 +1455,13 @@ export function GovDashboard({
                   {/* Província list */}
                   <div className="w-full max-h-[170px] overflow-y-auto pr-2 space-y-1.5 text-slate-600 scrollbar-thin feedback-scroll">
                     {(reais
-                        ? [{ name: "Sem dados territoriais na base central", count: "—", color: "bg-slate-400" }]
+                        ? (reais.provincias.length
+                            ? reais.provincias.map((pv, i) => ({
+                                name: pv.nome,
+                                count: String(pv.v),
+                                color: ['bg-blue-600','bg-purple-600','bg-amber-600','bg-rose-600','bg-teal-600','bg-emerald-600','bg-indigo-600','bg-orange-600','bg-pink-600','bg-cyan-600','bg-lime-600','bg-violet-600','bg-fuchsia-600','bg-sky-600'][i % 14],
+                              }))
+                            : [{ name: "Sem dados territoriais na base central", count: "—", color: "bg-slate-400" }])
                         : [
                       { name: "Luanda", count: "412.540", color: "bg-blue-600" },
                       { name: "Benguela", count: "125.450", color: "bg-purple-600" },
@@ -1476,7 +1520,7 @@ export function GovDashboard({
 
                 <div className="space-y-3">
                   {(reais
-                      ? reais.donutData.slice(0, 4).map(e => ({ name: e.nome.length > 22 ? e.nome.slice(0, 21) + '…' : e.nome, count: String(e.value), trend: 'real' }))
+                      ? reais.donutData.slice(0, 4).map(e => ({ name: e.name.length > 22 ? e.name.slice(0, 21) + '…' : e.name, count: String(e.value), trend: `${String(Math.round((e.value / Math.max(1, reais.total)) * 1000) / 10).replace('.', ',')}%` }))
                       : [
                     { name: "Fiscais", count: "128.752", trend: "↑ 11,3%" },
                     { name: "Educação", count: "96.540", trend: "↑ 8,7%" },

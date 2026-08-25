@@ -710,3 +710,39 @@ máximo 10 correspondências visíveis, com scroll vertical interno (custom-scro
 Verificação aplicada (conta real, Ficha INAPEM → INAPEM-LLMM): Lidas 27 itens — clientHeight=510px,
 scrollHeight=1045px (scroll activo) ✔; Enviadas 2 itens — sem scroll ✔; Não Lidas 0 — estado vazio ✔.
 Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
+
+---
+
+## v37.27 — Painel Admin (Modo Real): dados simulados substituídos por dados reais das contas/nuvem (2026-08-25)
+
+**Pedido:** «No modo real na área Admin na página Painel substitui os dados simulados por real. Usa os dados das contas para fazeres essas actualizações.»
+
+### Alterações (cirúrgicas)
+1. `adminRealDataService.ts` — novo helper `provinciaDoBi()` (província derivada do sufixo provincial do BI); `RealMessageRow` e a query de `messages` passam a incluir `sender_bi`/`recipient_bi`.
+2. `GovDashboard.tsx` (memo `reais`):
+   - **Donut por categoria** passa a excluir rótulos não-institucionais (CDA, Cidadão*, Administração, Admin) — alinhado com a Ficha Institucional.
+   - **Instituições Ativadas**: `max(perfis institucionais, organismos com tráfego)` → 24 (RLS limita `profiles`, o tráfego de `messages` completa).
+   - **Cidadãos Registados**: perfis ∪ BIs únicos em `messages` (remetente/destinatário, formato válido) → 21.
+   - **Distribuição por Província**: deixa de mostrar «Sem dados territoriais» — agrega províncias reais dos BIs dos cidadãos → Luanda 13 · Cabinda 2 · Uíge 1 · Bié 1.
+   - **Instituições Conectadas (pills)**: contas institucionais REAIS de `profiles` (18: MINJUS, PNA, INSS, CNE, Registo Civil, Notariado, Universidade, AGT, SME, MINSA, Tribunal, EPAL, ENDE, DIRECO, MAPTSS, MED, BNA, CIDADO); fallback para organismos com tráfego; catálogo local só sem dados.
+   - **Notificações Ativas**: contagens reais por organismo + percentagem real do total (antes texto «real»).
+3. **Correcção de bug latente**: o Painel Analítico rebentava em Modo Real (`TypeError: Cannot read properties of undefined (reading 'length')`) — as legendas/notificações liam `e.nome` mas `donutData` produz `e.name` (3 locais corrigidos).
+
+### Verificação (conta real ADMIN-0001, build produção :3000)
+| Cartão/secção | Painel | Nuvem (service_role) |
+|---|---|---|
+| Correspondências Enviadas | 781 | 781 messages ✔ |
+| Entregues / Lidas | 84 | unread=false → 84 ✔ |
+| Pendências | 135 | user_requests em aberto → 135 ✔ |
+| Taxa de Sucesso (leitura) | 10,8% | 84/781 ✔ |
+| Instituições Ativadas | 24 | 18 perfis + 24 orgs c/ tráfego ✔ |
+| Cidadãos Registados | 21 | 21 BIs únicos ✔ |
+| Donut | AGT 51,2% · INAPEM-LLMM 24,1% · SME 1,5% · EPAL 1,3% · Outros 7,8% | 400/188/12/10 ✔ |
+| Províncias | Luanda 13 · Cabinda 2 · Uíge 1 · Bié 1 | sufixos dos BIs ✔ |
+| Pills Instituições Conectadas | 18 contas reais de profiles | ✔ |
+
+### Varrimentos
+- `tsc --noEmit`: 0 erros · `npm run build`: 0 erros
+- e2e demo (build produção): **51 PASS / 0 WARN / 0 FAIL**
+- e2e contas reais (build produção): **41 PASS / 0 WARN / 0 FAIL**
+- Painel Analítico expandido sem exceções JS (antes da correcção: crash garantido em Modo Real)
