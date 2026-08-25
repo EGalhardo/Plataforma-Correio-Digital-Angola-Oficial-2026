@@ -502,12 +502,12 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     setFormCidade(inst.cidade || (CITIES_BY_PROVINCE[inst.province] ? CITIES_BY_PROVINCE[inst.province][0] : 'Sede'));
     setFormMunicipio(inst.municipio);
     setFormComuna(inst.comuna || (COMMUNES_BY_MUNICIPALITY[inst.municipio] ? COMMUNES_BY_MUNICIPALITY[inst.municipio][0] : 'Sede'));
-    setFormAddress(inst.address || '');
-    setFormContactEmail(inst.contactEmail || `geral@${inst.name.toLowerCase()}.gov.ao`);
-    setFormContactPhone(inst.contactPhone || '+244 923 000 000');
-    setFormResponsibleName(inst.responsibleName || 'Dr. António Fernando');
-    setFormResponsibleRole(inst.responsibleRole || 'Director Geral');
-    setFormInstCode(inst.instCode || `${inst.name.toUpperCase()}-001`);
+    setFormAddress((inst as any).address || '');
+    setFormContactEmail((inst as any).contactEmail || `geral@${inst.name.toLowerCase()}.gov.ao`);
+    setFormContactPhone((inst as any).contactPhone || '+244 923 000 000');
+    setFormResponsibleName((inst as any).responsibleName || 'Dr. António Fernando');
+    setFormResponsibleRole((inst as any).responsibleRole || 'Director Geral');
+    setFormInstCode((inst as any).instCode || `${inst.name.toUpperCase()}-001`);
     setFormStatusLocal(inst.status);
     setFormLogoFile(null);
   };
@@ -518,7 +518,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   useEffect(() => {
     setClassifClasse(null);
     setClassifProv('');
-    const codigo = selectedInstHistory?.instCode || '';
+    const codigo = (selectedInstHistory as any)?.instCode || '';
     if (!selectedInstHistory || !codigo) return;
     let vivo = true;
     (async () => {
@@ -2432,7 +2432,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                         type="button"
                         disabled={classifBusy || !classifClasse}
                         onClick={async () => {
-                          const codigo = selectedInstHistory?.instCode || '';
+                          const codigo = (selectedInstHistory as any)?.instCode || '';
                           if (!codigo || !classifClasse) return;
                           setClassifBusy(true);
                           const r = await definirClassificacaoInstituicao({ codigo, classe: classifClasse, provincia: classifProv || null });

@@ -612,19 +612,3 @@ rolagem). Ordenação, contadores, estados vazios e abertura de mensagem inalter
 «Correio» não foram tocados.
 
 Verificação: tsc 0 erros; build OK; varreduras 51/0/0 e 41/0/0.
-
----
-
-## v37.21 — NOVA PASSAGEM DE LIMPEZA SEGURA (2026-08-25)
-
-- `as any` 71 → 54, sem alterar comportamento:
-  - `GovInteroperabilidadeContent`: 8× removidos por completo — o tipo `Institution` já declara
-    `address`, `contactEmail`, `contactPhone`, `responsibleName`, `responsibleRole` e `instCode`;
-  - `supabaseService`: 8× `(item as any).sondagem_*` → casts de forma tipados
-    (`{ sondagem_id?: number | null }` / `{ sondagem_ids?: number[] | null }`);
-  - `App.tsx`: `(regErr as any).code` → `regErr.code` (PostgrestError já tipa `code`).
-- `confirm()/prompt()` nativos: 0 usos; `console.log` silenciados em produção (v37.12).
-- Restam 54 `as any` de tipagem de domínio (fontes de vídeo/OCR, eventos sintéticos, linhas
-  Supabase sem schema tipado, uniões de tabs) — dívida faseada.
-
-Verificação: tsc 0 erros; build OK; varreduras 51/0/0 e 41/0/0.

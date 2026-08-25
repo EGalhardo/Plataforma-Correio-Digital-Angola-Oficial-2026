@@ -1086,7 +1086,7 @@ export default function App() {
           .eq('bi_numero', normalized)
           .order('criado_em', { ascending: false })
           .limit(1);
-        if (regErr && regErr.code !== 'PGRST205') {
+        if (regErr && (regErr as any).code !== 'PGRST205') {
           console.error('CADA: erro ao carregar solicitacao de registo no login:', regErr);
         }
         const reg = regRows && regRows[0];
