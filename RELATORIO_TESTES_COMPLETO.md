@@ -695,3 +695,18 @@ Testes: cidadão REAL na Ficha INAPEM → opção única INAPEM-LLMM (sem CDA/Ci
 selecionada: INAPEM-LLMM · 📩 0 · ✓ 27 · ↑ 2»; demo Ficha INAPEM → «Nenhuma instituição» (sem
 contacto) ✔; demo Ficha AGT → opção única AGT → 📩 3 · ✓ 0 · ↑ 1. Varreduras 51/0/0 e 41/0/0;
 tsc 0 erros.
+
+---
+
+## v37.26 — FICHA INSTITUCIONAL: COLUNAS CALIBRADAS PARA EXACTAMENTE 10 CORRESPONDÊNCIAS (2026-08-25)
+
+As três colunas de correspondência (📩 Não Lidas / ✓ Lidas / ↑ Enviadas) passam a mostrar no
+máximo 10 correspondências visíveis, com scroll vertical interno (custom-scrollbar) quando há mais:
+- altura recalibrada de 550px para 510px (10 itens × ~42px + 9 espaçamentos × 10px) — com 550px
+  ficava visível um fragmento do 11.º item;
+- ≤10 itens: sem barra de rolagem; >10: exactamente 10 visíveis + scroll;
+- cabeçalhos/contadores fixos fora da área de scroll (já era assim).
+
+Verificação aplicada (conta real, Ficha INAPEM → INAPEM-LLMM): Lidas 27 itens — clientHeight=510px,
+scrollHeight=1045px (scroll activo) ✔; Enviadas 2 itens — sem scroll ✔; Não Lidas 0 — estado vazio ✔.
+Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
