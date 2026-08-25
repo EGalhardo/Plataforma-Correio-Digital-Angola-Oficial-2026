@@ -634,3 +634,24 @@ Verificação: tsc 0 erros; build OK; varreduras 51/0/0 e 41/0/0.
 Teste funcional (demo): Ficha AGT (Finanças) → itens AGT/Hospital, seleção AGT → «Instituição
 selecionada: AGT · 📩 3 · ✓ 0 · ↑ 1»; Ficha INAPEM (Serviços) → itens CNE/Hospital/INSS; 0 erros
 JS. Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
+
+---
+
+## v37.23 — DESEMPENHO: CARREGAMENTO DE DADOS DO BANCO (2026-08-25)
+
+Problema: o arranque em modo real fazia round-trips SEQUENCIAIS ao Supabase antes das leituras
+paralelas existentes, e o perfil era pedido DUAS vezes (hidratação F39 + passo 1) — em cada
+execução do carregador, incluindo cada evento Realtime.
+
+Correcções (App.tsx, carregador de arranque):
+1. Hidratação do perfil (F39) + caixa de mensagens (consulta OR única) passam a correr em
+   PARALELO (Promise.all) — 1 round-trip em vez de 2.
+2. O passo 1 reutiliza o perfil já carregado no passo 0 quando aplicável — elimina o 2.º pedido
+   duplicado à tabela `profiles`.
+3. O correio institucional (`getInstitutionMessages`) entra no pacote paralelo dos passos 3–9 —
+   menos 1 round-trip sequencial em modo instituição.
+4. Declaração de `sentSenderKey` movida para antes do Promise.all (ordem correcta).
+
+Sem alteração de comportamento: mesma semântica de hidratação (guarda F45), mesma consulta OR,
+mesmo ramo raro de semeadura, mesmos filtros de titularidade. Teste real (cidadão 002399714LA030):
+login→painel ~2,4 s com caixas carregadas, 0 erros JS. Varreduras 51/0/0 e 41/0/0; tsc 0 erros.

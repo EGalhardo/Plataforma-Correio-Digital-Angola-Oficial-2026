@@ -2551,9 +2551,20 @@ export default function App() {
         // 0. F39 (v13) — hidratar o perfil do cidadão a partir da nuvem
         // (multi-dispositivo): a linha `profiles` reflecte edições de nome,
         // e-mail, telefone, filiação e estado civil feitas noutros dispositivos.
-        if (isUserMode && bi && !homologationStore.isExempt(bi) && isCloudBound(bi)) {
-          try {
-            const dbProfile = await supabaseService.getProfile(bi);
+        const sentSenderKey = isInstMode ? institutionCode : isGovMode ? 'CDA' : bi;
+        const precisaHidratacaoPerfil = isUserMode && bi && !homologationStore.isExempt(bi) && isCloudBound(bi);
+        // v37.23 (DESEMPENHO) — hidratação do perfil + caixa de mensagens em
+        // PARALELO: antes eram 2 round-trips sequenciais ao arranque (e a cada
+        // evento realtime); agora correm em simultâneo.
+        let dbProfilePre: Awaited<ReturnType<typeof supabaseService.getProfile>> | null = null;
+        let mailbox: Awaited<ReturnType<typeof supabaseService.getOwnMailbox>>;
+        [dbProfilePre, mailbox] = await Promise.all([
+          precisaHidratacaoPerfil ? supabaseService.getProfile(bi) : Promise.resolve(null),
+          supabaseService.getOwnMailbox(bi, sentSenderKey)
+        ]);
+        if (precisaHidratacaoPerfil) {
+          {
+            const dbProfile = dbProfilePre;
               if (dbProfile && isSubscribed) {
               const hyd: { name?: string; email?: string; phone?: string; filiation?: string; maritalStatus?: string } = {};
               if (typeof dbProfile.name === 'string' && dbProfile.name.trim()) hyd.name = dbProfile.name.trim();
@@ -2565,8 +2576,6 @@ export default function App() {
               // hidratação da nuvem POR CIMA de uma edição de perfil em curso.
               if (Object.keys(hyd).length && !isProfileEditActive()) updateUserFields(hyd);
             }
-          } catch (hydrErr) {
-            console.warn('[PERFIL-SYNC] Hidratação de perfil falhou (best-effort):', hydrErr);
           }
         }
 
@@ -2575,8 +2584,6 @@ export default function App() {
         // master: antes eram DUAS consultas por execução — 4-6 por sessão).
         // A nuvem só é relida no ramo raro em que há semeadura; a frescura
         // normal é garantida pelo canal Realtime (triggerRefetch abaixo).
-        const sentSenderKey = isInstMode ? institutionCode : isGovMode ? 'CDA' : bi;
-        let mailbox = await supabaseService.getOwnMailbox(bi, sentSenderKey);
         let dbMessages = mailbox ? mailbox.incoming : null;
         // F9 — a semeadura automática é um recurso da DEMO (cidadão/AGT-9921-SR):
         // nunca semear fictícios da AGT numa conta institucional real.
@@ -2637,7 +2644,9 @@ export default function App() {
         // mostrava 'Edlasio Galhardo' + telefone da instituição). O membro
         // mantém SEMPRE os seus próprios dados (registo do membro + Auth).
         const instMemberSession = appMode === 'institution' && instIdentityRef.current?.type === 'member';
-        const dbProfile = instMemberSession ? null : await supabaseService.getProfile(bi);
+        // v37.23 (DESEMPENHO) — reutiliza o perfil já carregado no passo 0 (quando
+        // foi), evitando um segundo round-trip à tabela `profiles` por execução.
+        const dbProfile = instMemberSession ? null : (precisaHidratacaoPerfil ? dbProfilePre : await supabaseService.getProfile(bi));
         if (dbProfile && isSubscribed) {
           const isCanonicalCitizen = appMode === 'user' && bi === DEMO_CREDENTIALS.user.identifier;
           const canonicalPreset = DEMO_CREDENTIALS.user;
@@ -2725,8 +2734,30 @@ export default function App() {
           }
         }
 
+
+
+        // 3–9 (2026-08-21, DESEMPENHO) — leituras em PARALELO: antes eram 6–7
+        // round-trips sequenciais ao servidor (cada um com validação de sessão);
+        // agora correm em simultâneo e a página da Administração carrega em
+        // ~1/4 do tempo. Audit Logs e Correspondências são visões da
+        // Administração — só são pedidas em modo gov (menos tráfego para
+        // cidadão/instituição). Correspondências vêm JÁ FILTRADAS do servidor.
+        const [dbDocs, dbContacts, dbUserRequests, dbDocRequests, dbNotifs, dbLogs, dbCorrespondences, dbInstMailbox] = await Promise.all([
+          supabaseService.getDocuments(bi),
+          supabaseService.getContacts(bi),
+          supabaseService.getUserRequests(isGovMode ? undefined : bi),
+          supabaseService.getDocRequests(isGovMode ? undefined : bi),
+          supabaseService.getNotifications(isGovMode ? 'CDA' : isInstMode ? institutionCode : bi),
+          isGovMode ? supabaseService.getAuditLogs() : Promise.resolve(null),
+          isGovMode ? supabaseService.getCorrespondences() : Promise.resolve(null),
+          // v37.23 (DESEMPENHO) — correio institucional entra no mesmo pacote
+          // paralelo (antes era um round-trip sequencial extra).
+          isInstMode ? supabaseService.getInstitutionMessages(institutionCode) : Promise.resolve(null),
+        ]);
+        if (!isSubscribed) return;
+
         if (isInstMode) {
-          const mailbox = await supabaseService.getInstitutionMessages(institutionCode);
+          const mailbox = dbInstMailbox;
           if (mailbox !== null && isSubscribed) {
             // F9/F14 — marca de destinatária: a conta real só recebe o endereçado
             // AO SEU CÓDIGO (consulta exacta). `legacyIds` = correio do canal por
@@ -2755,23 +2786,6 @@ export default function App() {
             }
           }
         }
-
-        // 3–9 (2026-08-21, DESEMPENHO) — leituras em PARALELO: antes eram 6–7
-        // round-trips sequenciais ao servidor (cada um com validação de sessão);
-        // agora correm em simultâneo e a página da Administração carrega em
-        // ~1/4 do tempo. Audit Logs e Correspondências são visões da
-        // Administração — só são pedidas em modo gov (menos tráfego para
-        // cidadão/instituição). Correspondências vêm JÁ FILTRADAS do servidor.
-        const [dbDocs, dbContacts, dbUserRequests, dbDocRequests, dbNotifs, dbLogs, dbCorrespondences] = await Promise.all([
-          supabaseService.getDocuments(bi),
-          supabaseService.getContacts(bi),
-          supabaseService.getUserRequests(isGovMode ? undefined : bi),
-          supabaseService.getDocRequests(isGovMode ? undefined : bi),
-          supabaseService.getNotifications(isGovMode ? 'CDA' : isInstMode ? institutionCode : bi),
-          isGovMode ? supabaseService.getAuditLogs() : Promise.resolve(null),
-          isGovMode ? supabaseService.getCorrespondences() : Promise.resolve(null),
-        ]);
-        if (!isSubscribed) return;
 
         // 3. Documents
         if (dbDocs !== null) {
