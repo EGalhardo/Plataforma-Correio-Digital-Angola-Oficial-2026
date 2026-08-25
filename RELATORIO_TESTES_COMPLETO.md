@@ -612,3 +612,25 @@ rolagem). Ordenação, contadores, estados vazios e abertura de mensagem inalter
 «Correio» não foram tocados.
 
 Verificação: tsc 0 erros; build OK; varreduras 51/0/0 e 41/0/0.
+
+---
+
+## v37.22 — FICHA INSTITUCIONAL: DROPDOWN JUNTO ÀS MENSAGENS + LISTA POR CATEGORIA COM CONTACTO (2026-08-25)
+
+1. Dropdown «Lista de Instituições» reposicionado para junto do container Mensagens: secção
+   «Correspondências» sempre visível, imediatamente acima das três colunas (📩 Não Lidas /
+   ✓ Lidas / ↑ Enviadas), com ou sem instituição seleccionada.
+2. Conteúdo da lista: instituições da MESMA CATEGORIA da instituição seleccionada com as quais o
+   cidadão JÁ TROCOU correspondência (recebida ou enviada). Instituições fora do catálogo (sem
+   categoria verificável, ex.: códigos institucionais do modo real) mantêm-se para não esconder
+   contactos efectivos. Sem opções: «Nenhuma instituição».
+3. Ao seleccionar, as colunas passam a apresentar apenas as correspondências dessa instituição
+   (Não Lidas recebidas por abrir; Lidas recebidas já abertas; Enviadas para essa instituição),
+   sem recarregar a página e sem misturar instituições.
+4. Sem correspondências num estado: estado vazio existente («Sem mensagens novas»…) ou contador 0.
+5. Mantido o padrão v37.20: máximo 10 correspondências visíveis por coluna + scroll vertical
+   interno (custom-scrollbar) quando há mais.
+
+Teste funcional (demo): Ficha AGT (Finanças) → itens AGT/Hospital, seleção AGT → «Instituição
+selecionada: AGT · 📩 3 · ✓ 0 · ↑ 1»; Ficha INAPEM (Serviços) → itens CNE/Hospital/INSS; 0 erros
+JS. Varreduras 51/0/0 e 41/0/0; tsc 0 erros.

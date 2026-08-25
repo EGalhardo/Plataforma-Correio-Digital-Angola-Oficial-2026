@@ -311,8 +311,9 @@ export function InstitutionDetail({
   const [copiedKey, setCopiedKey] = useState(false);
   const [selectedMinistry, setSelectedMinistry] = useState<any>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  // v37.18 — dropdown «Lista de Instituições» (container Serviço Público)
-  const [selectedListInst, setSelectedListInst] = useState<Institution | null>(null);
+  // v37.22 — dropdown «Lista de Instituições» junto do container Mensagens:
+  // instituições da mesma categoria com que o cidadão já trocou correspondência.
+  const [selectedListInst, setSelectedListInst] = useState<{ chave: string; rotulo: string; inst?: Institution } | null>(null);
   const [isListOpen, setIsListOpen] = useState(false);
 
   React.useEffect(() => {
@@ -380,17 +381,33 @@ export function InstitutionDetail({
     if (na === nb) return true;
     return FAMILIAS_CATEGORIA.some(f => f.includes(na) && f.includes(nb));
   };
-  const listaInstituicoes = (institutions || [])
-    .filter(i => mesmaFamiliaCategoria(String(i.category || ''), categoriaSelecionada))
-    .filter(i => (citizenProvince ? normCategoria(String(i.province || '')) === normCategoria(citizenProvince) : true))
-    .filter(i => String(i.status || '').toLowerCase() !== 'inativa')
-    .filter((i, idx, arr) => arr.findIndex(x => x.id === i.id) === idx)
-    .sort((x, y) => String(x.name).localeCompare(String(y.name), 'pt'));
+  // v37.22 — Lista de Instituições: instituições da MESMA CATEGORIA com que o
+  // cidadão JÁ TROCOU correspondência (recebida ou enviada). Instituições fora
+  // do catálogo ficam sem categoria verificável — mantêm-se para não esconder
+  // contactos reais (ex.: códigos institucionais do modo real).
+  const orgsComContacto = (() => {
+    const vistos = new Map<string, { chave: string; rotulo: string; inst?: Institution }>();
+    for (const m of [...inbox, ...sentMessages]) {
+      const org = (m.org || '').trim();
+      if (!org) continue;
+      const chave = org.toUpperCase().replace(/\s+/g, '');
+      if (vistos.has(chave)) continue;
+      const inst = (institutions || []).find(i =>
+        matchesOrg(org, i.name) || matchesOrg(org, i.fullName) || matchesOrg(org, i.id));
+      vistos.set(chave, { chave, rotulo: org, inst });
+    }
+    return Array.from(vistos.values())
+      .filter(item => !item.inst || mesmaFamiliaCategoria(String(item.inst.category || ''), categoriaSelecionada))
+      .sort((a, b) => a.rotulo.localeCompare(b.rotulo, 'pt'));
+  })();
 
-  // v37.18 — com instituição da lista escolhida, as correspondências passam a
+  // Com uma instituição da lista escolhida, as correspondências passam a
   // respeitar EXCLUSIVAMENTE a essa instituição (nunca misturar).
   const nomesAlvoLista = selectedListInst
-    ? [selectedListInst.name, selectedListInst.fullName, selectedListInst.id].filter(Boolean)
+    ? Array.from(new Set([
+        selectedListInst.rotulo,
+        ...(selectedListInst.inst ? [selectedListInst.inst.name, selectedListInst.inst.fullName, selectedListInst.inst.id] : [])
+      ].filter(Boolean)))
     : null;
   const orgDaInstituicaoLista = (orgField?: string) =>
     !!orgField && !!nomesAlvoLista && nomesAlvoLista.some(alvo => matchesOrg(orgField, alvo));
@@ -555,64 +572,6 @@ export function InstitutionDetail({
                 </div>
               )}
 
-              {/* v37.18 — dropdown «Lista de Instituições»: mesma categoria da
-                  instituição selecionada, na província onde o cidadão reside. */}
-              {meta.category !== 'Administração Central' && (
-                <div className="relative inline-block text-left z-30 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setIsListOpen(!isListOpen)}
-                    className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900 hover:border-primary/20 transition-all cursor-pointer shadow-xs active:scale-95"
-                    aria-expanded={isListOpen}
-                  >
-                    <Building size={11} className="text-primary" />
-                    <span>{selectedListInst ? selectedListInst.name : 'Lista de Instituições'}</span>
-                    <ChevronDown size={11} className={`text-slate-400 transition-transform duration-200 ${isListOpen ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {isListOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setIsListOpen(false)} />
-                      <div className="absolute right-0 mt-2 w-72 max-h-72 overflow-y-auto rounded-2xl bg-white p-2 shadow-xl ring-1 ring-black/5 focus:outline-none z-50 border border-slate-100 custom-scrollbar">
-                        <div className="px-3 py-2 border-b border-slate-100 mb-1.5">
-                          <span className="text-[7.5px] font-black uppercase tracking-wider text-slate-400">
-                            Instituições · {meta.category}{citizenProvince ? ` · ${citizenProvince}` : ''}
-                          </span>
-                        </div>
-                        <div className="space-y-0.5">
-                          {listaInstituicoes.length === 0 ? (
-                            <p className="px-3 py-3 text-[9px] font-black uppercase tracking-wider text-slate-400 text-center">Nenhuma instituição</p>
-                          ) : (
-                            listaInstituicoes.map((inst) => (
-                              <button
-                                key={inst.id}
-                                onClick={() => { setSelectedListInst(inst); setIsListOpen(false); }}
-                                className={`w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
-                                  selectedListInst?.id === inst.id
-                                    ? 'bg-blue-50 text-blue-700 font-bold'
-                                    : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
-                                }`}
-                              >
-                                <div className={`w-5 h-5 rounded-md flex items-center justify-center font-mono text-[7px] font-black uppercase shrink-0 ${
-                                  selectedListInst?.id === inst.id
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-slate-100 text-slate-500'
-                                }`}>
-                                  {String(inst.name || inst.id).slice(0, 3)}
-                                </div>
-                                <div className="min-w-0">
-                                  <span className="block font-black text-[8.5px] leading-none truncate">{inst.name}</span>
-                                  <span className="block text-[6.5px] text-slate-400 font-bold truncate leading-none mt-1">{inst.fullName || inst.province}</span>
-                                </div>
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
             </div>
 
             <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight italic uppercase">
@@ -662,23 +621,80 @@ export function InstitutionDetail({
         </div>
       </section>
 
-      {/* v37.18 — resumo das Correspondências da instituição escolhida na Lista de Instituições */}
-      {selectedListInst && (
-        <section className="bg-white border border-slate-200/80 rounded-[24px] p-5 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+      {/* v37.22 — Correspondências: dropdown «Lista de Instituições» junto do
+          container Mensagens (sempre visível) + contadores da selecionada */}
+      <section className={`bg-white border border-slate-200/80 rounded-[24px] p-5 shadow-sm relative ${isListOpen ? 'z-30 overflow-visible' : ''}`}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="min-w-0 flex items-center gap-2.5">
+            <Mail size={16} className="text-indigo-600 shrink-0" />
             <div className="min-w-0">
-              <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Instituição selecionada</span>
-              <h3 className="text-slate-900 font-black text-sm italic tracking-tighter uppercase truncate">{selectedListInst.name}</h3>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 mr-1">Correspondências</span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 border border-red-100 text-[10px] font-black text-red-600 uppercase">📩 Não Lidas: {incomingMessages.filter(m => m.unread === 1).length}</span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100 text-[10px] font-black text-emerald-600 uppercase">✓ Lidas: {incomingMessages.filter(m => m.unread !== 1).length}</span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-100 text-[10px] font-black text-blue-600 uppercase">↑ Enviadas: {outgoingMessages.length}</span>
+              <h3 className="text-slate-900 font-black text-sm italic tracking-tighter uppercase leading-none">Correspondências</h3>
+              <span className="block text-[9px] font-black uppercase tracking-wider text-slate-400 mt-1 truncate">
+                {selectedListInst ? `Instituição selecionada: ${selectedListInst.rotulo}` : 'Escolha uma instituição na Lista de Instituições'}
+              </span>
             </div>
           </div>
-        </section>
-      )}
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedListInst && (
+              <>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 border border-red-100 text-[10px] font-black text-red-600 uppercase">📩 Não Lidas: {incomingMessages.filter(m => m.unread === 1).length}</span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100 text-[10px] font-black text-emerald-600 uppercase">✓ Lidas: {incomingMessages.filter(m => m.unread !== 1).length}</span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-100 text-[10px] font-black text-blue-600 uppercase">↑ Enviadas: {outgoingMessages.length}</span>
+              </>
+            )}
+            <div className="relative inline-block text-left z-30 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsListOpen(!isListOpen)}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900 hover:border-primary/20 transition-all cursor-pointer shadow-xs active:scale-95"
+                aria-expanded={isListOpen}
+              >
+                <Building size={11} className="text-primary" />
+                <span>{selectedListInst ? selectedListInst.rotulo : 'Lista de Instituições'}</span>
+                <ChevronDown size={11} className={`text-slate-400 transition-transform duration-200 ${isListOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isListOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsListOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-80 max-h-80 overflow-y-auto rounded-2xl bg-white p-2 shadow-xl ring-1 ring-black/5 focus:outline-none z-50 border border-slate-100 custom-scrollbar">
+                    <div className="px-3 py-2 border-b border-slate-100 mb-1.5">
+                      <span className="text-[7.5px] font-black uppercase tracking-wider text-slate-400">Mesma categoria · correspondência trocada</span>
+                    </div>
+                    <div className="space-y-0.5">
+                      {orgsComContacto.length === 0 ? (
+                        <p className="px-3 py-3 text-[9px] font-black uppercase tracking-wider text-slate-400 text-center">Nenhuma instituição</p>
+                      ) : (
+                        orgsComContacto.map((item) => (
+                          <button
+                            key={item.chave}
+                            onClick={() => { setSelectedListInst(item); setIsListOpen(false); }}
+                            className={`w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+                              selectedListInst?.chave === item.chave
+                                ? 'bg-blue-50 text-blue-700 font-bold'
+                                : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                            }`}
+                          >
+                            <div className={`w-5 h-5 rounded-md flex items-center justify-center font-mono text-[7px] font-black uppercase shrink-0 ${
+                              selectedListInst?.chave === item.chave ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                            }`}>
+                              {item.rotulo.slice(0, 3)}
+                            </div>
+                            <div className="min-w-0">
+                              <span className="block font-black text-[8.5px] leading-none truncate">{item.rotulo}</span>
+                              <span className="block text-[6.5px] text-slate-400 font-bold truncate leading-none mt-1">{item.inst?.fullName || item.inst?.province || 'Correspondência trocada'}</span>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* 3 Colunas de Correspondência (Fidelidade Visual com a Imagem) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
