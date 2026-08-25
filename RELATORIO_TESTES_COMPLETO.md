@@ -502,3 +502,22 @@ resolve o código via `resolveInstitutionCode` e, sendo código real (`isRealIns
 ex.: «INAPEM-LLMM»), exibe APENAS o código; a via demo (sigla sem código real, ex.: «AGT»)
 mantém o tratamento actual. Verificado em browser: conta real mostra só o código (nome longo
 ausente), demo inalterada. Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
+
+---
+
+## v37.14 — LOGIN SEM PRÉ-PREENCHIMENTO (3 PERFIS) (2026-08-25)
+
+Requisito: nos perfis Cidadão, Instituição e Admin, os campos «Nº de Utilizador» e «Senha de
+Acesso» iniciam vazios, com placeholder ilustrativo apenas; ao digitar o placeholder desaparece e
+ao apagar tudo volta; sem credenciais pré-preenchidas.
+
+Alterações (`src/App.tsx`):
+- estado `bi` inicializa sempre `''` (antes lia localStorage/identificador demo);
+- `applyDemoPresetForMode` deixa de injectar o identificador demo no campo de Instituição/Admin
+  (agora `setBiLocal('')` nos três modos); a sessão demo continua a funcionar com o campo vazio
+  (o identificador é assumido no submit) ou via «Auto Preencher Demonstração»;
+- via demo da Administração espelha a institucional: campo vazio ⇒ `setBi(ADM-8812-OP)` no submit.
+
+Verificado em browser: três perfis com campos vazios + placeholders («009874562LA041»,
+«AGT-9921-SR», «ADM-8812-OP» e «••••••••••••»), comportamento digitar/apagar correcto, e login
+demo com campo vazio + senha continua a entrar. tsc 0 erros; varreduras 51/0/0 e 41/0/0.

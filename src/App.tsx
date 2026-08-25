@@ -719,12 +719,10 @@ export default function App() {
     return shouldUseMockFallback() ? [...MOCK_DOC_REQUESTS] : [];
   });
 
-  const [bi, setBiLocal] = useState(() => {
-    if (shouldUseLocalBootstrap()) {
-      return localStorage.getItem('correio_digital_bi') || MOCK_SESSION_USER.bi;
-    }
-    return MOCK_SESSION_USER.bi;
-  });
+  // v37.14 — o campo «Nº de Utilizador» do login inicia SEMPRE vazio:
+  // apenas o placeholder ilustrativo é apresentado; nenhum identificador
+  // pré-preenchido (nem demo, nem de sessões anteriores persistidas).
+  const [bi, setBiLocal] = useState('');
 
   const [phone, setPhoneLocal] = useState(() => {
     if (shouldUseLocalBootstrap()) {
@@ -854,8 +852,11 @@ export default function App() {
 
   const applyDemoPresetForMode = (mode: AppMode, includePassword = false) => {
     const preset = DEMO_CREDENTIALS[mode];
-    // Login do cidadão: o campo B.I. fica LIVRE — o nº demo aparece apenas como placeholder.
-    setBiLocal(mode === 'user' ? '' : preset.identifier);
+    // v37.14 — nos TRÊS perfis o campo «Nº de Utilizador» fica LIVRE no login:
+    // o identificador demo aparece apenas como placeholder (ou via botão
+    // «Auto Preencher Demonstração»); a sessão demo assume o identificador no
+    // submit quando o campo fica vazio.
+    setBiLocal('');
     setPhoneLocal(preset.phone);
     setNifLocal(preset.nif);
     setPassportLocal(preset.passport);
@@ -6348,6 +6349,9 @@ Ficha civil do titular:
           registarLoginFalha(identLogin);
           return;
         }
+        // v37.14 — campo vazio na via demo: o identificador da sessão passa a
+        // ser o da conta demo (espelha a via institucional).
+        if (!adminAgentOk && !typedAgent) setBi(DEMO_CREDENTIALS.admin.identifier);
       }
 
       // ---- F31 (v12/ideologia v13): CIDADÃO autentica na NUVEM (Supabase Auth) ----
