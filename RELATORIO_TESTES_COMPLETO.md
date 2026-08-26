@@ -793,3 +793,23 @@ Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
 - `tsc --noEmit`: 0 erros · `npm run build`: 0 erros
 - e2e demo (build produção): **51 PASS / 0 WARN / 0 FAIL**
 - e2e contas reais (build produção): **41 PASS / 0 WARN / 0 FAIL**
+
+---
+
+## v37.29-fix — Registo deixa de bloquear com «sem_imagens_nuvem» (falha técnica de upload) (2026-08-26)
+
+**Erro reportado pelo dono no registo real:** «Dados não correspondem · Imagens do documento indisponíveis na nuvem — homologação manual · Alertas: sem_imagens_nuvem · Existem dados que precisam de ser corrigidos...» — o cidadão ficava BLOQUEADO na etapa de validação por uma falha TÉCNICA (upload das imagens ao Storage não produziu marcadores), quando a ideologia F28 da própria plataforma diz que falhas técnicas = cadastro submetido PENDENTE de homologação manual.
+
+### Correcções (RegisterStepper.tsx)
+1. **Data-URL independente do upload:** o `pviFrenteData`/`pviVersoData` para a PVI é preparado ANTES/independentemente do upload ao Storage; falha de upload já não significa «imagens indisponíveis» — a Pré-Verificação prossegue com as imagens locais (auditoria `[PVIC]` regista a falha).
+2. **Bloqueio só para divergência REAL:** o retorno «corrija e repita a validação» agora aplica-se APENAS a alertas de divergência entre formulário e B.I. (`nome_divergente`, `bi_divergente`, `data_divergente`, `sexo_divergente`, `documento_divergente`, `frente_verso_inconsistentes`). Falhas técnicas/de qualidade (`sem_imagens_nuvem`, `ia_indisponivel`, `falha_tecnica`, `imagem_desfocada`, `layout_suspeito`, `foto_bi_ilegivel`...) seguem para homologação manual: o cadastro É submetido, nasce PENDENTE e o cidadão conclui a inscrição recebendo o popup com o Nº de acesso e a senha.
+3. **Aprovação automática honesta:** sem upload completo ao Storage não há auto-aprovação (`effectiveAutoApproved` exige `uploadCompleto`) — a decisão fica com a Administração, exactamente como a ideologia F28 manda.
+
+### Verificação E2E (dev :3000, conta nova criada de raiz)
+- Registo completo com documento sintético (a IA do servidor devolve REVISAO com alertas de qualidade/suspeita, SEM divergência): antes = bloqueio «Existem dados...»; agora = **inscrição concluída PENDENTE («sob revisão dos inspectores... em menos de 24h») + popup «Registo Concluído» com Nº de acesso e senha** ✔ (screenshot `/tmp/registo_resultado.png`).
+- Limpeza da nuvem após o teste: linha `solicitacoes_registo`, conta Auth e objectos de storage do B.I. de teste eliminados ✔.
+
+### Varrimentos
+- `tsc --noEmit`: 0 erros · `npm run build`: 0 erros
+- e2e demo (build produção): **51 PASS / 0 WARN / 0 FAIL**
+- e2e contas reais (build produção): **41 PASS / 0 WARN / 0 FAIL**

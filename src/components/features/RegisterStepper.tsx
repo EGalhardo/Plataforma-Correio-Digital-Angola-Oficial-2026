@@ -616,16 +616,21 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         const frenteBlob: Blob | null = documentFrente
           || (frentePreview && frentePreview.startsWith('data:image/') ? base64ToBlob(frentePreview) : null);
         if (frenteBlob) {
+          // v37.29-fix: o data-URL para a PVI é preparado MESMO que o upload ao
+          // Storage falhe — sem isto, uma falha de rede/RLS tornava as imagens
+          // «indisponíveis na nuvem» e bloqueava o cidadão injustamente.
+          try { pviFrenteData = await blobToPviDataUrl(frenteBlob); } catch { pviFrenteData = ''; }
           const frontPath = `${biClean}/frente_${Date.now()}.jpg`;
           const { error: fErr } = await supabase.storage
             .from('documentos_registo')
             .upload(frontPath, frenteBlob, { contentType: frenteBlob.type || 'image/jpeg' });
-          if (fErr) console.error('Erro upload frente:', fErr);
-          else {
+          if (fErr) {
+            console.error('Erro upload frente:', fErr);
+            addAuditLog(`[PVIC] Upload da FRENTE do B.I. ao Storage falhou (${(fErr as any)?.message || 'erro'}) — a validação prossegue com a imagem local.`, 'warning');
+          } else {
             // F45 (Storage privado v15): grava-se o MARCADOR resolvível
             // (storage:bucket/path) — nunca a URL pública, que deixa de existir.
             urlFrente = buildStorageRef('documentos_registo', frontPath);
-            try { pviFrenteData = await blobToPviDataUrl(frenteBlob); } catch { pviFrenteData = ''; }
           }
         }
 
@@ -633,11 +638,15 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         const versoBlob: Blob | null = documentVerso
           || (versoPreview && versoPreview.startsWith('data:image/') ? base64ToBlob(versoPreview) : null);
         if (versoBlob) {
+          try { pviVersoData = await blobToPviDataUrl(versoBlob); } catch { pviVersoData = ''; }
           const backPath = `${biClean}/verso_${Date.now()}.jpg`;
           const { error: bErr } = await supabase.storage
             .from('documentos_registo')
             .upload(backPath, versoBlob, { contentType: versoBlob.type || 'image/jpeg' });
-          if (bErr) console.error('Erro upload verso:', bErr);
+          if (bErr) {
+            console.error('Erro upload verso:', bErr);
+            addAuditLog(`[PVIC] Upload do VERSO do B.I. ao Storage falhou (${(bErr as any)?.message || 'erro'}) — a validação prossegue com a imagem local.`, 'warning');
+          }
           else {
             // F45 (Storage privado v15): marcador resolvível em vez de URL pública.
             urlVerso = buildStorageRef('documentos_registo', backPath);
@@ -682,7 +691,14 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         // F28 (Prompt v11.1) — Portas 2 e 3: a IA de visão do servidor analisa as imagens do
         // documento a partir das URLs gravadas no Storage. Qualquer falha/dúvida => REVISAO
         // (a conta fica PENDENTE, exactamente como hoje). NUNCA aprovação por erro técnico.
-        if (urlFrente && urlVerso) {
+        // v37.29-fix: se o upload ao Storage falhar mas existirem imagens
+        // locais (data-URL), a Pré-Verificação NÃO é saltada — o cidadão deixa
+        // de ver «sem_imagens_nuvem» por uma falha técnica de rede/RLS.
+        const uploadCompleto = !!(urlFrente && urlVerso);
+        if (uploadCompleto || (pviFrenteData && pviVersoData)) {
+          if (!uploadCompleto) {
+            addAuditLog('[PVIC] Imagens do B.I. não chegaram ao Storage — a Pré-Verificação prossegue com as imagens locais e a aprovação automática fica suprimida (homologação manual).', 'warning');
+          }
           setSubmitMessage('Pré-Verificação Inteligente (IA): a analisar as imagens do documento...');
           pviVerdict = await requestPviVerification({
             biNumber: newUser.biNumber,
@@ -720,7 +736,16 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         // o cadastro NÃO é aprovado nem submetido; a homologação não passa a
         // «Aprovado»; o cidadão é informado e pode corrigir os dados e repetir
         // a validação (volta à etapa Identidade).
-        if (appMode !== 'institution' && pviVerdict.veredicto !== 'APTO') {
+        // v37.29-fix: o bloqueio «corrija e repita» aplica-se APENAS a
+        // divergências REAIS entre o formulário e o B.I. (nome/nº/data/sexo/
+        // documento). Falhas técnicas ou de qualidade (sem_imagens_nuvem,
+        // ia_indisponivel, falha_tecnica, imagem_desfocada, layout_suspeito...)
+        // seguem a ideologia F28: o cadastro é SUBMETIDO e nasce PENDENTE de
+        // homologação manual — o cidadão conclui a inscrição e recebe o popup
+        // com o Nº de acesso e a senha.
+        const ALERTAS_DIVERGENCIA = ['nome_divergente', 'bi_divergente', 'data_divergente', 'sexo_divergente', 'documento_divergente', 'frente_verso_inconsistentes'];
+        const haDivergenciaReal = (pviVerdict.alertas || []).some((a: string) => ALERTAS_DIVERGENCIA.includes(a));
+        if (appMode !== 'institution' && pviVerdict.veredicto !== 'APTO' && haDivergenciaReal) {
           // O cidadão permanece na etapa de validação para LER o aviso; depois
           // usa «Voltar» para corrigir os dados e repetir a validação.
           setReprovacaoInfo({ motivo: pviVerdict.motivo, alertas: pviVerdict.alertas });
@@ -756,7 +781,10 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
             console.error('[AUTH-CLOUD] Falha inesperada no provisionamento do cidadão:', cloudErr);
           }
         }
-        effectiveAutoApproved = pviAutoApproved && !cloudPreExisting;
+        // v37.29-fix: sem upload completo ao Storage não há aprovação
+        // automática (a homologação manual decide, com as imagens locais já
+        // analisadas pela PVI).
+        effectiveAutoApproved = pviAutoApproved && !cloudPreExisting && uploadCompleto;
         if (cloudPreExisting) {
           addAuditLog(`[F47] Re-registo do B.I. ${newUser.biNumber}: credencial de nuvem PRÉ-EXISTENTE (conta anterior eliminada pela Administração) — aprovação automática por PVI SUPRIMIDA; a conta fica PENDENTE de nova homologação.`, 'warning');
         }
