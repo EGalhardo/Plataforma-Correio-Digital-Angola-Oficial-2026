@@ -24,7 +24,7 @@ import { registoPublicoProxy } from '../../services/supabaseService';
 import { homologationStore, notifyRegistrationSubmitted, notifyAccountApproved } from '../../services/homologationStore';
 import { CdaModal } from '../ui/CdaModal';
 import { requestPviVerification, buildPvicMarker, type PviVerdict } from '../../services/preVerificationService';
-import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticCitizenEmail } from '../../services/cloudAuthService';
+import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticCitizenEmail, cloudSignOutBestEffort } from '../../services/cloudAuthService';
 import { runRegistrationVerification, prewarmVerificationEngine, type RegistrationVerificationReport } from '../../services/verificationEngine';
 import { buildStorageRef } from '../../lib/secureStorage';
 import { normalizarNome, normalizarTitulo, corrigirDominioEmail } from '../../services/textNormalizeService';
@@ -105,6 +105,9 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   const [sexo, setSexo] = useState('');
   // v37.8 — resultado da validação automática por IA
   const [aprovadoPopup, setAprovadoPopup] = useState(false);
+  // v37.29 — popup com Nº de acesso + senha ao concluir a inscrição
+  const [credPopup, setCredPopup] = useState(false);
+  const [aprovadoPendente, setAprovadoPendente] = useState(false);
   const [reprovacaoInfo, setReprovacaoInfo] = useState<{ motivo: string; alertas: string[] } | null>(null);
   const [documentFrente, setDocumentFrente] = useState<File | null>(null);
   const [documentVerso, setDocumentVerso] = useState<File | null>(null);
@@ -142,6 +145,14 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState('');
   const [submitError, setSubmitError] = useState('');
+
+  // v37.29 — ANTI-FUGA: ao abrir o registo, termina qualquer sessão Auth
+  // residual de OUTRO utilizador neste dispositivo — a nova conta nunca herda
+  // fotos/e-mails de sessões anteriores (ex.: titular que estava logado).
+  useEffect(() => {
+    if (isSupabaseConfigured()) void cloudSignOutBestEffort(supabase);
+    // eslint-disable-next-line react-hooks/devDependencies
+  }, []);
 
   // v37.8 — após o popup «Aprovado», a página de registo fecha automaticamente
   // e o cidadão é redireccionado para o Login (6 s, ou já ao clicar «Entendi»).
@@ -535,7 +546,11 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       contact: email.trim().toLowerCase(),
       status: 'Pendente' as const,
       biNumber: biNumber.toUpperCase(),
-      facePhoto: savedFacePhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face',
+      // v37.29 — sem foto capturada no registo (v37.8): a foto fica VAZIA.
+      // Antigamente todos os novos cidadãos recebiam a MESMA foto de stock
+      // (parecia dado de outra pessoa); agora o perfil mostra fundo azul com
+      // a inicial do nome até o cidadão carregar a sua própria foto.
+      facePhoto: savedFacePhoto || '',
       verificationScore: verificationReport ? verificationReport.coherenceScore : parseFloat((94 + Math.random() * 5).toFixed(1)),
       // Métricas reais da pré-verificação local (a fila do Admin usa estes valores quando presentes)
       facialMatch: verificationReport?.face.similarity ?? undefined,
@@ -888,10 +903,13 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
       addAuditLog(`Processo de Adesão de ${newUser.name} submetido ao SME`, 'info');
       setStep('success');
+      // v37.29 — inscrição concluída: popup com o Nº de acesso e a senha.
+      setCredPopup(true);
       // v37.8 — cidadão aprovado pela validação automática: popup «Aprovado /
       // Seu cadastro foi aprovado.» e redireccionamento para o Login (a página
       // de registo fecha automaticamente após a confirmação).
-      if (appMode !== 'institution' && effectiveAutoApproved) setAprovadoPopup(true);
+      // v37.29 — o popup «Aprovado» espera pelo popup de credenciais.
+      if (appMode !== 'institution' && effectiveAutoApproved) setAprovadoPendente(true);
     } catch (e) {
       console.error('Erro ao guardar cidadão', e);
     } finally {
@@ -1819,6 +1837,51 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
           animation: scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
+      {/* v37.29 — popup de credenciais ao concluir a inscrição */}
+      <CdaModal
+        aberto={credPopup}
+        onFechar={() => {
+          setCredPopup(false);
+          if (aprovadoPendente) { setAprovadoPendente(false); setAprovadoPopup(true); }
+        }}
+        icone={Lock}
+        titulo="Registo Concluído"
+        subtitulo="Guarde os seus dados de acesso"
+        tomIcone="bg-blue-50 text-blue-600 border-blue-100"
+        maxW="max-w-md"
+      >
+        <div className="text-left space-y-3">
+          <p className="text-sm font-semibold text-slate-700 m-0 leading-relaxed">
+            A sua inscrição foi concluída. Use estes dados para iniciar sessão no portal:
+          </p>
+          <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-800 shrink-0">Nº de Acesso</span>
+              <span className="font-mono font-black text-slate-900 text-[13px] bg-white border border-blue-100 rounded-lg px-3 py-1.5 truncate">{biNumber}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-800 shrink-0">Senha</span>
+              <span className="font-mono font-black text-slate-900 text-[13px] bg-white border border-blue-100 rounded-lg px-3 py-1.5 break-all text-right">{password}</span>
+            </div>
+          </div>
+          <p className="text-[10.5px] font-semibold text-slate-500 m-0">
+            Por segurança, memorize ou guarde estes dados num local seguro — a senha não volta a ser mostrada.
+          </p>
+        </div>
+        <div className="flex justify-end pt-2">
+          <button
+            type="button"
+            onClick={() => {
+              setCredPopup(false);
+              if (aprovadoPendente) { setAprovadoPendente(false); setAprovadoPopup(true); }
+            }}
+            className="px-6 py-3 rounded-full font-black text-xs uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer border-none shadow-md shadow-blue-200"
+          >
+            Entendi
+          </button>
+        </div>
+      </CdaModal>
+
       {/* v37.8 — popup de aprovação automática do registo do cidadão */}
       <CdaModal
         aberto={aprovadoPopup}

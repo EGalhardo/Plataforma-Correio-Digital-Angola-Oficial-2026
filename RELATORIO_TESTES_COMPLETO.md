@@ -769,3 +769,27 @@ Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
 - `tsc --noEmit`: 0 erros · `npm run build`: 0 erros
 - e2e demo (build produção): **51 PASS / 0 WARN / 0 FAIL**
 - e2e contas reais (build produção): **41 PASS / 0 WARN / 0 FAIL**
+
+---
+
+## v37.29 — Isolamento total de dados entre contas + avatar azul com inicial + popup de credenciais no fim da inscrição (2026-08-26)
+
+**Pedidos do dono:** (1) «sempre que iniciar uma nova conta os dados dos outros utilizadores nao aparecem ou passem para o usuario logado»; (2) «Quando a foto de perfil do usuario estiver vazia deve aparecer no lugar da foto um fundo azul com a primeira letra do nome do usuario»; (3) «Sempre que o usuario concluir a sua inscricao apos ter concluido deve aparecer um popup indicando o seu numero de acesso e senha para fazer login.»
+
+### Alterações
+1. **Anti-fuga de avatar** (`App.tsx`): o avatar do Auth (`lerAvatarAuth()`) só é adoptado se o e-mail da sessão Auth pertencer MESMO ao B.I. logado (e-mail sintético da conta ou e-mail real associado) — tanto no cidadão como no admin. Sessões residuais de OUTRO utilizador no dispositivo já não emprestam a sua foto.
+2. **Anti-fuga de sessão** (`sessionStore.ts`): `sanitizeSessionUser` deixa de preencher campos vazios com os dados do utilizador demo (nome, e-mail, telefone, filiação, estado civil, foto, nível de verificação) quando existe uma identidade real (B.I. próprio) — contas novas entram LIMPAS; e `updateUserFields` faz reset completo dos campos pessoais sempre que o B.I. da sessão MUDA (login de outra conta no mesmo dispositivo).
+3. **Anti-fuga no registo** (`RegisterStepper.tsx`): novos cidadãos deixam de receber a MESMA foto de stock (Unsplash) — sem foto capturada a foto fica vazia; e o wizard faz sign-out best-effort da nuvem ao montar, para não herdar sessão anterior.
+4. **Avatar azul com inicial** (`Header.tsx` + `CitizenProfile.tsx`): sem foto, o Header mostra círculo azul (`bg-blue-600`) com a primeira letra do nome (2 rem) e a página Perfil mostra o cartão azul arredondado com a inicial (substitui qualquer foto mock/stock hardcoded, incluindo os fallbacks de filiação/estado civil que mostravam dados do demo).
+5. **Popup de credenciais** (`RegisterStepper.tsx`): ao concluir a inscrição (`step success`) abre ANTES de tudo o popup «Registo Concluído · Guarde os seus dados de acesso» com o Nº de acesso (B.I.) e a senha em cartões mono; o popup «Aprovado» (quando aplicável) só abre depois de o cidadão fechar o de credenciais.
+
+### Verificação E2E (contas reais + conta nova criada de raiz, dev :3000)
+- Registo completo via `#/registar` (nome/e-mail/senha → BI+data+sexo+documentos → «VALIDAR COM IA E CONCLUIR»): com bypass LOCAL temporário da porta anti-fraude do servidor (revertido antes do commit — a IA de visão do servidor rejeita correctamente documentos sintéticos: `layout_suspeito`, `foto_bi_ilegivel`), o fluxo concluiu e mostrou o **popup «Registo Concluído» com Nº de acesso 009998887LA099 e senha** ✔ (screenshot `/tmp/registo_resultado.png`).
+- Login da conta nova **009998887LA099**: Header com **círculo azul «T»**, Perfil com cartão azul «T», nome/BI próprios, e-mail derivado do próprio nome, telemóvel/estado civil/filiação «—» — **zero dados do Edlasio ou de qualquer outra conta** ✔ (screenshots `/tmp/nova_conta_painel.png`, `/tmp/nova_conta_perfil.png`).
+- Regressão conta real **002399714LA030**: mostra os SEUS dados (e-mail, +244 951520416, filiação) e a SUA foto (sem círculo azul) ✔. Regressão conta demo **009874562LA041**: dados canónicos intactos ✔.
+- Limpeza da nuvem após o teste: linha `solicitacoes_registo` do B.I. 009998887LA099 eliminada, conta Auth `bi.009998887la099@cidadao.correiodigital.ao` eliminada e 10 objectos de storage do bucket `documentos_registo` removidos ✔.
+
+### Varrimentos
+- `tsc --noEmit`: 0 erros · `npm run build`: 0 erros
+- e2e demo (build produção): **51 PASS / 0 WARN / 0 FAIL**
+- e2e contas reais (build produção): **41 PASS / 0 WARN / 0 FAIL**

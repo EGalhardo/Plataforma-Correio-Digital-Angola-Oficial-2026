@@ -443,7 +443,17 @@ export function Header({
                 }}
                 className="ring-1 ring-primary/5 hover:ring-primary/15"
               />
-            ) : null}
+            ) : (
+              /* v37.29 — sem foto: fundo azul com a primeira letra do nome */
+              <div
+                onClick={() => { setShowUnreadMenu(!showUnreadMenu); setShowNotifications(false); }}
+                title={user?.name || user?.firstName || 'Perfil'}
+                className="flex items-center justify-center bg-blue-600 text-white font-black cursor-pointer select-none ring-1 ring-primary/5 hover:ring-primary/15"
+                style={{ width: '2rem', height: '2rem', borderRadius: '9999px', fontSize: '11px', marginLeft: '0.25rem', border: '0.5px solid #e2e8f0' }}
+              >
+                {(user?.name || user?.firstName || 'U').trim().charAt(0).toUpperCase()}
+              </div>
+            )}
             {unreadCount > 0 && (
               <div className="bg-red-600 text-white font-black text-[6px] min-w-[10px] h-[10px] px-0.5 flex items-center justify-center rounded-full ring-1 ring-white absolute -top-0.5 -right-0.5 z-10 shadow-sm pointer-events-none leading-none">
                 {unreadCount}
@@ -599,7 +609,17 @@ export function Header({
                 }}
                 className="ring-1 ring-primary/5 hover:ring-primary/15 shadow-xs transition-all"
               />
-            ) : null}
+            ) : (
+              /* v37.29 — sem foto: fundo azul com a primeira letra do nome */
+              <div
+                onClick={() => { setShowUnreadMenu(!showUnreadMenu); setShowNotifications(false); }}
+                title={user?.name || user?.firstName || 'Perfil'}
+                className="flex items-center justify-center bg-blue-600 text-white font-black cursor-pointer select-none ring-1 ring-primary/5 hover:ring-primary/15 shadow-xs"
+                style={{ width: '2.5rem', height: '2.5rem', borderRadius: '9999px', fontSize: '14px', border: '1px solid #e2e8f0' }}
+              >
+                {(user?.name || user?.firstName || 'U').trim().charAt(0).toUpperCase()}
+              </div>
+            )}
             {unreadCount > 0 && (
               <div className="bg-red-600 text-white font-black text-[7.5px] min-w-[12px] h-[12px] px-0.5 flex items-center justify-center rounded-full ring-1 ring-white absolute -top-0.5 -right-0.5 z-10 shadow-sm pointer-events-none leading-none">
                 {unreadCount}

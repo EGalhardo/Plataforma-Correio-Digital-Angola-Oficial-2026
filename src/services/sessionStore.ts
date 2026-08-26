@@ -69,28 +69,43 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // preenchidos com os dados demo do cidadão.
     const mode = (localStorage.getItem("gov_app_mode") as AppMode) || "user";
     const base: SessionUser = mode === "institution" ? INSTITUTION_BASE_USER : CANONICAL_USER;
-    let avatar = candidate?.avatarUrl || base.avatarUrl;
+    // v37.29 — ANTI-FUGA + fundo azul/inicial: se a hidratação definiu
+    // EXPLICITAMENTE avatarUrl vazio (conta sem foto), NUNCA substituir pela
+    // foto demo/mock — o Header/Perfil mostram o círculo azul com a inicial.
+    let avatar = (candidate && Object.prototype.hasOwnProperty.call(candidate, 'avatarUrl'))
+      ? (candidate.avatarUrl || '')
+      : base.avatarUrl;
     if (avatar && (avatar.includes("sxWsYGX2") || avatar.includes("foto_perfil_edlasio"))) {
       avatar = mode === "institution" ? base.avatarUrl : "https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png";
     }
+    // v37.29 — ANTI-FUGA DE DADOS ENTRE CONTAS: quando existe uma sessão de um
+    // utilizador REAL (com B.I. próprio), os campos pessoais vazios NUNCA são
+    // preenchidos com os dados do utilizador demo (nome, e-mail, telefone,
+    // filiação, estado civil, nível de verificação...) — a conta nova entra
+    // LIMPA; cada campo só mostra o que pertence ao próprio titular.
+    const temIdentidade = mode === "user" && !!candidate && !!candidate.bi;
+    const f = (v: string | undefined | null, fallback: string) =>
+      temIdentidade ? (v || "") : (v || fallback);
     return {
       ...base,
       ...(candidate || {}),
       id: candidate?.id || base.id,
-      name: candidate?.name || base.name,
-      firstName: candidate?.firstName || candidate?.name?.trim()?.split(' ')?.[0] || base.firstName,
-      lastName: candidate?.lastName || candidate?.name?.trim()?.split(' ')?.slice(-1)?.[0] || base.lastName,
-      bi: candidate?.bi || base.bi,
-      nif: candidate?.nif || base.nif,
-      passport: candidate?.passport || base.passport,
-      phone: candidate?.phone || base.phone,
-      email: candidate?.email || base.email,
-      birthDate: candidate?.birthDate || base.birthDate,
-      filiation: candidate?.filiation || base.filiation,
-      maritalStatus: candidate?.maritalStatus || base.maritalStatus,
+      name: f(candidate?.name, base.name),
+      firstName: f(candidate?.firstName || candidate?.name?.trim()?.split(' ')?.[0], base.firstName),
+      lastName: f(candidate?.lastName || candidate?.name?.trim()?.split(' ')?.slice(-1)?.[0], base.lastName),
+      bi: f(candidate?.bi, base.bi),
+      nif: f(candidate?.nif, base.nif),
+      passport: f(candidate?.passport, base.passport),
+      phone: f(candidate?.phone, base.phone),
+      email: f(candidate?.email, base.email),
+      birthDate: f(candidate?.birthDate, base.birthDate),
+      filiation: f(candidate?.filiation, base.filiation),
+      maritalStatus: f(candidate?.maritalStatus, base.maritalStatus),
       avatarUrl: avatar,
-      verificationLevel: candidate?.verificationLevel || base.verificationLevel,
-      confidenceScore: candidate?.confidenceScore ?? base.confidenceScore,
+      verificationLevel: (temIdentidade
+        ? (candidate?.verificationLevel || 'Pendente')
+        : (candidate?.verificationLevel || base.verificationLevel)),
+      confidenceScore: temIdentidade ? (candidate?.confidenceScore ?? 0) : (candidate?.confidenceScore ?? base.confidenceScore),
       lastAccess: candidate?.lastAccess || base.lastAccess,
     };
   };
@@ -192,7 +207,20 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateUserFields = (fields: Partial<SessionUser>) => {
     setUser(prev => {
-      const updated = sanitizeSessionUser({ ...prev, ...fields });
+      // v37.29 — ANTI-FUGA ENTRE CONTAS: quando o B.I. da sessão MUDA (login de
+      // outra conta neste dispositivo), os campos pessoais da conta anterior
+      // NUNCA podem sobreviver ao merge — a nova sessão nasce LIMPA e só a
+      // hidratação da própria identidade volta a preencher o que existir.
+      const nextBi = (fields.bi !== undefined ? fields.bi : prev.bi) || "";
+      const identidadeTrocou = !!nextBi && nextBi !== prev.bi;
+      const resetIdentidade: Partial<SessionUser> = identidadeTrocou
+        ? {
+            name: "", firstName: "", lastName: "", nif: "", passport: "",
+            phone: "", email: "", birthDate: "", filiation: "", maritalStatus: "",
+            avatarUrl: "", verificationLevel: "Pendente", confidenceScore: 0,
+          }
+        : {};
+      const updated = sanitizeSessionUser({ ...prev, ...resetIdentidade, ...fields });
       // Keep name unifiable split if full name updated
       if (fields.name) {
         const parts = fields.name.trim().split(" ");

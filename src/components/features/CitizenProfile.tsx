@@ -58,7 +58,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
   bi = '',
   phone = '',
   email = '',
-  userFiliation = 'António Galhardo & Maria Conceição',
+  userFiliation = '',
   contactsList = [],
   documentsList = [],
   correspondencesCount = 0,
@@ -79,7 +79,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
   const [editName, setEditName] = useState(user?.name || '');
   const [editPhone, setEditPhone] = useState(user?.phone || phone || '');
   const [editEmail, setEditEmail] = useState(user?.email || '');
-  const [editFiliation, setEditFiliation] = useState(user?.filiation || 'António Galhardo & Maria Conceição');
+  const [editFiliation, setEditFiliation] = useState(user?.filiation || '');
   const [editMaritalStatus, setEditMaritalStatus] = useState(user?.maritalStatus || 'Solteiro');
   const [editMorada, setEditMorada] = useState(user?.address || '');
 
@@ -87,7 +87,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
     setEditName(user?.name || '');
     setEditPhone(user?.phone || phone || '');
     setEditEmail(user?.email || '');
-    setEditFiliation(user?.filiation || 'António Galhardo & Maria Conceição');
+    setEditFiliation(user?.filiation || '');
     setEditMaritalStatus(user?.maritalStatus || 'Solteiro');
     setEditMorada(user?.address || '');
   }, [user, phone]);
@@ -368,7 +368,12 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                     className="w-full h-full rounded-[22px] object-cover transition-all group-hover:scale-105"
                     referrerPolicy="no-referrer"
                   />
-                ) : null}
+                ) : (
+                  /* v37.29 — sem foto: fundo azul com a primeira letra do nome */
+                  <div className="w-full h-full rounded-[22px] bg-blue-600 flex items-center justify-center text-white font-black text-5xl select-none">
+                    {(profileName || 'U').trim().charAt(0).toUpperCase()}
+                  </div>
+                )}
                 
                 {/* Hover overlay */}
                 <label 
@@ -566,8 +571,8 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                   { label: 'B.I. (Nº Bilhete de Identidade)', value: user?.bi || bi || '—', type: 'mono' },
                   { label: 'Email Registado', value: user?.email || derivedEmail || '—', type: 'email', verified: true },
                   { label: 'Telemóvel Registado', value: user?.phone || phone || '—', type: 'phone' },
-                  { label: 'Estado Civil', value: user?.maritalStatus || 'Solteiro(a)', type: 'text' },
-                  { label: 'Filiação (Paternidade & Maternidade)', value: user?.filiation || 'António Galhardo & Maria Conceição', type: 'text' },
+                  { label: 'Estado Civil', value: user?.maritalStatus || '—', type: 'text' },
+                  { label: 'Filiação (Paternidade & Maternidade)', value: user?.filiation || '—', type: 'text' },
                   { label: 'Morada Residencial', value: user?.address || 'Não associado', type: 'text', colSpan: 'md:col-span-2' },
                   { label: 'Registo do Sistema Central', value: 'Conta criada em: 16 de Junho de 2025', type: 'text', colSpan: 'md:col-span-2', subtle: true }
                 ].map((field, index) => (

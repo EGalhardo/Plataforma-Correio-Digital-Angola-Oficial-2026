@@ -1126,7 +1126,19 @@ export default function App() {
       // tem prioridade sobre a selfie KYC/face — sem isto a nova foto revertia
       // para a antiga no login seguinte. Fontes: Auth metadata (nuvem) e
       // localStorage deste dispositivo (por BI).
-      const fotoPerfil = (await lerAvatarAuth()) || lerAvatarLocal('user', normalized);
+      // v37.29 — ANTI-FUGA: o avatar do Auth só é adotado se a sessão Auth
+      // pertencer MESMO a este B.I. (e-mail sintético da conta ou e-mail real
+      // associado) — impede que uma sessão residual de OUTRO utilizador neste
+      // dispositivo empreste a sua foto à conta acabada de criar/entrar.
+      let fotoAuthSegura = '';
+      try {
+        const { data: sessDados } = await supabase.auth.getSession();
+        const emailSessao = String(sessDados?.session?.user?.email || '').toLowerCase();
+        const meusEmails = new Set<string>([syntheticCitizenEmail(normalized).toLowerCase()]);
+        if (resolvedEmail) meusEmails.add(String(resolvedEmail).toLowerCase());
+        if (emailSessao && meusEmails.has(emailSessao)) fotoAuthSegura = await lerAvatarAuth();
+      } catch { /* melhor esforço */ }
+      const fotoPerfil = fotoAuthSegura || lerAvatarLocal('user', normalized);
       if (fotoPerfil) resolvedAvatar = fotoPerfil;
 
       if (!resolvedName) {
@@ -6390,7 +6402,14 @@ Ficha civil do titular:
                     email: locAg.email || '',
                   });
                 }
-                const fotoAg = (await lerAvatarAuth()) || lerAvatarLocal('admin', typedAgent);
+                // v37.29 — ANTI-FUGA: avatar do Auth só se a sessão for deste agente.
+                let fotoAgAuth = '';
+                try {
+                  const { data: sessAg } = await supabase.auth.getSession();
+                  const emailSessaoAg = String(sessAg?.session?.user?.email || '').toLowerCase();
+                  if (emailSessaoAg === syntheticAdminEmail(typedAgent).toLowerCase()) fotoAgAuth = await lerAvatarAuth();
+                } catch { /* melhor esforço */ }
+                const fotoAg = fotoAgAuth || lerAvatarLocal('admin', typedAgent);
                 if (fotoAg) updateUserFields?.({ avatarUrl: fotoAg });
               } catch (e) {
                 console.warn('CADA: hidratação do perfil do agente falhou (best-effort):', e);
