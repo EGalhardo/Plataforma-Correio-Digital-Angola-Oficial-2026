@@ -944,3 +944,25 @@ conteúdo curto não força barra (comportamento correcto).
 
 Regressão: 51 PASS / 0 WARN / 0 FAIL (demo) · 41 PASS / 0 WARN / 0 FAIL (contas reais) ·
 `tsc --noEmit` 0 erros · `npm run build` OK.
+
+---
+
+## v37.36 — Paridade total das logomarcas claro/escuro — 2026-08-26
+
+Problema (dono): nos modos claro e escuro as duas logomarcas não tinham o mesmo tamanho
+nem a mesma posição. Causa-raiz: artes com rácios diferentes (claro 3.92, escuro 2.44 com
+margens) + estilos condicionais por tema (Sidebar 45px vs 71.4px; Header maxWidth só no claro).
+
+Correção cirúrgica (Sprint do prompt aprovado):
+- Novo asset local `logomarca_modo_escuro_crop.png`: conteúdo escuro recortado por alpha e
+  normalizado para o MESMO rácio de canvas do claro (3.921) com margens proporcionais.
+- `Sidebar.tsx`: caixa fixa idêntica nos dois temas (48px inline, flex, sem condicionais);
+  imagem `height:100% / object-contain / objectPosition left center`.
+- `Header.tsx` (mobile): altura única 39px + `maxWidth:45vw` + ancoragem esquerda nos DOIS temas.
+- PNG remoto alto eliminado dos dois componentes.
+
+Medições reais (Playwright, bounding rect da marca):
+- Desktop 1280px: claro 48×188.2 @ (37.8, 27.3) · escuro 48×188.2 @ (37.8, 27.3) — idênticos.
+- Mobile 390px: claro 39×152.9 @ (13, 6) · escuro 39×152.9 @ (13, 6) — idênticos.
+
+Regressão: 51/0/0 + 41/0/0 · tsc 0 · build OK. Splash/login intocados.

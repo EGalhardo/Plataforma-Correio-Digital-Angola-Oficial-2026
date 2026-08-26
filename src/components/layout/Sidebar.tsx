@@ -10,6 +10,7 @@ import { useSession } from '../../services/sessionStore';
 import { useLanguage } from '../../hooks/useLanguage';
 import { LazyImage } from '../ui/LazyImage';
 import logoModoClaro from '../../assets/images/logomarca_modo_claro_crop.png';
+import logoModoEscuro from '../../assets/images/logomarca_modo_escuro_crop.png';
 
 interface MenuItem {
   id: string;
@@ -98,20 +99,20 @@ export function Sidebar({
       'bg-white text-slate-900 shadow-slate-200/50'
     }`}>
       <div className="mb-8 px-4">
-        <LazyImage
-          src={theme === 'dark' 
-            ? "https://i.postimg.cc/6pQwXBFQ/Logomarca-Modo-Claro-Escuro.png"
-            : logoModoClaro
-          } 
-          alt="Correio Digital" 
-          priority={true}
-          placeholder="skeleton"
-          // F37 (Opção A aprovada) — paridade de LARGURA na caixa útil ~178px (250−p-5−px-4):
-          // claro 45px → desenho 176x45; escuro 71.4px (=178×513/1279) → desenho ~178x71.4.
-          // objectFit contain preserva a proporção de cada marca; maxWidth 100% protege ambos.
-          style={{ width: 'auto', objectFit: 'contain', backgroundColor: 'transparent', maxWidth: '100%', ...(theme === 'dark' ? { height: '71.4px' } : { height: '45px' }) }}
-          className="transition-all"
-        />
+        {/* v37.36 — PARIDADE CLARO/ESCURO: caixa fixa idêntica nos dois temas
+            (h-12 = 48px) e as duas logomarcas normalizadas para o mesmo rácio
+            (4.137) com margens proporcionais — a marca ocupa o mesmo rectângulo
+            e o mesmo bordo esquerdo em qualquer tema; sem estilos condicionais. */}
+        <div className="w-full flex items-center" style={{ height: '48px' }}>
+          <LazyImage
+            src={theme === 'dark' ? logoModoEscuro : logoModoClaro}
+            alt="Correio Digital"
+            priority={true}
+            placeholder="skeleton"
+            style={{ height: '100%', width: 'auto', maxWidth: '100%', objectFit: 'contain', objectPosition: 'left center', backgroundColor: 'transparent' }}
+            className="transition-all"
+          />
+        </div>
       </div>
 
       <div className="text-[8px] font-black text-slate-500 tracking-[0.25em] uppercase px-1.5 mb-2 mt-4 md:mt-0">
