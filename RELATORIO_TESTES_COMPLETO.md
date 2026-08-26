@@ -813,3 +813,25 @@ Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
 - `tsc --noEmit`: 0 erros · `npm run build`: 0 erros
 - e2e demo (build produção): **51 PASS / 0 WARN / 0 FAIL**
 - e2e contas reais (build produção): **41 PASS / 0 WARN / 0 FAIL**
+
+---
+
+## v37.30 — Popup «Registar Novo Membro da Equipa» (Instituição): campos «Senha» e «Confirmar Senha» sempre presentes (2026-08-26)
+
+**Pedido do dono:** «Na área da Instituição, na pagina Equipa o popup "Registar Novo Membro da Equipa" esta faltando o campo "Senha" e "Confirmar Senha".»
+
+**Causa:** o campo de senha estava condicionado a `getLocalInstReg(...)` (F4) — só instituições com registo LOCAL o mostravam; nas instituições reais (modo nuvem) o popup nascia sem senha, e o membro era criado sem credencial.
+
+### Alterações (GovContactsContent.tsx)
+1. **Campos sempre visíveis** na Instituição (real ou demo) e no Admin: «Senha Inicial do Colaborador *» + novo «Confirmar Senha *» lado a lado (`type=password`, estilo coerente com o popup).
+2. **Validação:** na criação a senha é obrigatória (mín. 8 caracteres) e a confirmação tem de coincidir («A Confirmação da Senha não coincide com a Senha introduzida.»); na edição ambos opcionais (vazio = manter); uniqueness checks existentes preservados (senha única na instituição / palavra-passe única no Admin).
+3. `resetForm` e `handleEditWorkerClick` limpam também o campo de confirmação.
+
+### Verificação (conta real INAPEM-LLMM-01, dev :3000)
+- Popup aberto na Equipa: **ambos os campos presentes** (screenshot `/tmp/equipa_popup.png`).
+- Senhas divergentes → notificação «não coincide» e o cadastro NÃO é criado ✔; senhas iguais (mín. 8) → membro criado e listado no Quadro da Equipa (screenshot `/tmp/equipa_criado.png`). Nenhum registo tocado na nuvem (teste em browser efémero).
+
+### Varrimentos
+- `tsc --noEmit`: 0 erros · `npm run build`: 0 erros
+- e2e demo (build produção): **51 PASS / 0 WARN / 0 FAIL**
+- e2e contas reais (build produção): **41 PASS / 0 WARN / 0 FAIL**

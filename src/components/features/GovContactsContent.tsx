@@ -1383,6 +1383,7 @@ export function GovContactsContent({
   const [newWorkerStatus, setNewWorkerStatus] = useState<'Ativo' | 'Desativado' | 'Suspenso' | 'Férias' | 'Pendente'>('Ativo');
   const [, setNewWorkerAccessProfile] = useState('Operador de Atendimento');
   const [newWorkerPassword, setNewWorkerPassword] = useState('');
+  const [newWorkerPasswordConfirm, setNewWorkerPasswordConfirm] = useState('');
   // 2026-08-22 — PERMISSÕES DE PÁGINA: páginas seleccionadas no popup
   const [newWorkerPaginas, setNewWorkerPaginas] = useState<string[]>([]);
 
@@ -1434,6 +1435,7 @@ export function GovContactsContent({
     setNewWorkerStatus('Ativo');
     setNewWorkerAccessProfile('Operador de Atendimento');
     setNewWorkerPassword('');
+    setNewWorkerPasswordConfirm('');
     setNewWorkerPaginas([]);
     setIsEditingWorker(false);
     setEditingWorkerId(null);
@@ -1455,46 +1457,32 @@ export function GovContactsContent({
     const instReg = (!isPlatformAdmin && appMode === 'institution' && regCode) ? getLocalInstReg(regCode) : undefined;
     // F6/B4 — Admin: agentes recebem senha inicial individual (login Admin: 'ADMIN-NNNN' + senha), única na área.
     const adminCredsOn = isPlatformAdmin;
-    if (instReg && !isEditingWorker) {
+    // v37.30 — com os campos Senha + Confirmar Senha sempre visíveis, a senha
+    // é OBRIGATÓRIA na criação (Instituição real/demo e Admin) e a confirmação
+    // tem de coincidir; na edição ambos são opcionais (vazio = manter).
+    const senhaExigida = (isPlatformAdmin || appMode === 'institution') && !isEditingWorker;
+    const senhaTocada = !!newWorkerPassword || !!newWorkerPasswordConfirm;
+    if (senhaExigida || senhaTocada) {
       if (!newWorkerPassword || newWorkerPassword.length < 8) {
-        notify('Defina a Senha inicial do colaborador (mínimo 8 caracteres). O login institucional deste colaborador será: Código da instituição + esta senha.');
+        notify(isPlatformAdmin
+          ? 'Defina a Palavra-passe inicial do agente (mínimo 8 caracteres). O login Admin deste agente será: Nº Agente Admin + esta palavra-passe.'
+          : 'Defina a Senha inicial do colaborador (mínimo 8 caracteres). O login institucional deste colaborador será: Código da instituição + esta senha.');
         return;
       }
-      if (isInstPasswordTaken(regCode, newWorkerPassword)) {
+      if (newWorkerPasswordConfirm !== newWorkerPassword) {
+        notify('A Confirmação da Senha não coincide com a Senha introduzida. Verifique os dois campos.');
+        return;
+      }
+      if (instReg && isInstPasswordTaken(regCode, newWorkerPassword, isEditingWorker ? (editingWorkerId || undefined) : undefined)) {
         notify('Esta senha já está a ser usada por outra credencial desta instituição. Como a senha identifica a pessoa no login, escolha outra.');
         return;
       }
-    }
-    if (instReg && isEditingWorker && newWorkerPassword) {
-      if (newWorkerPassword.length < 8) {
-        notify('A nova senha (se preenchida) deve ter pelo menos 8 caracteres.');
-        return;
-      }
-      if (isInstPasswordTaken(regCode, newWorkerPassword, editingWorkerId || undefined)) {
-        notify('Esta senha já está a ser usada por outra credencial desta instituição. Escolha outra.');
-        return;
-      }
-    }
-    // F6 — validações da palavra-passe de Agente Admin (criar obrigatória; editar só se preenchida)
-    if (adminCredsOn && !isEditingWorker) {
-      if (!newWorkerPassword || newWorkerPassword.length < 8) {
-        notify('Defina a Palavra-passe inicial do agente (mínimo 8 caracteres). O login Admin deste agente será: Nº Agente Admin + esta palavra-passe.');
-        return;
-      }
-      if (isAdminAgentPasswordTaken(newWorkerPassword)) {
-        notify('Esta palavra-passe já está a ser usada por outro agente da Administração. Como a palavra-passe identifica a pessoa no login, escolha outra.');
-        return;
-      }
-    }
-    if (adminCredsOn && isEditingWorker && newWorkerPassword) {
-      if (newWorkerPassword.length < 8) {
-        notify('A nova palavra-passe (se preenchida) deve ter pelo menos 8 caracteres.');
-        return;
-      }
-      const editingAgentNum = workers.find(w => w.id === editingWorkerId)?.agentId;
-      if (isAdminAgentPasswordTaken(newWorkerPassword, editingAgentNum)) {
-        notify('Esta palavra-passe já está a ser usada por outro agente da Administração. Escolha outra.');
-        return;
+      if (adminCredsOn) {
+        const editingAgentNum = isEditingWorker ? workers.find(w => w.id === editingWorkerId)?.agentId : undefined;
+        if (isAdminAgentPasswordTaken(newWorkerPassword, editingAgentNum)) {
+          notify('Esta palavra-passe já está a ser usada por outro agente da Administração. Como a palavra-passe identifica a pessoa no login, escolha outra.');
+          return;
+        }
       }
     }
 
@@ -1695,6 +1683,7 @@ export function GovContactsContent({
     setIsEditingWorker(true);
     setEditingWorkerId(w.id);
     setNewWorkerPassword('');
+    setNewWorkerPasswordConfirm('');
     setNewWorkerName(w.name);
     setNewWorkerEmail(w.email);
     setNewWorkerRole(w.role);
@@ -2370,31 +2359,54 @@ export function GovContactsContent({
 
                     </div>
 
-                    {/* F4 — Senha inicial do colaborador (só instituições registadas por Código; na demo AGT-9921-SR não há registo, logo sem campo) */}
-                    {(isPlatformAdmin || (appMode === 'institution' && !!getLocalInstReg(normalizeInstCode(bi)))) && (
+                    {/* v37.30 — Senha + Confirmar Senha SEMPRE presentes no popup
+                        (Instituição real ou demo, e Admin). Antes o campo só
+                        aparecia com registo local (F4), por isso nas instituições
+                        reais o popup nascia sem senha. */}
+                    {(isPlatformAdmin || appMode === 'institution') && (
                       <>
                         <div className="border-t border-dashed border-slate-150" />
-                        <div className="grid gap-1.5 text-left">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                            {isPlatformAdmin ? (isEditingWorker ? 'Nova Palavra-passe do Agente (deixe vazio para manter)' : 'Palavra-passe Inicial do Agente *') : (isEditingWorker ? 'Nova Senha do Colaborador (deixe vazio para manter)' : 'Senha Inicial do Colaborador *')}
-                          </label>
-                          <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none">
-                              <UserPlus size={16} />
-                            </span>
-                            <input
-                              type="text"
-                              autoComplete="off"
-                              placeholder={isEditingWorker ? '********' : 'Mín. 8 caracteres — será substituída no 1.º login'}
-                              value={newWorkerPassword}
-                              onChange={(e) => setNewWorkerPassword(e.target.value)}
-                              className="w-full bg-white border-2 border-slate-100 focus:border-blue-500/30 rounded-[20px] pl-11 pr-4 py-3.5 text-xs text-slate-800 font-mono font-bold outline-none transition-all"
-                            />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                          <div className="grid gap-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                              {isPlatformAdmin ? (isEditingWorker ? 'Nova Palavra-passe do Agente (deixe vazio para manter)' : 'Palavra-passe Inicial do Agente *') : (isEditingWorker ? 'Nova Senha do Colaborador (deixe vazio para manter)' : 'Senha Inicial do Colaborador *')}
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none">
+                                <UserPlus size={16} />
+                              </span>
+                              <input
+                                type="password"
+                                autoComplete="new-password"
+                                placeholder={isEditingWorker ? '********' : 'Mín. 8 caracteres'}
+                                value={newWorkerPassword}
+                                onChange={(e) => setNewWorkerPassword(e.target.value)}
+                                className="w-full bg-white border-2 border-slate-100 focus:border-blue-500/30 rounded-[20px] pl-11 pr-4 py-3.5 text-xs text-slate-800 font-mono font-bold outline-none transition-all"
+                              />
+                            </div>
                           </div>
-                          <p className="text-[9px] text-slate-400 font-bold leading-snug m-0 mr-1 select-none">
-                            {isPlatformAdmin ? (<>O membro entra com <strong>Nº Agente Admin + esta palavra-passe</strong> no login da Administração.</>) : (<>O colaborador entra com <strong>Código da instituição + esta senha</strong>.</>)} A senha identifica a pessoa — não pode repetir outra credencial activa e ficará guardada apenas neste dispositivo.
-                          </p>
+                          <div className="grid gap-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                              {isPlatformAdmin ? (isEditingWorker ? 'Confirmar Nova Palavra-passe' : 'Confirmar Palavra-passe *') : (isEditingWorker ? 'Confirmar Nova Senha' : 'Confirmar Senha *')}
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none">
+                                <UserPlus size={16} />
+                              </span>
+                              <input
+                                type="password"
+                                autoComplete="new-password"
+                                placeholder="Repita a senha exactamente"
+                                value={newWorkerPasswordConfirm}
+                                onChange={(e) => setNewWorkerPasswordConfirm(e.target.value)}
+                                className="w-full bg-white border-2 border-slate-100 focus:border-blue-500/30 rounded-[20px] pl-11 pr-4 py-3.5 text-xs text-slate-800 font-mono font-bold outline-none transition-all"
+                              />
+                            </div>
+                          </div>
                         </div>
+                        <p className="text-[9px] text-slate-400 font-bold leading-snug m-0 mr-1 select-none">
+                          {isPlatformAdmin ? (<>O membro entra com <strong>Nº Agente Admin + esta palavra-passe</strong> no login da Administração.</>) : (<>O colaborador entra com <strong>Código da instituição + esta senha</strong>.</>)} A senha identifica a pessoa — não pode repetir outra credencial activa e ficará guardada apenas neste dispositivo.
+                        </p>
                       </>
                     )}
 
