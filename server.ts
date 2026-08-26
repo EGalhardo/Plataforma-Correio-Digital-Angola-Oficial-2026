@@ -406,7 +406,10 @@ const DADOS_TABELAS: Record<string, {
     select: true, insert: true, update: true, delete: false, upsert: true,
     escopo: (i) => i.isAdmin ? { or: [], and: {} }
       : i.isInst ? { or: [`recipient_bi.eq.${i.instCode || i.bi}`, `sender_bi.eq.${i.instCode || i.bi}`, `org.eq.${i.instCode || i.bi}`], and: {} }
-      : { or: [`recipient_bi.eq.${i.bi}`, `sender_bi.eq.${i.bi}`], and: {} },
+      // v37.31 — difusões «TODOS» (expedição nacional) também pertencem à
+      // caixa do cidadão: sem isto, cidadãos registados DEPOIS da difusão
+      // (ex.: Mario Quiuma, 26/08) nunca viam a mensagem da instituição.
+      : { or: [`recipient_bi.eq.${i.bi}`, `sender_bi.eq.${i.bi}`, 'recipient_bi.eq.TODOS'], and: {} },
     injetar: (i, d) => {
       if (i.isAdmin) return { ...d, sender_bi: d.sender_bi || 'CDA' };
       const sender = i.isInst ? (i.instCode || i.bi) : i.bi;

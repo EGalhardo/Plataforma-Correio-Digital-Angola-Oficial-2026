@@ -1482,10 +1482,13 @@ export const supabaseService = {
           undefined,
           { col: 'created_at', dir: 'desc' },
           async () => {
+            // v37.31 — cidadãos também recebem as difusões «TODOS» das
+            // instituições (cidadãos registados após a difusão incluídos).
+            const ehBiCidadao = /^\d{9}[A-Z]{2}\d{3}$/i.test(recipientKey || '');
             const { data, error } = await supabase
               .from('messages')
               .select('*')
-              .or(`recipient_bi.eq.${recipientKey},sender_bi.eq.${senderKey}`)
+              .or(`recipient_bi.eq.${recipientKey},sender_bi.eq.${senderKey}${ehBiCidadao ? ',recipient_bi.eq.TODOS' : ''}`)
               .order('created_at', { ascending: false })
               .limit(500);
             if (error) throw error;
@@ -1529,8 +1532,12 @@ export const supabaseService = {
           };
         };
         const mapped = rows.map(mapRow);
+        const ehBi = /^\d{9}[A-Z]{2}\d{3}$/i.test(recipientKey || '');
         return {
-          incoming: mapped.filter((_, i) => norm(rows[i].recipient_bi) === norm(recipientKey)),
+          incoming: mapped.filter((_, i) => {
+            const r = norm(rows[i].recipient_bi);
+            return r === norm(recipientKey) || (ehBi && r === 'TODOS');
+          }),
           sent: mapped.filter((_, i) => norm(rows[i].sender_bi) === norm(senderKey)),
         };
       } catch (e) {

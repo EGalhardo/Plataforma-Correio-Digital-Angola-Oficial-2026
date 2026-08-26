@@ -835,3 +835,19 @@ Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
 - `tsc --noEmit`: 0 erros · `npm run build`: 0 erros
 - e2e demo (build produção): **51 PASS / 0 WARN / 0 FAIL**
 - e2e contas reais (build produção): **41 PASS / 0 WARN / 0 FAIL**
+
+---
+
+## v37.31 — Difusões «TODOS» chegam ao Correio de todos os cidadãos (incl. registados depois da expedição) (2026-08-26)
+
+**Pedido do dono:** «Verifica porque razão a mensagem do Inapem nao chegou ou aparece nas correspondencias do cidadão Mario Quiuma.»
+
+**Diagnóstico (nuvem, dados reais):** Mario Segunda Quiuma (BI `005404692BO043`) registou-se em **26/08 11:12** — DEPOIS da difusão «Inquerito(Saude)» do INAPEM-LLMM (25/08 17:27), que materializou uma linha `messages` por BI da audiência daquelE momento + uma linha expedição `recipient_bi='TODOS'`. A caixa do cidadão consultava apenas `recipient_bi = <BI>` (no proxy do servidor E no fallback local) — logo a linha «TODOS» nunca aparecia a nenhum cidadão, e quem se registou após a difusão (Mario) ficava sem a mensagem.
+
+### Correcções
+1. **`server.ts` (escopo de leitura do proxy):** cidadão passa a receber também `recipient_bi.eq.TODOS` no OR de scope da tabela `messages`.
+2. **`supabaseService.getOwnMailbox`:** o `.or()` do fallback local inclui `recipient_bi.eq.TODOS` (só para chaves com formato de B.I. de cidadão) e o filtro `incoming` trata linhas «TODOS» como recebidas do titular. Instituições e Admin mantêm exactamente o comportamento anterior (a linha «TODOS» própria continua nas Enviadas; o Admin vê tudo).
+
+### Verificação (contas reais, dev :3000)
+- Cidadão real `002399714LA030` (que NÃO estava na lista por-BI da difusão de 25/08): o Correio passa a mostrar **«Inquerito(Saude)» do INAPEM-LLMM** nas recebidas, com ABRIR/ELIMINAR/LIDA (screenshot `/tmp/correio_edlasio_todos.png`) ✔ — o mesmo caminho serve o Mario Quiuma no portal de produção.
+- Varrimentos no build de produção: **51 PASS / 0 WARN / 0 FAIL** e **41 PASS / 0 WARN / 0 FAIL**; `tsc --noEmit` 0 erros.
