@@ -867,3 +867,27 @@ Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
 - e2e demo (build produção): **51 PASS / 0 WARN / 0 FAIL**
 - e2e contas reais (build produção): **41 PASS / 0 WARN / 0 FAIL** (inclui verificações de excepções JS e erros de consola por página)
 - Sem alterações de comportamento nas contas demo/instituição/admin; apenas remoção de fugas de dados e do efeito colateral partilhado.
+
+---
+
+## v37.33 — Popup «Registar Novo Membro da Equipa» da Instituição adaptado ao modelo do Admin; Nº Agente = Código da Instituição + índice de registo (2026-08-26)
+
+**Pedido do dono:** «Analise como esta configurado o popup "Registrar novo membro da equipa" na area admin na pagina "Equipa" e adapta para o popup ... na area instituicao ... O Id unico do agente deve ser o codigo da Instituicao + o index de registo do usuario. Ex: Inapem-LLVV-02.»
+
+**Análise do modelo Admin:** o Admin gera `ADMIN-NNNN` sequencial (máx. existente + 1 sobre trabalhadores + credenciais), mostra o Nº em campo só-de-leitura, exige palavra-passe inicial (com confirmação, v37.30) e provisiona a conta na nuvem (`agente.<nº>@admin.correiodigital.ao`) — o membro entra logo com Nº + senha.
+
+**Situação anterior na Instituição:** a numeração `CÓDIGO-NN` só existia com registo LOCAL da instituição; nas instituições reais (nuvem) o membro nascia com `AGT-<aleatório>` e SEM credencial de nuvem.
+
+### Adaptações (GovContactsContent.tsx)
+1. **Nº Agente Institucional sequencial para TODAS as instituições:** `CÓDIGO-NN` com NN = índice de registo (máx. entre membros do registo local + equipa actual, + 1; o índice 01 pertence ao responsável) — exactamente o formato pedido (`INAPEM-LLMM-02`), campo só-de-leitura como no Admin.
+2. **Credencial de nuvem também para instituições reais:** o provisionamento F32 (`agente.<nº>@inst.correiodigital.ao`, senha inicial do popup) deixa de exigir registo local — basta `appMode==='institution'` com código válido; o login institucional por Código + Nº Agente + senha passa a funcionar em qualquer dispositivo (caminho cloud já existente em `institutionSessionService`).
+3. Rótulo do campo passa a «Nº Agente Institucional» em todas as instituições (antes só com registo local).
+
+### Verificação (conta real INAPEM-LLMM-01, dev :3000)
+- 1.º membro → popup mostra «Nº AGENTE INSTITUCIONAL» = **INAPEM-LLMM-02**; 2.º membro → **INAPEM-LLMM-03**; ambos listados no Quadro da Equipa com esses IDs ✔ (screenshot `/tmp/equipa_seq.png`).
+- Contas Auth de teste (`agente.inapem-llmm-02/03@inst...`) eliminadas da nuvem após o teste; credencial do responsável (`-01`) reposta com a senha real ✔.
+
+### Varrimentos
+- `tsc --noEmit`: 0 erros · `npm run build`: 0 erros
+- e2e demo (build produção): **51 PASS / 0 WARN / 0 FAIL**
+- e2e contas reais (build produção): **41 PASS / 0 WARN / 0 FAIL**

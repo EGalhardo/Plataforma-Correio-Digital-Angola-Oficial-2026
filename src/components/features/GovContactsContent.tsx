@@ -68,7 +68,7 @@ import { registoPublicoProxy, eliminarCidadaoAdmin, eliminarAgente, permissoesAg
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { limparPendenciaPerfil } from '../../services/profileSyncService';
 import { limparLoginFalhas } from '../../services/loginSecurityService';
-import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, updateInstMemberProfile, isInstPasswordTaken, nextMemberAgentNumber } from '../../services/institutionRegistrationStore';
+import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, updateInstMemberProfile, isInstPasswordTaken, buildAgentNumber, splitAgentNumber } from '../../services/institutionRegistrationStore';
 import { addAdminAgent, updateAdminAgentPassword, updateAdminAgentPermissions, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber, getAdminAgentCreds, ADMIN_ALFA_AGENT } from '../../services/adminAgentStore';
 
 interface AuditLog {
@@ -1406,8 +1406,23 @@ export function GovContactsContent({
   const autoWorkerAgentId = (() => {
     if (isEditingWorker) return workers.find(w => w.id === editingWorkerId)?.agentId || '';
     const regCode = normalizeInstCode(bi || '');
-    const instRegAuto = (appMode !== 'admin-workers' && appMode === 'institution' && regCode) ? getLocalInstReg(regCode) : undefined;
-    if (appMode === 'institution' && instRegAuto) return nextMemberAgentNumber(regCode);
+    // v37.33 — Instituição (real ou demo): tal como o Admin gera o sequencial
+    // ADMIN-NNNN, a instituição gera CÓDIGO+índice de registo (ex.:
+    // INAPEM-LLMM-02). O índice 01 pertence ao responsável; fontes do máx.:
+    // membros do registo local + equipa actual (espelho por dispositivo).
+    if (appMode === 'institution' && regCode) {
+      let max = 1;
+      const regAuto = getLocalInstReg(regCode);
+      for (const m of regAuto?.members || []) {
+        const { code, seq } = splitAgentNumber(m.agentNumber || '');
+        if (code === regCode && seq && seq > max) max = seq;
+      }
+      for (const w of workers) {
+        const { code, seq } = splitAgentNumber(w.agentId || '');
+        if (code === regCode && seq && seq > max) max = seq;
+      }
+      return buildAgentNumber(regCode, max + 1);
+    }
     if (appMode === 'admin-workers') return nextAdminAgentNumber([...workers.map(w => w.agentId || ''), ...getAdminAgentCreds().map(c => c.agent)]); // F25 — fonte completa (trabalhadores + credenciais), como na página de registo
     return `AGT-${Math.floor(100000 + Math.random() * 900000)}`;
   })();
@@ -1615,7 +1630,7 @@ export function GovContactsContent({
           sessaoAnterior = { access_token: sd.session.access_token, refresh_token: sd.session.refresh_token };
         }
       } catch { /* best-effort */ }
-      if (isSupabaseConfigured() && newWorkerPassword && (instReg || adminCredsOn)) {
+      if (isSupabaseConfigured() && newWorkerPassword && (instReg || adminCredsOn || (appMode === 'institution' && !!regCode))) {
         const cloudEmail = adminCredsOn
           ? syntheticAdminEmail(autoWorkerAgentId)
           : syntheticInstitutionAgentEmail(autoWorkerAgentId);
@@ -2294,7 +2309,7 @@ export function GovContactsContent({
 
                           {/* IDENTIFICADOR EXTERNO */}
                           <div className="grid gap-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 min-h-[30px] flex items-end pb-1">{isPlatformAdmin ? 'Nº Agente Admin' : appMode === 'institution' && !!getLocalInstReg(normalizeInstCode(bi)) ? 'Nº Agente Institucional' : 'ID Único do Agente (Opcional)'}</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 min-h-[30px] flex items-end pb-1">{isPlatformAdmin ? 'Nº Agente Admin' : appMode === 'institution' ? 'Nº Agente Institucional' : 'ID Único do Agente (Opcional)'}</label>
                             <div className="relative">
                               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                                 <Lock size={16} />
