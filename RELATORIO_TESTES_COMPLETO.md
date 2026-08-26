@@ -926,3 +926,21 @@ Observações (sem alteração de código, comportamento desenhado confirmado no
 2. Caixa do cidadão abre em LIDAS por omissão; difusões TODOS antigas chegam como lidas (unread=0) — coerente com a política de não-lidas de 2026-08-21.
 3. Lista de membros da Equipa é por dispositivo (registo local F32) — a senha e o login multi-dispositivo vivem na nuvem (Auth), gestão completa no dispositivo criador; `Eliminar` limpa nuvem+local.
 4. Após F47, a lista de cidadãos do admin só refresca na próxima consulta (stale view momentânea) — os dados na nuvem já estão eliminados (verificado via REST).
+
+---
+
+## v37.35 — Popup «Sondagem · Enquetes desta correspondência» com rolagem vertical — 2026-08-26
+
+Pedido do dono: o popup da área institucional (Correio → correspondência → «Ver Sondagem»)
+não tinha como descer quando o conteúdo excedia a caixa (`max-h-[95vh]` + `overflow-hidden`
+cortavam o fundo). Correção cirúrgica em `MessageDetail.tsx`: o corpo do popup passou a ter
+`max-h-[62vh] overflow-y-auto overscroll-contain pr-2` — o cabeçalho fica fixo e a lista de
+enquetes rola na vertical.
+
+Verificação real (Playwright): com viewport 800px o corpo fica `max-height: 496px` e
+`overflow-y: auto`; com viewport 520px o conteúdo (350px) excede o limite (322px) e a barra
+de rolagem vertical activa (`scrollHeight 350 > clientHeight 322`). Sem enquetes extra o
+conteúdo curto não força barra (comportamento correcto).
+
+Regressão: 51 PASS / 0 WARN / 0 FAIL (demo) · 41 PASS / 0 WARN / 0 FAIL (contas reais) ·
+`tsc --noEmit` 0 erros · `npm run build` OK.

@@ -355,7 +355,10 @@ export function MessageDetail({
         subtitulo="Enquetes desta correspondência"
         maxW="max-w-xl"
       >
-        <div className="space-y-3 text-left">
+        {/* v37.35 — corpo do popup com rolagem vertical própria: com muitas
+            enquetes anexadas a lista cresce além da caixa (max-h-[95vh] com
+            overflow-hidden) e o fundo ficava cortado sem forma de descer. */}
+        <div className="space-y-3 text-left max-h-[62vh] overflow-y-auto overscroll-contain pr-2">
           {sondInstCarregando && (
             <p className="text-[12px] font-semibold text-slate-500 m-0 flex items-center gap-2">
               <Loader2 size={14} className="animate-spin" /> A carregar a(s) sondagem(ns)…
