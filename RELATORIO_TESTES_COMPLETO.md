@@ -851,3 +851,19 @@ Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
 ### Verificação (contas reais, dev :3000)
 - Cidadão real `002399714LA030` (que NÃO estava na lista por-BI da difusão de 25/08): o Correio passa a mostrar **«Inquerito(Saude)» do INAPEM-LLMM** nas recebidas, com ABRIR/ELIMINAR/LIDA (screenshot `/tmp/correio_edlasio_todos.png`) ✔ — o mesmo caminho serve o Mario Quiuma no portal de produção.
 - Varrimentos no build de produção: **51 PASS / 0 WARN / 0 FAIL** e **41 PASS / 0 WARN / 0 FAIL**; `tsc --noEmit` 0 erros.
+
+---
+
+## v37.32 — Auditoria completa «analisa e corrige todos os erros sem quebrar o código» (2026-08-26)
+
+**Pedido do dono:** «Analise e corrigi todos os erros mas cuidado para nao quebrar ou danificar o codigo.»
+
+### Erros encontrados e corrigidos (cirúrgicos)
+1. **Eliminação de difusões «TODOS» era cross-utilizador (App.tsx):** «ELIMINAR»/«Eliminar permanentemente»/«Restaurar» do cidadão sincronizavam `state_indicator` na linha PARTILHADA da difusão — ao arquivar, a mensagem desaparecia das caixas de TODOS os cidadãos (a caixa filtra `Arquivada`/`EliminadaPermanente`). Agora, em linhas `recipient_bi='TODOS'`, a remoção/restauro é apenas LOCAL por titular; a nuvem não é tocada (`mensagemEhDifusaoTodos`).
+2. **Nome pessoal hardcoded em acções de qualquer cidadão (App.tsx):** `handleCreateRequest` criava pedidos com `user: 'Edlasio Galhardo'` para qualquer titular → passa a usar `user?.name || profileName || 'Cidadão'`; os eventos de estado de mensagens (`responsible`) passam a cair em `'Utilizador'` quando não há nome (3 sítios).
+
+### Verificação
+- `tsc --noEmit`: 0 erros · `npm run build`: 0 erros
+- e2e demo (build produção): **51 PASS / 0 WARN / 0 FAIL**
+- e2e contas reais (build produção): **41 PASS / 0 WARN / 0 FAIL** (inclui verificações de excepções JS e erros de consola por página)
+- Sem alterações de comportamento nas contas demo/instituição/admin; apenas remoção de fugas de dados e do efeito colateral partilhado.
