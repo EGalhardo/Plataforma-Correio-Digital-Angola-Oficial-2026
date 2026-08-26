@@ -891,3 +891,38 @@ Varreduras 51/0/0 e 41/0/0; tsc 0 erros.
 - `tsc --noEmit`: 0 erros · `npm run build`: 0 erros
 - e2e demo (build produção): **51 PASS / 0 WARN / 0 FAIL**
 - e2e contas reais (build produção): **41 PASS / 0 WARN / 0 FAIL**
+
+---
+
+## v37.34 — EXECUÇÃO DA MATRIZ DE TESTES 100% REAIS (PROMPT v37.2) — 2026-08-26
+
+Execução autónoma completa da matriz T1–T10 com contas reais, sem intervenção manual.
+Nenhuma alteração de código foi necessária: todas as ocorrências investigadas revelaram-se
+comportamento desenhado ou artefactos do harness de teste (detalhe abaixo).
+
+| # | Fluxo | Resultado | Evidência |
+|---|-------|-----------|-----------|
+| T1 | Logins reais (cidadão 002399714LA030, instituição INAPEM-LLMM-01, admin ADMIN-0001) | ✔ | varridos no sweep de contas reais (41/0/0) |
+| T2 | Caixa do cidadão vs REST | ✔ | proxy `/api/dados` retorna exactamente as linhas do titular (7 linhas, escopo cidadão) |
+| T3 | Registo real TESTE (BI 009998887LA099) + popup de credenciais + avatar azul + isolamento | ✔ | popup «REGISTO CONCLUÍDO — GUARDE OS SEUS DADOS DE ACESSO» (screenshot); login da conta nova OK; zero dados alheios |
+| T4 | Mensagem instituição→cidadão TESTE | ✔ | «Aviso TESTE v37.2» gravada na nuvem e visível em NÃO LIDAS após homologação (cidadão pendente vê só correspondência de homologação — desenhado) |
+| T5 | Resposta cidadão→instituição | ✔ | «RE: Aviso TESTE v37.2» na nuvem; visível em ENVIADAS (cidadão) e NÃO LIDAS (instituição) |
+| T6 | Membro INAPEM-LLMM-02: criação (Nº agente automático), login em contexto limpo, URL directo bloqueado, cleanup | ✔ | popup v37.33 com «Nº AGENTE INSTITUCIONAL INAPEM-LLMM-02»; Auth nuvem criada; login limpo entra (Perfil obrigatório); `#/inst-qrcode` não marcada → bloqueada; `#/gov-dashboard` bloqueada; conta Auth eliminada |
+| T7 | Sondagem fim-a-fim (difusão TODOS «Inquerito(Saude)») | ✔ | cidadão responde às 2 enquetes (modal «CONFIRMAR RESPOSTAS ÀS SONDAGENS»); linhas em `sondagem_respostas`; instituição vê «Luanda — 2 voto(s) / Portugues — 2 voto(s)» |
+| T8 | Admin: homologação + painel vs REST + Eliminar (F47) | ✔ | «HOMOLOGAR CADASTRO» activa a conta (notificação «Conta Ativada»); painel 784 = REST 784 mensagens; ELIMINAR remove profile+Auth+registo na nuvem |
+| T9 | Segurança: senha errada ×3 bloqueada; cidadão e instituição bloqueados de `#/gov-dashboard` | ✔ | erro claro sem entrada; redireccão para a própria área (cidadão) |
+| T10 | Robustez: consola sem erros, mobile 390px OK | ✔ | zero erros de consola/pageerror; render mobile completo |
+
+Varrimentos finais: **51 PASS / 0 WARN / 0 FAIL** (demo) e **41 PASS / 0 WARN / 0 FAIL** (contas reais).
+`tsc --noEmit` = 0 erros · `npm run build` = OK.
+
+Higiene da nuvem (R8) após os testes: mensagens TESTE (2) eliminadas; `sondagem_respostas` TESTE (2) eliminadas;
+notificações TESTE eliminadas; `solicitacoes_registo` TESTE eliminada; profile+Auth TESTE eliminados (F47);
+membro -02 eliminado do Auth; auditoria com marcadores TESTE eliminada; storage sem objectos TESTE.
+Login TESTE pós-limpeza: bloqueado (conta inexistente).
+
+Observações (sem alteração de código, comportamento desenhado confirmado no código):
+1. Cidadão com homologação pendente só vê correspondência de homologação (`homologationPendingForCitizen`, App.tsx) — luz ONLINE vermelha; após homologação a caixa completa aparece.
+2. Caixa do cidadão abre em LIDAS por omissão; difusões TODOS antigas chegam como lidas (unread=0) — coerente com a política de não-lidas de 2026-08-21.
+3. Lista de membros da Equipa é por dispositivo (registo local F32) — a senha e o login multi-dispositivo vivem na nuvem (Auth), gestão completa no dispositivo criador; `Eliminar` limpa nuvem+local.
+4. Após F47, a lista de cidadãos do admin só refresca na próxima consulta (stale view momentânea) — os dados na nuvem já estão eliminados (verificado via REST).
