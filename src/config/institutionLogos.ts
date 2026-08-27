@@ -18,15 +18,26 @@
 //   'SME': 'https://.../logo-sme.png',
 // ============================================================================
 
-/** Mapa nome → URL da logomarca oficial. Vazio até o dono fornecer as oficiais. */
+/** Mapa nome → URL da logomarca oficial. */
 export const INSTITUTION_LOGOS: Record<string, string> = {
-  // --- Logomarcas oficiais (preencher quando disponíveis) ---
-  // 'AGT': 'https://...',
-  // 'SME': 'https://...',
-  // 'ENDE': 'https://...',
-  // 'EPAL': 'https://...',
-  // 'INAPEM': 'https://...',
-  // 'INSS': 'https://...',
+  // --- Logomarcas oficiais fornecidas pelo dono (2026-08-27) ---
+  // As chaves são EXACTAMENTE os nomes da lista de «Instituições Conectadas»
+  // (HomeContent.tsx) que alimentam a Ficha Institucional. 'Administradoras'
+  // fica de propósito sem entrada: ainda não há logomarca oficial e o
+  // componente apresenta o placeholder com a sigla.
+  'INAPEM': 'https://i.postimg.cc/PPTSmsXf/Inapem.jpg',
+  'SME': 'https://i.postimg.cc/9Df1ndwN/sme.png',
+  'AGT': 'https://i.postimg.cc/BtxhLQ0s/AGT.jpg',
+  'ENDE': 'https://i.postimg.cc/rzSh0FLY/ENDE.jpg',
+  'EPAL': 'https://i.postimg.cc/bdQ6DNhh/EPAL.jpg',
+  'Tribunal': 'https://i.postimg.cc/w1BFGXRf/Tribunal.webp',
+  'Hospital': 'https://i.postimg.cc/234Hb8DC/Hospital.jpg',
+  'Ministerios': 'https://i.postimg.cc/N5Bd1qsf/Ministerio.png',
+  'Polícia Nacional': 'https://i.postimg.cc/yDrn4DFH/Policia-Nacional.jpg',
+  'Notário': 'https://i.postimg.cc/w3hWyTd2/Administracao.jpg',
+  'Registo Civil': 'https://i.postimg.cc/w3hWyTd2/Administracao.jpg',
+  'Seguro Social': 'https://i.postimg.cc/sM2KNYGw/Seguranca-Social.jpg',
+  'INE': 'https://i.postimg.cc/CzScjThF/INE.jpg',
 };
 
 /**
