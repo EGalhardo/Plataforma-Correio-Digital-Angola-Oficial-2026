@@ -347,6 +347,14 @@ html.dark .lg\:bg-white {
   background-color: rgb(9, 17, 36) !important;
 }
 
+/* v37.41 — variantes translúcidas de branco usadas em botões/overlays
+   (ex.: «Mudar Foto»); no escuro ficam brancas sobre texto branco. */
+html.dark .bg-white\/80,
+html.dark .bg-white\/70,
+html.dark .bg-white\/90 {
+  background-color: rgba(9, 17, 36, 0.85) !important;
+}
+
 html.dark .bg-slate-50,
 html.dark .md\:bg-slate-50,
 html.dark .lg\:bg-slate-50 {
@@ -357,6 +365,25 @@ html.dark .bg-slate-100,
 html.dark .md\:bg-slate-100,
 html.dark .lg\:bg-slate-100 {
   background-color: rgb(9, 17, 36) !important;
+}
+
+/* v37.41 — chips que combinam fundo escuro + texto branco (ex.: badge
+   `bg-slate-900 text-white`): no escuro o override global tornava o FUNDO
+   branco (texto branco sobre branco). Repomos o fundo escuro para manter o
+   contraste. */
+html.dark .bg-slate-900,
+html.dark .bg-slate-800,
+html.dark .bg-slate-950 {
+  background-color: rgb(15, 23, 42) !important;
+}
+
+/* v37.41 — azul-marinho personalizado fica ilegível sobre fundo escuro no
+   modo escuro; clareamos para um azul claro. */
+html.dark .text-\[\#0E2B64\],
+html.dark .text-\[\#0e2b64\],
+html.dark .text-\[\#12305e\],
+html.dark .text-\[\#0c2340\]\/90 {
+  color: #9db8ff !important;
 }
 
 html.dark .bg-slate-50\/80 {

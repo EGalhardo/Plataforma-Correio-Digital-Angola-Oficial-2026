@@ -293,7 +293,7 @@ export function GovSegurancaContent({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase ${
-                emergencyMode ? 'bg-red-200 text-red-800 animate-pulse' : 'bg-white/25 text-white'
+                emergencyMode ? 'bg-red-200 text-red-800 animate-pulse' : 'bg-slate-900/10 text-slate-700'
               }`}>
                 PROTOCOL SOC-AN-2026
               </span>
