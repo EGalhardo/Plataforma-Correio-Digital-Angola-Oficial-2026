@@ -1337,32 +1337,21 @@ export default function App() {
   // da credencial no submit (ver detectaPapel), reencaminhando para a área certa.
   const pendingResubmitRef = useRef(false);
   const loginSubmitRef = useRef<((force?: boolean) => void) | null>(null);
-  const reloadHandledRef = useRef(false);
   useEffect(() => {
     const area = areaDoUrl();
     setAppMode(area);
     setTab(area === 'admin' ? 'gov-dashboard' : 'home');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // v37.46 — «refresh com sessão ⇒ login da área» corre UMA ÚNICA vez por carga.
-  // Antes o efeito re-disparava em cada transição para 'app'; como o logout faz
-  // location.reload(), navigation.type ficava 'reload' e um login fresco era
-  // empurrado de volta ao login («parece que entra e volta»). Agora:
-  //  - navegação normal  → marca tratado, nunca redireciona;
-  //  - já no login       → marca tratado (pós-logout), não toca em logins frescos;
-  //  - refresh com sessão→ na 1ª chegada a 'app', redireciona p/ <área>#/login.
+  // v37.47 — marca sessão activa para o splash distinguir refresh (mantém) de
+  // primeira visita (login). Limpa no logout (handleLogout).
   useEffect(() => {
-    if (typeof window === 'undefined' || reloadHandledRef.current) return;
-    const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
-    if (nav?.type !== 'reload') { reloadHandledRef.current = true; return; }
-    if (stage === 'login') { reloadHandledRef.current = true; return; }
-    if (stage === 'app') {
-      reloadHandledRef.current = true;
-      const prefix = getModePathPrefix(appMode);
-      try { window.history.replaceState(null, '', `${prefix || '/'}#/login`); } catch { /* melhor esforço */ }
-      setStage('login');
-    }
-  }, [stage, appMode]);
+    if (stage === 'app') { try { localStorage.setItem('cda_sessao_activa', '1'); } catch { /* melhor esforço */ } }
+  }, [stage]);
+  // v37.47 — «refresh ⇒ apenas actualizar»: removido o redireccionamento que, com
+  // sessão activa, empurrava o refresh para o login. O refresh agora restaura a
+  // sessão e mantém a página (comportamento convencional). O LOGOUT continua a
+  // encaminhar para <área>#/login (via handleLogout), como pedido.
   useEffect(() => {
     if (!pendingResubmitRef.current) return;
     // Dispara o 2º submit (force) com as credenciais ainda intactas; o flag só
@@ -3338,15 +3327,17 @@ export default function App() {
 
   useEffect(() => {
     if (stage === 'splash') {
+      // v37.47 — «refresh ⇒ apenas actualizar»: com sessão activa (flag própria)
+      // o splash entra directo no 'app' (mantém a página); sem sessão vai ao login.
+      // O logout continua a forçar o login via skip_splash_and_show_login.
+      let temSessao = false;
+      try { temSessao = localStorage.getItem('cda_sessao_activa') === '1'; } catch { /* melhor esforço */ }
       if (preloadCompleted) {
-        // v37.9 — transição quase imediata para o login (antes: 800 ms)
-        const timer = setTimeout(() => setStage('login'), 250);
+        const timer = setTimeout(() => setStage(temSessao ? 'app' : 'login'), 250);
         return () => clearTimeout(timer);
       } else {
-        // Safety fallback timer if connection is slow or an image errors out
-        // (v37.9: 6000 ms → 1200 ms; o pré-carregamento continua em fundo)
         const safetyTimer = setTimeout(() => {
-          setStage('login');
+          setStage(temSessao ? 'app' : 'login');
         }, 1200);
         return () => clearTimeout(safetyTimer);
       }
@@ -4074,6 +4065,7 @@ export default function App() {
       setEnteredOtp('');
       setEnteredPin('');
       setLoginError(null);
+      localStorage.setItem('cda_sessao_activa', '0'); // v37.47 — refresh pós-logout vai ao login
       localStorage.setItem('skip_splash_and_show_login', 'true');
       window.location.reload();
     }
