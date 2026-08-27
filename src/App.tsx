@@ -310,6 +310,15 @@ const areaDoUrl = (): 'user' | 'institution' | 'admin' => {
   if (p.startsWith('/institucional')) return 'institution';
   return 'user';
 };
+// v37.43 — deduz o papel a partir do identificador digitado, para que qualquer
+// login (independentemente do URL) autentique na área correcta sem separadores.
+const detectaPapel = (id: string): 'user' | 'institution' | 'admin' | null => {
+  const s = (id || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!s) return null;
+  if (/^ADM/.test(s)) return 'admin';      // ADMIN-0001, ADM-8812-OP
+  if (/^\d/.test(s)) return 'user';        // BI do cidadão (002399714LA030)
+  return 'institution';                    // AGT-9921-SR, INAPEM-LLMM-01
+};
 const resolveHashToTab = (hash: string, mode: string): string | null => {
   const raw = hash.replace(/^#\/?/, '').split('?')[0].trim();
   if (!raw) return null;
@@ -1323,24 +1332,34 @@ export default function App() {
   // F12 — auxiliar simétrico para a ideologia demo/real (conta cidadão).
   const isUserMode = appMode === 'user';
 
-  // v37.42 — LOGIN POR ÁREA: no ecrã de login o modo vem do URL; e um REFRESH
-  // com sessão activa é encaminhado para o login da respectiva área (§3).
+  // v37.43 — LOGIN POR ÁREA (corrigido): o modo inicial vem do URL uma única
+  // vez; um REFRESH com sessão cai no login da área; e o papel real é deduzido
+  // da credencial no submit (ver detectaPapel), reencaminhando para a área certa.
+  const pendingResubmitRef = useRef(false);
+  const loginSubmitRef = useRef<((force?: boolean) => void) | null>(null);
+  useEffect(() => {
+    const area = areaDoUrl();
+    setAppMode(area);
+    setTab(area === 'admin' ? 'gov-dashboard' : 'home');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
-    const isReload = nav?.type === 'reload';
-    if (stage === 'login') {
-      const area = areaDoUrl();
-      if (appMode !== area) {
-        setAppMode(area);
-        setTab(area === 'admin' ? 'gov-dashboard' : 'home');
-      }
-    } else if (isReload && stage === 'app') {
+    if (nav?.type === 'reload' && stage === 'app') {
       const prefix = getModePathPrefix(appMode);
       try { window.history.replaceState(null, '', `${prefix || '/'}#/login`); } catch { /* melhor esforço */ }
       setStage('login');
     }
   }, [stage, appMode]);
+  useEffect(() => {
+    if (!pendingResubmitRef.current) return;
+    // Dispara o 2º submit (force) com as credenciais ainda intactas; o flag só
+    // é libertado no próximo tick, para que o efeito de limpeza (declarado
+    // depois) veja pending=true e não apague os campos neste ciclo.
+    loginSubmitRef.current?.(true);
+    setTimeout(() => { pendingResubmitRef.current = false; }, 0);
+  }, [appMode]);
   // 2026-08-22 — área ADMIN: a página Equipa é exclusiva do Admin Alfa
   // (ADMIN-0001), mesmo desenho da área Instituição (responsável vs
   // colaboradores). Agentes reais ADMIN-NNNN (NNNN >= 2) têm o item INACTIVO
@@ -1569,6 +1588,9 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
+    // v37.43 — não limpar as credenciais durante o re-submit provocado pela
+    // troca automática de área (detectaPapel); senão o 2º submit iria vazio.
+    if (pendingResubmitRef.current) return;
     if (stage === 'login' || stage === 'splash') {
       applyDemoPresetForMode(appMode, false);
       setLoginPasswordInput('');
@@ -6298,10 +6320,11 @@ Ficha civil do titular:
     // limpar registos ao ELIMINAR ou CRIAR colaboradores (conta nova nunca
     // herda o bloqueio de uma conta antiga com o mesmo Nº de agente).
 
-    const handleLoginSubmit = async () => {
+    const handleLoginSubmit = async (force = false) => {
       // v37.11 — o botão responde de imediato (spinner) e cliques repetidos
       // durante a autenticação são ignorados (antes re-disparavam o fluxo).
-      if (loginSubmitting) return;
+      // v37.43 — force=true ignora o guarda no re-submit por troca de área.
+      if (!force && loginSubmitting) return;
       setLoginSubmitting(true);
       try {
         await handleLoginSubmitCore();
@@ -6309,9 +6332,20 @@ Ficha civil do titular:
         setLoginSubmitting(false);
       }
     };
+    loginSubmitRef.current = handleLoginSubmit; // v37.43 — re-submit após troca de área
 
     const handleLoginSubmitCore = async () => {
       const identLogin = bi.trim().toUpperCase().replace(/\s+/g, '');
+      // v37.43 — LOGIN POR ÁREA: deduz o papel da credencial e, se não bater
+      // certo com a área actual, muda de área e re-tenta o submit (sem separadores).
+      const papelAlvo = detectaPapel(identLogin);
+      if (papelAlvo && papelAlvo !== appMode) {
+        pendingResubmitRef.current = true;
+        setLoginError(null);
+        setTab(papelAlvo === 'admin' ? 'gov-dashboard' : 'home');
+        setAppMode(papelAlvo);
+        return;
+      }
       // Verificação de bloqueio ANTES de qualquer tentativa.
       if (identLogin) {
         const b = getLoginBloqueio(identLogin);
