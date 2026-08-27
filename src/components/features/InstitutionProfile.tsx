@@ -20,7 +20,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { guardarAvatar } from '../../services/avatarService';
 import { guardarPerfilLocal } from '../../services/perfilLocalService';
 import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil, syncInstitutionMemberToCloud, type ProfileSyncOutcome } from '../../services/profileSyncService';
-import { getLocalInstReg, normalizeInstCode, updateInstMemberProfile, buildAgentNumber } from "../../services/institutionRegistrationStore";
+import { getLocalInstReg, normalizeInstCode, updateInstMemberProfile, buildAgentNumber, setInstLogo } from "../../services/institutionRegistrationStore";
 
 interface InstitutionProfileProps {
   userProfilePhoto: string;
@@ -271,6 +271,37 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
   const agentNoDisplay = agentNumberProp || instReg?.agentNumber || (bi ? `CDA-${institutionAcronym}-2026-${bi.slice(-4)}` : '—');
   const adhesionDate = instReg?.criadoEm ? new Date(instReg.criadoEm).toLocaleDateString('pt-AO') : '12 de Março de 2024';
 
+  // v37.50 — actualizar a logomarca da instituição no Perfil. O «ID Digital» do
+  // Painel refresca sozinho (tick de 4s) porque lê reg.logoDataUrl.
+  const instLogoCode = normalizeInstCode(originalBi || '');
+  const [logoVer, setLogoVer] = useState(0);
+  const [logoMsg, setLogoMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const logoAtual = getLocalInstReg(instLogoCode)?.logoDataUrl;
+  void logoVer;
+  const handleLogoFilePerfil = (file: File) => {
+    setLogoMsg(null);
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { setLogoMsg({ kind: 'err', text: 'A logomarca excede 2MB.' }); return; }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = String(reader.result || '');
+      if (!dataUrl) { setLogoMsg({ kind: 'err', text: 'Não foi possível ler a imagem.' }); return; }
+      setInstLogo(instLogoCode, dataUrl);
+      try {
+        const raw = localStorage.getItem('correio_digital_institutions');
+        if (raw) {
+          const list = JSON.parse(raw).map((it: { instCode?: string; logoUrl?: string }) =>
+            (it.instCode || '').toUpperCase() === instLogoCode.toUpperCase() ? { ...it, logoUrl: dataUrl } : it);
+          localStorage.setItem('correio_digital_institutions', JSON.stringify(list));
+        }
+      } catch { /* ignora */ }
+      setLogoVer(v => v + 1);
+      setLogoMsg({ kind: 'ok', text: 'Logomarca actualizada — reflecte no Painel («ID Digital»).' });
+      addAuditLog?.(`Logomarca da instituição ${instLogoCode} actualizada no Perfil.`, 'info');
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <section className="space-y-6 text-slate-950 animate-fade-in font-sans">
       
@@ -321,8 +352,31 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
         )}
       </AnimatePresence>
 
+      {/* v37.50 — Logomarca da Instituição (actualizável no Perfil) */}
+      <div className="bg-white border border-slate-200 rounded-[32px] p-5 md:p-6 shadow-sm flex items-center gap-4 md:gap-6">
+        <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl border border-slate-100 bg-slate-50 overflow-hidden flex items-center justify-center shrink-0">
+          {logoAtual ? (
+            <img src={logoAtual} alt="Logomarca da instituição" className="w-full h-full object-contain" />
+          ) : (
+            <Landmark size={22} className="text-slate-400" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Logomarca da Instituição</div>
+          <div className="text-sm font-bold text-slate-900 leading-snug truncate">{originalInstitution || instLogoCode}</div>
+          {logoMsg && (
+            <p className={`mt-1 text-[11px] font-bold ${logoMsg.kind === 'ok' ? 'text-emerald-600' : 'text-rose-600'}`}>{logoMsg.text}</p>
+          )}
+        </div>
+        <label className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-extrabold uppercase tracking-wider cursor-pointer">
+          <Camera size={14} />
+          {logoAtual ? 'Substituir' : 'Carregar'}
+          <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoFilePerfil(f); e.target.value = ''; }} />
+        </label>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-        
+
         {/* Left Column — flex column h-full: o cartão preenche a altura da linha */}
         <div className="lg:col-span-1 bg-white border border-slate-200 rounded-[32px] p-6 flex flex-col items-center text-center relative overflow-hidden shadow-sm text-left h-full">
           
