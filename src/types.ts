@@ -69,6 +69,14 @@ export interface Message {
   org: string;
   preview: string;
   date: string;
+  /**
+   * v37.37 — Carimbo temporal BRUTO (ISO 8601) vindo da nuvem.
+   * `date` é apenas um rótulo de apresentação (os mapeadores produzem
+   * "20/05/2026" nuns sítios e "14:35" noutros; as seeds demo usam "Hoje",
+   * "Ontem", "Seg"). Sem este campo não há como ordenar cronologicamente de
+   * forma fiável. Ver src/utils/ordenacaoCronologica.ts.
+   */
+  createdAt?: string;
   unread?: number;
   status: string;
   institution?: string;
@@ -337,6 +345,11 @@ export interface Correspondence {
   date: string;
   /** Hora do registo (2026-08-21 — expediente completo). */
   time?: string;
+  /**
+   * v37.37 — Carimbo temporal BRUTO (ISO 8601) vindo da nuvem; base da
+   * ordenação cronológica decrescente. Ver src/utils/ordenacaoCronologica.ts.
+   */
+  createdAt?: string;
   /** Tipo de documento da correspondência (2026-08-21). */
   documentType?: string;
   body: string;

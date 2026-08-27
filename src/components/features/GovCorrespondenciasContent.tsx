@@ -1,6 +1,7 @@
 import {
   useState, useMemo } from 'react';
 import { notify } from '../../lib/notify';
+import { ordenarCorrespondenciasPorMaisRecente } from '../../utils/ordenacaoCronologica';
 import { useInstitutions } from '../../services/institutionStore';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -123,8 +124,11 @@ export function GovCorrespondenciasContent({
   const rawCorrespondences = propsCorrespondences || localCorrespondences;
 
   // Enhance all correspondences with structured metadata
+  // v37.37 — ordenação cronológica decrescente garantida no próprio componente:
+  // cobre tanto as correspondências vindas por props como o caminho local
+  // (fallback sem onAddCorrespondence), para a ordem nunca depender da origem.
   const correspondences = useMemo(() => {
-    return rawCorrespondences.map(prepareCorrespondence);
+    return ordenarCorrespondenciasPorMaisRecente(rawCorrespondences.map(prepareCorrespondence));
   }, [rawCorrespondences]);
   
   const handleAddCorrespondence = (newCor: Correspondence) => {

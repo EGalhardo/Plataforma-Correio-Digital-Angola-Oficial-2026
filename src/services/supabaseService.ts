@@ -1298,6 +1298,7 @@ export const supabaseService = {
           org: item.org,
           preview: item.preview,
           date: new Date(item.created_at).toLocaleDateString('pt-AO'),
+          createdAt: item.created_at,
           unread: item.unread ? 1 : 0,
           status: item.status,
           details: {
@@ -1372,6 +1373,7 @@ export const supabaseService = {
         org: profilesByBi.has(item.sender_bi) ? `Cidadão: ${profilesByBi.get(item.sender_bi)}` : `Cidadão: ${item.sender_bi}`,
         preview: item.preview,
         date: new Date(item.created_at).toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' }),
+        createdAt: item.created_at,
         unread: item.unread ? 1 : 0,
         status: item.status,
         details: {
@@ -1436,6 +1438,7 @@ export const supabaseService = {
         org: item.org,
         preview: item.preview,
         date: new Date(item.created_at).toLocaleDateString('pt-AO'),
+        createdAt: item.created_at,
         unread: item.unread ? 1 : 0,
         status: item.status,
         details: {
@@ -1506,6 +1509,7 @@ export const supabaseService = {
             org: item.org,
             preview: item.preview,
             date: new Date(item.created_at).toLocaleDateString('pt-AO'),
+            createdAt: item.created_at,
             unread: item.unread ? 1 : 0,
             status: item.status,
             details: {
@@ -1963,6 +1967,8 @@ export const supabaseService = {
             status,
             date: criado.toLocaleDateString('pt-AO'),
             time: criado.toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' }),
+            // v37.37 — carimpo bruto para ordenação cronológica decrescente.
+            createdAt: item.created_at || criado.toISOString(),
             documentType: item.document_type || 'Correspondência',
             body: item.body,
             priority: item.priority_scale || item.status || 'Média',

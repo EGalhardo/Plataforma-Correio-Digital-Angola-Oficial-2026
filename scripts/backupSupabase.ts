@@ -10,6 +10,7 @@
  * Uso:  npx tsx scripts/backupSupabase.ts
  * Saída: backups/supabase-<data-hora>/  (tabelas/*.json + storage/* + manifest.json)
  */
+import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 import ws from 'ws';
 import { mkdirSync, writeFileSync, existsSync, readFileSync, statSync } from 'fs';
@@ -24,7 +25,7 @@ if (!URL || !SERVICE) {
 const sb = createClient(URL, SERVICE, { realtime: { transport: ws as any } });
 
 // ---------------------------------------------------------------------------
-// Tabelas a exportar (todas as do schema + migrações v12–v29)
+// Tabelas a exportar (todas as do schema + migrações v12–v37)
 // ---------------------------------------------------------------------------
 const TABELAS = [
   'profiles',
@@ -32,6 +33,7 @@ const TABELAS = [
   'messages',
   'message_state_history',
   'documents',
+  'document_revisions',
   'contacts',
   'notifications',
   'user_requests',
@@ -39,12 +41,16 @@ const TABELAS = [
   'audit_logs',
   'video_sessions',
   'video_session_events',
-  'video_session_notifications',
+  'video_session_participants',
   'solicitacoes_registo',
   'kb_fontes_instituicao',
   'pagamentos',
   'emergency_alerts',
   'ia_conversas_log',
+  'ia_telemetria_resumo', // view agregada (v28) — derivada de ia_conversas_log
+  'sondagens',
+  'sondagem_respostas',
+  'sondagens_classificacoes',
 ];
 
 const TAMANHO_PAGINA = 1000;

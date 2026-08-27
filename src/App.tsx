@@ -78,6 +78,7 @@ import {
 } from './types';
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, sealProtocolContent, canonicalProtocolPayload } from './utils/protocolGenerator';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
+import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente } from './utils/ordenacaoCronologica';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode } from './services/supabaseService';
 import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
 import { lerPerfilLocal } from './services/perfilLocalService';
@@ -3598,7 +3599,11 @@ export default function App() {
   // lida fica LIDA em todas as sessões seguintes. "Não lida" = apenas as que
   // nunca foram abertas. As listas demo continuam com dados, mas sem forçar
   // o estado de leitura.
-  const currentInbox = isInstMode
+  // v37.37 — ordenação cronológica DECRESCENTE (mais recente no topo). Aplicada
+  // aqui, no seletor central, para que TODAS as áreas que consomem a caixa
+  // (Correio, Documentos, Centro de Actividade, detalhe da instituição)
+  // apresentem a mesma ordem.
+  const currentInbox = ordenarMensagensPorMaisRecente(isInstMode
     ? (isDemoInstitutionSession
         ? instInbox.filter(m => !m.homologation || isOwnHomologationMail(m))
         : instInbox.filter(m => isOwnHomologationMail(m) || isInstitutionAddressedMail(m)))
@@ -3606,7 +3611,7 @@ export default function App() {
       ? inbox.filter(isOwnHomologationMail)
       : isDemoCitizenSession
         ? inbox.filter(m => !m.homologation || isOwnHomologationMail(m))
-        : inbox.filter(isOwnCitizenMail);
+        : inbox.filter(isOwnCitizenMail));
   const unreadTotal = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id)).reduce((sum, msg) => sum + (msg.unread || 0), 0), [currentInbox, deletedMessageIds, hiddenMessageIds]);
   const unreadMessagesList = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id) && !!msg.unread), [currentInbox, deletedMessageIds, hiddenMessageIds]);
 
@@ -3619,11 +3624,11 @@ export default function App() {
 
   // F11 — Documentos da instituição real seguem o MESMO escopo do Correio:
   // apenas o canal oficial da própria instituição + o que lhe foi endereçado.
-  const currentDocInbox = isInstMode
+  const currentDocInbox = ordenarMensagensPorMaisRecente(isInstMode
     ? (isDemoInstitutionSession
         ? instDocInbox
         : instDocInbox.filter(m => isOwnHomologationMail(m) || isInstitutionAddressedMail(m)))
-    : (homologationPendingForCitizen ? [] : (isDemoCitizenSession ? docInbox : docInbox.filter(isOwnCitizenMail)));
+    : (homologationPendingForCitizen ? [] : (isDemoCitizenSession ? docInbox : docInbox.filter(isOwnCitizenMail))));
 
   // F12 — Documentos (carteira/pasta digital/QR/emissão): sessões reais só vêem
   // os documentos marcados com a SUA chave na fusão da nuvem.
@@ -3677,18 +3682,18 @@ export default function App() {
     // simulados/demo (mocks sem createdBy) nunca aparecem no modo real —
     // ficam exclusivos da conta demo. Cidadão/instituição mantêm o
     // comportamento demo/local de sempre.
-    if (isGovMode) return isDemoAdminSession ? correspondences : correspondences.filter(c => !!c.createdBy);
-    if (isUserMode) return isDemoCitizenSession ? correspondences : [];
-    return isDemoInstitutionSession ? correspondences : [];
+    if (isGovMode) return ordenarCorrespondenciasPorMaisRecente(isDemoAdminSession ? correspondences : correspondences.filter(c => !!c.createdBy));
+    if (isUserMode) return isDemoCitizenSession ? ordenarCorrespondenciasPorMaisRecente(correspondences) : [];
+    return isDemoInstitutionSession ? ordenarCorrespondenciasPorMaisRecente(correspondences) : [];
   }, [correspondences, isGovMode, isDemoAdminSession, isUserMode, isDemoCitizenSession, isInstMode, isDemoInstitutionSession]);
 
   // F15/v7 — Caixas "Enviadas" isoladas por conta (senderKey): sessões reais só
   // vêem o que enviaram; a demo (qualquer uma das 3) mantém o histórico completo.
   const currentSentMessages = useMemo(() =>
-    isDemoSession ? sentMessages : sentMessages.filter(m => !!m.senderKey && m.senderKey === sessionOwnerKey),
+    ordenarMensagensPorMaisRecente(isDemoSession ? sentMessages : sentMessages.filter(m => !!m.senderKey && m.senderKey === sessionOwnerKey)),
     [sentMessages, isDemoSession, sessionOwnerKey]);
   const currentDocSentMessages = useMemo(() =>
-    isDemoSession ? docSentMessages : docSentMessages.filter(m => !!m.senderKey && m.senderKey === sessionOwnerKey),
+    ordenarMensagensPorMaisRecente(isDemoSession ? docSentMessages : docSentMessages.filter(m => !!m.senderKey && m.senderKey === sessionOwnerKey)),
     [docSentMessages, isDemoSession, sessionOwnerKey]);
 
   // F15 — GARANTIA DE CONTEÚDO DEMO (prompt v8): só em contas de demonstração.
@@ -3748,6 +3753,11 @@ export default function App() {
       }
     }
 
+    // v37.37 — reordenação final: o separador «Excluídas» concatena recebidas +
+    // enviadas, pelo que a ordem tem de ser refeita aqui para cobrir TODAS as
+    // abas (Não lidas, Lidas, Enviadas, Excluídas) de forma idêntica.
+    base = ordenarMensagensPorMaisRecente(base);
+
     if (!searchMail.trim()) return base;
     
     const term = searchMail.toLowerCase();
@@ -3763,6 +3773,9 @@ export default function App() {
     if (documentosTab === "enviadas") base = currentDocSentMessages;
     else if (documentosTab === "lidas") base = currentDocInbox.filter((item) => !item.unread);
     else base = currentDocInbox.filter((item) => item.unread);
+
+    // v37.37 — mesma garantia de ordem para as abas de Documentos.
+    base = ordenarMensagensPorMaisRecente(base);
 
     if (!searchDocMail.trim()) return base;
     
@@ -5402,9 +5415,11 @@ Ficha civil do titular:
           <PainelSuspense>
           <InstQrCodeContent
             documents={currentDocuments}
-            messages={isInstMode
+            // v37.37 — a concatenação de 4 caixas perde a ordem; reordena-se o
+            // conjunto para manter a regra «mais recente no topo» também aqui.
+            messages={ordenarMensagensPorMaisRecente(isInstMode
               ? [...currentInbox, ...currentDocInbox, ...currentSentMessages, ...currentDocSentMessages]
-              : [...inbox, ...docInbox, ...sentMessages, ...docSentMessages]}
+              : [...inbox, ...docInbox, ...sentMessages, ...docSentMessages])}
             onSelectMessage={handleSelectMessage}
             addAuditLog={addAuditLog}
             setTab={setTab}
