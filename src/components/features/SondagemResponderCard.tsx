@@ -63,7 +63,7 @@ export function SondagemResponderCard({ sondagemId, cidadaoBi, escolhas, onEscol
   };
 
   return (
-    <div className="mt-8 rounded-2xl border border-indigo-100 bg-white shadow-sm overflow-hidden" data-testid="sondagem-card">
+    <div className="cda-sondagem mt-8 rounded-2xl border border-indigo-100 bg-white shadow-sm overflow-hidden" data-testid="sondagem-card">
       <div className="px-5 py-4 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100 flex items-center gap-2.5">
         <span className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0"><BarChart3 size={16} /></span>
         <div className="min-w-0">

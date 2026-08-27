@@ -646,3 +646,18 @@ html.dark .cda-rel-header input {
     min-width: 44px;
   }
 }
+
+/* v37.48 — Detalhe de Correspondência: perguntas/opções do inquérito legíveis no modo escuro.
+   O cabeçalho do cartão de sondagem usa um gradiente claro que o dark não remapeava;
+   o override global tornava o texto branco => invisível sobre fundo claro. Scopado ao cartão. */
+html.dark .cda-sondagem .bg-gradient-to-r {
+  background-image: linear-gradient(to right, #182448, #0b1226) !important;
+}
+html.dark .cda-sondagem .bg-indigo-100 { background-color: rgba(79,70,229,.30) !important; }
+html.dark .cda-sondagem .text-indigo-500 { color: #a5b4fc !important; }
+html.dark .cda-sondagem .text-indigo-600 { color: #c7d2fe !important; }
+html.dark .cda-sondagem .border-indigo-100 { border-color: rgba(71,85,105,.6) !important; }
+html.dark .cda-sondagem .bg-blue-50\/70 { background-color: rgba(37,99,235,.28) !important; }
+html.dark .cda-sondagem .border-slate-200 { border-color: rgba(71,85,105,.6) !important; }
+html.dark .cda-sondagem .border-slate-300 { border-color: rgba(100,116,139,.7) !important; }
+html.dark .cda-sondagem .hover\:bg-slate-50:hover { background-color: rgba(30,41,59,.7) !important; }
