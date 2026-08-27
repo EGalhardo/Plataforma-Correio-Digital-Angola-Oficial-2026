@@ -2421,7 +2421,10 @@ export default function App() {
     setDocInbox(prev => applyRead(prev));
     setInstInbox(prev => applyRead(prev));
     setInstDocInbox(prev => applyRead(prev));
-  }, [appMode, bi, gateRefreshTick]);
+    // v37.49 — incluir as caixas nas dependências: quando a fusão/nuvem reconstrói
+    // a caixa com unread=1 DEPOIS do login, o overlay de lidas é reaplicado de
+    // imediato (antes só corria em appMode/bi/tick e a leitura revertia).
+  }, [appMode, bi, gateRefreshTick, inbox, docInbox, instInbox, instDocInbox]);
 
   // Auto-scroll to top on tab/stage change
   useEffect(() => {

@@ -176,10 +176,12 @@ try {
   const txtRegAud = await tx();
   const eventos = (txtRegAud.match(/(\d+) eventos recentes/) || [])[1];
   reg('P3-registo-auditoria-nuvem', !!eventos && parseInt(eventos, 10) > 100, `eventos: ${eventos || '—'}`);
-  await page.getByPlaceholder('Pesquisar ação ou operador...').fill('sala de vídeo');
+  // v37.49 — termo de pesquisa estável: «login» existe sempre nos eventos
+  // recentes (evita flake quando «sala de vídeo» sai da janela de eventos).
+  await page.getByPlaceholder('Pesquisar ação ou operador...').fill('login');
   await page.waitForTimeout(900);
   const txtFiltro = await tx();
-  reg('P3-pesquisa-auditoria-funciona', txtFiltro.includes('sala de vídeo') || !txtFiltro.includes('nenhum evento'));
+  reg('P3-pesquisa-auditoria-funciona', txtFiltro.includes('login') || !txtFiltro.includes('nenhum evento'));
   await page.screenshot({ path: `${SHOTS}/p3_auditoria_registo.png`, fullPage: false });
 
   // ---- P3-extra: sem valores simulados ----

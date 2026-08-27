@@ -535,12 +535,14 @@ export function GovDashboard({
         {/* ID Digital & Novas Mensagens Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="bg-white border border-slate-200 rounded-[28px] md:rounded-[32px] p-5 md:p-6 flex items-center gap-4 md:gap-6 relative overflow-hidden text-left font-sans">
-            {/* 2026-08-22 — ícone VERDE (identidade verificada/activa): antes a
-                caixa e o escudo eram vermelhos, a contradizer o texto
-                "Acesso Governamental Ativo (100%)" do próprio cartão. */}
-            <div className="w-12 h-12 md:w-16 md:h-16 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center justify-center shrink-0">
-              <ShieldCheck size={24} className="md:w-8 md:h-8 text-emerald-600" />
-            </div>
+            {/* v37.49 — novo logotipo oficial do Correio Angola (substitui o
+                escudo verde). Mesmas dimensões/raio para manter o alinhamento;
+                object-cover e cantos redondados => harmonioso em claro e escuro. */}
+            <img
+              src="https://i.postimg.cc/zGkDmXSG/Icone-Correio-Angola.jpg"
+              alt="Ícone Correio Angola"
+              className="w-12 h-12 md:w-16 md:h-16 rounded-2xl object-cover shrink-0"
+            />
             <div className="min-w-0 flex-1">
               <div className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">ID Digital do Admin</div>
               <div className="text-base md:text-xl font-black text-slate-900 leading-tight italic tracking-tighter">
