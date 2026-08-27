@@ -28,6 +28,34 @@ const BASE = process.env.E2E_BASE || 'http://localhost:3000';
 const ADMIN = process.env.CDA_E2E_ADMIN_USER || 'ADMIN-0001';
 const ADMIN_PASS = process.env.CDA_E2E_ADMIN_PASS || '123456789';
 const SHOTS = process.env.SHOTS_DIR || '/home/user/e2e_admin_shots';
+
+// v37.40 — asserções de Relatórios/Auditoria comparadas contra a NUVEM em tempo
+// real (T8/P2: «números do Painel = COUNTs REST»), em vez de constantes que
+// envelhecem (618/23/43). Lê as credenciais do .env e conta via PostgREST.
+import { readFileSync as _readEnv } from 'node:fs';
+const _env = {};
+try {
+  for (const l of _readEnv(new URL('../.env', import.meta.url)).toString().split('\n')) {
+    const m = l.match(/^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (m) _env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+  }
+} catch {}
+const _SUPA = _env.SUPABASE_URL || process.env.SUPABASE_URL;
+const _SROLE = _env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+async function cloudCount(path) {
+  try {
+    const r = await fetch(`${_SUPA}/rest/v1/${path}`, {
+      method: 'HEAD',
+      headers: { apikey: _SROLE, Authorization: `Bearer ${_SROLE}`, Prefer: 'count=exact' },
+    });
+    const cr = r.headers.get('content-range') || '';
+    return cr.includes('/') ? cr.split('/').pop() : '';
+  } catch { return ''; }
+}
+const N_MSG = await cloudCount('messages?select=id');
+const N_CID = await cloudCount('profiles?select=id&role=eq.user');
+const N_CONTAS = await cloudCount('profiles?select=id');
+console.log(`[nuvem] mensagens=${N_MSG} cidadãos=${N_CID} contas=${N_CONTAS}`);
 fs.mkdirSync(SHOTS, { recursive: true });
 
 let FAILS = 0;
@@ -86,8 +114,8 @@ try {
   const txtRel = await tx();
   reg('P2-relatorios-aberto', txtRel.includes('centro de análise estratégica'));
   reg('P2-metricas-reais (badge "Base central")', txtRel.includes('base central'));
-  // nº real conhecido da BD: 618 mensagens
-  reg('P2-correspondencias-618 (total real da BD)', /\b618\b/.test(txtRel), 'total mensagens na base central');
+  // nº real da BD em tempo real (mensagens) — UI deve mostrar o mesmo valor
+  reg(`P2-correspondencias-real (BD=${N_MSG})`, new RegExp(`\\b${N_MSG}\\b`).test(txtRel), 'total mensagens na base central');
   await page.screenshot({ path: `${SHOTS}/p2_relatorios_correspondencias.png`, fullPage: false });
   // separadores SCOPED ao menu lateral de relatórios (a sidebar também tem 'Instituições')
   const abaRel = (nome) => page.locator('#side-reports-navigation button').filter({ hasText: nome }).first();
@@ -101,7 +129,7 @@ try {
   await abaRel('Cidadãos').click();
   await page.waitForTimeout(4200);
   const txtCid = await tx();
-  reg('P2-cid-total-23 (23 cidadãos reais)', /\b23\b/.test(txtCid));
+  reg(`P2-cid-total-real (BD=${N_CID})`, new RegExp(`\\b${N_CID}\\b`).test(txtCid));
   await page.screenshot({ path: `${SHOTS}/p2_relatorios_cidadaos.png`, fullPage: false });
   // separador Auditoria
   await page.locator('#btn-tab-report-audit_security').click();
@@ -135,7 +163,7 @@ try {
   const txtSeg = await tx();
   reg('P3-auditoria-aberta', txtSeg.includes('segurança facial'));
   const contas = (txtSeg.match(/contas com biometria na base\s*\n?\s*(\d[\d.,]*)/) || [])[1];
-  reg('P3-contas-reais (43 na base)', contas === '43', `valor: ${contas || '—'}`);
+  reg(`P3-contas-reais (BD=${N_CONTAS})`, contas === N_CONTAS, `valor: ${contas || '—'}`);
   await page.locator('button').filter({ hasText: /Modelos de Utilizadores/i }).first().click();
   await page.waitForTimeout(1500);
   const txtUsers = await tx();
