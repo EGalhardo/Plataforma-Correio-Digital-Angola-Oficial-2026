@@ -1337,16 +1337,27 @@ export default function App() {
   // da credencial no submit (ver detectaPapel), reencaminhando para a área certa.
   const pendingResubmitRef = useRef(false);
   const loginSubmitRef = useRef<((force?: boolean) => void) | null>(null);
+  const reloadHandledRef = useRef(false);
   useEffect(() => {
     const area = areaDoUrl();
     setAppMode(area);
     setTab(area === 'admin' ? 'gov-dashboard' : 'home');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // v37.46 — «refresh com sessão ⇒ login da área» corre UMA ÚNICA vez por carga.
+  // Antes o efeito re-disparava em cada transição para 'app'; como o logout faz
+  // location.reload(), navigation.type ficava 'reload' e um login fresco era
+  // empurrado de volta ao login («parece que entra e volta»). Agora:
+  //  - navegação normal  → marca tratado, nunca redireciona;
+  //  - já no login       → marca tratado (pós-logout), não toca em logins frescos;
+  //  - refresh com sessão→ na 1ª chegada a 'app', redireciona p/ <área>#/login.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || reloadHandledRef.current) return;
     const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
-    if (nav?.type === 'reload' && stage === 'app') {
+    if (nav?.type !== 'reload') { reloadHandledRef.current = true; return; }
+    if (stage === 'login') { reloadHandledRef.current = true; return; }
+    if (stage === 'app') {
+      reloadHandledRef.current = true;
       const prefix = getModePathPrefix(appMode);
       try { window.history.replaceState(null, '', `${prefix || '/'}#/login`); } catch { /* melhor esforço */ }
       setStage('login');
