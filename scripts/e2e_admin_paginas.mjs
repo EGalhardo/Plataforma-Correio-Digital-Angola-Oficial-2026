@@ -70,9 +70,9 @@ const textoPagina = () => page.evaluate(() => document.body.innerText);
 const tx = async () => ((await textoPagina()).toLowerCase());
 
 const loginAdmin = async () => {
-  await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  // v37.42 — login por área: a tabbar foi removida; o admin entra via /admin.
+  await page.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.getByRole('heading', { name: 'LOGIN' }).waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByRole('button', { name: 'Admin', exact: true }).first().click();
   await page.waitForTimeout(600);
   await page.locator('input[type="text"]:visible, input:not([type]):visible').first().fill(ADMIN);
   await page.locator('input[type="password"]').first().fill(ADMIN_PASS);

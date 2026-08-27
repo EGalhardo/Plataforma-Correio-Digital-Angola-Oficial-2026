@@ -302,6 +302,14 @@ const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
     'mensagem', 'documento', 'instituicao',
   ]),
 };
+// v37.42 — LOGIN POR ÁREA: a área de login deriva do pathname (logout/refresh
+// caem no login certo). `/admin*`→admin, `/institucional*`→instituicao, resto→cidadão.
+const areaDoUrl = (): 'user' | 'institution' | 'admin' => {
+  const p = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '/';
+  if (p.startsWith('/admin')) return 'admin';
+  if (p.startsWith('/institucional')) return 'institution';
+  return 'user';
+};
 const resolveHashToTab = (hash: string, mode: string): string | null => {
   const raw = hash.replace(/^#\/?/, '').split('?')[0].trim();
   if (!raw) return null;
@@ -1314,6 +1322,25 @@ export default function App() {
   const isInstMode = appMode === 'institution';
   // F12 — auxiliar simétrico para a ideologia demo/real (conta cidadão).
   const isUserMode = appMode === 'user';
+
+  // v37.42 — LOGIN POR ÁREA: no ecrã de login o modo vem do URL; e um REFRESH
+  // com sessão activa é encaminhado para o login da respectiva área (§3).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+    const isReload = nav?.type === 'reload';
+    if (stage === 'login') {
+      const area = areaDoUrl();
+      if (appMode !== area) {
+        setAppMode(area);
+        setTab(area === 'admin' ? 'gov-dashboard' : 'home');
+      }
+    } else if (isReload && stage === 'app') {
+      const prefix = getModePathPrefix(appMode);
+      try { window.history.replaceState(null, '', `${prefix || '/'}#/login`); } catch { /* melhor esforço */ }
+      setStage('login');
+    }
+  }, [stage, appMode]);
   // 2026-08-22 — área ADMIN: a página Equipa é exclusiva do Admin Alfa
   // (ADMIN-0001), mesmo desenho da área Instituição (responsável vs
   // colaboradores). Agentes reais ADMIN-NNNN (NNNN >= 2) têm o item INACTIVO
@@ -3991,9 +4018,10 @@ export default function App() {
   // sessão de nuvem activa). Best-effort: sem rede o logout local prossegue; o
   // marcador cda_cloud_accounts_v1 NUNCA é apagado (a conta continua migrada).
   const handleLogout = async (clearAll = false) => {
-    // P-URL — limpar o hash ANTES do reload: a última página visitada não fica
-    // exposta no URL do ecrã de login seguinte (privacidade pós-logout).
-    try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* melhor esforço */ }
+    // P-URL — v37.42: ao terminar a sessão o URL passa para o login DA ÁREA
+    // (pathname já reflecte o prefixo /admin ou /institucional), mantendo a
+    // privacidade pós-logout e o encaminhamento correcto (§3).
+    try { window.history.replaceState(null, '', window.location.pathname + window.location.search + '#/login'); } catch { /* melhor esforço */ }
     if (clearAll) {
       localStorage.clear();
       window.location.reload();
@@ -6834,7 +6862,8 @@ Ficha civil do titular:
                   className="space-y-4 flex-1 flex flex-col justify-center animate-fadeIn"
                 >
                   {/* Tabs layout exactly matching the image */}
-                  <div className="flex items-center justify-center gap-6 text-[10px] font-black uppercase tracking-widest border-b border-slate-100 pb-2 mb-1.5">
+                  {/* v37.42 — a área vem do URL; separadores de login removidos (§B). */}
+                  <div className="hidden flex items-center justify-center gap-6 text-[10px] font-black uppercase tracking-widest border-b border-slate-100 pb-2 mb-1.5">
                     <button
                       type="button"
                       onClick={() => {
@@ -6970,10 +6999,11 @@ Ficha civil do titular:
 
                       {/* Button AUTO PREENCHER DEMONSTRAÇÃO */}
                       <div className="flex flex-col items-stretch">
+                        {/* v37.42 — botão de demonstração removido do login (§B). */}
                         <button
                           type="button"
                           onClick={handleDemoAutofill}
-                          className="w-full bg-white hover:bg-slate-50 text-blue-600 border border-blue-600 rounded-xl py-2.5 font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer"
+                          className="hidden w-full bg-white hover:bg-slate-50 text-blue-600 border border-blue-600 rounded-xl py-2.5 font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer"
                         >
                           {t("Auto Preencher Demonstração")}
                         </button>
@@ -7216,7 +7246,8 @@ Ficha civil do titular:
                       <Fingerprint size={15} />
                       {t('VALIDAR FACE LOCAL')}
                     </button>
-                    <div className="flex flex-wrap items-center justify-center gap-3 text-[9.5px] font-black uppercase tracking-widest">
+                    {/* v37.42 — atalho de demonstração removido do login (§B). */}
+                    <div className="hidden flex flex-wrap items-center justify-center gap-3 text-[9.5px] font-black uppercase tracking-widest">
                       <button
                         type="button"
                         onClick={handleDemoAutofill}

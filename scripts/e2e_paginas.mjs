@@ -105,8 +105,11 @@ async function correrPapel(role, cfg) {
   page.on('pageerror', (e) => errosJs.push(String(e).slice(0, 200)));
 
   const headingLogin = page.getByRole('heading', { name: 'LOGIN' }).first();
+  // v37.42 — login por área: a tabbar foi removida; a área vem do URL.
+  const PREFIXO_AREA = /institui/i.test(cfg.tab) ? '/institucional' : /admin/i.test(cfg.tab) ? '/admin' : '';
   const selecionarTab = async () => {
-    await page.getByRole('button', { name: cfg.tab, exact: true }).click();
+    await page.goto(BASE + (PREFIXO_AREA || '/'), { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await headingLogin.waitFor({ state: 'visible', timeout: 20000 }).catch(() => null);
     await page.waitForTimeout(600);
   };
   // Cancela o sub-ecrã de acesso (registo/redefinir/facial) pelo próprio botão
@@ -138,15 +141,13 @@ async function correrPapel(role, cfg) {
 
     // 0a) «Auto Preencher Demonstração» — funcional: tem de encher o campo
     {
+      // v37.42 — o botão «Auto Preencher Demonstração» foi removido do login por
+      // desenho; a ausência é agora o comportamento esperado.
       const btnAuto = page.getByRole('button', { name: /Auto Preencher Demonstra/i }).first();
       if (!(await btnAuto.isVisible().catch(() => false))) {
-        reg(role, 'auto-preencher', 'FAIL', 'botão «Auto Preencher Demonstração» inexistente');
+        reg(role, 'auto-preencher', 'PASS', 'removido por desenho (v37.42 — login por área)');
       } else {
-        await btnAuto.click();
-        await page.waitForTimeout(700);
-        const valor = await page.getByPlaceholder(/LA041|AGT-9921-SR|ADM-8812-OP/).inputValue().catch(() => '');
-        reg(role, 'auto-preencher', valor.trim() ? 'PASS' : 'FAIL',
-          valor.trim() ? `campo preenchido (${valor.trim().length} chars)` : 'clique não preencheu o campo de identificação');
+        reg(role, 'auto-preencher', 'FAIL', 'botão «Auto Preencher Demonstração» ainda visível no login');
       }
     }
 
