@@ -85,6 +85,7 @@ import { lerPerfilLocal } from './services/perfilLocalService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, preloginLookupInstitution, purgeInstitutionLocalResidues, mapRowStatus, type InstitutionIdentity } from './services/institutionSessionService';
 import { useInstitutions, CANONICAL_INSTITUTIONS } from './services/institutionStore';
+import { getLogoOficialPorCodigoInstituicao } from './config/institutionLogos';
 import { getLocalInstReg, normalizeInstCode, parseInstPack, normalizarNomeInstituicao, updateInstMemberProfile } from './services/institutionRegistrationStore';
 import { getLoginBloqueio, registarLoginFalha, limparLoginFalhas } from './services/loginSecurityService';
 import { resolveAdminAgentLogin, getAdminAgentCred, addAdminAgent, updateAdminAgentPermissions, ADMIN_ALFA_AGENT } from './services/adminAgentStore';
@@ -3346,13 +3347,38 @@ export default function App() {
   // do PRÓPRIO registo (logótipo carregado na página Conta → avatar neutro com a
   // sigla). A conta demo (AGT-9921-SR) mantém o branding histórico da AGT.
   const sessionInstBrand = useMemo(() => {
-    if (!isInstMode) return { sigla: '', logoUrl: '', verified: true };
-    if (isDemoInstitutionSession) return { sigla: 'AGT', logoUrl: '', verified: true };
+    if (!isInstMode) return { sigla: '', logoUrl: '', logoOrigem: 'nenhum' as const, logoFallback: '', verified: true };
+    // v37.39 — a conta demo da instituição é a AGT: passa a usar a logomarca
+    // oficial da categoria (antes caía no fallback hardcoded do HomeContent).
+    if (isDemoInstitutionSession) {
+      return {
+        sigla: 'AGT',
+        logoUrl: getLogoOficialPorCodigoInstituicao('AGT') || makeInstNeutralAvatar('AGT'),
+        logoOrigem: 'categoria' as const,
+        logoFallback: makeInstNeutralAvatar('AGT'),
+        verified: true,
+      };
+    }
     const code = normalizeInstCode(institutionCode || bi);
     const reg = getLocalInstReg(code);
     const pack = parseInstPack(reg?.observacoes || '');
     const sigla = (pack?.sigla || code.split('-')[0] || 'INST').toUpperCase();
-    return { sigla, logoUrl: reg?.logoDataUrl || makeInstNeutralAvatar(sigla), verified: instGate === 'full' };
+    // v37.39 — PRECEDÊNCIA da logomarca no Painel («ID Digital»):
+    //   1.º logótipo próprio carregado pela instituição (página Conta) — vence;
+    //   2.º logomarca oficial da categoria (catálogo partilhado com a Ficha
+    //       Institucional do cidadão) — ex.: INAPEM-LLMM → INAPEM;
+    //   3.º avatar neutro com a sigla (categoria sem logomarca, ex.:
+    //       'Administradoras', ou código sem correspondência).
+    // `logoOrigem` permite ao HomeContent escolher object-fit e o fallback.
+    const oficial = getLogoOficialPorCodigoInstituicao(sigla || code);
+    const neutro = makeInstNeutralAvatar(sigla);
+    if (reg?.logoDataUrl) {
+      return { sigla, logoUrl: reg.logoDataUrl, logoOrigem: 'proprio' as const, logoFallback: neutro, verified: instGate === 'full' };
+    }
+    if (oficial) {
+      return { sigla, logoUrl: oficial, logoOrigem: 'categoria' as const, logoFallback: neutro, verified: instGate === 'full' };
+    }
+    return { sigla, logoUrl: neutro, logoOrigem: 'neutro' as const, logoFallback: neutro, verified: instGate === 'full' };
   }, [isInstMode, isDemoInstitutionSession, institutionCode, bi, instGate, gateRefreshTick]);
 
   // F12 — Ideologia "conta nova = zero dados simulados" (prompt v7): apenas as
@@ -5119,6 +5145,8 @@ Ficha civil do titular:
             isInst={isInstMode}
             instSigla={isInstMode ? sessionInstBrand.sigla : undefined}
             instLogoUrl={isInstMode ? sessionInstBrand.logoUrl : undefined}
+            instLogoOrigem={isInstMode ? sessionInstBrand.logoOrigem : undefined}
+            instLogoFallback={isInstMode ? sessionInstBrand.logoFallback : undefined}
             instVerified={isInstMode ? sessionInstBrand.verified : undefined}
             onDoubleClickInstitution={isGovMode ? undefined : (name) => {
               setSelectedInstitution(name);

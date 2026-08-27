@@ -23,7 +23,11 @@ import {
 } from 'lucide-react';
 import { Message, Institution } from '../../types';
 import { InstitutionLogo } from '../ui/InstitutionLogo';
-import { getInstitutionLogoUrl } from '../../config/institutionLogos';
+import {
+  getInstitutionLogoUrl,
+  normalizarTextoInstituicao,
+  ALIAS_CATEGORIAS_INSTITUCIONAIS,
+} from '../../config/institutionLogos';
 
 const safeCopyToClipboard = (text: string): boolean => {
   try {
@@ -342,21 +346,26 @@ export function InstitutionDetail({
   const logoUrl = getInstitutionLogoUrl(institutionName);
 
   // Safe normalize matching key
+  // v37.39 — sinónimos passam a vir da tabela partilhada em
+  // config/institutionLogos (fonte única, também usada pelo Painel da
+  // Instituição). Comparação normalizada (minúsculas + sem acentos).
   const matchesOrg = (orgField: string, targetName: string = institutionName) => {
     if (!orgField) return false;
-    const a = orgField.toLowerCase().trim();
-    const b = targetName.toLowerCase().trim();
-    
+    const a = normalizarTextoInstituicao(orgField);
+    const b = normalizarTextoInstituicao(targetName);
+
     // Exact or partial matches
     if (a === b) return true;
     if (a.includes(b) || b.includes(a)) return true;
-    
-    // Key mappings
-    if (b === 'ministerios' && (a.includes('mins') || a.includes('ministerio') || a.includes('ministério'))) return true;
-    if (b === 'seguro social' && (a.includes('inss') || a.includes('seguro'))) return true;
-    if (b === 'polícia nacional' && (a.includes('pna') || a.includes('policia') || a.includes('polícia'))) return true;
-    if (b === 'registo civil' && (a.includes('rciv') || a.includes('registo') || a.includes('civil') || a.includes('id'))) return true;
-    
+
+    // Sinónimos da categoria (ex.: 'ministerios' ⇔ mins/minsa/ministerio)
+    const chaveAlias = Object.keys(ALIAS_CATEGORIAS_INSTITUCIONAIS)
+      .find((k) => normalizarTextoInstituicao(k) === b);
+    if (chaveAlias) {
+      const aliases = ALIAS_CATEGORIAS_INSTITUCIONAIS[chaveAlias];
+      if (aliases.some((al) => a.includes(normalizarTextoInstituicao(al)))) return true;
+    }
+
     return false;
   };
 

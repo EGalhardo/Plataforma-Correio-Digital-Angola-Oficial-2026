@@ -54,6 +54,101 @@ export const getInstitutionLogoUrl = (name: string | undefined | null): string |
   return chave ? INSTITUTION_LOGOS[chave] : undefined;
 };
 
+// ============================================================================
+// Resolução por CÓDIGO INSTITUCIONAL (v37.39)
+// ----------------------------------------------------------------------------
+// As chaves do catálogo misturam siglas ('AGT', 'SME', 'INAPEM') com nomes
+// ('Ministerios', 'Polícia Nacional', 'Registo Civil'). Um código institucional
+// real tem a forma SIGLA-SUFIXO (ex.: 'INAPEM-LLMM', 'MINSA-LLMM', 'PNA-LLMM'),
+// pelo que a igualdade directa não chega: 'MINSA-LLMM' nunca casaria com
+// 'Ministerios'.
+//
+// Esta tabela é a fonte ÚNICA dos sinónimos — é consumida tanto pela Ficha
+// Institucional (InstitutionDetail.matchesOrg) como pelo Painel da Instituição.
+// NÃO duplicar.
+// ============================================================================
+
+/**
+ * Normaliza para comparação: minúsculas, sem acentos e sem espaços nas pontas.
+ * Faz 'Polícia Nacional' e 'Policia Nacional' casarem, e 'MINSA' e 'minsa'.
+ */
+export const normalizarTextoInstituicao = (texto: string | undefined | null): string => {
+  if (!texto) return '';
+  return String(texto)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+};
+
+/**
+ * Sinónimos aceites por categoria. Os valores são comparados SEM acentos e em
+ * minúsculas (ver normalizarTextoInstituicao).
+ */
+export const ALIAS_CATEGORIAS_INSTITUCIONAIS: Record<string, string[]> = {
+  'Ministerios': ['mins', 'minsa', 'ministerio'],
+  'Seguro Social': ['inss', 'seguro'],
+  'Polícia Nacional': ['pna', 'policia'],
+  'Registo Civil': ['rciv', 'registo', 'civil'],
+};
+
+/**
+ * Descobre a CATEGORIA (chave do catálogo) a que um código institucional ou
+ * sigla pertence. Devolve a chave exacta do catálogo ou null.
+ *
+ *   'INAPEM-LLMM'      → 'INAPEM'            (sigla base, igualdade)
+ *   'AGT'              → 'AGT'
+ *   'MINSA-LLMM'       → 'Ministerios'       (sinónimo longo, por inclusão)
+ *   'PNA-LLMM'         → 'Polícia Nacional'  (sinónimo curto, por igualdade)
+ *   'XYZ-LLMM'         → null                (sem correspondência)
+ *
+ * Regra anti-falso-positivo: sinónimos CURTOS (≤4 caracteres, tipicamente
+ * siglas) só casam por IGUALDADE com a sigla base; sinónimos LONGOS casam por
+ * inclusão. Sem isto, um código como 'VALIDACAO-LLMM' casaria com 'Registo
+ * Civil' por conter 'id'/'civil'... e 'id' em particular foi removido dos
+ * sinónimos por ser demasiado genérico.
+ */
+export const categoriaDaInstituicao = (
+  codigoOuSigla: string | undefined | null,
+): string | null => {
+  const limpo = normalizarTextoInstituicao(codigoOuSigla);
+  if (!limpo) return null;
+  // Família da instituição: a sigla base antes do primeiro hífen.
+  const base = limpo.split('-')[0].trim();
+
+  // 1. Igualdade directa com uma chave do catálogo (só categorias COM logomarca).
+  for (const chave of Object.keys(INSTITUTION_LOGOS)) {
+    const chaveNorm = normalizarTextoInstituicao(chave);
+    if (chaveNorm === limpo || chaveNorm === base) return chave;
+  }
+
+  // 2. Sinónimos, mas apenas para categorias que tenham logomarca oficial.
+  for (const [categoria, aliases] of Object.entries(ALIAS_CATEGORIAS_INSTITUCIONAIS)) {
+    if (!INSTITUTION_LOGOS[categoria]) continue;
+    for (const alias of aliases) {
+      const aliasNorm = normalizarTextoInstituicao(alias);
+      const casa = aliasNorm.length <= 4
+        ? base === aliasNorm
+        : limpo.includes(aliasNorm) || base.includes(aliasNorm);
+      if (casa) return categoria;
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Logomarca OFICIAL da categoria a que a instituição pertence, ou undefined
+ * quando não há correspondência (ou a categoria não tem logomarca, ex.:
+ * 'Administradoras'). Quem chama decide a precedência face ao logótipo próprio.
+ */
+export const getLogoOficialPorCodigoInstituicao = (
+  codigoOuSigla: string | undefined | null,
+): string | undefined => {
+  const categoria = categoriaDaInstituicao(codigoOuSigla);
+  return categoria ? INSTITUTION_LOGOS[categoria] : undefined;
+};
+
 /**
  * Sigla apresentável da instituição (para o placeholder) — extrai as iniciais
  * das palavras principais. Ex.: 'Administração Geral Tributária' → 'AGT';

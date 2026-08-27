@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShieldCheck, Mail } from 'lucide-react';
 import { HIGHLIGHT_SLIDES, INST_HIGHLIGHT_SLIDES } from '../../constants/data';
@@ -25,6 +26,14 @@ interface HomeContentProps {
   /** F11 — marca da instituição da sessão (sigla/logótipo/estado). */
   instSigla?: string;
   instLogoUrl?: string;
+  /**
+   * v37.39 — origem do logótipo resolvido no App:
+   * 'proprio' = upload da instituição · 'categoria' = logomarca oficial ·
+   * 'neutro' = avatar com a sigla. Decide o object-fit e o fallback.
+   */
+  instLogoOrigem?: 'proprio' | 'categoria' | 'neutro' | 'nenhum';
+  /** v37.39 — avatar neutro com a sigla, usado se o logótipo não carregar. */
+  instLogoFallback?: string;
   instVerified?: boolean;
   onDoubleClickInstitution?: (name: string) => void;
   currentLanguage?: LanguageCode;
@@ -42,9 +51,19 @@ export function HomeContent({
   isInst,
   instSigla,
   instLogoUrl,
+  instLogoOrigem,
+  instLogoFallback,
   instVerified,
   onDoubleClickInstitution}: HomeContentProps) {
   const { t } = useLanguage();
+  /**
+   * v37.39 — se a logomarca oficial falhar (URL removida/fora do ar), cai no
+   * avatar neutro com a sigla em vez do bloco genérico "Imagem não disponível".
+   * Guardamos o URL que falhou: assim o estado repõe-se sozinho quando a
+   * sessão muda de instituição.
+   */
+  const [logoFalhouEm, setLogoFalhouEm] = useState<string | null>(null);
+  const logoFalhou = Boolean(instLogoUrl) && logoFalhouEm === instLogoUrl;
   const slides = isInst ? INST_HIGHLIGHT_SLIDES : HIGHLIGHT_SLIDES;
   const currentSlide = slides[activeSlide % slides.length];
 
@@ -101,14 +120,25 @@ export function HomeContent({
         <div className="bg-white border border-slate-200 rounded-[28px] md:rounded-[32px] p-4 md:p-6 flex items-center gap-4 md:gap-6 shadow-sm overflow-hidden relative group">
           <div className={`w-12 h-12 md:w-16 md:h-16 ${isInst ? 'bg-white border-slate-100' : 'bg-green-600 border-green-600'} rounded-2xl flex items-center justify-center shadow-sm shrink-0 border`}>
             {isInst ? (
-              <LazyImage 
-                src={instLogoUrl || "https://i.postimg.cc/4x1mS4hQ/AGT.jpg"} 
-                alt={instSigla || "AGT"} 
+              /*
+               * v37.39 — o logótipo é sempre resolvido no App (logótipo próprio >
+               * logomarca oficial da categoria > avatar neutro), portanto aqui já
+               * não há URL hardcoded da AGT. `contain` para não cortar os
+               * emblemas oficiais; `cover` mantido só para o upload próprio.
+               * `key` força a remontagem quando o src efectivo muda, porque o
+               * LazyImage não repõe o seu estado de erro por si.
+               */
+              <LazyImage
+                key={`${logoFalhou ? 'fb' : 'ok'}:${instLogoUrl || ''}`}
+                src={logoFalhou ? (instLogoFallback || '') : (instLogoUrl || '')}
+                alt={instSigla || 'Instituição'}
                 style={{
                   width: '100%',
                   height: '100%',
+                  objectFit: instLogoOrigem === 'proprio' && !logoFalhou ? 'cover' : 'contain',
                 }}
-                className="w-full h-full object-cover rounded-2xl"
+                className="w-full h-full rounded-2xl"
+                onError={() => { if (instLogoUrl) setLogoFalhouEm(instLogoUrl); }}
               />
             ) : (
               <ShieldCheck size={24} className="md:w-8 md:h-8 text-white" />
