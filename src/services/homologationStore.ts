@@ -29,14 +29,9 @@ export interface HomologationMessage {
 const STATUS_KEY = 'cda_homologation_statuses_v1';
 const THREADS_KEY = 'cda_homologation_threads_v1';
 
-// v37.54 — a conta de demonstração fica activa APENAS sob o interruptor de teste
-// (build de desenvolvimento ou VITE_CDA_E2E=1, usado pelas varreduras E2E). Na
-// build de produção a lista fica vazia → a demo deixa de existir para o utilizador
-// real, sem áreas órfãs (o código permanece, mas inerte).
-const DEMO_ATIVA = import.meta.env.VITE_CDA_E2E === '1';
 // Identidades demo canónicas do piloto — NUNCA passam por homologação,
 // para não quebrar o fluxo de demonstração já existente.
-const ALWAYS_ACTIVE_IDENTIFIERS = DEMO_ATIVA ? ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP'] : [];
+const ALWAYS_ACTIVE_IDENTIFIERS = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP'];
 
 export const normalizeHomologationBi = (bi?: string): string =>
   (bi || '').toUpperCase().replace(/\s+/g, '').trim();
