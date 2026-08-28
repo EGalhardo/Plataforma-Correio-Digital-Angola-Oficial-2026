@@ -4176,6 +4176,7 @@ export default function App() {
       : (composeData.attachments || []);
     // Validação do conteúdo: destinatário e corpo obrigatórios (corpo só com espaços não envia).
     if (!to || !body.trim()) {
+      notify('A mensagem está vazia. Escreva o conteúdo antes de enviar.', 'warning');
       return { ok: false, error: 'A mensagem está vazia. Escreva o conteúdo antes de enviar.' };
     }
     // P0-B — anti void-delivery (decisão §0.1 do dono: BLOQUEAR): destinatário
@@ -4187,6 +4188,7 @@ export default function App() {
       const reg = await supabaseService.institutionRegistered(to);
       if (!reg.errorCode && !reg.registered) {
         addAuditLog(`P0-B — Envio bloqueado: o código institucional ${to.toUpperCase()} não consta (aprovado) do registo oficial. Confirme o código ou peça à instituição para formalizar o registo.`, 'warning');
+        notify(`Envio bloqueado: o código institucional ${to.toUpperCase()} não consta (aprovado) do registo oficial.`, 'error');
         return { ok: false, blocked: true, error: `Envio bloqueado: o código institucional ${to.toUpperCase()} não consta (aprovado) do registo oficial.` };
       }
     }

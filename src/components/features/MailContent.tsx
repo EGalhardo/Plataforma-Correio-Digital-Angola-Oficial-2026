@@ -90,7 +90,7 @@ interface MailContentProps {
   setIsComposing: (composing: boolean) => void;
   composeData: { to: string; subject: string; body: string; attachments?: string[] };
   setComposeData: (data: { to: string; subject: string; body: string; attachments?: string[] }) => void;
-  handleSendMessage: () => void;
+  handleSendMessage: () => void | Promise<unknown>;
   unreadTotal: number;
   correspondenciaTab: string;
   setCorrespondenciaTab: (tab: string) => void;
@@ -209,6 +209,7 @@ export function MailContent({
   };
 
   const tentarEnviar = async () => {
+    if (enviando || distribuindoSondagens) return; // v37.62 — anti-duplicação
     const v = validarEnvio(composeData);
     // v37 — com sondagens na composição o corpo pode ir vazio (a distribuição
     // trata do conteúdo); retira apenas o bloqueio de corpo vazio.
@@ -286,7 +287,8 @@ export function MailContent({
         return;
       }
     }
-    handleSendMessage();
+    setEnviando(true);
+    Promise.resolve(handleSendMessage()).finally(() => setEnviando(false));
   };
 
   const [editorBold, setEditorBold] = useState(false);
@@ -306,6 +308,8 @@ export function MailContent({
   const [sondagensCompostas, setSondagensCompostas] = useState<Sondagem[]>([]);
   const [sondagemARemover, setSondagemARemover] = useState<Sondagem | null>(null);
   const [distribuindoSondagens, setDistribuindoSondagens] = useState(false);
+  // v37.62 — anti-duplicação + loading no envio normal do compositor.
+  const [enviando, setEnviando] = useState(false);
   const [avisoSondagens, setAvisoSondagens] = useState<string | null>(null);
   const [sucessoSondagens, setSucessoSondagens] = useState<string | null>(null);
   // v37.5 §3.2 — listas longas: acima de 100 linhas renderiza as primeiras 100
@@ -1331,11 +1335,13 @@ export function MailContent({
               disabled={!composeData.to || (isInst && !composeData.subject)
                 || (!composeData.body && !(isInst && sondagensCompostas.length > 0))
                 || distribuindoSondagens
+                || enviando
                 || (!isInst && !!instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && instRegistry.status === 'nao_registada')}
               className="w-full md:flex-[2] bg-primary text-white py-4 rounded-2xl font-black text-sm md:text-base shadow-xl shadow-primary/25 hover:bg-primary/95 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 md:gap-3 cursor-pointer"
             >
-              {distribuindoSondagens ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+              {(distribuindoSondagens || enviando) ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
               {distribuindoSondagens ? 'A distribuir sondagens…'
+                : enviando ? 'A enviar…'
                 : avisosConfirmados && validacao && validacao.avisos.length > 0 ? 'Enviar mesmo assim' : 'Enviar Mensagem Oficial'}
             </button>
 
