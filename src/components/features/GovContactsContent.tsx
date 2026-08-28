@@ -25,7 +25,7 @@ import { carregarDadosReaisAdmin, type AdminRealData } from '../../services/admi
 
 const _ehAgenteCodificado = (bi: string) =>
   /^[A-Z]+(-[A-Z]+)*-\d{2,}(-[A-Z]{2,})?$/.test((bi || '').toUpperCase()) && (bi || '').toUpperCase() !== 'CDA';
-import { provisionCloudAccount, markCloudAccount, isCloudBound, unmarkCloudAccount, isSupabaseConfigured, syntheticAdminEmail, syntheticInstitutionAgentEmail } from '../../services/cloudAuthService';
+import { provisionCloudAccount, markCloudAccount, isCloudBound, unmarkCloudAccount, isSupabaseConfigured, syntheticAdminEmail, syntheticInstitutionAgentEmail, cloudSignIn } from '../../services/cloudAuthService';
 import {
   Users,
   Mail,
@@ -1804,12 +1804,29 @@ export function GovContactsContent({
 
     // 1) NUVEM — conta Auth + avatares (servidor; contas demo nunca tocam)
     let nuvem: 'eliminada' | 'nao_encontrada' | 'falha' | 'demo' = ehDemo ? 'demo' : 'nao_encontrada';
+    let nuvemErro = '';
     if (agente && !ehDemo && isSupabaseConfigured()) {
+      // v37.69 — garantir SESSÃO DE NUVEM antes de eliminar. Um agente admin que
+      // entrou por via LOCAL (transição/emergência, sem signIn no Supabase Auth)
+      // não tem token → eliminarAgente devolvia "Sem sessão de nuvem" e a conta
+      // era apagada SÓ localmente (daí a mensagem "nuvem indisponível"). Aqui
+      // re-autentica com a credencial local do próprio agente da sessão para a
+      // eliminação chegar realmente à Supabase.
+      try {
+        const { data: sessChk } = await supabase.auth.getSession();
+        if (!sessChk?.session) {
+          const biNorm = (bi || '').toUpperCase().replace(/\s+/g, '');
+          const minhaCred = getAdminAgentCreds().find((c) => (c.agent || '').toUpperCase().replace(/\s+/g, '') === biNorm);
+          if (biNorm && minhaCred?.password) {
+            await cloudSignIn(supabase, syntheticAdminEmail(biNorm), minhaCred.password);
+          }
+        }
+      } catch { /* melhor esforço — eliminarAgente reporta a falha real */ }
       const res = await eliminarAgente(agente);
       if (res.demo) nuvem = 'demo';
       else if (res.ok && res.conta === 'eliminada') nuvem = 'eliminada';
       else if (res.ok && res.conta === 'nao_encontrada') nuvem = 'nao_encontrada';
-      else nuvem = 'falha';
+      else { nuvem = 'falha'; nuvemErro = res.erro || ''; }
     }
 
     // 2) LOCAL — registo da instituição / credenciais do admin
@@ -1885,7 +1902,7 @@ export function GovContactsContent({
         ? 'conta da nuvem já não existia'
         : nuvem === 'demo'
           ? 'via demonstração — sem nuvem'
-          : 'nuvem indisponível — eliminação local confirmada';
+          : `nuvem indisponível${nuvemErro ? ` (${nuvemErro})` : ''} — eliminação local confirmada`;
     addAuditLog?.(`[EQUIPA] ${name}${agente ? ` (${agente})` : ''} ELIMINADO definitivamente — acesso revogado, ${msgNuvem}, vestígios locais apagados.`, 'critical');
     notify(`${name} eliminado definitivamente (${msgNuvem}).`, 'success');
   };
