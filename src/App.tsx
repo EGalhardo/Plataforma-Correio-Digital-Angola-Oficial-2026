@@ -1592,7 +1592,18 @@ export default function App() {
     // troca automática de área (detectaPapel); senão o 2º submit iria vazio.
     if (pendingResubmitRef.current) return;
     if (stage === 'login' || stage === 'splash') {
-      applyDemoPresetForMode(appMode, false);
+      // v37.58 — refresh com sessão activa: restaurar o identificador real da
+      // sessão em vez de pré-preencher a demo. Antes, o preset demo corria no
+      // 'splash' e repunha bi=AGT-9921-SR, trocando logomarca e dados da instituição.
+      let temSessaoActiva = false;
+      try { temSessaoActiva = localStorage.getItem('cda_sessao_activa') === '1'; } catch { /* melhor esforço */ }
+      if (temSessaoActiva) {
+        let biSessao = '';
+        try { biSessao = localStorage.getItem('correio_digital_bi') || ''; } catch { /* melhor esforço */ }
+        if (biSessao) setBiLocal(biSessao);
+      } else {
+        applyDemoPresetForMode(appMode, false);
+      }
       setLoginPasswordInput('');
       setEnteredOtp('');
       setEnteredPin('');
