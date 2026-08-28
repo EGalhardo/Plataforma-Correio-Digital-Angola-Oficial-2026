@@ -2418,11 +2418,29 @@ export default function App() {
     const readIds = getReadMessageIds(bi);
     if (readIds.size === 0) return;
     const baseOfId = (id: number) => (id >= 10000 && id < 90000000 ? id - 10000 : id);
+    const conteudoDe = (m: Message) =>
+      `${(m.org || '').toUpperCase()}::${String(m.details?.subject || m.preview || '').trim().toLowerCase()}`;
     const applyRead = (list: Message[]) => {
+      // v37.59 — invariante «se está em Lidas não pode estar em Não Lidas»:
+      // a fusão/nuvem por vezes recria a mesma correspondência com id diferente,
+      // que antes ficava "Não Lida" (duplicado). Recolhe protocolos/conteúdos já
+      // lidos e propaga a leitura a esses duplicados.
+      const protLidos = new Set<string>();
+      const contLidos = new Set<string>();
+      list.forEach(m => {
+        const lida = !m.unread || readIds.has(m.id) || readIds.has(baseOfId(m.id));
+        if (!lida) return;
+        const pn = m.protocol?.protocolNumber;
+        if (pn) protLidos.add(pn);
+        contLidos.add(conteudoDe(m));
+      });
       let touched = false;
       const next = list.map(m => {
         if (!m.unread) return m;
-        if (!readIds.has(m.id) && !readIds.has(baseOfId(m.id))) return m;
+        const pn = m.protocol?.protocolNumber;
+        const lida = readIds.has(m.id) || readIds.has(baseOfId(m.id))
+          || (!!pn && protLidos.has(pn)) || contLidos.has(conteudoDe(m));
+        if (!lida) return m;
         touched = true;
         return { ...m, unread: 0, status: 'Lida' };
       });
