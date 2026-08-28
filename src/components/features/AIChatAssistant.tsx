@@ -534,7 +534,7 @@ export function AIChatAssistant({
 
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'pt-AO';
+    recognition.lang = 'pt-PT'; // v37.57 — pt-AO é inválido p/ SpeechRecognition; pt-PT reconhecido
 
     recognition.onresult = (event: ResultadoReconhecimento) => {
       // Acumula TODOS os segmentos finais — nunca substitui (frases longas

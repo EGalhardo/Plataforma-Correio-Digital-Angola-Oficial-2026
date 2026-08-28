@@ -147,7 +147,7 @@ export function VoiceGuideAssistant({
       recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = false;
-      recognition.lang = 'pt-AO';
+      recognition.lang = 'pt-PT'; // v37.57 — pt-AO é inválido p/ SpeechRecognition; pt-PT reconhecido
     } catch (err) {
       setSpeechError("Falha ao inicializar os serviços de áudio.");
       return;
