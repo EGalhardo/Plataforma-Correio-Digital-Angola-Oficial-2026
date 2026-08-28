@@ -901,6 +901,8 @@ export default function App() {
   };
 
   const applyDemoPresetForMode = (mode: AppMode, includePassword = false) => {
+    // v37.54 — sem demo fora do modo de teste: não pré-preencher credenciais demo.
+    if (import.meta.env.VITE_CDA_E2E !== '1') return;
     const preset = DEMO_CREDENTIALS[mode];
     // v37.14 — nos TRÊS perfis o campo «Nº de Utilizador» fica LIVRE no login:
     // o identificador demo aparece apenas como placeholder (ou via botão
@@ -6362,6 +6364,23 @@ Ficha civil do titular:
 
     const handleLoginSubmitCore = async () => {
       const identLogin = bi.trim().toUpperCase().replace(/\s+/g, '');
+      // v37.54 — contas de demonstração desactivadas fora do modo de teste
+      // (build de desenvolvimento ou VITE_CDA_E2E=1). Em produção, os três
+      // identificadores demo e o BI vazio (que caía na «via demo») são recusados,
+      // para que a demo não exista para o utilizador real.
+      if (import.meta.env.VITE_CDA_E2E !== '1') {
+        const demoIds = [
+          DEMO_CREDENTIALS.user.identifier,
+          DEMO_CREDENTIALS.institution.identifier,
+          DEMO_CREDENTIALS.admin.identifier,
+        ].map(s => (s || '').toUpperCase());
+        if (!identLogin || demoIds.includes(identLogin)) {
+          setLoginError('Credenciais incorrectas: introduza o seu Nº de Utilizador e a respectiva senha.');
+          addAuditLog('Login recusado: identificador de demonstração desactivado em produção.', 'warning');
+          if (identLogin) registarLoginFalha(identLogin);
+          return;
+        }
+      }
       // v37.43 — LOGIN POR ÁREA: deduz o papel da credencial e, se não bater
       // certo com a área actual, muda de área e re-tenta o submit (sem separadores).
       const papelAlvo = detectaPapel(identLogin);
