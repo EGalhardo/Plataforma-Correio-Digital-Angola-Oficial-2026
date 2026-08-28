@@ -43,3 +43,20 @@ export const lerAvatarAuth = async (): Promise<string> => {
     return typeof url === 'string' && url ? url : '';
   } catch { return ''; }
 };
+
+// v37.68 — detector ÚNICO da foto placeholder/demo (Edlasio + genéricas).
+// Antes cada componente tinha a sua lista incompleta: o InstitutionProfile
+// apanhava «Y92CFNC5», mas o sessionStore e o Header não — e uma conta
+// institucional nova mostrava a foto do Edlasio. Qualquer URL destes padrões
+// conta como «sem foto própria»: em instituição/admin mostra-se o círculo azul
+// com as iniciais; só o cidadão demo (Edlasio) a pode exibir legitimamente.
+const PADROES_PLACEHOLDER = [
+  'foto-edlasio', 'foto_perfil_edlasio', 'edlasio',
+  'unsplash', 'postimg', 'sxwsygx2', 'y92cfnc5',
+];
+export const isPlaceholderAvatar = (url: string | null | undefined): boolean => {
+  if (!url) return true; // sem URL = sem foto
+  const u = String(url).toLowerCase();
+  if (u.startsWith('data:image/svg')) return false; // avatar neutro (iniciais) é válido
+  return PADROES_PLACEHOLDER.some((p) => u.includes(p));
+};

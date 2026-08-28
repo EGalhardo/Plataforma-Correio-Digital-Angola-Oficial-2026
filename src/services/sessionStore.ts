@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { SessionUser, ActiveProfile, AppMode } from "../types";
 import { MOCK_SESSION_USER, MOCK_SESSION_PROFILES } from "../constants/mocks";
+import { isPlaceholderAvatar } from "./avatarService";
 
 // Canonical Session User: Edlasio Galhardo
 export const CANONICAL_USER: SessionUser = MOCK_SESSION_USER;
@@ -75,8 +76,16 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     let avatar = (candidate && Object.prototype.hasOwnProperty.call(candidate, 'avatarUrl'))
       ? (candidate.avatarUrl || '')
       : base.avatarUrl;
-    if (avatar && (avatar.includes("sxWsYGX2") || avatar.includes("foto_perfil_edlasio"))) {
-      avatar = mode === "institution" ? base.avatarUrl : "https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png";
+    // v37.68 — detector ÚNICO (isPlaceholderAvatar): apanha TODOS os padrões da
+    // foto demo (Edlasio/Y92CFNC5/postimg/unsplash), não só sxWsYGX2. Antes uma
+    // conta institucional nova podia herdar a foto do Edlasio porque o filtro
+    // era incompleto. Em instituição/admin a foto demo é SEMPRE fuga → vazio
+    // (Header/Perfil mostram o círculo azul com as iniciais); só o cidadão demo
+    // mantém a foto canónica.
+    if (avatar && isPlaceholderAvatar(avatar)) {
+      avatar = (mode === "institution" || mode === "admin")
+        ? ""
+        : "https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png";
     }
     // v37.29 — ANTI-FUGA DE DADOS ENTRE CONTAS: quando existe uma sessão de um
     // utilizador REAL (com B.I. próprio), os campos pessoais vazios NUNCA são

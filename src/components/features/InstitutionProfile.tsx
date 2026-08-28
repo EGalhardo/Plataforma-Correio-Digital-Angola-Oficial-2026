@@ -17,7 +17,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useSession } from "../../services/sessionStore";
 import { supabaseService, hasValidSupabaseKeys } from "../../services/supabaseService";
 import { supabase } from '../../lib/supabaseClient';
-import { guardarAvatar } from '../../services/avatarService';
+import { guardarAvatar, isPlaceholderAvatar } from '../../services/avatarService';
 import { guardarPerfilLocal } from '../../services/perfilLocalService';
 import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil, syncInstitutionMemberToCloud, type ProfileSyncOutcome } from '../../services/profileSyncService';
 import { getLocalInstReg, normalizeInstCode, updateInstMemberProfile, buildAgentNumber, setInstLogo } from "../../services/institutionRegistrationStore";
@@ -75,13 +75,8 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
   // F8 — sem foto própria, mostra-se um marcador neutro institucional (nunca a foto do cidadão demo).
   // v37.56 — conta nova sem foto de perfil ⇒ iniciais + fundo azul (nunca a foto
   // por omissão). Qualquer URL placeholder (Edlasio/unsplash) conta como "sem foto".
-  const fotoEhPlaceholder = !userProfilePhoto
-    || userProfilePhoto.includes("Foto-Edlasio")
-    || userProfilePhoto.includes("unsplash")
-    || userProfilePhoto.includes("foto_perfil_edlasio")
-    || userProfilePhoto.includes("sxWsYGX2")
-    || userProfilePhoto.includes("Y92CFNC5");
-  const finalPhoto = fotoEhPlaceholder ? "" : userProfilePhoto;
+  // v37.68 — detector único partilhado (isPlaceholderAvatar) em vez da lista local.
+  const finalPhoto = isPlaceholderAvatar(userProfilePhoto) ? "" : userProfilePhoto;
 
   const { updateUserFields, updateActiveProfileFields } = useSession();
   const [isEditingInst, setIsEditingInst] = useState(false);

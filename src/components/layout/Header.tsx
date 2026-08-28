@@ -14,6 +14,7 @@ import logoModoClaro from '../../assets/images/logomarca_modo_claro_crop.png';
 import logoModoEscuro from '../../assets/images/logomarca_modo_escuro_crop.png';
 import { hasPagePresentation } from '../../services/voicePresentations';
 import { resolveInstitutionCode, isRealInstitutionalCode } from '../../services/supabaseService';
+import { isPlaceholderAvatar } from '../../services/avatarService';
 import type { JSX } from 'react';
 
 interface HeaderProps {
@@ -231,6 +232,11 @@ export function Header({
   const isGov = appMode !== 'user';
   const isAdmin = appMode === 'admin';
   const isInst = appMode === 'institution';
+  // v37.68 — em instituição/admin a foto demo (Edlasio/postimg/unsplash) é sempre
+  // uma fuga entre contas: trata-se como "sem foto" para mostrar o círculo azul
+  // com as iniciais. O cidadão demo mantém a foto canónica.
+  const displayAvatar = (user?.avatarUrl && !((isInst || isAdmin) && isPlaceholderAvatar(user.avatarUrl)))
+    ? user.avatarUrl : '';
   const hasEmergencyBanner = emergencyMode && isGov;
 
   const getSectionLabel = () => {
@@ -425,9 +431,9 @@ export function Header({
           </button>
           
           <div className="relative flex items-center justify-center">
-            {user?.avatarUrl ? (
+            {displayAvatar ? (
               <LazyImage
-                src={user.avatarUrl}
+                src={displayAvatar}
                 alt="Perfil"
                 priority={true}
                 placeholder="skeleton"
@@ -593,9 +599,9 @@ export function Header({
           </button>
           
           <div className="relative flex items-center">
-            {user?.avatarUrl ? (
+            {displayAvatar ? (
               <LazyImage
-                src={user.avatarUrl}
+                src={displayAvatar}
                 alt="Perfil"
                 priority={true}
                 placeholder="skeleton"

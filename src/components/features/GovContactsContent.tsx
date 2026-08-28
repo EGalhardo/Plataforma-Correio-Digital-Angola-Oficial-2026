@@ -1850,6 +1850,25 @@ export function GovContactsContent({
     }
 
     setWorkers(prev => prev.filter(w => w.id !== id));
+    // v37.68 — persistir a remoção no ESPELHO localStorage da Equipa: sem isto,
+    // no refresh a lista é relida de `correio_digital_admin_workers` (admin) ou
+    // `correio_digital_workers_<inst>` (instituição) e o colaborador eliminado
+    // REAPARECIA — a eliminação só actualizava o estado desta sessão + as
+    // credenciais, nunca o espelho que alimenta a lista no arranque.
+    try {
+      const workersKey = appMode === 'admin-workers'
+        ? 'correio_digital_admin_workers'
+        : appMode === 'institution'
+          ? `correio_digital_workers_${normalizeInstCode(bi)}`
+          : 'correio_digital_workers';
+      const rawW = localStorage.getItem(workersKey);
+      if (rawW) {
+        const arrW = JSON.parse(rawW) as { id?: string }[];
+        if (Array.isArray(arrW)) {
+          localStorage.setItem(workersKey, JSON.stringify(arrW.filter((w) => w && w.id !== id)));
+        }
+      }
+    } catch { /* melhor esforço */ }
     // v37.16 — no Modo Real a lista deriva de `dadosReais.profiles`: refresca
     // também essa fonte para a linha desaparecer de imediato (o servidor já
     // apaga a linha na base central; isto evita esperar novo carregamento).
