@@ -5369,7 +5369,16 @@ Ficha civil do titular:
             setTab={setTab}
             handleReply={handleReply}
             onResponderComRascunho={handleResponderComRascunho}
-            onEnviarRespostaDireta={executeOfficialSend}
+            onEnviarRespostaDireta={async (payload) => {
+              const resultado = await executeOfficialSend(payload);
+              // v37.51 — após a confirmação da resposta, reencaminhar para a
+              // página «Correio» (lista), em vez de ficar no detalhe.
+              if (resultado?.ok) {
+                setSelectedMessage(null);
+                setTab(isGovMode ? 'gov-correspondencias' : 'correspondencias');
+              }
+              return resultado;
+            }}
             onUpdateMessage={handleUpdateMessage}
             onDeleteMessage={handleDeleteMessage}
             onRestoreMessage={handleRestoreMessage}
