@@ -1438,7 +1438,11 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
               // v37.66 — saída é um JSON curto (veredicto/alertas/motivo): teto de
               // 256 tokens (era 1024) + responseMimeType JSON para descodificação
               // restringida — geração mais rápida e sem bloco markdown à volta.
-              generationConfig: { temperature: 0, maxOutputTokens: 256, responseMimeType: 'application/json' },
+              // v37.67 — GARGALO REAL: o gemini-3.6-flash vem com "thinking" activo
+              // por omissão; media 22-32 s por análise. thinkingBudget:128 limita o
+              // raciocínio (suficiente para a triagem documental APTO/REVISAO) e
+              // baixa para ~3 s (medido: 22838ms -> 3008ms, ~7,6x).
+              generationConfig: { temperature: 0, maxOutputTokens: 256, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 128 } },
             }),
           }),
           new Promise((_unused, reject) => setTimeout(() => reject(new Error('PVI_TIMEOUT_30S')), PVI_TIMEOUT_MS)),
