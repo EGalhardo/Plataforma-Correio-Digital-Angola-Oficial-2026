@@ -2045,7 +2045,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
             <button
               onClick={() => setShowLocationPage(false)}
               className="text-[#384e6e] hover:text-slate-900 hover:bg-slate-100/60 p-2.5 rounded-full transition-all cursor-pointer flex items-center justify-center border border-slate-200 shadow-3xs bg-white"
-              title="Voltar ao Detalhe"
+              title="Voltar ao Detalhe" aria-label="Voltar ao Detalhe"
             >
               <ArrowLeft size={24} />
             </button>
@@ -2139,7 +2139,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               loading="eager"
               onLoad={() => setMapLoading(false)}
               referrerPolicy="no-referrer-when-downgrade"
-              title="Google Maps Location"
+              title="Google Maps Location" aria-label="Google Maps Location"
             />
 
             {/* FLOATING ADDRESS OVERLAY CARD: Exactly matching Image 2 style */}
@@ -2161,7 +2161,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                     href={openInNewTabUrl}
                     target="_blank" rel="noopener noreferrer"
                     className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-150 flex items-center justify-center text-indigo-650 hover:text-indigo-900 transition-all cursor-pointer outline-none"
-                    title="Abrir no Google Maps"
+                    title="Abrir no Google Maps" aria-label="Abrir no Google Maps"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="7" y1="17" x2="17" y2="7"></line>
@@ -2174,7 +2174,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                     href={directionsUrl}
                     target="_blank" rel="noopener noreferrer"
                     className="w-8 h-8 rounded-full bg-[#1a73e8] hover:bg-[#1557b0] flex items-center justify-center text-white transition-all shadow-md cursor-pointer outline-none hover:scale-105"
-                    title="Como Chegar (Rotas)"
+                    title="Como Chegar (Rotas)" aria-label="Como Chegar (Rotas)"
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M22.4 10.8L13.2 1.6C12.4 0.8 11.1 0.8 10.3 1.6L1.1 10.8C0.3 11.6 0.3 12.9 1.1 13.7L10.3 22.9C11.1 23.7 12.4 23.7 13.2 22.9L22.4 13.7C23.2 12.9 23.2 11.6 22.4 10.8ZM16.3 11H13V8H11V11.5C11 11.8 11.2 12 11.5 12H16.3V14L19.3 11.5L16.3 9V11Z" fill="currentColor"/>
@@ -2224,7 +2224,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
             type="button"
             onClick={() => setActiveAction(null)}
             className="text-[#384e6e] hover:text-slate-900 hover:bg-slate-100/60 p-2 rounded-full transition-all cursor-pointer flex items-center justify-center border-0 outline-none"
-            title="Voltar"
+            title="Voltar" aria-label="Voltar"
           >
             <ArrowLeft size={24} />
           </button>
@@ -2330,7 +2330,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           handleViewAttachment(file);
                         }}
                         className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 rounded-xl transition-all border-0 bg-transparent cursor-pointer flex items-center justify-center"
-                        title={t("Visualizar documento")}
+                        title={t("Visualizar documento")} aria-label={t("Visualizar documento")}
                       >
                         <Eye size={14} />
                       </button>
@@ -2340,7 +2340,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           handleDownloadFile(file);
                         }}
                         className="p-2 text-slate-400 hover:text-[#0c2340] hover:bg-slate-100 rounded-xl transition-all border-0 bg-transparent cursor-pointer flex items-center justify-center"
-                        title={t("Descarregar ficheiro")}
+                        title={t("Descarregar ficheiro")} aria-label={t("Descarregar ficheiro")}
                       >
                         <Download size={14} />
                       </button>
@@ -2464,7 +2464,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                             type="button"
                             onClick={handleDetailUndo}
                             disabled={detailHistoryIndex === 0}
-                            title="Desfazer (Undo)"
+                            title="Desfazer (Undo)" aria-label="Desfazer (Undo)"
                             className={`p-2 rounded-xl hover:bg-slate-200/80 active:scale-95 transition-all ${
                               detailHistoryIndex === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-650 hover:text-slate-900'
                             }`}
@@ -2475,7 +2475,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                             type="button"
                             onClick={handleDetailRedo}
                             disabled={detailHistoryIndex >= detailTextHistory.length - 1}
-                            title="Refazer (Redo)"
+                            title="Refazer (Redo)" aria-label="Refazer (Redo)"
                             className={`p-2 rounded-xl hover:bg-slate-200/80 active:scale-95 transition-all ${
                               detailHistoryIndex >= detailTextHistory.length - 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-650 hover:text-slate-900'
                             }`}
@@ -2525,7 +2525,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           <button
                             type="button"
                             onClick={() => setDetailEditorBold(!detailEditorBold)}
-                            title="Negrito (Bold)"
+                            title="Negrito (Bold)" aria-label="Negrito (Bold)"
                             className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
                               detailEditorBold 
                                 ? 'bg-indigo-100/80 text-indigo-700 border border-indigo-200/30' 
@@ -2538,7 +2538,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           <button
                             type="button"
                             onClick={() => setDetailEditorItalic(!detailEditorItalic)}
-                            title="Itálico (Italic)"
+                            title="Itálico (Italic)" aria-label="Itálico (Italic)"
                             className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
                               detailEditorItalic 
                                 ? 'bg-indigo-100/80 text-indigo-700 border border-indigo-200/30' 
@@ -2551,7 +2551,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           <button
                             type="button"
                             onClick={() => setDetailEditorUnderline(!detailEditorUnderline)}
-                            title="Sublinhado (Underline)"
+                            title="Sublinhado (Underline)" aria-label="Sublinhado (Underline)"
                             className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
                               detailEditorUnderline 
                                 ? 'bg-indigo-100/80 text-indigo-700 border border-indigo-200/30' 
@@ -2568,7 +2568,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         <div className="relative group">
                           <button
                             type="button"
-                            title="Cor do Texto"
+                            title="Cor do Texto" aria-label="Cor do Texto"
                             className="p-1.5 rounded-xl text-slate-650 hover:bg-slate-200/60 hover:text-slate-900 active:scale-95 transition-all flex items-center gap-1"
                           >
                             <span className="font-extrabold text-xs border-b-2 leading-none" style={{ borderColor: detailEditorColor }}>A</span>
@@ -2640,7 +2640,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                                 }
                               }
                             }}
-                            title="Lista de Marcadores (Bullets)"
+                            title="Lista de Marcadores (Bullets)" aria-label="Lista de Marcadores (Bullets)"
                             className={`p-1.5 rounded-xl active:scale-95 transition-all ${
                               detailEditorListType === 'bullet'
                                 ? 'bg-indigo-100/85 text-indigo-700 border border-indigo-200/30'
@@ -2661,7 +2661,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                                 }
                               }
                             }}
-                            title="Lista Numerada"
+                            title="Lista Numerada" aria-label="Lista Numerada"
                             className={`p-1.5 rounded-xl active:scale-95 transition-all ${
                               detailEditorListType === 'ordered'
                                 ? 'bg-indigo-100/85 text-indigo-700 border border-indigo-200/30'
@@ -2678,7 +2678,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         <button
                           type="button"
                           onClick={() => setDetailEditorIsQuote(!detailEditorIsQuote)}
-                          title="Formatar como Citação (Blockquote)"
+                          title="Formatar como Citação (Blockquote)" aria-label="Formatar como Citação (Blockquote)"
                           className={`p-1.5 rounded-xl active:scale-95 transition-all ${
                             detailEditorIsQuote
                               ? 'bg-indigo-100/85 text-indigo-700 border border-indigo-200/30'
@@ -2692,7 +2692,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         <button
                           type="button"
                           onClick={clearDetailFormatting}
-                          title="Limpar Formatação"
+                          title="Limpar Formatação" aria-label="Limpar Formatação"
                           className="p-1.5 rounded-xl text-slate-600 hover:bg-slate-300 hover:text-red-650 hover:bg-red-50/70 active:scale-95 transition-all ml-auto"
                         >
                           <Eraser size={13} />
@@ -2740,7 +2740,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                                 type="button"
                                 onClick={() => handleInlineFileRemove(file.name)}
                                 className="p-0.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-colors cursor-pointer ml-1"
-                                title="Remover anexo"
+                                title="Remover anexo" aria-label="Remover anexo"
                               >
                                 <Trash2 size={11} />
                               </button>
@@ -2773,7 +2773,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
 
                         <label 
                           className="flex items-center justify-center p-2.5 bg-transparent hover:bg-slate-100/70 text-[#0c2340] hover:text-indigo-700 rounded-full transition-all cursor-pointer active:scale-95 border border-slate-300 relative group"
-                          title="Anexar múltiplos ficheiros"
+                          title="Anexar múltiplos ficheiros" aria-label="Anexar múltiplos ficheiros"
                         >
                           <Paperclip size={16} className="stroke-[2.5]" />
                           <input
@@ -2834,7 +2834,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
             setSelectedMessage(null);
           }}
           className="text-[#384e6e] hover:text-slate-900 hover:bg-slate-100/60 p-2 rounded-full transition-all cursor-pointer flex items-center justify-center border-0 outline-none"
-          title="Voltar ao Correio"
+          title="Voltar ao Correio" aria-label="Voltar ao Correio"
         >
           <ArrowLeft size={24} />
         </button>
@@ -2906,7 +2906,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
             type="button"
             onClick={sugerirRespostaComIa}
             disabled={iaSugerindoResposta || sensConfig.level === 'Ultra Restrito'}
-            title="Gerar um rascunho de resposta com base na mensagem recebida"
+            title="Gerar um rascunho de resposta com base na mensagem recebida" aria-label="Gerar um rascunho de resposta com base na mensagem recebida"
             className={`px-4 py-2 rounded-xl font-extrabold text-sm transition-all active:scale-95 flex items-center gap-1.5 border-0 cursor-pointer ${
               sensConfig.level === 'Ultra Restrito'
                 ? 'text-slate-400 bg-slate-50 cursor-not-allowed'
@@ -2967,7 +2967,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
         <div
           onClick={triggerVerification}
           className="flex flex-col items-center shrink-0 border border-emerald-200 bg-emerald-50/40 p-2 rounded-xl shadow-sm cursor-pointer hover:bg-emerald-50 hover:border-emerald-300 active:scale-95 transition-all group"
-          title="Digitalize para localizar esta correspondência na plataforma"
+          title="Digitalize para localizar esta correspondência na plataforma" aria-label="Digitalize para localizar esta correspondência na plataforma"
         >
           <QrCodeImage
             value={storedProtocol?.qr_code_url || protocol.qrCodeUrl}
@@ -2991,7 +2991,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
           type="button"
           onClick={copiarLinkQr}
           className="shrink-0 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-extrabold text-[10px] uppercase tracking-wide transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-          title="Copiar ligação da correspondência"
+          title="Copiar ligação da correspondência" aria-label="Copiar ligação da correspondência"
         >
           <QrCode size={13} />
           {qrLinkCopiado ? 'Copiado ✓' : 'Copiar ligação'}
@@ -3016,7 +3016,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                     setActiveOfficialAction(null);
                   }}
                   className="flex items-center justify-center w-10 h-10 bg-white border-2 border-[#d1dbe5] rounded-full text-[#384e6e] hover:bg-slate-50 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
-                  title="Voltar"
+                  title="Voltar" aria-label="Voltar"
                 >
                   <ArrowLeft size={16} className="text-[#384e6e]" />
                 </button>
@@ -3047,7 +3047,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           type="button"
                           onClick={handleUndo}
                           disabled={historyIndex === 0}
-                          title="Desfazer (Undo)"
+                          title="Desfazer (Undo)" aria-label="Desfazer (Undo)"
                           className={`p-2 rounded-xl hover:bg-slate-200/80 active:scale-95 transition-all ${
                             historyIndex === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-650 hover:text-slate-900'
                           }`}
@@ -3058,7 +3058,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           type="button"
                           onClick={handleRedo}
                           disabled={historyIndex >= textHistory.length - 1}
-                          title="Refazer (Redo)"
+                          title="Refazer (Redo)" aria-label="Refazer (Redo)"
                           className={`p-2 rounded-xl hover:bg-slate-200/80 active:scale-95 transition-all ${
                             historyIndex >= textHistory.length - 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-650 hover:text-slate-900'
                           }`}
@@ -3108,7 +3108,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         <button
                           type="button"
                           onClick={() => setEditorBold(!editorBold)}
-                          title="Negrito (Bold)"
+                          title="Negrito (Bold)" aria-label="Negrito (Bold)"
                           className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
                             editorBold 
                               ? 'bg-indigo-100/80 text-indigo-700 border border-indigo-200/30' 
@@ -3121,7 +3121,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         <button
                           type="button"
                           onClick={() => setEditorItalic(!editorItalic)}
-                          title="Itálico (Italic)"
+                          title="Itálico (Italic)" aria-label="Itálico (Italic)"
                           className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
                             editorItalic 
                               ? 'bg-indigo-100/80 text-indigo-700 border border-indigo-200/30' 
@@ -3134,7 +3134,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         <button
                           type="button"
                           onClick={() => setEditorUnderline(!editorUnderline)}
-                          title="Sublinhado (Underline)"
+                          title="Sublinhado (Underline)" aria-label="Sublinhado (Underline)"
                           className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
                             editorUnderline 
                               ? 'bg-indigo-100/80 text-indigo-700 border border-indigo-200/30' 
@@ -3151,7 +3151,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                       <div className="relative group">
                         <button
                           type="button"
-                          title="Cor do Texto"
+                          title="Cor do Texto" aria-label="Cor do Texto"
                           className="p-1.5 rounded-xl text-slate-650 hover:bg-slate-200/60 hover:text-slate-900 active:scale-95 transition-all flex items-center gap-1"
                         >
                           <span className="font-extrabold text-xs border-b-2 leading-none" style={{ borderColor: editorColor }}>A</span>
@@ -3223,7 +3223,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                               }
                             }
                           }}
-                          title="Lista de Marcadores (Bullets)"
+                          title="Lista de Marcadores (Bullets)" aria-label="Lista de Marcadores (Bullets)"
                           className={`p-1.5 rounded-xl active:scale-95 transition-all ${
                             editorListType === 'bullet'
                               ? 'bg-indigo-100/85 text-indigo-700 border border-indigo-200/30'
@@ -3244,7 +3244,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                               }
                             }
                           }}
-                          title="Lista Numerada"
+                          title="Lista Numerada" aria-label="Lista Numerada"
                           className={`p-1.5 rounded-xl active:scale-95 transition-all ${
                             editorListType === 'ordered'
                               ? 'bg-indigo-100/85 text-indigo-700 border border-indigo-200/30'
@@ -3261,7 +3261,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                       <button
                         type="button"
                         onClick={() => setEditorIsQuote(!editorIsQuote)}
-                        title="Formatar como Citação (Blockquote)"
+                        title="Formatar como Citação (Blockquote)" aria-label="Formatar como Citação (Blockquote)"
                         className={`p-1.5 rounded-xl active:scale-95 transition-all ${
                           editorIsQuote
                             ? 'bg-indigo-100/85 text-indigo-700 border border-indigo-200/30'
@@ -3275,7 +3275,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                       <button
                         type="button"
                         onClick={clearFormatting}
-                        title="Limpar Formatação"
+                        title="Limpar Formatação" aria-label="Limpar Formatação"
                         className="p-1.5 rounded-xl text-slate-600 hover:bg-slate-300 hover:text-red-650 hover:bg-red-50/70 active:scale-95 transition-all ml-auto"
                       >
                         <Eraser size={13} />
@@ -3685,7 +3685,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                 <button 
                   onClick={() => setActiveAction(null)}
                   className="flex items-center justify-center w-10 h-10 bg-white border-2 border-[#d1dbe5] rounded-full text-[#384e6e] hover:bg-slate-50 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
-                  title="Voltar"
+                  title="Voltar" aria-label="Voltar"
                 >
                   <ArrowLeft size={16} className="text-[#384e6e]" />
                 </button>
@@ -3797,7 +3797,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                                      handleViewAttachment(file);
                                    }}
                                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 rounded-xl transition-all border-0 bg-transparent cursor-pointer flex items-center justify-center"
-                                   title={t("Visualizar documento")}
+                                   title={t("Visualizar documento")} aria-label={t("Visualizar documento")}
                                  >
                                    <Eye size={14} />
                                  </button>
@@ -3807,7 +3807,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                                      handleDownloadFile(file);
                                    }}
                                    className="p-2 text-slate-400 hover:text-[#0c2340] hover:bg-slate-100 rounded-xl transition-all border-0 bg-transparent cursor-pointer flex items-center justify-center"
-                                   title={t("Descarregar ficheiro")}
+                                   title={t("Descarregar ficheiro")} aria-label={t("Descarregar ficheiro")}
                                  >
                                    <Download size={14} />
                                  </button>
@@ -4154,7 +4154,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                       setShowLocationPage(true);
                     }}
                     className="flex items-center gap-2 min-w-0 hover:bg-slate-50 p-1.5 px-2.5 rounded-lg cursor-pointer transition-colors group"
-                    title="Clique para ver no mapa"
+                    title="Clique para ver no mapa" aria-label="Clique para ver no mapa"
                   >
                     <MapPin size={13} className="text-indigo-650 shrink-0 group-hover:scale-110 transition-transform" />
                     <div>
@@ -4228,7 +4228,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                               setShowLocationPage(true);
                             }}
                             className="flex items-center gap-3 text-slate-700 hover:bg-slate-50/80 p-2 -m-2 rounded-2xl cursor-pointer transition-all border border-transparent hover:border-slate-100 group relative"
-                            title="Clique para ver no mapa"
+                            title="Clique para ver no mapa" aria-label="Clique para ver no mapa"
                           >
                             <div className="relative">
                               {/* Glowing pulsate ripple around the marker */}
