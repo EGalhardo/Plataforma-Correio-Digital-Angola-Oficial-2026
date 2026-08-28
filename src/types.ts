@@ -48,7 +48,7 @@ export interface ReplySendPayload {
   to: string;
   subject: string;
   body: string;
-  attachments?: { name: string; size: string }[];
+  attachments?: { name: string; size: string; content?: string; type?: string }[];
   /** Id da correspondência original a que esta resposta responde (2026-08-21). */
   inReplyTo?: number;
 }

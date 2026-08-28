@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { CdaModal } from '../ui/CdaModal';
 import { responderSondagem, buscarSondagem, resultadosSondagem, type Sondagem } from '../../services/sondagemService';
-import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
+import { isStorageRef, resolveStorageUrl, buildStorageRef } from '../../lib/secureStorage';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
@@ -1240,30 +1240,49 @@ depende de integração futura com a infra-estrutura de chaves nacional.
     }
   };
 
-  const [inlineAttachedFiles, setInlineAttachedFiles] = useState<{ name: string; size: string }[]>([]);
+  const [inlineAttachedFiles, setInlineAttachedFiles] = useState<{ name: string; size: string; content?: string; type?: string }[]>([]);
 
   const handleInlineFileAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-      const isFileExist = (name: string) => inlineAttachedFiles.some(f => f.name === name);
-      const newFiles: { name: string; size: string }[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (!isFileExist(file.name)) {
-          const sz = file.size;
-          let sizeStr = '';
-          if (sz < 1024) {
-            sizeStr = `${sz} B`;
-          } else if (sz < 1024 * 1024) {
-            sizeStr = `${(sz / 1024).toFixed(1)} KB`;
-          } else {
-            sizeStr = `${(sz / (1024 * 1024)).toFixed(1)} MB`;
-          }
-          newFiles.push({ name: file.name, size: sizeStr });
-        }
-      }
-      setInlineAttachedFiles(prev => [...prev, ...newFiles]);
+    if (!files) return;
+    const isFileExist = (name: string) => inlineAttachedFiles.some(f => f.name === name);
+    const reads: Promise<{ name: string; size: string; content?: string; type?: string }>[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (isFileExist(file.name)) continue;
+      const sz = file.size;
+      const sizeStr = sz < 1024 ? `${sz} B` : sz < 1024 * 1024 ? `${(sz / 1024).toFixed(1)} KB` : `${(sz / (1024 * 1024)).toFixed(1)} MB`;
+      // v37.60 — o anexo da resposta passa a ser realmente ENVIADO: faz-se upload
+      // para o bucket `correspondencias_anexos` e grava-se o marcador storage:
+      // (mesmo padrão do MailContent). Antes só ia nome+tamanho → a imagem não
+      // aparecia do lado da instituição. Fallback: data-URL local se o upload falhar.
+      reads.push(new Promise(resolve => {
+        const base = { name: file.name, size: sizeStr, type: file.type || undefined };
+        const localFallback = () => {
+          if (file.size <= 5 * 1024 * 1024) {
+            const fr = new FileReader();
+            fr.onload = () => resolve({ ...base, content: String(fr.result || '') });
+            fr.onerror = () => resolve(base);
+            fr.readAsDataURL(file);
+          } else resolve(base);
+        };
+        const isSupabaseReady = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
+        if (isSupabaseReady) {
+          const fileExt = file.name.split('.').pop() || 'dat';
+          const fileCleanName = file.name.replace(/[^a-zA-Z0-9]/g, '_');
+          const filePath = `${cidadaoBi || 'geral'}/${Date.now()}_${fileCleanName}.${fileExt}`;
+          supabase.storage.from('correspondencias_anexos').upload(filePath, file)
+            .then(({ error: uploadErr }) => {
+              if (uploadErr) { console.error('Erro upload anexo (resposta):', uploadErr); localFallback(); }
+              else resolve({ ...base, content: buildStorageRef('correspondencias_anexos', filePath) });
+            })
+            .catch(err => { console.error('Catch upload anexo (resposta):', err); localFallback(); });
+        } else localFallback();
+      }));
     }
+    Promise.all(reads).then(newFiles => {
+      if (newFiles.length) setInlineAttachedFiles(prev => [...prev, ...newFiles]);
+    });
   };
 
   const handleInlineFileRemove = (name: string) => {

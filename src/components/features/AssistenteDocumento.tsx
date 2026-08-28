@@ -208,7 +208,7 @@ export function AssistenteDocumento({ texto, titulo, remetente, className, onUsa
   );
 
   return (
-    <div className={`rounded-2xl border border-indigo-200 bg-indigo-50/40 p-4 md:p-5 ${className || ''}`}>
+    <div className={`cda-assistente-doc rounded-2xl border border-indigo-200 bg-indigo-50/40 p-4 md:p-5 ${className || ''}`}>
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm shrink-0">
