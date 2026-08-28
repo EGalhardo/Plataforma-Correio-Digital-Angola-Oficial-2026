@@ -73,7 +73,15 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
   const lastAccess = typeof originalLastAccess === 'string' && originalLastAccess ? originalLastAccess : '—';
 
   // F8 — sem foto própria, mostra-se um marcador neutro institucional (nunca a foto do cidadão demo).
-  const finalPhoto = (userProfilePhoto && !userProfilePhoto.includes("Foto-Edlasio") && (userProfilePhoto.includes("unsplash") || userProfilePhoto.includes("foto_perfil_edlasio") || userProfilePhoto.includes("sxWsYGX2"))) ? "https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png" : (userProfilePhoto || "");
+  // v37.56 — conta nova sem foto de perfil ⇒ iniciais + fundo azul (nunca a foto
+  // por omissão). Qualquer URL placeholder (Edlasio/unsplash) conta como "sem foto".
+  const fotoEhPlaceholder = !userProfilePhoto
+    || userProfilePhoto.includes("Foto-Edlasio")
+    || userProfilePhoto.includes("unsplash")
+    || userProfilePhoto.includes("foto_perfil_edlasio")
+    || userProfilePhoto.includes("sxWsYGX2")
+    || userProfilePhoto.includes("Y92CFNC5");
+  const finalPhoto = fotoEhPlaceholder ? "" : userProfilePhoto;
 
   const { updateUserFields, updateActiveProfileFields } = useSession();
   const [isEditingInst, setIsEditingInst] = useState(false);
@@ -390,9 +398,10 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <div className="w-full h-full rounded-[22px] bg-gradient-to-b from-[#0c2340] to-[#1e3a8a] flex flex-col items-center justify-center text-white gap-1.5">
-                  <Landmark size={42} strokeWidth={1.6} />
-                  <span className="text-[11px] font-black uppercase tracking-[0.2em]">{institutionAcronym}</span>
+                <div className="w-full h-full rounded-[22px] bg-gradient-to-b from-[#1e3a8a] to-[#0c2340] flex items-center justify-center text-white">
+                  <span className="text-6xl font-black leading-none select-none">
+                    {(profileName || institutionAcronym || '?').trim().charAt(0).toUpperCase()}
+                  </span>
                 </div>
               )}
               

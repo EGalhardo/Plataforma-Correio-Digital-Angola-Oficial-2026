@@ -23,6 +23,10 @@ export function escolherVozPt(): SpeechSynthesisVoice | null {
     const n = `${v.name || ''} ${v.voiceURI || ''}`.toLowerCase();
     const lang = (v.lang || '').toLowerCase();
     let s = 0;
+    // v37.56 — voz MASCULINA: reforça nomes tipicamente masculinos e penaliza
+    // os femininos, para que o assistente fale com uma voz de homem.
+    if (/jorge|daniel|ricardo|paulo|antonio|antónio|bruno|carlos|miguel|tiago|helder|joao|joão|pedro|lucas|gabriel|male|man|homem/.test(n)) s += 8;
+    if (/francisca|helia|hélia|maria|ana|joana|sofia|sophia|camila|beatriz|luciana|fernanda|raquel|female|woman|mulher/.test(n)) s -= 8;
     // variantes tipicamente mais naturais
     if (/natural|neural|online|google|premium|enhanced|siri|eloquence/.test(n)) s += 6;
     // pt-PT primeiro, pt-BR a seguir (pt-AO não existe)
