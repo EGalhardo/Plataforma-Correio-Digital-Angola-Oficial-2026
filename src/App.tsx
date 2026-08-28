@@ -3401,38 +3401,49 @@ export default function App() {
   // do PRÓPRIO registo (logótipo carregado na página Conta → avatar neutro com a
   // sigla). A conta demo (AGT-9921-SR) mantém o branding histórico da AGT.
   const sessionInstBrand = useMemo(() => {
-    if (!isInstMode) return { sigla: '', logoUrl: '', logoOrigem: 'nenhum' as const, logoFallback: '', verified: true };
-    // v37.39 — a conta demo da instituição é a AGT: passa a usar a logomarca
-    // oficial da categoria (antes caía no fallback hardcoded do HomeContent).
+    const vazio = { sigla: '', logoUrl: '', logoOrigem: 'nenhum' as const, logoFallback: '', verified: true };
+    if (!isInstMode) return vazio;
+    const CACHE_KEY = 'cda_inst_brand_cache';
+    const code = normalizeInstCode(institutionCode || bi);
+    // v37.53 — evitar que a logomarca do «ID Digital» mude ao actualizar a página:
+    // durante a hidratação (código institucional ainda vazio) reutiliza a última
+    // marca resolvida, em vez de cair transitoriamente em AGT/neutro e depois
+    // trocar para a logomarca real (flicker visível em cada refresh).
+    if (!code) {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) return JSON.parse(cached);
+      } catch { /* ignora */ }
+      return { ...vazio, verified: false };
+    }
+    let brand: { sigla: string; logoUrl: string; logoOrigem: 'proprio' | 'categoria' | 'neutro'; logoFallback: string; verified: boolean };
+    // v37.39 — a conta demo da instituição é a AGT (branding histórico).
     if (isDemoInstitutionSession) {
-      return {
+      brand = {
         sigla: 'AGT',
         logoUrl: getLogoOficialPorCodigoInstituicao('AGT') || makeInstNeutralAvatar('AGT'),
-        logoOrigem: 'categoria' as const,
+        logoOrigem: 'categoria',
         logoFallback: makeInstNeutralAvatar('AGT'),
         verified: true,
       };
+    } else {
+      const reg = getLocalInstReg(code);
+      const pack = parseInstPack(reg?.observacoes || '');
+      const sigla = (pack?.sigla || code.split('-')[0] || 'INST').toUpperCase();
+      // PRECEDÊNCIA: 1.º logótipo próprio (Conta/Perfil); 2.º logomarca oficial da
+      // categoria (catálogo partilhado com a Ficha Institucional); 3.º avatar neutro.
+      const oficial = getLogoOficialPorCodigoInstituicao(sigla || code);
+      const neutro = makeInstNeutralAvatar(sigla);
+      if (reg?.logoDataUrl) {
+        brand = { sigla, logoUrl: reg.logoDataUrl, logoOrigem: 'proprio', logoFallback: neutro, verified: instGate === 'full' };
+      } else if (oficial) {
+        brand = { sigla, logoUrl: oficial, logoOrigem: 'categoria', logoFallback: neutro, verified: instGate === 'full' };
+      } else {
+        brand = { sigla, logoUrl: neutro, logoOrigem: 'neutro', logoFallback: neutro, verified: instGate === 'full' };
+      }
     }
-    const code = normalizeInstCode(institutionCode || bi);
-    const reg = getLocalInstReg(code);
-    const pack = parseInstPack(reg?.observacoes || '');
-    const sigla = (pack?.sigla || code.split('-')[0] || 'INST').toUpperCase();
-    // v37.39 — PRECEDÊNCIA da logomarca no Painel («ID Digital»):
-    //   1.º logótipo próprio carregado pela instituição (página Conta) — vence;
-    //   2.º logomarca oficial da categoria (catálogo partilhado com a Ficha
-    //       Institucional do cidadão) — ex.: INAPEM-LLMM → INAPEM;
-    //   3.º avatar neutro com a sigla (categoria sem logomarca, ex.:
-    //       'Administradoras', ou código sem correspondência).
-    // `logoOrigem` permite ao HomeContent escolher object-fit e o fallback.
-    const oficial = getLogoOficialPorCodigoInstituicao(sigla || code);
-    const neutro = makeInstNeutralAvatar(sigla);
-    if (reg?.logoDataUrl) {
-      return { sigla, logoUrl: reg.logoDataUrl, logoOrigem: 'proprio' as const, logoFallback: neutro, verified: instGate === 'full' };
-    }
-    if (oficial) {
-      return { sigla, logoUrl: oficial, logoOrigem: 'categoria' as const, logoFallback: neutro, verified: instGate === 'full' };
-    }
-    return { sigla, logoUrl: neutro, logoOrigem: 'neutro' as const, logoFallback: neutro, verified: instGate === 'full' };
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(brand)); } catch { /* ignora */ }
+    return brand;
   }, [isInstMode, isDemoInstitutionSession, institutionCode, bi, instGate, gateRefreshTick]);
 
   // F12 — Ideologia "conta nova = zero dados simulados" (prompt v7): apenas as
