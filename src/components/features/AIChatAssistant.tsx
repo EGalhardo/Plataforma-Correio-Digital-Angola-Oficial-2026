@@ -9,6 +9,7 @@ import { Send, X, Bot, Loader2, Shield, ArrowRight, Check, XCircle, Navigation }
 import { AppMode, LanguageCode } from '../../types';
 import { USER_PROFILE_PHOTO } from '../../constants/data';
 import { PAGE_PRESENTATIONS } from '../../services/voicePresentations';
+import { aplicarVozPt } from '../../utils/vozTts';
 
 const WELCOME_MESSAGES = {
   pt: {
@@ -399,9 +400,8 @@ export function AIChatAssistant({
     const cleanText = text.replace(/\*/g, '').trim();
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = 'pt-AO';
-    utterance.rate = 1.1;
-    utterance.pitch = 1.0;
+    // v37.52 — voz pt natural (antes: lang 'pt-AO' inexistente → voz robótica).
+    aplicarVozPt(utterance, { rate: 1.0, pitch: 1.0 });
     
     utterance.onend = () => {
       if (onEndCallback) {

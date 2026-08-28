@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mic, Volume2, VolumeX, Sparkles, ArrowRight, Check, X, ShieldAlert, Radio } from 'lucide-react';
+import { aplicarVozPt } from '../../utils/vozTts';
 
 interface VoiceGuideAssistantProps {
   onScrollDown: () => void;
@@ -98,9 +99,8 @@ export function VoiceGuideAssistant({
       .trim();
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = 'pt-AO'; // Angola standard accent
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
+    // v37.52 — voz pt natural (antes: lang 'pt-AO' inexistente → voz robótica).
+    aplicarVozPt(utterance, { rate: 1.0, pitch: 1.0 });
 
     utterance.onstart = () => {
       setIsSpeaking(true);

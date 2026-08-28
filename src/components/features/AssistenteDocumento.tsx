@@ -17,6 +17,7 @@ import { assistenteDocumento, seloKb } from '../../services/aiDocumentoService';
 import type { AssistenteKb } from '../../services/aiDocumentoService';
 import { AVISO_IA } from '../../services/aiDocumentoCore';
 import type { AcaoDocumento, TipoRascunho, IdiomaTraducao } from '../../services/aiDocumentoCore';
+import { aplicarVozPt } from '../../utils/vozTts';
 
 // Chave de ação ativa: ação simples, tradução com idioma ou rascunho com tipo.
 type ChaveAcao = string;
@@ -145,7 +146,8 @@ export function AssistenteDocumento({ texto, titulo, remetente, className, onUsa
     }
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(conteudo);
-    u.lang = 'pt-PT';
+    // v37.52 — voz pt natural + ritmo mais humano.
+    aplicarVozPt(u);
     u.onend = () => setAFalar((prev) => (prev === origem ? null : prev));
     u.onerror = () => setAFalar((prev) => (prev === origem ? null : prev));
     utterRef.current = u;
