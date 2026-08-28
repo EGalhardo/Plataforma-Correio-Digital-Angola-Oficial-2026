@@ -440,7 +440,7 @@ export function ContactsContent({
                           <CreditCard size={15} />
                         </span>
                         <input
-                          placeholder="000000000LA000"
+                          placeholder="Introduza o número do BI"
                           value={editForm.bi}
                           onChange={e => setEditForm(prev => ({ ...prev, bi: e.target.value }))}
                           className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-mono font-bold tracking-wider placeholder:text-slate-400"

@@ -1099,7 +1099,7 @@ export function GovDashboard({
                       required
                       value={newBiNumber}
                       onChange={(e) => setNewBiNumber(e.target.value)}
-                      placeholder="00114422LA098"
+                      placeholder="Introduza o número do BI"
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-mono font-bold text-slate-800 outline-none focus:border-slate-800 focus:bg-white"
                     />
                   </div>

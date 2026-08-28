@@ -150,7 +150,7 @@ export function AddContactModal({
                         <User size={15} />
                       </span>
                       <input 
-                        placeholder="Ex: Edlasio Galhardo" 
+                        placeholder="Ex.: Nome completo do contacto" 
                         value={contactForm.name}
                         onChange={e => setContactForm((prev) => ({ ...prev, name: e.target.value }))}
                         onBlur={() => { const n = normalizarNome(contactForm.name); if (n !== contactForm.name) setContactForm((prev) => ({ ...prev, name: n })); }}
@@ -168,7 +168,7 @@ export function AddContactModal({
                         <CreditCard size={15} />
                       </span>
                       <input 
-                        placeholder="000000000LA000" 
+                        placeholder="Introduza o número do BI" 
                         value={contactForm.bi}
                         onChange={e => setContactForm((prev) => ({ ...prev, bi: e.target.value }))}
                         className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-mono font-bold tracking-wider placeholder:text-slate-400"
