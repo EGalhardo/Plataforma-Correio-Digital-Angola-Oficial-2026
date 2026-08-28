@@ -133,6 +133,7 @@ import type { RowSendOutcome } from './components/features/InstitutionEmergencyB
 import type { HomologationMessage } from './services/homologationStore';
 import { supabase } from './lib/supabaseClient';
 import { resolveStorageUrl } from './lib/secureStorage';
+import { notify } from './lib/notify';
 import { isProfileEditActive } from './lib/profileEditGuard';
 import { useSession, getModePathPrefix } from './services/sessionStore';
 import { computeFaceSignature, computeFaceSignatureAsync, compareFaceSignatures } from './services/faceAuth';
@@ -614,6 +615,7 @@ export default function App() {
           description: 'Correspondência movida para as eliminadas pelo utilizador.'
         }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
       }
+      notify('Correspondência arquivada com sucesso.', 'success');
     } else {
       if (!hiddenMessageIds.includes(id)) {
         setHiddenMessageIds([...hiddenMessageIds, id]);
@@ -624,9 +626,10 @@ export default function App() {
             messageId: baseId,
             state: 'EliminadaPermanente',
             responsible: user?.name || 'Utilizador',
-            description: 'Correspondência eliminada permanentemente da vista do utilizador.'
-          }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+          description: 'Correspondência eliminada permanentemente da vista do utilizador.'
+        }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
         }
+        notify('Correspondência eliminada com sucesso.', 'success');
       }
     }
   };
@@ -4283,6 +4286,9 @@ export default function App() {
     } catch (err) {
       console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err);
     }
+    // v37.61 — feedback de sucesso no envio pelo compositor. A resposta direta
+    // (override) já mostra o cartão de sucesso no detalhe, por isso não duplicar.
+    if (!override) notify('Correspondência enviada com sucesso.', 'success');
     return { ok: true, protocol };
   };
 
@@ -4439,6 +4445,7 @@ export default function App() {
       }
       
       setContactToDelete(null);
+      notify('Contacto removido com sucesso.', 'success');
     }
   };
 
@@ -4484,6 +4491,7 @@ export default function App() {
       if (!isDemoSession) supabaseService.insertContact(newContact, bi).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
     }
 
+    notify('Contacto adicionado com sucesso.', 'success');
     setContactFormErrors([]);
     setIsAddingContact(false);
     setContactForm({ name: '', bi: '', relation: '', phone: '', whatsapp: '', email: '', type: 'Normal' });
@@ -4510,6 +4518,7 @@ export default function App() {
     if (isOnline && !isDemoSession) {
       supabaseService.insertContact(updatedContact, bi).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
     }
+    notify('Contacto atualizado com sucesso.', 'success');
     return [];
   };
 
