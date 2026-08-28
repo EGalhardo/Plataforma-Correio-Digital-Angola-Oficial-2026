@@ -2653,7 +2653,7 @@ export default function App() {
 
     async function loadSupabaseData() {
       try {
-        console.log('CADA: Carregando dados integrados do Supabase...');
+        console.debug('CADA: Carregando dados integrados do Supabase...');
 
         // 0. F39 (v13) — hidratar o perfil do cidadão a partir da nuvem
         // (multi-dispositivo): a linha `profiles` reflecte edições de nome,
@@ -2696,7 +2696,7 @@ export default function App() {
         // nunca semear fictícios da AGT numa conta institucional real.
         const isDemoInstitutionSeed = !isInstMode || homologationStore.isExempt(bi);
         if (shouldAutoSeedSupabase() && isDemoInstitutionSeed && (dbMessages === null || dbMessages.length === 0)) {
-          console.log('CADA: Nenhum dado de mensagens encontrado para este utilizador no Supabase. Efetuando semeadura automática...');
+          console.debug('CADA: Nenhum dado de mensagens encontrado para este utilizador no Supabase. Efetuando semeadura automática...');
           const seedPayload = {
             profile: {
               bi,
@@ -2722,7 +2722,7 @@ export default function App() {
             institutionCode,
           };
           await supabaseService.seedAll(seedPayload);
-          console.log('CADA: Semeadura automática para o Supabase concluída!');
+          console.debug('CADA: Semeadura automática para o Supabase concluída!');
           // Re-ler UMA vez (furando o micro-cache N-3) para hidratar com as
           // linhas acabadas de semear.
           invalidateMessagesReadCache();
@@ -2995,7 +2995,7 @@ export default function App() {
           }
         }
 
-        console.log('CADA: Sincronização e carregamento do Supabase efectuados com sucesso!');
+        console.debug('CADA: Sincronização e carregamento do Supabase efectuados com sucesso!');
         setCloudSyncedOnce(true);
       } catch (err) {
         console.error('Erro na sincronização em segundo plano do Supabase:', err);
@@ -3009,32 +3009,32 @@ export default function App() {
     const channel = supabase
       .channel('schema-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
-        console.log('CADA: Supabase Realtime detectou alteração em mensagens!');
+        console.debug('CADA: Supabase Realtime detectou alteração em mensagens!');
         invalidateMessagesReadCache(); // N-3 — qq mudança na nuvem fura o micro-cache
         setTriggerRefetch(t => t + 1);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => {
-        console.log('CADA: Supabase Realtime detectou alteração em documentos!');
+        console.debug('CADA: Supabase Realtime detectou alteração em documentos!');
         setTriggerRefetch(t => t + 1);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'document_requests' }, () => {
-        console.log('CADA: Supabase Realtime detectou alteração em document_requests!');
+        console.debug('CADA: Supabase Realtime detectou alteração em document_requests!');
         setTriggerRefetch(t => t + 1);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_requests' }, () => {
-        console.log('CADA: Supabase Realtime detectou alteração em user_requests!');
+        console.debug('CADA: Supabase Realtime detectou alteração em user_requests!');
         setTriggerRefetch(t => t + 1);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        console.log('CADA: Supabase Realtime detectou alteração em perfis!');
+        console.debug('CADA: Supabase Realtime detectou alteração em perfis!');
         setTriggerRefetch(t => t + 1);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts' }, () => {
-        console.log('CADA: Supabase Realtime detectou alteração em contactos!');
+        console.debug('CADA: Supabase Realtime detectou alteração em contactos!');
         setTriggerRefetch(t => t + 1);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-        console.log('CADA: Supabase Realtime detectou alteração em notificações!');
+        console.debug('CADA: Supabase Realtime detectou alteração em notificações!');
         setTriggerRefetch(t => t + 1);
       })
       .subscribe();
@@ -4105,7 +4105,7 @@ export default function App() {
           addAuditLog('[AUTH-CLOUD] signOut falhou (rede/serviço); a sessão local foi limpa na mesma.', 'warning');
         }
       } else if (bi && homologationStore.isExempt(bi)) {
-        console.log('[DEMO] signOut ignorado — conta de demonstração (D7/v12).');
+        console.debug('[DEMO] signOut ignorado — conta de demonstração (D7/v12).');
       }
       setLoginPasswordInput('');
       setEnteredOtp('');
@@ -6343,7 +6343,6 @@ Ficha civil do titular:
           // Compare against all 3 registered signatures and find the best match
           const diffs = stored.signatures.map((sig: number[]) => compareFaceSignatures(captured.signature, sig));
           diff = Math.min(...diffs);
-          console.log("3-Capture matching diffs:", diffs, "Best diff:", diff);
         } else if (stored?.signature) {
           diff = compareFaceSignatures(captured.signature, stored.signature);
         }
@@ -6365,7 +6364,7 @@ Ficha civil do titular:
         if (!homologationStore.isExempt(bi.trim().toUpperCase()) && isSupabaseConfigured()) {
           void hasActiveCloudSession(supabase).then((active) => {
             if (active) addAuditLog('[AUTH-CLOUD] Login facial (D6): sessão nuvem confirmada neste dispositivo.', 'info');
-          });
+          }).catch(() => { /* verificação de sessão é não-crítica */ });
         }
         return;
       }

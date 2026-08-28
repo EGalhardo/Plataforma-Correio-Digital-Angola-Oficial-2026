@@ -121,7 +121,7 @@ export function useGeminiLive() {
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
-          console.log("Client received message:", msg.type);
+          console.debug("Client received message:", msg.type);
           if (msg.type === 'audio') {
             playAudioChunk(msg.data);
           } else if (msg.type === 'interrupted') {
@@ -139,7 +139,7 @@ export function useGeminiLive() {
       };
 
       ws.onopen = () => {
-        console.log("WebSocket connected successfully");
+        console.debug("WebSocket connected successfully");
         setIsActive(true);
         setStatus('active');
         setModelTranscript(''); 
@@ -189,14 +189,14 @@ export function useGeminiLive() {
           const base64 = btoa(binary);
           
           if (Math.random() < 0.01) {
-            console.log(`Sending audio chunk to server: ${base64.length} bytes`);
+            console.debug(`Sending audio chunk to server: ${base64.length} bytes`);
           }
           wsRef.current.send(JSON.stringify({ type: 'audio', data: base64 }));
         };
       };
 
       ws.onclose = (e) => {
-        console.log("WebSocket closed:", e.code, e.reason);
+        console.debug("WebSocket closed:", e.code, e.reason);
         stop();
       };
       ws.onerror = (err) => {

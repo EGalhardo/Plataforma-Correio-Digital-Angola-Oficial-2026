@@ -209,7 +209,7 @@ export async function startImagePreloading(): Promise<void> {
 
   // Determine WebP capabilities to optimize the pipeline
   const isWebpSupported = await checkWebpSupport();
-  console.log(`[ImagePreloader] Starting preload of ${urls.length} images. WebP support: ${isWebpSupported}`);
+  console.debug(`[ImagePreloader] Starting preload of ${urls.length} images. WebP support: ${isWebpSupported}`);
 
   // We process preloads asynchronously and non-blocking.
   // To avoid saturating the network thread instantly, we throttle slightly or execute in safe parallel batches.
@@ -247,7 +247,7 @@ export async function startImagePreloading(): Promise<void> {
     currentStats.isPreloading = false;
     currentStats.progress.isCompleted = true;
     notifyListeners();
-    console.log(`[ImagePreloader] Completed preloading cycle. Loaded: ${currentStats.progress.loaded}, Failed: ${currentStats.progress.failed}`);
+    console.debug(`[ImagePreloader] Completed preloading cycle. Loaded: ${currentStats.progress.loaded}, Failed: ${currentStats.progress.failed}`);
   };
 
   // Start processing in the background without blocking the caller's main call stack

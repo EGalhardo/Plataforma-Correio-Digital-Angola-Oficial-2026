@@ -178,7 +178,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
       setFeedback({
         type: 'error',
         text: 'Erro ao atualizar o perfil.',
-        details: error?.message || String(error)
+        details: (error as Error)?.message || String(error)
       });
     }
   };
@@ -247,7 +247,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
       setFeedback({
         type: 'error',
         text: 'Erro ao carregar a foto de perfil.',
-        details: error?.message || String(error)
+        details: (error as Error)?.message || String(error)
       });
     } finally {
       setIsUploadingPhoto(false);

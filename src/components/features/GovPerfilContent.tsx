@@ -210,7 +210,7 @@ export function GovPerfilContent({
     }
     const targetBi = (bi || '').trim();
     if (homologationStore.isExempt(targetBi)) {
-      console.log('[DEMO] cloudChangePassword ignorado — conta de demonstração (D7/v12).');
+      console.debug('[DEMO] cloudChangePassword ignorado — conta de demonstração (D7/v12).');
       setPasswordError('');
       setPasswordSuccess(true);
       setCurrentPassword('');
@@ -244,7 +244,7 @@ export function GovPerfilContent({
       setPasswordError('');
       setPasswordSuccess(true);
       setPasswordSuccessMsg('Palavra-passe actualizada. Passe a usar a nova palavra-passe em todos os dispositivos.');
-      console.log('[AUTH-CLOUD] Palavra-passe de agente admin actualizada na nuvem pelo próprio titular');
+      console.debug('[AUTH-CLOUD] Palavra-passe de agente admin actualizada na nuvem pelo próprio titular');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');

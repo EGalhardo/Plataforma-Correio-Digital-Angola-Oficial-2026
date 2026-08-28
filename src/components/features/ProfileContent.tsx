@@ -285,7 +285,7 @@ const safeGetItem = (key: string, defaultVal: string = ''): string => {
         }
       }
     } catch (e) {
-      setSupabaseErrorMsg(e?.message || 'Erro inesperado.');
+      setSupabaseErrorMsg((e as Error)?.message || 'Erro inesperado.');
     } finally {
       setSupabaseTesting(false);
       setSupabaseStatusMsg('');
@@ -337,7 +337,7 @@ const safeGetItem = (key: string, defaultVal: string = ''): string => {
       }
       return result;
     } catch (e) {
-      const errMsg = e?.message || 'Erro de rede ou permissões ao sincronizar.';
+      const errMsg = (e as Error)?.message || 'Erro de rede ou permissões ao sincronizar.';
       setSupabaseErrorMsg(errMsg);
       return { success: false, message: errMsg };
     } finally {
@@ -458,7 +458,7 @@ const safeGetItem = (key: string, defaultVal: string = ''): string => {
     }
     const targetBi = (user?.bi || bi || '').trim();
     if (!!sessionDemo || homologationStore.isExempt(targetBi)) {
-      console.log('[DEMO] cloudChangePassword ignorado — conta de demonstração (D7/v12).');
+      console.debug('[DEMO] cloudChangePassword ignorado — conta de demonstração (D7/v12).');
       setPasswordError('');
       setPasswordSuccess(true);
       setCurrentPassword('');

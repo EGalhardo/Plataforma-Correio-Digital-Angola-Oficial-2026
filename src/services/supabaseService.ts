@@ -618,7 +618,7 @@ export const supabaseService = {
       return {
         success: false,
         message: 'Falha ao conectar com o servidor Supabase. Por favor, verifique sua conexão ou URL.',
-        details: err?.message || err
+        details: (err as Error)?.message || err
       };
     }
   },
@@ -1166,7 +1166,7 @@ export const supabaseService = {
         },
       );
     } catch (e) {
-      console.warn('Supabase auditLog sync warning (non-blocking):', e?.message || e);
+      console.warn('Supabase auditLog sync warning (non-blocking):', (e as Error)?.message || e);
       return null;
     }
   },
@@ -2302,7 +2302,7 @@ export const supabaseService = {
         });
         if (pResult) profileCount++;
       } catch (err) {
-        errors.push(`Perfil (${err?.message || err})`);
+        errors.push(`Perfil (${(err as Error)?.message || err})`);
       }
 
       // Also upsert some default mocked profiles to prevent FK constraint failures
@@ -2319,7 +2319,7 @@ export const supabaseService = {
           if (res) contactCount++;
           else errors.push(`Contato ${contact.name}`);
         } catch (err) {
-          errors.push(`Contato (${contact.name}: ${err?.message || err})`);
+          errors.push(`Contato (${contact.name}: ${(err as Error)?.message || err})`);
         }
       }
 
@@ -2331,7 +2331,7 @@ export const supabaseService = {
           if (res) messageCount++;
           else errors.push(`Msg Inbox #${msg.id}`);
         } catch (err) {
-          errors.push(`Msg Inbox #${msg.id} (${err?.message || err})`);
+          errors.push(`Msg Inbox #${msg.id} (${(err as Error)?.message || err})`);
         }
       }
 
@@ -2342,7 +2342,7 @@ export const supabaseService = {
           if (res) messageCount++;
           else errors.push(`Msg Sent #${msg.id}`);
         } catch (err) {
-          errors.push(`Msg Sent #${msg.id} (${err?.message || err})`);
+          errors.push(`Msg Sent #${msg.id} (${(err as Error)?.message || err})`);
         }
       }
 
@@ -2353,7 +2353,7 @@ export const supabaseService = {
           if (res) docCount++;
           else errors.push(`Doc ${doc.name}`);
         } catch (err) {
-          errors.push(`Doc ${doc.name} (${err?.message || err})`);
+          errors.push(`Doc ${doc.name} (${(err as Error)?.message || err})`);
         }
       }
 
@@ -2364,7 +2364,7 @@ export const supabaseService = {
           if (res) requestCount++;
           else errors.push(`Ped IPU #${req.id}`);
         } catch (err) {
-          errors.push(`Ped IPU #${req.id} (${err?.message || err})`);
+          errors.push(`Ped IPU #${req.id} (${(err as Error)?.message || err})`);
         }
       }
 
@@ -2375,7 +2375,7 @@ export const supabaseService = {
           if (res) requestCount++;
           else errors.push(`Req Doc #${req.id}`);
         } catch (err) {
-          errors.push(`Req Doc #${req.id} (${err?.message || err})`);
+          errors.push(`Req Doc #${req.id} (${(err as Error)?.message || err})`);
         }
       }
 
@@ -2385,7 +2385,7 @@ export const supabaseService = {
           const res = await this.insertNotification(notification, params.profile.bi);
           if (res) notifCount++;
         } catch (err) {
-          errors.push(`Notificação (${notification.title}: ${err?.message || err})`);
+          errors.push(`Notificação (${notification.title}: ${(err as Error)?.message || err})`);
         }
       }
 
@@ -2395,7 +2395,7 @@ export const supabaseService = {
           const res = await this.insertCorrespondence(cor);
           if (res) correspondenceCount++;
         } catch (err) {
-          errors.push(`Correspondência (${cor.id}: ${err?.message || err})`);
+          errors.push(`Correspondência (${cor.id}: ${(err as Error)?.message || err})`);
         }
       }
 
@@ -2407,7 +2407,7 @@ export const supabaseService = {
           const res = await this.sendCitizenMessage(msg, inferredCitizenBi, targetInstitution);
           if (res) messageCount++;
         } catch (err) {
-          errors.push(`Inbox Institucional #${msg.id} (${err?.message || err})`);
+          errors.push(`Inbox Institucional #${msg.id} (${(err as Error)?.message || err})`);
         }
       }
 
@@ -2442,7 +2442,7 @@ export const supabaseService = {
     } catch (e) {
       return {
         success: false,
-        message: `Falha na semeadura geral: ${e?.message || e}`
+        message: `Falha na semeadura geral: ${(e as Error)?.message || e}`
       };
     }
   },

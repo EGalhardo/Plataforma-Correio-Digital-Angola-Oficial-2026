@@ -261,7 +261,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
       setFeedback({
         type: 'error',
         text: 'Erro ao carregar a foto de perfil institucional.',
-        details: error?.message || String(error)
+        details: (error as Error)?.message || String(error)
       });
     } finally {
       setIsUploadingPhoto(false);

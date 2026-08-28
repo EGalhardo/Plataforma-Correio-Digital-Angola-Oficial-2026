@@ -255,7 +255,7 @@ REGRAS OPERATIVAS:
   useEffect(() => {
     const siglaV = (institutionCode || '').trim().toUpperCase();
     if (!siglaV) return;
-    void carregarResumoKb(siglaV).then(setKbResumo);
+    void carregarResumoKb(siglaV).then(setKbResumo).catch(() => { /* resumo KB é secundário */ });
   }, [institutionCode]);
 
   // PERSISTÊNCIA REAL (antes o "Guardar" perdia tudo no refresh): a configuração

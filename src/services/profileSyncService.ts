@@ -251,7 +251,7 @@ export const syncProfileToCloud = async (
           fields: [],
         };
       }
-      console.log('[PERFIL-SYNC] schema_retry — gravados apenas os campos núcleo.', bi);
+      console.debug('[PERFIL-SYNC] schema_retry — gravados apenas os campos núcleo.', bi);
       return { outcome: 'schema_retry', fields: Object.keys(core) };
     }
     if (res.error) {
@@ -267,7 +267,7 @@ export const syncProfileToCloud = async (
     if (res.silentNoop) {
       const via = await syncViaServidor(cols);
       if (via.ok) {
-        console.log('[PERFIL-SYNC] Perfil sincronizado via servidor (service role):', fields.join('+'), '•', bi);
+        console.debug('[PERFIL-SYNC] Perfil sincronizado via servidor (service role):', fields.join('+'), '•', bi);
         return { outcome: 'ok', fields };
       }
       return {
@@ -276,13 +276,13 @@ export const syncProfileToCloud = async (
         fields: [],
       };
     }
-    console.log('[PERFIL-SYNC] Perfil sincronizado na nuvem:', fields.join('+'), '•', bi);
+    console.debug('[PERFIL-SYNC] Perfil sincronizado na nuvem:', fields.join('+'), '•', bi);
     return { outcome: res.created ? 'created' : 'ok', fields };
   } catch (e) {
     const kind = classifyAuthError(e);
     return {
       outcome: kind === 'unavailable' ? 'unavailable' : 'error',
-      message: e?.message || String(e),
+      message: (e as Error)?.message || String(e),
       fields: [],
     };
   }

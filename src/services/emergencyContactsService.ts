@@ -401,6 +401,6 @@ export async function insertEmergencyAlertWithClient(
     }
     return { ...base, recorded: true };
   } catch (e) {
-    return { ...base, errorCode: e?.code || 'EXCEPCAO', errorMessage: e?.message || String(e) };
+    return { ...base, errorCode: e?.code || 'EXCEPCAO', errorMessage: (e as Error)?.message || String(e) };
   }
 }

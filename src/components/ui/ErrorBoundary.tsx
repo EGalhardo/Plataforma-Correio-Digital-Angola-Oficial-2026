@@ -82,7 +82,7 @@ export function ErrorBoundary({ children }: Props) {
           <div className="bg-slate-50 border border-slate-150 p-3 rounded-2xl text-left max-h-[140px] overflow-y-auto">
             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Informação de Diagnóstico (React Error)</span>
             <p className="text-[10px] font-mono text-rose-700 font-extrabold leading-normal whitespace-pre-wrap break-all">
-              {error?.stack || error?.message || 'Erro de Execução Desconhecido'}
+              {error?.stack || (error as Error)?.message || 'Erro de Execução Desconhecido'}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3 pt-2">

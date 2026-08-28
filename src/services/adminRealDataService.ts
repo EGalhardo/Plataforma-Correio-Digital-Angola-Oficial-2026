@@ -156,7 +156,7 @@ async function ler<T>(query: PromiseLike<{ data: T[] | null; error: any }>): Pro
     if (error) throw error;
     return (data || []) as T[];
   } catch (e) {
-    console.warn('[CDA-admin-dados] leitura falhou (não bloqueia a página):', e?.message || e);
+    console.warn('[CDA-admin-dados] leitura falhou (não bloqueia a página):', (e as Error)?.message || e);
     return [];
   }
 }

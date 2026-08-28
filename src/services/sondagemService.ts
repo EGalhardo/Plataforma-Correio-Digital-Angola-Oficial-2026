@@ -88,8 +88,8 @@ export const classificarInstituicao = async (
     }
     // Pré-migração: heurística v36, sem persistência.
     return { ok: true, dados: { classe: abrangenciaSugerida(nomeInstituicao, codigo) as AbrangenciaSondagem, provincia: null } };
-  } catch (e: any) {
-    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
 };
 
@@ -105,9 +105,9 @@ export const lerClassificacaoInstituicao = async (
       if (!data.length) return { ok: true, dados: { classe: null, provincia: null } };
       return { ok: true, dados: { classe: ((data[0] as any).abrangencia as AbrangenciaSondagem) || null, provincia: (data[0] as any).provincia || null } };
     }
-    return { ok: false, motivo: 'erro', mensagem: error?.message || 'Classificação indisponível.' };
-  } catch (e: any) {
-    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
+    return { ok: false, motivo: 'erro', mensagem: (error as Error)?.message || 'Classificação indisponível.' };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
 };
 
@@ -131,8 +131,8 @@ export const definirClassificacaoInstituicao = async (params: {
     });
     if (error) return { ok: false, motivo: 'erro', mensagem: error.message };
     return { ok: true, dados: null };
-  } catch (e: any) {
-    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
 };
 
@@ -189,8 +189,8 @@ export const audienciaV37 = async (
     const res: AudienciaV37 = { classificacao: classe, bis };
     if (classe === 'regional') res.semProvincia = await contarCidadaosSemProvincia();
     return { ok: true, dados: res };
-  } catch (e: any) {
-    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
 };
 
@@ -224,10 +224,10 @@ export const criarRascunhoSondagem = async (params: {
       })
       .select()
       .single();
-    if (error || !data) return { ok: false, motivo: 'erro', mensagem: error?.message };
+    if (error || !data) return { ok: false, motivo: 'erro', mensagem: (error as Error)?.message };
     return { ok: true, dados: data as Sondagem };
-  } catch (e: any) {
-    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
 };
 
@@ -241,8 +241,8 @@ export const removerRascunhoSondagem = async (sondagemId: number): Promise<Sonda
       .eq('status', 'rascunho');
     if (error) return { ok: false, motivo: 'erro', mensagem: error.message };
     return { ok: true, dados: null };
-  } catch (e: any) {
-    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
 };
 
@@ -317,8 +317,8 @@ export const distribuirSondagensCompostas = async (params: {
       if (eMsg) console.warn('[Sondagens v37] difusão parcial:', eMsg.message);
     }
     return { ok: true, dados: { audiencia: bis.length, classificacao } };
-  } catch (e: any) {
-    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) } };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) } };
 };
 
 /** v37.4 — registo único da expedição «Todos» na lista Enviadas da instituição
@@ -349,8 +349,8 @@ export const registarExpedicaoSondagens = async (params: {
     });
     if (error) return { ok: false, motivo: 'erro', mensagem: error.message };
     return { ok: true, dados: null };
-  } catch (e: any) {
-    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
 };
 
@@ -401,8 +401,8 @@ export const audienciaPara = async (
     const linhas: any[] = (data as any[]) || [];
     const bis = [...new Set(linhas.map((b) => String(b)).filter(Boolean))];
     return { ok: true, dados: { abrangencia, bis } };
-  } catch (e: any) {
-    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
 };
 
@@ -438,7 +438,7 @@ export const criarSondagem = async (params: {
       })
       .select()
       .single();
-    if (error || !data) return { ok: false, motivo: 'erro', mensagem: error?.message };
+    if (error || !data) return { ok: false, motivo: 'erro', mensagem: (error as Error)?.message };
 
     // fan-out: uma mensagem por cidadão, corpo referenciado (não duplicado)
     const assunto = `Sondagem: ${params.pergunta.length > 80 ? params.pergunta.slice(0, 77) + '…' : params.pergunta}`;
@@ -470,8 +470,8 @@ export const criarSondagem = async (params: {
       if (eMsg) console.warn('[Sondagens] difusão parcial:', eMsg.message);
     }
     return { ok: true, dados: { id: data.id, audiencia: bis.length } };
-  } catch (e: any) {
-    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
 };
 
@@ -486,8 +486,8 @@ export const listarSondagens = async (codigo: string): Promise<SondagemResultado
       .order('id', { ascending: false });
     if (error) return { ok: false, motivo: 'erro', mensagem: error.message };
     return { ok: true, dados: (data || []) as Sondagem[] };
-  } catch (e: any) {
-    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
 };
 
@@ -503,8 +503,8 @@ export const resultadosSondagem = async (sondagemId: number): Promise<SondagemRe
       ok: true,
       dados: (data || []).map((r: any) => ({ cidadao_bi: r.cidadao_bi, escolhas: (r.escolhas || []) as string[] })),
     };
-  } catch (e: any) {
-    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
 };
 
@@ -513,8 +513,8 @@ export const encerrarSondagem = async (sondagemId: number): Promise<SondagemResu
     const { error } = await supabase.from('sondagens').update({ status: 'encerrada' }).eq('id', sondagemId);
     if (error) return { ok: false, motivo: 'erro', mensagem: error.message };
     return { ok: true, dados: null };
-  } catch (e: any) {
-    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
 };
 
@@ -523,10 +523,10 @@ export const buscarSondagem = async (sondagemId: number): Promise<SondagemResult
   try {
     if (!(await sondagensDisponiveis())) return { ok: false, motivo: 'sem_migracao' };
     const { data, error } = await supabase.from('sondagens').select('*').eq('id', sondagemId).maybeSingle();
-    if (error || !data) return { ok: false, motivo: 'erro', mensagem: error?.message };
+    if (error || !data) return { ok: false, motivo: 'erro', mensagem: (error as Error)?.message };
     return { ok: true, dados: data as Sondagem };
-  } catch (e: any) {
-    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
 };
 
@@ -540,8 +540,8 @@ export const minhaResposta = async (sondagemId: number, bi: string): Promise<Son
       .maybeSingle();
     if (error) return { ok: false, motivo: 'erro', mensagem: error.message };
     return { ok: true, dados: (data?.escolhas || []) as string[] };
-  } catch (e: any) {
-    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
 };
 
@@ -559,7 +559,7 @@ export const responderSondagem = async (
       );
     if (error) return { ok: false, motivo: 'erro', mensagem: error.message };
     return { ok: true, dados: null };
-  } catch (e: any) {
-    return { ok: false, motivo: 'erro', mensagem: String(e?.message || e) };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
 };

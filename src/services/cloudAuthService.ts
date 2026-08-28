@@ -125,7 +125,7 @@ export function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 
 export const classifyAuthError = (err: unknown): CloudErrorKind => {
   const e = err as { message?: string; status?: number; statusCode?: number } | null | undefined;
-  const msg = `${e?.message || err || ''}`.toLowerCase();
+  const msg = `${(e as Error)?.message || err || ''}`.toLowerCase();
   const status = e?.status ?? e?.statusCode;
   if (msg.includes('already registered') || msg.includes('já registado') || msg.includes('already been registered')) {
     return 'already_registered';
@@ -192,7 +192,7 @@ export const cloudSignIn = async (
     return { outcome: 'ok', metadata: (data.user?.user_metadata as Record<string, any>) || {} };
   } catch (e) {
     const kind = classifyAuthError(e);
-    return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
+    return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: (e as Error)?.message || String(e) };
   }
 };
 
@@ -217,8 +217,8 @@ export const cloudSignUp = async (
     return { outcome: 'ok' };
   } catch (e) {
     const kind = classifyAuthError(e);
-    if (kind === 'already_registered') return { outcome: 'conflict', message: e?.message || String(e) };
-    return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
+    if (kind === 'already_registered') return { outcome: 'conflict', message: (e as Error)?.message || String(e) };
+    return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: (e as Error)?.message || String(e) };
   }
 };
 
@@ -271,10 +271,10 @@ export const cloudSignOutBestEffort = async (client: SupabaseClient): Promise<Cl
     if (!client?.auth?.signOut) return { outcome: 'no_op', message: 'cliente Auth ausente.' };
     const { error } = await client.auth.signOut();
     if (error) return { outcome: 'error', message: error.message };
-    console.log('[AUTH-CLOUD] Sessão Auth terminada (signOut).');
+    console.debug('[AUTH-CLOUD] Sessão Auth terminada (signOut).');
     return { outcome: 'ok' };
   } catch (e) {
-    return { outcome: 'error', message: e?.message || String(e) };
+    return { outcome: 'error', message: (e as Error)?.message || String(e) };
   }
 };
 
@@ -321,11 +321,11 @@ export const cloudChangePassword = async (
     // Encerrar as OUTRAS sessões (best-effort): a senha antiga deixa de reabrir
     // sessões noutros dispositivos; a sessão actual permanece activa.
     try { await client.auth.signOut({ scope: 'others' }); } catch { /* best-effort */ }
-    console.log('[AUTH-CLOUD] Palavra-passe actualizada na nuvem.');
+    console.debug('[AUTH-CLOUD] Palavra-passe actualizada na nuvem.');
     return { outcome: 'ok' };
   } catch (e) {
     const kind = classifyAuthError(e);
-    return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
+    return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: (e as Error)?.message || String(e) };
   }
 };
 
@@ -371,7 +371,7 @@ export const cloudResetPasswordEmail = async (
     return { outcome: 'ok' };
   } catch (e) {
     const kind = classifyAuthError(e);
-    return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
+    return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: (e as Error)?.message || String(e) };
   }
 };
 
@@ -404,7 +404,7 @@ export const cloudUpdatePasswordFromRecovery = async (
     return { outcome: 'ok' };
   } catch (e) {
     const kind = classifyAuthError(e);
-    return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
+    return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: (e as Error)?.message || String(e) };
   }
 };
 
@@ -437,7 +437,7 @@ export const cloudUpdateEmailReal = async (
     return { outcome: 'ok' };
   } catch (e) {
     const kind = classifyAuthError(e);
-    return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: e?.message || String(e) };
+    return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: (e as Error)?.message || String(e) };
   }
 };
 

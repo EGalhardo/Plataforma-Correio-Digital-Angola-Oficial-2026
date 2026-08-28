@@ -39,7 +39,7 @@ const sincronizarSenhaNuvem = (agente: string, novaSenha: string): void => {
   if (!agente) return;
   void alterarSenhaAgente(agente, novaSenha).then((res) => {
     if (res.ok) {
-      console.log('[AUTH-CLOUD] Senha actualizada na nuvem (conta própria).');
+      console.debug('[AUTH-CLOUD] Senha actualizada na nuvem (conta própria).');
     } else {
       console.warn('[AUTH-CLOUD] Nuvem não actualizou a senha: ' + (res.erro || 'erro'));
     }

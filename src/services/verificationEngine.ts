@@ -380,7 +380,7 @@ export const runRegistrationVerification = async (
         }
       }
     } catch (e) {
-      face.error = e?.message || 'motor facial indisponível';
+      face.error = (e as Error)?.message || 'motor facial indisponível';
       errors.push('comparação facial indisponível neste dispositivo/rede');
     }
   })();
@@ -410,7 +410,7 @@ export const runRegistrationVerification = async (
         }
       }
     } catch (e) {
-      ocr.error = e?.message || 'motor OCR indisponível';
+      ocr.error = (e as Error)?.message || 'motor OCR indisponível';
       errors.push('OCR indisponível neste dispositivo/rede');
     }
   })();
