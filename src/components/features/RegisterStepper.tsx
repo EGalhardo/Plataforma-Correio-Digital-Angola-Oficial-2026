@@ -514,15 +514,20 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   };
 
 
-  // PRÉ-AQUECIMENTO do motor de pré-verificação: assim que o cidadão anexa o
+  // PRÉ-AQUECIMENTO do motor de pré-verificação: assim que o utilizador anexa o
   // primeiro documento, os modelos de IA (BlazeFace + OCR) começam a carregar
   // em segundo plano — quando terminar a captura biométrica, a análise arranca
   // quase instantaneamente.
+  // v37.66 — só o fluxo INSTITUCIONAL usa o motor local (BlazeFace + Tesseract):
+  // no cidadão/admin a etapa facial foi removida (v37.8) e a aprovação baseia-se
+  // apenas na IA de visão do servidor. Pré-aquecer aqui faria o cidadão/admin
+  // descarregar ~15 MB de modelos ML nunca usados, competindo com a rede durante
+  // o registo e atrasando a análise — por isso o prewarm é exclusivo da instituição.
   useEffect(() => {
-    if (frenteSuccess || versoSuccess) {
+    if (appMode === 'institution' && (frenteSuccess || versoSuccess)) {
       prewarmVerificationEngine();
     }
-  }, [frenteSuccess, versoSuccess]);
+  }, [appMode, frenteSuccess, versoSuccess]);
 
   // Form submission and registration inside Supabase (with fallback to local storage)
   const handleFinalSubmit = async () => {
@@ -611,16 +616,23 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
           console.warn('Verificação de duplicados indisponível:', dupErr);
         }
         setSubmitMessage('Enviando documentos para o Supabase Storage...');
-        
-        // Upload front — ficheiro seleccionado OU Blob derivado do preview base64
+
+        // v37.66 — compressão + upload das DUAS faces em PARALELO. Antes eram
+        // sequenciais (await frente → await verso) e bloqueavam a PVI, que só
+        // precisa dos data-URLs comprimidos. Cada face mantém o tratamento de
+        // erro independente; uma falha numa não afecta a outra.
         const frenteBlob: Blob | null = documentFrente
           || (frentePreview && frentePreview.startsWith('data:image/') ? base64ToBlob(frentePreview) : null);
-        if (frenteBlob) {
-          // v37.29-fix: o data-URL para a PVI é preparado MESMO que o upload ao
-          // Storage falhe — sem isto, uma falha de rede/RLS tornava as imagens
-          // «indisponíveis na nuvem» e bloqueava o cidadão injustamente.
+        const versoBlob: Blob | null = documentVerso
+          || (versoPreview && versoPreview.startsWith('data:image/') ? base64ToBlob(versoPreview) : null);
+        const uploadTs = Date.now();
+        // v37.29-fix: o data-URL para a PVI é preparado MESMO que o upload ao
+        // Storage falhe — sem isto, uma falha de rede/RLS tornava as imagens
+        // «indisponíveis na nuvem» e bloqueava o cidadão injustamente.
+        const uploadFrente = async () => {
+          if (!frenteBlob) return;
           try { pviFrenteData = await blobToPviDataUrl(frenteBlob); } catch { pviFrenteData = ''; }
-          const frontPath = `${biClean}/frente_${Date.now()}.jpg`;
+          const frontPath = `${biClean}/frente_${uploadTs}.jpg`;
           const { error: fErr } = await supabase.storage
             .from('documentos_registo')
             .upload(frontPath, frenteBlob, { contentType: frenteBlob.type || 'image/jpeg' });
@@ -632,27 +644,23 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
             // (storage:bucket/path) — nunca a URL pública, que deixa de existir.
             urlFrente = buildStorageRef('documentos_registo', frontPath);
           }
-        }
-
-        // Upload back — ficheiro seleccionado OU Blob derivado do preview base64
-        const versoBlob: Blob | null = documentVerso
-          || (versoPreview && versoPreview.startsWith('data:image/') ? base64ToBlob(versoPreview) : null);
-        if (versoBlob) {
+        };
+        const uploadVerso = async () => {
+          if (!versoBlob) return;
           try { pviVersoData = await blobToPviDataUrl(versoBlob); } catch { pviVersoData = ''; }
-          const backPath = `${biClean}/verso_${Date.now()}.jpg`;
+          const backPath = `${biClean}/verso_${uploadTs}.jpg`;
           const { error: bErr } = await supabase.storage
             .from('documentos_registo')
             .upload(backPath, versoBlob, { contentType: versoBlob.type || 'image/jpeg' });
           if (bErr) {
             console.error('Erro upload verso:', bErr);
             addAuditLog(`[PVIC] Upload do VERSO do B.I. ao Storage falhou (${(bErr as any)?.message || 'erro'}) — a validação prossegue com a imagem local.`, 'warning');
-          }
-          else {
+          } else {
             // F45 (Storage privado v15): marcador resolvível em vez de URL pública.
             urlVerso = buildStorageRef('documentos_registo', backPath);
-            try { pviVersoData = await blobToPviDataUrl(versoBlob); } catch { pviVersoData = ''; }
           }
-        }
+        };
+        await Promise.all([uploadFrente(), uploadVerso()]);
 
         // Upload selfie
         if (savedFacePhoto) {

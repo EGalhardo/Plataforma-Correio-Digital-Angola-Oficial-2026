@@ -1435,7 +1435,10 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
                 { inline_data: { mime_type: 'image/jpeg', data: b64V } },
               ] }],
               systemInstruction: { parts: [{ text: pviSystemPrompt }] },
-              generationConfig: { temperature: 0, maxOutputTokens: 1024 },
+              // v37.66 — saída é um JSON curto (veredicto/alertas/motivo): teto de
+              // 256 tokens (era 1024) + responseMimeType JSON para descodificação
+              // restringida — geração mais rápida e sem bloco markdown à volta.
+              generationConfig: { temperature: 0, maxOutputTokens: 256, responseMimeType: 'application/json' },
             }),
           }),
           new Promise((_unused, reject) => setTimeout(() => reject(new Error('PVI_TIMEOUT_30S')), PVI_TIMEOUT_MS)),
