@@ -16,6 +16,7 @@ import {
 import { supabase } from '../../lib/supabaseClient';
 import { registoPublicoProxy } from '../../services/supabaseService';
 import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticInstitutionAgentEmail } from '../../services/cloudAuthService';
+import { purgeInstitutionLocalResidues } from '../../services/institutionSessionService';
 import { homologationStore } from '../../services/homologationStore';
 import {
   MUNICIPALITIES_BY_PROVINCE, CITIES_BY_PROVINCE, COMMUNES_BY_MUNICIPALITY,
@@ -152,6 +153,12 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
       }
       const agentNumber = buildAgentNumber(code, 1); // responsável = -01
       void buildInstCode; void nextGlobalSeq; // geradores do formato antigo (compatibilidade)
+      // v37.74 — CONTA NOVA NASCE LIMPA (espelho v37.71 do cidadão): ciclos
+      // eliminar→re-criar com o mesmo código deixavam rasto no dispositivo
+      // (foto de perfil anterior, dados editados, espelho da equipa, estado de
+      // homologação antigo) que era re-hidratado no login da adesão re-criada.
+      // Purga ANTES de gravar o novo registo — a nova adesão parte de zero.
+      try { purgeInstitutionLocalResidues(code); } catch { /* melhor esforço */ }
 
       const pack: InstitutionRegPack = {
         v: 1,

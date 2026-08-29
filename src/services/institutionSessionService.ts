@@ -110,12 +110,16 @@ export const purgeInstitutionLocalResidues = (
 ): void => {
   const code = normalizeInstCode(codeRaw);
   if (!code) return;
+  // v37.74 — autossuficiente: sem o parâmetro `reg` (ex.: purga no
+  // RE-REGISTO da adesão), lê o espelho local ANTES de o remover — os
+  // Nº de agente da equipa (-02, -03, …) só são conhecidos a partir dele.
+  const regLocal = reg ?? (() => { try { return getLocalInstReg(code); } catch { return undefined; } })();
   try { removeLocalInstReg(code); } catch { /* ignora */ }
   try { homologationStore.clearStatus(code); } catch { /* ignora */ }
   try { homologationStore.clearThread(code); } catch { /* ignora */ }
   const agentKeys = new Set<string>();
-  if (reg?.agentNumber) agentKeys.add(normalizeInstCode(reg.agentNumber));
-  (reg?.members || []).forEach(m => { if (m.agentNumber) agentKeys.add(normalizeInstCode(m.agentNumber)); });
+  if (regLocal?.agentNumber) agentKeys.add(normalizeInstCode(regLocal.agentNumber));
+  (regLocal?.members || []).forEach(m => { if (m.agentNumber) agentKeys.add(normalizeInstCode(m.agentNumber)); });
   agentKeys.add(`${code}-01`); // responsável padrão (F6/B2), mesmo sem espelho
   agentKeys.forEach(a => { try { unmarkCloudAccount(a); } catch { /* ignora */ } });
   const faceTargets = new Set<string>([code, ...agentKeys]);
@@ -124,6 +128,19 @@ export const purgeInstitutionLocalResidues = (
       try { localStorage.removeItem(`cda_demo_face_${m}_${k}`); } catch { /* ignora */ }
     });
   });
+  // v37.74 — RASTO DE VIDAS ANTERIORES (espelho v37.71 do cidadão): a FOTO de
+  // perfil escolhida (avatarService), a foto carregada na página Perfil
+  // (cda_inst_profile_photo), os dados de perfil editados (perfilLocalService)
+  // e o espelho local da EQUIPA sobreviviam à eliminação e eram re-hidratados
+  // pela adesão RE-CRIADA com o mesmo código — a conta nova nascia com a
+  // foto/dados de uma vida anterior da instituição.
+  const avatarTargets = new Set<string>([code, ...agentKeys]);
+  avatarTargets.forEach(k => {
+    try { localStorage.removeItem(`cda_avatar_institution_${k}`); } catch { /* ignora */ }
+    try { localStorage.removeItem(`cda_inst_profile_photo_${k}`); } catch { /* ignora */ }
+    try { localStorage.removeItem(`cda_perfil_dados_institution_${k}`); } catch { /* ignora */ }
+  });
+  try { localStorage.removeItem(`correio_digital_workers_${code}`); } catch { /* ignora */ }
   try { localStorage.removeItem(`cda_read_msgs_${code}`); } catch { /* ignora */ }
 };
 

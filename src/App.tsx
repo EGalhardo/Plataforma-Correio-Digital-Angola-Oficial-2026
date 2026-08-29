@@ -91,7 +91,7 @@ import { getLoginBloqueio, registarLoginFalha, limparLoginFalhas } from './servi
 import { resolveAdminAgentLogin, getAdminAgentCred, addAdminAgent, updateAdminAgentPermissions, ADMIN_ALFA_AGENT } from './services/adminAgentStore';
 import {
   cloudSignIn, provisionCloudAccount, markCloudAccount, isCloudBound,
-  isSupabaseConfigured, syntheticCitizenEmail, syntheticAdminEmail, hasActiveCloudSession,
+  isSupabaseConfigured, syntheticCitizenEmail, syntheticAdminEmail, syntheticInstitutionAgentEmail, hasActiveCloudSession,
   cloudSignOutBestEffort,
 } from './services/cloudAuthService';
 // F47 — revogação de contas eliminadas (pré-login via RPC v16 + purga local)
@@ -1012,7 +1012,24 @@ export default function App() {
     // Auth metadata (contas reais, qualquer dispositivo) e localStorage por
     // conta. Sem isto a foto revertia para a face/logo/neutro.
     if (!avatar && !homologationStore.isExempt(code)) {
-      try { const authAv = await lerAvatarAuth(); if (authAv) avatar = authAv; } catch { /* ignora */ }
+      // v37.74 — ANTI-FUGA (espelho v37.29 do cidadão): o avatar do Auth só é
+      // adotado se a sessão Auth pertencer MESMO a esta conta institucional
+      // (e-mail sintético do agente/responsável ou o e-mail de acesso da
+      // adesão) — impede que uma sessão residual de OUTRA conta neste
+      // dispositivo empreste a sua foto à instituição acabada de criar/entrar.
+      try {
+        const { data: sdInst } = await supabase.auth.getSession();
+        const emailSessaoInst = String(sdInst?.session?.user?.email || '').toLowerCase();
+        const meusEmailsInst = new Set<string>();
+        [normalizeInstCode(result.identity?.agentNumber || `${normalizeInstCode(code)}-01`), normalizeInstCode(code)]
+          .forEach((a) => { if (a) meusEmailsInst.add(syntheticInstitutionAgentEmail(a).toLowerCase()); });
+        const emailRegInst = String(perfilPersistido?.email || pack?.emailAcesso || pack?.emailContacto || reg?.email || '').toLowerCase();
+        if (emailRegInst) meusEmailsInst.add(emailRegInst);
+        if (emailSessaoInst && meusEmailsInst.has(emailSessaoInst)) {
+          const authAv = await lerAvatarAuth();
+          if (authAv) avatar = authAv;
+        }
+      } catch { /* ignora */ }
     }
     if (!avatar) {
       const lav = lerAvatarLocal('institution', avatarKey);

@@ -1834,6 +1834,25 @@ export function GovContactsContent({
       else { nuvem = 'falha'; nuvemErro = res.erro || ''; }
     }
 
+    // v37.74 — HONESTIDADE DA ELIMINAÇÃO (Equipa da Administração): as linhas
+    // vindas da BASE CENTRAL (agentesReais ← tabela profiles) só desaparecem
+    // para sempre se a linha for MESMO apagada na nuvem. Antes, com a sessão
+    // de administração DEMO (que por desenho nunca toca na nuvem) ou com falha
+    // de autorização, a eliminação era só LOCAL → no refresh a lista era lida
+    // de novo da nuvem e o agente REAPARECIA («elimino e voltam todos»).
+    // Agora: se a linha existe na base central e não foi eliminada lá, a
+    // eliminação é RECUSADA com a instrução clara — nunca mais sucesso falso.
+    const vemDaNuvem = !!(dadosReais && appMode === 'admin-workers' && agente &&
+      (dadosReais.profiles || []).some((p) => String(p.bi || '').toUpperCase().replace(/\s+/g, '') === agente));
+    if (vemDaNuvem && nuvem !== 'eliminada' && nuvem !== 'nao_encontrada') {
+      const motivoRecusa = nuvem === 'demo'
+        ? 'a sessão de administração DEMO não altera a base central'
+        : `falha na eliminação na nuvem${nuvemErro ? ` (${nuvemErro})` : ''}`;
+      notify(`"${name}" existe na base central — eliminação cancelada: ${motivoRecusa}. Entre com um administrador REAL (ex.: ADMIN-0001) para eliminar este agente definitivamente.`, 'error');
+      addAuditLog?.(`[EQUIPA] Eliminação de ${name}${agente ? ` (${agente})` : ''} RECUSADA: a linha existe na base central e não foi apagada na nuvem (${motivoRecusa}) — use uma sessão de administrador real.`, 'warning');
+      return;
+    }
+
     // 2) LOCAL — registo da instituição / credenciais do admin
     const regCode = normalizeInstCode(bi);
     if (appMode === 'institution' && regCode && getLocalInstReg(regCode)) {
