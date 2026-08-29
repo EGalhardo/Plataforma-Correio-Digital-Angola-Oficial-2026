@@ -264,7 +264,10 @@ export interface InstitutionMailboxBundle { messages: Message[]; legacyIds: numb
 /** F14 — código institucional real da forma SIGLA-XXXX (ex.: SME-LLVV, SME-LLVV2).
  *  Exclui o formato legado/demo ('AGT-9921-SR', 'ENDE01') e etiquetas sem traço. */
 export const isRealInstitutionalCode = (raw?: string): boolean =>
-  /^[A-Z0-9]{2,8}-[A-Z0-9]{2,8}$/.test((raw || '').trim().toUpperCase());
+  // v37.76.2 — códigos oficiais podem ter DOIS hífens (ex.: AGT-9921-SR,
+  // ADM-8812-OP); antes só 1 hífen era aceite e «AGT-9921-SR» degradava para
+  // «AGT» no recipient_bi da cloud (envio do cidadão perdia o destino real).
+  /^[A-Z0-9]{2,8}(-[A-Z0-9]{2,8}){1,2}$/.test((raw || '').trim().toUpperCase());
 
 // ---- N-3 (auditoria master 2026-08-09) — micro-cache de LEITURA das caixas ----
 // A hidratação inicial corre várias vezes nos primeiros ~dez segundos de
