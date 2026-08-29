@@ -5830,10 +5830,29 @@ Ficha civil do titular:
       case 'gov-correspondencias':
         return (
           <PainelSuspense>
-          <GovCorrespondenciasContent 
+          <GovCorrespondenciasContent
             correspondences={currentCorrespondences}
             carregando={isGovMode && !cloudSyncedOnce}
             onNavigate={setTab}
+            onDeleteCorrespondence={async (cor) => {
+              // v37.77 — eliminação pelo Admin: remove a linha LOCALMENTE e na
+              // BASE CENTRAL; só reporta sucesso quando a nuvem confirma.
+              setCorrespondences(prev => prev.filter(c => c.id !== cor.id));
+              addAuditLog(`Correspondência ${cor.id} («${cor.subject}») eliminada pela Administração — ${cor.sender} → ${cor.recipient}.`, 'critical');
+              const numericId = parseInt(String(cor.id).replace(/\D/g, ''), 10);
+              if (Number.isFinite(numericId) && isOnline && hasValidSupabaseKeys()) {
+                try {
+                  const apagou = await supabaseService.deleteCorrespondenceRow(numericId);
+                  if (!apagou) addAuditLog(`Correspondência ${cor.id}: a linha pode já não existir na base central (nada foi apagado agora).`, 'warning');
+                  return apagou;
+                } catch (err) {
+                  console.warn('[CDA] Falha ao eliminar correspondência na nuvem:', err);
+                  addAuditLog(`Correspondência ${cor.id}: FALHA na eliminação na base central — a lista local foi limpa, mas a linha remota pode persistir.`, 'warning');
+                  return false;
+                }
+              }
+              return false;
+            }}
             onAddCorrespondence={async (newCor) => {
               setCorrespondences(prev => [{ ...newCor, createdBy: bi }, ...prev]);
               addAuditLog(`Novo Expediente Enviado: ${newCor.id} de ${newCor.sender} para ${newCor.recipient}`, 'success');

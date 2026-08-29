@@ -23,8 +23,10 @@ import {
   Cpu,
   Share2,
   ArrowLeft,
-  Loader2
+  Loader2,
+  Trash2
 } from 'lucide-react';
+import { CdaConfirmModal } from '../ui/CdaConfirm';
 import { Correspondence } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
 import { VideoSessionPanel } from './VideoSessionPanel';
@@ -37,6 +39,9 @@ export interface GovCorrespondenciasContentProps {
   /** 2026-08-21 (UX) — verdadeiro enquanto a primeira sincronização com a
    *  nuvem decorre: a lista mostra um indicador de carregamento honesto. */
   carregando?: boolean;
+  /** v37.77 — eliminação de correspondência pela Área da Administração:
+   *  remove a linha localmente E na base central (Supabase). */
+  onDeleteCorrespondence?: (cor: Correspondence) => Promise<boolean> | boolean;
 }
 
 // Prepare Correspondence function: acts as a data normalizer / enhancer
@@ -114,7 +119,8 @@ export function GovCorrespondenciasContent({
   onAddCorrespondence,
   onUpdateStatus,
   onNavigate,
-  carregando = false
+  carregando = false,
+  onDeleteCorrespondence
 }: GovCorrespondenciasContentProps) {
   const { t } = useLanguage();
   const { institutions } = useInstitutions();
@@ -147,11 +153,31 @@ export function GovCorrespondenciasContent({
     }
   };
 
+  // v37.77 — eliminação pela Administração (local + base central), honesta:
+  // se a nuvem falhar, o aviso diz-o claramente.
+  const executarEliminacaoCor = async () => {
+    if (!corEliminavel || eliminandoCor) return;
+    setEliminandoCor(true);
+    try {
+      const ok = await onDeleteCorrespondence?.(corEliminavel);
+      if (ok === false) notify('Não foi possível eliminar a correspondência na base central. Verifique a ligação e tente novamente.', 'error');
+      else notify(`Correspondência «${corEliminavel.subject || corEliminavel.id}» eliminada com sucesso${ok === true ? ' (base central incluída)' : ' (local)'}.`, 'success');
+    } catch {
+      notify('Erro inesperado ao eliminar a correspondência.', 'error');
+    } finally {
+      setEliminandoCor(false);
+      setCorEliminavel(null);
+    }
+  };
+
   // State Management
   const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
   const [selectedLetter, setSelectedLetter] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<string>('Todas');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // v37.77 — eliminação (Admin) com confirmação explícita
+  const [corEliminavel, setCorEliminavel] = useState<Correspondence | null>(null);
+  const [eliminandoCor, setEliminandoCor] = useState(false);
   
   // Custom interactive mock attachments for dispatch modal
   const [dispatchAttachments, setDispatchAttachments] = useState<{ name: string; size: string }[]>([
@@ -700,18 +726,30 @@ export function GovCorrespondenciasContent({
                       </span>
                     </td>
 
-                    {/* Actions button */}
+                    {/* Actions buttons — v37.77: Ficha + ELIMINAR (com confirmação) */}
                     <td className="py-4.5 px-5 text-center">
-                      <button 
-                        onClick={() => {
-                          setSelectedLetter(item);
-                          setIsForwarding(false);
-                        }}
-                        className="py-1.5 px-3 bg-[#0c2340] hover:bg-slate-800 border-0 rounded-xl text-[9px] font-black uppercase text-white tracking-widest transition-colors cursor-pointer inline-flex items-center gap-1"
-                        title="Abrir Auditoria / Ficha de Correspondência"
-                      >
-                        <Eye size={12} /> Ficha
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            setSelectedLetter(item);
+                            setIsForwarding(false);
+                          }}
+                          className="py-1.5 px-3 bg-[#0c2340] hover:bg-slate-800 border-0 rounded-xl text-[9px] font-black uppercase text-white tracking-widest transition-colors cursor-pointer inline-flex items-center gap-1"
+                          title="Abrir Auditoria / Ficha de Correspondência"
+                        >
+                          <Eye size={12} /> Ficha
+                        </button>
+                        {onDeleteCorrespondence && (
+                          <button
+                            onClick={() => setCorEliminavel(item)}
+                            disabled={eliminandoCor}
+                            className="py-1.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 rounded-xl text-[9px] font-black uppercase tracking-widest transition-colors cursor-pointer inline-flex items-center gap-1 disabled:opacity-50"
+                            title="Eliminar correspondência (definitivo na base central)"
+                          >
+                            {eliminandoCor && corEliminavel?.id === item.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Eliminar
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1320,6 +1358,19 @@ export function GovCorrespondenciasContent({
           </>
         )}
       </AnimatePresence>
+
+      {/* v37.77 — ELIMINAÇÃO de correspondência (Admin): confirmação explícita
+          antes de apagar a linha na base central. */}
+      <CdaConfirmModal
+        aberto={!!corEliminavel}
+        titulo="Eliminar Correspondência?"
+        subtitulo="Acção definitiva da Administração"
+        mensagem={`Vai eliminar definitivamente a correspondência «${corEliminavel?.subject || corEliminavel?.id}» de ${corEliminavel?.sender || '—'} para ${corEliminavel?.recipient || '—'}.\n\nA linha é removida da base central (Supabase) e deixa de estar disponível para auditoria. Esta acção não pode ser revertida.`}
+        textoConfirmar={eliminandoCor ? 'A eliminar…' : 'Eliminar Definitivamente'}
+        perigoso
+        onConfirmar={() => { void executarEliminacaoCor(); }}
+        onCancelar={() => { if (!eliminandoCor) setCorEliminavel(null); }}
+      />
 
     </div>
   );

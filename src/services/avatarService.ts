@@ -14,6 +14,22 @@ import { supabase } from '../lib/supabaseClient';
 const chaveLocal = (modo: 'user' | 'institution' | 'admin', ident: string): string =>
   `cda_avatar_${modo}_${String(ident || '').toUpperCase().replace(/\s+/g, '')}`;
 
+/** v37.77 — iniciais do nome para o avatar por omissão (fundo azul):
+ *  «Edlasio Galhardo» → «EG»; «INAPEM-LLMM» → «IN»; nome vazio → fallback.
+ *  Toda a conta NOVA (cidadão ou instituição) nasce com este avatar neutro. */
+export const iniciaisDe = (nome: string | null | undefined, fallback = 'U'): string => {
+  const partes = String(nome || '').trim().split(/[\s]+/).filter(Boolean);
+  if (!partes.length) return fallback;
+  const limpa = (t: string) => t.replace(/[^A-Za-zÀ-ÿ0-9]/g, '');
+  if (partes.length === 1) {
+    const p = limpa(partes[0]);
+    return (p.slice(0, 2) || fallback).toUpperCase();
+  }
+  const primeira = limpa(partes[0]).slice(0, 1);
+  const ultima = limpa(partes[partes.length - 1]).slice(0, 1);
+  return ((primeira + ultima) || fallback).toUpperCase();
+};
+
 /** Guarda o avatar do utilizador (local + Auth metadata quando aplicável). */
 export const guardarAvatar = (modo: 'user' | 'institution' | 'admin', ident: string, url: string): void => {
   if (!url) return;

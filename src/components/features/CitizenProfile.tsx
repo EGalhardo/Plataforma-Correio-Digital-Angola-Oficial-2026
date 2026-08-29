@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabaseService, hasValidSupabaseKeys } from "../../services/supabaseService";
-import { guardarAvatar } from '../../services/avatarService';
+import { guardarAvatar, iniciaisDe} from '../../services/avatarService';
 import { guardarPerfilLocal } from '../../services/perfilLocalService';
 import { supabase } from '../../lib/supabaseClient';
 import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil, temPendenciaPerfil, type ProfileSyncOutcome } from '../../services/profileSyncService';
@@ -371,7 +371,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                 ) : (
                   /* v37.29 — sem foto: fundo azul com a primeira letra do nome */
                   <div className="w-full h-full rounded-[22px] bg-blue-600 flex items-center justify-center text-white font-black text-5xl select-none">
-                    {(profileName || 'U').trim().charAt(0).toUpperCase()}
+                    {iniciaisDe(profileName)}
                   </div>
                 )}
                 

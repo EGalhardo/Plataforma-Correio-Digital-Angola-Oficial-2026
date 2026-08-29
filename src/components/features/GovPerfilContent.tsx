@@ -6,13 +6,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Lock, History, Eye, EyeOff, Check, BadgeCheck, Settings, Camera, CheckCircle2 } from 'lucide-react';
-import { USER_PROFILE_PHOTO } from '../../constants/data';
 import { useSession } from '../../services/sessionStore';
 import { supabase } from '../../lib/supabaseClient';
 import { hasValidSupabaseKeys, supabaseService } from '../../services/supabaseService';
 import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil } from '../../services/profileSyncService';
 import { carregarDadosReaisAdmin } from '../../services/adminRealDataService';
-import { guardarAvatar } from '../../services/avatarService';
+import { guardarAvatar, iniciaisDe, isPlaceholderAvatar } from '../../services/avatarService';
 import { guardarPerfilLocal } from '../../services/perfilLocalService';
 import { cloudChangePassword, hasActiveCloudSession, isCloudBound } from '../../services/cloudAuthService';
 import { homologationStore } from '../../services/homologationStore';
@@ -289,12 +288,20 @@ export function GovPerfilContent({
           
           <div className="relative mt-4 mb-4">
             <div className="w-32 h-32 md:w-36 md:h-36 rounded-[28px] border border-slate-200 p-1.5 bg-white relative group">
-              <img 
-                src={user?.avatarUrl || USER_PROFILE_PHOTO} 
-                alt={profileName} 
-                className="w-full h-full rounded-[20px] object-cover transition-all group-hover:scale-105"
-                referrerPolicy="no-referrer"
-              />
+              {/* v37.77 — conta sem foto: fundo azul com as INICIAIS do nome
+                  (antes caía numa foto-placeholder de terceiros). */}
+              {user?.avatarUrl && !isPlaceholderAvatar(user.avatarUrl) ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={profileName}
+                  className="w-full h-full rounded-[20px] object-cover transition-all group-hover:scale-105"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-full h-full rounded-[20px] bg-blue-600 flex items-center justify-center text-white font-black text-5xl select-none">
+                  {iniciaisDe(profileName, 'CDA')}
+                </div>
+              )}
               <label className="absolute inset-0 bg-slate-900/40 rounded-[20px] flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                 <Camera className="text-white mb-1" size={24} />
                 <span className="text-[9px] font-black uppercase tracking-wider text-white">

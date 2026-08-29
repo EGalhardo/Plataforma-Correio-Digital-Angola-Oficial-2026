@@ -1389,6 +1389,8 @@ export function GovContactsContent({
   const [, setNewWorkerAccessProfile] = useState('Operador de Atendimento');
   const [newWorkerPassword, setNewWorkerPassword] = useState('');
   const [newWorkerPasswordConfirm, setNewWorkerPasswordConfirm] = useState('');
+  // v37.77 — estado de gravação do popup Equipa: spinner no botão + anti-duplo-clique
+  const [isSavingWorker, setIsSavingWorker] = useState(false);
   // 2026-08-22 — PERMISSÕES DE PÁGINA: páginas seleccionadas no popup
   const [newWorkerPaginas, setNewWorkerPaginas] = useState<string[]>([]);
 
@@ -1463,10 +1465,35 @@ export function GovContactsContent({
 
   const handleCreateWorker = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newWorkerName || !newWorkerEmail || !newWorkerPhone || !newWorkerRole) {
-      notify('Por favor, preencha todos os campos obrigatórios (Nome Completo, Email Institucional, Telefone Profissional e Perfil Funcional).');
+    // v37.77 — o formulário passou a noValidate: a validação NATIVA do browser
+    // bloqueava o submit SILENCIOSAMENTE quando um campo obrigatório ficava
+    // abaixo da dobra do modal («nada acontece»). Agora a validação é SEMPRE
+    // visível: lista os campos em falta, destaca-os e faz scroll ao primeiro.
+    const camposEmFalta: string[] = [];
+    if (!newWorkerName.trim()) camposEmFalta.push('Nome Completo');
+    if (!newWorkerEmail.trim()) camposEmFalta.push('Email Institucional');
+    if (!newWorkerPhone.trim()) camposEmFalta.push('Telefone Profissional');
+    if (!newWorkerRole.trim()) camposEmFalta.push('Perfil Funcional');
+    if (camposEmFalta.length > 0) {
+      notify(`Preencha os campos obrigatórios antes de submeter: ${camposEmFalta.join(', ')}.`);
+      const idMap: Record<string, string> = {
+        'Nome Completo': 'wk-campo-nome', 'Email Institucional': 'wk-campo-email',
+        'Telefone Profissional': 'wk-campo-tel', 'Perfil Funcional': 'wk-campo-perfil',
+      };
+      const primeiro = camposEmFalta[0];
+      try {
+        const el = document.getElementById(idMap[primeiro] || '');
+        if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); (el as HTMLElement).focus({ preventScroll: true }); }
+      } catch { /* ignora */ }
       return;
     }
+    if (isSavingWorker) return;
+    setIsSavingWorker(true);
+    try {
+    await gravarWorker();
+    } finally { setIsSavingWorker(false); }
+  };
+  const gravarWorker = async () => {
 
     const isPlatformAdmin = appMode === 'admin-workers';
     const currentTime = '12/06/2026 ' + new Date().toTimeString().slice(0, 5);
@@ -2260,7 +2287,7 @@ export function GovContactsContent({
                     </button>
                   </div>
 
-                  <form onSubmit={handleCreateWorker} className="flex-1 flex flex-col justify-between overflow-y-auto custom-scrollbar space-y-6 pr-1 text-left">
+                  <form onSubmit={handleCreateWorker} noValidate className="flex-1 flex flex-col justify-between overflow-y-auto custom-scrollbar space-y-6 pr-1 text-left">
                     <div className="space-y-6">
                       
                       {/* DADOS PESSOAIS */}
@@ -2279,6 +2306,7 @@ export function GovContactsContent({
                                 <User size={16} />
                               </span>
                               <input
+                                id="wk-campo-nome"
                                 required
                                 type="text"
                                 className="w-full bg-white border-2 border-slate-100 focus:border-[#4f46e5]/30 rounded-[20px] pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
@@ -2297,6 +2325,7 @@ export function GovContactsContent({
                                 <Mail size={16} />
                               </span>
                               <input
+                                id="wk-campo-email"
                                 required
                                 type="email"
                                 className="w-full bg-white border-2 border-slate-100 focus:border-[#4f46e5]/30 rounded-[20px] pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-bold placeholder:text-slate-400"
@@ -2315,6 +2344,7 @@ export function GovContactsContent({
                                 <Phone size={16} />
                               </span>
                               <input
+                                id="wk-campo-tel"
                                 required
                                 type="text"
                                 className="w-full bg-white border-2 border-slate-100 focus:border-[#4f46e5]/30 rounded-[20px] pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-mono font-bold placeholder:text-slate-400"
@@ -2346,6 +2376,7 @@ export function GovContactsContent({
                                 <IdCard size={16} />
                               </span>
                               <input
+                                id="wk-campo-perfil"
                                 type="text"
                                 required
                                 placeholder={isPlatformAdmin ? "Ex: Auditor Geral do Sistema" : "Ex: Auditor Geral"}
@@ -2567,10 +2598,11 @@ export function GovContactsContent({
 
                       <button
                         type="submit"
-                        className="flex-1 bg-[#0c2340] hover:bg-[#152e4d] text-white py-3.5 rounded-[20px] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#0c2340]/15 flex items-center justify-center gap-2.5 transition-all duration-300 cursor-pointer active:scale-98 font-sans border-0"
+                        disabled={isSavingWorker}
+                        className="flex-1 bg-[#0c2340] hover:bg-[#152e4d] text-white py-3.5 rounded-[20px] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#0c2340]/15 flex items-center justify-center gap-2.5 transition-all duration-300 cursor-pointer active:scale-98 font-sans border-0 disabled:opacity-60 disabled:cursor-not-allowed"
                       >
-                        <Check size={15} className="stroke-[3]" />
-                        {isEditingWorker ? 'Guardar Ficha do Membro da Equipa' : (isPlatformAdmin ? 'Submeter Cadastro do Membro' : 'Submeter Cadastro')}
+                        {isSavingWorker ? <Loader2 size={15} className="stroke-[3] animate-spin" /> : <Check size={15} className="stroke-[3]" />}
+                        {isSavingWorker ? 'A gravar…' : (isEditingWorker ? 'Guardar Ficha do Membro da Equipa' : (isPlatformAdmin ? 'Submeter Cadastro do Membro' : 'Submeter Cadastro'))}
                       </button>
                     </div>
                   </form>

@@ -1909,6 +1909,31 @@ export const supabaseService = {
     }
   },
 
+  /** v37.77 — ELIMINAÇÃO DEFINITIVA de uma correspondência pelo Admin (área
+   *  Administrativa → Correspondências): apaga a linha da tabela `messages`
+   *  na base central. Devolve true quando a linha foi removida na nuvem. */
+  async deleteCorrespondenceRow(id: number): Promise<boolean> {
+    if (!hasValidSupabaseKeys() || !Number.isFinite(id)) return false;
+    try {
+      return await gravarDados(
+        'messages', 'delete', { id }, undefined,
+        undefined,
+        async () => {
+          const { data, error } = await supabase
+            .from('messages')
+            .delete()
+            .eq('id', id)
+            .select('id');
+          if (error) throw error;
+          return data;
+        },
+      ).then(d => Array.isArray(d) ? d.length > 0 : true);
+    } catch (e) {
+      console.error('Supabase deleteCorrespondenceRow error:', e);
+      return false;
+    }
+  },
+
   /**
    * Fetch all official government correspondences
    */

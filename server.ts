@@ -403,7 +403,10 @@ const DADOS_TABELAS: Record<string, {
   injetar: (ident: DadosIdentidade, dados: Record<string, any>) => Record<string, any> | null;
 }> = {
   messages: {
-    select: true, insert: true, update: true, delete: false, upsert: true,
+    // v37.77 — delete:true: a Administração elimina correspondências
+    // (página Correspondências); o escopo mantém cidadão/instituição
+    // limitados às PRÓPRIAS linhas (remetente/destinatário).
+    select: true, insert: true, update: true, delete: true, upsert: true,
     escopo: (i) => i.isAdmin ? { or: [], and: {} }
       : i.isInst ? { or: [`recipient_bi.eq.${i.instCode || i.bi}`, `sender_bi.eq.${i.instCode || i.bi}`, `org.eq.${i.instCode || i.bi}`], and: {} }
       // v37.31 — difusões «TODOS» (expedição nacional) também pertencem à
@@ -937,7 +940,52 @@ async function dadosResolverEExecutar(opts: {
         perfis = count || 0;
       } catch { /* best-effort */ }
 
-      return res.status(200).json({ ok: true, contas, avatares, perfis });
+      // 4) v37.77 — RESÍDUOS OPERACIONAIS: correspondências (enviadas/recebidas),
+      // notificações, sondagens, protocolos e histórico de estados da adesão.
+      // Sem isto a adesão RE-CRIADA herdava as «Enviadas» da vida anterior
+      // (ex.: 23 correspondências fantasma logo após o re-registo).
+      let mensagens = 0;
+      try {
+        const { count } = await admin
+          .from('messages')
+          .delete({ count: 'exact' })
+          .or(`sender_bi.eq.${codeNorm},sender_bi.like.${codeNorm}-*,recipient_bi.eq.${codeNorm},recipient_bi.like.${codeNorm}-*`);
+        mensagens = count || 0;
+      } catch { /* best-effort */ }
+      let notificacoes = 0;
+      try {
+        const { count } = await admin
+          .from('notifications')
+          .delete({ count: 'exact' })
+          .or(`target_bi.eq.${codeNorm},target_bi.like.${codeNorm}-*`);
+        notificacoes = count || 0;
+      } catch { /* best-effort */ }
+      let sondagensApagadas = 0;
+      try {
+        const { count } = await admin
+          .from('sondagens')
+          .delete({ count: 'exact' })
+          .eq('instituicao_code', codeNorm);
+        sondagensApagadas = count || 0;
+      } catch { /* best-effort */ }
+      let protocolos = 0;
+      try {
+        const { count } = await admin
+          .from('digital_protocols')
+          .delete({ count: 'exact' })
+          .or(`issuer_institution.eq.${codeNorm},issuer_institution.like.${codeNorm}-*`);
+        protocolos = count || 0;
+      } catch { /* best-effort */ }
+      let historico = 0;
+      try {
+        const { count } = await admin
+          .from('message_state_history')
+          .delete({ count: 'exact' })
+          .or(`responsible.like.${codeNorm}%,responsible.like.${codeNorm}-%`);
+        historico = count || 0;
+      } catch { /* best-effort */ }
+
+      return res.status(200).json({ ok: true, contas, avatares, perfis, mensagens, notificacoes, sondagens: sondagensApagadas, protocolos, historico });
     } catch (e) {
       console.error('[ELIMINAR-INSTITUICAO] Exceção:', e);
       return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
@@ -970,8 +1018,10 @@ async function dadosResolverEExecutar(opts: {
       if (alvoDemo && roleCaller !== 'admin') return res.status(403).json({ ok: false, demo: true, erro: 'demo' });
 
       const ehAdminAgente = /^ADMIN-\d+$/.test(agenteNorm);
+      // v37.77 — o ADMIN (role=admin) elimina QUALQUER colaborador da plataforma
+      // (agentes ADMIN-NNNN e membros institucionais CODIGO-NN). Ver gémeo api/index.ts.
       let autorizado = false;
-      if (roleCaller === 'admin' && (ehAdminAgente || alvoDemo)) {
+      if (roleCaller === 'admin' && (ehAdminAgente || alvoDemo || /^[A-Z0-9][A-Z0-9\-]*-\d+$/.test(agenteNorm))) {
         autorizado = true;
       } else if (roleCaller === 'instituicao' && !ehAdminAgente && instCaller && agentCaller === `${instCaller}-01`) {
         const mSeq = agenteNorm.match(/-(\d+)$/);

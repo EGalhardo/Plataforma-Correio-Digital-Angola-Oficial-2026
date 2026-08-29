@@ -1974,7 +1974,51 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
           );
           if (dp.ok) perfis = 1;
         } catch { /* best-effort */ }
-        return res.status(200).json({ ok: true, contas, avatares, perfis });
+
+        // 4) v37.77 — RESÍDUOS OPERACIONAIS (mesma cascata do server.ts):
+        // correspondências, notificações, sondagens, protocolos e histórico.
+        // Sem isto a adesão RE-CRIADA herdava as «Enviadas» da vida anterior.
+        let mensagens = 0;
+        try {
+          const dm = await fetch(
+            `${supaUrlPerfil}/rest/v1/messages?or=(sender_bi.eq.${encodeURIComponent(codeNorm)},sender_bi.like.${encodeURIComponent(`${codeNorm}-*`)},recipient_bi.eq.${encodeURIComponent(codeNorm)},recipient_bi.like.${encodeURIComponent(`${codeNorm}-*`)})`,
+            { method: 'DELETE', headers: { ...h, Prefer: 'return=representation' } },
+          );
+          if (dm.ok) {
+            const apagadas = await dm.json().catch(() => []);
+            mensagens = Array.isArray(apagadas) ? apagadas.length : 0;
+            // histórico de estados das mensagens eliminadas
+            if (Array.isArray(apagadas) && apagadas.length) {
+              const ids = apagadas.map((m: any) => m.id).join(',');
+              await fetch(`${supaUrlPerfil}/rest/v1/message_state_history?message_id=in.(${ids})`, { method: 'DELETE', headers: h }).catch(() => null);
+            }
+          }
+        } catch { /* best-effort */ }
+        let notificacoes = 0;
+        try {
+          const dn = await fetch(
+            `${supaUrlPerfil}/rest/v1/notifications?or=(target_bi.eq.${encodeURIComponent(codeNorm)},target_bi.like.${encodeURIComponent(`${codeNorm}-*`)})`,
+            { method: 'DELETE', headers: { ...h, Prefer: 'return=representation' } },
+          );
+          if (dn.ok) { const r = await dn.json().catch(() => []); notificacoes = Array.isArray(r) ? r.length : 0; }
+        } catch { /* best-effort */ }
+        let sondagensApagadas = 0;
+        try {
+          const ds = await fetch(
+            `${supaUrlPerfil}/rest/v1/sondagens?instituicao_code=eq.${encodeURIComponent(codeNorm)}`,
+            { method: 'DELETE', headers: { ...h, Prefer: 'return=representation' } },
+          );
+          if (ds.ok) { const r = await ds.json().catch(() => []); sondagensApagadas = Array.isArray(r) ? r.length : 0; }
+        } catch { /* best-effort */ }
+        let protocolos = 0;
+        try {
+          const dpr = await fetch(
+            `${supaUrlPerfil}/rest/v1/digital_protocols?or=(issuer_institution.eq.${encodeURIComponent(codeNorm)},issuer_institution.like.${encodeURIComponent(`${codeNorm}-*`)})`,
+            { method: 'DELETE', headers: { ...h, Prefer: 'return=representation' } },
+          );
+          if (dpr.ok) { const r = await dpr.json().catch(() => []); protocolos = Array.isArray(r) ? r.length : 0; }
+        } catch { /* best-effort */ }
+        return res.status(200).json({ ok: true, contas, avatares, perfis, mensagens, notificacoes, sondagens: sondagensApagadas, protocolos });
       } catch (e: any) {
         console.error('[ELIMINAR-INSTITUICAO] Exceção:', e);
         return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
@@ -2006,8 +2050,12 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         const alvoDemo = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP'].includes(agenteNorm);
         if (alvoDemo && roleCaller !== 'admin') return res.status(403).json({ ok: false, demo: true, erro: 'demo' });
         const ehAdminAgente = /^ADMIN-\d+$/.test(agenteNorm);
+        // v37.77 — o ADMIN (role=admin) elimina QUALQUER colaborador da plataforma:
+        // agentes ADMIN-NNNN E membros de instituições (COLABORADOR-NN das
+        // adesões). Antes só podia eliminar ADMIN-NNNN — os colaboradores
+        // institucionais ficavam presos na base central (Equipa → reappears).
         let autorizado = false;
-        if (roleCaller === 'admin' && (ehAdminAgente || alvoDemo)) {
+        if (roleCaller === 'admin' && (ehAdminAgente || alvoDemo || /^[A-Z0-9][A-Z0-9\-]*-\d+$/.test(agenteNorm))) {
           autorizado = true;
         } else if (roleCaller === 'instituicao' && !ehAdminAgente && instCaller && agentCaller === `${instCaller}-01`) {
           const mSeq = agenteNorm.match(/-(\d+)$/);
@@ -2333,7 +2381,10 @@ const DADOS_TABELAS: Record<string, {
   injetar: (ident: DadosIdentidade, dados: Record<string, any>) => Record<string, any> | null;
 }> = {
   messages: {
-    select: true, insert: true, update: true, delete: false, upsert: true,
+    // v37.77 — delete:true: a Administração elimina correspondências
+    // (página Correspondências); o escopo mantém cidadão/instituição
+    // limitados às PRÓPRIAS linhas (remetente/destinatário).
+    select: true, insert: true, update: true, delete: true, upsert: true,
     escopo: (i) => i.isAdmin ? { or: [], and: {} }
       : i.isInst ? { or: [`recipient_bi.eq.${i.instCode || i.bi}`, `sender_bi.eq.${i.instCode || i.bi}`, `org.eq.${i.instCode || i.bi}`], and: {} }
       : { or: [`recipient_bi.eq.${i.bi}`, `sender_bi.eq.${i.bi}`], and: {} },

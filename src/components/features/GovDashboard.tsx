@@ -538,11 +538,17 @@ export function GovDashboard({
             {/* v37.49 — novo logotipo oficial do Correio Angola (substitui o
                 escudo verde). Mesmas dimensões/raio para manter o alinhamento;
                 object-cover e cantos redondados => harmonioso em claro e escuro. */}
-            <img
-              src="https://i.postimg.cc/zGkDmXSG/Icone-Correio-Angola.jpg"
-              alt="Ícone Correio Angola"
-              className="w-12 h-12 md:w-16 md:h-16 rounded-2xl object-cover shrink-0"
-            />
+            {/* v37.49 — novo logotipo oficial do Correio Angola (substitui o
+                escudo verde). v37.77 — object-CONTAIN com respiro interno: o
+                object-cover anterior CORTAVA a logomarca (modo escuro incluído);
+                agora o ícone inteiro fica visível em qualquer fundo. */}
+            <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white border border-slate-200/60 flex items-center justify-center shrink-0 overflow-hidden">
+              <img
+                src="https://i.postimg.cc/zGkDmXSG/Icone-Correio-Angola.jpg"
+                alt="Ícone Correio Angola"
+                className="w-full h-full object-contain"
+              />
+            </div>
             <div className="min-w-0 flex-1">
               <div className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">ID Digital do Admin</div>
               <div className="text-base md:text-xl font-black text-slate-900 leading-tight italic tracking-tighter">

@@ -450,6 +450,25 @@ export function MessageDetail({
         tomIcone="bg-indigo-50 text-indigo-600 border-indigo-100"
         maxW="max-w-md"
       >
+        {/* v37.77 — resumo de progresso no topo: escolhas feitas vs. total */}
+        <div className="flex items-center gap-3 mb-3 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/80 to-violet-50/60 px-3.5 py-2.5">
+          <div className="flex -space-x-1.5 shrink-0">
+            {idsSondagem.map((id, i) => (
+              <span key={id} className={`w-5 h-5 rounded-full text-[9px] font-black flex items-center justify-center border-2 border-white ${respSond[id]?.escolhas?.length ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>{i + 1}</span>
+            ))}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="h-1.5 rounded-full bg-slate-200/80 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500"
+                style={{ width: `${Math.round((idsSondagem.filter(id => !!respSond[id]?.escolhas?.length).length / Math.max(idsSondagem.length, 1)) * 100)}%` }}
+              />
+            </div>
+          </div>
+          <span className="text-[10px] font-black text-indigo-700 shrink-0 tabular-nums">
+            {idsSondagem.filter(id => !!respSond[id]?.escolhas?.length).length}/{idsSondagem.length}
+          </span>
+        </div>
         {/* v37.28 — cartões numerados, escolhas em pills, barra de estado */}
         <div className="text-left space-y-2.5">
           {idsSondagem.map((id, idx) => {
@@ -506,16 +525,33 @@ export function MessageDetail({
         tomIcone={popupSond?.ok ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}
         maxW="max-w-md"
       >
-        {/* v37.28 — painel tonalizado centrado + botão pill a toda a largura */}
-        <div className={`rounded-2xl border p-5 text-center ${popupSond?.ok ? 'bg-emerald-50/70 border-emerald-100' : 'bg-amber-50/70 border-amber-100'}`}>
+        {/* v37.77 — sucesso celebrado: selo animado + painel tonalizado centrado */}
+        <div className={`rounded-2xl border p-5 text-center relative overflow-hidden ${popupSond?.ok ? 'bg-gradient-to-b from-emerald-50/80 to-white border-emerald-100' : 'bg-amber-50/70 border-amber-100'}`}>
+          {popupSond?.ok && (
+            <motion.div
+              initial={{ scale: 0.4, opacity: 0, rotate: -8 }}
+              animate={{ scale: 1, opacity: 1, rotate: 0 }}
+              transition={{ type: 'spring', damping: 12, stiffness: 220 }}
+              className="w-14 h-14 mx-auto mb-3 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-200"
+            >
+              <Check size={26} strokeWidth={3.2} />
+            </motion.div>
+          )}
           <p className="text-sm font-semibold text-slate-700 m-0 leading-relaxed">{popupSond?.texto}</p>
+          {popupSond?.ok && (
+            <div className="flex items-center justify-center gap-1.5 mt-3">
+              {['bg-emerald-300', 'bg-teal-400', 'bg-emerald-500', 'bg-teal-400', 'bg-emerald-300'].map((c, i) => (
+                <span key={i} className={`w-1.5 h-1.5 rounded-full ${c} animate-bounce`} style={{ animationDelay: `${i * 90}ms` }} />
+              ))}
+            </div>
+          )}
         </div>
         <button
           type="button"
           onClick={fecharPopupSond}
-          className={`w-full py-3.5 rounded-full font-black text-xs uppercase tracking-wider text-white transition-all cursor-pointer border-none shadow-md ${popupSond?.ok ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'}`}
+          className={`w-full py-3.5 rounded-full font-black text-xs uppercase tracking-wider text-white transition-all cursor-pointer border-none shadow-md ${popupSond?.ok ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-200' : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'}`}
         >
-          {popupSond?.ok ? 'Entendi' : 'Fechar'}
+          {popupSond?.ok ? 'Concluir' : 'Fechar'}
         </button>
       </CdaModal>
     </>
@@ -1988,13 +2024,13 @@ depende de integração futura com a infra-estrutura de chaves nacional.
   const parsedAttachments = React.useMemo(() => {
     const rawAttachments = selectedMessage.details?.attachments;
     if (!rawAttachments || !Array.isArray(rawAttachments)) return [];
-    
+
     return rawAttachments.map(att => {
       if (!att) return { name: 'documento.pdf', size: '1.2 MB', content: '' };
       if (typeof att === 'object') {
         const anyAtt = att as { name?: string; size?: string; content?: string };
-        return { 
-          name: anyAtt.name || 'documento.pdf', 
+        return {
+          name: anyAtt.name || 'documento.pdf',
           size: anyAtt.size || '1.2 MB',
           content: anyAtt.content || ''
         };
@@ -2020,6 +2056,45 @@ depende de integração futura com a infra-estrutura de chaves nacional.
       return { name: attString, size: '1.2 MB', content: '' };
     });
   }, [selectedMessage.details?.attachments]);
+
+  // v37.77 — ANEXOS DE IMAGEM VISÍVEIS INLINE: quem abre a correspondência vê
+  // a imagem logo no corpo (antes só existia o ícone 👁 que abria outro
+  // separador — «a imagem não aparece para quem abre a correspondência»).
+  // Detecta imagens por tipo, nome ou conteúdo (data-URL / marcador storage)
+  // e resolve marcadores privados para URL assinado.
+  const ehImagemAnexo = (f: { name?: string; content?: string; type?: string }) => {
+    const t = String((f as any).type || '');
+    if (t.startsWith('image/')) return true;
+    if (/\.png$|\.jpe?g$|\.webp$|\.gif$/i.test(String(f.name || ''))) return true;
+    const c = String(f.content || '');
+    if (c.startsWith('data:image')) return true;
+    if (isStorageRef(c)) return /\.(png|jpe?g|webp|gif)(\?|$)/i.test(c);
+    return false;
+  };
+  const [inlineImgUrls, setInlineImgUrls] = useState<Record<number, string>>({});
+  useEffect(() => {
+    let vivo = true;
+    setInlineImgUrls({});
+    (async () => {
+      const resolucoes: Record<number, string> = {};
+      for (let i = 0; i < parsedAttachments.length; i++) {
+        const f: any = parsedAttachments[i];
+        if (!ehImagemAnexo(f)) continue;
+        const c = String(f.content || '');
+        try {
+          if (c.startsWith('data:image')) resolucoes[i] = c;
+          else if (c.startsWith('http')) resolucoes[i] = c;
+          else if (isStorageRef(c)) {
+            const u = await resolveStorageUrl(supabase, c);
+            if (u) resolucoes[i] = u;
+          }
+        } catch { /* melhor esforço */ }
+      }
+      if (vivo && Object.keys(resolucoes).length) setInlineImgUrls(resolucoes);
+    })();
+    return () => { vivo = false; };
+  }, [parsedAttachments]);
+  const anexosImagemIdx = parsedAttachments.map((f, i) => (ehImagemAnexo(f) ? i : -1)).filter(i => i >= 0);
 
   if (showLocationPage) {
     const currentQuery = mapQuery || messageLocality;
@@ -2304,6 +2379,40 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                 <Paperclip size={14} className="text-indigo-600" />
                 {t("Ficheiros / Anexos Oficiais Recebidos")}
               </h4>
+
+              {/* v37.77 — GALERIA INLINE: imagens dos anexos visíveis de
+                  imediato (resolvidas por URL assinado quando privadas). */}
+              {anexosImagemIdx.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3.5">
+                  {anexosImagemIdx.map(idx => {
+                    const f: any = parsedAttachments[idx];
+                    const url = inlineImgUrls[idx];
+                    return (
+                      <figure
+                        key={`img-${idx}`}
+                        className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 group cursor-zoom-in transition-all hover:shadow-lg hover:border-indigo-200"
+                        onClick={() => handleViewAttachment(f)}
+                        title={`${f.name} — clique para abrir em tamanho real`}
+                      >
+                        <div className="aspect-[4/3] flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
+                          {url ? (
+                            <img src={url} alt={f.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" referrerPolicy="no-referrer" />
+                          ) : (
+                            <div className="flex flex-col items-center gap-1.5 text-slate-400">
+                              <Loader2 size={18} className="animate-spin" />
+                              <span className="text-[9px] font-black uppercase tracking-widest">A abrir imagem…</span>
+                            </div>
+                          )}
+                        </div>
+                        <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/70 to-transparent px-2.5 py-1.5">
+                          <span className="block text-[10px] font-bold text-white truncate">{f.name}</span>
+                        </figcaption>
+                      </figure>
+                    );
+                  })}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {parsedAttachments.map((file, idx) => (
                   <div 
@@ -3771,6 +3880,40 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           <Paperclip size={14} className="text-indigo-600" />
                           {t("Ficheiros / Anexos Oficiais Recebidos")}
                         </h4>
+
+                        {/* v37.77 — GALERIA INLINE (espelho da 1.ª variante): imagens
+                            dos anexos visíveis de imediato na vista de página. */}
+                        {anexosImagemIdx.length > 0 && (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3.5">
+                            {anexosImagemIdx.map(idx => {
+                              const f: any = parsedAttachments[idx];
+                              const url = inlineImgUrls[idx];
+                              return (
+                                <figure
+                                  key={`img2-${idx}`}
+                                  className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 group cursor-zoom-in transition-all hover:shadow-lg hover:border-indigo-200"
+                                  onClick={() => handleViewAttachment(f)}
+                                  title={`${f.name} — clique para abrir em tamanho real`}
+                                >
+                                  <div className="aspect-[4/3] flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
+                                    {url ? (
+                                      <img src={url} alt={f.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" referrerPolicy="no-referrer" />
+                                    ) : (
+                                      <div className="flex flex-col items-center gap-1.5 text-slate-400">
+                                        <Loader2 size={18} className="animate-spin" />
+                                        <span className="text-[9px] font-black uppercase tracking-widest">A abrir imagem…</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/70 to-transparent px-2.5 py-1.5">
+                                    <span className="block text-[10px] font-bold text-white truncate">{f.name}</span>
+                                  </figcaption>
+                                </figure>
+                              );
+                            })}
+                          </div>
+                        )}
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {parsedAttachments.map((file, idx) => (
                             <div 
@@ -4165,6 +4308,73 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                 </div>
               </div>
               <p className="text-slate-700 mb-6 leading-relaxed font-medium text-[11px] md:text-base">{t(selectedMessage.preview)}</p>
+
+              {/* v37.77 — ANEXOS na vista de página completa: esta variante (a
+                  que abre no Correio) NÃO tinha SECÇÃO DE ANEXOS — a imagem
+                  anexada pelo remetente nunca aparecia para quem abria a
+                  correspondência. Galeria inline para imagens + lista com
+                  visualizar/descarregar para os restantes ficheiros. */}
+              {parsedAttachments.length > 0 && (
+                <div className="bg-white rounded-3xl border border-line p-5 md:p-6 shadow-sm text-left mb-6">
+                  <h4 className="font-sans font-extrabold text-[#0c2340] text-xs uppercase tracking-widest mb-4 flex items-center gap-1.5">
+                    <Paperclip size={14} className="text-indigo-600" />
+                    {t("Ficheiros / Anexos Oficiais Recebidos")} ({parsedAttachments.length})
+                  </h4>
+                  {anexosImagemIdx.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                      {anexosImagemIdx.map(idx => {
+                        const f: any = parsedAttachments[idx];
+                        const url = inlineImgUrls[idx];
+                        return (
+                          <figure
+                            key={`img3-${idx}`}
+                            className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 group cursor-zoom-in transition-all hover:shadow-lg hover:border-indigo-200"
+                            onClick={() => handleViewAttachment(f)}
+                            title={`${f.name} — clique para abrir em tamanho real`}
+                          >
+                            <div className="aspect-[4/3] flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
+                              {url ? (
+                                <img src={url} alt={f.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" referrerPolicy="no-referrer" />
+                              ) : (
+                                <div className="flex flex-col items-center gap-1.5 text-slate-400">
+                                  <Loader2 size={18} className="animate-spin" />
+                                  <span className="text-[9px] font-black uppercase tracking-widest">A abrir imagem…</span>
+                                </div>
+                              )}
+                            </div>
+                            <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/70 to-transparent px-2.5 py-1.5">
+                              <span className="block text-[10px] font-bold text-white truncate">{f.name}</span>
+                            </figcaption>
+                          </figure>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {parsedAttachments.map((file, idx) => (
+                      <div key={`att-${idx}`} className="flex items-center justify-between p-3.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-2xl transition-all">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                            <FileText size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-800 truncate" title={file.name}>{file.name}</p>
+                            <span className="text-[10px] font-mono text-slate-400 font-medium">{file.size}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button type="button" onClick={() => handleViewAttachment(file)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 rounded-xl transition-all border-0 bg-transparent cursor-pointer" title={t("Visualizar documento")} aria-label={t("Visualizar documento")}>
+                            <Eye size={14} />
+                          </button>
+                          <button type="button" onClick={() => handleDownloadFile(file)} className="p-2 text-slate-400 hover:text-[#0c2340] hover:bg-slate-100 rounded-xl transition-all border-0 bg-transparent cursor-pointer" title={t("Descarregar ficheiro")} aria-label={t("Descarregar ficheiro")}>
+                            <Download size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               
               {selectedMessage.details && (
                 <div className="space-y-6">
