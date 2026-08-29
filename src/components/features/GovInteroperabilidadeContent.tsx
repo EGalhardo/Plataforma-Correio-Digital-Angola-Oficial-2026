@@ -34,13 +34,14 @@ import {
 } from '../../services/sondagemService';
 import { useSession } from '../../services/sessionStore';
 import { supabaseService } from '../../services/supabaseService';
-import { registoPublicoProxy, enviarMensagemAdministrativa } from '../../services/supabaseService';
+import { registoPublicoProxy, enviarMensagemAdministrativa, eliminarInstituicaoCloud } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore } from '../../services/homologationStore';
 // 2026-08-23 — MODO REAL: métricas da base central (nunca simuladas). Sem
 // medição real o cartão mostra «—» em vez de percentagens decorativas.
 import { carregarDadosReaisAdmin, type AdminRealData } from '../../services/adminRealDataService';
 import { parseInstPack, isInstitutionObservacao, normalizeInstCode, getLocalInstRegs, updateLocalInstReg } from '../../services/institutionRegistrationStore';
+import { purgeInstitutionLocalResidues } from '../../services/institutionSessionService';
 import { parsePvicFromObservacoes } from '../../services/preVerificationService';
 import { shouldUseMockFallback } from '../../config/runtime';
 
@@ -799,17 +800,28 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
         return;
       }
     }
-    // Cascata local só é limpa depois da confirmação central: registo + homologação + thread + lidos
-    try { homologationStore.clearStatus(code); } catch { /* ignora */ }
-    try { homologationStore.clearThread(code); } catch { /* ignora */ }
-    try { localStorage.removeItem(`cda_read_msgs_${code.replace(/\s+/g, '')}`); } catch { /* ignora */ }
+    // v37.76 — CASCATA DA NUVEM além da relacional: a RPC v30/v31 documenta que
+    // Storage/Auth devem ser removidos pelo backend (service role) — sem isto o
+    // avatar_url residual das contas Auth dos agentes era herdado pela adesão
+    // RE-CRIADA (a «cara» da vida anterior aparecia no perfil). Best-effort:
+    // falha não bloqueia (a RPC já limpou o relacional) mas fica registada.
+    const regAntes = getLocalInstRegs().find((r) => normalizeInstCode(r.code) === code);
+    const agentesDaInstituicao = [
+      code,
+      `${code}-01`,
+      regAntes?.agentNumber || '',
+      ...((regAntes?.members || []).map((m) => m.agentNumber || '')),
+    ].filter(Boolean);
     try {
-      const raw = localStorage.getItem('cda_inst_regs_v1');
-      if (raw) {
-        const regs = JSON.parse(raw).filter((r: { code?: string }) => normalizeInstCode(r.code) !== code);
-        localStorage.setItem('cda_inst_regs_v1', JSON.stringify(regs));
+      const resCloud = await eliminarInstituicaoCloud(code, agentesDaInstituicao);
+      if (!resCloud.ok) {
+        onLog?.(`Eliminação de ${code}: limpeza de nuvem (contas Auth/avatares) indisponível (${resCloud.erro}) — a adesão foi eliminada; use a Equipa para remover agentes restantes se necessário.`, 'warning');
       }
-    } catch { /* ignora */ }
+    } catch { /* best-effort */ }
+    // Cascata local COMPLETA (F49/v37.74) — substitui a limpeza parcial anterior
+    // (estado + thread + lidos + registo + avatares/fotos/dados por código e por
+    // Nº de agente da equipa + espelho da equipa).
+    try { purgeInstitutionLocalResidues(code, regAntes); } catch { /* ignora */ }
     setInstitutions(prev => prev.filter(i => normalizeInstCode(i.instCode || '') !== code));
     onLog?.(`Solicitação de ${row.nome} (${code}) eliminada em cascata (registo, homologação, thread, lidos, ficha da página).`, 'critical');
     await fetchSolicitacoes();

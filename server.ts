@@ -865,6 +865,85 @@ async function dadosResolverEExecutar(opts: {
   //     SUA instituição (CODIGO-NN com NN >= 2);
   //   · admin da plataforma (meta.role = 'admin') elimina agentes ADMIN-NNNN.
   // Contas demo canónicas nunca tocam na nuvem (403 demo — defesa).
+  // v37.76 — ELIMINAÇÃO DEFINITIVA DE INSTITUIÇÃO (cascata Auth/Storage/perfis).
+  // A RPC v30/v31 (cda_admin_alfa_eliminar_registo) limpa o RELACIONAL e
+  // documenta que «Storage/Auth devem ser removidos pelo endpoint backend com
+  // service_role» — este endpoint é essa peça em falta. Sem ele, as contas Auth
+  // dos agentes (agente.<CODIGO>-NN@inst…) sobreviviam com o avatar_url nos
+  // metadados e a adesão RE-CRIADA herdava a FOTO da vida anterior.
+  app.post("/api/eliminar-instituicao", async (req, res) => {
+    try {
+      const { code, agentes } = req.body || {};
+      const codeNorm = String(code || '').trim().toUpperCase().replace(/\s+/g, '');
+      if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(codeNorm)) return res.status(400).json({ ok: false, erro: 'Código institucional inválido.' });
+      const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+      const admin = createSupabaseAdminClient();
+      if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      const { data: sess, error: sessErr } = await admin.auth.getUser(token);
+      if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+      const roleCaller = String(((sess.user.user_metadata || {}) as Record<string, unknown>).role || '').toLowerCase();
+      if (roleCaller !== 'admin') return res.status(403).json({ ok: false, erro: 'Apenas a Administração elimina adesões institucionais.' });
+
+      // Chaves válidas: o código, o responsável (-01) e agentes -NN do PRÓPRIO código.
+      const chaves = new Set<string>([codeNorm, `${codeNorm}-01`]);
+      for (const a of Array.isArray(agentes) ? agentes : []) {
+        const aN = String(a || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(aN) && (aN === codeNorm || aN.startsWith(`${codeNorm}-`))) chaves.add(aN);
+      }
+      const emailDe = (k: string) => `agente.${k.toLowerCase()}@inst.correiodigital.ao`;
+      const padraoAgentes = new RegExp(`^agente\\.${codeNorm.toLowerCase()}-\\d+@inst\\.correiodigital\\.ao$`, 'i');
+
+      // 1) Contas Auth dos agentes (e-mails sintéticos) — remove o avatar_url residual
+      let contas = 0;
+      try {
+        for (let pagina = 1; pagina <= 10; pagina++) {
+          const { data: lista, error: listErr } = await admin.auth.admin.listUsers({ page: pagina, perPage: 200 });
+          if (listErr || !lista || !lista.users || !lista.users.length) break;
+          for (const u of lista.users) {
+            const email = String(u.email || '').toLowerCase();
+            const ehDaInstituicao = padraoAgentes.test(email)
+              || [...chaves].some((k) => email === emailDe(k));
+            if (!ehDaInstituicao) continue;
+            const agenteDescoberto = email.startsWith('agente.') ? email.slice('agente.'.length).split('@')[0].toUpperCase() : '';
+            if (agenteDescoberto) chaves.add(agenteDescoberto);
+            const { error: delErr } = await admin.auth.admin.deleteUser(u.id);
+            if (!delErr) contas += 1;
+          }
+        }
+      } catch { /* best-effort */ }
+
+      // 2) Avatares do Storage (ficheiros <AGENTE>_… do bucket fotos_perfil)
+      let avatares = 0;
+      try {
+        const { data: arquivos } = await admin.storage.from('fotos_perfil').list('avatars', { limit: 500 });
+        const alvos = (arquivos || []).filter((f: { name?: string }) => {
+          const n = String(f.name || '');
+          return [...chaves].some((k) => n.startsWith(`${k}_`));
+        });
+        if (alvos.length) {
+          const { error: rmErr } = await admin.storage.from('fotos_perfil').remove(alvos.map((f: { name: string }) => `avatars/${f.name}`));
+          if (!rmErr) avatares = alvos.length;
+        }
+      } catch { /* best-effort */ }
+
+      // 3) Linhas de perfil (código + agentes) — a lista da Equipa lê daqui
+      let perfis = 0;
+      try {
+        const { count } = await admin
+          .from('profiles')
+          .delete({ count: 'exact' })
+          .or(`bi.eq.${codeNorm},bi.like.${codeNorm}-*`);
+        perfis = count || 0;
+      } catch { /* best-effort */ }
+
+      return res.status(200).json({ ok: true, contas, avatares, perfis });
+    } catch (e) {
+      console.error('[ELIMINAR-INSTITUICAO] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
   app.post("/api/eliminar-agente", async (req, res) => {
     try {
       const { agente } = req.body || {};

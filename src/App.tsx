@@ -1870,7 +1870,7 @@ export default function App() {
   const [correspondenciaTab, setCorrespondenciaTab] = useState('lidas');
   const [videoSessionCount, setVideoSessionCount] = useState(0);
   const [isComposing, setIsComposing] = useState(false);
-  const [composeData, setComposeData] = useState<{ to: string; subject: string; body: string; attachments?: string[] }>({ to: '', subject: '', body: '', attachments: [] });
+  const [composeData, setComposeData] = useState<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[] }>({ to: '', subject: '', body: '', attachments: [], toArray: [] });
 
   const [documentosTab, setDocumentosTab] = useState('lidas');
   const [isDocComposing, setIsDocComposing] = useState(false);
@@ -4181,6 +4181,40 @@ export default function App() {
 
   const executeOfficialSend = async (override?: ReplySendPayload): Promise<ReplySendResult> => {
     setIsOfficialConfirmOpen(false);
+    // v37.76 — ENVIO MULTI-AGENTE: quando o compositor tem uma LISTA de
+    // destinatários (chips «+ Adicionar destinatário»), reutiliza esta MESMA
+    // pipeline uma vez por destinatário (validação P0-B, selo de protocolo,
+    // persistência na nuvem e notificação individuais) e apresenta o resumo.
+    // A resposta directa (override) e as sondagens nunca passam por aqui.
+    if (!override && (composeData.toArray || []).filter((t) => t && t.trim()).length > 0) {
+      const destinos: string[] = Array.from(new Set((composeData.toArray || []).map((t) => t.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean)));
+      if (!composeData.body.trim()) {
+        notify('A mensagem está vazia. Escreva o conteúdo antes de enviar.', 'warning');
+        return { ok: false, error: 'A mensagem está vazia. Escreva o conteúdo antes de enviar.' };
+      }
+      let okCount = 0;
+      const falhados: string[] = [];
+      for (const dest of destinos) {
+        const res = await executeOfficialSend({
+          to: dest,
+          body: composeData.body,
+          subject: composeData.subject,
+          attachments: composeData.attachments || [],
+        });
+        if (res.ok) okCount += 1;
+        else falhados.push(dest);
+      }
+      setIsComposing(false);
+      setComposeData({ to: '', subject: '', body: '', attachments: [], toArray: [] });
+      addAuditLog(`[MULTI] Expedição múltipla concluída: ${okCount}/${destinos.length} destinatário(s) servido(s)${falhados.length ? ` — falharam: ${falhados.join(', ')}` : ''}.`, okCount === destinos.length ? 'info' : 'warning');
+      notify(
+        okCount === destinos.length
+          ? `Correspondência enviada para ${okCount} destinatário(s) com sucesso.`
+          : `Envio múltiplo: ${okCount}/${destinos.length} enviadas${falhados.length ? ` — sem entrega para: ${falhados.join(', ')}` : ''}.`,
+        okCount === destinos.length ? 'success' : 'warning',
+      );
+      return { ok: okCount > 0, error: falhados.length ? `Falhou para: ${falhados.join(', ')}` : undefined };
+    }
     // F34 — a Nova Mensagem do cidadão já não tem campo Assunto: deriva-se do corpo.
     // FIX 2026-08-20 — aceita um payload opcional ("Enviar Resposta Oficial" do
     // Detalhe da Correspondência) para REUTILIZAR esta pipeline sem duplicar código.

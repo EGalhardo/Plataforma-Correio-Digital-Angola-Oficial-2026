@@ -88,8 +88,8 @@ const getOrgBadgeStyles = (org: string) => {
 interface MailContentProps {
   isComposing: boolean;
   setIsComposing: (composing: boolean) => void;
-  composeData: { to: string; subject: string; body: string; attachments?: string[] };
-  setComposeData: (data: { to: string; subject: string; body: string; attachments?: string[] }) => void;
+  composeData: { to: string; subject: string; body: string; attachments?: string[]; toArray?: string[] };
+  setComposeData: (data: { to: string; subject: string; body: string; attachments?: string[]; toArray?: string[] }) => void;
   handleSendMessage: () => void | Promise<unknown>;
   unreadTotal: number;
   correspondenciaTab: string;
@@ -409,6 +409,46 @@ export function MailContent({
       setHistoryIndex(0);
     }
   }, [isComposing]);
+
+  // v37.76 — ENVIO MULTI-AGENTE: lista de destinatários (chips) no compositor.
+  const destinatariosMulti = composeData.toArray || [];
+  const adicionarDestinatarioMulti = () => {
+    const v = (composeData.to || '').trim().toUpperCase().replace(/\s+/g, '');
+    if (!v || destinatariosMulti.includes(v)) return;
+    setComposeData({ ...composeData, to: '', toArray: [...destinatariosMulti, v] });
+  };
+  const removerDestinatarioMulti = (v: string) => {
+    setComposeData({ ...composeData, toArray: destinatariosMulti.filter((d) => d !== v) });
+  };
+  const multiDestControls = (
+    <div className="space-y-1.5" data-testid="multi-destinatarios">
+      <button
+        type="button"
+        onClick={adicionarDestinatarioMulti}
+        disabled={!composeData.to.trim()}
+        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-primary/30 text-primary text-[10px] md:text-[11px] font-black uppercase tracking-widest hover:bg-primary/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+        title="Adicionar este destinatário à lista de expedição múltipla"
+      >
+        + Adicionar destinatário (envio múltiplo)
+      </button>
+      {destinatariosMulti.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+          {destinatariosMulti.map((d) => (
+            <span key={d} className="inline-flex items-center gap-1.5 bg-primary/5 border border-primary/15 text-primary rounded-full pl-3 pr-1.5 py-1 text-[10px] md:text-[11px] font-black font-mono">
+              {d}
+              <button
+                type="button"
+                onClick={() => removerDestinatarioMulti(d)}
+                aria-label={`Remover ${d}`}
+                className="w-4 h-4 rounded-full bg-primary/10 hover:bg-red-100 hover:text-red-600 flex items-center justify-center transition-all text-[11px] leading-none cursor-pointer"
+              >×</button>
+            </span>
+          ))}
+          <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">→ {destinatariosMulti.length} destinatário(s) na lista</span>
+        </div>
+      )}
+    </div>
+  );
 
   const updateBodyText = (newText: string) => {
     setComposeData({ ...composeData, body: newText });
@@ -821,6 +861,7 @@ export function MailContent({
                   )}
                 </AnimatePresence>
               </div>
+              {multiDestControls}
               <div className="space-y-2">
                 <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">Assunto</label>
                 <input 
@@ -864,6 +905,7 @@ export function MailContent({
                     {instRegistry.status === 'erro' && (<><AlertTriangle className="shrink-0 mt-0.5" size={14} /><span>Verificação do registo indisponível de momento. O envio tentará confirmar novamente ao clicar.</span></>)}
                   </div>
                 )}
+                {multiDestControls}
               </div>
             </div>
           )}

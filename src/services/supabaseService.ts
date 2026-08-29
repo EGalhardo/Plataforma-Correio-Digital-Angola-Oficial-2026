@@ -361,6 +361,27 @@ export const eliminarAgente = async (agente: string): Promise<{ ok: boolean; dem
   }
 };
 
+/** ELIMINAÇÃO DEFINITIVA DE INSTITUIÇÃO (v37.76) — cascata Auth/Storage/perfis
+ * no servidor (service role). Chamada pela Área de Administração DEPOIS da RPC
+ * relacional v30/v31: sem isto o avatar_url residual das contas Auth dos agentes
+ * era herdado pela adesão re-criada (a «cara» da vida anterior da conta). */
+export const eliminarInstituicaoCloud = async (code: string, agentes: string[] = []): Promise<{ ok: boolean; contas?: number; erro?: string }> => {
+  try {
+    const token = await obterTokenSessao();
+    if (!token) return { ok: false, erro: 'Sem sessão de nuvem.' };
+    const resp = await fetch('/api/eliminar-instituicao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ code, agentes }),
+    });
+    const j = await resp.json().catch(() => null);
+    if (j && j.ok === true) return { ok: true, contas: Number(j.contas || 0) };
+    return { ok: false, erro: (j && j.erro) || `HTTP ${resp.status}` };
+  } catch {
+    return { ok: false, erro: 'Rede indisponível.' };
+  }
+};
+
 /** PERMISSÕES DE PÁGINA (2026-08-22) — o servidor É a verificação:
  *  · 'ler': devolve as páginas permitidas do PRÓPRIO token (user_metadata na
  *    nuvem) — o cliente nunca decide por si; null = responsável/sem restrições;

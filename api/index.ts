@@ -1894,6 +1894,93 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
     // conta Auth + avatares no Storage; autorização por papel do token
     // (responsável da instituição elimina membros da SUA instituição; admin
     // elimina agentes ADMIN-NNNN). Contas demo nunca tocam na nuvem.
+    // v37.76 — ELIMINAÇÃO DEFINITIVA DE INSTITUIÇÃO (cascata Auth/Storage/perfis).
+    // Espelho de server.ts: a RPC v30/v31 limpa o RELACIONAL e documenta que
+    // Storage/Auth devem ser removidos pelo backend com service_role — sem isto
+    // o avatar_url residual das contas Auth dos agentes era herdado pela adesão
+    // re-criada (a «cara» da vida anterior da conta).
+    if (url.includes('/api/eliminar-instituicao') && method === 'POST') {
+      try {
+        if (!supaUrlPerfil || !serviceKeyPerfil) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        const { code, agentes } = body || {};
+        const codeNorm = String(code || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(codeNorm)) return res.status(400).json({ ok: false, erro: 'Código institucional inválido.' });
+        const token = String(req.headers.authorization || (req.headers as any).Authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+        const sessResp = await fetch(`${supaUrlPerfil}/auth/v1/user`, {
+          headers: { apikey: serviceKeyPerfil, Authorization: `Bearer ${token}` },
+        });
+        if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+        const sess = await sessResp.json().catch(() => null);
+        const userSess = sess && (sess.user || sess);
+        const roleCaller = String(((userSess && userSess.user_metadata) || {}).role || '').toLowerCase();
+        if (roleCaller !== 'admin') return res.status(403).json({ ok: false, erro: 'Apenas a Administração elimina adesões institucionais.' });
+
+        const chaves = new Set<string>([codeNorm, `${codeNorm}-01`]);
+        for (const a of Array.isArray(agentes) ? agentes : []) {
+          const aN = String(a || '').trim().toUpperCase().replace(/\s+/g, '');
+          if (/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(aN) && (aN === codeNorm || aN.startsWith(`${codeNorm}-`))) chaves.add(aN);
+        }
+        const emailDe = (k: string) => `agente.${k.toLowerCase()}@inst.correiodigital.ao`;
+        const padraoAgentes = new RegExp(`^agente\\.${codeNorm.toLowerCase()}-\\d+@inst\\.correiodigital\\.ao$`, 'i');
+        const h = { apikey: serviceKeyPerfil, Authorization: `Bearer ${serviceKeyPerfil}` };
+
+        let contas = 0;
+        try {
+          for (let pagina = 1; pagina <= 10; pagina++) {
+            const lu = await fetch(`${supaUrlPerfil}/auth/v1/admin/users?per_page=200&page=${pagina}`, { headers: h });
+            if (!lu.ok) break;
+            const lista = await lu.json().catch(() => null);
+            const users = lista?.users || [];
+            if (!users.length) break;
+            for (const u of users) {
+              const email = String(u.email || '').toLowerCase();
+              const ehDaInstituicao = padraoAgentes.test(email) || [...chaves].some((k) => email === emailDe(k));
+              if (!ehDaInstituicao) continue;
+              const agenteDescoberto = email.startsWith('agente.') ? email.slice('agente.'.length).split('@')[0].toUpperCase() : '';
+              if (agenteDescoberto) chaves.add(agenteDescoberto);
+              const du = await fetch(`${supaUrlPerfil}/auth/v1/admin/users/${u.id}`, { method: 'DELETE', headers: h });
+              if (du.ok) contas += 1;
+            }
+          }
+        } catch { /* best-effort */ }
+
+        let avatares = 0;
+        try {
+          const lr = await fetch(`${supaUrlPerfil}/storage/v1/object/list/fotos_perfil`, {
+            method: 'POST',
+            headers: { ...h, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prefix: 'avatars', limit: 500, offset: 0 }),
+          });
+          if (lr.ok) {
+            const arquivos = await lr.json().catch(() => []);
+            const alvos = (Array.isArray(arquivos) ? arquivos : []).filter((f: any) => {
+              const n = String(f.name || '');
+              return [...chaves].some((k) => n.startsWith(`${k}_`));
+            });
+            for (const f of alvos) {
+              const path = `avatars/${encodeURIComponent(f.name)}`;
+              const dr = await fetch(`${supaUrlPerfil}/storage/v1/object/fotos_perfil/${path}`, { method: 'DELETE', headers: h });
+              if (dr.ok) avatares++;
+            }
+          }
+        } catch { /* best-effort */ }
+
+        let perfis = 0;
+        try {
+          const dp = await fetch(
+            `${supaUrlPerfil}/rest/v1/profiles?or=(bi.eq.${encodeURIComponent(codeNorm)},bi.like.${encodeURIComponent(`${codeNorm}-*`)})`,
+            { method: 'DELETE', headers: h },
+          );
+          if (dp.ok) perfis = 1;
+        } catch { /* best-effort */ }
+        return res.status(200).json({ ok: true, contas, avatares, perfis });
+      } catch (e: any) {
+        console.error('[ELIMINAR-INSTITUICAO] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
     if (url.includes('/api/eliminar-agente') && method === 'POST') {
       try {
         if (!supaUrlPerfil || !serviceKeyPerfil) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
