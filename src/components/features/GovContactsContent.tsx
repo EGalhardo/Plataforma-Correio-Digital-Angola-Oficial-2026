@@ -1810,13 +1810,12 @@ export function GovContactsContent({
     // 1) NUVEM — conta Auth + avatares (servidor; contas demo nunca tocam)
     let nuvem: 'eliminada' | 'nao_encontrada' | 'falha' | 'demo' = ehDemo ? 'demo' : 'nao_encontrada';
     let nuvemErro = '';
-    if (agente && !ehDemo && isSupabaseConfigured()) {
-      // v37.69 — garantir SESSÃO DE NUVEM antes de eliminar. Um agente admin que
-      // entrou por via LOCAL (transição/emergência, sem signIn no Supabase Auth)
-      // não tem token → eliminarAgente devolvia "Sem sessão de nuvem" e a conta
-      // era apagada SÓ localmente (daí a mensagem "nuvem indisponível"). Aqui
-      // re-autentica com a credencial local do próprio agente da sessão para a
-      // eliminação chegar realmente à Supabase.
+    // v37.75 — na Equipa da ADMINISTRAÇÃO a eliminação tenta SEMPRE a nuvem: a
+    // sessão demo não tem credencial própria na nuvem, mas o ADMIN ALFA
+    // registado neste dispositivo (credenciais LOCAIS, nunca saem daqui) fornece
+    // a sessão real — e é o SERVIDOR que continua a mandar (autorização
+    // role=admin; alvos demo continuam protegidos de qualquer outro chamador).
+    if (agente && isSupabaseConfigured() && (!ehDemo || appMode === 'admin-workers')) {
       try {
         const { data: sessChk } = await supabase.auth.getSession();
         if (!sessChk?.session) {
@@ -1824,6 +1823,17 @@ export function GovContactsContent({
           const minhaCred = getAdminAgentCreds().find((c) => (c.agent || '').toUpperCase().replace(/\s+/g, '') === biNorm);
           if (biNorm && minhaCred?.password) {
             await cloudSignIn(supabase, syntheticAdminEmail(biNorm), minhaCred.password);
+          }
+        }
+        // v37.75 — ainda sem sessão (ex.: sessão de administração DEMO)? usa as
+        // credenciais LOCAIS do ADMIN ALFA (ADMIN-0001) — presentes apenas no
+        // dispositivo onde o Alfa foi registado. É o que torna a eliminação pelo
+        // Admin realmente efectiva em QUALQUER sessão da área de Administração.
+        const { data: sessChk2 } = await supabase.auth.getSession();
+        if (!sessChk2?.session && appMode === 'admin-workers') {
+          const alfaCred = getAdminAgentCreds().find((c) => (c.agent || '').toUpperCase().replace(/\s+/g, '') === ADMIN_ALFA_AGENT);
+          if (alfaCred?.password) {
+            await cloudSignIn(supabase, syntheticAdminEmail(ADMIN_ALFA_AGENT), alfaCred.password);
           }
         }
       } catch { /* melhor esforço — eliminarAgente reporta a falha real */ }
@@ -1846,7 +1856,7 @@ export function GovContactsContent({
       (dadosReais.profiles || []).some((p) => String(p.bi || '').toUpperCase().replace(/\s+/g, '') === agente));
     if (vemDaNuvem && nuvem !== 'eliminada' && nuvem !== 'nao_encontrada') {
       const motivoRecusa = nuvem === 'demo'
-        ? 'a sessão de administração DEMO não altera a base central'
+        ? 'o alvo está protegido como conta de demonstração — exige uma sessão de administrador real (ex.: ADMIN-0001)'
         : `falha na eliminação na nuvem${nuvemErro ? ` (${nuvemErro})` : ''}`;
       notify(`"${name}" existe na base central — eliminação cancelada: ${motivoRecusa}. Entre com um administrador REAL (ex.: ADMIN-0001) para eliminar este agente definitivamente.`, 'error');
       addAuditLog?.(`[EQUIPA] Eliminação de ${name}${agente ? ` (${agente})` : ''} RECUSADA: a linha existe na base central e não foi apagada na nuvem (${motivoRecusa}) — use uma sessão de administrador real.`, 'warning');

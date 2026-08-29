@@ -1900,7 +1900,6 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         const { agente } = body || {};
         const agenteNorm = String(agente || '').trim().toUpperCase().replace(/\s+/g, '');
         if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(agenteNorm)) return res.status(400).json({ ok: false, erro: 'Nº de agente inválido.' });
-        if (['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP'].includes(agenteNorm)) return res.status(403).json({ ok: false, demo: true, erro: 'demo' });
         const token = String(req.headers.authorization || (req.headers as any).Authorization || '').replace(/^Bearer\s+/i, '').trim();
         if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
         const sessResp = await fetch(`${supaUrlPerfil}/auth/v1/user`, {
@@ -1913,9 +1912,15 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         const roleCaller = String(meta.role || '').toLowerCase();
         const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
         const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+        // v37.75 — a protecção de ALVO demo passou para AFTER a autenticação:
+        // linhas `profiles` de identificadores demo deixadas na base central
+        // (ex.: ADM-8812-OP) são lixo eliminável pelo ADMIN REAL autenticado;
+        // para qualquer outro chamador a protecção mantém-se integral.
+        const alvoDemo = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP'].includes(agenteNorm);
+        if (alvoDemo && roleCaller !== 'admin') return res.status(403).json({ ok: false, demo: true, erro: 'demo' });
         const ehAdminAgente = /^ADMIN-\d+$/.test(agenteNorm);
         let autorizado = false;
-        if (roleCaller === 'admin' && ehAdminAgente) {
+        if (roleCaller === 'admin' && (ehAdminAgente || alvoDemo)) {
           autorizado = true;
         } else if (roleCaller === 'instituicao' && !ehAdminAgente && instCaller && agentCaller === `${instCaller}-01`) {
           const mSeq = agenteNorm.match(/-(\d+)$/);

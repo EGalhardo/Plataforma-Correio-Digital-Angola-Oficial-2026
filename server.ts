@@ -870,7 +870,6 @@ async function dadosResolverEExecutar(opts: {
       const { agente } = req.body || {};
       const agenteNorm = String(agente || '').trim().toUpperCase().replace(/\s+/g, '');
       if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(agenteNorm)) return res.status(400).json({ ok: false, erro: 'Nº de agente inválido.' });
-      if (DADOS_DEMO_BIS.includes(agenteNorm)) return res.status(403).json({ ok: false, demo: true, erro: 'demo' });
       const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
       if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
       const admin = createSupabaseAdminClient();
@@ -882,9 +881,18 @@ async function dadosResolverEExecutar(opts: {
       const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
       const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
 
+      // v37.75 — a protecção de ALVO demo (DADOS_DEMO_BIS) passou para AFTER a
+      // autenticação: linhas `profiles` de identificadores demo que ficaram na
+      // base central (ex.: ADM-8812-OP com nome «Cidadão» — lixo de execuções
+      // antigas) têm de ser elimináveis pelo ADMIN REAL autenticado (era isto
+      // que devolvia «demo» e impedia a eliminação na página Equipa). Para
+      // qualquer outro chamador a protecção mantém-se integral.
+      const alvoDemo = DADOS_DEMO_BIS.includes(agenteNorm);
+      if (alvoDemo && roleCaller !== 'admin') return res.status(403).json({ ok: false, demo: true, erro: 'demo' });
+
       const ehAdminAgente = /^ADMIN-\d+$/.test(agenteNorm);
       let autorizado = false;
-      if (roleCaller === 'admin' && ehAdminAgente) {
+      if (roleCaller === 'admin' && (ehAdminAgente || alvoDemo)) {
         autorizado = true;
       } else if (roleCaller === 'instituicao' && !ehAdminAgente && instCaller && agentCaller === `${instCaller}-01`) {
         const mSeq = agenteNorm.match(/-(\d+)$/);
