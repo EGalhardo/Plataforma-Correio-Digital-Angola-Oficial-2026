@@ -1377,7 +1377,7 @@ async function dadosResolverEExecutar(opts: {
       // mantém-se {"veredicto":"APTO"|"REVISAO","alertas":[...],"motivo":...}.
       const pviSystemPrompt = `Você é o motor de triagem documental do Correio Digital Angola (pré-verificação inteligente de novos cadastros).
 Analise as DUAS imagens anexadas — a primeira é a FRENTE e a segunda é o VERSO de ${pviDocDesc} — e compare-as com os dados declarados no formulário.
-NOTA ARQUITETURAL: as capturas faciais do cidadão são verificadas localmente pelo motor biométrico do CDA (não são enviadas à IA de visão). A tua responsabilidade é a TRIAGEM DOCUMENTAL: qualidade, integridade, layout e coerência OCR. A aplicação cruza o teu veredicto com o resultado facial local para a decisão final.
+NOTA ARQUITETURAL (v37.72): a etapa de comparação facial do utilizador foi ELIMINADA da validação — não existe qualquer verificação biométrica facial neste fluxo. A tua responsabilidade é exclusivamente a TRIAGEM DOCUMENTAL: qualidade, integridade, layout e coerência OCR.
 AVALIE RIGOROSAMENTE:
 1. QUALIDADE DA IMAGEM (frente e verso): nitidez, resolução, iluminação, enquadramento, inclinação, reflexos, cortes e compressão excessiva. Se a qualidade não permitir análise confiável, NÃO assumir que os dados estão errados — o veredicto é REVISAO.
 2. INTEGRIDADE DO DOCUMENTO: indícios de edição digital, montagem, recortes, fotografia ou texto adulterados, screenshot ou fotografia de ecrã, ou documento aparentemente gerado por IA. A análise é heurística — perante suspeita razoável, REVISAO. Não declarar um documento falso apenas por baixa qualidade.
@@ -1385,7 +1385,7 @@ AVALIE RIGOROSAMENTE:
 ${pviLayoutRules}
 4. COERÊNCIA OCR: leia o texto visível nas imagens e compare com os dados declarados (nome, número do documento e, quando visíveis, data de nascimento/sexo/filiação). Considere apenas diferenças de formatação (espaços, hífens, maiúsculas) como equivalentes. Qualquer divergência real de nome ou número => REVISAO.
 5. CONSISTÊNCIA FRENTE/VERSO: nome, número do documento, dados pessoais e fotografia devem pertencer ao mesmo documento, sem contradições evidentes.
-6. FOTOGRAFIA DO TITULAR: confirmar que existe, visível e nítida, com qualidade suficiente para a comparação facial LOCAL que a aplicação fará. Se ilegível => REVISAO.
+6. FOTOGRAFIA DO TITULAR: confirmar que existe, visível e nítida (elemento obrigatório do documento). Se ilegível ou ausente => REVISAO.
 REGRAS ABSOLUTAS:
 - "APTO" apenas quando TUDO estiver legível, coerente e sem qualquer indício de problema. Qualquer dúvida, imagem ilegível ou elemento obrigatório ausente => SEMPRE "REVISAO".
 - Nunca invente dados que não consegue ler: se não consegue ler, "REVISAO".
@@ -1423,55 +1423,92 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         ]);
         const b64F = imgFBuf.toString('base64');
         const b64V = imgVBuf.toString('base64');
-        // 2) Enviar ao Gemini com o prompt ajustado
-        const geminiResp = (await Promise.race([
-          fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=' + geminiKey, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [
-                { text: pviUserPrompt },
-                { inline_data: { mime_type: 'image/jpeg', data: b64F } },
-                { inline_data: { mime_type: 'image/jpeg', data: b64V } },
-              ] }],
-              systemInstruction: { parts: [{ text: pviSystemPrompt }] },
-              // v37.66 — saída é um JSON curto (veredicto/alertas/motivo): teto de
-              // 256 tokens (era 1024) + responseMimeType JSON para descodificação
-              // restringida — geração mais rápida e sem bloco markdown à volta.
-              // v37.67 — GARGALO REAL: o gemini-3.6-flash vem com "thinking" activo
-              // por omissão; media 22-32 s por análise. thinkingBudget:128 limita o
-              // raciocínio (suficiente para a triagem documental APTO/REVISAO) e
-              // baixa para ~3 s (medido: 22838ms -> 3008ms, ~7,6x).
-              generationConfig: { temperature: 0, maxOutputTokens: 256, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 128 } },
-            }),
-          }),
+        // 2) v37.72 — CADEIA DE MODELOS com fallback (desempenho + resiliência):
+        //    1.ª tentativa — gemini-3.1-flash-lite SEM "thinking" (thinkingBudget
+        //    0): ~3-4 s por análise com o serviço saudável. Benchmark real: o
+        //    gemini-3.6-flash com thinking activo demorava 9-30 s e a API tem
+        //    vivido picos de 503 «high demand» que a tornam imprevisível.
+        //    2.ª tentativa — gemini-3.6-flash com thinking limitado (budget 128
+        //    e 512 tokens de saída: com 256 o thinking consumia o orçamento e a
+        //    resposta chegava TRUNCADA — verificado em benchmark real).
+        //    Falha/erro/resposta inválida numa tentativa => tenta a seguinte;
+        //    esgotadas ambas => REVISAO (regra de ouro: nunca aprovar por erro
+        //    técnico). O campo «modelo» indica qual respondeu.
+        const PVI_ATTEMPTS: Array<{ modelo: string; config: Record<string, unknown>; timeoutMs: number }> = [
+          // 1.ª — lite sem thinking: ~3-4 s com o serviço saudável
+          { modelo: 'gemini-3.1-flash-lite', config: { temperature: 0, maxOutputTokens: 256, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }, timeoutMs: 12000 },
+          // 2.ª — flash sem limite de thinking (benchmark: ~9 s saudável, JSON válido)
+          { modelo: 'gemini-3.6-flash', config: { temperature: 0, maxOutputTokens: 512, responseMimeType: 'application/json' }, timeoutMs: 10000 },
+          // 3.ª — RETRY do lite: 503 transitórios da API limparam em segundos
+          { modelo: 'gemini-3.1-flash-lite', config: { temperature: 0, maxOutputTokens: 256, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }, timeoutMs: 8000 },
+        ];
+        let pviUltimoErroHttp = '';
+        let pviRespostaInvalida = false;
+        let pviModeloUsado = PVI_MODEL;
+        const pviAnalisar = async (): Promise<{ veredicto: 'APTO' | 'REVISAO'; alertas: string[]; motivo: string } | null> => {
+          for (const tentativa of PVI_ATTEMPTS) {
+            let geminiResp: Response;
+            try {
+              geminiResp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + tentativa.modelo + ':generateContent?key=' + geminiKey, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{ parts: [
+                    { text: pviUserPrompt },
+                    { inline_data: { mime_type: 'image/jpeg', data: b64F } },
+                    { inline_data: { mime_type: 'image/jpeg', data: b64V } },
+                  ] }],
+                  systemInstruction: { parts: [{ text: pviSystemPrompt }] },
+                  generationConfig: tentativa.config,
+                }),
+                signal: AbortSignal.timeout(tentativa.timeoutMs),
+              });
+            } catch {
+              pviUltimoErroHttp = pviUltimoErroHttp || ('timeout/rede em ' + tentativa.modelo);
+              continue;
+            }
+            if (!geminiResp.ok) {
+              pviUltimoErroHttp = tentativa.modelo + ': HTTP ' + geminiResp.status;
+              continue; // 503 «high demand», 429… → tenta o modelo seguinte
+            }
+            const geminiJson = (await geminiResp.json().catch(() => null)) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> } | null;
+            const rawContent: string = (geminiJson?.candidates?.[0]?.content?.parts || [])
+              .map((p) => p.text || '').join('') || '';
+            // Parsing conservador: qualquer anomalia => tenta o modelo seguinte
+            let parsed = null as { veredicto?: string; alertas?: unknown[]; motivo?: unknown } | null;
+            try {
+              const ini = rawContent.indexOf('{');
+              const fim = rawContent.lastIndexOf('}');
+              if (ini >= 0 && fim > ini) parsed = JSON.parse(rawContent.substring(ini, fim + 1));
+            } catch { parsed = null; }
+            const alertas: string[] = parsed && Array.isArray(parsed.alertas)
+              ? parsed.alertas.filter((a: unknown): a is string => typeof a === 'string' && a.trim().length > 0).map((a) => a.trim()).slice(0, 12)
+              : [];
+            const motivo: string = parsed && typeof parsed.motivo === 'string' ? parsed.motivo.trim().slice(0, 500) : '';
+            if (!parsed || (parsed.veredicto !== 'APTO' && parsed.veredicto !== 'REVISAO') || !motivo) {
+              pviRespostaInvalida = true;
+              continue;
+            }
+            pviModeloUsado = tentativa.modelo;
+            // Coerência defensiva: APTO nunca pode coexistir com alertas — downgrade seguro.
+            if (parsed.veredicto === 'APTO' && alertas.length > 0) {
+              return { veredicto: 'REVISAO', alertas, motivo: motivo || 'Veredicto APTO devolvido com alertas — por segurança, segue para homologação manual.' };
+            }
+            return { veredicto: parsed.veredicto, alertas, motivo };
+          }
+          return null;
+        };
+        const pviResultado = (await Promise.race([
+          pviAnalisar(),
           new Promise((_unused, reject) => setTimeout(() => reject(new Error('PVI_TIMEOUT_30S')), PVI_TIMEOUT_MS)),
-        ])) as Response;
-        if (!geminiResp.ok) throw new Error('GEMINI_HTTP_' + geminiResp.status);
-        const geminiJson = (await geminiResp.json()) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-        const rawContent: string = (geminiJson?.candidates?.[0]?.content?.parts || [])
-          .map((p) => p.text || '').join('') || '';
-        // Parsing conservador: qualquer anomalia => REVISAO (nunca aprovar por erro técnico)
-        let parsed = null as { veredicto?: string; alertas?: unknown[]; motivo?: unknown } | null;
-        try {
-          const ini = rawContent.indexOf('{');
-          const fim = rawContent.lastIndexOf('}');
-          if (ini >= 0 && fim > ini) parsed = JSON.parse(rawContent.substring(ini, fim + 1));
-        } catch { parsed = null; }
-
-        const alertas: string[] = parsed && Array.isArray(parsed.alertas)
-          ? parsed.alertas.filter((a: unknown): a is string => typeof a === 'string' && a.trim().length > 0).map((a) => a.trim()).slice(0, 12)
-          : [];
-        const motivo: string = parsed && typeof parsed.motivo === 'string' ? parsed.motivo.trim().slice(0, 500) : '';
-
-        if (!parsed || (parsed.veredicto !== 'APTO' && parsed.veredicto !== 'REVISAO') || !motivo) {
-          return pviEmit(pviResponder, 'REVISAO', ['resposta_invalida', ...alertas].slice(0, 12), motivo || 'Resposta da IA inválida ou incompleta. O cadastro segue para homologação manual.');
+        ])) as { veredicto: 'APTO' | 'REVISAO'; alertas: string[]; motivo: string } | null;
+        if (!pviResultado) {
+          if (pviRespostaInvalida) {
+            return pviEmit(pviResponder, 'REVISAO', ['resposta_invalida'], 'Resposta da IA inválida ou incompleta. O cadastro segue para homologação manual.');
+          }
+          throw new Error('PVI_SEM_RESPOSTA ' + pviUltimoErroHttp);
         }
-        // Coerência defensiva: APTO nunca pode coexistir com alertas — downgrade seguro.
-        if (parsed.veredicto === 'APTO' && alertas.length > 0) {
-          return pviEmit(pviResponder, 'REVISAO', alertas, motivo || 'Veredicto APTO devolvido com alertas — por segurança, segue para homologação manual.');
-        }
-        return pviEmit(pviResponder, parsed.veredicto, alertas, motivo);
+        return pviResponderBase(res, { veredicto: pviResultado.veredicto, alertas: pviResultado.alertas, motivo: pviResultado.motivo, duracaoMs: Date.now() - pviStartedAt, modelo: pviModeloUsado });
       } catch (e) {
         console.error('PVIC: falha na pré-verificação com IA:', e?.message || e);
         return pviEmit(pviResponder, 'REVISAO', ['falha_tecnica'], 'Falha técnica ou timeout na análise da IA. O cadastro segue para homologação manual.');

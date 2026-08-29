@@ -51,7 +51,9 @@ const base64ToBlob = (base64Str: string): Blob => {
 // (bucket selado na v15) — o endpoint /api/verificar-cadastro aceita data-URL,
 // pelo que comprimimos o blob em JPEG ≤1280px para a IA de visão do servidor.
 // Falha => '' e a PVI recebe a referência restante (regra de ouro: REVISAO).
-const blobToPviDataUrl = (blob: Blob, maxSide = 1280, quality = 0.8): Promise<string> =>
+// v37.72 — 1024px (era 1280): coincide com o redimensionamento do servidor e
+// corta ~36% do payload base64 enviado ao endpoint da PVI (upload mais rápido).
+const blobToPviDataUrl = (blob: Blob, maxSide = 1024, quality = 0.8): Promise<string> =>
   new Promise((resolve) => {
     try {
       const url = URL.createObjectURL(blob);
@@ -638,105 +640,132 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         // v37.29-fix: o data-URL para a PVI é preparado MESMO que o upload ao
         // Storage falhe — sem isto, uma falha de rede/RLS tornava as imagens
         // «indisponíveis na nuvem» e bloqueava o cidadão injustamente.
-        const uploadFrente = async () => {
-          if (!frenteBlob) return;
-          try { pviFrenteData = await blobToPviDataUrl(frenteBlob); } catch { pviFrenteData = ''; }
-          const frontPath = `${biClean}/frente_${uploadTs}.jpg`;
-          const { error: fErr } = await supabase.storage
-            .from('documentos_registo')
-            .upload(frontPath, frenteBlob, { contentType: frenteBlob.type || 'image/jpeg' });
-          if (fErr) {
-            console.error('Erro upload frente:', fErr);
-            addAuditLog(`[PVIC] Upload da FRENTE do B.I. ao Storage falhou (${(fErr as any)?.message || 'erro'}) — a validação prossegue com a imagem local.`, 'warning');
-          } else {
-            // F45 (Storage privado v15): grava-se o MARCADOR resolvível
-            // (storage:bucket/path) — nunca a URL pública, que deixa de existir.
-            urlFrente = buildStorageRef('documentos_registo', frontPath);
-          }
-        };
-        const uploadVerso = async () => {
-          if (!versoBlob) return;
-          try { pviVersoData = await blobToPviDataUrl(versoBlob); } catch { pviVersoData = ''; }
-          const backPath = `${biClean}/verso_${uploadTs}.jpg`;
-          const { error: bErr } = await supabase.storage
-            .from('documentos_registo')
-            .upload(backPath, versoBlob, { contentType: versoBlob.type || 'image/jpeg' });
-          if (bErr) {
-            console.error('Erro upload verso:', bErr);
-            addAuditLog(`[PVIC] Upload do VERSO do B.I. ao Storage falhou (${(bErr as any)?.message || 'erro'}) — a validação prossegue com a imagem local.`, 'warning');
-          } else {
-            // F45 (Storage privado v15): marcador resolvível em vez de URL pública.
-            urlVerso = buildStorageRef('documentos_registo', backPath);
-          }
-        };
-        await Promise.all([uploadFrente(), uploadVerso()]);
+        // v37.72 — data-URLs PRIMEIRO (compressão local, rápida): a PVI depende
+        // apenas delas — passa a correr EM PARALELO com os uploads para o Storage.
+        // Antes: uploads → PVI em série (o cidadão esperava a SOMA dos dois);
+        // agora espera pelo MAIOR. O provisionamento da conta mantém-se DEPOIS
+        // da porta de divergências (corrigir-e-repetir), para não criar credencial
+        // de nuvem num registo que vai ser corrigido e repetido.
+        const [frenteDataUrl, versoDataUrl] = await Promise.all([
+          frenteBlob ? blobToPviDataUrl(frenteBlob).catch(() => '') : Promise.resolve(''),
+          versoBlob ? blobToPviDataUrl(versoBlob).catch(() => '') : Promise.resolve(''),
+        ]);
+        pviFrenteData = frenteDataUrl;
+        pviVersoData = versoDataUrl;
 
-        // Upload selfie
-        if (savedFacePhoto) {
-          try {
-            let selfieBlob: Blob | null = null;
-            if (savedFacePhoto.startsWith('data:image/')) {
-              selfieBlob = base64ToBlob(savedFacePhoto);
+        const uploadsPromise = (async () => {
+          const uploadFrente = async () => {
+            if (!frenteBlob) return;
+            const frontPath = `${biClean}/frente_${uploadTs}.jpg`;
+            const { error: fErr } = await supabase.storage
+              .from('documentos_registo')
+              .upload(frontPath, frenteBlob, { contentType: frenteBlob.type || 'image/jpeg' });
+            if (fErr) {
+              console.error('Erro upload frente:', fErr);
+              addAuditLog(`[PVIC] Upload da FRENTE do B.I. ao Storage falhou (${(fErr as any)?.message || 'erro'}) — a validação prossegue com a imagem local.`, 'warning');
             } else {
-              try {
-                const res = await fetch(savedFacePhoto);
-                selfieBlob = await res.blob();
-              } catch (_) {
-                // Ignore and use directly
-              }
+              // F45 (Storage privado v15): grava-se o MARCADOR resolvível
+              // (storage:bucket/path) — nunca a URL pública, que deixa de existir.
+              urlFrente = buildStorageRef('documentos_registo', frontPath);
             }
-
-            if (selfieBlob) {
-              const selfiePath = `${biClean}/selfie_${Date.now()}.jpg`;
-              const { error: sErr } = await supabase.storage
-                .from('documentos_registo')
-                .upload(selfiePath, selfieBlob, { contentType: 'image/jpeg' });
-              if (sErr) console.error('Erro upload selfie:', sErr);
-              else {
-                // F45 (Storage privado v15): marcador resolvível em vez de URL pública.
-                urlSelfie = buildStorageRef('documentos_registo', selfiePath);
-              }
+          };
+          const uploadVerso = async () => {
+            if (!versoBlob) return;
+            const backPath = `${biClean}/verso_${uploadTs}.jpg`;
+            const { error: bErr } = await supabase.storage
+              .from('documentos_registo')
+              .upload(backPath, versoBlob, { contentType: versoBlob.type || 'image/jpeg' });
+            if (bErr) {
+              console.error('Erro upload verso:', bErr);
+              addAuditLog(`[PVIC] Upload do VERSO do B.I. ao Storage falhou (${(bErr as any)?.message || 'erro'}) — a validação prossegue com a imagem local.`, 'warning');
             } else {
+              // F45 (Storage privado v15): marcador resolvível em vez de URL pública.
+              urlVerso = buildStorageRef('documentos_registo', backPath);
+            }
+          };
+          await Promise.all([uploadFrente(), uploadVerso()]);
+
+          // Upload selfie
+          if (savedFacePhoto) {
+            try {
+              let selfieBlob: Blob | null = null;
+              if (savedFacePhoto.startsWith('data:image/')) {
+                selfieBlob = base64ToBlob(savedFacePhoto);
+              } else {
+                try {
+                  const res = await fetch(savedFacePhoto);
+                  selfieBlob = await res.blob();
+                } catch (_) {
+                  // Ignore and use directly
+                }
+              }
+
+              if (selfieBlob) {
+                const selfiePath = `${biClean}/selfie_${Date.now()}.jpg`;
+                const { error: sErr } = await supabase.storage
+                  .from('documentos_registo')
+                  .upload(selfiePath, selfieBlob, { contentType: 'image/jpeg' });
+                if (sErr) console.error('Erro upload selfie:', sErr);
+                else {
+                  // F45 (Storage privado v15): marcador resolvível em vez de URL pública.
+                  urlSelfie = buildStorageRef('documentos_registo', selfiePath);
+                }
+              } else {
+                urlSelfie = savedFacePhoto;
+              }
+            } catch (selfieErr) {
+              console.error('Erro processando selfie upload:', selfieErr);
               urlSelfie = savedFacePhoto;
             }
-          } catch (selfieErr) {
-            console.error('Erro processando selfie upload:', selfieErr);
-            urlSelfie = savedFacePhoto;
           }
-        }
+        })();
 
-        // F28 (Prompt v11.1) — Portas 2 e 3: a IA de visão do servidor analisa as imagens do
-        // documento a partir das URLs gravadas no Storage. Qualquer falha/dúvida => REVISAO
-        // (a conta fica PENDENTE, exactamente como hoje). NUNCA aprovação por erro técnico.
-        // v37.29-fix: se o upload ao Storage falhar mas existirem imagens
-        // locais (data-URL), a Pré-Verificação NÃO é saltada — o cidadão deixa
-        // de ver «sem_imagens_nuvem» por uma falha técnica de rede/RLS.
-        const uploadCompleto = !!(urlFrente && urlVerso);
-        if (uploadCompleto || (pviFrenteData && pviVersoData)) {
-          if (!uploadCompleto) {
-            addAuditLog('[PVIC] Imagens do B.I. não chegaram ao Storage — a Pré-Verificação prossegue com as imagens locais e a aprovação automática fica suprimida (homologação manual).', 'warning');
+        // F28 (Prompt v11.1) — Portas 2 e 3: a IA de visão do servidor analisa as
+        // imagens do documento a partir dos data-URLs (ou das referências do
+        // Storage). Qualquer falha/dúvida => REVISAO (a conta fica PENDENTE,
+        // exactamente como hoje). NUNCA aprovação por erro técnico.
+        // v37.72 — a PVI arranca JÁ com os data-URLs locais (não espera pelos
+        // uploads). v37.29-fix preservado: sem data-URL comprimido, espera pelos
+        // uploads e usa a referência restante → REVISAO segura.
+        const pviPromise = (async (): Promise<PviVerdict> => {
+          let frenteParaPvi = pviFrenteData;
+          let versoParaPvi = pviVersoData;
+          if (!frenteParaPvi || !versoParaPvi) {
+            await uploadsPromise.catch(() => null);
+            frenteParaPvi = pviFrenteData || urlFrente;
+            versoParaPvi = pviVersoData || urlVerso;
           }
-          setSubmitMessage('Pré-Verificação Inteligente (IA): a analisar as imagens do documento...');
-          pviVerdict = await requestPviVerification({
-            biNumber: newUser.biNumber,
-            nome: newUser.name,
-            tipo: appMode === 'institution' ? 'instituicao' : 'cidadao',
-            // F45: data-URL comprimido (o endpoint aceita data:image/ — anti-SSRF);
-            // sem compressão possível cai-se na referência restante → REVISAO segura.
-            urls: { frente: pviFrenteData || urlFrente, verso: pviVersoData || urlVerso },
-            // v37.8 — a IA compara também a data de nascimento e o sexo declarados
-            // com os dados extraídos do B.I. (registo do cidadão, sem biometria facial).
-            ...(appMode !== 'institution' ? { dataNascimento, sexo } : {}),
-          });
-        } else {
-          pviVerdict = {
+          const uploadsOk = !!(urlFrente && urlVerso);
+          if (uploadsOk || (frenteParaPvi && versoParaPvi)) {
+            if (!uploadsOk) {
+              addAuditLog('[PVIC] Imagens do B.I. não chegaram ao Storage — a Pré-Verificação prossegue com as imagens locais e a aprovação automática fica suprimida (homologação manual).', 'warning');
+            }
+            setSubmitMessage('Pré-Verificação Inteligente (IA): a analisar as imagens do documento...');
+            return await requestPviVerification({
+              biNumber: newUser.biNumber,
+              nome: newUser.name,
+              tipo: appMode === 'institution' ? 'instituicao' : 'cidadao',
+              // F45: data-URL comprimido (o endpoint aceita data:image/ — anti-SSRF).
+              urls: { frente: frenteParaPvi, verso: versoParaPvi },
+              // v37.8 — a IA compara também a data de nascimento e o sexo declarados
+              // com os dados extraídos do B.I. (registo do cidadão, sem biometria facial).
+              ...(appMode !== 'institution' ? { dataNascimento, sexo } : {}),
+            });
+          }
+          return {
             veredicto: 'REVISAO',
             alertas: ['sem_imagens_nuvem'],
             motivo: 'Imagens do documento indisponíveis na nuvem — homologação manual.',
             duracaoMs: 0,
             modelo: 'meta-llama/llama-4-scout-17b-16e-instruct',
           };
-        }
+        })();
+
+        // v37.72 — uploads e PVI correm em paralelo; espera-se por ambos (a PVI
+        // é tipicamente o mais lento; os uploads terminam entretanto).
+        await Promise.all([uploadsPromise.catch(() => null), pviPromise]);
+        pviVerdict = await pviPromise;
+        const uploadCompleto = !!(urlFrente && urlVerso);
         // Porta 2 local (verificationEngine) + Porta 2/3 do servidor: AMBAS têm de aprovar.
         // v37.8 — cidadão: a etapa facial foi removida; a aprovação automática
         // baseia-se APENAS na comparação da IA entre o formulário e o B.I.
