@@ -2838,7 +2838,28 @@ export default function App() {
         const dbSentMessages = mailbox ? mailbox.sent : null;
         if (dbSentMessages !== null && isSubscribed) {
           // F15 — marca da sessão remetente ("Enviadas" isolada por conta)
-          const sentNormal = dbSentMessages.filter(m => !isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey }));
+          // v37.77 — DIFUSÕES AGRUPADAS: uma sondagem/emergência distribuída a
+          // N cidadãos gera N linhas na nuvem (cada destinatário precisa da
+          // sua cópia), mas o espelho «Enviadas» do EMISSOR passa a mostrar o
+          // lote UMA vez com o selo «Difusão para N destinatários» — antes
+          // 1 sondagem a 23 cidadãos aparecia como 23 correspondências
+          // enviadas (interpretado como resíduo de contas eliminadas).
+          const agruparDifusoes = (msgs: typeof dbSentMessages): typeof dbSentMessages => {
+            const grupos = new Map<string, { cabeca: (typeof msgs)[number]; total: number }>();
+            const ordem: string[] = [];
+            for (const m of msgs) {
+              const chaveLote = m.createdAt && m.details?.subject ? `${m.details.subject}|${m.createdAt}` : '';
+              if (!chaveLote) { ordem.push(`#${m.id}`); grupos.set(`#${m.id}`, { cabeca: m, total: 1 }); continue; }
+              const g = grupos.get(chaveLote);
+              if (g) g.total += 1;
+              else { ordem.push(chaveLote); grupos.set(chaveLote, { cabeca: m, total: 1 }); }
+            }
+            return ordem.map(chave => {
+              const g = grupos.get(chave)!;
+              return g.total > 1 ? { ...g.cabeca, broadcastRecipients: g.total } : g.cabeca;
+            });
+          };
+          const sentNormal = agruparDifusoes(dbSentMessages.filter(m => !isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey })));
           const sentDoc = dbSentMessages.filter(m => isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey }));
           
           if (!isDemoSession) {

@@ -1753,6 +1753,11 @@ export function MailContent({
                               {t((item.org || '').toUpperCase().startsWith('SOC - ') ? 'SOC' : item.org)}
                             </span>
                             <span className="text-[9px] font-bold text-slate-400 font-mono">ID: #{item.id}</span>
+                            {(item as any).broadcastRecipients ? (
+                              <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-violet-600 text-white border border-violet-600" title="Uma difusão enviada para vários destinatários — cada um recebeu a sua cópia">
+                                {t('Difusão')} · {(item as any).broadcastRecipients} {t('destinatários')}
+                              </span>
+                            ) : null}
                             {item.unread && (
                               <span className="w-1.5 h-1.5 rounded-full bg-[#f87171] inline-block animate-pulse shrink-0" />
                             )}
