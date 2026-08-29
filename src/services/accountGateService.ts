@@ -141,6 +141,27 @@ export const purgeCitizenLocalResidues = (bi: string): void => {
   ['user', 'institution', 'admin'].forEach((m) => {
     try { localStorage.removeItem(`cda_demo_face_${m}_${cleanBi}`); } catch { /* ignora */ }
   });
+  // v37.71 — RASTO DE VIDAS ANTERIORES da mesma B.I. (recriar/eliminar em ciclo):
+  // a FOTO de perfil escolhida na página Perfil (avatarService, chave por B.I.),
+  // os dados de perfil editados (perfilLocalService) e a entrada antiga na lista
+  // local do Admin (gov_admin_citizens, com facePhoto de registos antigos)
+  // sobreviviam à eliminação e eram re-hidratados na conta RE-CRIADA no login
+  // seguinte — a conta nova nascia com a foto/dados de uma vida anterior.
+  try { localStorage.removeItem(`cda_avatar_user_${cleanBi}`); } catch { /* ignora */ }
+  try { localStorage.removeItem(`cda_perfil_dados_user_${cleanBi}`); } catch { /* ignora */ }
+  try {
+    const rawCit = localStorage.getItem('gov_admin_citizens');
+    if (rawCit) {
+      const list = JSON.parse(rawCit);
+      if (Array.isArray(list)) {
+        const kept = list.filter((c: { biNumber?: string }) =>
+          String(c?.biNumber || '').toUpperCase().replace(/\s+/g, '') !== cleanBi);
+        if (kept.length !== list.length) {
+          localStorage.setItem('gov_admin_citizens', JSON.stringify(kept));
+        }
+      }
+    }
+  } catch { /* ignora */ }
   try {
     const raw = localStorage.getItem('correio_digital_inbox');
     if (raw) {

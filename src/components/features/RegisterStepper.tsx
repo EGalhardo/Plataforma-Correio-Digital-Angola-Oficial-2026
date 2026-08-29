@@ -25,6 +25,7 @@ import { homologationStore, notifyRegistrationSubmitted, notifyAccountApproved }
 import { CdaModal } from '../ui/CdaModal';
 import { requestPviVerification, buildPvicMarker, type PviVerdict } from '../../services/preVerificationService';
 import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticCitizenEmail, cloudSignOutBestEffort } from '../../services/cloudAuthService';
+import { purgeCitizenLocalResidues } from '../../services/accountGateService';
 import { runRegistrationVerification, prewarmVerificationEngine, type RegistrationVerificationReport } from '../../services/verificationEngine';
 import { buildStorageRef } from '../../lib/secureStorage';
 import { normalizarNome, normalizarTitulo, corrigirDominioEmail } from '../../services/textNormalizeService';
@@ -535,6 +536,14 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
     if (password !== confirmPassword) {
       setSubmitError('As senhas não coincidem. Confirme a senha para concluir o registo.');
       return;
+    }
+    // v37.71 — CONTA NOVA NASCE LIMPA: ciclos eliminar→re-criar com a mesma B.I.
+    // deixavam rasto no dispositivo (foto de perfil anterior, dados editados,
+    // entrada local antiga, matrizes faciais) que era re-hidratado no login da
+    // conta re-criada — esta purga garante que o NOVO registo parte de zero.
+    // Corre ANTES de qualquer escrita deste registo (senha local, fila, sessão).
+    if (appMode === 'user') {
+      try { purgeCitizenLocalResidues(biNumber.trim().toUpperCase().replace(/\s+/g, '')); } catch { /* melhor esforço */ }
     }
     setIsSubmitting(true);
     setSubmitError('');

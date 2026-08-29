@@ -1167,6 +1167,11 @@ export function GovContactsContent({
         ['user', 'institution', 'admin'].forEach((m) => {
           try { localStorage.removeItem(`cda_demo_face_${m}_${biKey}`); } catch (e) { /* ignora */ }
         });
+        // v37.71 — rasto de vidas anteriores: foto de perfil (avatarService) e
+        // dados de perfil editados (perfilLocalService) também são removidos —
+        // sobreviviam à eliminação e re-hidratavam na conta re-criada.
+        try { localStorage.removeItem(`cda_avatar_user_${normalizeHomologationBi(biKey)}`); } catch (e) { /* ignora */ }
+        try { localStorage.removeItem(`cda_perfil_dados_user_${normalizeHomologationBi(biKey)}`); } catch (e) { /* ignora */ }
         try {
           const raw = localStorage.getItem('correio_digital_inbox');
           if (raw) {
