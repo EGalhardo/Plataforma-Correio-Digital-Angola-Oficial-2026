@@ -6786,6 +6786,16 @@ Ficha civil do titular:
       if (!isInstMode && !isGovMode && normBi && normBi !== bi) setBi(normBi);
       if (isGovMode) setTab('gov-dashboard');
       limparLoginFalhas(identLogin);
+      // v37.70 — ANTI-TRANSBORDO DO PRESET DEMO: o ecrã de login inicia a
+      // sessão com o preset da conta demo (foto canónica incluída). Ao entrar
+      // com uma conta REAL, a sessão tem de nascer LIMPA já no primeiro
+      // render do painel — antes, enquanto a hidratação assíncrona
+      // (applyIdentityForLoggedUser) corria em fundo, a FOTO e os dados do
+      // demo ficavam visíveis no perfil da conta nova. O updateUserFields
+      // dispara o reset ANTI-FUGA (troca de B.I.) e limpa também o avatar.
+      if (!isInstMode && !isGovMode && normBi && normBi !== DEMO_CREDENTIALS.user.identifier) {
+        updateUserFields?.({ bi: normBi, name: '', avatarUrl: '' });
+      }
       setStage('app');
       void applyIdentityForLoggedUser(normBi);
       addAuditLog(isInstMode ? 'Login de Instituição via Autenticação Segura' : isGovMode ? 'Login da Administração via Autenticação Segura' : 'Login de Cidadão via Autenticação Segura', 'success');

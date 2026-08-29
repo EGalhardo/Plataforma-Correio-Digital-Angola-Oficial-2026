@@ -83,9 +83,18 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // (Header/Perfil mostram o círculo azul com as iniciais); só o cidadão demo
     // mantém a foto canónica.
     if (avatar && isPlaceholderAvatar(avatar)) {
-      avatar = (mode === "institution" || mode === "admin")
-        ? ""
-        : "https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png";
+      // v37.70 — a foto demo (Edlasio/postimg) só é legítima na conta demo
+      // CANÓNICA do cidadão. Antes, QUALQUER cidadão com avatar placeholder
+      // (conta nova sem foto incluída) herdar a foto demo — exactamente o
+      // oposto do desejado: conta nova = círculo azul com a inicial do nome
+      // (fallback v37.29 do Header/CitizenProfile) até o cidadão carregar a
+      // sua própria foto na página Perfil.
+      const biDaSessao = String((candidate && candidate.bi) || "").trim().toUpperCase();
+      const ehCidadaoDemoCanonico =
+        mode === "user" && biDaSessao === String(CANONICAL_USER.bi).trim().toUpperCase();
+      avatar = ehCidadaoDemoCanonico
+        ? "https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png"
+        : "";
     }
     // v37.29 — ANTI-FUGA DE DADOS ENTRE CONTAS: quando existe uma sessão de um
     // utilizador REAL (com B.I. próprio), os campos pessoais vazios NUNCA são
