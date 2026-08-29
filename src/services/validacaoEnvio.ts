@@ -26,15 +26,19 @@ export function validarEnvio(d: {
   subject: string;
   body: string;
   attachments?: string[];
+  /** v37.76 — expedição múltipla: lista de destinatários em chips. Quando
+   *  presente, o campo «para» individual pode estar vazio. */
+  toArray?: string[];
 }): ResultadoValidacaoEnvio {
   const bloqueios: string[] = [];
   const avisos: string[] = [];
 
   const to = (d.to || '').trim();
+  const toArray = (d.toArray || []).map((t) => (t || '').trim()).filter(Boolean);
   const body = (d.body || '').trim();
   const subject = (d.subject || '').trim();
 
-  if (!to) {
+  if (!to && toArray.length === 0) {
     bloqueios.push('Indica o destinatário da correspondência.');
   }
   if (body.length === 0) {

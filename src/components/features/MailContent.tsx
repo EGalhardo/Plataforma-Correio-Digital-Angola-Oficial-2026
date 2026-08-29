@@ -1374,7 +1374,7 @@ export function MailContent({
           <div className="pt-2 md:pt-4 flex flex-col md:flex-row gap-3 md:gap-4 items-center">
             <button 
               onClick={tentarEnviar}
-              disabled={!composeData.to || (isInst && !composeData.subject)
+              disabled={!(composeData.to || (composeData.toArray || []).length > 0) || (isInst && !composeData.subject)
                 || (!composeData.body && !(isInst && sondagensCompostas.length > 0))
                 || distribuindoSondagens
                 || enviando
