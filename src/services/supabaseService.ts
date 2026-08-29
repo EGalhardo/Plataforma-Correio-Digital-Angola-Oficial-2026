@@ -385,6 +385,27 @@ export const eliminarInstituicaoCloud = async (code: string, agentes: string[] =
   }
 };
 
+/** ELIMINAR CORRESPONDÊNCIA (v37.77 — Área Admin → Correspondências): apaga a
+ *  linha da tabela central `correspondences` com autorização role=admin no
+ *  servidor. Devolve { ok, removida } — removida=false quando a linha já não
+ *  existia (idempotente). */
+export const eliminarCorrespondenciaAdmin = async (id: string): Promise<{ ok: boolean; removida?: boolean; erro?: string }> => {
+  try {
+    const token = await obterTokenSessao();
+    if (!token) return { ok: false, erro: 'Sem sessão de nuvem.' };
+    const resp = await fetch('/api/eliminar-correspondencia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id }),
+    });
+    const j = await resp.json().catch(() => null);
+    if (j && j.ok === true) return { ok: true, removida: !!j.removida };
+    return { ok: false, erro: (j && j.erro) || `HTTP ${resp.status}` };
+  } catch {
+    return { ok: false, erro: 'Rede indisponível.' };
+  }
+};
+
 /** PERMISSÕES DE PÁGINA (2026-08-22) — o servidor É a verificação:
  *  · 'ler': devolve as páginas permitidas do PRÓPRIO token (user_metadata na
  *    nuvem) — o cliente nunca decide por si; null = responsável/sem restrições;

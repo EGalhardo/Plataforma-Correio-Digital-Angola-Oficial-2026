@@ -79,7 +79,7 @@ import {
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, sealProtocolContent, canonicalProtocolPayload } from './utils/protocolGenerator';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente } from './utils/ordenacaoCronologica';
-import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode } from './services/supabaseService';
+import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaAdmin } from './services/supabaseService';
 import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
 import { lerPerfilLocal } from './services/perfilLocalService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
@@ -2838,7 +2838,28 @@ export default function App() {
         const dbSentMessages = mailbox ? mailbox.sent : null;
         if (dbSentMessages !== null && isSubscribed) {
           // F15 — marca da sessão remetente ("Enviadas" isolada por conta)
-          const sentNormal = dbSentMessages.filter(m => !isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey }));
+          // v37.77 — DIFUSÕES AGRUPADAS: uma sondagem/emergência distribuída a
+          // N cidadãos gera N linhas na nuvem (cada destinatário precisa da
+          // sua cópia), mas o espelho «Enviadas» do EMISSOR passa a mostrar o
+          // lote UMA vez com o selo «Difusão para N destinatários» — antes
+          // 1 sondagem a 23 cidadãos aparecia como 23 correspondências
+          // enviadas (interpretado como resíduo de contas eliminadas).
+          const agruparDifusoes = (msgs: typeof dbSentMessages): typeof dbSentMessages => {
+            const grupos = new Map<string, { cabeca: (typeof msgs)[number]; total: number }>();
+            const ordem: string[] = [];
+            for (const m of msgs) {
+              const chaveLote = m.createdAt && m.details?.subject ? `${m.details.subject}|${m.createdAt}` : '';
+              if (!chaveLote) { ordem.push(`#${m.id}`); grupos.set(`#${m.id}`, { cabeca: m, total: 1 }); continue; }
+              const g = grupos.get(chaveLote);
+              if (g) g.total += 1;
+              else { ordem.push(chaveLote); grupos.set(chaveLote, { cabeca: m, total: 1 }); }
+            }
+            return ordem.map(chave => {
+              const g = grupos.get(chave)!;
+              return g.total > 1 ? { ...g.cabeca, broadcastRecipients: g.total } : g.cabeca;
+            });
+          };
+          const sentNormal = agruparDifusoes(dbSentMessages.filter(m => !isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey })));
           const sentDoc = dbSentMessages.filter(m => isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey }));
           
           if (!isDemoSession) {
@@ -5834,6 +5855,23 @@ Ficha civil do titular:
             correspondences={currentCorrespondences}
             carregando={isGovMode && !cloudSyncedOnce}
             onNavigate={setTab}
+            onDeleteCorrespondence={async (id) => {
+              // v37.77 — eliminação pelo Admin: apaga a linha na BASE CENTRAL
+              // (servidor com service role, autorização role=admin) e remove o
+              // espelho local — sem regeneração ao refrescar.
+              setCorrespondences(prev => prev.filter(c => c.id !== id));
+              try {
+                const res = await eliminarCorrespondenciaAdmin(id);
+                if (!res.ok) {
+                  addAuditLog(`Eliminação de correspondência ${id}: nuvem indisponível (${res.erro || 'erro'}) — removida apenas nesta sessão.`, 'warning');
+                  notify('Correspondência removida apenas localmente — a base central não respondeu. Refresque para verificar.', 'warning');
+                } else {
+                  addAuditLog(`Correspondência ${id} ELIMINADA da base central pela Administração.`, 'critical');
+                }
+              } catch {
+                addAuditLog(`Eliminação de correspondência ${id}: falha de rede — removida apenas nesta sessão.`, 'warning');
+              }
+            }}
             onAddCorrespondence={async (newCor) => {
               setCorrespondences(prev => [{ ...newCor, createdBy: bi }, ...prev]);
               addAuditLog(`Novo Expediente Enviado: ${newCor.id} de ${newCor.sender} para ${newCor.recipient}`, 'success');

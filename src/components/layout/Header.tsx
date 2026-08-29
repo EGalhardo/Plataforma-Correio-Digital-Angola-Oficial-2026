@@ -14,7 +14,7 @@ import logoModoClaro from '../../assets/images/logomarca_modo_claro_crop.png';
 import logoModoEscuro from '../../assets/images/logomarca_modo_escuro_crop.png';
 import { hasPagePresentation } from '../../services/voicePresentations';
 import { resolveInstitutionCode, isRealInstitutionalCode } from '../../services/supabaseService';
-import { isPlaceholderAvatar } from '../../services/avatarService';
+import { isPlaceholderAvatar, iniciaisDeNome } from '../../services/avatarService';
 import type { JSX } from 'react';
 
 interface HeaderProps {
@@ -458,7 +458,7 @@ export function Header({
                 className="flex items-center justify-center bg-blue-600 text-white font-black cursor-pointer select-none ring-1 ring-primary/5 hover:ring-primary/15"
                 style={{ width: '2rem', height: '2rem', borderRadius: '9999px', fontSize: '11px', marginLeft: '0.25rem', border: '0.5px solid #e2e8f0' }}
               >
-                {(user?.name || user?.firstName || 'U').trim().charAt(0).toUpperCase()}
+                {iniciaisDeNome(user?.name || user?.firstName || 'U')}
               </div>
             )}
             {unreadCount > 0 && (
@@ -624,7 +624,7 @@ export function Header({
                 className="flex items-center justify-center bg-blue-600 text-white font-black cursor-pointer select-none ring-1 ring-primary/5 hover:ring-primary/15 shadow-xs"
                 style={{ width: '2.5rem', height: '2.5rem', borderRadius: '9999px', fontSize: '14px', border: '1px solid #e2e8f0' }}
               >
-                {(user?.name || user?.firstName || 'U').trim().charAt(0).toUpperCase()}
+                {iniciaisDeNome(user?.name || user?.firstName || 'U')}
               </div>
             )}
             {unreadCount > 0 && (

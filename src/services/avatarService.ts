@@ -60,3 +60,13 @@ export const isPlaceholderAvatar = (url: string | null | undefined): boolean => 
   if (u.startsWith('data:image/svg')) return false; // avatar neutro (iniciais) é válido
   return PADROES_PLACEHOLDER.some((p) => u.includes(p));
 };
+
+/** v37.77 — INICIAIS do nome para o avatar sem foto (fundo azul): primeira
+ *  letra da primeira palavra + primeira letra da ÚLTIMA palavra («João Silva»
+ *  → «JS»; «INAPEM» → «I»). Contas novas nascem com esta identidade visual. */
+export const iniciaisDeNome = (nome?: string | null): string => {
+  const partes = String(nome || '').trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return 'U';
+  if (partes.length === 1) return partes[0].charAt(0).toUpperCase();
+  return (partes[0].charAt(0) + partes[partes.length - 1].charAt(0)).toUpperCase();
+};

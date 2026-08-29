@@ -828,6 +828,20 @@ async function dadosResolverEExecutar(opts: {
       await apagar('notifications', `target_bi=eq.${encodeURIComponent(biNorm)}`);
       await apagar('contacts', `owner_bi=eq.${encodeURIComponent(biNorm)}`);
       await apagar('documents', `holder_bi=eq.${encodeURIComponent(biNorm)}`);
+      // v37.77 — resíduos de MENSAGENS (o cidadão re-registado não pode herdar
+      // a caixa da vida anterior) + pedidos documentais + histórico órfão.
+      await apagar('document_requests', `user_bi=eq.${encodeURIComponent(biNorm)}`);
+      try {
+        const rm = await fetch(`${supaUrl}/rest/v1/messages?or=(sender_bi.eq.${encodeURIComponent(biNorm)},recipient_bi.eq.${encodeURIComponent(biNorm)})&select=id`, { method: 'DELETE', headers: { ...h, Prefer: 'return=representation' } });
+        if (rm.ok) {
+          const apagadas = await rm.json().catch(() => []);
+          detalhes['messages'] = Array.isArray(apagadas) ? apagadas.length : 0;
+          if (Array.isArray(apagadas) && apagadas.length) {
+            const ids = apagadas.map((m: { id: string | number }) => `message_id.eq.${m.id}`).join(',');
+            await fetch(`${supaUrl}/rest/v1/message_state_history?or=${encodeURIComponent(ids)}`, { method: 'DELETE', headers: h }).catch(() => null);
+          }
+        }
+      } catch { /* best-effort */ }
       let authRemovido = false;
       try {
         let pagina = 1;
@@ -937,9 +951,81 @@ async function dadosResolverEExecutar(opts: {
         perfis = count || 0;
       } catch { /* best-effort */ }
 
-      return res.status(200).json({ ok: true, contas, avatares, perfis });
+      // 4) v37.77 — ESPAÇO DE MENSAGENS da instituição (o resíduo das «23
+      // enviadas»): a RPC v30 apaga mensagens do CÓDIGO, mas não dos AGENTES
+      // (-NN) nem os protocolos selados por vidas anteriores da conta. Sem
+      // isto, a adesão re-criada herda correspondência e protocolos antigos.
+      let mensagens = 0;
+      const chavesIn = [...chaves].map((k) => `"${k}"`).join(',');
+      try {
+        const { data: apagadas } = await admin
+          .from('messages')
+          .delete()
+          .or(`sender_bi.in.(${chavesIn}),recipient_bi.in.(${chavesIn})`)
+          .select('id');
+        mensagens = (apagadas || []).length;
+        if ((apagadas || []).length) {
+          const ids = apagadas.map((m: { id: string | number }) => `message_id.eq.${m.id}`).join(',');
+          try { await admin.from('message_state_history').delete().or(ids); } catch { /* ignora */ }
+        }
+      } catch { /* best-effort */ }
+      // 5) v37.77 — protocolos digitais selados por vidas anteriores
+      let protocolos = 0;
+      try {
+        const { count } = await admin
+          .from('digital_protocols')
+          .delete({ count: 'exact' })
+          .in('issuer_institution', [...chaves]);
+        protocolos = count || 0;
+      } catch { /* best-effort */ }
+      // 6) v37.77 — pedidos e notificações por chave de agente (complemento ao v30)
+      let notificacoes = 0;
+      try {
+        const { count } = await admin
+          .from('notifications')
+          .delete({ count: 'exact' })
+          .in('target_bi', [...chaves]);
+        notificacoes = count || 0;
+      } catch { /* best-effort */ }
+      try {
+        const chavesUser = [...chaves].map((k) => `user_bi.eq.${k}`).join(',');
+        await admin.from('user_requests').delete().or(chavesUser);
+        await admin.from('document_requests').delete().or(chavesUser);
+      } catch { /* best-effort */ }
+
+      return res.status(200).json({ ok: true, contas, avatares, perfis, mensagens, protocolos, notificacoes });
     } catch (e) {
       console.error('[ELIMINAR-INSTITUICAO] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
+  // v37.77 — ELIMINAR CORRESPONDÊNCIA (Área Admin → Correspondências): apaga a
+  // linha da tabela central `correspondences`. Autorização: sessão role=admin
+  // (a Área da Administração é a dona do expediente governamental).
+  app.post("/api/eliminar-correspondencia", async (req, res) => {
+    try {
+      const { id } = req.body || {};
+      const idNorm = String(id || '').trim();
+      if (!idNorm || idNorm.length > 64) return res.status(400).json({ ok: false, erro: 'Identificador inválido.' });
+      const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+      const admin = createSupabaseAdminClient();
+      if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      const { data: sess, error: sessErr } = await admin.auth.getUser(token);
+      if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+      const roleCaller = String(((sess.user.user_metadata || {}) as Record<string, unknown>).role || '').toLowerCase();
+      if (roleCaller !== 'admin') return res.status(403).json({ ok: false, erro: 'Apenas a Administração elimina correspondências.' });
+      const { data: apagada, error: delErr } = await admin
+        .from('correspondences')
+        .delete()
+        .eq('id', idNorm)
+        .select('id');
+      if (delErr) return res.status(500).json({ ok: false, erro: delErr.message });
+      const removida = Array.isArray(apagada) && apagada.length > 0;
+      return res.status(200).json({ ok: true, removida });
+    } catch (e) {
+      console.error('[ELIMINAR-CORRESPONDENCIA] Exceção:', e);
       return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
     }
   });
@@ -1020,7 +1106,25 @@ async function dadosResolverEExecutar(opts: {
         perfis = count || 0;
       } catch { /* best-effort */ }
 
-      return res.status(200).json({ ok: true, conta, avatares, perfis });
+      // 4) v37.77 — resíduos do agente: mensagens enviadas/recebidas pela
+      // chave do Nº de agente (+ histórico órfão) e notificações — sem isto a
+      // conta re-criada com o MESMO Nº herdava a correspondência antiga.
+      let mensagens = 0;
+      try {
+        const { data: apagadas } = await admin
+          .from('messages')
+          .delete()
+          .or(`sender_bi.eq.${agenteNorm},recipient_bi.eq.${agenteNorm}`)
+          .select('id');
+        mensagens = (apagadas || []).length;
+        if (mensagens > 0) {
+          const ids = (apagadas || []).map((m: { id: string | number }) => `message_id.eq.${m.id}`).join(',');
+          try { await admin.from('message_state_history').delete().or(ids); } catch { /* ignora */ }
+        }
+      } catch { /* best-effort */ }
+      try { await admin.from('notifications').delete().eq('target_bi', agenteNorm); } catch { /* best-effort */ }
+
+      return res.status(200).json({ ok: true, conta, avatares, perfis, mensagens });
     } catch (e) {
       console.error('[ELIMINAR-AGENTE] Exceção:', e);
       return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });

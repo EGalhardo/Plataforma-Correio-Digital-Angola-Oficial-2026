@@ -17,7 +17,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useSession } from "../../services/sessionStore";
 import { supabaseService, hasValidSupabaseKeys } from "../../services/supabaseService";
 import { supabase } from '../../lib/supabaseClient';
-import { guardarAvatar, isPlaceholderAvatar } from '../../services/avatarService';
+import { guardarAvatar, isPlaceholderAvatar, iniciaisDeNome } from '../../services/avatarService';
 import { guardarPerfilLocal } from '../../services/perfilLocalService';
 import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil, syncInstitutionMemberToCloud, type ProfileSyncOutcome } from '../../services/profileSyncService';
 import { getLocalInstReg, normalizeInstCode, updateInstMemberProfile, buildAgentNumber, setInstLogo } from "../../services/institutionRegistrationStore";
@@ -395,7 +395,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
               ) : (
                 <div className="w-full h-full rounded-[22px] bg-gradient-to-b from-[#1e3a8a] to-[#0c2340] flex items-center justify-center text-white">
                   <span className="text-6xl font-black leading-none select-none">
-                    {(profileName || institutionAcronym || '?').trim().charAt(0).toUpperCase()}
+                    {iniciaisDeNome(institutionAcronym || profileName || '?')}
                   </span>
                 </div>
               )}

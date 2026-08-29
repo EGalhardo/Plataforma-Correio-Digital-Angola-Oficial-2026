@@ -81,6 +81,77 @@ import { QrCodeImage } from '../ui/QrCodeImage';
 import { AssistenteDocumento } from './AssistenteDocumento';
 import { SondagemResponderCard } from './SondagemResponderCard';
 
+// v37.77 — PRÉ-VISUALIZAÇÃO INLINE DE ANEXOS DE IMAGEM. Antes a imagem anexada
+// a uma resposta aparecia apenas como cartão de ficheiro (era preciso clicar
+// em 👁 para a ver) — «a imagem não aparece para quem abre a correspondência».
+// Agora: anexos de imagem (data-URL ou marcador storage: → URL assinado)
+// renderizam FOTOGRAFIA VISÍVEL na própria correspondência; clicar abre em
+// grande. Se o conteúdo não resolve, mantém-se o cartão clássico (nada se perde).
+type AnexoArquivo = { name: string; size?: string; content?: string; type?: string };
+const ehAnexoImagem = (f: AnexoArquivo): boolean =>
+  /^image\//i.test(f.type || '') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(f.name || '');
+
+const AnexoImagem: React.FC<{ file: AnexoArquivo; onAbrir: (f: AnexoArquivo) => void }> = ({ file, onAbrir }) => {
+  const [url, setUrl] = useState('');
+  useEffect(() => {
+    let alive = true;
+    const c = file.content || '';
+    if (!c) { setUrl(''); return; }
+    if (isStorageRef(c)) {
+      resolveStorageUrl(supabase, c)
+        .then(u => { if (alive) setUrl(u || ''); })
+        .catch(() => { if (alive) setUrl(''); });
+      return;
+    }
+    setUrl(/^data:image|^https?:\/\//i.test(c) && (ehAnexoImagem(file) || /^data:image/i.test(c)) ? c : '');
+    return () => { alive = false; };
+  }, [file.content, file.name, file.type]);
+
+  if (!url) {
+    // sem conteúdo resolvido → cartão clássico de ficheiro ( Eye / Download )
+    return (
+      <div className="flex items-center justify-between p-3.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-2xl transition-all group">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+            <FileText size={16} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-slate-800 truncate" title={file.name}>{file.name}</p>
+            <span className="text-[10px] font-mono text-slate-400 font-medium">{file.size}</span>
+          </div>
+        </div>
+        <button type="button" onClick={() => onAbrir(file)}
+          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 rounded-xl transition-all border-0 bg-transparent cursor-pointer"
+          title="Visualizar" aria-label={`Visualizar ${file.name}`}
+        >
+          <Eye size={14} />
+        </button>
+      </div>
+    );
+  }
+  return (
+    <figure
+      onClick={() => onAbrir(file)}
+      className="relative group rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer shadow-sm m-0"
+      title={`Ver ${file.name}`}
+    >
+      <img
+        src={url}
+        alt={file.name}
+        loading="lazy"
+        className="w-full h-40 object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+      />
+      <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 via-slate-950/30 to-transparent px-3 pb-2 pt-6 flex items-center justify-between gap-2">
+        <span className="text-[10px] font-bold text-white truncate">{file.name}</span>
+        <span className="text-[9px] font-mono text-white/85 shrink-0">{file.size}</span>
+      </figcaption>
+      <div className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-white/90 backdrop-blur-sm border border-white/60 flex items-center justify-center shadow-sm transition-transform group-hover:scale-110">
+        <Eye size={13} className="text-slate-700" />
+      </div>
+    </figure>
+  );
+};
+
 const STATE_STYLING: Record<string, { bg: string; text: string; border: string; bgDot: string; textIcon: string }> = {
   'Enviada': { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', bgDot: 'bg-emerald-200', textIcon: 'text-emerald-600' },
   'Recebida': { bg: 'bg-slate-50', text: 'text-slate-800', border: 'border-slate-200', bgDot: 'bg-slate-150', textIcon: 'text-slate-600' },
@@ -450,21 +521,29 @@ export function MessageDetail({
         tomIcone="bg-indigo-50 text-indigo-600 border-indigo-100"
         maxW="max-w-md"
       >
-        {/* v37.28 — cartões numerados, escolhas em pills, barra de estado */}
+        {/* v37.77 — redesign: faixa de progresso + cartões limpos com sombra suave */}
         <div className="text-left space-y-2.5">
+          <div className="flex items-center justify-between px-1 pb-1">
+            <span className="text-[9.5px] font-black uppercase tracking-widest text-slate-400">Escolhas</span>
+            <span className="text-[9.5px] font-black uppercase tracking-widest text-indigo-600">
+              {idsSondagem.filter(id => !!respSond[id]?.escolhas?.length).length}/{idsSondagem.length} prontas
+            </span>
+          </div>
           {idsSondagem.map((id, idx) => {
             const temEscolha = !!respSond[id]?.escolhas?.length;
             return (
-              <div key={id} className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-[0_4px_16px_-8px_rgba(15,23,42,0.08)]">
+              <div key={id} className={`rounded-2xl border bg-white overflow-hidden transition-all ${temEscolha ? 'border-indigo-100 shadow-[0_6px_20px_-10px_rgba(79,70,229,0.35)]' : 'border-rose-200 shadow-[0_4px_16px_-10px_rgba(244,63,94,0.3)]'}`}>
                 <div className="flex items-start gap-3 px-4 py-3.5">
-                  <span className={`w-6 h-6 rounded-full text-[11px] font-black flex items-center justify-center shrink-0 mt-0.5 ${temEscolha ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>{idx + 1}</span>
+                  <span className={`w-7 h-7 rounded-xl text-[11px] font-black flex items-center justify-center shrink-0 mt-0.5 transition-colors ${temEscolha ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-sm' : 'bg-slate-100 text-slate-400'}`}>
+                    {temEscolha ? <CheckCircle2 size={14} /> : idx + 1}
+                  </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-[12.5px] font-bold text-slate-800 m-0 leading-snug">{sondDetalhe[id]?.pergunta || `Sondagem #${id}`}</p>
                     {temEscolha ? (
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         {respSond[id].escolhas.map(e => (
-                          <span key={e} className="inline-flex items-center gap-1 text-[10.5px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-full px-2.5 py-1">
-                            <CheckCircle2 size={12} /> {sondDetalhe[id]?.opcoes.find(o => o.id === e)?.texto || e}
+                          <span key={e} className="inline-flex items-center gap-1 text-[10.5px] font-bold text-indigo-700 bg-indigo-50/80 border border-indigo-100 rounded-full px-2.5 py-1">
+                            <CheckCircle2 size={12} className="text-indigo-500" /> {sondDetalhe[id]?.opcoes.find(o => o.id === e)?.texto || e}
                           </span>
                         ))}
                       </div>
@@ -473,13 +552,13 @@ export function MessageDetail({
                     )}
                   </div>
                 </div>
-                <div className={`h-[3px] w-full ${temEscolha ? 'bg-gradient-to-r from-indigo-500 to-violet-500' : 'bg-rose-200'}`} />
+                <div className={`h-[3px] w-full ${temEscolha ? 'bg-gradient-to-r from-indigo-500 to-violet-500' : 'bg-rose-300'}`} />
               </div>
             );
           })}
         </div>
-        {/* v37.5 — botões no padrão CdaConfirmModal (raio/tipografia oficiais) */}
-        <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:justify-end pt-2">
+        {/* Botões — pill gradient (manter padrão oficial) */}
+        <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:justify-end pt-3">
           <button
             type="button"
             onClick={() => setConfirmaSond(false)}
@@ -491,7 +570,7 @@ export function MessageDetail({
             type="button"
             disabled={registandoSond}
             onClick={() => { void confirmarRespostasSondagens(); }}
-            className="px-7 py-3 rounded-full font-black text-xs uppercase tracking-wider text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 transition-all cursor-pointer border-none shadow-md shadow-indigo-200 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+            className="px-7 py-3 rounded-full font-black text-xs uppercase tracking-wider text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 transition-all cursor-pointer border-none shadow-lg shadow-indigo-200 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
           >
             {registandoSond ? (<><Loader2 size={14} className="animate-spin" /> A registar…</>) : (<><CheckCircle2 size={14} /> Confirmar Respostas</>)}
           </button>
@@ -506,16 +585,28 @@ export function MessageDetail({
         tomIcone={popupSond?.ok ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}
         maxW="max-w-md"
       >
-        {/* v37.28 — painel tonalizado centrado + botão pill a toda a largura */}
-        <div className={`rounded-2xl border p-5 text-center ${popupSond?.ok ? 'bg-emerald-50/70 border-emerald-100' : 'bg-amber-50/70 border-amber-100'}`}>
+        {/* v37.77 — redesign: selo animado + painel tonalizado + botão gradiente */}
+        <div className={`relative rounded-3xl border p-6 text-center overflow-hidden ${popupSond?.ok ? 'bg-gradient-to-b from-emerald-50/90 to-white border-emerald-100' : 'bg-gradient-to-b from-amber-50/90 to-white border-amber-100'}`}>
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400 opacity-0" style={{ display: popupSond?.ok ? undefined : 'none' }} />
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+            className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center shadow-lg mb-4 ${popupSond?.ok ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-200/60' : 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-200/60'}`}
+          >
+            {popupSond?.ok ? <CheckCircle2 size={30} className="text-white" /> : <AlertTriangle size={30} className="text-white" />}
+          </motion.div>
           <p className="text-sm font-semibold text-slate-700 m-0 leading-relaxed">{popupSond?.texto}</p>
+          {popupSond?.ok && (
+            <p className="text-[9.5px] font-black uppercase tracking-widest text-emerald-600 mt-3 m-0">Participação registada com integridade</p>
+          )}
         </div>
         <button
           type="button"
           onClick={fecharPopupSond}
-          className={`w-full py-3.5 rounded-full font-black text-xs uppercase tracking-wider text-white transition-all cursor-pointer border-none shadow-md ${popupSond?.ok ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'}`}
+          className={`w-full py-3.5 rounded-full font-black text-xs uppercase tracking-wider text-white transition-all cursor-pointer border-none shadow-lg ${popupSond?.ok ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-200' : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-amber-200'}`}
         >
-          {popupSond?.ok ? 'Entendi' : 'Fechar'}
+          {popupSond?.ok ? 'Concluir' : 'Fechar'}
         </button>
       </CdaModal>
     </>
@@ -2304,8 +2395,17 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                 <Paperclip size={14} className="text-indigo-600" />
                 {t("Ficheiros / Anexos Oficiais Recebidos")}
               </h4>
+              {/* v37.77 — imagens visíveis na própria correspondência (inline) */}
+              {parsedAttachments.filter(ehAnexoImagem).length > 0 && (
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+                  {parsedAttachments.filter(ehAnexoImagem).map((file, idx) => (
+                    <AnexoImagem key={`img-${idx}`} file={file} onAbrir={handleViewAttachment} />
+                  ))}
+                </div>
+              )}
+              {parsedAttachments.filter(f => !ehAnexoImagem(f)).length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {parsedAttachments.map((file, idx) => (
+                {parsedAttachments.filter(f => !ehAnexoImagem(f)).map((file, idx) => (
                   <div 
                     key={idx} 
                     className="flex items-center justify-between p-3.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-2xl transition-all group"
@@ -2348,6 +2448,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                   </div>
                 ))}
               </div>
+              )}
             </div>
           )}
 
@@ -3771,8 +3872,16 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           <Paperclip size={14} className="text-indigo-600" />
                           {t("Ficheiros / Anexos Oficiais Recebidos")}
                         </h4>
+                        {/* v37.77 — imagens visíveis na própria correspondência (inline) */}
+                        {parsedAttachments.filter(ehAnexoImagem).length > 0 && (
+                          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+                            {parsedAttachments.filter(ehAnexoImagem).map((file, idx) => (
+                              <AnexoImagem key={`imgd-${idx}`} file={file} onAbrir={handleViewAttachment} />
+                            ))}
+                          </div>
+                        )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {parsedAttachments.map((file, idx) => (
+                          {parsedAttachments.filter(f => !ehAnexoImagem(f)).map((file, idx) => (
                             <div 
                               key={idx} 
                               className="flex items-center justify-between p-3.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-2xl transition-all group"

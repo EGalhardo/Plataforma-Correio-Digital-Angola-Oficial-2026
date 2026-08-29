@@ -1226,54 +1226,60 @@ Contexto adicional:
         </div>
       )}
 
-      {/* FLOATING WEB CHAT PREVIEW MODAL */}
+      {/* FLOATING WEB CHAT PREVIEW MODAL — v37.77 redesign: simples, moderno e atraente */}
       <AnimatePresence>
         {isPreviewOpen && (
           <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[300] flex items-center justify-center p-4">
             <motion.div 
-              initial={{ scale: 0.93, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.93, opacity: 0 }}
-              className="bg-white rounded-[32px] border border-slate-100 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] w-full max-w-md h-[550px] flex flex-col justify-between overflow-hidden relative"
+              initial={{ scale: 0.93, opacity: 0, y: 14 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.93, opacity: 0, y: 14 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+              className="bg-white rounded-[28px] border border-slate-200/80 shadow-[0_30px_80px_-20px_rgba(15,23,42,0.45)] w-full max-w-md h-[560px] flex flex-col overflow-hidden relative"
             >
-              <div className="flex items-center gap-4 text-left p-6 pb-0 select-none relative shrink-0">
-                <div className="flex items-center gap-4 text-left flex-1 min-w-0">
-                  <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-black text-sm shrink-0 select-none uppercase tracking-tighter border border-indigo-100/40 shadow-sm">
-                    {institutionCode || 'AGT'}
+              {/* Cabeçalho gradiente com avatar do bot e estado online */}
+              <div className="relative bg-gradient-to-br from-[#0E2B64] via-[#1d3f8f] to-[#4f46e5] px-5 pt-5 pb-4 text-left shrink-0">
+                <div className="absolute inset-0 opacity-[0.12] pointer-events-none" style={{ background: 'radial-gradient(circle at 85% 15%, #fff 0%, transparent 45%)' }} />
+                <div className="flex items-center gap-3.5 relative">
+                  <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/25 flex items-center justify-center shrink-0 shadow-inner">
+                    <Bot size={22} className="text-white" strokeWidth={2.2} />
                   </div>
-                  <div className="min-w-0">
-                    <h4 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter m-0 leading-none">{assistantName}</h4>
-                    <span className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] leading-none block mt-1">
-                      ● Assistente Governamental — Groq IA
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-white font-black text-lg leading-tight m-0 tracking-tight truncate">{assistantName}</h4>
+                    <span className="inline-flex items-center gap-1.5 mt-1 text-white/85 font-bold text-[9.5px] uppercase tracking-[0.14em]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Online agora · IA Governamental
                     </span>
                   </div>
+                  <button 
+                    onClick={() => setIsPreviewOpen(false)}
+                    className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all border border-white/15 cursor-pointer shrink-0"
+                    aria-label="Fechar assistente"
+                  >
+                    <X size={17} className="stroke-[2.5]" />
+                  </button>
                 </div>
-                <button 
-                  onClick={() => setIsPreviewOpen(false)}
-                  className="p-1.5 hover:bg-white/10 text-slate-300 hover:text-white rounded-lg transition-colors border-none bg-transparent cursor-pointer"
-                >
-                  <X size={18} className="stroke-[2.5]" />
-                </button>
               </div>
 
-              <div className="flex-1 bg-slate-50/65 overflow-y-auto p-4 space-y-3.5 custom-scrollbar">
+              {/* Área de conversa — bolhas claras modernas */}
+              <div className="flex-1 bg-gradient-to-b from-slate-50 to-slate-100/70 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                 {previewMessages.map(msg => {
                   const isUser = msg.sender === 'user';
                   return (
-                    <div key={msg.id} className={`flex items-start gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`}>
+                    <div key={msg.id} className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
                       {!isUser && (
-                        <div className="w-6.5 h-6.5 bg-[#0E2B64] text-white rounded-full flex items-center justify-center shrink-0 text-[8px] font-black uppercase shadow-none select-none">
-                          {institutionCode || 'AGT'}
+                        <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-[#0E2B64] to-[#4f46e5] text-white flex items-center justify-center shrink-0 shadow-sm">
+                          <Bot size={13} strokeWidth={2.4} />
                         </div>
                       )}
-                      <div className={`max-w-[80%] rounded-2xl px-3.5 py-3 text-xs leading-relaxed text-left shadow-none ${
+                      <div className={`group max-w-[82%] px-3.5 py-2.5 text-xs leading-relaxed text-left shadow-sm ${
                         isUser
-                          ? 'bg-indigo-600 text-white border border-indigo-200/40 rounded-tr-none font-semibold'
-                          : 'bg-[#0E2B64] text-white rounded-tl-none font-bold whitespace-pre-line shadow-none'
+                          ? 'bg-gradient-to-br from-[#4f46e5] to-[#6366f1] text-white rounded-2xl rounded-br-md font-medium'
+                          : 'bg-white text-slate-800 rounded-2xl rounded-bl-md border border-slate-200/70 font-medium whitespace-pre-line'
                       }`}>
                         <p className="m-0 leading-relaxed">{msg.text}</p>
-                        <span className={`block text-[7.5px] font-mono leading-none mt-1 text-right font-black select-none ${
-                          isUser ? 'text-indigo-200' : 'text-slate-300'
+                        <span className={`block text-[7.5px] font-mono leading-none mt-1.5 text-right font-bold select-none ${
+                          isUser ? 'text-white/60' : 'text-slate-400'
                         }`}>
                           {msg.time}
                         </span>
@@ -1283,12 +1289,12 @@ Contexto adicional:
                 })}
 
                 {isPreviewTyping && (
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-6.5 h-6.5 bg-[#0E2B64] text-white rounded-full flex items-center justify-center shrink-0 text-[8px] font-black uppercase">
-                      {institutionCode || 'AGT'}
+                  <div className="flex items-end gap-2">
+                    <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-[#0E2B64] to-[#4f46e5] text-white flex items-center justify-center shrink-0 shadow-sm">
+                      <Bot size={13} strokeWidth={2.4} />
                     </div>
-                    <div className="bg-white rounded-2xl rounded-tl-none px-3.5 py-2.5 border border-slate-150 shadow-none">
-                      <div className="flex gap-1 items-center justify-center py-1">
+                    <div className="bg-white rounded-2xl rounded-bl-md px-4 py-3 border border-slate-200/70 shadow-sm">
+                      <div className="flex gap-1 items-center">
                         <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                         <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                         <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -1299,12 +1305,13 @@ Contexto adicional:
                 <div ref={previewChatBottomRef} />
               </div>
 
-              <div className="p-3.5 bg-white border-t border-slate-100 space-y-1">
+              {/* Rodapé de escrita — campo pill + botão enviar gradiente */}
+              <div className="p-3.5 bg-white border-t border-slate-100 space-y-2 shrink-0">
                 <div className="relative">
                   <input
                     type="text"
-                    className="w-full bg-[#f8fafc] border border-slate-200 focus:border-[#0E2B64] rounded-xl pl-3.5 pr-10 py-3 text-xs text-slate-800 outline-none transition-all placeholder:text-slate-400 font-bold"
-                    placeholder="Escreva a sua pergunta..."
+                    className="w-full bg-slate-100/80 border border-transparent focus:border-[#4f46e5]/40 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 rounded-full pl-4 pr-12 py-3 text-xs text-slate-800 outline-none transition-all placeholder:text-slate-400 font-semibold"
+                    placeholder="Escreva a sua pergunta…"
                     value={previewInput}
                     onChange={(e) => setPreviewInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleSendPreviewMessage(); }}
@@ -1312,12 +1319,13 @@ Contexto adicional:
                   <button
                     onClick={handleSendPreviewMessage}
                     disabled={!previewInput.trim() || isPreviewTyping}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#0E2B64] hover:bg-[#081a3d] text-white rounded-full flex items-center justify-center transition-all border-none cursor-pointer disabled:opacity-50"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 bg-gradient-to-br from-[#4f46e5] to-[#0E2B64] hover:opacity-90 text-white rounded-full flex items-center justify-center transition-all border-none cursor-pointer shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
+                    aria-label="Enviar pergunta"
                   >
-                    <Send size={11} className="stroke-[2.5]" />
+                    <Send size={12} className="stroke-[2.5]" />
                   </button>
                 </div>
-                <div className="text-center pt-1 select-none">
+                <div className="text-center select-none">
                   <span className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider">
                     {institutionCode || 'Instituição'} — Correio Digital de Angola • Powered by Groq
                   </span>

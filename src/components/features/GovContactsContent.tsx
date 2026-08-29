@@ -1377,6 +1377,10 @@ export function GovContactsContent({
   // Addition Modal and Form States for workers
   const [showAddWorkerModal, setShowAddWorkerModal] = useState(false);
   const [isEditingWorker, setIsEditingWorker] = useState(false);
+  // v37.77 — estado de gravação do popup Equipa: o provisionamento na nuvem
+  // (signUp + restauro de sessão) demora segundos; sem este estado o botão
+  // parecia MORTO durante a espera («nada acontece» ao clicar).
+  const [isSavingWorker, setIsSavingWorker] = useState(false);
   const [editingWorkerId, setEditingWorkerId] = useState<string | null>(null);
 
   const [newWorkerName, setNewWorkerName] = useState('');
@@ -1463,6 +1467,7 @@ export function GovContactsContent({
 
   const handleCreateWorker = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingWorker) return; // v37.77 — anti-duplo-clique durante o provisionamento
     if (!newWorkerName || !newWorkerEmail || !newWorkerPhone || !newWorkerRole) {
       notify('Por favor, preencha todos os campos obrigatórios (Nome Completo, Email Institucional, Telefone Profissional e Perfil Funcional).');
       return;
@@ -1506,6 +1511,10 @@ export function GovContactsContent({
       }
     }
 
+    // v37.77 — a partir daqui o fluxo toca a nuvem (pode demorar segundos):
+    // bloqueia o botão e mostra progresso em vez de parecer «morto».
+    setIsSavingWorker(true);
+    try {
     if (isEditingWorker && editingWorkerId) {
       if (instReg && newWorkerPassword && editingWorkerId) {
         updateInstMemberPassword(regCode, editingWorkerId, newWorkerPassword);
@@ -1656,7 +1665,20 @@ export function GovContactsContent({
           } else if (prov.outcome === 'unavailable') {
             addAuditLog?.('[AUTH-CLOUD] Nuvem indisponível ao criar o membro — credencial local mantida; migração just-in-time no primeiro login (D3).', 'warning');
           } else if (prov.outcome === 'conflict') {
-            addAuditLog?.('[AUTH-CLOUD] Conflito de conta na nuvem ao criar o membro — a credencial local mantém-se.', 'warning');
+            // v37.77 — REUTILIZAÇÃO DE Nº DE AGENTE: a conta Auth JÁ existe de
+            // uma vida anterior da instituição (conta eliminada sem limpar a
+            // nuvem — fixed em v37.76/v37.77). Em vez de manter a senha VELHA
+            // esquecida lá (o novo membro nunca conseguia entrar), repõe a
+            // senha da conta existente para a senha inicial acabada de definir.
+            addAuditLog?.('[AUTH-CLOUD] Conta na nuvem já existia (Nº reutilizado) — a repor com a nova senha inicial…', 'warning');
+            const resenha = await alterarSenhaAgente(autoWorkerAgentId, newWorkerPassword);
+            if (resenha.ok) {
+              markCloudAccount(autoWorkerAgentId, cloudEmail, cloudRole);
+              addAuditLog?.(`[AUTH-CLOUD] Conta ${autoWorkerAgentId} recuperada: senha inicial aplicada na nuvem — o membro já pode entrar.`, 'success');
+            } else {
+              addAuditLog?.(`[AUTH-CLOUD] Não foi possível repor a senha da conta existente ${autoWorkerAgentId} (${resenha.erro || 'erro'}) — use «Repor senha» na ficha do membro.`, 'warning');
+              notify(`A conta na nuvem de ${autoWorkerAgentId} já existia de um registo anterior e não foi possível aplicar a nova senha (${resenha.erro || 'erro'}). Use «Repor senha» na ficha do membro.`, 'error');
+            }
           }
         } catch (provErr) {
           console.error('[AUTH-CLOUD] Falha inesperada no provisionamento do membro:', provErr);
@@ -1693,10 +1715,17 @@ export function GovContactsContent({
       };
       setWorkers(prev => [...prev, newWorker]);
       addAuditLog?.(`[EQUIPA] Novo membro da equipa ${newWorkerName} cadastrado com sucesso.`, 'success');
+      // v37.77 — confirmação VISÍVEL (antes só entrava na auditoria): com a
+      // criação demorando segundos na nuvem, o fecho do popup sem aviso
+      // podia passar despercebido.
+      notify(`Membro ${newWorkerName} registado — Nº ${autoWorkerAgentId}. Login: ${autoWorkerAgentId} + senha inicial definida.`, 'success');
     }
 
     setShowAddWorkerModal(false);
     resetForm();
+    } finally {
+      setIsSavingWorker(false);
+    }
   };
 
   const handleEditWorkerClick = (w: Trabajador) => {
@@ -2567,10 +2596,20 @@ export function GovContactsContent({
 
                       <button
                         type="submit"
-                        className="flex-1 bg-[#0c2340] hover:bg-[#152e4d] text-white py-3.5 rounded-[20px] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#0c2340]/15 flex items-center justify-center gap-2.5 transition-all duration-300 cursor-pointer active:scale-98 font-sans border-0"
+                        disabled={isSavingWorker}
+                        className="flex-1 bg-[#0c2340] hover:bg-[#152e4d] text-white py-3.5 rounded-[20px] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#0c2340]/15 flex items-center justify-center gap-2.5 transition-all duration-300 cursor-pointer active:scale-98 font-sans border-0 disabled:opacity-70 disabled:cursor-wait"
                       >
-                        <Check size={15} className="stroke-[3]" />
-                        {isEditingWorker ? 'Guardar Ficha do Membro da Equipa' : (isPlatformAdmin ? 'Submeter Cadastro do Membro' : 'Submeter Cadastro')}
+                        {isSavingWorker ? (
+                          <>
+                            <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                            A criar conta na nuvem…
+                          </>
+                        ) : (
+                          <>
+                            <Check size={15} className="stroke-[3]" />
+                            {isEditingWorker ? 'Guardar Ficha do Membro da Equipa' : (isPlatformAdmin ? 'Submeter Cadastro do Membro' : 'Submeter Cadastro')}
+                          </>
+                        )}
                       </button>
                     </div>
                   </form>

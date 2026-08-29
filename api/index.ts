@@ -1974,9 +1974,78 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
           );
           if (dp.ok) perfis = 1;
         } catch { /* best-effort */ }
-        return res.status(200).json({ ok: true, contas, avatares, perfis });
+
+        // 4) v37.77 — ESPAÇO DE MENSAGENS (o resíduo das «23 enviadas»): a RPC
+        // v30 apaga mensagens do CÓDIGO mas não dos AGENTES (-NN) nem os
+        // protocolos de vidas anteriores — a adesão re-criada herda tudo.
+        const chavesIn = encodeURIComponent([...chaves].map((k) => `"${k}"`).join(','));
+        let mensagens = 0;
+        try {
+          const dm = await fetch(
+            `${supaUrlPerfil}/rest/v1/messages?or=(sender_bi.in.${chavesIn},recipient_bi.in.${chavesIn})&select=id`,
+            { method: 'DELETE', headers: { ...h, Prefer: 'return=representation' } },
+          );
+          if (dm.ok) {
+            const apagadas = await dm.json().catch(() => []);
+            mensagens = Array.isArray(apagadas) ? apagadas.length : 0;
+            if (mensagens > 0) {
+              const ids = apagadas.map((m: any) => `message_id.eq.${m.id}`).join(',');
+              await fetch(`${supaUrlPerfil}/rest/v1/message_state_history?or=${encodeURIComponent(ids)}`, { method: 'DELETE', headers: h }).catch(() => null);
+            }
+          }
+        } catch { /* best-effort */ }
+        // 5) protocolos digitais selados por vidas anteriores
+        let protocolos = 0;
+        try {
+          const dpr = await fetch(`${supaUrlPerfil}/rest/v1/digital_protocols?issuer_institution=in.${chavesIn}`, { method: 'DELETE', headers: h });
+          if (dpr.ok) protocolos = 1;
+        } catch { /* best-effort */ }
+        // 6) notificações + pedidos por chave de agente (complemento ao v30)
+        let notificacoes = 0;
+        try {
+          const dn = await fetch(`${supaUrlPerfil}/rest/v1/notifications?target_bi=in.${chavesIn}`, { method: 'DELETE', headers: h });
+          if (dn.ok) notificacoes = 1;
+        } catch { /* best-effort */ }
+        try {
+          const chavesUser = encodeURIComponent([...chaves].map((k) => `user_bi.eq.${k}`).join(','));
+          await fetch(`${supaUrlPerfil}/rest/v1/user_requests?or=${chavesUser}`, { method: 'DELETE', headers: h }).catch(() => null);
+          await fetch(`${supaUrlPerfil}/rest/v1/document_requests?or=${chavesUser}`, { method: 'DELETE', headers: h }).catch(() => null);
+        } catch { /* best-effort */ }
+        return res.status(200).json({ ok: true, contas, avatares, perfis, mensagens, protocolos, notificacoes });
       } catch (e: any) {
         console.error('[ELIMINAR-INSTITUICAO] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
+    // v37.77 — ELIMINAR CORRESPONDÊNCIA (Área Admin → Correspondências): apaga a
+    // linha da tabela central `correspondences`. Espelho de server.ts.
+    if (url.includes('/api/eliminar-correspondencia') && method === 'POST') {
+      try {
+        if (!supaUrlPerfil || !serviceKeyPerfil) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        const { id } = body || {};
+        const idNorm = String(id || '').trim();
+        if (!idNorm || idNorm.length > 64) return res.status(400).json({ ok: false, erro: 'Identificador inválido.' });
+        const token = String(req.headers.authorization || (req.headers as any).Authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+        const sessResp = await fetch(`${supaUrlPerfil}/auth/v1/user`, {
+          headers: { apikey: serviceKeyPerfil, Authorization: `Bearer ${token}` },
+        });
+        if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+        const sess = await sessResp.json().catch(() => null);
+        const userSess = sess && (sess.user || sess);
+        const roleCaller = String(((userSess && userSess.user_metadata) || {}).role || '').toLowerCase();
+        if (roleCaller !== 'admin') return res.status(403).json({ ok: false, erro: 'Apenas a Administração elimina correspondências.' });
+        const h = { apikey: serviceKeyPerfil, Authorization: `Bearer ${serviceKeyPerfil}` };
+        const dr = await fetch(`${supaUrlPerfil}/rest/v1/correspondences?id=eq.${encodeURIComponent(idNorm)}&select=id`, {
+          method: 'DELETE',
+          headers: { ...h, Prefer: 'return=representation' },
+        });
+        if (!dr.ok) return res.status(500).json({ ok: false, erro: `Falha na base central (HTTP ${dr.status}).` });
+        const apagada = await dr.json().catch(() => []);
+        return res.status(200).json({ ok: true, removida: Array.isArray(apagada) && apagada.length > 0 });
+      } catch (e: any) {
+        console.error('[ELIMINAR-CORRESPONDENCIA] Exceção:', e);
         return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
       }
     }
@@ -2061,7 +2130,28 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
           );
           if (dp.ok) perfis = 1;
         } catch { /* best-effort */ }
-        return res.status(200).json({ ok: true, conta, avatares, perfis });
+        // v37.77 — resíduos do agente: mensagens pela chave do Nº de agente
+        // (+ histórico órfão) e notificações — sem isto a conta re-criada com
+        // o MESMO Nº herdava a correspondência antiga.
+        let mensagens = 0;
+        try {
+          const dm = await fetch(
+            `${supaUrlPerfil}/rest/v1/messages?or=(sender_bi.eq.${encodeURIComponent(agenteNorm)},recipient_bi.eq.${encodeURIComponent(agenteNorm)})&select=id`,
+            { method: 'DELETE', headers: { ...h, Prefer: 'return=representation' } },
+          );
+          if (dm.ok) {
+            const apagadas = await dm.json().catch(() => []);
+            mensagens = Array.isArray(apagadas) ? apagadas.length : 0;
+            if (mensagens > 0) {
+              const ids = apagadas.map((m: any) => `message_id.eq.${m.id}`).join(',');
+              await fetch(`${supaUrlPerfil}/rest/v1/message_state_history?or=${encodeURIComponent(ids)}`, { method: 'DELETE', headers: h }).catch(() => null);
+            }
+          }
+        } catch { /* best-effort */ }
+        try {
+          await fetch(`${supaUrlPerfil}/rest/v1/notifications?target_bi=eq.${encodeURIComponent(agenteNorm)}`, { method: 'DELETE', headers: h }).catch(() => null);
+        } catch { /* best-effort */ }
+        return res.status(200).json({ ok: true, conta, avatares, perfis, mensagens });
       } catch (e: any) {
         console.error('[ELIMINAR-AGENTE] Exceção:', e);
         return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
@@ -2753,6 +2843,20 @@ async function dadosResolverEExecutar(opts: {
         await apagarAdm('notifications', `target_bi=eq.${encodeURIComponent(biNorm)}`);
         await apagarAdm('contacts', `owner_bi=eq.${encodeURIComponent(biNorm)}`);
         await apagarAdm('documents', `holder_bi=eq.${encodeURIComponent(biNorm)}`);
+        // v37.77 — resíduos de MENSAGENS (o cidadão re-registado não pode herdar
+        // a caixa da vida anterior) + pedidos documentais + histórico órfão.
+        await apagarAdm('document_requests', `user_bi=eq.${encodeURIComponent(biNorm)}`);
+        try {
+          const rm = await fetch(`${supaUrlAdm}/rest/v1/messages?or=(sender_bi.eq.${encodeURIComponent(biNorm)},recipient_bi.eq.${encodeURIComponent(biNorm)})&select=id`, { method: 'DELETE', headers: { ...hAdm, Prefer: 'return=representation' } });
+          if (rm.ok) {
+            const apagadas = await rm.json().catch(() => []);
+            detalhes['messages'] = Array.isArray(apagadas) ? apagadas.length : 0;
+            if (Array.isArray(apagadas) && apagadas.length) {
+              const ids = apagadas.map((m: any) => `message_id.eq.${m.id}`).join(',');
+              await fetch(`${supaUrlAdm}/rest/v1/message_state_history?or=${encodeURIComponent(ids)}`, { method: 'DELETE', headers: hAdm }).catch(() => null);
+            }
+          }
+        } catch { /* best-effort */ }
         let authRemovido = false;
         try {
           let pagina = 1;

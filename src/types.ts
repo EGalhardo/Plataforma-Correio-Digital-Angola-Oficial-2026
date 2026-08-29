@@ -101,6 +101,11 @@ export interface Message {
   sondagem_ids?: number[] | null;
   /** F15 — chave da sessão remetente (caixa "Enviadas" isolada por conta). */
   senderKey?: string;
+  /** v37.77 — difusão (sondagem/emergência): Nº de destinatários do MESMO
+   *  lote de envio. Presente apenas na lista «Enviadas» do emissor, onde o
+   *  lote aparece UMA vez («Difusão para N destinatários») em vez de uma
+   *  linha por cidadão — 1 sondagem ≠ 23 correspondências no espelho. */
+  broadcastRecipients?: number;
 }
 
 export interface Document {

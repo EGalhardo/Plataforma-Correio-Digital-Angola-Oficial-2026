@@ -535,14 +535,18 @@ export function GovDashboard({
         {/* ID Digital & Novas Mensagens Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="bg-white border border-slate-200 rounded-[28px] md:rounded-[32px] p-5 md:p-6 flex items-center gap-4 md:gap-6 relative overflow-hidden text-left font-sans">
-            {/* v37.49 — novo logotipo oficial do Correio Angola (substitui o
-                escudo verde). Mesmas dimensões/raio para manter o alinhamento;
-                object-cover e cantos redondados => harmonioso em claro e escuro. */}
-            <img
-              src="https://i.postimg.cc/zGkDmXSG/Icone-Correio-Angola.jpg"
-              alt="Ícone Correio Angola"
-              className="w-12 h-12 md:w-16 md:h-16 rounded-2xl object-cover shrink-0"
-            />
+            {/* v37.77 — logotipo Correio Angola COMPLETO: antes object-cover
+                CORTAVA partes do logótipo no quadrado arredondado (visível no
+                modo escuro). Agora object-contain dentro de um moldura clara
+                com respiro interno — a logomarca inteira fica visível em
+                qualquer tema, sem distorção. */}
+            <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl shrink-0 flex items-center justify-center overflow-hidden" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)' }}>
+              <img
+                src="https://i.postimg.cc/zGkDmXSG/Icone-Correio-Angola.jpg"
+                alt="Ícone Correio Angola"
+                className="w-full h-full object-contain p-1"
+              />
+            </div>
             <div className="min-w-0 flex-1">
               <div className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">ID Digital do Admin</div>
               <div className="text-base md:text-xl font-black text-slate-900 leading-tight italic tracking-tighter">

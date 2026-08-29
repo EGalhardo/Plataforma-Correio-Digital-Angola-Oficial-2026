@@ -23,11 +23,13 @@ import {
   Cpu,
   Share2,
   ArrowLeft,
-  Loader2
+  Loader2,
+  Trash2
 } from 'lucide-react';
 import { Correspondence } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
 import { VideoSessionPanel } from './VideoSessionPanel';
+import { CdaConfirmModal } from '../ui/CdaConfirm';
 
 export interface GovCorrespondenciasContentProps {
   correspondences?: Correspondence[];
@@ -37,6 +39,8 @@ export interface GovCorrespondenciasContentProps {
   /** 2026-08-21 (UX) — verdadeiro enquanto a primeira sincronização com a
    *  nuvem decorre: a lista mostra um indicador de carregamento honesto. */
   carregando?: boolean;
+  /** v37.77 — eliminação de correspondência pelo Admin (nuvem + espelho local). */
+  onDeleteCorrespondence?: (id: string) => Promise<void>;
 }
 
 // Prepare Correspondence function: acts as a data normalizer / enhancer
@@ -114,13 +118,33 @@ export function GovCorrespondenciasContent({
   onAddCorrespondence,
   onUpdateStatus,
   onNavigate,
-  carregando = false
+  carregando = false,
+  onDeleteCorrespondence
 }: GovCorrespondenciasContentProps) {
   const { t } = useLanguage();
   const { institutions } = useInstitutions();
   const [showVideoPage, setShowVideoPage] = useState(false);
   const [localCorrespondences, setLocalCorrespondences] = useState<Correspondence[]>([]);
   const [showTelemetry, setShowTelemetry] = useState(false);
+  // v37.77 — eliminação de correspondência (Admin): pedido + estado de espera
+  const [pedidoEliminar, setPedidoEliminar] = useState<Correspondence | null>(null);
+  const [eliminandoCor, setEliminandoCor] = useState<string | null>(null);
+
+  const confirmarEliminarCorrespondencia = async () => {
+    if (!pedidoEliminar || eliminandoCor) return;
+    setEliminandoCor(pedidoEliminar.id);
+    try {
+      await onDeleteCorrespondence?.(pedidoEliminar.id);
+      setLocalCorrespondences(prev => prev.filter(c => c.id !== pedidoEliminar.id));
+      notify(`Correspondência «${pedidoEliminar.subject}» eliminada do expediente.`, 'success');
+    } catch (e) {
+      notify('Não foi possível eliminar a correspondência. Verifique a ligação e tente novamente.');
+    } finally {
+      setEliminandoCor(null);
+      setPedidoEliminar(null);
+      if (selectedLetter?.id === pedidoEliminar.id) setSelectedLetter(null);
+    }
+  };
   const rawCorrespondences = propsCorrespondences || localCorrespondences;
 
   // Enhance all correspondences with structured metadata
@@ -702,16 +726,27 @@ export function GovCorrespondenciasContent({
 
                     {/* Actions button */}
                     <td className="py-4.5 px-5 text-center">
-                      <button 
-                        onClick={() => {
-                          setSelectedLetter(item);
-                          setIsForwarding(false);
-                        }}
-                        className="py-1.5 px-3 bg-[#0c2340] hover:bg-slate-800 border-0 rounded-xl text-[9px] font-black uppercase text-white tracking-widest transition-colors cursor-pointer inline-flex items-center gap-1"
-                        title="Abrir Auditoria / Ficha de Correspondência"
-                      >
-                        <Eye size={12} /> Ficha
-                      </button>
+                      <div className="inline-flex items-center gap-1.5">
+                        <button 
+                          onClick={() => {
+                            setSelectedLetter(item);
+                            setIsForwarding(false);
+                          }}
+                          className="py-1.5 px-3 bg-[#0c2340] hover:bg-slate-800 border-0 rounded-xl text-[9px] font-black uppercase text-white tracking-widest transition-colors cursor-pointer inline-flex items-center gap-1"
+                          title="Abrir Auditoria / Ficha de Correspondência"
+                        >
+                          <Eye size={12} /> Ficha
+                        </button>
+                        {/* v37.77 — ELIMINAR correspondência (Admin) */}
+                        <button 
+                          onClick={() => setPedidoEliminar(item)}
+                          disabled={!!eliminandoCor}
+                          className="py-1.5 px-3 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl text-[9px] font-black uppercase text-red-600 tracking-widest transition-colors cursor-pointer inline-flex items-center gap-1 disabled:opacity-50"
+                          title="Eliminar correspondência (definitivo)"
+                        >
+                          {eliminandoCor === item.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Eliminar
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1320,6 +1355,19 @@ export function GovCorrespondenciasContent({
           </>
         )}
       </AnimatePresence>
+
+      {/* v37.77 — confirmação de eliminação de correspondência (Admin) */}
+      <CdaConfirmModal
+        aberto={!!pedidoEliminar}
+        titulo="Eliminar Correspondência"
+        subtitulo="Acção definitiva da Administração"
+        mensagem={`Tem a certeza que deseja ELIMINAR definitivamente a correspondência «${pedidoEliminar?.subject || ''}» (${pedidoEliminar?.sender || ''} → ${pedidoEliminar?.recipient || ''}) do expediente? A linha é apagada da base central e não pode ser recuperada.`}
+        textoConfirmar="Eliminar"
+        textoCancelar="Manter"
+        perigoso={true}
+        onConfirmar={() => { void confirmarEliminarCorrespondencia(); }}
+        onCancelar={() => setPedidoEliminar(null)}
+      />
 
     </div>
   );
