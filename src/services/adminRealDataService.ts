@@ -195,6 +195,17 @@ export async function carregarDadosReaisAdmin(forcar = false): Promise<AdminReal
   if (!forcar && cache && agora - cache.carregadoEm < CACHE_MS) return cache;
   if (!forcar && emCurso) return emCurso;
   emCurso = (async () => {
+    // v37.73 — telemetria IA (v28): a RLS revogou a leitura anónima das tabelas
+    // ia_conversas_log/ia_telemetria_resumo — sem sessão autenticada (admin demo
+    // local) os dois SELECTs estavam condenados a 401 em cada página da área de
+    // Administração. Segue-se o padrão v28 do supabaseService (carregarTelemetria
+    // Instituicao: SEM_SESSAO salta silenciosamente): sem sessão, não se pergunta.
+    let temSessaoAuth = false;
+    try {
+      const { data: sessTm } = await supabase.auth.getSession();
+      temSessaoAuth = !!sessTm?.session;
+    } catch { temSessaoAuth = false; }
+    const semLeitura: PromiseLike<{ data: any[]; error: any }> = Promise.resolve({ data: [], error: null });
     const [
       profilesRaw, auditRaw, auditTotal, mensagensRaw, mensagensTotal,
       videoRaw, docsRaw, protRaw, pagRaw, iaLogsRaw, iaTelRaw,
@@ -209,8 +220,8 @@ export async function carregarDadosReaisAdmin(forcar = false): Promise<AdminReal
       ler(supabase.from('documents').select('id,name,holder_bi,issued_at,status').order('issued_at', { ascending: false }).limit(500)),
       ler(supabase.from('digital_protocols').select('id,protocol_number,issuer_institution,official_issue_date,document_type,current_state').order('official_issue_date', { ascending: false }).limit(500)),
       ler(supabase.from('pagamentos').select('id,instituicao_sigla,destinatario_bi,descricao,valor,estado,created_at').order('created_at', { ascending: false }).limit(500)),
-      ler(supabase.from('ia_conversas_log').select('id,papel,sigla,canal,resposta_ok,lat_ms,created_at').order('created_at', { ascending: false }).limit(500)),
-      ler(supabase.from('ia_telemetria_resumo').select('dia,sigla,canal,total,ok,sessoes,lat_media_ms').order('dia', { ascending: false }).limit(500)),
+      ler(temSessaoAuth ? supabase.from('ia_conversas_log').select('id,papel,sigla,canal,resposta_ok,lat_ms,created_at').order('created_at', { ascending: false }).limit(500) : semLeitura),
+      ler(temSessaoAuth ? supabase.from('ia_telemetria_resumo').select('dia,sigla,canal,total,ok,sessoes,lat_media_ms').order('dia', { ascending: false }).limit(500) : semLeitura),
       ler(supabase.from('solicitacoes_registo').select('id,nome,bi_numero,status,criado_em').order('criado_em', { ascending: false }).limit(500)),
       ler(supabase.from('user_requests').select('id,user_bi,user_name,service_type,status,request_date').order('request_date', { ascending: false }).limit(500)),
     ]);
