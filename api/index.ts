@@ -3141,10 +3141,6 @@ async function dadosResolverEExecutar(opts: {
       }
     }
 
-    // Fallback global de rotas
-    return res.status(404).json({ error: "Endpoint não encontrado." });
-
-  
     // v37.78.10 — EMAIL DE BOAS-VINDAS no registo concluído (espelho do server.ts).
     if (url.includes('/api/enviar-email-boas-vindas') && method === 'POST') {
       try {
@@ -3193,6 +3189,11 @@ async function dadosResolverEExecutar(opts: {
         console.error('[EMAIL-BOAS-VINDAS] Exceção:', e);
         return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
       }
+
+    // Fallback global de rotas
+    return res.status(404).json({ error: "Endpoint não encontrado." });
+
+  
     }
 
 } catch (err: any) {
