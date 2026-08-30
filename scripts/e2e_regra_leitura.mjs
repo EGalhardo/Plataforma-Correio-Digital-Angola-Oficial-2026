@@ -129,13 +129,22 @@ try {
   });
   await page.waitForTimeout(1500);
 
-  // ---------- A2 · «Enviadas» mostra recibo «Não Lida» ----------
-  await clicar(page, /enviadas/i);
-  await page.waitForTimeout(2500);
-  const enviadasTxt = await page.evaluate(() => document.body.innerText);
-  const linhaEnviada = enviadasTxt.includes(ASSUNTO);
-  const reciboNaoLida = new RegExp(`Não Lida`, 'i').test(enviadasTxt);
-  reg('A2-enviadas-recibo', linhaEnviada ? 'PASS' : 'FAIL', linhaEnviada ? `carta listada; recibo «Não Lida» ${reciboNaoLida ? 'visível' : 'não visível nesta vista'}` : 'carta não está nas Enviadas');
+  // ---------- A2 · «Enviadas»: cópia do remetente SEMPRE «Enviada» (v37.78.16)
+  const verificarChipEnviada = async (rotulo) => {
+    await clicar(page, /enviadas/i);
+    await page.waitForTimeout(2500);
+    return await page.evaluate((a) => {
+      const tr = [...document.querySelectorAll('tr')].filter(r => (r.textContent || '').includes(a));
+      if (!tr.length) return { existe: false };
+      const alvo = tr[tr.length - 1];
+      // chip de estado = span cujo texto é exactamente Enviada/Não Lida/Lida
+      const chip = [...alvo.querySelectorAll('span')].map(sp => (sp.textContent || '').trim()).find(t => /^(enviada|não lida|lida|lido|não lido|consultado)$/i.test(t)) || '';
+      return { existe: true, enviada: /^enviada$/i.test(chip), naoLida: /não lida/i.test(chip), chip, amostra: chip };
+    }, ASSUNTO).then(r => ({ ...r, rotulo }));
+  };
+  const chip1 = await verificarChipEnviada('antes de abrir');
+  reg('A2-enviadas-estado-enviada', chip1.existe && chip1.enviada && !chip1.naoLida ? 'PASS' : 'FAIL',
+    chip1.existe ? `chip «Enviada»=${chip1.enviada} · «Não Lida»=${chip1.naoLida} · chip: «${chip1.amostra}»` : 'carta não está nas Enviadas');
 
   // ---------- A3 · REMETENTE abre a enviada → unread TEM DE MANTER TRUE ----------
   await page.evaluate((assunto) => {
@@ -151,6 +160,16 @@ try {
   reg('A3-remetente-abre-nao-marca', rowAposRemetente && rowAposRemetente.unread === true ? 'PASS' : 'FAIL',
     rowAposRemetente ? `unread=${rowAposRemetente.unread} na nuvem depois do remetente abrir (esperado: true)` : 'linha desapareceu?!');
   await page.screenshot({ path: '/home/user/cda_test/screenshots/regraR2_A3_remetente_abriu.png' });
+
+  // A3b · v37.78.16 — a cópia do remetente CONTINUA «Enviada» depois de aberta
+  await page.evaluate(() => {
+    const b = [...document.querySelectorAll('button, a')].filter(e => e.getBoundingClientRect().width > 0 && /^correio$/i.test((e.textContent || '').trim()));
+    if (b.length) b[0].click();
+  });
+  await page.waitForTimeout(2500);
+  const chip2 = await verificarChipEnviada('depois de abrir');
+  reg('A3b-enviada-permanece-pos-abertura', chip2.existe && chip2.enviada && !chip2.naoLida ? 'PASS' : 'FAIL',
+    chip2.existe ? `chip «Enviada»=${chip2.enviada} · «Não Lida»=${chip2.naoLida} · chip: «${chip2.amostra}»` : 'carta deixou de estar nas Enviadas');
 
   // ---------- B1 · notificação existe para o cidadão ----------
   await new Promise(r => setTimeout(r, 1500));

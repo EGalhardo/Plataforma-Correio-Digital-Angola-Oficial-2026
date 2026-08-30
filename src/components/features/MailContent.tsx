@@ -420,6 +420,19 @@ export function MailContent({
   // existe o anti-repetição do gatilho automático (não chama a RPC dezenas de
   // vezes — cada chamada é auditada e conta para o limite anti-abuso 200/h).
   const lastLookupBiRef = useRef('');
+  // REGRA DE ESTADO DAS ENVIADAS (v37.78.16): a cópia do remetente é sempre
+  // apresentada como «Enviada» — nunca «Não Lida»/«Lida». O estado de leitura
+  // pertence apenas à cópia do DESTINATÁRIO (regras R1–R6, v37.78.12).
+  const minhaChaveEstado = String(bi || '').toUpperCase().replace(/\s+/g, '');
+  const ehCopiaEnviadaRemetente = (m: Message): boolean => {
+    const sk = String((m as any).senderKey || '').toUpperCase().replace(/\s+/g, '');
+    const rb = String((m as any).recipientBi || '').toUpperCase().replace(/\s+/g, '');
+    // cópia enviada: o remetente sou eu E o destinatário é outra conta
+    if (sk && sk === minhaChaveEstado && rb !== minhaChaveEstado) return true;
+    // fallback: na tab «Enviadas» todas as linhas são cópias do remetente
+    return correspondenciaTab === 'enviadas';
+  };
+
   const normalizedDestBi = composeData.to.trim().toUpperCase();
   const lookupVisible =
     !!isInst &&
@@ -1855,6 +1868,9 @@ export function MailContent({
         {isInst && <button onClick={() => setTab('inst-qrcode')} className="cda-link-text">{translateText("Validação QR", currentLanguage)}</button>}
       </div>
 
+      {/* REGRA DE ESTADO DAS ENVIADAS (v37.78.16): a cópia do remetente é
+          sempre «Enviada» — nunca «Não Lida»/«Lida». O estado de leitura
+          pertence apenas à cópia do DESTINATÁRIO (regras R1–R6, v37.78.12). */}
       {/* Filters & Tabs Container */}
       <div className="bg-white border border-slate-300 rounded-[32px] p-2.5 shadow-sm flex flex-col lg:flex-row gap-3">
         <div className="flex flex-wrap md:flex-nowrap gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl lg:min-w-[500px] w-full lg:w-auto">
@@ -1962,11 +1978,13 @@ export function MailContent({
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                              item.unread 
+                              ehCopiaEnviadaRemetente(item)
+                                ? 'bg-blue-600 text-white border border-blue-600'
+                                : item.unread 
                                 ? 'bg-red-600 text-white border border-red-600' 
                                 : 'bg-emerald-600 text-white border border-emerald-600'
                             }`}>
-                              {t(item.unread ? 'Não Lida' : 'Lida')}
+                              {t(ehCopiaEnviadaRemetente(item) ? 'Enviada' : (item.unread ? 'Não Lida' : 'Lida'))}
                             </span>
                             <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${getOrgBadgeStyles(item.org)}`}>
                               {t((item.org || '').toUpperCase().startsWith('SOC - ') ? 'SOC' : item.org)}
@@ -1977,7 +1995,7 @@ export function MailContent({
                                 {t('Difusão')} · {(item as any).broadcastRecipients} {t('destinatários')}
                               </span>
                             ) : null}
-                            {item.unread && (
+                            {item.unread && !ehCopiaEnviadaRemetente(item) && (
                               <span className="w-1.5 h-1.5 rounded-full bg-[#f87171] inline-block animate-pulse shrink-0" />
                             )}
                           </div>
