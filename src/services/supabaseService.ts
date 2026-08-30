@@ -417,6 +417,32 @@ export const permissoesAgente = async (
   }
 };
 
+/** FICHA `profiles` DO MEMBRO DA EQUIPA (v37.78.6) — o «Registar Novo Membro
+ *  da Equipa» provê a conta Auth mas a lista Equipa deriva de `profiles`:
+ *  sem esta chamada o membro nunca aparecia (nem noutros dispositivos).
+ *  · 'criar': upsert da ficha (bi=Nº agente, name, role, phone, email) — só o
+ *    responsável da área (inst `SIGLA-…-01` / Admin Alfa), verificado no SERVIDOR;
+ *  · 'listar': membros da própria área gravados na base central. */
+export const equipaMembroCloud = async (
+  acao: 'criar' | 'listar',
+  membro?: { agente: string; nome: string; email?: string; phone?: string },
+): Promise<{ ok: boolean; membros?: { bi: string; name: string; phone?: string; email?: string }[]; erro?: string }> => {
+  try {
+    const token = await obterTokenSessao();
+    if (!token) return { ok: false, erro: 'A sua sessão expirou por motivos de segurança. Saia e entre novamente para continuar.' };
+    const resp = await fetch('/api/equipa-membro', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(acao === 'listar' ? { acao } : { acao, ...membro }),
+    });
+    const j = await resp.json().catch(() => null);
+    if (j && j.ok === true) return { ok: true, membros: j.membros };
+    return { ok: false, erro: (j && j.erro) || `HTTP ${resp.status}` };
+  } catch {
+    return { ok: false, erro: 'Rede indisponível.' };
+  }
+};
+
 /** SENHA DO AGENTE NA NUVEM (2026-08-22) — a senha vive no Supabase Auth:
  *  quando o responsável da área repõe a senha de um colaborador/agente na
  *  página Equipa, esta chamada actualiza a conta Auth correspondente. Sem
@@ -2517,6 +2543,8 @@ export const supabaseService = {
    *  responsável da área é autorizado). */
   permissoesAgente: (acao: 'ler' | 'gravar', agente?: string, paginas?: string[]) =>
     permissoesAgente(acao, agente, paginas),
+  equipaMembroCloud: (acao: 'criar' | 'listar', membro?: { agente: string; nome: string; email?: string; phone?: string }) =>
+    equipaMembroCloud(acao, membro),
 
   /** 2026-08-22 — senha do agente na NUVEM (responsável da área repõe na Equipa). */
   alterarSenhaAgente: (agente: string, senha: string) => alterarSenhaAgente(agente, senha),

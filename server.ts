@@ -1301,6 +1301,91 @@ async function dadosResolverEExecutar(opts: {
     }
   });
 
+  // v37.78.6 — FICHA `profiles` DO MEMBRO DA EQUIPA (criar/listar).
+  // O «Registar Novo Membro da Equipa» criava a conta Auth (supabase) mas
+  // NUNCA gravava a linha `profiles` — a lista Equipa da Administração deriva
+  // de profiles (agentesReais) e a da Instituição não tinha fonte na nuvem:
+  // o membro "desaparecia" (nada acontecia aos olhos do responsável).
+  // Aqui o RESPONSÁVEL da área (inst `SIGLA-…-01` ou Admin Alfa `ADMIN-0001`)
+  // cria/actualiza a ficha do próprio agente e lista a equipa da sua área.
+  app.post("/api/equipa-membro", async (req, res) => {
+    try {
+      const { acao, agente, nome, email, phone } = req.body || {};
+      const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+      const admin = createSupabaseAdminClient();
+      if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      const { data: sess, error: sessErr } = await admin.auth.getUser(token);
+      if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+      const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
+      const roleCaller = String(meta.role || '').toLowerCase();
+      const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
+      const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+      const ehResponsavelInst = roleCaller === 'instituicao' && !!instCaller && agentCaller === `${instCaller}-01`;
+      const ehAlfa = roleCaller === 'admin' && agentCaller === 'ADMIN-0001';
+
+      // ---- LISTAR: equipa da própria área (base central) ----
+      if (acao === 'listar') {
+        if (ehResponsavelInst) {
+          const { data, error } = await admin.from('profiles')
+            .select('bi,name,phone,email,role')
+            .eq('role', 'instituicao')
+            .like('bi', `${instCaller}-%`);
+          if (error) return res.status(500).json({ ok: false, erro: error.message });
+          // só COLABORADORES (seq >= 2): o nº 01 é o próprio responsável
+          const membros = (data || []).filter((p: any) => {
+            const seq = parseInt((String(p.bi || '').match(/-(\d+)$/) || [])[1] || '0', 10);
+            return seq >= 2;
+          });
+          return res.status(200).json({ ok: true, membros });
+        }
+        if (ehAlfa) {
+          const { data, error } = await admin.from('profiles')
+            .select('bi,name,phone,email,role')
+            .eq('role', 'admin');
+          if (error) return res.status(500).json({ ok: false, erro: error.message });
+          return res.status(200).json({ ok: true, membros: data || [] });
+        }
+        return res.status(403).json({ ok: false, erro: 'Apenas o responsável da área pode listar a equipa.' });
+      }
+
+      // ---- CRIAR/ACTUALIZAR: upsert da ficha (nunca role de terceiros) ----
+      if (acao === 'criar') {
+        const agenteNorm = String(agente || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(agenteNorm)) return res.status(400).json({ ok: false, erro: 'Nº de agente inválido.' });
+        const nomeNorm = String(nome || '').trim().slice(0, 120);
+        if (!nomeNorm) return res.status(400).json({ ok: false, erro: 'Nome do membro obrigatório.' });
+        let roleMembro: 'instituicao' | 'admin';
+        if (/^ADMIN-\d+$/.test(agenteNorm)) {
+          if (!ehAlfa || agenteNorm === 'ADMIN-0001') {
+            return res.status(403).json({ ok: false, erro: 'Sem autorização para gerir este agente.' });
+          }
+          roleMembro = 'admin';
+        } else {
+          const mSeq = agenteNorm.match(/-(\d+)$/);
+          const seq = mSeq ? parseInt(mSeq[1], 10) : 0;
+          if (!ehResponsavelInst || !agenteNorm.startsWith(`${instCaller}-`) || seq < 2) {
+            return res.status(403).json({ ok: false, erro: 'Sem autorização para gerir este colaborador.' });
+          }
+          roleMembro = 'instituicao';
+        }
+        const payload: Record<string, unknown> = { bi: agenteNorm, name: nomeNorm, role: roleMembro };
+        const tel = String(phone || '').trim();
+        if (tel) payload.phone = tel.slice(0, 40);
+        const em = String(email || '').trim();
+        if (em && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) payload.email = em.slice(0, 120);
+        const { error: upErr } = await admin.from('profiles').upsert([payload], { onConflict: 'bi' });
+        if (upErr) return res.status(500).json({ ok: false, erro: upErr.message });
+        return res.status(200).json({ ok: true, agente: agenteNorm });
+      }
+
+      return res.status(400).json({ ok: false, erro: 'Ação desconhecida.' });
+    } catch (e) {
+      console.error('[EQUIPA-MEMBRO] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
   // Rota do proxy CRUD do Modo Real (ver bloco PROXY CRUD acima).
   app.post("/api/dados", async (req, res) => {
     try {

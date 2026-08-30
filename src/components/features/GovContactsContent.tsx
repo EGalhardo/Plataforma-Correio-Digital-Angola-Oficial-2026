@@ -64,7 +64,7 @@ import {
   LayoutGrid
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import { registoPublicoProxy, eliminarCidadaoAdmin, eliminarAgente, permissoesAgente, alterarSenhaAgente, enviarMensagemAdministrativa } from '../../services/supabaseService';
+import { registoPublicoProxy, eliminarCidadaoAdmin, eliminarAgente, permissoesAgente, alterarSenhaAgente, enviarMensagemAdministrativa, equipaMembroCloud } from '../../services/supabaseService';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { limparPendenciaPerfil } from '../../services/profileSyncService';
 import { limparLoginFalhas } from '../../services/loginSecurityService';
@@ -911,6 +911,36 @@ export function GovContactsContent({
     return () => { vivo = false; };
   }, []);
 
+  // v37.78.6 — EQUIPA DA INSTITUIÇÃO a partir da BASE CENTRAL: os colaboradores
+  // criados no popup nascem com conta Auth + linha `profiles`; sem esta leitura
+  // a lista só via o espelho local (cda_inst_regs_v1), que não existe quando a
+  // instituição foi registada directamente na nuvem — o membro "desaparecia"
+  // logo a seguir ao registo (aos olhos do responsável, "nada acontecia").
+  const [membrosCloudInst, setMembrosCloudInst] = useState<Trabajador[]>([]);
+  const refrescarMembrosCloudInst = React.useCallback(async () => {
+    if (appMode !== 'institution' || shouldUseMockFallback()) return;
+    try {
+      const res = await equipaMembroCloud('listar');
+      if (res.ok && Array.isArray(res.membros)) {
+        setMembrosCloudInst(res.membros.map<Trabajador>(m => ({
+          id: `cloud-${m.bi}`,
+          name: m.name || m.bi,
+          email: m.email || '—',
+          phone: m.phone || '—',
+          role: 'Colaborador Institucional',
+          department: '—',
+          agentId: m.bi,
+          status: 'Ativo',
+          lastAccess: 'Registo na base central',
+          registrationDate: '—',
+          permissions: ['Visualizar'],
+          activityLogs: [],
+        })));
+      }
+    } catch { /* melhor esforço */ }
+  }, [appMode]);
+  React.useEffect(() => { void refrescarMembrosCloudInst(); }, [refrescarMembrosCloudInst]);
+
   // Equipa REAL: contas de agente existentes na base central (role admin ou BI
   // codificado de agente). É a fonte canónica em Modo Real — o espelho local
   // (membros registados nesta consola) é somado sem duplicar.
@@ -1615,10 +1645,54 @@ export function GovContactsContent({
         ]
       } : w));
       addAuditLog?.(`[EQUIPA] Registo do membro da equipa ${newWorkerName} atualizado com sucesso.`, 'success');
+      notify(`Ficha de ${newWorkerName} guardada com sucesso.`, 'success');
+      // v37.78.6 — propagar a edição à ficha da base central (nome/telefone/email)
+      const agEdit = workers.find(w => w.id === editingWorkerId)?.agentId;
+      if (agEdit && /^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(agEdit.toUpperCase())) {
+        void equipaMembroCloud('criar', {
+          agente: agEdit.toUpperCase(),
+          nome: newWorkerName,
+          email: newWorkerEmail,
+          phone: newWorkerPhone,
+        }).then((res) => {
+          if (res.ok) addAuditLog?.(`[EQUIPA] Ficha de ${agEdit.toUpperCase()} actualizada na base central (profiles).`, 'success');
+          else addAuditLog?.(`[EQUIPA] Edição local gravada, mas a base central não foi actualizada (${res.erro || 'erro'}).`, 'warning');
+        }).catch(() => {});
+      }
     } else {
       const defaultPerms = isPlatformAdmin 
         ? ['Visualizar', 'Homologar']
         : ['Visualizar'];
+
+      // v37.78.6 — ANTI-COLISÃO com a base central: o nº local pode estar
+      // desactualizado (2.º dispositivo, browser sem espelho local) e o upsert
+      // da ficha sobrescreveria outro membro com o mesmo nº. Se o nº já existe
+      // na nuvem, avança para o próximo livre (aviso no dossier).
+      let numeroAgenteFinal = autoWorkerAgentId;
+      try {
+        const resLista = await equipaMembroCloud('listar');
+        if (resLista.ok && Array.isArray(resLista.membros)) {
+          const usados = new Set(resLista.membros.map(m => String(m.bi || '').toUpperCase()).filter(Boolean));
+          if (usados.has(String(numeroAgenteFinal || '').toUpperCase())) {
+            const mpref = String(numeroAgenteFinal || '').match(/^([A-Z0-9]+(?:-[A-Z]+)*-)(\d+)$/);
+            if (mpref) {
+              let seq = 0;
+              usados.forEach(u => {
+                const mu = u.match(/^([A-Z0-9]+(?:-[A-Z]+)*-)(\d+)$/);
+                if (mu && mu[1] === mpref[1]) seq = Math.max(seq, parseInt(mu[2], 10));
+              });
+              let cand = `${mpref[1]}${String(seq + 1).padStart(mpref[2].length, '0')}`;
+              while (usados.has(cand) || workers.some(w => (w.agentId || '').toUpperCase() === cand)) {
+                const mc = cand.match(/^(.*-)(\d+)$/);
+                if (!mc) break;
+                cand = `${mc[1]}${String(parseInt(mc[2], 10) + 1).padStart(mc[2].length, '0')}`;
+              }
+              addAuditLog?.(`[EQUIPA] O nº ${autoWorkerAgentId} já existe na base central — o novo membro recebeu o nº ${cand}.`, 'warning');
+              numeroAgenteFinal = cand;
+            }
+          }
+        }
+      } catch { /* melhor esforço — mantém o nº local */ }
 
       const newWorkerId = `w-${Date.now()}`;
       if (instReg) {
@@ -1632,19 +1706,19 @@ export function GovContactsContent({
           dept: newWorkerDept || 'Geral',
           password: newWorkerPassword,
           mustChangePassword: true,
-          agentNumber: autoWorkerAgentId, // F6 — 'SME-LLVV-NN'
+          agentNumber: numeroAgenteFinal, // F6 — 'SME-LLVV-NN'
           paginasPermitidas: paginasEfetivas(), // 2026-08-22 — páginas concedidas
         });
       }
       if (adminCredsOn) {
         addAdminAgent({
-          agent: autoWorkerAgentId, // F6 — 'ADMIN-NNNN' (sequencial; o Alfa reserva o nº 1)
+          agent: numeroAgenteFinal, // F6 — 'ADMIN-NNNN' (sequencial; o Alfa reserva o nº 1)
           password: newWorkerPassword,
           workerId: newWorkerId,
           name: newWorkerName,
           paginasPermitidas: paginasEfetivas(), // 2026-08-22 — páginas concedidas
         });
-        addAuditLog?.(`[EQUIPA] Agente ${autoWorkerAgentId} (${newWorkerName}) criado — login Admin com Nº + senha inicial.`, 'success');
+        addAuditLog?.(`[EQUIPA] Agente ${numeroAgenteFinal} (${newWorkerName}) criado — login Admin com Nº + senha inicial.`, 'success');
       }
       // F32 (v12/D4-a) — o novo membro nasce na NUVEM: a palavra-passe vive apenas
       // no Supabase Auth. 2026-08-22 — o provisionamento passa a ser AGUARDADO
@@ -1664,20 +1738,20 @@ export function GovContactsContent({
       } catch { /* best-effort */ }
       if (isSupabaseConfigured() && newWorkerPassword && (instReg || adminCredsOn || (appMode === 'institution' && !!regCode))) {
         const cloudEmail = adminCredsOn
-          ? syntheticAdminEmail(autoWorkerAgentId)
-          : syntheticInstitutionAgentEmail(autoWorkerAgentId);
+          ? syntheticAdminEmail(numeroAgenteFinal)
+          : syntheticInstitutionAgentEmail(numeroAgenteFinal);
         const cloudRole: 'instituicao' | 'admin' = adminCredsOn ? 'admin' : 'instituicao';
         try {
           const prov = await provisionCloudAccount(supabase, {
             email: cloudEmail,
             password: newWorkerPassword,
             metadata: adminCredsOn
-              ? { agent: autoWorkerAgentId, name: newWorkerName, workerId: newWorkerId, role: 'admin', email: newWorkerEmail, phone: newWorkerPhone, paginasPermitidas: paginasEfetivas() }
-              : { agent: autoWorkerAgentId, instituicao: regCode, name: newWorkerName, role: 'instituicao', email: newWorkerEmail, phone: newWorkerPhone, paginasPermitidas: paginasEfetivas() },
+              ? { agent: numeroAgenteFinal, name: newWorkerName, workerId: newWorkerId, role: 'admin', email: newWorkerEmail, phone: newWorkerPhone, paginasPermitidas: paginasEfetivas() }
+              : { agent: numeroAgenteFinal, instituicao: regCode, name: newWorkerName, role: 'instituicao', email: newWorkerEmail, phone: newWorkerPhone, paginasPermitidas: paginasEfetivas() },
           });
           if (prov.outcome === 'ok' || prov.outcome === 'linked_existing') {
-            markCloudAccount(autoWorkerAgentId, cloudEmail, cloudRole);
-            addAuditLog?.(`[AUTH-CLOUD] Membro ${autoWorkerAgentId} (${newWorkerName}) nascido na nuvem — a palavra-passe vive apenas no Supabase Auth.`, 'success');
+            markCloudAccount(numeroAgenteFinal, cloudEmail, cloudRole);
+            addAuditLog?.(`[AUTH-CLOUD] Membro ${numeroAgenteFinal} (${newWorkerName}) nascido na nuvem — a palavra-passe vive apenas no Supabase Auth.`, 'success');
           } else if (prov.outcome === 'pending_confirm') {
             addAuditLog?.('[AUTH-CLOUD] ATENÇÃO: confirmação de e-mail activa no Supabase — desactivar (Authentication → Providers → Email).', 'warning');
           } else if (prov.outcome === 'unavailable') {
@@ -1699,7 +1773,7 @@ export function GovContactsContent({
       // (após eliminação de um colaborador anterior) e não pode herdar o
       // bloqueio anti-força-bruta da conta antiga — "Demasiadas tentativas
       // falhadas... 8 minutos" logo no primeiro login.
-      try { limparLoginFalhas(autoWorkerAgentId); } catch { /* melhor esforço */ }
+      try { limparLoginFalhas(numeroAgenteFinal); } catch { /* melhor esforço */ }
 
       const newWorker: Trabajador = {
         id: newWorkerId,
@@ -1708,7 +1782,7 @@ export function GovContactsContent({
         role: newWorkerRole,
         phone: newWorkerPhone,
         department: newWorkerDept || 'Geral',
-        agentId: autoWorkerAgentId || `CDA-${Math.floor(1000 + Math.random() * 9000)}`,
+        agentId: numeroAgenteFinal || `CDA-${Math.floor(1000 + Math.random() * 9000)}`,
         status: newWorkerStatus || 'Ativo',
         lastAccess: 'Nunca acedeu',
         registrationDate: '12/06/2026',
@@ -1720,6 +1794,32 @@ export function GovContactsContent({
       };
       setWorkers(prev => [...prev, newWorker]);
       addAuditLog?.(`[EQUIPA] Novo membro da equipa ${newWorkerName} cadastrado com sucesso.`, 'success');
+
+      // v37.78.6 — ficha `profiles` na BASE CENTRAL: sem isto a conta Auth era
+      // criada mas o membro nunca aparecia na lista Equipa (a nuvem é a fonte
+      // canónica) — aos olhos do responsável "nada acontecia".
+      try {
+        const ficha = await equipaMembroCloud('criar', {
+          agente: numeroAgenteFinal,
+          nome: newWorkerName,
+          email: newWorkerEmail,
+          phone: newWorkerPhone,
+        });
+        if (ficha.ok) {
+          addAuditLog?.(`[EQUIPA] Ficha de ${numeroAgenteFinal} (${newWorkerName}) gravada na base central (profiles).`, 'success');
+        } else {
+          addAuditLog?.(`[EQUIPA] Conta criada, mas a ficha na base central falhou (${ficha.erro || 'erro'}) — o membro pode não aparecer na Equipa noutros dispositivos.`, 'warning');
+        }
+      } catch { /* melhor esforço — a conta Auth já existe */ }
+      notify(
+        `${newWorkerName} cadastrado com sucesso — Nº ${numeroAgenteFinal}. O acesso é feito com este número e a senha inicial definida${isPlatformAdmin ? ' (Área da Administração)' : ' (Área da Instituição)'}.`,
+        'success',
+      );
+      // v37.78.6 — refrescar a lista canónica (nuvem) das duas áreas
+      if (appMode === 'institution') void refrescarMembrosCloudInst();
+      else if (appMode === 'admin-workers') {
+        carregarDadosReaisAdmin().then(d => { if (d) setDadosReais(d); }).catch(() => {});
+      }
     }
 
     setShowAddWorkerModal(false);
@@ -1970,11 +2070,20 @@ export function GovContactsContent({
 
   // Filtered workers list
   const equipaCombinada = useMemo(() => {
-    if (!dadosReais || appMode !== 'admin-workers') return workers;
-    const vistos = new Set(agentesReais.map(a => (a.agentId || '').toUpperCase()));
-    const espelho = workers.filter(w => w.agentId && !vistos.has(w.agentId.toUpperCase()));
-    return [...agentesReais, ...espelho];
-  }, [workers, agentesReais, dadosReais, appMode]);
+    if (appMode === 'admin-workers') {
+      if (!dadosReais) return workers;
+      const vistos = new Set(agentesReais.map(a => (a.agentId || '').toUpperCase()));
+      const espelho = workers.filter(w => w.agentId && !vistos.has(w.agentId.toUpperCase()));
+      return [...agentesReais, ...espelho];
+    }
+    // v37.78.6 — instituição: espelho local + membros da base central (sem duplicar)
+    if (appMode === 'institution' && membrosCloudInst.length) {
+      const vistos = new Set(workers.map(w => (w.agentId || '').toUpperCase()).filter(Boolean));
+      const daNuvem = membrosCloudInst.filter(m => !vistos.has((m.agentId || '').toUpperCase()));
+      return [...workers, ...daNuvem];
+    }
+    return workers;
+  }, [workers, agentesReais, dadosReais, appMode, membrosCloudInst]);
 
   const filteredWorkers = useMemo(() => {
     return equipaCombinada.filter(w => {

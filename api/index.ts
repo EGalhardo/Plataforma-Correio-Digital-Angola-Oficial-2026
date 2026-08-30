@@ -2295,6 +2295,96 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
       }
     }
 
+    // v37.78.6 — FICHA `profiles` DO MEMBRO DA EQUIPA (criar/listar).
+    // O «Registar Novo Membro da Equipa» criava a conta Auth mas NUNCA gravava
+    // a linha `profiles` (fonte canónica da lista Equipa) — o membro
+    // "desaparecia" (nada acontecia aos olhos do responsável). Espelho do
+    // server.ts (dev local) — manter os dois sincronizados.
+    if (url.includes('/api/equipa-membro') && method === 'POST') {
+      try {
+        if (!supaUrlPerfil || !serviceKeyPerfil) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        const { acao, agente, nome, email, phone } = body || {};
+        const token = String(req.headers.authorization || (req.headers as any).Authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+        const sessResp = await fetch(`${supaUrlPerfil}/auth/v1/user`, {
+          headers: { apikey: serviceKeyPerfil, Authorization: `Bearer ${token}` },
+        });
+        if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+        const sess = await sessResp.json().catch(() => null);
+        const user = sess && (sess.user || sess);
+        const meta = (user && user.user_metadata) || {};
+        const roleCaller = String(meta.role || '').toLowerCase();
+        const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
+        const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+        const ehResponsavelInst = roleCaller === 'instituicao' && !!instCaller && agentCaller === `${instCaller}-01`;
+        const ehAlfa = roleCaller === 'admin' && agentCaller === 'ADMIN-0001';
+        const h = { apikey: serviceKeyPerfil, Authorization: `Bearer ${serviceKeyPerfil}` };
+
+        // ---- LISTAR: equipa da própria área (base central) ----
+        if (acao === 'listar') {
+          if (ehResponsavelInst) {
+            const r = await fetch(`${supaUrlPerfil}/rest/v1/profiles?role=eq.instituicao&bi=like.${encodeURIComponent(`${instCaller}-%`)}&select=bi,name,phone,email,role`, { headers: h });
+            if (!r.ok) return res.status(500).json({ ok: false, erro: `profiles: HTTP ${r.status}` });
+            const linhas = await r.json().catch(() => []);
+            const membros = (Array.isArray(linhas) ? linhas : []).filter((p: any) => {
+              const seq = parseInt((String(p.bi || '').match(/-(\d+)$/) || [])[1] || '0', 10);
+              return seq >= 2;
+            });
+            return res.status(200).json({ ok: true, membros });
+          }
+          if (ehAlfa) {
+            const r = await fetch(`${supaUrlPerfil}/rest/v1/profiles?role=eq.admin&select=bi,name,phone,email,role`, { headers: h });
+            if (!r.ok) return res.status(500).json({ ok: false, erro: `profiles: HTTP ${r.status}` });
+            const linhas = await r.json().catch(() => []);
+            return res.status(200).json({ ok: true, membros: Array.isArray(linhas) ? linhas : [] });
+          }
+          return res.status(403).json({ ok: false, erro: 'Apenas o responsável da área pode listar a equipa.' });
+        }
+
+        // ---- CRIAR/ACTUALIZAR: upsert da ficha (nunca role de terceiros) ----
+        if (acao === 'criar') {
+          const agenteNorm = String(agente || '').trim().toUpperCase().replace(/\s+/g, '');
+          if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(agenteNorm)) return res.status(400).json({ ok: false, erro: 'Nº de agente inválido.' });
+          const nomeNorm = String(nome || '').trim().slice(0, 120);
+          if (!nomeNorm) return res.status(400).json({ ok: false, erro: 'Nome do membro obrigatório.' });
+          let roleMembro: 'instituicao' | 'admin';
+          if (/^ADMIN-\d+$/.test(agenteNorm)) {
+            if (!ehAlfa || agenteNorm === 'ADMIN-0001') {
+              return res.status(403).json({ ok: false, erro: 'Sem autorização para gerir este agente.' });
+            }
+            roleMembro = 'admin';
+          } else {
+            const mSeq = agenteNorm.match(/-(\d+)$/);
+            const seq = mSeq ? parseInt(mSeq[1], 10) : 0;
+            if (!ehResponsavelInst || !agenteNorm.startsWith(`${instCaller}-`) || seq < 2) {
+              return res.status(403).json({ ok: false, erro: 'Sem autorização para gerir este colaborador.' });
+            }
+            roleMembro = 'instituicao';
+          }
+          const payload: Record<string, unknown> = { bi: agenteNorm, name: nomeNorm, role: roleMembro };
+          const tel = String(phone || '').trim();
+          if (tel) payload.phone = tel.slice(0, 40);
+          const em = String(email || '').trim();
+          if (em && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) payload.email = em.slice(0, 120);
+          const up = await fetch(`${supaUrlPerfil}/rest/v1/profiles?on_conflict=bi`, {
+            method: 'POST',
+            headers: { ...h, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+            body: JSON.stringify([payload]),
+          });
+          if (!up.ok) {
+            const txt = await up.text();
+            return res.status(500).json({ ok: false, erro: txt.slice(0, 200) });
+          }
+          return res.status(200).json({ ok: true, agente: agenteNorm });
+        }
+
+        return res.status(400).json({ ok: false, erro: 'Ação desconhecida.' });
+      } catch (e: any) {
+        console.error('[EQUIPA-MEMBRO] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
     if (url.includes('/api/perfil') && method === 'GET') {
       try {
         const bi = String((req.query && (req.query as any).bi) || '').trim().toUpperCase();
