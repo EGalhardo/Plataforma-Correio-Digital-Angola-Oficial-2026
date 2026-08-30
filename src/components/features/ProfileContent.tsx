@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { notify } from '../../lib/notify';
-import { CdaConfirmModal } from '../ui/CdaConfirm';
+import { CdaConfirmModal, CdaPromptModal } from '../ui/CdaConfirm';
 import {
   BadgeCheck,
   ShieldCheck,
@@ -211,6 +211,9 @@ const safeGetItem = (key: string, defaultVal: string = ''): string => {
   const [sessaoRevogar, setSessaoRevogar] = useState<{ id: string; device: string } | null>(null);
   // v37.12 — remoção de dispositivo confiável também via CdaModal (achado 🟡 #2)
   const [dispositivoRemover, setDispositivoRemover] = useState<{ id: string; name: string } | null>(null);
+  // v37.78.1 — fim do prompt() nativo (bloqueado em vários browsers móveis →
+  // «nada acontecia»); o nome pede-se no CdaPromptModal, padrão da plataforma.
+  const [novoDispAberto, setNovoDispAberto] = useState(false);
 
   const [connectedDevices, setConnectedDevices] = useState(() => {
     const cached = safeGetItem('gov_pref_devices');
@@ -1765,17 +1768,29 @@ return (
                         </label>
                         <button
                           type="button"
-                          onClick={() => {
-                            const name = prompt("Insira o nome amigável do novo dispositivo a autorizar:");
-                            if (name) {
-                              const newDev = { id: `dev-${Date.now()}`, name, icon: 'smartphone', date: 'Autorizado ontem', authorized: true };
-                              setConnectedDevices((prev) => [...prev, newDev]);
-                            }
-                          }}
+                          onClick={() => setNovoDispAberto(true)}
                           className="text-[9px] text-primary hover:underline uppercase font-bold tracking-wider font-sans cursor-pointer"
                         >
                           + Adicionar Dispositivo
                         </button>
+                        {novoDispAberto && (
+                          <CdaPromptModal
+                            aberto
+                            titulo="Adicionar Dispositivo"
+                            subtitulo="Nome amigável do novo dispositivo"
+                            mensagem="Atribua um nome reconhecível ao dispositivo que está a autorizar:"
+                            placeholder="Ex.: Telemóvel pessoal, Portátil do escritório…"
+                            textoConfirmar="Autorizar Dispositivo"
+                            onCancelar={() => setNovoDispAberto(false)}
+                            onConfirmar={(nome) => {
+                              setNovoDispAberto(false);
+                              if (!nome.trim()) return;
+                              const newDev = { id: `dev-${Date.now()}`, name: nome.trim(), icon: 'smartphone', date: 'Autorizado agora', authorized: true };
+                              setConnectedDevices((prev) => [...prev, newDev]);
+                              notify(`Dispositivo «${nome.trim()}» autorizado com sucesso.`, 'success');
+                            }}
+                          />
+                        )}
                       </div>
 
                       <div className="space-y-2 font-medium">

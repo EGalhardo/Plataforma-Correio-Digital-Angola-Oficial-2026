@@ -1946,9 +1946,9 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
                           <img 
                             key={idx}
                             src={src} 
+                            alt={`Pré-visualização da página ${idx + 1} do documento`}
                             onClick={() => { setSelectedPageIdx(idx); extractAndRender(src, genSelectedFile.name); }}
                             className={`w-10 h-14 object-cover rounded border cursor-pointer hover:border-blue-400 ${selectedPageIdx === idx ? 'ring-2 ring-blue-500' : ''}`}
-                            alt=""
                           />
                         ))}
                       </div>
