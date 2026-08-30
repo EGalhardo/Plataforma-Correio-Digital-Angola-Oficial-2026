@@ -242,6 +242,9 @@ try {
     const linha = linhas.find(l => l.includes(AGENTE.nome)) || '';
     numAgente = (linha.match(/ADMIN-\d{4}/) || [])[0] || '';
     reg('C4-numero-agente-admin', !!numAgente, numAgente);
+    // v37.78.7 — a Equipa da Administração NÃO pode conter membros de instituições
+    // (nenhum INAPEM-LLMM-NN pode aparecer na lista admin)
+    reg('C4b-admin-sem-membros-de-instituicao', !linhas.some(l => /INAPEM-LLMM-\d+/.test(l)), 'lista admin sem qualquer INAPEM-LLMM-NN');
     await page.goto(`${BASE}/admin?cb=${Date.now()}#/login`, { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => { try { localStorage.clear(); sessionStorage.clear(); } catch {} });
     reg('C5-relogin-alfa', await loginAdmin(page, 'ADMIN-0001', '123456789'));
@@ -316,9 +319,9 @@ try {
     await page.screenshot({ path: `${SS}/v37786_e_admin_pos_eliminar.png` }).catch(() => {});
     await ctx.close();
   }
-  const fim = await restGet('profiles?select=bi,role&or=(bi.like.INAPEM-LLMM-*,bi.like.ADMIN-0*)');
-  const estranho = fim.filter(p => /^INAPEM-LLMM-\d{2,}$/.test(p.bi) && p.bi !== 'INAPEM-LLMM-01' || /^ADMIN-\d{4}$/.test(p.bi) && p.bi !== 'ADMIN-0001');
-  reg('E3-cloud-limpa', estranho.length === 0, estranho.map(p => p.bi).join(',') || 'sem residíduos');
+  const fim = await restGet('profiles?select=bi,name&or=(bi.like.INAPEM-LLMM-*,bi.like.ADMIN-0*)');
+  const residuos = fim.filter(p => /Teste Um|Teste Dois/.test(p.name || ''));
+  reg('E3-sem-residuos-de-teste', residuos.length === 0, residuos.map(p => `${p.bi}(${p.name})`).join(',') || `baseline: ${fim.map(p => p.bi).join(',')}`);
 } catch (e) {
   console.log('EXCEPÇÃO:', String(e).slice(0, 400));
   FAILS++;

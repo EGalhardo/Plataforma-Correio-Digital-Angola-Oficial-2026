@@ -947,7 +947,15 @@ export function GovContactsContent({
   const agentesReais = React.useMemo(() => {
     if (!dadosReais || appMode !== 'admin-workers') return [] as Trabajador[];
     return (dadosReais.profiles || [])
-      .filter(pp => (pp.role || '').toLowerCase() === 'admin' || _ehAgenteCodificado(pp.bi || ''))
+      .filter(pp => {
+        const role = (pp.role || '').toLowerCase();
+        // v37.78.7 — MEMBROS DE INSTITUIÇÕES (role 'instituicao'/'institution')
+        // NÃO são agentes da Administração: desde que os colaboradores das
+        // instituições passaram a ter linha `profiles` (v37.78.6), o filtro
+        // "BI codificado" deixava-os vazar para a Equipa da Administração.
+        if (role === 'instituicao' || role === 'institution') return false;
+        return role === 'admin' || _ehAgenteCodificado(pp.bi || '');
+      })
       .map<Trabajador>(pp => ({
         id: pp.bi,
         name: pp.name || pp.bi,
