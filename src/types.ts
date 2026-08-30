@@ -59,6 +59,10 @@ export interface ReplySendPayload {
   /** v37.78.3 — ids das sondagens embutidas na composição (expedição múltipla
    *  com sondagem: cada cópia do destinatário leva o cartão de resposta). */
   sondagensIds?: number[];
+  /** v37.78.8 — EXPEDIÇÃO MÚLTIPLA: suprime o comprovativo individual deste
+   *  envio; o resumo do LOTE abre UMA única vez no fim (1 confirmação para
+   *  N destinatários, nunca N popups empilhados). */
+  silencioso?: boolean;
 }
 
 export interface ReplySendResult {

@@ -4215,6 +4215,10 @@ export default function App() {
       }
       let okCount = 0;
       const falhados: string[] = [];
+      // v37.78.8 — UM só comprovativo para todo o lote: cada cópia é enviada em
+      // modo «silencioso» (sem popup individual) e o resumo abre UMA vez no fim.
+      const protocolosLote: string[] = [];
+      let protocoloLote: DigitalProtocol | undefined;
       for (const dest of destinos) {
         const res = await executeOfficialSend({
           to: dest,
@@ -4223,13 +4227,33 @@ export default function App() {
           attachments: composeData.attachments || [],
           // v37.78.3 — sondagens embutidas: cada cópia leva o cartão de resposta.
           ...(composeData.sondagensIds?.length ? { sondagensIds: composeData.sondagensIds } : {}),
+          // v37.78.8 — sem comprovativo individual (o resumo abre no fim do lote).
+          silencioso: true,
         });
-        if (res.ok) okCount += 1;
-        else falhados.push(dest);
+        if (res.ok) {
+          okCount += 1;
+          if (res.protocol) {
+            protocolosLote.push(res.protocol.protocolNumber);
+            protocoloLote = res.protocol;
+          }
+        } else falhados.push(dest);
       }
       setIsComposing(false);
       setComposeData({ to: '', subject: '', body: '', attachments: [], toArray: [] });
-      addAuditLog(`[MULTI] Expedição múltipla concluída: ${okCount}/${destinos.length} destinatário(s) servido(s)${falhados.length ? ` — falharam: ${falhados.join(', ')}` : ''}.`, okCount === destinos.length ? 'info' : 'warning');
+      addAuditLog(`[MULTI] Expedição múltipla concluída: ${okCount}/${destinos.length} destinatário(s) servido(s)${falhados.length ? ` — falharam: ${falhados.join(', ')}` : ''}${protocolosLote.length ? ` — protocolos: ${protocolosLote.join(', ')}` : ''}.`, okCount === destinos.length ? 'info' : 'warning');
+      // v37.78.8 — comprovativo ÚNICO do lote (nº do 1.º protocolo; contagem e
+      // lista de destinatários no campo AGENTE). Antes: N popups, um por envio.
+      if (protocoloLote) {
+        setSuccessProtocolModal({
+          protocolNumber: protocoloLote.protocolNumber,
+          org: `${okCount} destinatário(s): ${destinos.join(', ')}`,
+          subject: composeData.subject?.trim() || '(sem assunto)',
+          digitalSignature: protocoloLote.digitalSignature,
+          documentHash: protocoloLote.documentHash,
+          officialIssueDate: protocoloLote.officialIssueDate || new Date().toLocaleDateString('pt-PT'),
+          officialTime: protocoloLote.officialTime || new Date().toLocaleTimeString('pt-PT').substring(0, 5),
+        });
+      }
       notify(
         okCount === destinos.length
           ? `Correspondência enviada para ${okCount} destinatário(s) com sucesso.`
@@ -4318,7 +4342,9 @@ export default function App() {
       officialIssueDate: protocol.officialIssueDate || new Date().toLocaleDateString('pt-PT'),
       officialTime: protocol.officialTime || new Date().toLocaleTimeString('pt-PT').substring(0, 5)
     };
-    setSuccessProtocolModal(protocolData);
+// v37.78.8 — no envio múltiplo cada cópia é «silenciosa»: o comprovativo
+    // individual NÃO abre (o resumo do LOTE abre uma única vez no fim).
+    if (!override?.silencioso) setSuccessProtocolModal(protocolData);
 
     if (!isOnline) {
       OfflineManager.queueAction('SEND_MESSAGE', { messageId, to, subject: effectiveSubject });
