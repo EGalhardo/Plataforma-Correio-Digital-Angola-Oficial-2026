@@ -12,7 +12,8 @@
 import { chromium } from 'playwright';
 import { readFileSync } from 'fs';
 
-const BASE = 'http://localhost:3000';
+// BASE parameterizável: BASE=https://correio-digital-angola-oficial.vercel.app node scripts/e2e_equipa_membros.mjs
+const BASE = process.env.BASE || 'http://localhost:3000';
 const env = Object.fromEntries(readFileSync('.env', 'utf8').split('\n')
   .filter(l => l.includes('=') && !l.trim().startsWith('#'))
   .map(l => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim()]));
