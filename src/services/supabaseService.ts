@@ -888,8 +888,11 @@ export const supabaseService = {
       const labelNorm = String(institutionLabel || '').trim().toUpperCase();
       const ehBIDestinatario = /^\d{9}[A-Z]{2}\d{3}$/.test(labelNorm);
       const institutionCode = ehBIDestinatario ? labelNorm : resolveInstitutionCode(institutionLabel);
-      await ensureProfileExists(citizenBi, citizenName || msg.details?.body?.match(/Atentamente,\s*([\wÀ-ÿ\s]+)/i)?.[1]?.trim() || 'Cidadão', 'user');
-      await ensureProfileExists(institutionCode, ehBIDestinatario ? labelNorm : institutionLabel, ehBIDestinatario ? 'user' : 'institution');
+      // v37.78.12 — PERFORMANCE: as duas garantias de perfil correm em paralelo.
+      await Promise.all([
+        ensureProfileExists(citizenBi, citizenName || msg.details?.body?.match(/Atentamente,\s*([\wÀ-ÿ\s]+)/i)?.[1]?.trim() || 'Cidadão', 'user'),
+        ensureProfileExists(institutionCode, ehBIDestinatario ? labelNorm : institutionLabel, ehBIDestinatario ? 'user' : 'institution'),
+      ]);
       const payload = createMessagePayload({
         msg,
         senderBi: citizenBi,
@@ -917,8 +920,11 @@ export const supabaseService = {
     try {
       const resolvedBi = resolveCitizenBi(citizenBi);
       const institutionCode = resolveInstitutionCode(institutionLabel);
-      await ensureProfileExists(resolvedBi, msg.details?.body?.match(/Prezado\(a\)\s*([^,\n]+)/i)?.[1]?.trim() || 'Cidadão', 'user');
-      await ensureProfileExists(institutionCode, institutionLabel, institutionCode === 'CDA' ? 'admin' : 'institution');
+      // v37.78.12 — PERFORMANCE: as duas garantias de perfil correm em paralelo.
+      await Promise.all([
+        ensureProfileExists(resolvedBi, msg.details?.body?.match(/Prezado\(a\)\s*([^,\n]+)/i)?.[1]?.trim() || 'Cidadão', 'user'),
+        ensureProfileExists(institutionCode, institutionLabel, institutionCode === 'CDA' ? 'admin' : 'institution'),
+      ]);
       const payload = {
         ...createMessagePayload({
           msg,
@@ -949,7 +955,12 @@ export const supabaseService = {
     }
   },
 
-  async updateMessageState(messageId: number, changes: Partial<{ unread: boolean; status: string; preview: string; subject: string; body: string; deadline_text: string; state_indicator: string; actions: string[] }>) {
+  // REGRA R1 (v37.78.12) — ESTADO DE LEITURA PERTENCE AO DESTINATÁRIO: o campo
+  // «unread» de messages NUNCA pode ser escrito pelo updateMessageState genérico
+  // (era assim que o remetente, ao abrir a própria enviada, marcava a carta
+  // como lida NA ÁREA DO DESTINATÁRIO). O único escritor é
+  // markMessageReadByRecipient, chamado apenas quando o DESTINATÁRIO abre.
+  async updateMessageState(messageId: number, changes: Partial<{ status: string; preview: string; subject: string; body: string; deadline_text: string; state_indicator: string; actions: string[] }>) {
     if (!hasValidSupabaseKeys()) return null;
     try {
       return await gravarDados(
@@ -967,6 +978,26 @@ export const supabaseService = {
     }
   },
 
+  // REGRA R1 (v37.78.12) — ÚNICO escritor do estado de leitura em toda a
+  // plataforma. Só o App chama (guarda de destinatário em handleSelectMessage).
+  async markMessageReadByRecipient(messageId: number) {
+    if (!hasValidSupabaseKeys()) return null;
+    try {
+      return await gravarDados(
+        'messages', 'update', { id: messageId }, { unread: false },
+        undefined,
+        async () => {
+          const { data, error } = await supabase.from('messages').update({ unread: false }).eq('id', messageId).select();
+          if (error) throw error;
+          return data;
+        },
+      );
+    } catch (e) {
+      console.error('Supabase markMessageReadByRecipient error:', e);
+      return null;
+    }
+  },
+
   async insertMessageStateEvent({
     messageId,
     state,
@@ -980,17 +1011,10 @@ export const supabaseService = {
   }) {
     if (!hasValidSupabaseKeys()) return null;
     try {
-      // Avoid foreign key violations on non-existent messages (e.g. mock/local messages)
-      const { data: exists } = await supabase
-        .from('messages')
-        .select('id')
-        .eq('id', messageId)
-        .maybeSingle();
-      if (!exists) {
-        console.warn(`insertMessageStateEvent: Message with ID ${messageId} does not exist in the database. Skipping state history event.`);
-        return null;
-      }
-
+      // v37.78.12 — PERFORMANCE: removido o SELECT de existência prévia (1
+      // round-trip economizado por evento). Se a mensagem não existir, o
+      // INSERT falha na FK (23503), é apanhado pelo catch e registado como
+      // warn — exactamente o mesmo efeito, metade das viagens.
       const payload = createStateHistoryPayload({ messageId, state, responsible, description });
       return await gravarDados(
         'message_state_history', 'insert', undefined, [payload],

@@ -1921,6 +1921,12 @@ export default function App() {
   useEffect(() => {
     if (!selectedMessage) return;
     if (!selectedMessage.unread) return;
+    // REGRA R2 (v37.78.12) — o REMETENTE que abre a própria enviada NÃO marca
+    // leitura: o «Não Lida» da pasta Enviadas é o RECIBO DE LEITURA do
+    // destinatário e tem de permanecer fiel até ele abrir a carta.
+    const normR2 = (v?: string) => String(v || '').toUpperCase().replace(/\s+/g, '');
+    const minhaChaveR2 = normR2(isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi));
+    if (normR2((selectedMessage as any).senderKey) === minhaChaveR2 && normR2((selectedMessage as any).recipientBi) !== minhaChaveR2) return;
     const targetId = selectedMessage.id;
     const baseOf = (id: number) => (id >= 10000 && id < 90000000 ? id - 10000 : id);
     const baseId = baseOf(targetId);
@@ -4011,7 +4017,26 @@ export default function App() {
     
     if (message.unread) {
       const baseId = message.id >= 10000 && message.id < 90000000 ? message.id - 10000 : message.id;
-      
+
+      // REGRA R2 (v37.78.12) — O ESTADO DE LEITURA PERTENCE AO DESTINATÁRIO.
+      // Quem abre a cópia que lhe foi ENDEREÇADA marca «Lida» (local + nuvem).
+      // O REMETENTE que abre a própria carta em «Enviadas» está apenas a
+      // consultar um RECIBO DE LEITURA («Não Lida» = o destinatário ainda não
+      // abriu) e NÃO pode alterar o estado na área do destinatário — contas
+      // diferentes, estados diferentes. Aplica-se a cidadão, instituição e
+      // administração (qualquer par remetente/destinatário).
+      const normR2 = (v?: string) => String(v || '').toUpperCase().replace(/\s+/g, '');
+      const minhaChaveR2 = normR2(isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi));
+      const abertaPeloRemetente =
+        normR2((message as any).senderKey) === minhaChaveR2 &&
+        normR2((message as any).recipientBi) !== minhaChaveR2;
+
+      if (abertaPeloRemetente) {
+        addAuditLog(`Correspondência ID ${baseId} aberta pelo remetente — recibo de leitura do destinatário intocado (REGRA R2).`, 'info');
+        setTab('mensagem');
+        return;
+      }
+
       // Sincronização em tempo real de estado "Lida" em todos os arrays da plataforma
       setInbox(prev => prev.map(m => {
         const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
@@ -4041,17 +4066,18 @@ export default function App() {
       }));
 
       if (isOnline && hasValidSupabaseKeys()) {
-        supabaseService.updateMessageState(baseId, { unread: false, status: 'Lida' }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+        // REGRA R1/R2 — apenas o DESTINATÁRIO escreve «unread» na nuvem.
+        supabaseService.markMessageReadByRecipient(baseId).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
         supabaseService.insertMessageStateEvent({
           messageId: baseId,
           state: 'Visualizada',
           responsible: user.name,
-          description: 'Correspondência aberta e marcada como lida.'
+          description: 'Correspondência aberta pelo destinatário.'
         }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
       }
 
       // Registo de auditoria certificado para provar sincronização
-      addAuditLog(`Sincronização: Correspondência ID ${baseId} marcada como lida em todas as visões (Cidadão, Instituição, Administração)`, 'success');
+      addAuditLog(`Correspondência ID ${baseId} marcada como lida na área do destinatário (estado do remetente intocado — REGRA R2).`, 'success');
     }
     
     setTab('mensagem');
@@ -4109,7 +4135,7 @@ export default function App() {
     setSentMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
     if (isOnline && hasValidSupabaseKeys()) {
       supabaseService.updateMessageState(updatedMsg.id >= 10000 ? updatedMsg.id - 10000 : updatedMsg.id, {
-        unread: !!updatedMsg.unread,
+        // REGRA R1 — «unread» nunca passa por edições: só o destinatário a abrir.
         status: updatedMsg.status,
         preview: updatedMsg.preview,
         subject: updatedMsg.details?.subject,
@@ -4219,8 +4245,11 @@ export default function App() {
       // modo «silencioso» (sem popup individual) e o resumo abre UMA vez no fim.
       const protocolosLote: string[] = [];
       let protocoloLote: DigitalProtocol | undefined;
-      for (const dest of destinos) {
-        const res = await executeOfficialSend({
+      // v37.78.12 — PERFORMANCE: as cópias do lote correm em PARALELO (antes
+      // era uma fila: N destinatários = N pipelines completos sequenciais).
+      // Cada cópia continua a ter validação, protocolo e notificação próprios.
+      const resultadosLote = await Promise.all(destinos.map(dest =>
+        executeOfficialSend({
           to: dest,
           body: composeData.body,
           subject: composeData.subject,
@@ -4229,7 +4258,9 @@ export default function App() {
           ...(composeData.sondagensIds?.length ? { sondagensIds: composeData.sondagensIds } : {}),
           // v37.78.8 — sem comprovativo individual (o resumo abre no fim do lote).
           silencioso: true,
-        });
+        }).then(res => ({ dest, res }))
+      ));
+      for (const { dest, res } of resultadosLote) {
         if (res.ok) {
           okCount += 1;
           if (res.protocol) {
@@ -4378,32 +4409,34 @@ export default function App() {
         ? supabaseService.sendOfficialMessage(newMessage, to, isInstMode ? institutionCode : 'CDA', sondagensIdsEnvio)
         : supabaseService.sendCitizenMessage(newMessage, bi, to, user.name || profileName);
       await sendPromise;
-      // Store protocol in database for QR code reference
-      await supabaseService.insertDigitalProtocol(protocol);
-      
-      await supabaseService.insertMessageStateEvent({
-        messageId,
-        state: 'Enviada',
-        responsible: user.name,
-        description: `Correspondência enviada para ${to}.`
-      });
-      if (isOfficialDispatch) {
-        await supabaseService.insertNotification({
-          title: 'Nova Correspondência Oficial',
-          message: `${newMessage.preview} foi disponibilizada no seu endereço digital oficial.`,
-          type: 'info',
-          targetTab: 'correspondencias'
-        }, to);
-      } else {
-        await supabaseService.insertNotification({
-          title: 'Nova Solicitação do Cidadão',
-          message: `${user.name} enviou uma nova correspondência para ${to}.`,
-          type: 'info',
-          targetTab: 'correspondencias'
-          // v37.78.2 — destinatário-cidadão (BI completo) é notificado pelo
-          // próprio BI; resolveInstitutionCode() reduziria '005404692BO043' a 'BO'.
-        }, /^\d{9}[A-Z]{2}\d{3}$/.test(to.toUpperCase()) ? to.toUpperCase() : resolveInstitutionCode(to));
-      }
+      // v37.78.12 — PERFORMANCE: as 3 escritas pós-envio são INDEPENDENTES
+      // (protocolo para QR, evento «Enviada», notificação do destinatário).
+      // Correm em PARALELO — antes eram 3 round-trips sequenciais e eram a
+      // maior causa da lentidão ao enviar/responder correspondência.
+      await Promise.allSettled([
+        supabaseService.insertDigitalProtocol(protocol),
+        supabaseService.insertMessageStateEvent({
+          messageId,
+          state: 'Enviada',
+          responsible: user.name,
+          description: `Correspondência enviada para ${to}.`
+        }),
+        isOfficialDispatch
+          ? supabaseService.insertNotification({
+              title: 'Nova Correspondência Oficial',
+              message: `${newMessage.preview} foi disponibilizada no seu endereço digital oficial.`,
+              type: 'info',
+              targetTab: 'correspondencias'
+            }, to)
+          : supabaseService.insertNotification({
+              title: 'Nova Solicitação do Cidadão',
+              message: `${user.name} enviou uma nova correspondência para ${to}.`,
+              type: 'info',
+              targetTab: 'correspondencias'
+              // v37.78.2 — destinatário-cidadão (BI completo) é notificado pelo
+              // próprio BI; resolveInstitutionCode() reduziria '005404692BO043' a 'BO'.
+            }, /^\d{9}[A-Z]{2}\d{3}$/.test(to.toUpperCase()) ? to.toUpperCase() : resolveInstitutionCode(to)),
+      ]);
     } catch (err) {
       console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err);
     }
@@ -4508,30 +4541,29 @@ export default function App() {
         : supabaseService.sendCitizenMessage(newMessage, bi, docComposeData.to, user.name || profileName);
       sendPromise
         .then(async () => {
-          // Store protocol in database for QR code reference
-          await supabaseService.insertDigitalProtocol(protocol);
-          
-          await supabaseService.insertMessageStateEvent({
-            messageId,
-            state: 'Enviado',
-            responsible: user.name,
-            description: `Documento/tramitação enviada para ${docComposeData.to}.`
-          });
-          if (isOfficialDispatch) {
-            await supabaseService.insertNotification({
-              title: 'Novo Documento / Tramitação',
-              message: `${newMessage.preview} foi disponibilizado no seu canal oficial.`,
-              type: 'info',
-              targetTab: 'documentos'
-            }, docComposeData.to);
-          } else {
-            await supabaseService.insertNotification({
-              title: 'Novo Documento Submetido',
-              message: `${user.name} submeteu uma nova tramitação para ${docComposeData.to}.`,
-              type: 'info',
-              targetTab: 'documentos'
-            }, resolveInstitutionCode(docComposeData.to));
-          }
+          // v37.78.12 — PERFORMANCE: as 3 escritas pós-envio em paralelo.
+          await Promise.allSettled([
+            supabaseService.insertDigitalProtocol(protocol),
+            supabaseService.insertMessageStateEvent({
+              messageId,
+              state: 'Enviado',
+              responsible: user.name,
+              description: `Documento/tramitação enviada para ${docComposeData.to}.`
+            }),
+            isOfficialDispatch
+              ? supabaseService.insertNotification({
+                  title: 'Novo Documento / Tramitação',
+                  message: `${newMessage.preview} foi disponibilizado no seu canal oficial.`,
+                  type: 'info',
+                  targetTab: 'documentos'
+                }, docComposeData.to)
+              : supabaseService.insertNotification({
+                  title: 'Novo Documento Submetido',
+                  message: `${user.name} submeteu uma nova tramitação para ${docComposeData.to}.`,
+                  type: 'info',
+                  targetTab: 'documentos'
+                }, resolveInstitutionCode(docComposeData.to)),
+          ]);
         })
         .catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
     }
