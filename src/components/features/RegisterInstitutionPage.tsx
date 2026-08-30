@@ -7,7 +7,7 @@
 // PENDENTE — o mesmo modelo do registo do cidadão.
 // ============================================================================
 
-import { useState, type FormEvent } from 'react';
+import { useState, useRef, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Building2, MapPin, Mail, Phone, User, Briefcase, Lock, Shield,
@@ -71,6 +71,10 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
   const [generatedCode, setGeneratedCode] = useState('');
   const [generatedAgent, setGeneratedAgent] = useState('');
   const [copied, setCopied] = useState(false);
+  // v37.78.18 — REGRAS UX: estado da sincronização em segundo plano com a fila
+  // da Administração (o ecrã de sucesso aparece IMEDIATAMENTE com o Código).
+  const [syncEstado, setSyncEstado] = useState<'a_enviar' | 'ok' | 'falhou'>('a_enviar');
+  const retryEnvioRef = useRef<(() => void) | null>(null);
 
   const setErr = (k: string, msg: string) => setFieldErrors(prev => msg ? { ...prev, [k]: msg } : (({ [k]: _, ...rest }) => rest)(prev));
   const isEmailValid = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
@@ -178,45 +182,6 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
       };
       const observacoes = buildInstObservacoes(pack, `Adesão formal da instituição ${fullName.trim()} (${s.toUpperCase()}). Pendente de homologação administrativa.`);
 
-      // 4. Gravação na nuvem (mesma tabela do cidadão)
-      const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
-      if (ready) {
-        setSubmitMessage('A enviar a solicitação para a Área de Administração...');
-        // 2026-08-20 — Modo Real: gravar via proxy do servidor (service role).
-        const payloadAdesao = {
-          nome: fullName.trim(),
-          email: eA,
-          // F43 (Auditoria F42 #3): password_hash removido — nunca persistir
-          // senhas em texto plano; a via legada de comparação já era inacessível
-          // sob RLS. Retirada total da coluna fica para a frente F44.
-          bi_numero: code,      // o Código funciona como o B.I. da instituição
-          url_frente: null,
-          url_verso: null,
-          url_selfie: null,
-          status: 'Pendente',
-          observacoes,
-        };
-        let error: any = null;
-        const viaProxy = await registoPublicoProxy('insert', undefined, payloadAdesao);
-        if (viaProxy !== null) {
-          if (!viaProxy.ok && viaProxy.erro !== 'demo') {
-            error = { code: 'PROXY', message: viaProxy.erro || 'Falha ao registar a adesão na base central.' };
-          }
-        }
-        if (viaProxy === null || (viaProxy && viaProxy.erro === 'demo')) {
-          const direct = await supabase.from('solicitacoes_registo').insert([payloadAdesao]);
-          error = direct.error;
-        }
-        if (error) {
-          if (error.code === '23505') {
-            setSubmitError('Não é possível efectuar o registo: este Código Institucional já se encontra registado. Tente novamente.');
-            setIsSubmitting(false); return;
-          }
-          if (error.code !== 'PGRST205') {
-            console.error('Erro ao inserir solicitação institucional:', error);
-          }
-        }
-      }
 
       // 5. Espelho local + conta nasce PENDENTE (modelo do cidadão)
       saveLocalInstReg({
@@ -242,7 +207,80 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
       setGeneratedCode(code);
       setGeneratedAgent(agentNumber);
       addAuditLog(`Código Institucional gerado: ${code} · Nº Agente do responsável: ${agentNumber}`, 'info');
+      setSyncEstado('a_enviar');
 
+      // v37.78.18 — REGRAS UX (2.º plano): o utilizador recebe o Código e o
+      // Nº Agente IMEDIATAMENTE; a gravação na fila da Administração e o
+      // provisionamento do responsável correm em segundo plano (com uma
+      // retoma automática e, se persistir a falha, aviso honesto + repetição).
+      const enviarAdesaoNuvem = async (): Promise<'ok' | 'duplicado' | 'falhou'> => {
+        try {
+          // 4. Gravação na nuvem (mesma tabela do cidadão) — via proxy (service role)
+          const ready = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+          if (!ready) return 'ok'; // sem nuvem configurada: espelho local (D3)
+          const payloadAdesao = {
+            nome: fullName.trim(),
+            email: eA,
+            bi_numero: code,      // o Código funciona como o B.I. da instituição
+            url_frente: null,
+            url_verso: null,
+            url_selfie: null,
+            status: 'Pendente',
+            observacoes,
+          };
+          let error: any = null;
+          // v37.78.18 — ANONIMO: a adesão é uma submissão pública; sem isto o
+          // servidor «carimba» o bi_numero com o B.I. de qualquer cidadão com
+          // sessão aberta neste browser (anti-spoof) e a adesão nasce corrompida.
+          const viaProxy = await registoPublicoProxy('insert', undefined, payloadAdesao, { anonimo: true });
+          if (viaProxy !== null) {
+            if (!viaProxy.ok && viaProxy.erro !== 'demo') {
+              error = { code: 'PROXY', message: viaProxy.erro || 'Falha ao registar a adesão na base central.' };
+            }
+          }
+          if (viaProxy === null || (viaProxy && viaProxy.erro === 'demo')) {
+            const direct = await supabase.from('solicitacoes_registo').insert([payloadAdesao]);
+            error = direct.error;
+          }
+          if (error) {
+            if (error.code === '23505') return 'duplicado';
+            if (error.code !== 'PGRST205') console.error('Erro ao inserir solicitação institucional:', error);
+            return 'falhou';
+          }
+          return 'ok';
+        } catch {
+          return 'falhou';
+        }
+      };
+
+      const concluirEnvioNuvem = async () => {
+        let r = await enviarAdesaoNuvem();
+        if (r === 'falhou') {
+          // uma retoma automática rápida antes de sinalizar falha
+          await new Promise((res) => setTimeout(res, 5000));
+          r = await enviarAdesaoNuvem();
+        }
+        if (r === 'ok') {
+          setSyncEstado('ok');
+          addAuditLog(`[NUVEM-BG] Adesão de ${fullName.trim()} (${code}) entregue à fila da Administração.`, 'success');
+        } else if (r === 'duplicado') {
+          setSyncEstado('ok');
+          addAuditLog(`[NUVEM-BG] Adesão de ${code} já constava da fila central (código único) — mantida Pendente para homologação.`, 'warning');
+        } else {
+          setSyncEstado('falhou');
+          homologationStore.addMessage(
+            code,
+            'admin',
+            `ATENÇÃO: a sincronização da adesão de ${fullName.trim()} com a base central falhou — a Área de Administração ainda não recebeu o pedido. Toque em «Tentar novamente» no ecrã de conclusão (ou repita o registo mais tarde) para entregar a solicitação.`,
+          );
+          addAuditLog(`[NUVEM-BG] FALHA: a adesão de ${fullName.trim()} (${code}) não chegou à fila central — retoma manual disponível no ecrã de conclusão.`, 'critical');
+        }
+      };
+      retryEnvioRef.current = () => { void concluirEnvioNuvem(); };
+      void concluirEnvioNuvem();
+
+      // — provisionamento do RESPONSÁVEL em segundo plano (F32 preservado) —
+      void (async () => {
       // F32 (v12/D4-a) — o RESPONSÁVEL (-01) nasce na nuvem: a senha vive apenas no
       // Supabase Auth (bcrypt da plataforma). Best-effort (D3): falha nunca quebra a
       // adesão — a migração just-in-time ocorre no primeiro login (D2).
@@ -266,6 +304,8 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
           console.error('[AUTH-CLOUD] Falha inesperada no provisionamento institucional:', cloudErr);
         }
       }
+      })();
+
     } catch (err) {
       console.error('Erro global no registo institucional:', err);
       setSubmitError('Ocorreu um erro inesperado ao finalizar o registo. Tente novamente.');
@@ -297,10 +337,37 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
           <CheckCircle2 size={30} />
         </div>
         <div>
-          <h3 className="text-lg md:text-xl font-black text-[#0c2340] uppercase tracking-tight leading-tight">Pedido de Adesão Enviado!</h3>
+          <h3 className="text-lg md:text-xl font-black text-[#0c2340] uppercase tracking-tight leading-tight">Pedido de Adesão Registado!</h3>
           <p className="text-[11px] text-slate-500 font-medium max-w-md mx-auto mt-2 leading-relaxed">
-            A sua solicitação foi enviada com sucesso à Área de Administração do Correio Digital Angola e em <strong>menos de 24 horas</strong> receberá uma resposta. Enquanto estiver <strong>Pendente de Aprovação</strong>, após o login, a resposta oficial chega à caixa de <strong>Correio</strong> como correspondência não lida — com aviso no badge da foto de perfil.
+            A sua solicitação foi registada com sucesso e está a ser entregue à Área de Administração do Correio Digital Angola — em <strong>menos de 24 horas</strong> após a entrega receberá uma resposta. Enquanto estiver <strong>Pendente de Aprovação</strong>, após o login, a resposta oficial chega à caixa de <strong>Correio</strong> como correspondência não lida — com aviso no badge da foto de perfil.
           </p>
+        </div>
+        {/* v37.78.18 — estado vivo da entrega em segundo plano (REGRAS UX) */}
+        <div className="w-full max-w-sm">
+          {syncEstado === 'a_enviar' && (
+            <div className="flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-full px-4 py-2">
+              <Loader2 size={12} className="animate-spin" /> A entregar à Administração…
+            </div>
+          )}
+          {syncEstado === 'ok' && (
+            <div className="flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-4 py-2">
+              <CheckCircle2 size={12} /> Solicitação entregue à Administração
+            </div>
+          )}
+          {syncEstado === 'falhou' && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-left space-y-2">
+              <p className="text-[10.5px] font-bold text-amber-800 leading-relaxed m-0">
+                ⚠️ A entrega à base central falhou — a Administração ainda não recebeu o pedido. A sua adesão ficou registada neste dispositivo com o Código abaixo.
+              </p>
+              <button
+                type="button"
+                onClick={() => { setSyncEstado('a_enviar'); retryEnvioRef.current?.(); }}
+                className="px-4 py-2 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-black uppercase tracking-wider border-none cursor-pointer transition-colors"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          )}
         </div>
         <div className="w-full max-w-sm bg-slate-50 border-2 border-dashed border-[#2563eb]/30 rounded-3xl p-5 space-y-1.5">
           <span className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block">Código Institucional</span>

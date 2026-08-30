@@ -302,9 +302,15 @@ export const registoPublicoProxy = async (
   operacao: 'select' | 'insert' | 'update' | 'delete',
   filtros?: Record<string, string | number>,
   dados?: Record<string, unknown>,
+  /** v37.78.18 — { anonimo: true } = submissão/leitura PÚBLICA (registo de
+   * instituição): não envia a sessão do browser. Sem isto, um cidadão com
+   * sessão aberta que abrisse a adesão institucional teria o bi_numero
+   * «carimbado» pelo servidor com o SEU B.I. (anti-spoof) e a uniqueness
+   * só veria as próprias linhas — a adesão nasceria corrompida. */
+  opcoes?: { anonimo?: boolean },
 ): Promise<{ ok: boolean; linhas?: any[]; erro?: string } | null> => {
   try {
-    const token = await obterTokenSessao();
+    const token = opcoes?.anonimo ? null : await obterTokenSessao();
     const resp = await fetch('/api/dados', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },

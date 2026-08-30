@@ -314,7 +314,10 @@ export const collectInstitutionUniqueness = async (supabase: SupabaseClient): Pr
   if (isSupabaseReady() && supabase) {
     try {
       let data: any[] | null = null;
-      const viaProxy = await registoPublicoProxy('select');
+      // v37.78.18 — select ANONIMO: a uniqueness da adesão pública tem de ver
+      // TODA a fila (com sessão de cidadão o servidor devolve só as próprias
+      // linhas — siglas/e-mails duplicados escapavam à verificação).
+      const viaProxy = await registoPublicoProxy('select', undefined, undefined, { anonimo: true });
       if (viaProxy === null) {
         const d = await supabase
           .from('solicitacoes_registo')

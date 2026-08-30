@@ -151,17 +151,25 @@ plano e nunca segura o utilizador.
 - [x] Falhas notificadas com motivo e opção de repetir;
 - [x] Estados independentes por utilizador (remetente vs destinatário).
 
-> **Estado (v37.78.17 · 2026-08-30)** — implementado no fluxo base (Registo de
-> Cidadão + Adesão de Instituição, RegisterStepper partilhado) com o novo
+> **Estado (v37.78.17/18 · 2026-08-30)** — implementado no fluxo base (Registo de Cidadão + Adesão de Instituição + criação de membros da Equipa) com o novo
 > `src/services/registoBgService.ts`. Verificação: `scripts/e2e_regra_ux_registo.mjs`
-> (T1-T8) — TODOS PASS local e em produção, incluindo: popup 530ms–1,8s com
+> (T1-T9) — TODOS PASS local e em produção, incluindo: popup 530ms–1,8s com
 > Nº de Acesso + senha; login imediato com conta pendente; correspondência
 > oficial de recepção; desfecho notificado (✅ aprovado / ⚠️ correcções /
 > pendente de homologação — F28); dup-check síncrono (B.I./e-mail) ANTES do
 > popup; RETOMA automática do processamento após fecho/reload da página
 > (job persistido) e repetição automática em falha de rede do insert.
-> O Correio/Documentos/Difusões já seguem o padrão (comprovativo imediato +
-> `Promise.allSettled`), com estados independentes por utilizador (R1–R6).
+> Adesão de instituição: ecrã de conclusão imediato com Código Institucional +
+> Nº Agente, entrega à fila em 2.º plano com chip vivo (A entregar → Entregue /
+> Falhou + [Tentar novamente]) e proxy ANÓNIMO (v37.78.18-fix: com sessão de
+> cidadão aberta, o servidor «carimbava» o bi_numero da adesão com o B.I. da
+> sessão — fila corrompida). Equipa: membro nasce local no acto (estado
+> «Em activação» visível na lista), modal fecha imediatamente, provisionamento
+> + ficha central em 2.º plano → estado «Activo» + notificação; falha notificada
+> com motivo e [Tentar novamente] (reactivarMembroCloudBg).
+> O Correio/Documentos/Difusões/Pedidos já seguem o padrão (comprovativo
+> imediato + `Promise.allSettled`/fire-and-forget), com estados independentes
+> por utilizador (R1–R6); a validação QR é local e instantânea.
 
 > **Regra de UX da plataforma:** o utilizador nunca fica preso numa página porque
 > o sistema está a processar. Confirma-se, liberta-se, processa-se e notifica-se.

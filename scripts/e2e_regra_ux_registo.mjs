@@ -284,6 +284,97 @@ await (async () => {
   }
 })();
 
+// ============================================================ T9 · REGISTO DE INSTITUIÇÃO (3.1)
+// A adesão de instituição (RegisterInstitutionPage) mostra o ecrã de conclusão
+// IMEDIATAMENTE com o Código Institucional + Nº Agente; a gravação na fila da
+// Administração e o provisionamento correm em segundo plano.
+const INST = { nome: 'UX Inst Teste Auto', email: 'ux.inst.teste@cda-test.ao', emailA: 'ux.resp.teste@cda-test.ao' };
+await (async () => {
+  const pageI = await ctx.newPage();
+  const limparInst = async (code) => {
+    if (!code) return;
+    try {
+      await supa(`solicitacoes_registo?bi_numero=eq.${encodeURIComponent(code)}`, { method: 'DELETE' });
+      await supa(`profiles?bi=eq.${encodeURIComponent(code)}`, { method: 'DELETE' });
+      await supa(`notifications?target_bi=eq.${encodeURIComponent(code)}`, { method: 'DELETE' });
+      const au = await fetch(`${SUPA}/auth/v1/admin/users?per_page=200&page=1`, { headers: H });
+      const j = au.ok ? await au.json() : { users: [] };
+      for (const u of j.users || []) {
+        const md = u.user_metadata || {};
+        if (String(md.instituicao || '').toUpperCase() === code.toUpperCase()) {
+          await fetch(`${SUPA}/auth/v1/admin/users/${u.id}`, { method: 'DELETE', headers: H });
+        }
+      }
+    } catch { /* ignora */ }
+  };
+  try {
+    pageI.on('response', async (r) => {
+      if (r.url().includes('/api/dados') && r.request().method() === 'POST') {
+        const b = (await r.text().catch(() => '')).slice(0, 120);
+        console.log(`  [T9 dbg] /api/dados ${r.status()} ${b}`);
+      }
+    });
+    await pageI.goto(`${BASE}/institucional?cb=${TS}-i1#/registar`, { waitUntil: 'domcontentloaded' });
+    const nomeI = pageI.locator('input[placeholder*="Serviço de Migração"]');
+    try {
+      await nomeI.waitFor({ state: 'visible', timeout: 20000 });
+    } catch {
+      await pageI.reload({ waitUntil: 'domcontentloaded' });
+      await nomeI.waitFor({ state: 'visible', timeout: 25000 });
+    }
+    await nomeI.fill(INST.nome);
+    await pageI.locator('input[placeholder*="Rua dos Correios"]').fill('Rua de Teste UX 10, Maianga, Luanda');
+    await pageI.locator('input[placeholder*="geral@sme"]').fill(INST.email);
+    await pageI.locator('input[placeholder*="+244 923"]').fill('+244 923 777 888');
+    await pageI.locator('input[placeholder*="Dr. António"]').fill('Resp Teste UX');
+    await pageI.locator('input[placeholder*="Director Geral"]').fill('Director de Teste');
+    await pageI.locator('input[placeholder*="director@sme"]').fill(INST.emailA);
+    const passesI = pageI.locator('input[type="password"]');
+    await passesI.nth(0).fill(TESTE.senha);
+    await passesI.nth(1).fill(TESTE.senha);
+    await pageI.screenshot({ path: `${SS}/regraUX_T9_inst_form.png` });
+    const t0I = Date.now();
+    await pageI.getByRole('button', { name: /finalizar registo/i }).click();
+    await pageI.locator('text=/Pedido de Adesão Registado/i').first().waitFor({ state: 'visible', timeout: 30000 });
+    const dtI = Date.now() - t0I;
+    const txtI = await pageI.evaluate(() => document.body.innerText);
+    // o Código Institucional vem a seguir ao rótulo (o Nº Agente tem sufixo -NN)
+    const codeI = ((txtI.match(/Código Institucional\s*\n\s*([A-Z0-9][A-Z0-9-]{3,18})/i) || [])[1] || '').trim();
+    const temAgente = /Nº Agente Institucional do Responsável/i.test(txtI);
+    reg('T9-inst-conclusao-imediata', dtI < 4000 && !!codeI && temAgente ? 'PASS' : 'FAIL',
+      `adesão: ecrã de conclusão em ${dtI}ms com Código "${codeI || '??'}"${temAgente ? ' + Nº Agente' : ' SEM Nº Agente'} — entrega à Administração em 2.º plano`);
+    await pageI.screenshot({ path: `${SS}/regraUX_T9_inst_sucesso.png` });
+    let filaI = null;
+    const tI = Date.now();
+    while (Date.now() - tI < 120000) {
+      await pageI.waitForTimeout(6000);
+      const chip = await pageI.evaluate(() => {
+        const t = document.body.innerText;
+        if (/Solicitação entregue/i.test(t)) return 'ok';
+        if (/Tentar novamente/i.test(t)) return 'falhou';
+        if (/A entregar/i.test(t)) return 'a_enviar';
+        return '?';
+      }).catch(() => '?');
+      console.log(`  [T9 dbg] t+${Math.round((Date.now() - tI) / 1000)}s sync=${chip}`);
+      const f = codeI
+        ? (await supa(`solicitacoes_registo?select=id,status&bi_numero=eq.${encodeURIComponent(codeI)}&limit=1`)).body
+        : null;
+      if (f && f.length) { filaI = f[0]; break; }
+    }
+    reg('T9-inst-fila-homologacao', filaI ? 'PASS' : 'FAIL', filaI ? `fila central recebeu a adesão (status="${filaI.status}") em ${Math.round((Date.now() - tI) / 1000)}s` : 'adesão não chegou à fila central');
+    await limparInst(codeI);
+  } catch (e) {
+    reg('T9-inst-conclusao-imediata', 'FAIL', String(e).slice(0, 140));
+    try {
+      const txt = await pageI.evaluate(() => document.body.innerText);
+      const c = ((txt.match(/Código Institucional\s*\n\s*([A-Z0-9][A-Z0-9-]{3,18})/i) || [])[1] || '').trim();
+      await limparInst(c);
+    } catch { /* ignora */ }
+  } finally {
+    await pageI.close().catch(() => {});
+  }
+})();
+
 // ---------- erros de página ----------
 reg('X-sem-erros-js', errosJs.length === 0 ? 'PASS' : 'FAIL', errosJs.length ? errosJs.slice(0, 3).join(' | ') : 'sem pageerror');
 

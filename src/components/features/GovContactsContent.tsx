@@ -260,7 +260,7 @@ export function GovContactsContent({
     role: string;
     department: string;
     agentId: string;
-    status: 'Ativo' | 'Desativado' | 'Suspenso' | 'Férias' | 'Pendente';
+    status: 'Ativo' | 'Desativado' | 'Suspenso' | 'Férias' | 'Pendente' | 'Em activação';
     lastAccess: string;
     phone: string;
     registrationDate: string;
@@ -1501,6 +1501,49 @@ export function GovContactsContent({
     setEditingWorkerId(null);
   };
 
+  // v37.78.18 — REGRAS UX #6: retoma da activação na nuvem («Tentar novamente»
+  // no aviso de falha). Repete provisionamento + ficha central; se conseguir,
+  // activa o membro e notifica.
+  const reactivarMembroCloudBg = async (
+    workerId: string, agente: string, nome: string, email: string, phone: string, password: string,
+  ) => {
+    if (!isSupabaseConfigured() || !password) return;
+    const isAdmin = /^ADMIN-/i.test(agente);
+    const cloudEmail = isAdmin ? syntheticAdminEmail(agente) : syntheticInstitutionAgentEmail(agente);
+    try {
+      const prov = await provisionCloudAccount(supabase, {
+        email: cloudEmail,
+        password,
+        metadata: isAdmin
+          ? { agent: agente, name: nome, role: 'admin', email, phone }
+          : { agent: agente, name: nome, role: 'instituicao', email, phone },
+      });
+      const provOk = prov.outcome === 'ok' || prov.outcome === 'linked_existing';
+      if (provOk) {
+        markCloudAccount(agente, cloudEmail, isAdmin ? 'admin' : 'instituicao');
+        let fichaOk = false;
+        try {
+          const ficha = await equipaMembroCloud('criar', { agente, nome, email, phone });
+          fichaOk = !!ficha.ok;
+        } catch { fichaOk = false; }
+        setWorkers(prev => prev.map(w => w.id === workerId ? { ...w, status: 'Ativo' } : w));
+        if (fichaOk) {
+          addAuditLog?.(`[EQUIPA] Nº ${agente} (${nome}): conta e ficha ACTIVAS na nuvem (retoma manual concluída).`, 'success');
+          notify(`Nº ${agente} (${nome}): conta ACTIVA na nuvem — já pode iniciar sessão em qualquer dispositivo.`, 'success');
+        } else {
+          addAuditLog?.(`[EQUIPA] Nº ${agente}: conta Auth activa, mas a ficha central falhou — o membro pode não aparecer noutros dispositivos.`, 'warning');
+          notify(`Nº ${agente}: conta Auth activa na nuvem, mas a ficha central falhou (o membro pode não aparecer noutros dispositivos).`, 'warning');
+        }
+      } else {
+        addAuditLog?.(`[EQUIPA] Retoma da activação de ${agente} falhou (${prov.outcome || 'falha'}) — credencial local mantém-se (D3).`, 'warning');
+        notify(`A retoma da activação de ${agente} falhou (${prov.outcome || 'falha'}). A conta local mantém-se activa neste dispositivo.`, 'warning');
+      }
+    } catch (e) {
+      console.error('[EQUIPA] Falha inesperada na retoma da activação:', e);
+      addAuditLog?.(`[EQUIPA] Falha inesperada na retoma da activação de ${agente} — credencial local mantém-se (D3).`, 'warning');
+    }
+  };
+
   const handleCreateWorker = async (e: React.FormEvent) => {
     e.preventDefault();
     // v37.77 — o formulário passou a noValidate: a validação NATIVA do browser
@@ -1728,6 +1771,45 @@ export function GovContactsContent({
         });
         addAuditLog?.(`[EQUIPA] Agente ${numeroAgenteFinal} (${newWorkerName}) criado — login Admin com Nº + senha inicial.`, 'success');
       }
+      // v37.78.18 — REGRAS UX (2.º plano + feedback imediato): o membro nasce
+      // LOCAL no acto — o modal fecha e o responsável recebe o Nº IMEDIATAMENTE;
+      // o provisionamento na nuvem (F32) corre em segundo plano e o estado
+      // transita «Criado → Em activação → Activo» com notificação no fim.
+      // (Fix 2026-08-22 preservado: a conta Auth continua a ser criada pela
+      // activação antes de o colaborador entrar — quem tentar entrar durante a
+      // janela vê «Em activação» e recebe a notificação de conta ACTIVA.)
+      const newWorker: Trabajador = {
+        id: newWorkerId,
+        name: newWorkerName,
+        email: newWorkerEmail,
+        phone: newWorkerPhone,
+        role: newWorkerRole,
+        department: newWorkerDept || 'Geral',
+        agentId: numeroAgenteFinal || `CDA-${Math.floor(1000 + Math.random() * 9000)}`,
+        status: 'Em activação',
+        lastAccess: 'Nunca acedeu',
+        registrationDate: '12/06/2026',
+        permissions: defaultPerms,
+        paginas: paginasEfetivas(),
+        activityLogs: [
+          { action: 'Conta criada — activação na nuvem em curso', timestamp: currentTime, ip: '197.231.42.15' }
+        ]
+      };
+      setWorkers(prev => [...prev, newWorker]);
+      addAuditLog?.(`[EQUIPA] Novo membro da equipa ${newWorkerName} cadastrado (Nº ${numeroAgenteFinal}) — a activar na nuvem em segundo plano.`, 'success');
+      notify(
+        `${newWorkerName} criado — Nº ${numeroAgenteFinal}. A conta está A SER ACTIVADA na nuvem; o colaborador pode iniciar sessão quando o estado ficar «Activo» (notificação automática).`,
+        'info',
+      );
+      setShowAddWorkerModal(false);
+      resetForm();
+
+      // — ACTIVAÇÃO NA NUVEM EM SEGUNDO PLANO —
+      void (async () => {
+      let provOutcomeBg: string | null = null;
+      let provTentadoBg = false;
+      let fichaOkBg = true;
+      let fichaErroBg = '';
       // F32 (v12/D4-a) — o novo membro nasce na NUVEM: a palavra-passe vive apenas
       // no Supabase Auth. 2026-08-22 — o provisionamento passa a ser AGUARDADO
       // (antes era fire-and-forget): quando o popup fecha, a conta JÁ existe na
@@ -1745,6 +1827,7 @@ export function GovContactsContent({
         }
       } catch { /* best-effort */ }
       if (isSupabaseConfigured() && newWorkerPassword && (instReg || adminCredsOn || (appMode === 'institution' && !!regCode))) {
+        provTentadoBg = true;
         const cloudEmail = adminCredsOn
           ? syntheticAdminEmail(numeroAgenteFinal)
           : syntheticInstitutionAgentEmail(numeroAgenteFinal);
@@ -1757,6 +1840,7 @@ export function GovContactsContent({
               ? { agent: numeroAgenteFinal, name: newWorkerName, workerId: newWorkerId, role: 'admin', email: newWorkerEmail, phone: newWorkerPhone, paginasPermitidas: paginasEfetivas() }
               : { agent: numeroAgenteFinal, instituicao: regCode, name: newWorkerName, role: 'instituicao', email: newWorkerEmail, phone: newWorkerPhone, paginasPermitidas: paginasEfetivas() },
           });
+          provOutcomeBg = prov.outcome;
           if (prov.outcome === 'ok' || prov.outcome === 'linked_existing') {
             markCloudAccount(numeroAgenteFinal, cloudEmail, cloudRole);
             addAuditLog?.(`[AUTH-CLOUD] Membro ${numeroAgenteFinal} (${newWorkerName}) nascido na nuvem — a palavra-passe vive apenas no Supabase Auth.`, 'success');
@@ -1783,25 +1867,6 @@ export function GovContactsContent({
       // falhadas... 8 minutos" logo no primeiro login.
       try { limparLoginFalhas(numeroAgenteFinal); } catch { /* melhor esforço */ }
 
-      const newWorker: Trabajador = {
-        id: newWorkerId,
-        name: newWorkerName,
-        email: newWorkerEmail,
-        role: newWorkerRole,
-        phone: newWorkerPhone,
-        department: newWorkerDept || 'Geral',
-        agentId: numeroAgenteFinal || `CDA-${Math.floor(1000 + Math.random() * 9000)}`,
-        status: newWorkerStatus || 'Ativo',
-        lastAccess: 'Nunca acedeu',
-        registrationDate: '12/06/2026',
-        permissions: defaultPerms,
-        paginas: paginasEfetivas(),
-        activityLogs: [
-          { action: 'Conta criada e ativada no sistema dactiloscópico', timestamp: currentTime, ip: '197.231.42.15' }
-        ]
-      };
-      setWorkers(prev => [...prev, newWorker]);
-      addAuditLog?.(`[EQUIPA] Novo membro da equipa ${newWorkerName} cadastrado com sucesso.`, 'success');
 
       // v37.78.6 — ficha `profiles` na BASE CENTRAL: sem isto a conta Auth era
       // criada mas o membro nunca aparecia na lista Equipa (a nuvem é a fonte
@@ -1813,21 +1878,38 @@ export function GovContactsContent({
           email: newWorkerEmail,
           phone: newWorkerPhone,
         });
-        if (ficha.ok) {
-          addAuditLog?.(`[EQUIPA] Ficha de ${numeroAgenteFinal} (${newWorkerName}) gravada na base central (profiles).`, 'success');
-        } else {
-          addAuditLog?.(`[EQUIPA] Conta criada, mas a ficha na base central falhou (${ficha.erro || 'erro'}) — o membro pode não aparecer na Equipa noutros dispositivos.`, 'warning');
-        }
-      } catch { /* melhor esforço — a conta Auth já existe */ }
-      notify(
-        `${newWorkerName} cadastrado com sucesso — Nº ${numeroAgenteFinal}. O acesso é feito com este número e a senha inicial definida${isPlatformAdmin ? ' (Área da Administração)' : ' (Área da Instituição)'}.`,
-        'success',
-      );
+        fichaOkBg = !!ficha.ok;
+        if (!ficha.ok) fichaErroBg = ficha.erro || 'erro';
+      } catch (e) {
+        fichaOkBg = false;
+        fichaErroBg = 'excepção de rede';
+        console.warn("[EQUIPA] Ficha na base central falhou:", e);
+      }
+      // v37.78.18 — DESFECHO da activação (2.º plano): Criado → Em activação → Activo
+      const contaCloudOkBg = provOutcomeBg === 'ok' || provOutcomeBg === 'linked_existing';
+      const activarLocalBg = () => setWorkers(prev => prev.map(w => w.id === newWorkerId ? { ...w, status: 'Ativo' } : w));
+      if (!provTentadoBg) {
+        activarLocalBg();
+        addAuditLog?.(`[EQUIPA] Nº ${numeroAgenteFinal} activo localmente (sem provisionamento na nuvem — credencial local, D3).`, 'warning');
+      } else if (contaCloudOkBg && fichaOkBg) {
+        activarLocalBg();
+        notify(`Nº ${numeroAgenteFinal} (${newWorkerName}): conta ACTIVA na nuvem — já pode iniciar sessão em qualquer dispositivo.`, 'success');
+      } else {
+        // REGRAS UX #6 — falha notificada com motivo e acção de repetir
+        activarLocalBg();
+        const motivoBg = !contaCloudOkBg ? `provisionamento: ${provOutcomeBg || 'falha'}` : `ficha central: ${fichaErroBg}`;
+        addAuditLog?.(`[EQUIPA] Activação na nuvem de ${numeroAgenteFinal} incompleta (${motivoBg}) — credencial local activa (D3); nova tentativa disponível.`, 'warning');
+        notify(`Falhou a activação na nuvem de ${numeroAgenteFinal} (${motivoBg}). A conta local mantém-se activa neste dispositivo.`, 'error', {
+          acao: { rotulo: 'Tentar novamente', executar: () => { void reactivarMembroCloudBg(newWorkerId, numeroAgenteFinal, newWorkerName, newWorkerEmail, newWorkerPhone, newWorkerPassword); } },
+          duracaoMs: 12000,
+        });
+      }
       // v37.78.6 — refrescar a lista canónica (nuvem) das duas áreas
       if (appMode === 'institution') void refrescarMembrosCloudInst();
       else if (appMode === 'admin-workers') {
         carregarDadosReaisAdmin().then(d => { if (d) setDadosReais(d); }).catch(() => {});
       }
+      })();
     }
 
     setShowAddWorkerModal(false);
@@ -2278,7 +2360,7 @@ export function GovContactsContent({
                               addAuditLog?.(`[EQUIPA] Acesso dactiloscópico de ${w.name} alterado para ${nextStatus}.`, nextStatus === 'Ativo' ? 'success' : 'warning');
                             }}
                             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none focus:outline-none ${
-                              w.status === 'Ativo' ? 'bg-emerald-600' : 'bg-slate-300'
+                              w.status === 'Ativo' ? 'bg-emerald-600' : w.status === 'Em activação' ? 'bg-amber-400 animate-pulse' : 'bg-slate-300'
                             }`}
                             type="button"
                           >
@@ -2291,9 +2373,11 @@ export function GovContactsContent({
                           <span className={`text-[10px] font-black uppercase w-14 text-left select-none ${
                             w.status === 'Ativo' 
                               ? 'text-emerald-700' 
-                              : 'text-slate-400'
+                              : w.status === 'Em activação'
+                                ? 'text-amber-600'
+                                : 'text-slate-400'
                           }`}>
-                            {w.status === 'Ativo' ? 'Ativo' : w.status === 'Suspenso' ? 'Suspenso' : 'Inativo'}
+                            {w.status === 'Ativo' ? 'Ativo' : w.status === 'Em activação' ? 'Em activação' : w.status === 'Suspenso' ? 'Suspenso' : 'Inativo'}
                           </span>
                         </div>
                       </td>
