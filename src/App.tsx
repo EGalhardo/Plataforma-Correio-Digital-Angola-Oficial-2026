@@ -605,7 +605,7 @@ export default function App() {
   const handleDeleteMessage = (id: number) => {
     if (!deletedMessageIds.includes(id)) {
       setDeletedMessageIds([...deletedMessageIds, id]);
-      const baseId = id >= 10000 ? id - 10000 : id;
+      const baseId = id >= 10000 && id < 90000000 ? id - 10000 : id;
       if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
         supabaseService.updateMessageState(baseId, { state_indicator: 'Arquivada' }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
         supabaseService.insertMessageStateEvent({
@@ -619,7 +619,7 @@ export default function App() {
     } else {
       if (!hiddenMessageIds.includes(id)) {
         setHiddenMessageIds([...hiddenMessageIds, id]);
-        const baseId = id >= 10000 ? id - 10000 : id;
+        const baseId = id >= 10000 && id < 90000000 ? id - 10000 : id;
         if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
           supabaseService.updateMessageState(baseId, { state_indicator: 'EliminadaPermanente' }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
           supabaseService.insertMessageStateEvent({
@@ -636,7 +636,7 @@ export default function App() {
 
   const handleRestoreMessage = (id: number) => {
     setDeletedMessageIds(deletedMessageIds.filter(mid => mid !== id));
-    const baseId = id >= 10000 ? id - 10000 : id;
+    const baseId = id >= 10000 && id < 90000000 ? id - 10000 : id;
     if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
       supabaseService.updateMessageState(baseId, { state_indicator: 'Ativa' }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
       supabaseService.insertMessageStateEvent({
@@ -4134,7 +4134,7 @@ export default function App() {
     setInstInbox(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
     setSentMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
     if (isOnline && hasValidSupabaseKeys()) {
-      supabaseService.updateMessageState(updatedMsg.id >= 10000 ? updatedMsg.id - 10000 : updatedMsg.id, {
+      supabaseService.updateMessageState(updatedMsg.id >= 10000 && updatedMsg.id < 90000000 ? updatedMsg.id - 10000 : updatedMsg.id, {
         // REGRA R1 — «unread» nunca passa por edições: só o destinatário a abrir.
         status: updatedMsg.status,
         preview: updatedMsg.preview,
@@ -6027,7 +6027,7 @@ Ficha civil do titular:
                   }, resolvedBi);
 
                   // 7. Insert official Message State History Events in 'message_state_history'
-                  const baseMsgId = finalMessageObj.id >= 10000 ? finalMessageObj.id - 10000 : finalMessageObj.id;
+                  const baseMsgId = finalMessageObj.id >= 10000 && finalMessageObj.id < 90000000 ? finalMessageObj.id - 10000 : finalMessageObj.id;
                   
                   // "Enviada" event
                   await supabaseService.insertMessageStateEvent({

@@ -117,14 +117,19 @@ export function CdaModal({
   );
 }
 
-/** Classes oficiais do padrão, para popups que preferem compor manualmente. */
+/** Classes oficiais do padrão, para popups que preferem compor manualmente.
+ *  v37.78.10+ — layout da «Central de Preferências do Cidadão»: faixa de
+ *  cabeçalho escura (#111A2E) com ícone em chip, título branco uppercase,
+ *  subtítulo slate-400 e X white/60; corpo com padding próprio e scroll. */
 export const CDA_MODAL_PADRAO = {
   exterior: 'fixed inset-0 z-[99999] flex items-center justify-center p-4',
   backdrop: 'absolute inset-0 bg-slate-950/60 backdrop-blur-md',
   caixa: (maxW = 'max-w-4xl') =>
-    `relative bg-white w-full ${maxW} max-h-[95vh] rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 flex flex-col overflow-hidden mx-auto p-6 md:p-10 space-y-6 z-10`,
-  titulo: 'text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1',
-  subtitulo: 'text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none',
-  icone: 'w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center shrink-0 border border-indigo-100/40 shadow-sm',
-  fechar: 'absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-none bg-transparent cursor-pointer',
+    `relative bg-white w-full ${maxW} max-h-[95vh] rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 flex flex-col overflow-hidden mx-auto z-10`,
+  faixa: 'px-5 md:px-7 py-3.5 md:py-4 bg-[#111A2E] text-white flex justify-between items-center gap-3 shrink-0',
+  corpo: 'p-6 md:p-10 space-y-6 overflow-y-auto flex-1 text-left',
+  titulo: 'font-extrabold text-xs md:text-sm uppercase tracking-tight text-white leading-tight truncate',
+  subtitulo: 'text-[8px] md:text-[9px] text-slate-400 uppercase tracking-widest font-black mt-0.5 m-0 leading-none truncate',
+  icone: 'p-1.5 md:p-2 bg-primary/20 text-primary rounded-xl flex items-center justify-center shrink-0 border border-white/10',
+  fechar: 'text-white/60 hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors border-none bg-transparent cursor-pointer shrink-0',
 };
