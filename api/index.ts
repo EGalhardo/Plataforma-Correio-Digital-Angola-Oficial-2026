@@ -2338,6 +2338,10 @@ const DADOS_COLUNAS: Record<string, Record<string, boolean>> = {
     status: true, subject: true, body: true, deadline_text: true, state_indicator: true,
     actions: true, attachments: true, sensitivity: true, priority_scale: true,
     deadline_hours_remaining: true, protocol_number: true, created_at: true,
+    // v37.78.3 — sondagens embutidas (v37): sem estas colunas o proxy
+    // descartava-as em silêncio e o destinatário manual via a mensagem SEM
+    // cartão de resposta à sondagem (idem server.ts — manter sincronizado).
+    sondagem_id: true, sondagem_ids: true,
   },
   contacts: { id: true, owner_bi: true, name: true, bi: true, relation: true, status: true, type: true, phone: true, whatsapp: true, email: true }, // v35 — email opcional (difusão de emergência)
   notifications: { id: true, target_bi: true, title: true, message: true, time_text: true, type: true, target_tab: true, read_at: true },
@@ -2570,7 +2574,9 @@ function dadosSanitizarLinha(tabela: string, linha: any): Record<string, any> | 
     if (!cols[k]) continue;
     if (typeof v === 'string' && v.length > 10000) out[k] = v.slice(0, 10000);
     else if (v === null || ['string', 'number', 'boolean'].includes(typeof v)) out[k] = v;
-    else if (Array.isArray(v) && v.every(x => typeof x === 'string')) out[k] = v.slice(0, 50);
+    // v37.78.3 — arrays homogéneos de strings OU números (messages.sondagem_ids
+    // é int[]; antes só strings passavam e a coluna era descartada em silêncio).
+    else if (Array.isArray(v) && (v.every(x => typeof x === 'string') || v.every(x => typeof x === 'number'))) out[k] = v.slice(0, 50);
   }
   return out;
 }
