@@ -4355,7 +4355,9 @@ export default function App() {
           message: `${user.name} enviou uma nova correspondência para ${to}.`,
           type: 'info',
           targetTab: 'correspondencias'
-        }, resolveInstitutionCode(to));
+          // v37.78.2 — destinatário-cidadão (BI completo) é notificado pelo
+          // próprio BI; resolveInstitutionCode() reduziria '005404692BO043' a 'BO'.
+        }, /^\d{9}[A-Z]{2}\d{3}$/.test(to.toUpperCase()) ? to.toUpperCase() : resolveInstitutionCode(to));
       }
     } catch (err) {
       console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err);

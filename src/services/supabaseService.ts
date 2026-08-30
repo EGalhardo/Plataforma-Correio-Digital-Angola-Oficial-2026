@@ -854,9 +854,16 @@ export const supabaseService = {
   async sendCitizenMessage(msg: Message, citizenBi: string, institutionLabel: string, citizenName?: string) {
     if (!hasValidSupabaseKeys()) return null;
     try {
-      const institutionCode = resolveInstitutionCode(institutionLabel);
+      // v37.78.2 — CIDADÃO→CIDADÃO: um BI completo como destinatário passa
+      // VERBATIM. Antes caía em resolveInstitutionCode(), desenhado para
+      // rótulos institucionais, que o reduzia às letras internas
+      // ('005404692BO043' virava 'BO') — a mensagem ficava entregue a um
+      // destinatário inexistente e o cidadão nunca a recebia.
+      const labelNorm = String(institutionLabel || '').trim().toUpperCase();
+      const ehBIDestinatario = /^\d{9}[A-Z]{2}\d{3}$/.test(labelNorm);
+      const institutionCode = ehBIDestinatario ? labelNorm : resolveInstitutionCode(institutionLabel);
       await ensureProfileExists(citizenBi, citizenName || msg.details?.body?.match(/Atentamente,\s*([\wÀ-ÿ\s]+)/i)?.[1]?.trim() || 'Cidadão', 'user');
-      await ensureProfileExists(institutionCode, institutionLabel, 'institution');
+      await ensureProfileExists(institutionCode, ehBIDestinatario ? labelNorm : institutionLabel, ehBIDestinatario ? 'user' : 'institution');
       const payload = createMessagePayload({
         msg,
         senderBi: citizenBi,
