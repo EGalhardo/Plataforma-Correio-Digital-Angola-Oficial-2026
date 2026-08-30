@@ -1491,6 +1491,65 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
     }
   });
 
+
+  // v37.78.10 — EMAIL DE BOAS-VINDAS no registo concluído (cidadão/instituição).
+  // Envia os dados de acesso (nº de identificação + senha inicial) para o email
+  // deixado no registo. Provedor: Resend (RESEND_API_KEY no ambiente); sem a
+  // chave responde 503 claro — o registo NUNCA é bloqueado por falha de email.
+  app.post("/api/enviar-email-boas-vindas", async (req, res) => {
+    try {
+      const { nome, email, chaveAcesso, senha, area, link } = req.body || {};
+      const para = String(email || '').trim().toLowerCase();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(para)) return res.status(400).json({ ok: false, erro: 'Email inválido.' });
+      const nomeLimpo = String(nome || '').trim().slice(0, 120) || 'Utilizador';
+      const chave = String(chaveAcesso || '').trim().slice(0, 40);
+      const senhaLimpa = String(senha || '').slice(0, 64);
+      if (!chave || !senhaLimpa) return res.status(400).json({ ok: false, erro: 'Dados de acesso incompletos.' });
+      const areaLimpa = area === 'instituicao' ? 'Instituição' : 'Cidadão';
+      const linkLimpo = String(link || 'https://correio-digital-angola-oficial.vercel.app').slice(0, 200);
+      const apiKey = (process.env.RESEND_API_KEY || '').trim();
+      if (!apiKey) return res.status(503).json({ ok: false, erro: 'Serviço de email não configurado (RESEND_API_KEY ausente).' });
+      const de = (process.env.EMAIL_REMETENTE || 'Correio Digital Angola <onboarding@resend.dev>').trim();
+      const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif">
+<div style="max-width:560px;margin:24px auto;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e2e8f0">
+  <div style="background:#111A2E;padding:28px 32px">
+    <div style="color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:1px">CORREIO DIGITAL ANGOLA</div>
+    <div style="color:#94a3b8;font-size:10px;letter-spacing:3px;margin-top:4px">GOVERNAÇÃO INTELIGENTE • ANGOLA</div>
+  </div>
+  <div style="padding:32px">
+    <h1 style="color:#0c2340;font-size:22px;margin:0 0 12px">Bem-vindo(a), ${nomeLimpo}!</h1>
+    <p style="color:#475569;font-size:14px;line-height:1.6">O seu registo na plataforma <b>Correio Digital Angola</b> (${areaLimpa}) foi concluído com sucesso. Guarde os seus dados de acesso:</p>
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:18px;margin:18px 0">
+      <div style="font-size:10px;color:#94a3b8;letter-spacing:2px;font-weight:bold">Nº DE IDENTIFICAÇÃO (UTILIZADOR)</div>
+      <div style="color:#0c2340;font-size:18px;font-weight:bold;margin:4px 0 14px">${chave}</div>
+      <div style="font-size:10px;color:#94a3b8;letter-spacing:2px;font-weight:bold">SENHA INICIAL</div>
+      <div style="color:#0c2340;font-size:18px;font-weight:bold;margin:4px 0">${senhaLimpa}</div>
+    </div>
+    <p style="color:#475569;font-size:13px;line-height:1.6">Aceda em <a href="${linkLimpo}" style="color:#4f46e5">${linkLimpo}</a>. Recomendamos alterar a senha após o primeiro acesso. Não responda a este email.</p>
+  </div>
+  <div style="background:#f8fafc;padding:16px 32px;color:#94a3b8;font-size:10px;text-align:center">Correio Digital Angola — República de Angola</div>
+</div></body></html>`;
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: de,
+          to: [para],
+          subject: 'Bem-vindo(a) à plataforma Correio Digital Angola — os seus dados de acesso',
+          html,
+        }),
+      });
+      if (!r.ok) {
+        const txt = await r.text();
+        return res.status(502).json({ ok: false, erro: `Provedor de email recusou (${r.status}): ${txt.slice(0, 140)}` });
+      }
+      return res.status(200).json({ ok: true });
+    } catch (e) {
+      console.error('[EMAIL-BOAS-VINDAS] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
   // Rota do proxy CRUD do Modo Real (ver bloco PROXY CRUD acima).
   app.post("/api/dados", async (req, res) => {
     try {

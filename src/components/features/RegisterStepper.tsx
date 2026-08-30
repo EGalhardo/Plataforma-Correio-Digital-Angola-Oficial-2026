@@ -979,6 +979,33 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       setStep('success');
       // v37.29 — inscrição concluída: popup com o Nº de acesso e a senha.
       setCredPopup(true);
+      // v37.78.10 — EMAIL DE BOAS-VINDAS: envia os dados de acesso para o email
+      // deixado no registo (best-effort — NUNCA bloqueia/atrasta o registo; sem
+      // provedor configurado apenas fica aviso no histórico de auditoria).
+      if (newUser.contact && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(newUser.contact.trim())) {
+        const baseLogin = (typeof window !== 'undefined' ? window.location.origin : 'https://correio-digital-angola-oficial.vercel.app');
+        fetch('/api/enviar-email-boas-vindas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nome: newUser.name,
+            email: newUser.contact.trim().toLowerCase(),
+            chaveAcesso: newUser.biNumber,
+            senha: password,
+            area: 'cidadao',
+            link: baseLogin,
+          }),
+        })
+          .then(async (r) => {
+            if (r.ok) {
+              addAuditLog(`[EMAIL] Boas-vindas enviada para ${newUser.contact} com os dados de acesso.`, 'success');
+            } else {
+              const j = await r.json().catch(() => ({} as any));
+              addAuditLog(`[EMAIL] Boas-vindas não enviada (${r.status}): ${j.erro || 'falha do provedor'}.`, 'warning');
+            }
+          })
+          .catch(() => addAuditLog('[EMAIL] Boas-vindas não enviada (rede).', 'warning'));
+      }
       // v37.8 — cidadão aprovado pela validação automática: popup «Aprovado /
       // Seu cadastro foi aprovado.» e redireccionamento para o Login (a página
       // de registo fecha automaticamente após a confirmação).
