@@ -2756,6 +2756,21 @@ async function dadosExecutarPedido(opts: {
       if (!Array.isArray(removidas) || removidas.length === 0) {
         return { status: 404, json: { ok: false, erro: 'Registo não encontrado (ou sem permissão sobre ele).' } };
       }
+      // v37.77.3 — INTEGRIDADE: ao apagar correspondências, o histórico de
+      // estados (message_state_history) das mesmas tem de ir junto — senão
+      // ficam linhas órfs apontando para mensagens que já não existem.
+      // Melhor-esforço: nunca falha a eliminação por causa da limpeza.
+      // (Gémeo de server.ts — manter os dois sincronizados.)
+      if (tabela === 'messages') {
+        try {
+          const ids = removidas.map((m: any) => m?.id).filter(Boolean);
+          if (ids.length) {
+            await fetch(`${supaUrl}/rest/v1/message_state_history?message_id=in.(${ids.join(',')})`, {
+              method: 'DELETE', headers,
+            });
+          }
+        } catch { /* melhor esforço */ }
+      }
       return { status: 200, json: { ok: true, removido: true } };
     }
     return { status: 400, json: { ok: false, erro: 'Operação desconhecida.' } };
@@ -2807,6 +2822,23 @@ async function dadosResolverEExecutar(opts: {
         await apagarAdm('notifications', `target_bi=eq.${encodeURIComponent(biNorm)}`);
         await apagarAdm('contacts', `owner_bi=eq.${encodeURIComponent(biNorm)}`);
         await apagarAdm('documents', `holder_bi=eq.${encodeURIComponent(biNorm)}`);
+        // v37.77.3 — RESÍDUOS DO CIDADÃO: correspondências (enviadas/recebidas),
+        // respectivo histórico de estados e pedidos de documentos também saem —
+        // antes a eliminação deixava as mensagens do cidadão na base central
+        // (o mesmo tipo de resíduo das «23 enviadas» da instituição).
+        // Gémeo de server.ts — manter os dois sincronizados.
+        try {
+          const filtroMsg = `or=(sender_bi.eq.${encodeURIComponent(biNorm)},recipient_bi.eq.${encodeURIComponent(biNorm)})`;
+          const gm = await fetch(`${supaUrlAdm}/rest/v1/messages?${filtroMsg}&select=id&limit=5000`, { headers: hAdm });
+          const msgs = await gm.json().catch(() => []);
+          if (Array.isArray(msgs) && msgs.length) {
+            await fetch(`${supaUrlAdm}/rest/v1/messages?${filtroMsg}`, { method: 'DELETE', headers: hAdm });
+            const idsHist = msgs.map((m: any) => m.id).join(',');
+            await fetch(`${supaUrlAdm}/rest/v1/message_state_history?message_id=in.(${idsHist})`, { method: 'DELETE', headers: hAdm });
+          }
+          detalhes['messages'] = Array.isArray(msgs) ? msgs.length : 0;
+        } catch { /* best-effort */ }
+        await apagarAdm('document_requests', `user_bi=eq.${encodeURIComponent(biNorm)}`);
         let authRemovido = false;
         try {
           let pagina = 1;

@@ -778,6 +778,20 @@ async function dadosExecutarPedido(opts: {
       if (!Array.isArray(removidas) || removidas.length === 0) {
         return { status: 404, json: { ok: false, erro: 'Registo não encontrado (ou sem permissão sobre ele).' } };
       }
+      // v37.77.3 — INTEGRIDADE: ao apagar correspondências, o histórico de
+      // estados (message_state_history) das mesmas tem de ir junto — senão
+      // ficam linhas órfs apontando para mensagens que já não existem.
+      // Melhor-esforço: nunca falha a eliminação por causa da limpeza.
+      if (tabela === 'messages') {
+        try {
+          const ids = removidas.map((m: any) => m?.id).filter(Boolean);
+          if (ids.length) {
+            await fetch(`${supaUrl}/rest/v1/message_state_history?message_id=in.(${ids.join(',')})`, {
+              method: 'DELETE', headers,
+            });
+          }
+        } catch { /* melhor esforço */ }
+      }
       return { status: 200, json: { ok: true, removido: true } };
     }
     return { status: 400, json: { ok: false, erro: 'Operação desconhecida.' } };
@@ -831,6 +845,22 @@ async function dadosResolverEExecutar(opts: {
       await apagar('notifications', `target_bi=eq.${encodeURIComponent(biNorm)}`);
       await apagar('contacts', `owner_bi=eq.${encodeURIComponent(biNorm)}`);
       await apagar('documents', `holder_bi=eq.${encodeURIComponent(biNorm)}`);
+      // v37.77.3 — RESÍDUOS DO CIDADÃO: correspondências (enviadas/recebidas),
+      // respectivo histórico de estados e pedidos de documentos também saem —
+      // antes a eliminação deixava as mensagens do cidadão na base central
+      // (o mesmo tipo de resíduo das «23 enviadas» da instituição).
+      try {
+        const filtroMsg = `or=(sender_bi.eq.${encodeURIComponent(biNorm)},recipient_bi.eq.${encodeURIComponent(biNorm)})`;
+        const gm = await fetch(`${supaUrl}/rest/v1/messages?${filtroMsg}&select=id&limit=5000`, { headers: h });
+        const msgs = await gm.json().catch(() => []);
+        if (Array.isArray(msgs) && msgs.length) {
+          await fetch(`${supaUrl}/rest/v1/messages?${filtroMsg}`, { method: 'DELETE', headers: h });
+          const idsHist = msgs.map((m: any) => m.id).join(',');
+          await fetch(`${supaUrl}/rest/v1/message_state_history?message_id=in.(${idsHist})`, { method: 'DELETE', headers: h });
+        }
+        detalhes['messages'] = Array.isArray(msgs) ? msgs.length : 0;
+      } catch { /* best-effort */ }
+      await apagar('document_requests', `user_bi=eq.${encodeURIComponent(biNorm)}`);
       let authRemovido = false;
       try {
         let pagina = 1;
@@ -945,6 +975,19 @@ async function dadosResolverEExecutar(opts: {
       // Sem isto a adesão RE-CRIADA herdava as «Enviadas» da vida anterior
       // (ex.: 23 correspondências fantasma logo após o re-registo).
       let mensagens = 0;
+      // v37.77.3 — capturar os IDs ANTES de apagar: o histórico de estados
+      // destas mensagens tem de ser purgado por message_id (o purge por
+      // `responsible` sozinho deixava linhas órfás quando o responsável do
+      // estado era outro actor, ex.: CDA/Admin).
+      let idsMensagens: number[] = [];
+      try {
+        const { data: listaMsgs } = await admin
+          .from('messages')
+          .select('id')
+          .or(`sender_bi.eq.${codeNorm},sender_bi.like.${codeNorm}-*,recipient_bi.eq.${codeNorm},recipient_bi.like.${codeNorm}-*`)
+          .limit(5000);
+        if (Array.isArray(listaMsgs)) idsMensagens = listaMsgs.map((m: any) => m.id);
+      } catch { /* best-effort */ }
       try {
         const { count } = await admin
           .from('messages')
@@ -978,11 +1021,20 @@ async function dadosResolverEExecutar(opts: {
       } catch { /* best-effort */ }
       let historico = 0;
       try {
+        if (idsMensagens.length) {
+          const { count } = await admin
+            .from('message_state_history')
+            .delete({ count: 'exact' })
+            .in('message_id', idsMensagens);
+          historico += count || 0;
+        }
+      } catch { /* best-effort */ }
+      try {
         const { count } = await admin
           .from('message_state_history')
           .delete({ count: 'exact' })
           .or(`responsible.like.${codeNorm}%,responsible.like.${codeNorm}-%`);
-        historico = count || 0;
+        historico += count || 0;
       } catch { /* best-effort */ }
 
       return res.status(200).json({ ok: true, contas, avatares, perfis, mensagens, notificacoes, sondagens: sondagensApagadas, protocolos, historico });
