@@ -603,41 +603,43 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
     // — dup-check síncrono (B.I./e-mail únicos): erro legítimo ANTES do popup —
     if (isSupabaseReady) {
-
-      // v37.78.17-fix — dup-check TAMBÉM via proxy do servidor (service role):
-      // o select anónimo pode ser limitado por RLS e deixar passar um B.I. que
-      // já está na fila — um erro legítimo tem de aparecer ANTES do popup.
-      try {
-        const dupProxy = await registoPublicoProxy('select', { bi_numero: newUser.biNumber });
-        if (dupProxy && dupProxy.ok && Array.isArray(dupProxy.linhas) && dupProxy.linhas.length > 0) {
-          setSubmitError('Não é possível efectuar o registo: este número de B.I. já se encontra registado.');
-          setIsSubmitting(false);
-          return;
-        }
-      } catch { /* rede — o caminho original abaixo ainda tenta */ }
-
-        // DUPLICADOS: o B.I. e o e-mail são únicos por cidadão — se já
-        // constarem na base de dados, o registo é recusado antes de qualquer envio.
-        setSubmitMessage('A verificar os dados na base de dados...');
-        try {
-          const [{ data: biDup }, { data: emailDup }] = await Promise.all([
-            supabase.from('solicitacoes_registo').select('id').eq('bi_numero', newUser.biNumber).limit(1),
-            supabase.from('solicitacoes_registo').select('id').eq('email', newUser.contact).limit(1)
-          ]);
-          if (biDup && biDup.length > 0) {
-            setSubmitError('Não é possível efectuar o registo: este número de B.I. já se encontra registado.');
-            setIsSubmitting(false);
-            return;
-          }
-          if (emailDup && emailDup.length > 0) {
-            setSubmitError('Não é possível efectuar o registo: este e-mail já se encontra registado.');
-            setIsSubmitting(false);
-            return;
-          }
-        } catch (dupErr) {
-          // Se a verificação falhar (rede/tabela ausente), prossegue — o insert trata duplicados (23505).
-          console.warn('Verificação de duplicados indisponível:', dupErr);
-        }
+      // v37.78.17 — as duas verificações (select anónimo + proxy service-role)
+      // correm em PARALELO: a confirmação imediata fica <1s e nenhum caminho
+      // deixa passar um B.I. que já está na fila (RLS nunca mascara o erro).
+      setSubmitMessage('A verificar os dados na base de dados...');
+      const verificarDup = async (): Promise<'bi' | 'email' | null> => {
+        const [anonRes, proxyRes] = await Promise.all([
+          (async (): Promise<'bi' | 'email' | null> => {
+            try {
+              const [{ data: biDup }, { data: emailDup }] = await Promise.all([
+                supabase.from('solicitacoes_registo').select('id').eq('bi_numero', newUser.biNumber).limit(1),
+                supabase.from('solicitacoes_registo').select('id').eq('email', newUser.contact).limit(1)
+              ]);
+              if (biDup && biDup.length > 0) return 'bi';
+              if (emailDup && emailDup.length > 0) return 'email';
+              return null;
+            } catch { return null; /* rede — o proxy decide */ }
+          })(),
+          (async (): Promise<'bi' | 'email' | null> => {
+            try {
+              const p = await registoPublicoProxy('select', { bi_numero: newUser.biNumber });
+              return p && p.ok && Array.isArray(p.linhas) && p.linhas.length > 0 ? 'bi' : null;
+            } catch { return null; }
+          })(),
+        ]);
+        return anonRes ?? proxyRes;
+      };
+      const dup = await verificarDup();
+      if (dup === 'bi') {
+        setSubmitError('Não é possível efectuar o registo: este número de B.I. já se encontra registado.');
+        setIsSubmitting(false);
+        return;
+      }
+      if (dup === 'email') {
+        setSubmitError('Não é possível efectuar o registo: este e-mail já se encontra registado.');
+        setIsSubmitting(false);
+        return;
+      }
       }
 
       // — gravação LOCAL instantânea (D3): a conta existe desde JÁ para login —

@@ -145,6 +145,7 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
   let provOutcome: string | null = job.provOutcome ?? null;
   let effectiveAutoApproved = false;
   let desfecho: DesfechoBg = 'pendente';
+  let insertFalhouRede = false;
 
   const isSupabaseReady = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
 
@@ -360,6 +361,7 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
           }
         } else {
           console.error('Erro ao inserir solicitacao_registo no Supabase:', insertErr);
+          insertFalhouRede = true;
         }
       } else {
         hooks.addAuditLog(`Adesão de ${newUser.name} registada com sucesso no Supabase!`, 'success');
@@ -442,7 +444,16 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
     }
   } catch { /* ignora */ }
 
-  apagarJob(biClean);
+  if (insertFalhouRede) {
+    // v37.78.17 · checklist «falhas notificadas com motivo e opção de repetir»:
+    // o job MANTÉM-SE (TTL renovado) e o processamento é RETOMADO
+    // automaticamente no próximo arranque da aplicação — o cidadão não refaz
+    // nada; a confirmação imediata já lhe foi dada.
+    gravarJob({ ...job, startedAt: Date.now() });
+    hooks.addAuditLog(`[PVIC] O registo de ${newUser.name} não chegou à fila central (falha de rede) — o sistema vai RETOMAR o processamento automaticamente no próximo arranque; o cidadão não precisa de repetir nada.`, 'warning');
+  } else {
+    apagarJob(biClean);
+  }
   emitirDesfecho(biClean, desfecho);
   return desfecho;
 };

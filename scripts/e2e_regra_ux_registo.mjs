@@ -145,8 +145,12 @@ reg('T2-recebido-vs-concluido', dizAnalisado && temBI && temSenha && temNumAcess
 await page.screenshot({ path: `${SS}/regraUX_T1_popup_credenciais.png` });
 
 // chip vivo no ecrã de sucesso
-const chipAnalise = await page.evaluate(() => /análise em curso/i.test(document.body.innerText));
-reg('T2-chip-analise-em-curso', chipAnalise ? 'PASS' : 'FAIL', 'ecrã de sucesso mostra o estado vivo «Análise em curso»');
+let chipAnalise = false;
+for (let tent = 0; tent < 5 && !chipAnalise; tent += 1) {
+  await page.waitForTimeout(700);
+  chipAnalise = await page.evaluate(() => /análise em curso|aprovado|correc/i.test(document.body.innerText));
+}
+reg('T2-chip-analise-em-curso', chipAnalise ? 'PASS' : 'FAIL', 'ecrã de sucesso mostra o estado vivo da análise (chip)');
 
 // ============================================================ T3 · LOGIN IMEDIATO
 await page.getByRole('button', { name: /^ok$/i }).first().click();

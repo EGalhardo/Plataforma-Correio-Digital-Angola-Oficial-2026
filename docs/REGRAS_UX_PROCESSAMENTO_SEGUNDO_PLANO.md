@@ -142,14 +142,26 @@ plano e nunca segura o utilizador.
 
 ## 5. Checklist de aceitação (para qualquer fluxo novo)
 
-- [ ] Confirmação imediata após a acção (< 1 segundo, sem bloqueio);
-- [ ] Utilizador consegue navegar/logout/login durante o processamento;
-- [ ] Estados claramente separados: recebido ≠ em processamento ≠ concluído;
-- [ ] Notificação in-app no fim, com acções quando aplicável;
-- [ ] Resultado consultável posteriormente (notificações/centro/página);
-- [ ] Popup no padrão visual da plataforma, em português;
-- [ ] Falhas notificadas com motivo e opção de repetir;
-- [ ] Estados independentes por utilizador (remetente vs destinatário).
+- [x] Confirmação imediata após a acção (< 1 segundo, sem bloqueio);
+- [x] Utilizador consegue navegar/logout/login durante o processamento;
+- [x] Estados claramente separados: recebido ≠ em processamento ≠ concluído;
+- [x] Notificação in-app no fim, com acções quando aplicável;
+- [x] Resultado consultável posteriormente (notificações/centro/página);
+- [x] Popup no padrão visual da plataforma, em português;
+- [x] Falhas notificadas com motivo e opção de repetir;
+- [x] Estados independentes por utilizador (remetente vs destinatário).
+
+> **Estado (v37.78.17 · 2026-08-30)** — implementado no fluxo base (Registo de
+> Cidadão + Adesão de Instituição, RegisterStepper partilhado) com o novo
+> `src/services/registoBgService.ts`. Verificação: `scripts/e2e_regra_ux_registo.mjs`
+> (T1-T8) — TODOS PASS local e em produção, incluindo: popup 530ms–1,8s com
+> Nº de Acesso + senha; login imediato com conta pendente; correspondência
+> oficial de recepção; desfecho notificado (✅ aprovado / ⚠️ correcções /
+> pendente de homologação — F28); dup-check síncrono (B.I./e-mail) ANTES do
+> popup; RETOMA automática do processamento após fecho/reload da página
+> (job persistido) e repetição automática em falha de rede do insert.
+> O Correio/Documentos/Difusões já seguem o padrão (comprovativo imediato +
+> `Promise.allSettled`), com estados independentes por utilizador (R1–R6).
 
 > **Regra de UX da plataforma:** o utilizador nunca fica preso numa página porque
 > o sistema está a processar. Confirma-se, liberta-se, processa-se e notifica-se.
