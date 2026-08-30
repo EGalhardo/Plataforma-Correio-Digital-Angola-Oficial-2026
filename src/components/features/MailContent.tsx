@@ -278,8 +278,12 @@ export function MailContent({
         corpoExtra: composeData.body || '',
         excluirBis: manuais,
       });
-      setDistribuindoSondagens(false);
+      // v37.78.14 — ANTI-DUPLICAÇÃO: o flag só desce DEPOIS de o ramo TODOS
+      // concluir (popup de sucesso) ou de um erro honesto. Antes, a janela
+      // entre o fim da difusão e o popup permitia um 2.º clique duplicar toda
+      // a distribuição (44 entregas em vez de 22 — visto em produção).
       if (!dist.ok || !dist.dados) {
+        setDistribuindoSondagens(false);
         setAvisoSondagens(
           dist.motivo === 'audiencia_vazia'
             ? 'Não há cidadãos no âmbito desta instituição para receber a sondagem. Nada foi enviado.'
@@ -317,8 +321,10 @@ export function MailContent({
         setSucessoSondagens(
           `Correspondência enviada com sucesso: ${dist.dados.audiencia} cidadão(s) no âmbito ${dist.dados.classificacao}. O registo da expedição está na lista «Enviadas».`,
         );
+        setDistribuindoSondagens(false);
         return;
       }
+      setDistribuindoSondagens(false);
       setSondagensCompostas([]);
       // v37.78.3 — as sondagens seguem EMBUTIDAS na correspondência oficial do
       //(s) destinatário(s) manual(is) (messages.sondagem_ids → cartão de
