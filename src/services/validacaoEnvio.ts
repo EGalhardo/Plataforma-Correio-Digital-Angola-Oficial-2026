@@ -29,6 +29,9 @@ export function validarEnvio(d: {
   /** v37.76 — expedição múltipla: lista de destinatários em chips. Quando
    *  presente, o campo «para» individual pode estar vazio. */
   toArray?: string[];
+  /** v37.78.3 — sondagens embutidas (não afecta a validação; presente no
+   *  composeData partilhado com o App). */
+  sondagensIds?: number[];
 }): ResultadoValidacaoEnvio {
   const bloqueios: string[] = [];
   const avisos: string[] = [];

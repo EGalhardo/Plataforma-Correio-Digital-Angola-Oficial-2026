@@ -1870,7 +1870,7 @@ export default function App() {
   const [correspondenciaTab, setCorrespondenciaTab] = useState('lidas');
   const [videoSessionCount, setVideoSessionCount] = useState(0);
   const [isComposing, setIsComposing] = useState(false);
-  const [composeData, setComposeData] = useState<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[] }>({ to: '', subject: '', body: '', attachments: [], toArray: [] });
+  const [composeData, setComposeData] = useState<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[] }>({ to: '', subject: '', body: '', attachments: [], toArray: [] });
 
   const [documentosTab, setDocumentosTab] = useState('lidas');
   const [isDocComposing, setIsDocComposing] = useState(false);
@@ -4221,6 +4221,8 @@ export default function App() {
           body: composeData.body,
           subject: composeData.subject,
           attachments: composeData.attachments || [],
+          // v37.78.3 — sondagens embutidas: cada cópia leva o cartão de resposta.
+          ...(composeData.sondagensIds?.length ? { sondagensIds: composeData.sondagensIds } : {}),
         });
         if (res.ok) okCount += 1;
         else falhados.push(dest);
@@ -4246,6 +4248,10 @@ export default function App() {
     const attachments = override
       ? (override.attachments || [])
       : (composeData.attachments || []);
+    // v37.78.3 — sondagens embutidas na composição (fluxo do MailContent): a
+    // correspondência oficial do destinatário MANUAL leva o cartão de resposta
+    // (a difusão por âmbito excluiu este destinatário para não duplicar entregas).
+    const sondagensIdsEnvio = override?.sondagensIds ?? composeData.sondagensIds;
     // Validação do conteúdo: destinatário e corpo obrigatórios (corpo só com espaços não envia).
     if (!to || !body.trim()) {
       notify('A mensagem está vazia. Escreva o conteúdo antes de enviar.', 'warning');
@@ -4330,7 +4336,7 @@ export default function App() {
     const isOfficialDispatch = isInstMode || isGovMode;
     try {
       const sendPromise = isOfficialDispatch
-        ? supabaseService.sendOfficialMessage(newMessage, to, isInstMode ? institutionCode : 'CDA')
+        ? supabaseService.sendOfficialMessage(newMessage, to, isInstMode ? institutionCode : 'CDA', sondagensIdsEnvio)
         : supabaseService.sendCitizenMessage(newMessage, bi, to, user.name || profileName);
       await sendPromise;
       // Store protocol in database for QR code reference

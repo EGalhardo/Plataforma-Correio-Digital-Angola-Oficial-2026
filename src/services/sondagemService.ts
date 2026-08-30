@@ -258,6 +258,12 @@ export const distribuirSondagensCompostas = async (params: {
   assuntoBase?: string;
   corpoExtra?: string;
   excluirBi?: string;
+  /** v37.78.3 — destinatários MANUAIS da composição (to + toArray): excluídos
+   *  da difusão por âmbito porque recebem a própria correspondência oficial
+   *  com a(s) sondagem(ns) embutida(s) (messages.sondagem_ids). Antes disto o
+   *  destinatário manual recebia DUAS mensagens idênticas: a cópia da difusão
+   *  (com cartão) e a expedição manual (sem cartão). */
+  excluirBis?: string[];
 }): Promise<SondagemResultado<{ audiencia: number; classificacao: AbrangenciaSondagem }>> => {
   try {
     if (!params.sondagens.length) return { ok: false, motivo: 'validacao', mensagem: 'Sem sondagens para distribuir.' };
@@ -275,7 +281,16 @@ export const distribuirSondagensCompostas = async (params: {
     const { classificacao } = aud.dados;
     let bis = aud.dados.bis;
     if (params.excluirBi) bis = bis.filter((b) => b.toUpperCase() !== String(params.excluirBi).toUpperCase());
-    if (bis.length === 0) return { ok: false, motivo: 'audiencia_vazia' };
+    // v37.78.3 — exclusão case-insensitive dos destinatários manuais.
+    if (params.excluirBis?.length) {
+      const excluidos = new Set(params.excluirBis.map((b) => String(b || '').trim().toUpperCase()).filter(Boolean));
+      bis = bis.filter((b) => !excluidos.has(String(b).toUpperCase()));
+    }
+    // v37.78.3 — audiência vazia APÓS a exclusão dos manuais não é erro: esses
+    // mesmos destinatários recebem a correspondência oficial com a(s)
+    // sondagem(ns) embutida(s) (audiência 0 = sem difusão adicional). Só se
+    // aborda quando a audiência ORIGINAL já era vazia.
+    if (bis.length === 0 && aud.dados.bis.length === 0) return { ok: false, motivo: 'audiencia_vazia' };
 
     // Ativa rascunhos + regista contagem real (melhor esforço por sondagem)
     for (const s of params.sondagens) {

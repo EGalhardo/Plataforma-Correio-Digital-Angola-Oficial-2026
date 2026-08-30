@@ -56,6 +56,9 @@ export interface ReplySendPayload {
   attachments?: { name: string; size: string; content?: string; type?: string }[];
   /** Id da correspondência original a que esta resposta responde (2026-08-21). */
   inReplyTo?: number;
+  /** v37.78.3 — ids das sondagens embutidas na composição (expedição múltipla
+   *  com sondagem: cada cópia do destinatário leva o cartão de resposta). */
+  sondagensIds?: number[];
 }
 
 export interface ReplySendResult {

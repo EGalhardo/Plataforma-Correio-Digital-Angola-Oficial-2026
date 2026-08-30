@@ -886,20 +886,28 @@ export const supabaseService = {
     }
   },
 
-  async sendOfficialMessage(msg: Message, citizenBi: string, institutionLabel: string) {
+  async sendOfficialMessage(msg: Message, citizenBi: string, institutionLabel: string, sondagemIds?: number[]) {
     if (!hasValidSupabaseKeys()) return null;
     try {
       const resolvedBi = resolveCitizenBi(citizenBi);
       const institutionCode = resolveInstitutionCode(institutionLabel);
       await ensureProfileExists(resolvedBi, msg.details?.body?.match(/Prezado\(a\)\s*([^,\n]+)/i)?.[1]?.trim() || 'Cidadão', 'user');
       await ensureProfileExists(institutionCode, institutionLabel, institutionCode === 'CDA' ? 'admin' : 'institution');
-      const payload = createMessagePayload({
-        msg,
-        senderBi: institutionCode,
-        recipientBi: resolvedBi,
-        org: institutionCode,
-        unread: msg.unread !== undefined ? (typeof msg.unread === 'number' ? msg.unread !== 0 : !!msg.unread) : true,
-      });
+      const payload = {
+        ...createMessagePayload({
+          msg,
+          senderBi: institutionCode,
+          recipientBi: resolvedBi,
+          org: institutionCode,
+          unread: msg.unread !== undefined ? (typeof msg.unread === 'number' ? msg.unread !== 0 : !!msg.unread) : true,
+        }),
+        // v37.78.3 — correspondência oficial com sondagem(s) embutida(s): o
+        // destinatário MANUAL vê o cartão de resposta na própria mensagem (foi
+        // excluído da difusão por âmbito para não receber duas entregas iguais).
+        ...(sondagemIds && sondagemIds.length
+          ? { sondagem_id: sondagemIds[0], sondagem_ids: sondagemIds }
+          : {}),
+      };
       return await gravarDados(
         'messages', 'insert', undefined, [payload],
         { upsert: true, onConflict: 'id' },

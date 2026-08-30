@@ -90,8 +90,8 @@ const getOrgBadgeStyles = (org: string) => {
 interface MailContentProps {
   isComposing: boolean;
   setIsComposing: (composing: boolean) => void;
-  composeData: { to: string; subject: string; body: string; attachments?: string[]; toArray?: string[] };
-  setComposeData: (data: { to: string; subject: string; body: string; attachments?: string[]; toArray?: string[] }) => void;
+  composeData: { to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[] };
+  setComposeData: React.Dispatch<React.SetStateAction<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[] }>>;
   handleSendMessage: () => void | Promise<unknown>;
   unreadTotal: number;
   correspondenciaTab: string;
@@ -207,6 +207,14 @@ export function MailContent({
     | { estado: 'erro'; erro: string };
   const [clareza, setClareza] = useState<EstadoClareza | null>(null);
 
+  // v37.78.3 — envio diferido (corpo preenchido automaticamente + sondagens
+  // embutidas): o setTimeout tem de invocar a versão MAIS RECENTE da pipeline
+  // do App. O closure do render que agendou via o composeData ainda antigo
+  // (corpo vazio) e o envio falhava com «A mensagem está vazia» DEPOIS de a
+  // difusão já ter sido feita — sondagem entregue, correspondência perdida.
+  const handleSendMessageRef = useRef(handleSendMessage);
+  useEffect(() => { handleSendMessageRef.current = handleSendMessage; }, [handleSendMessage]);
+
   // S6 — qualquer edicao limpa a validacao anterior (avisos exigem nova revisao)
   // e tambem a revisao de clareza (o texto revisto deixou de ser o atual)
   useEffect(() => {
@@ -253,12 +261,22 @@ export function MailContent({
     // envio normal. Falha na distribuição ⇒ envio abortado com aviso honesto.
     if (isInst && sondagensCompostas.length > 0) {
       setDistribuindoSondagens(true);
+      // v37.78.3 — destinatários MANUAIS da composição (to + toArray): excluídos
+      // da difusão por âmbito porque recebem a própria correspondência oficial
+      // com a(s) sondagem(ns) embutida(s). Antes disto recebiam duas mensagens
+      // iguais (a difusão + a expedição manual).
+      const manuais = Array.from(new Set(
+        [composeData.to, ...(composeData.toArray || [])]
+          .map((t) => String(t || '').trim().toUpperCase().replace(/\s+/g, ''))
+          .filter((t) => t && t !== 'TODOS'),
+      ));
       const dist = await distribuirSondagensCompostas({
         codigo: bi,
         nomeInstituicao: instNomeSondagem || bi,
         sondagens: sondagensCompostas,
         assuntoBase: composeData.subject || '',
         corpoExtra: composeData.body || '',
+        excluirBis: manuais,
       });
       setDistribuindoSondagens(false);
       if (!dist.ok || !dist.dados) {
@@ -270,7 +288,7 @@ export function MailContent({
         return;
       }
       addAuditLog?.(
-        `${sondagensCompostas.length} sondagem(ns) da instituição ${instNomeSondagem || bi} distribuída(s) a ${dist.dados.audiencia} cidadãos — âmbito ${dist.dados.classificacao}, ${new Date().toLocaleString('pt-PT')}.`,
+        `${sondagensCompostas.length} sondagem(ns) da instituição ${instNomeSondagem || bi} distribuída(s) a ${dist.dados.audiencia} cidadão(s)${manuais.length ? ` (destinatário(s) manual(is) ${manuais.join(', ')} recebe(m) a correspondência oficial com a(s) sondagem(ns) embutida(s))` : ''} — âmbito ${dist.dados.classificacao}, ${new Date().toLocaleString('pt-PT')}.`,
         'success',
       );
       // Destinatário «Todos» (v37): a difusão pelo âmbito oficial já entregou —
@@ -302,14 +320,22 @@ export function MailContent({
         return;
       }
       setSondagensCompostas([]);
+      // v37.78.3 — as sondagens seguem EMBUTIDAS na correspondência oficial do
+      //(s) destinatário(s) manual(is) (messages.sondagem_ids → cartão de
+      // resposta no detalhe). Actualização por updater: segura contra o estado
+      // stale do closure (updateBodyText acima também escreve no composeData).
+      if (manuais.length) {
+        const idsParaEmbutir = sondagensCompostas.map((s) => s.id);
+        setComposeData((prev) => ({ ...prev, sondagensIds: idsParaEmbutir }));
+      }
       // Sem texto próprio, o corpo descreve as sondagens embutidas (pipeline
       // de envio exige corpo não vazio). O envio segue no tick seguinte para
-      // o estado do corpo propagar.
+      // o estado do corpo propagar (v37.78.3: pelo ref, para ler o estado NOVO).
       if (!composeData.body.trim()) {
         updateBodyText(
           `${instNomeSondagem || bi} convida-o(a) a participar na(s) sondagem(ns) oficial(is) incluída(s) nesta mensagem. Abra a mensagem e toque em «Responder à Sondagem».`,
         );
-        setTimeout(() => handleSendMessage(), 150);
+        setTimeout(() => handleSendMessageRef.current(), 150);
         return;
       }
     }
@@ -536,7 +562,9 @@ export function MailContent({
   );
 
   const updateBodyText = (newText: string) => {
-    setComposeData({ ...composeData, body: newText });
+    // v37.78.3 — updater funcional: imune ao estado stale do closure (o envio
+    // diferido com sondagens escreve sondagensIds no mesmo tick).
+    setComposeData((prev) => ({ ...prev, body: newText }));
     const nextHistory = textHistory.slice(0, historyIndex + 1);
     setTextHistory([...nextHistory, newText]);
     setHistoryIndex(nextHistory.length);
