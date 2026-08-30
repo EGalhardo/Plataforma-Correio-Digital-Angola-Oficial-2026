@@ -298,7 +298,7 @@ export function MailContent({
         const assuntoFinal = composeData.subject?.trim()
           || `Sondagem${sondagensCompostas.length > 1 ? 's' : ''}: ${sondagensCompostas[0]?.pergunta || ''}`;
         const corpoFinal = composeData.body?.trim()
-          || `${instNomeSondagem || bi} convida-o(a) a participar na(s) sondagem(ns) oficial(is) incluída(s) nesta mensagem. Abra a mensagem e toque em «Responder à Sondagem».`;
+          || `${instNomeSondagem || bi} convida-o(a) a participar na(s) sondagem(ns) oficial(is) incluída(s) nesta mensagem. Abra a mensagem, toque em «Ver detalhes Completos», escolha a sua opção e confirme com «Responder».`;
         await registarExpedicaoSondagens({
           codigo: bi,
           nomeInstituicao: instNomeSondagem || bi,
@@ -333,7 +333,7 @@ export function MailContent({
       // o estado do corpo propagar (v37.78.3: pelo ref, para ler o estado NOVO).
       if (!composeData.body.trim()) {
         updateBodyText(
-          `${instNomeSondagem || bi} convida-o(a) a participar na(s) sondagem(ns) oficial(is) incluída(s) nesta mensagem. Abra a mensagem e toque em «Responder à Sondagem».`,
+          `${instNomeSondagem || bi} convida-o(a) a participar na(s) sondagem(ns) oficial(is) incluída(s) nesta mensagem. Abra a mensagem, toque em «Ver detalhes Completos», escolha a sua opção e confirme com «Responder».`,
         );
         setTimeout(() => handleSendMessageRef.current(), 150);
         return;

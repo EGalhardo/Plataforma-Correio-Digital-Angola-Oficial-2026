@@ -5271,6 +5271,15 @@ depende de integração futura com a infra-estrutura de chaves nacional.
           </div>
         )}
       </AnimatePresence>
+
+      {/* v37.78.5 — BUGFIX: os modais de confirmação/resposta das sondagens
+          (sondModaisJsx) só estavam montados nas vistas «Ver detalhes» e nos
+          ramos activeAction. Na VISTA PRINCIPAL do detalhe, o botão «Responder»
+          de uma mensagem com sondagem embutida fazia setConfirmaSond(true)…
+          para um modal que não existia no DOM: nada acontecia e o cidadão
+          ficava sem forma de registar a resposta (fluxo morto, sem feedback).
+          Montar aqui os mesmos modais (inertes quando fechados) resolve. */}
+      {sondModaisJsx}
     </motion.div>
   );
 }

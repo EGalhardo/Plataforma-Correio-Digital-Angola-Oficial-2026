@@ -309,7 +309,7 @@ export const distribuirSondagensCompostas = async (params: {
     // duplicar a listagem crua das perguntas no «Conteúdo do Documento».
     const corpo = params.corpoExtra?.trim()
       ? params.corpoExtra.trim()
-      : `${params.nomeInstituicao} convida-o(a) a participar na(s) sondagem(ns) oficial(is) incluída(s) nesta mensagem. Abra a mensagem e toque em «Responder à Sondagem».`;
+      : `${params.nomeInstituicao} convida-o(a) a participar na(s) sondagem(ns) oficial(is) incluída(s) nesta mensagem. Abra a mensagem, toque em «Ver detalhes Completos», escolha a sua opção e confirme com «Responder».`;
     const ids = params.sondagens.map((s) => s.id);
     const rows = bis.map((bi) => ({
       sender_bi: params.codigo,
@@ -462,8 +462,8 @@ export const criarSondagem = async (params: {
       `${params.nomeInstituicao} convida-o(a) a participar na seguinte sondagem oficial:\n\n` +
       `${params.pergunta}\n\n${linhas}\n\n` +
       (params.permitirVarias
-        ? 'Pode seleccionar várias opções. Abra a mensagem e toque em «Responder à Sondagem».'
-        : 'Seleccione uma opção. Abra a mensagem e toque em «Responder à Sondagem».');
+        ? 'Pode seleccionar várias opções. Abra a mensagem, toque em «Ver detalhes Completos», escolha a sua opção e confirme com «Responder».'
+        : 'Seleccione uma opção. Abra a mensagem, toque em «Ver detalhes Completos», escolha a sua opção e confirme com «Responder».');
     const rows = bis.map((bi) => ({
       sender_bi: params.codigo,
       recipient_bi: bi,
