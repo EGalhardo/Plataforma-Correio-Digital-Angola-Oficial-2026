@@ -4321,7 +4321,20 @@ export default function App() {
         // 2026-08-21 — resposta vinculada à correspondência original
         // (marcador RESPONDE_A lido pelo Expediente da Administração).
         actions: override?.inReplyTo ? ["Ver detalhes", `RESPONDE_A:${override.inReplyTo}`] : ["Ver detalhes"],
-        attachments: attachments
+        // v37.78.9 — ANEXOS CHEGAM SEMPRE COMO STRINGS JSON: a resposta inline
+        // (MessageDetail) entrega objectos {name,size,content,type} e o proxy
+        // /api/dados DESCARTA silenciosamente arrays de objectos — a mensagem
+        // gravava attachments:[] e o destinatário nunca via o ficheiro. O
+        // compositor principal já serializa (JSON.stringify); normaliza-se
+        // aqui ambos os formatos (o viewer faz JSON.parse das strings).
+        attachments: (attachments as unknown[]).map(a =>
+          typeof a === 'string' ? a : JSON.stringify({
+            name: (a as { name?: string })?.name,
+            size: (a as { size?: string })?.size,
+            content: (a as { content?: string })?.content,
+            type: (a as { type?: string })?.type,
+          })
+        )
       },
       protocol: protocol
     };
