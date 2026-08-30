@@ -97,6 +97,7 @@ import {
 // F47 — revogação de contas eliminadas (pré-login via RPC v16 + purga local)
 // F48 — sincronização viva do estado oficial em sessão aberta (luz Online/gate)
 import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLocalResidues, resolveCloudGateAction, marcarCloudAprovou } from './services/accountGateService';
+import { retomarRegistosBg, temRegistoBgAtivo } from './services/registoBgService';
 import { puxarPerfilDaNuvem, reenviarPendenciasPerfil, temPendenciaPerfil } from './services/profileSyncService';
 import { buildAutoFillProfile, type CitizenAutoFillProfile } from './services/autoFillService';
 import { carregarPagamentosDoCidadao } from './services/pagamentosService';
@@ -2165,7 +2166,7 @@ export default function App() {
             if (faceBi && !homologationStore.isExempt(faceBi) && isSupabaseConfigured()) {
               try {
                 const pre = await readCitizenRegistrationStatus(supabase, faceBi);
-                if (isRevokedDeletedAccount({ read: pre, sessionLive: false, hasLocalEvidence: true })) {
+                if (!temRegistoBgAtivo(faceBi) && isRevokedDeletedAccount({ read: pre, sessionLive: false, hasLocalEvidence: true })) {
                   purgeCitizenLocalResidues(faceBi);
                   await cloudSignOutBestEffort(supabase);
                   setLoginError('Esta conta foi ELIMINADA pela Área de Administração. Para voltar a usar a plataforma, efectue um NOVO registo — a conta só ficará activa após nova aprovação da Administração.');
@@ -2248,7 +2249,7 @@ export default function App() {
         if (cancelled) return;
         const current = homologationStore.getStatus(liveBi)?.status ?? null;
         const action = resolveCloudGateAction(pre, current, liveBi);
-        if (action.type === 'revoke') {
+        if (action.type === 'revoke' && !temRegistoBgAtivo(liveBi)) {
           purgeCitizenLocalResidues(liveBi);
           await cloudSignOutBestEffort(supabase);
           addAuditLog(`F48: a conta do cidadão ${liveBi} foi ELIMINADA pela Administração com esta sessão aberta — acesso revogado de imediato; novo acesso exige NOVO registo aprovado novamente.`, 'critical');
@@ -3990,6 +3991,18 @@ export default function App() {
     setAuditLogs(prev => [newLog, ...prev]);
     supabaseService.insertAuditLog(newLog).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
   };
+
+  // v37.78.17 — RETOMA dos registos em processamento em segundo plano: se a
+  // página foi fechada/recarregada a meio (popup de confirmação já mostrado),
+  // o pipeline é relançado aqui — o registo chega à fila central e o cidadão
+  // recebe o desfecho por correspondência oficial (REGRAS UX · 2.º plano).
+  const retomaBgRef = useRef(false);
+  useEffect(() => {
+    if (retomaBgRef.current) return;
+    retomaBgRef.current = true;
+    void retomarRegistosBg({ addAuditLog });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Handlers
   const handleSelectMessage = (message: Message) => {
@@ -6905,11 +6918,15 @@ Ficha civil do titular:
               new Promise<{ ok: false; status: null; source: 'unavailable' }>((res) =>
                 setTimeout(() => res({ ok: false, status: null, source: 'unavailable' }), 6000)),
             ]);
-            if (marcadorRevogado || isRevokedDeletedAccount({
+            const bgAtivoRegisto = temRegistoBgAtivo(typedCitizenBi);
+            if (bgAtivoRegisto) {
+              addAuditLog(`[REGRAS-UX] Login do cidadão ${typedCitizenBi} durante o processamento em segundo plano do registo — verificação de eliminação adiada; conta local (pendente) aceite.`, 'info');
+            }
+            if (!bgAtivoRegisto && (marcadorRevogado || isRevokedDeletedAccount({
               read: pre,
               sessionLive: cloudRes.outcome === 'ok',
               hasLocalEvidence: cloudMarked || localPass !== null,
-            })) {
+            }))) {
               purgeCitizenLocalResidues(typedCitizenBi);
               try { localStorage.removeItem('cda_revoked_' + normalizeHomologationBi(typedCitizenBi)); } catch { /* ignora */ }
               await cloudSignOutBestEffort(supabase);
@@ -7011,7 +7028,11 @@ Ficha civil do titular:
         const marcadorRevogadoEmail = (() => {
           try { return localStorage.getItem('cda_revoked_' + emailBi) === '1'; } catch { return false; }
         })();
-        if (marcadorRevogadoEmail || isRevokedDeletedAccount({ read: pre, sessionLive: true, hasLocalEvidence: isCloudBound(emailBi) })) {
+        const bgAtivoEmail = temRegistoBgAtivo(emailBi);
+        if (bgAtivoEmail) {
+          addAuditLog(`[REGRAS-UX] Login por e-mail de ${emailBi} durante o processamento em segundo plano do registo — verificação de eliminação adiada; conta local (pendente) aceite.`, 'info');
+        }
+        if (!bgAtivoEmail && (marcadorRevogadoEmail || isRevokedDeletedAccount({ read: pre, sessionLive: true, hasLocalEvidence: isCloudBound(emailBi) }))) {
           purgeCitizenLocalResidues(emailBi);
           try { localStorage.removeItem('cda_revoked_' + emailBi); } catch { /* ignora */ }
           await cloudSignOutBestEffort(supabase);

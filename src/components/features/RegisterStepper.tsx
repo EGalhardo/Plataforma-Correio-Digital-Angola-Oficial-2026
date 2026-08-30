@@ -20,14 +20,13 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import { registoPublicoProxy } from '../../services/supabaseService';
 import { homologationStore, notifyRegistrationSubmitted, notifyAccountApproved } from '../../services/homologationStore';
+import { registoPublicoProxy } from '../../services/supabaseService';
 import { CdaModal } from '../ui/CdaModal';
-import { requestPviVerification, buildPvicMarker, type PviVerdict } from '../../services/preVerificationService';
-import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticCitizenEmail, cloudSignOutBestEffort } from '../../services/cloudAuthService';
+import { isSupabaseConfigured, cloudSignOutBestEffort } from '../../services/cloudAuthService';
 import { purgeCitizenLocalResidues } from '../../services/accountGateService';
+import { gravarJob, correrRegistoBg, EVENTO_DESFECHO_BG, type RegistoBgJob } from '../../services/registoBgService';
 import { runRegistrationVerification, prewarmVerificationEngine, type RegistrationVerificationReport } from '../../services/verificationEngine';
-import { buildStorageRef } from '../../lib/secureStorage';
 import { normalizarNome, normalizarTitulo, corrigirDominioEmail } from '../../services/textNormalizeService';
 
 const base64ToBlob = (base64Str: string): Blob => {
@@ -110,6 +109,25 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   const [aprovadoPopup, setAprovadoPopup] = useState(false);
   // v37.29 — popup com Nº de acesso + senha ao concluir a inscrição
   const [credPopup, setCredPopup] = useState(false);
+  // v37.78.17 — REGRAS UX (processamento em segundo plano): estado vivo da
+  // análise do registo, visível no ecrã de sucesso e nos popups.
+  const [analiseEstado, setAnaliseEstado] = useState<'em_analise' | 'aprovado' | 'correcoes'>('em_analise');
+  const mountedRef = useRef(true);
+  const credPopupRef = useRef(false);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+  useEffect(() => { credPopupRef.current = credPopup; }, [credPopup]);
+  // v37.78.17 — desfecho do processamento em segundo plano (inclui RETOMA
+  // após reload: o registoBgService emite o evento ao concluir a análise).
+  useEffect(() => {
+    const aoDesfechoBg = (ev: Event) => {
+      const d = (ev as CustomEvent).detail || {};
+      if (String(d.bi || '').toUpperCase().replace(/\s+/g, '') !== String(biNumber || '').toUpperCase().replace(/\s+/g, '')) return;
+      if (d.tipo === 'aprovado') setAnaliseEstado('aprovado');
+      else if (d.tipo === 'correcoes') setAnaliseEstado('correcoes');
+    };
+    window.addEventListener(EVENTO_DESFECHO_BG, aoDesfechoBg as EventListener);
+    return () => window.removeEventListener(EVENTO_DESFECHO_BG, aoDesfechoBg as EventListener);
+  }, [biNumber]);
   const [aprovadoPendente, setAprovadoPendente] = useState(false);
   const [reprovacaoInfo, setReprovacaoInfo] = useState<{ motivo: string; alertas: string[] } | null>(null);
   const [documentFrente, setDocumentFrente] = useState<File | null>(null);
@@ -549,7 +567,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
     }
     setIsSubmitting(true);
     setSubmitError('');
-    setSubmitMessage('Enviando documentos para o Supabase Storage...');
 
     // Standard register/institution block
     const newUser = {
@@ -580,29 +597,24 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         + (verificationReport ? ` | Pré-verificação local: ${verificationReport.coherenceScore}% (${verificationReport.iaResult})` : '')
     };
 
-    let urlFrente = '';
-    let urlVerso = '';
-    let urlSelfie = '';
-    // F45 — imagens para a PVI viajam como data-URL (bucket jÁ não é público)
-    let pviFrenteData = '';
-    let pviVersoData = '';
-    // F28 (Prompt v11.1) — veredicto da Pré-Verificação Inteligente (decidido após os uploads)
-    let pviVerdict: PviVerdict | null = null;
-    let pviAutoApproved = false;
-    // F47 — re-registo de conta ELIMINADA: a fila foi apagada mas a credencial
-    // Auth sobrevive (a aplicação nunca elimina contas Auth sem chave de serviço).
-    // O provisionamento (feito ANTES do insert) revela essa pré-existência —
-    // 'linked_existing'/'conflict' => a aprovação automática por PVI é SUPRIMIDA
-    // e a conta nasce PENDENTE de nova decisão da Área de Administração.
-    let cloudPreExisting = false;
-    let provOutcome: string | null = null;
-    let effectiveAutoApproved = false;
+    // ===== v37.78.17 · REGRAS UX — confirmação IMEDIATA + análise em 2.º plano =====
+    const isSupabaseReady = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+    const biClean = newUser.biNumber.replace(/\s+/g, '');
 
-    try {
-      const isSupabaseReady = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
-      if (isSupabaseReady) {
-        const biClean = newUser.biNumber.replace(/\s+/g, '');
+    // — dup-check síncrono (B.I./e-mail únicos): erro legítimo ANTES do popup —
+    if (isSupabaseReady) {
+
+      // v37.78.17-fix — dup-check TAMBÉM via proxy do servidor (service role):
+      // o select anónimo pode ser limitado por RLS e deixar passar um B.I. que
+      // já está na fila — um erro legítimo tem de aparecer ANTES do popup.
+      try {
+        const dupProxy = await registoPublicoProxy('select', { bi_numero: newUser.biNumber });
+        if (dupProxy && dupProxy.ok && Array.isArray(dupProxy.linhas) && dupProxy.linhas.length > 0) {
+          setSubmitError('Não é possível efectuar o registo: este número de B.I. já se encontra registado.');
+          setIsSubmitting(false);
+          return;
+        }
+      } catch { /* rede — o caminho original abaixo ainda tenta */ }
 
         // DUPLICADOS: o B.I. e o e-mail são únicos por cidadão — se já
         // constarem na base de dados, o registo é recusado antes de qualquer envio.
@@ -626,396 +638,78 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
           // Se a verificação falhar (rede/tabela ausente), prossegue — o insert trata duplicados (23505).
           console.warn('Verificação de duplicados indisponível:', dupErr);
         }
-        setSubmitMessage('Enviando documentos para o Supabase Storage...');
-
-        // v37.66 — compressão + upload das DUAS faces em PARALELO. Antes eram
-        // sequenciais (await frente → await verso) e bloqueavam a PVI, que só
-        // precisa dos data-URLs comprimidos. Cada face mantém o tratamento de
-        // erro independente; uma falha numa não afecta a outra.
-        const frenteBlob: Blob | null = documentFrente
-          || (frentePreview && frentePreview.startsWith('data:image/') ? base64ToBlob(frentePreview) : null);
-        const versoBlob: Blob | null = documentVerso
-          || (versoPreview && versoPreview.startsWith('data:image/') ? base64ToBlob(versoPreview) : null);
-        const uploadTs = Date.now();
-        // v37.29-fix: o data-URL para a PVI é preparado MESMO que o upload ao
-        // Storage falhe — sem isto, uma falha de rede/RLS tornava as imagens
-        // «indisponíveis na nuvem» e bloqueava o cidadão injustamente.
-        // v37.72 — data-URLs PRIMEIRO (compressão local, rápida): a PVI depende
-        // apenas delas — passa a correr EM PARALELO com os uploads para o Storage.
-        // Antes: uploads → PVI em série (o cidadão esperava a SOMA dos dois);
-        // agora espera pelo MAIOR. O provisionamento da conta mantém-se DEPOIS
-        // da porta de divergências (corrigir-e-repetir), para não criar credencial
-        // de nuvem num registo que vai ser corrigido e repetido.
-        const [frenteDataUrl, versoDataUrl] = await Promise.all([
-          frenteBlob ? blobToPviDataUrl(frenteBlob).catch(() => '') : Promise.resolve(''),
-          versoBlob ? blobToPviDataUrl(versoBlob).catch(() => '') : Promise.resolve(''),
-        ]);
-        pviFrenteData = frenteDataUrl;
-        pviVersoData = versoDataUrl;
-
-        const uploadsPromise = (async () => {
-          const uploadFrente = async () => {
-            if (!frenteBlob) return;
-            const frontPath = `${biClean}/frente_${uploadTs}.jpg`;
-            const { error: fErr } = await supabase.storage
-              .from('documentos_registo')
-              .upload(frontPath, frenteBlob, { contentType: frenteBlob.type || 'image/jpeg' });
-            if (fErr) {
-              console.error('Erro upload frente:', fErr);
-              addAuditLog(`[PVIC] Upload da FRENTE do B.I. ao Storage falhou (${(fErr as any)?.message || 'erro'}) — a validação prossegue com a imagem local.`, 'warning');
-            } else {
-              // F45 (Storage privado v15): grava-se o MARCADOR resolvível
-              // (storage:bucket/path) — nunca a URL pública, que deixa de existir.
-              urlFrente = buildStorageRef('documentos_registo', frontPath);
-            }
-          };
-          const uploadVerso = async () => {
-            if (!versoBlob) return;
-            const backPath = `${biClean}/verso_${uploadTs}.jpg`;
-            const { error: bErr } = await supabase.storage
-              .from('documentos_registo')
-              .upload(backPath, versoBlob, { contentType: versoBlob.type || 'image/jpeg' });
-            if (bErr) {
-              console.error('Erro upload verso:', bErr);
-              addAuditLog(`[PVIC] Upload do VERSO do B.I. ao Storage falhou (${(bErr as any)?.message || 'erro'}) — a validação prossegue com a imagem local.`, 'warning');
-            } else {
-              // F45 (Storage privado v15): marcador resolvível em vez de URL pública.
-              urlVerso = buildStorageRef('documentos_registo', backPath);
-            }
-          };
-          await Promise.all([uploadFrente(), uploadVerso()]);
-
-          // Upload selfie
-          if (savedFacePhoto) {
-            try {
-              let selfieBlob: Blob | null = null;
-              if (savedFacePhoto.startsWith('data:image/')) {
-                selfieBlob = base64ToBlob(savedFacePhoto);
-              } else {
-                try {
-                  const res = await fetch(savedFacePhoto);
-                  selfieBlob = await res.blob();
-                } catch (_) {
-                  // Ignore and use directly
-                }
-              }
-
-              if (selfieBlob) {
-                const selfiePath = `${biClean}/selfie_${Date.now()}.jpg`;
-                const { error: sErr } = await supabase.storage
-                  .from('documentos_registo')
-                  .upload(selfiePath, selfieBlob, { contentType: 'image/jpeg' });
-                if (sErr) console.error('Erro upload selfie:', sErr);
-                else {
-                  // F45 (Storage privado v15): marcador resolvível em vez de URL pública.
-                  urlSelfie = buildStorageRef('documentos_registo', selfiePath);
-                }
-              } else {
-                urlSelfie = savedFacePhoto;
-              }
-            } catch (selfieErr) {
-              console.error('Erro processando selfie upload:', selfieErr);
-              urlSelfie = savedFacePhoto;
-            }
-          }
-        })();
-
-        // F28 (Prompt v11.1) — Portas 2 e 3: a IA de visão do servidor analisa as
-        // imagens do documento a partir dos data-URLs (ou das referências do
-        // Storage). Qualquer falha/dúvida => REVISAO (a conta fica PENDENTE,
-        // exactamente como hoje). NUNCA aprovação por erro técnico.
-        // v37.72 — a PVI arranca JÁ com os data-URLs locais (não espera pelos
-        // uploads). v37.29-fix preservado: sem data-URL comprimido, espera pelos
-        // uploads e usa a referência restante → REVISAO segura.
-        const pviPromise = (async (): Promise<PviVerdict> => {
-          let frenteParaPvi = pviFrenteData;
-          let versoParaPvi = pviVersoData;
-          if (!frenteParaPvi || !versoParaPvi) {
-            await uploadsPromise.catch(() => null);
-            frenteParaPvi = pviFrenteData || urlFrente;
-            versoParaPvi = pviVersoData || urlVerso;
-          }
-          const uploadsOk = !!(urlFrente && urlVerso);
-          if (uploadsOk || (frenteParaPvi && versoParaPvi)) {
-            if (!uploadsOk) {
-              addAuditLog('[PVIC] Imagens do B.I. não chegaram ao Storage — a Pré-Verificação prossegue com as imagens locais e a aprovação automática fica suprimida (homologação manual).', 'warning');
-            }
-            setSubmitMessage('Pré-Verificação Inteligente (IA): a analisar as imagens do documento...');
-            return await requestPviVerification({
-              biNumber: newUser.biNumber,
-              nome: newUser.name,
-              tipo: appMode === 'institution' ? 'instituicao' : 'cidadao',
-              // F45: data-URL comprimido (o endpoint aceita data:image/ — anti-SSRF).
-              urls: { frente: frenteParaPvi, verso: versoParaPvi },
-              // v37.8 — a IA compara também a data de nascimento e o sexo declarados
-              // com os dados extraídos do B.I. (registo do cidadão, sem biometria facial).
-              ...(appMode !== 'institution' ? { dataNascimento, sexo } : {}),
-            });
-          }
-          return {
-            veredicto: 'REVISAO',
-            alertas: ['sem_imagens_nuvem'],
-            motivo: 'Imagens do documento indisponíveis na nuvem — homologação manual.',
-            duracaoMs: 0,
-            modelo: 'meta-llama/llama-4-scout-17b-16e-instruct',
-          };
-        })();
-
-        // v37.72 — uploads e PVI correm em paralelo; espera-se por ambos (a PVI
-        // é tipicamente o mais lento; os uploads terminam entretanto).
-        await Promise.all([uploadsPromise.catch(() => null), pviPromise]);
-        pviVerdict = await pviPromise;
-        const uploadCompleto = !!(urlFrente && urlVerso);
-        // Porta 2 local (verificationEngine) + Porta 2/3 do servidor: AMBAS têm de aprovar.
-        // v37.8 — cidadão: a etapa facial foi removida; a aprovação automática
-        // baseia-se APENAS na comparação da IA entre o formulário e o B.I.
-        const pviLocalEngineOk = verificationReport != null && verificationReport.iaResult === 'Aprovado';
-        pviAutoApproved = pviVerdict.veredicto === 'APTO' && (appMode === 'institution' ? pviLocalEngineOk : true);
-        addAuditLog(
-          pviAutoApproved
-            ? `[PVIC] Cadastro de ${newUser.name} APROVADO AUTOMATICAMENTE pela Pré-Verificação Inteligente (veredicto APTO — modelo ${pviVerdict.modelo}, ${pviVerdict.duracaoMs}ms).`
-            : `[PVIC] Cadastro de ${newUser.name} enviado para homologação manual — veredicto ${pviVerdict.veredicto}${pviVerdict.alertas.length ? ` · alertas: ${pviVerdict.alertas.join(', ')}` : ''}${pviVerdict.motivo ? ` · ${pviVerdict.motivo}` : ''}`,
-          pviAutoApproved ? 'success' : 'warning'
-        );
-
-        // v37.8 — cidadão com divergências entre o formulário e o B.I.:
-        // o cadastro NÃO é aprovado nem submetido; a homologação não passa a
-        // «Aprovado»; o cidadão é informado e pode corrigir os dados e repetir
-        // a validação (volta à etapa Identidade).
-        // v37.29-fix: o bloqueio «corrija e repita» aplica-se APENAS a
-        // divergências REAIS entre o formulário e o B.I. (nome/nº/data/sexo/
-        // documento). Falhas técnicas ou de qualidade (sem_imagens_nuvem,
-        // ia_indisponivel, falha_tecnica, imagem_desfocada, layout_suspeito...)
-        // seguem a ideologia F28: o cadastro é SUBMETIDO e nasce PENDENTE de
-        // homologação manual — o cidadão conclui a inscrição e recebe o popup
-        // com o Nº de acesso e a senha.
-        const ALERTAS_DIVERGENCIA = ['nome_divergente', 'bi_divergente', 'data_divergente', 'sexo_divergente', 'documento_divergente', 'frente_verso_inconsistentes'];
-        const haDivergenciaReal = (pviVerdict.alertas || []).some((a: string) => ALERTAS_DIVERGENCIA.includes(a));
-        if (appMode !== 'institution' && pviVerdict.veredicto !== 'APTO' && haDivergenciaReal) {
-          // O cidadão permanece na etapa de validação para LER o aviso; depois
-          // usa «Voltar» para corrigir os dados e repetir a validação.
-          setReprovacaoInfo({ motivo: pviVerdict.motivo, alertas: pviVerdict.alertas });
-          setSubmitError('Existem dados que precisam de ser corrigidos ou verificados. Corrija e repita a validação.');
-          setIsSubmitting(false);
-          return;
-        }
-        if (appMode !== 'institution') {
-          setReprovacaoInfo(null);
-          // Honestidade da fila administrativa: aprovação por comparação IA = 100%.
-          newUser.verificationScore = 100;
-          newUser.reason = 'Registo aprovado automaticamente: dados do formulário conferidos com os dados extraídos do B.I. pela IA (sem biometria facial).';
-        }
-
-        // F47 — CONTA ELIMINADA ⇒ NUNCA auto-aprovar: provisiona JÁ (best-effort,
-        // D3 — a nuvem nunca quebra o registo) porque é o provisionamento que
-        // revela se o B.I. já teve credencial de nuvem. Se sim, este é um
-        // RE-registo: a decisão volta integralmente para a Administração.
-        if (appMode !== 'institution') {
-          try {
-            const cloudEmail = syntheticCitizenEmail(newUser.biNumber);
-            const prov = await provisionCloudAccount(supabase, {
-              email: cloudEmail,
-              password,
-              metadata: { bi: newUser.biNumber, role: 'cidadao', name: newUser.name },
-            });
-            provOutcome = prov.outcome;
-            cloudPreExisting = prov.outcome === 'linked_existing' || prov.outcome === 'conflict';
-            if (prov.outcome === 'ok' || prov.outcome === 'linked_existing') {
-              markCloudAccount(newUser.biNumber, cloudEmail, 'cidadao');
-            }
-          } catch (cloudErr) {
-            console.error('[AUTH-CLOUD] Falha inesperada no provisionamento do cidadão:', cloudErr);
-          }
-        }
-        // v37.29-fix: sem upload completo ao Storage não há aprovação
-        // automática (a homologação manual decide, com as imagens locais já
-        // analisadas pela PVI).
-        effectiveAutoApproved = pviAutoApproved && !cloudPreExisting && uploadCompleto;
-        if (cloudPreExisting) {
-          addAuditLog(`[F47] Re-registo do B.I. ${newUser.biNumber}: credencial de nuvem PRÉ-EXISTENTE (conta anterior eliminada pela Administração) — aprovação automática por PVI SUPRIMIDA; a conta fica PENDENTE de nova homologação.`, 'warning');
-        }
-
-        setSubmitMessage('Registando dados no Supabase Database...');
-
-        // Insert to Supabase table: solicitacoes_registo
-        const payloadRegisto = {
-            nome: newUser.name,
-            email: newUser.contact,
-            // F43 (Auditoria F42 #3): password_hash removido — a senha REAL vive
-            // no Supabase Auth (v12). Coluna legada saneada a NULL em produção.
-            bi_numero: newUser.biNumber,
-            url_frente: urlFrente || null,
-            url_verso: urlVerso || null,
-            url_selfie: urlSelfie || null,
-            // F47: re-registo de conta eliminada (credencial Auth pré-existente)
-            // nunca é auto-aprovado — nasce Pendente de nova homologação.
-            status: effectiveAutoApproved ? 'Aprovado' : 'Pendente',
-            // Relatório técnico da pré-verificação local: viaja embutido nas
-            // observações (marcador KYC) para a Área de Administração o ler em
-            // qualquer dispositivo — nunca é mostrado ao cidadão.
-            observacoes: newUser.reason + (verificationReport
-              ? ` [KYC:${JSON.stringify({ v: 1, fm: verificationReport.face.similarity, iq: verificationReport.quality.score, ocr: verificationReport.ocr.score, coh: verificationReport.coherenceScore, ia: verificationReport.iaResult })}]`
-              : '')
-            // F28 (v11.1): marcador [PVIC] — legível pelo Admin noutro dispositivo; nunca visível ao cidadão
-            + (pviVerdict ? ` ${buildPvicMarker(pviVerdict)}` : '')
-            + (effectiveAutoApproved ? ' | Aprovado automaticamente por Pré-Verificação Inteligente (IA).' : '')
-            + (cloudPreExisting ? ' | Re-registo após eliminação da conta anterior — aprovação automática suprimida (F47): aguarda nova decisão da Administração.' : '')
-          };
-        // 2026-08-20 — Modo Real: gravar via proxy do servidor (service role).
-        // Contas demo são recusadas pelo servidor (403 'demo') e seguem o
-        // caminho directo de sempre. Erros reais do proxy param o fluxo.
-        let insertErr: any = null;
-        const viaProxy = await registoPublicoProxy('insert', undefined, payloadRegisto);
-        if (viaProxy !== null) {
-          if (!viaProxy.ok && viaProxy.erro !== 'demo') {
-            insertErr = { code: 'PROXY', message: viaProxy.erro || 'Falha ao registar na base central.' };
-          }
-        }
-        if (viaProxy === null || (viaProxy && viaProxy.erro === 'demo')) {
-          const { error: directErr } = await supabase
-            .from('solicitacoes_registo')
-            .insert([payloadRegisto]);
-          insertErr = directErr;
-        }
-
-        if (insertErr) {
-          if (insertErr.code === '23505') {
-            // Rede de segurança: violação da chave única do B.I. (numa corrida)
-            setSubmitError('Não é possível efectuar o registo: este número de B.I. já se encontra registado.');
-            setIsSubmitting(false);
-            return;
-          }
-          if (insertErr.code === 'PGRST205') {
-            console.warn('Tabela solicitacoes_registo não encontrada. A usar fallback para profiles.');
-            const { error: profileErr } = await supabase
-              .from('profiles')
-              .upsert([{
-                bi: newUser.biNumber,
-                name: newUser.name,
-                phone: null,
-                nif: null,
-                passport: null,
-                filiation: null,
-                marital_status: null,
-                role: 'user'
-              }], { onConflict: 'bi' });
-            if (profileErr) {
-              console.error('Erro fallback ao guardar perfil no Supabase:', profileErr);
-            } else {
-              addAuditLog(`Adesão de ${newUser.name} guardada via fallback em profiles no Supabase.`, 'warning');
-            }
-          } else {
-            console.error('Erro ao inserir solicitacao_registo no Supabase:', insertErr);
-          }
-        } else {
-          addAuditLog(`Adesão de ${newUser.name} registada com sucesso no Supabase!`, 'success');
-        }
-      }
-    } catch (err) {
-      console.error('Erro global no envio do Supabase:', err);
-    }
-
-    // Save back to local storage list (as fallback and for instant UI response)
-    try {
-      const saved = localStorage.getItem('gov_admin_citizens');
-      let currentCitizens = [];
-      if (saved) {
-        currentCitizens = JSON.parse(saved);
-      }
-      
-      const updated = [{
-        ...newUser,
-        // F28 (v11.1): conta auto-aprovada pela IA nasce activa — e vê-se na fila do Admin como 'Aprovado Automaticamente'
-        // F47: re-registo de conta eliminada nunca recebe este selo (nasce Pendente).
-        status: effectiveAutoApproved ? 'Aprovado Automaticamente' : newUser.status,
-        pviVer: pviVerdict?.veredicto,
-        pviAlertas: pviVerdict?.alertas,
-        pviMotivo: pviVerdict?.motivo,
-        pviDuracaoMs: pviVerdict?.duracaoMs,
-        pviModelo: pviVerdict?.modelo,
-        pviTs: pviVerdict ? new Date().toISOString() : undefined,
-        facePhoto: urlSelfie || newUser.facePhoto
-      }, ...currentCitizens];
-      localStorage.setItem('gov_admin_citizens', JSON.stringify(updated));
-      localStorage.setItem(`citizen_pass_${newUser.biNumber}`, password);
-
-      // F31 (v12/ideologia v13, D1-a) — A palavra-passe nasce na NUVEM (Supabase
-      // Auth, bcrypt da plataforma). Best-effort: falha da nuvem NUNCA quebra o
-      // registo (D3) — a migração just-in-time ocorre no primeiro login (D2).
-      // Instituições: o responsável é provisionado em RegisterInstitutionPage
-      // com o Nº Agente real (logins institucionais usam código/agente, não NIF).
-      // F47: o provisionamento em si aconteceu ANTES do insert na fila (é ele que
-      // revela a pré-existência da credencial e suprime a auto-aprovação); aqui
-      // resta apenas o registo de auditoria do desfecho.
-      if (appMode !== 'institution' && isSupabaseConfigured()) {
-        if (provOutcome === 'ok' || provOutcome === 'linked_existing') {
-          addAuditLog(`[AUTH-CLOUD] Conta do cidadão ${newUser.name} (${newUser.biNumber}) nascida na nuvem — a palavra-passe vive apenas no Supabase Auth.`, 'success');
-        } else if (provOutcome === 'pending_confirm') {
-          addAuditLog('[AUTH-CLOUD] ATENÇÃO: confirmação de e-mail activa no Supabase — desactivar (Authentication → Providers → Email) para o login na nuvem funcionar.', 'warning');
-        } else if (provOutcome === 'unavailable') {
-          addAuditLog(`[AUTH-CLOUD] Nuvem indisponível no registo de ${newUser.name} — conta mantida local; migração just-in-time no primeiro login (D3).`, 'warning');
-        }
       }
 
-      // HOMOLOGAÇÃO: por omissão a conta nasce PENDENTE — o cidadão pode entrar, mas fica
-      // inactivo até aprovação da Área de Administração (única via de contacto).
-      // F28 (v11.1): quando a Pré-Verificação Inteligente aprova as TRÊS portas, a conta
-      // nasce ACTIVA e recebe a correspondência oficial de boas-vindas (substitui a de
-      // 'em homologação'). Qualquer dúvida/falha => caminho pendente, inalterado.
-      // F47-fix (2026-08-19): novo registo submetido — limpa a marca de revogação
-      // local (se existir) para que este B.I. volte a ser elegível a novo acesso.
-      try { localStorage.removeItem('cda_revoked_' + newUser.biNumber.replace(/\s+/g, '').toUpperCase()); } catch { /* ignora */ }
-      if (effectiveAutoApproved) {
-        homologationStore.setStatus(newUser.biNumber, 'active', undefined, newUser.name);
-        homologationStore.clearThread(newUser.biNumber);
-        notifyAccountApproved(newUser.biNumber, newUser.name);
-      } else {
-        homologationStore.setStatus(newUser.biNumber, 'pending', undefined, newUser.name);
-        notifyRegistrationSubmitted(newUser.biNumber, newUser.name);
-      }
-      setPviAutoApproved(effectiveAutoApproved);
+      // — gravação LOCAL instantânea (D3): a conta existe desde JÁ para login —
+      try {
+        const saved = localStorage.getItem('gov_admin_citizens');
+        const currentCitizens: any[] = saved ? JSON.parse(saved) : [];
+        // re-submissão após correcções substitui a entrada anterior do mesmo B.I.
+        const semRepetidos = currentCitizens.filter((c) => String(c.biNumber || '').toUpperCase() !== newUser.biNumber.toUpperCase());
+        semRepetidos.unshift({
+          ...newUser,
+          status: newUser.status || 'Pendente',
+          analiseEstado: 'em_analise',
+        });
+        localStorage.setItem('gov_admin_citizens', JSON.stringify(semRepetidos));
+        localStorage.setItem(`citizen_pass_${newUser.biNumber}`, password);
+      } catch { /* melhor esforço — não trava a confirmação imediata */ }
+      // F47-fix — novo registo submetido: limpa a marca de revogação local.
+      try { localStorage.removeItem('cda_revoked_' + biClean.toUpperCase()); } catch { /* ignora */ }
 
-      addAuditLog(`Processo de Adesão de ${newUser.name} submetido ao SME`, 'info');
+      // — homologação nasce PENDENTE + correspondência oficial de recepção —
+      homologationStore.setStatus(newUser.biNumber, 'pending', undefined, newUser.name);
+      notifyRegistrationSubmitted(newUser.biNumber, newUser.name);
+      addAuditLog(`Processo de Adesão de ${newUser.name} submetido ao SME — validação IA em segundo plano.`, 'info');
+
+      // — confirmação IMEDIATA ao cidadão; o utilizador NÃO espera pela análise —
+      setAnaliseEstado('em_analise');
       setStep('success');
-      // v37.29 — inscrição concluída: popup com o Nº de acesso e a senha.
       setCredPopup(true);
-      // v37.78.10 — EMAIL DE BOAS-VINDAS: envia os dados de acesso para o email
-      // deixado no registo (best-effort — NUNCA bloqueia/atrasta o registo; sem
-      // provedor configurado apenas fica aviso no histórico de auditoria).
-      if (newUser.contact && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(newUser.contact.trim())) {
-        const baseLogin = (typeof window !== 'undefined' ? window.location.origin : 'https://correio-digital-angola-oficial.vercel.app');
-        fetch('/api/enviar-email-boas-vindas', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nome: newUser.name,
-            email: newUser.contact.trim().toLowerCase(),
-            chaveAcesso: newUser.biNumber,
-            senha: password,
-            area: 'cidadao',
-            link: baseLogin,
-          }),
-        })
-          .then(async (r) => {
-            if (r.ok) {
-              addAuditLog(`[EMAIL] Boas-vindas enviada para ${newUser.contact} com os dados de acesso.`, 'success');
-            } else {
-              const j = await r.json().catch(() => ({} as any));
-              addAuditLog(`[EMAIL] Boas-vindas não enviada (${r.status}): ${j.erro || 'falha do provedor'}.`, 'warning');
-            }
-          })
-          .catch(() => addAuditLog('[EMAIL] Boas-vindas não enviada (rede).', 'warning'));
-      }
-      // v37.8 — cidadão aprovado pela validação automática: popup «Aprovado /
-      // Seu cadastro foi aprovado.» e redireccionamento para o Login (a página
-      // de registo fecha automaticamente após a confirmação).
-      // v37.29 — o popup «Aprovado» espera pelo popup de credenciais.
-      if (appMode !== 'institution' && effectiveAutoApproved) setAprovadoPendente(true);
-    } catch (e) {
-      console.error('Erro ao guardar cidadão', e);
-    } finally {
       setIsSubmitting(false);
-    }
+
+      // — PROCESSAMENTO EM SEGUNDO PLANO (uploads + PVI + provisionamento) —
+      // v37.78.17: o pipeline pesado vive no registoBgService — é descrito num
+      // JOB persistido antes de arrancar, pelo que sobrevive a um reload/fecho
+      // da página (retoma no arranque da aplicação e no login). O utilizador
+      // já recebeu a confirmação imediata e pode entrar já na sua conta.
+      let jobBg: RegistoBgJob;
+      try {
+        const frenteBlobBg: Blob | null = documentFrente
+          || (frentePreview && frentePreview.startsWith('data:image/') ? base64ToBlob(frentePreview) : null);
+        const versoBlobBg: Blob | null = documentVerso
+          || (versoPreview && versoPreview.startsWith('data:image/') ? base64ToBlob(versoPreview) : null);
+        const [frenteBgData, versoBgData] = await Promise.all([
+          frenteBlobBg ? blobToPviDataUrl(frenteBlobBg).catch(() => '') : Promise.resolve(''),
+          versoBlobBg ? blobToPviDataUrl(versoBlobBg).catch(() => '') : Promise.resolve(''),
+        ]);
+        jobBg = {
+          bi: biClean,
+          startedAt: Date.now(),
+          tentativa: 0,
+          payload: {
+            newUser, password, appMode,
+            frenteDataUrl: frenteBgData, versoDataUrl: versoBgData,
+            savedFacePhoto, dataNascimento, sexo, verificationReport,
+          },
+        };
+        gravarJob(jobBg);
+      } catch (jobErr) {
+        // melhor esforço: sem persistência, o pipeline ainda corre nesta página
+        console.warn('[registoBg] Job não persistido (a executar apenas nesta página):', jobErr);
+        jobBg = {
+          bi: biClean, startedAt: Date.now(), tentativa: 0,
+          payload: { newUser, password, appMode, frenteDataUrl: '', versoDataUrl: '', savedFacePhoto, dataNascimento, sexo, verificationReport },
+        };
+      }
+      void correrRegistoBg(jobBg, {
+        addAuditLog,
+        setSubmitMessage,
+        setAnaliseEstado: (e) => { if (mountedRef.current) setAnaliseEstado(e); },
+        setReprovacaoInfo: (i) => { if (mountedRef.current) setReprovacaoInfo(i); },
+        setPviAutoApproved,
+        pedirPopupAprovado: () => { if (mountedRef.current && !credPopupRef.current) setAprovadoPendente(true); },
+      });
   };
 
   return (
@@ -1896,6 +1590,33 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 </div>
               </div>
 
+              {/* v37.78.17 — estado vivo da análise em segundo plano (REGRAS UX) */}
+              {appMode !== 'institution' && (
+                <div className={`rounded-xl border p-3 flex items-center gap-2.5 text-left ${analiseEstado === 'aprovado' ? 'bg-emerald-50 border-emerald-200' : analiseEstado === 'correcoes' ? 'bg-amber-50 border-amber-200' : 'bg-indigo-50 border-indigo-100'}`}>
+                  <span className="text-base leading-none select-none">{analiseEstado === 'aprovado' ? '✅' : analiseEstado === 'correcoes' ? '⚠️' : '⏳'}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10.5px] font-black uppercase tracking-widest m-0" style={{ color: analiseEstado === 'aprovado' ? '#047857' : analiseEstado === 'correcoes' ? '#b45309' : '#4338ca' }}>
+                      {analiseEstado === 'aprovado' ? 'Registo aprovado' : analiseEstado === 'correcoes' ? 'Correcções necessárias' : 'Análise em curso'}
+                    </p>
+                    <p className="text-[10.5px] text-slate-600 font-semibold m-0 mt-0.5 leading-relaxed">
+                      {analiseEstado === 'aprovado'
+                        ? 'A análise do seu registo terminou com aprovação. A conta está activa e todos os serviços ficam disponíveis.'
+                        : analiseEstado === 'correcoes'
+                          ? 'A análise terminou com dados a corrigir. Regresse ao registo, corrija os dados e repita a validação.'
+                          : 'O sistema está a analisar os seus documentos em segundo plano — pode continuar a usar a aplicação; o resultado chega por notificação.'}
+                    </p>
+                  </div>
+                  {analiseEstado === 'correcoes' && (
+                    <button
+                      type="button"
+                      onClick={() => { setStep(2); }}
+                      className="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-black uppercase tracking-wider border-none cursor-pointer shrink-0"
+                    >
+                      Corrigir dados
+                    </button>
+                  )}
+                </div>
+              )}
               <div className="bg-blue-50 border border-blue-100/60 rounded-xl p-3 text-left flex gap-2.5 items-center">
                 <span className="text-[11px] font-black text-blue-800 select-none font-sans font-extrabold uppercase">
                   {appMode === 'institution' ? 'NIF da Instituição:' : 'B.I. de Acesso:'}
@@ -1947,13 +1668,13 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         }}
         icone={Lock}
         titulo="Registo Concluído"
-        subtitulo="Guarde os seus dados de acesso"
+        subtitulo="Dados de acesso · SME"
         tomIcone="bg-blue-50 text-blue-600 border-blue-100"
         maxW="max-w-md"
       >
         <div className="text-left space-y-3">
           <p className="text-sm font-semibold text-slate-700 m-0 leading-relaxed">
-            A sua inscrição foi concluída. Use estes dados para iniciar sessão no portal:
+            O seu registo foi recebido com sucesso e está a ser analisado pelo sistema. Use estes dados para iniciar sessão no portal:
           </p>
           <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 space-y-3">
             <div className="flex items-center justify-between gap-3">
@@ -1968,6 +1689,9 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
           <p className="text-[10.5px] font-semibold text-slate-500 m-0">
             Por segurança, memorize ou guarde estes dados num local seguro — a senha não volta a ser mostrada.
           </p>
+          <p className="text-[10.5px] font-semibold text-blue-700 m-0 leading-relaxed">
+            Pode entrar na aplicação já agora: a análise decorre em segundo plano e o resultado será notificado nesta mesma conta.
+          </p>
         </div>
         <div className="flex justify-end pt-2">
           <button
@@ -1978,7 +1702,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
             }}
             className="px-6 py-3 rounded-full font-black text-xs uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer border-none shadow-md shadow-blue-200"
           >
-            Entendi
+            OK
           </button>
         </div>
       </CdaModal>
