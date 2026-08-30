@@ -51,13 +51,15 @@ import { CdaModal } from '../ui/CdaModal';
 import {
   distribuirSondagensCompostas, removerRascunhoSondagem, registarExpedicaoSondagens, type Sondagem,
 } from '../../services/sondagemService';
-import { Video, Loader2, CheckCircle2, AlertTriangle, Sparkles, CheckCheck } from 'lucide-react';
+import { Video, Loader2, CheckCircle2, AlertTriangle, Sparkles, CheckCheck, ClipboardCheck } from 'lucide-react';
 // F59 — a pesquisa teatral de 8s com textos governamentais inventados e
 // correspondência em MOCK_CITIZENS/MOCK_USERS foi REMOVIDA: o lookup do
 // destinatário é REAL (RPC auditada) e chega por props do App.
 import { supabase } from '../../lib/supabaseClient';
 import { isCompleteBiFormat } from '../../services/institutionEmergencyService';
 import { supabaseService, isRealInstitutionalCode, invalidateMessagesReadCache } from '../../services/supabaseService';
+import { notify } from '../../lib/notify';
+import { traduzirErro } from '../../lib/erroAmigavel';
 import { validarEnvio } from '../../services/validacaoEnvio';
 import { assistenteDocumento } from '../../services/aiDocumentoService';
 import { MARCADOR_CLAREZA_SUGESTAO } from '../../services/aiDocumentoCore';
@@ -172,6 +174,30 @@ export function MailContent({
   const [validacao, setValidacao] = useState<ResultadoValidacaoEnvio | null>(null);
   // Auditoria 2026-08-24: confirmação de descarte no padrão CdaModal (sem confirm() nativo)
   const [confirmarDescarteRascunho, setConfirmarDescarteRascunho] = useState(false);
+  // v37.78 — §12/§5: revisão antes de enviar + envio com recuperação de erros.
+  const [revisaoEnvio, setRevisaoEnvio] = useState(false);
+
+  // v37.78 — §21 RASCUNHO GUARDADO AUTOMATICAMENTE: o conteúdo do compositor
+  // (destinatário, assunto, corpo, anexos) é preservado localmente enquanto
+  // se escreve — refresh, queda de internet ou navegação acidental não perdem
+  // o trabalho. Sai ao enviar com sucesso ou ao Descartar.
+  const RASCUNHO_KEY = `cda_rascunho_composicao_${(bi || '').toUpperCase()}`;
+  const limparRascunhoLocal = () => { try { localStorage.removeItem(RASCUNHO_KEY); } catch { /* ignora */ } };
+  const gravarRascunhoLocal = () => {
+    try {
+      const temConteudo = (composeData.to || '').trim() || (composeData.toArray || []).length > 0
+        || (composeData.subject || '').trim() || (composeData.body || '').trim();
+      if (!temConteudo) { limparRascunhoLocal(); return; }
+      localStorage.setItem(RASCUNHO_KEY, JSON.stringify({
+        to: composeData.to || '',
+        toArray: composeData.toArray || [],
+        subject: composeData.subject || '',
+        body: composeData.body || '',
+        attachments: composeData.attachments || [],
+        gravadoEm: Date.now(),
+      }));
+    } catch { /* quota/modo privado — melhor esforço, nunca bloqueia */ }
+  };
   const [avisosConfirmados, setAvisosConfirmados] = useState(false);
   // S6-camada-IA — revisao de clareza OPCIONAL (fail-safe: falha da IA nunca
   // bloqueia o envio; o utilizador decide se usa a versão melhorada)
@@ -287,8 +313,33 @@ export function MailContent({
         return;
       }
     }
+    // v37.78 — §12 (revisão antes de enviar): o envio normal passa por um
+    // resumo de confirmação (destinatário, assunto, anexos). O próprio envio
+    // vive em executarEnvio(); as sondagens mantêm o seu fluxo próprio de
+    // distribuição/confirmação de âmbito (inalterado).
+    setRevisaoEnvio(true);
+  };
+
+  // v37.78 — envio efectivo (chamado pelo modal de revisão e por «Tentar
+  // novamente» em caso de falha). Anti-duplicação: guardas de enviando/.
+  const executarEnvio = () => {
+    if (enviando || distribuindoSondagens) return;
+    setRevisaoEnvio(false);
     setEnviando(true);
-    Promise.resolve(handleSendMessage()).finally(() => setEnviando(false));
+    Promise.resolve(handleSendMessage())
+      .then((res: any) => {
+        // §21 — o rascunho local só sai quando o envio foi concluído (o App
+        // limpa o compositor em caso de sucesso).
+        if (res && res.ok === true) limparRascunhoLocal();
+      })
+      .catch((err: unknown) => {
+        // §5/§6 — mensagem compreensível + recuperação; os dados preenchidos
+        // PERMANECEM no compositor (nunca se perdem por causa da falha).
+        notify(traduzirErro(err, 'enviar a correspondência'), 'error', {
+          acao: { rotulo: 'Tentar novamente', executar: () => executarEnvio() },
+        });
+      })
+      .finally(() => setEnviando(false));
   };
 
   const [editorBold, setEditorBold] = useState(false);
@@ -409,6 +460,40 @@ export function MailContent({
       setHistoryIndex(0);
     }
   }, [isComposing]);
+
+  // v37.78 — §21: gravação automática (debounce 700ms) enquanto compõe.
+  useEffect(() => {
+    if (!isComposing) return;
+    const t = setTimeout(gravarRascunhoLocal, 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isComposing, composeData.to, composeData.subject, composeData.body, composeData.attachments, composeData.toArray]);
+
+  // v37.78 — §21: recuperação do rascunho no arranque (refresh / navegação).
+  // Só repõe se o compositor estiver vazio — nunca sobrescreve texto actual.
+  const rascunhoRestauradoRef = useRef(false);
+  useEffect(() => {
+    if (rascunhoRestauradoRef.current) return;
+    rascunhoRestauradoRef.current = true;
+    try {
+      const bruto = localStorage.getItem(RASCUNHO_KEY);
+      if (!bruto) return;
+      const r = JSON.parse(bruto);
+      const compositorVazio = !(composeData.to || '').trim() && !((composeData.toArray || []).length)
+        && !(composeData.subject || '').trim() && !(composeData.body || '').trim();
+      if (compositorVazio && ((r.subject || '').trim() || (r.body || '').trim() || (r.to || '').trim())) {
+        setComposeData({
+          to: r.to || '',
+          subject: r.subject || '',
+          body: r.body || '',
+          attachments: Array.isArray(r.attachments) ? r.attachments : [],
+          toArray: Array.isArray(r.toArray) ? r.toArray : [],
+        } as any);
+        notify('Rascunho recuperado automaticamente — o seu texto anterior foi preservado.', 'info');
+      }
+    } catch { /* ignora rascunho corrompido */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // v37.76 — ENVIO MULTI-AGENTE: lista de destinatários (chips) no compositor.
   const destinatariosMulti = composeData.toArray || [];
@@ -1469,11 +1554,13 @@ export function MailContent({
               <CdaConfirmModal
                 aberto
                 titulo="Descartar Rascunho"
-                mensagem="Deseja descartar este rascunho?"
+                mensagem="Deseja descartar este rascunho? O conteúdo será eliminado e não poderá ser recuperado."
                 textoConfirmar="Descartar"
                 perigoso
                 onConfirmar={async () => {
                   setConfirmarDescarteRascunho(false);
+                  // v37.78 — §21: descartar elimina também o rascunho automático.
+                  limparRascunhoLocal();
                   // v37: descartar a mensagem elimina também os rascunhos de sondagem
                   for (const s of sondagensCompostas) { await removerRascunhoSondagem(s.id); }
                   setSondagensCompostas([]);
@@ -1481,6 +1568,82 @@ export function MailContent({
                 }}
                 onCancelar={() => setConfirmarDescarteRascunho(false)}
               />
+            )}
+
+            {/* v37.78 — §12 REVISÃO ANTES DE ENVIAR: resumo do destinatário,
+                assunto e anexos com botões claros (Voltar | Enviar). Nada é
+                enviado sem esta confirmação explícita. */}
+            {revisaoEnvio && (
+              <CdaModal
+                aberto
+                onFechar={() => setRevisaoEnvio(false)}
+                icone={ClipboardCheck}
+                titulo="Rever antes de enviar"
+                subtitulo="Confirme os dados da correspondência"
+                maxW="max-w-lg"
+                padding="p-6 md:p-8"
+              >
+                <div className="text-left space-y-3">
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5">
+                    <div className="flex gap-3 text-sm">
+                      <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Destinatário</span>
+                      <span className="font-bold text-slate-800 break-words min-w-0">
+                        {(composeData.toArray || []).length > 0
+                          ? `${composeData.toArray.join(', ')} (${composeData.toArray.length} destinatários)`
+                          : composeData.to || '—'}
+                      </span>
+                    </div>
+                    <div className="flex gap-3 text-sm">
+                      <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Assunto</span>
+                      <span className="font-bold text-slate-800 break-words min-w-0">{composeData.subject?.trim() || '(sem assunto)'}</span>
+                    </div>
+                    <div className="flex gap-3 text-sm">
+                      <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Anexos</span>
+                      <span className="font-bold text-slate-800 min-w-0">
+                        {(composeData.attachments || []).length === 0
+                          ? 'Nenhum documento anexado'
+                          : <>
+                              {(composeData.attachments || []).length} documento(s)
+                              <span className="block text-xs font-medium text-slate-500 break-words">
+                                {(composeData.attachments || []).slice(0, 4).join(' · ')}
+                                {(composeData.attachments || []).length > 4 ? ' …' : ''}
+                              </span>
+                            </>}
+                      </span>
+                    </div>
+                  </div>
+                  {composeData.body?.trim() && (
+                    <div className="bg-white border border-slate-200 rounded-2xl p-4">
+                      <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider block mb-1.5">Resumo da mensagem</span>
+                      <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line m-0">
+                        {composeData.body.trim().slice(0, 400)}{composeData.body.trim().length > 400 ? '…' : ''}
+                      </p>
+                    </div>
+                  )}
+                  <p className="text-[11px] text-slate-400 font-medium m-0">
+                    Ao tocar em «Enviar Correspondência» a mensagem é registada com número de protocolo e o destinatário é notificado.
+                  </p>
+                  <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setRevisaoEnvio(false)}
+                      disabled={enviando}
+                      className="px-6 py-3.5 rounded-2xl font-bold text-xs text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer border-none disabled:opacity-50"
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={executarEnvio}
+                      disabled={enviando}
+                      className="px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-primary hover:bg-primary/95 shadow-lg shadow-primary/20 transition-all cursor-pointer border-none flex items-center justify-center gap-2 disabled:opacity-60"
+                    >
+                      {enviando ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                      {enviando ? 'A enviar…' : 'Enviar Correspondência'}
+                    </button>
+                  </div>
+                </div>
+              </CdaModal>
             )}
           </div>
         </div>

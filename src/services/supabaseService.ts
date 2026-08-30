@@ -349,7 +349,7 @@ export const eliminarCidadaoAdmin = async (bi: string): Promise<{ ok: boolean; e
 export const eliminarAgente = async (agente: string): Promise<{ ok: boolean; demo?: boolean; conta?: string; erro?: string }> => {
   try {
     const token = await obterTokenSessao();
-    if (!token) return { ok: false, erro: 'Sem sessão de nuvem.' };
+    if (!token) return { ok: false, erro: 'A sua sessão expirou por motivos de segurança. Saia e entre novamente para continuar.' };
     const resp = await fetch('/api/eliminar-agente', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -371,7 +371,7 @@ export const eliminarAgente = async (agente: string): Promise<{ ok: boolean; dem
 export const eliminarInstituicaoCloud = async (code: string, agentes: string[] = []): Promise<{ ok: boolean; contas?: number; erro?: string }> => {
   try {
     const token = await obterTokenSessao();
-    if (!token) return { ok: false, erro: 'Sem sessão de nuvem.' };
+    if (!token) return { ok: false, erro: 'A sua sessão expirou por motivos de segurança. Saia e entre novamente para continuar.' };
     const resp = await fetch('/api/eliminar-instituicao', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -397,7 +397,7 @@ export const permissoesAgente = async (
 ): Promise<{ ok: boolean; responsavel?: boolean; paginasPermitidas?: string[] | null; erro?: string }> => {
   try {
     const token = await obterTokenSessao();
-    if (!token) return { ok: false, erro: 'Sem sessão de nuvem.' };
+    if (!token) return { ok: false, erro: 'A sua sessão expirou por motivos de segurança. Saia e entre novamente para continuar.' };
     const resp = await fetch('/api/agente-permissoes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -425,7 +425,7 @@ export const permissoesAgente = async (
 export const alterarSenhaAgente = async (agente: string, senha: string): Promise<{ ok: boolean; erro?: string }> => {
   try {
     const token = await obterTokenSessao();
-    if (!token) return { ok: false, erro: 'Sem sessão de nuvem.' };
+    if (!token) return { ok: false, erro: 'A sua sessão expirou por motivos de segurança. Saia e entre novamente para continuar.' };
     const resp = await fetch('/api/agente-senha', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
