@@ -196,7 +196,7 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
               <span className="text-amber-700">Funcionalidade disponível em Modo Real (Supabase) — aguarda a migração.</span>
             ) : ambito ? (
               <>
-                {ambito.classificacao === 'nacional' && <>Âmbito: <strong>Nacional</strong> — será enviada a todos os <strong>{ambito.n}</strong> cidadãos registados.</>}
+                {ambito.classificacao === 'nacional' && <>Âmbito: <strong>Nacional</strong> — será enviada a todos cidadãos registados.</>}
                 {ambito.classificacao === 'regional' && (
                   <>
                     Âmbito: <strong>Regional</strong> — será enviada aos <strong>{ambito.n}</strong> cidadãos da província da instituição.
