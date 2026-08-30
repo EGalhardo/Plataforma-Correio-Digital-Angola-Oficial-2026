@@ -9,6 +9,7 @@
 //   'sem_migracao' — a UI mostra o selo honesto (fronteira 7.2 da spec).
 // ============================================================================
 import { supabase } from '../lib/supabaseClient';
+import { gravarDados } from './supabaseService';
 
 export interface OpcaoSondagem { id: string; texto: string; }
 
@@ -251,6 +252,49 @@ export const removerRascunhoSondagem = async (sondagemId: number): Promise<Sonda
  * todas as sondagens embutidas (sondagem_ids). Dedupe garantido (conjunto de
  * BI único); destinatário directo opcionalmente excluído para não duplicar.
  */
+// v37.78.14 — DIFUSÃO VIA PROXY AUTENTICADO: a RLS endurecida (2026-08-20)
+// bloqueia os INSERTs directos do cliente em `messages` — a sondagem era criada
+// e "distribuída" (audiência registada) mas NENHUMA mensagem era entregue e
+// nada aparecia em «Enviadas». O proxy /api/dados (service role, titularidade
+// injectada) é o caminho canónico de escrita das sessões reais. Devolve o nº
+// de linhas efectivamente inseridas (0 = falha total — erro honesto ao chamador).
+const difundirLinhasMensagens = async (rows: Record<string, unknown>[]): Promise<number> => {
+  let inseridas = 0;
+  for (let i = 0; i < rows.length; i += 25) {
+    const lote = rows.slice(i, i + 25);
+    const r = await gravarDados('messages', 'insert', undefined, lote, undefined, async () => {
+      const { error } = await supabase.from('messages').insert(lote);
+      if (error) throw error;
+      return { escrito: true } as unknown as any;
+    });
+    if (r) inseridas += lote.length;
+    else console.warn('[Sondagens] lote de difusão falhou (proxy recusou) — lotes anteriores mantêm-se.');
+  }
+  return inseridas;
+};
+
+// v37.78.14 — NOTIFICAÇÃO por destinatário da difusão (mesmo padrão do envio
+// oficial): sem isto o cidadão recebia a mensagem na caixa mas SEM qualquer
+// notificação — exactamente o comportamento reportado pelo dono.
+const notificarDestinatariosSondagem = async (bis: string[], titulo: string, texto: string): Promise<void> => {
+  const rows = bis.map((bi) => ({
+    target_bi: bi,
+    title: titulo,
+    message: texto,
+    time_text: 'Agora',
+    type: 'info',
+    target_tab: 'correspondencias',
+  }));
+  for (let i = 0; i < rows.length; i += 25) {
+    const lote = rows.slice(i, i + 25);
+    await gravarDados('notifications', 'insert', undefined, lote, undefined, async () => {
+      const { error } = await supabase.from('notifications').insert(lote);
+      if (error) throw error;
+      return { escrito: true } as unknown as any;
+    }).catch(() => console.warn('[Sondagens] notificação de difusão falhou (best-effort).'));
+  }
+};
+
 export const distribuirSondagensCompostas = async (params: {
   codigo: string;
   nomeInstituicao: string;
@@ -327,11 +371,16 @@ export const distribuirSondagensCompostas = async (params: {
       sondagem_id: ids[0],          // retrocompatibilidade v36
       sondagem_ids: ids,            // v37 — várias sondagens embutidas
     }));
-    for (let i = 0; i < rows.length; i += 25) {
-      const { error: eMsg } = await supabase.from('messages').insert(rows.slice(i, i + 25));
-      if (eMsg) console.warn('[Sondagens v37] difusão parcial:', eMsg.message);
+    const inseridas = await difundirLinhasMensagens(rows);
+    if (inseridas === 0) {
+      return { ok: false, motivo: 'erro', mensagem: 'A difusão falhou — nenhuma mensagem foi entregue. Nada foi notificado; tente novamente.' };
     }
-    return { ok: true, dados: { audiencia: bis.length, classificacao } };
+    await notificarDestinatariosSondagem(
+      bis,
+      'Nova Sondagem Oficial',
+      `${assunto} — foi disponibilizada no seu endereço digital oficial. Participe respondendo à sondagem.`,
+    );
+    return { ok: true, dados: { audiencia: inseridas, classificacao } };
   } catch (e: unknown) {
     return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) } };
 };
@@ -346,7 +395,9 @@ export const registarExpedicaoSondagens = async (params: {
   sondagemIds: number[];
 }): Promise<SondagemResultado<null>> => {
   try {
-    const { error } = await supabase.from('messages').insert({
+    // v37.78.14 — via proxy autenticado (RLS bloqueava o insert directo e a
+    // expedição nunca aparecia em «Enviadas»).
+    const linha = {
       sender_bi: params.codigo,
       recipient_bi: 'TODOS',
       org: params.codigo,
@@ -361,8 +412,13 @@ export const registarExpedicaoSondagens = async (params: {
       attachments: [],
       sondagem_id: params.sondagemIds[0] ?? null,
       sondagem_ids: params.sondagemIds,
+    };
+    const r = await gravarDados('messages', 'insert', undefined, [linha], undefined, async () => {
+      const { error } = await supabase.from('messages').insert([linha]);
+      if (error) throw error;
+      return { escrito: true } as unknown as any;
     });
-    if (error) return { ok: false, motivo: 'erro', mensagem: error.message };
+    if (!r) return { ok: false, motivo: 'erro', mensagem: 'Não foi possível registar a expedição em «Enviadas».' };
     return { ok: true, dados: null };
   } catch (e: unknown) {
     return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
@@ -479,12 +535,17 @@ export const criarSondagem = async (params: {
       attachments: [],
       sondagem_id: data.id,
     }));
-    // insert em lotes de 25 (best-effort: falha parcial não anula a sondagem)
-    for (let i = 0; i < rows.length; i += 25) {
-      const { error: eMsg } = await supabase.from('messages').insert(rows.slice(i, i + 25));
-      if (eMsg) console.warn('[Sondagens] difusão parcial:', eMsg.message);
+    // v37.78.14 — difusão via proxy autenticado + notificação (igual ao caminho v37)
+    const inseridas = await difundirLinhasMensagens(rows);
+    if (inseridas === 0) {
+      return { ok: false, motivo: 'erro', mensagem: 'A difusão falhou — nenhuma mensagem foi entregue. Tente novamente.' };
     }
-    return { ok: true, dados: { id: data.id, audiencia: bis.length } };
+    await notificarDestinatariosSondagem(
+      bis,
+      'Nova Sondagem Oficial',
+      `${assunto} — foi disponibilizada no seu endereço digital oficial. Participe respondendo à sondagem.`,
+    );
+    return { ok: true, dados: { id: data.id, audiencia: inseridas } };
   } catch (e: unknown) {
     return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }

@@ -660,107 +660,124 @@ Contexto adicional:
           {/* PRIMEIRA LINHA DE CARTÕES (TOP TWO WIDE CARDS LADO A LADO) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
-            {/* CARTÃO 1: INFORMAÇÕES DO ASSISTENTE (Left) */}
-            <div className="bg-white border border-[#0c2340]/15 rounded-[20px] p-6 shadow-none flex flex-col md:flex-row items-center md:items-start gap-6">
-              {/* Circular logo: Institutional circular avatar */}
-              <div className="w-20 h-20 md:w-[84px] md:h-[84px] bg-[#0E2B64] text-white rounded-full flex flex-col items-center justify-center shrink-0 border border-indigo-950/25 shadow-none select-none">
-                <span className="font-serif font-black text-2xl tracking-tighter">{institutionCode || 'AGT'}</span>
-                <span className="text-[5.5px] font-black uppercase tracking-widest text-[#94a3b8] mt-1 text-center leading-none">
-                  Tributária
-                </span>
+            {/* CARTÃO 1: INFORMAÇÕES DO ASSISTENTE (Left) — v37.78.14 padrão da imagem
+                de referência: cabeça (logo + nome + descrição + ilustração de
+                chat) e lista vertical de configuração em baixo. */}
+            <div className="bg-white border border-[#0c2340]/15 rounded-[20px] p-6 shadow-none flex flex-col gap-4">
+              <div className="flex flex-col md:flex-row items-center md:items-start gap-5">
+                {/* Circular logo: Institutional circular avatar */}
+                <div className="w-20 h-20 md:w-[84px] md:h-[84px] bg-[#0E2B64] text-white rounded-full flex flex-col items-center justify-center shrink-0 border border-indigo-950/25 shadow-none select-none">
+                  <span className="font-serif font-black text-2xl tracking-tighter">{institutionCode || 'AGT'}</span>
+                  <span className="text-[5.5px] font-black uppercase tracking-widest text-[#94a3b8] mt-1 text-center leading-none">
+                    Tributária
+                  </span>
+                </div>
+
+                <div className="flex-1 min-w-0 text-center md:text-left space-y-2">
+                  <div className="flex items-center justify-center md:justify-start gap-2.5">
+                    {isEditingNameInline ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          className="bg-slate-50 border border-slate-200 text-xs font-bold text-[#0c2340] px-2.5 py-1 rounded-lg outline-none max-w-[140px]"
+                          value={assistantName}
+                          onChange={(e) => setAssistantName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleSaveGeneralConfig(); }}
+                          autoFocus
+                        />
+                        <button 
+                          onClick={handleSaveGeneralConfig}
+                          className="p-1 text-emerald-600 hover:bg-emerald-50 rounded border-none bg-transparent cursor-pointer font-bold text-[10px]"
+                        >
+                          OK
+                        </button>
+                        <button 
+                          onClick={() => setIsEditingNameInline(false)}
+                          className="p-1 text-slate-400 hover:bg-slate-50 rounded border-none bg-transparent cursor-pointer font-bold text-[10px]"
+                        >
+                          ESC
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <h2 className="text-xl font-black text-[#0c2340] tracking-tight m-0 leading-none">{assistantName}</h2>
+                        <button
+                          onClick={() => setIsEditingNameInline(true)}
+                          className="p-1 bg-transparent border-none cursor-pointer text-slate-500 hover:text-slate-800 transition-colors"
+                          title="Editar Nome do Assistente"
+                        >
+                          <Pencil size={13} className="stroke-[2.5]" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  
+                  <p className="text-xs text-slate-700 font-bold leading-relaxed max-w-md">
+                    {description}
+                  </p>
+                </div>
+
+                {/* ILUSTRAÇÃO DE CHAT (identidade do assistente): SVG inline,
+                    sem assets externos; omitida em ecrãs estreitos. */}
+                <div className="hidden lg:flex items-center justify-center shrink-0 w-40 select-none pointer-events-none" aria-hidden="true">
+                  <svg viewBox="0 0 160 120" className="w-full max-h-28" role="img" aria-label="Assistente virtual">
+                    <rect x="18" y="10" width="88" height="42" rx="14" fill="#eef2fb" />
+                    <rect x="26" y="20" width="56" height="5" rx="2.5" fill="#aab7d4" />
+                    <rect x="26" y="31" width="40" height="5" rx="2.5" fill="#c3cde6" />
+                    <path d="M30 52 l-6 10 14-10z" fill="#eef2fb" />
+                    <rect x="54" y="52" width="88" height="42" rx="14" fill="#0E2B64" />
+                    <rect x="64" y="63" width="56" height="5" rx="2.5" fill="#8fa3d8" />
+                    <rect x="64" y="74" width="38" height="5" rx="2.5" fill="#5f76bb" />
+                    <path d="M126 94 l6 10 -14-10z" fill="#0E2B64" />
+                    <circle cx="148" cy="18" r="9" fill="#e8f7f0" stroke="#34d399" strokeWidth="2" />
+                    <path d="M144 18 l3 3 5-6" stroke="#059669" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
               </div>
 
-              <div className="flex-1 min-w-0 text-center md:text-left space-y-2">
-                <div className="flex items-center justify-center md:justify-start gap-2.5">
-                  {isEditingNameInline ? (
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="text"
-                        className="bg-slate-50 border border-slate-200 text-xs font-bold text-[#0c2340] px-2.5 py-1 rounded-lg outline-none max-w-[140px]"
-                        value={assistantName}
-                        onChange={(e) => setAssistantName(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleSaveGeneralConfig(); }}
-                        autoFocus
-                      />
-                      <button 
-                        onClick={handleSaveGeneralConfig}
-                        className="p-1 text-emerald-600 hover:bg-emerald-50 rounded border-none bg-transparent cursor-pointer font-bold text-[10px]"
-                      >
-                        OK
-                      </button>
-                      <button 
-                        onClick={() => setIsEditingNameInline(false)}
-                        className="p-1 text-slate-400 hover:bg-slate-50 rounded border-none bg-transparent cursor-pointer font-bold text-[10px]"
-                      >
-                        ESC
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <h2 className="text-xl font-black text-[#0c2340] tracking-tight m-0 leading-none">{assistantName}</h2>
-                      <button
-                        onClick={() => setIsEditingNameInline(true)}
-                        className="p-1 bg-transparent border-none cursor-pointer text-slate-500 hover:text-slate-800 transition-colors"
-                        title="Editar Nome do Assistente"
-                      >
-                        <Pencil size={13} className="stroke-[2.5]" />
-                      </button>
-                    </>
-                  )}
+              {/* CONFIGURAÇÃO DO ASSISTENTE em LISTA VERTICAL: uma linha por
+                  definição — ícone em chip + rótulo uppercase + valor. */}
+              <div className="pt-3 border-t border-slate-100 flex flex-col divide-y divide-slate-100">
+                <div className="flex items-center gap-3 py-2.5 first:pt-0">
+                  <div className="text-indigo-600 bg-indigo-50 w-8 h-8 rounded-lg flex items-center justify-center shrink-0">
+                    <Cpu size={14} className="stroke-[2.5]" />
+                  </div>
+                  <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none w-24 shrink-0">Modelo IA</span>
+                  <span className="font-extrabold text-[#0c2340] text-xs truncate">{model}</span>
                 </div>
-                
-                <p className="text-xs text-slate-700 font-bold leading-relaxed max-w-md">
-                  {description}
-                </p>
 
-                {/* Badges Informativos organized horizontally */}
-                <div className="grid grid-cols-4 gap-2 pt-4 border-t border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <div className="text-indigo-600 bg-indigo-50 w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
-                      <Cpu size={14} className="stroke-[2.5]" />
-                    </div>
-                    <div className="text-left">
-                      <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Modelo IA</span>
-                      <span className="font-extrabold text-[#0c2340] text-xs block mt-0.5 truncate max-w-[80px]">{model}</span>
-                    </div>
+                <div className="flex items-center gap-3 py-2.5">
+                  <div className="text-purple-600 bg-purple-50 w-8 h-8 rounded-lg flex items-center justify-center shrink-0">
+                    <Globe size={14} className="stroke-[2.5]" />
                   </div>
+                  <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none w-24 shrink-0">Idioma</span>
+                  <span className="font-extrabold text-[#0c2340] text-xs">Pt Angola</span>
+                </div>
 
-                  <div className="flex items-center gap-2">
-                    <div className="text-purple-600 bg-purple-50 w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
-                      <Globe size={14} className="stroke-[2.5]" />
-                    </div>
-                    <div className="text-left">
-                      <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Idioma</span>
-                      <span className="font-extrabold text-[#0c2340] text-xs block mt-0.5">Pt Angola</span>
-                    </div>
+                <div className="flex items-center gap-3 py-2.5">
+                  <div className="text-slate-500 bg-slate-100 w-8 h-8 rounded-lg flex items-center justify-center shrink-0">
+                    <Sliders size={14} className="stroke-[2.5]" />
                   </div>
+                  <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none w-24 shrink-0">Temperatura</span>
+                  <span className="font-extrabold text-[#0c2340] text-xs">{temperature}</span>
+                </div>
 
-                  <div className="flex items-center gap-2">
-                    <div className="text-slate-500 bg-slate-50 w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
-                      <Sliders size={14} className="stroke-[2.5]" />
-                    </div>
-                    <div className="text-left">
-                      <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Temperatura</span>
-                      <span className="font-extrabold text-[#0c2340] text-xs block mt-0.5">{temperature}</span>
-                    </div>
+                <div className="flex items-center gap-3 py-2.5 last:pb-0">
+                  <div className="text-emerald-600 bg-emerald-50 w-8 h-8 rounded-lg flex items-center justify-center shrink-0">
+                    <ShieldCheck size={14} className="stroke-[2.5]" />
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="text-emerald-600 bg-emerald-50 w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
-                      <ShieldCheck size={14} className="stroke-[2.5]" />
-                    </div>
-                    <div className="text-left">
-                      <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Estado</span>
-                      <span className="font-bold text-emerald-700 text-xs block mt-0.5">
-                        {aiStatus === 'connected' ? 'Online' : 'Offline'}
-                      </span>
-                    </div>
-                  </div>
+                  <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none w-24 shrink-0">Estado</span>
+                  <span className="font-extrabold text-xs inline-flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${aiStatus === 'connected' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                    <span className={aiStatus === 'connected' ? 'text-emerald-700' : 'text-slate-500'}>
+                      {aiStatus === 'connected' ? 'Online' : 'Offline'}
+                    </span>
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* CARTÃO 2: ESTATÍSTICAS (Right) - AGORA COM DADOS REAIS */}
+{/* CARTÃO 2: ESTATÍSTICAS (Right) - AGORA COM DADOS REAIS */}
             <div className="bg-white border border-[#0c2340]/15 rounded-[20px] p-6 shadow-none flex flex-col justify-between">
               <div className="flex justify-between items-center mb-4 pb-1">
                 <span className="text-xs font-black text-[#0c2340] tracking-widest uppercase">
