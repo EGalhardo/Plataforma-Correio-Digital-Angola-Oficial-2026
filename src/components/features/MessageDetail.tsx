@@ -2888,7 +2888,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           <input
                             type="file"
                             multiple
-                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx"
+                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp,.bmp,.heic,.heif,.txt,.csv,.xls,.xlsx,.ppt,.pptx,.zip"
                             className="hidden"
                             onChange={handleInlineFileAdd}
                           />

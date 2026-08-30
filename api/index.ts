@@ -1899,6 +1899,49 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
     // Storage/Auth devem ser removidos pelo backend com service_role — sem isto
     // o avatar_url residual das contas Auth dos agentes era herdado pela adesão
     // re-criada (a «cara» da vida anterior da conta).
+    // v37.78.10 — PURGA TOTAL de vestígios por chave (espelho do server.ts).
+    // Remove TODAS as linhas ligadas à chave (mensagens+histórico, notificações,
+    // contactos, pedidos, documentos, vídeo-sessões) e os anexos do Storage —
+    // a conta RE-CRIADA com a mesma chave não herda órfãos.
+    const purgarVestigiosPorChave = async (chave: string): Promise<Record<string, number>> => {
+      const k = String(chave || '').trim();
+      const out: Record<string, number> = {};
+      if (!k || !/^[A-Za-z0-9._-]+$/.test(k)) return out;
+      const H = { apikey: serviceKeyPerfil, Authorization: `Bearer ${serviceKeyPerfil}` };
+      const filtro = `or=(sender_bi.eq.${encodeURIComponent(k)},recipient_bi.eq.${encodeURIComponent(k)})`;
+      try {
+        const gm = await fetch(`${supaUrlPerfil}/rest/v1/messages?${filtro}&select=id&limit=5000`, { headers: H });
+        const msgs = await gm.json().catch(() => []);
+        if (Array.isArray(msgs) && msgs.length) {
+          out.mensagens = msgs.length;
+          await fetch(`${supaUrlPerfil}/rest/v1/messages?${filtro}`, { method: 'DELETE', headers: H });
+          const ids = msgs.map((m: any) => m.id).join(',');
+          try { await fetch(`${supaUrlPerfil}/rest/v1/message_state_history?message_id=in.(${ids})`, { method: 'DELETE', headers: H }); } catch { /* best-effort */ }
+        }
+      } catch { /* best-effort */ }
+      const apagar = async (tabela: string, query: string) => {
+        try { await fetch(`${supaUrlPerfil}/rest/v1/${tabela}?${query}`, { method: 'DELETE', headers: H }); } catch { /* best-effort */ }
+      };
+      const kE = encodeURIComponent(k);
+      await apagar('message_state_history', `responsible=eq.${kE}`);
+      await apagar('notifications', `target_bi=eq.${kE}`);
+      await apagar('contacts', `owner_bi=eq.${kE}`);
+      await apagar('user_requests', `user_bi=eq.${kE}`);
+      await apagar('document_requests', `user_bi=eq.${kE}`);
+      await apagar('documents', `holder_bi=eq.${kE}`);
+      await apagar('video_sessions', `or=(host_bi.eq.${kE},guest_bi.eq.${kE},citizen_bi.eq.${kE},institution_code.eq.${kE})`);
+      try {
+        const ls = await fetch(`${supaUrlPerfil}/storage/v1/object/list/correspondencias_anexos`, {
+          method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ prefix: `${k}/`, limit: 100 }),
+        });
+        const files = await ls.json().catch(() => []);
+        for (const f of (Array.isArray(files) ? files : [])) {
+          try { await fetch(`${supaUrlPerfil}/storage/v1/object/correspondencias_anexos/${k}/${encodeURIComponent(f.name)}`, { method: 'DELETE', headers: H }); } catch { /* best-effort */ }
+        }
+      } catch { /* best-effort */ }
+      return out;
+    };
+
     if (url.includes('/api/eliminar-instituicao') && method === 'POST') {
       try {
         if (!supaUrlPerfil || !serviceKeyPerfil) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
@@ -2018,6 +2061,8 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
           );
           if (dpr.ok) { const r = await dpr.json().catch(() => []); protocolos = Array.isArray(r) ? r.length : 0; }
         } catch { /* best-effort */ }
+        // v37.78.10 — purga total por cada chave da adesão (zero órfãos)
+        for (const k of chaves) { try { await purgarVestigiosPorChave(k); } catch { /* best-effort */ } }
         return res.status(200).json({ ok: true, contas, avatares, perfis, mensagens, notificacoes, sondagens: sondagensApagadas, protocolos });
       } catch (e: any) {
         console.error('[ELIMINAR-INSTITUICAO] Exceção:', e);
@@ -2109,7 +2154,10 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
           );
           if (dp.ok) perfis = 1;
         } catch { /* best-effort */ }
-        return res.status(200).json({ ok: true, conta, avatares, perfis });
+        // v37.78.10 — purga total de vestígios do agente (zero órfãos)
+        let vestigios: Record<string, number> = {};
+        try { vestigios = await purgarVestigiosPorChave(agenteNorm); } catch { /* best-effort */ }
+        return res.status(200).json({ ok: true, conta, avatares, perfis, vestigios });
       } catch (e: any) {
         console.error('[ELIMINAR-AGENTE] Exceção:', e);
         return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
@@ -2954,9 +3002,58 @@ async function dadosResolverEExecutar(opts: {
           }
         } catch { /* best-effort */ }
         detalhes['auth'] = authRemovido ? 1 : 0;
+        // v37.78.10 — purga total (notificações, contactos, pedidos, vídeo, anexos)
+        try { const v = await purgarVestigiosPorChave(biNorm); Object.assign(detalhes, v); } catch { /* best-effort */ }
         return res.status(200).json({ ok: true, detalhes });
       } catch (e: any) {
         console.error('[ADMIN-CIDADAO] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
+    // v37.78.10 — LIMPEZA DE DADOS ÓRFÃOS (Admin Alfa): mensagens cujo remetente
+    // ou destinatário já não existe em profiles (nem é demo/sistema) saem com o
+    // respectivo histórico. Espelho do server.ts.
+    if (url.includes('/api/limpar-orfaos') && method === 'POST') {
+      try {
+        if (!supaUrlPerfil || !serviceKeyPerfil) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        const token = String(req.headers.authorization || (req.headers as any).Authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+        const sessResp = await fetch(`${supaUrlPerfil}/auth/v1/user`, { headers: { apikey: serviceKeyPerfil, Authorization: `Bearer ${token}` } });
+        if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+        const sess = await sessResp.json().catch(() => null);
+        const user = sess && (sess.user || sess);
+        const meta = (user && user.user_metadata) || {};
+        if (String(meta.role || '').toLowerCase() !== 'admin' || String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '') !== 'ADMIN-0001') {
+          return res.status(403).json({ ok: false, erro: 'Apenas o Admin Alfa executa a limpeza de órfãos.' });
+        }
+        const H = { apikey: serviceKeyPerfil, Authorization: `Bearer ${serviceKeyPerfil}` };
+        const pr = await fetch(`${supaUrlPerfil}/rest/v1/profiles?select=bi&limit=3000`, { headers: H });
+        const profs = await pr.json().catch(() => []);
+        const conhecidos = new Set<string>([
+          ...(Array.isArray(profs) ? profs : []).map((p: any) => String(p.bi || '').trim().toUpperCase()),
+          ...DADOS_DEMO_BIS, 'SYSTEM', 'CDA',
+        ]);
+        const mr = await fetch(`${supaUrlPerfil}/rest/v1/messages?select=id,sender_bi,recipient_bi&limit=5000`, { headers: H });
+        const msgs = await mr.json().catch(() => []);
+        const todas = Array.isArray(msgs) ? msgs : [];
+        const orfas = todas.filter((m: any) => {
+          const rem = String(m.sender_bi || '').trim().toUpperCase();
+          const dest = String(m.recipient_bi || '').trim().toUpperCase();
+          if (dest && !conhecidos.has(dest)) return true;
+          if (rem && !conhecidos.has(rem) && rem !== 'SYSTEM' && rem !== 'CDA') return true;
+          return false;
+        }).map((m: any) => m.id);
+        let apagadas = 0;
+        if (orfas.length) {
+          const dr = await fetch(`${supaUrlPerfil}/rest/v1/messages?id=in.(${orfas.join(',')})`, { method: 'DELETE', headers: { ...H, Prefer: 'return=representation' } });
+          const del = await dr.json().catch(() => []);
+          apagadas = Array.isArray(del) ? del.length : 0;
+          try { await fetch(`${supaUrlPerfil}/rest/v1/message_state_history?message_id=in.(${orfas.join(',')})`, { method: 'DELETE', headers: H }); } catch { /* best-effort */ }
+        }
+        return res.status(200).json({ ok: true, analisadas: todas.length, orfas: orfas.length, apagadas });
+      } catch (e: any) {
+        console.error('[LIMPAR-ORFAOS] Exceção:', e);
         return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
       }
     }

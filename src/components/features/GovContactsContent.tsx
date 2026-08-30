@@ -2374,35 +2374,38 @@ export function GovContactsContent({
                   initial={{ scale: 0.93, opacity: 0, y: 15 }}
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   exit={{ scale: 0.93, opacity: 0, y: 15 }}
-                  className="relative bg-white w-full max-w-4xl max-h-[95vh] rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 flex flex-col overflow-hidden mx-auto p-6 md:p-10 space-y-6 z-10"
+                  className="relative bg-white w-full max-w-4xl max-h-[95vh] rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 flex flex-col overflow-hidden mx-auto z-10"
                 >
-                  {/* Header Area */}
-                  <div className="flex items-center gap-4 text-left relative shrink-0">
-                    <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center shrink-0 border border-indigo-100/40 shadow-sm">
-                      <UserPlus size={26} strokeWidth={2.5} />
+                  {/* v37.78.10 — CABEÇALHO PADRÃO (faixa escura, igual à «Central de
+                      Preferências do Cidadão» — padrão único de popups do app) */}
+                  <div className="px-5 md:px-7 py-3.5 md:py-4 bg-[#111A2E] text-white flex justify-between items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-1.5 md:p-2 bg-primary/20 text-primary rounded-xl flex items-center justify-center shrink-0 border border-white/10">
+                        <UserPlus size={18} strokeWidth={2.5} />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-extrabold text-xs md:text-sm uppercase tracking-tight text-white leading-tight truncate">
+                          {isPlatformAdmin 
+                            ? (isEditingWorker ? 'EDITAR MEMBRO DA EQUIPA' : 'REGISTAR NOVO MEMBRO DA EQUIPA')
+                            : (isEditingWorker ? 'EDITAR FICHA DO MEMBRO DA EQUIPA' : 'REGISTAR NOVO MEMBRO DA EQUIPA')}
+                        </h3>
+                        <p className="text-[8px] md:text-[9px] text-slate-400 uppercase tracking-widest font-black mt-0.5 m-0 leading-none truncate">
+                          {isPlatformAdmin 
+                            ? 'CREDENCIAL OPERACIONAL PLATAFORMA'
+                            : 'CREDENCIAIS AUTORIZADAS INSTITUIÇÃO'}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">
-                        {isPlatformAdmin 
-                          ? (isEditingWorker ? 'EDITAR MEMBRO DA EQUIPA' : 'REGISTAR NOVO MEMBRO DA EQUIPA')
-                          : (isEditingWorker ? 'EDITAR FICHA DO MEMBRO DA EQUIPA' : 'REGISTAR NOVO MEMBRO DA EQUIPA')}
-                      </h3>
-                      <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none">
-                        {isPlatformAdmin 
-                          ? 'CREDENCIAL OPERACIONAL PLATAFORMA'
-                          : 'CREDENCIAIS AUTORIZADAS INSTITUIÇÃO'}
-                      </p>
-                    </div>
-                    {/* Corner close button */}
                     <button 
                       onClick={() => setShowAddWorkerModal(false)} 
-                      className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-none bg-transparent cursor-pointer"
+                      className="text-white/60 hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors border-none bg-transparent cursor-pointer shrink-0"
                       type="button"
                       title="Fechar"
                     >
-                      <X size={20} />
+                      <X size={16} />
                     </button>
                   </div>
+                  <div className="p-6 md:p-10 space-y-6 overflow-y-auto flex-1 text-left">
 
                   <form onSubmit={handleCreateWorker} noValidate className="flex-1 flex flex-col justify-between overflow-y-auto custom-scrollbar space-y-6 pr-1 text-left">
                     <div className="space-y-6">
@@ -2723,6 +2726,7 @@ export function GovContactsContent({
                       </button>
                     </div>
                   </form>
+                  </div>
                 </motion.div>
               </div>
             )}

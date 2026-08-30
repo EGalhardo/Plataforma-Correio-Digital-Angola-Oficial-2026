@@ -4,15 +4,17 @@
  */
 
 // ============================================================================
-// 2026-08-22 — PADRÃO ÚNICO DE POPUPS DA PLATAFORMA
-// Réplicas exactas do layout do popup "Registar Novo Membro da Equipa":
+// 2026-08-30 (v37.78.10) — PADRÃO ÚNICO DE POPUPS DA PLATAFORMA
+// Layout de referência pedido pelo dono: o popup «Central de Preferências do
+// Cidadão» (Área do Cidadão → Perfil):
 //   · backdrop  bg-slate-950/60 + backdrop-blur-md (clique fecha)
 //   · caixa     bg-white rounded-[32px] sombra oficial borda slate-100,
-//               animação scale 0.93→1 / y 15→0, max-h-[95vh] com scroll
-//   · cabeçalho círculo 64px indigo (ícone), título itálico uppercase preto
-//               #0c2340, subtítulo indigo #4f46e5 tracking largo, X no canto
-// Todos os popups do app usam este padrão (diretamente ou com as mesmas
-// classes) para uma experiência visual coerente em todas as áreas.
+//               animação scale, max-h-[95vh] com scroll
+//   · CABEÇALHO faixa escura #111A2E de largura total: ícone em chip
+//               arredondado, título BRANCO uppercase, subtítulo slate-400,
+//               X à direita (hover branco)
+//   · corpo     branco com scroll, padding generoso
+// Todos os popups do app herdam este padrão (CdaModal/CdaConfirm/CdaPrompt).
 // ============================================================================
 
 import React, { useEffect } from 'react';
@@ -47,7 +49,7 @@ export function CdaModal({
   titulo,
   subtitulo,
   maxW = 'max-w-4xl',
-  tomIcone = 'bg-indigo-50 text-indigo-600 border-indigo-100/40',
+  tomIcone = 'bg-primary/20 text-primary border-white/10',
   children,
   semCabecalho = false,
   padding = 'p-6 md:p-10',
@@ -78,34 +80,38 @@ export function CdaModal({
         initial={{ scale: 0.93, opacity: 0, y: 15 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.93, opacity: 0, y: 15 }}
-        className={`relative bg-white w-full ${maxW} max-h-[95vh] rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 flex flex-col overflow-hidden mx-auto ${padding} space-y-6 z-10`}
+        className={`relative bg-white w-full ${maxW} max-h-[95vh] rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 flex flex-col overflow-hidden mx-auto z-10`}
       >
         {!semCabecalho && (
-          <div className="flex items-center gap-4 text-left relative shrink-0">
-            <div className={`w-16 h-16 ${tomIcone} rounded-full flex items-center justify-center shrink-0 border shadow-sm`}>
-              <Icone size={26} strokeWidth={2.5} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">
-                {titulo}
-              </h3>
-              {subtitulo && (
-                <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none">
-                  {subtitulo}
-                </p>
-              )}
+          <div className="px-5 md:px-7 py-3.5 md:py-4 bg-[#111A2E] text-white flex justify-between items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className={`p-1.5 md:p-2 rounded-xl flex items-center justify-center shrink-0 border ${tomIcone}`}>
+                <Icone size={18} strokeWidth={2.5} />
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-extrabold text-xs md:text-sm uppercase tracking-tight text-white leading-tight truncate">
+                  {titulo}
+                </h3>
+                {subtitulo && (
+                  <p className="text-[8px] md:text-[9px] text-slate-400 uppercase tracking-widest font-black m-0 leading-none mt-0.5 truncate">
+                    {subtitulo}
+                  </p>
+                )}
+              </div>
             </div>
             <button
               onClick={onFechar}
-              className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-none bg-transparent cursor-pointer"
+              className="text-white/60 hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors border-none bg-transparent cursor-pointer shrink-0"
               type="button"
               title="Fechar"
             >
-              <X size={20} />
+              <X size={16} />
             </button>
           </div>
         )}
-        {children}
+        <div className={`${semCabecalho ? padding : `${padding} space-y-6`} overflow-y-auto flex-1 text-left`}>
+          {children}
+        </div>
       </motion.div>
     </div>
   );

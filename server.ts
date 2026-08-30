@@ -822,6 +822,48 @@ async function dadosResolverEExecutar(opts: {
   // Executa com a service role: registo na fila, perfil, pedidos, notificações,
   // contactos, documentos e a conta Auth (localizada por user_metadata.bi).
   // Contas demo canónicas são recusadas (403 demo) — Modo Demo intocado.
+// v37.78.10 — PURGA TOTAL DE VESTÍGIOS por chave (BI do cidadão ou Nº de agente).
+// ----------------------------------------------------------------------------
+// O utilizador cria/elimina/recria contas vezes sem conta: qualquer linha que
+// sobreviva à eliminação ("dado órfão") junta-se à conta RE-CRIADA com a mesma
+// chave. Este helper remove TODOS os vestígios relacionais + anexos do Storage
+// de uma só vez (best-effort por tabela — falha pontual não aborta as restantes).
+async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Record<string, number>> {
+  const k = String(chave || '').trim();
+  const out: Record<string, number> = {};
+  if (!k || !/^[A-Za-z0-9._-]+$/.test(k)) return out;
+  // IDs das mensagens ANTES de as apagar (o histórico por message_id depende deles)
+  let idsMsg: number[] = [];
+  try {
+    const { data } = await admin.from('messages').select('id').or(`sender_bi.eq.${k},recipient_bi.eq.${k}`).limit(5000);
+    idsMsg = (data || []).map((m: any) => m.id);
+  } catch { /* best-effort */ }
+  const apagar = async (tabela: string, filtro: string): Promise<number> => {
+    try { const { count } = await admin.from(tabela).delete({ count: 'exact' }).or(filtro); return count || 0; } catch { return -1; }
+  };
+  out.mensagens = await apagar('messages', `sender_bi.eq.${k},recipient_bi.eq.${k}`);
+  if (idsMsg.length) {
+    try { const { count } = await admin.from('message_state_history').delete({ count: 'exact' }).in('message_id', idsMsg); out.historico = count || 0; } catch { /* best-effort */ }
+  }
+  try { const { count } = await admin.from('message_state_history').delete({ count: 'exact' }).eq('responsible', k); out.historicoResponsavel = count || 0; } catch { /* best-effort */ }
+  out.notificacoes = await apagar('notifications', `target_bi.eq.${k}`);
+  out.contactos = await apagar('contacts', `owner_bi.eq.${k}`);
+  out.pedidos = await apagar('user_requests', `user_bi.eq.${k}`);
+  out.pedidosDocumentos = await apagar('document_requests', `user_bi.eq.${k}`);
+  out.documentos = await apagar('documents', `holder_bi.eq.${k}`);
+  out.videoSessoes = await apagar('video_sessions', `host_bi.eq.${k},guest_bi.eq.${k},citizen_bi.eq.${k},institution_code.eq.${k}`);
+  // anexos de correspondência no Storage (pasta <chave>/ do bucket privado)
+  try {
+    const { data: ficheiros } = await admin.storage.from('correspondencias_anexos').list(k, { limit: 100 });
+    const alvos = (ficheiros || []).map((f: any) => `${k}/${f.name}`);
+    if (alvos.length) {
+      const { error } = await admin.storage.from('correspondencias_anexos').remove(alvos);
+      if (!error) out.anexosStorage = alvos.length;
+    }
+  } catch { /* best-effort */ }
+  return out;
+}
+
   app.post("/api/admin-cidadao", async (req, res) => {
     try {
       const { bi } = req.body || {};
@@ -888,6 +930,12 @@ async function dadosResolverEExecutar(opts: {
         }
       } catch { /* best-effort */ }
       detalhes['auth'] = authRemovido ? 1 : 0;
+      // v37.78.10 — PURGA TOTAL: notificações, contactos, pedidos, vídeo-sessões
+      // e anexos do Storage também saem — a conta RE-CRIADA não herda órfãos.
+      try {
+        const adminPurga = createSupabaseAdminClient();
+        if (adminPurga) Object.assign(detalhes, await purgarVestigiosPorChave(adminPurga, biNorm));
+      } catch { /* best-effort */ }
       return res.status(200).json({ ok: true, detalhes });
     } catch (e) {
       console.error('[ADMIN-CIDADAO] Exceção:', e);
@@ -912,6 +960,52 @@ async function dadosResolverEExecutar(opts: {
   // service_role» — este endpoint é essa peça em falta. Sem ele, as contas Auth
   // dos agentes (agente.<CODIGO>-NN@inst…) sobreviviam com o avatar_url nos
   // metadados e a adesão RE-CRIADA herdava a FOTO da vida anterior.
+  // v37.78.10 — LIMPEZA DE DADOS ÓRFÃOS (Admin Alfa). Mensagens cujo remetente
+  // OU destinatário já não existe em `profiles` (e não é conta demo/sistema)
+  // são apagadas com o respectivo histórico — de tempos a tempos, ou depois de
+  // eliminações antigas feitas por versões sem purga total.
+  app.post("/api/limpar-orfaos", async (req, res) => {
+    try {
+      const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+      const admin = createSupabaseAdminClient();
+      if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      const { data: sess, error: sessErr } = await admin.auth.getUser(token);
+      if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+      const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
+      const roleCaller = String(meta.role || '').toLowerCase();
+      const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
+      if (roleCaller !== 'admin' || agentCaller !== 'ADMIN-0001') {
+        return res.status(403).json({ ok: false, erro: 'Apenas o Admin Alfa executa a limpeza de órfãos.' });
+      }
+      const { data: profs } = await admin.from('profiles').select('bi').limit(3000);
+      const conhecidos = new Set<string>([
+        ...((profs || []) as { bi?: string }[]).map(p => String(p.bi || '').trim().toUpperCase()),
+        ...DADOS_DEMO_BIS, 'SYSTEM', 'CDA',
+      ]);
+      const { data: msgs } = await admin.from('messages').select('id,sender_bi,recipient_bi').limit(5000);
+      const todas = (msgs || []) as { id: number; sender_bi?: string; recipient_bi?: string }[];
+      const orfas = todas.filter(m => {
+        const rem = String(m.sender_bi || '').trim().toUpperCase();
+        const dest = String(m.recipient_bi || '').trim().toUpperCase();
+        if (dest && !conhecidos.has(dest)) return true;
+        if (rem && !conhecidos.has(rem) && rem !== 'SYSTEM' && rem !== 'CDA') return true;
+        return false;
+      });
+      const ids = orfas.map(m => m.id);
+      let apagadas = 0;
+      if (ids.length) {
+        const { count } = await admin.from('messages').delete({ count: 'exact' }).in('id', ids);
+        apagadas = count || 0;
+        try { await admin.from('message_state_history').delete().in('message_id', ids); } catch { /* best-effort */ }
+      }
+      return res.status(200).json({ ok: true, analisadas: todas.length, orfas: ids.length, apagadas });
+    } catch (e) {
+      console.error('[LIMPAR-ORFAOS] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
   app.post("/api/eliminar-instituicao", async (req, res) => {
     try {
       const { code, agentes } = req.body || {};
@@ -1045,6 +1139,12 @@ async function dadosResolverEExecutar(opts: {
         historico += count || 0;
       } catch { /* best-effort */ }
 
+      // v37.78.10 — PURGA TOTAL por cada chave da adesão (código, responsável e
+      // agentes): vídeo-sessões, contactos, pedidos, documentos e ANEXOS do
+      // Storage que o bloco acima não cobre — zero órfãos para a re-adesão.
+      for (const k of chaves) {
+        try { await purgarVestigiosPorChave(admin, k); } catch { /* best-effort */ }
+      }
       return res.status(200).json({ ok: true, contas, avatares, perfis, mensagens, notificacoes, sondagens: sondagensApagadas, protocolos, historico });
     } catch (e) {
       console.error('[ELIMINAR-INSTITUICAO] Exceção:', e);
@@ -1130,7 +1230,12 @@ async function dadosResolverEExecutar(opts: {
         perfis = count || 0;
       } catch { /* best-effort */ }
 
-      return res.status(200).json({ ok: true, conta, avatares, perfis });
+      // v37.78.10 — PURGA TOTAL de vestígios do agente (mensagens, notificações,
+      // histórico, vídeo-sessões, pedidos e anexos): sem isto o Nº RE-CRIADO
+      // herdava os dados da vida anterior (órfãos que "se juntam" à nova conta).
+      let vestigios: Record<string, number> = {};
+      try { vestigios = await purgarVestigiosPorChave(admin, agenteNorm); } catch { /* best-effort */ }
+      return res.status(200).json({ ok: true, conta, avatares, perfis, vestigios });
     } catch (e) {
       console.error('[ELIMINAR-AGENTE] Exceção:', e);
       return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });

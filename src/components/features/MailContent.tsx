@@ -613,8 +613,17 @@ export function MailContent({
         return;
       }
       setIsUploading(true);
+      // v37.78.10 — guarda de tamanho: > 10 MB recusado com aviso claro.
+      const dentroLimite = Array.from(files).filter((f: File) => f.size <= 10 * 1024 * 1024) as File[];
+      const foraLimite = Array.from(files).filter((f: File) => f.size > 10 * 1024 * 1024) as File[];
+      if (foraLimite.length) {
+        setUploadError(
+          `${foraLimite.map(f => `«${f.name}» (${(f.size / (1024 * 1024)).toFixed(1)} MB)`).join(', ')} excede${foraLimite.length === 1 ? '' : 'm'} o limite de 10 MB por ficheiro. Compacte (zip) ou reduza antes de anexar.`
+        );
+      }
+      if (!dentroLimite.length) { setIsUploading(false); return; }
       setUploadProgressMessage(t("A carregar ficheiros para o arquivo digital central..."));
-      const promises = Array.from(files).map((file: File) => {
+      const promises = dentroLimite.map((file: File) => {
         return new Promise<string>((resolve) => {
           const readAsLocalFallback = (f: File, res: (val: string) => void) => {
             const reader = new FileReader();
@@ -976,7 +985,7 @@ export function MailContent({
               </div>
               {multiDestControls}
               <div className="space-y-2">
-                <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">Assunto</label>
+                <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">Título</label>
                 <input 
                   type="text"
                   placeholder="Qual o tema da sua mensagem?"
@@ -1019,6 +1028,19 @@ export function MailContent({
                   </div>
                 )}
                 {multiDestControls}
+                {/* v37.78.10 — TÍTULO (áreas Cidadão e Instituição): passa a ser
+                    o assunto/preview da correspondência; vazio = derivado do corpo. */}
+                <div className="space-y-2">
+                  <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">Título</label>
+                  <input
+                    type="text"
+                    placeholder="Ex.: Envio de documento de identificação"
+                    value={composeData.subject}
+                    onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })}
+                    maxLength={120}
+                    className="w-full bg-white border border-line rounded-2xl px-5 py-3.5 md:py-4 text-xs md:text-sm font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -1561,7 +1583,7 @@ export function MailContent({
               <input
                 type="file"
                 multiple
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp,.bmp,.heic,.heif,.txt,.csv,.xls,.xlsx,.ppt,.pptx,.zip"
                 className="hidden"
                 onChange={handleFileAdd}
               />
