@@ -1561,6 +1561,45 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
               if (encontrada) siglaAlvo = encontrada;
             }
           }
+          // v37.78.31 — RESOLUÇÃO PELO REGISTO DA PLATAFORMA (reporte do dono
+          // 2026-08-31): instituição REGISTADA (profiles role=institution) mas
+          // fora do registo estático e sem fontes self-service — ex.: MAPTSS,
+          // DIRECO, Registo Civil. Exigência: pergunta sobre uma instituição ⇒
+          // aceder à KB DELA; se estiver vazia, AVISAR honestamente em vez de
+          // o modelo inventar serviços. Leitura com SERVICE key (apenas no
+          // servidor — profiles não é público na anon), timeout 4s, fail-open.
+          let nomePlataforma: string | null = null;
+          if (!siglaAlvo && supaUrl) {
+            const svcKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+            if (svcKey) {
+              const ctrlP = new AbortController();
+              const timerP = setTimeout(() => ctrlP.abort(), 4000);
+              const respP = await fetch(`${supaUrl}/rest/v1/profiles?role=eq.institution&select=bi,name&limit=300`, {
+                headers: { apikey: svcKey, Authorization: `Bearer ${svcKey}` },
+                signal: ctrlP.signal,
+              });
+              clearTimeout(timerP);
+              if (respP.ok) {
+                const rowsP = await respP.json();
+                const alvoUp = ultimoTextoUsuario.toUpperCase();
+                const escP = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const normP = (s: string) => s.replace(/[_\-]+/g, ' ').trim().toUpperCase();
+                const achada = (Array.isArray(rowsP) ? rowsP : []).find((r: any) => {
+                  const bi = normP(String(r.bi || ''));
+                  const nome = String(r.name || '').trim().toUpperCase();
+                  if (!bi) return false;
+                  if (bi.length >= 3 && new RegExp(`(^|[^A-Z0-9À-Ú])${escP(bi)}([^A-Z0-9À-Ú]|$)`).test(alvoUp)) return true;
+                  const base = bi.split(' ')[0];
+                  if (base.length >= 4 && new RegExp(`(^|[^A-Z0-9À-Ú])${escP(base)}([^A-Z0-9À-Ú]|$)`).test(alvoUp)) return true;
+                  return nome.length >= 6 && alvoUp.includes(nome);
+                });
+                if (achada) {
+                  siglaAlvo = String(achada.bi).toUpperCase();
+                  nomePlataforma = String(achada.name || achada.bi).trim();
+                }
+              }
+            }
+          }
           if (siglaAlvo && supaUrl && supaKey) {
             let fontesDinamicas: FonteKb[] = [];
             const ctrlF = new AbortController();
@@ -1598,6 +1637,15 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
                 instituicao: instKb.nome,
                 fontes: montado.fontesUsadas.map(id => instKb.fontes.find(f => f.id === id)?.titulo || id),
               };
+            }
+            if (!montado.contexto) {
+              // v37.78.31 — KB VAZIA (reporte do dono 2026-08-31): a instituição
+              // EXISTE na plataforma mas não carregou nenhuma fonte oficial — a
+              // IA avisa honestamente que a informação de momento não está
+              // disponível; NUNCA inventa serviços/prazos/contactos.
+              const nomeInstVazia = nomePlataforma || instKb.nome;
+              finalSystemPrompt += `\n\n[INSTITUIÇÃO REGISTADA SEM BASE DE CONHECIMENTO — ${nomeInstVazia}]\nO utilizador mencionou esta instituição registada na plataforma, cuja base de conhecimento está VAZIA (nenhuma fonte oficial carregada pela própria instituição). Para qualquer pergunta sobre ela: responde honestamente que essa informação de momento não está disponível na base de conhecimento da instituição; NÃO uses conhecimento genérico do modelo, NÃO inventes serviços, prazos, contactos ou procedimentos. Podes sugerir ao cidadão contactar a instituição pela área de Correspondência oficial do Correio Digital de Angola. Se a pergunta NÃO for sobre esta instituição, ignora esta secção.`;
+              kbUsada = { instituicao: nomeInstVazia, fontes: [] };
             }
           }
         } catch (kbErr) {
