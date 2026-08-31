@@ -6532,11 +6532,11 @@ Ficha civil do titular:
             placeholder="skeleton"
             className="mx-auto mb-12"
             style={{ 
-              height: '238px', 
+              height: '298px', 
               width: 'auto',
               objectFit: 'contain',
               backgroundColor: 'transparent',
-              marginBottom: '3.75rem',
+              marginBottom: '4.5rem',
               marginLeft: 'auto',
               marginRight: 'auto',
             }}
@@ -7168,7 +7168,7 @@ Ficha civil do titular:
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className={`hidden md:flex rounded-3xl border ${loginSubMode === 'face-capture' ? 'p-6 min-h-[440px]' : 'p-8 md:p-8 min-h-[555px]'} ${theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-[#E2E8F0]'} flex-col items-center justify-center text-center shadow-sm h-full relative overflow-hidden transition-all duration-300`}
+            className={`hidden md:flex rounded-3xl border ${loginSubMode === 'face-capture' ? 'p-6 min-h-[485px]' : 'p-8 md:p-8 min-h-[615px]'} ${theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-[#E2E8F0]'} flex-col items-center justify-center text-center shadow-sm h-full relative overflow-hidden transition-all duration-300`}
           >
             <div className="absolute top-0 right-0 w-80 h-80 bg-primary/2 rounded-full -mr-40 -mt-40 blur-3xl pointer-events-none" />
             
@@ -7201,18 +7201,18 @@ Ficha civil do titular:
               </motion.div>
             ) : (
               <div className="flex flex-col items-center relative z-10">
-                {/* v37.78.37 — logomarca +25% proporcional (pedido do dono
-                    2026-08-31): 170→213px (captura facial 110→138px), margens
-                    um degrau acima (mb-5→mb-6 / mb-3→mb-3.5) e painéis
-                    min-h 510→555 / 410→440 para o conjunto manter a harmonia. */}
+                {/* v37.78.38 — logomarca +25% proporcional NO DESKTOP (pedido
+                    do dono 2026-08-31): 213→266px (captura facial 138→173px),
+                    margens um degrau acima (mb-6→mb-7 / mb-3.5→mb-4) e painéis
+                    min-h 555→615 / 440→485 — o conjunto cresce junto. */}
                 <LazyImage
                   src={logoLogin} 
                   alt="Correio Digital" 
                   priority={true}
                   placeholder="skeleton"
-                  className={loginSubMode === 'face-capture' ? "mb-3.5" : "mb-6"}
+                  className={loginSubMode === 'face-capture' ? "mb-4" : "mb-7"}
                   style={{
-                    height: loginSubMode === 'face-capture' ? '138px' : '213px',
+                    height: loginSubMode === 'face-capture' ? '173px' : '266px',
                     width: 'auto',
                     objectFit: 'contain',
                     backgroundColor: 'transparent',
@@ -7234,7 +7234,7 @@ Ficha civil do titular:
             id="cda-login-form-container"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className={`bg-white rounded-3xl ${loginSubMode === 'face-capture' ? 'p-4.5 md:p-5.5 min-h-[440px]' : 'p-7 md:p-8 min-h-[555px]'} shadow-xl border border-[#E2E8F0] flex flex-col justify-between h-full transition-all duration-300 relative ${
+            className={`bg-white rounded-3xl ${loginSubMode === 'face-capture' ? 'p-4.5 md:p-5.5 min-h-[485px]' : 'p-7 md:p-8 min-h-[615px]'} shadow-xl border border-[#E2E8F0] flex flex-col justify-between h-full transition-all duration-300 relative ${
               highlightSteps 
                 ? 'ring-4 ring-blue-500 ring-offset-4 shadow-[0_0_30px_rgba(37,99,235,0.35)] scale-[1.01]' 
                 : ''
@@ -8081,7 +8081,7 @@ Ficha civil do titular:
         <div 
           ref={contentRef}
           data-cda-scroll=""
-          className={`flex-1 px-4 pb-32 md:p-8 overflow-y-auto custom-scrollbar ${emergencyMode && isGovMode ? 'pt-[104px] md:pt-1' : (isGovMode ? 'pt-16 md:pt-1' : 'pt-16 md:pt-4')}`}
+          className={`flex-1 px-4 pb-28 md:p-8 overflow-y-auto custom-scrollbar ${emergencyMode && isGovMode ? 'pt-[91px] md:pt-1' : (isGovMode ? 'pt-14 md:pt-1' : 'pt-14 md:pt-4')}`}
         >
           <div className="max-w-[1400px] mx-auto">
             {renderContent()}
