@@ -20,6 +20,17 @@ const groqApiKey = getGroqKey();
 
 console.log("HEALTH CHECK API INITIALIZED. GROQ KEY PRESENT:", !!groqApiKey);
 
+// v37.78.36 — teto de duração por provedor de IA (Groq/Gemini): reject
+// controlado em vez de await pendurado até ao limite da função (504 «ocorreu
+// um erro ao processar» — reporte do dono 2026-08-31). Gémeo de server.ts.
+const comTimeoutProvedor = <T,>(p: Promise<T>, ms: number): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const teto = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`timeout-provedor (${ms}ms)`)), ms);
+  });
+  return Promise.race([p, teto]).finally(() => { if (timer) clearTimeout(timer); });
+};
+
 let groq: Groq | null = null;
 if (groqApiKey) {
   try {
@@ -1656,19 +1667,25 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
       // 1. Try Groq
       if (groq) {
         try {
-          const completion = await groq.chat.completions.create({
-            messages: [
-              {
-                role: "system",
-                content: finalSystemPrompt
-              },
-              ...alternateMessages.map(m => ({
-                role: m.role,
-                content: m.content
-              }))
-            ],
-            model: "openai/gpt-oss-120b",
-          });
+          // v37.78.36 — teto de 12s por provedor (gémeo de server.ts): sem
+          // isto, um Groq lento/pendente fazia a função morrer no limite da
+          // plataforma (504) e o cidadão via «ocorreu um erro ao processar».
+          const completion = await comTimeoutProvedor(
+            groq.chat.completions.create({
+              messages: [
+                {
+                  role: "system",
+                  content: finalSystemPrompt
+                },
+                ...alternateMessages.map(m => ({
+                  role: m.role,
+                  content: m.content
+                }))
+              ],
+              model: "openai/gpt-oss-120b",
+            }),
+            12_000,
+          );
           return res.status(200).json({ message: limparTextoIA(completion.choices[0].message.content), kbUsada });
         } catch (groqErr) {
           console.error("Groq Chat Error, trying Gemini fallback:", groqErr);
@@ -1683,14 +1700,17 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
             parts: [{ text: m.content }]
           }));
 
-          const response = await ai.models.generateContent({
-            model: "gemini-3.6-flash",
-            contents: formattedContents,
-            config: {
-              systemInstruction: finalSystemPrompt,
-              temperature: 0.5,
-            }
-          });
+          const response = await comTimeoutProvedor(
+            ai.models.generateContent({
+              model: "gemini-3.6-flash",
+              contents: formattedContents,
+              config: {
+                systemInstruction: finalSystemPrompt,
+                temperature: 0.5,
+              }
+            }),
+            12_000,
+          );
 
           if (response && response.text) {
             return res.status(200).json({ message: limparTextoIA(response.text), kbUsada });

@@ -7159,9 +7159,10 @@ Ficha civil do titular:
     return (
       <section className={`min-h-screen p-4 flex items-center justify-center font-sans ${theme === 'dark' ? 'bg-slate-950' : 'bg-slate-50'}`}>
         {/* v37.45 — escala proporcional do ecrã de autenticação (login / registo /
-            esqueci senha / facial): −20% (v37.44) e agora +10% → zoom 0.88, com
+            esqueci senha / facial): −20% (v37.44), depois 0.88; v37.78.36 —
+            +10% proporcional a pedido do dono (2026-08-31) → zoom 0.968, com
             todos os elementos e espaçamentos a manter a harmonia. */}
-        <div style={{ zoom: 0.88 }} className="max-w-[940px] w-full mx-auto grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-4.5 items-stretch">
+        <div style={{ zoom: 0.968 }} className="max-w-[940px] w-full mx-auto grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-4.5 items-stretch">
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}

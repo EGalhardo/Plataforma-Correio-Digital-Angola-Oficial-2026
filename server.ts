@@ -2248,6 +2248,17 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
       }
   });
 
+  // v37.78.36 — teto de duração por provedor de IA (Groq/Gemini): devolve
+  // reject controlado em vez de deixar o await pendurado até ao limite da
+  // função na plataforma (504 «ocorreu um erro ao processar» no cidadão).
+  const comTimeoutProvedor = <T,>(p: Promise<T>, ms: number): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const teto = new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`timeout-provedor (${ms}ms)`)), ms);
+    });
+    return Promise.race([p, teto]).finally(() => { if (timer) clearTimeout(timer); });
+  };
+
   app.post("/api/chat", async (req, res) => {
     try {
       const { messages, isGovMode, currentPage, pageContext, language } = req.body;
@@ -2478,19 +2489,26 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
       // 1. Try Groq if client is present
       if (groq) {
         try {
-          const completion = await groq.chat.completions.create({
-            messages: [
-              {
-                role: "system",
-                content: finalSystemPrompt
-              },
-              ...alternateMessages.map(m => ({
-                role: m.role,
-                content: m.content
-              }))
-            ],
-            model: "openai/gpt-oss-120b",
-          });
+          // v37.78.36 — teto de 12s por provedor: sem isto, um Groq lento/
+          // pendente fazia a função morrer no limite da plataforma (timeout
+          // 504) e o cidadão via «ocorreu um erro ao processar» mesmo com a
+          // base de conhecimento carregada (reporte do dono 2026-08-31).
+          const completion = await comTimeoutProvedor(
+            groq.chat.completions.create({
+              messages: [
+                {
+                  role: "system",
+                  content: finalSystemPrompt
+                },
+                ...alternateMessages.map(m => ({
+                  role: m.role,
+                  content: m.content
+                }))
+              ],
+              model: "openai/gpt-oss-120b",
+            }),
+            12_000,
+          );
           return res.json({ message: limparTextoIA(completion.choices[0].message.content), kbUsada });
         } catch (groqErr) {
           console.error("Groq Chat Error, trying Gemini fallback:", groqErr);
@@ -2505,14 +2523,17 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
             parts: [{ text: m.content }]
           }));
 
-          const response = await ai.models.generateContent({
-            model: "gemini-3.6-flash",
-            contents: formattedContents,
-            config: {
-              systemInstruction: finalSystemPrompt,
-              temperature: 0.5,
-            }
-          });
+          const response = await comTimeoutProvedor(
+            ai.models.generateContent({
+              model: "gemini-3.6-flash",
+              contents: formattedContents,
+              config: {
+                systemInstruction: finalSystemPrompt,
+                temperature: 0.5,
+              }
+            }),
+            12_000,
+          );
 
           if (response && response.text) {
             return res.json({ message: limparTextoIA(response.text), kbUsada });
