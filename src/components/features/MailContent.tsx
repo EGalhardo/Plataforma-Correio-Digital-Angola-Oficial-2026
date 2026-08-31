@@ -643,9 +643,51 @@ export function MailContent({
         );
       }
       if (!dentroLimite.length) { setIsUploading(false); return; }
+
+      // v37.78.29 — ANEXO OTIMISTA (reporte do dono 2026-08-31: «demora muito
+      // para anexar»): os chips aparecem JÁ (metadados locais) e o upload
+      // corre em 2º plano — cada chip é trocado pelo marcador real quando o
+      // SEU upload termina (não espera pelos outros). Antes, o chip só
+      // aparecia DEPOIS do upload completo; em rede móvel, MB significavam
+      // muitos segundos «a anexar». O envio continua bloqueado enquanto há
+      // uploads em trânsito (§13) — nenhum ficheiro se perde.
+      const pendentes = dentroLimite.map((file) => ({
+        file,
+        pendId: `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      }));
+      const existingNames = currentList.map(item => {
+        try {
+          if (item.trim().startsWith('{')) {
+            return JSON.parse(item).name;
+          }
+        } catch {}
+        return item;
+      });
+      const novosPendentes = pendentes.filter(p => !existingNames.includes(p.file.name));
+      if (!novosPendentes.length) { setIsUploading(false); return; }
+      const chipDe = (f: File, pendId: string) =>
+        JSON.stringify({ name: f.name, size: `${(f.size / 1024).toFixed(1)} KB`, content: '', type: f.type, pendId });
+      const finalizarChip = (pendId: string, finalString: string) => {
+        setComposeData(prev => ({
+          ...prev,
+          attachments: (prev.attachments || []).map(att =>
+            att.includes(`"pendId":"${pendId}"`) ? finalString : att,
+          ),
+        }));
+      };
+      setComposeData(prev => ({
+        ...prev,
+        attachments: [...(prev.attachments || []), ...novosPendentes.map(p => chipDe(p.file, p.pendId))],
+      }));
+      let emTransito = novosPendentes.length;
+      const tick = () => {
+        emTransito -= 1;
+        if (emTransito > 0) setUploadProgressMessage(t(`A carregar anexos (${emTransito} em trânsito)...`));
+      };
       setUploadProgressMessage(t("A carregar ficheiros para o arquivo digital central..."));
-      const promises = dentroLimite.map((file: File) => {
-        return new Promise<string>((resolve) => {
+
+      const promises = novosPendentes.map(({ file, pendId }) => {
+        return new Promise<void>((resolve) => {
           const readAsLocalFallback = (f: File, res: (val: string) => void) => {
             const reader = new FileReader();
             reader.onload = (event) => {
@@ -679,67 +721,61 @@ export function MailContent({
               reader.readAsText(f);
             }
           };
+          const concluir = (finalString: string) => {
+            finalizarChip(pendId, finalString);
+            tick();
+            resolve();
+          };
 
           const isSupabaseReady = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
           if (isSupabaseReady) {
             const fileExt = file.name.split('.').pop() || 'dat';
             const fileCleanName = file.name.replace(/[^a-zA-Z0-9]/g, '_');
             const filePath = `${bi || 'geral'}/${Date.now()}_${fileCleanName}.${fileExt}`;
-            
+            const markerJson = () => JSON.stringify({
+              name: file.name,
+              size: `${(file.size / 1024).toFixed(1)} KB`,
+              // F45 (Storage privado v15): grava-se MARCADOR resolvível —
+              // o bucket deixa de ter URL pública; leitura por URL assinado.
+              content: buildStorageRef('correspondencias_anexos', filePath),
+              type: file.type
+            });
+            // v37.78.29 — 2ª via quando o RLS recusa o upload directo
+            // (42501, visto em produção): proxy autenticado /api/upload
+            // (service role) ANTES do fallback base64 — antes pagava-se o
+            // round-trip falhado + leitura integral do ficheiro para a
+            // mensagem, e o «anexar» parecia travado.
+            const viaProxy = () =>
+              supabaseService.uploadFile('correspondencias_anexos', filePath, file)
+                .then(url => (url ? markerJson() : null))
+                .catch(() => null);
+
             supabase.storage
               .from('correspondencias_anexos')
               .upload(filePath, file)
-              .then(({ error: uploadErr }) => {
+              .then(async ({ error: uploadErr }) => {
                 if (uploadErr) {
                   console.error('Erro upload anexo:', uploadErr);
-                  readAsLocalFallback(file, resolve);
+                  const peloProxy = await viaProxy();
+                  if (peloProxy) concluir(peloProxy);
+                  else readAsLocalFallback(file, concluir);
                 } else {
-                  // F45 (Storage privado v15): grava-se MARCADOR resolvível —
-                  // o bucket deixa de ter URL pública; leitura por URL assinado.
-                  resolve(JSON.stringify({
-                    name: file.name,
-                    size: `${(file.size / 1024).toFixed(1)} KB`,
-                    content: buildStorageRef('correspondencias_anexos', filePath),
-                    type: file.type
-                  }));
+                  concluir(markerJson());
                 }
               })
-              .catch((err) => {
+              .catch(async (err) => {
                 console.error('Catch erro upload anexo:', err);
-                readAsLocalFallback(file, resolve);
+                const peloProxy = await viaProxy();
+                if (peloProxy) concluir(peloProxy);
+                else readAsLocalFallback(file, concluir);
               });
           } else {
-            readAsLocalFallback(file, resolve);
+            readAsLocalFallback(file, concluir);
           }
         });
       });
 
-      Promise.all(promises).then((newSerializedFiles) => {
-        const existingNames = currentList.map(item => {
-          try {
-            if (item.trim().startsWith('{')) {
-              return JSON.parse(item).name;
-            }
-          } catch {}
-          return item;
-        });
-
-        const filteredNewFiles = newSerializedFiles.filter(item => {
-          try {
-            const name = JSON.parse(item).name;
-            return !existingNames.includes(name);
-          } catch {
-            return !existingNames.includes(item);
-          }
-        });
-
-        setComposeData({
-          ...composeData,
-          attachments: [...currentList, ...filteredNewFiles]
-        });
-        setIsUploading(false);
-        setUploadProgressMessage('');
-      }).catch(() => {
+      Promise.allSettled(promises).then(() => {
         setIsUploading(false);
         setUploadProgressMessage('');
       });
