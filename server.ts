@@ -889,6 +889,117 @@ async function removerAnexosMensagem(admin: any, attachments: unknown): Promise<
 const normChaveElim = (v: unknown): string =>
   String(v || '').trim().toUpperCase().replace(/\s+/g, '').replace(/-\d{2}$/, '');
 
+
+// ============================================================================
+// v37.78.24 — PURGA RETROACTIVA DE ÓRFÃOS DO STORAGE (ZERO RASTOS).
+// Ficheiros que sobreviveram a eliminações feitas por versões sem purga:
+//   · kb_ficheiros      — sem linha em kb_fontes_instituicao.fonte_url;
+//   · correspondencias_anexos — sem mensagem que referencie o marcador;
+//   · fotos_perfil      — avatares SUBSTITUÍDOS (a conta aponta para outro),
+//     de contas ELIMINADAS por completo (sem Auth nem profiles) ou artefactos
+//     de teste (e2e/dbg/pentest). Conservador: conta existente sem qualquer
+//     referência de avatar NÃO é tocada (pode viver só no dispositivo).
+// ============================================================================
+async function varrerStorageOrfaosRest(supaUrl: string, serviceKey: string): Promise<Record<string, number>> {
+  const HSo = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+  const out: Record<string, number> = {};
+  const listar = async (bucket: string, prefix: string): Promise<{ name?: string }[]> => {
+    try {
+      const r = await fetch(`${supaUrl}/storage/v1/object/list/${bucket}`, { method: 'POST', headers: HSo, body: JSON.stringify({ prefix, limit: 100 }) });
+      const j = await r.json().catch(() => []);
+      return Array.isArray(j) ? j : [];
+    } catch { return []; }
+  };
+  const listarRec = async (bucket: string, prefix: string, prof: number): Promise<string[]> => {
+    if (prof > 4) return [];
+    const outL: string[] = [];
+    for (const e of await listar(bucket, prefix)) {
+      const nome = String(e.name || '');
+      if (!nome) continue;
+      if (!nome.includes('.')) outL.push(...await listarRec(bucket, `${prefix}${nome}/`, prof + 1));
+      else outL.push(`${prefix}${nome}`);
+    }
+    return outL;
+  };
+  const remover = async (bucket: string, paths: string[]): Promise<number> => {
+    if (!paths.length) return 0;
+    try {
+      const r = await fetch(`${supaUrl}/storage/v1/object/${bucket}`, { method: 'DELETE', headers: HSo, body: JSON.stringify({ prefixes: paths }) });
+      return r.ok ? paths.length : 0;
+    } catch { return 0; }
+  };
+
+  // KB
+  try {
+    const kr = await fetch(`${supaUrl}/rest/v1/kb_fontes_instituicao?select=fonte_url&limit=5000`, { headers: HSo });
+    const krows = await kr.json().catch(() => []);
+    const refsKb = new Set<string>();
+    for (const r of (Array.isArray(krows) ? krows : [])) {
+      const m = String((r as { fonte_url?: string }).fonte_url || '').match(/kb_ficheiros\/(.+?)(?:\?|$)/);
+      if (m) refsKb.add(m[1]);
+    }
+    const filesKb = await listarRec('kb_ficheiros', '', 1);
+    out.kbOrfaos = await remover('kb_ficheiros', filesKb.filter(f => !refsKb.has(f)));
+  } catch { out.kbOrfaos = -1; }
+
+  // Anexos de correspondências
+  try {
+    const mr = await fetch(`${supaUrl}/rest/v1/messages?select=attachments&limit=5000`, { headers: HSo });
+    const mrows = await mr.json().catch(() => []);
+    const refsAx = new Set<string>();
+    for (const m of (Array.isArray(mrows) ? mrows : [])) {
+      for (const a of ((m as { attachments?: unknown[] }).attachments || [])) {
+        const s = typeof a === 'string' ? a : String((a && (a as { content?: unknown }).content) || '');
+        const mm = s.match(/correspondencias_anexos\/(.+?)(?:\?|$)/) || s.match(/^storage:correspondencias_anexos\/(.+)$/);
+        if (mm) { try { refsAx.add(decodeURIComponent(mm[1])); } catch { refsAx.add(mm[1]); } }
+      }
+    }
+    const filesAx = await listarRec('correspondencias_anexos', '', 1);
+    out.anexosOrfaos = await remover('correspondencias_anexos', filesAx.filter(f => !refsAx.has(f)));
+  } catch { out.anexosOrfaos = -1; }
+
+  // Avatares
+  try {
+    const filesAv = await listarRec('fotos_perfil', '', 1);
+    const refsAv = new Set<string>();
+    const chavesAuth = new Set<string>();
+    for (let pg = 1; pg <= 8; pg++) {
+      const lu = await fetch(`${supaUrl}/auth/v1/admin/users?per_page=100&page=${pg}`, { headers: HSo });
+      if (!lu.ok) break;
+      const lista = await lu.json().catch(() => null);
+      const users = (lista && lista.users) || [];
+      if (!users.length) break;
+      for (const u of users) {
+        const meta = (u.user_metadata || {}) as Record<string, unknown>;
+        const m = String(meta.avatar_url || '').match(/fotos_perfil\/(.+?)(?:\?|$)/);
+        if (m) { try { refsAv.add(decodeURIComponent(m[1])); } catch { refsAv.add(m[1]); } }
+        [meta.bi, meta.agent, meta.instituicao].forEach(v => { const k = normChaveElim(v); if (k) chavesAuth.add(k); });
+      }
+    }
+    const pr = await fetch(`${supaUrl}/rest/v1/profiles?select=bi&limit=3000`, { headers: HSo });
+    const prows = await pr.json().catch(() => []);
+    const chavesProfiles = new Set<string>((Array.isArray(prows) ? prows : []).map((p: { bi?: string }) => normChaveElim(p.bi)).filter(Boolean));
+    const chaveDe = (f: string): string | null => {
+      const m = f.match(/^(?:avatars\/)?(.+)_(\d{13,})\.[A-Za-z0-9]+$/);
+      return m ? normChaveElim(m[1]).replace(/^ADMIN_/, '') : null;
+    };
+    const chavesComRef = new Set<string>();
+    refsAv.forEach(r => { const c = chaveDe(r); if (c) chavesComRef.add(c); });
+    const orfaosAv: string[] = [];
+    for (const f of filesAv) {
+      if (refsAv.has(f)) continue;
+      const nome = f.split('/').pop() || f;
+      const chave = chaveDe(f);
+      if (!chave) { if (/e2e|dbg|pentest/i.test(nome)) orfaosAv.push(f); continue; }
+      const contaExiste = chavesAuth.has(chave) || chavesProfiles.has(chave);
+      if (!contaExiste || chavesComRef.has(chave)) orfaosAv.push(f);
+    }
+    out.avataresOrfaos = await remover('fotos_perfil', orfaosAv);
+  } catch { out.avataresOrfaos = -1; }
+
+  return out;
+}
+
 async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Record<string, number>> {
   const k = String(chave || '').trim();
   const out: Record<string, number> = {};
@@ -1066,7 +1177,14 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
         apagadas = count || 0;
         try { await admin.from('message_state_history').delete().in('message_id', ids); } catch { /* best-effort */ }
       }
-      return res.status(200).json({ ok: true, analisadas: todas.length, orfas: ids.length, apagadas, anexosPurgados });
+      // v37.78.24 — purga retroactiva de órfãos do STORAGE (KB/anexos/avatares)
+      let storageOrfaos: Record<string, number> = {};
+      try {
+        const supaUrlLO = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+        const serviceKeyLO = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+        if (supaUrlLO && serviceKeyLO) storageOrfaos = await varrerStorageOrfaosRest(supaUrlLO, serviceKeyLO);
+      } catch { /* melhor esforço */ }
+      return res.status(200).json({ ok: true, analisadas: todas.length, orfas: ids.length, apagadas, anexosPurgados, ...storageOrfaos });
     } catch (e) {
       console.error('[LIMPAR-ORFAOS] Exceção:', e);
       return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
