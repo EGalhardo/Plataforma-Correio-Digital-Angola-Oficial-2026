@@ -27,6 +27,61 @@ import { useSession } from "../../services/sessionStore";
 import { Contact, Document } from '../../types';
 import { emergencyProfileState } from '../../services/emergencyContactsService';
 
+// v37.78.26 — pré-visualização instantânea + compressão do avatar (2026-08-31):
+// a foto escolhida só aparecia DEPOIS do upload completo — um ficheiro de
+// telemóvel (3–8 MP, 3–8 MB) era lido para base64 (+33% de volume) e enviado via
+// /api/upload antes de qualquer mudança visível → dezenas de segundos em rede
+// móvel. Agora: 1) aplica-se de imediato (<100 ms) a PRÉ-VISUALIZAÇÃO COMPRIMIDA
+// (JPEG máx. 512×512, data-URL de ~40–200 KB — o avatar é exibido a ~130 px);
+// 2) o upload leva esse MESMO JPEG comprimido (30–150 KB em vez de MB). NUNCA se
+// guarda o data-URL do ficheiro original: na validação de 2026-08-31 um original
+// de 6 MB (base64 ≈ 8 MB) estourou a quota do localStorage
+// (QuotaExceededError em correio_digital_session_user). Se o canvas falhar
+// (formato exótico), usa o ficheiro original SEM pré-visualização local
+// (comportamento anterior).
+const prepararAvatarParaUpload = (file: File): Promise<{ preview: string; blob: Blob }> =>
+  new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const originalDataUrl = String(event.target?.result || '');
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const LADO_MAX = 512;
+          const escala = Math.min(1, LADO_MAX / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(img.width * escala));
+          canvas.height = Math.max(1, Math.round(img.height * escala));
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('sem contexto 2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob((blob) => {
+            if (blob && blob.size > 0) {
+              if (blob.size < file.size) {
+                // pré-visualização = o PRÓPRIO JPEG comprimido (leve e seguro)
+                const fr = new FileReader();
+                fr.onload = () => resolve({ preview: String(fr.result || ''), blob });
+                fr.onerror = () => resolve({ preview: '', blob });
+                fr.readAsDataURL(blob);
+              } else {
+                // original já é pequeno: usá-lo, com pré-visualização só se for leve
+                resolve({ preview: file.size < 300 * 1024 ? originalDataUrl : '', blob: file });
+              }
+            } else {
+              resolve({ preview: '', blob: file });
+            }
+          }, 'image/jpeg', 0.85);
+        } catch {
+          resolve({ preview: '', blob: file });
+        }
+      };
+      img.onerror = () => resolve({ preview: '', blob: file });
+      img.src = originalDataUrl;
+    };
+    reader.onerror = () => resolve({ preview: '', blob: file });
+    reader.readAsDataURL(file);
+  });
+
 interface CitizenProfileProps {
   userProfilePhoto: string;
   setIsPrefsOpen: (open: boolean) => void;
@@ -195,12 +250,26 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
       }
 
       if (hasValidSupabaseKeys()) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${bi || 'avatar'}_${Date.now()}.${fileExt}`;
+        // v37.78.23 — ZERO RASTOS: ler a referência da foto ANTIGA do bucket
+        // ANTES de qualquer guarda (a pré-visualização abaixo sobrescreve o
+        // avatar local; data: nunca casa com /fotos_perfil/, está seguro).
+        const avatarAntigo = lerAvatarLocal('user', user?.bi || bi || '');
+
+        // v37.78.26 — PRÉ-VISUALIZAÇÃO INSTANTÂNEA: a nova foto aplica-se na
+        // hora (FileReader local, <100 ms) e fica guardada por conta; o upload
+        // COMPRIMIDO (máx. 512×512 JPEG) continua em segundo plano e troca
+        // pelo URL público quando a nuvem confirmar.
+        const { preview, blob } = await prepararAvatarParaUpload(file);
+        if (preview) {
+          updateUserFields({ avatarUrl: preview });
+          guardarAvatar('user', user?.bi || bi || '', preview);
+        }
+
+        const ext = (blob.type && blob.type.split('/')[1]) || file.name.split('.').pop() || 'jpg';
+        const fileName = `${bi || 'avatar'}_${Date.now()}.${ext}`;
         const filePath = `avatars/${fileName}`;
 
-        const avatarAntigo = lerAvatarLocal('user', user?.bi || bi || '');
-        const publicUrl = await supabaseService.uploadFile('fotos_perfil', filePath, file);
+        const publicUrl = await supabaseService.uploadFile('fotos_perfil', filePath, blob);
         if (publicUrl) {
           updateUserFields({ avatarUrl: publicUrl });
           // v37.78.23 — ZERO RASTOS: a foto ANTERIOR não fica órfã no Storage.
@@ -211,18 +280,28 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
           // + user_metadata do Auth (senão o login seguinte reaplicava a
           // selfie KYC/face antiga e a foto revertia).
           guardarAvatar('user', user?.bi || bi || '', publicUrl);
-          
+
           if (addAuditLog) {
             addAuditLog('Foto de perfil atualizada e sincronizada com sucesso no Supabase Storage', 'success');
           }
-          
+
           setFeedback({
             type: 'success',
             text: 'Foto de perfil atualizada com sucesso no Supabase Storage!',
             details: `Ficheiro guardado em bucket fotos_perfil/avatars/${fileName}`
           });
         } else {
-          throw new Error('Falha ao obter URL pública do Supabase');
+          // v37.78.26 — upload falhou: a pré-visualização local MANTÉM-SE (já
+          // está guardada por conta, como no modo offline) — feedback honesto
+          // em vez de reverter para a foto antiga.
+          if (addAuditLog) {
+            addAuditLog('Foto de perfil: falhou o upload para o Storage — mantida a foto local (guardada por conta); tentar de novo quando a ligação estabilizar.', 'warning');
+          }
+          setFeedback({
+            type: 'error',
+            text: 'A foto foi aplicada localmente, mas a sincronização com a nuvem falhou.',
+            details: 'A nova foto ficou guardada nesta conta/dispositivo. Tente novamente quando a ligação estabilizar.'
+          });
         }
       } else {
         const reader = new FileReader();
@@ -389,8 +468,11 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                   <span className="text-[9px] font-black tracking-wider uppercase">Alterar Foto</span>
                 </label>
                 
-                {/* Upload loading state overlay */}
-                {isUploadingPhoto && (
+                {/* Upload loading state overlay — v37.78.26: com a
+                    pré-visualização instantânea, a foto nova já está visível
+                    durante o upload; o overlay só cobre quando NÃO há foto
+                    (o sincronismo continua comunicado pelo feedback da página). */}
+                {isUploadingPhoto && !userProfilePhoto && (
                   <div className="absolute inset-1 rounded-[22px] bg-slate-900/60 flex flex-col items-center justify-center text-white">
                     <RefreshCw size={24} className="animate-spin mb-1 text-sky-400" />
                     <span className="text-[9px] font-black tracking-wider uppercase">A Carregar...</span>
