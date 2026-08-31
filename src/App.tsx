@@ -239,6 +239,11 @@ const InstitutionAccessPanel = lazyPainel(() => import('./components/features/In
 const InstitutionForcedPasswordChange = lazyPainel(() => import('./components/features/InstitutionAccessPanels').then(m => ({ default: m.InstitutionForcedPasswordChange })));
 import { shouldAutoSeedSupabase, shouldUseLocalBootstrap, shouldUseMockFallback } from './config/runtime';
 import { buildDemoContentPlan, type DemoArea } from './services/demoContentGuarantee';
+// v37.78.27 — logomarcas oficiais do LOGIN (claro/escuro): assets locais
+// optimizados (~50 KB, servidos pela própria app) em vez de hotlink postimg
+// (262–533 KB por visita) — primeira pintura do login instantânea.
+import logoLoginClaro from './assets/images/logomarca_login_claro.png';
+import logoLoginEscuro from './assets/images/logomarca_login_escuro.png';
 
 
 // ---- Estado "Lida" persistente por BI: sobrevive a terminar/iniciar sessão ----
@@ -6491,28 +6496,32 @@ Ficha civil do titular:
 
   if (stage === 'splash') {
     return (
-      <section className="min-h-screen bg-white grid place-items-center relative">
+      <section className={`min-h-screen grid place-items-center relative ${theme === 'dark' ? 'bg-slate-950' : 'bg-white'}`}>
         <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="text-center z-10 w-full max-w-md px-8"
-        >
+          initial={{ opacity: 0, scale: 0.9 }} 
+          animate={{ opacity: 1, scale: 1 }} 
+          transition={{ duration: 0.8, ease: "easeOut" }} 
+          className="text-center z-10 w-full max-w-md px-8" 
+        > 
+          {/* v37.78.27 — logomarca vertical oficial (claro/escuro pelo tema),
+              dimensionada pela ALTURA (padrão do Header: style + contain) */}
           <LazyImage 
-            src="https://i.postimg.cc/cCkwskty/Logomarca-Correio-Digital.png" 
+            src={theme === 'dark' ? logoLoginEscuro : logoLoginClaro} 
             alt="Correio Digital Logo" 
             priority={true}
             placeholder="skeleton"
-            className="w-[13.6rem] h-auto mx-auto mb-12"
+            className="mx-auto mb-12"
             style={{ 
-              width: '13.6rem', 
-              height: 'auto',
+              height: '190px', 
+              width: 'auto',
+              objectFit: 'contain',
+              backgroundColor: 'transparent',
               marginBottom: '3rem',
               marginLeft: 'auto',
               marginRight: 'auto',
             }}
           />
-          <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden border border-slate-100">
+          <div className={`w-full h-1 rounded-full overflow-hidden border ${theme === 'dark' ? 'bg-slate-800 border-slate-800' : 'bg-slate-100 border-slate-100'}`}>
             <motion.div 
               initial={{ width: "0%" }}
               animate={{ width: `${preloadProgress}%` }}
@@ -7130,7 +7139,7 @@ Ficha civil do titular:
     };
 
     return (
-      <section className="min-h-screen p-4 bg-slate-50 flex items-center justify-center font-sans">
+      <section className={`min-h-screen p-4 flex items-center justify-center font-sans ${theme === 'dark' ? 'bg-slate-950' : 'bg-slate-50'}`}>
         {/* v37.45 — escala proporcional do ecrã de autenticação (login / registo /
             esqueci senha / facial): −20% (v37.44) e agora +10% → zoom 0.88, com
             todos os elementos e espaçamentos a manter a harmonia. */}
@@ -7138,7 +7147,7 @@ Ficha civil do titular:
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className={`hidden md:flex bg-white rounded-3xl ${loginSubMode === 'face-capture' ? 'p-6 min-h-[410px]' : 'p-8 md:p-8 min-h-[510px]'} border border-[#E2E8F0] flex-col items-center justify-center text-center shadow-sm h-full relative overflow-hidden transition-all duration-300`}
+            className={`hidden md:flex rounded-3xl border ${loginSubMode === 'face-capture' ? 'p-6 min-h-[410px]' : 'p-8 md:p-8 min-h-[510px]'} ${theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-[#E2E8F0]'} flex-col items-center justify-center text-center shadow-sm h-full relative overflow-hidden transition-all duration-300`}
           >
             <div className="absolute top-0 right-0 w-80 h-80 bg-primary/2 rounded-full -mr-40 -mt-40 blur-3xl pointer-events-none" />
             
@@ -7172,13 +7181,19 @@ Ficha civil do titular:
             ) : (
               <div className="flex flex-col items-center relative z-10">
                 <LazyImage
-                  src="https://i.postimg.cc/cCkwskty/Logomarca-Correio-Digital.png" 
+                  src={theme === 'dark' ? logoLoginEscuro : logoLoginClaro} 
                   alt="Correio Digital" 
                   priority={true}
                   placeholder="skeleton"
-                  className={loginSubMode === 'face-capture' ? "w-[7.44rem] h-auto mb-3" : "w-[10.84rem] h-auto mb-5"}
+                  className={loginSubMode === 'face-capture' ? "mb-3" : "mb-5"}
+                  style={{
+                    height: loginSubMode === 'face-capture' ? '110px' : '170px',
+                    width: 'auto',
+                    objectFit: 'contain',
+                    backgroundColor: 'transparent',
+                  }}
                 />
-                <h1 className={`${loginSubMode === 'face-capture' ? 'text-lg md:text-xl mb-3' : 'text-xl md:text-2xl mb-4'} font-black text-slate-900 leading-tight italic uppercase tracking-tight`}>
+                <h1 className={`${loginSubMode === 'face-capture' ? 'text-lg md:text-xl mb-3' : 'text-xl md:text-2xl mb-4'} font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} leading-tight italic uppercase tracking-tight`}>
                   {t("O seu novo endereço digital oficial")}
                 </h1>
                 <div className={`${loginSubMode === 'face-capture' ? 'mt-3.5' : 'mt-6'} flex flex-col items-center`}>
