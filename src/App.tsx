@@ -4145,6 +4145,23 @@ export default function App() {
         }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
       }
 
+      // v37.78.28 — CICLO DE VIDA DA NOTIFICAÇÃO (reporte do dono 2026-08-31):
+      // ao ABRIR a correspondência, a notificação associada (texto contém o
+      // mesmo assunto) passa a LIDA — read_at na nuvem + estado local — e
+      // desaparece da lista de alertas/badge. Antes ficava «não lida» para
+      // sempre, mesmo depois de o destinatário já ter aberto a correspondência.
+      {
+        const assuntoAberto = String(message.details?.subject || message.preview || '').trim();
+        const corresponde = (n: typeof notifications[number]) =>
+          n.unread !== false && assuntoAberto.length >= 5 && String(n.message || '').includes(assuntoAberto);
+        setNotifications(prev => prev.map(n => (corresponde(n) ? { ...n, unread: false } : n)));
+        if (isOnline && hasValidSupabaseKeys()) {
+          notifications.filter(corresponde).forEach(n => {
+            supabaseService.markNotificationRead(n.id).catch(() => undefined);
+          });
+        }
+      }
+
       // Registo de auditoria certificado para provar sincronização
       addAuditLog(`Correspondência ID ${baseId} marcada como lida na área do destinatário (estado do remetente intocado — REGRA R2).`, 'success');
     }

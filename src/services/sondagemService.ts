@@ -276,22 +276,48 @@ const difundirLinhasMensagens = async (rows: Record<string, unknown>[]): Promise
 // v37.78.14 — NOTIFICAÇÃO por destinatário da difusão (mesmo padrão do envio
 // oficial): sem isto o cidadão recebia a mensagem na caixa mas SEM qualquer
 // notificação — exactamente o comportamento reportado pelo dono.
+// v37.78.28 — IDEMPOTENTE (reporte 2026-08-31): a difusão pode ser accionada
+// por mais do que um caminho (reintento do proxy, duplo clique coberto pelo
+// guard mas com janela no fim da distribuição, sobreposição legado v36) e o
+// cidadão via DUAS notificações iguais na caixa. Antes de inserir, consulta
+// as NÃO LIDAS com o mesmo título+texto para os mesmos destinatários e só
+// notifica quem ainda não foi notificado (o texto embute o assunto → sondagens
+// diferentes passam; a mesma sondagem nunca duplica).
 const notificarDestinatariosSondagem = async (bis: string[], titulo: string, texto: string): Promise<void> => {
-  const rows = bis.map((bi) => ({
-    target_bi: bi,
-    title: titulo,
-    message: texto,
-    time_text: 'Agora',
-    type: 'info',
-    target_tab: 'correspondencias',
-  }));
-  for (let i = 0; i < rows.length; i += 25) {
-    const lote = rows.slice(i, i + 25);
-    await gravarDados('notifications', 'insert', undefined, lote, undefined, async () => {
-      const { error } = await supabase.from('notifications').insert(lote);
-      if (error) throw error;
-      return { escrito: true } as unknown as any;
-    }).catch(() => console.warn('[Sondagens] notificação de difusão falhou (best-effort).'));
+  try {
+    let pendentes = bis.slice();
+    if (pendentes.length) {
+      const { data: existentes } = await supabase
+        .from('notifications')
+        .select('target_bi')
+        .eq('title', titulo)
+        .eq('message', texto)
+        .is('read_at', null)
+        .in('target_bi', pendentes);
+      if (existentes && existentes.length) {
+        const jaNotificados = new Set(existentes.map((r: { target_bi: string }) => String(r.target_bi || '').toUpperCase()));
+        pendentes = pendentes.filter((bi) => !jaNotificados.has(String(bi || '').toUpperCase()));
+      }
+    }
+    if (!pendentes.length) return;
+    const rows = pendentes.map((bi) => ({
+      target_bi: bi,
+      title: titulo,
+      message: texto,
+      time_text: 'Agora',
+      type: 'info',
+      target_tab: 'correspondencias',
+    }));
+    for (let i = 0; i < rows.length; i += 25) {
+      const lote = rows.slice(i, i + 25);
+      await gravarDados('notifications', 'insert', undefined, lote, undefined, async () => {
+        const { error } = await supabase.from('notifications').insert(lote);
+        if (error) throw error;
+        return { escrito: true } as unknown as any;
+      }).catch(() => console.warn('[Sondagens] notificação de difusão falhou (best-effort).'));
+    }
+  } catch {
+    console.warn('[Sondagens] verificação anti-duplicação de notificações falhou (best-effort).');
   }
 };
 

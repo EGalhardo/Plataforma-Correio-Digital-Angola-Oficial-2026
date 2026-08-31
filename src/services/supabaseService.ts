@@ -1717,10 +1717,27 @@ export const supabaseService = {
         };
         const mapped = rows.map(mapRow);
         const ehBi = /^\d{9}[A-Z]{2}\d{3}$/i.test(recipientKey || '');
+        // v37.78.28 — UMA CORRESPONDÊNCIA POR CONTA (reporte do dono 2026-08-31):
+        // a linha de expedição «TODOS» (registo do lote em «Enviadas» da
+        // instituição, unread=false) não pode entrar na caixa de entrada do
+        // cidadão quando a difusão JÁ criou a cópia pessoal dele (mesmo
+        // remetente + mesmo assunto). Antes disto o cidadão via a sondagem
+        // DUPLICADA — a cópia pessoal (Não Lida) e a linha TODOS (Lida) — e a
+        // entrega parecia «já lida» ao chegar. Difusões «TODOS» sem cópia
+        // pessoal continuam a chegar a todos os cidadãos (regra v37.31 intacta).
+        const chavesPessoais = new Set(
+          rows
+            .filter((r) => norm(r.recipient_bi) === norm(recipientKey))
+            .map((r) => `${norm(r.sender_bi)}§${norm(r.subject)}`),
+        );
         return {
           incoming: mapped.filter((_, i) => {
             const r = norm(rows[i].recipient_bi);
-            return r === norm(recipientKey) || (ehBi && r === 'TODOS');
+            if (r === norm(recipientKey)) return true;
+            if (ehBi && r === 'TODOS') {
+              return !chavesPessoais.has(`${norm(rows[i].sender_bi)}§${norm(rows[i].subject)}`);
+            }
+            return false;
           }),
           sent: mapped.filter((_, i) => norm(rows[i].sender_bi) === norm(senderKey)),
         };
