@@ -276,12 +276,24 @@ export function GovDashboard({
     const provincias = Array.from(porProvincia.entries())
       .map(([nome, v]) => ({ nome, v }))
       .sort((a, b) => b.v - a.v);
+    // v37.78.32 — SERVIÇOS INTELIGENTES com dados REAIS e semântica CORRECTA
+    // (reporte do dono 2026-08-31): QR = protocolos selados na base central
+    // (digital_protocols — cada um tem QR de validação própria); BIOMETRIA =
+    // autenticações faciais REAIS do log de auditoria. Antes o cartão QR
+    // mostrava o TOTAL DE MENSAGENS como «validações realizadas» e o cartão
+    // biométrico mostrava a TAXA DE LEITURA (5,2%) como «sistema seguro» —
+    // números reais com a semântica trocada, lidos como dados simulados.
+    const protocolosQr = d.protocolos?.length ?? 0;
+    const biometricos = (d.auditLogs || []).filter(l =>
+      /biometria|facial|face/i.test(String(l.action || ''))).length;
     return {
       total, lidas, pend, desteMes, variacao, donutData, atividade, provincias,
       orgsAtivas,
       instituicoes: Math.max(d.instituicoes?.length ?? 0, orgsAtivas.length),
       cidadaos: cidadaosUnicos.size,
       sucesso: total > 0 ? Math.round((lidas / total) * 1000) / 10 : null,
+      protocolosQr,
+      biometricos,
     };
   }, [dadosReais]);
   // A role é FIXA nesta versão do painel (não há selector de role); o valor
@@ -1616,13 +1628,16 @@ export function GovDashboard({
 
                 <div className="space-y-2 flex flex-col items-center">
                   <div className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none">
-                    <AnimatedCounter to={reais ? reais.total : 1108732} className="font-mono" />
+                    {/* v37.78.32 — QR: PROTOCOLOS selados na base central
+                        (verdade da tabela digital_protocols) — antes mostrava
+                        o total de MENSAGENS como «validações». */}
+                    <AnimatedCounter to={reais ? reais.protocolosQr : 1108732} className="font-mono" />
                   </div>
                   <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                     Validações Realizadas
+                     Protocolos Selados com QR
                   </div>
                   <div className="text-[10px] font-black uppercase tracking-wider text-[#10b981] bg-emerald-50 w-fit px-2.5 py-1 rounded-lg border border-emerald-100 flex items-center justify-center gap-1.5">
-                    <TrendingUp size={12} /> {reais ? (reais.variacao !== null ? `${reais.variacao >= 0 ? '↑' : '↓'} ${String(Math.abs(reais.variacao)).replace('.', ',')}% vs mês anterior` : `${reais.desteMes} este mês`) : '↑ 14,2% vs mês anterior'}
+                    <TrendingUp size={12} /> {reais ? `verificáveis na base central` : '↑ 14,2% vs mês anterior'}
                   </div>
                 </div>
               </div>
@@ -1701,16 +1716,19 @@ export function GovDashboard({
 
                 <div className="space-y-2 flex flex-col items-center">
                   <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                    Estatísticas Ativas
+                    Autenticações Faciais
                   </div>
                   <div className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none flex items-center justify-center gap-2">
-                    <AnimatedCounter to={reais ? (reais.sucesso ?? 0) : 100} suffix="%" className="font-mono" />
+                    {/* v37.78.32 — BIOMETRIA: eventos REAIS de login facial do
+                        log de auditoria — antes mostrava a TAXA DE LEITURA de
+                        mensagens (5,2%) como «sistema seguro 100%». */}
+                    <AnimatedCounter to={reais ? reais.biometricos : 100} className="font-mono" />
                     <span className="text-xs font-black uppercase text-emerald-600 tracking-wider">
-                      Sistema Seguro
+                      Registo Real
                     </span>
                   </div>
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mt-1">
-                    Integridade dos Dados
+                    Eventos na auditoria da base central
                   </p>
                 </div>
               </div>
@@ -1812,11 +1830,16 @@ export function GovDashboard({
                   </div>
                   
                   <div className="space-y-1.5">
-                    <h4 className="text-[22px] font-black text-emerald-600 uppercase tracking-widest leading-none">
-                      Operacional
+                    {/* v37.78.32 — STATUS HONESTO: «Operacional» só quando a
+                        ligação à base central está confirmada pelos dados
+                        reais carregados; sem dados, «Sem Ligação» verídico
+                        (antes: «Operacional · todos os serviços ativos»
+                        gravado a ferro). */}
+                    <h4 className={`text-[22px] font-black uppercase tracking-widest leading-none ${reais ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      {reais ? 'Operacional' : 'Sem Ligação'}
                     </h4>
                     <p className="text-xs text-slate-500 font-extrabold uppercase mt-1">
-                      Todos os serviços ativos
+                      {reais ? 'Base central conectada · dados ao vivo' : 'Base central indisponível — modo local'}
                     </p>
                   </div>
                 </div>
