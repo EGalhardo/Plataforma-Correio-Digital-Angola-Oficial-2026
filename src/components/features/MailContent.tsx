@@ -401,6 +401,21 @@ export function MailContent({
   // e oferece «Mostrar mais», evitando custo de render em caixas volumosas.
   const LIMITE_LISTA_CORREIO = 100;
   const [limiteListaCorreio, setLimiteListaCorreio] = useState(LIMITE_LISTA_CORREIO);
+  // v37.78.30 — DEFAULT INTELIGENTE (reporte do dono 2026-08-31): o Correio
+  // abre na tab «Não Lidas» SEMPRE que houver correspondência por ler — era
+  // aqui que a resposta de um cidadão «desaparecia»: a tab inicial era
+  // «Lidas» e o correio NOVO (não lido) ficava invisível até o utilizador
+  // carregar manualmente em «Não Lidas». Sem não-lidas, mantém «Lidas».
+  // Executa UMA vez por visita à página (o utilizador pode trocar livremente).
+  const autoTabAplicada = useRef(false);
+  useEffect(() => {
+    if (autoTabAplicada.current) return;
+    if (correspondenciaTab !== 'lidas') { autoTabAplicada.current = true; return; }
+    const temNaoLidas = inbox.some(m => m.unread && !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id));
+    if (temNaoLidas) setCorrespondenciaTab('naoLidas');
+    autoTabAplicada.current = true;
+  }, [inbox, correspondenciaTab, deletedMessageIds, hiddenMessageIds, setCorrespondenciaTab]);
+
   useEffect(() => { setLimiteListaCorreio(LIMITE_LISTA_CORREIO); }, [correspondenciaTab, searchMail]);
   useEffect(() => {
     if (!isInst || !bi) return;

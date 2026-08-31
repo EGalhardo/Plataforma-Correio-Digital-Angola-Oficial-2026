@@ -8319,7 +8319,7 @@ Ficha civil do titular:
               exit={{ scale: 0.95, opacity: 0, y: -20 }}
               onMouseEnter={() => setPauseCountdown(true)}
               onMouseLeave={() => setPauseCountdown(false)}
-              className="bg-white rounded-[32px] border border-slate-100 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] w-full max-w-[360px] overflow-hidden text-left mx-auto my-8 relative z-10"
+              className="bg-white rounded-[32px] border border-slate-100 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] w-full max-w-[400px] max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden text-left mx-auto my-auto relative z-10"
             >
               <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
                 <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100/40 flex items-center justify-center shrink-0 shadow-sm">
@@ -8338,7 +8338,10 @@ Ficha civil do titular:
                 </button>
               </div>
 
-              <div className="p-4 space-y-3.5">
+              {/* v37.78.30 — corpo com ROLAGEM INTERNA: o popup nunca mais é
+                  cortado — cabe sempre no ecrã (max-h no cartão + flex-col:
+                  cabeçalho e botões ficam sempre visíveis, o meio rola). */}
+              <div className="p-4 space-y-3.5 overflow-y-auto min-h-0 flex-1 custom-scrollbar">
                 <p className="text-slate-600 text-[9.5px] text-center leading-relaxed font-semibold font-sans px-1">
                   A correspondência/transferência foi sincronizada e enviada. O sistema gerou o selo digital oficial com QR Code de rastreio e registro abaixo.
                 </p>
@@ -8422,7 +8425,7 @@ Ficha civil do titular:
               </div>
 
               {/* Action buttons */}
-              <div className="p-4 bg-slate-50 border-t border-slate-150 flex flex-col gap-2 font-sans">
+              <div className="p-4 bg-slate-50 border-t border-slate-150 flex flex-col gap-2 font-sans shrink-0">
                 <button
                   type="button"
                   onClick={() => setSuccessProtocolModal(null)}
