@@ -308,12 +308,6 @@ await (async () => {
     } catch { /* ignora */ }
   };
   try {
-    pageI.on('response', async (r) => {
-      if (r.url().includes('/api/dados') && r.request().method() === 'POST') {
-        const b = (await r.text().catch(() => '')).slice(0, 120);
-        console.log(`  [T9 dbg] /api/dados ${r.status()} ${b}`);
-      }
-    });
     await pageI.goto(`${BASE}/institucional?cb=${TS}-i1#/registar`, { waitUntil: 'domcontentloaded' });
     const nomeI = pageI.locator('input[placeholder*="Serviço de Migração"]');
     try {
@@ -348,14 +342,6 @@ await (async () => {
     const tI = Date.now();
     while (Date.now() - tI < 120000) {
       await pageI.waitForTimeout(6000);
-      const chip = await pageI.evaluate(() => {
-        const t = document.body.innerText;
-        if (/Solicitação entregue/i.test(t)) return 'ok';
-        if (/Tentar novamente/i.test(t)) return 'falhou';
-        if (/A entregar/i.test(t)) return 'a_enviar';
-        return '?';
-      }).catch(() => '?');
-      console.log(`  [T9 dbg] t+${Math.round((Date.now() - tI) / 1000)}s sync=${chip}`);
       const f = codeI
         ? (await supa(`solicitacoes_registo?select=id,status&bi_numero=eq.${encodeURIComponent(codeI)}&limit=1`)).body
         : null;
