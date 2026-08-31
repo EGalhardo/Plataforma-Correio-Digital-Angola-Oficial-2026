@@ -95,13 +95,19 @@ try {
     if (b.length) b[0].click();
   });
   await page2.waitForTimeout(4000);
-  const abriu = await page2.evaluate((alvoId) => {
-    const tr = [...document.querySelectorAll('tr')].find(r => (r.textContent || '').includes(String(alvoId)));
-    if (!tr) return false;
-    const b = [...tr.querySelectorAll('button')].filter(e => e.getBoundingClientRect().width > 0);
-    if (b.length) { b[0].click(); return true; }
-    tr.click(); return true;
-  }, globalThis.alvoId);
+  // v37.78.18 — retry: em produção a lista pode ainda estar a carregar quando
+  // procuramos a linha (1.ª corrida falhou por timing, não por defeito).
+  let abriu = false;
+  for (let tentativaAbertura = 0; tentativaAbertura < 6 && !abriu; tentativaAbertura += 1) {
+    if (tentativaAbertura > 0) await page2.waitForTimeout(3000);
+    abriu = await page2.evaluate((alvoId) => {
+      const tr = [...document.querySelectorAll('tr')].find(r => (r.textContent || '').includes(String(alvoId)));
+      if (!tr) return false;
+      const b = [...tr.querySelectorAll('button')].filter(e => e.getBoundingClientRect().width > 0);
+      if (b.length) { b[0].click(); return true; }
+      tr.click(); return true;
+    }, globalThis.alvoId);
+  }
   reg('I1-abrir-resposta-do-cidadao', !!abriu);
   await page2.waitForTimeout(6000);
   await page2.evaluate(() => {
