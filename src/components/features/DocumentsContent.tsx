@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowLeft,
   Send,
+  Loader2,
   ShieldCheck,
   Folder,
   Plus,
@@ -104,6 +105,21 @@ export function DocumentsContent({
   const { institutions } = useInstitutions();
   const { t: translate } = useLanguage();
   const [selectedInst, setSelectedInst] = useState<string>('Todas');
+  // v37.78.20 — §2/§3 (regras UX): estado de envio do documento oficial —
+  // impede cliques repetidos (documento duplicado) e dá feedback «A enviar…».
+  const [enviandoDoc, setEnviandoDoc] = useState(false);
+  const submeterDocumento = () => {
+    if (enviandoDoc) return;
+    setEnviandoDoc(true);
+    // o handler do App é síncrono-confiável (local primeiro, nuvem em 2.º
+    // plano) — liberta o botão no tick seguinte, sem quebrar o fluxo.
+    Promise.resolve()
+      .then(() => handleSendMessage())
+      .catch(() => {
+        notify('Não foi possível submeter o documento. Verifique os campos e a ligação à internet e tente novamente.', 'error');
+      })
+      .finally(() => setEnviandoDoc(false));
+  };
   // Auditoria 2026-08-24: confirmação de descarte no padrão CdaModal (sem confirm() nativo)
   const [confirmarDescarteDoc, setConfirmarDescarteDoc] = useState(false);
   const [selectedInvoiceForDetail, setSelectedInvoiceForDetail] = useState<any | null>(null);
@@ -455,12 +471,12 @@ export function DocumentsContent({
 
           <div className="pt-2 md:pt-4 flex flex-col md:flex-row gap-3 md:gap-4">
             <button 
-              onClick={handleSendMessage}
-              disabled={!composeData.to || !composeData.subject || !composeData.body}
+              onClick={submeterDocumento}
+              disabled={enviandoDoc || !composeData.to || !composeData.subject || !composeData.body}
               className="flex-[2] bg-primary text-white py-4 rounded-2xl font-black text-sm md:text-base shadow-xl shadow-primary/25 hover:bg-primary/95 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 md:gap-3"
             >
-              <Send size={18} />
-              Submeter Documento Oficial
+              {enviandoDoc ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+              {enviandoDoc ? 'A enviar…' : 'Submeter Documento Oficial'}
             </button>
             <button 
               onClick={() => setConfirmarDescarteDoc(true)}

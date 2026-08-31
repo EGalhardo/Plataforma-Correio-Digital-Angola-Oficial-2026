@@ -1704,7 +1704,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
             }}
             className="px-6 py-3 rounded-full font-black text-xs uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer border-none shadow-md shadow-blue-200"
           >
-            OK
+            Entendi
           </button>
         </div>
       </CdaModal>

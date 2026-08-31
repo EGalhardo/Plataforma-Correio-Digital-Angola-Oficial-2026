@@ -153,7 +153,7 @@ for (let tent = 0; tent < 5 && !chipAnalise; tent += 1) {
 reg('T2-chip-analise-em-curso', chipAnalise ? 'PASS' : 'FAIL', 'ecrã de sucesso mostra o estado vivo da análise (chip)');
 
 // ============================================================ T3 · LOGIN IMEDIATO
-await page.getByRole('button', { name: /^ok$/i }).first().click();
+await page.getByRole('button', { name: /^(ok|entendi)$/i }).first().click();
 await page.waitForTimeout(800);
 await page.goto(`${BASE}?cb=${TS + 1}#/login`, { waitUntil: 'domcontentloaded' });
 await page.locator('input[type="password"]').first().waitFor({ state: 'visible', timeout: 30000 });
@@ -240,7 +240,7 @@ await limparEstado();
 await preencherRegisto(TESTE.email, TESTE.senha);
 await page.getByRole('button', { name: /validar com ia e concluir/i }).first().click();
 await page.locator(modalSeletor).first().waitFor({ state: 'visible', timeout: 30000 });
-await page.getByRole('button', { name: /^ok$/i }).first().click();
+await page.getByRole('button', { name: /^(ok|entendi)$/i }).first().click();
 const jobGravado = await page.evaluate((bi) => {
   const jobs = JSON.parse(localStorage.getItem('cda_registo_bg_v1') || '{}');
   return !!jobs[bi];

@@ -355,7 +355,9 @@ export function MailContent({
   // v37.78 — envio efectivo (chamado pelo modal de revisão e por «Tentar
   // novamente» em caso de falha). Anti-duplicação: guardas de enviando/.
   const executarEnvio = () => {
-    if (enviando || distribuindoSondagens) return;
+    // v37.78.20 — §13: nunca enviar enquanto um anexo ainda está a ser
+    // carregado (o ficheiro em trânsito perder-se-ia).
+    if (enviando || distribuindoSondagens || isUploading) return;
     setRevisaoEnvio(false);
     setEnviando(true);
     Promise.resolve(handleSendMessage())
@@ -1704,11 +1706,11 @@ export function MailContent({
                     <button
                       type="button"
                       onClick={executarEnvio}
-                      disabled={enviando}
+                      disabled={enviando || isUploading}
                       className="px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-primary hover:bg-primary/95 shadow-lg shadow-primary/20 transition-all cursor-pointer border-none flex items-center justify-center gap-2 disabled:opacity-60"
                     >
                       {enviando ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-                      {enviando ? 'A enviar…' : 'Enviar Correspondência'}
+                      {enviando ? 'A enviar…' : isUploading ? 'A carregar anexos…' : 'Enviar Correspondência'}
                     </button>
                   </div>
                 </div>

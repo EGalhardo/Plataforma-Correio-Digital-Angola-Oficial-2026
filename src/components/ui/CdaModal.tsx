@@ -104,6 +104,7 @@ export function CdaModal({
               className="text-white/60 hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors border-none bg-transparent cursor-pointer shrink-0"
               type="button"
               title="Fechar"
+              aria-label="Fechar"
             >
               <X size={16} />
             </button>
