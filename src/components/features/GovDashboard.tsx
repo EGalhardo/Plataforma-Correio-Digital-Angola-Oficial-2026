@@ -249,18 +249,27 @@ export function GovDashboard({
     const orgsAtivas = orgsTop.map(([nome, v]) => ({ nome, v }));
     // v37.27 — cidadãos reais: perfis visíveis ∪ BIs únicos presentes nas
     // mensagens (remetente/destinatário), com formato válido de BI.
+    // v37.78.35 — HONESTIDADE: cidadãos/instituições contam-se pela FILA DE
+    // REGISTO real (solicitacoes_registo) — exactamente como a página Cidadãos
+    // decide quem é cidadão: linhas sem «[Instituição]» nem «Seed demo». Os
+    // profiles estão poluídos por seeds do directório (MAPTSS, MINSA…) e os
+    // BIs dentro de mensagens órfãs criavam «cidadãos fantasmas» — com a
+    // plataforma vazia o Painel passava a mostrar 18 instituições e 2 cidadãos
+    // inexistentes (reporte do dono 2026-08-31).
     const PADRAO_BI = /^\d{9}[A-Z]{2}\d{3}$/;
+    const filaReal = (d.solicitacoes || []).filter(s => {
+      const obs = String(s.observacoes || '');
+      return !obs.includes('[Instituição]') && !obs.includes('Seed demo');
+    });
     const cidadaosUnicos = new Set<string>();
-    (d.cidadaos || []).forEach(c => {
-      const bi = String(c.bi || '').toUpperCase().trim();
+    filaReal.forEach(s => {
+      const bi = String(s.bi_numero || '').toUpperCase().trim();
       if (PADRAO_BI.test(bi)) cidadaosUnicos.add(bi);
     });
-    msgs.forEach(m => {
-      [m.sender_bi, m.recipient_bi].forEach(biBruto => {
-        const bi = String(biBruto || '').toUpperCase().trim();
-        if (PADRAO_BI.test(bi)) cidadaosUnicos.add(bi);
-      });
-    });
+    // instituições REGISTADAS de verdade: adesões na fila com o marcador
+    // «[Instituição]» (a página Instituições lista e aprova essas mesmas linhas).
+    const instituicoesRegistadas = (d.solicitacoes || []).filter(s =>
+      String(s.observacoes || '').includes('[Instituição]')).length;
     // atividade recente real: últimos eventos de auditoria
     const atividade = (d.auditLogs || []).slice(0, 5).map(l => ({
       desc: l.action || 'Evento de auditoria',
@@ -289,7 +298,7 @@ export function GovDashboard({
     return {
       total, lidas, pend, desteMes, variacao, donutData, atividade, provincias,
       orgsAtivas,
-      instituicoes: Math.max(d.instituicoes?.length ?? 0, orgsAtivas.length),
+      instituicoes: instituicoesRegistadas,
       cidadaos: cidadaosUnicos.size,
       sucesso: total > 0 ? Math.round((lidas / total) * 1000) / 10 : null,
       protocolosQr,

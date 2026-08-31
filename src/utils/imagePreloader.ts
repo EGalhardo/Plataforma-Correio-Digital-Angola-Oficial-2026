@@ -8,8 +8,7 @@ import { HIGHLIGHT_SLIDES, GOV_HIGHLIGHT_SLIDES, INST_HIGHLIGHT_SLIDES } from '.
 // optimizados (~50 KB), pré-carregados durante o splash para o primeiro
 // paint do login ser instantâneo. Substituem o hotlink postimg cCkwskty
 // (262 KB) — o 6pQwXBFQ (Modo-Claro-Escuro) já não era usado em lado nenhum.
-import logoLoginClaro from '../assets/images/logomarca_login_claro.png';
-import logoLoginEscuro from '../assets/images/logomarca_login_escuro.png';
+import logoLogin from '../assets/images/logomarca_login_2026.png';
 
 // Singleton registry for keeping preloaded Image elements in memory.
 // Keeping the HTMLImageElement reference prevents the browser from garbage-collecting
@@ -66,8 +65,7 @@ export function getAdvertisingImageUrls(): string[] {
   // v37.78.27 — logomarcas do login agora são assets LOCAIS (claro/escuro),
   // pré-carregados aqui; os URLs postimg antigos saíram (um deixou de ser
   // usado, o outro migrado para local).
-  urls.add(logoLoginClaro);
-  urls.add(logoLoginEscuro);
+  urls.add(logoLogin);
   // F35 — o tema claro usa o asset local recortado (logomarca_modo_claro_crop.png),
   // servido pela própria app e carregado no primeiro paint da AppBar/Sidebar;
   // o URL externo antigo deixou de ser necessário.

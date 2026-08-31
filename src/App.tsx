@@ -242,8 +242,9 @@ import { buildDemoContentPlan, type DemoArea } from './services/demoContentGuara
 // v37.78.27 — logomarcas oficiais do LOGIN (claro/escuro): assets locais
 // optimizados (~50 KB, servidos pela própria app) em vez de hotlink postimg
 // (262–533 KB por visita) — primeira pintura do login instantânea.
-import logoLoginClaro from './assets/images/logomarca_login_claro.png';
-import logoLoginEscuro from './assets/images/logomarca_login_escuro.png';
+// v37.78.35 — LOGOMARCA ÚNICA do login (pedido do dono 2026-08-31): a mesma
+// imagem oficial («Correio-Digital-Angola-01.png», 533×800) no modo claro E escuro.
+import logoLogin from './assets/images/logomarca_login_2026.png';
 
 
 // ---- Estado "Lida" persistente por BI: sobrevive a terminar/iniciar sessão ----
@@ -6523,7 +6524,7 @@ Ficha civil do titular:
           {/* v37.78.27 — logomarca vertical oficial (claro/escuro pelo tema),
               dimensionada pela ALTURA (padrão do Header: style + contain) */}
           <LazyImage 
-            src={theme === 'dark' ? logoLoginEscuro : logoLoginClaro} 
+            src={logoLogin} 
             alt="Correio Digital Logo" 
             priority={true}
             placeholder="skeleton"
@@ -7198,7 +7199,7 @@ Ficha civil do titular:
             ) : (
               <div className="flex flex-col items-center relative z-10">
                 <LazyImage
-                  src={theme === 'dark' ? logoLoginEscuro : logoLoginClaro} 
+                  src={logoLogin} 
                   alt="Correio Digital" 
                   priority={true}
                   placeholder="skeleton"

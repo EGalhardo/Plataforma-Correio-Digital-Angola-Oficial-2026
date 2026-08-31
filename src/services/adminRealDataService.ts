@@ -107,6 +107,7 @@ export interface RealSolicitacaoRow {
   bi_numero: string | null;
   status: string | null;
   criado_em: string | null;
+  observacoes: string | null;
 }
 
 export interface RealUserRequestRow {
@@ -222,7 +223,7 @@ export async function carregarDadosReaisAdmin(forcar = false): Promise<AdminReal
       ler(supabase.from('pagamentos').select('id,instituicao_sigla,destinatario_bi,descricao,valor,estado,created_at').order('created_at', { ascending: false }).limit(500)),
       ler(temSessaoAuth ? supabase.from('ia_conversas_log').select('id,papel,sigla,canal,resposta_ok,lat_ms,created_at').order('created_at', { ascending: false }).limit(500) : semLeitura),
       ler(temSessaoAuth ? supabase.from('ia_telemetria_resumo').select('dia,sigla,canal,total,ok,sessoes,lat_media_ms').order('dia', { ascending: false }).limit(500) : semLeitura),
-      ler(supabase.from('solicitacoes_registo').select('id,nome,bi_numero,status,criado_em').order('criado_em', { ascending: false }).limit(500)),
+      ler(supabase.from('solicitacoes_registo').select('id,nome,bi_numero,status,criado_em,observacoes').order('criado_em', { ascending: false }).limit(500)),
       ler(supabase.from('user_requests').select('id,user_bi,user_name,service_type,status,request_date').order('request_date', { ascending: false }).limit(500)),
     ]);
     const profiles = profilesRaw as RealProfileRow[];
