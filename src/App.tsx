@@ -4040,9 +4040,17 @@ export default function App() {
       // administração (qualquer par remetente/destinatário).
       const normR2 = (v?: string) => String(v || '').toUpperCase().replace(/\s+/g, '');
       const minhaChaveR2 = normR2(isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi));
+      // v37.78.22 — alarga a guarda: tudo o que é aberto a partir da tab
+      // «Enviadas» é cópia do remetente POR CONSTRUÇÃO (minhasEnviadas já filtra
+      // por senderKey da sessão). Cobre cópias legadas pré-F15 gravadas sem
+      // senderKey no armazenamento local — abri-las também nunca pode marcar
+      // «Lida» na área do destinatário.
       const abertaPeloRemetente =
-        normR2((message as any).senderKey) === minhaChaveR2 &&
-        normR2((message as any).recipientBi) !== minhaChaveR2;
+        (normR2((message as any).senderKey) === minhaChaveR2 &&
+         normR2((message as any).recipientBi) !== minhaChaveR2) ||
+        // cópia aberta a partir da tab «Enviadas» — exclui auto-envio
+        // (recipientBi === mim), cuja abertura continua a marcar leitura.
+        (correspondenciaTab === 'enviadas' && normR2((message as any).recipientBi) !== minhaChaveR2);
 
       if (abertaPeloRemetente) {
         addAuditLog(`Correspondência ID ${baseId} aberta pelo remetente — recibo de leitura do destinatário intocado (REGRA R2).`, 'info');
