@@ -1185,14 +1185,10 @@ export function GovContactsContent({
               await supabase.from('solicitacoes_registo').delete().eq('bi_numero', target.biNumber);
             } catch { /* demo: efeito local */ }
           } else {
-            // v37.78.33 — MODO REAL SEM SESSÃO DE NUVEM: BLOQUEIO HONESTO.
-            // Cenário comprovado em produção (2026-08-31 14:10-14:32): login
-            // local de emergência (D3, «nuvem indisponível» transitória) deixa
-            // a consola sem Auth do Supabase; a versão anterior fingia sucesso
-            // local — o cidadão desaparecia da lista e VOLTAVA ao recarregar
-            // («não é possível eliminar o cidadão»). Agora nada é alterado:
-            // a linha fica, o aviso diz exactamente o que fazer.
-            notify('Eliminação NÃO executada: esta sessão de administração está sem ligação à nuvem (início de sessão local de emergência). Termine a sessão (SAIR DO CANAL), entre novamente com ligação estável e repita a eliminação.');
+            // v37.78.34 — a recuperação automática de sessão (dentro de
+            // eliminarCidadaoAdmin) JÁ foi tentada e falhou (nuvem realmente
+            // indisponível). Nada é alterado: a linha fica, o aviso diz o que fazer.
+            notify('Eliminação NÃO executada: a recuperação automática da ligação à nuvem falhou (sem internet ou sessão de emergência). Verifique a ligação, termine a sessão (SAIR DO CANAL), entre novamente e repita a eliminação.');
             addAuditLog?.(`[F48] Eliminação do cidadão (BI: ${target.biNumber}) BLOQUEADA — sessão sem Auth da nuvem (login local de emergência D3). Nada foi alterado na base central nem nesta lista; entrar novamente e repetir.`, 'critical');
             setDeleteConfirmCitizen(null);
             return;

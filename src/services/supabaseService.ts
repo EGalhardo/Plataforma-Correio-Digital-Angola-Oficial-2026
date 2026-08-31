@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabaseClient';
 import { Message, Document, Contact, UserRequest, DocRequest, Correspondence, AppNotification, DigitalProtocol } from '../types';
 import { generateProtocol } from '../utils/protocolGenerator';
 import { MOCK_CITIZENS, MOCK_USERS, MOCK_SESSION_USER } from '../constants/mocks';
+import { cloudSignIn, syntheticAdminEmail } from './cloudAuthService';
 import {
   buildEmergencyAlertRow,
   insertEmergencyAlertWithClient,
@@ -326,19 +327,86 @@ export const registoPublicoProxy = async (
   }
 };
 
+/** v37.78.34 — RECUPERAÇÃO AUTOMÁTICA DE SESSÃO DA NUVEM (agente admin).
+ *  Cenário comprovado em produção (2026-08-31 14:10): o login cai no «local de
+ *  emergência» (D3, nuvem momentaneamente indisponível) e a consola fica SEM
+ *  sessão Supabase — horas depois toda a escrita na nuvem falha. Este helper
+ *  restabelece a sessão com a credencial local do agente LIGADO à nuvem neste
+ *  dispositivo (mesmo mecanismo do login: cloudSignIn), sem intervenção do
+ *  utilizador. Devolve o access_token fresco ou null. */
+const restaurarSessaoAdminNuvem = async (): Promise<string | null> => {
+  try {
+    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) return null;
+    let marks: Record<string, { email?: string; role?: string; at?: string }> = {};
+    let creds: Array<{ agent?: string; password?: string }> = [];
+    try { marks = JSON.parse(localStorage.getItem('cda_cloud_accounts_v1') || '{}'); } catch { /* sem marcador */ }
+    try { creds = JSON.parse(localStorage.getItem('cda_admin_agent_creds_v1') || '[]'); } catch { /* sem creds */ }
+    if (!Array.isArray(creds) || !creds.length) return null;
+    const norm = (v: unknown) => String(v || '').toUpperCase().replace(/\s+/g, '').trim();
+    // 1) agentes admin marcados como contas na nuvem (ordem: mais recente)
+    const marcados = Object.entries(marks || {})
+      .filter(([, m]) => (m?.role || '') === 'admin')
+      .sort((a, b) => String(b[1]?.at || '').localeCompare(String(a[1]?.at || '')));
+    const tentativas: Array<{ email: string; password: string }> = [];
+    for (const [ident, m] of marcados) {
+      const cred = creds.find(c => norm(c?.agent) === norm(ident));
+      if (cred?.password && (m?.email || syntheticAdminEmail(ident))) {
+        tentativas.push({ email: String(m?.email || syntheticAdminEmail(ident)), password: String(cred.password) });
+      }
+    }
+    // 2) sem marcador: credenciais ADMIN-NNNN locais (e-mail sintético oficial)
+    for (const cred of creds) {
+      if (!cred?.password || !/^ADMIN-\d+$/.test(norm(cred.agent))) continue;
+      if (tentativas.some(t => t.email === syntheticAdminEmail(String(cred.agent)))) continue;
+      tentativas.push({ email: syntheticAdminEmail(String(cred.agent)), password: String(cred.password) });
+    }
+    for (const t of tentativas.slice(0, 4)) {
+      const r = await cloudSignIn(supabase, t.email, t.password);
+      if (r.outcome === 'ok') {
+        const { data } = await supabase.auth.getSession();
+        const tok = data?.session?.access_token || null;
+        if (tok) {
+          dadosTokenCache = tok;
+          dadosTokenCacheTs = Date.now();
+          return tok;
+        }
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 /** Eliminação em cascata de um cidadão (2026-08-20) — via servidor com service
  *  role e verificação do papel admin. Devolve null quando não há sessão Auth
- *  (conta demo — o chamador segue o caminho local histórico com aviso honesto). */
+ *  recuperável (conta demo / nuvem indisponível — o chamador segue o caminho
+ *  local histórico com aviso honesto). v37.78.34: SEM SESSÃO, tenta recuperar
+ *  automaticamente (restaurarSessaoAdminNuvem); sessão expirada a meio (401)
+ *  também é recuperada e o pedido repetido UMA vez. */
 export const eliminarCidadaoAdmin = async (bi: string): Promise<{ ok: boolean; erro?: string } | null> => {
   try {
-    const token = await obterTokenSessao();
+    let token = await obterTokenSessao();
+    if (!token) token = await restaurarSessaoAdminNuvem();
     if (!token) return null;
-    const resp = await fetch('/api/admin-cidadao', {
+    let resp = await fetch('/api/admin-cidadao', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ bi }),
     });
-    const j = await resp.json().catch(() => null);
+    let j = await resp.json().catch(() => null);
+    if (resp.status === 401) {
+      // token expirado/revogado a meio da sessão — recuperar e repetir 1x
+      const tok2 = await restaurarSessaoAdminNuvem();
+      if (tok2 && tok2 !== token) {
+        resp = await fetch('/api/admin-cidadao', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok2}` },
+          body: JSON.stringify({ bi }),
+        });
+        j = await resp.json().catch(() => null);
+      }
+    }
     if (j && j.ok === true) return { ok: true };
     if (j && j.erro === 'demo') return null;
     return { ok: false, erro: (j && j.erro) || 'Falha na eliminação central.' };
