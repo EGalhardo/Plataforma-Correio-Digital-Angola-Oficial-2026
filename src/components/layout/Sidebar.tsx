@@ -9,8 +9,10 @@ import { Message, Document, AppMode, LanguageCode } from '../../types';
 import { useSession } from '../../services/sessionStore';
 import { useLanguage } from '../../hooks/useLanguage';
 import { LazyImage } from '../ui/LazyImage';
-import logoModoClaro from '../../assets/images/logomarca_modo_claro_crop.png';
-import logoModoEscuro from '../../assets/images/logomarca_modo_escuro_crop.png';
+// v37.78.33 — LOGOMARCA ÚNICA (pedido do dono 2026-08-31): a mesma imagem
+// oficial («Modo-claro-e-escuro-01.png») é usada no modo claro E no escuro —
+// permanece inalterada em qualquer tema.
+import logoSidebar from '../../assets/images/logomarca_sidebar_2026.png';
 
 interface MenuItem {
   id: string;
@@ -99,13 +101,12 @@ export function Sidebar({
       'bg-white text-slate-900 shadow-slate-200/50'
     }`}>
       <div className="mb-8 px-4">
-        {/* v37.36 — PARIDADE CLARO/ESCURO: caixa fixa idêntica nos dois temas
-            (h-12 = 48px) e as duas logomarcas normalizadas para o mesmo rácio
-            (4.137) com margens proporcionais — a marca ocupa o mesmo rectângulo
-            e o mesmo bordo esquerdo em qualquer tema; sem estilos condicionais. */}
+        {/* v37.78.33 — LOGOMARCA ÚNICA: a mesma imagem nos dois temas (claro e
+            escuro), a pedido do dono — caixa fixa (h-12 = 48px) com rácio
+            preservado (1280×349); sem estilos condicionais de tema. */}
         <div className="w-full flex items-center" style={{ height: '48px' }}>
           <LazyImage
-            src={theme === 'dark' ? logoModoEscuro : logoModoClaro}
+            src={logoSidebar}
             alt="Correio Digital"
             priority={true}
             placeholder="skeleton"
