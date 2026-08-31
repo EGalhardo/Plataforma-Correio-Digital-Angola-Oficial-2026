@@ -7980,6 +7980,7 @@ Ficha civil do titular:
         {/* Content Area */}
         <div 
           ref={contentRef}
+          data-cda-scroll=""
           className={`flex-1 px-4 pb-32 md:p-8 overflow-y-auto custom-scrollbar ${emergencyMode && isGovMode ? 'pt-[104px] md:pt-1' : (isGovMode ? 'pt-16 md:pt-1' : 'pt-16 md:pt-4')}`}
         >
           <div className="max-w-[1400px] mx-auto">

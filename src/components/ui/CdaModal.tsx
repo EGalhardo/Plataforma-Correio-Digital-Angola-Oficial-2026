@@ -63,6 +63,20 @@ export function CdaModal({
     return () => window.removeEventListener('keydown', aoTeclar);
   }, [aberto, onFechar]);
 
+  // v37.78.21 (G10): bloquear o scroll do fundo enquanto o modal está aberto.
+  // O shell da app faz scroll num contentor próprio ([data-cda-scroll],
+  // App.tsx) e não no body — travam-se ambos. Save/restore encadeado mantém
+  // o comportamento correcto com modais sobrepostos (confirm dentro de modal).
+  useEffect(() => {
+    if (!aberto) return;
+    const scrollShell = document.querySelector<HTMLElement>('[data-cda-scroll]');
+    const alvos: HTMLElement[] = [document.body];
+    if (scrollShell) alvos.push(scrollShell);
+    const anterior = alvos.map((el) => el.style.overflow);
+    alvos.forEach((el) => { el.style.overflow = 'hidden'; });
+    return () => { alvos.forEach((el, i) => { el.style.overflow = anterior[i]; }); };
+  }, [aberto]);
+
   if (!aberto) return null;
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
