@@ -161,7 +161,12 @@ export function GovCorrespondenciasContent({
     try {
       const ok = await onDeleteCorrespondence?.(corEliminavel);
       if (ok === false) notify('Não foi possível eliminar a correspondência na base central. Verifique a ligação e tente novamente.', 'error');
-      else notify(`Correspondência «${corEliminavel.subject || corEliminavel.id}» eliminada com sucesso${ok === true ? ' (base central incluída)' : ' (local)'}.`, 'success');
+      else {
+        notify(`Correspondência «${corEliminavel.subject || corEliminavel.id}» eliminada com sucesso${ok === true ? ' (base central incluída)' : ' (local)'}.`, 'success');
+        // v37.78.25 — se a Ficha de Auditoria aberta é a do item eliminado,
+        // fecha-a (a eliminação pode ser disparada a partir da lista OU da Ficha).
+        setSelectedLetter((prev: any) => prev && prev.id === corEliminavel.id ? null : prev);
+      }
     } catch {
       notify('Erro inesperado ao eliminar a correspondência.', 'error');
     } finally {
@@ -1043,6 +1048,26 @@ export function GovCorrespondenciasContent({
                     ))}
                   </div>
                 </div>
+
+                {/* v37.78.25 — ELIMINAÇÃO também dentro da Ficha de Auditoria:
+                    exactamente o mesmo circuito do botão da lista (confirmação
+                    explícita CdaConfirm + purga ZERO RASTOS na base central).
+                    Motivo: na tabela da lista, a coluna de acções fica após
+                    min-w-[1100px] e em ecrãs estreitos exige scroll horizontal
+                    — aqui a eliminação fica sempre acessível. */}
+                {onDeleteCorrespondence && (
+                  <div className="pt-4 border-t border-slate-100 space-y-3">
+                    <span className="text-[8.5px] font-black text-rose-400 uppercase tracking-widest block mb-1">Eliminação Definitiva — Zero Rastos</span>
+                    <button
+                      onClick={() => setCorEliminavel(selectedLetter)}
+                      disabled={eliminandoCor}
+                      className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 rounded-xl text-[9px] font-black uppercase tracking-wider cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
+                      title="Eliminar correspondência (definitivo na base central)"
+                    >
+                      {eliminandoCor ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Eliminar Correspondência
+                    </button>
+                  </div>
+                )}
 
                 {/* Footer Controls */}
                 <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
