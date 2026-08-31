@@ -16,8 +16,8 @@ import {
   Camera
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { supabaseService, hasValidSupabaseKeys } from "../../services/supabaseService";
-import { guardarAvatar, iniciaisDe} from '../../services/avatarService';
+import { supabaseService, hasValidSupabaseKeys, removerFicheiroStoragePorUrl } from "../../services/supabaseService";
+import { guardarAvatar, iniciaisDe, lerAvatarLocal } from '../../services/avatarService';
 import { guardarPerfilLocal } from '../../services/perfilLocalService';
 import { supabase } from '../../lib/supabaseClient';
 import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil, temPendenciaPerfil, type ProfileSyncOutcome } from '../../services/profileSyncService';
@@ -199,9 +199,14 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
         const fileName = `${bi || 'avatar'}_${Date.now()}.${fileExt}`;
         const filePath = `avatars/${fileName}`;
 
+        const avatarAntigo = lerAvatarLocal('user', user?.bi || bi || '');
         const publicUrl = await supabaseService.uploadFile('fotos_perfil', filePath, file);
         if (publicUrl) {
           updateUserFields({ avatarUrl: publicUrl });
+          // v37.78.23 — ZERO RASTOS: a foto ANTERIOR não fica órfã no Storage.
+          if (avatarAntigo && avatarAntigo !== publicUrl && /fotos_perfil/.test(avatarAntigo)) {
+            removerFicheiroStoragePorUrl(avatarAntigo).catch(() => undefined);
+          }
           // 2026-08-20 — persistir o avatar escolhido: localStorage por conta
           // + user_metadata do Auth (senão o login seguinte reaplicava a
           // selfie KYC/face antiga e a foto revertia).

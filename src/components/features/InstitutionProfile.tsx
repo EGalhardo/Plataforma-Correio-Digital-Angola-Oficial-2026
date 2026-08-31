@@ -14,9 +14,9 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useSession } from "../../services/sessionStore";
-import { supabaseService, hasValidSupabaseKeys } from "../../services/supabaseService";
+import { supabaseService, hasValidSupabaseKeys, removerFicheiroStoragePorUrl } from "../../services/supabaseService";
 import { supabase } from '../../lib/supabaseClient';
-import { guardarAvatar, isPlaceholderAvatar, iniciaisDe} from '../../services/avatarService';
+import { guardarAvatar, isPlaceholderAvatar, iniciaisDe, lerAvatarLocal } from '../../services/avatarService';
 import { guardarPerfilLocal } from '../../services/perfilLocalService';
 import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil, syncInstitutionMemberToCloud, type ProfileSyncOutcome } from '../../services/profileSyncService';
 import { getLocalInstReg, normalizeInstCode, updateInstMemberProfile, buildAgentNumber } from "../../services/institutionRegistrationStore";
@@ -209,9 +209,14 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
         const fileName = `${personKey || 'institution'}_${Date.now()}.${fileExt}`;
         const filePath = `avatars/${fileName}`;
 
+        const avatarAntigo = lerAvatarLocal('institution', personKey || bi || '');
         const publicUrl = await supabaseService.uploadFile('fotos_perfil', filePath, file);
         if (publicUrl) {
           updateUserFields({ avatarUrl: publicUrl });
+          // v37.78.23 — ZERO RASTOS: a foto ANTERIOR não fica órfã no Storage.
+          if (avatarAntigo && avatarAntigo !== publicUrl && /fotos_perfil/.test(avatarAntigo)) {
+            removerFicheiroStoragePorUrl(avatarAntigo).catch(() => undefined);
+          }
           try { if (personKey) localStorage.setItem(`cda_inst_profile_photo_${personKey.toUpperCase()}`, publicUrl); } catch { /* ignora */ }
           guardarAvatar('institution', personKey || '', publicUrl);
           

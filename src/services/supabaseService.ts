@@ -347,6 +347,91 @@ export const eliminarCidadaoAdmin = async (bi: string): Promise<{ ok: boolean; e
   }
 };
 
+/** v37.78.23 — ZERO RASTOS KB: remove o ficheiro do bucket kb_ficheiros via
+ *  servidor (a política do bucket só permite INSERT pelo browser). Autoriza a
+ *  própria instituição (pasta kb/<SIGLA>/…) ou a Administração. */
+export const kbRemoverFicheiro = async (url?: string | null): Promise<boolean> => {
+  try {
+    if (!url) return false;
+    const token = await obterTokenSessao();
+    if (!token) return false;
+    const resp = await fetch('/api/kb-remover-ficheiro', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ url }),
+    });
+    const j = await resp.json().catch(() => null);
+    return !!(j && j.ok);
+  } catch {
+    return false;
+  }
+};
+
+/** v37.78.23 — leitura FRESCA da cópia única da mensagem (marcadores/partes)
+ *  antes de decidir a purga: o estado local da sessão pode estar desatualizado
+ *  (a outra parte pode ter eliminado DEPOIS deste login). Leitura directa
+ *  (sem cache), permitida pelo RLS às partes da mensagem. */
+export const lerMensagemParaEliminacao = async (
+  id: number,
+): Promise<{ actions: string[]; senderBi: string; recipientBi: string } | null> => {
+  try {
+    if (!hasValidSupabaseKeys() || !Number.isFinite(id)) return null;
+    const { data, error } = await supabase.from('messages')
+      .select('actions,sender_bi,recipient_bi').eq('id', id).maybeSingle();
+    if (error || !data) return null;
+    return {
+      actions: Array.isArray(data.actions) ? data.actions.map(String) : [],
+      senderBi: String(data.sender_bi || ''),
+      recipientBi: String(data.recipient_bi || ''),
+    };
+  } catch { return null; }
+};
+
+/** v37.78.23 — ELIMINAÇÃO TOTAL DE CORRESPONDÊNCIA (zero rastos): linha,
+ *  histórico de estados, notificações das partes que referenciam o assunto e
+ *  anexos do Storage. Autorizado para a Administração ou para qualquer PARTE
+ *  da mensagem (o cliente só dispara quando ambas as partes já eliminaram —
+ *  App.handleDeleteMessage — ou quando o Admin elimina no Expediente). */
+export const eliminarCorrespondenciaTotal = async (
+  id: number,
+): Promise<{ ok: boolean; detalhes?: Record<string, number>; erro?: string } | null> => {
+  try {
+    const token = await obterTokenSessao();
+    if (!token) return null;
+    const resp = await fetch('/api/eliminar-correspondencia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id }),
+    });
+    const j = await resp.json().catch(() => null);
+    if (j && j.ok === true) return { ok: true, detalhes: j.detalhes };
+    return { ok: false, erro: (j && j.erro) || 'Falha na eliminação central.' };
+  } catch {
+    return { ok: false, erro: 'Rede indisponível.' };
+  }
+};
+
+/** v37.78.23 — ZERO RASTOS no Storage: remove um ficheiro a partir do URL
+ *  público/assinado legado OU do marcador "storage:<bucket>/<path>". Só para
+ *  buckets com política de escrita pelo dono (avatares/fotos, KB). Best-effort:
+ *  devolve false em silêncio — nunca bloqueia o fluxo principal. */
+export const removerFicheiroStoragePorUrl = async (url?: string | null): Promise<boolean> => {
+  try {
+    if (!url) return false;
+    const s = String(url).trim();
+    if (!s) return false;
+    let m = s.match(/^storage:([\w\-]+)\/(.+)$/);
+    if (!m) m = s.match(/\/object\/(?:public|sign)\/([\w\-]+)\/(.+?)(?:\?|$)/);
+    if (!m) return false;
+    let caminho = m[2];
+    try { caminho = decodeURIComponent(caminho); } catch { /* mantém raw */ }
+    const { error } = await supabase.storage.from(m[1]).remove([caminho]);
+    return !error;
+  } catch {
+    return false;
+  }
+};
+
 /** ELIMINAÇÃO COMPLETA DE AGENTE (2026-08-22) — página Equipa: o servidor
  *  remove a conta Auth (e-mail sintético determinístico) e os avatares do
  *  Storage; o cliente remove credenciais/espelhos locais. Autorização do

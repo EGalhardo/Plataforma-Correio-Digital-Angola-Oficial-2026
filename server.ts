@@ -828,6 +828,67 @@ async function dadosResolverEExecutar(opts: {
 // sobreviva à eliminação ("dado órfão") junta-se à conta RE-CRIADA com a mesma
 // chave. Este helper remove TODOS os vestígios relacionais + anexos do Storage
 // de uma só vez (best-effort por tabela — falha pontual não aborta as restantes).
+
+// ============================================================================
+// v37.78.23 — ZERO RASTOS: parsers/purga de anexos de correspondências.
+// Anexos são gravados como strings JSON {name,size,content,type} onde content
+// pode ser marcador "storage:<bucket>/<path>" (v15+) ou URL pública/assinada
+// legada. Estes helpers extraem as referências reais ao Storage para apagar
+// os ficheiros quando a mensagem é eliminada por completo.
+// ============================================================================
+function extrairRefsAnexo(attachments: unknown): { bucket: string; path: string }[] {
+  const refs: { bucket: string; path: string }[] = [];
+  const considerar = (raw: unknown) => {
+    const s = String(raw ?? '').trim();
+    if (!s) return;
+    // anexos chegam como strings JSON {name,size,content,type} — a referência
+    // ao Storage vive no campo content (v37.78.9)
+    if (s.startsWith('{')) {
+      try {
+        const o = JSON.parse(s);
+        if (o && typeof o.content === 'string') considerar(o.content);
+      } catch { /* ignora */ }
+      return;
+    }
+    let m = s.match(/^storage:([\w\-]+)\/(.+)$/);
+    if (m) { refs.push({ bucket: m[1], path: m[2] }); return; }
+    m = s.match(/\/object\/(?:public|sign)\/([\w\-]+)\/(.+?)(?:\?|$)/);
+    if (m) { try { refs.push({ bucket: m[1], path: decodeURIComponent(m[2]) }); } catch { /* ignora */ } }
+  };
+  if (Array.isArray(attachments)) {
+    for (const a of attachments) {
+      if (typeof a === 'string') considerar(a);
+      else if (a && typeof a === 'object') considerar((a as { content?: unknown }).content);
+    }
+  }
+  return refs;
+}
+
+async function removerAnexosMensagem(admin: any, attachments: unknown): Promise<number> {
+  const refs = extrairRefsAnexo(attachments);
+  const porBucket = new Map<string, string[]>();
+  refs.forEach(r => {
+    const lista = porBucket.get(r.bucket) || [];
+    lista.push(r.path);
+    porBucket.set(r.bucket, lista);
+  });
+  let apagados = 0;
+  for (const [bucket, paths] of porBucket) {
+    try {
+      const { error } = await admin.storage.from(bucket).remove(paths);
+      if (error) console.error('[ELIMINAR-CORRESPONDENCIA] anexo remove erro:', bucket, paths, error.message || error);
+      else apagados += paths.length;
+    } catch (e) { console.error('[ELIMINAR-CORRESPONDENCIA] anexo excepção:', bucket, String(e).slice(0, 120)); }
+  }
+  console.log('[ELIMINAR-CORRESPONDENCIA] anexos refs:', JSON.stringify(refs), 'apagados:', apagados);
+  return apagados;
+}
+
+/** Normaliza chaves de identidade para comparação entre partes de mensagens
+ *  (BI do cidadão, código institucional base sem nº de agente, ADMIN-NNNN). */
+const normChaveElim = (v: unknown): string =>
+  String(v || '').trim().toUpperCase().replace(/\s+/g, '').replace(/-\d{2}$/, '');
+
 async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Record<string, number>> {
   const k = String(chave || '').trim();
   const out: Record<string, number> = {};
@@ -983,7 +1044,7 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
         ...((profs || []) as { bi?: string }[]).map(p => String(p.bi || '').trim().toUpperCase()),
         ...DADOS_DEMO_BIS, 'SYSTEM', 'CDA',
       ]);
-      const { data: msgs } = await admin.from('messages').select('id,sender_bi,recipient_bi').limit(5000);
+      const { data: msgs } = await admin.from('messages').select('id,sender_bi,recipient_bi,attachments').limit(5000);
       const todas = (msgs || []) as { id: number; sender_bi?: string; recipient_bi?: string }[];
       const orfas = todas.filter(m => {
         const rem = String(m.sender_bi || '').trim().toUpperCase();
@@ -994,14 +1055,122 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
       });
       const ids = orfas.map(m => m.id);
       let apagadas = 0;
+      let anexosPurgados = 0;
       if (ids.length) {
+        // v37.78.23 — ZERO RASTOS: os anexos no Storage saem JUNTO com as
+        // mensagens órfãs (antes ficavam ficheiros eternos no bucket).
+        for (const m of orfas) {
+          try { anexosPurgados += await removerAnexosMensagem(admin, (m as any).attachments); } catch { /* best-effort */ }
+        }
         const { count } = await admin.from('messages').delete({ count: 'exact' }).in('id', ids);
         apagadas = count || 0;
         try { await admin.from('message_state_history').delete().in('message_id', ids); } catch { /* best-effort */ }
       }
-      return res.status(200).json({ ok: true, analisadas: todas.length, orfas: ids.length, apagadas });
+      return res.status(200).json({ ok: true, analisadas: todas.length, orfas: ids.length, apagadas, anexosPurgados });
     } catch (e) {
       console.error('[LIMPAR-ORFAOS] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
+  // ============================================================================
+  // v37.78.23 — ELIMINAÇÃO TOTAL DE CORRESPONDÊNCIA (ZERO RASTOS).
+  // ----------------------------------------------------------------------------
+  // Autenticado por sessão: a Administração OU qualquer PARTE da mensagem
+  // (remetente/destinatário — o cliente só dispara a purga final quando AMBAS
+  // as partes já eliminaram a sua cópia, ver App.handleDeleteMessage). Remove:
+  //   · a linha da mensagem (única, partilhada por remetente/destinatário);
+  //   · o histórico de estados (FK CASCADE cobre instalações actualizadas; o
+  //     delete explícito cobre as restantes);
+  //   · as notificações das partes que referenciam o assunto da mensagem;
+  //   · os anexos no Storage (marcadores storage: e URLs legadas).
+  // ============================================================================
+  // v37.78.23 — ZERO RASTOS KB: remoção do FICHEIRO do bucket kb_ficheiros
+  // quando a fonte é eliminada. A política do bucket só permite INSERT pelo
+  // browser — o DELETE tem de correr aqui (service role), com verificação de
+  // titularidade: a pasta é kb/<SIGLA>/… e só a própria instituição (ou a
+  // Administração) pode remover os seus ficheiros.
+  app.post("/api/kb-remover-ficheiro", async (req, res) => {
+    try {
+      const url = String((req.body || {}).url || '');
+      const m = url.match(/^(?:storage:)?kb_ficheiros\/(.+)$/) || url.match(/\/object\/(?:public|sign)\/kb_ficheiros\/(.+?)(?:\?|$)/);
+      if (!m) return res.status(400).json({ ok: false, erro: 'Referência inválida.' });
+      let caminho = m[1];
+      try { caminho = decodeURIComponent(caminho); } catch { /* mantém raw */ }
+      if (caminho.includes('..')) return res.status(400).json({ ok: false, erro: 'Caminho inválido.' });
+      const partes = caminho.split('/');
+      const sigla = normChaveElim(partes[1]);
+      const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+      const admin = createSupabaseAdminClient();
+      if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      const { data: sess, error: sessErr } = await admin.auth.getUser(token);
+      if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+      const meta = ((sess.user.user_metadata || {}) as Record<string, unknown>);
+      const role = String(meta.role || '').toLowerCase();
+      const minhaSigla = normChaveElim(role === 'instituicao' ? (meta.instituicao || '') : role === 'admin' ? (meta.agent || '') : (meta.bi || ''));
+      if (role !== 'admin' && (!minhaSigla || !sigla || minhaSigla !== sigla)) {
+        return res.status(403).json({ ok: false, erro: 'Sem autorização sobre este ficheiro.' });
+      }
+      const { error } = await admin.storage.from('kb_ficheiros').remove([caminho]);
+      if (error) { console.error('[KB-REMOVER-FICHEIRO] erro storage:', error.message || error); return res.status(500).json({ ok: false, erro: error.message || 'Falha na remoção.' }); }
+      console.log('[KB-REMOVER-FICHEIRO] removido:', caminho, 'por', minhaSigla || role);
+      return res.status(200).json({ ok: true });
+    } catch (e) {
+      console.error('[KB-REMOVER-FICHEIRO] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
+  app.post("/api/eliminar-correspondencia", async (req, res) => {
+    try {
+      const id = Number((req.body || {}).id);
+      if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ ok: false, erro: 'ID inválido.' });
+      const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+      const admin = createSupabaseAdminClient();
+      if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      const { data: sess, error: sessErr } = await admin.auth.getUser(token);
+      if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+      const meta = ((sess.user.user_metadata || {}) as Record<string, unknown>);
+      const role = String(meta.role || '').toLowerCase();
+      const minhaChave = normChaveElim(
+        role === 'instituicao' ? (meta.instituicao || '') :
+        role === 'admin' ? (meta.agent || '') :
+        (meta.bi || (sess.user.email || '').split('@')[0])
+      );
+      const { data: row } = await admin.from('messages')
+        .select('id,subject,attachments,sender_bi,recipient_bi').eq('id', id).maybeSingle();
+      if (!row) return res.status(404).json({ ok: false, erro: 'Correspondência já não existe na base central.' });
+      const partes = [normChaveElim(row.sender_bi), normChaveElim(row.recipient_bi)].filter(Boolean);
+      if (role !== 'admin' && (!minhaChave || !partes.includes(minhaChave))) {
+        return res.status(403).json({ ok: false, erro: 'Sem autorização sobre esta correspondência.' });
+      }
+      const detalhes: Record<string, number> = {};
+      // 1) notificações das partes que referenciam o assunto (fantasmas)
+      try {
+        // corresponde por ASSUNTO (único, com carimbo temporal): as notificações
+        // das duas partes (remetente/destinatário) referem o assunto; filtrar
+        // por target_bi deixaria passar variantes com nº de agente.
+        const assunto = String(row.subject || '').trim();
+        if (assunto) {
+          const padrao = encodeURIComponent(assunto);
+          const filtro = `or=(message.ilike.*${padrao}*,title.ilike.*${padrao}*)`;
+          const r = await fetch(`${process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL}/rest/v1/notifications?${filtro}`,
+            { method: 'DELETE', headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY || '', Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || ''}`, Prefer: 'return=representation' } });
+          if (r.ok) { const rows = await r.json().catch(() => []); detalhes.notificacoes = Array.isArray(rows) ? rows.length : 0; }
+          console.log('[ELIMINAR-CORRESPONDENCIA] notificações', r.status, detalhes.notificacoes);
+        }
+      } catch { /* melhor esforço */ }
+      // 2) anexos do Storage
+      try { detalhes.anexosStorage = await removerAnexosMensagem(admin, row.attachments); } catch { /* melhor esforço */ }
+      // 3) histórico + linha
+      try { const { count } = await admin.from('message_state_history').delete({ count: 'exact' }).eq('message_id', id); detalhes.historico = count || 0; } catch { /* melhor esforço */ }
+      const { count: apagada } = await admin.from('messages').delete({ count: 'exact' }).eq('id', id);
+      detalhes.mensagens = apagada || 0;
+      return res.status(200).json({ ok: true, detalhes });
+    } catch (e) {
+      console.error('[ELIMINAR-CORRESPONDENCIA] Exceção:', e);
       return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
     }
   });

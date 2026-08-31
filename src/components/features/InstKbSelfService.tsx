@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BookOpen, Plus, Trash2, Loader2, AlertTriangle, Globe, Info, Sparkles, Wand2, CheckCircle2, UploadCloud, FileText, X } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import { removerFicheiroStoragePorUrl, kbRemoverFicheiro } from '../../services/supabaseService';
 import {
   analisarConteudoKb, ROTULO_TIPO_KB, type KbMetaSugestoes,
 } from '../../services/kbMetaAssistService';
@@ -254,7 +255,10 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
       titulo: titulo.trim(),
       tipo,
       texto: texto.trim(),
-      fonte_url: fonteUrl.trim() || null,
+      // v37.78.23 — o FICHEIRO carregado é a fonte auditável: antes gravava-se
+      // apenas o campo manual de URL e o ficheiro do bucket ficava ÓRFÃO para
+      // sempre (a linha nunca o referenciava; eliminar a linha não o apagava).
+      fonte_url: (ficheiroUrl || fonteUrl).trim() || null,
       autor: profileName.trim() || null,
     }]);
     setAGuardar(false);
@@ -285,6 +289,14 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
   };
 
   const eliminar = async (f: KbFonteRow) => {
+    // v37.78.23 — ZERO RASTOS: o ficheiro do bucket kb_ficheiros sai JUNTO
+    // com a linha (antes ficava um ficheiro órfão para sempre no Storage).
+    if (f.fonte_url) {
+      // v37.78.23 — ZERO RASTOS: o ficheiro sai do bucket JUNTO com a linha.
+      // DELETE do bucket exige o endpoint (política v28 só cobre INSERT);
+      // remove directo fica como fallback para instalações com política aberta.
+      try { const ok = await kbRemoverFicheiro(f.fonte_url); if (!ok) await removerFicheiroStoragePorUrl(f.fonte_url); } catch { /* best-effort */ }
+    }
     const { error } = await supabase.from(TABELA).delete().eq('id', f.id);
     setConfirmarEliminar(null);
     if (error) { setErro(`Não foi possível eliminar (${error.message || 'erro'}).`); return; }

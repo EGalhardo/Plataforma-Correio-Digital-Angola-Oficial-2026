@@ -8,10 +8,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Lock, History, Eye, EyeOff, Check, BadgeCheck, Settings, Camera, CheckCircle2 } from 'lucide-react';
 import { useSession } from '../../services/sessionStore';
 import { supabase } from '../../lib/supabaseClient';
-import { hasValidSupabaseKeys, supabaseService } from '../../services/supabaseService';
+import { hasValidSupabaseKeys, supabaseService, removerFicheiroStoragePorUrl } from '../../services/supabaseService';
 import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil } from '../../services/profileSyncService';
 import { carregarDadosReaisAdmin } from '../../services/adminRealDataService';
-import { guardarAvatar, iniciaisDe, isPlaceholderAvatar } from '../../services/avatarService';
+import { guardarAvatar, iniciaisDe, isPlaceholderAvatar, lerAvatarLocal } from '../../services/avatarService';
 import { guardarPerfilLocal } from '../../services/perfilLocalService';
 import { cloudChangePassword, hasActiveCloudSession, isCloudBound } from '../../services/cloudAuthService';
 import { homologationStore } from '../../services/homologationStore';
@@ -154,9 +154,14 @@ export function GovPerfilContent({
         const fileExt = file.name.split('.').pop();
         const fileName = `admin_${bi || 'SOC'}_${Date.now()}.${fileExt}`;
         const filePath = `avatars/${fileName}`;
+        const avatarAntigo = lerAvatarLocal('admin', bi || '');
         const publicUrl = await supabaseService.uploadFile('fotos_perfil', filePath, file);
         if (publicUrl) {
           updateUserFields({ avatarUrl: publicUrl });
+          // v37.78.23 — ZERO RASTOS: a foto ANTERIOR não fica órfã no Storage.
+          if (avatarAntigo && avatarAntigo !== publicUrl && /fotos_perfil/.test(avatarAntigo)) {
+            removerFicheiroStoragePorUrl(avatarAntigo).catch(() => undefined);
+          }
           // 2026-08-20 — persistir a foto por conta (localStorage por Nº de
           // Agente + user_metadata do Auth): sem isto o login seguinte repunha
           // o avatar neutro e a foto revertia.

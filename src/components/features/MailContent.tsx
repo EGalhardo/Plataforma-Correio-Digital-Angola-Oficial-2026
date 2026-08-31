@@ -2163,7 +2163,7 @@ export function MailContent({
               <p className="text-slate-600 text-sm leading-relaxed mb-8">
                 {messageToDelete.isPermanent 
                   ? t("Deseja eliminar permanentemente esta correspondência oficial? Ela não será mais visível no seu portal, mas continuará registada no sistema do Estado.")
-                  : t("Tem a certeza que deseja eliminar esta correspondência oficial? Ela será movida para as Eliminadas.")}
+                  : t("Tem a certeza que deseja eliminar esta correspondência oficial? A cópia da outra parte só é removida quando ela também eliminar.")}
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <button 
