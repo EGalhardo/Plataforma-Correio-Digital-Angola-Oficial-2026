@@ -828,6 +828,64 @@ const KB_REGISTO: KbInstituicao[] = [
 // ===KB-FIM===
 
 // Handler nativo Serverless da Vercel (evita completamente os problemas do Express quebrando rotas)
+// ============================================================================
+// v37.78.23 — ZERO RASTOS: parsers/purga de anexos (espelho de server.ts).
+// Anexos são strings JSON {name,size,content,type} cujo content pode ser
+// marcador "storage:<bucket>/<path>" (v15+) ou URL pública/assinada legada.
+// ============================================================================
+const normChaveElim = (v: unknown): string =>
+  String(v || '').trim().toUpperCase().replace(/\s+/g, '').replace(/-\d{2}$/, '');
+
+function extrairRefsAnexo(attachments: unknown): { bucket: string; path: string }[] {
+  const refs: { bucket: string; path: string }[] = [];
+  const considerar = (raw: unknown) => {
+    const s = String(raw ?? '').trim();
+    if (!s) return;
+    if (s.startsWith('{')) {
+      try {
+        const o = JSON.parse(s);
+        if (o && typeof o.content === 'string') considerar(o.content);
+      } catch { /* ignora */ }
+      return;
+    }
+    let m = s.match(/^storage:([\w\-]+)\/(.+)$/);
+    if (m) { refs.push({ bucket: m[1], path: m[2] }); return; }
+    m = s.match(/\/object\/(?:public|sign)\/([\w\-]+)\/(.+?)(?:\?|$)/);
+    if (m) { try { refs.push({ bucket: m[1], path: decodeURIComponent(m[2]) }); } catch { /* ignora */ } }
+  };
+  if (Array.isArray(attachments)) {
+    for (const a of attachments) {
+      if (typeof a === 'string') considerar(a);
+      else if (a && typeof a === 'object') considerar((a as { content?: unknown }).content);
+    }
+  }
+  return refs;
+}
+
+/** Remove ficheiros do Storage por referência (bulk DELETE do Storage API). */
+async function removerAnexosMensagemRest(supaUrl: string, serviceKey: string, attachments: unknown): Promise<number> {
+  const refs = extrairRefsAnexo(attachments);
+  const porBucket = new Map<string, string[]>();
+  refs.forEach(r => {
+    const lista = porBucket.get(r.bucket) || [];
+    lista.push(r.path);
+    porBucket.set(r.bucket, lista);
+  });
+  let apagados = 0;
+  for (const [bucket, paths] of porBucket) {
+    try {
+      const r = await fetch(`${supaUrl}/storage/v1/object/${bucket}`, {
+        method: 'DELETE',
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefixes: paths }),
+      });
+      if (r.ok) apagados += paths.length;
+      else console.error('[ELIMINAR-CORRESPONDENCIA] anexo erro:', bucket, r.status);
+    } catch (e) { console.error('[ELIMINAR-CORRESPONDENCIA] anexo excepção:', String(e).slice(0, 120)); }
+  }
+  return apagados;
+}
+
 export default async function handler(req: any, res: any) {
   const { method, url } = req;
 
@@ -2935,6 +2993,96 @@ async function dadosResolverEExecutar(opts: {
     // /api/admin-cidadao — eliminação em cascata de um cadastro de cidadão
     // (2026-08-20): só administradores REAIS (role admin no Auth metadata).
     // Service role no servidor; contas demo canónicas recusadas (403 demo).
+    // ============================================================================
+    // v37.78.23 — ELIMINAÇÃO TOTAL DE CORRESPONDÊNCIA (ZERO RASTOS). Espelho
+    // de server.ts: Admin OU qualquer parte da mensagem; remove linha,
+    // histórico, notificações que referenciam o assunto e anexos do Storage.
+    // ============================================================================
+    if (url.includes('/api/eliminar-correspondencia') && method === 'POST') {
+      try {
+        const id = Number((body || {}).id);
+        if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ ok: false, erro: 'ID inválido.' });
+        const supaUrlEc = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+        const serviceKeyEc = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+        if (!supaUrlEc || !serviceKeyEc) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        const tokenEc = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (!tokenEc) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+        const identEc = await dadosResolverIdentidade(supaUrlEc, serviceKeyEc, tokenEc);
+        if ('erro' in identEc) return res.status(401).json({ ok: false, erro: identEc.erro });
+        const HEc = { apikey: serviceKeyEc, Authorization: `Bearer ${serviceKeyEc}`, 'Content-Type': 'application/json' };
+        const minhaChaveEc = normChaveElim(identEc.bi || identEc.instCode || '');
+        const gr = await fetch(`${supaUrlEc}/rest/v1/messages?id=eq.${id}&select=id,subject,attachments,sender_bi,recipient_bi`, { headers: HEc });
+        const rowsEc = await gr.json().catch(() => []);
+        const rowEc = Array.isArray(rowsEc) && rowsEc[0] ? rowsEc[0] : null;
+        if (!rowEc) return res.status(404).json({ ok: false, erro: 'Correspondência já não existe na base central.' });
+        const partesEc = [normChaveElim(rowEc.sender_bi), normChaveElim(rowEc.recipient_bi)].filter(Boolean);
+        if (!identEc.isAdmin && (!minhaChaveEc || !partesEc.includes(minhaChaveEc))) {
+          return res.status(403).json({ ok: false, erro: 'Sem autorização sobre esta correspondência.' });
+        }
+        const detalhesEc: Record<string, number> = {};
+        // notificações por ASSUNTO (único; ambas as partes)
+        try {
+          const assuntoEc = String(rowEc.subject || '').trim();
+          if (assuntoEc) {
+            const padraoEc = encodeURIComponent(assuntoEc);
+            const rNot = await fetch(`${supaUrlEc}/rest/v1/notifications?or=(message.ilike.*${padraoEc}*,title.ilike.*${padraoEc}*)`,
+              { method: 'DELETE', headers: { ...HEc, Prefer: 'return=representation' } });
+            if (rNot.ok) { const nl = await rNot.json().catch(() => []); detalhesEc.notificacoes = Array.isArray(nl) ? nl.length : 0; }
+          }
+        } catch { /* melhor esforço */ }
+        // anexos do Storage
+        try { detalhesEc.anexosStorage = await removerAnexosMensagemRest(supaUrlEc, serviceKeyEc, rowEc.attachments); } catch { /* melhor esforço */ }
+        // histórico + linha
+        try {
+          const rh = await fetch(`${supaUrlEc}/rest/v1/message_state_history?message_id=eq.${id}`, { method: 'DELETE', headers: { ...HEc, Prefer: 'return=representation' } });
+          if (rh.ok) { const hl = await rh.json().catch(() => []); detalhesEc.historico = Array.isArray(hl) ? hl.length : 0; }
+        } catch { /* melhor esforço */ }
+        const rm = await fetch(`${supaUrlEc}/rest/v1/messages?id=eq.${id}`, { method: 'DELETE', headers: { ...HEc, Prefer: 'return=representation' } });
+        const ml = rm.ok ? await rm.json().catch(() => []) : [];
+        detalhesEc.mensagens = Array.isArray(ml) ? ml.length : 0;
+        return res.status(200).json({ ok: true, detalhes: detalhesEc });
+      } catch (e: any) {
+        console.error('[ELIMINAR-CORRESPONDENCIA] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
+    // v37.78.23 — ZERO RASTOS KB: remoção do ficheiro do bucket kb_ficheiros
+    // (a política do bucket só permite INSERT pelo browser). Titularidade:
+    // pasta kb/<SIGLA>/… — só a própria instituição (ou Admin) remove.
+    if (url.includes('/api/kb-remover-ficheiro') && method === 'POST') {
+      try {
+        const urlKb = String((body || {}).url || '');
+        const mKb = urlKb.match(/^(?:storage:)?kb_ficheiros\/(.+)$/) || urlKb.match(/\/object\/(?:public|sign)\/kb_ficheiros\/(.+?)(?:\?|$)/);
+        if (!mKb) return res.status(400).json({ ok: false, erro: 'Referência inválida.' });
+        let caminhoKb = mKb[1];
+        try { caminhoKb = decodeURIComponent(caminhoKb); } catch { /* mantém raw */ }
+        if (caminhoKb.includes('..')) return res.status(400).json({ ok: false, erro: 'Caminho inválido.' });
+        const siglaKb = normChaveElim((caminhoKb.split('/') || [])[1]);
+        const supaUrlKb = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+        const serviceKeyKb = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+        if (!supaUrlKb || !serviceKeyKb) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        const tokenKb = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (!tokenKb) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+        const identKb = await dadosResolverIdentidade(supaUrlKb, serviceKeyKb, tokenKb);
+        if ('erro' in identKb) return res.status(401).json({ ok: false, erro: identKb.erro });
+        const minhaSiglaKb = normChaveElim(identKb.isInst ? (identKb.instCode || identKb.bi || '') : identKb.isAdmin ? (identKb.bi || '') : (identKb.bi || ''));
+        if (!identKb.isAdmin && (!minhaSiglaKb || !siglaKb || minhaSiglaKb !== siglaKb)) {
+          return res.status(403).json({ ok: false, erro: 'Sem autorização sobre este ficheiro.' });
+        }
+        const rKb = await fetch(`${supaUrlKb}/storage/v1/object/kb_ficheiros`, {
+          method: 'DELETE',
+          headers: { apikey: serviceKeyKb, Authorization: `Bearer ${serviceKeyKb}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prefixes: [caminhoKb] }),
+        });
+        if (!rKb.ok) return res.status(500).json({ ok: false, erro: `Falha na remoção (${rKb.status}).` });
+        return res.status(200).json({ ok: true });
+      } catch (e: any) {
+        console.error('[KB-REMOVER-FICHEIRO] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
     if (url.includes('/api/admin-cidadao') && method === 'POST') {
       try {
         const { bi } = body || {};
@@ -3034,24 +3182,30 @@ async function dadosResolverEExecutar(opts: {
           ...(Array.isArray(profs) ? profs : []).map((p: any) => String(p.bi || '').trim().toUpperCase()),
           ...DADOS_DEMO_BIS, 'SYSTEM', 'CDA',
         ]);
-        const mr = await fetch(`${supaUrlPerfil}/rest/v1/messages?select=id,sender_bi,recipient_bi&limit=5000`, { headers: H });
+        const mr = await fetch(`${supaUrlPerfil}/rest/v1/messages?select=id,sender_bi,recipient_bi,attachments&limit=5000`, { headers: H });
         const msgs = await mr.json().catch(() => []);
         const todas = Array.isArray(msgs) ? msgs : [];
-        const orfas = todas.filter((m: any) => {
+        const orfasRows = todas.filter((m: any) => {
           const rem = String(m.sender_bi || '').trim().toUpperCase();
           const dest = String(m.recipient_bi || '').trim().toUpperCase();
           if (dest && !conhecidos.has(dest)) return true;
           if (rem && !conhecidos.has(rem) && rem !== 'SYSTEM' && rem !== 'CDA') return true;
           return false;
-        }).map((m: any) => m.id);
+        });
+        const orfas = orfasRows.map((m: any) => m.id);
         let apagadas = 0;
+        let anexosPurgados = 0;
         if (orfas.length) {
+          // v37.78.23 — ZERO RASTOS: anexos do Storage saem com as órfãs
+          for (const m of orfasRows) {
+            try { anexosPurgados += await removerAnexosMensagemRest(supaUrlPerfil, serviceKeyPerfil, m.attachments); } catch { /* best-effort */ }
+          }
           const dr = await fetch(`${supaUrlPerfil}/rest/v1/messages?id=in.(${orfas.join(',')})`, { method: 'DELETE', headers: { ...H, Prefer: 'return=representation' } });
           const del = await dr.json().catch(() => []);
           apagadas = Array.isArray(del) ? del.length : 0;
           try { await fetch(`${supaUrlPerfil}/rest/v1/message_state_history?message_id=in.(${orfas.join(',')})`, { method: 'DELETE', headers: H }); } catch { /* best-effort */ }
         }
-        return res.status(200).json({ ok: true, analisadas: todas.length, orfas: orfas.length, apagadas });
+        return res.status(200).json({ ok: true, analisadas: todas.length, orfas: orfas.length, apagadas, anexosPurgados });
       } catch (e: any) {
         console.error('[LIMPAR-ORFAOS] Exceção:', e);
         return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
