@@ -119,27 +119,58 @@ export const computeFaceSignature = (source: HTMLCanvasElement | HTMLVideoElemen
   return computeFaceSignatureFromCanvas(canvas32);
 };
 
+/**
+ * v37.78.41 — CACHE DO DETECTOR BLAZEFACE. Antes cada chamada de
+ * computeFaceSignatureAsync fazia `import` + `blazeface.load()` — o que
+ * descobre/baixa os pesos do modelo A CADA CAPTURA (3× no registo + 1× no
+ * login = segundos de espera em cada uso, a causa principal da lentidão
+ * relatada pelo dono). Agora o modelo carrega UMA vez por sessão.
+ * A falha também fica cacheada durante a sessão: assim o registo e o login
+ * usam SEMPRE o mesmo caminho (modelo ou corte central) e as assinaturas
+ * ficam comparáveis entre si.
+ */
+type BlazefaceLike = { estimateFaces: (img: unknown, returnTensors?: boolean) => Promise<unknown[]> };
+let blazefaceModelPromise: Promise<BlazefaceLike | null> | null = null;
+const getBlazefaceModel = (): Promise<BlazefaceLike | null> => {
+  if (!blazefaceModelPromise) {
+    blazefaceModelPromise = (async () => {
+      try {
+        const blazeface = await import('@tensorflow-models/blazeface');
+        return (await blazeface.load()) as BlazefaceLike;
+      } catch (e) {
+        console.warn('[FACE-AUTH] BlazeFace indisponível nesta sessão (sem rede/modelo) — será usado o corte central:', e);
+        return null;
+      }
+    })();
+  }
+  return blazefaceModelPromise;
+};
+
+/** Pré-aquece o detector (chamar quando a câmara abre, em fundo, sem bloquear). */
+export const warmUpFaceDetector = async (): Promise<boolean> => !!(await getBlazefaceModel());
+
 /** Assinatura assíncrona inteligente: aciona o modelo leve BlazeFace sob demanda para centralizar o rosto perfeitamente. */
 export const computeFaceSignatureAsync = async (
   source: HTMLCanvasElement | HTMLVideoElement
 ): Promise<number[]> => {
   try {
-    const blazeface = await import('@tensorflow-models/blazeface');
-    const model = await blazeface.load();
-    const preds = await model.estimateFaces(source as any, false);
-    if (preds && preds.length > 0) {
-      const face = preds[0];
-      const topLeft = face.topLeft as [number, number];
-      const bottomRight = face.bottomRight as [number, number];
-      if (topLeft && bottomRight) {
-        const bbox: [number, number, number, number] = [
-          topLeft[0],
-          topLeft[1],
-          bottomRight[0],
-          bottomRight[1]
-        ];
-        const canvas32 = extractCenteredCanvas(source, bbox);
-        return computeFaceSignatureFromCanvas(canvas32);
+    const model = await getBlazefaceModel();
+    if (model) {
+      const preds = (await model.estimateFaces(source, false)) as Array<{ topLeft?: [number, number]; bottomRight?: [number, number] }>;
+      if (preds && preds.length > 0) {
+        const face = preds[0];
+        const topLeft = face.topLeft;
+        const bottomRight = face.bottomRight;
+        if (topLeft && bottomRight) {
+          const bbox: [number, number, number, number] = [
+            topLeft[0],
+            topLeft[1],
+            bottomRight[0],
+            bottomRight[1]
+          ];
+          const canvas32 = extractCenteredCanvas(source, bbox);
+          return computeFaceSignatureFromCanvas(canvas32);
+        }
       }
     }
   } catch (e) {

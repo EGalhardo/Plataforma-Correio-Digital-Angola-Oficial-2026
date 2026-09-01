@@ -137,7 +137,7 @@ import { resolveStorageUrl } from './lib/secureStorage';
 import { notify } from './lib/notify';
 import { isProfileEditActive } from './lib/profileEditGuard';
 import { useSession, getModePathPrefix } from './services/sessionStore';
-import { computeFaceSignature, computeFaceSignatureAsync, compareFaceSignatures, listDeviceFaceTemplates, faceModeLabel } from './services/faceAuth';
+import { computeFaceSignature, computeFaceSignatureAsync, compareFaceSignatures, listDeviceFaceTemplates, faceModeLabel, warmUpFaceDetector } from './services/faceAuth';
 import { VideoSessionService } from './services/videoSessionService';
 import { useLanguage } from './hooks/useLanguage';
 import { startImagePreloading, subscribeToPreload } from './utils/imagePreloader';
@@ -2148,6 +2148,10 @@ export default function App() {
           return;
         }
         setWebcamReady(true);
+        // v37.78.41 — pré-aquece o detector facial em fundo ENQUANTO o
+        // utilizador se posiciona: ao clicar «VALIDAR FACE LOCAL» o modelo
+        // já está carregado e a validação é quase instantânea.
+        void warmUpFaceDetector();
       } catch (error) {
         console.error('Erro ao abrir câmara de demonstração facial:', error);
         // Fallback to beautiful simulated camera mode!
@@ -2286,11 +2290,10 @@ export default function App() {
           setStage('app');
           addAuditLog('Acesso concedido via Biometria Facial Local de Demonstração', 'success');
         })();
-      }, 800);
+      }, 400); // v37.78.41 — transição pós-reconhecimento 2× mais rápida (800→400ms)
     }
     return () => clearTimeout(timer);
   }, [faceProgress, loginSubMode, emergencyMode, bi, isInstMode, isGovMode, profileName]);
-
   // Reavaliação periódica em sessão de cidadão: desbloqueia a correspondência
   // assim que a Área de Administração aprovar o registo E mantém o canal oficial
   // de homologação actualizado (novas mensagens do admin aparecem em ~4s),
@@ -6646,10 +6649,12 @@ Ficha civil do titular:
 
       addAuditLog(`Iniciou verificação biométrica facial no portal (${pool.length ? `${pool.length} registo(s) local(is)` : 'sem registo no dispositivo'})`, 'info');
 
+      // v37.78.41 — passos de progresso mais rápidos (220→110ms): a leitura
+      // facial em si é quase instantânea; a espera era puramente cosmética.
       const finalize = (progress: number) => new Promise(resolve => setTimeout(() => {
         setFaceProgress(progress);
         resolve(true);
-      }, 220));
+      }, 110));
 
       await finalize(45);
       await finalize(75);

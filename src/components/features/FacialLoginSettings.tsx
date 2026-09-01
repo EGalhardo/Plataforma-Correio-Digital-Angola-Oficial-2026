@@ -14,7 +14,7 @@ import { CdaConfirmModal } from '../ui/CdaConfirm';
 import { ScanFace, ShieldCheck, Trash2, Camera, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import {
   buildFaceStorageKey, readFaceTemplate, computeFaceSignatureAsync,
-  makeSimulatedSignature, type FaceTemplate
+  makeSimulatedSignature, warmUpFaceDetector, type FaceTemplate
 } from '../../services/faceAuth';
 
 interface FacialLoginSettingsProps {
@@ -67,6 +67,10 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
         }
         await new Promise(resolve => setTimeout(resolve, 150));
       }
+      // v37.78.41 — pré-aquece o detector em fundo enquanto o utilizador se
+      // posiciona: as 3 capturas ficam quase instantâneas (o modelo deixou de
+      // ser descoberto/baixado a CADA captura).
+      void warmUpFaceDetector();
     } catch {
       // Sem câmara: via simulada (mesmo espírito do login demo) — o utilizador
       // confirma cada captura e o sistema gera uma assinatura sintética.
@@ -93,7 +97,9 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
     try {
       // v37.78.39 — pausa deliberada para a animação «a registar a sua face…»
       // ser visível (paridade visual com a varredura do login facial).
-      await new Promise(r => setTimeout(r, step >= 2 ? 1400 : 900));
+      // v37.78.41 — 2,6× mais rápida a pedido do dono (900→350ms · 1400→700ms):
+      // a animação continua visível, mas o registo deixa de demorar.
+      await new Promise(r => setTimeout(r, step >= 2 ? 700 : 350));
       let signature: number[] = [];
       let imageDataUrl: string | undefined;
       if (!cameraError && videoRef.current) {
@@ -270,7 +276,7 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
                   {step < 2 ? `A registar a sua face · captura ${step + 1}/3` : 'A compilar o registo facial…'}
                 </span>
                 <div className="w-40 h-1 rounded-full bg-slate-800 overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full" style={{ animation: 'cdaFaceBar 0.9s ease-out forwards', transformOrigin: 'left' }} />
+                  <div className="h-full bg-blue-500 rounded-full" style={{ animation: 'cdaFaceBar 0.6s ease-out forwards', transformOrigin: 'left' }} />
                 </div>
               </div>
             )}
