@@ -2119,9 +2119,28 @@ export default function App() {
           return;
         }
         loginFaceStreamRef.current = stream;
-        if (loginFaceVideoRef.current) {
-          loginFaceVideoRef.current.srcObject = stream;
-          await loginFaceVideoRef.current.play().catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+        // v37.78.39 — correção da corrida ref×transição de sub-ecrã: o <video> do
+        // círculo pode montar alguns milissegundos depois de a stream chegar
+        // (AnimatePresence). Sem retentativas a câmara perdia-se definitivamente
+        // (círculo preto → validação caía no modo simulado → «Rosto não
+        // reconhecido» mesmo com registo válido). Anexa com paciência de 3s.
+        let videoAnexado = false;
+        for (let t = 0; t <= 3000; t += 150) {
+          if (loginFaceVideoRef.current) {
+            loginFaceVideoRef.current.srcObject = stream;
+            await loginFaceVideoRef.current.play().catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+            videoAnexado = true;
+            break;
+          }
+          if (!mounted) { stream.getTracks().forEach(track => track.stop()); return; }
+          await new Promise(resolve => setTimeout(resolve, 150));
+        }
+        if (!videoAnexado) {
+          console.warn('[LOGIN-FACIAL] O elemento de vídeo não montou a tempo — a câmara permanece em espera.');
+          stream.getTracks().forEach(track => track.stop());
+          loginFaceStreamRef.current = null;
+          setWebcamReady(false);
+          return;
         }
         setWebcamReady(true);
       } catch (error) {
@@ -6595,7 +6614,7 @@ Ficha civil do titular:
       
       setFaceCaptureHint(demoFaceTemplateLoaded
         ? 'A comparar o rosto capturado com o registo facial local (página Conta)...'
-        : 'Sem registo facial neste dispositivo — o registo faz-se na página Conta (Perfil).');
+        : 'Rosto ainda não registado para esta identidade neste dispositivo.');
 
       addAuditLog(`Iniciou verificação biométrica facial no portal (modo ${demoFaceTemplateLoaded ? 'login' : 'sem registo'})`, 'info');
 
@@ -6645,8 +6664,10 @@ Ficha civil do titular:
       // Conta (Perfil) das três áreas, após autenticação — aqui não há capturas de registo.
       setIsFaceScanning(false);
       setFaceProgress(0);
-      setFaceCaptureHint('Sem registo facial neste dispositivo.');
-      setFaceCaptureError('Sem registo facial para esta identidade: entre com as credenciais e registe a sua face na página Conta (Perfil).');
+      setFaceCaptureHint('Rosto ainda não registado para esta identidade.');
+      // v37.78.39 — mensagem melhorada a pedido do dono (2026-08-31): diz
+      // exactamente O QUE falta fazer e COMO activar o Login Facial.
+      setFaceCaptureError('Ainda não existe registo facial para esta identidade. Entre com as suas credenciais (BI e senha), abra a página Conta (Perfil) e toque em «Registar a minha face» — a partir daí o Login Facial reconhece-o e o senhor entra apenas com o rosto.');
       addAuditLog(`DEMO_FACE_NO_TEMPLATE: login facial tentado sem registo na página Conta (${appMode})`, 'info');
     };
 
@@ -7616,7 +7637,7 @@ Ficha civil do titular:
                             ? `${t("A processar")}: ${faceProgress}%`
                             : demoFaceTemplateLoaded
                               ? t("Pronto para validação local")
-                              : t("Sem registo facial — use a página Conta")}
+                              : t("Rosto não registado — registe na página Conta (Perfil)")}
                       </span>
                     </div>
                     <p className="text-slate-400 text-[10.5px] font-semibold">

@@ -55,9 +55,16 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(() => undefined);
+      // v37.78.39 — mesma correção do login: o <video> pode montar pouco depois
+      // da stream (transição de ecrã); anexa com paciência de 3s em vez de
+      // perder a câmara e cair silenciosamente na via simulada.
+      for (let t = 0; t <= 3000; t += 150) {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => undefined);
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 150));
       }
     } catch {
       // Sem câmara: via simulada (mesmo espírito do login demo) — o utilizador
@@ -74,11 +81,16 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
   };
 
   const [isProcessingCapture, setIsProcessingCapture] = useState(false);
+  // v37.78.39 — feedback animado de sucesso após gravar o template
+  const [sucesso, setSucesso] = useState(false);
 
   const doCapture = async () => {
     if (isProcessingCapture) return;
     setIsProcessingCapture(true);
     try {
+      // v37.78.39 — pausa deliberada para a animação «a registar a sua face…»
+      // ser visível (paridade visual com a varredura do login facial).
+      await new Promise(r => setTimeout(r, step >= 2 ? 1400 : 900));
       let signature: number[] = [];
       let imageDataUrl: string | undefined;
       if (!cameraError && videoRef.current) {
@@ -128,6 +140,9 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
         localStorage.setItem(storageKey, JSON.stringify(payload));
         setTemplate(payload);
         onAudit?.(`LOGIN FACIAL: rosto registado na página Conta (${mode} · ${payload.identifier}).`, 'success');
+        // v37.78.39 — flash de sucesso animado (3s)
+        setSucesso(true);
+        setTimeout(() => setSucesso(false), 3000);
       } catch (e) {
         console.warn('[FacialLoginSettings] Falha ao gravar template local:', e);
         onAudit?.('LOGIN FACIAL: falha ao gravar o registo facial neste dispositivo.', 'warning');
@@ -165,12 +180,19 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
           : <span>Sem registo facial neste dispositivo. Registe a sua face para poder entrar com o rosto na página de login.</span>}
       </div>
 
+      {/* Flash de sucesso (v37.78.39) */}
+      {sucesso && (
+        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-[10.5px] font-black text-emerald-700 animate-pulse">
+          <CheckCircle2 size={14} className="shrink-0" /> Registo facial concluído — já pode entrar com o rosto na página de login.
+        </div>
+      )}
+
       {/* Fluxo de captura */}
       {capturing ? (
         <div className="mt-4 space-y-3">
           <div className="relative w-full max-w-[280px] aspect-[4/3] mx-auto rounded-2xl overflow-hidden bg-slate-950 border-2 border-[#2563eb]/30">
             {cameraError ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 gap-2">
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 gap-2 z-10">
                 <ScanFace size={26} className="text-sky-400 animate-pulse" />
                 <span className="text-[9.5px] font-black uppercase tracking-widest text-sky-300">Modo simulado (sem câmara)</span>
                 <span className="text-[8.5px] text-slate-400 font-bold leading-snug">Não foi possível aceder à câmara. A assinatura será gerada em modo de demonstração.</span>
@@ -178,8 +200,56 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
             ) : (
               <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
             )}
+
+            {/* v37.78.39 — ANIMAÇÃO DE REGISTO (pedido do dono 2026-08-31):
+                paridade visual com o login facial — silhueta facial, cantoneiras,
+                laser de varredura e overlay «a registar…» em cada captura. */}
+            {!cameraError && (
+              <svg className="absolute inset-0 w-full h-full text-white/15 pointer-events-none" viewBox="0 0 100 75" fill="none">
+                <path d="M50,12 C32,12 32,40 32,54 C32,66 43,71 50,71 C57,71 68,66 68,54 C68,40 68,12 50,12 Z" stroke="currentColor" strokeDasharray="3 4" />
+                <ellipse cx="41" cy="42" rx="3.5" ry="2" stroke="currentColor" />
+                <ellipse cx="59" cy="42" rx="3.5" ry="2" stroke="currentColor" />
+                <path d="M50,45 L50,57 L47,57" stroke="currentColor" />
+                <path d="M42,63 Q50,68 58,63" stroke="currentColor" />
+              </svg>
+            )}
+            <div className="absolute top-2.5 left-2.5 w-4 h-4 border-t-2 border-l-2 border-sky-300 rounded-tl-sm pointer-events-none z-20" />
+            <div className="absolute top-2.5 right-2.5 w-4 h-4 border-t-2 border-r-2 border-sky-300 rounded-tr-sm pointer-events-none z-20" />
+            <div className="absolute bottom-2.5 left-2.5 w-4 h-4 border-b-2 border-l-2 border-sky-300 rounded-bl-sm pointer-events-none z-20" />
+            <div className="absolute bottom-2.5 right-2.5 w-4 h-4 border-b-2 border-r-2 border-sky-300 rounded-br-sm pointer-events-none z-20" />
+            {!isProcessingCapture && (
+              <div
+                className="absolute left-0 right-0 h-1 bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.9)] pointer-events-none z-20"
+                style={{ animation: 'scan-motion 2.5s infinite ease-in-out' }}
+              />
+            )}
+            {isProcessingCapture && (
+              <div className="absolute inset-0 z-30 bg-slate-950/70 flex flex-col items-center justify-center gap-2.5">
+                <Loader2 size={30} className="text-blue-400 animate-spin" />
+                <span className="text-[9.5px] font-black uppercase tracking-[0.2em] text-blue-200 text-center animate-pulse px-3">
+                  {step < 2 ? `A registar a sua face · captura ${step + 1}/3` : 'A compilar o registo facial…'}
+                </span>
+                <div className="w-40 h-1 rounded-full bg-slate-800 overflow-hidden">
+                  <div className="h-full bg-blue-500 rounded-full" style={{ animation: 'cdaFaceBar 0.9s ease-out forwards', transformOrigin: 'left' }} />
+                </div>
+              </div>
+            )}
           </div>
           <canvas ref={canvasRef} className="hidden" />
+          {/* Progresso por passos (v37.78.39) */}
+          <div className="flex items-center justify-center gap-2.5">
+            {STEPS.map((s, i) => (
+              <div key={s} className="flex items-center gap-1.5">
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black border transition-all ${
+                  i < step ? 'bg-emerald-500 border-emerald-500 text-white'
+                  : i === step ? 'bg-blue-600 border-blue-600 text-white animate-pulse'
+                  : 'bg-white border-slate-300 text-slate-400'}`}>
+                  {i < step ? '✓' : i + 1}
+                </span>
+                <span className={`text-[8px] font-black uppercase tracking-wider ${i <= step ? 'text-slate-700' : 'text-slate-300'}`}>{s}</span>
+              </div>
+            ))}
+          </div>
           <p className="text-center text-[10px] font-black uppercase tracking-widest text-[#2563eb]">
             Captura {step + 1} de 3 — {STEPS[step]}
           </p>
@@ -187,16 +257,20 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
             <button
               type="button"
               onClick={cancelEnrollment}
-              className="bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 px-4 py-2.5 rounded-xl font-black text-[9.5px] uppercase tracking-widest transition-all cursor-pointer"
+              disabled={isProcessingCapture}
+              className="bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 px-4 py-2.5 rounded-xl font-black text-[9.5px] uppercase tracking-widest transition-all cursor-pointer disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="button"
               onClick={doCapture}
-              className="bg-[#0E2B64] hover:bg-[#081a3d] text-white px-6 py-2.5 rounded-xl font-black text-[9.5px] uppercase tracking-widest transition-all cursor-pointer border-none flex items-center gap-2"
+              disabled={isProcessingCapture}
+              className="bg-[#0E2B64] hover:bg-[#081a3d] text-white px-6 py-2.5 rounded-xl font-black text-[9.5px] uppercase tracking-widest transition-all cursor-pointer border-none flex items-center gap-2 disabled:opacity-60"
             >
-              <Camera size={13} /> Capturar {step + 1}/3
+              {isProcessingCapture
+                ? <><Loader2 size={13} className="animate-spin" /> A registar…</>
+                : <><Camera size={13} /> Capturar {step + 1}/3</>}
             </button>
           </div>
         </div>
@@ -212,12 +286,17 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
           {template && (
             <button
               type="button"
-              onClick={removeTemplate}
+              onClick={() => setPedirRemocaoFacial(true)}
               className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2"
             >
               <Trash2 size={13} /> Remover registo facial
             </button>
           )}
+        </div>
+      )}
+
+      {/* v37.78.39 — confirmação de remoção agora LIGADA ao botão (antes o
+          modal era código morto e a remoção acontecia sem confirmação). */}
       {pedirRemocaoFacial && (
         <CdaConfirmModal
           aberto
@@ -228,10 +307,6 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
           onConfirmar={() => { setPedirRemocaoFacial(false); removeTemplate(); }}
           onCancelar={() => setPedirRemocaoFacial(false)}
         />
-      )}
-          {simulated === false && cameraError && null}
-          <Loader2 size={0} className="hidden" />
-        </div>
       )}
 
       {/* Aviso demo obrigatório (B6) */}
