@@ -137,7 +137,7 @@ import { resolveStorageUrl } from './lib/secureStorage';
 import { notify } from './lib/notify';
 import { isProfileEditActive } from './lib/profileEditGuard';
 import { useSession, getModePathPrefix } from './services/sessionStore';
-import { computeFaceSignature, computeFaceSignatureAsync, compareFaceSignatures, listDeviceFaceTemplates, faceModeLabel, warmUpFaceDetector } from './services/faceAuth';
+import { computeFaceSignature, computeFaceSignatureAsync, compareFaceSignatures, listDeviceFaceTemplates, faceModeLabel } from './services/faceAuth';
 import { VideoSessionService } from './services/videoSessionService';
 import { useLanguage } from './hooks/useLanguage';
 import { startImagePreloading, subscribeToPreload } from './utils/imagePreloader';
@@ -1844,10 +1844,19 @@ export default function App() {
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        const signature = await computeFaceSignatureAsync(canvas);
-        return { imageDataUrl, signature };
+        // v37.78.43 — VALIDAÇÃO MULTI-FRAME: captura 3 frames com 280ms de
+        // intervalo e devolve as 3 assinaturas (a coerência usa a MELHOR
+        // combinação frame×registo). Um único frame é sensível a vibração/
+        // piscar/illuminação — 3 frames tornam o reconhecimento estável.
+        const signatures: number[][] = [];
+        let imageDataUrl = '';
+        for (let k = 0; k < 3; k += 1) {
+          if (k > 0) await new Promise(r => setTimeout(r, 280));
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          if (!imageDataUrl) imageDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          signatures.push(computeFaceSignature(canvas));
+        }
+        return { imageDataUrl, signature: signatures[0], signatures };
       }
     }
     
@@ -2148,10 +2157,9 @@ export default function App() {
           return;
         }
         setWebcamReady(true);
-        // v37.78.41 — pré-aquece o detector facial em fundo ENQUANTO o
-        // utilizador se posiciona: ao clicar «VALIDAR FACE LOCAL» o modelo
-        // já está carregado e a validação é quase instantânea.
-        void warmUpFaceDetector();
+        // v37.78.43 — sem modelo para pré-aquecer: a assinatura facial é agora
+        // 100% local e determinística (recorte central), imediata em qualquer
+        // máquina/rede.
       } catch (error) {
         console.error('Erro ao abrir câmara de demonstração facial:', error);
         // Fallback to beautiful simulated camera mode!
@@ -6692,17 +6700,28 @@ Ficha civil do titular:
         let melhorDiff = 999;
         let melhorId = '';
         let melhorMode = '';
+        // v37.78.43 — as 3 assinaturas do frame ao vivo × todos os registos:
+        // a MELHOR combinação conta (multi-frame do lado da validação).
+        const capSigs = Array.isArray((captured as any).signatures) && (captured as any).signatures.length
+          ? (captured as any).signatures as number[][]
+          : [captured.signature];
         for (const cand of pool) {
           const sigs = Array.isArray(cand.template?.signatures) && cand.template.signatures.length
             ? cand.template.signatures
             : (Array.isArray(cand.template?.signature) ? [cand.template.signature] : []);
           for (const sig of sigs) {
-            const d = compareFaceSignatures(captured.signature, sig);
-            if (d < melhorDiff) { melhorDiff = d; melhorId = cand.identifier; melhorMode = cand.mode; }
+            for (const cap of capSigs) {
+              const d = compareFaceSignatures(cap, sig);
+              if (d < melhorDiff) { melhorDiff = d; melhorId = cand.identifier; melhorMode = cand.mode; }
+            }
           }
         }
 
-        if (melhorDiff > 22) {
+        // v37.78.43 — limiar de coerência 22 → 26: com a pipeline única
+        // (recorte central sempre) o par registo/login já é comparável;
+        // 26 perdoa a variação natural de luz/pose entre sessões sem abrir
+        // porta a rostos aleatórios (assinaturas disparadas pontuam 60+).
+        if (melhorDiff > 26) {
           setIsFaceScanning(false);
           setFaceProgress(0);
           setFaceCaptureHint('Rosto não reconhecido neste dispositivo.');

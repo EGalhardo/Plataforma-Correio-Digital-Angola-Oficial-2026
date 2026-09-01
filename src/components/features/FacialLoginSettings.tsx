@@ -14,7 +14,7 @@ import { CdaConfirmModal } from '../ui/CdaConfirm';
 import { ScanFace, ShieldCheck, Trash2, Camera, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import {
   buildFaceStorageKey, readFaceTemplate, computeFaceSignatureAsync,
-  makeSimulatedSignature, warmUpFaceDetector, type FaceTemplate
+  makeSimulatedSignature, type FaceTemplate
 } from '../../services/faceAuth';
 
 interface FacialLoginSettingsProps {
@@ -67,10 +67,8 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
         }
         await new Promise(resolve => setTimeout(resolve, 150));
       }
-      // v37.78.41 — pré-aquece o detector em fundo enquanto o utilizador se
-      // posiciona: as 3 capturas ficam quase instantâneas (o modelo deixou de
-      // ser descoberto/baixado a CADA captura).
-      void warmUpFaceDetector();
+      // v37.78.43 — sem modelo para pré-aquecer: a assinatura é 100% local
+      // (recorte central determinístico), imediata em qualquer máquina.
     } catch {
       // Sem câmara: via simulada (mesmo espírito do login demo) — o utilizador
       // confirma cada captura e o sistema gera uma assinatura sintética.

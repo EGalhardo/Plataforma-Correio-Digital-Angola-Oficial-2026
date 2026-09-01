@@ -120,64 +120,21 @@ export const computeFaceSignature = (source: HTMLCanvasElement | HTMLVideoElemen
 };
 
 /**
- * v37.78.41 — CACHE DO DETECTOR BLAZEFACE. Antes cada chamada de
- * computeFaceSignatureAsync fazia `import` + `blazeface.load()` — o que
- * descobre/baixa os pesos do modelo A CADA CAPTURA (3× no registo + 1× no
- * login = segundos de espera em cada uso, a causa principal da lentidão
- * relatada pelo dono). Agora o modelo carrega UMA vez por sessão.
- * A falha também fica cacheada durante a sessão: assim o registo e o login
- * usam SEMPRE o mesmo caminho (modelo ou corte central) e as assinaturas
- * ficam comparáveis entre si.
+ * v37.78.43 — PIPELINE ÚNICA E DETERMINÍSTICA de assinatura facial.
+ * História: existiam DOIS caminhos — recorte pela caixa do detector
+ * BlazeFace (quando o modelo carregava) e recorte central de 70% (fallback).
+ * Se o registo usava um caminho e o login outro (modelo disponível numa
+ * sessão, indisponível na seguinte — rede/WebGL), as assinaturas eram
+ * INCOMPARÁVEIS e a coerência falhava («não corresponde», diff > limiar)
+ * mesmo com o rosto certo. A assinatura passa a ser SEMPRE o recorte
+ * central (o ecrã orienta o utilizador a centrar o rosto na moldura),
+ * idêntica no registo e no login, em qualquer máquina/rede — e de caminho
+ * deixa de descarregar o modelo (primeira captura mais rápida).
+ * Mantém-se o nome async por compatibilidade de chamadas.
  */
-type BlazefaceLike = { estimateFaces: (img: unknown, returnTensors?: boolean) => Promise<unknown[]> };
-let blazefaceModelPromise: Promise<BlazefaceLike | null> | null = null;
-const getBlazefaceModel = (): Promise<BlazefaceLike | null> => {
-  if (!blazefaceModelPromise) {
-    blazefaceModelPromise = (async () => {
-      try {
-        const blazeface = await import('@tensorflow-models/blazeface');
-        return (await blazeface.load()) as BlazefaceLike;
-      } catch (e) {
-        console.warn('[FACE-AUTH] BlazeFace indisponível nesta sessão (sem rede/modelo) — será usado o corte central:', e);
-        return null;
-      }
-    })();
-  }
-  return blazefaceModelPromise;
-};
-
-/** Pré-aquece o detector (chamar quando a câmara abre, em fundo, sem bloquear). */
-export const warmUpFaceDetector = async (): Promise<boolean> => !!(await getBlazefaceModel());
-
-/** Assinatura assíncrona inteligente: aciona o modelo leve BlazeFace sob demanda para centralizar o rosto perfeitamente. */
 export const computeFaceSignatureAsync = async (
   source: HTMLCanvasElement | HTMLVideoElement
-): Promise<number[]> => {
-  try {
-    const model = await getBlazefaceModel();
-    if (model) {
-      const preds = (await model.estimateFaces(source, false)) as Array<{ topLeft?: [number, number]; bottomRight?: [number, number] }>;
-      if (preds && preds.length > 0) {
-        const face = preds[0];
-        const topLeft = face.topLeft;
-        const bottomRight = face.bottomRight;
-        if (topLeft && bottomRight) {
-          const bbox: [number, number, number, number] = [
-            topLeft[0],
-            topLeft[1],
-            bottomRight[0],
-            bottomRight[1]
-          ];
-          const canvas32 = extractCenteredCanvas(source, bbox);
-          return computeFaceSignatureFromCanvas(canvas32);
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('[FACE-AUTH] BlazeFace indisponível, fallback para corte central:', e);
-  }
-  return computeFaceSignature(source);
-};
+): Promise<number[]> => computeFaceSignature(source);
 
 /** Comparação vetorial de assinaturas faciais com retrocompatibilidade para moldes legados de 256 pontos (16x16). */
 export const compareFaceSignatures = (a: number[], b: number[]): number => {

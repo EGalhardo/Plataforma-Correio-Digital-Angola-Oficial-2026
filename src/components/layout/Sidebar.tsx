@@ -102,9 +102,11 @@ export function Sidebar({
     }`}>
       <div className="mb-8 px-4">
         {/* v37.78.33 — LOGOMARCA ÚNICA: a mesma imagem nos dois temas (claro e
-            escuro), a pedido do dono — caixa fixa (h-12 = 48px) com rácio
-            preservado (1280×349); sem estilos condicionais de tema. */}
-        <div className="w-full flex items-center" style={{ height: '48px' }}>
+            escuro), a pedido do dono — caixa fixa com rácio preservado
+            (1280×349); sem estilos condicionais de tema.
+            v37.78.43 — reduzida 20% de forma proporcional a pedido do dono
+            (2026-09-01): 48px → 38,4px de altura, largura automática. */}
+        <div className="w-full flex items-center" style={{ height: '38.4px' }}>
           <LazyImage
             src={logoSidebar}
             alt="Correio Digital"
