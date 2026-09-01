@@ -137,7 +137,7 @@ import { resolveStorageUrl } from './lib/secureStorage';
 import { notify } from './lib/notify';
 import { isProfileEditActive } from './lib/profileEditGuard';
 import { useSession, getModePathPrefix } from './services/sessionStore';
-import { computeFaceSignature, computeFaceSignatureAsync, compareFaceSignatures } from './services/faceAuth';
+import { computeFaceSignature, computeFaceSignatureAsync, compareFaceSignatures, listDeviceFaceTemplates, faceModeLabel } from './services/faceAuth';
 import { VideoSessionService } from './services/videoSessionService';
 import { useLanguage } from './hooks/useLanguage';
 import { startImagePreloading, subscribeToPreload } from './utils/imagePreloader';
@@ -1371,6 +1371,8 @@ export default function App() {
   const [faceProgress, setFaceProgress] = useState(0);
   const [isFaceScanning, setIsFaceScanning] = useState(false);
   const [demoFaceTemplateLoaded, setDemoFaceTemplateLoaded] = useState(false);
+  // v37.78.40 — total de registos faciais guardados neste dispositivo (todas as áreas)
+  const [deviceFaceCount, setDeviceFaceCount] = useState(0);
   const [demoFaceTemplateMeta, setDemoFaceTemplateMeta] = useState<{ capturedAt: string; identifier: string } | null>(null);
   const [faceCaptureHint, setFaceCaptureHint] = useState('Posicione o rosto no centro da moldura.');
   const [faceCaptureError, setFaceCaptureError] = useState<string | null>(null);
@@ -2111,6 +2113,9 @@ export default function App() {
       const stored = readStoredDemoFace();
       setDemoFaceTemplateLoaded(!!stored);
       setDemoFaceTemplateMeta(stored ? { capturedAt: stored.capturedAt, identifier: stored.identifier } : null);
+      // v37.78.40 — inventário do dispositivo: quantos rostos estão guardados
+      // localmente (todas as áreas) — usado na linha de estado do login facial.
+      try { setDeviceFaceCount(listDeviceFaceTemplates().length); } catch { setDeviceFaceCount(0); }
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
@@ -6611,12 +6616,35 @@ Ficha civil do titular:
       setFaceCaptureError(null);
       setFaceProgress(20);
       setIsFaceScanning(true);
-      
-      setFaceCaptureHint(demoFaceTemplateLoaded
-        ? 'A comparar o rosto capturado com o registo facial local (página Conta)...'
-        : 'Rosto ainda não registado para esta identidade neste dispositivo.');
 
-      addAuditLog(`Iniciou verificação biométrica facial no portal (modo ${demoFaceTemplateLoaded ? 'login' : 'sem registo'})`, 'info');
+      // v37.78.40 — RESOLUÇÃO ROBUSTA do registo facial. Antes: só a chave
+      // exacta (área seleccionada + identidade digitada) era consultada; se o
+      // registo foi feito noutra área, ou o campo estava vazio (caía no id demo),
+      // o login dizia «Rosto não registado» MESMO com registo válido no
+      // dispositivo. Agora: (1) chave exacta → (2) mesma identidade em qualquer
+      // área → (3) o rosto capturado é comparado com TODAS as matrizes faciais
+      // guardadas neste dispositivo («entrar apenas com o rosto»).
+      const normTyped = bi.trim().toUpperCase().replace(/\s+/g, '');
+      const demoIdAlvo = (DEMO_CREDENTIALS[appMode]?.identifier || '').toUpperCase().replace(/\s+/g, '');
+      let deviceFaces: ReturnType<typeof listDeviceFaceTemplates> = [];
+      try { deviceFaces = listDeviceFaceTemplates(); } catch { deviceFaces = []; }
+      let stored: ReturnType<typeof readStoredDemoFace> = readStoredDemoFace();
+      if (!stored && normTyped && normTyped !== demoIdAlvo) {
+        const porId = deviceFaces.find(f => f.identifier === normTyped);
+        if (porId) stored = porId.template;
+      }
+      const pool: { mode: string; identifier: string; template: ReturnType<typeof readStoredDemoFace> }[] = stored
+        ? [{ mode: appMode, identifier: normTyped || '', template: stored }]
+        : deviceFaces.map(f => ({ mode: f.mode, identifier: f.identifier, template: f.template }));
+      setDeviceFaceCount(deviceFaces.length);
+
+      setFaceCaptureHint(pool.length === 1
+        ? 'A comparar o rosto capturado com o registo facial local (página Conta)...'
+        : pool.length > 1
+          ? `A comparar o rosto com os ${pool.length} registos faciais guardados neste dispositivo...`
+          : 'Rosto ainda não registado para esta identidade neste dispositivo.');
+
+      addAuditLog(`Iniciou verificação biométrica facial no portal (${pool.length ? `${pool.length} registo(s) local(is)` : 'sem registo no dispositivo'})`, 'info');
 
       const finalize = (progress: number) => new Promise(resolve => setTimeout(() => {
         setFaceProgress(progress);
@@ -6626,33 +6654,64 @@ Ficha civil do titular:
       await finalize(45);
       await finalize(75);
 
-      if (demoFaceTemplateLoaded) {
-        const stored = readStoredDemoFace();
-        let diff = 999;
-        
-        if (stored?.signatures && Array.isArray(stored.signatures)) {
-          // Compare against all 3 registered signatures and find the best match
-          const diffs = stored.signatures.map((sig: number[]) => compareFaceSignatures(captured.signature, sig));
-          diff = Math.min(...diffs);
-        } else if (stored?.signature) {
-          diff = compareFaceSignatures(captured.signature, stored.signature);
+      if (pool.length) {
+        let melhorDiff = 999;
+        let melhorId = '';
+        let melhorMode = '';
+        for (const cand of pool) {
+          const sigs = Array.isArray(cand.template?.signatures) && cand.template.signatures.length
+            ? cand.template.signatures
+            : (Array.isArray(cand.template?.signature) ? [cand.template.signature] : []);
+          for (const sig of sigs) {
+            const d = compareFaceSignatures(captured.signature, sig);
+            if (d < melhorDiff) { melhorDiff = d; melhorId = cand.identifier; melhorMode = cand.mode; }
+          }
         }
 
-        if (!stored || diff > 22) {
+        if (melhorDiff > 22) {
           setIsFaceScanning(false);
           setFaceProgress(0);
           setFaceCaptureHint('Rosto não reconhecido neste dispositivo.');
-          setFaceCaptureError('A validação facial local falhou. Tente novamente ou registe um novo rosto de demonstração.');
-          addAuditLog(`DEMO_FACE_LOGIN_FAIL: Correspondência local não validada para ${appMode}`, 'warning');
+          // v37.78.40 — a mensagem lista QUEM tem registo facial guardado neste
+          // dispositivo, para o utilizador ver logo onde estão os dados.
+          const lista = deviceFaces
+            .map(f => `${faceModeLabel(f.mode)} · ${f.identifier}${f.template?.capturedAt ? ` (${f.template.capturedAt})` : ''}`)
+            .join(' · ');
+          setFaceCaptureError(lista
+            ? `A face capturada não corresponde a nenhum dos ${deviceFaces.length} registo(s) facial(is) guardado(s) neste dispositivo: ${lista}. Posicione-se bem à luz e tente novamente — ou abra a página Conta (Perfil) e toque em «Registar a minha face».`
+            : 'A validação facial local falhou. Tente novamente ou registe um novo rosto de demonstração.');
+          addAuditLog(`DEMO_FACE_LOGIN_FAIL: Correspondência local não validada (melhor diff ${Math.round(melhorDiff)} > 22 em ${deviceFaces.length} registo(s))`, 'warning');
           return;
         }
+
+        // SOC-AN-2026 — o bloqueio de emergência aplica-se também à identidade
+        // RECONHECIDA pela varredura local (não apenas à digitada).
+        if (emergencyMode && !isInstMode && !isGovMode && (melhorId.includes('002931298') || melhorId.includes('EDLASIO') || profileName.toLowerCase().includes('edlasio'))) {
+          setIsFaceScanning(false);
+          setFaceProgress(0);
+          setLoginError('Autenticação Biométrica Recusada: chaves faciais bloqueadas temporariamente ao abrigo do protocolo SOC-AN-2026.');
+          addAuditLog('Interrupção de segurança: reconhecimento facial local recusado (SOC-AN-2026)', 'critical');
+          return;
+        }
+
+        // v37.78.40 — reconhecido: assume a identidade e a ÁREA certas (corrige
+        // o caso «registou como Cidadão, tentou entrar na área errada»).
+        if (melhorId && melhorId !== normTyped) {
+          setBi(melhorId);
+          addAuditLog(`Login facial: rosto reconhecido como ${faceModeLabel(melhorMode)} ${melhorId} — identidade assumida automaticamente.`, 'info');
+        }
+        if (melhorMode && melhorMode !== appMode) {
+          setAppMode(melhorMode as typeof appMode);
+          addAuditLog(`Login facial: área corrigida automaticamente para ${faceModeLabel(melhorMode)} (registo facial encontrado noutra área).`, 'info');
+        }
+
         setFaceCaptureHint('Rosto reconhecido com sucesso no dispositivo.');
         await finalize(100);
         setIsFaceScanning(false);
-        addAuditLog(`DEMO_FACE_LOGIN_SUCCESS: Correspondência facial validada localmente para ${appMode}`, 'success');
+        addAuditLog(`DEMO_FACE_LOGIN_SUCCESS: Correspondência facial validada localmente (${faceModeLabel(melhorMode)} · ${melhorId})`, 'success');
         // F31 (v12/D6): a face apenas DESBLOQUEIA a sessão — a biometria nunca sai
         // do dispositivo; se já existir sessão nuvem, fica confirmada (best-effort).
-        if (!homologationStore.isExempt(bi.trim().toUpperCase()) && isSupabaseConfigured()) {
+        if (!homologationStore.isExempt((melhorId || bi).trim().toUpperCase()) && isSupabaseConfigured()) {
           void hasActiveCloudSession(supabase).then((active) => {
             if (active) addAuditLog('[AUTH-CLOUD] Login facial (D6): sessão nuvem confirmada neste dispositivo.', 'info');
           }).catch(() => { /* verificação de sessão é não-crítica */ });
@@ -6668,7 +6727,7 @@ Ficha civil do titular:
       // v37.78.39 — mensagem melhorada a pedido do dono (2026-08-31): diz
       // exactamente O QUE falta fazer e COMO activar o Login Facial.
       setFaceCaptureError('Ainda não existe registo facial para esta identidade. Entre com as suas credenciais (BI e senha), abra a página Conta (Perfil) e toque em «Registar a minha face» — a partir daí o Login Facial reconhece-o e o senhor entra apenas com o rosto.');
-      addAuditLog(`DEMO_FACE_NO_TEMPLATE: login facial tentado sem registo na página Conta (${appMode})`, 'info');
+      addAuditLog(`DEMO_FACE_NO_TEMPLATE: login facial tentado sem registo na página Conta (${appMode}; 0 registos no dispositivo)`, 'info');
     };
 
 
@@ -7637,7 +7696,9 @@ Ficha civil do titular:
                             ? `${t("A processar")}: ${faceProgress}%`
                             : demoFaceTemplateLoaded
                               ? t("Pronto para validação local")
-                              : t("Rosto não registado — registe na página Conta (Perfil)")}
+                              : deviceFaceCount > 0
+                                ? t(`${deviceFaceCount} registo(s) facial(is) neste dispositivo — pode validar com o rosto`)
+                                : t("Rosto não registado — registe na página Conta (Perfil)")}
                       </span>
                     </div>
                     <p className="text-slate-400 text-[10.5px] font-semibold">

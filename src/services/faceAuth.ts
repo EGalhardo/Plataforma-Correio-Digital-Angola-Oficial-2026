@@ -194,6 +194,46 @@ export const readFaceTemplate = (storageKey: string): FaceTemplate | null => {
   } catch { return null; }
 };
 
+/**
+ * v37.78.40 — inventário de TODAS as matrizes faciais guardadas neste
+ * dispositivo (localStorage do navegador). O login facial usa isto para:
+ *   (a) encontrar o registo quando a identidade foi registada noutra área
+ *       (ex.: registou como Cidadão e abriu a área Institucional/Admin);
+ *   (b) validar o rosto contra todos os registos locais quando o campo de
+ *       identidade está vazio — «entrar apenas com o rosto»;
+ *   (c) listar ao utilizador QUEM tem registo facial guardado no dispositivo.
+ */
+export interface DeviceFaceRecord {
+  key: string;
+  mode: string;        // 'user' | 'institution' | 'admin'
+  identifier: string;  // BI / Nº Agente normalizado
+  template: FaceTemplate;
+}
+
+export const listDeviceFaceTemplates = (): DeviceFaceRecord[] => {
+  const out: DeviceFaceRecord[] = [];
+  try {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith('cda_demo_face_')) continue;
+      const m = key.match(/^cda_demo_face_([a-z]+)_(.+)$/i);
+      if (!m) continue;
+      try {
+        const template = readFaceTemplate(key);
+        if (template && (Array.isArray(template.signatures) || Array.isArray(template.signature))) {
+          out.push({ key, mode: m[1].toLowerCase(), identifier: m[2], template });
+        }
+      } catch { /* registo corrompido — ignorar */ }
+    }
+  } catch { /* armazenamento indisponível */ }
+  return out;
+};
+
+/** Rótulo humano da área para mensagens ao utilizador. */
+export const faceModeLabel = (mode: string): string =>
+  mode === 'institution' ? 'Institucional' : mode === 'admin' ? 'Administração' : 'Cidadão';
+
+
 /** Assinatura simulada determinística de alta resolução (2048 pontos) para o modo sem câmara. */
 export const makeSimulatedSignature = (seed: number): number[] => {
   const out: number[] = [];

@@ -51,6 +51,7 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
     setStep(0);
     setSimulated(false);
     setCameraError(false);
+    setErroGravacao(null);
     setCapturing(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
@@ -83,6 +84,8 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
   const [isProcessingCapture, setIsProcessingCapture] = useState(false);
   // v37.78.39 — feedback animado de sucesso após gravar o template
   const [sucesso, setSucesso] = useState(false);
+  // v37.78.40 — erro de gravação VISÍVEL (armazenamento bloqueado/cheio)
+  const [erroGravacao, setErroGravacao] = useState<string | null>(null);
 
   const doCapture = async () => {
     if (isProcessingCapture) return;
@@ -102,7 +105,15 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
         if (ctx) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           signature = await computeFaceSignatureAsync(canvas);
-          imageDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          // v37.78.40 — a foto guardada é uma MINIATURA (máx. 320px, JPEG
+          // leve): câmaras reais a 720p/1080p geravam fotos grandes que podiam
+          // encher a cota do localStorage e fazer a gravação falhar.
+          const thumb = document.createElement('canvas');
+          const esc = Math.min(1, 320 / Math.max(canvas.width, canvas.height));
+          thumb.width = Math.max(1, Math.round(canvas.width * esc));
+          thumb.height = Math.max(1, Math.round(canvas.height * esc));
+          thumb.getContext('2d')?.drawImage(canvas, 0, 0, thumb.width, thumb.height);
+          imageDataUrl = thumb.toDataURL('image/jpeg', 0.72);
         }
       }
       if (!signature.length) {
@@ -138,14 +149,25 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
       };
       try {
         localStorage.setItem(storageKey, JSON.stringify(payload));
+        // v37.78.40 — verificação por RELEITURA: só anuncia sucesso se o
+        // registo ficou mesmo gravado no dispositivo.
+        const verificado = readFaceTemplate(storageKey);
+        if (!verificado) {
+          throw new Error('releitura vazia');
+        }
         setTemplate(payload);
-        onAudit?.(`LOGIN FACIAL: rosto registado na página Conta (${mode} · ${payload.identifier}).`, 'success');
+        setErroGravacao(null);
+        onAudit?.(`LOGIN FACIAL: rosto registado na página Conta (${mode} · ${payload.identifier}) — guardado no armazenamento local deste navegador.`, 'success');
         // v37.78.39 — flash de sucesso animado (3s)
         setSucesso(true);
         setTimeout(() => setSucesso(false), 3000);
       } catch (e) {
         console.warn('[FacialLoginSettings] Falha ao gravar template local:', e);
-        onAudit?.('LOGIN FACIAL: falha ao gravar o registo facial neste dispositivo.', 'warning');
+        setTemplate(null);
+        // v37.78.40 — erro VISÍVEL (antes era silencioso: o utilizador pensava
+        // que tinha registado e o login facial depois dizia «não registado»).
+        setErroGravacao('Não foi possível guardar o registro facial neste dispositivo — o armazenamento do navegador está bloqueado (modo privado/cookies bloqueados) ou sem espaço. Active o armazenamento local no navegador e toque novamente em «Registar a minha face».');
+        onAudit?.('LOGIN FACIAL: FALHA ao gravar o registo facial neste dispositivo (armazenamento bloqueado ou cheio).', 'warning');
       }
       cancelEnrollment();
     } finally {
@@ -180,10 +202,28 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
           : <span>Sem registo facial neste dispositivo. Registe a sua face para poder entrar com o rosto na página de login.</span>}
       </div>
 
+      {/* v37.78.40 — ONDE o registo ficou guardado (transparência total para o
+          utilizador: identidade + área + armazenamento local do navegador). */}
+      {template && (
+        <p className="mt-2 text-[9px] text-slate-400 font-bold leading-snug flex items-start gap-1.5">
+          <ShieldCheck size={11} className="shrink-0 mt-0.5 text-emerald-400" />
+          Guardado na memória deste dispositivo (armazenamento local do navegador) para:
+          <strong className="font-black">{mode === 'institution' ? 'Institucional' : mode === 'admin' ? 'Administração' : 'Cidadão'} · {template.identifier}</strong>.
+          Não é enviado para a internet.
+        </p>
+      )}
+
+      {/* v37.78.40 — erro de gravação VISÍVEL (armazenamento bloqueado/cheio) */}
+      {erroGravacao && (
+        <div className="mt-3 flex items-start gap-2 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-[10px] font-black text-rose-700 leading-relaxed">
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" /> {erroGravacao}
+        </div>
+      )}
+
       {/* Flash de sucesso (v37.78.39) */}
       {sucesso && (
         <div className="mt-3 flex items-center gap-2 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-[10.5px] font-black text-emerald-700 animate-pulse">
-          <CheckCircle2 size={14} className="shrink-0" /> Registo facial concluído — já pode entrar com o rosto na página de login.
+          <CheckCircle2 size={14} className="shrink-0" /> Registo facial guardado neste dispositivo — já pode entrar com o rosto na página de login.
         </div>
       )}
 
