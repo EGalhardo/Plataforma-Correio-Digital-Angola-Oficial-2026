@@ -2284,6 +2284,35 @@ export default function App() {
               }
             }
           }
+          // v37.78.42 — REESTABELECIMENTO DA SESSÃO DA NUVEM no login facial
+          // (bug do dono 2026-09-01: «após o login facial a página não exibe
+          // todas as correspondências»). O login por senha faz cloudSignIn e
+          // todas as leituras do correio oficial sobem pelo proxy do servidor
+          // (service role); o login facial NÃO assinava a nuvem — com a sessão
+          // morta pelo logout, as leituras caíam na via DIRECTA (RLS) e a caixa
+          // de entrada ficava VAZIA. Restabelece a sessão com a credencial
+          // local guardada neste dispositivo (mesmo padrão do restauro admin),
+          // ANTES de entrar, para o carregamento de dados usar o caminho certo.
+          if (!isInstMode && !isGovMode) {
+            const faceBiCloud = bi.trim().toUpperCase().replace(/\s+/g, '');
+            if (faceBiCloud && !homologationStore.isExempt(faceBiCloud) && isSupabaseConfigured()) {
+              try {
+                const localPass = (() => { try { return localStorage.getItem(`citizen_pass_${faceBiCloud}`); } catch { return null; } })();
+                if (localPass) {
+                  const rCloud = await cloudSignIn(supabase, syntheticCitizenEmail(faceBiCloud), localPass);
+                  if (rCloud.outcome === 'ok') {
+                    addAuditLog(`[AUTH-CLOUD] Login facial (${faceBiCloud}): sessão da nuvem restabelecida com a credencial local — correio oficial completo.`, 'success');
+                  } else {
+                    addAuditLog(`[AUTH-CLOUD] Login facial (${faceBiCloud}): não foi possível restabelecer a sessão da nuvem (${rCloud.outcome}) — o correio oficial pode ficar incompleto; entre uma vez com BI e senha para actualizar a credencial.`, 'warning');
+                  }
+                } else {
+                  addAuditLog(`[AUTH-CLOUD] Login facial (${faceBiCloud}): sem credencial local da nuvem — o correio oficial pode ficar incompleto; entre uma vez com BI e senha para a criar.`, 'warning');
+                }
+              } catch (eCloudFace) {
+                console.warn('[AUTH-CLOUD] Falha ao restabelecer a sessão no login facial (não bloqueia a entrada):', eCloudFace);
+              }
+            }
+          }
           await applyIdentityForLoggedUser();
           stopLoginFaceCamera();
           if (isGovMode) setTab('gov-dashboard');
@@ -7011,6 +7040,11 @@ Ficha civil do titular:
           const cloudRes = await cloudSignIn(supabase, cloudEmail, loginPasswordInput);
           if (cloudRes.outcome === 'ok') {
             if (!cloudMarked) markCloudAccount(typedCitizenBi, cloudEmail, 'cidadao');
+            // v37.78.42 — espelho local da credencial (o mesmo padrão do
+            // auto-registo e da troca de senha): permite ao LOGIN FACIAL
+            // restabelecer a sessão da nuvem neste dispositivo, para o correio
+            // oficial carregar completo também depois de entrar com o rosto.
+            try { localStorage.setItem(`citizen_pass_${typedCitizenBi}`, loginPasswordInput); } catch { /* sem espaço — segue sem espelho */ }
             addAuditLog(`[AUTH-CLOUD] Login do cidadão ${typedCitizenBi} validado na nuvem (Supabase Auth) — a palavra-passe foi verificada pela plataforma, não pela aplicação.`, 'success');
           } else if (cloudRes.outcome === 'invalid') {
             const wrongPassMsg = 'Credenciais incorrectas: a senha não corresponde a este Nº de B.I.';
