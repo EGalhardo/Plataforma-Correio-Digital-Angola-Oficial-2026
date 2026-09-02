@@ -4,7 +4,7 @@
  */
 
 import { motion } from 'motion/react';
-import { Home, Mail, QrCode, Users, User, BarChart3, Shield, FileText, Landmark, Settings, Bot, Lock } from 'lucide-react';
+import { Home, Mail, QrCode, Users, User, BarChart3, Shield, FileText, Landmark, Settings, Bot } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 import { Message, Document, AppMode, LanguageCode } from '../../types';
 import { useSession } from '../../services/sessionStore';
@@ -122,15 +122,14 @@ export function MobileNavBar({
           <div className={`transition-all duration-300 ${tab === id ? 'scale-110' : 'scale-100'}`}>
             <Icon size={19} strokeWidth={tab === id ? '2.5' : '2'} />
           </div>
-          <span className={`text-[8px] font-black uppercase tracking-tight transition-all ${inativo ? 'opacity-50' : tab === id ? 'opacity-100' : 'opacity-60'}`}>
+          <span className={`text-[8px] font-black uppercase tracking-tight transition-all ${inativo ? 'opacity-50' : tab === id ? 'opacity-100' : 'opacity-60'} flex items-center gap-1 flex-wrap justify-center`}>
             {translate(label)}
+            {inativo && (
+              <span className="text-[7px] font-bold text-red-400">
+                (Sem Acesso)
+              </span>
+            )}
           </span>
-          {semPermissao && (
-            <span className="absolute -top-0.5 right-0.5 text-[6px] font-black uppercase text-red-400 bg-white/90 px-0.5 rounded">
-              🔒
-            </span>
-          )}
-          {bloqueado && !semPermissao && <Lock size={10} className="absolute -top-0.5 right-1.5 text-slate-300" />}
           {tab === id && (
             <motion.div layoutId="activeTab" className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-1 rounded-b-full bg-indigo-600" />
           )}

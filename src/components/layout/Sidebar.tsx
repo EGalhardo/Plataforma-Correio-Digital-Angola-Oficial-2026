@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Home, Mail, QrCode, Users, User, LogOut, Landmark, BarChart3, Shield, Settings, FileText, Bot, Lock } from 'lucide-react';
+import { Home, Mail, QrCode, Users, User, LogOut, Landmark, BarChart3, Shield, Settings, FileText, Bot } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 import { Message, Document, AppMode, LanguageCode } from '../../types';
 import { useSession } from '../../services/sessionStore';
@@ -156,14 +156,14 @@ export function Sidebar({
             }`}
           >
             <Icon size={16} className={inativo ? 'text-slate-300' : tab === id ? 'text-indigo-600' : 'text-slate-600'} />
-            <span className="text-xs tracking-tight">{translate(label)}</span>
-            {semPermissao && (
-              <span className="ml-auto shrink-0 text-[8px] font-black uppercase tracking-widest text-red-400 flex items-center gap-1">
-                <Lock size={9} className="text-red-400" />
-                {translate('Sem Acesso')}
-              </span>
-            )}
-            {bloqueado && !semPermissao && <Lock size={12} className="ml-auto shrink-0 text-slate-300" />}
+            <span className="text-xs tracking-tight flex items-center gap-1 flex-wrap">
+              {translate(label)}
+              {(semPermissao || bloqueado) && (
+                <span className="text-[9px] font-bold text-red-400">
+                  (Sem Acesso)
+                </span>
+              )}
+            </span>
           </button>
           );
         })}
