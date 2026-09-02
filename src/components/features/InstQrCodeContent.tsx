@@ -101,6 +101,13 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
 
   // Scanner - Camera State
   const [cameraRunning, setCameraRunning] = useState(false);
+  // 2026-09-02 — CAMERA SWITCH (Mobile): estado para alternar entre câmera
+  // frontal (user/selfie) e traseira (environment) em dispositivos com
+  // múltiplas câmeras (telemóveis, tablets). 'environment' é o padrão
+  // (ideal para ler QR Codes em papéis/objetos); 'user' é útil quando o
+  // utilizador precisa de ler um QR exibido no próprio dispositivo ou em
+  // tablets montados em suportes fixos.
+  const [cameraFacingMode, setCameraFacingMode] = useState<'environment' | 'user'>('environment');
   // QRCode Module - loaded dynamically
   const [qrCode, setQrCode] = useState<any>(null);
 
@@ -345,8 +352,11 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
           // com câmara virtual; a via Ficheiro nunca foi afetada).
           // A resolução alta (para QRs exibidos em ecrãs) passa a ir em
           // videoConstraints (passado diretamente ao getUserMedia).
+          // 2026-09-02 — CAMERA SWITCH: facingMode agora é dinâmico (controlado
+          // pelo estado cameraFacingMode), permitindo alternar entre câmera
+          // traseira e frontal em dispositivos mobile/tablet.
           await html5QrCode.start(
-            { facingMode: "environment" },
+            { facingMode: cameraFacingMode },
             {
               fps: 15,
               aspectRatio: 1.0,
@@ -355,7 +365,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
                 // getUserMedia (MediaStreamConstraints), embora o .d.ts o
                 // tipe erradamente como MediaTrackConstraints — daí o cast.
                 video: {
-                  facingMode: "environment",
+                  facingMode: cameraFacingMode,
                   width: { ideal: 1920 },
                   height: { ideal: 1080 },
                 },
@@ -403,7 +413,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
     return () => {
       active = false;
     };
-  }, [cameraRunning]);
+  }, [cameraRunning, cameraFacingMode]);
 
   // Automatically turn off camera when switching tabs or views
   useEffect(() => {
@@ -443,6 +453,36 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
       qrReaderRef.current = null;
     }
     setCameraRunning(false);
+  };
+
+  // 2026-09-02 — Alternar entre câmera frontal e traseira (mobile-friendly).
+  // Para a câmera atual, altera o facingMode, e o useEffect de inicialização
+  // reinicia automaticamente a câmera com a nova configuração (pois
+  // cameraFacingMode está nas dependências). Feedback visual via toast.
+  const toggleCameraFacingMode = async () => {
+    const newFacingMode = cameraFacingMode === 'environment' ? 'user' : 'environment';
+    // Para a câmera atual (o useEffect vai reiniciá-la com o novo facingMode)
+    stopJsQrLoop();
+    if (qrReaderRef.current) {
+      if (qrReaderRef.current.isScanning) {
+        try {
+          await qrReaderRef.current.stop();
+        } catch (e) {
+          console.warn("Error stopping scanner instance during toggle:", e);
+        }
+      }
+      qrReaderRef.current = null;
+    }
+    // Altera o facingMode — o useEffect reinicia a câmera automaticamente
+    setCameraFacingMode(newFacingMode);
+    // Mantém a câmera a correr (setCameraRunning já está true; o useEffect
+    // dispara porque cameraFacingMode mudou)
+    showToast(
+      newFacingMode === 'user'
+        ? '📸 Câmara frontal activada (selfie)'
+        : '📸 Câmara traseira activada',
+      'info'
+    );
   };
 
   const parseStructuredPayload = (raw: string) => {
@@ -1484,13 +1524,28 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
                   <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-2.5 text-[11px] font-semibold max-w-md text-center leading-relaxed">
                     💡 Não consegue ler o QR da câmara? Use o separador <strong>Ficheiro</strong> para carregar a imagem do QR Code — o sistema localiza a correspondência/documento digital na mesma.
                   </div>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); stopCamera(); }}
-                    className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-3 px-8 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-xs"
-                  >
-                    <span className="w-2 h-2 bg-rose-600 rounded-full animate-ping"></span>
-                    Parar Captação
-                  </button>
+                  {/* 2026-09-02 — BOTÃO DE ALTERNÂNCIA CÂMARA FRONTAL/TRASEIRA
+                      (mobile-first): permite ao utilizador mudar entre a
+                      câmara traseira (padrão, ideal para ler QRs em papéis)
+                      e a câmara frontal (útil em tablets montados ou para
+                      ler QRs exibidos no próprio dispositivo). */}
+                  <div className="flex gap-2 flex-wrap justify-center">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleCameraFacingMode(); }}
+                      className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 py-3 px-5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-xs active:scale-95"
+                      title={cameraFacingMode === 'environment' ? 'Mudar para câmara frontal (selfie)' : 'Mudar para câmara traseira'}
+                    >
+                      <Camera className="w-4 h-4" />
+                      {cameraFacingMode === 'environment' ? '📷 Mudar p/ Frontal' : '🤳 Mudar p/ Traseira'}
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); stopCamera(); }}
+                      className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-3 px-8 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-xs"
+                    >
+                      <span className="w-2 h-2 bg-rose-600 rounded-full animate-ping"></span>
+                      Parar Captação
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
