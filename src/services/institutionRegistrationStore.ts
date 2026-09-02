@@ -230,22 +230,152 @@ export const initialLetter = (place?: string): string => {
 };
 
 /**
- * F6/B2 — Código Institucional: SIGLA (alfanumérica, máx. 8) + '-' + iniciais
+ * Validação rigorosa da SIGLA institucional:
+ * - Mínimo 2, máximo 10 caracteres
+ * - Apenas letras A-Z (sem números, sem caracteres especiais)
+ * - Devolve { valido: boolean, erro: string | null, siglaLimpa: string }
+ */
+export const validarSigla = (sigla: string): { valido: boolean; erro: string | null; siglaLimpa: string } => {
+  const limpa = normalizeInstCode(sigla);
+  if (!limpa || limpa.length < 2) {
+    return { valido: false, erro: 'A sigla deve ter pelo menos 2 caracteres.', siglaLimpa: limpa };
+  }
+  if (limpa.length > 10) {
+    return { valido: false, erro: 'A sigla deve ter no máximo 10 caracteres.', siglaLimpa: limpa };
+  }
+  if (!/^[A-Z]+$/.test(limpa)) {
+    return { valido: false, erro: 'A sigla deve conter apenas letras (A-Z).', siglaLimpa: limpa };
+  }
+  return { valido: true, erro: null, siglaLimpa: limpa };
+};
+
+/**
+ * Validação dos campos de localização (Província, Cidade, Município, Comuna):
+ * Todos devem estar preenchidos (não vazios e diferentes de 'Selecione...').
+ */
+export const validarLocalizacao = (
+  provincia: string, cidade: string, municipio: string, comuna: string
+): { valido: boolean; erro: string | null } => {
+  const campos = [
+    { nome: 'Província', valor: provincia },
+    { nome: 'Cidade', valor: cidade },
+    { nome: 'Município', valor: municipio },
+    { nome: 'Comuna', valor: comuna },
+  ];
+  for (const campo of campos) {
+    if (!campo.valor || campo.valor.trim() === '' || campo.valor === 'Selecione...') {
+      return { valido: false, erro: `Preencha o campo "${campo.nome}".` };
+    }
+  }
+  return { valido: true, erro: null };
+};
+
+/**
+ * F6/B2 — Código Institucional: SIGLA (apenas letras, máx. 10) + '-' + iniciais
  * de Província, Cidade, Município e Comuna. Colisão → sufixo numérico no código
  * (C3): SME-LLVV, SME-LLVV2, … (nunca confunde com o '-NN' do agente).
+ * 
+ * Exemplo: INAPEM-LLMM (Luanda/Luanda/Maianga/Maianga)
  */
 export const buildInstitutionalCode = (
   sigla: string, provincia: string, cidade: string, municipio: string, comuna: string,
   takenCodes: string[]
 ): string => {
-  const sig = normalizeInstCode(sigla).replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'INST';
-  const loc = initialLetter(provincia) + initialLetter(cidade) + initialLetter(municipio) + initialLetter(comuna);
+  // Validar SIGLA: apenas letras, 2-10 caracteres
+  const sig = normalizeInstCode(sigla).replace(/[^A-Z]/g, '').slice(0, 10);
+  if (!sig || sig.length < 2) return 'INSTITUICAO';
+  
+  // Extrair iniciais de cada campo de localização (remove acentos primeiro)
+  const P = initialLetter(provincia);
+  const C = initialLetter(cidade);
+  const M = initialLetter(municipio);
+  const Co = initialLetter(comuna);
+  const loc = P + C + M + Co;
+  
   const taken = new Set(takenCodes.map(normalizeInstCode));
   const base = `${sig}-${loc}`;
   if (!taken.has(base)) return base;
+  // Colisão: adicionar sufixo numérico (começa em 2)
   let n = 2;
   while (taken.has(`${base}${n}`)) n += 1;
   return `${base}${n}`;
+};
+
+/**
+ * Consulta o número de agentes existentes para uma instituição na base de dados
+ * Supabase (tabela profiles). O responsável conta como agente 01, os membros
+ * subsequentes recebem 02, 03, etc.
+ * 
+ * @returns O próximo número sequencial disponível (total + 1)
+ */
+export const countExistingAgents = async (
+  supabase: SupabaseClient, instCode: string
+): Promise<{ count: number; nextSeq: number; error: string | null }> => {
+  const code = normalizeInstCode(instCode);
+  if (!code) return { count: 0, nextSeq: 1, error: 'Código institucional vazio.' };
+  
+  try {
+    // Consultar na tabela profiles todos os agentes desta instituição
+    // O código da instituição fica no campo 'bi' (ou 'instituicao' no metadata)
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('bi')
+      .eq('role', 'instituicao')
+      .or(`bi.eq.${code},bi.like.${code}-%,instituicao.eq.${code}`)
+      .limit(1000);
+    
+    if (error) {
+      console.warn('[AgentCount] Erro ao consultar agentes:', error.message);
+      return { count: 0, nextSeq: 1, error: error.message };
+    }
+    
+    // Contar registos únicos (evitar duplicados)
+    const uniqueAgents = new Set<string>();
+    for (const row of (data || [])) {
+      const bi = String(row.bi || '').toUpperCase().trim();
+      if (bi) uniqueAgents.add(bi);
+    }
+    
+    const totalAgents = uniqueAgents.size;
+    // Próximo sequencial = total + 1 (responsável é sempre 01)
+    const nextSeq = totalAgents + 1;
+    
+    return { count: totalAgents, nextSeq, error: null };
+  } catch (e: any) {
+    console.warn('[AgentCount] Exceção ao contar agentes:', e?.message || e);
+    return { count: 0, nextSeq: 1, error: e?.message || 'Erro desconhecido.' };
+  }
+};
+
+/**
+ * Conta agentes existentes no store LOCAL (fallback offline) + base de dados.
+ * Combina ambas as fontes para garantir que o próximo Nº de Agente é único.
+ */
+export const countAgentsWithLocalFallback = async (
+  supabase: SupabaseClient, instCode: string
+): Promise<{ count: number; nextSeq: number }> => {
+  const code = normalizeInstCode(instCode);
+  
+  // 1. Contar no store local
+  let localCount = 1; // responsável (-01) sempre existe
+  const reg = getLocalInstReg(code);
+  if (reg) {
+    localCount = 1 + (reg.members || []).length;
+  }
+  
+  // 2. Contar na nuvem (se disponível)
+  const isReady = isSupabaseReady();
+  if (isReady && supabase) {
+    const cloudResult = await countExistingAgents(supabase, code);
+    if (cloudResult.error === null) {
+      // Usar o maior entre local e nuvem (garante que não reutilizamos números)
+      const maxCount = Math.max(localCount, cloudResult.count);
+      return { count: maxCount, nextSeq: maxCount + 1 };
+    }
+  }
+  
+  // Fallback: só store local
+  return { count: localCount, nextSeq: localCount + 1 };
 };
 
 /** F6 — Nº Agente Institucional = código da instituição + '-' + NN (2 dígitos). */

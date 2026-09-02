@@ -7,7 +7,7 @@
 // PENDENTE — o mesmo modelo do registo do cidadão.
 // ============================================================================
 
-import { useState, useRef, type FormEvent } from 'react';
+import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Building2, MapPin, Mail, Phone, User, Briefcase, Lock, Shield,
@@ -26,6 +26,7 @@ import { DIRECTORIO_INSTITUCIONAL_ANGOLA } from '../../constants/directorioInsti
 import {
   buildInstObservacoes, buildInstCode, buildInstitutionalCode, buildAgentNumber,
   collectInstitutionUniqueness, nextGlobalSeq, normalizeInstCode, saveLocalInstReg,
+  validarSigla, validarLocalizacao, countAgentsWithLocalFallback,
   type InstitutionRegPack
 } from '../../services/institutionRegistrationStore';
 import { normalizarNome, normalizarTitulo, normalizarTexto, corrigirDominioEmail } from '../../services/textNormalizeService';
@@ -75,6 +76,11 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
   // da Administração (o ecrã de sucesso aparece IMEDIATAMENTE com o Código).
   const [syncEstado, setSyncEstado] = useState<'a_enviar' | 'ok' | 'falhou'>('a_enviar');
   const retryEnvioRef = useRef<(() => void) | null>(null);
+  
+  // Estado para contagem de agentes existentes (próximo Nº de Agente)
+  const [agentCount, setAgentCount] = useState<number>(0);
+  const [nextAgentSeq, setNextAgentSeq] = useState<number>(1);
+  const [isLoadingAgents, setIsLoadingAgents] = useState(false);
 
   const setErr = (k: string, msg: string) => setFieldErrors(prev => msg ? { ...prev, [k]: msg } : (({ [k]: _, ...rest }) => rest)(prev));
   const isEmailValid = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
@@ -100,6 +106,46 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
     setComuna(coms[0] || 'Sede');
   };
 
+  // Pré-visualização do próximo Nº de Agente: consulta a base de dados + store local
+  // quando a SIGLA e os campos de localização estão válidos.
+  useEffect(() => {
+    const siglaValidacao = validarSigla(sigla);
+    const localValidacao = validarLocalizacao(province, cidade, municipio, comuna);
+    
+    if (!siglaValidacao.valido || !localValidacao.valido) {
+      setAgentCount(0);
+      setNextAgentSeq(1);
+      return;
+    }
+    
+    const codigoPrevisualizacao = buildInstitutionalCode(
+      siglaValidacao.siglaLimpa, province, cidade, municipio, comuna, []
+    );
+    
+    let cancelled = false;
+    const fetchAgentCount = async () => {
+      setIsLoadingAgents(true);
+      try {
+        const result = await countAgentsWithLocalFallback(supabase, codigoPrevisualizacao);
+        if (!cancelled) {
+          setAgentCount(result.count);
+          setNextAgentSeq(result.nextSeq);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setAgentCount(0);
+          setNextAgentSeq(1);
+        }
+      } finally {
+        if (!cancelled) setIsLoadingAgents(false);
+      }
+    };
+    
+    // Debounce: esperar 500ms após a última alteração para não consultar a cada tecla
+    const timer = setTimeout(fetchAgentCount, 500);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [sigla, province, cidade, municipio, comuna]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -108,12 +154,25 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
     // 1. Validação de campos obrigatórios
     const errs: Record<string, string> = {};
     if (fullName.trim().length < 3) errs.fullName = 'Insira o nome institucional completo (mínimo 3 caracteres).';
-    if (normalizeInstCode(sigla).length < 2) errs.sigla = 'Insira a sigla institucional.';
+    
+    // Validação rigorosa da SIGLA (2-10 caracteres, apenas letras)
+    const siglaValidacao = validarSigla(sigla);
+    if (!siglaValidacao.valido) {
+      errs.sigla = siglaValidacao.erro || 'Sigla inválida.';
+    }
+    
     if (!INSTITUTION_TYPES.includes(typeInst)) errs.typeInst = 'Selecione o tipo de instituição.';
-    if (!province) errs.province = 'Selecione a província.';
-    if (!cidade) errs.cidade = 'Selecione a cidade.';
-    if (!municipio) errs.municipio = 'Selecione o município.';
-    if (!comuna) errs.comuna = 'Selecione a comuna.';
+    
+    // Validação dos campos de localização
+    const locValidacao = validarLocalizacao(province, cidade, municipio, comuna);
+    if (!locValidacao.valido) {
+      // Determinar qual campo está vazio
+      if (!province || province === 'Selecione...') errs.province = 'Selecione a província.';
+      if (!cidade || cidade === 'Selecione...') errs.cidade = 'Selecione a cidade.';
+      if (!municipio || municipio === 'Selecione...') errs.municipio = 'Selecione o município.';
+      if (!comuna || comuna === 'Selecione...') errs.comuna = 'Selecione a comuna.';
+    }
+    
     if (endereco.trim().length < 3) errs.endereco = 'Insira o endereço institucional.';
     if (!isEmailValid(emailContacto)) errs.emailContacto = 'Insira um e-mail institucional válido.';
     if (telefone.replace(/\D/g, '').length < 9) errs.telefone = 'Insira um telefone válido (mín. 9 dígitos).';
@@ -150,12 +209,16 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
       }
 
       // 3. Geração definitiva no submit — F6/B2: SIGLA + iniciais P/C/M/C (sufixo numérico se colidir)
-      const code = buildInstitutionalCode(s, province, cidade, municipio, comuna, uni.takenCodes);
+      const siglaFinal = siglaValidacao.siglaLimpa;
+      const code = buildInstitutionalCode(siglaFinal, province, cidade, municipio, comuna, uni.takenCodes);
       if (uni.takenCodes.includes(code)) {
         setSubmitError('Não foi possível gerar um Código Institucional único. Tente novamente.');
         setIsSubmitting(false); return;
       }
-      const agentNumber = buildAgentNumber(code, 1); // responsável = -01
+      
+      // Consultar o próximo Nº de Agente com contagem real da base de dados
+      const agentResult = await countAgentsWithLocalFallback(supabase, code);
+      const agentNumber = buildAgentNumber(code, agentResult.nextSeq);
       void buildInstCode; void nextGlobalSeq; // geradores do formato antigo (compatibilidade)
       // v37.74 — CONTA NOVA NASCE LIMPA (espelho v37.71 do cidadão): ciclos
       // eliminar→re-criar com o mesmo código deixavam rasto no dispositivo
@@ -690,22 +753,61 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
             <div className="grid gap-1">
               <label className={labelCls}>Código Institucional (automático)</label>
               <div className="bg-slate-50 border-2 border-dashed border-[#2563eb]/25 rounded-[14px] px-4 py-3 text-xs font-mono font-black text-[#0E2B64] tracking-widest select-all">
-                {normalizeInstCode(sigla).length >= 2
-                  ? buildInstitutionalCode(sigla, province, cidade, municipio, comuna, [])
-                  : 'Aguarda a sigla…'}
+                {(() => {
+                  const siglaVal = validarSigla(sigla);
+                  const locVal = validarLocalizacao(province, cidade, municipio, comuna);
+                  if (!siglaVal.valido) return '⚠ Sigla inválida (2-10 letras)';
+                  if (!locVal.valido) return '⚠ Preencha Província, Cidade, Município e Comuna';
+                  return buildInstitutionalCode(siglaVal.siglaLimpa, province, cidade, municipio, comuna, []);
+                })()}
               </div>
               <p className="text-[8.5px] text-slate-400 font-bold ml-1 leading-snug">Sigla + iniciais de Província · Cidade · Município · Comuna.</p>
             </div>
             <div className="grid gap-1">
               <label className={labelCls}>Nº Agente Institucional (automático)</label>
-              <div className="bg-slate-50 border-2 border-dashed border-[#2563eb]/25 rounded-[14px] px-4 py-3 text-xs font-mono font-black text-[#0E2B64] tracking-widest select-all">
-                {normalizeInstCode(sigla).length >= 2
-                  ? `${buildInstitutionalCode(sigla, province, cidade, municipio, comuna, [])}-01`
-                  : 'Aguarda a sigla…'}
+              <div className="bg-slate-50 border-2 border-dashed border-[#2563eb]/25 rounded-[14px] px-4 py-3 text-xs font-mono font-black text-[#0E2B64] tracking-widest select-all flex items-center gap-2">
+                {isLoadingAgents ? (
+                  <Loader2 size={12} className="animate-spin text-[#2563eb]" />
+                ) : null}
+                <span>
+                  {(() => {
+                    const siglaVal = validarSigla(sigla);
+                    const locVal = validarLocalizacao(province, cidade, municipio, comuna);
+                    if (!siglaVal.valido || !locVal.valido) return 'Aguarda dados válidos…';
+                    const codigo = buildInstitutionalCode(siglaVal.siglaLimpa, province, cidade, municipio, comuna, []);
+                    return `${codigo}-${String(nextAgentSeq).padStart(2, '0')}`;
+                  })()}
+                </span>
               </div>
-              <p className="text-[8.5px] text-slate-400 font-bold ml-1 leading-snug">O responsável criado neste registo recebe sempre o agente -01.</p>
+              <p className="text-[8.5px] text-slate-400 font-bold ml-1 leading-snug">
+                {agentCount > 0 
+                  ? `${agentCount} agente${agentCount > 1 ? 's' : ''} existente${agentCount > 1 ? 's' : ''} — próximo: -${String(nextAgentSeq).padStart(2, '0')}`
+                  : 'O responsável criado neste registo recebe sempre o agente -01.'}
+              </p>
             </div>
           </div>
+          
+          {/* Validação visual da SIGLA */}
+          {sigla && !siglaEdited && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 text-[9px] text-blue-700 font-semibold leading-relaxed">
+              💡 A sigla é gerada automaticamente a partir do nome da instituição. Pode editá-la manualmente se necessário.
+            </div>
+          )}
+          {siglaEdited && sigla && (() => {
+            const val = validarSigla(sigla);
+            if (!val.valido) {
+              return (
+                <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-[9px] text-red-700 font-semibold leading-relaxed">
+                  ⚠ {val.erro}
+                </div>
+              );
+            }
+            return (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-[9px] text-emerald-700 font-semibold leading-relaxed">
+                ✓ Sigla válida: {val.siglaLimpa} ({val.siglaLimpa.length} caracteres)
+              </div>
+            );
+          })()}
         </div>
 
         <div className="border-t border-dashed border-slate-150 pt-2" />

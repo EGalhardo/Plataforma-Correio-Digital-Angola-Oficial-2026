@@ -13,7 +13,7 @@ import { KB_REGISTO } from "./api/kb/registoKb";
 import type { FonteKb, FonteKbDinamicaRow } from "./src/services/aiDocumentoCore";
 import { directorioParaContextoIA } from "./src/constants/directorioInstitucionalAngola";
 
-dotenv.config();
+dotenv.config({ path: ['.env', '.env.local'] });
 
 async function startServer() {
   const app = express();
