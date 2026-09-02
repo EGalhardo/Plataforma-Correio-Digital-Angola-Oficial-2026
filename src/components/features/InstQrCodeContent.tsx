@@ -455,28 +455,17 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
     setCameraRunning(false);
   };
 
-  // 2026-09-02 — Alternar entre câmera frontal e traseira (mobile-friendly).
-  // Para a câmera atual, altera o facingMode, e o useEffect de inicialização
-  // reinicia automaticamente a câmera com a nova configuração (pois
-  // cameraFacingMode está nas dependências). Feedback visual via toast.
-  const toggleCameraFacingMode = async () => {
+  // 2026-09-02 — Alternar entre câmara frontal e traseira (mobile-friendly).
+  // Apenas altera o estado cameraFacingMode — o useEffect de inicialização
+  // (que tem cameraFacingMode nas dependências) detecta a mudança e reinicia
+  // automaticamente a câmara com a nova configuração. O useEffect já tem
+  // lógica para parar qualquer instância anterior antes de iniciar uma nova.
+  // Feedback visual via toast.
+  const toggleCameraFacingMode = () => {
     const newFacingMode = cameraFacingMode === 'environment' ? 'user' : 'environment';
-    // Para a câmera atual (o useEffect vai reiniciá-la com o novo facingMode)
-    stopJsQrLoop();
-    if (qrReaderRef.current) {
-      if (qrReaderRef.current.isScanning) {
-        try {
-          await qrReaderRef.current.stop();
-        } catch (e) {
-          console.warn("Error stopping scanner instance during toggle:", e);
-        }
-      }
-      qrReaderRef.current = null;
-    }
-    // Altera o facingMode — o useEffect reinicia a câmera automaticamente
+    // Apenas altera o estado — o useEffect gere automaticamente a paragem da
+    // câmara anterior e o reinício com a nova câmara (está nas dependências).
     setCameraFacingMode(newFacingMode);
-    // Mantém a câmera a correr (setCameraRunning já está true; o useEffect
-    // dispara porque cameraFacingMode mudou)
     showToast(
       newFacingMode === 'user'
         ? '📸 Câmara frontal activada (selfie)'
