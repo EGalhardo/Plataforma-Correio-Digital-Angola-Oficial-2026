@@ -108,6 +108,12 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
   // utilizador precisa de ler um QR exibido no próprio dispositivo ou em
   // tablets montados em suportes fixos.
   const [cameraFacingMode, setCameraFacingMode] = useState<'environment' | 'user'>('environment');
+  // 2026-09-02 — REF para debounce: armazenar o valor actual de cameraFacingMode
+  // para evitar stale closures no setTimeout do toggleCameraFacingMode.
+  const cameraFacingModeRef = useRef(cameraFacingMode);
+  useEffect(() => {
+    cameraFacingModeRef.current = cameraFacingMode;
+  }, [cameraFacingMode]);
   // QRCode Module - loaded dynamically
   const [qrCode, setQrCode] = useState<any>(null);
 
@@ -314,11 +320,19 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
   // Start/Stop camera using useEffect to guarantee the target canvas is fully rendered in the DOM
   useEffect(() => {
     let active = true;
+    // 2026-09-02 — GUARD: verificar se ainda estamos activos antes de continuar
+    const guard = () => {
+      if (!active) {
+        console.log('[CDA-DEBUG] Guard: active=false, abortando');
+        return false;
+      }
+      return true;
+    };
     const initCamera = async () => {
       if (cameraRunning) {
         // Wait a small delay to let React commit the render and guarantee react-reader-camera-view exists
         await new Promise(resolve => setTimeout(resolve, 80));
-        if (!active) return;
+        if (!guard()) return;
 
         const el = document.getElementById("react-reader-camera-view");
         if (!el) {
@@ -411,7 +425,19 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
     initCamera();
 
     return () => {
+      // 2026-09-02 — CLEANUP ROBUSTO: parar a câmara e o jsQR loop antes de
+      // desmontar ou reiniciar o useEffect. Previne memory leaks e "Camera in use"
+      // errors após múltiplas alternâncias (teste de robustez: 40 alternâncias).
       active = false;
+      stopJsQrLoop();
+      if (qrReaderRef.current) {
+        if (qrReaderRef.current.isScanning) {
+          qrReaderRef.current.stop().catch(err => {
+            console.warn('[CDA-DEBUG] Erro ao parar câmara no cleanup:', err);
+          });
+        }
+        qrReaderRef.current = null;
+      }
     };
   }, [cameraRunning, cameraFacingMode]);
 
@@ -461,18 +487,29 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
   // automaticamente a câmara com a nova configuração. O useEffect já tem
   // lógica para parar qualquer instância anterior antes de iniciar uma nova.
   // Feedback visual via toast.
-  const toggleCameraFacingMode = () => {
-    const newFacingMode = cameraFacingMode === 'environment' ? 'user' : 'environment';
-    // Apenas altera o estado — o useEffect gere automaticamente a paragem da
-    // câmara anterior e o reinício com a nova câmara (está nas dependências).
-    setCameraFacingMode(newFacingMode);
-    showToast(
-      newFacingMode === 'user'
-        ? '📸 Câmara frontal activada (selfie)'
-        : '📸 Câmara traseira activada',
-      'info'
-    );
-  };
+  // 2026-09-02 — DEBOUNCE: prevenir múltiplas alternâncias rápidas que causam
+  // race conditions e memory leaks. Se o utilizador clicar muito rápido, apenas
+  // a última alteração é processada após 500ms.
+  const toggleCameraFacingMode = (() => {
+    let debounceTimer: NodeJS.Timeout | null = null;
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        // Usar ref para evitar stale closure — ler o valor actual do estado
+        const newFacingMode = cameraFacingModeRef.current === 'environment' ? 'user' : 'environment';
+        // Apenas altera o estado — o useEffect gere automaticamente a paragem da
+        // câmara anterior e o reinício com a nova câmara (está nas dependências).
+        setCameraFacingMode(newFacingMode);
+        showToast(
+          newFacingMode === 'user'
+            ? '📸 Câmara frontal activada (selfie)'
+            : '📸 Câmara traseira activada',
+          'info'
+        );
+        debounceTimer = null;
+      }, 500);
+    };
+  })();
 
   const parseStructuredPayload = (raw: string) => {
     const payload: Record<string, string> = {};
