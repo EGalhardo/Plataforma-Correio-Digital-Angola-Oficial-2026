@@ -1617,7 +1617,25 @@ export default function App() {
   const institutionCode = resolveInstitutionCode(activeProfile?.institutionName || '');
   // F3/F7 — estado da conta institucional: 'restricted' = pendente/em correções (a área abre na mesma; o estado alimenta o tom do indicador Online); 'full' = aprovada
   const [instGate, setInstGate] = useState<'none' | 'restricted' | 'full'>('none');
-  const [instIdentity, setInstIdentity] = useState<InstitutionIdentity | null>(null);
+  
+  // 2026-09-02 — CORRIGIR BUG: persistir instIdentity em localStorage para que
+  // a sessão do colaborador sobreviva ao refresh da página. Antes, o estado era
+  // apenas em memória e voltava a null após refresh, fazendo o sistema assumir
+  // a identidade do responsável (vazamento de dados entre contas).
+  const [instIdentity, setInstIdentity] = useState<InstitutionIdentity | null>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('cda_inst_identity');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.warn('[App] Falha ao ler cda_inst_identity do localStorage:', e);
+          return null;
+        }
+      }
+    }
+    return null;
+  });
   // 2026-08-21 — espelho SEMPRE atual da identidade institucional para os
   // efeitos de fundo (carregador Supabase/realtime): estes correm com closures
   // antigas e precisam de saber ao vivo se a sessão é de um COLABORADOR — o
@@ -1625,6 +1643,15 @@ export default function App() {
   // responsável.
   const instIdentityRef = useRef<InstitutionIdentity | null>(null);
   instIdentityRef.current = instIdentity;
+  
+  // 2026-09-02 — Sincronizar instIdentity com localStorage para persistência
+  useEffect(() => {
+    if (instIdentity) {
+      localStorage.setItem('cda_inst_identity', JSON.stringify(instIdentity));
+    } else {
+      localStorage.removeItem('cda_inst_identity');
+    }
+  }, [instIdentity]);
   const [instMustChangePwd, setInstMustChangePwd] = useState(false);
   // 2026-08-22 — PERMISSÕES DE PÁGINA (fonte: Supabase user_metadata, com
   // espelho local): páginas que o colaborador/agente pode abrir. null/undefined
