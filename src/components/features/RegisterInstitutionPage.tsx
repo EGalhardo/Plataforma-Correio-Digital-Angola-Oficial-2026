@@ -195,10 +195,10 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
       const s = normalizeInstCode(sigla);
       const eC = emailContacto.toLowerCase().trim();
       const eA = emailAcesso.toLowerCase().trim();
-      if (uni.takenSiglas.includes(s)) {
-        setSubmitError(`Não é possível efectuar o registo: a sigla "${s.toUpperCase()}" já se encontra registada.`);
-        setIsSubmitting(false); return;
-      }
+      // 2026-09-02 — MULTIPLE INSTANCES: remover verificação de siglas duplicadas.
+      // A mesma sigla pode ser registada múltiplas vezes desde que a localização
+      // seja diferente (ex.: INAPEM-LLTT, INAPEM-LVVN, INAPEM-BLLB).
+      // A unicidade é garantida pelo Código Institucional completo (SIGLA+LOCALIZAÇÃO).
       if (uni.takenEmails.includes(eC)) {
         setSubmitError('Não é possível efectuar o registo: este e-mail institucional já se encontra registado.');
         setIsSubmitting(false); return;
