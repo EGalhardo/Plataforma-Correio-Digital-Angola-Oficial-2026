@@ -51,6 +51,18 @@ import type { Message } from '../../types';
 // via variável de ambiente VITE_JITSI_SERVER_URL — sem alterar código.
 const JITSI_SERVER = import.meta.env?.VITE_JITSI_SERVER_URL || 'https://meet.jit.si';
 
+// 2026-09-02 — FORMATO DE DATA EUROPEU (DD/MM/AAAA): o input HTML type="date"
+// retorna a data no formato ISO 8601 (AAAA-MM-DD), mas em Angola usamos o
+// formato europeu. Esta função converte para apresentação ao utilizador.
+const formatarDataEuropeu = (dataISO: string): string => {
+  if (!dataISO) return '';
+  // Aceita formato ISO "2026-09-02" ou "2026-09-02 às 14:30"
+  const partesData = dataISO.split(' ')[0].split('-');
+  if (partesData.length !== 3) return dataISO; // fallback se não for formato válido
+  const [ano, mes, dia] = partesData;
+  return `${dia}/${mes}/${ano}`;
+};
+
 function LocalWebcamOverlay() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -703,7 +715,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
       //    contador de não-lidas da foto de perfil) com o mesmo texto e um
       //    botão "Ir para o Video-atendimento" no detalhe da mensagem.
       const nomeInst = instDisplayName || codigo;
-      const corpoAviso = `Caro cidadão ${nomeCidadao.trim()}, o(a) ${nomeInst} agendou uma videochamada consigo para o dia ${data} às ${hora}. Caso não seja possível comparecer, informe o(a) ${nomeInst} da sua indisponibilidade.\n\nAssunto da chamada: ${assunto.trim()}\nPara entrar: abra a página Video-atendimento no horário marcado.`;
+      const corpoAviso = `Caro cidadão ${nomeCidadao.trim()}, o(a) ${nomeInst} agendou uma videochamada consigo para o dia ${formatarDataEuropeu(data)} às ${hora}. Caso não seja possível comparecer, informe o(a) ${nomeInst} da sua indisponibilidade.\n\nAssunto da chamada: ${assunto.trim()}\nPara entrar: abra a página Video-atendimento no horário marcado.`;
       void supabaseService.insertNotification({
         title: 'Video-atendimento agendado',
         message: corpoAviso.replace(/\n/g, ' '),
@@ -741,11 +753,11 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
         console.warn('[VIDEO-AGENDAR] Correspondência oficial não pôde ser enviada (a sessão/notificação mantêm-se):', msgErr);
       }
       VideoSessionService.createNotification(String(nova.id), 'reminder', `Novo video-atendimento agendado: ${assunto.trim()}`);
-      addAuditLog?.(`Agendou video-atendimento com o cidadão ${nomeCidadao.trim()} (${normalizar(biCidadao)}) — "${assunto.trim()}" em ${data} às ${hora}.`, 'success');
+      addAuditLog?.(`Agendou video-atendimento com o cidadão ${nomeCidadao.trim()} (${normalizar(biCidadao)}) — "${assunto.trim()}" em ${formatarDataEuropeu(data)} às ${hora}.`, 'success');
       setShowAgendar(false);
       setFormAgendar({ assunto: '', data: '', hora: '', agenda: '', biCidadao: '', nomeCidadao: '' });
       setLookupEstado('idle');
-      notify(`Video-atendimento agendado com ${nomeCidadao.trim()} para ${data} às ${hora}.`, 'success');
+      notify(`Video-atendimento agendado com ${nomeCidadao.trim()} para ${formatarDataEuropeu(data)} às ${hora}.`, 'success');
       await loadSessions();
     } catch (e) {
       setFormErro('Não foi possível agendar. Tente novamente.');
@@ -776,7 +788,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
         notify('Não foi possível eliminar na nuvem — verifique a sua ligação e tente novamente.', 'error');
         return;
       }
-      const quando = sessaoAEliminar.scheduledFor ? ` marcado para ${sessaoAEliminar.scheduledFor}` : '';
+      const quando = sessaoAEliminar.scheduledFor ? ` marcado para ${formatarDataEuropeu(sessaoAEliminar.scheduledFor.split(' ')[0])}${sessaoAEliminar.scheduledFor.split(' ')[1] ? ' às ' + sessaoAEliminar.scheduledFor.split(' ')[1] : ''}` : '';
       try {
         if (lado === 'instituicao') {
           const nomeInst = instDisplayName || String(instCode || bi);
@@ -1058,7 +1070,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                                   ) : (
                                     <span className="flex items-center gap-1"><User size={10} />{session.hostName}</span>
                                   )}
-                                  <span className="flex items-center gap-1"><Clock size={10} />{session.scheduledFor || session.time || session.date}</span>
+                                  <span className="flex items-center gap-1"><Clock size={10} />{session.scheduledFor ? formatarDataEuropeu(session.scheduledFor.split(' ')[0]) + (session.scheduledFor.split(' ')[1] ? ' às ' + session.scheduledFor.split(' ')[1] : '') : (session.time || session.date)}</span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1.5">
@@ -1454,7 +1466,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                   Cidadão: {sessaoAEliminar.guestName}{sessaoAEliminar.guestBi ? ` (${sessaoAEliminar.guestBi})` : ''}
                 </p>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">
-                  Marcado para: {sessaoAEliminar.scheduledFor || '—'}
+                  Marcado para: {sessaoAEliminar.scheduledFor ? formatarDataEuropeu(sessaoAEliminar.scheduledFor.split(' ')[0]) + (sessaoAEliminar.scheduledFor.split(' ')[1] ? ' às ' + sessaoAEliminar.scheduledFor.split(' ')[1] : '') : '—'}
                 </p>
               </div>
               <div className="flex gap-3">
