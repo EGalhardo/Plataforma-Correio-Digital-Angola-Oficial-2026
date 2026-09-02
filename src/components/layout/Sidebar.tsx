@@ -90,10 +90,16 @@ export function Sidebar({
   };
 
   const currentItems = getItemsForMode();
-  // 2026-08-22 — o colaborador/agente restrito SÓ vê as páginas concedidas.
-  const itensVisiveis = Array.isArray(paginasPermitidas)
-    ? currentItems.filter((item) => paginasPermitidas!.includes(item.id))
-    : currentItems;
+  // 2026-08-22 — PERMISSÕES DE PÁGINA: o colaborador/agente vê TODOS os itens
+  // do menu, mas os não permitidos aparecem com opacidade reduzida e badge
+  // "Sem Acesso" (pedido do dono 2026-09-02). null/undefined = sem restrições.
+  // A página "Equipa" continua bloqueada para não-responsáveis (equipaBloqueadaId).
+  const isPaginaPermitida = (itemId: string): boolean => {
+    // Se não há restrições, todas são permitidas
+    if (!Array.isArray(paginasPermitidas)) return true;
+    return paginasPermitidas.includes(itemId);
+  };
+  const itensVisiveis = currentItems;
 
   return (
     <aside className={`hidden md:flex p-5 md:w-[250px] md:rounded-[36px] shadow-2xl transition-all duration-500 shrink-0 md:sticky md:top-5 md:h-[calc(100vh-2.5rem)] flex-col border border-slate-200 dark:border-[#141d31] ${
@@ -124,27 +130,40 @@ export function Sidebar({
       <nav className="space-y-0.5">
         {itensVisiveis.map(({ id, label, icon: Icon }) => {
           const bloqueado = equipaBloqueadaId === id;
+          const semPermissao = !bloqueado && !isPaginaPermitida(id);
+          const inativo = bloqueado || semPermissao;
+          const tituloBloqueio = bloqueado
+            ? translate('Apenas o responsável desta área pode aceder à página Equipa.')
+            : semPermissao
+              ? translate('Não tem permissão para aceder a esta página. Contacte o responsável da instituição.')
+              : undefined;
           return (
           <button
             key={id}
-            disabled={bloqueado}
-            aria-disabled={bloqueado}
-            title={bloqueado ? translate('Apenas o responsável desta área pode aceder à página Equipa.') : undefined}
+            disabled={inativo}
+            aria-disabled={inativo}
+            title={tituloBloqueio}
             onClick={() => {
-              if (bloqueado) return;
+              if (inativo) return;
               setTab(id);
               if (id !== 'correspondencias' && id !== 'documentos' && id !== 'mensagem') setSelectedMessage(null);
               if (id !== 'documento') setSelectedDoc(null);
             }}
             className={`w-full flex items-center gap-3 px-2 py-2 rounded-xl font-bold transition-all ${
-              bloqueado
+              inativo
                 ? 'opacity-40 cursor-not-allowed text-slate-400 select-none'
                 : tab === id ? 'text-indigo-600' : 'bg-transparent text-slate-700 hover:text-slate-900'
             }`}
           >
-            <Icon size={16} className={bloqueado ? 'text-slate-300' : tab === id ? 'text-indigo-600' : 'text-slate-600'} />
+            <Icon size={16} className={inativo ? 'text-slate-300' : tab === id ? 'text-indigo-600' : 'text-slate-600'} />
             <span className="text-xs tracking-tight">{translate(label)}</span>
-            {bloqueado && <Lock size={12} className="ml-auto shrink-0 text-slate-300" />}
+            {semPermissao && (
+              <span className="ml-auto shrink-0 text-[8px] font-black uppercase tracking-widest text-red-400 flex items-center gap-1">
+                <Lock size={9} className="text-red-400" />
+                {translate('Sem Acesso')}
+              </span>
+            )}
+            {bloqueado && !semPermissao && <Lock size={12} className="ml-auto shrink-0 text-slate-300" />}
           </button>
           );
         })}

@@ -79,10 +79,14 @@ export function MobileNavBar({
   };
 
   const currentItems = getItemsForMode();
-  // 2026-08-22 — o colaborador/agente restrito SÓ vê as páginas concedidas.
-  const itensVisiveis = Array.isArray(paginasPermitidas)
-    ? currentItems.filter((item) => paginasPermitidas!.includes(item.id))
-    : currentItems;
+  // 2026-08-22 — PERMISSÕES DE PÁGINA: o colaborador/agente vê TODOS os itens
+  // do menu, mas os não permitidos aparecem com opacidade reduzida e badge
+  // "Sem Acesso" (pedido do dono 2026-09-02). null/undefined = sem restrições.
+  const isPaginaPermitida = (itemId: string): boolean => {
+    if (!Array.isArray(paginasPermitidas)) return true;
+    return paginasPermitidas.includes(itemId);
+  };
+  const itensVisiveis = currentItems;
   const isAdminOrInst = appMode === 'admin' || appMode === 'institution';
 
   return (
@@ -91,14 +95,21 @@ export function MobileNavBar({
     }`}>
       {itensVisiveis.map(({ id, label, icon: Icon }) => {
         const bloqueado = equipaBloqueadaId === id;
+        const semPermissao = !bloqueado && !isPaginaPermitida(id);
+        const inativo = bloqueado || semPermissao;
+        const tituloBloqueio = bloqueado
+          ? translate('Apenas o responsável desta área pode aceder à página Equipa.')
+          : semPermissao
+            ? translate('Sem acesso a esta página')
+            : undefined;
         return (
         <button
           key={id}
-          disabled={bloqueado}
-          aria-disabled={bloqueado}
-          title={bloqueado ? translate('Apenas o responsável desta área pode aceder à página Equipa.') : undefined}
+          disabled={inativo}
+          aria-disabled={inativo}
+          title={tituloBloqueio}
           onClick={() => {
-            if (bloqueado) return;
+            if (inativo) return;
             setTab(id);
             if (id !== 'correspondencias' && id !== 'documentos' && id !== 'mensagem') setSelectedMessage(null);
             if (id !== 'documento') setSelectedDoc(null);
@@ -106,15 +117,20 @@ export function MobileNavBar({
           }}
           className={`flex flex-col items-center justify-center gap-0.5 transition-all px-2.5 h-full relative shrink-0 ${
             isAdminOrInst ? 'min-w-[72px] snap-start' : 'flex-1'
-          } ${bloqueado ? 'opacity-40 cursor-not-allowed text-slate-300 select-none' : tab === id ? 'text-indigo-600' : 'text-slate-400'}`}
+          } ${inativo ? 'opacity-40 cursor-not-allowed text-slate-300 select-none' : tab === id ? 'text-indigo-600' : 'text-slate-400'}`}
         >
           <div className={`transition-all duration-300 ${tab === id ? 'scale-110' : 'scale-100'}`}>
             <Icon size={19} strokeWidth={tab === id ? '2.5' : '2'} />
           </div>
-          <span className={`text-[8px] font-black uppercase tracking-tight transition-all ${bloqueado ? 'opacity-50' : tab === id ? 'opacity-100' : 'opacity-60'}`}>
+          <span className={`text-[8px] font-black uppercase tracking-tight transition-all ${inativo ? 'opacity-50' : tab === id ? 'opacity-100' : 'opacity-60'}`}>
             {translate(label)}
           </span>
-          {bloqueado && <Lock size={10} className="absolute -top-0.5 right-1.5 text-slate-300" />}
+          {semPermissao && (
+            <span className="absolute -top-0.5 right-0.5 text-[6px] font-black uppercase text-red-400 bg-white/90 px-0.5 rounded">
+              🔒
+            </span>
+          )}
+          {bloqueado && !semPermissao && <Lock size={10} className="absolute -top-0.5 right-1.5 text-slate-300" />}
           {tab === id && (
             <motion.div layoutId="activeTab" className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-1 rounded-b-full bg-indigo-600" />
           )}
