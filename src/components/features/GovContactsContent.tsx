@@ -1942,20 +1942,37 @@ export function GovContactsContent({
     setNewWorkerAgentId(w.agentId || '');
     setNewWorkerPhone(w.phone);
     setNewWorkerStatus(w.status || 'Ativo');
-    // 2026-08-22 — os checkboxes de páginas vêm pré-seleccionados com as
-    // permissões actuais (membro/agente LEGADO sem lista = todas concedidas,
-    // preservando o acesso actual).
-    {
-      const todas = paginasDaArea.map((x) => x.id);
-      if (appMode === 'institution') {
-        const reg = getLocalInstReg(normalizeInstCode(bi || ''));
-        const m = (reg?.members || []).find((x) => x.id === w.id);
-        setNewWorkerPaginas(m?.paginasPermitidas ? [...m.paginasPermitidas] : todas);
-      } else {
-        const cred = getAdminAgentCreds().find((c) => c.workerId === w.id);
-        setNewWorkerPaginas(cred?.paginasPermitidas ? [...cred.paginasPermitidas] : todas);
+    
+    // 2026-09-02 — CORRECÇÃO BUG: os checkboxes de páginas vêm pré-seleccionados
+    // com as permissões REAIS do colaborador. PRIORIDADE: objeto w → registo 
+    // instituição → credenciais admin → todas (fallback para colaboradores antigos).
+    // Antes o código só ia buscar ao registo da instituição/credenciais, ignorando
+    // as permissões guardadas no objeto workers (que são actualizadas na edição).
+    const todas = paginasDaArea.map((x) => x.id);
+    let paginasCarregadas: string[] = todas; // fallback: todas as páginas
+    
+    // PRIORIDADE 1: verificar se o próprio objeto w tem permissões guardadas
+    // (actualizado na linha 1708 quando se edita um colaborador)
+    if (w.paginas && w.paginas.length > 0) {
+      paginasCarregadas = [...w.paginas];
+    } 
+    // PRIORIDADE 2: ir buscar ao registo da instituição
+    else if (appMode === 'institution') {
+      const reg = getLocalInstReg(normalizeInstCode(bi || ''));
+      const m = (reg?.members || []).find((x) => x.id === w.id);
+      if (m?.paginasPermitidas && m.paginasPermitidas.length > 0) {
+        paginasCarregadas = [...m.paginasPermitidas];
       }
     }
+    // PRIORIDADE 3: ir buscar às credenciais do admin
+    else {
+      const cred = getAdminAgentCreds().find((c) => c.workerId === w.id);
+      if (cred?.paginasPermitidas && cred.paginasPermitidas.length > 0) {
+        paginasCarregadas = [...cred.paginasPermitidas];
+      }
+    }
+    
+    setNewWorkerPaginas(paginasCarregadas);
     setShowAddWorkerModal(true);
   };
 
