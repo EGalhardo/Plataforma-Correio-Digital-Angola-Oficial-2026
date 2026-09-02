@@ -1452,13 +1452,23 @@ export function GovContactsContent({
   const togglePagina = (id: string) => {
     const p = paginasDaArea.find((x) => x.id === id);
     if (p?.obrigatoria) return; // a página obrigatória fica sempre concedida
-    setNewWorkerPaginas((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    const novoEstado = newWorkerPaginas.includes(id) ? newWorkerPaginas.filter((x) => x !== id) : [...newWorkerPaginas, id];
+    console.log('[EQUIPA] togglePagina:', id);
+    console.log('[EQUIPA]   estado anterior:', newWorkerPaginas);
+    console.log('[EQUIPA]   estado novo:', novoEstado);
+    setNewWorkerPaginas(novoEstado);
   };
 
   /** Páginas efectivas ao gravar: seleccionadas + página obrigatória. */
   const paginasEfetivas = (): string[] => {
     const base = newWorkerPaginas.filter((x) => x !== paginaObrigatoriaId && paginasDaArea.some((p) => p.id === x));
-    return [...base, paginaObrigatoriaId];
+    const resultado = [...base, paginaObrigatoriaId];
+    console.log('[EQUIPA] paginasEfetivas() chamada:');
+    console.log('[EQUIPA]   newWorkerPaginas:', newWorkerPaginas);
+    console.log('[EQUIPA]   paginaObrigatoriaId:', paginaObrigatoriaId);
+    console.log('[EQUIPA]   base (sem obrigatória):', base);
+    console.log('[EQUIPA]   resultado:', resultado);
+    return resultado;
   };
 
   // F6/B4 — Nº de agente gerado pelo sistema (instituição real → 'SME-LLVV-NN'; Admin → 'ADMIN-NNNN' sequencial v10.1; restantes contextos → formato legado)
@@ -1661,24 +1671,45 @@ export function GovContactsContent({
           }
         }
       }
+      // 2026-09-02 — CORRIGIR BUG: calcular as permissões UMA VEZ e usar o mesmo valor em todo o lado
+      // Antes paginasEfetivas() era chamado 4 vezes e podia retornar valores diferentes
+      const permissoesParaGuardar = paginasEfetivas();
+      console.log('[EQUIPA] === A GUARDAR EDIÇÃO ===');
+      console.log('[EQUIPA] editingWorkerId:', editingWorkerId);
+      console.log('[EQUIPA] newWorkerPaginas:', newWorkerPaginas);
+      console.log('[EQUIPA] permissoesParaGuardar:', permissoesParaGuardar);
+      
       // 2026-08-21 — a ficha do MEMBRO (registo que o login lê) passa a
       // reflectir as alterações feitas na Equipa: antes só a tabela UI era
       // actualizada e o colaborador continuava a ver os dados antigos no
       // próprio login.
       if (instReg && editingWorkerId) {
+        console.log('[EQUIPA] A guardar no registo da instituição...');
         updateInstMemberProfile(regCode, editingWorkerId, {
           name: newWorkerName,
           email: newWorkerEmail,
           phone: newWorkerPhone,
           role: newWorkerRole,
           dept: newWorkerDept || 'Geral',
-          paginasPermitidas: paginasEfetivas(), // 2026-08-22 — páginas concedidas
+          paginasPermitidas: permissoesParaGuardar, // 2026-08-22 — páginas concedidas
         });
+        console.log('[EQUIPA] ✓ Guardado no registo da instituição');
+        
+        // Verificar se foi guardado correctamente
+        const regVerificacao = getLocalInstReg(regCode);
+        const membroVerificacao = (regVerificacao?.members || []).find(m => m.id === editingWorkerId);
+        console.log('[EQUIPA] Verificação - membro:', membroVerificacao?.name);
+        console.log('[EQUIPA] Verificação - paginasPermitidas:', membroVerificacao?.paginasPermitidas);
+      } else {
+        console.log('[EQUIPA] ⚠ NÃO guardou no registo da instituição!');
+        console.log('[EQUIPA] instReg:', instReg ? 'existe' : 'não existe');
+        console.log('[EQUIPA] editingWorkerId:', editingWorkerId);
       }
+      
       // 2026-08-22 — permissões de página do AGENTE ADMIN (espelho local)
       if (adminCredsOn && editingWorkerId) {
         const editedAgentNum = workers.find(w => w.id === editingWorkerId)?.agentId;
-        if (editedAgentNum) updateAdminAgentPermissions(editedAgentNum, paginasEfetivas());
+        if (editedAgentNum) updateAdminAgentPermissions(editedAgentNum, permissoesParaGuardar);
       }
       // 2026-08-22 — persistência NA NUVEM (Modo Real): o servidor grava as
       // páginas nos user_metadata do agente e valida a autoridade do
@@ -1686,7 +1717,7 @@ export function GovContactsContent({
       {
         const editedAgentNum = workers.find(w => w.id === editingWorkerId)?.agentId;
         if (editedAgentNum && isSupabaseConfigured()) {
-          void permissoesAgente('gravar', editedAgentNum, paginasEfetivas()).then((res) => {
+          void permissoesAgente('gravar', editedAgentNum, permissoesParaGuardar).then((res) => {
             if (res.ok) addAuditLog?.(`[EQUIPA] Permissões de página de ${editedAgentNum} gravadas na nuvem (Supabase).`, 'success');
             else addAuditLog?.(`[EQUIPA] Nuvem indisponível ao gravar permissões de ${editedAgentNum} (${res.erro || 'erro'}) — mantidas localmente.`, 'warning');
           });
@@ -1703,7 +1734,7 @@ export function GovContactsContent({
         status: newWorkerStatus || 'Ativo',
         registrationDate: w.registrationDate || '12/06/2026',
         permissions: w.permissions || ['Visualizar'],
-        paginas: paginasEfetivas(),
+        paginas: permissoesParaGuardar,
         activityLogs: [
           { action: 'Dados cadastrais atualizados pelo painel central', timestamp: currentTime, ip: '197.231.42.15' },
           ...(w.activityLogs || [])
@@ -1931,6 +1962,10 @@ export function GovContactsContent({
   };
 
   const handleEditWorkerClick = (w: Trabajador) => {
+    console.log('[EQUIPA] === A ABRIR EDIÇÃO ===');
+    console.log('[EQUIPA] Worker:', w);
+    console.log('[EQUIPA] w.paginas:', w.paginas);
+    
     setIsEditingWorker(true);
     setEditingWorkerId(w.id);
     setNewWorkerPassword('');
@@ -1955,13 +1990,18 @@ export function GovContactsContent({
     // (actualizado na linha 1708 quando se edita um colaborador)
     if (w.paginas && w.paginas.length > 0) {
       paginasCarregadas = [...w.paginas];
+      console.log('[EQUIPA] ✓ PRIORIDADE 1: usando w.paginas:', paginasCarregadas);
     } 
     // PRIORIDADE 2: ir buscar ao registo da instituição
     else if (appMode === 'institution') {
       const reg = getLocalInstReg(normalizeInstCode(bi || ''));
       const m = (reg?.members || []).find((x) => x.id === w.id);
+      console.log('[EQUIPA] PRIORIDADE 2: reg:', reg?.nome);
+      console.log('[EQUIPA] PRIORIDADE 2: membro encontrado:', m?.name);
+      console.log('[EQUIPA] PRIORIDADE 2: paginasPermitidas:', m?.paginasPermitidas);
       if (m?.paginasPermitidas && m.paginasPermitidas.length > 0) {
         paginasCarregadas = [...m.paginasPermitidas];
+        console.log('[EQUIPA] ✓ PRIORIDADE 2: usando reg.members.paginasPermitidas:', paginasCarregadas);
       }
     }
     // PRIORIDADE 3: ir buscar às credenciais do admin
@@ -1972,6 +2012,8 @@ export function GovContactsContent({
       }
     }
     
+    console.log('[EQUIPA] paginasCarregadas final:', paginasCarregadas);
+    console.log('[EQUIPA] A chamar setNewWorkerPaginas com:', paginasCarregadas);
     setNewWorkerPaginas(paginasCarregadas);
     setShowAddWorkerModal(true);
   };
