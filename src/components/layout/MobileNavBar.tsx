@@ -117,12 +117,12 @@ export function MobileNavBar({
           }}
           className={`flex flex-col items-center justify-center gap-0.5 transition-all px-2.5 h-full relative shrink-0 ${
             isAdminOrInst ? 'min-w-[72px] snap-start' : 'flex-1'
-          } ${inativo ? 'opacity-40 cursor-not-allowed text-slate-300 select-none' : tab === id ? 'text-indigo-600' : 'text-slate-400'}`}
+          } ${inativo ? 'opacity-60 cursor-not-allowed text-slate-500 select-none' : tab === id ? 'text-indigo-600' : 'text-slate-400'}`}
         >
           <div className={`transition-all duration-300 ${tab === id ? 'scale-110' : 'scale-100'}`}>
-            <Icon size={19} strokeWidth={tab === id ? '2.5' : '2'} />
+            <Icon size={19} strokeWidth={tab === id ? '2.5' : '2'} className={inativo ? 'text-slate-500' : ''} />
           </div>
-          <span className={`text-[8px] font-black uppercase tracking-tight transition-all ${inativo ? 'opacity-50' : tab === id ? 'opacity-100' : 'opacity-60'} flex items-center gap-1 flex-wrap justify-center`}>
+          <span className={`text-[8px] font-black uppercase tracking-tight transition-all ${inativo ? 'opacity-60' : tab === id ? 'opacity-100' : 'opacity-60'} flex items-center gap-1 whitespace-nowrap justify-center`}>
             {translate(label)}
             {inativo && (
               <span className="text-[7px] font-bold text-red-400">

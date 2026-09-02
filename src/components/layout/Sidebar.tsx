@@ -151,12 +151,12 @@ export function Sidebar({
             }}
             className={`w-full flex items-center gap-3 px-2 py-2 rounded-xl font-bold transition-all ${
               inativo
-                ? 'opacity-40 cursor-not-allowed text-slate-400 select-none'
+                ? 'opacity-60 cursor-not-allowed text-slate-500 select-none'
                 : tab === id ? 'text-indigo-600' : 'bg-transparent text-slate-700 hover:text-slate-900'
             }`}
           >
-            <Icon size={16} className={inativo ? 'text-slate-300' : tab === id ? 'text-indigo-600' : 'text-slate-600'} />
-            <span className="text-xs tracking-tight flex items-center gap-1 flex-wrap">
+            <Icon size={16} className={inativo ? 'text-slate-500' : tab === id ? 'text-indigo-600' : 'text-slate-600'} />
+            <span className="text-xs tracking-tight flex items-center gap-1 whitespace-nowrap">
               {translate(label)}
               {(semPermissao || bloqueado) && (
                 <span className="text-[9px] font-bold text-red-400">
