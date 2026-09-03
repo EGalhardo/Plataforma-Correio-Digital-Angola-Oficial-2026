@@ -12,7 +12,7 @@ import { LazyImage } from '../ui/LazyImage';
 // v37.78.33 — LOGOMARCA ÚNICA (pedido do dono 2026-08-31): a mesma imagem
 // oficial («Modo-claro-e-escuro-01.png») é usada no modo claro E no escuro —
 // permanece inalterada em qualquer tema.
-import logoSidebar from '../../assets/images/logomarca_sidebar_2026.png';
+// v37.80 — Logomarca agora usa URL externo (postimg) directamente no JSX.
 
 interface MenuItem {
   id: string;

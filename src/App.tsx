@@ -244,7 +244,7 @@ import { buildDemoContentPlan, type DemoArea } from './services/demoContentGuara
 // (262–533 KB por visita) — primeira pintura do login instantânea.
 // v37.78.35 — LOGOMARCA ÚNICA do login (pedido do dono 2026-08-31): a mesma
 // imagem oficial («Correio-Digital-Angola-01.png», 533×800) no modo claro E escuro.
-import logoLogin from './assets/images/logomarca_login_2026.png';
+// v37.80 — Logomarcas agora usam URLs externas (postimg) directamente no JSX.
 
 
 // ---- Estado "Lida" persistente por BI: sobrevive a terminar/iniciar sessão ----
