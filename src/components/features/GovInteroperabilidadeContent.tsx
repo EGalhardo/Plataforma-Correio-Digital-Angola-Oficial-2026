@@ -680,14 +680,24 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   const persistSolicitationStatus = async (row: LinhaSolicitacao, status: string) => {
     updateLocalInstReg(row.bi_numero, { status });
     const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
-    if (!ready || !row.id || String(row.id) === String(row.bi_numero)) return;
+    if (!ready) return;
+    // 2026-09-02 — CORRECÇÃO CRÍTICA: O filtro deve usar bi_numero (código institucional)
+    // porque é o identificador único canónico. O id do Supabase pode não estar disponível
+    // quando os dados vêm do espelho local, mas o bi_numero está SEMPRE disponível.
+    const filtro: Record<string, string | number> = {};
+    if (row.id && typeof row.id === 'number' && String(row.id) !== String(row.bi_numero)) {
+      filtro.id = row.id;
+    } else {
+      filtro.bi_numero = row.bi_numero;
+    }
     try {
-      const viaProxy = await registoPublicoProxy('update', { id: row.id }, { status });
+      const viaProxy = await registoPublicoProxy('update', filtro, { status });
       if (viaProxy !== null) {
         if (!viaProxy.ok) console.warn('Actualização da solicitação via servidor falhou:', viaProxy.erro);
         return;
       }
-      const { error } = await supabase.from('solicitacoes_registo').update({ status }).eq('id', row.id);
+      const query = supabase.from('solicitacoes_registo').update({ status });
+      const { error } = filtro.id ? await query.eq('id', filtro.id) : await query.eq('bi_numero', filtro.bi_numero);
       if (error) console.error('Erro a actualizar estado da solicitação na nuvem:', error);
     } catch (e) { console.warn('Actualização cloud indisponível:', e); }
   };
@@ -731,14 +741,11 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
       code, 'admin',
       `Exmos. Senhores da ${row.nome} (${code}), informamos que a vossa adesão ao Correio Digital Angola foi APROVADA pela Área de Administração e a conta da instituição encontra-se oficialmente ATIVA. Todas as funcionalidades da área institucional ficam disponíveis de imediato. Bem-vindos à rede nacional de correio digital.`
     );
-    // 2026-08-21 — em modo real a mensagem de aprovação é persistida na nuvem
-    // (protocolo selado): aparece na página "Correspondências" do admin e na
-    // caixa da instituição em qualquer dispositivo. Demo mantém só o local.
-    void enviarMensagemAdministrativa(
-      code,
-      'Adesão Aprovada — Conta Institucional Ativa',
-      `Exmos. Senhores da ${row.nome} (${code}), informamos que a vossa adesão ao Correio Digital Angola foi APROVADA pela Área de Administração e a conta da instituição encontra-se oficialmente ATIVA. Todas as funcionalidades da área institucional ficam disponíveis de imediato. Bem-vindos à rede nacional de correio digital.`
-    );
+    // 2026-09-02 — CORRECÇÃO: Removida a chamada a enviarMensagemAdministrativa()
+    // porque criava duplicação — a mensagem já foi adicionada ao canal de homologação
+    // (homologationStore.addMessage acima), que é o canal oficial para comunicações
+    // sobre o estado da conta. Enviar para a caixa de correio também fazia o
+    // utilizador ver a mesma mensagem duas vezes.
     onLog?.(`Instituição APROVADA: ${row.nome} (${code}) — conta activa e ficha criada na página Instituições.`, 'success');
     await fetchSolicitacoes();
     setSelectedSolicitacao(null);
