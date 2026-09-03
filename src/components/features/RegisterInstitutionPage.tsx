@@ -559,15 +559,6 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
               </div>
             </div>
             <div className="grid gap-1">
-              <label className={labelCls}>Cidade *</label>
-              <div className="relative">
-                <select value={cidade} onChange={(e) => setCidade(e.target.value)} className={selectCls}>
-                  {(CITIES_BY_PROVINCE[province] || ['Sede']).map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[9px]">▼</span>
-              </div>
-            </div>
-            <div className="grid gap-1">
               <label className={labelCls}>Município *</label>
               <div className="relative">
                 <select value={municipio} onChange={(e) => onChangeMunicipio(e.target.value)} className={selectCls}>
@@ -581,6 +572,15 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
               <div className="relative">
                 <select value={comuna} onChange={(e) => setComuna(e.target.value)} className={selectCls}>
                   {(COMMUNES_BY_MUNICIPALITY[municipio] || ['Sede']).map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[9px]">▼</span>
+              </div>
+            </div>
+            <div className="grid gap-1">
+              <label className={labelCls}>Cidade *</label>
+              <div className="relative">
+                <select value={cidade} onChange={(e) => setCidade(e.target.value)} className={selectCls}>
+                  {(CITIES_BY_PROVINCE[province] || ['Sede']).map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
                 <span className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[9px]">▼</span>
               </div>
