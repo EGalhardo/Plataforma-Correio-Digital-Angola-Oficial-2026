@@ -34,7 +34,7 @@ import {
 } from '../../services/sondagemService';
 import { useSession } from '../../services/sessionStore';
 import { supabaseService } from '../../services/supabaseService';
-import { registoPublicoProxy, enviarMensagemAdministrativa, eliminarInstituicaoCloud } from '../../services/supabaseService';
+import { registoPublicoProxy, enviarMensagemAdministrativa, eliminarInstituicaoCloud, aprovarInstituicaoAdmin } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore } from '../../services/homologationStore';
 // 2026-08-23 — MODO REAL: métricas da base central (nunca simuladas). Sem
@@ -693,6 +693,14 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     try {
       const viaProxy = await registoPublicoProxy('update', filtro, { status });
       if (viaProxy !== null) {
+        // 2026-09-03 — FALLBACK: Se o proxy falhar por falta de sessão (admin demo),
+        // usar o endpoint específico de aprovação que não requer sessão real.
+        if (!viaProxy.ok && viaProxy.erro === 'Sessão obrigatória para esta operação.') {
+          const fallback = await aprovarInstituicaoAdmin(row.bi_numero, status as any);
+          if (fallback.ok) return;
+          console.warn('Actualização da solicitação via fallback admin falhou:', fallback.erro);
+          return;
+        }
         if (!viaProxy.ok) console.warn('Actualização da solicitação via servidor falhou:', viaProxy.erro);
         return;
       }

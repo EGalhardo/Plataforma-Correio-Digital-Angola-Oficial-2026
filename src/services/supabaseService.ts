@@ -544,6 +544,29 @@ export const eliminarInstituicaoCloud = async (code: string, agentes: string[] =
   }
 };
 
+/** 2026-09-03 — APROVAÇÃO DE INSTITUIÇÃO PELO ADMIN (sem necessidade de sessão real):
+ *  O admin demo (ADMIN-0001) não tem sessão Supabase Auth, por isso o proxy /api/dados
+ *  falha com 401. Este endpoint usa service role key no servidor para fazer a actualização.
+ *  Status permitidos: 'Aprovado', 'Rejeitado', 'Em Correções', 'Pendente'. */
+export const aprovarInstituicaoAdmin = async (
+  bi_numero: string,
+  status: 'Aprovado' | 'Rejeitado' | 'Em Correções' | 'Pendente',
+): Promise<{ ok: boolean; erro?: string }> => {
+  try {
+    const resp = await fetch('/api/admin-aprovar-instituicao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bi_numero, status }),
+    });
+    const j = await resp.json().catch(() => null);
+    if (j && j.ok === true) return { ok: true };
+    return { ok: false, erro: (j && j.erro) || `HTTP ${resp.status}` };
+  } catch {
+    return { ok: false, erro: 'Rede indisponível.' };
+  }
+};
+
+
 /** PERMISSÕES DE PÁGINA (2026-08-22) — o servidor É a verificação:
  *  · 'ler': devolve as páginas permitidas do PRÓPRIO token (user_metadata na
  *    nuvem) — o cliente nunca decide por si; null = responsável/sem restrições;

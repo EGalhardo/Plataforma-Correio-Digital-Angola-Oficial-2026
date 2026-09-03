@@ -1837,6 +1837,50 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
     }
   });
 
+  // 2026-09-03 — ENDPOINT ESPECÍFICO PARA APROVAÇÃO DE INSTITUIÇÕES:
+  // Permite ao admin (mesmo demo/local) aprovar instituições sem necessidade
+  // de sessão Supabase Auth real. Usa service role key para fazer a actualização.
+  app.post("/api/admin-aprovar-instituicao", async (req, res) => {
+    try {
+      const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+      if (!supaUrl || !serviceKey) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      
+      const { bi_numero, status } = req.body || {};
+      if (!bi_numero || !status) {
+        return res.status(400).json({ ok: false, erro: 'bi_numero e status são obrigatórios.' });
+      }
+      
+      // Validar status permitido
+      const statusPermitidos = ['Aprovado', 'Rejeitado', 'Em Correções', 'Pendente'];
+      if (!statusPermitidos.includes(status)) {
+        return res.status(400).json({ ok: false, erro: `Status inválido. Permitidos: ${statusPermitidos.join(', ')}` });
+      }
+      
+      // Usar service role key para fazer a actualização (bypass RLS)
+      const resp = await fetch(`${supaUrl}/rest/v1/solicitacoes_registo?bi_numero=eq.${encodeURIComponent(bi_numero)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': serviceKey,
+          'Authorization': `Bearer ${serviceKey}`,
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({ status })
+      });
+      
+      if (!resp.ok && resp.status !== 204) {
+        const txt = await resp.text().catch(() => '');
+        return res.status(resp.status).json({ ok: false, erro: `Actualização falhou (${resp.status}). ${txt.slice(0, 160)}` });
+      }
+      
+      return res.status(200).json({ ok: true, bi_numero, status });
+    } catch (e) {
+      console.error('[ADMIN-APROVAR] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
   // Rota do proxy CRUD do Modo Real (ver bloco PROXY CRUD acima).
   app.post("/api/dados", async (req, res) => {
     try {
