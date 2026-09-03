@@ -77,23 +77,37 @@ export const InstitutionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as Institution[];
+        // 2026-09-03 — MIGRAÇÃO: garantir que todas as instituições têm fullName.
+        // Instituições antigas podem não ter este campo, o que faz com que o nome
+        // desapareça após uma edição. Se fullName estiver vazio, usa name como fallback.
+        const migrated = parsed.map(inst => ({
+          ...inst,
+          fullName: inst.fullName || inst.name || 'Instituição',
+        }));
         if (!demoEnabled) {
           // Modo real nunca reutiliza as entidades canónicas de demonstração
           // guardadas localmente por uma sessão anterior.
           const demoIds = new Set(CANONICAL_INSTITUTIONS.map(inst => inst.id));
-          return parsed.filter(inst => !demoIds.has(inst.id));
+          const filtered = migrated.filter(inst => !demoIds.has(inst.id));
+          if (JSON.stringify(filtered) !== JSON.stringify(migrated)) {
+            // Guarda a versão migrada no localStorage
+            setTimeout(() => localStorage.setItem("correio_digital_institutions", JSON.stringify(filtered)), 0);
+          }
+          return filtered;
         }
-        const hasInapem = parsed.some(inst => inst.name === 'INAPEM' || inst.id === 'inst-inapem');
+        const hasInapem = migrated.some(inst => inst.name === 'INAPEM' || inst.id === 'inst-inapem');
         if (!hasInapem) {
           const canonicalInapem = CANONICAL_INSTITUTIONS.find(inst => inst.name === 'INAPEM');
-          if (canonicalInapem) parsed.push(canonicalInapem);
+          if (canonicalInapem) migrated.push(canonicalInapem);
         }
-        const inapemIndex = parsed.findIndex(inst => inst.name === 'INAPEM' || inst.id === 'inst-inapem');
+        const inapemIndex = migrated.findIndex(inst => inst.name === 'INAPEM' || inst.id === 'inst-inapem');
         if (inapemIndex > 0) {
-          const [inapem] = parsed.splice(inapemIndex, 1);
-          parsed.unshift(inapem);
+          const [inapem] = migrated.splice(inapemIndex, 1);
+          migrated.unshift(inapem);
         }
-        return parsed;
+        // Guarda a versão migrada no localStorage
+        setTimeout(() => localStorage.setItem("correio_digital_institutions", JSON.stringify(migrated)), 0);
+        return migrated;
       } catch (e) {
         // use default
       }
