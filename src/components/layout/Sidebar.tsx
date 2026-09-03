@@ -114,7 +114,7 @@ export function Sidebar({
             (2026-09-01): 48px → 38,4px de altura, largura automática. */}
         <div className="w-full flex items-center" style={{ height: '38.4px' }}>
           <LazyImage
-            src={logoSidebar}
+            src="https://i.postimg.cc/nhvJJYGn/Logo1.png"
             alt="Correio Digital"
             priority={true}
             placeholder="skeleton"

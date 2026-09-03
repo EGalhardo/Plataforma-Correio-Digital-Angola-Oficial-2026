@@ -6617,7 +6617,7 @@ Ficha civil do titular:
               v37.78.37 — +25% proporcional a pedido do dono (190→238px), com
               o respiro inferior a acompanhar (3→3,75rem) para manter a harmonia. */}
           <LazyImage 
-            src={logoLogin} 
+            src="https://i.postimg.cc/7PWDMLZM/Logo2.png" 
             alt="Correio Digital Logo" 
             priority={true}
             placeholder="skeleton"
@@ -7371,7 +7371,7 @@ Ficha civil do titular:
                     margens um degrau acima (mb-6→mb-7 / mb-3.5→mb-4) e painéis
                     min-h 555→615 / 440→485 — o conjunto cresce junto. */}
                 <LazyImage
-                  src={logoLogin} 
+                  src="https://i.postimg.cc/7PWDMLZM/Logo2.png" 
                   alt="Correio Digital" 
                   priority={true}
                   placeholder="skeleton"
