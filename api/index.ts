@@ -3472,6 +3472,230 @@ async function dadosResolverEExecutar(opts: {
       }
     }
 
+    // v37.79 — ELIMINAÇÃO DE INSTITUIÇÃO PELO ADMIN (sem necessidade de sessão real):
+    // O admin demo (ADMIN-0001) não tem sessão Supabase Auth, por isso o endpoint
+    // /api/eliminar-instituicao falha com 401. Este endpoint usa service role key
+    // no servidor para fazer a eliminação completa em cascata.
+    if (url.includes('/api/admin-eliminar-instituicao') && method === 'POST') {
+      console.log('[ADMIN-ELIMINAR] Endpoint chamado com:', body);
+      try {
+        const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+        
+        // Validação rápida de configuração
+        if (!supaUrl || !serviceKey) {
+          console.error('[ADMIN-ELIMINAR] Configuração incompleta:', { supaUrl: !!supaUrl, serviceKey: !!serviceKey });
+          return res.status(500).json({ ok: false, erro: 'Serviço indisponível: configuração Supabase incompleta.' });
+        }
+        
+        const { bi_numero, agentes } = body || {};
+        if (!bi_numero) {
+          console.error('[ADMIN-ELIMINAR] bi_numero não fornecido');
+          return res.status(400).json({ ok: false, erro: 'bi_numero é obrigatório.' });
+        }
+        
+        const codeNorm = String(bi_numero || '').trim().toUpperCase().replace(/\s+/g, '');
+        console.log('[ADMIN-ELIMINAR] Código normalizado:', codeNorm);
+        
+        if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(codeNorm)) {
+          console.error('[ADMIN-ELIMINAR] Código inválido:', codeNorm);
+          return res.status(400).json({ ok: false, erro: 'Código institucional inválido.' });
+        }
+        
+        console.log('[ADMIN-ELIMINAR] A eliminar:', { bi_numero: codeNorm, agentes });
+        
+        // Chaves válidas: o código, o responsável (-01) e agentes -NN
+        const chaves = new Set<string>([codeNorm, `${codeNorm}-01`]);
+        for (const a of Array.isArray(agentes) ? agentes : []) {
+          const aN = String(a || '').trim().toUpperCase().replace(/\s+/g, '');
+          if (/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(aN) && (aN === codeNorm || aN.startsWith(`${codeNorm}-`))) {
+            chaves.add(aN);
+          }
+        }
+        const emailDe = (k: string) => `agente.${k.toLowerCase()}@inst.correiodigital.ao`;
+        const padraoAgentes = new RegExp(`^agente\\.${codeNorm.toLowerCase()}-\\d+@inst\\.correiodigital\\.ao$`, 'i');
+        
+        // 1) Solicitação de registo
+        let solicitacao = 0;
+        try {
+          const respSol = await fetch(`${supaUrl}/rest/v1/solicitacoes_registo?bi_numero=eq.${encodeURIComponent(codeNorm)}`, {
+            method: 'DELETE',
+            headers: {
+              'apikey': serviceKey,
+              'Authorization': `Bearer ${serviceKey}`
+            }
+          });
+          if (respSol.ok || respSol.status === 204) solicitacao = 1;
+          else console.error('[ADMIN-ELIMINAR] Erro ao eliminar solicitação:', respSol.status);
+        } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar solicitação:', e); }
+        
+        // 2) Contas Auth dos agentes
+        let contas = 0;
+        try {
+          // Listar utilizadores Auth
+          for (let pagina = 1; pagina <= 10; pagina++) {
+            const resp = await fetch(`${supaUrl}/auth/v1/admin/users?page=${pagina}&per_page=200`, {
+              headers: {
+                'apikey': serviceKey,
+                'Authorization': `Bearer ${serviceKey}`
+              }
+            });
+            if (!resp.ok) break;
+            const data = await resp.json();
+            if (!data.users || !data.users.length) break;
+            for (const u of data.users) {
+              const email = String(u.email || '').toLowerCase();
+              const ehDaInstituicao = padraoAgentes.test(email) || [...chaves].some((k) => email === emailDe(k));
+              if (!ehDaInstituicao) continue;
+              const agenteDescoberto = email.startsWith('agente.') ? email.slice('agente.'.length).split('@')[0].toUpperCase() : '';
+              if (agenteDescoberto) chaves.add(agenteDescoberto);
+              // Eliminar conta
+              const delResp = await fetch(`${supaUrl}/auth/v1/admin/users/${u.id}`, {
+                method: 'DELETE',
+                headers: {
+                  'apikey': serviceKey,
+                  'Authorization': `Bearer ${serviceKey}`
+                }
+              });
+              if (delResp.ok) contas += 1;
+            }
+          }
+        } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar contas Auth:', e); }
+        
+        // 3) Linhas de perfil
+        let perfis = 0;
+        try {
+          const resp = await fetch(`${supaUrl}/rest/v1/profiles?or=(bi.eq.${codeNorm},bi.like.${codeNorm}-%)`, {
+            method: 'DELETE',
+            headers: {
+              'apikey': serviceKey,
+              'Authorization': `Bearer ${serviceKey}`,
+              'Prefer': 'return=representation'
+            }
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            perfis = Array.isArray(data) ? data.length : 0;
+          }
+        } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar perfis:', e); }
+        
+        // 4) Mensagens
+        let mensagens = 0;
+        try {
+          // Primeiro obter IDs
+          const respIds = await fetch(`${supaUrl}/rest/v1/messages?or=(sender_bi.eq.${codeNorm},sender_bi.like.${codeNorm}-%,recipient_bi.eq.${codeNorm},recipient_bi.like.${codeNorm}-%)&select=id&limit=5000`, {
+            headers: {
+              'apikey': serviceKey,
+              'Authorization': `Bearer ${serviceKey}`
+            }
+          });
+          const idsMensagens: number[] = [];
+          if (respIds.ok) {
+            const data = await respIds.json();
+            if (Array.isArray(data)) idsMensagens.push(...data.map((m: any) => m.id));
+          }
+          // Eliminar mensagens
+          const resp = await fetch(`${supaUrl}/rest/v1/messages?or=(sender_bi.eq.${codeNorm},sender_bi.like.${codeNorm}-%,recipient_bi.eq.${codeNorm},recipient_bi.like.${codeNorm}-%)`, {
+            method: 'DELETE',
+            headers: {
+              'apikey': serviceKey,
+              'Authorization': `Bearer ${serviceKey}`,
+              'Prefer': 'return=representation'
+            }
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            mensagens = Array.isArray(data) ? data.length : 0;
+          }
+          // Eliminar histórico de estados
+          if (idsMensagens.length > 0) {
+            const idsList = idsMensagens.join(',');
+            await fetch(`${supaUrl}/rest/v1/message_state_history?message_id=in.(${idsList})`, {
+              method: 'DELETE',
+              headers: {
+                'apikey': serviceKey,
+                'Authorization': `Bearer ${serviceKey}`
+              }
+            });
+          }
+          await fetch(`${supaUrl}/rest/v1/message_state_history?or=(responsible.like.${codeNorm}%,responsible.like.${codeNorm}-%)`, {
+            method: 'DELETE',
+            headers: {
+              'apikey': serviceKey,
+              'Authorization': `Bearer ${serviceKey}`
+            }
+          });
+        } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar mensagens:', e); }
+        
+        // 5) Notificações
+        let notificacoes = 0;
+        try {
+          const resp = await fetch(`${supaUrl}/rest/v1/notifications?or=(target_bi.eq.${codeNorm},target_bi.like.${codeNorm}-%)`, {
+            method: 'DELETE',
+            headers: {
+              'apikey': serviceKey,
+              'Authorization': `Bearer ${serviceKey}`,
+              'Prefer': 'return=representation'
+            }
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            notificacoes = Array.isArray(data) ? data.length : 0;
+          }
+        } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar notificações:', e); }
+        
+        // 6) Sondagens
+        let sondagens = 0;
+        try {
+          const resp = await fetch(`${supaUrl}/rest/v1/sondagens?instituicao_code=eq.${codeNorm}`, {
+            method: 'DELETE',
+            headers: {
+              'apikey': serviceKey,
+              'Authorization': `Bearer ${serviceKey}`,
+              'Prefer': 'return=representation'
+            }
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            sondagens = Array.isArray(data) ? data.length : 0;
+          }
+        } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar sondagens:', e); }
+        
+        // 7) Protocolos
+        let protocolos = 0;
+        try {
+          const resp = await fetch(`${supaUrl}/rest/v1/digital_protocols?or=(issuer_institution.eq.${codeNorm},issuer_institution.like.${codeNorm}-%)`, {
+            method: 'DELETE',
+            headers: {
+              'apikey': serviceKey,
+              'Authorization': `Bearer ${serviceKey}`,
+              'Prefer': 'return=representation'
+            }
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            protocolos = Array.isArray(data) ? data.length : 0;
+          }
+        } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar protocolos:', e); }
+        
+        console.log('[ADMIN-ELIMINAR] Sucesso!', { solicitacao, contas, perfis, mensagens, notificacoes, sondagens, protocolos });
+        return res.status(200).json({ 
+          ok: true, 
+          code: codeNorm,
+          contas, 
+          perfis, 
+          mensagens, 
+          notificacoes, 
+          sondagens, 
+          protocolos,
+          solicitacao
+        });
+      } catch (e: any) {
+        console.error('[ADMIN-ELIMINAR] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
     // /api/upload (Modo Real) — whitelist de buckets, máx. 10 MB.
     const UPLOAD_BUCKETS_PERMITIDOS = ['fotos_perfil', 'kb_ficheiros', 'documentos_registo', 'correspondencias_anexos'];
     if (url.includes('/api/upload') && method === 'POST') {
