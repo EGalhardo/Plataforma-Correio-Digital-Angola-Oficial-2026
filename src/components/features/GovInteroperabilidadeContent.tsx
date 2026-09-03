@@ -2188,13 +2188,20 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
               <motion.div
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 onClick={() => { if (!solBusy) setSolToDelete(null); }}
-                className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[170]"
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-md"
+                style={{ zIndex: 99998 }}
               />
               <motion.div
                 initial={{ opacity: 0, scale: 0.94, y: 14 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.94, y: 14 }}
-                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-[480px] bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.25)] z-[180] border border-slate-100 overflow-hidden text-center relative"
+                className="fixed w-[92%] max-w-[480px] bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.25)] border border-slate-100 overflow-hidden text-center relative"
+                style={{ 
+                  zIndex: 99999,
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)'
+                }}
               >
                 {/* v37.28 — barra de destaque destrutiva no topo */}
                 <div className="h-1.5 w-full bg-gradient-to-r from-rose-400 via-rose-600 to-rose-400" />
