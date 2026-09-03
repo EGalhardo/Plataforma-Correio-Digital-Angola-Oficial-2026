@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Building2,
@@ -1524,6 +1525,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
       </div>
 
       {/* Creation and Modification Drawer Dialog */}
+      {createPortal(
       <AnimatePresence>
         {(isCreateModalOpen || editingInstitution) && (
           <>
@@ -1963,8 +1965,10 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
           </>
         )}
       </AnimatePresence>
+      , document.body)}
 
       {/* ===== MODAL — Auditoria Institucional da Solicitação ===== */}
+      {createPortal(
       <AnimatePresence>
         {selectedSolicitacao && (() => {
           const row = selectedSolicitacao;
@@ -2171,8 +2175,10 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
           );
         })()}
       </AnimatePresence>
+      , document.body)}
 
       {/* ===== MODAL DE CONFIRMAÇÃO — Eliminar Solicitação de Registo (desenho oficial) ===== */}
+      {createPortal(
       <AnimatePresence>
         {solToDelete && (() => {
           const row = solToDelete;
@@ -2259,8 +2265,10 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
           );
         })()}
       </AnimatePresence>
+      , document.body)}
 
       {/* Interoperability Activity History Modal */}
+      {createPortal(
       <AnimatePresence>
         {selectedInstHistory && (() => {
           const aiUsageVal = parseFloat(selectedInstHistory.aiUsageRate || '80');
@@ -2506,6 +2514,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
           );
         })()}
       </AnimatePresence>
+      , document.body)}
 
     </div>
   );
