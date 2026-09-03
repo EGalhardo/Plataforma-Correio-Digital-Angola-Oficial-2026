@@ -1844,7 +1844,12 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
     try {
       const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
-      if (!supaUrl || !serviceKey) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      
+      // Validação rápida de configuração
+      if (!supaUrl || !serviceKey) {
+        console.error('[ADMIN-APROVAR] Configuração incompleta:', { supaUrl: !!supaUrl, serviceKey: !!serviceKey });
+        return res.status(500).json({ ok: false, erro: 'Serviço indisponível: configuração Supabase incompleta.' });
+      }
       
       const { bi_numero, status } = req.body || {};
       if (!bi_numero || !status) {
@@ -1857,24 +1862,40 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
         return res.status(400).json({ ok: false, erro: `Status inválido. Permitidos: ${statusPermitidos.join(', ')}` });
       }
       
+      console.log('[ADMIN-APROVAR] A aprovar:', { bi_numero, status });
+      
       // Usar service role key para fazer a actualização (bypass RLS)
-      const resp = await fetch(`${supaUrl}/rest/v1/solicitacoes_registo?bi_numero=eq.${encodeURIComponent(bi_numero)}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': serviceKey,
-          'Authorization': `Bearer ${serviceKey}`,
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({ status })
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
       
-      if (!resp.ok && resp.status !== 204) {
-        const txt = await resp.text().catch(() => '');
-        return res.status(resp.status).json({ ok: false, erro: `Actualização falhou (${resp.status}). ${txt.slice(0, 160)}` });
+      try {
+        const resp = await fetch(`${supaUrl}/rest/v1/solicitacoes_registo?bi_numero=eq.${encodeURIComponent(bi_numero)}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': serviceKey,
+            'Authorization': `Bearer ${serviceKey}`,
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({ status }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!resp.ok && resp.status !== 204) {
+          const txt = await resp.text().catch(() => '');
+          console.error('[ADMIN-APROVAR] Falha:', resp.status, txt);
+          return res.status(resp.status).json({ ok: false, erro: `Actualização falhou (${resp.status}). ${txt.slice(0, 160)}` });
+        }
+        
+        console.log('[ADMIN-APROVAR] Sucesso!');
+        return res.status(200).json({ ok: true, bi_numero, status });
+      } catch (fetchErr) {
+        clearTimeout(timeoutId);
+        console.error('[ADMIN-APROVAR] Erro no fetch:', fetchErr);
+        return res.status(500).json({ ok: false, erro: `Erro ao comunicar com Supabase: ${fetchErr.message}` });
       }
-      
-      return res.status(200).json({ ok: true, bi_numero, status });
     } catch (e) {
       console.error('[ADMIN-APROVAR] Exceção:', e);
       return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
