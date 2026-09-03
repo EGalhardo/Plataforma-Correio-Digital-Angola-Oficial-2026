@@ -1038,6 +1038,9 @@ export default async function handler(req: any, res: any) {
         status: "ok",
         ai_key_configured: !!apiKey,
         groq_key_configured: !!groqApiKey,
+        supabase_url_configured: !!(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL),
+        supabase_anon_configured: !!(process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY),
+        supabase_service_role_configured: !!(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY),
       });
     }
 
@@ -3402,6 +3405,71 @@ async function dadosResolverEExecutar(opts: {
       if (!supaUrlDados || !serviceKeyDados) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const r = await dadosResolverEExecutar({ supaUrl: supaUrlDados, serviceKey: serviceKeyDados, req, body: body || {} });
       return res.status(r.status).json(r.json);
+    }
+
+    // 2026-09-03 — ENDPOINT ESPECÍFICO PARA APROVAÇÃO DE INSTITUIÇÕES:
+    // Permite ao admin (mesmo demo/local) aprovar instituições sem necessidade
+    // de sessão Supabase Auth real. Usa service role key para fazer a actualização.
+    if (url.includes('/api/admin-aprovar-instituicao') && method === 'POST') {
+      try {
+        const supaUrlAp = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+        const serviceKeyAp = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+        
+        // Validação rápida de configuração
+        if (!supaUrlAp || !serviceKeyAp) {
+          console.error('[ADMIN-APROVAR] Configuração incompleta:', { supaUrl: !!supaUrlAp, serviceKey: !!serviceKeyAp });
+          return res.status(500).json({ ok: false, erro: 'Serviço indisponível: configuração Supabase incompleta.' });
+        }
+        
+        const { bi_numero, status } = body || {};
+        if (!bi_numero || !status) {
+          return res.status(400).json({ ok: false, erro: 'bi_numero e status são obrigatórios.' });
+        }
+        
+        // Validar status permitido
+        const statusPermitidos = ['Aprovado', 'Rejeitado', 'Em Correções', 'Pendente'];
+        if (!statusPermitidos.includes(status)) {
+          return res.status(400).json({ ok: false, erro: `Status inválido. Permitidos: ${statusPermitidos.join(', ')}` });
+        }
+        
+        console.log('[ADMIN-APROVAR] A aprovar:', { bi_numero, status });
+        
+        // Usar service role key para fazer a actualização (bypass RLS)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+        
+        try {
+          const resp = await fetch(`${supaUrlAp}/rest/v1/solicitacoes_registo?bi_numero=eq.${encodeURIComponent(bi_numero)}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': serviceKeyAp,
+              'Authorization': `Bearer ${serviceKeyAp}`,
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ status }),
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (!resp.ok && resp.status !== 204) {
+            const txt = await resp.text().catch(() => '');
+            console.error('[ADMIN-APROVAR] Falha:', resp.status, txt);
+            return res.status(resp.status).json({ ok: false, erro: `Actualização falhou (${resp.status}). ${txt.slice(0, 160)}` });
+          }
+          
+          console.log('[ADMIN-APROVAR] Sucesso!');
+          return res.status(200).json({ ok: true, bi_numero, status });
+        } catch (fetchErr: any) {
+          clearTimeout(timeoutId);
+          console.error('[ADMIN-APROVAR] Erro no fetch:', fetchErr);
+          return res.status(500).json({ ok: false, erro: `Erro ao comunicar com Supabase: ${fetchErr.message}` });
+        }
+      } catch (e: any) {
+        console.error('[ADMIN-APROVAR] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
     }
 
     // /api/upload (Modo Real) — whitelist de buckets, máx. 10 MB.
