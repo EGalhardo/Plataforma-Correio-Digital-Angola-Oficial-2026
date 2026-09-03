@@ -1902,6 +1902,174 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
     }
   });
 
+  // v37.79 — ELIMINAÇÃO DE INSTITUIÇÃO PELO ADMIN (sem necessidade de sessão real):
+  // O admin demo (ADMIN-0001) não tem sessão Supabase Auth, por isso o endpoint
+  // /api/eliminar-instituicao falha com 401. Este endpoint usa service role key
+  // no servidor para fazer a eliminação completa em cascata.
+  app.post("/api/admin-eliminar-instituicao", async (req, res) => {
+    try {
+      const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+      
+      // Validação rápida de configuração
+      if (!supaUrl || !serviceKey) {
+        console.error('[ADMIN-ELIMINAR] Configuração incompleta:', { supaUrl: !!supaUrl, serviceKey: !!serviceKey });
+        return res.status(500).json({ ok: false, erro: 'Serviço indisponível: configuração Supabase incompleta.' });
+      }
+      
+      const { bi_numero, agentes } = req.body || {};
+      if (!bi_numero) {
+        return res.status(400).json({ ok: false, erro: 'bi_numero é obrigatório.' });
+      }
+      
+      const codeNorm = String(bi_numero || '').trim().toUpperCase().replace(/\s+/g, '');
+      if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(codeNorm)) {
+        return res.status(400).json({ ok: false, erro: 'Código institucional inválido.' });
+      }
+      
+      console.log('[ADMIN-ELIMINAR] A eliminar:', { bi_numero: codeNorm, agentes });
+      
+      const admin = createSupabaseAdminClient();
+      if (!admin) {
+        return res.status(500).json({ ok: false, erro: 'Serviço indisponível: cliente admin não criado.' });
+      }
+      
+      // Chaves válidas: o código, o responsável (-01) e agentes -NN
+      const chaves = new Set<string>([codeNorm, `${codeNorm}-01`]);
+      for (const a of Array.isArray(agentes) ? agentes : []) {
+        const aN = String(a || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(aN) && (aN === codeNorm || aN.startsWith(`${codeNorm}-`))) {
+          chaves.add(aN);
+        }
+      }
+      const emailDe = (k: string) => `agente.${k.toLowerCase()}@inst.correiodigital.ao`;
+      const padraoAgentes = new RegExp(`^agente\\.${codeNorm.toLowerCase()}-\\d+@inst\\.correiodigital\\.ao$`, 'i');
+      
+      // 1) Contas Auth dos agentes
+      let contas = 0;
+      try {
+        for (let pagina = 1; pagina <= 10; pagina++) {
+          const { data: lista, error: listErr } = await admin.auth.admin.listUsers({ page: pagina, perPage: 200 });
+          if (listErr || !lista || !lista.users || !lista.users.length) break;
+          for (const u of lista.users) {
+            const email = String(u.email || '').toLowerCase();
+            const ehDaInstituicao = padraoAgentes.test(email) || [...chaves].some((k) => email === emailDe(k));
+            if (!ehDaInstituicao) continue;
+            const agenteDescoberto = email.startsWith('agente.') ? email.slice('agente.'.length).split('@')[0].toUpperCase() : '';
+            if (agenteDescoberto) chaves.add(agenteDescoberto);
+            const { error: delErr } = await admin.auth.admin.deleteUser(u.id);
+            if (!delErr) contas += 1;
+          }
+        }
+      } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar contas Auth:', e); }
+      
+      // 2) Avatares do Storage
+      let avatares = 0;
+      try {
+        const { data: arquivos } = await admin.storage.from('fotos_perfil').list('avatars', { limit: 500 });
+        const alvos = (arquivos || []).filter((f: { name?: string }) => {
+          const n = String(f.name || '');
+          return [...chaves].some((k) => n.startsWith(`${k}_`));
+        });
+        if (alvos.length) {
+          const { error: rmErr } = await admin.storage.from('fotos_perfil').remove(alvos.map((f: { name: string }) => `avatars/${f.name}`));
+          if (!rmErr) avatares = alvos.length;
+        }
+      } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar avatares:', e); }
+      
+      // 3) Linhas de perfil
+      let perfis = 0;
+      try {
+        const { count } = await admin.from('profiles').delete({ count: 'exact' }).or(`bi.eq.${codeNorm},bi.like.${codeNorm}-*`);
+        perfis = count || 0;
+      } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar perfis:', e); }
+      
+      // 4) Mensagens
+      let mensagens = 0;
+      let idsMensagens: number[] = [];
+      try {
+        const { data: listaMsgs } = await admin.from('messages').select('id')
+          .or(`sender_bi.eq.${codeNorm},sender_bi.like.${codeNorm}-*,recipient_bi.eq.${codeNorm},recipient_bi.like.${codeNorm}-*`)
+          .limit(5000);
+        if (Array.isArray(listaMsgs)) idsMensagens = listaMsgs.map((m: any) => m.id);
+      } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao obter IDs de mensagens:', e); }
+      try {
+        const { count } = await admin.from('messages').delete({ count: 'exact' })
+          .or(`sender_bi.eq.${codeNorm},sender_bi.like.${codeNorm}-*,recipient_bi.eq.${codeNorm},recipient_bi.like.${codeNorm}-*`);
+        mensagens = count || 0;
+      } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar mensagens:', e); }
+      
+      // 5) Notificações
+      let notificacoes = 0;
+      try {
+        const { count } = await admin.from('notifications').delete({ count: 'exact' })
+          .or(`target_bi.eq.${codeNorm},target_bi.like.${codeNorm}-*`);
+        notificacoes = count || 0;
+      } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar notificações:', e); }
+      
+      // 6) Sondagens
+      let sondagens = 0;
+      try {
+        const { count } = await admin.from('sondagens').delete({ count: 'exact' }).eq('instituicao_code', codeNorm);
+        sondagens = count || 0;
+      } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar sondagens:', e); }
+      
+      // 7) Protocolos
+      let protocolos = 0;
+      try {
+        const { count } = await admin.from('digital_protocols').delete({ count: 'exact' })
+          .or(`issuer_institution.eq.${codeNorm},issuer_institution.like.${codeNorm}-*`);
+        protocolos = count || 0;
+      } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar protocolos:', e); }
+      
+      // 8) Histórico de estados
+      let historico = 0;
+      try {
+        if (idsMensagens.length) {
+          const { count } = await admin.from('message_state_history').delete({ count: 'exact' }).in('message_id', idsMensagens);
+          historico += count || 0;
+        }
+      } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar histórico (por ID):', e); }
+      try {
+        const { count } = await admin.from('message_state_history').delete({ count: 'exact' })
+          .or(`responsible.like.${codeNorm}%,responsible.like.${codeNorm}-%`);
+        historico += count || 0;
+      } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar histórico (por responsável):', e); }
+      
+      // 9) Solicitação de registo
+      let solicitacao = 0;
+      try {
+        const { count } = await admin.from('solicitacoes_registo').delete({ count: 'exact' }).eq('bi_numero', codeNorm);
+        solicitacao = count || 0;
+      } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar solicitação:', e); }
+      
+      // 10) Vestígios adicionais (vídeo-sessões, contactos, pedidos, documentos)
+      try {
+        for (const k of chaves) {
+          try { await purgarVestigiosPorChave(admin, k); } catch { /* best-effort */ }
+        }
+      } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao purgar vestígios:', e); }
+      
+      console.log('[ADMIN-ELIMINAR] Sucesso!', { contas, avatares, perfis, mensagens, notificacoes, sondagens, protocolos, historico, solicitacao });
+      return res.status(200).json({ 
+        ok: true, 
+        code: codeNorm,
+        contas, 
+        avatares, 
+        perfis, 
+        mensagens, 
+        notificacoes, 
+        sondagens, 
+        protocolos, 
+        historico,
+        solicitacao
+      });
+    } catch (e) {
+      console.error('[ADMIN-ELIMINAR] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
   // Rota do proxy CRUD do Modo Real (ver bloco PROXY CRUD acima).
   app.post("/api/dados", async (req, res) => {
     try {

@@ -566,6 +566,40 @@ export const aprovarInstituicaoAdmin = async (
   }
 };
 
+/** v37.79 — ELIMINAÇÃO DE INSTITUIÇÃO PELO ADMIN (sem necessidade de sessão real):
+ *  O admin demo (ADMIN-0001) não tem sessão Supabase Auth, por isso o endpoint
+ *  /api/eliminar-instituicao falha com 401. Este endpoint usa service role key
+ *  no servidor para fazer a eliminação completa em cascata. */
+export const eliminarInstituicaoAdmin = async (
+  bi_numero: string,
+  agentes: string[] = [],
+): Promise<{ ok: boolean; erro?: string; detalhes?: Record<string, number> }> => {
+  try {
+    const resp = await fetch('/api/admin-eliminar-instituicao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bi_numero, agentes }),
+    });
+    const j = await resp.json().catch(() => null);
+    if (j && j.ok === true) {
+      return { ok: true, detalhes: {
+        contas: j.contas || 0,
+        avatares: j.avatares || 0,
+        perfis: j.perfis || 0,
+        mensagens: j.mensagens || 0,
+        notificacoes: j.notificacoes || 0,
+        sondagens: j.sondagens || 0,
+        protocolos: j.protocolos || 0,
+        historico: j.historico || 0,
+        solicitacao: j.solicitacao || 0,
+      }};
+    }
+    return { ok: false, erro: (j && j.erro) || `HTTP ${resp.status}` };
+  } catch {
+    return { ok: false, erro: 'Rede indisponível.' };
+  }
+};
+
 
 /** PERMISSÕES DE PÁGINA (2026-08-22) — o servidor É a verificação:
  *  · 'ler': devolve as páginas permitidas do PRÓPRIO token (user_metadata na

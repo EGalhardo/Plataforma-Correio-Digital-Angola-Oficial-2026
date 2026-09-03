@@ -35,7 +35,7 @@ import {
 } from '../../services/sondagemService';
 import { useSession } from '../../services/sessionStore';
 import { supabaseService } from '../../services/supabaseService';
-import { registoPublicoProxy, enviarMensagemAdministrativa, eliminarInstituicaoCloud, aprovarInstituicaoAdmin } from '../../services/supabaseService';
+import { registoPublicoProxy, enviarMensagemAdministrativa, eliminarInstituicaoCloud, aprovarInstituicaoAdmin, eliminarInstituicaoAdmin } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore } from '../../services/homologationStore';
 // 2026-08-23 — MODO REAL: métricas da base central (nunca simuladas). Sem
@@ -797,30 +797,8 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
   const handleDeleteSolicitacao = async (row: LinhaSolicitacao) => {
     setSolBusy(true);
+    setSolError('');
     const code = normalizeInstCode(row.bi_numero);
-    const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
-    // No modo real, confirmar a exclusão central ANTES de limpar qualquer cache local.
-    if (ready) {
-      try {
-        const { data, error } = await supabase.rpc('cda_admin_alfa_eliminar_registo', { p_identificador: code });
-        if (error || !data?.ok) {
-          console.error('Erro na exclusão administrativa central:', error || data);
-          setSolError('Não foi possível eliminar a instituição na base central. Confirme a sessão do Admin Alfa e tente novamente.');
-          setSolBusy(false);
-          return;
-        }
-      } catch (e) {
-        console.error('Remoção cloud indisponível:', e);
-        setSolError('A exclusão central está indisponível. A instituição não foi removida da lista.');
-        setSolBusy(false);
-        return;
-      }
-    }
-    // v37.76 — CASCATA DA NUVEM além da relacional: a RPC v30/v31 documenta que
-    // Storage/Auth devem ser removidos pelo backend (service role) — sem isto o
-    // avatar_url residual das contas Auth dos agentes era herdado pela adesão
-    // RE-CRIADA (a «cara» da vida anterior aparecia no perfil). Best-effort:
-    // falha não bloqueia (a RPC já limpou o relacional) mas fica registada.
     const regAntes = getLocalInstRegs().find((r) => normalizeInstCode(r.code) === code);
     const agentesDaInstituicao = [
       code,
@@ -828,21 +806,60 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
       regAntes?.agentNumber || '',
       ...((regAntes?.members || []).map((m) => m.agentNumber || '')),
     ].filter(Boolean);
-    try {
-      const resCloud = await eliminarInstituicaoCloud(code, agentesDaInstituicao);
-      if (!resCloud.ok) {
-        onLog?.(`Eliminação de ${code}: limpeza de nuvem (contas Auth/avatares) indisponível (${resCloud.erro}) — a adesão foi eliminada; use a Equipa para remover agentes restantes se necessário.`, 'warning');
+    
+    let eliminacaoBemSucedida = false;
+    
+    // v37.79 — Tenta primeiro a RPC, se falhar usa o endpoint admin (service role)
+    const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (ready) {
+      try {
+        const { data, error } = await supabase.rpc('cda_admin_alfa_eliminar_registo', { p_identificador: code });
+        if (!error && data?.ok) {
+          eliminacaoBemSucedida = true;
+          // Continua com a cascata cloud
+          try {
+            const resCloud = await eliminarInstituicaoCloud(code, agentesDaInstituicao);
+            if (!resCloud.ok) {
+              onLog?.(`Eliminação de ${code}: limpeza de nuvem (contas Auth/avatares) indisponível (${resCloud.erro}) — a adesão foi eliminada; use a Equipa para remover agentes restantes se necessário.`, 'warning');
+            }
+          } catch { /* best-effort */ }
+        } else {
+          console.warn('RPC falhou, tentando endpoint admin:', error || data);
+        }
+      } catch (e) {
+        console.warn('Remoção via RPC indisponível, tentando endpoint admin:', e);
       }
-    } catch { /* best-effort */ }
-    // Cascata local COMPLETA (F49/v37.74) — substitui a limpeza parcial anterior
-    // (estado + thread + lidos + registo + avatares/fotos/dados por código e por
-    // Nº de agente da equipa + espelho da equipa).
+    }
+    
+    // v37.79 — Fallback: usa o endpoint admin que funciona sem sessão Supabase Auth
+    if (!eliminacaoBemSucedida) {
+      try {
+        const resultado = await eliminarInstituicaoAdmin(code, agentesDaInstituicao);
+        if (resultado.ok) {
+          eliminacaoBemSucedida = true;
+          onLog?.(`Eliminação de ${code} bem-sucedida via endpoint admin. Detalhes: ${JSON.stringify(resultado.detalhes)}`, 'info');
+        } else {
+          console.error('Falha no endpoint admin:', resultado.erro);
+          setSolError(`Não foi possível eliminar a instituição: ${resultado.erro || 'Erro desconhecido'}`);
+          setSolBusy(false);
+          return;
+        }
+      } catch (e) {
+        console.error('Erro ao chamar endpoint admin:', e);
+        setSolError('A eliminação está indisponível. A instituição não foi removida.');
+        setSolBusy(false);
+        return;
+      }
+    }
+    
+    // Cascata local COMPLETA (F49/v37.74)
     try { purgeInstitutionLocalResidues(code, regAntes); } catch { /* ignora */ }
     setInstitutions(prev => prev.filter(i => normalizeInstCode(i.instCode || '') !== code));
     onLog?.(`Solicitação de ${row.nome} (${code}) eliminada em cascata (registo, homologação, thread, lidos, ficha da página).`, 'critical');
     await fetchSolicitacoes();
     setSelectedSolicitacao(null);
     setSolBusy(false);
+    setSolToDelete(null); // Fecha o popup apenas após sucesso
   };
 
   const handleSendSolThread = (row: LinhaSolicitacao) => {
@@ -2234,6 +2251,16 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                     </p>
                   </div>
 
+                  {/* Mensagem de erro */}
+                  {solError && (
+                    <div className="bg-red-50 border border-red-200 rounded-2xl p-3 mb-4 text-left">
+                      <p className="text-[11px] text-red-700 font-medium flex items-center gap-2">
+                        <AlertTriangle size={16} className="text-red-500 shrink-0" />
+                        {solError}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Linha de confirmação com "?" */}
                   <div className="flex items-center gap-3 text-left mb-2 px-1">
                     <span className="w-9 h-9 rounded-full bg-rose-50 border border-rose-100 text-rose-600 font-black text-[15px] flex items-center justify-center shrink-0 select-none">?</span>
@@ -2257,7 +2284,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                   <button
                     type="button"
                     disabled={solBusy}
-                    onClick={() => { void handleDeleteSolicitacao(row).finally(() => setSolToDelete(null)); }}
+                    onClick={() => { void handleDeleteSolicitacao(row); }}
                     className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white rounded-full py-3 text-[10px] font-black uppercase tracking-[0.12em] whitespace-nowrap transition-all cursor-pointer border-none shadow-md shadow-rose-200 flex items-center justify-center gap-2 active:scale-95"
                   >
                     <Trash2 size={14} /> {solBusy ? 'A eliminar…' : 'Eliminar Definitivamente'}
