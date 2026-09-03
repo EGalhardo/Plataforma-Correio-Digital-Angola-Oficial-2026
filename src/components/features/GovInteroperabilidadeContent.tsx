@@ -1248,7 +1248,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                       const pack = parseInstPack(row.observacoes);
                       return (
                         <tr key={normalizeInstCode(row.bi_numero)} onClick={() => { setSelectedSolicitacao(row); setSolReason(''); setSolError(''); }} className="border-b border-slate-50 hover:bg-slate-50/70 transition-colors cursor-pointer">
-                          <td className="py-3 px-3 font-bold text-slate-800">{row.nome}</td>
+                          <td className="py-3 px-3 font-bold text-slate-800">{row.nome || row.nome_completo || pack?.nomeCompleto || pack?.sigla || row.bi_numero}</td>
                           <td className="py-3 px-3 font-mono font-bold text-[#4f46e5]">{pack?.sigla || '—'}</td>
                           <td className="py-3 px-3 text-slate-600">{pack?.tipo || '—'}</td>
                           <td className="py-3 px-3 text-slate-600">{pack?.provincia || '—'}</td>
