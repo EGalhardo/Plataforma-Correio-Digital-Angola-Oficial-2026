@@ -796,9 +796,12 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   };
 
   const handleDeleteSolicitacao = async (row: LinhaSolicitacao) => {
+    console.log('[DELETE-SOL] Iniciando eliminação:', row);
     setSolBusy(true);
     setSolError('');
     const code = normalizeInstCode(row.bi_numero);
+    console.log('[DELETE-SOL] Código normalizado:', code);
+    
     const regAntes = getLocalInstRegs().find((r) => normalizeInstCode(r.code) === code);
     const agentesDaInstituicao = [
       code,
@@ -806,60 +809,80 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
       regAntes?.agentNumber || '',
       ...((regAntes?.members || []).map((m) => m.agentNumber || '')),
     ].filter(Boolean);
+    console.log('[DELETE-SOL] Agentes da instituição:', agentesDaInstituicao);
     
     let eliminacaoBemSucedida = false;
     
     // v37.79 — Tenta primeiro a RPC, se falhar usa o endpoint admin (service role)
     const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
+    console.log('[DELETE-SOL] Supabase ready?', ready);
+    
     if (ready) {
       try {
+        console.log('[DELETE-SOL] Tentando RPC...');
         const { data, error } = await supabase.rpc('cda_admin_alfa_eliminar_registo', { p_identificador: code });
+        console.log('[DELETE-SOL] RPC result:', { data, error });
         if (!error && data?.ok) {
           eliminacaoBemSucedida = true;
+          console.log('[DELETE-SOL] RPC bem-sucedida, continuando com cascata cloud...');
           // Continua com a cascata cloud
           try {
             const resCloud = await eliminarInstituicaoCloud(code, agentesDaInstituicao);
+            console.log('[DELETE-SOL] Cloud result:', resCloud);
             if (!resCloud.ok) {
               onLog?.(`Eliminação de ${code}: limpeza de nuvem (contas Auth/avatares) indisponível (${resCloud.erro}) — a adesão foi eliminada; use a Equipa para remover agentes restantes se necessário.`, 'warning');
             }
-          } catch { /* best-effort */ }
+          } catch (cloudErr) { 
+            console.error('[DELETE-SOL] Erro na cascata cloud:', cloudErr);
+          }
         } else {
-          console.warn('RPC falhou, tentando endpoint admin:', error || data);
+          console.warn('[DELETE-SOL] RPC falhou, tentando endpoint admin:', error || data);
         }
       } catch (e) {
-        console.warn('Remoção via RPC indisponível, tentando endpoint admin:', e);
+        console.warn('[DELETE-SOL] Remoção via RPC indisponível, tentando endpoint admin:', e);
       }
     }
     
     // v37.79 — Fallback: usa o endpoint admin que funciona sem sessão Supabase Auth
     if (!eliminacaoBemSucedida) {
+      console.log('[DELETE-SOL] Tentando endpoint admin...');
       try {
         const resultado = await eliminarInstituicaoAdmin(code, agentesDaInstituicao);
+        console.log('[DELETE-SOL] Endpoint admin result:', resultado);
         if (resultado.ok) {
           eliminacaoBemSucedida = true;
+          console.log('[DELETE-SOL] Endpoint admin bem-sucedido:', resultado.detalhes);
           onLog?.(`Eliminação de ${code} bem-sucedida via endpoint admin. Detalhes: ${JSON.stringify(resultado.detalhes)}`, 'info');
         } else {
-          console.error('Falha no endpoint admin:', resultado.erro);
+          console.error('[DELETE-SOL] Falha no endpoint admin:', resultado.erro);
           setSolError(`Não foi possível eliminar a instituição: ${resultado.erro || 'Erro desconhecido'}`);
           setSolBusy(false);
           return;
         }
       } catch (e) {
-        console.error('Erro ao chamar endpoint admin:', e);
+        console.error('[DELETE-SOL] Erro ao chamar endpoint admin:', e);
         setSolError('A eliminação está indisponível. A instituição não foi removida.');
         setSolBusy(false);
         return;
       }
     }
     
+    console.log('[DELETE-SOL] Eliminação bem-sucedida, executando cascata local...');
     // Cascata local COMPLETA (F49/v37.74)
-    try { purgeInstitutionLocalResidues(code, regAntes); } catch { /* ignora */ }
+    try { purgeInstitutionLocalResidues(code, regAntes); } catch (e) { 
+      console.error('[DELETE-SOL] Erro na cascata local:', e);
+    }
+    
+    console.log('[DELETE-SOL] Atualizando estado local...');
     setInstitutions(prev => prev.filter(i => normalizeInstCode(i.instCode || '') !== code));
     onLog?.(`Solicitação de ${row.nome} (${code}) eliminada em cascata (registo, homologação, thread, lidos, ficha da página).`, 'critical');
+    
+    console.log('[DELETE-SOL] Recarregando solicitações...');
     await fetchSolicitacoes();
     setSelectedSolicitacao(null);
     setSolBusy(false);
     setSolToDelete(null); // Fecha o popup apenas após sucesso
+    console.log('[DELETE-SOL] Eliminação concluída com sucesso!');
   };
 
   const handleSendSolThread = (row: LinhaSolicitacao) => {

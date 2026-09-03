@@ -1907,6 +1907,7 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
   // /api/eliminar-instituicao falha com 401. Este endpoint usa service role key
   // no servidor para fazer a eliminação completa em cascata.
   app.post("/api/admin-eliminar-instituicao", async (req, res) => {
+    console.log('[ADMIN-ELIMINAR] Endpoint chamado com:', req.body);
     try {
       const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
@@ -1919,11 +1920,15 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
       
       const { bi_numero, agentes } = req.body || {};
       if (!bi_numero) {
+        console.error('[ADMIN-ELIMINAR] bi_numero não fornecido');
         return res.status(400).json({ ok: false, erro: 'bi_numero é obrigatório.' });
       }
       
       const codeNorm = String(bi_numero || '').trim().toUpperCase().replace(/\s+/g, '');
+      console.log('[ADMIN-ELIMINAR] Código normalizado:', codeNorm);
+      
       if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(codeNorm)) {
+        console.error('[ADMIN-ELIMINAR] Código inválido:', codeNorm);
         return res.status(400).json({ ok: false, erro: 'Código institucional inválido.' });
       }
       
@@ -1931,8 +1936,10 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
       
       const admin = createSupabaseAdminClient();
       if (!admin) {
+        console.error('[ADMIN-ELIMINAR] Cliente admin não criado');
         return res.status(500).json({ ok: false, erro: 'Serviço indisponível: cliente admin não criado.' });
       }
+      console.log('[ADMIN-ELIMINAR] Cliente admin criado com sucesso');
       
       // Chaves válidas: o código, o responsável (-01) e agentes -NN
       const chaves = new Set<string>([codeNorm, `${codeNorm}-01`]);
