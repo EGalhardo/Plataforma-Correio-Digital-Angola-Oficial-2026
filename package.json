@@ -21,6 +21,7 @@
     "test:localizacao": "node scripts/e2e_ia_localizacao.mjs",
     "test:provincias": "node scripts/e2e_all_provinces_browser.mjs",
     "test:mobile:logout": "node scripts/e2e_mobile_logout.mjs",
+    "test:institucional": "node scripts/e2e_institucional_ajustes.mjs",
     "verify:v28": "tsx scripts/verifyV28.ts",
     "backup:supabase": "tsx scripts/backupSupabase.ts"
   },

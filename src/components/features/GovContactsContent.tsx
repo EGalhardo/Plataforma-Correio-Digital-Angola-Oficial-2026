@@ -70,6 +70,7 @@ import { limparPendenciaPerfil } from '../../services/profileSyncService';
 import { limparLoginFalhas } from '../../services/loginSecurityService';
 import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, updateInstMemberProfile, isInstPasswordTaken, buildAgentNumber, splitAgentNumber } from '../../services/institutionRegistrationStore';
 import { addAdminAgent, updateAdminAgentPassword, updateAdminAgentPermissions, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber, getAdminAgentCreds, ADMIN_ALFA_AGENT } from '../../services/adminAgentStore';
+import { useSession } from '../../services/sessionStore';
 
 interface AuditLog {
   id: string;
@@ -125,7 +126,21 @@ interface LinhaPerfilAdmin { id?: string; name: string; email?: string; bi: stri
 export function GovContactsContent({
   appMode = 'user',
   bi = '009874562LA041',
+  profileName = '',
   addAuditLog}: GovContactsContentProps) {
+  const { user: sessionUser, activeProfile } = useSession();
+
+  const currentInstName = useMemo(() => {
+    if (activeProfile?.institutionName) {
+      const match = activeProfile.institutionName.match(/\(([^)]+)\)/);
+      if (match) return match[1];
+      return activeProfile.institutionName;
+    }
+    if (sessionUser?.name) return sessionUser.name;
+    if (profileName) return profileName;
+    return 'AGT';
+  }, [activeProfile?.institutionName, sessionUser?.name, profileName]);
+
   // FASE 3 — CAMPANHAS DE NOTIFICAÇÃO: estado do painel de aviso geral.
   const [campanhaAberta, setCampanhaAberta] = useState(false);
   const [campanhaTitulo, setCampanhaTitulo] = useState('');
@@ -2260,7 +2275,7 @@ export function GovContactsContent({
   if (appMode === 'institution' || appMode === 'admin-workers') {
     const isPlatformAdmin = appMode === 'admin-workers';
     return (
-      <div className="pb-24 text-left animate-fadeIn">
+      <div className="pb-8 md:pb-16 text-left animate-fadeIn">
         {/* Banner header for Workers */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
@@ -2311,9 +2326,9 @@ export function GovContactsContent({
             <span className="font-mono text-[10px] font-black uppercase text-slate-400 tracking-wider block">
               {isPlatformAdmin ? 'Plataforma Geral' : 'Canal Regulamentado'}
             </span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-3xl font-black text-indigo-600 italic font-mono">
-                {isPlatformAdmin ? 'CDA' : 'AGT'}
+            <div className="flex flex-wrap items-baseline gap-2 mt-1">
+              <span className="text-2xl md:text-3xl font-black text-indigo-600 italic font-mono truncate max-w-full">
+                {isPlatformAdmin ? 'CDA' : currentInstName}
               </span>
               <span className="text-[10px] text-indigo-500 font-bold">
                 {isPlatformAdmin ? 'Administração de Sistemas' : 'Acesso Governamental'}

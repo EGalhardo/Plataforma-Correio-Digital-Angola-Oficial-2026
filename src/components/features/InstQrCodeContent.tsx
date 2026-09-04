@@ -1246,7 +1246,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
   };
 
   return (
-    <div className="space-y-8 w-full pb-24 px-4 pt-4 relative animate-fade-in" id="inst-qrcode-replica-view">
+    <div className="space-y-8 w-full pb-8 md:pb-16 px-2 sm:px-4 pt-2 relative animate-fade-in" id="inst-qrcode-replica-view">
       
       {/* Toast floating system */}
       {toastMessage && (
@@ -1266,12 +1266,12 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
       {/* 1. BRANDING HEADER (Top rounded white card) */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-sm animate-fade-in" id="qr-branding-header">
         <div className="flex items-center gap-4">
-          <div className="w-[52px] h-[52px] rounded-full bg-blue-600 flex items-center justify-center shadow-md shadow-blue-500/15 shrink-0">
+          <div className="w-[52px] h-[52px] rounded-full bg-[#0E2B64] flex items-center justify-center shadow-md shadow-[#0E2B64]/15 shrink-0">
             <QrCode className="w-[24px] h-[24px] text-white" strokeWidth={2.5} />
           </div>
           <div>
             <h1 className="text-slate-800 font-extrabold text-base md:text-lg lg:text-xl leading-tight">QR Mail Reader</h1>
-            <p className="text-blue-600 text-[12px] font-bold flex items-center gap-1.5 mt-0.5">
+            <p className="text-[#0E2B64] text-[12px] font-bold flex items-center gap-1.5 mt-0.5">
               <svg className="w-3 h-3 text-amber-500 fill-amber-500" viewBox="0 0 24 24">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
               </svg>
@@ -1289,7 +1289,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
               Voltar ao Painel
             </button>
           )}
-          <span className="bg-blue-50 border border-blue-100 text-blue-700 rounded-full px-4 py-1.5 text-xs font-bold" id="scan-count-badge">
+          <span className="bg-slate-100 border border-slate-200 text-[#0E2B64] rounded-full px-4 py-1.5 text-xs font-bold" id="scan-count-badge">
             {historyData.length} escaneados
           </span>
         </div>
@@ -1299,10 +1299,10 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
       <div className="grid grid-cols-3 gap-4" id="main-tabs-selector">
         <button 
           onClick={() => { setActiveMainTab('reader'); }}
-          className={`flex items-center justify-center gap-2.5 py-4.5 sm:py-5 px-4 text-xs font-black uppercase tracking-[0.12em] rounded-xl border transition-all duration-250 ${
+          className={`flex items-center justify-center gap-2.5 py-4.5 sm:py-5 px-4 text-xs font-black uppercase tracking-[0.12em] rounded-xl border transition-all duration-250 cursor-pointer ${
             activeMainTab === 'reader'
-              ? 'bg-blue-600 text-white border-transparent shadow-md shadow-blue-500/10 scale-[1.01]'
-              : 'bg-white text-slate-650 border-slate-200 hover:border-blue-400 hover:bg-slate-50'
+              ? 'bg-[#0E2B64] text-white border-transparent shadow-md shadow-[#0E2B64]/10 scale-[1.01]'
+              : 'bg-white text-slate-650 border-slate-200 hover:border-[#0E2B64] hover:bg-slate-50'
           }`}
         >
           <QrCode className="w-4 h-4 shrink-0" strokeWidth={2.5} />
@@ -1310,10 +1310,10 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
         </button>
         <button 
           onClick={() => { setActiveMainTab('generator'); }}
-          className={`flex items-center justify-center gap-2.5 py-4.5 sm:py-5 px-4 text-xs font-black uppercase tracking-[0.12em] rounded-xl border transition-all duration-250 ${
+          className={`flex items-center justify-center gap-2.5 py-4.5 sm:py-5 px-4 text-xs font-black uppercase tracking-[0.12em] rounded-xl border transition-all duration-250 cursor-pointer ${
             activeMainTab === 'generator'
-              ? 'bg-blue-600 text-white border-transparent shadow-md shadow-blue-500/10 scale-[1.01]'
-              : 'bg-white text-slate-650 border-slate-200 hover:border-blue-400 hover:bg-slate-50'
+              ? 'bg-[#0E2B64] text-white border-transparent shadow-md shadow-[#0E2B64]/10 scale-[1.01]'
+              : 'bg-white text-slate-650 border-slate-200 hover:border-[#0E2B64] hover:bg-slate-50'
           }`}
         >
           <QrCode className="w-4 h-4 shrink-0" strokeWidth={2.5} />
@@ -1321,10 +1321,10 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
         </button>
         <button 
           onClick={() => { setActiveMainTab('history'); }}
-          className={`flex items-center justify-center gap-2.5 py-4.5 sm:py-5 px-4 text-xs font-black uppercase tracking-[0.12em] rounded-xl border transition-all duration-250 ${
+          className={`flex items-center justify-center gap-2.5 py-4.5 sm:py-5 px-4 text-xs font-black uppercase tracking-[0.12em] rounded-xl border transition-all duration-250 cursor-pointer ${
             activeMainTab === 'history'
-              ? 'bg-blue-600 text-white border-transparent shadow-md shadow-blue-500/10 scale-[1.01]'
-              : 'bg-white text-slate-650 border-slate-200 hover:border-blue-400 hover:bg-slate-50'
+              ? 'bg-[#0E2B64] text-white border-transparent shadow-md shadow-[#0E2B64]/10 scale-[1.01]'
+              : 'bg-white text-slate-650 border-slate-200 hover:border-[#0E2B64] hover:bg-slate-50'
           }`}
         >
           <History className="w-4 h-4 shrink-0" strokeWidth={2.5} />
@@ -1449,10 +1449,10 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5" id="sub-tabs-discrete-grid">
             <button 
               onClick={() => { setActiveReadTab('camera'); setScanResult(null); setValidationState('idle'); setValidatedItem(null); }}
-              className={`flex items-center justify-center gap-2 py-3.5 px-4 text-xs font-black rounded-xl transition-all shadow-xs border ${
+              className={`flex items-center justify-center gap-2 py-3.5 px-4 text-xs font-black rounded-xl transition-all shadow-xs border cursor-pointer ${
                 activeReadTab === 'camera' 
-                  ? 'bg-blue-600 text-white border-transparent shadow-sm shadow-blue-500/10' 
-                  : 'bg-white text-slate-650 border-slate-200 hover:border-blue-400 hover:bg-slate-50/50'
+                  ? 'bg-[#0E2B64] text-white border-transparent shadow-sm shadow-[#0E2B64]/10' 
+                  : 'bg-white text-slate-650 border-slate-200 hover:border-[#0E2B64] hover:bg-slate-50/50'
               }`}
             >
               <ScanLine className="w-4 h-4 shrink-0" />
@@ -1460,10 +1460,10 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
             </button>
             <button 
               onClick={() => { setActiveReadTab('usb'); stopCamera(); setScanResult(null); setValidationState('idle'); setValidatedItem(null); }}
-              className={`flex items-center justify-center gap-2 py-3.5 px-4 text-xs font-black rounded-xl transition-all shadow-xs border ${
+              className={`flex items-center justify-center gap-2 py-3.5 px-4 text-xs font-black rounded-xl transition-all shadow-xs border cursor-pointer ${
                 activeReadTab === 'usb' 
-                  ? 'bg-blue-600 text-white border-transparent shadow-sm shadow-blue-500/10' 
-                  : 'bg-white text-slate-650 border-slate-200 hover:border-blue-400 hover:bg-slate-50/50'
+                  ? 'bg-[#0E2B64] text-white border-transparent shadow-sm shadow-[#0E2B64]/10' 
+                  : 'bg-white text-slate-650 border-slate-200 hover:border-[#0E2B64] hover:bg-slate-50/50'
               }`}
             >
               <Keyboard className="w-4 h-4 shrink-0" />
@@ -1471,10 +1471,10 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
             </button>
             <button 
               onClick={() => { setActiveReadTab('file'); stopCamera(); setScanResult(null); setValidationState('idle'); setValidatedItem(null); }}
-              className={`flex items-center justify-center gap-2 py-3.5 px-4 text-xs font-black rounded-xl transition-all shadow-xs border ${
+              className={`flex items-center justify-center gap-2 py-3.5 px-4 text-xs font-black rounded-xl transition-all shadow-xs border cursor-pointer ${
                 activeReadTab === 'file' 
-                  ? 'bg-blue-600 text-white border-transparent shadow-sm shadow-blue-500/10' 
-                  : 'bg-white text-slate-650 border-slate-200 hover:border-blue-400 hover:bg-slate-50/50'
+                  ? 'bg-[#0E2B64] text-white border-transparent shadow-sm shadow-[#0E2B64]/10' 
+                  : 'bg-white text-slate-650 border-slate-200 hover:border-[#0E2B64] hover:bg-slate-50/50'
               }`}
             >
               <FileUp className="w-4 h-4 shrink-0" />
@@ -1482,10 +1482,10 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
             </button>
             <button 
               onClick={() => { setActiveReadTab('text'); stopCamera(); setScanResult(null); setValidationState('idle'); setValidatedItem(null); }}
-              className={`flex items-center justify-center gap-2 py-3.5 px-4 text-xs font-black rounded-xl transition-all shadow-xs border ${
+              className={`flex items-center justify-center gap-2 py-3.5 px-4 text-xs font-black rounded-xl transition-all shadow-xs border cursor-pointer ${
                 activeReadTab === 'text' 
-                  ? 'bg-blue-600 text-white border-transparent shadow-sm shadow-blue-500/10' 
-                  : 'bg-white text-slate-650 border-slate-200 hover:border-blue-400 hover:bg-slate-50/50'
+                  ? 'bg-[#0E2B64] text-white border-transparent shadow-sm shadow-[#0E2B64]/10' 
+                  : 'bg-white text-slate-650 border-slate-200 hover:border-[#0E2B64] hover:bg-slate-50/50'
               }`}
             >
               <FileText className="w-4 h-4 shrink-0" />
@@ -1498,17 +1498,17 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
             <div 
               onClick={!cameraRunning ? startCamera : undefined}
               className={`bg-white border-2 border-dashed border-slate-200 rounded-3xl p-10 md:p-16 text-center flex flex-col items-center justify-center min-h-[350px] transition-all ${
-                !cameraRunning ? 'hover:bg-slate-50/40 hover:border-blue-500 cursor-pointer' : ''
+                !cameraRunning ? 'hover:bg-slate-50/40 hover:border-[#0E2B64] cursor-pointer' : ''
               }`} 
               id="camera-viewport-card"
             >
               {!cameraRunning ? (
                 <div className="space-y-6 flex flex-col items-center justify-center w-full">
                   <div className="p-5 bg-slate-50/80 rounded-full border border-slate-100 ring-8 ring-slate-50/40 flex items-center justify-center shadow-xs">
-                    <Camera className="w-12 h-12 text-blue-900 stroke-[1.5]" />
+                    <Camera className="w-12 h-12 text-[#0E2B64] stroke-[1.5]" />
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-blue-950 font-black text-sm sm:text-base tracking-tight text-center">Autenticação por Webcam ou Câmara do Telemóvel</h3>
+                    <h3 className="text-[#0E2B64] font-black text-sm sm:text-base tracking-tight text-center">Autenticação por Webcam ou Câmara do Telemóvel</h3>
                     <p className="text-slate-500 text-[11px] sm:text-xs max-w-sm mx-auto leading-relaxed text-center">
                       O sensor deteta qualquer QR Code governamental ou do app do CDA.
                     </p>
@@ -1721,7 +1721,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
               
               <button
                 onClick={analyzePastedText}
-                className="w-full bg-[#2563eb] hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-xs uppercase cursor-pointer"
+                className="w-full bg-[#0E2B64] hover:bg-[#081a3d] text-white font-bold py-3 rounded-lg text-xs uppercase cursor-pointer transition-all active:scale-[0.98]"
               >
                 Analisar Conteúdo
               </button>
@@ -1934,7 +1934,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
         /* ----- 4. GERADOR DE CODE SECTIONS ----- */
         <div className="space-y-4" id="section-generator">
           <div className="flex items-center gap-2">
-            <QrCode className="w-5 h-5 text-blue-600" strokeWidth={2.5} />
+            <QrCode className="w-5 h-5 text-[#0E2B64]" strokeWidth={2.5} />
             <h2 className="text-slate-800 font-bold text-sm tracking-tight">Gerar QR Code de Correspondência</h2>
           </div>
 
@@ -1942,36 +1942,36 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
             <div className="grid grid-cols-3 gap-1">
               <button 
                 onClick={() => { setActiveGenTab('pdf'); setGeneratedQrCodeUrl(''); }}
-                className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-lg transition-all ${
+                className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   activeGenTab === 'pdf' 
-                    ? 'bg-blue-600 text-white shadow-xs font-black' 
+                    ? 'bg-[#0E2B64] text-white shadow-xs font-black' 
                     : 'text-slate-400 hover:text-slate-600'
                 }`}
-                style={{ backgroundColor: activeGenTab === 'pdf' ? '#2563eb' : 'transparent' }}
+                style={{ backgroundColor: activeGenTab === 'pdf' ? '#0E2B64' : 'transparent' }}
               >
                 <FileUp className="w-[14px] h-[14px]" />
                 PDF/Imagem
               </button>
               <button 
                 onClick={() => { setActiveGenTab('form'); setGeneratedQrCodeUrl(''); }}
-                className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-lg transition-all ${
+                className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   activeGenTab === 'form' 
-                    ? 'bg-blue-600 text-white shadow-xs font-black' 
+                    ? 'bg-[#0E2B64] text-white shadow-xs font-black' 
                     : 'text-slate-400 hover:text-slate-600'
                 }`}
-                style={{ backgroundColor: activeGenTab === 'form' ? '#2563eb' : 'transparent' }}
+                style={{ backgroundColor: activeGenTab === 'form' ? '#0E2B64' : 'transparent' }}
               >
                 <FileText className="w-[14px] h-[14px]" />
                 Formulário
               </button>
               <button 
                 onClick={() => { setActiveGenTab('free'); setGeneratedQrCodeUrl(''); }}
-                className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-lg transition-all ${
+                className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   activeGenTab === 'free' 
-                    ? 'bg-blue-700 text-white shadow-xs font-black' 
+                    ? 'bg-[#0E2B64] text-white shadow-xs font-black' 
                     : 'text-slate-400 hover:text-slate-600'
                 }`}
-                style={{ backgroundColor: activeGenTab === 'free' ? '#2563eb' : 'transparent' }}
+                style={{ backgroundColor: activeGenTab === 'free' ? '#0E2B64' : 'transparent' }}
               >
                 <QrCode className="w-[14px] h-[14px]" />
                 Texto Livre
@@ -1991,7 +1991,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
                   onDragOver={handleDragOver}
                   onDrop={handleDragDropGen}
                   onClick={() => document.getElementById('file-input-gen')?.click()}
-                  className="border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/20 rounded-2xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[160px]"
+                  className="border-2 border-dashed border-slate-300 hover:border-[#0E2B64] bg-slate-50 hover:bg-slate-100/50 rounded-2xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[160px]"
                 >
                   <input 
                     type="file" 
@@ -2029,7 +2029,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
                             src={src} 
                             alt={`Pré-visualização da página ${idx + 1} do documento`}
                             onClick={() => { setSelectedPageIdx(idx); extractAndRender(src, genSelectedFile.name); }}
-                            className={`w-10 h-14 object-cover rounded border cursor-pointer hover:border-blue-400 ${selectedPageIdx === idx ? 'ring-2 ring-blue-500' : ''}`}
+                            className={`w-10 h-14 object-cover rounded border cursor-pointer hover:border-[#0E2B64] ${selectedPageIdx === idx ? 'ring-2 ring-[#0E2B64]' : ''}`}
                           />
                         ))}
                       </div>
@@ -2056,7 +2056,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
 
                     <button 
                       onClick={generateQRFromExtracted}
-                      className="w-full bg-[#2563eb] hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg text-xs uppercase"
+                      className="w-full bg-[#0E2B64] hover:bg-[#081a3d] text-white font-bold py-2.5 rounded-lg text-xs uppercase cursor-pointer transition-all active:scale-[0.98]"
                     >
                       Gerar QR Code (Dados)
                     </button>
@@ -2196,7 +2196,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
 
                 <button 
                   onClick={generateQRFromFormSubmit}
-                  className="w-full bg-[#2563eb] hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-xs uppercase"
+                  className="w-full bg-[#0E2B64] hover:bg-[#081a3d] text-white font-bold py-3 rounded-lg text-xs uppercase cursor-pointer transition-all active:scale-[0.98]"
                 >
                   Gerar QR Code
                 </button>
@@ -2247,7 +2247,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
 
               <button 
                 onClick={generateQRFreeSubmit}
-                className="w-full bg-[#2563eb] hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-xs uppercase"
+                className="w-full bg-[#0E2B64] hover:bg-[#081a3d] text-white font-bold py-3 rounded-lg text-xs uppercase cursor-pointer transition-all active:scale-[0.98]"
               >
                 Gerar QR Code
               </button>
@@ -2256,12 +2256,12 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
 
           {/* GENERATED RESULT CARD VIEW */}
           {generatedQrCodeUrl && (
-            <div className="bg-white border border-blue-200 rounded-2xl p-6 shadow-sm border-dashed text-center space-y-4" id="qr-result-container">
-              <p className="text-blue-900 font-bold text-sm text-left flex items-center gap-1.5">
+            <div className="bg-white border border-[#0E2B64]/30 rounded-2xl p-6 shadow-sm border-dashed text-center space-y-4" id="qr-result-container">
+              <p className="text-[#0E2B64] font-bold text-sm text-left flex items-center gap-1.5">
                 <Check className="w-5 h-5 text-emerald-600" /> QR Code Gerado com Sucesso!
               </p>
 
-              <div className="bg-white rounded-xl p-4 border border-blue-100 flex items-center justify-center max-w-[200px] mx-auto">
+              <div className="bg-white rounded-xl p-4 border border-[#0E2B64]/20 flex items-center justify-center max-w-[200px] mx-auto">
                 <img src={generatedQrCodeUrl} alt="QR Gerado" className="w-full object-contain" />
               </div>
 
@@ -2275,13 +2275,13 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
               <div className="grid grid-cols-2 gap-2">
                 <button 
                   onClick={downloadQR}
-                  className="bg-[#2563eb] hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg text-xs uppercase flex items-center justify-center gap-1.5"
+                  className="bg-[#0E2B64] hover:bg-[#081a3d] text-white font-bold py-2.5 rounded-lg text-xs uppercase flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-[0.98]"
                 >
                   <Download className="w-4 h-4" /> Baixar PNG
                 </button>
                 <button 
                   onClick={copyQRImage}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-lg text-xs uppercase flex items-center justify-center gap-1.5 border border-slate-200"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-lg text-xs uppercase flex items-center justify-center gap-1.5 border border-slate-200 cursor-pointer"
                 >
                   <Copy className="w-4 h-4" /> Copiar Imagem
                 </button>
@@ -2289,7 +2289,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
 
               <button 
                 onClick={testReadGeneratedQR}
-                className="w-full bg-slate-50 hover:bg-blue-50 text-blue-700 font-bold py-2.5 rounded-lg text-xs uppercase"
+                className="w-full bg-slate-50 hover:bg-slate-100 text-[#0E2B64] font-bold py-2.5 rounded-lg text-xs uppercase border border-slate-200 cursor-pointer"
               >
                 Testar Leitura do QR Gerado
               </button>

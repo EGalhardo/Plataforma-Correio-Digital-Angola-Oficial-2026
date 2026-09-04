@@ -551,7 +551,7 @@ Contexto adicional:
   };
 
   return (
-    <div className="space-y-6 max-w-none w-full pb-12 text-[#1e293b] font-sans antialiased" id="inst-ai-assistant-root">
+    <div className="space-y-6 max-w-none w-full pb-6 md:pb-12 text-[#1e293b] font-sans antialiased" id="inst-ai-assistant-root">
       
       {/* Dynamic Action Toast Notification */}
       <AnimatePresence>
@@ -580,8 +580,8 @@ Contexto adicional:
       </AnimatePresence>
 
       {/* CABEÇALHO DA PÁGINA (PAGE HEADER) */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-4 px-1" id="ia-header-section">
-        <div className="text-left">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 py-2 px-1" id="ia-header-section">
+        <div className="text-left min-w-0">
           <h1 className="text-2xl md:text-[28px] font-black text-slate-800 tracking-tight m-0 leading-tight">
             IA
           </h1>
@@ -591,11 +591,11 @@ Contexto adicional:
         </div>
 
         {/* State and Preview Trigger */}
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap">
           {setTab && (
             <button
               onClick={() => setTab('home')}
-              className="bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl px-4 py-2 border border-slate-200 text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2 shadow-xs active:scale-95"
+              className="bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl px-3.5 py-2 border border-slate-200 text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0"
             >
               <ArrowLeft size={14} strokeWidth={2.5} />
               Voltar ao Painel
@@ -603,7 +603,7 @@ Contexto adicional:
           )}
 
           {/* Status Indicator: AI Connection */}
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-none border ${
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-none border shrink-0 ${
             aiStatus === 'connected' 
               ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
               : aiStatus === 'loading'
@@ -621,7 +621,7 @@ Contexto adicional:
           </div>
 
           {/* Tabs de navegação interna */}
-          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1">
+          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 overflow-x-auto max-w-full">
             {[
               { key: 'config', label: 'Configuração' },
               { key: 'chat', label: 'Chat Teste' },
@@ -631,7 +631,7 @@ Contexto adicional:
               <button
                 key={tab.key}
                 onClick={() => setActiveSubTab(tab.key as any)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border-0 ${
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border-0 whitespace-nowrap ${
                   activeSubTab === tab.key
                     ? 'bg-[#0E2B64] text-white shadow-sm'
                     : 'bg-transparent text-slate-500 hover:text-[#0E2B64]'
@@ -645,7 +645,7 @@ Contexto adicional:
           <button
             type="button"
             onClick={() => setIsPreviewOpen(true)}
-            className="bg-[#0E2B64] hover:bg-[#081a3d] text-white py-2.5 px-5 rounded-lg text-xs font-black uppercase tracking-wider inline-flex items-center gap-2 transition-all cursor-pointer shadow-none border-none"
+            className="bg-[#0E2B64] hover:bg-[#081a3d] text-white py-2 px-4 rounded-xl text-xs font-black uppercase tracking-wider inline-flex items-center gap-2 transition-all cursor-pointer shadow-none border-none shrink-0"
             id="preview-assistant-btn"
           >
             <Eye size={14} className="stroke-[2.5]" />
@@ -658,28 +658,26 @@ Contexto adicional:
       {activeSubTab === 'config' && (
         <>
           {/* PRIMEIRA LINHA DE CARTÕES (TOP TWO WIDE CARDS LADO A LADO) */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
             
-            {/* CARTÃO 1: INFORMAÇÕES DO ASSISTENTE (Left) — v37.78.14 padrão da imagem
-                de referência: cabeça (logo + nome + descrição + ilustração de
-                chat) e lista vertical de configuração em baixo. */}
-            <div className="bg-white border border-[#0c2340]/15 rounded-[20px] p-6 shadow-none flex flex-col gap-4">
-              <div className="flex flex-col md:flex-row items-center md:items-start gap-5">
+            {/* CARTÃO 1: INFORMAÇÕES DO ASSISTENTE (Left) */}
+            <div className="bg-white border border-slate-200 rounded-[24px] p-5 md:p-6 shadow-xs flex flex-col justify-between min-w-0 overflow-hidden">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 md:gap-5 min-w-0">
                 {/* Circular logo: Institutional circular avatar */}
-                <div className="w-20 h-20 md:w-[84px] md:h-[84px] bg-[#0E2B64] text-white rounded-full flex flex-col items-center justify-center shrink-0 border border-indigo-950/25 shadow-none select-none">
-                  <span className="font-serif font-black text-2xl tracking-tighter">{institutionCode || 'AGT'}</span>
-                  <span className="text-[5.5px] font-black uppercase tracking-widest text-[#94a3b8] mt-1 text-center leading-none">
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-[#0E2B64] text-white rounded-full flex flex-col items-center justify-center shrink-0 border border-indigo-950/25 shadow-none select-none">
+                  <span className="font-serif font-black text-xl md:text-2xl tracking-tighter truncate max-w-[90%]">{institutionCode || 'AGT'}</span>
+                  <span className="text-[5.5px] font-black uppercase tracking-widest text-[#94a3b8] mt-0.5 text-center leading-none">
                     Tributária
                   </span>
                 </div>
 
-                <div className="flex-1 min-w-0 text-center md:text-left space-y-2">
-                  <div className="flex items-center justify-center md:justify-start gap-2.5">
+                <div className="flex-1 min-w-0 text-center sm:text-left space-y-2">
+                  <div className="flex items-center justify-center sm:justify-start gap-2.5 min-w-0">
                     {isEditingNameInline ? (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 max-w-full">
                         <input
                           type="text"
-                          className="bg-slate-50 border border-slate-200 text-xs font-bold text-[#0c2340] px-2.5 py-1 rounded-lg outline-none max-w-[140px]"
+                          className="bg-slate-50 border border-slate-200 text-xs font-bold text-[#0c2340] px-2.5 py-1 rounded-lg outline-none w-full max-w-[140px]"
                           value={assistantName}
                           onChange={(e) => setAssistantName(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter') handleSaveGeneralConfig(); }}
@@ -700,10 +698,10 @@ Contexto adicional:
                       </div>
                     ) : (
                       <>
-                        <h2 className="text-xl font-black text-[#0c2340] tracking-tight m-0 leading-none">{assistantName}</h2>
+                        <h2 className="text-lg md:text-xl font-black text-[#0c2340] tracking-tight m-0 leading-none truncate">{assistantName}</h2>
                         <button
                           onClick={() => setIsEditingNameInline(true)}
-                          className="p-1 bg-transparent border-none cursor-pointer text-slate-500 hover:text-slate-800 transition-colors"
+                          className="p-1 bg-transparent border-none cursor-pointer text-slate-500 hover:text-slate-800 transition-colors shrink-0"
                           title="Editar Nome do Assistente"
                         >
                           <Pencil size={13} className="stroke-[2.5]" />
@@ -712,15 +710,14 @@ Contexto adicional:
                     )}
                   </div>
                   
-                  <p className="text-xs text-slate-700 font-bold leading-relaxed max-w-md">
+                  <p className="text-xs text-slate-600 font-bold leading-relaxed break-words">
                     {description}
                   </p>
                 </div>
 
-                {/* ILUSTRAÇÃO DE CHAT (identidade do assistente): SVG inline,
-                    sem assets externos; omitida em ecrãs estreitos. */}
-                <div className="hidden lg:flex items-center justify-center shrink-0 w-40 select-none pointer-events-none" aria-hidden="true">
-                  <svg viewBox="0 0 160 120" className="w-full max-h-28" role="img" aria-label="Assistente virtual">
+                {/* ILUSTRAÇÃO DE CHAT: SVG inline adaptado */}
+                <div className="hidden xl:flex items-center justify-center shrink-0 w-28 select-none pointer-events-none" aria-hidden="true">
+                  <svg viewBox="0 0 160 120" className="w-full max-h-24" role="img" aria-label="Assistente virtual">
                     <rect x="18" y="10" width="88" height="42" rx="14" fill="#eef2fb" />
                     <rect x="26" y="20" width="56" height="5" rx="2.5" fill="#aab7d4" />
                     <rect x="26" y="31" width="40" height="5" rx="2.5" fill="#c3cde6" />
@@ -735,38 +732,37 @@ Contexto adicional:
                 </div>
               </div>
 
-              {/* CONFIGURAÇÃO DO ASSISTENTE em LISTA VERTICAL: uma linha por
-                  definição — ícone em chip + rótulo uppercase + valor. */}
-              <div className="pt-3 border-t border-slate-100 flex flex-col divide-y divide-slate-100">
-                <div className="flex items-center gap-3 py-2.5 first:pt-0">
-                  <div className="text-indigo-600 bg-indigo-50 w-8 h-8 rounded-lg flex items-center justify-center shrink-0">
-                    <Cpu size={14} className="stroke-[2.5]" />
+              {/* CONFIGURAÇÃO DO ASSISTENTE em LISTA VERTICAL */}
+              <div className="pt-3 border-t border-slate-100 flex flex-col divide-y divide-slate-100 mt-3">
+                <div className="flex items-center gap-3 py-2.5 first:pt-0 min-w-0">
+                  <div className="text-indigo-600 bg-indigo-50 w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
+                    <Cpu size={13} className="stroke-[2.5]" />
                   </div>
-                  <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none w-24 shrink-0">Modelo IA</span>
-                  <span className="font-extrabold text-[#0c2340] text-xs truncate">{model}</span>
+                  <span className="block text-[8.5px] font-bold text-slate-400 uppercase tracking-wider leading-none min-w-[70px] shrink-0">Modelo IA</span>
+                  <span className="font-extrabold text-[#0c2340] text-xs truncate min-w-0 flex-1">{model}</span>
                 </div>
 
-                <div className="flex items-center gap-3 py-2.5">
-                  <div className="text-purple-600 bg-purple-50 w-8 h-8 rounded-lg flex items-center justify-center shrink-0">
-                    <Globe size={14} className="stroke-[2.5]" />
+                <div className="flex items-center gap-3 py-2.5 min-w-0">
+                  <div className="text-purple-600 bg-purple-50 w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
+                    <Globe size={13} className="stroke-[2.5]" />
                   </div>
-                  <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none w-24 shrink-0">Idioma</span>
+                  <span className="block text-[8.5px] font-bold text-slate-400 uppercase tracking-wider leading-none min-w-[70px] shrink-0">Idioma</span>
                   <span className="font-extrabold text-[#0c2340] text-xs">Pt Angola</span>
                 </div>
 
-                <div className="flex items-center gap-3 py-2.5">
-                  <div className="text-slate-500 bg-slate-100 w-8 h-8 rounded-lg flex items-center justify-center shrink-0">
-                    <Sliders size={14} className="stroke-[2.5]" />
+                <div className="flex items-center gap-3 py-2.5 min-w-0">
+                  <div className="text-slate-500 bg-slate-100 w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
+                    <Sliders size={13} className="stroke-[2.5]" />
                   </div>
-                  <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none w-24 shrink-0">Temperatura</span>
+                  <span className="block text-[8.5px] font-bold text-slate-400 uppercase tracking-wider leading-none min-w-[70px] shrink-0">Temperatura</span>
                   <span className="font-extrabold text-[#0c2340] text-xs">{temperature}</span>
                 </div>
 
-                <div className="flex items-center gap-3 py-2.5 last:pb-0">
-                  <div className="text-emerald-600 bg-emerald-50 w-8 h-8 rounded-lg flex items-center justify-center shrink-0">
-                    <ShieldCheck size={14} className="stroke-[2.5]" />
+                <div className="flex items-center gap-3 py-2.5 last:pb-0 min-w-0">
+                  <div className="text-emerald-600 bg-emerald-50 w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
+                    <ShieldCheck size={13} className="stroke-[2.5]" />
                   </div>
-                  <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none w-24 shrink-0">Estado</span>
+                  <span className="block text-[8.5px] font-bold text-slate-400 uppercase tracking-wider leading-none min-w-[70px] shrink-0">Estado</span>
                   <span className="font-extrabold text-xs inline-flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${aiStatus === 'connected' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                     <span className={aiStatus === 'connected' ? 'text-emerald-700' : 'text-slate-500'}>
@@ -777,10 +773,10 @@ Contexto adicional:
               </div>
             </div>
 
-{/* CARTÃO 2: ESTATÍSTICAS (Right) - AGORA COM DADOS REAIS */}
-            <div className="bg-white border border-[#0c2340]/15 rounded-[20px] p-6 shadow-none flex flex-col justify-between">
+            {/* CARTÃO 2: ESTATÍSTICAS (Right) - AGORA COM DADOS REAIS */}
+            <div className="bg-white border border-slate-200 rounded-[24px] p-5 md:p-6 shadow-xs flex flex-col justify-between min-w-0 overflow-hidden">
               <div className="flex justify-between items-center mb-4 pb-1">
-                <span className="text-xs font-black text-[#0c2340] tracking-widest uppercase">
+                <span className="text-xs font-black text-[#0c2340] tracking-widest uppercase truncate">
                   ESTATÍSTICAS DO ASSISTENTE
                 </span>
                 <button 
@@ -788,7 +784,7 @@ Contexto adicional:
                     setAiStats(prev => ({ ...prev }));
                     triggerToast('Estatísticas atualizadas', 'info');
                   }}
-                  className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent"
+                  className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-all cursor-pointer border-0 bg-transparent shrink-0"
                   title="Atualizar estatísticas"
                 >
                   <ReloadIcon size={14} className="stroke-[2.5]" />
@@ -796,54 +792,54 @@ Contexto adicional:
               </div>
 
               {/* 4 Internal statistics cards with real data */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-                <div className="bg-[#FAF9FF] border border-[#0c2340]/15 rounded-xl p-3.5 text-left hover:shadow-none transition-shadow">
-                  <div className="w-8 h-8 bg-purple-100 text-[#534980] rounded-lg flex items-center justify-center mb-2 shadow-none">
-                    <MessageSquare size={16} className="stroke-[2.5]" />
+              <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                <div className="bg-[#FAF9FF] border border-slate-200/80 rounded-xl p-3 text-left min-w-0 overflow-hidden">
+                  <div className="w-7 h-7 bg-purple-100 text-[#534980] rounded-lg flex items-center justify-center mb-1.5 shrink-0">
+                    <MessageSquare size={14} className="stroke-[2.5]" />
                   </div>
-                  <span className="block font-black text-xl text-[#0c2340] tracking-tight leading-none">{aiStats.totalConversations.toLocaleString('pt-AO')}</span>
-                  <span className="text-[10px] font-extrabold text-[#534980] uppercase tracking-tight mt-1.5 block">Conversas</span>
+                  <span className="block font-black text-lg md:text-xl text-[#0c2340] tracking-tight leading-none truncate">{aiStats.totalConversations.toLocaleString('pt-AO')}</span>
+                  <span className="text-[9.5px] font-extrabold text-[#534980] uppercase tracking-tight mt-1.5 block truncate">Conversas</span>
                 </div>
 
-                <div className="bg-[#F8FAFF] border border-[#0c2340]/15 rounded-xl p-3.5 text-left hover:shadow-none transition-shadow">
-                  <div className="w-8 h-8 bg-sky-100 text-[#284a7a] rounded-lg flex items-center justify-center mb-2 shadow-none">
-                    <Users size={16} className="stroke-[2.5]" />
+                <div className="bg-[#F8FAFF] border border-slate-200/80 rounded-xl p-3 text-left min-w-0 overflow-hidden">
+                  <div className="w-7 h-7 bg-sky-100 text-[#284a7a] rounded-lg flex items-center justify-center mb-1.5 shrink-0">
+                    <Users size={14} className="stroke-[2.5]" />
                   </div>
-                  <span className="block font-black text-xl text-[#0c2340] tracking-tight leading-none">{aiStats.totalUsers.toLocaleString('pt-AO')}</span>
-                  <span className="text-[10px] font-extrabold text-[#284a7a] uppercase tracking-tight mt-1.5 block">Utilizadores</span>
+                  <span className="block font-black text-lg md:text-xl text-[#0c2340] tracking-tight leading-none truncate">{aiStats.totalUsers.toLocaleString('pt-AO')}</span>
+                  <span className="text-[9.5px] font-extrabold text-[#284a7a] uppercase tracking-tight mt-1.5 block truncate">Utilizadores</span>
                 </div>
 
-                <div className="bg-[#F5FDF8] border border-[#0c2340]/15 rounded-xl p-3.5 text-left hover:shadow-none transition-shadow">
-                  <div className="w-8 h-8 bg-emerald-100 text-[#1e6136] rounded-lg flex items-center justify-center mb-2 shadow-none">
-                    <CheckCircle2 size={16} className="stroke-[2.5]" />
+                <div className="bg-[#F5FDF8] border border-slate-200/80 rounded-xl p-3 text-left min-w-0 overflow-hidden">
+                  <div className="w-7 h-7 bg-emerald-100 text-[#1e6136] rounded-lg flex items-center justify-center mb-1.5 shrink-0">
+                    <CheckCircle2 size={14} className="stroke-[2.5]" />
                   </div>
-                  <span className="block font-black text-xl text-[#0c2340] tracking-tight leading-none">{aiStats.resolutionRate}%</span>
-                  <span className="text-[10px] font-extrabold text-[#1e6136] uppercase tracking-tight mt-1.5 block">Resoluções</span>
+                  <span className="block font-black text-lg md:text-xl text-[#0c2340] tracking-tight leading-none truncate">{aiStats.resolutionRate}%</span>
+                  <span className="text-[9.5px] font-extrabold text-[#1e6136] uppercase tracking-tight mt-1.5 block truncate">Resoluções</span>
                 </div>
 
-                <div className="bg-[#FFFDF9] border border-[#0c2340]/15 rounded-xl p-3.5 text-left hover:shadow-none transition-shadow">
-                  <div className="w-8 h-8 bg-amber-100 text-[#7c542c] rounded-lg flex items-center justify-center mb-2 shadow-none">
-                    <Clock size={16} className="stroke-[2.5]" />
+                <div className="bg-[#FFFDF9] border border-slate-200/80 rounded-xl p-3 text-left min-w-0 overflow-hidden">
+                  <div className="w-7 h-7 bg-amber-100 text-[#7c542c] rounded-lg flex items-center justify-center mb-1.5 shrink-0">
+                    <Clock size={14} className="stroke-[2.5]" />
                   </div>
-                  <span className="block font-black text-xl text-[#0c2340] tracking-tight leading-none">{aiStats.avgResponseTime}</span>
-                  <span className="text-[10px] font-extrabold text-[#7c542c] uppercase tracking-tight mt-1.5 block">Tempo Médio</span>
+                  <span className="block font-black text-lg md:text-xl text-[#0c2340] tracking-tight leading-none truncate">{aiStats.avgResponseTime}</span>
+                  <span className="text-[9.5px] font-extrabold text-[#7c542c] uppercase tracking-tight mt-1.5 block truncate">Tempo Médio</span>
                 </div>
               </div>
 
               {/* Additional Real Stats Row */}
               <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-100">
-                <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl">
+                <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl min-w-0 overflow-hidden">
                   <Zap size={13} className="text-emerald-600 shrink-0" />
-                  <div>
-                    <span className="text-[9px] text-slate-400 font-bold uppercase block">Activos Hoje</span>
-                    <span className="text-sm font-black text-slate-800">{aiStats.activeToday}</span>
+                  <div className="min-w-0">
+                    <span className="text-[8.5px] text-slate-400 font-bold uppercase block truncate">Activos Hoje</span>
+                    <span className="text-sm font-black text-slate-800 truncate">{aiStats.activeToday}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl">
+                <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl min-w-0 overflow-hidden">
                   <Database size={13} className="text-indigo-600 shrink-0" />
-                  <div>
-                    <span className="text-[9px] text-slate-400 font-bold uppercase block">Docs Indexados</span>
-                    <span className="text-sm font-black text-slate-800">{kbResumo?.ativas ?? 0}</span>
+                  <div className="min-w-0">
+                    <span className="text-[8.5px] text-slate-400 font-bold uppercase block truncate">Docs Indexados</span>
+                    <span className="text-sm font-black text-slate-800 truncate">{kbResumo?.ativas ?? 0}</span>
                   </div>
                 </div>
               </div>
@@ -856,42 +852,42 @@ Contexto adicional:
           {/* SEGUNDA LINHA: CONFIGURAÇÃO + INSTRUÇÕES + CONTEXTO */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch mt-2">
             {/* COLUNA ESQUERDA - CONFIGURAÇÃO GERAL (5 spans) */}
-            <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-[24px] p-6.5 shadow-none flex flex-col justify-between text-left h-full min-h-[580px]">
-              <div className="flex-1 flex flex-col justify-between gap-5">
-                <div className="flex items-center gap-4 pb-4 border-b border-slate-100">
-                  <div className="w-12 h-12 rounded-[18px] bg-indigo-50/70 flex items-center justify-center text-indigo-600 border border-indigo-100/40 shrink-0">
-                    <Settings size={22} className="text-indigo-600 stroke-[2.2]" />
+            <div className="lg:col-span-5 bg-white border border-slate-200 rounded-[24px] p-5 md:p-6 shadow-xs flex flex-col justify-between text-left h-full min-h-[520px] min-w-0 overflow-hidden">
+              <div className="flex-1 flex flex-col justify-between gap-5 min-w-0">
+                <div className="flex items-center gap-3.5 pb-4 border-b border-slate-100 min-w-0">
+                  <div className="w-10 h-10 rounded-[14px] bg-indigo-50/70 flex items-center justify-center text-indigo-600 border border-indigo-100/40 shrink-0">
+                    <Settings size={20} className="text-indigo-600 stroke-[2.2]" />
                   </div>
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-black text-[#0c2340] tracking-wider uppercase leading-none">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-black text-[#0c2340] tracking-wider uppercase leading-none truncate">
                       CONFIGURAÇÃO GERAL
                     </h3>
-                    <span className="text-[11px] text-slate-500 font-semibold leading-relaxed mt-1 block">
+                    <span className="text-[11px] text-slate-500 font-semibold leading-relaxed mt-1 block truncate">
                       Configure as definições básicas do seu assistente.
                     </span>
                   </div>
                 </div>
 
-                <div className="flex-grow flex flex-col gap-6.5">
-                  <div className="space-y-2.5 text-left">
+                <div className="flex-grow flex flex-col gap-5 min-w-0">
+                  <div className="space-y-2 text-left min-w-0">
                     <label className="text-[10.5px] font-black text-slate-500 uppercase tracking-widest pl-0.5 block leading-none">
                       NOME DO ASSISTENTE
                     </label>
                     <input
                       type="text"
-                      className="w-full bg-[#f8fafc]/40 border border-slate-200 focus:border-indigo-500 rounded-xl px-4 py-4 text-xs font-semibold text-slate-800 outline-none transition-all shadow-xs"
+                      className="w-full bg-[#f8fafc]/40 border border-slate-200 focus:border-indigo-500 rounded-xl px-4 py-3 text-xs font-semibold text-slate-800 outline-none transition-all shadow-xs"
                       placeholder="Ex: Assistente AGT"
                       value={assistantName}
                       onChange={(e) => setAssistantName(e.target.value)}
                     />
                   </div>
 
-                  <div className="space-y-2.5 text-left">
+                  <div className="space-y-2 text-left min-w-0">
                     <label className="text-[10.5px] font-black text-slate-500 uppercase tracking-widest pl-0.5 block leading-none">
                       DESCRIÇÃO / INSTRUÇÃO DO SISTEMA
                     </label>
                     <textarea
-                      className="w-full flex-grow bg-[#f8fafc]/40 border border-slate-200 focus:border-indigo-500 rounded-xl px-4 py-4 text-xs font-semibold text-slate-800 outline-none transition-all leading-relaxed resize-none shadow-xs min-h-[220px] lg:min-h-[265px]"
+                      className="w-full flex-grow bg-[#f8fafc]/40 border border-slate-200 focus:border-indigo-500 rounded-xl px-4 py-3 text-xs font-semibold text-slate-800 outline-none transition-all leading-relaxed resize-none shadow-xs min-h-[180px] lg:min-h-[220px]"
                       placeholder="Descreva a função operativa do assistente..."
                       value={tempInstructions}
                       onChange={(e) => setTempInstructions(e.target.value)}
@@ -902,13 +898,13 @@ Contexto adicional:
                   </div>
 
                   {/* Modelo e Temperatura inline */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-[10.5px] font-black text-slate-500 uppercase tracking-widest pl-0.5 block">Modelo IA</label>
+                  <div className="grid grid-cols-2 gap-3 min-w-0">
+                    <div className="space-y-1.5 min-w-0">
+                      <label className="text-[10.5px] font-black text-slate-500 uppercase tracking-widest pl-0.5 block truncate">Modelo IA</label>
                       <select
                         value={model}
                         onChange={(e) => setModel(e.target.value)}
-                        className="w-full bg-[#f8fafc]/40 border border-slate-200 rounded-xl px-3 py-3 text-xs font-semibold text-slate-800 outline-none cursor-pointer"
+                        className="w-full bg-[#f8fafc]/40 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none cursor-pointer truncate"
                       >
                         <option value="openai/gpt-oss-120b">GPT-OSS 120B (Groq)</option>
                         <option value="openai/gpt-oss-20b">GPT-OSS 20B (Groq)</option>
@@ -917,11 +913,11 @@ Contexto adicional:
                         <option value="whisper-large-v3">Whisper (Áudio)</option>
                       </select>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10.5px] font-black text-slate-500 uppercase tracking-widest pl-0.5 block">Temperatura</label>
+                    <div className="space-y-1.5 min-w-0">
+                      <label className="text-[10.5px] font-black text-slate-500 uppercase tracking-widest pl-0.5 block truncate">Temperatura</label>
                       <input
                         type="text"
-                        className="w-full bg-[#f8fafc]/40 border border-slate-200 rounded-xl px-3 py-3 text-xs font-semibold text-slate-800 outline-none"
+                        className="w-full bg-[#f8fafc]/40 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none"
                         placeholder="0.3"
                         value={temperature}
                         onChange={(e) => setTemperature(e.target.value)}
@@ -935,7 +931,7 @@ Contexto adicional:
                 <button
                   type="button"
                   onClick={handleSaveGeneralConfig}
-                  className="w-full bg-[#0E2B64] hover:bg-[#081a3d] text-white py-4 rounded-[16px] font-extrabold text-[11px] uppercase tracking-widest transition-all cursor-pointer border-none flex items-center justify-center gap-2.5 shadow-xs active:scale-98"
+                  className="w-full bg-[#0E2B64] hover:bg-[#081a3d] text-white py-3.5 rounded-[16px] font-extrabold text-[11px] uppercase tracking-widest transition-all cursor-pointer border-none flex items-center justify-center gap-2.5 shadow-xs active:scale-98"
                 >
                   <Save size={14} className="stroke-[2.5]" />
                   GUARDAR CONFIGURAÇÃO
@@ -944,14 +940,16 @@ Contexto adicional:
             </div>
 
             {/* COLUNA DIREITA - BASE DE CONHECIMENTO (E6: ligação à gestão real) */}
-            <div className="lg:col-span-7 bg-white border border-[#0c2340]/15 rounded-[24px] p-6.5 shadow-none flex flex-col text-left h-full min-h-[280px]">
-              <div className="flex-1 flex flex-col justify-center items-center text-center gap-4 py-8">
-                <Database className="w-12 h-12 text-indigo-200" />
+            <div className="lg:col-span-7 bg-white border border-slate-200 rounded-[24px] p-6 md:p-8 shadow-xs flex flex-col justify-center text-left h-full min-h-[300px] min-w-0 overflow-hidden">
+              <div className="flex-1 flex flex-col justify-center items-center text-center gap-4 py-6 max-w-lg mx-auto">
+                <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                  <Database className="w-7 h-7 text-indigo-600" />
+                </div>
                 <div>
-                  <h3 className="text-sm font-black text-[#0c2340] tracking-wider uppercase m-0">
+                  <h3 className="text-sm md:text-base font-black text-[#0c2340] tracking-wider uppercase m-0">
                     Base de Conhecimento
                   </h3>
-                  <p className="text-[11px] text-slate-400 font-semibold mt-1.5 max-w-md leading-relaxed">
+                  <p className="text-xs text-slate-500 font-semibold mt-2 leading-relaxed">
                     {kbResumo === null
                       ? 'A carregar as fontes próprias da instituição…'
                       : kbResumo.total === 0
@@ -962,7 +960,7 @@ Contexto adicional:
                 <button
                   type="button"
                   onClick={() => setActiveSubTab('knowledge')}
-                  className="px-5 py-3 bg-[#4f46e5] hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-2 transition-all cursor-pointer border-none"
+                  className="px-5 py-3 bg-[#0E2B64] hover:bg-[#081a3d] text-white rounded-xl text-[10.5px] font-black uppercase tracking-wider inline-flex items-center gap-2 transition-all cursor-pointer border-none shadow-sm active:scale-95"
                 >
                   <Plus size={14} className="stroke-[2.5]" />
                   Gerir a Base de Conhecimento
