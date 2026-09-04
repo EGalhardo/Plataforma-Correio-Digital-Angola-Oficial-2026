@@ -1,0 +1,458 @@
+{
+  "pages": [
+    {
+      "area": "Cidadão",
+      "route": "#/login",
+      "name": "Login Cidadão",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "area": "Cidadão",
+      "route": "#/registar",
+      "name": "Registo Cidadão (Stepper)",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "area": "Cidadão",
+      "route": "#/recuperar-senha",
+      "name": "Recuperação de Senha",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "area": "Cidadão",
+      "route": "#/login-facial",
+      "name": "Login Facial (Câmara)",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "area": "Cidadão",
+      "route": "#/home",
+      "name": "Painel Principal",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "area": "Cidadão",
+      "route": "#/correspondencias",
+      "name": "Correio",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Cidadão",
+      "route": "#/contatos",
+      "name": "Contactos",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Cidadão",
+      "route": "#/perfil",
+      "name": "Perfil",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Cidadão",
+      "route": "#/pagamentos",
+      "name": "Pagamentos",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Cidadão",
+      "route": "#/documentos",
+      "name": "Documentos",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Cidadão",
+      "route": "#/solicitar-documento",
+      "name": "Solicitar Documento",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Cidadão",
+      "route": "#/pasta-digital",
+      "name": "Pasta Digital",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Cidadão",
+      "route": "#/video-atendimento",
+      "name": "Vídeo Atendimento",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Cidadão",
+      "route": "#/notificacoes",
+      "name": "Notificações",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Cidadão",
+      "route": "#/historico",
+      "name": "Histórico",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Institucional",
+      "route": "/institucional#/login",
+      "name": "Login Institucional",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "area": "Institucional",
+      "route": "/institucional#/registar",
+      "name": "Registo de Instituição (Adesão)",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "area": "Institucional",
+      "route": "/institucional#/home",
+      "name": "Painel Institucional",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "area": "Institucional",
+      "route": "/institucional#/correspondencias",
+      "name": "Correspondências Oficiais",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Institucional",
+      "route": "/institucional#/gov-contatos",
+      "name": "Contactos e Órgãos",
+      "status": "WARN",
+      "details": {
+        "renderedTextMatch": false
+      }
+    },
+    {
+      "area": "Institucional",
+      "route": "/institucional#/inst-qrcode",
+      "name": "Validador QR Code",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Institucional",
+      "route": "/institucional#/inst-ai-assistant",
+      "name": "Assistente IA & KB",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Institucional",
+      "route": "/institucional#/inst-pagamentos",
+      "name": "Emissão de Cobranças",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Institucional",
+      "route": "/institucional#/sondagens",
+      "name": "Sondagens & Auscultação",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Institucional",
+      "route": "/institucional#/perfil",
+      "name": "Perfil Institucional & Equipa",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Admin",
+      "route": "/admin#/login",
+      "name": "Login Admin",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "area": "Admin",
+      "route": "/admin#/registar",
+      "name": "Registo Admin Alfa (Credencial Operacional)",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "area": "Admin",
+      "route": "/admin#/gov-dashboard",
+      "name": "Dashboard Governamental",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "area": "Admin",
+      "route": "/admin#/gov-dashboard",
+      "name": "Dashboard Geral",
+      "status": "WARN",
+      "details": {
+        "renderedTextMatch": false
+      }
+    },
+    {
+      "area": "Admin",
+      "route": "/admin#/gov-interoperabilidade",
+      "name": "Interoperabilidade & Homologação",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Admin",
+      "route": "/admin#/gov-correspondencias",
+      "name": "Correspondências Globais",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Admin",
+      "route": "/admin#/gov-contatos",
+      "name": "Diretório Governamental",
+      "status": "WARN",
+      "details": {
+        "renderedTextMatch": false
+      }
+    },
+    {
+      "area": "Admin",
+      "route": "/admin#/gov-trabalhadores",
+      "name": "Equipa & Permissões Admin",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Admin",
+      "route": "/admin#/gov-relatorio",
+      "name": "Relatórios & Auditoria",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Admin",
+      "route": "/admin#/gov-ia",
+      "name": "Centro de Inteligência Artificial",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Admin",
+      "route": "/admin#/gov-seguranca",
+      "name": "Segurança & Auditoria Criptográfica",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    },
+    {
+      "area": "Admin",
+      "route": "/admin#/gov-emissao",
+      "name": "Emissão de Documentos Oficiais",
+      "status": "WARN",
+      "details": {
+        "renderedTextMatch": false
+      }
+    },
+    {
+      "area": "Admin",
+      "route": "/admin#/gov-perfil",
+      "name": "Perfil de Administrador",
+      "status": "PASS",
+      "details": {
+        "renderedTextMatch": true
+      }
+    }
+  ],
+  "issues": [],
+  "globalLogs": [
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-contatos"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-contatos"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-contatos"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-contatos"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-contatos"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-contatos"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-contatos"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-contatos"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-contatos"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-contatos"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-contatos"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-contatos"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-contatos"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-contatos"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-contatos"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-contatos"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-trabalhadores"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-trabalhadores"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-trabalhadores"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-trabalhadores"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-trabalhadores"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-trabalhadores"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-trabalhadores"
+    },
+    {
+      "type": "console.error",
+      "text": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. undefined",
+      "url": "http://localhost:3000/admin#/gov-trabalhadores"
+    }
+  ],
+  "globalNetworkErrors": [],
+  "sideEffects": [],
+  "summary": {
+    "totalChecked": 0,
+    "passed": 0,
+    "failed": 0,
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0
+  }
+}

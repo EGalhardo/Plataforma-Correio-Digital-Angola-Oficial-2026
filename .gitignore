@@ -7,3 +7,7 @@ coverage/
 .env*
 !.env.example
 backups/
+.cache/
+.local/
+.npm/
+.sudo_as_admin_successful

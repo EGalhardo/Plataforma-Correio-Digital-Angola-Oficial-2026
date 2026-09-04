@@ -12,6 +12,7 @@ import { AVISO_IA, construirPrompts, juntarFontesKb, montarContextoKb, protegerT
 import { KB_REGISTO } from "./api/kb/registoKb";
 import type { FonteKb, FonteKbDinamicaRow } from "./src/services/aiDocumentoCore";
 import { directorioParaContextoIA } from "./src/constants/directorioInstitucionalAngola";
+import { MUNICIPALITIES_BY_PROVINCE, CITIES_BY_PROVINCE, COMMUNES_BY_MUNICIPALITY } from "./src/config/institutionCatalog";
 
 dotenv.config({ path: ['.env', '.env.local'] });
 
@@ -2913,6 +2914,119 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
     } catch (e) {
       console.error("assistente-documento erro:", e);
       return res.status(500).json({ ok: false, erro: "Erro ao processar o pedido do assistente de documentos." });
+    }
+  });
+
+  // Sugestão de Localização por IA (DPA Angola 2025 - Lei n.º 14/24)
+  app.post("/api/ia-localizacao", async (req, res) => {
+    try {
+      const { provincia = '', cidade = '', municipio = '', comuna = '' } = req.body || {};
+      
+      const provTrim = String(provincia || '').trim();
+      const cidTrim = String(cidade || '').trim();
+      const munTrim = String(municipio || '').trim();
+      const comTrim = String(comuna || '').trim();
+
+      // Fallback base local
+      const localCidades = provTrim ? (CITIES_BY_PROVINCE[provTrim] || ['Sede']) : [];
+      const localMunis = provTrim ? (MUNICIPALITIES_BY_PROVINCE[provTrim] || []).filter(m => m !== 'Todos') : [];
+      const localComunas = munTrim ? (COMMUNES_BY_MUNICIPALITY[munTrim] || [`${munTrim} Sede`, 'Sede']) : [];
+
+      // Construir Prompt para IA
+      const systemPrompt = `És o Especialista Oficial em Geografia e Divisão Político-Administrativa da República de Angola (DPA 2025, Lei n.º 14/24).
+A tua missão é sugerir a lista exacta de Cidades, Municípios e Comunas correspondentes à localização solicitada.
+
+Regras Fundamentais:
+1. 21 Províncias: Bengo, Benguela, Bié, Cabinda, Cuando, Cuanza Norte, Cuanza Sul, Cubango, Cunene, Huambo, Huíla, Ícolo e Bengo, Luanda, Lunda Norte, Lunda Sul, Malanje, Moxico, Moxico Leste, Namibe, Uíge, Zaire.
+2. Ícolo e Bengo é uma Província independente (com 7 municípios: Catete, Bom Jesus, Cabiri, Calumbo, Cabo Ledo, Quiçama, Sequele).
+3. Luanda possui 16 municípios: Belas, Cacuaco, Cazenga, Hoji-ya-Henda, Ingombota, Kilamba, Kilamba Kiaxi, Maianga, Mulenvos, Mussulo, Quissama, Rangel, Sambizanga, Samba, Talatona, Viana.
+4. Responde ESTRITAMENTE em formato JSON com o seguinte formato, sem formatação markdown:
+{
+  "cidades": ["string"],
+  "municipios": ["string"],
+  "comunas": ["string"],
+  "explicacao": "string"
+}`;
+
+      const userPrompt = `Contexto actual selecionado:
+- Província: "${provTrim || 'Não selecionada'}"
+- Cidade: "${cidTrim || 'Não selecionada'}"
+- Município: "${munTrim || 'Não selecionado'}"
+- Comuna: "${comTrim || 'Não selecionada'}"
+
+Gera as listas sugeridas de Cidades, Municípios e Comunas correspondentes.`;
+
+      let parsedResult: any = null;
+
+      // 1. Tentar Gemini primeiro
+      if (ai) {
+        try {
+          const response = await Promise.race([
+            ai.models.generateContent({
+              model: "gemini-3.6-flash",
+              contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+              config: { systemInstruction: systemPrompt, temperature: 0.1, responseMimeType: "application/json" },
+            }),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('GEMINI_TIMEOUT')), 5000)),
+          ]);
+          if (response && response.text) {
+            parsedResult = JSON.parse(response.text);
+          }
+        } catch (geminiErr) {
+          console.warn("[IA-LOCALIZACAO] Gemini timeout/erro, fallback Groq:", geminiErr);
+        }
+      }
+
+      // 2. Tentar Groq fallback
+      if (!parsedResult && groq) {
+        try {
+          const completion = await groq.chat.completions.create({
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt }
+            ],
+            model: "openai/gpt-oss-120b",
+            temperature: 0.1,
+            response_format: { type: "json_object" },
+          });
+          const text = completion.choices?.[0]?.message?.content;
+          if (text) {
+            parsedResult = JSON.parse(text);
+          }
+        } catch (groqErr) {
+          console.warn("[IA-LOCALIZACAO] Groq erro:", groqErr);
+        }
+      }
+
+      // 3. Resultado final fundido com garantias do catálogo oficial
+      const cidades = (parsedResult && Array.isArray(parsedResult.cidades) && parsedResult.cidades.length > 0)
+        ? parsedResult.cidades
+        : localCidades;
+
+      const municipios = (parsedResult && Array.isArray(parsedResult.municipios) && parsedResult.municipios.length > 0)
+        ? parsedResult.municipios
+        : localMunis;
+
+      const comunas = (parsedResult && Array.isArray(parsedResult.comunas) && parsedResult.comunas.length > 0)
+        ? parsedResult.comunas
+        : localComunas;
+
+      return res.json({
+        ok: true,
+        cidades,
+        municipios,
+        comunas,
+        explicacao: parsedResult?.explicacao || 'Sugestão contextual por Inteligência Artificial'
+      });
+    } catch (err) {
+      console.error("[IA-LOCALIZACAO] Erro geral:", err);
+      return res.json({
+        ok: true,
+        cidades: CITIES_BY_PROVINCE[req.body?.provincia || ''] || ['Sede'],
+        municipios: (MUNICIPALITIES_BY_PROVINCE[req.body?.provincia || ''] || []).filter(m => m !== 'Todos'),
+        comunas: req.body?.municipio ? (COMMUNES_BY_MUNICIPALITY[req.body.municipio] || [`${req.body.municipio} Sede`, 'Sede']) : [],
+        explicacao: 'Divisão Político-Administrativa Oficial de Angola'
+      });
     }
   });
 

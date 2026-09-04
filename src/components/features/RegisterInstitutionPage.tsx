@@ -11,7 +11,7 @@ import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Building2, MapPin, Mail, Phone, User, Briefcase, Lock, Shield,
-  CheckCircle, CheckCircle2, Loader2, ArrowLeft, Copy, Check, Landmark
+  CheckCircle, CheckCircle2, Loader2, ArrowLeft, Copy, Check, Landmark, Sparkles
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { registoPublicoProxy } from '../../services/supabaseService';
@@ -22,6 +22,7 @@ import {
   MUNICIPALITIES_BY_PROVINCE, CITIES_BY_PROVINCE, COMMUNES_BY_MUNICIPALITY,
   INSTITUTION_TYPES, generateSigla
 } from '../../config/institutionCatalog';
+import { consultarIaLocalizacao, obterSugestoesLocais } from '../../services/iaLocalizacaoService';
 import { DIRECTORIO_INSTITUCIONAL_ANGOLA } from '../../constants/directorioInstitucionalAngola';
 import {
   buildInstObservacoes, buildInstCode, buildInstitutionalCode, buildAgentNumber,
@@ -82,6 +83,13 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
   const [nextAgentSeq, setNextAgentSeq] = useState<number>(1);
   const [isLoadingAgents, setIsLoadingAgents] = useState(false);
 
+  // Estado para sugestão de localização contextual por IA
+  const [iaCities, setIaCities] = useState<string[]>([]);
+  const [iaMunicipalities, setIaMunicipalities] = useState<string[]>([]);
+  const [iaCommunes, setIaCommunes] = useState<string[]>([]);
+  const [isLoadingIaLocation, setIsLoadingIaLocation] = useState(false);
+  const [iaExplicacao, setIaExplicacao] = useState<string>('');
+
   const setErr = (k: string, msg: string) => setFieldErrors(prev => msg ? { ...prev, [k]: msg } : (({ [k]: _, ...rest }) => rest)(prev));
   const isEmailValid = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 
@@ -90,18 +98,29 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
     if (!siglaEdited) setSigla(generateSigla(v === '' ? 'I' : v));
   };
 
-  // Opções dinâmicas em cascata obrigatória
+  // Opções dinâmicas em cascata inteligente (IA + Catálogo Oficial)
   const provincesList = Object.keys(MUNICIPALITIES_BY_PROVINCE).filter(p => p !== 'Todas');
-  const availableCities = province ? (CITIES_BY_PROVINCE[province] || ['Sede']) : [];
-  const availableMunicipalities = (province && cidade) ? (MUNICIPALITIES_BY_PROVINCE[province] || []).filter(m => m !== 'Todos') : [];
-  const availableCommunes = municipio ? (COMMUNES_BY_MUNICIPALITY[municipio] || [`${municipio} Sede`, 'Sede']) : [];
+  const availableCities = iaCities.length > 0
+    ? iaCities
+    : (province ? (CITIES_BY_PROVINCE[province] || ['Sede']) : []);
 
-  // Handlers da cascata rígida: alterar pai limpa todos os filhos
+  const availableMunicipalities = iaMunicipalities.length > 0
+    ? iaMunicipalities
+    : ((province && cidade) ? (MUNICIPALITIES_BY_PROVINCE[province] || []).filter(m => m !== 'Todos') : []);
+
+  const availableCommunes = iaCommunes.length > 0
+    ? iaCommunes
+    : (municipio ? (COMMUNES_BY_MUNICIPALITY[municipio] || [`${municipio} Sede`, 'Sede']) : []);
+
+  // Handlers da cascata: alterar pai limpa todos os filhos e atualiza a IA
   const onChangeProvince = (v: string) => {
     setProvince(v);
     setCidade('');
     setMunicipio('');
     setComuna('');
+    setIaCities([]);
+    setIaMunicipalities([]);
+    setIaCommunes([]);
     setErr('province', '');
     setErr('cidade', '');
     setErr('municipio', '');
@@ -112,6 +131,8 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
     setCidade(v);
     setMunicipio('');
     setComuna('');
+    setIaMunicipalities([]);
+    setIaCommunes([]);
     setErr('cidade', '');
     setErr('municipio', '');
     setErr('comuna', '');
@@ -120,6 +141,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
   const onChangeMunicipio = (v: string) => {
     setMunicipio(v);
     setComuna('');
+    setIaCommunes([]);
     setErr('municipio', '');
     setErr('comuna', '');
   };
@@ -128,6 +150,52 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
     setComuna(v);
     setErr('comuna', '');
   };
+
+  // Carregamento dinâmico inteligente por IA para Localização
+  useEffect(() => {
+    if (!province) {
+      setIaCities([]);
+      setIaMunicipalities([]);
+      setIaCommunes([]);
+      setIaExplicacao('');
+      return;
+    }
+
+    const abortController = new AbortController();
+    let cancelled = false;
+
+    const fetchIaLocation = async () => {
+      setIsLoadingIaLocation(true);
+      try {
+        const resp = await consultarIaLocalizacao(
+          { provincia: province, cidade, municipio, comuna },
+          abortController.signal
+        );
+        if (!cancelled && resp) {
+          if (resp.cidades && resp.cidades.length > 0) setIaCities(resp.cidades);
+          if (resp.municipios && resp.municipios.length > 0) setIaMunicipalities(resp.municipios);
+          if (resp.comunas && resp.comunas.length > 0) setIaCommunes(resp.comunas);
+          if (resp.explicacao) setIaExplicacao(resp.explicacao);
+        }
+      } catch {
+        const local = obterSugestoesLocais({ provincia: province, cidade, municipio, comuna });
+        if (!cancelled) {
+          setIaCities(local.cidades);
+          setIaMunicipalities(local.municipios);
+          setIaCommunes(local.comunas);
+        }
+      } finally {
+        if (!cancelled) setIsLoadingIaLocation(false);
+      }
+    };
+
+    const timer = setTimeout(fetchIaLocation, 150);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      abortController.abort();
+    };
+  }, [province, cidade, municipio]);
 
   // Pré-visualização do próximo Nº de Agente: consulta a base de dados + store local
   // quando a SIGLA e os campos de localização estão válidos.
@@ -569,10 +637,26 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
 
         {/* 2. LOCALIZAÇÃO */}
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-[#2563eb]">
-            <MapPin size={13} className="stroke-[2.5]" />
-            <span className="font-extrabold text-[10px] uppercase tracking-widest">Localização</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-[#2563eb]">
+              <MapPin size={13} className="stroke-[2.5]" />
+              <span className="font-extrabold text-[10px] uppercase tracking-widest">Localização</span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-blue-50/80 border border-blue-200/60 px-2.5 py-0.5 rounded-full text-[#2563eb] text-[9px] font-black uppercase tracking-wider">
+              {isLoadingIaLocation ? (
+                <Loader2 size={10} className="animate-spin text-[#2563eb]" />
+              ) : (
+                <Sparkles size={10} className="text-[#2563eb]" />
+              )}
+              <span>Assistida por IA</span>
+            </div>
           </div>
+          {iaExplicacao && province && (
+            <div className="bg-blue-50/60 border border-blue-100/80 rounded-xl px-3 py-1.5 text-[9px] text-blue-800 font-semibold flex items-center gap-1.5 leading-tight">
+              <Sparkles size={11} className="text-blue-500 shrink-0" />
+              <span>{iaExplicacao}</span>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* 1. Província */}
             <div className="grid gap-1">

@@ -18,6 +18,7 @@
     "test:pilot": "tsx scripts/pilotComprehensive.ts",
     "production:readiness": "tsx scripts/productionReadiness.ts",
     "test:paginas": "node scripts/e2e_paginas.mjs",
+    "test:localizacao": "node scripts/e2e_ia_localizacao.mjs",
     "verify:v28": "tsx scripts/verifyV28.ts",
     "backup:supabase": "tsx scripts/backupSupabase.ts"
   },

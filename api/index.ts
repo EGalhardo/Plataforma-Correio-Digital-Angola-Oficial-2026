@@ -1414,6 +1414,96 @@ export default async function handler(req: any, res: any) {
       return res.status(503).json({ ok: false, erro: "Assistente de IA indisponível neste momento. Tenta novamente dentro de instantes." });
     }
 
+    // 3.6 Endpoint /api/ia-localizacao (Sugestão Inteligente de Localização DPA 2025)
+    if (url.includes('/api/ia-localizacao')) {
+      const { provincia = '', cidade = '', municipio = '', comuna = '' } = body || {};
+      const provTrim = String(provincia || '').trim();
+      const cidTrim = String(cidade || '').trim();
+      const munTrim = String(municipio || '').trim();
+      const comTrim = String(comuna || '').trim();
+
+      const systemPrompt = `És o Especialista Oficial em Geografia e Divisão Político-Administrativa da República de Angola (DPA 2025, Lei n.º 14/24).
+A tua missão é sugerir a lista exacta de Cidades, Municípios e Comunas correspondentes à localização solicitada.
+
+Regras Fundamentais:
+1. 21 Províncias: Bengo, Benguela, Bié, Cabinda, Cuando, Cuanza Norte, Cuanza Sul, Cubango, Cunene, Huambo, Huíla, Ícolo e Bengo, Luanda, Lunda Norte, Lunda Sul, Malanje, Moxico, Moxico Leste, Namibe, Uíge, Zaire.
+2. Ícolo e Bengo é uma Província independente (com 7 municípios: Catete, Bom Jesus, Cabiri, Calumbo, Cabo Ledo, Quiçama, Sequele).
+3. Luanda possui 16 municípios: Belas, Cacuaco, Cazenga, Hoji-ya-Henda, Ingombota, Kilamba, Kilamba Kiaxi, Maianga, Mulenvos, Mussulo, Quissama, Rangel, Sambizanga, Samba, Talatona, Viana.
+4. Responde ESTRITAMENTE em formato JSON com o seguinte formato, sem formatação markdown:
+{
+  "cidades": ["string"],
+  "municipios": ["string"],
+  "comunas": ["string"],
+  "explicacao": "string"
+}`;
+
+      const userPrompt = `Contexto actual selecionado:
+- Província: "${provTrim || 'Não selecionada'}"
+- Cidade: "${cidTrim || 'Não selecionada'}"
+- Município: "${munTrim || 'Não selecionado'}"
+- Comuna: "${comTrim || 'Não selecionada'}"
+
+Gera as listas sugeridas de Cidades, Municípios e Comunas correspondentes.`;
+
+      let parsedResult: any = null;
+
+      if (ai) {
+        try {
+          const response = await Promise.race([
+            ai.models.generateContent({
+              model: "gemini-3.6-flash",
+              contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+              config: { systemInstruction: systemPrompt, temperature: 0.1, responseMimeType: "application/json" },
+            }),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('GEMINI_TIMEOUT')), 5000)),
+          ]);
+          if (response && response.text) {
+            parsedResult = JSON.parse(response.text);
+          }
+        } catch (geminiErr) {
+          console.warn("[IA-LOCALIZACAO] Gemini erro:", geminiErr);
+        }
+      }
+
+      if (!parsedResult && groq) {
+        try {
+          const completion = await groq.chat.completions.create({
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt }
+            ],
+            model: "openai/gpt-oss-120b",
+            temperature: 0.1,
+            response_format: { type: "json_object" },
+          });
+          const text = completion.choices?.[0]?.message?.content;
+          if (text) {
+            parsedResult = JSON.parse(text);
+          }
+        } catch (groqErr) {
+          console.warn("[IA-LOCALIZACAO] Groq erro:", groqErr);
+        }
+      }
+
+      if (parsedResult) {
+        return res.status(200).json({
+          ok: true,
+          cidades: parsedResult.cidades || [],
+          municipios: parsedResult.municipios || [],
+          comunas: parsedResult.comunas || [],
+          explicacao: parsedResult.explicacao || 'Sugestão contextual por Inteligência Artificial'
+        });
+      }
+
+      return res.status(200).json({
+        ok: true,
+        cidades: [],
+        municipios: [],
+        comunas: [],
+        explicacao: 'Divisão Político-Administrativa Oficial de Angola'
+      });
+    }
+
     // Directório Institucional de Referência — texto embutido (NÃO importar de src/
     // no serverless: FUNCTION_INVOCATION_FAILED no passado). Fonte: directorioParaContextoIA().
     const DIRECTORIO_IA_CTX = [
