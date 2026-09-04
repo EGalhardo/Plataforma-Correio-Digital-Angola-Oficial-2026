@@ -38,7 +38,7 @@
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 
-const BASE = process.env.BASE || 'https://correio-digital-angola-oficial.vercel.app';
+const BASE = process.env.BASE || 'http://localhost:3000';
 const SHOTS = process.env.SHOTS_DIR || '/home/user/cda_test/screenshots';
 mkdirSync(SHOTS, { recursive: true });
 

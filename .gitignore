@@ -8,6 +8,7 @@ coverage/
 !.env.example
 backups/
 uploads/
+cda_test/
 .cache/
 .local/
 .npm/

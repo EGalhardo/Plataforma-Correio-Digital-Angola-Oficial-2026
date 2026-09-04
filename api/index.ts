@@ -3917,14 +3917,11 @@ async function dadosResolverEExecutar(opts: {
         console.error('[EMAIL-BOAS-VINDAS] Exceção:', e);
         return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
       }
+    }
 
     // Fallback global de rotas
     return res.status(404).json({ error: "Endpoint não encontrado." });
-
-  
-    }
-
-} catch (err: any) {
+  } catch (err: any) {
     console.error("Serverless Exception:", err);
     return res.status(500).json({ error: "Internal Server Error", details: err.message || err });
   }

@@ -1,14 +1,13 @@
 import { chromium } from 'playwright';
 
 async function runDetailedBrowserTest() {
-  console.log('🚀 Iniciando teste exaustivo de integração do Browser para Localização IA...');
+  console.log('🚀 Iniciando teste exaustivo de integração do Browser para Localização DPA 2025...');
   const browser = await chromium.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
   });
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 
-  // Capturar logs e erros de console da página
   page.on('console', msg => {
     if (msg.type() === 'error') console.error('🔴 [Browser Console Error]:', msg.text());
   });
@@ -17,52 +16,44 @@ async function runDetailedBrowserTest() {
   try {
     // 1. Navegar para a página de registo institucional
     console.log('🌐 Navegando para http://localhost:3000/institucional#/registar ...');
-    await page.goto('http://localhost:3000/institucional#/registar', { waitUntil: 'networkidle' });
+    await page.goto('http://localhost:3000/institucional#/registar', { waitUntil: 'domcontentloaded', timeout: 30000 });
     
     // 2. Aguardar renderização completa
     await page.waitForSelector('text=Localização', { timeout: 10000 });
     console.log('✅ Formulário de Registo de Instituição carregado.');
 
-    // 3. Localizar os 4 selects da área de localização
+    // 3. Localizar os 3 selects da área de localização (DPA 2025: Província -> Município -> Comuna)
     const selectElements = page.locator('div.space-y-3 select');
     const provSelect = selectElements.nth(0);
-    const citySelect = selectElements.nth(1);
-    const muniSelect = selectElements.nth(2);
-    const comunaSelect = selectElements.nth(3);
+    const muniSelect = selectElements.nth(1);
+    const comunaSelect = selectElements.nth(2);
 
     // =========================================================================
-    // TESTE 1: FLUXO PADRÃO (PROVÍNCIA -> CIDADE -> MUNICÍPIO -> COMUNA)
+    // TESTE 1: FLUXO PADRÃO DPA 2025 (PROVÍNCIA -> MUNICÍPIO -> COMUNA) - LUANDA
     // =========================================================================
-    console.log('\n--- TESTE 1: Luanda (Fluxo Padrão) ---');
+    console.log('\n--- TESTE 1: Luanda (Fluxo DPA 2025) ---');
     await provSelect.selectOption('Luanda');
-    await page.waitForTimeout(600);
-
-    // Verificar que Cidades e Municípios foram imediatamente disponibilizados
-    const luandaCities = await citySelect.locator('option').allInnerTexts();
-    const luandaMunis = await muniSelect.locator('option').allInnerTexts();
-    console.log(`✅ Cidades de Luanda (${luandaCities.length - 1}):`, luandaCities.slice(1, 5));
-    console.log(`✅ Municípios de Luanda (${luandaMunis.length - 1}):`, luandaMunis.slice(1, 5));
-
-    if (luandaCities.length <= 1 || luandaMunis.length <= 1) {
-      throw new Error('Falha: Cidades ou Municípios não foram populados para Luanda');
-    }
-
-    // Selecionar Cidade: "Luanda (Capital)"
-    await citySelect.selectOption({ label: luandaCities[1] });
-    console.log(`✅ Cidade "${luandaCities[1]}" selecionada.`);
     await page.waitForTimeout(400);
 
-    // Selecionar Município: "Talatona"
+    // Verificar que Municípios de Luanda foram disponibilizados
+    const luandaMunis = await muniSelect.locator('option').allInnerTexts();
+    console.log(`✅ Municípios de Luanda (${luandaMunis.length - 1}):`, luandaMunis.slice(1, 5));
+
+    if (luandaMunis.length <= 1) {
+      throw new Error('Falha: Municípios não foram populados para Luanda');
+    }
+
+    // Selecionar Município: "Talatona" ou primeiro disponível
     const talatonaOption = luandaMunis.find(m => m.includes('Talatona')) || luandaMunis[1];
     await muniSelect.selectOption({ label: talatonaOption });
     console.log(`✅ Município "${talatonaOption}" selecionado.`);
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(400);
 
-    // Verificar Comunas de Talatona
+    // Verificar Comunas
     const talatonaComunas = await comunaSelect.locator('option').allInnerTexts();
-    console.log(`✅ Comunas de Talatona (${talatonaComunas.length - 1}):`, talatonaComunas.slice(1));
+    console.log(`✅ Comunas de ${talatonaOption} (${talatonaComunas.length - 1}):`, talatonaComunas.slice(1));
     if (talatonaComunas.length <= 1) {
-      throw new Error('Falha: Comunas não foram populadas para Talatona');
+      throw new Error(`Falha: Comunas não foram populadas para ${talatonaOption}`);
     }
 
     // Selecionar Comuna
@@ -70,54 +61,42 @@ async function runDetailedBrowserTest() {
     console.log(`✅ Comuna "${talatonaComunas[1]}" selecionada.`);
 
     // =========================================================================
-    // TESTE 2: FLUXO VICE-VERSA (PROVÍNCIA -> MUNICÍPIO DIRETO -> AUTO-CIDADE)
+    // TESTE 2: PROVÍNCIA DE ÍCOLO E BENGO (DPA 2025)
     // =========================================================================
-    console.log('\n--- TESTE 2: Ícolo e Bengo (Vice-versa: Município Direto) ---');
+    console.log('\n--- TESTE 2: Ícolo e Bengo (DPA 2025) ---');
     await provSelect.selectOption('Ícolo e Bengo');
-    await page.waitForTimeout(600);
-
-    // Município deve estar ativo directamente após escolher a província
-    const muniDisabled = await muniSelect.isDisabled();
-    console.log(`✅ Campo Município está habilitado sem necessidade prévia de Cidade: ${!muniDisabled}`);
-    if (muniDisabled) throw new Error('Falha: Município está indevidamente desabilitado');
+    await page.waitForTimeout(400);
 
     const ibMunis = await muniSelect.locator('option').allInnerTexts();
     console.log(`✅ Municípios de Ícolo e Bengo:`, ibMunis.slice(1));
 
-    // Selecionar Município Catete directamente (sem ter selecionado Cidade antes)
-    const cateteOption = ibMunis.find(m => m.includes('Catete')) || ibMunis[1];
-    await muniSelect.selectOption({ label: cateteOption });
-    console.log(`✅ Selecionou directamente Município "${cateteOption}"`);
-    await page.waitForTimeout(600);
+    // Selecionar Município Calumbo
+    const calumboOption = ibMunis.find(m => m.includes('Calumbo')) || ibMunis[1];
+    await muniSelect.selectOption({ label: calumboOption });
+    console.log(`✅ Selecionou Município "${calumboOption}"`);
+    await page.waitForTimeout(400);
 
-    // Verificar se a Cidade foi auto-preenchida/deduzida
-    const selectedCity = await citySelect.inputValue();
-    console.log(`✅ Cidade auto-deduzida/selecionada via Vice-Versa: "${selectedCity}"`);
-    if (!selectedCity) {
-      throw new Error('Falha: Cidade não foi deduzida ao selecionar Município');
+    // Verificar Comunas de Calumbo (incluindo Zango 0 a 5/8000)
+    const calumboComunas = await comunaSelect.locator('option').allInnerTexts();
+    console.log(`✅ Comunas de Calumbo:`, calumboComunas.slice(1));
+    if (calumboComunas.length <= 1) {
+      throw new Error('Falha: Comunas não foram populadas para Calumbo');
     }
-
-    // Verificar Comunas de Catete
-    const cateteComunas = await comunaSelect.locator('option').allInnerTexts();
-    console.log(`✅ Comunas de Catete:`, cateteComunas.slice(1));
-    if (cateteComunas.length <= 1) {
-      throw new Error('Falha: Comunas não foram populadas para Catete');
-    }
-    await comunaSelect.selectOption({ label: cateteComunas[1] });
-    console.log(`✅ Comuna "${cateteComunas[1]}" selecionada.`);
+    await comunaSelect.selectOption({ label: calumboComunas[1] });
+    console.log(`✅ Comuna "${calumboComunas[1]}" selecionada.`);
 
     // =========================================================================
     // TESTE 3: PROVÍNCIA DO HUAMBO (MUNICÍPIO BAILUNDO)
     // =========================================================================
     console.log('\n--- TESTE 3: Huambo -> Bailundo ---');
     await provSelect.selectOption('Huambo');
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(400);
 
     const huamboMunis = await muniSelect.locator('option').allInnerTexts();
     const bailundoOption = huamboMunis.find(m => m.includes('Bailundo')) || huamboMunis[1];
     await muniSelect.selectOption({ label: bailundoOption });
     console.log(`✅ Município "${bailundoOption}" selecionado.`);
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(400);
 
     const bailundoComunas = await comunaSelect.locator('option').allInnerTexts();
     console.log(`✅ Comunas de Bailundo:`, bailundoComunas.slice(1));
@@ -149,7 +128,7 @@ async function runDetailedBrowserTest() {
     await page.fill('input[placeholder*="Mínimo 8 caracteres"]', 'Segredo@2026!');
     await page.fill('input[placeholder*="Repita a senha"]', 'Segredo@2026!');
 
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(400);
 
     // Tirar screenshot da validação visual completa
     await page.screenshot({ path: 'testes/evidencias/screenshots/institucional_registo_ia_localizacao.png', fullPage: true });
