@@ -1453,9 +1453,15 @@ Gera as listas sugeridas de Cidades, Municípios e Comunas correspondentes.`;
             ai.models.generateContent({
               model: "gemini-3.6-flash",
               contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-              config: { systemInstruction: systemPrompt, temperature: 0.1, responseMimeType: "application/json" },
+              config: {
+                systemInstruction: systemPrompt,
+                temperature: 0,
+                maxOutputTokens: 512,
+                responseMimeType: "application/json",
+                thinkingConfig: { thinkingBudget: 0 }
+              },
             }),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('GEMINI_TIMEOUT')), 5000)),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('GEMINI_TIMEOUT')), 2000)),
           ]);
           if (response && response.text) {
             parsedResult = JSON.parse(response.text);
@@ -1467,15 +1473,19 @@ Gera as listas sugeridas de Cidades, Municípios e Comunas correspondentes.`;
 
       if (!parsedResult && groq) {
         try {
-          const completion = await groq.chat.completions.create({
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt }
-            ],
-            model: "openai/gpt-oss-120b",
-            temperature: 0.1,
-            response_format: { type: "json_object" },
-          });
+          const completion = await Promise.race([
+            groq.chat.completions.create({
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt }
+              ],
+              model: "openai/gpt-oss-120b",
+              temperature: 0,
+              max_tokens: 512,
+              response_format: { type: "json_object" },
+            }),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('GROQ_TIMEOUT')), 2000)),
+          ]);
           const text = completion.choices?.[0]?.message?.content;
           if (text) {
             parsedResult = JSON.parse(text);

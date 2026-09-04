@@ -316,12 +316,12 @@ export const countExistingAgents = async (
   
   try {
     // Consultar na tabela profiles todos os agentes desta instituição
-    // O código da instituição fica no campo 'bi' (ou 'instituicao' no metadata)
+    // O código da instituição fica no campo 'bi' (ex: SME-LLVV-01)
     const { data, error } = await supabase
       .from('profiles')
       .select('bi')
       .eq('role', 'instituicao')
-      .or(`bi.eq.${code},bi.like.${code}-%,instituicao.eq.${code}`)
+      .or(`bi.eq.${code},bi.like.${code}-%`)
       .limit(1000);
     
     if (error) {

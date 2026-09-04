@@ -98,21 +98,34 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
     if (!siglaEdited) setSigla(generateSigla(v === '' ? 'I' : v));
   };
 
-  // Opções dinâmicas em cascata inteligente (IA + Catálogo Oficial)
+  // Lista oficial de províncias (21 Províncias DPA Angola 2025)
   const provincesList = Object.keys(MUNICIPALITIES_BY_PROVINCE).filter(p => p !== 'Todas');
-  const availableCities = iaCities.length > 0
-    ? iaCities
-    : (province ? (CITIES_BY_PROVINCE[province] || ['Sede']) : []);
 
-  const availableMunicipalities = iaMunicipalities.length > 0
-    ? iaMunicipalities
-    : ((province && cidade) ? (MUNICIPALITIES_BY_PROVINCE[province] || []).filter(m => m !== 'Todos') : []);
+  // Cidades disponíveis: união do catálogo local + sugestões da IA + valor actual
+  const rawCities = province ? (CITIES_BY_PROVINCE[province] || ['Sede']) : [];
+  const availableCities = Array.from(new Set([
+    ...(cidade ? [cidade] : []),
+    ...rawCities,
+    ...iaCities
+  ])).filter(Boolean);
 
-  const availableCommunes = iaCommunes.length > 0
-    ? iaCommunes
-    : (municipio ? (COMMUNES_BY_MUNICIPALITY[municipio] || [`${municipio} Sede`, 'Sede']) : []);
+  // Municípios disponíveis: união do catálogo local da província + sugestões da IA + valor actual
+  const rawMunis = province ? (MUNICIPALITIES_BY_PROVINCE[province] || []).filter(m => m !== 'Todos') : [];
+  const availableMunicipalities = Array.from(new Set([
+    ...(municipio ? [municipio] : []),
+    ...rawMunis,
+    ...iaMunicipalities
+  ])).filter(Boolean);
 
-  // Handlers da cascata: alterar pai limpa todos os filhos e atualiza a IA
+  // Comunas disponíveis: união do catálogo local do município + sugestões da IA + valor actual
+  const rawComunas = municipio ? (COMMUNES_BY_MUNICIPALITY[municipio] || [`${municipio} Sede`, 'Sede']) : [];
+  const availableCommunes = Array.from(new Set([
+    ...(comuna ? [comuna] : []),
+    ...rawComunas,
+    ...iaCommunes
+  ])).filter(Boolean);
+
+  // Handlers bidireccionais da cascata com suporte a IA:
   const onChangeProvince = (v: string) => {
     setProvince(v);
     setCidade('');
@@ -129,21 +142,36 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
 
   const onChangeCidade = (v: string) => {
     setCidade(v);
-    setMunicipio('');
-    setComuna('');
-    setIaMunicipalities([]);
-    setIaCommunes([]);
     setErr('cidade', '');
-    setErr('municipio', '');
-    setErr('comuna', '');
+    if (!v) {
+      setMunicipio('');
+      setComuna('');
+    } else {
+      // Se a cidade tiver o mesmo nome de um município (ex: Viana, Cacuaco, Cazenga, Bailundo), auto-seleciona
+      const matchMuni = rawMunis.find(m => m.toLowerCase() === v.toLowerCase());
+      if (matchMuni && !municipio) {
+        setMunicipio(matchMuni);
+        setErr('municipio', '');
+      }
+    }
   };
 
   const onChangeMunicipio = (v: string) => {
     setMunicipio(v);
     setComuna('');
-    setIaCommunes([]);
     setErr('municipio', '');
     setErr('comuna', '');
+
+    // Vice-versa: se a Cidade ainda não foi selecionada, deduzir a Cidade correspondente
+    if (v && (!cidade || cidade === '')) {
+      const matchCity = rawCities.find(c => c.toLowerCase() === v.toLowerCase() || c.toLowerCase().includes(v.toLowerCase()));
+      if (matchCity) {
+        setCidade(matchCity);
+      } else if (rawCities.length > 0) {
+        setCidade(rawCities[0]);
+      }
+      setErr('cidade', '');
+    }
   };
 
   const onChangeComuna = (v: string) => {
@@ -172,24 +200,24 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
           abortController.signal
         );
         if (!cancelled && resp) {
-          if (resp.cidades && resp.cidades.length > 0) setIaCities(resp.cidades);
-          if (resp.municipios && resp.municipios.length > 0) setIaMunicipalities(resp.municipios);
-          if (resp.comunas && resp.comunas.length > 0) setIaCommunes(resp.comunas);
+          if (Array.isArray(resp.cidades) && resp.cidades.length > 0) setIaCities(resp.cidades);
+          if (Array.isArray(resp.municipios) && resp.municipios.length > 0) setIaMunicipalities(resp.municipios);
+          if (Array.isArray(resp.comunas) && resp.comunas.length > 0) setIaCommunes(resp.comunas);
           if (resp.explicacao) setIaExplicacao(resp.explicacao);
         }
       } catch {
         const local = obterSugestoesLocais({ provincia: province, cidade, municipio, comuna });
         if (!cancelled) {
-          setIaCities(local.cidades);
-          setIaMunicipalities(local.municipios);
-          setIaCommunes(local.comunas);
+          if (local.cidades.length > 0) setIaCities(local.cidades);
+          if (local.municipios.length > 0) setIaMunicipalities(local.municipios);
+          if (local.comunas.length > 0) setIaCommunes(local.comunas);
         }
       } finally {
         if (!cancelled) setIsLoadingIaLocation(false);
       }
     };
 
-    const timer = setTimeout(fetchIaLocation, 150);
+    const timer = setTimeout(fetchIaLocation, 80);
     return () => {
       cancelled = true;
       clearTimeout(timer);
@@ -699,7 +727,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
               <div className="relative">
                 <select
                   value={municipio}
-                  disabled={!cidade}
+                  disabled={!province}
                   onChange={(e) => onChangeMunicipio(e.target.value)}
                   className={selectCls + (fieldErrors.municipio ? ' ' + errCls : '')}
                 >
