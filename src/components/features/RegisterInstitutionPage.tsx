@@ -37,7 +37,7 @@ interface RegisterInstitutionPageProps {
   addAuditLog: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
 }
 
-const inputCls = "w-full bg-white border border-slate-200 focus:border-[#2563eb]/40 focus:ring-1 focus:ring-[#2563eb]/40 rounded-[14px] px-4 py-3 text-xs font-bold text-slate-800 outline-none transition-all placeholder:text-slate-400";
+const inputCls = "w-full bg-white border border-slate-200 focus:border-[#2563eb]/40 focus:ring-1 focus:ring-[#2563eb]/40 rounded-[14px] px-4 py-3 text-xs font-bold text-slate-800 outline-none transition-all placeholder:text-slate-400 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200 disabled:opacity-60";
 const selectCls = inputCls + " appearance-none cursor-pointer pr-9 pl-4";
 const labelCls = "text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1";
 const errCls = "border-red-300 focus:border-red-400 focus:ring-red-300";
@@ -47,12 +47,12 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
   const [fullName, setFullName] = useState('');
   const [sigla, setSigla] = useState('');
   const [siglaEdited, setSiglaEdited] = useState(false);
-  const [typeInst, setTypeInst] = useState('Ministério');
-  // Localização
-  const [province, setProvince] = useState('Luanda');
-  const [cidade, setCidade] = useState(CITIES_BY_PROVINCE['Luanda'][0]);
-  const [municipio, setMunicipio] = useState(MUNICIPALITIES_BY_PROVINCE['Luanda'][1] || 'Belas');
-  const [comuna, setComuna] = useState(() => (COMMUNES_BY_MUNICIPALITY[municipio] || ['Sede'])[0]);
+  const [typeInst, setTypeInst] = useState('');
+  // Localização — Cascata rígida (nenhum campo pré-selecionado)
+  const [province, setProvince] = useState('');
+  const [cidade, setCidade] = useState('');
+  const [municipio, setMunicipio] = useState('');
+  const [comuna, setComuna] = useState('');
   const [endereco, setEndereco] = useState('');
   // Contactos
   const [emailContacto, setEmailContacto] = useState('');
@@ -90,20 +90,43 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
     if (!siglaEdited) setSigla(generateSigla(v === '' ? 'I' : v));
   };
 
+  // Opções dinâmicas em cascata obrigatória
+  const provincesList = Object.keys(MUNICIPALITIES_BY_PROVINCE).filter(p => p !== 'Todas');
+  const availableCities = province ? (CITIES_BY_PROVINCE[province] || ['Sede']) : [];
+  const availableMunicipalities = (province && cidade) ? (MUNICIPALITIES_BY_PROVINCE[province] || []).filter(m => m !== 'Todos') : [];
+  const availableCommunes = municipio ? (COMMUNES_BY_MUNICIPALITY[municipio] || [`${municipio} Sede`, 'Sede']) : [];
+
+  // Handlers da cascata rígida: alterar pai limpa todos os filhos
   const onChangeProvince = (v: string) => {
     setProvince(v);
-    const munis = MUNICIPALITIES_BY_PROVINCE[v] || ['Todos'];
-    const nextMuni = munis[1] || munis[0] || '';
-    setMunicipio(nextMuni);
-    const cities = CITIES_BY_PROVINCE[v] || ['Sede'];
-    setCidade(cities[0] || 'Sede');
-    const coms = COMMUNES_BY_MUNICIPALITY[nextMuni] || ['Sede'];
-    setComuna(coms[0] || 'Sede');
+    setCidade('');
+    setMunicipio('');
+    setComuna('');
+    setErr('province', '');
+    setErr('cidade', '');
+    setErr('municipio', '');
+    setErr('comuna', '');
   };
+
+  const onChangeCidade = (v: string) => {
+    setCidade(v);
+    setMunicipio('');
+    setComuna('');
+    setErr('cidade', '');
+    setErr('municipio', '');
+    setErr('comuna', '');
+  };
+
   const onChangeMunicipio = (v: string) => {
     setMunicipio(v);
-    const coms = COMMUNES_BY_MUNICIPALITY[v] || ['Sede'];
-    setComuna(coms[0] || 'Sede');
+    setComuna('');
+    setErr('municipio', '');
+    setErr('comuna', '');
+  };
+
+  const onChangeComuna = (v: string) => {
+    setComuna(v);
+    setErr('comuna', '');
   };
 
   // Pré-visualização do próximo Nº de Agente: consulta a base de dados + store local
@@ -161,17 +184,13 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
       errs.sigla = siglaValidacao.erro || 'Sigla inválida.';
     }
     
-    if (!INSTITUTION_TYPES.includes(typeInst)) errs.typeInst = 'Selecione o tipo de instituição.';
+    if (typeInst.trim().length < 2) errs.typeInst = 'Insira o tipo de instituição.';
     
     // Validação dos campos de localização
-    const locValidacao = validarLocalizacao(province, cidade, municipio, comuna);
-    if (!locValidacao.valido) {
-      // Determinar qual campo está vazio
-      if (!province || province === 'Selecione...') errs.province = 'Selecione a província.';
-      if (!cidade || cidade === 'Selecione...') errs.cidade = 'Selecione a cidade.';
-      if (!municipio || municipio === 'Selecione...') errs.municipio = 'Selecione o município.';
-      if (!comuna || comuna === 'Selecione...') errs.comuna = 'Selecione a comuna.';
-    }
+    if (!province || province === 'Selecione...') errs.province = 'Selecione a província.';
+    if (!cidade || cidade === 'Selecione...') errs.cidade = 'Selecione a cidade.';
+    if (!municipio || municipio === 'Selecione...') errs.municipio = 'Selecione o município.';
+    if (!comuna || comuna === 'Selecione...') errs.comuna = 'Selecione a comuna.';
     
     if (endereco.trim().length < 3) errs.endereco = 'Insira o endereço institucional.';
     if (!isEmailValid(emailContacto)) errs.emailContacto = 'Insira um e-mail institucional válido.';
@@ -530,12 +549,18 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
             </div>
             <div className="grid gap-1">
               <label className={labelCls}>Tipo de Instituição *</label>
-              <div className="relative">
-                <select value={typeInst} onChange={(e) => setTypeInst(e.target.value)} className={selectCls}>
-                  {INSTITUTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[9px]">▼</span>
-              </div>
+              <input
+                type="text"
+                value={typeInst}
+                onChange={(e) => { setTypeInst(e.target.value); setErr('typeInst', ''); }}
+                placeholder="Ex: Ministério, Instituto Público, Empresa Pública..."
+                list="cda-institution-types-list"
+                className={inputCls + (fieldErrors.typeInst ? ' ' + errCls : '')}
+              />
+              <datalist id="cda-institution-types-list">
+                {INSTITUTION_TYPES.map(t => <option key={t} value={t} />)}
+              </datalist>
+              {fieldErrors.typeInst && <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.typeInst}</p>}
             </div>
           </div>
         </div>
@@ -548,42 +573,76 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
             <MapPin size={13} className="stroke-[2.5]" />
             <span className="font-extrabold text-[10px] uppercase tracking-widest">Localização</span>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* 1. Província */}
             <div className="grid gap-1">
               <label className={labelCls}>Província *</label>
               <div className="relative">
-                <select value={province} onChange={(e) => onChangeProvince(e.target.value)} className={selectCls}>
-                  {Object.keys(MUNICIPALITIES_BY_PROVINCE).filter(p => p !== 'Todas').map(p => <option key={p} value={p}>{p}</option>)}
+                <select
+                  value={province}
+                  onChange={(e) => onChangeProvince(e.target.value)}
+                  className={selectCls + (fieldErrors.province ? ' ' + errCls : '')}
+                >
+                  <option value="">Selecione...</option>
+                  {provincesList.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
                 <span className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[9px]">▼</span>
               </div>
+              {fieldErrors.province && <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.province}</p>}
             </div>
-            <div className="grid gap-1">
-              <label className={labelCls}>Município *</label>
-              <div className="relative">
-                <select value={municipio} onChange={(e) => onChangeMunicipio(e.target.value)} className={selectCls}>
-                  {(MUNICIPALITIES_BY_PROVINCE[province] || []).filter(m => m !== 'Todos').map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[9px]">▼</span>
-              </div>
-            </div>
-            <div className="grid gap-1">
-              <label className={labelCls}>Comuna *</label>
-              <div className="relative">
-                <select value={comuna} onChange={(e) => setComuna(e.target.value)} className={selectCls}>
-                  {(COMMUNES_BY_MUNICIPALITY[municipio] || ['Sede']).map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[9px]">▼</span>
-              </div>
-            </div>
+
+            {/* 2. Cidade */}
             <div className="grid gap-1">
               <label className={labelCls}>Cidade *</label>
               <div className="relative">
-                <select value={cidade} onChange={(e) => setCidade(e.target.value)} className={selectCls}>
-                  {(CITIES_BY_PROVINCE[province] || ['Sede']).map(c => <option key={c} value={c}>{c}</option>)}
+                <select
+                  value={cidade}
+                  disabled={!province}
+                  onChange={(e) => onChangeCidade(e.target.value)}
+                  className={selectCls + (fieldErrors.cidade ? ' ' + errCls : '')}
+                >
+                  <option value="">Selecione...</option>
+                  {availableCities.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
                 <span className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[9px]">▼</span>
               </div>
+              {fieldErrors.cidade && <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.cidade}</p>}
+            </div>
+
+            {/* 3. Município */}
+            <div className="grid gap-1">
+              <label className={labelCls}>Município *</label>
+              <div className="relative">
+                <select
+                  value={municipio}
+                  disabled={!cidade}
+                  onChange={(e) => onChangeMunicipio(e.target.value)}
+                  className={selectCls + (fieldErrors.municipio ? ' ' + errCls : '')}
+                >
+                  <option value="">Selecione...</option>
+                  {availableMunicipalities.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[9px]">▼</span>
+              </div>
+              {fieldErrors.municipio && <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.municipio}</p>}
+            </div>
+
+            {/* 4. Comuna */}
+            <div className="grid gap-1">
+              <label className={labelCls}>Comuna *</label>
+              <div className="relative">
+                <select
+                  value={comuna}
+                  disabled={!municipio}
+                  onChange={(e) => onChangeComuna(e.target.value)}
+                  className={selectCls + (fieldErrors.comuna ? ' ' + errCls : '')}
+                >
+                  <option value="">Selecione...</option>
+                  {availableCommunes.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[9px]">▼</span>
+              </div>
+              {fieldErrors.comuna && <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.comuna}</p>}
             </div>
           </div>
           <div className="grid gap-1">
