@@ -239,6 +239,8 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
       const pack: InstitutionRegPack = {
         v: 1,
         sigla: s,
+        nomeCompleto: fullName.trim(),
+        nome: fullName.trim(),
         tipo: typeInst,
         provincia: province,
         municipio,

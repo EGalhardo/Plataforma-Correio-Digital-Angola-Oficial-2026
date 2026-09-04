@@ -13,6 +13,8 @@ import { registoPublicoProxy } from './supabaseService';
 export interface InstitutionRegPack {
   v: 1;
   sigla: string;
+  nomeCompleto?: string;
+  nome?: string;
   tipo: string;
   provincia: string;
   cidade?: string;

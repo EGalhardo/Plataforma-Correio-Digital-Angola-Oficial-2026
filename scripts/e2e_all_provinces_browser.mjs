@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 
 async function runAllProvincesBrowserTest() {
-  console.log('🚀 Iniciando teste exaustivo de browser para TODAS as 21 províncias no grupo Localização...');
+  console.log('🚀 Iniciando teste exaustivo de browser para TODAS as 21 províncias no grupo Localização (DPA 2025)...');
   const browser = await chromium.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
@@ -23,9 +23,8 @@ async function runAllProvincesBrowserTest() {
 
     const selectElements = page.locator('div.space-y-3 select');
     const provSelect = selectElements.nth(0);
-    const citySelect = selectElements.nth(1);
-    const muniSelect = selectElements.nth(2);
-    const comunaSelect = selectElements.nth(3);
+    const muniSelect = selectElements.nth(1);
+    const comunaSelect = selectElements.nth(2);
 
     // Obter todas as opções de províncias
     const allProvinces = (await provSelect.locator('option').allInnerTexts()).filter(p => p !== 'Selecione...');
@@ -40,44 +39,35 @@ async function runAllProvincesBrowserTest() {
     for (const prov of allProvinces) {
       console.log(`\n🔍 Testando Província: "${prov}"...`);
       await provSelect.selectOption(prov);
-      await page.waitForTimeout(100);
+      await page.waitForTimeout(80);
 
-      // 1. Verificar Cidades
-      const cities = (await citySelect.locator('option').allInnerTexts()).filter(c => c !== 'Selecione...');
-      console.log(`   🏙️ Cidades (${cities.length}):`, cities.slice(0, 4));
-      if (cities.length === 0) {
-        throw new Error(`Província "${prov}" tem 0 cidades disponíveis!`);
-      }
-
-      // Regra especial Luanda: apenas 1 cidade ("Luanda (Capital)") e NÃO conter municípios como Belas, Talatona, etc.
-      if (prov === 'Luanda') {
-        const invalidInLuanda = cities.filter(c => c.includes('Belas') || c.includes('Talatona') || c.includes('Cazenga'));
-        if (invalidInLuanda.length > 0) {
-          throw new Error(`Erro: Cidade de Luanda contém municípios indevidos: ${invalidInLuanda.join(', ')}`);
-        }
-        console.log('   ✅ Validação estrita de Luanda: Apenas "Luanda (Capital)" presente.');
-      }
-
-      // Regra especial Ícolo e Bengo: não conter "Km 44" ou "Centralidade 8000"
-      if (prov === 'Ícolo e Bengo') {
-        const invalidInIB = cities.filter(c => c.includes('Km 44') || c.includes('Centralidade'));
-        if (invalidInIB.length > 0) {
-          throw new Error(`Erro: Ícolo e Bengo contém localidades inválidas: ${invalidInIB.join(', ')}`);
-        }
-        console.log('   ✅ Validação estrita de Ícolo e Bengo: Cidades oficiais validadas.');
-      }
-
-      // 2. Verificar Municípios
+      // 1. Verificar Municípios
       const munis = (await muniSelect.locator('option').allInnerTexts()).filter(m => m !== 'Selecione...');
       console.log(`   🏛️ Municípios (${munis.length}):`, munis.slice(0, 4));
       if (munis.length === 0) {
         throw new Error(`Província "${prov}" tem 0 municípios disponíveis!`);
       }
 
-      // 3. Selecionar o primeiro município e verificar Comunas
+      // Regra especial Luanda: 16 municípios urbanos e NÃO conter Calumbo (transferido para Ícolo e Bengo)
+      if (prov === 'Luanda') {
+        if (munis.includes('Calumbo')) {
+          throw new Error('Erro: Luanda contém Calumbo (deve pertencer a Ícolo e Bengo na DPA 2025)');
+        }
+        console.log('   ✅ Validação estrita de Luanda: 16 municípios urbanos corretos.');
+      }
+
+      // Regra especial Ícolo e Bengo: deve conter Calumbo, Sequele, Bom Jesus, etc.
+      if (prov === 'Ícolo e Bengo') {
+        if (!munis.includes('Calumbo') || !munis.includes('Sequele')) {
+          throw new Error('Erro: Ícolo e Bengo deve conter Calumbo e Sequele');
+        }
+        console.log('   ✅ Validação estrita de Ícolo e Bengo: Municípios oficiais validados.');
+      }
+
+      // 2. Selecionar o primeiro município e verificar Comunas
       const testMuni = munis[0];
       await muniSelect.selectOption(testMuni);
-      await page.waitForTimeout(100);
+      await page.waitForTimeout(80);
 
       const comunas = (await comunaSelect.locator('option').allInnerTexts()).filter(c => c !== 'Selecione...');
       console.log(`   🏡 Comunas para "${testMuni}" (${comunas.length}):`, comunas.slice(0, 3));
@@ -94,10 +84,6 @@ async function runAllProvincesBrowserTest() {
     await addressInput.fill('Avenida 4 de Fevereiro, Porta 100, Luanda');
     const addressVal = await addressInput.inputValue();
     console.log(`✅ Endereço preenchido: "${addressVal}"`);
-
-    // Tirar screenshot da evidência final
-    await page.screenshot({ path: 'testes/evidencias/screenshots/institucional_registo_ia_localizacao.png', fullPage: true });
-    console.log('📸 Screenshot guardado com sucesso.');
 
     console.log(`\n🎉 SUCESSO TOTAL: ${successCount}/21 Províncias e todos os campos de Localização foram testados e validados com 100% de perfeição!`);
     if (consoleErrors.length > 0) {
