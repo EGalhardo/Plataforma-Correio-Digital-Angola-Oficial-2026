@@ -1,496 +1,598 @@
 // ============================================================================
 // Catálogo Institucional Partilhado — Correio Digital Angola
 // ----------------------------------------------------------------------------
-// Divisão Político-Administrativa de Angola
-// Lei n.º 14/24 de 5 de setembro de 2024, vigente desde 01/01/2025
+// Divisão Político-Administrativa de Angola (actualizada — 2025)
+// Enquadramento legal: Lei n.º 14/24 de 5 de Janeiro e Regulamento DPA
 // 21 províncias | 326 municípios | 378 comunas
-// Ícolo e Bengo é PROVÍNCIA INDEPENDENTE desde 2025 (não município de Luanda)
-// Zango 0-5 e Centralidade 8000 pertencem ao município de Calumbo (Ícolo e Bengo)
-//
-// Mapas de localização de Angola + tipos/geração de sigla, usados TANTO pela
-// página Instituições da Área de Administração (popup Criar/Editar) COMO pelo
-// formulário público "Registar Instituição" na página de Login.
-// NÃO duplicar: qualquer alteração aqui reflecte-se nos dois lados.
+// Ícolo e Bengo (Catete), Cuando (Mavinga) e Moxico Leste (Cazombo) criadas em 2025.
 // ============================================================================
 
 export const MUNICIPALITIES_BY_PROVINCE: { [key: string]: string[] } = {
   'Todas': ['Todos'],
   
-  // Bengo (12 municípios)
-  'Bengo': ['Todos', 'Ambriz', 'Barra do Dande', 'Bula Atumba', 'Dande', 'Dembos', 'Muxaluando', 'Nambuangongo', 'Pango Aluquém', 'Piri', 'Quibaxe', 'Quicunzo', 'Úcua'],
-  
-  // Benguela (23 municípios)
-  'Benguela': ['Todos', 'Babaera', 'Baía Farta', 'Balombo', 'Benguela', 'Biópio', 'Bocoio', 'Bolonguera', 'Caimbambo', 'Canhamela', 'Capupa', 'Catengue', 'Catumbela', 'Chicuma', 'Chila', 'Chindumbo', 'Chongorói', 'Cubal', 'Dombe Grande', 'Egito Praia', 'Ganda', 'Iambala', 'Lobito', 'Navegantes'],
-  
-  // Bié (19 municípios)
-  'Bié': ['Todos', 'Andulo', 'Belo Horizonte', 'Calucinga', 'Camacupa', 'Cambândua', 'Catabola', 'Chicala', 'Chinguar', 'Chipeta', 'Chitembo', 'Cuemba', 'Cuíto', 'Cunhinga', 'Luando', 'Lúbia', 'Mumbué', 'Nharêa', 'Ringoma', 'Umpulo'],
-  
-  // Cabinda (10 municípios)
-  'Cabinda': ['Todos', 'Belize', 'Buco-Zau', 'Cabinda', 'Cacongo', 'Liambo', 'Massabi', 'Miconje', 'Necuto', 'Ngoio', 'Tando Zinze'],
-  
-  // Cuando (9 municípios)
-  'Cuando': ['Todos', 'Cuito Cuanavale', 'Dima', 'Dirico', 'Luengue', 'Luiana', 'Mavinga', 'Mucusso', 'Rivungo', 'Xipundo'],
-  
-  // Cuanza Norte (17 municípios)
-  'Cuanza Norte': ['Todos', 'Aldeia Nova', 'Ambaca', 'Banga', 'Bolongongo', 'Caculo Cabaça', 'Cambambe', 'Cazengo', 'Cerca', 'Golungo Alto', 'Lucala', 'Luinga', 'Massangano', 'Ngonguembo', 'Quiculungo', 'Samba Caju', 'Tango', 'Terreiro'],
-  
-  // Cuanza Sul (24 municípios)
-  'Cuanza Sul': ['Todos', 'Amboim', 'Cassongue', 'Cela', 'Conda', 'Ebo', 'Libolo', 'Mussende', 'Porto Amboim', 'Quibala', 'Quilenda', 'Seles', 'Sumbe', 'Calinga', 'Cassoneca', 'Cavunge', 'Cubal', 'Dala', 'Gangasola', 'Kissanga', 'Limbolo', 'Longa', 'Mumbondo', 'Quirimbo'],
-  
-  // Cubango (11 municípios)
-  'Cubango': ['Todos', 'Caiundo', 'Calai', 'Chinguanja', 'Cuangar', 'Cuchi', 'Cutato', 'Longa', 'Mavengue', 'Nancova', 'Savate', 'Xipundo'],
-  
-  // Cunene (14 municípios)
-  'Cunene': ['Todos', 'Cahama', 'Cuanhama', 'Curoca', 'Cuvelai', 'Namacunde', 'Ombadja', 'Chicumbi', 'Evale', 'Kahama', 'Kuroka', 'Mukolongolo', 'Naulila', 'Ondjiva'],
-  
-  // Huambo (17 municípios)
-  'Huambo': ['Todos', 'Bailundo', 'Cachiungo', 'Caála', 'Ecunha', 'Huambo', 'Londuimbali', 'Longonjo', 'Mungo', 'Chicala-Choloanga', 'Chinjenje', 'Ucuma', 'Chipipa', 'Hengue', 'Kaliro', 'Kueka', 'Lunge'],
-  
-  // Huíla (23 municípios)
-  'Huíla': ['Todos', 'Caconda', 'Cacula', 'Caluquembe', 'Chiange', 'Chibia', 'Chicomba', 'Chipindo', 'Cuvango', 'Humpata', 'Jamba', 'Lubango', 'Matala', 'Quilengues', 'Quipungo', 'Capunda', 'Chicuaque', 'Chilata', 'Chioco', 'Cuvuio', 'Jamba Mineira', 'Luvemba', 'Mumbundo'],
-  
-  // Ícolo e Bengo (7 municípios) — PROVÍNCIA INDEPENDENTE desde 01/01/2025
-  'Ícolo e Bengo': ['Todos', 'Bom Jesus', 'Cabiri', 'Calumbo', 'Cabo Ledo', 'Catete', 'Quiçama', 'Sequele'],
-  
-  // Luanda (16 municípios) — Ícolo e Bengo NÃO está aqui
-  'Luanda': ['Todos', 'Belas', 'Cacuaco', 'Cazenga', 'Hoji-ya-Henda', 'Ingombota', 'Kilamba', 'Kilamba Kiaxi', 'Maianga', 'Mulenvos', 'Mussulo', 'Quissama', 'Rangel', 'Sambizanga', 'Samba', 'Talatona', 'Viana'],
-  
-  // Lunda Norte (19 municípios)
-  'Lunda Norte': ['Todos', 'Cambulo', 'Capenda-Camulemba', 'Caungula', 'Chitato', 'Cuango', 'Cuílo', 'Lóvua', 'Lubalo', 'Lucapa', 'Xá-Muteba', 'Cacolo', 'Cuilo', 'Lubango', 'Luchazi', 'Muvulenge', 'Nhinga', 'Quitapa', 'Xinge'],
-  
-  // Lunda Sul (14 municípios)
-  'Lunda Sul': ['Todos', 'Cacolo', 'Dala', 'Muconda', 'Saurimo', 'Muangueji', 'Cazage', 'Congo', 'Dala', 'Kokulo', 'Luma-Cassai', 'Munhango', 'Xinge', 'Xá-Cassai'],
-  
-  // Malanje (27 municípios)
-  'Malanje': ['Todos', 'Cacuso', 'Calandula', 'Cambundi-Catembo', 'Cangandala', 'Caombo', 'Cuaba Nzoji', 'Cunda-Dia-Baze', 'Luquembo', 'Malanje', 'Marimba', 'Massango', 'Mucari', 'Quela', 'Quirima', 'Banga', 'Cambo', 'Cangozo', 'Cangombe', 'Capunda', 'Cariango', 'Cunda', 'Kibala', 'Kissama', 'Kiwaba Nzogi', 'Lombe', 'Mufunza'],
-  
-  // Moxico (12 municípios)
-  'Moxico': ['Todos', 'Alto Zambeze', 'Bundas', 'Camanongue', 'Léua', 'Luau', 'Luacano', 'Luchazes', 'Cameia', 'Moxico', 'Luena', 'Lumbala-Nguimbo', 'Lumeji'],
-  
-  // Moxico Leste (9 municípios)
-  'Moxico Leste': ['Todos', 'Cazombo', 'Cameia', 'Luau', 'Lusavo', 'Mucunde', 'Lomelas', 'Cassai', 'Chifucua', 'Luachimo'],
-  
-  // Namibe (9 municípios)
-  'Namibe': ['Todos', 'Bibala', 'Camucuio', 'Moçâmedes', 'Tômbua', 'Virei', 'Arco', 'Giraul', 'Sacomar', 'Virene'],
-  
-  // Uíge (23 municípios)
-  'Uíge': ['Todos', 'Alto Cauale', 'Ambuíla', 'Bembe', 'Buengas', 'Bungo', 'Damba', 'Milunga', 'Mucaba', 'Negage', 'Puri', 'Quimbele', 'Quitexe', 'Sanza Pombo', 'Songo', 'Uíge', 'Zombo', 'Alto-Zombo', 'Banga', 'Macocola', 'Maquela do Zombo', 'Mucaba', 'Santa Cruz'],
-  
-  // Zaire (11 municípios)
-  'Zaire': ['Todos', 'Cuimba', 'Mbanza Congo', 'Nóqui', 'N\'Zeto', 'Soio', 'Tomboco', 'Luvu', 'Mbanza-Ngondo', 'Nkondo', 'Pedra do Feitiço']
+  // 1. Cabinda (10 municípios)
+  'Cabinda': [
+    'Cabinda', 'Cacongo', 'Buco-Zau', 'Belize', 'Ngoio',
+    'Liambo', 'Tando-Zinze', 'Massabi', 'Necuto', 'Miconje'
+  ],
+
+  // 2. Zaire (11 municípios)
+  'Zaire': [
+    'Mbanza Congo', 'Soyo', 'Nóqui', "N'zeto", 'Tomboco', 'Cuimba',
+    'Madimba', 'Caluca', 'Luvo', 'Sumba', 'Mangue Grande'
+  ],
+
+  // 3. Uíge (23 municípios)
+  'Uíge': [
+    'Uíge', 'Alto Cauale', 'Ambuíla', 'Bembe', 'Buengas', 'Bungo',
+    'Damba', 'Milunga', 'Maquela do Zombo', 'Mucaba', 'Negage', 'Puri',
+    'Quimbele', 'Quitexe', 'Sanza Pombo', 'Songo', 'Quipedro', 'Vista Alegre',
+    'Nova Esperança', 'Sacandica', 'Massau', 'Nsosso', 'Cangola'
+  ],
+
+  // 4. Bengo (12 municípios)
+  'Bengo': [
+    'Dande', 'Ambriz', 'Bula Atumba', 'Quibaxe', 'Nambuangongo',
+    'Pango Aluquém', 'Barra do Dande', 'Panguila', 'Úcua', 'Piri',
+    'Muxaluando', 'Quicunzo'
+  ],
+
+  // 5. Luanda (16 municípios)
+  'Luanda': [
+    'Luanda', 'Belas', 'Cacuaco', 'Cazenga', 'Viana', 'Talatona',
+    'Kilamba Kiaxi', 'Mussulo', 'Sambizanga', 'Rangel', 'Maianga',
+    'Samba', 'Camama', 'Mulenvos', 'Kilamba', 'Hoji-ya-Henda'
+  ],
+
+  // 6. Ícolo e Bengo (7 municípios) — Nova Província DPA 2025
+  'Ícolo e Bengo': [
+    'Ícolo e Bengo', 'Quiçama', 'Calumbo', 'Sequele',
+    'Bom Jesus', 'Cabo Ledo', 'Cabiri'
+  ],
+
+  // 7. Cuanza Norte (17 municípios)
+  'Cuanza Norte': [
+    'Cazengo', 'Golungo Alto', 'Cambambe', 'Samba Cajú', 'Ambaca',
+    'Lucala', 'Banga', 'Bolongongo', 'Quiculungo', 'Ngonguembo',
+    'Massangano', 'Sanga', 'Cêrca', 'Tango', 'Terreiro', 'Aldeia Nova', 'Caculo Cabaça'
+  ],
+
+  // 8. Cuanza Sul (24 municípios)
+  'Cuanza Sul': [
+    'Sumbe', 'Amboim', 'Porto Amboim', 'Cassongue', 'Cela', 'Conda',
+    'Ebo', 'Libolo', 'Mussende', 'Quibala', 'Quilenda', 'Seles',
+    'Munenga', 'Gungo', 'Quicombo', 'Assango', 'Capolo', 'Uaco Cungo',
+    'Calulo', 'Cariango', 'Quirimbo', 'Amboiva', 'Botera', 'Dumbi'
+  ],
+
+  // 9. Malanje (27 municípios)
+  'Malanje': [
+    'Malanje', 'Cacuso', 'Calandula', 'Cambundi-Catembo', 'Cangandala',
+    'Caombo', 'Cuaba Nzoji', 'Cunda-Dia-Baze', 'Luquembo', 'Marimba',
+    'Massango', 'Mucari', 'Quela', 'Quirima', 'Lombe', 'Quizenga',
+    'Pungo-Andongo', 'Cota', 'Cuale', 'Tala-Mungongo', 'Bembo',
+    'Bange-Angola', 'Milando', 'Capunda', 'Tembo-Aluma', 'Catala', 'Xandele'
+  ],
+
+  // 10. Lunda Norte (19 municípios)
+  'Lunda Norte': [
+    'Chitato', 'Cambulo', 'Capenda-Camulemba', 'Caungula', 'Cuango',
+    'Cuílo', 'Lóvua', 'Lubalo', 'Lucapa', 'Xá-Muteba', 'Camaxilo',
+    'Xá-Cassau', 'Cafunfo', 'Mussungue', 'Calucala', 'Cassanje',
+    'Canzar', 'Luremo', 'Luangue'
+  ],
+
+  // 11. Lunda Sul (14 municípios)
+  'Lunda Sul': [
+    'Saurimo', 'Cacolo', 'Dala', 'Muconda', 'Chiluage', 'Cassai-Sul',
+    'Xassengue', 'Alto-Chicapa', 'Sombo', 'Muriege', 'Luma-Cassai',
+    'Cazage', 'Muangueji', 'Cassengo'
+  ],
+
+  // 12. Moxico (12 municípios)
+  'Moxico': [
+    'Moxico', 'Alto-Zambeze', 'Bundas', 'Camanongue', 'Léua',
+    'Luchazes', 'Lutuai', 'Cangamba', 'Lucusse', 'Lutembo',
+    'Cangumbe', 'Lumbala-Nguimbo'
+  ],
+
+  // 13. Moxico Leste (9 municípios) — Nova Província DPA 2025
+  'Moxico Leste': [
+    'Cazombo', 'Luacano', 'Cameia', 'Luau', 'Caianda',
+    'Macondo', 'Candundo', 'Nana', 'Lóvua-do-Zambeze'
+  ],
+
+  // 14. Bié (19 municípios)
+  'Bié': [
+    'Cuíto', 'Andulo', 'Belo-Horizonte', 'Calucinga', 'Camacupa',
+    'Cambândua', 'Catabola', 'Chicala', 'Chinguar', 'Chipeta',
+    'Chitembo', 'Cuemba', 'Cunhinga', 'Luando', 'Lúbia', 'Mumbué',
+    'Nharêa', 'Ringoma', 'Umpulo'
+  ],
+
+  // 15. Huambo (17 municípios)
+  'Huambo': [
+    'Huambo', 'Bailundo', 'Caála', 'Cachiungo', 'Chinjenje',
+    'Ecunha', 'Londuimbali', 'Longonjo', 'Mungo', 'Ucuma',
+    'Chicala-Choloanga', 'Bimbe', 'Sambo', 'Alto-Hama', 'Cuima', 'Galanga', 'Chilata'
+  ],
+
+  // 16. Huíla (23 municípios)
+  'Huíla': [
+    'Lubango', 'Caconda', 'Cacula', 'Caluquembe', 'Chibia', 'Chicomba',
+    'Chipindo', 'Cuvango', 'Humpata', 'Matala', 'Quilengues', 'Quipungo',
+    'Gambos', 'Jamba', 'Dongo', 'Hoque', 'Capelongo', 'Chituto',
+    'Capunda-Cavilongo', 'Viti', 'Vivali', 'Galangue', 'Palanca'
+  ],
+
+  // 17. Cunene (14 municípios)
+  'Cunene': [
+    'Cuanhama', 'Cahama', 'Curoca', 'Cuvelai', 'Namacunde', 'Ombadja',
+    'Chitado', 'Nehone', 'Humbe', 'Mupa', 'Naulila', 'Cafima', 'Chissuata', 'Chiéde'
+  ],
+
+  // 18. Cubango (11 municípios) — Divisão DPA 2025
+  'Cubango': [
+    'Menongue', 'Cuchi', 'Calai', 'Nancova', 'Cuangar', 'Savate',
+    'Caiundo', 'Longa', 'Cutato', 'Chinguanja', 'Mavengue'
+  ],
+
+  // 19. Cuando (9 municípios) — Nova Província DPA 2025
+  'Cuando': [
+    'Mavinga', 'Cuito Cuanavale', 'Dirico', 'Rivungo', 'Xipundo',
+    'Dima', 'Luiana', 'Mucusso', 'Luengue'
+  ],
+
+  // 20. Benguela (23 municípios)
+  'Benguela': [
+    'Benguela', 'Lobito', 'Catumbela', 'Baía Farta', 'Balombo',
+    'Bocoio', 'Caimbambo', 'Chongorói', 'Cubal', 'Ganda', 'Babaera',
+    'Biópio', 'Bolonguera', 'Canhamela', 'Capupa', 'Catengue',
+    'Chicuma', 'Chila', 'Chindumbo', 'Dombe-Grande', 'Egipto-Praia',
+    'Iambala', 'Navegantes'
+  ],
+
+  // 21. Namibe (9 municípios)
+  'Namibe': [
+    'Moçâmedes', 'Bibala', 'Camucuio', 'Tômbwa', 'Virei',
+    'Lucira', 'Cacimbas', 'Iona', 'Sacomar'
+  ]
 };
 
 export const CITIES_BY_PROVINCE: { [key: string]: string[] } = {
-  'Bengo': ['Caxito (Capital)', 'Ambriz', 'Barra do Dande', 'Quibaxe', 'Bula Atumba', 'Nambuangongo', 'Pango Aluquém'],
+  'Bengo': ['Caxito (Capital)', 'Ambriz', 'Barra do Dande', 'Quibaxe', 'Bula Atumba', 'Nambuangongo', 'Pango Aluquém', 'Panguila'],
   'Benguela': ['Benguela (Capital)', 'Lobito', 'Catumbela', 'Baía Farta', 'Ganda', 'Cubal', 'Balombo', 'Bocoio', 'Caimbambo', 'Chongorói'],
   'Bié': ['Cuíto (Capital)', 'Andulo', 'Camacupa', 'Catabola', 'Chinguar', 'Chitembo', 'Cuemba', 'Cunhinga', 'Nharêa'],
-  'Cabinda': ['Cabinda (Capital)', 'Buco-Zau', 'Cacongo', 'Belize', 'Massabi', 'Dinge', 'Necuto', 'Tando Zinze'],
-  'Cuando': ['Mavinga (Capital)', 'Cuito Cuanavale', 'Dirico', 'Rivungo', 'Luengue', 'Luiana'],
-  'Cuanza Norte': ['N\'dalatando (Capital)', 'Dondo', 'Golungo Alto', 'Lucala', 'Camabatela', 'Samba Caju', 'Ambaca', 'Banga', 'Cazengo'],
-  'Cuanza Sul': ['Sumbe (Capital)', 'Porto Amboim', 'Gabela', 'Waku Kungo', 'Calulo', 'Quibala', 'Cassongue', 'Seles', 'Conda', 'Ebo', 'Mussende', 'Quilenda'],
+  'Cabinda': ['Cabinda (Capital)', 'Buco-Zau', 'Cacongo', 'Belize', 'Massabi', 'Tando-Zinze', 'Necuto', 'Miconje'],
+  'Cuando': ['Mavinga (Capital)', 'Cuito Cuanavale', 'Dirico', 'Rivungo', 'Luengue', 'Luiana', 'Mucusso'],
+  'Cuanza Norte': ["N'dalatando (Capital)", 'Cambambe (Dondo)', 'Golungo Alto', 'Lucala', 'Camabatela', 'Samba Cajú', 'Ambaca', 'Banga'],
+  'Cuanza Sul': ['Sumbe (Capital)', 'Porto Amboim', 'Gabela', 'Uaco Cungo', 'Calulo', 'Quibala', 'Cassongue', 'Seles', 'Conda', 'Ebo', 'Mussende', 'Quilenda'],
   'Cubango': ['Menongue (Capital)', 'Cuchi', 'Cuangar', 'Calai', 'Caiundo', 'Longa', 'Nancova', 'Savate'],
-  'Cunene': ['Ondjiva (Capital)', 'Namacunde', 'Cahama', 'Xangongo', 'Cuvelai', 'Ombadja', 'Curoca'],
+  'Cunene': ['Ondjiva (Capital)', 'Namacunde', 'Cahama', 'Ombadja (Xangongo)', 'Cuvelai', 'Curoca'],
   'Huambo': ['Huambo (Capital)', 'Caála', 'Bailundo', 'Cachiungo', 'Ecunha', 'Londuimbali', 'Longonjo', 'Mungo', 'Ucuma'],
   'Huíla': ['Lubango (Capital)', 'Matala', 'Caconda', 'Chibia', 'Quilengues', 'Caluquembe', 'Humpata', 'Cuvango', 'Quipungo', 'Chicomba', 'Jamba'],
   'Ícolo e Bengo': ['Catete (Capital)', 'Sequele', 'Bom Jesus', 'Cabiri', 'Calumbo', 'Cabo Ledo', 'Quiçama'],
   'Luanda': ['Luanda (Capital)'],
-  'Lunda Norte': ['Dundo (Capital)', 'Lucapa', 'Cuango', 'Cambulo', 'Capenda Camulemba', 'Chitato', 'Cuílo', 'Lubalo', 'Xá-Muteba'],
+  'Lunda Norte': ['Dundo (Capital)', 'Lucapa', 'Cuango', 'Cambulo', 'Capenda-Camulemba', 'Chitato', 'Cuílo', 'Lubalo', 'Xá-Muteba'],
   'Lunda Sul': ['Saurimo (Capital)', 'Cacolo', 'Dala', 'Muconda'],
-  'Malanje': ['Malanje (Capital)', 'Calandula', 'Cacuso', 'Cangandala', 'Cambundi Catembo', 'Luquembo', 'Marimba', 'Massango', 'Mucari', 'Quela', 'Quirima'],
-  'Moxico': ['Luena (Capital)', 'Luau', 'Léua', 'Cameia', 'Camanongue', 'Luacano', 'Luchazes', 'Alto Zambeze'],
-  'Moxico Leste': ['Cazombo (Capital)', 'Lumbala Nguimbo', 'Macondo', 'Lago Dilolo', 'Lusavo', 'Mucunde'],
-  'Namibe': ['Moçâmedes (Capital)', 'Tômbua', 'Bibala', 'Virei', 'Camucuio', 'Lucira'],
+  'Malanje': ['Malanje (Capital)', 'Calandula', 'Cacuso', 'Cangandala', 'Cambundi-Catembo', 'Luquembo', 'Marimba', 'Massango', 'Mucari', 'Quela', 'Quirima'],
+  'Moxico': ['Luena (Capital)', 'Luau', 'Léua', 'Cameia', 'Camanongue', 'Luacano', 'Luchazes', 'Alto-Zambeze'],
+  'Moxico Leste': ['Cazombo (Capital)', 'Luau', 'Cameia', 'Caianda', 'Macondo', 'Candundo', 'Nana'],
+  'Namibe': ['Moçâmedes (Capital)', 'Tômbwa', 'Bibala', 'Virei', 'Camucuio', 'Lucira'],
   'Uíge': ['Uíge (Capital)', 'Negage', 'Maquela do Zombo', 'Sanza Pombo', 'Damba', 'Ambuíla', 'Bembe', 'Buengas', 'Bungo', 'Milunga', 'Mucaba', 'Puri', 'Quimbele', 'Quitexe', 'Songo'],
-  'Zaire': ['Mbanza Congo (Capital)', 'Soyo', 'N\'Zeto', 'Tomboco', 'Nóqui', 'Cuimba']
+  'Zaire': ['Mbanza Congo (Capital)', 'Soyo', "N'zeto", 'Tomboco', 'Nóqui', 'Cuimba']
 };
 
 export const COMMUNES_BY_MUNICIPALITY: { [key: string]: string[] } = {
   // ============================================================================
-  // BENGO (26 comunas)
+  // 1. CABINDA (10 municípios)
   // ============================================================================
-  'Ambriz': ['Ambriz Sede', 'Bela Vista', 'Tabi'],
-  'Barra do Dande': ['Barra do Dande Sede'],
-  'Bula Atumba': ['Bula Atumba Sede', 'Mombelo'],
-  'Dande': ['Caxito Sede', 'Barra do Dande', 'Mabubas', 'Caxito'],
-  'Dembos': ['Quibaxe Sede', 'Banga', 'Piri'],
-  'Muxaluando': ['Muxaluando Sede'],
-  'Nambuangongo': ['Nambuangongo Sede', 'Cuimba', 'Sanza'],
-  'Pango Aluquém': ['Pango Aluquém Sede'],
-  'Piri': ['Piri Sede'],
-  'Quibaxe': ['Quibaxe Sede'],
-  'Quicunzo': ['Quicunzo Sede'],
-  'Úcua': ['Úcua Sede'],
-  
+  'Cabinda': ['Cabinda (Sede)', 'Malembo', 'Tando Zinze'],
+  'Cacongo': ['Lândana/Cacongo (Sede)', 'Dinge'],
+  'Buco-Zau': ['Buco-Zau (Sede)', 'Necuto', 'Inhuca'],
+  'Belize': ['Belize (Sede)', 'Luali'],
+  'Ngoio': ['Ngoio (Sede)'],
+  'Liambo': ['Liambo (Sede)'],
+  'Tando-Zinze': ['Tando-Zinze (Sede)', 'Malembo'],
+  'Massabi': ['Massabi (Sede)'],
+  'Necuto': ['Necuto (Sede)', 'Inhuca'],
+  'Miconje': ['Miconje (Sede)'],
+
   // ============================================================================
-  // BENGUELA (12 comunas)
+  // 2. ZAIRE (11 municípios)
   // ============================================================================
-  'Babaera': ['Babaera Sede'],
-  'Baía Farta': ['Baía Farta Sede', 'Dombe Grande', 'Lobito Novo'],
-  'Balombo': ['Balombo Sede'],
-  'Benguela': ['Benguela Sede', 'Zona Comercial', 'Campito'],
-  'Biópio': ['Biópio Sede'],
-  'Bocoio': ['Bocoio Sede', 'Caimbambo'],
-  'Bolonguera': ['Bolonguera Sede'],
-  'Caimbambo': ['Caimbambo Sede', 'Muinho'],
-  'Canhamela': ['Canhamela Sede'],
-  'Capupa': ['Capupa Sede'],
-  'Catengue': ['Catengue Sede'],
-  'Catumbela': ['Catumbela Sede', 'Biópio', 'Gama', 'Palmeirinha'],
-  'Chicuma': ['Chicuma Sede'],
-  'Chila': ['Chila Sede'],
-  'Chindumbo': ['Chindumbo Sede'],
-  'Chongorói': ['Chongorói Sede', 'Bvessa'],
-  'Cubal': ['Cubal Sede'],
-  'Dombe Grande': ['Dombe Grande Sede'],
-  'Egito Praia': ['Egito Praia Sede'],
-  'Ganda': ['Ganda Sede', 'Ekiemela', 'Ganda Velha'],
-  'Iambala': ['Iambala Sede'],
-  'Lobito': ['Lobito Sede', 'Canata', 'Egito Praia', 'Binga'],
-  'Navegantes': ['Navegantes Sede'],
-  
+  'Mbanza Congo': ['Mbanza Congo (Sede)', 'Madimba', 'Caluca', 'Kiende', 'Calambata', 'Luvo'],
+  'Soyo': ['Soyo (Sede)', 'Sumba', 'Pedra de Feitiço', 'Quêlo', 'Mangue Grande'],
+  'Nóqui': ['Nóqui (Sede)', 'Lufico', 'Mepala (Lulendo)'],
+  "N'zeto": ["N'zeto (Sede)", 'Musserra', 'Quibala Norte', 'Quindeje'],
+  'Tomboco': ['Tomboco (Sede)', 'Quinsimba', 'Quinzau'],
+  'Cuimba': ['Cuimba (Sede)', 'Buela', 'Serra da Canda', 'Luvaca'],
+  'Madimba': ['Madimba (Sede)'],
+  'Caluca': ['Caluca (Sede)'],
+  'Luvo': ['Luvo (Sede)'],
+  'Sumba': ['Sumba (Sede)'],
+  'Mangue Grande': ['Mangue Grande (Sede)'],
+
   // ============================================================================
-  // BIÉ (30 comunas)
+  // 3. UÍGE (23 municípios)
   // ============================================================================
-  'Andulo': ['Andulo Sede', 'Songo'],
-  'Belo Horizonte': ['Belo Horizonte Sede'],
-  'Calucinga': ['Calucinga Sede'],
-  'Camacupa': ['Camacupa Sede'],
-  'Cambândua': ['Cambândua Sede'],
-  'Catabola': ['Catabola Sede'],
-  'Chicala': ['Chicala Sede'],
-  'Chinguar': ['Chinguar Sede'],
-  'Chipeta': ['Chipeta Sede'],
-  'Chitembo': ['Chitembo Sede', 'Chiaca'],
-  'Cuemba': ['Cuemba Sede'],
-  'Cuíto': ['Cuíto Sede', 'Catabola', 'Gonçalves'],
-  'Cunhinga': ['Cunhinga Sede'],
-  'Luando': ['Luando Sede'],
-  'Lúbia': ['Lúbia Sede'],
-  'Mumbué': ['Mumbué Sede'],
-  'Nharêa': ['Nharêa Sede', 'Cachingues'],
-  'Ringoma': ['Ringoma Sede'],
-  'Umpulo': ['Umpulo Sede'],
-  
+  'Uíge': ['Uíge (Sede)'],
+  'Alto Cauale': ['Cangola (Sede)', 'Bengo', 'Caiongo'],
+  'Ambuíla': ['Nova Ambuíla (Sede)', 'Quipedro'],
+  'Bembe': ['Bembe (Sede)', 'Lucunga', 'Mabaia'],
+  'Buengas': ['Nova Esperança (Sede)', 'Cuilo-Camboso'],
+  'Bungo': ['Bungo (Sede)'],
+  'Damba': ['Damba (Sede)', 'Mabanza Sosso', 'Camatambo', 'Lêmboa', 'Petecusso'],
+  'Milunga': ['Milunga (Sede)', 'Macocola', 'Macolo', 'Massau'],
+  'Maquela do Zombo': ['Maquela do Zombo (Sede)', 'Béu', 'Cuilo-Futa', 'Quibocolo', 'Sacandica'],
+  'Mucaba': ['Mucaba (Sede)', 'Uando'],
+  'Negage': ['Negage (Sede)', 'Dimuca', 'Quisseque'],
+  'Puri': ['Puri (Sede)'],
+  'Quimbele': ['Quimbele (Sede)', 'Cuango', 'Icoca', 'Alto-Zaza'],
+  'Quitexe': ['Quitexe (Sede)', 'Aldeia Viçosa', 'Cambamba', 'Vista Alegre'],
+  'Sanza Pombo': ['Sanza Pombo (Sede)', 'Cuilo-Pombo', 'Uamba', 'Alfândega'],
+  'Songo': ['Songo (Sede)', 'Quivuenga'],
+  'Quipedro': ['Quipedro (Sede)'],
+  'Vista Alegre': ['Vista Alegre (Sede)'],
+  'Nova Esperança': ['Nova Esperança (Sede)'],
+  'Sacandica': ['Sacandica (Sede)'],
+  'Massau': ['Massau (Sede)'],
+  'Nsosso': ['Nsosso (Sede)'],
+  'Cangola': ['Cangola (Sede)'],
+
   // ============================================================================
-  // CABINDA (8 comunas)
+  // 4. BENGO (12 municípios)
   // ============================================================================
-  'Belize': ['Belize Sede'],
-  'Buco-Zau': ['Buco-Zau Sede', 'Inhuca', 'Luso'],
-  'Cabinda': ['Cabinda Sede', 'Malembo', 'Tando Zinze', 'M\'Boulou'],
-  'Cacongo': ['Lândana Sede', 'Massabi', 'Dinge'],
-  'Liambo': ['Liambo Sede'],
-  'Massabi': ['Massabi Sede'],
-  'Miconje': ['Miconje Sede'],
-  'Necuto': ['Necuto Sede'],
-  'Ngoio': ['Ngoio Sede'],
-  'Tando Zinze': ['Tando Zinze Sede'],
-  
+  'Dande': ['Caxito (Sede)', 'Barra do Dande', 'Mabubas', 'Quicabo', 'Úcua'],
+  'Ambriz': ['Ambriz (Sede)', 'Bela Vista', 'Tabi'],
+  'Bula Atumba': ['Bula Atumba (Sede)', 'Quiage'],
+  'Quibaxe': ['Quibaxe (Sede)', 'Coxe', 'Paredes', 'Piri'],
+  'Nambuangongo': ['Muxaluando (Sede)', 'Canacassala', 'Gombe', 'Zala', 'Cage', 'Quixico', 'Quicunzo'],
+  'Pango Aluquém': ['Pango Aluquém (Sede)', 'Cazuangongo'],
+  'Barra do Dande': ['Barra do Dande (Sede)'],
+  'Panguila': ['Panguila (Sede)'],
+  'Úcua': ['Úcua (Sede)'],
+  'Piri': ['Piri (Sede)'],
+  'Muxaluando': ['Muxaluando (Sede)', 'Quixico', 'Cage-Mazumbo'],
+  'Quicunzo': ['Quicunzo (Sede)'],
+
   // ============================================================================
-  // CUANDO (6 comunas)
+  // 5. LUANDA (16 municípios)
   // ============================================================================
-  'Cuito Cuanavale': ['Cuito Cuanavale Sede'],
-  'Dima': ['Dima Sede'],
-  'Dirico': ['Dirico Sede'],
-  'Luengue': ['Luengue Sede'],
-  'Luiana': ['Luiana Sede'],
-  'Mavinga': ['Mavinga Sede', 'Caculuvar'],
-  'Mucusso': ['Mucusso Sede'],
-  'Rivungo': ['Rivungo Sede'],
-  'Xipundo': ['Xipundo Sede'],
-  
+  'Luanda': ['Luanda (Sede)', 'Ingombota', 'Sambizanga', 'Rangel', 'Maianga', 'Samba', 'Neves Bendinha', 'Ngola Kiluanje'],
+  'Belas': ['Belas (Sede)', 'Quenguela', 'Barra do Cuanza', 'Cabolombo', 'Ramiros'],
+  'Cacuaco': ['Cacuaco (Sede)', 'Kicolo', 'Funda', 'Mabangakola'],
+  'Cazenga': ['Cazenga (Sede)', 'Hoji-ya-Henda', 'Tala Hadi', 'Calawenda'],
+  'Viana': ['Viana (Sede)', 'Estalagem', 'Baia', 'Kikuxi', 'Vila Flor'],
+  'Talatona': ['Talatona (Sede)', 'Benfica', 'Lar do Patriota', 'Morro dos Veados'],
+  'Kilamba Kiaxi': ['Kilamba Kiaxi (Sede)', 'Golfe', 'Palanca', 'Havemos de Voltar'],
+  'Mussulo': ['Mussulo (Sede)', 'Priam', 'Pontinha'],
+  'Sambizanga': ['Sambizanga (Sede)', 'Ngola Kiluanje', 'Bairro Operário'],
+  'Rangel': ['Rangel (Sede)', 'Terra Nova', 'Marçal'],
+  'Maianga': ['Maianga (Sede)', 'Cassequel', 'Prenda', 'Rocha Pinto'],
+  'Samba': ['Samba (Sede)', 'Corimba', 'Morro Bento'],
+  'Camama': ['Camama (Sede)'],
+  'Mulenvos': ['Mulenvos (Sede)'],
+  'Kilamba': ['Kilamba (Sede)', 'Vila Flor'],
+  'Hoji-ya-Henda': ['Hoji-ya-Henda (Sede)'],
+
   // ============================================================================
-  // CUANZA NORTE (24 comunas)
+  // 6. ÍCOLO E BENGO (7 municípios) — Nova Província DPA 2025
   // ============================================================================
-  'Aldeia Nova': ['Aldeia Nova Sede'],
-  'Ambaca': ['Ambaca Sede', 'Banga'],
-  'Banga': ['Banga Sede'],
-  'Bolongongo': ['Bolongongo Sede'],
-  'Caculo Cabaça': ['Caculo Cabaça Sede'],
-  'Cambambe': ['Cambambe Sede'],
-  'Cazengo': ['Cazengo Sede'],
-  'Cerca': ['Cerca Sede'],
-  'Golungo Alto': ['Golungo Alto Sede', 'Kibaxe'],
-  'Lucala': ['Lucala Sede'],
-  'Luinga': ['Luinga Sede'],
-  'Massangano': ['Massangano Sede'],
-  'Ngonguembo': ['Ngonguembo Sede'],
-  'Quiculungo': ['Quiculungo Sede'],
-  'Samba Caju': ['Samba Caju Sede'],
-  'Tango': ['Tango Sede'],
-  'Terreiro': ['Terreiro Sede'],
-  
+  'Ícolo e Bengo': ['Catete (Sede)', 'Cassoneca', 'Caculo Cahango', 'Caxicane'],
+  'Quiçama': ['Muxima (Sede)', 'Quixinge', 'Mumbondo', 'Demba-Chio', 'Cabo Ledo'],
+  'Calumbo': ['Calumbo (Sede)', 'Zango 0', 'Zango 1', 'Zango 2', 'Zango 3', 'Zango 4', 'Zango 5 (Centralidade 8000)'],
+  'Sequele': ['Sequele (Sede)', 'Funda'],
+  'Bom Jesus': ['Bom Jesus (Sede)'],
+  'Cabo Ledo': ['Cabo Ledo (Sede)'],
+  'Cabiri': ['Cabiri (Sede)'],
+
   // ============================================================================
-  // CUANZA SUL (23 comunas)
+  // 7. CUANZA NORTE (17 municípios)
   // ============================================================================
-  'Amboim': ['Amboim Sede'],
-  'Cassongue': ['Cassongue Sede'],
-  'Cela': ['Cela Sede', 'Cunda', 'Quilomosso'],
-  'Conda': ['Conda Sede'],
-  'Ebo': ['Ebo Sede'],
-  'Libolo': ['Libolo Sede', 'Carianga'],
-  'Mussende': ['Mussende Sede'],
-  'Porto Amboim': ['Porto Amboim Sede'],
-  'Quibala': ['Quibala Sede', 'Sanzala'],
-  'Quilenda': ['Quilenda Sede'],
-  'Seles': ['Seles Sede'],
-  'Sumbe': ['Sumbe Sede', 'Gangasola'],
-  'Calinga': ['Calinga Sede'],
-  'Cassoneca': ['Cassoneca Sede'],
-  'Cavunge': ['Cavunge Sede'],
-  'Gangasola': ['Gangasola Sede'],
-  'Kissanga': ['Kissanga Sede'],
-  'Limbolo': ['Limbolo Sede'],
-  'Longa': ['Longa Sede'],
-  'Mumbondo': ['Mumbondo Sede'],
-  'Quirimbo': ['Quirimbo Sede'],
-  
+  'Cazengo': ["N'dalatando (Sede)"],
+  'Golungo Alto': ['Golungo Alto (Sede)', 'Cêrca'],
+  'Cambambe': ['Cambambe/Dondo (Sede)', 'Massangano', 'Zenza do Itombe'],
+  'Samba Cajú': ['Samba Cajú (Sede)'],
+  'Ambaca': ['Ambaca/Camabatela (Sede)', 'Tango', 'Máua', 'Bindo', 'Luinga'],
+  'Lucala': ['Lucala (Sede)', 'Quiangombe'],
+  'Banga': ['Banga (Sede)', 'Aldeia Nova', 'Caculo Cabaça'],
+  'Bolongongo': ['Bolongongo (Sede)', 'Terreiro', 'Quiquiemba'],
+  'Quiculungo': ['Quiculungo (Sede)'],
+  'Ngonguembo': ['Ngonguembo (Sede)', 'Camome', 'Cavunga'],
+  'Massangano': ['Massangano (Sede)'],
+  'Sanga': ['Sanga (Sede)'],
+  'Cêrca': ['Cêrca (Sede)'],
+  'Tango': ['Tango (Sede)'],
+  'Terreiro': ['Terreiro (Sede)'],
+  'Aldeia Nova': ['Aldeia Nova (Sede)'],
+  'Caculo Cabaça': ['Caculo Cabaça (Sede)'],
+
   // ============================================================================
-  // CUBANGO (12 comunas)
+  // 8. CUANZA SUL (24 municípios)
   // ============================================================================
-  'Caiundo': ['Caiundo Sede'],
-  'Calai': ['Calai Sede'],
-  'Chinguanja': ['Chinguanja Sede'],
-  'Cuangar': ['Cuangar Sede', 'Mucundi', 'Caconda'],
-  'Cuchi': ['Cuchi Sede', 'M\'Begui'],
-  'Cutato': ['Cutato Sede'],
-  'Mavengue': ['Mavengue Sede'],
-  'Nancova': ['Nancova Sede'],
-  'Savate': ['Savate Sede'],
-  
+  'Sumbe': ['Sumbe (Sede)', 'Gungo', 'Quicombo', 'Gangula'],
+  'Amboim': ['Gabela (Sede)', 'Assango'],
+  'Porto Amboim': ['Porto Amboim (Sede)', 'Capolo'],
+  'Cassongue': ['Cassongue (Sede)', 'Pambangala', 'Dumbi', 'Atome'],
+  'Cela': ['Uaco Cungo (Sede)', 'Quissanga', 'Sanga'],
+  'Conda': ['Conda (Sede)', 'Cunjo'],
+  'Ebo': ['Ebo (Sede)', 'Condé', 'Quissanje'],
+  'Libolo': ['Calulo (Sede)', 'Munenga', 'Cabuta', 'Quissongo'],
+  'Mussende': ['Mussende (Sede)', 'São Lucas', 'Quienha'],
+  'Quibala': ['Quibala (Sede)', 'Cariango', 'Dala-Cachibo', 'Lonhe'],
+  'Quilenda': ['Quilenda (Sede)', 'Quirimbo'],
+  'Seles': ['Seles (Sede)', 'Amboiva', 'Botera'],
+  'Munenga': ['Munenga (Sede)'],
+  'Gungo': ['Gungo (Sede)'],
+  'Quicombo': ['Quicombo (Sede)'],
+  'Assango': ['Assango (Sede)'],
+  'Capolo': ['Capolo (Sede)'],
+  'Uaco Cungo': ['Uaco Cungo (Sede)'],
+  'Calulo': ['Calulo (Sede)'],
+  'Cariango': ['Cariango (Sede)'],
+  'Quirimbo': ['Quirimbo (Sede)'],
+  'Amboiva': ['Amboiva (Sede)'],
+  'Botera': ['Botera (Sede)'],
+  'Dumbi': ['Dumbi (Sede)'],
+
   // ============================================================================
-  // CUNENE (10 comunas)
+  // 9. MALANJE (27 municípios)
   // ============================================================================
-  'Cahama': ['Cahama Sede'],
-  'Cuanhama': ['Cuanhama Sede', 'Kaholo'],
-  'Curoca': ['Curoca Sede', 'Otchinjau'],
-  'Cuvelai': ['Cuvelai Sede'],
-  'Namacunde': ['Namacunde Sede', 'Evale'],
-  'Ombadja': ['Ombadja Sede'],
-  'Chicumbi': ['Chicumbi Sede'],
-  'Evale': ['Evale Sede'],
-  'Kahama': ['Kahama Sede'],
-  'Kuroka': ['Kuroka Sede'],
-  'Mukolongolo': ['Mukolongolo Sede'],
-  'Naulila': ['Naulila Sede'],
-  'Ondjiva': ['Ondjiva Sede', 'Humbe', 'Nehone'],
-  
+  'Malanje': ['Malanje (Sede)', 'Cambaxe', 'Ngola-Luije'],
+  'Cacuso': ['Cacuso (Sede)', 'Lombe', 'Quizenga', 'Pungo-Andongo', 'Soqueco'],
+  'Calandula': ['Calandula (Sede)', 'Cateco', 'Cangola', 'Cota', 'Cuale', 'Quinje'],
+  'Cambundi-Catembo': ['Cambundi-Catembo (Sede)', 'Quitapa', 'Tala-Mungongo', 'Dumba-Cambango'],
+  'Cangandala': ['Cangandala (Sede)', 'Bembo', 'Culamagia', 'Caribo'],
+  'Caombo': ['Caombo (Sede)', 'Bange-Angola', 'Cambo-Suinginge', 'Micanda'],
+  'Cuaba Nzoji': ['Cuaba Nzoji (Sede)', 'Mufuma'],
+  'Cunda-Dia-Baze': ['Cunda-Dia-Baze (Sede)', 'Lemba', 'Milando'],
+  'Luquembo': ['Luquembo (Sede)', 'Quimbango', 'Capunda', 'Dombo', 'Cunga-Palanga', 'Rimba'],
+  'Marimba': ['Marimba (Sede)', 'Cabombo', 'Tembo-Aluma'],
+  'Massango': ['Massango (Sede)', 'Quihuhu', 'Quinguengue'],
+  'Mucari': ['Mucari (Sede)', 'Catala', 'Caxinga', 'Muquixe'],
+  'Quela': ['Quela (Sede)', 'Xandele', 'Moma', 'Bângalas'],
+  'Quirima': ['Quirima (Sede)', 'Sautar'],
+  'Lombe': ['Lombe (Sede)'],
+  'Quizenga': ['Quizenga (Sede)'],
+  'Pungo-Andongo': ['Pungo-Andongo (Sede)'],
+  'Cota': ['Cota (Sede)'],
+  'Cuale': ['Cuale (Sede)'],
+  'Tala-Mungongo': ['Tala-Mungongo (Sede)'],
+  'Bembo': ['Bembo (Sede)'],
+  'Bange-Angola': ['Bange-Angola (Sede)'],
+  'Milando': ['Milando (Sede)'],
+  'Capunda': ['Capunda (Sede)'],
+  'Tembo-Aluma': ['Tembo-Aluma (Sede)'],
+  'Catala': ['Catala (Sede)'],
+  'Xandele': ['Xandele (Sede)'],
+
   // ============================================================================
-  // HUAMBO (30 comunas)
+  // 10. LUNDA NORTE (19 municípios)
   // ============================================================================
-  'Bailundo': ['Bailundo Sede', 'Hengue', 'Lunge', 'Chicala'],
-  'Cachiungo': ['Cachiungo Sede', 'Kukeme'],
-  'Caála': ['Caála Sede', 'Londe', 'Sachie'],
-  'Ecunha': ['Ecunha Sede', 'N\'Govo'],
-  'Huambo': ['Huambo Sede', 'Calima', 'Chipipa', 'Tchikala'],
-  'Londuimbali': ['Londuimbali Sede', 'Luangue'],
-  'Longonjo': ['Longonjo Sede'],
-  'Mungo': ['Mungo Sede'],
-  'Chicala-Choloanga': ['Chicala-Choloanga Sede'],
-  'Chinjenje': ['Chinjenje Sede'],
-  'Ucuma': ['Ucuma Sede'],
-  'Chipipa': ['Chipipa Sede'],
-  'Hengue': ['Hengue Sede'],
-  'Kaliro': ['Kaliro Sede'],
-  'Kueka': ['Kueka Sede'],
-  'Lunge': ['Lunge Sede'],
-  
+  'Chitato': ['Dundo (Sede)', 'Luachimo', 'Mussungue'],
+  'Cambulo': ['Cambulo (Sede)', 'Luia', 'Canzar'],
+  'Capenda-Camulemba': ['Capenda-Camulemba (Sede)', 'Xinge'],
+  'Caungula': ['Caungula (Sede)', 'Camaxilo'],
+  'Cuango': ['Cuango (Sede)', 'Cafunfo', 'Luremo'],
+  'Cuílo': ['Cuílo (Sede)', 'Calucala', 'Luangue'],
+  'Lóvua': ['Lóvua (Sede)'],
+  'Lubalo': ['Lubalo (Sede)', 'Luangue', 'Muvulenge'],
+  'Lucapa': ['Lucapa (Sede)', 'Camissombo', 'Capaia', 'Xá-Cassau'],
+  'Xá-Muteba': ['Xá-Muteba (Sede)', 'Cassanje', 'Iongo'],
+  'Camaxilo': ['Camaxilo (Sede)'],
+  'Xá-Cassau': ['Xá-Cassau (Sede)'],
+  'Cafunfo': ['Cafunfo (Sede)'],
+  'Mussungue': ['Mussungue (Sede)'],
+  'Calucala': ['Calucala (Sede)'],
+  'Cassanje': ['Cassanje (Sede)'],
+  'Canzar': ['Canzar (Sede)'],
+  'Luremo': ['Luremo (Sede)'],
+  'Luangue': ['Luangue (Sede)'],
+
   // ============================================================================
-  // HUÍLA (28 comunas)
+  // 11. LUNDA SUL (14 municípios)
   // ============================================================================
-  'Caconda': ['Caconda Sede', 'Chicala'],
-  'Cacula': ['Cacula Sede'],
-  'Caluquembe': ['Caluquembe Sede'],
-  'Chiange': ['Chiange Sede'],
-  'Chibia': ['Chibia Sede', 'Capunda Cavilongo'],
-  'Chicomba': ['Chicomba Sede'],
-  'Chipindo': ['Chipindo Sede'],
-  'Cuvango': ['Cuvango Sede', 'Muceque'],
-  'Humpata': ['Humpata Sede', 'Neves', 'M\'Copi'],
-  'Jamba': ['Jamba Sede'],
-  'Lubango': ['Lubango Sede', 'Arimba', 'Hoque', 'N\'Gola'],
-  'Matala': ['Matala Sede', 'Kuvala'],
-  'Quilengues': ['Quilengues Sede'],
-  'Quipungo': ['Quipungo Sede'],
-  'Capunda': ['Capunda Sede'],
-  'Chicuaque': ['Chicuaque Sede'],
-  'Chilata': ['Chilata Sede'],
-  'Chioco': ['Chioco Sede'],
-  'Cuvuio': ['Cuvuio Sede'],
-  'Jamba Mineira': ['Jamba Mineira Sede'],
-  'Luvemba': ['Luvemba Sede'],
-  'Mumbundo': ['Mumbundo Sede'],
-  
+  'Saurimo': ['Saurimo (Sede)', 'Mona-Quimbundo', 'Sombo'],
+  'Cacolo': ['Cacolo (Sede)', 'Cucumbi', 'Alto-Chicapa', 'Xassengue'],
+  'Dala': ['Dala (Sede)', 'Luma-Cassai', 'Cazage'],
+  'Muconda': ['Muconda (Sede)', 'Chiluage', 'Cassai-Sul', 'Muriege'],
+  'Chiluage': ['Chiluage (Sede)'],
+  'Cassai-Sul': ['Cassai-Sul (Sede)'],
+  'Xassengue': ['Xassengue (Sede)'],
+  'Alto-Chicapa': ['Alto-Chicapa (Sede)'],
+  'Sombo': ['Sombo (Sede)'],
+  'Muriege': ['Muriege (Sede)'],
+  'Luma-Cassai': ['Luma-Cassai (Sede)'],
+  'Cazage': ['Cazage (Sede)'],
+  'Muangueji': ['Muangueji (Sede)'],
+  'Cassengo': ['Cassengo (Sede)'],
+
   // ============================================================================
-  // ÍCOLO E BENGO (11 comunas) — PROVÍNCIA INDEPENDENTE desde 01/01/2025
+  // 12. MOXICO (12 municípios)
   // ============================================================================
-  'Catete': ['Catete Sede', 'Cassoneca', 'Caculo Cahango', 'Caxicane'],
-  'Bom Jesus': ['Bom Jesus Sede'],
-  'Cabiri': ['Cabiri Sede'],
-  'Calumbo': ['Calumbo Sede', 'Zango 0', 'Zango 1', 'Zango 2', 'Zango 3', 'Zango 4', 'Zango 5 (Centralidade 8000)'],
-  'Cabo Ledo': ['Cabo Ledo Sede'],
-  'Quiçama': ['Quiçama Sede', 'Muxima', 'Quixinge', 'Demba Chio', 'Munbondo'],
-  'Sequele': ['Sequele Sede', 'Funda', 'Quifangondo'],
-  
+  'Moxico': ['Luena (Sede)', 'Cangumbe', 'Lucusse', 'Lutuai'],
+  'Alto-Zambeze': ['Cazombo (Sede)', 'Lóvua-do-Zambeze', 'Caianda', 'Lago-Dilolo'],
+  'Bundas': ['Lumbala-Nguimbo (Sede)', 'Lutembo', 'Ninda', 'Chiúme'],
+  'Camanongue': ['Camanongue (Sede)'],
+  'Léua': ['Léua (Sede)', 'Liangongo'],
+  'Luchazes': ['Cangamba/Luchazes (Sede)', 'Camgombo', 'Cassamba', 'Muié', 'Tempue'],
+  'Lutuai': ['Lutuai (Sede)'],
+  'Cangamba': ['Cangamba (Sede)'],
+  'Lucusse': ['Lucusse (Sede)'],
+  'Lutembo': ['Lutembo (Sede)'],
+  'Cangumbe': ['Cangumbe (Sede)'],
+  'Lumbala-Nguimbo': ['Lumbala-Nguimbo (Sede)'],
+
   // ============================================================================
-  // LUANDA (13 comunas) — Ícolo e Bengo NÃO está aqui
+  // 13. MOXICO LESTE (9 municípios) — Nova Província DPA 2025
   // ============================================================================
-  'Belas': ['Quenguela', 'Barra do Kwanza', 'Cabolombo', 'Loma'],
-  'Cacuaco': ['Cacuaco Sede', 'Kicolo', 'Funda', 'Mabangakola'],
-  'Cazenga': ['Cazenga Sede', 'Hoji-ya-Henda', 'Tala Hadi'],
-  'Hoji-ya-Henda': ['Hoji-ya-Henda Sede'],
-  'Ingombota': ['Ingombota Sede', 'Patrice Lumumba', 'Maculusso', 'Ilha do Cabo'],
-  'Kilamba': ['Kilamba Sede'],
-  'Kilamba Kiaxi': ['Kilamba Kiaxi Sede', 'Camama', 'Golfe'],
-  'Maianga': ['Maianga Sede', 'Cassequel', 'Prenda', 'Rocha Pinto'],
-  'Mulenvos': ['Mulenvos Sede'],
-  'Mussulo': ['Mussulo Sede'],
-  'Quissama': ['Quissama Sede'],
-  'Rangel': ['Rangel Sede', 'Mártires', 'Rossas'],
-  'Sambizanga': ['Sambizanga Sede'],
-  'Samba': ['Samba Sede', 'Lombe'],
-  'Talatona': ['Talatona Sede', 'Benfica', 'Lar do Patriota', 'Morro da Cruz'],
-  'Viana': ['Viana Sede', 'Calumbo', 'Estalagem', 'Baia'],
-  
+  'Cazombo': ['Cazombo (Sede)'],
+  'Luacano': ['Luacano (Sede)', 'Lago-Dilolo'],
+  'Cameia': ['Cameia/Lumeje (Sede)'],
+  'Luau': ['Luau (Sede)'],
+  'Caianda': ['Caianda (Sede)'],
+  'Macondo': ['Macondo (Sede)'],
+  'Candundo': ['Candundo (Sede)'],
+  'Nana': ['Nana (Sede)'],
+  'Lóvua-do-Zambeze': ['Lóvua-do-Zambeze (Sede)'],
+
   // ============================================================================
-  // LUNDA NORTE (20 comunas)
+  // 14. BIÉ (19 municípios)
   // ============================================================================
-  'Cambulo': ['Cambulo Sede', 'Luto'],
-  'Capenda-Camulemba': ['Capenda-Camulemba Sede'],
-  'Caungula': ['Caungula Sede'],
-  'Chitato': ['Chitato Sede', 'Luachimo', 'Caxinde'],
-  'Cuango': ['Cuango Sede'],
-  'Cuílo': ['Cuílo Sede'],
-  'Cuilo': ['Cuilo Sede'],
-  'Lóvua': ['Lóvua Sede'],
-  'Lubalo': ['Lubalo Sede'],
-  'Lucapa': ['Lucapa Sede'],
-  'Xá-Muteba': ['Xá-Muteba Sede'],
-  'Luchazi': ['Luchazi Sede'],
-  'Muvulenge': ['Muvulenge Sede'],
-  'Nhinga': ['Nhinga Sede'],
-  'Quitapa': ['Quitapa Sede'],
-  'Xinge': ['Xinge Sede'],
-  
+  'Cuíto': ['Cuíto (Sede)', 'Chicala', 'Chipeta'],
+  'Andulo': ['Andulo (Sede)', 'Calucinga', 'Cassumbe', 'Chivaúlo'],
+  'Belo-Horizonte': ['Belo-Horizonte (Sede)'],
+  'Calucinga': ['Calucinga (Sede)'],
+  'Camacupa': ['Camacupa (Sede)', 'Ringoma', 'Santo António da Muinha', 'Umpulo', 'Cuanza'],
+  'Cambândua': ['Cambândua (Sede)'],
+  'Catabola': ['Catabola (Sede)', 'Chipeta', 'Caiuera', 'Chiúca', 'Sande'],
+  'Chicala': ['Chicala (Sede)'],
+  'Chinguar': ['Chinguar (Sede)', 'Cutato', 'Cangote'],
+  'Chipeta': ['Chipeta (Sede)'],
+  'Chitembo': ['Chitembo (Sede)', 'Cachingues', 'Mutumbo', 'Mumbué', 'Malengue', 'Soma-Cuanza'],
+  'Cuemba': ['Cuemba (Sede)', 'Luando', 'Munhango', 'Sachinemuna'],
+  'Cunhinga': ['Cunhinga (Sede)'],
+  'Luando': ['Luando (Sede)'],
+  'Lúbia': ['Lúbia (Sede)'],
+  'Mumbué': ['Mumbué (Sede)'],
+  'Nharêa': ['Nharêa (Sede)'],
+  'Ringoma': ['Ringoma (Sede)'],
+  'Umpulo': ['Umpulo (Sede)'],
+
   // ============================================================================
-  // LUNDA SUL (4 comunas)
+  // 15. HUAMBO (17 municípios)
   // ============================================================================
-  'Cacolo': ['Cacolo Sede'],
-  'Dala': ['Dala Sede', 'Cazage', 'Luma-Cassai'],
-  'Muconda': ['Muconda Sede'],
-  'Saurimo': ['Saurimo Sede', 'Mona', 'Sassoma'],
-  'Muangueji': ['Muangueji Sede'],
-  'Cazage': ['Cazage Sede'],
-  'Congo': ['Congo Sede'],
-  'Kokulo': ['Kokulo Sede'],
-  'Luma-Cassai': ['Luma-Cassai Sede'],
-  'Munhango': ['Munhango Sede'],
-  'Xá-Cassai': ['Xá-Cassai Sede'],
-  
+  'Huambo': ['Huambo (Sede)'],
+  'Bailundo': ['Bailundo (Sede)'],
+  'Caála': ['Caála (Sede)'],
+  'Cachiungo': ['Cachiungo (Sede)'],
+  'Chinjenje': ['Chinjenje (Sede)'],
+  'Ecunha': ['Ecunha (Sede)'],
+  'Londuimbali': ['Londuimbali (Sede)'],
+  'Longonjo': ['Longonjo (Sede)'],
+  'Mungo': ['Mungo (Sede)'],
+  'Ucuma': ['Ucuma (Sede)'],
+  'Chicala-Choloanga': ['Chicala-Choloanga (Sede)'],
+  'Bimbe': ['Bimbe (Sede)'],
+  'Sambo': ['Sambo (Sede)'],
+  'Alto-Hama': ['Alto-Hama (Sede)'],
+  'Cuima': ['Cuima (Sede)'],
+  'Galanga': ['Galanga (Sede)'],
+  'Chilata': ['Chilata (Sede)'],
+
   // ============================================================================
-  // MALANJE (38 comunas)
+  // 16. HUÍLA (23 municípios)
   // ============================================================================
-  'Cacuso': ['Cacuso Sede'],
-  'Calandula': ['Calandula Sede', 'Cocaia'],
-  'Cambundi-Catembo': ['Cambundi-Catembo Sede'],
-  'Cangandala': ['Cangandala Sede'],
-  'Caombo': ['Caombo Sede'],
-  'Cuaba Nzoji': ['Cuaba Nzoji Sede'],
-  'Cunda-Dia-Baze': ['Cunda-Dia-Baze Sede'],
-  'Luquembo': ['Luquembo Sede'],
-  'Malanje': ['Malanje Sede', 'Mulanji', 'Quabe', 'Kibavuvuko'],
-  'Marimba': ['Marimba Sede'],
-  'Massango': ['Massango Sede'],
-  'Mucari': ['Mucari Sede', 'Caxito'],
-  'Quela': ['Quela Sede', 'M\'Quema'],
-  'Quirima': ['Quirima Sede'],
-  'Cambo': ['Cambo Sede'],
-  'Cangozo': ['Cangozo Sede'],
-  'Cangombe': ['Cangombe Sede'],
-  'Cariango': ['Cariango Sede'],
-  'Cunda': ['Cunda Sede'],
-  'Kibala': ['Kibala Sede'],
-  'Kissama': ['Kissama Sede'],
-  'Kiwaba Nzogi': ['Kiwaba Nzogi Sede'],
-  'Lombe': ['Lombe Sede'],
-  'Mufunza': ['Mufunza Sede'],
-  
+  'Lubango': ['Lubango (Sede)', 'Arrimba', 'Huíla', 'Quilenda'],
+  'Caconda': ['Caconda (Sede)'],
+  'Cacula': ['Cacula (Sede)'],
+  'Caluquembe': ['Caluquembe (Sede)'],
+  'Chibia': ['Chibia (Sede)', 'Capunda-Cavilongo', 'Jau'],
+  'Chicomba': ['Chicomba (Sede)'],
+  'Chipindo': ['Chipindo (Sede)'],
+  'Cuvango': ['Cuvango (Sede)'],
+  'Humpata': ['Humpata (Sede)'],
+  'Matala': ['Matala (Sede)'],
+  'Quilengues': ['Quilengues (Sede)'],
+  'Quipungo': ['Quipungo (Sede)'],
+  'Gambos': ['Chiange/Gambos (Sede)'],
+  'Jamba': ['Jamba (Sede)', 'Dongo'],
+  'Dongo': ['Dongo (Sede)'],
+  'Hoque': ['Hoque (Sede)'],
+  'Capelongo': ['Capelongo (Sede)'],
+  'Chituto': ['Chituto (Sede)'],
+  'Capunda-Cavilongo': ['Capunda-Cavilongo (Sede)'],
+  'Viti': ['Viti (Sede)'],
+  'Vivali': ['Vivali (Sede)'],
+  'Galangue': ['Galangue (Sede)'],
+  'Palanca': ['Palanca (Sede)'],
+
   // ============================================================================
-  // MOXICO (13 comunas)
+  // 17. CUNENE (14 municípios)
   // ============================================================================
-  'Alto Zambeze': ['Alto Zambeze Sede'],
-  'Bundas': ['Bundas Sede'],
-  'Camanongue': ['Camanongue Sede'],
-  'Léua': ['Léua Sede'],
-  'Luau': ['Luau Sede'],
-  'Luacano': ['Luacano Sede'],
-  'Luchazes': ['Luchazes Sede', 'N\'Golo'],
-  'Cameia': ['Cameia Sede'],
-  'Moxico': ['Moxico Sede'],
-  'Luena': ['Luena Sede', 'Lukusse', 'Luvo'],
-  'Lumbala-Nguimbo': ['Lumbala-Nguimbo Sede'],
-  'Lumeji': ['Lumeji Sede'],
-  
+  'Cuanhama': ['Ondjiva (Sede)'],
+  'Cahama': ['Cahama (Sede)'],
+  'Curoca': ['Curoca (Sede)', 'Chitado', 'Chissuata'],
+  'Cuvelai': ['Cuvelai (Sede)'],
+  'Namacunde': ['Namacunde (Sede)'],
+  'Ombadja': ['Ombadja/Xangongo (Sede)', 'Humbe', 'Mupa'],
+  'Chitado': ['Chitado (Sede)'],
+  'Nehone': ['Nehone (Sede)'],
+  'Humbe': ['Humbe (Sede)'],
+  'Mupa': ['Mupa (Sede)'],
+  'Naulila': ['Naulila (Sede)'],
+  'Cafima': ['Cafima (Sede)'],
+  'Chissuata': ['Chissuata (Sede)'],
+  'Chiéde': ['Chiéde (Sede)'],
+
   // ============================================================================
-  // MOXICO LESTE (4 comunas)
+  // 18. CUBANGO (11 municípios) — Divisão DPA 2025
   // ============================================================================
-  'Cazombo': ['Cazombo Sede'],
-  'Lusavo': ['Lusavo Sede'],
-  'Mucunde': ['Mucunde Sede'],
-  'Lomelas': ['Lomelas Sede'],
-  'Cassai': ['Cassai Sede'],
-  'Chifucua': ['Chifucua Sede'],
-  'Luachimo': ['Luachimo Sede'],
-  
+  'Menongue': ['Menongue (Sede)'],
+  'Cuchi': ['Cuchi (Sede)', 'Cutato', 'Chinguanja'],
+  'Calai': ['Calai (Sede)', 'Maue', 'Mavengue'],
+  'Nancova': ['Nancova (Sede)'],
+  'Cuangar': ['Cuangar (Sede)'],
+  'Savate': ['Savate (Sede)'],
+  'Caiundo': ['Caiundo (Sede)'],
+  'Longa': ['Longa (Sede)'],
+  'Cutato': ['Cutato (Sede)'],
+  'Chinguanja': ['Chinguanja (Sede)'],
+  'Mavengue': ['Mavengue (Sede)'],
+
   // ============================================================================
-  // NAMIBE (11 comunas)
+  // 19. CUANDO (9 municípios) — Nova Província DPA 2025
   // ============================================================================
-  'Bibala': ['Bibala Sede', 'Capangobe'],
-  'Camucuio': ['Camucuio Sede'],
-  'Moçâmedes': ['Moçâmedes Sede', 'Mocúti', 'Bela Vista'],
-  'Tômbua': ['Tômbua Sede', 'Cinjama'],
-  'Virei': ['Virei Sede', 'Cacimba'],
-  'Arco': ['Arco Sede'],
-  'Giraul': ['Giraul Sede'],
-  'Sacomar': ['Sacomar Sede'],
-  'Virene': ['Virene Sede'],
-  
+  'Mavinga': ['Mavinga (Sede)'],
+  'Cuito Cuanavale': ['Cuito Cuanavale (Sede)'],
+  'Dirico': ['Dirico (Sede)', 'Mucusso', 'Xamavera'],
+  'Rivungo': ['Rivungo (Sede)'],
+  'Xipundo': ['Xipundo (Sede)'],
+  'Dima': ['Dima (Sede)'],
+  'Luiana': ['Luiana (Sede)'],
+  'Mucusso': ['Mucusso (Sede)'],
+  'Luengue': ['Luengue (Sede)'],
+
   // ============================================================================
-  // UÍGE (44 comunas)
+  // 20. BENGUELA (23 municípios)
   // ============================================================================
-  'Alto Cauale': ['Alto Cauale Sede'],
-  'Ambuíla': ['Ambuíla Sede'],
-  'Bembe': ['Bembe Sede'],
-  'Buengas': ['Buengas Sede'],
-  'Bungo': ['Bungo Sede', 'Cangola'],
-  'Damba': ['Damba Sede'],
-  'Milunga': ['Milunga Sede'],
-  'Mucaba': ['Mucaba Sede'],
-  'Negage': ['Negage Sede', 'Jombolandaka'],
-  'Puri': ['Puri Sede'],
-  'Quimbele': ['Quimbele Sede'],
-  'Quitexe': ['Quitexe Sede'],
-  'Sanza Pombo': ['Sanza Pombo Sede'],
-  'Songo': ['Songo Sede'],
-  'Uíge': ['Uíge Sede', 'Cassuanga', 'Buanando'],
-  'Zombo': ['Zombo Sede'],
-  'Alto-Zombo': ['Alto-Zombo Sede'],
-  'Macocola': ['Macocola Sede'],
-  'Maquela do Zombo': ['Maquela do Zombo Sede'],
-  'Santa Cruz': ['Santa Cruz Sede'],
-  
+  'Benguela': ['Benguela (Sede)'],
+  'Lobito': ['Lobito (Sede)', 'Egipto-Praia', 'Canjala'],
+  'Catumbela': ['Catumbela (Sede)', 'Gama', 'Biópio', 'Praia-Bebe'],
+  'Baía Farta': ['Baía Farta (Sede)', 'Dombe-Grande', 'Calahanga', 'Equimina'],
+  'Balombo': ['Balombo (Sede)', 'Chindumbo', 'Chingongo', 'Maca-Mombolo'],
+  'Bocoio': ['Bocoio (Sede)', 'Chila', 'Monte-Belo', 'Passe', 'Cavimbe', 'Cubal-do-Lumbo'],
+  'Caimbambo': ['Caimbambo (Sede)', 'Catengue', 'Caiave', 'Canhamela', 'Viangombe'],
+  'Chongorói': ['Chongorói (Sede)', 'Bolonguera', 'Camuine'],
+  'Cubal': ['Cubal (Sede)', 'Iambala', 'Capupa', 'Tumbulo (Lomaum)'],
+  'Ganda': ['Ganda (Sede)', 'Babaera', 'Chicuma', 'Ebanga', 'Casseque'],
+  'Babaera': ['Babaera (Sede)'],
+  'Biópio': ['Biópio (Sede)'],
+  'Bolonguera': ['Bolonguera (Sede)'],
+  'Canhamela': ['Canhamela (Sede)'],
+  'Capupa': ['Capupa (Sede)'],
+  'Catengue': ['Catengue (Sede)'],
+  'Chicuma': ['Chicuma (Sede)'],
+  'Chila': ['Chila (Sede)'],
+  'Chindumbo': ['Chindumbo (Sede)'],
+  'Dombe-Grande': ['Dombe-Grande (Sede)'],
+  'Egipto-Praia': ['Egipto-Praia (Sede)'],
+  'Iambala': ['Iambala (Sede)'],
+  'Navegantes': ['Navegantes (Sede)'],
+
   // ============================================================================
-  // ZAIRE (18 comunas)
+  // 21. NAMIBE (9 municípios)
   // ============================================================================
-  'Cuimba': ['Cuimba Sede'],
-  'Mbanza Congo': ['Mbanza Congo Sede', 'Kibala'],
-  'Nóqui': ['Nóqui Sede'],
-  'N\'Zeto': ['N\'Zeto Sede'],
-  'Soio': ['Soio Sede', 'Nzeto'],
-  'Tomboco': ['Tomboco Sede', 'N\'Zadi'],
-  'Luvu': ['Luvu Sede'],
-  'Mbanza-Ngondo': ['Mbanza-Ngondo Sede'],
-  'Nkondo': ['Nkondo Sede'],
-  'Pedra do Feitiço': ['Pedra do Feitiço Sede']
+  'Moçâmedes': ['Moçâmedes (Sede)'],
+  'Bibala': ['Bibala (Sede)'],
+  'Camucuio': ['Camucuio (Sede)'],
+  'Tômbwa': ['Tômbwa (Sede)', 'Baía dos Tigres'],
+  'Virei': ['Virei (Sede)', 'Cainde'],
+  'Lucira': ['Lucira (Sede)'],
+  'Cacimbas': ['Cacimbas (Sede)'],
+  'Iona': ['Iona (Sede)'],
+  'Sacomar': ['Sacomar (Sede)']
 };
 
 export const INSTITUTION_TYPES = [
@@ -514,8 +616,6 @@ export const mapTypeToCategory = (type: string): 'Finanças' | 'Infraestrutura' 
 };
 
 export const generateSigla = (fullName: string): string => {
-  // Instituições com sigla oficial não devem ser recalculadas a partir do
-  // nome expandido (ex.: "INAPEM — Instituto ..." gerava IINA... ).
   const normalizedName = (fullName || '')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]/gi, '')
