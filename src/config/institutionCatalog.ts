@@ -360,6 +360,7 @@ export const COMMUNES_BY_MUNICIPALITY: { [key: string]: string[] } = {
   'Chitato': ['Chitato Sede', 'Luachimo', 'Caxinde'],
   'Cuango': ['Cuango Sede'],
   'Cuílo': ['Cuílo Sede'],
+  'Cuilo': ['Cuilo Sede'],
   'Lóvua': ['Lóvua Sede'],
   'Lubalo': ['Lubalo Sede'],
   'Lucapa': ['Lucapa Sede'],
@@ -374,6 +375,7 @@ export const COMMUNES_BY_MUNICIPALITY: { [key: string]: string[] } = {
   // LUNDA SUL (4 comunas)
   // ============================================================================
   'Cacolo': ['Cacolo Sede'],
+  'Dala': ['Dala Sede', 'Cazage', 'Luma-Cassai'],
   'Muconda': ['Muconda Sede'],
   'Saurimo': ['Saurimo Sede', 'Mona', 'Sassoma'],
   'Muangueji': ['Muangueji Sede'],
