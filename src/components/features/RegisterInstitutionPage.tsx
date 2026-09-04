@@ -759,6 +759,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
                 type="email"
                 list="cda-dominios-email"
                 value={emailAcesso}
+                autoComplete="off"
                 onChange={(e) => { setEmailAcesso(e.target.value); setErr('emailAcesso', ''); }}
                 onBlur={() => { const c = corrigirDominioEmail(emailAcesso); if (c && c !== emailAcesso) { setEmailAcesso(c); setErr('emailAcesso', ''); } }}
                 placeholder="Ex: director@sme.gov.ao"
@@ -775,6 +776,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
                 <input
                   type="password"
                   value={senha}
+                  autoComplete="new-password"
                   onChange={(e) => { setSenha(e.target.value); setErr('senha', ''); }}
                   placeholder="Mínimo 8 caracteres"
                   className={inputCls + ' pl-10' + (fieldErrors.senha ? ' ' + errCls : '')}
@@ -795,6 +797,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
                 <input
                   type="password"
                   value={confirmar}
+                  autoComplete="new-password"
                   onChange={(e) => { setConfirmar(e.target.value); setErr('confirmar', ''); }}
                   placeholder="Repita a senha"
                   className={inputCls + ' pl-10' + (fieldErrors.confirmar ? ' ' + errCls : '')}
