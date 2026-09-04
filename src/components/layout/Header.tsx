@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mic, Globe, ChevronDown, Check, Sun, Moon, Mail, Bell } from 'lucide-react';
+import { Mic, Globe, ChevronDown, Check, Sun, Moon, Mail, Bell, LogOut } from 'lucide-react';
 import { useSession } from '../../services/sessionStore';
 import { AppNotification, AppMode, LanguageCode, LANGUAGE_OPTIONS, Message } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -47,22 +47,31 @@ interface HeaderProps {
   /** Tom do indicador Online por estado da conta do cidadão (null = tom padrão verde). */
   citizenOnlineTone?: 'red' | 'green' | 'yellow' | null;
   chatAssistantRecognitionRef?: { current: { stop(): void } | null };
+  handleLogout?: (clearAll?: boolean) => void;
 }
 
 function UnreadMessagesMenu({
   open,
   onClose,
   messages,
+  notifications = [],
   onOpenMessage,
-  onShowNotifications
+  onShowNotifications,
+  onLogout,
+  translate
 }: {
   open: boolean;
   onClose: () => void;
   messages: Message[];
+  notifications?: AppNotification[];
   onOpenMessage?: (message: Message) => void;
   onShowNotifications: () => void;
+  onLogout?: (clearAll?: boolean) => void;
+  translate: (key: string) => string;
 }) {
   if (!open) return null;
+
+  const unreadCount = messages.length + notifications.filter(n => n.unread !== false).length;
 
   // Estrutura idêntica ao dropdown de Notificações (padrão comprovado da app):
   // backdrop fixo fecha ao clicar fora + painel fixo independente do z-index e
@@ -70,38 +79,64 @@ function UnreadMessagesMenu({
   return (
     <>
       <div className="fixed inset-0 z-[150]" onClick={onClose} />
-      <div className="fixed top-16 md:top-20 right-3 md:right-6 z-[160] w-[min(92vw,340px)] bg-white rounded-2xl shadow-[0_20px_50px_rgba(15,23,42,0.18)] border border-slate-100 overflow-hidden text-left">
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">Mensagens não lidas</span>
-          <span className="text-[9px] font-black text-white bg-red-600 rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center leading-none">{messages.length}</span>
+      <div className="fixed top-16 md:top-20 right-3 md:right-6 z-[160] w-[min(92vw,340px)] bg-white rounded-2xl shadow-[0_20px_50px_rgba(15,23,42,0.18)] border border-slate-100 overflow-hidden text-left animate-fadeIn">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">{translate("Mensagens e Notificações")}</span>
+          <span className="text-[9px] font-black text-white bg-red-600 rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center leading-none">{unreadCount}</span>
         </div>
-        <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
-          {messages.length === 0 ? (
-            <div className="px-4 py-6 text-center text-[11px] font-bold text-slate-400">Sem mensagens não lidas.</div>
-          ) : messages.map((msg) => (
-            <button
-              key={msg.id}
-              type="button"
-              onClick={() => { onOpenMessage?.(msg); onClose(); }}
-              className="w-full text-left px-4 py-3 hover:bg-blue-50/60 transition-colors border-b border-slate-50 last:border-b-0 cursor-pointer flex items-start gap-2.5"
-            >
-              <span className="mt-1.5 w-2 h-2 rounded-full bg-blue-600 shrink-0" />
-              <span className="flex-1 min-w-0">
-                <span className="block text-[10px] font-black uppercase tracking-wide text-slate-800 truncate">{msg.org}</span>
-                <span className="block text-[11px] font-bold text-slate-600 truncate">{msg.details?.subject || msg.preview}</span>
-                <span className="block text-[9px] font-semibold text-slate-400 mt-0.5">{msg.date}</span>
-              </span>
-              <Mail size={13} className="text-slate-300 shrink-0 mt-1.5" />
-            </button>
-          ))}
+        <div className="max-h-[260px] overflow-y-auto custom-scrollbar divide-y divide-slate-50">
+          {messages.length === 0 && notifications.length === 0 ? (
+            <div className="px-4 py-6 text-center text-[11px] font-bold text-slate-400">{translate("Sem mensagens ou notificações pendentes.")}</div>
+          ) : (
+            <>
+              {messages.map((msg) => (
+                <button
+                  key={msg.id}
+                  type="button"
+                  onClick={() => { onOpenMessage?.(msg); onClose(); }}
+                  className="w-full text-left px-4 py-3 hover:bg-blue-50/60 transition-colors cursor-pointer flex items-start gap-2.5"
+                >
+                  <span className="mt-1.5 w-2 h-2 rounded-full bg-blue-600 shrink-0" />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[10px] font-black uppercase tracking-wide text-slate-800 truncate">{msg.org}</span>
+                    <span className="block text-[11px] font-bold text-slate-600 truncate">{msg.details?.subject || msg.preview}</span>
+                    <span className="block text-[9px] font-semibold text-slate-400 mt-0.5">{msg.date}</span>
+                  </span>
+                  <Mail size={13} className="text-slate-300 shrink-0 mt-1.5" />
+                </button>
+              ))}
+              {notifications.slice(0, 3).map((n) => (
+                <div
+                  key={n.id}
+                  className="px-4 py-2.5 hover:bg-slate-50/80 transition-colors flex items-start gap-2.5"
+                >
+                  <Bell size={13} className="text-[#2563eb] shrink-0 mt-1" />
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-[10.5px] font-bold text-slate-700 truncate">{n.title}</span>
+                    <span className="block text-[9.5px] text-slate-500 truncate">{n.message}</span>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
-        <button
-          type="button"
-          onClick={() => { onClose(); onShowNotifications(); }}
-          className="w-full px-4 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-[9.5px] font-black uppercase tracking-widest text-slate-500 flex items-center justify-center gap-1.5 cursor-pointer border-t border-slate-100"
-        >
-          <Bell size={11} /> Ver notificações do sistema
-        </button>
+        <div className="p-2.5 bg-slate-50/80 border-t border-slate-100 flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={() => { onClose(); onShowNotifications(); }}
+            className="w-full px-3 py-2 rounded-xl bg-white hover:bg-slate-100 transition-colors text-[9.5px] font-black uppercase tracking-widest text-slate-600 flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200/80 shadow-2xs"
+          >
+            <Bell size={11} className="text-[#2563eb]" /> {translate("Ver Notificações")}
+          </button>
+          <button
+            type="button"
+            onClick={() => { onClose(); onLogout?.(false); }}
+            className="w-full px-3 py-2.5 rounded-xl bg-[#0E2B64] hover:bg-[#081a3d] text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.98]"
+          >
+            <LogOut size={13} className="text-white" />
+            <span>{translate("Sair do Canal")}</span>
+          </button>
+        </div>
       </div>
     </>
   );
@@ -213,7 +248,8 @@ export function Header({
   unreadMessages = [],
   onOpenUnreadMessage,
   citizenOnlineTone = null,
-  chatAssistantRecognitionRef
+  chatAssistantRecognitionRef,
+  handleLogout
 }: HeaderProps) {
   const { user, activeProfile } = useSession();
   const { t: translate } = useLanguage();
@@ -430,14 +466,18 @@ export function Header({
             />
           </button>
           
-          <div className="relative flex items-center justify-center">
+          <div 
+            onClick={() => { setShowUnreadMenu(!showUnreadMenu); setShowNotifications(false); }}
+            className="relative flex items-center justify-center cursor-pointer"
+            role="button"
+            aria-label="Menu de Perfil e Notificações"
+          >
             {displayAvatar ? (
               <LazyImage
                 src={displayAvatar}
                 alt="Perfil"
                 priority={true}
                 placeholder="skeleton"
-                onClick={() => { setShowUnreadMenu(!showUnreadMenu); setShowNotifications(false); }}
                 style={{
                   width: '2rem',
                   height: '2rem',
@@ -453,7 +493,6 @@ export function Header({
             ) : (
               /* v37.29 — sem foto: fundo azul com a primeira letra do nome */
               <div
-                onClick={() => { setShowUnreadMenu(!showUnreadMenu); setShowNotifications(false); }}
                 title={user?.name || user?.firstName || 'Perfil'}
                 className="flex items-center justify-center bg-blue-600 text-white font-black cursor-pointer select-none ring-1 ring-primary/5 hover:ring-primary/15"
                 style={{ width: '2rem', height: '2rem', borderRadius: '9999px', fontSize: '11px', marginLeft: '0.25rem', border: '0.5px solid #e2e8f0' }}
@@ -470,8 +509,11 @@ export function Header({
               open={showUnreadMenu}
               onClose={() => setShowUnreadMenu(false)}
               messages={unreadMessages}
+              notifications={notifications}
               onOpenMessage={onOpenUnreadMessage}
               onShowNotifications={() => setShowNotifications(true)}
+              onLogout={handleLogout}
+              translate={translate}
             />
             <NotificationDropdown />
           </div>
@@ -598,14 +640,18 @@ export function Header({
             />
           </button>
           
-          <div className="relative flex items-center">
+          <div 
+            onClick={() => { setShowUnreadMenu(!showUnreadMenu); setShowNotifications(false); }}
+            className="relative flex items-center cursor-pointer"
+            role="button"
+            aria-label="Menu de Perfil e Notificações"
+          >
             {displayAvatar ? (
               <LazyImage
                 src={displayAvatar}
                 alt="Perfil"
                 priority={true}
                 placeholder="skeleton"
-                onClick={() => { setShowUnreadMenu(!showUnreadMenu); setShowNotifications(false); }}
                 style={{
                   width: '2.5rem',
                   height: '2.5rem',
@@ -619,7 +665,6 @@ export function Header({
             ) : (
               /* v37.29 — sem foto: fundo azul com a primeira letra do nome */
               <div
-                onClick={() => { setShowUnreadMenu(!showUnreadMenu); setShowNotifications(false); }}
                 title={user?.name || user?.firstName || 'Perfil'}
                 className="flex items-center justify-center bg-blue-600 text-white font-black cursor-pointer select-none ring-1 ring-primary/5 hover:ring-primary/15 shadow-xs"
                 style={{ width: '2.5rem', height: '2.5rem', borderRadius: '9999px', fontSize: '14px', border: '1px solid #e2e8f0' }}
@@ -636,8 +681,11 @@ export function Header({
               open={showUnreadMenu}
               onClose={() => setShowUnreadMenu(false)}
               messages={unreadMessages}
+              notifications={notifications}
               onOpenMessage={onOpenUnreadMessage}
               onShowNotifications={() => setShowNotifications(true)}
+              onLogout={handleLogout}
+              translate={translate}
             />
             <NotificationDropdown />
           </div>

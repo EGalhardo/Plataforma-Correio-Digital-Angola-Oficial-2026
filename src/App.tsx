@@ -8214,6 +8214,7 @@ Ficha civil do titular:
             unreadCorrespondencesCount={unreadTotal}
             unreadMessages={unreadMessagesList}
             onOpenUnreadMessage={handleOpenUnreadMessage}
+            handleLogout={handleLogout}
             citizenOnlineTone={isInstMode ? institutionOnlineTone : citizenOnlineTone}
             chatAssistantRecognitionRef={chatAssistantRecognitionRef} // Repassar ref do reconhecimento de voz
             NotificationDropdown={() => (
@@ -8239,6 +8240,7 @@ Ficha civil do titular:
                 onDeleteNotification={(id) => {
                   setNotifications((prev) => prev.filter((item) => item.id !== id));
                 }}
+                handleLogout={handleLogout}
               />
             )}
           />

@@ -4,7 +4,7 @@
  */
 
 import { motion, AnimatePresence } from 'motion/react';
-import { BadgeCheck, ShieldCheck, Info, Bell, Trash2 } from 'lucide-react';
+import { BadgeCheck, ShieldCheck, Info, Bell, Trash2, LogOut } from 'lucide-react';
 import { AppNotification, Document } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
 
@@ -16,6 +16,7 @@ interface NotificationDropdownProps {
   setSelectedDoc: (doc: Document | null) => void;
   onClickNotification: (notification: AppNotification) => void;
   onDeleteNotification: (id: number) => void;
+  handleLogout?: (clearAll?: boolean) => void;
 }
 
 export function NotificationDropdown({ 
@@ -25,7 +26,8 @@ export function NotificationDropdown({
   setTab, 
   setSelectedDoc,
   onClickNotification,
-  onDeleteNotification
+  onDeleteNotification,
+  handleLogout
 }: NotificationDropdownProps) {
   const { t } = useLanguage();
   // 2026-08-22 — as notificações LIDAS continuam VISÍVEIS (por baixo das
@@ -119,7 +121,7 @@ export function NotificationDropdown({
                 </div>
               )}
             </div>
-            <div className="p-3 md:p-4 bg-slate-50 text-center border-t border-line/40">
+            <div className="p-3 md:p-4 bg-slate-50 text-center border-t border-line/40 flex flex-col gap-2">
               <button 
                 onClick={() => {
                   setShowNotifications(false);
@@ -130,6 +132,19 @@ export function NotificationDropdown({
               >
                 {t("Ver Centro de Notificações")}
               </button>
+              {handleLogout && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNotifications(false);
+                    handleLogout(false);
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-[#0E2B64] hover:bg-[#081a3d] text-white transition-all text-[9.5px] font-black uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.98]"
+                >
+                  <LogOut size={13} className="text-white" />
+                  <span>{t("Sair do Canal")}</span>
+                </button>
+              )}
             </div>
           </motion.div>
         </>
