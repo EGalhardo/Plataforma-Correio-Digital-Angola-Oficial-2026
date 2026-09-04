@@ -67,6 +67,16 @@ export function HomeContent({
   const slides = isInst ? INST_HIGHLIGHT_SLIDES : HIGHLIGHT_SLIDES;
   const currentSlide = slides[activeSlide % slides.length];
 
+  // Contagens para layout dinâmico dos containers de correspondências:
+  const unreadCount = (inbox || []).filter(m => m.unread).length;
+  const readCount = (inbox || []).filter(m => !m.unread).length;
+  const sentCount = (sentMessages || []).length;
+
+  // Regra de layout desktop: quando "Não Lidas" estiver vazia (0) E simultaneamente
+  // "Lidas" e "Enviadas" contiverem correspondências (> 0), oculta "Não Lidas"
+  // no desktop e expande "Lidas" e "Enviadas" para 50% da largura útil cada (2 colunas).
+  const shouldHideUnread = unreadCount === 0 && readCount > 0 && sentCount > 0;
+
   return (
     <div className="grid gap-3 md:gap-3.5">
       <section className="relative h-[280px] md:h-[385px] rounded-[20px] md:rounded-[24px] overflow-hidden shadow-xl border border-line/60">
@@ -248,19 +258,19 @@ export function HomeContent({
         </div>
       </section>
 
-      {/* v37.24 — as três colunas estão SEMPRE presentes (estado vazio quando
-          não há itens), para o Painel mostrar sempre todas as correspondências. */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {/* Containers de Correspondências — Layout dinâmico em Desktop (3 colunas ou 2 colunas 50/50 quando Não Lidas estiver vazia) */}
+      <div className={`grid grid-cols-1 ${shouldHideUnread ? 'md:grid-cols-2 xl:grid-cols-2' : 'md:grid-cols-2 xl:grid-cols-3'} gap-4`}>
+        {!shouldHideUnread && (
           <section className={`bg-white border border-slate-100 rounded-[28px] md:rounded-[32px] p-5 md:p-6 shadow-sm flex flex-col group ${isInst ? 'order-2' : ''}`}>
             <div className="flex items-center justify-between mb-5 shrink-0 px-2">
                <div className="flex items-center gap-2">
                   <Mail size={16} className="text-red-500" />
                   <h3 className="text-slate-950 font-black text-sm md:text-base italic tracking-tighter">{t("Não Lidas")}</h3>
                </div>
-               <span className="text-red-500 font-black text-sm md:text-base">{(inbox || []).filter(m => m.unread).length}</span>
+               <span className="text-red-500 font-black text-sm md:text-base">{unreadCount}</span>
             </div>
             <div className="h-[320px] overflow-y-auto pr-1 space-y-3 custom-scrollbar">
-              {(inbox || []).filter(m => m.unread).length === 0 ? (
+              {unreadCount === 0 ? (
                 <div className="flex flex-col items-center justify-center text-center py-10 text-slate-400">
                   <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-2 shadow-sm">
                     <Mail size={16} className="text-slate-300" />
@@ -268,18 +278,19 @@ export function HomeContent({
                   <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">{t("Sem mensagens novas")}</p>
                 </div>
               ) : (
-              (inbox || []).filter(m => m.unread).map(m => (
-                <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-3 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
-                  <div className="min-w-0 flex-1 truncate mr-3">
-                    <span className="font-black text-slate-900 group-hover/item:text-primary transition-colors">{t(m.org)}:</span>
-                    <span className="ml-1 text-slate-600 font-medium">{t(m.preview)}</span>
+                (inbox || []).filter(m => m.unread).map(m => (
+                  <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-3 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
+                    <div className="min-w-0 flex-1 truncate mr-3">
+                      <span className="font-black text-slate-900 group-hover/item:text-primary transition-colors">{t(m.org)}:</span>
+                      <span className="ml-1 text-slate-600 font-medium">{t(m.preview)}</span>
+                    </div>
+                    <span className="text-white font-black shrink-0 text-[10px] bg-red-600 px-2 py-0.5 rounded-lg shadow-lg shadow-red-100">{m.date}</span>
                   </div>
-                  <span className="text-white font-black shrink-0 text-[10px] bg-red-600 px-2 py-0.5 rounded-lg shadow-lg shadow-red-100">{m.date}</span>
-                </div>
-              ))
+                ))
               )}
             </div>
           </section>
+        )}
 
         <section className={`bg-white border border-slate-100 rounded-[28px] md:rounded-[32px] p-5 md:p-6 shadow-sm flex flex-col group ${isInst ? 'order-1' : ''}`}>
           <div className="flex items-center justify-between mb-5 shrink-0 px-2">
@@ -287,7 +298,7 @@ export function HomeContent({
                 <Mail size={16} className="text-emerald-500" />
                 <h3 className="text-slate-950 font-black text-sm md:text-base italic tracking-tighter">{t("Lidas")}</h3>
              </div>
-             <span className="text-emerald-500 font-black text-sm md:text-base">{(inbox || []).filter(m => !m.unread).length}</span>
+             <span className="text-emerald-500 font-black text-sm md:text-base">{readCount}</span>
           </div>
           <div className="h-[320px] overflow-y-auto pr-1 space-y-3 custom-scrollbar">
             {(inbox || []).filter(m => !m.unread).map(m => (
@@ -302,13 +313,13 @@ export function HomeContent({
           </div>
         </section>
 
-        <section className={`bg-white border border-slate-100 rounded-[28px] md:rounded-[32px] p-5 md:p-6 shadow-sm flex flex-col group md:col-span-2 xl:col-span-1 ${isInst ? 'order-3' : ''}`}>
+        <section className={`bg-white border border-slate-100 rounded-[28px] md:rounded-[32px] p-5 md:p-6 shadow-sm flex flex-col group ${shouldHideUnread ? 'col-span-1' : 'md:col-span-2 xl:col-span-1'} ${isInst ? 'order-3' : ''}`}>
           <div className="flex items-center justify-between mb-5 shrink-0 px-2">
              <div className="flex items-center gap-2">
                 <Mail size={16} className="text-blue-500" />
                 <h3 className="text-slate-950 font-black text-sm md:text-base italic tracking-tighter">{t("Enviadas")}</h3>
              </div>
-             <span className="text-blue-500 font-black text-sm md:text-base">{(sentMessages || []).length}</span>
+             <span className="text-blue-500 font-black text-sm md:text-base">{sentCount}</span>
           </div>
           <div className="h-[320px] overflow-y-auto pr-1 space-y-3 custom-scrollbar">
             {(sentMessages || []).map(m => (
