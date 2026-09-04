@@ -101,16 +101,22 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
   // Lista oficial de províncias (21 Províncias DPA Angola 2025)
   const provincesList = Object.keys(MUNICIPALITIES_BY_PROVINCE).filter(p => p !== 'Todas');
 
-  // Cidades disponíveis: união do catálogo local + sugestões da IA + valor actual
+  // Cidades disponíveis: união do catálogo local + sugestões da IA devidamente filtradas
   const rawCities = province ? (CITIES_BY_PROVINCE[province] || ['Sede']) : [];
+  const rawMunis = province ? (MUNICIPALITIES_BY_PROVINCE[province] || []).filter(m => m !== 'Todos') : [];
+  
+  const validIaCities = iaCities.filter(c => {
+    if (province === 'Luanda') return c === 'Luanda' || c === 'Luanda (Capital)';
+    return true;
+  });
+
   const availableCities = Array.from(new Set([
     ...(cidade ? [cidade] : []),
     ...rawCities,
-    ...iaCities
+    ...validIaCities
   ])).filter(Boolean);
 
   // Municípios disponíveis: união do catálogo local da província + sugestões da IA + valor actual
-  const rawMunis = province ? (MUNICIPALITIES_BY_PROVINCE[province] || []).filter(m => m !== 'Todos') : [];
   const availableMunicipalities = Array.from(new Set([
     ...(municipio ? [municipio] : []),
     ...rawMunis,
@@ -128,16 +134,22 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
   // Handlers bidireccionais da cascata com suporte a IA:
   const onChangeProvince = (v: string) => {
     setProvince(v);
-    setCidade('');
     setMunicipio('');
     setComuna('');
     setIaCities([]);
     setIaMunicipalities([]);
     setIaCommunes([]);
     setErr('province', '');
-    setErr('cidade', '');
     setErr('municipio', '');
     setErr('comuna', '');
+
+    if (v === 'Luanda') {
+      setCidade('Luanda (Capital)');
+      setErr('cidade', '');
+    } else {
+      setCidade('');
+      setErr('cidade', '');
+    }
   };
 
   const onChangeCidade = (v: string) => {

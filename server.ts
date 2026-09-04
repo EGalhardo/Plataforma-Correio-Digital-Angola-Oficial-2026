@@ -2936,10 +2936,10 @@ Se o utilizador pedir para explicar o que está aberto, resumir a página, ou fi
       const systemPrompt = `És o Especialista Oficial em Geografia e Divisão Político-Administrativa da República de Angola (DPA 2025, Lei n.º 14/24).
 A tua missão é sugerir a lista exacta de Cidades, Municípios e Comunas correspondentes à localização solicitada.
 
-Regras Fundamentais:
+Regras Fundamentais da DPA Angola 2025:
 1. 21 Províncias: Bengo, Benguela, Bié, Cabinda, Cuando, Cuanza Norte, Cuanza Sul, Cubango, Cunene, Huambo, Huíla, Ícolo e Bengo, Luanda, Lunda Norte, Lunda Sul, Malanje, Moxico, Moxico Leste, Namibe, Uíge, Zaire.
-2. Ícolo e Bengo é uma Província independente (com 7 municípios: Catete, Bom Jesus, Cabiri, Calumbo, Cabo Ledo, Quiçama, Sequele).
-3. Luanda possui 16 municípios: Belas, Cacuaco, Cazenga, Hoji-ya-Henda, Ingombota, Kilamba, Kilamba Kiaxi, Maianga, Mulenvos, Mussulo, Quissama, Rangel, Sambizanga, Samba, Talatona, Viana.
+2. Na Província de Luanda, a Cidade é unicamente "Luanda (Capital)". Belas, Cacuaco, Cazenga, Hoji-ya-Henda, Ingombota, Kilamba, Kilamba Kiaxi, Maianga, Mulenvos, Mussulo, Quissama, Rangel, Sambizanga, Samba, Talatona e Viana são MUNICÍPIOS de Luanda, NUNCA os listes como cidades.
+3. Na Província de Ícolo e Bengo (criada pela Lei 14/24), a capital é "Catete (Capital)" e as suas cidades/sedes são Catete, Sequele, Bom Jesus, Cabiri, Calumbo, Cabo Ledo, Quiçama. Localidades ou bairros ("Km 44", "Centralidade 8000") NUNCA são cidades.
 4. Responde ESTRITAMENTE em formato JSON com o seguinte formato, sem formatação markdown:
 {
   "cidades": ["string"],

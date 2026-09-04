@@ -81,27 +81,27 @@ export const MUNICIPALITIES_BY_PROVINCE: { [key: string]: string[] } = {
 };
 
 export const CITIES_BY_PROVINCE: { [key: string]: string[] } = {
-  'Bengo': ['Caxito (Capital)', 'Ambriz', 'Barra do Dande', 'Nambuangongo', 'Pango Aluquém'],
-  'Benguela': ['Benguela (Capital)', 'Lobito', 'Catumbela', 'Baía Farta', 'Ganda', 'Cubal'],
-  'Bié': ['Cuíto (Capital)', 'Andulo', 'Camacupa', 'Chinguar', 'Chitembo', 'Nharêa'],
-  'Cabinda': ['Cabinda (Capital)', 'Buco-Zau', 'Cacongo', 'Liambo', 'Massabi'],
-  'Cuando': ['Mavinga (Capital)', 'Cuito Cuanavale', 'Dirico', 'Luengue', 'Luiana'],
-  'Cuanza Norte': ['N\'dalatando (Capital)', 'Ambaca', 'Banga', 'Cazengo', 'Golungo Alto'],
-  'Cuanza Sul': ['Sumbe (Capital)', 'Amboim', 'Cassongue', 'Cela', 'Libolo', 'Porto Amboim'],
-  'Cubango': ['Menongue (Capital)', 'Caiundo', 'Calai', 'Cuangar', 'Cuchi', 'Longa'],
-  'Cunene': ['Ondjiva (Capital)', 'Cahama', 'Cuanhama', 'Curoca', 'Cuvelai', 'Namacunde'],
-  'Huambo': ['Huambo (Capital)', 'Bailundo', 'Caála', 'Cachiungo', 'Londuimbali', 'Longonjo'],
-  'Huíla': ['Lubango (Capital)', 'Caconda', 'Chibia', 'Humpata', 'Matala', 'Quilengues'],
-  'Ícolo e Bengo': ['Catete (Capital)', 'Calumbo', 'Zango', 'Centralidade 8000', 'Km 44', 'Muxima', 'Sequele', 'Cabo Ledo', 'Quiçama'],
-  'Luanda': ['Luanda (Capital)', 'Belas', 'Cacuaco', 'Cazenga', 'Kilamba Kiaxi', 'Talatona', 'Viana', 'Ingombota', 'Maianga', 'Rangel'],
-  'Lunda Norte': ['Dundo (Capital)', 'Cambulo', 'Chitato', 'Cuango', 'Lucapa', 'Xá-Muteba'],
-  'Lunda Sul': ['Saurimo (Capital)', 'Cacolo', 'Dala', 'Muconda', 'Muangueji'],
-  'Malanje': ['Malanje (Capital)', 'Cacuso', 'Calandula', 'Cangandala', 'Marimba', 'Massango'],
-  'Moxico': ['Luena (Capital)', 'Alto Zambeze', 'Cameia', 'Léua', 'Luau', 'Luchazes'],
-  'Moxico Leste': ['Cazombo (Capital)', 'Cameia', 'Lusavo', 'Mucunde'],
-  'Namibe': ['Moçâmedes (Capital)', 'Bibala', 'Camucuio', 'Tômbua', 'Virei'],
-  'Uíge': ['Uíge (Capital)', 'Alto Cauale', 'Ambuíla', 'Bembe', 'Negage', 'Sanza Pombo'],
-  'Zaire': ['Mbanza Congo (Capital)', 'Cuimba', 'Nóqui', 'N\'Zeto', 'Soio', 'Tomboco']
+  'Bengo': ['Caxito (Capital)', 'Ambriz', 'Barra do Dande', 'Quibaxe', 'Bula Atumba', 'Nambuangongo', 'Pango Aluquém'],
+  'Benguela': ['Benguela (Capital)', 'Lobito', 'Catumbela', 'Baía Farta', 'Ganda', 'Cubal', 'Balombo', 'Bocoio', 'Caimbambo', 'Chongorói'],
+  'Bié': ['Cuíto (Capital)', 'Andulo', 'Camacupa', 'Catabola', 'Chinguar', 'Chitembo', 'Cuemba', 'Cunhinga', 'Nharêa'],
+  'Cabinda': ['Cabinda (Capital)', 'Buco-Zau', 'Cacongo', 'Belize', 'Massabi', 'Dinge', 'Necuto', 'Tando Zinze'],
+  'Cuando': ['Mavinga (Capital)', 'Cuito Cuanavale', 'Dirico', 'Rivungo', 'Luengue', 'Luiana'],
+  'Cuanza Norte': ['N\'dalatando (Capital)', 'Dondo', 'Golungo Alto', 'Lucala', 'Camabatela', 'Samba Caju', 'Ambaca', 'Banga', 'Cazengo'],
+  'Cuanza Sul': ['Sumbe (Capital)', 'Porto Amboim', 'Gabela', 'Waku Kungo', 'Calulo', 'Quibala', 'Cassongue', 'Seles', 'Conda', 'Ebo', 'Mussende', 'Quilenda'],
+  'Cubango': ['Menongue (Capital)', 'Cuchi', 'Cuangar', 'Calai', 'Caiundo', 'Longa', 'Nancova', 'Savate'],
+  'Cunene': ['Ondjiva (Capital)', 'Namacunde', 'Cahama', 'Xangongo', 'Cuvelai', 'Ombadja', 'Curoca'],
+  'Huambo': ['Huambo (Capital)', 'Caála', 'Bailundo', 'Cachiungo', 'Ecunha', 'Londuimbali', 'Longonjo', 'Mungo', 'Ucuma'],
+  'Huíla': ['Lubango (Capital)', 'Matala', 'Caconda', 'Chibia', 'Quilengues', 'Caluquembe', 'Humpata', 'Cuvango', 'Quipungo', 'Chicomba', 'Jamba'],
+  'Ícolo e Bengo': ['Catete (Capital)', 'Sequele', 'Bom Jesus', 'Cabiri', 'Calumbo', 'Cabo Ledo', 'Quiçama'],
+  'Luanda': ['Luanda (Capital)'],
+  'Lunda Norte': ['Dundo (Capital)', 'Lucapa', 'Cuango', 'Cambulo', 'Capenda Camulemba', 'Chitato', 'Cuílo', 'Lubalo', 'Xá-Muteba'],
+  'Lunda Sul': ['Saurimo (Capital)', 'Cacolo', 'Dala', 'Muconda'],
+  'Malanje': ['Malanje (Capital)', 'Calandula', 'Cacuso', 'Cangandala', 'Cambundi Catembo', 'Luquembo', 'Marimba', 'Massango', 'Mucari', 'Quela', 'Quirima'],
+  'Moxico': ['Luena (Capital)', 'Luau', 'Léua', 'Cameia', 'Camanongue', 'Luacano', 'Luchazes', 'Alto Zambeze'],
+  'Moxico Leste': ['Cazombo (Capital)', 'Lumbala Nguimbo', 'Macondo', 'Lago Dilolo', 'Lusavo', 'Mucunde'],
+  'Namibe': ['Moçâmedes (Capital)', 'Tômbua', 'Bibala', 'Virei', 'Camucuio', 'Lucira'],
+  'Uíge': ['Uíge (Capital)', 'Negage', 'Maquela do Zombo', 'Sanza Pombo', 'Damba', 'Ambuíla', 'Bembe', 'Buengas', 'Bungo', 'Milunga', 'Mucaba', 'Puri', 'Quimbele', 'Quitexe', 'Songo'],
+  'Zaire': ['Mbanza Congo (Capital)', 'Soyo', 'N\'Zeto', 'Tomboco', 'Nóqui', 'Cuimba']
 };
 
 export const COMMUNES_BY_MUNICIPALITY: { [key: string]: string[] } = {
