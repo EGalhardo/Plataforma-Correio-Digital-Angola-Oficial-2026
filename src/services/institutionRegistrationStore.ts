@@ -15,7 +15,7 @@ export interface InstitutionRegPack {
   sigla: string;
   tipo: string;
   provincia: string;
-  cidade: string;
+  cidade?: string;
   municipio: string;
   comuna: string;
   endereco: string;
@@ -250,17 +250,30 @@ export const validarSigla = (sigla: string): { valido: boolean; erro: string | n
 };
 
 /**
- * Validação dos campos de localização (Província, Cidade, Município, Comuna):
- * Todos devem estar preenchidos (não vazios e diferentes de 'Selecione...').
+ * Validação dos campos de localização segundo a DPA de Angola (Lei n.º 14/24):
+ * Província, Município, Comuna (3 níveis administrativos oficiais).
+ * Suporta também assinatura legada com 'cidade'.
  */
 export const validarLocalizacao = (
-  provincia: string, cidade: string, municipio: string, comuna: string
+  provincia: string,
+  municipioOuCidade: string,
+  comunaOuMunicipio: string,
+  comunaOpcional?: string
 ): { valido: boolean; erro: string | null } => {
+  let p = provincia;
+  let m = municipioOuCidade;
+  let c = comunaOuMunicipio;
+
+  // Se foram passados 4 argumentos (legado: provincia, cidade, municipio, comuna)
+  if (typeof comunaOpcional === 'string') {
+    m = comunaOuMunicipio;
+    c = comunaOpcional;
+  }
+
   const campos = [
-    { nome: 'Província', valor: provincia },
-    { nome: 'Cidade', valor: cidade },
-    { nome: 'Município', valor: municipio },
-    { nome: 'Comuna', valor: comuna },
+    { nome: 'Província', valor: p },
+    { nome: 'Município', valor: m },
+    { nome: 'Comuna', valor: c },
   ];
   for (const campo of campos) {
     if (!campo.valor || campo.valor.trim() === '' || campo.valor === 'Selecione...') {
@@ -272,25 +285,41 @@ export const validarLocalizacao = (
 
 /**
  * F6/B2 — Código Institucional: SIGLA (apenas letras, máx. 10) + '-' + iniciais
- * de Província, Cidade, Município e Comuna. Colisão → sufixo numérico no código
- * (C3): SME-LLVV, SME-LLVV2, … (nunca confunde com o '-NN' do agente).
- * 
- * Exemplo: INAPEM-LLMM (Luanda/Luanda/Maianga/Maianga)
+ * da DPA Oficial (Província, Município e Comuna).
+ * Fórmula DPA 2025: Loc = Inicial(Província) + Inicial(Município) + Inicial(Comuna)
+ * Exemplo: SME-LVM (Luanda / Viana / Mulenvos)
  */
 export const buildInstitutionalCode = (
-  sigla: string, provincia: string, cidade: string, municipio: string, comuna: string,
-  takenCodes: string[]
+  sigla: string,
+  provincia: string,
+  municipioOuCidade: string,
+  comunaOuMunicipio: string,
+  takenCodesOuComuna?: string[] | string,
+  takenCodesOpcional?: string[]
 ): string => {
+  let m = municipioOuCidade;
+  let co = comunaOuMunicipio;
+  let takenCodes: string[] = [];
+
+  if (Array.isArray(takenCodesOuComuna)) {
+    // Assinatura de 3 níveis: (sigla, provincia, municipio, comuna, takenCodes)
+    takenCodes = takenCodesOuComuna;
+  } else if (typeof takenCodesOuComuna === 'string') {
+    // Assinatura legada de 4 níveis: (sigla, provincia, cidade, municipio, comuna, takenCodes)
+    m = comunaOuMunicipio;
+    co = takenCodesOuComuna;
+    takenCodes = takenCodesOpcional || [];
+  }
+
   // Validar SIGLA: apenas letras, 2-10 caracteres
   const sig = normalizeInstCode(sigla).replace(/[^A-Z]/g, '').slice(0, 10);
   if (!sig || sig.length < 2) return 'INSTITUICAO';
   
   // Extrair iniciais de cada campo de localização (remove acentos primeiro)
   const P = initialLetter(provincia);
-  const C = initialLetter(cidade);
-  const M = initialLetter(municipio);
-  const Co = initialLetter(comuna);
-  const loc = P + C + M + Co;
+  const M = initialLetter(m);
+  const Co = initialLetter(co);
+  const loc = P + M + Co;
   
   const taken = new Set(takenCodes.map(normalizeInstCode));
   const base = `${sig}-${loc}`;

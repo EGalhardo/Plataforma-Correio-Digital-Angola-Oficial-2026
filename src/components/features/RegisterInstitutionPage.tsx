@@ -50,7 +50,6 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
   const [typeInst, setTypeInst] = useState('');
   // Localização — Cascata rígida (nenhum campo pré-selecionado)
   const [province, setProvince] = useState('');
-  const [cidade, setCidade] = useState('');
   const [municipio, setMunicipio] = useState('');
   const [comuna, setComuna] = useState('');
   const [endereco, setEndereco] = useState('');
@@ -93,16 +92,13 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
   // Lista oficial de províncias (21 Províncias DPA Angola 2025 — Lei n.º 14/24)
   const provincesList = Object.keys(MUNICIPALITIES_BY_PROVINCE).filter(p => p !== 'Todas');
 
-  // Cidades disponíveis conforme a província selecionada
-  const availableCities = province ? (CITIES_BY_PROVINCE[province] || ['Sede']) : [];
-
   // Municípios disponíveis conforme a província selecionada (326 municípios oficiais)
   const availableMunicipalities = province ? (MUNICIPALITIES_BY_PROVINCE[province] || []).filter(m => m !== 'Todos') : [];
 
   // Comunas disponíveis conforme o município selecionado (378 comunas oficiais)
   const availableCommunes = municipio ? (COMMUNES_BY_MUNICIPALITY[municipio] || [`${municipio} (Sede)`]) : [];
 
-  // Handlers determinísticos da cascata hierárquica (DPA 2025):
+  // Handlers determinísticos da cascata hierárquica DPA (Província → Município → Comuna):
   const onChangeProvince = (v: string) => {
     setProvince(v);
     setMunicipio('');
@@ -110,22 +106,6 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
     setErr('province', '');
     setErr('municipio', '');
     setErr('comuna', '');
-
-    if (v === 'Luanda') {
-      setCidade('Luanda (Capital)');
-      setErr('cidade', '');
-    } else if (v && CITIES_BY_PROVINCE[v] && CITIES_BY_PROVINCE[v].length > 0) {
-      setCidade(CITIES_BY_PROVINCE[v][0]);
-      setErr('cidade', '');
-    } else {
-      setCidade('');
-      setErr('cidade', '');
-    }
-  };
-
-  const onChangeCidade = (v: string) => {
-    setCidade(v);
-    setErr('cidade', '');
   };
 
   const onChangeMunicipio = (v: string) => {
@@ -144,7 +124,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
   // quando a SIGLA e os campos de localização estão válidos.
   useEffect(() => {
     const siglaValidacao = validarSigla(sigla);
-    const localValidacao = validarLocalizacao(province, cidade, municipio, comuna);
+    const localValidacao = validarLocalizacao(province, municipio, comuna);
     
     if (!siglaValidacao.valido || !localValidacao.valido) {
       setAgentCount(0);
@@ -153,7 +133,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
     }
     
     const codigoPrevisualizacao = buildInstitutionalCode(
-      siglaValidacao.siglaLimpa, province, cidade, municipio, comuna, []
+      siglaValidacao.siglaLimpa, province, municipio, comuna, []
     );
     
     let cancelled = false;
@@ -178,7 +158,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
     // Debounce: esperar 500ms após a última alteração para não consultar a cada tecla
     const timer = setTimeout(fetchAgentCount, 500);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [sigla, province, cidade, municipio, comuna]);
+  }, [sigla, province, municipio, comuna]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -197,9 +177,8 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
     
     if (typeInst.trim().length < 2) errs.typeInst = 'Insira o tipo de instituição.';
     
-    // Validação dos campos de localização
+    // Validação dos campos de localização (DPA 2025: Província, Município, Comuna)
     if (!province || province === 'Selecione...') errs.province = 'Selecione a província.';
-    if (!cidade || cidade === 'Selecione...') errs.cidade = 'Selecione a cidade.';
     if (!municipio || municipio === 'Selecione...') errs.municipio = 'Selecione o município.';
     if (!comuna || comuna === 'Selecione...') errs.comuna = 'Selecione a comuna.';
     
@@ -238,9 +217,9 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
         setIsSubmitting(false); return;
       }
 
-      // 3. Geração definitiva no submit — F6/B2: SIGLA + iniciais P/C/M/C (sufixo numérico se colidir)
+      // 3. Geração definitiva no submit — F6/B2: SIGLA + iniciais P/M/Co (sufixo numérico se colidir)
       const siglaFinal = siglaValidacao.siglaLimpa;
-      const code = buildInstitutionalCode(siglaFinal, province, cidade, municipio, comuna, uni.takenCodes);
+      const code = buildInstitutionalCode(siglaFinal, province, municipio, comuna, uni.takenCodes);
       if (uni.takenCodes.includes(code)) {
         setSubmitError('Não foi possível gerar um Código Institucional único. Tente novamente.');
         setIsSubmitting(false); return;
@@ -262,7 +241,6 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
         sigla: s,
         tipo: typeInst,
         provincia: province,
-        cidade,
         municipio,
         comuna,
         endereco: endereco.trim(),
@@ -578,7 +556,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
 
         <div className="border-t border-dashed border-slate-150" />
 
-        {/* 2. LOCALIZAÇÃO */}
+        {/* 2. LOCALIZAÇÃO (DPA 2025: Província → Município → Comuna → Endereço) */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-[#2563eb]">
@@ -607,25 +585,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
               {fieldErrors.province && <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.province}</p>}
             </div>
 
-            {/* 2. Cidade */}
-            <div className="grid gap-1">
-              <label className={labelCls}>Cidade *</label>
-              <div className="relative">
-                <select
-                  value={cidade}
-                  disabled={!province}
-                  onChange={(e) => onChangeCidade(e.target.value)}
-                  className={selectCls + (fieldErrors.cidade ? ' ' + errCls : '')}
-                >
-                  <option value="">Selecione...</option>
-                  {availableCities.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[9px]">▼</span>
-              </div>
-              {fieldErrors.cidade && <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.cidade}</p>}
-            </div>
-
-            {/* 3. Município */}
+            {/* 2. Município */}
             <div className="grid gap-1">
               <label className={labelCls}>Município *</label>
               <div className="relative">
@@ -643,8 +603,8 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
               {fieldErrors.municipio && <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.municipio}</p>}
             </div>
 
-            {/* 4. Comuna */}
-            <div className="grid gap-1">
+            {/* 3. Comuna */}
+            <div className="grid gap-1 md:col-span-2">
               <label className={labelCls}>Comuna *</label>
               <div className="relative">
                 <select
@@ -660,18 +620,20 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
               </div>
               {fieldErrors.comuna && <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.comuna}</p>}
             </div>
-          </div>
-          <div className="grid gap-1">
-            <label className={labelCls}>Endereço Institucional *</label>
-            <input
-              type="text"
-              value={endereco}
-              onChange={(e) => { setEndereco(e.target.value); setErr('endereco', ''); }}
-              onBlur={() => { const n = normalizarTexto(endereco); if (n !== endereco) setEndereco(n); }}
-              placeholder="Ex: Rua dos Correios, Casa 25, Maianga"
-              className={inputCls + (fieldErrors.endereco ? ' ' + errCls : '')}
-            />
-            {fieldErrors.endereco && <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.endereco}</p>}
+
+            {/* 4. Endereço Institucional */}
+            <div className="grid gap-1 md:col-span-2">
+              <label className={labelCls}>Endereço Institucional *</label>
+              <input
+                type="text"
+                value={endereco}
+                onChange={(e) => { setEndereco(e.target.value); setErr('endereco', ''); }}
+                onBlur={() => { const n = normalizarTexto(endereco); if (n !== endereco) setEndereco(n); }}
+                placeholder="Ex: Rua dos Correios, Edifício Luanda Tower, 4.º Andar"
+                className={inputCls + (fieldErrors.endereco ? ' ' + errCls : '')}
+              />
+              {fieldErrors.endereco && <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.endereco}</p>}
+            </div>
           </div>
         </div>
 
@@ -833,13 +795,13 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
               <div className="bg-slate-50 border-2 border-dashed border-[#2563eb]/25 rounded-[14px] px-4 py-3 text-xs font-mono font-black text-[#0E2B64] tracking-widest select-all">
                 {(() => {
                   const siglaVal = validarSigla(sigla);
-                  const locVal = validarLocalizacao(province, cidade, municipio, comuna);
+                  const locVal = validarLocalizacao(province, municipio, comuna);
                   if (!siglaVal.valido) return '⚠ Sigla inválida (2-10 letras)';
-                  if (!locVal.valido) return '⚠ Preencha Província, Cidade, Município e Comuna';
-                  return buildInstitutionalCode(siglaVal.siglaLimpa, province, cidade, municipio, comuna, []);
+                  if (!locVal.valido) return '⚠ Preencha Província, Município e Comuna';
+                  return buildInstitutionalCode(siglaVal.siglaLimpa, province, municipio, comuna, []);
                 })()}
               </div>
-              <p className="text-[8.5px] text-slate-400 font-bold ml-1 leading-snug">Sigla + iniciais de Província · Cidade · Município · Comuna.</p>
+              <p className="text-[8.5px] text-slate-400 font-bold ml-1 leading-snug">Sigla + iniciais de Província · Município · Comuna.</p>
             </div>
             <div className="grid gap-1">
               <label className={labelCls}>Nº Agente Institucional (automático)</label>
@@ -850,9 +812,9 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
                 <span>
                   {(() => {
                     const siglaVal = validarSigla(sigla);
-                    const locVal = validarLocalizacao(province, cidade, municipio, comuna);
+                    const locVal = validarLocalizacao(province, municipio, comuna);
                     if (!siglaVal.valido || !locVal.valido) return 'Aguarda dados válidos…';
-                    const codigo = buildInstitutionalCode(siglaVal.siglaLimpa, province, cidade, municipio, comuna, []);
+                    const codigo = buildInstitutionalCode(siglaVal.siglaLimpa, province, municipio, comuna, []);
                     return `${codigo}-${String(nextAgentSeq).padStart(2, '0')}`;
                   })()}
                 </span>

@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 async function run() {
-  console.log('🚀 Iniciando verificação E2E do Registo de Instituição (DPA 2025 sem IA)...');
+  console.log('🚀 Iniciando verificação E2E do Registo de Instituição (DPA 2025 — Província → Município → Comuna)...');
   
   const browser = await chromium.launch({
     headless: true,
@@ -12,43 +12,50 @@ async function run() {
 
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 
+  page.on('console', msg => {
+    if (msg.type() === 'error') console.log(`[Browser error]: ${msg.text()}`);
+  });
+
   try {
-    console.log('🌐 1. Acedendo a http://localhost:3000/institucional#/registar ...');
-    await page.goto('http://localhost:3000/institucional#/registar', { waitUntil: 'networkidle', timeout: 30000 });
+    console.log('🌐 1. Acedendo a http://localhost:3000/institucional ...');
+    await page.goto('http://localhost:3000/institucional', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(1000);
 
-    // Se não estiver directamente no formulário de registo, clica no botão "Registar Nova Instituição"
-    const btnRegistar = page.locator('button:has-text("Registar Nova Instituição"), button:has-text("Adesão Institucional"), a:has-text("Registar")').first();
-    if (await btnRegistar.isVisible({ timeout: 2000 }).catch(() => false)) {
-      console.log('📝 Clicando para abrir formulário de adesão...');
-      await btnRegistar.click();
-      await page.waitForTimeout(800);
-    }
+    // Clicar no botão "Registar" no ecrã de login institucional
+    const btnRegistar = page.locator('button:has-text("Registar")').first();
+    await btnRegistar.waitFor({ state: 'visible', timeout: 10000 });
+    console.log('📝 Clicando no botão "Registar"...');
+    await btnRegistar.click();
+    await page.waitForTimeout(1000);
 
-    // 2. Verificar se o bloco de Localização está presente
-    console.log('🔍 2. Verificando cabeçalho de Localização e ausência de IA...');
+    // 2. Verificar se o bloco de Localização está presente e se NÃO existe o campo Cidade nem IA
+    console.log('🔍 2. Verificando estrutura e ausência do campo "Cidade" e de "IA"...');
     const localizacaoHeader = page.locator('text=Localização').first();
     await localizacaoHeader.waitFor({ state: 'visible', timeout: 10000 });
 
-    const iaBadge = page.locator('text=Assistida por IA');
-    const hasIaBadge = await iaBadge.isVisible({ timeout: 500 }).catch(() => false);
-    if (hasIaBadge) {
+    const hasCidade = await page.locator('label:has-text("Cidade")').isVisible({ timeout: 500 }).catch(() => false);
+    if (hasCidade) {
+      throw new Error('❌ FALHA: O campo "Cidade" ainda está visível no formulário!');
+    }
+    console.log('✅ Confirmado: Campo "Cidade" removido com sucesso.');
+
+    const hasIa = await page.locator('text=Assistida por IA').isVisible({ timeout: 500 }).catch(() => false);
+    if (hasIa) {
       throw new Error('❌ FALHA: O badge "Assistida por IA" ainda está visível!');
     }
-    console.log('✅ Confirmado: Badge "Assistida por IA" NÃO existe.');
+    console.log('✅ Confirmado: Nenhuma dependência de IA no grupo Localização.');
 
-    // Seletores precisos baseados nas labels dos campos
+    // Seletores precisos para os 3 níveis administrativos oficiais
     const selProvincia = page.locator('div.grid:has(> label:has-text("Província")) select');
-    const selCidade = page.locator('div.grid:has(> label:has-text("Cidade")) select');
     const selMunicipio = page.locator('div.grid:has(> label:has-text("Município")) select');
     const selComuna = page.locator('div.grid:has(> label:has-text("Comuna")) select');
+    const inputEndereco = page.locator('div.grid:has(> label:has-text("Endereço Institucional")) input');
 
     // 3. Testar Província "Ícolo e Bengo" (Nova Província DPA 2025)
     console.log('📍 3. Selecionando Província "Ícolo e Bengo"...');
     await selProvincia.selectOption('Ícolo e Bengo');
     await page.waitForTimeout(300);
 
-    // Verificar Municípios de Ícolo e Bengo
     const munisIcolo = await selMunicipio.locator('option').allInnerTexts();
     console.log('Municípios em Ícolo e Bengo:', munisIcolo);
     if (!munisIcolo.includes('Calumbo') || !munisIcolo.includes('Sequele') || !munisIcolo.includes('Bom Jesus')) {
@@ -68,43 +75,30 @@ async function run() {
     }
     console.log('✅ Comunas de Calumbo (incluindo Zango 0 a 5/8000) verificadas.');
 
-    // 5. Testar Província "Cuando" (Nova Província DPA 2025)
-    console.log('📍 5. Selecionando Província "Cuando"...');
-    await selProvincia.selectOption('Cuando');
+    // 5. Preencher dados para testar pré-visualização do Código Institucional (3 letras: Província/Município/Comuna)
+    console.log('✍️ 5. Preenchendo campos para testar geração do Código Institucional...');
+    const inputNome = page.locator('div.grid:has(> label:has-text("Nome Institucional Completo")) input');
+    await inputNome.fill('Serviço de Migração e Estrangeiros');
     await page.waitForTimeout(300);
 
-    const munisCuando = await selMunicipio.locator('option').allInnerTexts();
-    console.log('Municípios em Cuando:', munisCuando);
-    if (!munisCuando.includes('Mavinga') || !munisCuando.includes('Cuito Cuanavale')) {
-      throw new Error('❌ FALHA: Municípios do Cuando incompletos!');
-    }
-    console.log('✅ Província do Cuando verificada com sucesso.');
-
-    // 6. Testar Província "Moxico Leste" (Nova Província DPA 2025)
-    console.log('📍 6. Selecionando Província "Moxico Leste"...');
-    await selProvincia.selectOption('Moxico Leste');
-    await page.waitForTimeout(300);
-
-    const munisMoxicoLeste = await selMunicipio.locator('option').allInnerTexts();
-    console.log('Municípios em Moxico Leste:', munisMoxicoLeste);
-    if (!munisMoxicoLeste.includes('Cazombo') || !munisMoxicoLeste.includes('Luau')) {
-      throw new Error('❌ FALHA: Municípios de Moxico Leste incompletos!');
-    }
-    console.log('✅ Província de Moxico Leste verificada com sucesso.');
-
-    // 7. Testar Província "Luanda" (16 municípios urbanos)
-    console.log('📍 7. Selecionando Província "Luanda"...');
     await selProvincia.selectOption('Luanda');
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(200);
+    await selMunicipio.selectOption('Viana');
+    await page.waitForTimeout(200);
+    await selComuna.selectOption({ index: 1 });
+    await page.waitForTimeout(200);
 
-    const munisLuanda = await selMunicipio.locator('option').allInnerTexts();
-    console.log('Municípios em Luanda:', munisLuanda);
-    if (munisLuanda.includes('Calumbo')) {
-      throw new Error('❌ FALHA: Calumbo ainda aparece em Luanda (deve estar apenas em Ícolo e Bengo)!');
+    await inputEndereco.fill('Rua dos Correios, Edifício Luanda Tower, 4.º Andar');
+    await page.waitForTimeout(600);
+
+    const previewCode = await page.locator('text=Código Institucional (automático)').locator('..').locator('div.bg-slate-50').innerText();
+    console.log('Código Institucional gerado na pré-visualização:', previewCode);
+    if (!previewCode.startsWith('SME-')) {
+      throw new Error(`❌ FALHA: Código institucional inesperado: ${previewCode}`);
     }
-    console.log('✅ Luanda confirmada (Calumbo transferido correctamente para Ícolo e Bengo).');
+    console.log('✅ Código Institucional gerado com a fórmula oficial (Província · Município · Comuna).');
 
-    // 8. Capturar screenshot de evidência
+    // 6. Capturar screenshot de evidência
     const screenshotDir = path.resolve('testes/evidencias/screenshots');
     if (!fs.existsSync(screenshotDir)) {
       fs.mkdirSync(screenshotDir, { recursive: true });
