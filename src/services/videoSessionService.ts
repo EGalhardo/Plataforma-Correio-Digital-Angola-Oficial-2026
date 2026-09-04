@@ -334,15 +334,22 @@ export const VideoSessionService = {
     // 2026-08-22 — MODO REAL: persistência NA NUVEM via proxy /api/dados
     // (RLS endurecida bloqueia o insert directo do cliente). O servidor
     // injeta host_bi (instituição) ou guest_bi (cidadão) conforme a sessão.
-    // 2026-08-22 (v2) — a falha de gravação deixa de ser SILENTOSA: a sessão
-    // volta marcada cloudPersisted=false para a UI avisar o utilizador (sem
-    // isto o agendamento "desaparecia" no logout — o espelho local é limpo).
+    // 2026-09-04 (v3) — preenchimento de TODAS as colunas NOT NULL da tabela
+    // video_sessions (reference_code, title, origin_type, origin_id, etc.).
     let cloudPersisted = true;
     if (hasValidSupabaseKeys()) {
+      // Extrair data e hora do scheduledFor (ex: "Hoje às 14:30")
+      const scheduledDate = new Date().toISOString().split('T')[0];
+      const timeMatch = session.scheduledFor.match(/(\d{1,2}):(\d{2})/);
+      const scheduledTime = timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}:00` : '09:00:00';
+      // Gerar reference_code único
+      const refCode = `VID-${new Date().toISOString().split('T')[0].replace(/-/g, '')}-${id.split('-')[0].toUpperCase()}`;
+      
       const gravado = await gravarDados(
         'video_sessions', 'insert', undefined,
         [{
           id,
+          // Colunas originais (compatibilidade)
           room_name: session.roomName,
           subject: session.subject,
           associated_protocol: session.associatedProtocol || null,
@@ -358,6 +365,27 @@ export const VideoSessionService = {
           notes: (session as any).notes || null,
           quality: 'excellent',
           participant_count: 2,
+          // Colunas NOT NULL obrigatórias (schema expandido)
+          reference_code: refCode,
+          title: session.subject || 'Video-atendimento',
+          description: (session as any).agenda || session.subject || 'Sessão de videoatendimento',
+          origin_type: 'institucional',
+          origin_id: session.hostBi || 'DESCONHECIDO',
+          citizen_bi: session.guestBi || 'DESCONHECIDO',
+          citizen_name: session.guestName || 'Cidadão',
+          institution_code: session.hostBi || 'DESCONHECIDO',
+          institution_name: session.hostName || 'Instituição',
+          created_by: session.hostBi || 'DESCONHECIDO',
+          scheduled_date: scheduledDate,
+          scheduled_time: scheduledTime,
+          duration_minutes: 30,
+          priority: 'Normal',
+          meeting_provider: 'jitsi',
+          meeting_room: session.roomName || `cda-video-${id.substring(0, 8)}`,
+          meeting_url: `https://meet.jit.si/${session.roomName || `cda-video-${id.substring(0, 8)}`}`,
+          allow_reschedule: true,
+          allow_recording_request: false,
+          reminder_sent: false,
         }],
         undefined,
         async () => null,
