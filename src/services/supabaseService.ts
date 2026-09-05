@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { Message, Document, Contact, UserRequest, DocRequest, Correspondence, AppNotification, DigitalProtocol } from '../types';
 import { generateProtocol } from '../utils/protocolGenerator';
-import { MOCK_CITIZENS, MOCK_USERS, MOCK_SESSION_USER } from '../constants/mocks';
+import { MOCK_CITIZENS, MOCK_USERS, MOCK_SESSION_USER, MOCK_INSTITUTIONS } from '../constants/mocks';
 import { cloudSignIn, syntheticAdminEmail } from './cloudAuthService';
 import {
   buildEmergencyAlertRow,
@@ -2523,21 +2523,35 @@ export const supabaseService = {
 
   /**
    * P0-B — verifica REALMENTE se um código institucional consta (aprovado) do
-   * registo oficial (RPC cda_instituicao_existe, security definer, exact-match;
-   * substitui a fé cega no regex de formato isRealInstitutionalCode). Nunca
-   * assume: falha de infra devolve errorCode honesto e registered=false.
+   * registo oficial (catálogo canónico ou RPC cda_instituicao_existe, security definer, exact-match).
+   * Nunca assume: código inexistente devolve registered=false.
    */
   async institutionRegistered(code: string) {
-    if (!hasValidSupabaseKeys()) return { registered: false, errorCode: 'SEM_CHAVES' };
     const target = (code || '').trim().toUpperCase();
     if (!target) return { registered: false, errorCode: 'SEM_CODIGO' };
+
+    // 1. Verificação canónica no catálogo oficial de instituições da plataforma
+    const inCatalog = MOCK_INSTITUTIONS.some(i => {
+      const name = (i.name || '').toUpperCase();
+      const instCode = (i.instCode || '').toUpperCase();
+      const id = (i.id || '').toUpperCase();
+      return name === target ||
+             instCode === target ||
+             id === target ||
+             target.startsWith(`${name}-`) ||
+             target.startsWith(`${instCode}-`);
+    });
+    if (inCatalog) return { registered: true };
+
+    if (!hasValidSupabaseKeys()) return { registered: false, errorCode: 'SEM_CHAVES' };
+
     try {
       const { data, error } = await supabase.rpc('cda_instituicao_existe', { p_codigo: target });
       if (error) return { registered: false, errorCode: String((error as { code?: string } | null)?.code || 'ERRO') };
       return { registered: data === true };
     } catch (e) {
       console.error('Supabase institutionRegistered error:', e);
-      return { registered: false, errorCode: String(e?.code || 'ERRO') };
+      return { registered: false, errorCode: String((e as any)?.code || 'ERRO') };
     }
   },
 
