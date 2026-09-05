@@ -1,0 +1,574 @@
+{
+  "timestamp": "2026-09-05T16:46:57.105Z",
+  "totalPaginasTestadas": 93,
+  "findingsCount": {
+    "critico": 0,
+    "alto": 0,
+    "medio": 0,
+    "baixo": 0
+  },
+  "findings": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "networkFailures": [],
+  "executedPages": [
+    {
+      "area": "Cidadão",
+      "page": "Painel",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Correio",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Contactos",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Perfil",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Histórico",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Notificações",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Pagamentos",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Video-Atendimento",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Directório de Órgãos",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Sondagens",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Carteira Digital",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Pasta Digital",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Solicitar Atos",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Painel",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Correio",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Contactos",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Perfil",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Histórico",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Notificações",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Pagamentos",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Video-Atendimento",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Directório de Órgãos",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Sondagens",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Carteira Digital",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Pasta Digital",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Solicitar Atos",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Painel",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Correio",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Contactos",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Perfil",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Histórico",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Notificações",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Pagamentos",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Video-Atendimento",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Directório de Órgãos",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Sondagens",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Carteira Digital",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Pasta Digital",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Cidadão",
+      "page": "Solicitar Atos",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Painel",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Correio",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Equipa",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "QR Code",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Assistente IA",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Perfil",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Pagamentos / Cobrança",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Emergência Governamental",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Painel",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Correio",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Equipa",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "QR Code",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Assistente IA",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Perfil",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Pagamentos / Cobrança",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Emergência Governamental",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Painel",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Correio",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Equipa",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "QR Code",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Assistente IA",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Perfil",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Pagamentos / Cobrança",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Institucional",
+      "page": "Emergência Governamental",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Painel Central",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Interoperabilidade",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Auditoria de Correspondências",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Cidadãos (PVI & Homologação)",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Equipa & Agentes",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Relatórios Executivos",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Monitor de IA",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Segurança & SOC",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Perfil Admin",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Emissão em Massa",
+      "viewport": "Mobile",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Painel Central",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Interoperabilidade",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Auditoria de Correspondências",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Cidadãos (PVI & Homologação)",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Equipa & Agentes",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Relatórios Executivos",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Monitor de IA",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Segurança & SOC",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Perfil Admin",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Emissão em Massa",
+      "viewport": "Tablet",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Painel Central",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Interoperabilidade",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Auditoria de Correspondências",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Cidadãos (PVI & Homologação)",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Equipa & Agentes",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Relatórios Executivos",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Monitor de IA",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Segurança & SOC",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Perfil Admin",
+      "viewport": "Desktop",
+      "status": "PASS"
+    },
+    {
+      "area": "Admin",
+      "page": "Emissão em Massa",
+      "viewport": "Desktop",
+      "status": "PASS"
+    }
+  ]
+}
