@@ -15,3 +15,6 @@ cda_test/
 .config/
 e2e_admin_shots/
 .sudo_as_admin_successful
+
+# Screenshots de testes automatizados
+testes/evidencias/screenshots/*.png
