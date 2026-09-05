@@ -281,7 +281,7 @@ export const isRealInstitutionalCode = (raw?: string): boolean =>
 // leitura falha — qualquer escrita na nuvem dispara evento, fura o cache e o
 // re-carregamento vai à rede buscar os dados novos: a integridade da
 // correspondência e a frescura dirigida por Realtime ficam intactas.
-const MSG_READ_CACHE_TTL_MS = 30000;
+const MSG_READ_CACHE_TTL_MS = 2000;
 const messagesReadCache = new Map<string, { ts: number; value: Promise<unknown> }>();
 const readThroughMessagesCache = <T>(key: string, producer: () => Promise<T>): Promise<T> => {
   const hit = messagesReadCache.get(key);

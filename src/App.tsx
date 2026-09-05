@@ -2825,7 +2825,7 @@ export default function App() {
         const effectiveInstCode = institutionCode || (isInstMode ? bi : '');
         const sentSenderKey = isInstMode ? effectiveInstCode : isGovMode ? 'CDA' : bi;
         const mailboxRecipientKey = isInstMode ? effectiveInstCode : bi;
-        const precisaHidratacaoPerfil = isUserMode && bi && !homologationStore.isExempt(bi) && isCloudBound(bi);
+        const precisaHidratacaoPerfil = bi && !homologationStore.isExempt(bi) && isCloudBound(bi);
         // v37.23 (DESEMPENHO) — hidratação do perfil + caixa de mensagens em
         // PARALELO: antes eram 2 round-trips sequenciais ao arranque (e a cada
         // evento realtime); agora correm em simultâneo.
@@ -2847,7 +2847,17 @@ export default function App() {
               if (typeof dbProfile.marital_status === 'string' && dbProfile.marital_status.trim()) hyd.maritalStatus = dbProfile.marital_status.trim();
               // F45 (Auditoria F42 · Médio#10 — corrida F39): NUNCA aplicar a
               // hidratação da nuvem POR CIMA de uma edição de perfil em curso.
-              if (Object.keys(hyd).length && !isProfileEditActive()) updateUserFields(hyd);
+              if (Object.keys(hyd).length && !isProfileEditActive()) {
+                if (isUserMode) {
+                  updateUserFields(hyd);
+                } else if (isInstMode && instIdentityRef.current?.type !== 'member') {
+                  if (hyd.name) updateActiveProfileFields({ institutionName: hyd.name });
+                  updateUserFields(hyd);
+                } else if (isGovMode) {
+                  if (hyd.name) updateActiveProfileFields({ role: dbProfile.role || 'Administrador' });
+                  updateUserFields(hyd);
+                }
+              }
             }
           }
         }
@@ -3238,6 +3248,22 @@ export default function App() {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
         console.debug('CADA: Supabase Realtime detectou alteração em notificações!');
+        setTriggerRefetch(t => t + 1);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitacoes_registo' }, () => {
+        console.debug('CADA: Supabase Realtime detectou alteração em solicitações de registo!');
+        setTriggerRefetch(t => t + 1);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'video_sessions' }, () => {
+        console.debug('CADA: Supabase Realtime detectou alteração em sessões de vídeo!');
+        setTriggerRefetch(t => t + 1);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sondagens' }, () => {
+        console.debug('CADA: Supabase Realtime detectou alteração em sondagens!');
+        setTriggerRefetch(t => t + 1);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'digital_protocols' }, () => {
+        console.debug('CADA: Supabase Realtime detectou alteração em protocolos digitais!');
         setTriggerRefetch(t => t + 1);
       })
       .subscribe();
@@ -3856,6 +3882,45 @@ export default function App() {
     const id = setInterval(() => void verificarSyncPerfilAutomaticamente(), 5 * 60 * 1000);
     return () => clearInterval(id);
   }, [verificarSyncPerfilAutomaticamente, stage]);
+
+  // Sempre que qualquer página/aba da conta é carregada, visualizada ou comutada,
+  // ou quando a janela recupera o foco, invalida caches e carrega os dados mais actualizados.
+  useEffect(() => {
+    if (stage !== 'app') return;
+    invalidateMessagesReadCache();
+    setTriggerRefetch(t => t + 1);
+    void verificarSyncPerfilAutomaticamente();
+  }, [tab, stage, verificarSyncPerfilAutomaticamente]);
+
+  useEffect(() => {
+    if (stage !== 'app') return;
+    const handleFocusOrVisible = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        invalidateMessagesReadCache();
+        setTriggerRefetch(t => t + 1);
+        void verificarSyncPerfilAutomaticamente();
+      }
+    };
+    const handleHashChange = () => {
+      invalidateMessagesReadCache();
+      setTriggerRefetch(t => t + 1);
+      void verificarSyncPerfilAutomaticamente();
+    };
+    window.addEventListener('focus', handleFocusOrVisible);
+    document.addEventListener('visibilitychange', handleFocusOrVisible);
+    window.addEventListener('hashchange', handleHashChange);
+    const pollingTimer = setInterval(() => {
+      invalidateMessagesReadCache();
+      setTriggerRefetch(t => t + 1);
+    }, 15000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocusOrVisible);
+      document.removeEventListener('visibilitychange', handleFocusOrVisible);
+      window.removeEventListener('hashchange', handleHashChange);
+      clearInterval(pollingTimer);
+    };
+  }, [stage, verificarSyncPerfilAutomaticamente]);
 
   // 2026-08-20 — reaplicar as EDIÇÕES LOCAIS do perfil guardadas por conta
   // (perfilLocalService): cobre contas demo (nuvem fora de âmbito — era o que

@@ -1278,107 +1278,119 @@ export function GovContactsContent({
     }
   };
 
-  useEffect(() => {
-    const fetchSupabaseCitizens = async () => {
-      const isSupabaseReady = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
-      if (!isSupabaseReady) return;
+  const fetchSupabaseCitizens = React.useCallback(async () => {
+    const isSupabaseReady = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (!isSupabaseReady) return;
 
-      try {
-        // 2026-08-20 — Modo Real: ler a fila de registos via proxy do servidor
-        // (service role). Sem sessão (demo) mantém-se o caminho directo.
-        const viaProxy = await registoPublicoProxy('select');
-        let data: any[] | null = null;
-        let error: any = null;
-        if (viaProxy === null) {
-          const direct = await supabase
-            .from('solicitacoes_registo')
+    try {
+      // 2026-08-20 — Modo Real: ler a fila de registos via proxy do servidor
+      // (service role). Sem sessão (demo) mantém-se o caminho directo.
+      const viaProxy = await registoPublicoProxy('select');
+      let data: any[] | null = null;
+      let error: any = null;
+      if (viaProxy === null) {
+        const direct = await supabase
+          .from('solicitacoes_registo')
+          .select('*')
+          .order('criado_em', { ascending: false });
+        data = direct.data as any[] | null; error = direct.error;
+      } else if (viaProxy.ok) {
+        data = (viaProxy.linhas || []) as any[];
+      } else {
+        console.warn('[REGISTOS] leitura via servidor falhou:', viaProxy.erro);
+        return;
+      }
+
+      if (error) {
+        if (error.code === 'PGRST205') {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
             .select('*')
-            .order('criado_em', { ascending: false });
-          data = direct.data as any[] | null; error = direct.error;
-        } else if (viaProxy.ok) {
-          data = (viaProxy.linhas || []) as any[];
-        } else {
-          console.warn('[REGISTOS] leitura via servidor falhou:', viaProxy.erro);
-          return;
-        }
-
-        if (error) {
-          if (error.code === 'PGRST205') {
-            const { data: profileData, error: profileError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('role', 'user');
-            if (profileError) {
-              console.error('Error fetching fallback citizens from profiles:', profileError);
-              return;
-            }
-            if (profileData && profileData.length > 0) {
-              const profileCitizens = mapProfilesToCitizens(profileData);
-              setCitizens(prev => {
-                const localFiltered = prev.filter(c => !(profileData as LinhaPerfilAdmin[]).some((item) => item.bi === c.biNumber));
-                return [...profileCitizens, ...localFiltered];
-              });
-            }
+            .eq('role', 'user');
+          if (profileError) {
+            console.error('Error fetching fallback citizens from profiles:', profileError);
             return;
           }
-          console.error('Error fetching citizens from Supabase:', error);
+          if (profileData && profileData.length > 0) {
+            const profileCitizens = mapProfilesToCitizens(profileData);
+            setCitizens(prev => {
+              const localFiltered = prev.filter(c => !(profileData as LinhaPerfilAdmin[]).some((item) => item.bi === c.biNumber));
+              return [...profileCitizens, ...localFiltered];
+            });
+          }
           return;
         }
-
-        if (data && data.length > 0) {
-          // Instituições vivem na página Instituições (secção "Solicitações de Registo") — saem da fila de cidadãos.
-          const citizenRows = (data as LinhaSolicitacaoCidadao[]).filter((item) => {
-            if (item?.observacoes?.includes('[Instituição]')) return false;
-            // Seeds institucionais de demonstração não podem aparecer como cidadãos no modo real.
-            if (!shouldUseMockFallback() && (item?.bi_numero === 'AGT-9921-SR' || item?.observacoes?.includes('Seed demo'))) return false;
-            return true;
-          });
-          const supabaseCitizens: Citizen[] = await resolveCitizenDocUrls(mapRegistrationRowsToCitizens(citizenRows));
-
-          setCitizens(prev => {
-            const localFiltered = prev.filter(c => !citizenRows.some((item) => item.bi_numero === c.biNumber) && c.category !== 'Instituição');
-            // A versão da nuvem ganha prioridade, MAS preserva as métricas reais
-            // locais quando o registo na nuvem ainda não as transporta.
-            const merged = supabaseCitizens.map(sc => {
-              const local = prev.find(c => c.biNumber === sc.biNumber);
-              if (!local) return sc;
-              return {
-                ...local,
-                ...sc,
-                coherenceLevel: sc.coherenceLevel ?? local.coherenceLevel,
-                facialMatch: sc.facialMatch ?? local.facialMatch,
-                imageQuality: sc.imageQuality ?? local.imageQuality,
-                ocrDataMatch: sc.ocrDataMatch ?? local.ocrDataMatch,
-                iaResult: sc.iaResult ?? local.iaResult,
-                verificationScore: sc.verificationScore ?? local.verificationScore,
-                phone: sc.phone ?? local.phone,
-                // F29 (v11.1): o spread da nuvem escreveria undefined sobre os campos PVIC
-                // locais — preserva-os como já acontece com as métricas KYC.
-                pviVer: sc.pviVer ?? local.pviVer,
-                pviAlertas: (sc.pviAlertas && sc.pviAlertas.length > 0) ? sc.pviAlertas : local.pviAlertas,
-                pviMotivo: sc.pviMotivo ?? local.pviMotivo,
-                pviDuracaoMs: sc.pviDuracaoMs ?? local.pviDuracaoMs,
-                pviModelo: sc.pviModelo ?? local.pviModelo,
-                pviTs: sc.pviTs ?? local.pviTs
-              };
-            });
-            return [...merged, ...localFiltered];
-          });
-        }
-      } catch (err) {
-        console.error('Error in fetchSupabaseCitizens:', err);
+        console.error('Error fetching citizens from Supabase:', error);
+        return;
       }
-    };
 
-    fetchSupabaseCitizens();
+      if (data && data.length > 0) {
+        // Instituições vivem na página Instituições (secção "Solicitações de Registo") — saem da fila de cidadãos.
+        const citizenRows = (data as LinhaSolicitacaoCidadao[]).filter((item) => {
+          if (item?.observacoes?.includes('[Instituição]')) return false;
+          // Seeds institucionais de demonstração não podem aparecer como cidadãos no modo real.
+          if (!shouldUseMockFallback() && (item?.bi_numero === 'AGT-9921-SR' || item?.observacoes?.includes('Seed demo'))) return false;
+          return true;
+        });
+        const supabaseCitizens: Citizen[] = await resolveCitizenDocUrls(mapRegistrationRowsToCitizens(citizenRows));
+
+        setCitizens(prev => {
+          const localFiltered = prev.filter(c => !citizenRows.some((item) => item.bi_numero === c.biNumber) && c.category !== 'Instituição');
+          // A versão da nuvem ganha prioridade, MAS preserva as métricas reais
+          // locais quando o registo na nuvem ainda não as transporta.
+          const merged = supabaseCitizens.map(sc => {
+            const local = prev.find(c => c.biNumber === sc.biNumber);
+            if (!local) return sc;
+            return {
+              ...local,
+              ...sc,
+              coherenceLevel: sc.coherenceLevel ?? local.coherenceLevel,
+              facialMatch: sc.facialMatch ?? local.facialMatch,
+              imageQuality: sc.imageQuality ?? local.imageQuality,
+              ocrDataMatch: sc.ocrDataMatch ?? local.ocrDataMatch,
+              iaResult: sc.iaResult ?? local.iaResult,
+              verificationScore: sc.verificationScore ?? local.verificationScore,
+              phone: sc.phone ?? local.phone,
+            };
+          });
+          return [...merged, ...localFiltered];
+        });
+      }
+    } catch (e) {
+      console.error('Error in fetchSupabaseCitizens:', e);
+    }
   }, []);
 
+  const refrescarTudo = React.useCallback(() => {
+    carregarDadosReaisAdmin().then(d => {
+      if (!d) return;
+      const mapa = new Map<string, string>();
+      (d.profiles || []).forEach(pp => {
+        if (pp.bi && pp.morada) mapa.set(pp.bi.toUpperCase(), pp.morada);
+      });
+      moradasReaisRef.current = mapa;
+      setDadosReais(d);
+    }).catch(() => {});
+    void refrescarMembrosCloudInst();
+    void fetchSupabaseCitizens();
+  }, [refrescarMembrosCloudInst, fetchSupabaseCitizens]);
 
-
-
-
-
-
+  useEffect(() => {
+    refrescarTudo();
+    const handleFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        refrescarTudo();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+    const timer = setInterval(refrescarTudo, 15000);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+      clearInterval(timer);
+    };
+  }, [refrescarTudo]);
 
   const filteredCitizens = useMemo(() => {
     const filtrados = citizens.filter((citizen) => {
