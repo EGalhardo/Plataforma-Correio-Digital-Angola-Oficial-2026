@@ -41,7 +41,11 @@ import {
   Paperclip,
   Edit2,
   BarChart3,
-  Building
+  Building,
+  User,
+  Building2,
+  ListOrdered,
+  Info
 } from 'lucide-react';
 import { Message, LanguageCode } from '../../types';
 import { translateText } from '../../utils/translator';
@@ -937,525 +941,475 @@ export function MailContent({
       <motion.div 
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-6"
+        className="space-y-6 max-w-5xl mx-auto font-sans"
       >
-        <div className="flex items-center gap-4 mb-2">
-          <button 
-            onClick={() => setIsComposing(false)}
-            className="flex items-center justify-center w-10 h-10 bg-white border-2 border-[#d1dbe5] rounded-full text-[#384e6e] hover:bg-slate-50 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95 shrink-0"
-            aria-label="Voltar"
-            title="Voltar ao Correio"
-          >
-            <ArrowLeft size={16} className="text-[#384e6e]" />
-          </button>
+        {/* Header matched 1:1 to uploaded reference */}
+        <div className="flex items-center gap-3.5 mb-2">
+          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-md shadow-blue-600/20 shrink-0">
+            <Mail size={22} className="text-white" strokeWidth={2.2} />
+          </div>
           <div>
-            <h3 className="text-base md:text-xl font-black text-primary leading-none">Nova Mensagem</h3>
-            <p className="text-[9px] md:text-[10px] text-slate-700 font-black uppercase tracking-widest mt-1">Comunicação Oficial Directa</p>
+            <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight">NOVA MENSAGEM</h3>
+            <p className="text-xs md:text-sm text-slate-500 font-medium mt-0.5">Envie uma correspondência digital para um cidadão ou instituição.</p>
           </div>
         </div>
 
-        <div className="bg-white border border-line rounded-[24px] md:rounded-[32px] p-5 md:p-10 shadow-sm space-y-5 md:space-y-6">
-          {isInst ? (
-            <div className="grid grid-cols-1 gap-5 md:gap-6">
-              <div className="space-y-2">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pl-1 pb-1">
-                  <div className="flex flex-wrap items-center gap-6 sm:gap-8">
-                    <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest cursor-default">
-                      {instRecipientType === 'cidadao' ? 'Destinatário (Nº do BI — exacto)' : 'Destinatário (Código Institucional)'}
-                    </label>
-                    <div className="flex items-center gap-6 text-xs md:text-sm">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setInstRecipientType('cidadao');
-                          setComposeData(prev => ({ ...prev, to: '' }));
-                        }}
-                        className={`pb-0.5 px-1 font-bold transition-all cursor-pointer border-b-2 ${
-                          instRecipientType === 'cidadao'
-                            ? 'border-indigo-600 text-indigo-700'
-                            : 'border-transparent text-slate-500 hover:text-slate-800'
-                        }`}
-                        id="tab-destinatario-cidadao"
-                      >
-                        Cidadão
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setInstRecipientType('instituicao');
-                          setComposeData(prev => ({ ...prev, to: '' }));
-                        }}
-                        className={`pb-0.5 px-1 font-bold transition-all cursor-pointer border-b-2 ${
-                          instRecipientType === 'instituicao'
-                            ? 'border-indigo-600 text-indigo-700'
-                            : 'border-transparent text-slate-500 hover:text-slate-800'
-                        }`}
-                        id="tab-destinatario-instituicao"
-                      >
-                        Instituição
-                      </button>
-                    </div>
-                  </div>
+        {/* Outer Form Container */}
+        <div className="space-y-4 md:space-y-5">
+          {/* Section 1: DESTINATÁRIO */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-3xl p-5 md:p-6 shadow-xs space-y-4">
+            <label className="text-[11px] md:text-xs font-black text-slate-800 uppercase tracking-wider block">
+              {isInst 
+                ? (instRecipientType === 'cidadao' ? 'DESTINATÁRIO (Nº DO BI — EXACTO)' : 'DESTINATÁRIO (CÓDIGO INSTITUCIONAL)')
+                : 'DESTINATÁRIO (CÓDIGO INSTITUCIONAL)'}
+            </label>
 
-                  <button
-                    type="button"
-                    onClick={adicionarDestinatarioMulti}
-                    disabled={!composeData.to.trim()}
-                    className="inline-flex items-center justify-center gap-1.5 py-1 px-3 rounded-xl border border-dashed border-primary/30 text-primary text-[10px] md:text-[11px] font-black uppercase tracking-widest hover:bg-primary/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0"
-                    title="Adicionar este destinatário à lista de expedição múltipla"
-                    id="btn-add-multi-dest"
-                  >
-                    + Adicionar Destinatário (Envio Múltiplo)
-                  </button>
-                </div>
-
-                {instRecipientType === 'cidadao' ? (
-                  <div className="relative flex items-center">
-                    <input
-                      type="text"
-                      placeholder="Número do BI exacto (ex.: 000123456LA789)"
-                      value={composeData.to}
-                      onChange={(e) => {
-                        setComposeData({ ...composeData, to: e.target.value });
-                      }}
-                      disabled={lookupVisible && recipientLookup?.status === 'busy'}
-                      className="w-full bg-white border border-line rounded-2xl pl-5 pr-12 py-3.5 md:py-4 text-xs md:text-sm font-mono font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none disabled:opacity-75 disabled:bg-slate-50"
-                      id="recipient-bi-input"
-                    />
-                    <div className="absolute right-4 flex items-center gap-2">
-                      {lookupVisible && recipientLookup?.status === 'busy' ? (
-                        <Loader2 className="animate-spin text-indigo-600" size={18} />
-                      ) : (
-                        <button
-                          onClick={() => fireRecipientLookup(composeData.to)}
-                          type="button"
-                          title="Consultar este BI na plataforma CDA (consulta auditada)"
-                          className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-indigo-600 transition-all cursor-pointer"
-                          disabled={!composeData.to.trim() || !onRecipientLookup}
-                          id="recipient-bi-search-btn"
-                        >
-                          <Search size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="relative flex items-center">
-                    <input
-                      type="text"
-                      placeholder="Introduza o Código Institucional (ex.: AGT-9921-SR)"
-                      value={composeData.to}
-                      onChange={(e) => {
-                        setComposeData({ ...composeData, to: e.target.value.toUpperCase().replace(/\s+/g, '') });
-                      }}
-                      className="w-full bg-white border border-line rounded-2xl pl-5 pr-12 py-3.5 md:py-4 text-xs md:text-sm font-mono font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
-                      id="recipient-inst-input"
-                    />
-                    <div className="absolute right-4 flex items-center gap-2">
-                      {instRegistry?.status === 'checking' ? (
-                        <Loader2 className="animate-spin text-indigo-600" size={18} />
-                      ) : (
-                        <div className="p-1.5 text-slate-400">
-                          <Building size={16} />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* F59 — resultado do lookup REAL (Cidadão) */}
-                {instRecipientType === 'cidadao' && (
-                  <AnimatePresence mode="wait">
-                    {lookupVisible && recipientLookup?.status === 'busy' && (
-                      <motion.div
-                        key="rl-busy"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3.5 mt-2 flex items-center gap-3">
-                          <Loader2 className="animate-spin text-indigo-600 shrink-0" size={16} />
-                          <span className="text-xs font-bold text-indigo-950">A consultar o BI na plataforma CDA…</span>
-                        </div>
-                      </motion.div>
-                    )}
-
-                    {lookupVisible && recipientLookup?.status === 'found' && recipientLookup.citizen && (
-                      <motion.div
-                        key="rl-found"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mt-2 flex items-start gap-3" id="recipient-verified-card">
-                          <CheckCircle2 className="text-emerald-600 shrink-0 mt-0.5" size={18} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[11px] text-emerald-800 font-bold m-0">
-                              {recipientLookup.citizen.name} — BI {recipientLookup.citizen.bi}
-                            </p>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-
-                    {lookupVisible && recipientLookup?.status === 'not_found' && (
-                      <motion.div
-                        key="rl-notfound"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mt-2 flex items-start gap-3" id="recipient-not-found">
-                          <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
-                          <div>
-                            <span className="text-xs font-black text-amber-950 block">Cidadão ainda não registado na plataforma.</span>
-                            <span className="text-[10.5px] text-amber-800 font-bold block mt-0.5">
-                              A mensagem ficará guardada e será entregue quando ele criar a conta com este BI.
-                            </span>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-
-                    {lookupVisible && recipientLookup?.status === 'error' && (
-                      <motion.div
-                        key="rl-error"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 mt-2 flex items-center gap-3">
-                          <AlertTriangle className="text-rose-600 shrink-0" size={16} />
-                          <span className="text-xs font-bold text-rose-900">
-                            Não foi possível consultar o BI (Erro real: {recipientLookup.errorCode || 'DESCONHECIDO'}).
-                          </span>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                )}
-
-                {/* P0-B — resultado da verificação do registo institucional (Instituição) */}
-                {instRecipientType === 'instituicao' && instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && (
-                  <div className={`mt-2 rounded-2xl border p-3.5 text-[10px] md:text-xs font-bold flex items-start gap-2.5 ${
-                    instRegistry.status === 'registada'
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                      : instRegistry.status === 'nao_registada'
-                        ? 'bg-amber-50 border-amber-200 text-amber-900'
-                        : 'bg-slate-50 border-slate-200 text-slate-600'
-                  }`}>
-                    {instRegistry.status === 'checking' && (<><Loader2 className="animate-spin shrink-0 mt-0.5 text-indigo-600" size={16} /><span>A verificar o código no registo institucional…</span></>)}
-                    {instRegistry.status === 'registada' && (<><CheckCircle2 className="shrink-0 mt-0.5 text-emerald-600" size={16} /><span>Instituição registada na plataforma — entrega garantida ao código {instRegistry.code}.</span></>)}
-                    {instRegistry.status === 'nao_registada' && (<><AlertTriangle className="shrink-0 mt-0.5 text-amber-600" size={16} /><span>Código não registado na plataforma. Confirme o código da instituição destinatária.</span></>)}
-                    {instRegistry.status === 'erro' && (<><AlertTriangle className="shrink-0 mt-0.5 text-rose-600" size={16} /><span>Verificação do registo indisponível de momento.</span></>)}
-                  </div>
-                )}
-
-                {destinatariosMulti.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    {destinatariosMulti.map((d) => (
-                      <span key={d} className="inline-flex items-center gap-1.5 bg-primary/5 border border-primary/15 text-primary rounded-full pl-3 pr-1.5 py-1 text-[10px] md:text-[11px] font-black font-mono">
-                        {d}
-                        <button
-                          type="button"
-                          onClick={() => removerDestinatarioMulti(d)}
-                          aria-label={`Remover ${d}`}
-                          className="w-4 h-4 rounded-full bg-primary/10 hover:bg-red-100 hover:text-red-600 flex items-center justify-center transition-all text-[11px] leading-none cursor-pointer"
-                        >×</button>
-                      </span>
-                    ))}
-                    <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">→ {destinatariosMulti.length} destinatário(s) na lista</span>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">Título</label>
-                <input 
-                  type="text"
-                  placeholder="Qual o tema da sua mensagem?"
-                  value={composeData.subject}
-                  onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })}
-                  className="w-full bg-white border border-line rounded-2xl px-5 py-3.5 md:py-4 text-xs md:text-sm font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-5 md:space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">
-                  Destinatário Institucional codigo
-                </label>
-                <input
-                  type="text"
-                  placeholder="Introduza o Código Institucional (ex.: AGT-9921-SR)"
-                  value={composeData.to}
-                  onChange={(e) => setComposeData({ ...composeData, to: e.target.value.toUpperCase().replace(/\s+/g, '') })}
-                  className="w-full bg-white border border-line rounded-2xl px-5 py-3.5 md:py-4 text-xs md:text-sm font-mono font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
-                />
-                <p className="text-[9px] md:text-[11px] text-slate-500 font-bold pl-1 leading-relaxed">
-                  O Código Institucional é fornecido pela instituição destinatária (ex.: AGT-9921-SR, SME-LLVV).
-                </p>
-
-                {/* P0-B — resultado da verificação REAL do registo institucional */}
-                {instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && (
-                  <div className={`mt-1 rounded-xl border p-3 text-[10px] md:text-[11px] font-bold flex items-start gap-2 ${
-                    instRegistry.status === 'registada'
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                      : instRegistry.status === 'nao_registada'
-                        ? 'bg-amber-50 border-amber-200 text-amber-900'
-                        : 'bg-slate-50 border-slate-200 text-slate-600'
-                  }`}>
-                    {instRegistry.status === 'checking' && (<><Loader2 className="animate-spin shrink-0 mt-0.5" size={14} /><span>A verificar o código no registo institucional…</span></>)}
-                    {instRegistry.status === 'registada' && (<><CheckCircle2 className="shrink-0 mt-0.5" size={14} /><span>Instituição registada na plataforma — entrega garantida ao código {instRegistry.code}.</span></>)}
-                    {instRegistry.status === 'nao_registada' && (<><AlertTriangle className="shrink-0 mt-0.5" size={14} /><span>Código não registado na plataforma. Confirme o código ou peça à instituição para formalizar o registo — o envio fica bloqueado.</span></>)}
-                    {instRegistry.status === 'erro' && (<><AlertTriangle className="shrink-0 mt-0.5" size={14} /><span>Verificação do registo indisponível de momento. O envio tentará confirmar novamente ao clicar.</span></>)}
-                  </div>
-                )}
-                {multiDestControls}
-                {/* v37.78.10 — TÍTULO (áreas Cidadão e Instituição): passa a ser
-                    o assunto/preview da correspondência; vazio = derivado do corpo. */}
-                <div className="space-y-2">
-                  <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">Título</label>
-                  <input
-                    type="text"
-                    placeholder="Ex.: Envio de documento de identificação"
-                    value={composeData.subject}
-                    onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })}
-                    maxLength={120}
-                    className="w-full bg-white border border-line rounded-2xl px-5 py-3.5 md:py-4 text-xs md:text-sm font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
- 
-          <div className="space-y-2">
-            <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">Conteúdo da Mensagem</label>
-            
-            {/* Rich text Toolbar for composing, styled exactly like the official responder */}
-            <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-white border border-slate-200 rounded-2xl mb-2 shadow-xs">
-              {/* Undo / Redo */}
-              <div className="flex items-center gap-0.5">
-                <button
-                  type="button"
-                  onClick={handleUndo}
-                  disabled={historyIndex === 0}
-                  title="Desfazer (Undo)"
-                  className={`p-2 rounded-xl hover:bg-slate-200/80 active:scale-95 transition-all ${
-                    historyIndex === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <Undo size={14} className="stroke-[2.5]" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleRedo}
-                  disabled={historyIndex >= textHistory.length - 1}
-                  title="Refazer (Redo)"
-                  className={`p-2 rounded-xl hover:bg-slate-200/80 active:scale-95 transition-all ${
-                    historyIndex >= textHistory.length - 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <Redo size={14} className="stroke-[2.5]" />
-                </button>
-              </div>
-
-              <div className="w-[1px] h-4 bg-slate-200 mx-0.5" />
-
-              {/* Font Family Selector Dropdown */}
-              <div className="relative">
-                <select
-                  value={editorFont}
-                  onChange={(e) => setEditorFont(e.target.value)}
-                  className="bg-transparent text-slate-700 text-xs font-semibold py-1 pl-2 pr-5 border border-transparent rounded-xl hover:bg-slate-200/60 cursor-pointer focus:outline-none appearance-none font-sans"
-                >
-                  <option value="sans-serif">Sans Serif</option>
-                  <option value="serif">Serif (Editorial)</option>
-                  <option value="monospace">Monospace</option>
-                </select>
-                <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[8px] font-black">▼</div>
-              </div>
-
-              <div className="w-[1px] h-4 bg-slate-200 mx-0.5" />
-
-              {/* Font Size Selector Dropdown "tT" */}
-              <div className="relative flex items-center">
-                <span className="text-[10px] font-black mr-1 text-slate-500">tT</span>
-                <select
-                  value={editorFontSize}
-                  onChange={(e) => setEditorFontSize(e.target.value)}
-                  className="bg-transparent text-slate-700 text-xs font-semibold py-1 pl-1.5 pr-4 border border-transparent rounded-xl hover:bg-slate-200/60 cursor-pointer focus:outline-none appearance-none font-sans"
-                >
-                  <option value="sm">Pequeno</option>
-                  <option value="base">Normal</option>
-                  <option value="lg">Grande</option>
-                  <option value="xl">Título</option>
-                </select>
-                <div className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[8px] font-black">▼</div>
-              </div>
-
-              <div className="w-[1px] h-4 bg-slate-200 mx-0.5" />
-
-              {/* Inline formatting styles B, I, U */}
-              <div className="flex items-center gap-0.5">
-                <button
-                  type="button"
-                  onClick={() => setEditorBold(!editorBold)}
-                  title="Negrito (Bold)"
-                  className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
-                    editorBold 
-                      ? 'bg-indigo-100/80 text-indigo-800 border border-indigo-200/30' 
-                      : 'text-slate-650 hover:bg-slate-200/60 hover:text-slate-900'
-                  }`}
-                >
-                  <Bold size={13} className="stroke-[3]" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setEditorItalic(!editorItalic)}
-                  title="Itálico (Italic)"
-                  className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
-                    editorItalic 
-                      ? 'bg-indigo-100/80 text-indigo-800 border border-indigo-200/30' 
-                      : 'text-slate-650 hover:bg-slate-200/60 hover:text-slate-900'
-                  }`}
-                >
-                  <Italic size={13} className="stroke-[3]" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setEditorUnderline(!editorUnderline)}
-                  title="Sublinhado (Underline)"
-                  className={`p-1.5 rounded-xl active:scale-95 transition-all font-black text-xs min-w-[28px] flex items-center justify-center ${
-                    editorUnderline 
-                      ? 'bg-indigo-100/80 text-indigo-800 border border-indigo-200/30' 
-                      : 'text-slate-650 hover:bg-slate-200/60 hover:text-slate-900'
-                  }`}
-                >
-                  <Underline size={13} className="stroke-[3]" />
-                </button>
-              </div>
-
-              <div className="w-[1px] h-4 bg-slate-200 mx-0.5" />
-
-              {/* Font Color Selection */}
-              <div className="relative group">
-                <button
-                  type="button"
-                  title="Cor do Texto"
-                  className="p-1.5 rounded-xl text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
-                >
-                  <span className="font-extrabold text-xs border-b-2 leading-none" style={{ borderColor: editorColor }}>A</span>
-                  <span className="text-[6px]">▼</span>
-                </button>
-                <div className="absolute left-0 top-8 hidden group-hover:flex group-focus-within:flex flex-col bg-white border border-slate-200 rounded-xl p-2 shadow-xl z-20 min-w-[130px] gap-1 text-left">
-                  <span className="text-[8px] font-bold text-slate-400 select-none uppercase tracking-widest px-1">Cor da Fonte</span>
-                  <div className="grid grid-cols-5 gap-1 pt-1">
-                    {[
-                      { label: 'Slate', value: '#1e293b', bgClass: 'bg-slate-800' },
-                      { label: 'Red', value: '#dc2626', bgClass: 'bg-red-600' },
-                      { label: 'Blue', value: '#2563eb', bgClass: 'bg-blue-600' },
-                      { label: 'Green', value: '#16a34a', bgClass: 'bg-green-600' },
-                      { label: 'Gold', value: '#ca8a04', bgClass: 'bg-yellow-600' }
-                    ].map((color) => (
-                      <button
-                        key={color.value}
-                        type="button"
-                        onClick={() => setEditorColor(color.value)}
-                        title={color.label}
-                        className={`w-3.5 h-3.5 rounded-full border transition-all cursor-pointer ${color.bgClass} ${
-                          editorColor === color.value ? 'ring-2 ring-indigo-500 ring-offset-1 border-white' : 'border-black/5'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="w-[1px] h-4 bg-slate-200 mx-0.5" />
-
-              {/* Paragraph Alignment Selector Button Row */}
-              <div className="flex items-center gap-0.5">
-                {[
-                  { val: 'left', icon: <AlignLeft size={13} />, title: 'Alinhar à Esquerda' },
-                  { val: 'center', icon: <AlignCenter size={13} />, title: 'Alinhar ao Centro' },
-                  { val: 'right', icon: <AlignRight size={13} />, title: 'Alinhar à Direita' },
-                  { val: 'justify', icon: <AlignJustify size={13} />, title: 'Justificar' }
-                ].map((align) => (
-                  <button
-                    key={align.val}
-                    type="button"
-                    onClick={() => setEditorAlignment(align.val)}
-                    title={align.title}
-                    className={`p-1.5 rounded-xl active:scale-95 transition-all text-slate-600 cursor-pointer ${
-                      editorAlignment === align.val 
-                        ? 'bg-indigo-100/85 text-indigo-800 border border-indigo-200/30' 
-                        : 'hover:bg-slate-200/60 hover:text-slate-900'
-                    }`}
-                  >
-                    {align.icon}
-                  </button>
-                ))}
-              </div>
-
-              <div className="w-[1px] h-4 bg-slate-200 mx-0.5" />
-
-              {/* List Type Bullet/Ordered Toggles */}
-              <div className="flex items-center gap-0.5">
+            {isInst && (
+              <div className="flex items-center gap-6 border-b border-slate-200 pb-0">
                 <button
                   type="button"
                   onClick={() => {
-                    if (editorListType === 'bullet') {
-                      setEditorListType(null);
-                    } else {
-                      setEditorListType('bullet');
-                      if (!composeData.body.trim().startsWith('•') && !composeData.body.trim().startsWith('-')) {
-                        updateBodyText(`• ` + composeData.body);
-                      }
-                    }
+                    setInstRecipientType('cidadao');
+                    setComposeData(prev => ({ ...prev, to: '' }));
                   }}
-                  title="Lista de Marcadores (Bullets)"
-                  className={`p-1.5 rounded-xl active:scale-95 transition-all cursor-pointer ${
-                    editorListType === 'bullet'
-                      ? 'bg-indigo-100/85 text-indigo-800 border border-indigo-200/30'
-                      : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
+                  className={`pb-2.5 px-1 font-bold text-xs md:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 ${
+                    instRecipientType === 'cidadao'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-800'
                   }`}
+                  id="tab-destinatario-cidadao"
                 >
-                  <List size={13} />
+                  <User size={16} />
+                  <span>Cidadão</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInstRecipientType('instituicao');
+                    setComposeData(prev => ({ ...prev, to: '' }));
+                  }}
+                  className={`pb-2.5 px-1 font-bold text-xs md:text-sm flex items-center gap-2 transition-all cursor-pointer border-b-2 ${
+                    instRecipientType === 'instituicao'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                  }`}
+                  id="tab-destinatario-instituicao"
+                >
+                  <Building2 size={16} />
+                  <span>Instituição</span>
                 </button>
               </div>
+            )}
 
-              <div className="w-[1px] h-4 bg-slate-200 mx-0.5" />
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  placeholder={
+                    !isInst || instRecipientType === 'instituicao'
+                      ? "Introduza o Código Institucional (ex.: AGT-9921-SR)"
+                      : "Número do BI exacto (ex.: 000123456LA789)"
+                  }
+                  value={composeData.to}
+                  onChange={(e) => {
+                    const val = (!isInst || instRecipientType === 'instituicao')
+                      ? e.target.value.toUpperCase().replace(/\s+/g, '')
+                      : e.target.value;
+                    setComposeData({ ...composeData, to: val });
+                  }}
+                  disabled={lookupVisible && recipientLookup?.status === 'busy'}
+                  className="w-full bg-white border border-slate-200 rounded-xl pl-4 pr-11 py-3 text-xs md:text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
+                  id={isInst ? (instRecipientType === 'cidadao' ? 'recipient-bi-input' : 'recipient-inst-input') : 'recipient-inst-input'}
+                />
+                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
+                  {lookupVisible && recipientLookup?.status === 'busy' ? (
+                    <Loader2 className="animate-spin text-blue-600" size={18} />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isInst && instRecipientType === 'cidadao') {
+                          fireRecipientLookup(composeData.to);
+                        }
+                      }}
+                      disabled={!composeData.to.trim() || (!onRecipientLookup && isInst && instRecipientType === 'cidadao')}
+                      className="text-slate-400 hover:text-blue-600 transition-colors p-1 cursor-pointer disabled:opacity-40"
+                      title="Localizar destinatário"
+                      id="recipient-bi-search-btn"
+                    >
+                      <Search size={18} />
+                    </button>
+                  )}
+                </div>
+              </div>
 
-              {/* Blockquote Toggle */}
               <button
                 type="button"
-                onClick={() => setEditorIsQuote(!editorIsQuote)}
-                title="Citação (Blockquote)"
-                className={`p-1.5 rounded-xl active:scale-95 transition-all cursor-pointer ${
-                  editorIsQuote
-                    ? 'bg-indigo-100/85 text-indigo-800 border border-indigo-200/30'
-                    : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
-                }`}
+                onClick={adicionarDestinatarioMulti}
+                disabled={!composeData.to.trim()}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-blue-600 text-blue-600 hover:bg-blue-50 font-bold text-xs md:text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                title="Adicionar este destinatário à lista"
+                id="btn-add-multi-dest"
               >
-                <Quote size={13} />
+                + Adicionar destinatário
               </button>
+            </div>
 
-              {/* Clear formatting Eraser */}
-              <button
-                type="button"
-                onClick={clearFormatting}
-                title="Limpar Formatação"
-                className="p-1.5 rounded-xl text-slate-600 hover:bg-slate-200 hover:text-red-650 hover:bg-red-50/70 active:scale-95 transition-all ml-auto cursor-pointer"
+            <p className="text-[11px] md:text-xs text-blue-500/90 font-medium flex items-center gap-1.5 m-0 pt-0.5">
+              <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-blue-500 text-[9px] font-bold">i</span>
+              <span>
+                {!isInst || instRecipientType === 'instituicao'
+                  ? 'Informe o Código Institucional exacto para localizar a instituição.'
+                  : 'Informe o número do BI exacto para localizar o destinatário.'}
+              </span>
+            </p>
+
+            {/* Chips de múltiplos destinatários */}
+            {destinatariosMulti.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                {destinatariosMulti.map((d) => (
+                  <span key={d} className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-800 rounded-full pl-3 pr-1.5 py-1 text-[10px] md:text-[11px] font-bold font-mono">
+                    {d}
+                    <button
+                      type="button"
+                      onClick={() => removerDestinatarioMulti(d)}
+                      aria-label={`Remover ${d}`}
+                      className="w-4 h-4 rounded-full bg-blue-100 hover:bg-red-100 hover:text-red-600 flex items-center justify-center transition-all text-[11px] leading-none cursor-pointer"
+                    >×</button>
+                  </span>
+                ))}
+                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">→ {destinatariosMulti.length} destinatário(s) na lista</span>
+              </div>
+            )}
+
+            {/* F59 — resultado do lookup REAL (Cidadão) */}
+            {isInst && instRecipientType === 'cidadao' && (
+              <AnimatePresence mode="wait">
+                {lookupVisible && recipientLookup?.status === 'busy' && (
+                  <motion.div
+                    key="rl-busy"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center gap-3">
+                      <Loader2 className="animate-spin text-blue-600 shrink-0" size={16} />
+                      <span className="text-xs font-bold text-blue-950">A consultar o BI na plataforma CDA…</span>
+                    </div>
+                  </motion.div>
+                )}
+
+                {lookupVisible && recipientLookup?.status === 'found' && recipientLookup.citizen && (
+                  <motion.div
+                    key="rl-found"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-start gap-3" id="recipient-verified-card">
+                      <CheckCircle2 className="text-emerald-600 shrink-0 mt-0.5" size={18} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-emerald-800 font-bold m-0">
+                          {recipientLookup.citizen.name} — BI {recipientLookup.citizen.bi}
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {lookupVisible && recipientLookup?.status === 'not_found' && (
+                  <motion.div
+                    key="rl-notfound"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-start gap-3" id="recipient-not-found">
+                      <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
+                      <div>
+                        <span className="text-xs font-black text-amber-950 block">Cidadão ainda não registado na plataforma.</span>
+                        <span className="text-[11px] text-amber-800 font-medium block mt-0.5">
+                          A mensagem ficará guardada e será entregue quando o cidadão criar a conta com este BI.
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {lookupVisible && recipientLookup?.status === 'error' && (
+                  <motion.div
+                    key="rl-error"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-center gap-3">
+                      <AlertTriangle className="text-rose-600 shrink-0" size={16} />
+                      <span className="text-xs font-bold text-rose-900">
+                        Não foi possível consultar o BI (Erro real: {recipientLookup.errorCode || 'DESCONHECIDO'}).
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            )}
+
+            {/* P0-B — verificação do registo institucional */}
+            {(!isInst || instRecipientType === 'instituicao') && instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && (
+              <div className={`rounded-xl border p-3 text-xs font-bold flex items-start gap-2.5 ${
+                instRegistry.status === 'registada'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : instRegistry.status === 'nao_registada'
+                    ? 'bg-amber-50 border-amber-200 text-amber-900'
+                    : 'bg-slate-50 border-slate-200 text-slate-600'
+              }`}>
+                {instRegistry.status === 'checking' && (<><Loader2 className="animate-spin shrink-0 mt-0.5 text-blue-600" size={16} /><span>A verificar o código no registo institucional…</span></>)}
+                {instRegistry.status === 'registada' && (<><CheckCircle2 className="shrink-0 mt-0.5 text-emerald-600" size={16} /><span>Instituição registada na plataforma — entrega garantida ao código {instRegistry.code}.</span></>)}
+                {instRegistry.status === 'nao_registada' && (<><AlertTriangle className="shrink-0 mt-0.5 text-amber-600" size={16} /><span>Código não registado na plataforma. Confirme o código da instituição destinatária.</span></>)}
+                {instRegistry.status === 'erro' && (<><AlertTriangle className="shrink-0 mt-0.5 text-rose-600" size={16} /><span>Verificação do registo indisponível de momento.</span></>)}
+              </div>
+            )}
+          </div>
+
+          {/* Section 2: TÍTULO */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-3xl p-5 md:p-6 shadow-xs space-y-2">
+            <label className="text-[11px] md:text-xs font-black text-slate-800 uppercase tracking-wider block">TÍTULO</label>
+            <input 
+              type="text"
+              placeholder="Qual o tema da sua mensagem?"
+              value={composeData.subject}
+              onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })}
+              maxLength={120}
+              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs md:text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+            />
+          </div>
+
+          {/* Section 3: CONTEÚDO DA MENSAGEM */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-3xl p-5 md:p-6 shadow-xs space-y-3">
+            <label className="text-[11px] md:text-xs font-black text-slate-800 uppercase tracking-wider block">CONTEÚDO DA MENSAGEM</label>
+            
+            {/* Rich text Toolbar */}
+            <div className="border border-slate-200 rounded-xl p-2 bg-white flex flex-wrap items-center justify-between gap-1.5 shadow-xs">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {/* Undo / Redo */}
+                <div className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={handleUndo}
+                    disabled={historyIndex === 0}
+                    title="Desfazer"
+                    className={`p-1.5 rounded-lg hover:bg-slate-100 active:scale-95 transition-all ${
+                      historyIndex === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Undo size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRedo}
+                    disabled={historyIndex >= textHistory.length - 1}
+                    title="Refazer"
+                    className={`p-1.5 rounded-lg hover:bg-slate-100 active:scale-95 transition-all ${
+                      historyIndex >= textHistory.length - 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Redo size={15} />
+                  </button>
+                </div>
+
+                <div className="w-[1px] h-4 bg-slate-200 mx-1" />
+
+                {/* Font selector */}
+                <div className="relative">
+                  <select
+                    value={editorFont}
+                    onChange={(e) => setEditorFont(e.target.value)}
+                    className="bg-transparent text-slate-700 text-xs font-semibold py-1 pl-2 pr-5 border border-transparent rounded-lg hover:bg-slate-100 cursor-pointer focus:outline-none appearance-none font-sans"
+                  >
+                    <option value="sans-serif">Sans Serif</option>
+                    <option value="serif">Serif</option>
+                    <option value="monospace">Monospace</option>
+                  </select>
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[8px]">▼</div>
+                </div>
+
+                <div className="w-[1px] h-4 bg-slate-200 mx-1" />
+
+                {/* Size selector */}
+                <div className="relative">
+                  <select
+                    value={editorFontSize}
+                    onChange={(e) => setEditorFontSize(e.target.value)}
+                    className="bg-transparent text-slate-700 text-xs font-semibold py-1 pl-2 pr-5 border border-transparent rounded-lg hover:bg-slate-100 cursor-pointer focus:outline-none appearance-none"
+                  >
+                    <option value="base">Normal</option>
+                    <option value="sm">Pequeno</option>
+                    <option value="lg">Grande</option>
+                    <option value="xl">Título</option>
+                  </select>
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[8px]">▼</div>
+                </div>
+
+                <div className="w-[1px] h-4 bg-slate-200 mx-1" />
+
+                {/* B, I, U, A */}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setEditorBold(!editorBold)}
+                    title="Negrito"
+                    className={`w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center transition-all ${
+                      editorBold ? 'bg-blue-100 text-blue-700 font-extrabold' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    B
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditorItalic(!editorItalic)}
+                    title="Itálico"
+                    className={`w-7 h-7 rounded-lg italic font-serif text-xs flex items-center justify-center transition-all ${
+                      editorItalic ? 'bg-blue-100 text-blue-700 font-bold' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    I
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditorUnderline(!editorUnderline)}
+                    title="Sublinhado"
+                    className={`w-7 h-7 rounded-lg underline text-xs flex items-center justify-center transition-all ${
+                      editorUnderline ? 'bg-blue-100 text-blue-700 font-bold' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    U
+                  </button>
+                  <div className="relative group">
+                    <button
+                      type="button"
+                      title="Cor do Texto"
+                      className="h-7 px-1.5 rounded-lg text-slate-700 hover:bg-slate-100 flex items-center gap-0.5 text-xs font-bold"
+                    >
+                      <span className="border-b-2" style={{ borderColor: editorColor }}>A</span>
+                      <span className="text-[7px] text-slate-400">▼</span>
+                    </button>
+                    <div className="absolute left-0 top-8 hidden group-hover:flex group-focus-within:flex flex-col bg-white border border-slate-200 rounded-xl p-2 shadow-xl z-20 min-w-[120px] gap-1 text-left">
+                      <span className="text-[8px] font-bold text-slate-400 select-none uppercase tracking-widest px-1">Cor da Fonte</span>
+                      <div className="grid grid-cols-5 gap-1 pt-1">
+                        {[
+                          { label: 'Slate', value: '#1e293b', bgClass: 'bg-slate-800' },
+                          { label: 'Red', value: '#dc2626', bgClass: 'bg-red-600' },
+                          { label: 'Blue', value: '#2563eb', bgClass: 'bg-blue-600' },
+                          { label: 'Green', value: '#16a34a', bgClass: 'bg-green-600' },
+                          { label: 'Gold', value: '#ca8a04', bgClass: 'bg-yellow-600' }
+                        ].map((color) => (
+                          <button
+                            key={color.value}
+                            type="button"
+                            onClick={() => setEditorColor(color.value)}
+                            title={color.label}
+                            className={`w-3.5 h-3.5 rounded-full border transition-all cursor-pointer ${color.bgClass} ${
+                              editorColor === color.value ? 'ring-2 ring-blue-500 ring-offset-1 border-white' : 'border-black/5'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="w-[1px] h-4 bg-slate-200 mx-1" />
+
+                {/* Alignment */}
+                <div className="flex items-center gap-1 bg-slate-100/60 p-0.5 rounded-lg border border-slate-200/60">
+                  <button
+                    type="button"
+                    onClick={() => setEditorAlignment('left')}
+                    className={`p-1.5 rounded-md transition-all cursor-pointer ${
+                      editorAlignment === 'left' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-white'
+                    }`}
+                    title="Alinhar à Esquerda"
+                  >
+                    <AlignLeft size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditorAlignment('center')}
+                    className={`p-1.5 rounded-md transition-all cursor-pointer ${
+                      editorAlignment === 'center' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-white'
+                    }`}
+                    title="Alinhar ao Centro"
+                  >
+                    <AlignCenter size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditorAlignment('right')}
+                    className={`p-1.5 rounded-md transition-all cursor-pointer ${
+                      editorAlignment === 'right' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-white'
+                    }`}
+                    title="Alinhar à Direita"
+                  >
+                    <AlignRight size={14} />
+                  </button>
+                </div>
+
+                <div className="w-[1px] h-4 bg-slate-200 mx-1" />
+
+                {/* Lists & Quote */}
+                <div className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setEditorListType(editorListType === 'bullet' ? null : 'bullet')}
+                    className={`p-1.5 rounded-lg transition-all ${
+                      editorListType === 'bullet' ? 'bg-blue-100/80 text-blue-700' : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                    title="Lista de Marcadores"
+                  >
+                    <List size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditorListType(editorListType === 'ordered' ? null : 'ordered')}
+                    className={`p-1.5 rounded-lg transition-all ${
+                      editorListType === 'ordered' ? 'bg-blue-100/80 text-blue-700' : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                    title="Lista Numerada"
+                  >
+                    <ListOrdered size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditorIsQuote(!editorIsQuote)}
+                    className={`p-1.5 rounded-lg transition-all ${
+                      editorIsQuote ? 'bg-blue-100/80 text-blue-700' : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                    title="Citação"
+                  >
+                    <Quote size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Right side: Paperclip "Anexar" button */}
+              <label
+                className="flex flex-col items-center justify-center text-slate-600 hover:text-blue-600 cursor-pointer px-2 py-1 rounded-lg hover:bg-blue-50/60 transition-colors shrink-0"
+                title="Anexar ficheiros"
               >
-                <Eraser size={13} />
-              </button>
+                <Paperclip size={18} className="text-slate-700 hover:text-blue-600" />
+                <span className="text-[10px] font-bold text-slate-600 mt-0.5">Anexar</span>
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp,.bmp,.heic,.heif,.txt,.csv,.xls,.xlsx,.ppt,.pptx,.zip"
+                  className="hidden"
+                  onChange={handleFileAdd}
+                />
+              </label>
             </div>
 
             <textarea 
@@ -1463,10 +1417,10 @@ export function MailContent({
               placeholder="Descreva detalhadamente o seu pedido ou informação..."
               value={composeData.body}
               onChange={(e) => updateBodyText(e.target.value)}
-              className={`w-full bg-white border border-line rounded-2xl px-5 py-3.5 md:py-4 text-xs md:text-sm font-semibold focus:ring-4 focus:ring-primary/5 transition-all outline-none resize-none leading-relaxed ${
+              className={`w-full bg-white border border-slate-200 rounded-xl p-4 text-xs md:text-sm font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none resize-none leading-relaxed min-h-[180px] ${
                 editorFont === 'serif' ? 'font-serif' : editorFont === 'monospace' ? 'font-mono' : 'font-sans'
               } ${
-                editorFontSize === 'sm' ? 'text-xs' : editorFontSize === 'lg' ? 'text-base md:text-lg' : editorFontSize === 'xl' ? 'text-lg md:text-xl font-bold' : 'text-sm'
+                editorFontSize === 'sm' ? 'text-xs' : editorFontSize === 'lg' ? 'text-base' : editorFontSize === 'xl' ? 'text-lg font-bold' : 'text-sm'
               } ${
                 editorAlignment === 'center' ? 'text-center' : editorAlignment === 'right' ? 'text-right' : editorAlignment === 'justify' ? 'text-justify' : 'text-left'
               }`}
@@ -1475,418 +1429,403 @@ export function MailContent({
                 fontStyle: editorItalic ? 'italic' : 'normal',
                 textDecoration: editorUnderline ? 'underline' : 'none',
                 color: editorColor,
-                borderLeft: editorIsQuote ? '4px solid #6366f1' : undefined,
+                borderLeft: editorIsQuote ? '4px solid #3b82f6' : undefined,
                 paddingLeft: editorIsQuote ? '1rem' : undefined,
               }}
             />
-          </div>
 
-          {/* v37 — Sondagens inseridas como blocos na área de conteúdo
-              (bolha de enquete estilo WhatsApp, conforme modelo do dono) */}
-          {isInst && sondagensCompostas.length > 0 && (
-            <div className="space-y-3 mt-4" data-testid="sondagens-compostas">
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-500 m-0">
-                Sondagens incluídas nesta mensagem ({sondagensCompostas.length}/5)
-              </p>
-              {sondagensCompostas.map((s) => (
-                <div key={s.id} className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setSondagemARemover(s)}
-                    title="Remover sondagem da mensagem"
-                    className="absolute -top-2 -right-2 z-10 w-7 h-7 rounded-full bg-white shadow border border-slate-200 text-slate-400 hover:text-rose-500 transition-colors flex items-center justify-center cursor-pointer"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                  <div className="rounded-xl bg-[#d9fdd3] shadow-sm overflow-hidden text-left">
-                    <div className="px-4 pt-3 pb-2">
-                      <p className="text-[14px] font-bold text-[#111b21] m-0 leading-snug">{s.pergunta}</p>
-                      <p className="flex items-center gap-1.5 text-[12px] text-[#546565] font-semibold mt-1.5 m-0">
-                        <CheckCheck size={13} className="text-[#53bdeb] shrink-0" />
-                        {s.permitir_varias ? 'Selecione uma ou mais opções' : 'Selecione uma opção'}
-                      </p>
-                      <div className="mt-2 space-y-3">
-                        {s.opcoes.map((o, i) => (
-                          <div key={o.id || i} className="px-1">
-                            <div className="flex items-center gap-3">
-                              <span className="w-5 h-5 rounded-full border-2 border-[#546565] shrink-0" />
-                              <span className="flex-1 min-w-0 text-[14px] text-[#111b21] font-medium truncate">{String.fromCharCode(65 + i)}) {o.texto}</span>
-                              <span className="text-[13px] text-[#111b21] font-semibold">0</span>
-                            </div>
-                            <div className="mt-1.5 ml-8 h-1.5 rounded-full bg-[#111b21]/10" />
-                          </div>
-                        ))}
-                      </div>
-                      <p className="flex items-center justify-end gap-1 text-[11px] text-[#667781] mt-2 m-0">
-                        {new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
-                        <CheckCheck size={13} className="text-[#53bdeb]" />
-                      </p>
-                    </div>
-                    <div className="bg-[#cfF8c6]/60 border-t border-[#111b21]/5 py-2 text-center text-[13px] font-semibold text-[#546565]">
-                      Mostrar votos
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* v37 — confirmação de remoção de sondagem da composição */}
-          {sondagemARemover && (
-            <CdaConfirmModal
-              aberto
-              titulo="Remover Sondagem"
-              mensagem={`Remover a sondagem «${sondagemARemover.pergunta}» desta mensagem? O rascunho será eliminado.`}
-              textoConfirmar="Remover"
-              perigoso
-              onConfirmar={async () => {
-                const alvo = sondagemARemover;
-                setSondagemARemover(null);
-                setSondagensCompostas(prev => prev.filter(x => x.id !== alvo.id));
-                // sem sondagens, o destinatário automático «Todos» desaparece
-                if (sondagensCompostas.length <= 1 && composeData.to.trim().toUpperCase() === 'TODOS') {
-                  setComposeData({ ...composeData, to: '' });
-                }
-                await removerRascunhoSondagem(alvo.id);
-              }}
-              onCancelar={() => setSondagemARemover(null)}
-            />
-          )}
-
-          {isUploading && (
-            <div className="flex items-center gap-2.5 p-4 bg-indigo-50 border border-indigo-200 rounded-2xl text-indigo-800 text-xs font-black animate-pulse mt-4">
-              <Loader2 size={16} className="animate-spin text-indigo-600 shrink-0" />
-              <span>{uploadProgressMessage}</span>
-            </div>
-          )}
-
-          {uploadError && (
-            <div className="flex items-start gap-3 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs font-bold mt-4 animate-fadeIn">
-              <AlertTriangle size={18} className="text-rose-600 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-black block uppercase tracking-wider mb-1 text-rose-950">Limite de Anexos Excedido</span>
-                <span className="text-rose-700 leading-relaxed font-semibold">{uploadError}</span>
-              </div>
-            </div>
-          )}
-
-          {/* List of Attached Files */}
-          {composeData.attachments && composeData.attachments.length > 0 && (
-            <div className="flex flex-wrap gap-2 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl mt-4">
-              {composeData.attachments.map((item, fIdx) => {
-                let name = item;
-                let size = '150 KB';
-                if (item.trim().startsWith('{')) {
-                  try {
-                    const parsed = JSON.parse(item);
-                    name = parsed.name;
-                    size = parsed.size;
-                  } catch (e) {}
-                }
-                return (
-                  <div 
-                    key={fIdx} 
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl shadow-xs text-[11px] font-bold text-slate-700 animate-fadeIn"
-                  >
-                    <FileText size={13} className="text-indigo-600 shrink-0" />
-                    <span className="truncate max-w-[160px] select-none" title={name}>{name}</span>
-                    <span className="text-[9px] text-slate-400 font-mono select-none">({size})</span>
-                    
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        setEditingAttachmentIdx(fIdx);
-                        let initialContent = '';
-                        if (item.trim().startsWith('{')) {
-                          try {
-                            initialContent = JSON.parse(item).content || '';
-                          } catch {}
-                        } else {
-                          initialContent = `Este é o conteúdo do documento oficial '${name}' anexado a esta correspondência.`;
-                        }
-                        setEditingAttachmentContent(initialContent);
-                      }}
-                      className="p-0.5 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 rounded transition-colors cursor-pointer ml-1"
-                      title="Editar conteúdo do anexo"
+            {/* Attached files chips */}
+            {composeData.attachments && composeData.attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl mt-3">
+                {composeData.attachments.map((item, fIdx) => {
+                  let name = item;
+                  let size = '150 KB';
+                  if (item.trim().startsWith('{')) {
+                    try {
+                      const parsed = JSON.parse(item);
+                      name = parsed.name;
+                      size = parsed.size;
+                    } catch (e) {}
+                  }
+                  return (
+                    <div 
+                      key={fIdx} 
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg shadow-xs text-xs font-bold text-slate-700 animate-fadeIn"
                     >
-                      <Edit2 size={11} />
-                    </button>
-
-                    <button 
-                      type="button"
-                      onClick={() => handleFileRemove(item)}
-                      className="p-0.5 hover:bg-red-50 text-slate-500 hover:text-red-500 rounded transition-colors cursor-pointer ml-0.5"
-                      title="Remover anexo"
-                    >
-                      <Trash2 size={11} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* S6 — resultado da validação pré-envio (bloqueios e avisos) */}
-          {validacao && (validacao.bloqueios.length > 0 || validacao.avisos.length > 0) && (
-            <div className="space-y-2">
-              {validacao.bloqueios.length > 0 && (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-[11px] font-bold text-red-800">
-                  <p className="mb-1">Corrige antes de enviar:</p>
-                  {validacao.bloqueios.map((b, i) => <p key={i}>• {b}</p>)}
-                </div>
-              )}
-              {validacao.avisos.length > 0 && !avisosConfirmados && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] font-bold text-amber-900">
-                  <p className="mb-1">Atenção — revê antes de enviar:</p>
-                  {validacao.avisos.map((a, i) => <p key={i}>• {a}</p>)}
-                  <p className="mt-2 text-amber-700">Se estiver tudo certo, clica novamente no botão de envio.</p>
-                </div>
-              )}
-              {validacao.avisos.length > 0 && avisosConfirmados && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] font-bold text-amber-900">
-                  Avisos revistos — o próximo clique envia a mensagem.
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* S6-camada-IA — resultado da revisao de clareza (OPCIONAL;
-              falha da IA nunca bloqueia o envio — caixa âmbar honesta) */}
-          {clareza && (
-            <div className="rounded-xl border border-violet-200 bg-violet-50 p-3 text-[11px] font-bold text-violet-900 space-y-2">
-              {clareza.estado === 'a_carregar' && (
-                <p className="flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> A IA está a rever a clareza do texto…</p>
-              )}
-              {clareza.estado === 'erro' && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-amber-900">
-                  <p>Revisão por IA indisponível agora ({clareza.erro}).</p>
-                  <p className="mt-1">Não precisas dela para enviar — esta revisão é opcional.</p>
-                </div>
-              )}
-              {clareza.estado === 'ok' && (
-                <>
-                  <p className="uppercase tracking-wide">Revisão de clareza (IA) — confirma antes de usar:</p>
-                  {clareza.observacoes && <p className="whitespace-pre-wrap font-semibold">{clareza.observacoes}</p>}
-                  {clareza.sugestao && (
-                    <div className="rounded-lg border border-violet-200 bg-white p-2 whitespace-pre-wrap font-semibold text-slate-800">{clareza.sugestao}</div>
-                  )}
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {clareza.sugestao && (
-                      <button
+                      <FileText size={13} className="text-blue-600 shrink-0" />
+                      <span className="truncate max-w-[180px]" title={name}>{name}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">({size})</span>
+                      
+                      <button 
                         type="button"
-                        onClick={() => setComposeData({ ...composeData, body: clareza.sugestao })}
-                        className="px-3 py-2 rounded-lg bg-violet-600 text-white font-black cursor-pointer hover:bg-violet-700 active:scale-95 transition-all"
+                        onClick={() => {
+                          setEditingAttachmentIdx(fIdx);
+                          let initialContent = '';
+                          if (item.trim().startsWith('{')) {
+                            try {
+                              initialContent = JSON.parse(item).content || '';
+                            } catch {}
+                          } else {
+                            initialContent = `Este é o conteúdo do documento oficial '${name}' anexado a esta correspondência.`;
+                          }
+                          setEditingAttachmentContent(initialContent);
+                        }}
+                        className="p-0.5 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded transition-colors cursor-pointer ml-1"
+                        title="Editar conteúdo do anexo"
                       >
-                        Usar versão melhorada
+                        <Edit2 size={12} />
                       </button>
-                    )}
+
+                      <button 
+                        type="button"
+                        onClick={() => handleFileRemove(item)}
+                        className="p-0.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-colors cursor-pointer ml-0.5"
+                        title="Remover anexo"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* v37 — Sondagens inseridas como blocos na área de conteúdo */}
+            {isInst && sondagensCompostas.length > 0 && (
+              <div className="space-y-3 mt-4" data-testid="sondagens-compostas">
+                <p className="text-[10px] font-black uppercase tracking-wider text-blue-600 m-0">
+                  Inquéritos incluídos nesta mensagem ({sondagensCompostas.length}/5)
+                </p>
+                {sondagensCompostas.map((s) => (
+                  <div key={s.id} className="relative">
                     <button
                       type="button"
-                      onClick={() => setClareza(null)}
-                      className="px-3 py-2 rounded-lg border border-violet-300 text-violet-700 font-black cursor-pointer hover:bg-violet-100 active:scale-95 transition-all"
+                      onClick={() => setSondagemARemover(s)}
+                      title="Remover inquérito da mensagem"
+                      className="absolute -top-2 -right-2 z-10 w-7 h-7 rounded-full bg-white shadow border border-slate-200 text-slate-400 hover:text-rose-500 transition-colors flex items-center justify-center cursor-pointer"
                     >
-                      Manter o meu texto
+                      <Trash2 size={13} />
                     </button>
+                    <div className="rounded-xl bg-[#d9fdd3] shadow-xs overflow-hidden text-left border border-emerald-200/60">
+                      <div className="px-4 pt-3 pb-2">
+                        <p className="text-sm font-bold text-[#111b21] m-0 leading-snug">{s.pergunta}</p>
+                        <p className="flex items-center gap-1.5 text-xs text-[#546565] font-semibold mt-1.5 m-0">
+                          <CheckCheck size={13} className="text-[#53bdeb] shrink-0" />
+                          {s.permitir_varias ? 'Selecione uma ou mais opções' : 'Selecione uma opção'}
+                        </p>
+                        <div className="mt-2 space-y-2.5">
+                          {s.opcoes.map((o, i) => (
+                            <div key={o.id || i} className="px-1">
+                              <div className="flex items-center gap-3">
+                                <span className="w-4 h-4 rounded-full border-2 border-[#546565] shrink-0" />
+                                <span className="flex-1 min-w-0 text-xs font-medium text-[#111b21] truncate">{String.fromCharCode(65 + i)}) {o.texto}</span>
+                                <span className="text-xs font-bold text-[#111b21]">0</span>
+                              </div>
+                              <div className="mt-1 ml-7 h-1.5 rounded-full bg-[#111b21]/10" />
+                            </div>
+                          ))}
+                        </div>
+                        <p className="flex items-center justify-end gap-1 text-[10px] text-[#667781] mt-2 m-0">
+                          {new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
+                          <CheckCheck size={13} className="text-[#53bdeb]" />
+                        </p>
+                      </div>
+                      <div className="bg-[#cfF8c6]/60 border-t border-[#111b21]/5 py-1.5 text-center text-xs font-semibold text-[#546565]">
+                        Mostrar votos
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-[9px] text-violet-500">Conteúdo gerado por IA — revê antes de enviar.</p>
-                </>
-              )}
-            </div>
-          )}
-
-          <div className="pt-2 md:pt-4 flex flex-col md:flex-row gap-3 md:gap-4 items-center">
-            <button 
-              onClick={tentarEnviar}
-              disabled={!(composeData.to || (composeData.toArray || []).length > 0) || (isInst && !composeData.subject)
-                || (!composeData.body && !(isInst && sondagensCompostas.length > 0))
-                || distribuindoSondagens
-                || enviando
-                || ((!isInst || instRecipientType === 'instituicao') && !!instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && instRegistry.status === 'nao_registada')}
-              className="w-full md:flex-[2] bg-primary text-white py-4 rounded-2xl font-black text-sm md:text-base shadow-xl shadow-primary/25 hover:bg-primary/95 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 md:gap-3 cursor-pointer"
-            >
-              {(distribuindoSondagens || enviando) ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-              {distribuindoSondagens ? 'A distribuir sondagens…'
-                : enviando ? 'A enviar…'
-                : avisosConfirmados && validacao && validacao.avisos.length > 0 ? 'Enviar mesmo assim' : 'Enviar Mensagem Oficial'}
-            </button>
-
-            {/* S6-camada-IA — gatilho da revisão de clareza (opcional) */}
-            <button
-              type="button"
-              onClick={reverClareza}
-              disabled={!composeData.body?.trim() || clareza?.estado === 'a_carregar'}
-              className="w-full md:w-auto px-5 py-4 rounded-2xl font-black text-sm border-2 border-violet-300 text-violet-700 bg-violet-50 hover:bg-violet-100 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {clareza?.estado === 'a_carregar' ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-              {clareza?.estado === 'a_carregar' ? 'A rever…' : 'Rever clareza (IA)'}
-            </button>
-
-
-            {/* F59 — Difusão à rede de emergência do destinatário VERIFICADO.
-                Armada apenas com: cidadão encontrado na plataforma + rede
-                completa (≥2) + mensagem escrita no corpo. O cidadão-comum
-                nunca vê este botão (isInst + prop só passada na área Inst.). */}
-            {isInst && onEmergencyBroadcast && (
-              <button
-                onClick={onEmergencyBroadcast}
-                disabled={
-                  !(
-                    lookupVisible &&
-                    recipientLookup?.status === 'found' &&
-                    recipientLookup.citizen?.redeCompleta &&
-                    !!composeData.body.trim()
-                  )
-                }
-                title="Enviar primeiro à conta CDA dos familiares (quem tiver) e abrir o link WhatsApp para confirmar — nunca inventa envio"
-                className="w-full md:flex-[2] bg-white text-red-700 border-2 border-red-600 py-4 rounded-2xl font-black text-sm md:text-base shadow-xl shadow-red-100 hover:bg-red-50 active:scale-95 transition-all disabled:opacity-40 disabled:scale-100 disabled:border-slate-200 disabled:text-slate-400 disabled:shadow-none flex items-center justify-center gap-2 md:gap-3 cursor-pointer"
-                id="btn-emergency-broadcast"
-              >
-                <ShieldAlert size={18} />
-                Mensagem de Emergência
-              </button>
+                ))}
+              </div>
             )}
 
-            {/* v36 — Sondagens (spec §1): botão secundário no compositor, área Inst. */}
-            {isInst && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (sondagensCompostas.length >= 5) { setAvisoSondagens('Limite de 5 sondagens por mensagem atingido.'); return; }
-                  setShowSondagemModal(true);
-                }}
-                className="w-full md:w-auto px-5 py-4 rounded-2xl font-black text-sm border-2 border-[#2563eb] text-[#2563eb] bg-blue-50 hover:bg-blue-100 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
-                id="btn-criar-sondagem"
-              >
-                <BarChart3 size={16} />
-                {translateText("Criar Sondagem", currentLanguage)}
-              </button>
-            )}
-
-            <label 
-              className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-4 bg-white hover:bg-slate-50 text-slate-700 font-extrabold text-sm rounded-2xl transition-all cursor-pointer active:scale-95 border border-slate-300 relative shadow-sm shrink-0"
-              title="Anexar múltiplos ficheiros"
-            >
-              <Paperclip size={18} className="stroke-[2.5] text-slate-500" />
-              <span>Anexar Ficheiros</span>
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp,.bmp,.heic,.heif,.txt,.csv,.xls,.xlsx,.ppt,.pptx,.zip"
-                className="hidden"
-                onChange={handleFileAdd}
-              />
-              {composeData.attachments && composeData.attachments.length > 0 && (
-                <span className="bg-primary text-white font-black text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-xs ml-1 shrink-0">
-                  {composeData.attachments.length}
-                </span>
-              )}
-            </label>
-
-            <button 
-              onClick={() => setConfirmarDescarteRascunho(true)}
-              className="w-full md:flex-1 py-4 px-8 rounded-2xl font-bold text-xs md:text-sm text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
-            >
-              Descartar
-            </button>
-            {confirmarDescarteRascunho && (
+            {/* Confirmação de remoção de sondagem */}
+            {sondagemARemover && (
               <CdaConfirmModal
                 aberto
-                titulo="Descartar Rascunho"
-                mensagem="Deseja descartar este rascunho? O conteúdo será eliminado e não poderá ser recuperado."
-                textoConfirmar="Descartar"
+                titulo="Remover Inquérito"
+                mensagem={`Remover o inquérito «${sondagemARemover.pergunta}» desta mensagem? O rascunho será eliminado.`}
+                textoConfirmar="Remover"
                 perigoso
                 onConfirmar={async () => {
-                  setConfirmarDescarteRascunho(false);
-                  // v37.78 — §21: descartar elimina também o rascunho automático.
-                  limparRascunhoLocal();
-                  // v37: descartar a mensagem elimina também os rascunhos de sondagem
-                  for (const s of sondagensCompostas) { await removerRascunhoSondagem(s.id); }
-                  setSondagensCompostas([]);
-                  setIsComposing(false);
+                  const alvo = sondagemARemover;
+                  setSondagemARemover(null);
+                  setSondagensCompostas(prev => prev.filter(x => x.id !== alvo.id));
+                  if (sondagensCompostas.length <= 1 && composeData.to.trim().toUpperCase() === 'TODOS') {
+                    setComposeData({ ...composeData, to: '' });
+                  }
+                  await removerRascunhoSondagem(alvo.id);
                 }}
-                onCancelar={() => setConfirmarDescarteRascunho(false)}
+                onCancelar={() => setSondagemARemover(null)}
               />
             )}
 
-            {/* v37.78 — §12 REVISÃO ANTES DE ENVIAR: resumo do destinatário,
-                assunto e anexos com botões claros (Voltar | Enviar). Nada é
-                enviado sem esta confirmação explícita. */}
-            {revisaoEnvio && (
-              <CdaModal
-                aberto
-                onFechar={() => setRevisaoEnvio(false)}
-                icone={ClipboardCheck}
-                titulo="Rever antes de enviar"
-                subtitulo="Confirme os dados da correspondência"
-                maxW="max-w-lg"
-                padding="p-6 md:p-8"
-              >
-                <div className="text-left space-y-3">
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5">
-                    <div className="flex gap-3 text-sm">
-                      <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Destinatário</span>
-                      <span className="font-bold text-slate-800 break-words min-w-0">
-                        {(composeData.toArray || []).length > 0
-                          ? `${composeData.toArray.join(', ')} (${composeData.toArray.length} destinatários)`
-                          : composeData.to || '—'}
-                      </span>
-                    </div>
-                    <div className="flex gap-3 text-sm">
-                      <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Assunto</span>
-                      <span className="font-bold text-slate-800 break-words min-w-0">{composeData.subject?.trim() || '(sem assunto)'}</span>
-                    </div>
-                    <div className="flex gap-3 text-sm">
-                      <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Anexos</span>
-                      <span className="font-bold text-slate-800 min-w-0">
-                        {(composeData.attachments || []).length === 0
-                          ? 'Nenhum documento anexado'
-                          : <>
-                              {(composeData.attachments || []).length} documento(s)
-                              <span className="block text-xs font-medium text-slate-500 break-words">
-                                {(composeData.attachments || []).slice(0, 4).join(' · ')}
-                                {(composeData.attachments || []).length > 4 ? ' …' : ''}
-                              </span>
-                            </>}
-                      </span>
-                    </div>
-                  </div>
-                  {composeData.body?.trim() && (
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4">
-                      <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider block mb-1.5">Resumo da mensagem</span>
-                      <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line m-0">
-                        {composeData.body.trim().slice(0, 400)}{composeData.body.trim().length > 400 ? '…' : ''}
-                      </p>
-                    </div>
-                  )}
-                  <p className="text-[11px] text-slate-400 font-medium m-0">
-                    Ao tocar em «Enviar Correspondência» a mensagem é registada com número de protocolo e o destinatário é notificado.
-                  </p>
-                  <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setRevisaoEnvio(false)}
-                      disabled={enviando}
-                      className="px-6 py-3.5 rounded-2xl font-bold text-xs text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer border-none disabled:opacity-50"
-                    >
-                      Voltar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={executarEnvio}
-                      disabled={enviando || isUploading}
-                      className="px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-primary hover:bg-primary/95 shadow-lg shadow-primary/20 transition-all cursor-pointer border-none flex items-center justify-center gap-2 disabled:opacity-60"
-                    >
-                      {enviando ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-                      {enviando ? 'A enviar…' : isUploading ? 'A carregar anexos…' : 'Enviar Correspondência'}
-                    </button>
-                  </div>
-                </div>
-              </CdaModal>
+            {isUploading && (
+              <div className="flex items-center gap-2.5 p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-blue-800 text-xs font-bold animate-pulse mt-3">
+                <Loader2 size={16} className="animate-spin text-blue-600 shrink-0" />
+                <span>{uploadProgressMessage}</span>
+              </div>
             )}
+
+            {uploadError && (
+              <div className="flex items-start gap-3 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-bold mt-3 animate-fadeIn">
+                <AlertTriangle size={18} className="text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-black block uppercase tracking-wider mb-0.5 text-rose-950">Limite de Anexos Excedido</span>
+                  <span className="text-rose-700 leading-relaxed font-semibold">{uploadError}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Validação pré-envio */}
+            {validacao && (validacao.bloqueios.length > 0 || validacao.avisos.length > 0) && (
+              <div className="space-y-2 mt-3">
+                {validacao.bloqueios.length > 0 && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-800">
+                    <p className="mb-1">Corrige antes de enviar:</p>
+                    {validacao.bloqueios.map((b, i) => <p key={i}>• {b}</p>)}
+                  </div>
+                )}
+                {validacao.avisos.length > 0 && !avisosConfirmados && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-900">
+                    <p className="mb-1">Atenção — revê antes de enviar:</p>
+                    {validacao.avisos.map((a, i) => <p key={i}>• {a}</p>)}
+                    <p className="mt-2 text-amber-700">Se estiver tudo certo, clica novamente no botão de envio.</p>
+                  </div>
+                )}
+                {validacao.avisos.length > 0 && avisosConfirmados && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-900">
+                    Avisos revistos — o próximo clique envia a mensagem.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Revisão de Clareza IA */}
+            {clareza && (
+              <div className="rounded-xl border border-purple-200 bg-purple-50/70 p-3 text-xs font-bold text-purple-900 space-y-2 mt-3">
+                {clareza.estado === 'a_carregar' && (
+                  <p className="flex items-center gap-2"><Loader2 size={14} className="animate-spin text-purple-600" /> A IA está a rever a clareza do texto…</p>
+                )}
+                {clareza.estado === 'erro' && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-amber-900">
+                    <p>Revisão por IA indisponível agora ({clareza.erro}).</p>
+                    <p className="mt-1">Não precisa dela para enviar — esta revisão é opcional.</p>
+                  </div>
+                )}
+                {clareza.estado === 'ok' && (
+                  <>
+                    <p className="uppercase tracking-wider text-[11px] font-black text-purple-800">Revisão de clareza (IA) — confirme antes de usar:</p>
+                    {clareza.observacoes && <p className="whitespace-pre-wrap font-semibold text-slate-700">{clareza.observacoes}</p>}
+                    {clareza.sugestao && (
+                      <div className="rounded-lg border border-purple-200 bg-white p-2.5 whitespace-pre-wrap font-semibold text-slate-800 shadow-xs">{clareza.sugestao}</div>
+                    )}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {clareza.sugestao && (
+                        <button
+                          type="button"
+                          onClick={() => setComposeData({ ...composeData, body: clareza.sugestao })}
+                          className="px-3.5 py-2 rounded-lg bg-purple-600 text-white font-bold cursor-pointer hover:bg-purple-700 active:scale-95 transition-all text-xs"
+                        >
+                          Usar versão melhorada
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setClareza(null)}
+                        className="px-3.5 py-2 rounded-lg border border-purple-300 text-purple-700 font-bold cursor-pointer hover:bg-purple-100 active:scale-95 transition-all text-xs"
+                      >
+                        Manter o meu texto
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-purple-500 font-medium m-0">Conteúdo sugerido por IA — confirme antes de enviar.</p>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Action Bar matching 100% the uploaded reference */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-2">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* 1. Enviar Mensagem */}
+              <button
+                type="button"
+                onClick={tentarEnviar}
+                disabled={
+                  !(composeData.to || (composeData.toArray || []).length > 0) ||
+                  (isInst && !composeData.subject) ||
+                  (!composeData.body && !(isInst && sondagensCompostas.length > 0)) ||
+                  distribuindoSondagens ||
+                  enviando ||
+                  ((!isInst || instRecipientType === 'instituicao') && !!instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && instRegistry.status === 'nao_registada')
+                }
+                className="bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs md:text-sm px-5 py-3 rounded-xl shadow-xs active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 cursor-pointer"
+                id="btn-enviar-mensagem"
+              >
+                {distribuindoSondagens || enviando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                <span>
+                  {distribuindoSondagens ? 'A distribuir…'
+                    : enviando ? 'A enviar…'
+                    : avisosConfirmados && validacao && validacao.avisos.length > 0 ? 'Enviar mesmo assim' : 'Enviar Mensagem'}
+                </span>
+              </button>
+
+              {/* 2. Rever Clareza (IA) */}
+              <button
+                type="button"
+                onClick={reverClareza}
+                disabled={!composeData.body?.trim() || clareza?.estado === 'a_carregar'}
+                className="border border-purple-200 hover:border-purple-300 text-purple-600 bg-white hover:bg-purple-50/50 font-bold text-xs md:text-sm px-4 py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+                id="btn-rever-clareza"
+              >
+                {clareza?.estado === 'a_carregar' ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} className="text-purple-600" />}
+                <span>{clareza?.estado === 'a_carregar' ? 'A rever…' : 'Rever Clareza (IA)'}</span>
+              </button>
+
+              {/* 3. Criar Inquérito (Área Institucional) */}
+              {isInst && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (sondagensCompostas.length >= 5) {
+                      setAvisoSondagens('Limite de 5 inquéritos por mensagem atingido.');
+                      return;
+                    }
+                    setShowSondagemModal(true);
+                  }}
+                  className="border border-blue-200 hover:border-blue-300 text-blue-600 bg-white hover:bg-blue-50/50 font-bold text-xs md:text-sm px-4 py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+                  id="btn-criar-inquerito"
+                >
+                  <BarChart3 size={16} className="text-blue-600" />
+                  <span>Criar Inquérito</span>
+                </button>
+              )}
+
+              {/* Botão de Emergência quando aplicável */}
+              {isInst && onEmergencyBroadcast && lookupVisible && recipientLookup?.status === 'found' && recipientLookup.citizen?.redeCompleta && !!composeData.body.trim() && (
+                <button
+                  type="button"
+                  onClick={onEmergencyBroadcast}
+                  title="Enviar à rede de emergência"
+                  className="bg-red-50 text-red-700 border border-red-300 hover:bg-red-100 px-4 py-3 rounded-xl font-bold text-xs md:text-sm flex items-center gap-2 transition-all cursor-pointer"
+                  id="btn-emergency-broadcast"
+                >
+                  <ShieldAlert size={16} />
+                  <span>Emergência</span>
+                </button>
+              )}
+            </div>
+
+            {/* Sair / Cancelar */}
+            <button
+              type="button"
+              onClick={() => {
+                if (composeData.body?.trim() || composeData.subject?.trim() || (composeData.attachments && composeData.attachments.length > 0)) {
+                  setConfirmarDescarteRascunho(true);
+                } else {
+                  setIsComposing(false);
+                }
+              }}
+              className="text-slate-600 hover:text-slate-900 font-medium text-xs md:text-sm px-4 py-2 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer self-center sm:self-auto"
+            >
+              Sair
+            </button>
           </div>
         </div>
 
+        {/* Modal de Descarte de Rascunho */}
+        {confirmarDescarteRascunho && (
+          <CdaConfirmModal
+            aberto
+            titulo="Descartar Rascunho"
+            mensagem="Deseja descartar este rascunho? O conteúdo será eliminado e não poderá ser recuperado."
+            textoConfirmar="Descartar"
+            perigoso
+            onConfirmar={async () => {
+              setConfirmarDescarteRascunho(false);
+              limparRascunhoLocal();
+              for (const s of sondagensCompostas) { await removerRascunhoSondagem(s.id); }
+              setSondagensCompostas([]);
+              setIsComposing(false);
+            }}
+            onCancelar={() => setConfirmarDescarteRascunho(false)}
+          />
+        )}
 
+        {/* Modal de Revisão Antes de Enviar */}
+        {revisaoEnvio && (
+          <CdaModal
+            aberto
+            onFechar={() => setRevisaoEnvio(false)}
+            icone={ClipboardCheck}
+            titulo="Rever antes de enviar"
+            subtitulo="Confirme os dados da correspondência"
+            maxW="max-w-lg"
+            padding="p-6 md:p-8"
+          >
+            <div className="text-left space-y-3">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5">
+                <div className="flex gap-3 text-sm">
+                  <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Destinatário</span>
+                  <span className="font-bold text-slate-800 break-words min-w-0">
+                    {(composeData.toArray || []).length > 0
+                      ? `${composeData.toArray.join(', ')} (${composeData.toArray.length} destinatários)`
+                      : composeData.to || '—'}
+                  </span>
+                </div>
+                <div className="flex gap-3 text-sm">
+                  <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Assunto</span>
+                  <span className="font-bold text-slate-800 break-words min-w-0">{composeData.subject?.trim() || '(sem assunto)'}</span>
+                </div>
+                <div className="flex gap-3 text-sm">
+                  <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Anexos</span>
+                  <span className="font-bold text-slate-800 min-w-0">
+                    {(composeData.attachments || []).length === 0
+                      ? 'Nenhum documento anexado'
+                      : <>
+                          {(composeData.attachments || []).length} documento(s)
+                          <span className="block text-xs font-medium text-slate-500 break-words">
+                            {(composeData.attachments || []).slice(0, 4).join(' · ')}
+                            {(composeData.attachments || []).length > 4 ? ' …' : ''}
+                          </span>
+                        </>}
+                  </span>
+                </div>
+              </div>
+              {composeData.body?.trim() && (
+                <div className="bg-white border border-slate-200 rounded-2xl p-4">
+                  <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider block mb-1.5">Resumo da mensagem</span>
+                  <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line m-0">
+                    {composeData.body.trim().slice(0, 400)}{composeData.body.trim().length > 400 ? '…' : ''}
+                  </p>
+                </div>
+              )}
+              <p className="text-[11px] text-slate-400 font-medium m-0">
+                Ao tocar em «Enviar Correspondência» a mensagem é registada com número de protocolo e o destinatário é notificado.
+              </p>
+              <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => setRevisaoEnvio(false)}
+                  disabled={enviando}
+                  className="px-6 py-3.5 rounded-2xl font-bold text-xs text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer border-none disabled:opacity-50"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="button"
+                  onClick={executarEnvio}
+                  disabled={enviando || isUploading}
+                  className="px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all cursor-pointer border-none flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {enviando ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                  {enviando ? 'A enviar…' : isUploading ? 'A carregar anexos…' : 'Enviar Correspondência'}
+                </button>
+              </div>
+            </div>
+          </CdaModal>
+        )}
 
         <AnimatePresence>
           {editingAttachmentIdx !== null && (
