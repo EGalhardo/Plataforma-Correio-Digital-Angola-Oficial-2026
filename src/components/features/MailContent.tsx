@@ -579,17 +579,19 @@ export function MailContent({
   };
   const multiDestControls = (
     <div className="space-y-1.5" data-testid="multi-destinatarios">
-      <button
-        type="button"
-        onClick={adicionarDestinatarioMulti}
-        disabled={!composeData.to.trim()}
-        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-primary/30 text-primary text-[10px] md:text-[11px] font-black uppercase tracking-widest hover:bg-primary/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-        title="Adicionar este destinatário à lista de expedição múltipla"
-      >
-        + Adicionar destinatário (envio múltiplo)
-      </button>
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={adicionarDestinatarioMulti}
+          disabled={!composeData.to.trim()}
+          className="inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl border border-dashed border-primary/30 text-primary text-[10px] md:text-[11px] font-black uppercase tracking-widest hover:bg-primary/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          title="Adicionar este destinatário à lista de expedição múltipla"
+        >
+          + Adicionar destinatário (envio múltiplo)
+        </button>
+      </div>
       {destinatariosMulti.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+        <div className="flex flex-wrap items-center justify-end gap-1.5 pt-0.5">
           {destinatariosMulti.map((d) => (
             <span key={d} className="inline-flex items-center gap-1.5 bg-primary/5 border border-primary/15 text-primary rounded-full pl-3 pr-1.5 py-1 text-[10px] md:text-[11px] font-black font-mono">
               {d}
@@ -956,18 +958,18 @@ export function MailContent({
           {isInst ? (
             <div className="grid grid-cols-1 gap-5 md:gap-6">
               <div className="space-y-2">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pl-1 pb-1">
-                  <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest">
+                <div className="flex flex-wrap items-center gap-6 sm:gap-8 pl-1 pb-1">
+                  <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest cursor-default">
                     {instRecipientType === 'cidadao' ? 'Destinatário (Nº do BI — exacto)' : 'Destinatário (Código Institucional)'}
                   </label>
-                  <div className="flex items-center gap-8 text-xs md:text-sm mr-2 sm:mr-6">
+                  <div className="flex items-center gap-6 text-xs md:text-sm">
                     <button
                       type="button"
                       onClick={() => {
                         setInstRecipientType('cidadao');
                         setComposeData(prev => ({ ...prev, to: '' }));
                       }}
-                      className={`pb-1 px-1 font-bold transition-all cursor-pointer border-b-2 ${
+                      className={`pb-0.5 px-1 font-bold transition-all cursor-pointer border-b-2 ${
                         instRecipientType === 'cidadao'
                           ? 'border-indigo-600 text-indigo-700'
                           : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -982,7 +984,7 @@ export function MailContent({
                         setInstRecipientType('instituicao');
                         setComposeData(prev => ({ ...prev, to: '' }));
                       }}
-                      className={`pb-1 px-1 font-bold transition-all cursor-pointer border-b-2 ${
+                      className={`pb-0.5 px-1 font-bold transition-all cursor-pointer border-b-2 ${
                         instRecipientType === 'instituicao'
                           ? 'border-indigo-600 text-indigo-700'
                           : 'border-transparent text-slate-500 hover:text-slate-800'
