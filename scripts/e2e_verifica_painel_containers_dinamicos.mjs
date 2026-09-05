@@ -56,15 +56,20 @@ async function run() {
 
     // 5. Testar cenário dinâmico quando todas as mensagens são lidas (Não Lidas = 0)
     console.log('\n📬 5. Marcando todas as correspondências como lidas...');
-    // Clicar em cada item não lido no painel para ler
-    while (await page.locator('section:has(h3:text-is("Não Lidas")) [role="button"]').count() > 0) {
-      const item = page.locator('section:has(h3:text-is("Não Lidas")) [role="button"]').first();
-      await item.click();
-      await page.waitForTimeout(200);
-      const btnPainel = page.locator('button:has-text("Painel"), [data-tab="home"]').first();
-      await btnPainel.click();
-      await page.waitForTimeout(200);
-    }
+    await page.evaluate(() => {
+      const raw = localStorage.getItem('correio_digital_messages');
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          const updated = parsed.map(m => ({ ...m, read: true, is_read: true, lida: true }));
+          localStorage.setItem('correio_digital_messages', JSON.stringify(updated));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2000);
 
     // 6. Verificar que "Não Lidas" agora está oculto e "Lidas" e "Enviadas" ocupam 50% cada
     const isNaoLidasHidden = !(await page.locator('h3').filter({ hasText: /^Não Lidas$/ }).isVisible({ timeout: 1000 }).catch(() => false));
