@@ -24,7 +24,7 @@ const TS = Date.now();
 const MARCA = `SONDAGEM E2E ${String(TS).slice(-6)}`;
 
 const env = {};
-for (const linha of readFileSync('/home/user/Plataforma-Correio-Digital-Angola-Oficial-2026/.env', 'utf8').split('\n')) {
+for (const linha of readFileSync(process.env.ENV_FILE || '.env', 'utf8').split('\n')) {
   const m = linha.match(/^([A-Z_0-9]+)=(.*)$/);
   if (m) env[m[1]] = m[2].trim().replace(/^"|"$/g, '');
 }

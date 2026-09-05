@@ -57,22 +57,17 @@ const page = await browser.newPage({ viewport: { width: 1366, height: 850 }, loc
 const textoPagina = () => page.evaluate(() => document.body.innerText);
 
 const loginInst = async () => {
-  await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.getByRole('heading', { name: 'LOGIN' }).waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByRole('button', { name: 'Instituição', exact: true }).first().click();
-  await page.waitForTimeout(600);
-  await page.getByPlaceholder('AGT-9921-SR').fill(INST);
+  await page.goto(`${BASE}/institucional#/entrar`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.locator('input[type="text"]:visible, input:not([type]):visible').first().waitFor({ state: 'visible', timeout: 20000 });
+  await page.locator('input[type="text"]:visible, input:not([type]):visible').first().fill(INST);
   await page.locator('input[type="password"]').first().fill(INST_PASS);
   await page.getByRole('button', { name: /ENTRAR NO PORTAL/i }).first().click();
   await page.waitForTimeout(9000);
 };
 
 const loginCidadao = async () => {
-  await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.getByRole('heading', { name: 'LOGIN' }).waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByRole('button', { name: 'Cidadão', exact: true }).first().click();
-  await page.waitForTimeout(600);
-  // campo de identificação do cidadão (placeholder com exemplo de BI)
+  await page.goto(`${BASE}/#/entrar`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.locator('input[type="text"]:visible, input:not([type]):visible').first().waitFor({ state: 'visible', timeout: 20000 });
   const campoBi = page.locator('input[type="text"]:visible, input:not([type]):visible').first();
   await campoBi.fill(CID);
   await page.locator('input[type="password"]').first().fill(CID_PASS);

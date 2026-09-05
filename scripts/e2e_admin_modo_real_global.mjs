@@ -55,10 +55,7 @@ const rolarFundo = async () => {
 try {
   // ============ LOGIN (sessão real) ============
   console.log('[passo] login...');
-  await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.getByRole('heading', { name: 'LOGIN' }).waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByRole('button', { name: 'Admin', exact: true }).first().click();
-  await page.waitForTimeout(600);
+  await page.goto(`${BASE}/admin#/entrar`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.locator('input[type="text"]:visible, input:not([type]):visible').first().fill(ADMIN);
   await page.locator('input[type="password"]').first().fill(ADMIN_PASS);
   await page.getByRole('button', { name: /ENTRAR NO PORTAL/i }).first().click();

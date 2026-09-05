@@ -23,7 +23,7 @@
 // Uso: BASE=<url> node scripts/e2e_regra_ux_registo.mjs   (sai 0 se tudo PASS)
 // ============================================================================
 import { chromium } from 'playwright';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
 
 const BASE = process.env.BASE || 'http://localhost:3000';
 const TS = Date.now();
@@ -39,8 +39,13 @@ const FRENTE = '/home/user/cda_test/bi_teste_ux_frente.png';
 const VERSO = '/home/user/cda_test/bi_teste_ux_verso.png';
 const SS = '/home/user/cda_test/screenshots';
 
+mkdirSync(SS, { recursive: true });
+const DUMMY_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+if (!existsSync(FRENTE)) writeFileSync(FRENTE, DUMMY_PNG);
+if (!existsSync(VERSO)) writeFileSync(VERSO, DUMMY_PNG);
+
 const env = {};
-for (const linha of readFileSync('/home/user/Plataforma-Correio-Digital-Angola-Oficial-2026/.env', 'utf8').split('\n')) {
+for (const linha of readFileSync(process.env.ENV_FILE || '.env', 'utf8').split('\n')) {
   const m = linha.match(/^([A-Z_0-9]+)=(.*)$/);
   if (m) env[m[1]] = m[2].trim().replace(/^"|"$/g, '');
 }
@@ -317,6 +322,17 @@ await (async () => {
       await nomeI.waitFor({ state: 'visible', timeout: 25000 });
     }
     await nomeI.fill(INST.nome);
+    await pageI.locator('input[placeholder*="Ex: SME"]').fill('UXT');
+    await pageI.locator('input[placeholder*="Ministério"]').fill('Instituto Público');
+    const selects = pageI.locator('select');
+    if (await selects.count() >= 3) {
+      await selects.nth(0).selectOption('Luanda');
+      await pageI.waitForTimeout(400);
+      await selects.nth(1).selectOption({ index: 1 });
+      await pageI.waitForTimeout(400);
+      await selects.nth(2).selectOption({ index: 1 });
+      await pageI.waitForTimeout(400);
+    }
     await pageI.locator('input[placeholder*="Rua dos Correios"]').fill('Rua de Teste UX 10, Maianga, Luanda');
     await pageI.locator('input[placeholder*="geral@sme"]').fill(INST.email);
     await pageI.locator('input[placeholder*="+244 923"]').fill('+244 923 777 888');

@@ -12,4 +12,6 @@ cda_test/
 .cache/
 .local/
 .npm/
+.config/
+e2e_admin_shots/
 .sudo_as_admin_successful

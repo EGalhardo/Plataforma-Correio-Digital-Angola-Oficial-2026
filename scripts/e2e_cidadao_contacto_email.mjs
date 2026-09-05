@@ -35,10 +35,8 @@ const tx = async () => ((await page.evaluate(() => document.body.innerText)).toL
 try {
   // ============ E1 — login cidadão real ============
   console.log('[passo] login cidadão...');
-  await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.getByRole('heading', { name: 'LOGIN' }).waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByRole('button', { name: 'Cidadão', exact: true }).first().click();
-  await page.waitForTimeout(600);
+  await page.goto(`${BASE}/#/entrar`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.locator('input[type="text"]:visible, input:not([type]):visible').first().waitFor({ state: 'visible', timeout: 20000 });
   await page.locator('input[type="text"]:visible, input:not([type]):visible').first().fill(BI);
   await page.locator('input[type="password"]').first().fill(PASS);
   await page.getByRole('button', { name: /ENTRAR NO PORTAL/i }).first().click();

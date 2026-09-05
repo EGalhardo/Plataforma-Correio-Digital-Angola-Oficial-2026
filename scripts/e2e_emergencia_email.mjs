@@ -26,25 +26,36 @@ const tx = async () => ((await page.evaluate(() => document.body.innerText)).toL
 try {
   // ================= EA — cidadão grava email na Belmira =================
   console.log('[passo] EA cidadão: email no contacto');
-  await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.getByRole('heading', { name: 'LOGIN' }).waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByRole('button', { name: 'Cidadão', exact: true }).first().click();
-  await page.waitForTimeout(600);
+  await page.goto(`${BASE}/#/entrar`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.locator('input[type="text"]:visible, input:not([type]):visible').first().waitFor({ state: 'visible', timeout: 20000 });
   await page.locator('input[type="text"]:visible, input:not([type]):visible').first().fill('002399714LA030');
   await page.locator('input[type="password"]').first().fill('123456789');
   await page.getByRole('button', { name: /ENTRAR NO PORTAL/i }).first().click();
   await page.waitForTimeout(9000);
-  await page.locator('aside').getByText('Contactos', { exact: true }).first().click();
+  await page.locator('aside, header, nav').getByText('Contactos', { exact: true }).first().click();
   await page.waitForTimeout(3500);
-  const linhaBel = page.locator('tr').filter({ hasText: /Belmira Galhardo/i }).first();
-  await linhaBel.locator('button[title="Editar contacto e protocolo"]').first().click();
-  await page.waitForTimeout(1200);
-  // contacto antigo tem telefone sem formato +244 → a validação (correcta)
-  // bloquearia a edição; normalizamos para o formato oficial (mesmo número).
-  await page.locator('#edit-contact-phone-input').first().fill('+244 951 520 416');
-  await page.locator('#edit-contact-email-input').first().fill('belmira.galhardo@exemplo.ao');
-  await page.locator('#confirm-edit-contact-btn').first().click();
-  await page.waitForTimeout(3500);
+  let linhaBel = page.locator('tr').filter({ hasText: /Belmira Galhardo/i }).first();
+  if (await linhaBel.count() === 0) {
+    const btnAdd = page.locator('button').filter({ hasText: /^Adicionar$/i }).first();
+    if (await btnAdd.count() > 0) {
+      await btnAdd.click();
+      await page.waitForTimeout(1000);
+      await page.locator('#contact-name-input').fill('Belmira Galhardo');
+      await page.locator('#contact-bi-input').fill('009988776LA099');
+      await page.locator('#contact-phone-input').fill('+244 951 520 416');
+      await page.locator('#contact-email-input').fill('belmira.galhardo@exemplo.ao');
+      await page.locator('#confirm-add-contact-btn').click();
+      await page.waitForTimeout(2500);
+      linhaBel = page.locator('tr').filter({ hasText: /Belmira Galhardo/i }).first();
+    }
+  } else {
+    await linhaBel.locator('button[title="Editar contacto e protocolo"]').first().click();
+    await page.waitForTimeout(1200);
+    await page.locator('#edit-contact-phone-input').first().fill('+244 951 520 416');
+    await page.locator('#edit-contact-email-input').first().fill('belmira.galhardo@exemplo.ao');
+    await page.locator('#confirm-edit-contact-btn').first().click();
+    await page.waitForTimeout(3500);
+  }
   const txtEA = await tx();
   const semErroEA = !txtEA.includes('telefone inválido') && !txtEA.includes('email inválido');
   reg('EA-email-gravado-no-contacto', semErroEA);
@@ -54,15 +65,14 @@ try {
 
   // ================= EB — instituição difunde =================
   console.log('[passo] EB instituição: difusão de emergência');
-  await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.getByRole('heading', { name: 'LOGIN' }).waitFor({ state: 'visible', timeout: 20000 });
-  await page.getByRole('button', { name: 'Instituição', exact: true }).first().click();
-  await page.waitForTimeout(600);
+  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+  await page.goto(`${BASE}/institucional#/entrar`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.locator('input[type="text"]:visible, input:not([type]):visible').first().waitFor({ state: 'visible', timeout: 20000 });
   await page.locator('input[type="text"]:visible, input:not([type]):visible').first().fill('INAPEM-LLMM-01');
   await page.locator('input[type="password"]').first().fill('123456789');
   await page.getByRole('button', { name: /ENTRAR NO PORTAL/i }).first().click();
   await page.waitForTimeout(9000);
-  await page.locator('aside').getByText('Correio', { exact: true }).first().click();
+  await page.locator('aside, header, nav').getByText('Correio', { exact: true }).first().click();
   await page.waitForTimeout(3500);
   await page.getByRole('button', { name: /Nova Mensagem/i }).first().click();
   await page.waitForTimeout(1500);
