@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Users, Plus, Search, ShieldCheck, ShieldAlert, Trash2, Info, Edit, User, CreditCard, CheckCircle, X, Check, Bell, Phone, ChevronDown, Mail } from 'lucide-react';
 import { Contact } from '../../types';
+import { notify } from '../../lib/notify';
 import {
   CONTACT_RELATION_OPTIONS,
   EmergencyProfileState,
@@ -104,6 +105,7 @@ export function ContactsContent({
       // Retrocompatibilidade defensiva (não deverá acontecer em produção).
       onUpdateContactType(editingContact.id, editForm.type || 'Normal');
     }
+    notify("Contacto atualizado com sucesso.", "success");
     setEditingContact(null);
   };
 

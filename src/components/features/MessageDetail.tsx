@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { CdaModal } from '../ui/CdaModal';
+import { notify } from '../../lib/notify';
 import { responderSondagem, buscarSondagem, resultadosSondagem, type Sondagem } from '../../services/sondagemService';
 import { isStorageRef, resolveStorageUrl, buildStorageRef } from '../../lib/secureStorage';
 import { motion, AnimatePresence } from 'motion/react';
@@ -754,6 +755,7 @@ export function MessageDetail({
         documentHash: resultado.protocol?.documentHash || '',
         files: inlineAttachedFiles
       });
+      notify("Resposta enviada com sucesso.", "success");
       setDetailReplyText('');
       setInlineAttachedFiles([]);
       setIsReplyingInDetails(false);
@@ -5257,6 +5259,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                   onClick={() => {
                     if (onDeleteMessage) {
                       onDeleteMessage(messageToDelete.id);
+                      notify("Correspondência eliminada com sucesso.", "success");
                       setTab('correspondencias');
                       setSelectedMessage(null);
                     }
