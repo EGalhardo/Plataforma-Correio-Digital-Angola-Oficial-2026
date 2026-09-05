@@ -93,6 +93,8 @@ interface CitizenProfileProps {
   phone: string;
   email?: string;
   userFiliation?: string;
+  userMaritalStatus?: string;
+  userBirthDate?: string;
   contactsList?: Contact[];
   documentsList?: Document[];
   correspondencesCount?: number;
@@ -114,6 +116,8 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
   phone = '',
   email = '',
   userFiliation = '',
+  userMaritalStatus = '',
+  userBirthDate = '',
   contactsList = [],
   documentsList = [],
   correspondencesCount = 0,
@@ -658,8 +662,8 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                   { label: 'B.I. (Nº Bilhete de Identidade)', value: user?.bi || bi || '—', type: 'mono' },
                   { label: 'Email Registado', value: user?.email || derivedEmail || '—', type: 'email', verified: true },
                   { label: 'Telemóvel Registado', value: user?.phone || phone || '—', type: 'phone' },
-                  { label: 'Estado Civil', value: user?.maritalStatus || '—', type: 'text' },
-                  { label: 'Filiação (Paternidade & Maternidade)', value: user?.filiation || '—', type: 'text' },
+                  { label: 'Estado Civil', value: user?.maritalStatus || userMaritalStatus || '—', type: 'text' },
+                  { label: 'Filiação (Paternidade & Maternidade)', value: user?.filiation || userFiliation || '—', type: 'text' },
                   { label: 'Morada Residencial', value: user?.address || 'Não associado', type: 'text', colSpan: 'md:col-span-2' },
                   { label: 'Registo do Sistema Central', value: 'Conta criada em: 16 de Junho de 2025', type: 'text', colSpan: 'md:col-span-2', subtle: true }
                 ].map((field, index) => (

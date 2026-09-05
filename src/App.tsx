@@ -2825,7 +2825,7 @@ export default function App() {
         const effectiveInstCode = institutionCode || (isInstMode ? bi : '');
         const sentSenderKey = isInstMode ? effectiveInstCode : isGovMode ? 'CDA' : bi;
         const mailboxRecipientKey = isInstMode ? effectiveInstCode : bi;
-        const precisaHidratacaoPerfil = bi && !homologationStore.isExempt(bi) && isCloudBound(bi);
+        const precisaHidratacaoPerfil = bi && !homologationStore.isExempt(bi);
         // v37.23 (DESEMPENHO) — hidratação do perfil + caixa de mensagens em
         // PARALELO: antes eram 2 round-trips sequenciais ao arranque (e a cada
         // evento realtime); agora correm em simultâneo.
@@ -2839,12 +2839,21 @@ export default function App() {
           {
             const dbProfile = dbProfilePre;
               if (dbProfile && isSubscribed) {
-              const hyd: { name?: string; email?: string; phone?: string; filiation?: string; maritalStatus?: string } = {};
+              const hyd: { name?: string; email?: string; phone?: string; nif?: string; passport?: string; address?: string; filiation?: string; maritalStatus?: string; birthDate?: string } = {};
               if (typeof dbProfile.name === 'string' && dbProfile.name.trim()) hyd.name = dbProfile.name.trim();
               if (typeof dbProfile.email === 'string' && dbProfile.email.trim()) hyd.email = dbProfile.email.trim();
               if (typeof dbProfile.phone === 'string' && dbProfile.phone.trim()) hyd.phone = dbProfile.phone.trim();
+              if (typeof dbProfile.nif === 'string' && dbProfile.nif.trim()) hyd.nif = dbProfile.nif.trim();
+              if (typeof dbProfile.passport === 'string' && dbProfile.passport.trim()) hyd.passport = dbProfile.passport.trim();
+              if (typeof (dbProfile as any).morada === 'string' && (dbProfile as any).morada.trim()) hyd.address = (dbProfile as any).morada.trim();
               if (typeof dbProfile.filiation === 'string' && dbProfile.filiation.trim()) hyd.filiation = dbProfile.filiation.trim();
               if (typeof dbProfile.marital_status === 'string' && dbProfile.marital_status.trim()) hyd.maritalStatus = dbProfile.marital_status.trim();
+              if (dbProfile.birth_date) {
+                const parts = String(dbProfile.birth_date).split('-');
+                if (parts.length === 3) {
+                  hyd.birthDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                }
+              }
               // F45 (Auditoria F42 · Médio#10 — corrida F39): NUNCA aplicar a
               // hidratação da nuvem POR CIMA de uma edição de perfil em curso.
               if (Object.keys(hyd).length && !isProfileEditActive()) {
@@ -2963,6 +2972,12 @@ export default function App() {
             }
             if (dbProfile.filiation) setUserFiliation(dbProfile.filiation);
             if (dbProfile.marital_status) setUserMaritalStatus(dbProfile.marital_status);
+            if (dbProfile.email || (dbProfile as any).morada) {
+              updateUserFields({
+                ...(dbProfile.email ? { email: dbProfile.email } : {}),
+                ...((dbProfile as any).morada ? { address: (dbProfile as any).morada } : {})
+              });
+            }
           }
         }
 
@@ -3802,7 +3817,7 @@ export default function App() {
     if (stage !== 'app' || !bi.trim()) return;
     if (!hasValidSupabaseKeys() || !isOnline) return;
     // Contas demo não têm linha real para sincronizar — nada a fazer.
-    if (homologationStore.isExempt(bi) || !isCloudBound(bi)) return;
+    if (homologationStore.isExempt(bi)) return;
 
     let algoConfirmado = false;
 
@@ -3874,7 +3889,7 @@ export default function App() {
       localStorage.setItem('supabase_last_sync_time', stamp);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, appMode, bi, isOnline, isCloudBound, instIdentity?.type, user?.name, user?.phone, user?.nif, user?.passport, user?.birthDate, user?.filiation, user?.maritalStatus, user?.email]);
+  }, [stage, appMode, bi, isOnline, instIdentity?.type, user?.name, user?.phone, user?.nif, user?.passport, user?.birthDate, user?.filiation, user?.maritalStatus, user?.email]);
 
   useEffect(() => {
     if (stage !== 'app') return;

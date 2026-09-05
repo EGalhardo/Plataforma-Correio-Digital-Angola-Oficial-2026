@@ -1,0 +1,589 @@
+{
+  "timestamp": "2026-09-05T15:24:09.941Z",
+  "base": "http://localhost:3000",
+  "staticAnalysis": {
+    "typeCheckErrors": 0,
+    "hardcodedSecrets": 0,
+    "totalComponents": 65,
+    "totalRoutes": 51
+  },
+  "pagesAudited": [
+    {
+      "area": "publico",
+      "name": "Login Cidadão",
+      "route": "/#/login",
+      "elapsedMs": 2086,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/publico_Login_Cidad_o_desktop.png",
+        "mobile": "testes/evidencias/screenshots/publico_Login_Cidad_o_mobile.png"
+      }
+    },
+    {
+      "area": "publico",
+      "name": "Registo Cidadão",
+      "route": "/#/registar",
+      "elapsedMs": 1026,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/publico_Registo_Cidad_o_desktop.png",
+        "mobile": "testes/evidencias/screenshots/publico_Registo_Cidad_o_mobile.png"
+      }
+    },
+    {
+      "area": "publico",
+      "name": "Recuperação de Senha Cidadão",
+      "route": "/#/esqueci-senha",
+      "elapsedMs": 1030,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/publico_Recupera__o_de_Senha_Cidad_o_desktop.png",
+        "mobile": "testes/evidencias/screenshots/publico_Recupera__o_de_Senha_Cidad_o_mobile.png"
+      }
+    },
+    {
+      "area": "publico",
+      "name": "Login Facial Cidadão",
+      "route": "/#/login-facial",
+      "elapsedMs": 1022,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/publico_Login_Facial_Cidad_o_desktop.png",
+        "mobile": "testes/evidencias/screenshots/publico_Login_Facial_Cidad_o_mobile.png"
+      }
+    },
+    {
+      "area": "publico",
+      "name": "Login Email Cidadão",
+      "route": "/#/login-email",
+      "elapsedMs": 1025,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/publico_Login_Email_Cidad_o_desktop.png",
+        "mobile": "testes/evidencias/screenshots/publico_Login_Email_Cidad_o_mobile.png"
+      }
+    },
+    {
+      "area": "publico",
+      "name": "Login Instituição",
+      "route": "/institucional#/login",
+      "elapsedMs": 1275,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/publico_Login_Institui__o_desktop.png",
+        "mobile": "testes/evidencias/screenshots/publico_Login_Institui__o_mobile.png"
+      }
+    },
+    {
+      "area": "publico",
+      "name": "Registo Instituição",
+      "route": "/institucional#/registar",
+      "elapsedMs": 1026,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/publico_Registo_Institui__o_desktop.png",
+        "mobile": "testes/evidencias/screenshots/publico_Registo_Institui__o_mobile.png"
+      }
+    },
+    {
+      "area": "publico",
+      "name": "Recuperação Senha Instituição",
+      "route": "/institucional#/esqueci-senha",
+      "elapsedMs": 1036,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/publico_Recupera__o_Senha_Institui__o_desktop.png",
+        "mobile": "testes/evidencias/screenshots/publico_Recupera__o_Senha_Institui__o_mobile.png"
+      }
+    },
+    {
+      "area": "publico",
+      "name": "Login Admin",
+      "route": "/admin#/login",
+      "elapsedMs": 1291,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/publico_Login_Admin_desktop.png",
+        "mobile": "testes/evidencias/screenshots/publico_Login_Admin_mobile.png"
+      }
+    },
+    {
+      "area": "publico",
+      "name": "Registo Admin",
+      "route": "/admin#/registar",
+      "elapsedMs": 1030,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/publico_Registo_Admin_desktop.png",
+        "mobile": "testes/evidencias/screenshots/publico_Registo_Admin_mobile.png"
+      }
+    },
+    {
+      "area": "publico",
+      "name": "Recuperação Senha Admin",
+      "route": "/admin#/esqueci-senha",
+      "elapsedMs": 1029,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/publico_Recupera__o_Senha_Admin_desktop.png",
+        "mobile": "testes/evidencias/screenshots/publico_Recupera__o_Senha_Admin_mobile.png"
+      }
+    },
+    {
+      "area": "cidadao",
+      "name": "Painel Principal",
+      "route": "/#/home",
+      "elapsedMs": 1013,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/cidadao_Painel_Principal_desktop.png",
+        "mobile": "testes/evidencias/screenshots/cidadao_Painel_Principal_mobile.png"
+      }
+    },
+    {
+      "area": "cidadao",
+      "name": "Correio e Correspondências",
+      "route": "/#/correspondencias",
+      "elapsedMs": 1051,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/cidadao_Correio_e_Correspond_ncias_desktop.png",
+        "mobile": "testes/evidencias/screenshots/cidadao_Correio_e_Correspond_ncias_mobile.png"
+      }
+    },
+    {
+      "area": "cidadao",
+      "name": "Documentos Digitais",
+      "route": "/#/documentos",
+      "elapsedMs": 1068,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/cidadao_Documentos_Digitais_desktop.png",
+        "mobile": "testes/evidencias/screenshots/cidadao_Documentos_Digitais_mobile.png"
+      }
+    },
+    {
+      "area": "cidadao",
+      "name": "Pasta Digital",
+      "route": "/#/pasta-digital",
+      "elapsedMs": 1013,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/cidadao_Pasta_Digital_desktop.png",
+        "mobile": "testes/evidencias/screenshots/cidadao_Pasta_Digital_mobile.png"
+      }
+    },
+    {
+      "area": "cidadao",
+      "name": "Histórico Operacional",
+      "route": "/#/historico",
+      "elapsedMs": 1062,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/cidadao_Hist_rico_Operacional_desktop.png",
+        "mobile": "testes/evidencias/screenshots/cidadao_Hist_rico_Operacional_mobile.png"
+      }
+    },
+    {
+      "area": "cidadao",
+      "name": "Centro de Notificações",
+      "route": "/#/notificacoes",
+      "elapsedMs": 1042,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/cidadao_Centro_de_Notifica__es_desktop.png",
+        "mobile": "testes/evidencias/screenshots/cidadao_Centro_de_Notifica__es_mobile.png"
+      }
+    },
+    {
+      "area": "cidadao",
+      "name": "Contactos de Emergência",
+      "route": "/#/contatos",
+      "elapsedMs": 1054,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/cidadao_Contactos_de_Emerg_ncia_desktop.png",
+        "mobile": "testes/evidencias/screenshots/cidadao_Contactos_de_Emerg_ncia_mobile.png"
+      }
+    },
+    {
+      "area": "cidadao",
+      "name": "Directório de Órgãos",
+      "route": "/#/directorio-orgaos",
+      "elapsedMs": 1039,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/cidadao_Direct_rio_de__rg_os_desktop.png",
+        "mobile": "testes/evidencias/screenshots/cidadao_Direct_rio_de__rg_os_mobile.png"
+      }
+    },
+    {
+      "area": "cidadao",
+      "name": "Solicitar Documento",
+      "route": "/#/solicitar-documento",
+      "elapsedMs": 1037,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/cidadao_Solicitar_Documento_desktop.png",
+        "mobile": "testes/evidencias/screenshots/cidadao_Solicitar_Documento_mobile.png"
+      }
+    },
+    {
+      "area": "cidadao",
+      "name": "Videoatendimento",
+      "route": "/#/video-atendimento",
+      "elapsedMs": 1062,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/cidadao_Videoatendimento_desktop.png",
+        "mobile": "testes/evidencias/screenshots/cidadao_Videoatendimento_mobile.png"
+      }
+    },
+    {
+      "area": "cidadao",
+      "name": "Pagamentos e Emolumentos",
+      "route": "/#/pagamentos",
+      "elapsedMs": 1105,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/cidadao_Pagamentos_e_Emolumentos_desktop.png",
+        "mobile": "testes/evidencias/screenshots/cidadao_Pagamentos_e_Emolumentos_mobile.png"
+      }
+    },
+    {
+      "area": "cidadao",
+      "name": "Perfil e Assinatura",
+      "route": "/#/perfil",
+      "elapsedMs": 1035,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/cidadao_Perfil_e_Assinatura_desktop.png",
+        "mobile": "testes/evidencias/screenshots/cidadao_Perfil_e_Assinatura_mobile.png"
+      }
+    },
+    {
+      "area": "instituicao",
+      "name": "Painel Institucional",
+      "route": "/institucional#/home",
+      "elapsedMs": 1013,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/instituicao_Painel_Institucional_desktop.png",
+        "mobile": "testes/evidencias/screenshots/instituicao_Painel_Institucional_mobile.png"
+      }
+    },
+    {
+      "area": "instituicao",
+      "name": "Correio Institucional",
+      "route": "/institucional#/correspondencias",
+      "elapsedMs": 1057,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/instituicao_Correio_Institucional_desktop.png",
+        "mobile": "testes/evidencias/screenshots/instituicao_Correio_Institucional_mobile.png"
+      }
+    },
+    {
+      "area": "instituicao",
+      "name": "Documentos Oficiais",
+      "route": "/institucional#/documentos",
+      "elapsedMs": 1085,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/instituicao_Documentos_Oficiais_desktop.png",
+        "mobile": "testes/evidencias/screenshots/instituicao_Documentos_Oficiais_mobile.png"
+      }
+    },
+    {
+      "area": "instituicao",
+      "name": "Gestão de Equipa",
+      "route": "/institucional#/gov-contatos",
+      "elapsedMs": 1081,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/instituicao_Gest_o_de_Equipa_desktop.png",
+        "mobile": "testes/evidencias/screenshots/instituicao_Gest_o_de_Equipa_mobile.png"
+      }
+    },
+    {
+      "area": "instituicao",
+      "name": "QR Code Institucional",
+      "route": "/institucional#/inst-qrcode",
+      "elapsedMs": 1091,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/instituicao_QR_Code_Institucional_desktop.png",
+        "mobile": "testes/evidencias/screenshots/instituicao_QR_Code_Institucional_mobile.png"
+      }
+    },
+    {
+      "area": "instituicao",
+      "name": "Assistente IA Institucional",
+      "route": "/institucional#/inst-ai-assistant",
+      "elapsedMs": 1092,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/instituicao_Assistente_IA_Institucional_desktop.png",
+        "mobile": "testes/evidencias/screenshots/instituicao_Assistente_IA_Institucional_mobile.png"
+      }
+    },
+    {
+      "area": "instituicao",
+      "name": "Perfil da Instituição",
+      "route": "/institucional#/perfil",
+      "elapsedMs": 1054,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/instituicao_Perfil_da_Institui__o_desktop.png",
+        "mobile": "testes/evidencias/screenshots/instituicao_Perfil_da_Institui__o_mobile.png"
+      }
+    },
+    {
+      "area": "instituicao",
+      "name": "Cobranças e Pagamentos",
+      "route": "/institucional#/inst-pagamentos",
+      "elapsedMs": 1010,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/instituicao_Cobran_as_e_Pagamentos_desktop.png",
+        "mobile": "testes/evidencias/screenshots/instituicao_Cobran_as_e_Pagamentos_mobile.png"
+      }
+    },
+    {
+      "area": "instituicao",
+      "name": "Videoatendimento Institucional",
+      "route": "/institucional#/video-atendimento",
+      "elapsedMs": 1040,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/instituicao_Videoatendimento_Institucional_desktop.png",
+        "mobile": "testes/evidencias/screenshots/instituicao_Videoatendimento_Institucional_mobile.png"
+      }
+    },
+    {
+      "area": "instituicao",
+      "name": "Sondagens e Inquéritos",
+      "route": "/institucional#/sondagens",
+      "elapsedMs": 1042,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/instituicao_Sondagens_e_Inqu_ritos_desktop.png",
+        "mobile": "testes/evidencias/screenshots/instituicao_Sondagens_e_Inqu_ritos_mobile.png"
+      }
+    },
+    {
+      "area": "admin",
+      "name": "Painel Geral de Governação",
+      "route": "/admin#/gov-dashboard",
+      "elapsedMs": 1017,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/admin_Painel_Geral_de_Governa__o_desktop.png",
+        "mobile": "testes/evidencias/screenshots/admin_Painel_Geral_de_Governa__o_mobile.png"
+      }
+    },
+    {
+      "area": "admin",
+      "name": "Interoperabilidade Governamental",
+      "route": "/admin#/gov-interoperabilidade",
+      "elapsedMs": 1078,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/admin_Interoperabilidade_Governamental_desktop.png",
+        "mobile": "testes/evidencias/screenshots/admin_Interoperabilidade_Governamental_mobile.png"
+      }
+    },
+    {
+      "area": "admin",
+      "name": "Correspondências Oficiais",
+      "route": "/admin#/gov-correspondencias",
+      "elapsedMs": 1080,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/admin_Correspond_ncias_Oficiais_desktop.png",
+        "mobile": "testes/evidencias/screenshots/admin_Correspond_ncias_Oficiais_mobile.png"
+      }
+    },
+    {
+      "area": "admin",
+      "name": "Directório de Cidadãos",
+      "route": "/admin#/gov-contatos",
+      "elapsedMs": 1129,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/admin_Direct_rio_de_Cidad_os_desktop.png",
+        "mobile": "testes/evidencias/screenshots/admin_Direct_rio_de_Cidad_os_mobile.png"
+      }
+    },
+    {
+      "area": "admin",
+      "name": "Gestão de Administradores",
+      "route": "/admin#/gov-trabalhadores",
+      "elapsedMs": 1161,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/admin_Gest_o_de_Administradores_desktop.png",
+        "mobile": "testes/evidencias/screenshots/admin_Gest_o_de_Administradores_mobile.png"
+      }
+    },
+    {
+      "area": "admin",
+      "name": "Relatórios de Governação",
+      "route": "/admin#/gov-relatorio",
+      "elapsedMs": 1080,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/admin_Relat_rios_de_Governa__o_desktop.png",
+        "mobile": "testes/evidencias/screenshots/admin_Relat_rios_de_Governa__o_mobile.png"
+      }
+    },
+    {
+      "area": "admin",
+      "name": "Painel IA de Governação",
+      "route": "/admin#/gov-ia",
+      "elapsedMs": 1118,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/admin_Painel_IA_de_Governa__o_desktop.png",
+        "mobile": "testes/evidencias/screenshots/admin_Painel_IA_de_Governa__o_mobile.png"
+      }
+    },
+    {
+      "area": "admin",
+      "name": "Auditoria de Segurança",
+      "route": "/admin#/gov-seguranca",
+      "elapsedMs": 1103,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/admin_Auditoria_de_Seguran_a_desktop.png",
+        "mobile": "testes/evidencias/screenshots/admin_Auditoria_de_Seguran_a_mobile.png"
+      }
+    },
+    {
+      "area": "admin",
+      "name": "Perfil do Administrador",
+      "route": "/admin#/gov-perfil",
+      "elapsedMs": 1052,
+      "status": "PASS",
+      "overflowDesktop": false,
+      "overflowMobile": false,
+      "screenshots": {
+        "desktop": "testes/evidencias/screenshots/admin_Perfil_do_Administrador_desktop.png",
+        "mobile": "testes/evidencias/screenshots/admin_Perfil_do_Administrador_mobile.png"
+      }
+    }
+  ],
+  "networkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "authBoundaryChecks": [
+    {
+      "check": "Login Colaborador Institucional",
+      "loggedIn": true
+    },
+    {
+      "check": "Acesso directo a rota Admin sem autenticação",
+      "blocked": true,
+      "verdict": "PASS"
+    }
+  ],
+  "responsiveChecks": [],
+  "modalsAndForms": [
+    {
+      "name": "Modal Adicionar Contacto",
+      "opened": true,
+      "closed": true
+    }
+  ],
+  "cloudSideEffects": [],
+  "summary": {
+    "totalEvaluated": 42,
+    "passed": 42,
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0
+  }
+}
