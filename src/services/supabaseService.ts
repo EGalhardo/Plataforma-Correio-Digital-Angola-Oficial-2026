@@ -1650,6 +1650,11 @@ export const supabaseService = {
       // à conta demo/etiquetas antigas — fundi-lo numa conta real era a fuga que
       // mostrava correspondências de outras contas (BD partilhada).
       const target = realCode ? rawLabel.toUpperCase() : legacyTarget;
+      const targetParts = target.split('-');
+      const targetParent = targetParts.length > 2 && /^\d+$/.test(targetParts[targetParts.length - 1]) ? targetParts.slice(0, -1).join('-') : target;
+      const targetSet = new Set([target, targetParent].filter(Boolean));
+      const orFilter = Array.from(targetSet).map(t => `recipient_bi.eq.${t}`).join(',');
+
       const linhas = await lerLinhasDados<LinhaMensagem>(
         'messages',
         { recipient_bi: target },
@@ -1658,7 +1663,7 @@ export const supabaseService = {
           const { data, error } = await supabase
             .from('messages')
             .select('*')
-            .eq('recipient_bi', target)
+            .or(orFilter)
             .order('created_at', { ascending: false });
           if (error) throw error;
           return (data || []) as LinhaMensagem[];
@@ -1793,10 +1798,33 @@ export const supabaseService = {
             // v37.31 — cidadãos também recebem as difusões «TODOS» das
             // instituições (cidadãos registados após a difusão incluídos).
             const ehBiCidadao = /^\d{9}[A-Z]{2}\d{3}$/i.test(recipientKey || '');
+            const recKeyNorm = (recipientKey || '').toUpperCase().trim();
+            const sndKeyNorm = (senderKey || '').toUpperCase().trim();
+            const recParts = recKeyNorm.split('-');
+            const recSigla = recParts[0];
+            const recParent = recParts.length > 2 && /^\d+$/.test(recParts[recParts.length - 1]) ? recParts.slice(0, -1).join('-') : recKeyNorm;
+            const sndParts = sndKeyNorm.split('-');
+            const sndSigla = sndParts[0];
+            const sndParent = sndParts.length > 2 && /^\d+$/.test(sndParts[sndParts.length - 1]) ? sndParts.slice(0, -1).join('-') : sndKeyNorm;
+
+            const recSet = new Set([recKeyNorm, recParent, recSigla].filter(Boolean));
+            const sndSet = new Set([sndKeyNorm, sndParent, sndSigla].filter(Boolean));
+
+            const orFilters: string[] = [];
+            for (const rk of recSet) {
+              orFilters.push(`recipient_bi.eq.${rk}`);
+            }
+            for (const sk of sndSet) {
+              orFilters.push(`sender_bi.eq.${sk}`);
+            }
+            if (ehBiCidadao) {
+              orFilters.push('recipient_bi.eq.TODOS');
+            }
+
             const { data, error } = await supabase
               .from('messages')
               .select('*')
-              .or(`recipient_bi.eq.${recipientKey},sender_bi.eq.${senderKey}${ehBiCidadao ? ',recipient_bi.eq.TODOS' : ''}`)
+              .or(orFilters.join(','))
               .order('created_at', { ascending: false })
               .limit(500);
             if (error) throw error;
@@ -1842,6 +1870,17 @@ export const supabaseService = {
         };
         const mapped = rows.map(mapRow);
         const ehBi = /^\d{9}[A-Z]{2}\d{3}$/i.test(recipientKey || '');
+        const recKeyNorm = (recipientKey || '').toUpperCase().trim();
+        const sndKeyNorm = (senderKey || '').toUpperCase().trim();
+        const recParts = recKeyNorm.split('-');
+        const recSigla = recParts[0];
+        const recParent = recParts.length > 2 && /^\d+$/.test(recParts[recParts.length - 1]) ? recParts.slice(0, -1).join('-') : recKeyNorm;
+        const sndParts = sndKeyNorm.split('-');
+        const sndSigla = sndParts[0];
+        const sndParent = sndParts.length > 2 && /^\d+$/.test(sndParts[sndParts.length - 1]) ? sndParts.slice(0, -1).join('-') : sndKeyNorm;
+        const recSet = new Set([recKeyNorm, recParent, recSigla].filter(Boolean));
+        const sndSet = new Set([sndKeyNorm, sndParent, sndSigla].filter(Boolean));
+
         // v37.78.28 — UMA CORRESPONDÊNCIA POR CONTA (reporte do dono 2026-08-31):
         // a linha de expedição «TODOS» (registo do lote em «Enviadas» da
         // instituição, unread=false) não pode entrar na caixa de entrada do
@@ -1852,19 +1891,19 @@ export const supabaseService = {
         // pessoal continuam a chegar a todos os cidadãos (regra v37.31 intacta).
         const chavesPessoais = new Set(
           rows
-            .filter((r) => norm(r.recipient_bi) === norm(recipientKey))
+            .filter((r) => recSet.has(norm(r.recipient_bi)))
             .map((r) => `${norm(r.sender_bi)}§${norm(r.subject)}`),
         );
         return {
           incoming: mapped.filter((_, i) => {
             const r = norm(rows[i].recipient_bi);
-            if (r === norm(recipientKey)) return true;
+            if (recSet.has(r)) return true;
             if (ehBi && r === 'TODOS') {
               return !chavesPessoais.has(`${norm(rows[i].sender_bi)}§${norm(rows[i].subject)}`);
             }
             return false;
           }),
-          sent: mapped.filter((_, i) => norm(rows[i].sender_bi) === norm(senderKey)),
+          sent: mapped.filter((_, i) => sndSet.has(norm(rows[i].sender_bi))),
         };
       } catch (e) {
         console.error('Supabase getOwnMailbox error:', e);

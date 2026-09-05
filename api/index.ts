@@ -2868,7 +2868,21 @@ const DADOS_TABELAS: Record<string, {
     // limitados às PRÓPRIAS linhas (remetente/destinatário).
     select: true, insert: true, update: true, delete: true, upsert: true,
     escopo: (i) => i.isAdmin ? { or: [], and: {} }
-      : i.isInst ? { or: [`recipient_bi.eq.${i.instCode || i.bi}`, `sender_bi.eq.${i.instCode || i.bi}`, `org.eq.${i.instCode || i.bi}`], and: {} }
+      : i.isInst ? {
+          or: (() => {
+            const base = (i.instCode || i.bi || '').trim().toUpperCase();
+            const parts = base.split('-');
+            const sigla = parts[0];
+            const parent = parts.length > 2 && /^\d+$/.test(parts[parts.length - 1]) ? parts.slice(0, -1).join('-') : base;
+            const set = new Set([base, parent, sigla].filter(Boolean));
+            const list: string[] = [];
+            for (const code of set) {
+              list.push(`recipient_bi.eq.${code}`, `sender_bi.eq.${code}`, `org.eq.${code}`);
+            }
+            return list;
+          })(),
+          and: {}
+        }
       // v37.31/v37.77.2 — difusões «TODOS» (expedição nacional) também pertencem à
       // caixa do cidadão: sem isto, cidadãos registados DEPOIS da difusão nunca
       // veriam a mensagem da instituição. Alinhado com o gémeo server.ts.

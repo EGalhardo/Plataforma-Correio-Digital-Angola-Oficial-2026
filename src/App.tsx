@@ -1614,7 +1614,7 @@ export default function App() {
     }
     prevStageForHashRef.current = stage;
   }, [stage, loginSubMode, appMode]);
-  const institutionCode = resolveInstitutionCode(activeProfile?.institutionName || '');
+  const institutionCode = resolveInstitutionCode(activeProfile?.institutionName || bi || '');
   // F3/F7 — estado da conta institucional: 'restricted' = pendente/em correções (a área abre na mesma; o estado alimenta o tom do indicador Online); 'full' = aprovada
   const [instGate, setInstGate] = useState<'none' | 'restricted' | 'full'>('none');
   
@@ -2822,7 +2822,9 @@ export default function App() {
         // 0. F39 (v13) — hidratar o perfil do cidadão a partir da nuvem
         // (multi-dispositivo): a linha `profiles` reflecte edições de nome,
         // e-mail, telefone, filiação e estado civil feitas noutros dispositivos.
-        const sentSenderKey = isInstMode ? institutionCode : isGovMode ? 'CDA' : bi;
+        const effectiveInstCode = institutionCode || (isInstMode ? bi : '');
+        const sentSenderKey = isInstMode ? effectiveInstCode : isGovMode ? 'CDA' : bi;
+        const mailboxRecipientKey = isInstMode ? effectiveInstCode : bi;
         const precisaHidratacaoPerfil = isUserMode && bi && !homologationStore.isExempt(bi) && isCloudBound(bi);
         // v37.23 (DESEMPENHO) — hidratação do perfil + caixa de mensagens em
         // PARALELO: antes eram 2 round-trips sequenciais ao arranque (e a cada
@@ -2831,7 +2833,7 @@ export default function App() {
         let mailbox: Awaited<ReturnType<typeof supabaseService.getOwnMailbox>>;
         [dbProfilePre, mailbox] = await Promise.all([
           precisaHidratacaoPerfil ? supabaseService.getProfile(bi) : Promise.resolve(null),
-          supabaseService.getOwnMailbox(bi, sentSenderKey)
+          supabaseService.getOwnMailbox(mailboxRecipientKey, sentSenderKey)
         ]);
         if (precisaHidratacaoPerfil) {
           {
@@ -2958,8 +2960,8 @@ export default function App() {
         if (dbMessages !== null && isSubscribed) {
           // F12 — marca de titularidade: o cidadão/instituição REAL só vê o que
           // foi efectivamente endereçado à sua chave (query da nuvem já filtra).
-          const incoming = dbMessages.filter(m => !isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage).map(m => ({ ...m, recipientBi: bi }));
-          const docs = dbMessages.filter(m => isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage).map(m => ({ ...m, recipientBi: bi }));
+          const incoming = dbMessages.filter(m => !isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage).map(m => ({ ...m, recipientBi: bi, recipientInst: isInstMode ? (effectiveInstCode || bi) : m.recipientInst }));
+          const docs = dbMessages.filter(m => isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage).map(m => ({ ...m, recipientBi: bi, recipientInst: isInstMode ? (effectiveInstCode || bi) : m.recipientInst }));
           
           // 2026-08-20 — Modo Real: a nuvem é a fonte ÚNICA (sem fusão com
           // estado local/mock). Eliminadas/arquivadas ficam fora da caixa em
@@ -2967,6 +2969,10 @@ export default function App() {
           if (!isDemoSession) {
             setInbox(incoming.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
             setDocInbox(docs.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+            if (isInstMode) {
+              setInstInbox(incoming.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+              setInstDocInbox(docs.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+            }
           } else {
             setInbox(prevLocal => {
               const dbIds = new Set(incoming.map(m => m.id));
@@ -2978,6 +2984,18 @@ export default function App() {
               const onlyLocal = prevLocal.filter(m => !dbIds.has(m.id));
               return [...docs, ...onlyLocal];
             });
+            if (isInstMode) {
+              setInstInbox(prevLocal => {
+                const dbIds = new Set(incoming.map(m => m.id));
+                const onlyLocal = prevLocal.filter(m => !dbIds.has(m.id));
+                return [...incoming, ...onlyLocal];
+              });
+              setInstDocInbox(prevLocal => {
+                const dbIds = new Set(docs.map(m => m.id));
+                const onlyLocal = prevLocal.filter(m => !dbIds.has(m.id));
+                return [...docs, ...onlyLocal];
+              });
+            }
           }
         }
 
@@ -3612,8 +3630,25 @@ export default function App() {
   // de facto endereçadas a esta instituição. As correspondências seed/demo da AGT são
   // exclusivas da conta demo e nunca aparecem noutras contas institucionais.
   const isDemoInstitutionSession = isInstMode && (homologationStore.isExempt(bi) || !bi.trim());
-  const isInstitutionAddressedMail = (m: Message) =>
-    !!m.recipientInst && normalizeInstCode(m.recipientInst) === normalizeInstCode(institutionCode || bi);
+  const isInstitutionAddressedMail = (m: Message) => {
+    const targetCode = normalizeInstCode(institutionCode || bi);
+    const targetParts = targetCode.split('-');
+    const targetSigla = targetParts[0];
+    const targetParent = targetParts.length > 2 && /^\d+$/.test(targetParts[targetParts.length - 1]) ? targetParts.slice(0, -1).join('-') : targetCode;
+    const validTargets = new Set([targetCode, targetParent, targetSigla].filter(Boolean));
+
+    const check = (val?: string) => {
+      if (!val) return false;
+      const n = normalizeInstCode(val);
+      if (validTargets.has(n)) return true;
+      const nParts = n.split('-');
+      const nSigla = nParts[0];
+      const nParent = nParts.length > 2 && /^\d+$/.test(nParts[nParts.length - 1]) ? nParts.slice(0, -1).join('-') : n;
+      return validTargets.has(nSigla) || validTargets.has(nParent);
+    };
+
+    return check(m.recipientInst) || check(m.recipientBi) || check(m.org) || check(m.institution);
+  };
   // F11 — Marca da instituição da sessão (Painel / ID Digital): sigla e logótipo
   // do PRÓPRIO registo (logótipo carregado na página Conta → avatar neutro com a
   // sigla). A conta demo (AGT-9921-SR) mantém o branding histórico da AGT.
