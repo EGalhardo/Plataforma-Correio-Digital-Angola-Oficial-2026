@@ -942,23 +942,41 @@ export function MailContent({
       <motion.div 
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-6 max-w-5xl mx-auto font-sans"
+        className="w-full space-y-5 md:space-y-6 font-sans"
       >
         {/* Header matched 1:1 to uploaded reference */}
-        <div className="flex items-center gap-3.5 mb-2">
-          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-md shadow-blue-600/20 shrink-0">
-            <Mail size={22} className="text-white" strokeWidth={2.2} />
+        <div className="flex items-center justify-between gap-4 mb-2">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-md shadow-blue-600/20 shrink-0">
+              <Mail size={22} className="text-white" strokeWidth={2.2} />
+            </div>
+            <div>
+              <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight">NOVA MENSAGEM</h3>
+              <p className="text-xs md:text-sm text-slate-500 font-medium mt-0.5">Envie uma correspondência digital para um cidadão ou instituição.</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight">NOVA MENSAGEM</h3>
-            <p className="text-xs md:text-sm text-slate-500 font-medium mt-0.5">Envie uma correspondência digital para um cidadão ou instituição.</p>
-          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (composeData.body?.trim() || composeData.subject?.trim() || (composeData.attachments && composeData.attachments.length > 0)) {
+                setConfirmarDescarteRascunho(true);
+              } else {
+                setIsComposing(false);
+              }
+            }}
+            className="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer border border-slate-200/80 bg-white shadow-xs"
+            title="Voltar ao Correio"
+          >
+            <ArrowLeft size={16} />
+            <span>Voltar ao Correio</span>
+          </button>
         </div>
 
         {/* Outer Form Container */}
-        <div className="space-y-4 md:space-y-5">
+        <div className="w-full space-y-4 md:space-y-5">
           {/* Section 1: DESTINATÁRIO */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-3xl p-5 md:p-6 shadow-xs space-y-4">
+          <div className="w-full bg-white border border-slate-200/90 rounded-2xl md:rounded-3xl p-5 md:p-6 shadow-xs space-y-4">
             <label className="text-[11px] md:text-xs font-black text-slate-800 uppercase tracking-wider block">
               {isInst 
                 ? (instRecipientType === 'cidadao' ? 'DESTINATÁRIO (Nº DO BI — EXACTO)' : 'DESTINATÁRIO (CÓDIGO INSTITUCIONAL)')
