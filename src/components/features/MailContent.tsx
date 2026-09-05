@@ -40,7 +40,8 @@ import {
   Trash2,
   Paperclip,
   Edit2,
-  BarChart3
+  BarChart3,
+  Building
 } from 'lucide-react';
 import { Message, LanguageCode } from '../../types';
 import { translateText } from '../../utils/translator';
@@ -473,12 +474,21 @@ export function MailContent({
 
   // Estados para popup (modal de confirmação obrigatória)
 
-  // F59 — gatilho automático do lookup REAL: só na área Instituição, só quando
+  // v37.80 — TabBar no compositor da Área Institucional: Cidadão vs Instituição
+  const [instRecipientType, setInstRecipientType] = useState<'cidadao' | 'instituicao'>('cidadao');
+
+  useEffect(() => {
+    if (isComposing) {
+      setInstRecipientType('cidadao');
+    }
+  }, [isComposing]);
+
+  // F59 — gatilho automático do lookup REAL: só na área Instituição (quando selecionado Cidadão), só quando
   // o BI tem formato completo (a RPC continua a ser a autoridade final), com
   // debounce de 900 ms e anti-repetição (ref). Divergência do campo limpa o ref
   // para permitir nova pesquisa do mesmo BI depois de editado.
   useEffect(() => {
-    if (!isInst || !onRecipientLookup) return;
+    if (!isInst || instRecipientType !== 'cidadao' || !onRecipientLookup) return;
     const target = composeData.to.trim().toUpperCase();
     if (target === lastLookupBiRef.current) return;
     if (!isCompleteBiFormat(target)) {
@@ -492,16 +502,16 @@ export function MailContent({
       }
     }, 900);
     return () => clearTimeout(t);
-  }, [composeData.to, isInst, onRecipientLookup]);
+  }, [composeData.to, isInst, instRecipientType, onRecipientLookup]);
 
-  // P0-B — verificação REAL do destinatário institucional (área do cidadão):
+  // P0-B — verificação REAL do destinatário institucional (área do cidadão ou área institucional com tab Instituição):
   // o código é confirmado contra o registo oficial (RPC cda_instituicao_existe).
   // Estados honestos; 'nao_registada' bloqueia o botão de envio (decisão §0.1).
   const [instRegistry, setInstRegistry] = useState<{ code: string; status: 'checking' | 'registada' | 'nao_registada' | 'erro' } | null>(null);
   const instRegistryReqRef = useRef(0);
 
   useEffect(() => {
-    if (isInst) { setInstRegistry(null); return; } // instituição → destinatário é BI (F59)
+    if (isInst && instRecipientType !== 'instituicao') { setInstRegistry(null); return; }
     const target = composeData.to.trim().toUpperCase();
     if (!isRealInstitutionalCode(target)) { setInstRegistry(null); return; }
     const reqId = ++instRegistryReqRef.current;
@@ -513,7 +523,7 @@ export function MailContent({
       else setInstRegistry({ code: target, status: res.registered ? 'registada' : 'nao_registada' });
     }, 700);
     return () => clearTimeout(t);
-  }, [composeData.to, isInst]);
+  }, [composeData.to, isInst, instRecipientType]);
 
 
   useEffect(() => {
@@ -946,114 +956,189 @@ export function MailContent({
           {isInst ? (
             <div className="grid grid-cols-1 gap-5 md:gap-6">
               <div className="space-y-2">
-                <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">
-                  Destinatário (Nº do BI — exacto)
-                </label>
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
-                    placeholder="Número do BI exacto (ex.: 000123456LA789)"
-                    value={composeData.to}
-                    onChange={(e) => {
-                      setComposeData({ ...composeData, to: e.target.value });
-                    }}
-                    disabled={lookupVisible && recipientLookup?.status === 'busy'}
-                    className="w-full bg-white border border-line rounded-2xl pl-5 pr-12 py-3.5 md:py-4 text-xs md:text-sm font-mono font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none disabled:opacity-75 disabled:bg-slate-50"
-                    id="recipient-bi-input"
-                  />
-                  <div className="absolute right-4 flex items-center gap-2">
-                    {lookupVisible && recipientLookup?.status === 'busy' ? (
-                      <Loader2 className="animate-spin text-indigo-600" size={18} />
-                    ) : (
-                      <button
-                        onClick={() => fireRecipientLookup(composeData.to)}
-                        type="button"
-                        title="Consultar este BI na plataforma CDA (consulta auditada)"
-                        className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-indigo-600 transition-all cursor-pointer"
-                        disabled={!composeData.to.trim() || !onRecipientLookup}
-                        id="recipient-bi-search-btn"
-                      >
-                        <Search size={16} />
-                      </button>
-                    )}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pl-1 pb-1">
+                  <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest">
+                    {instRecipientType === 'cidadao' ? 'Destinatário (Nº do BI — exacto)' : 'Destinatário (Código Institucional)'}
+                  </label>
+                  <div className="flex items-center gap-8 text-xs md:text-sm mr-2 sm:mr-6">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInstRecipientType('cidadao');
+                        setComposeData(prev => ({ ...prev, to: '' }));
+                      }}
+                      className={`pb-1 px-1 font-bold transition-all cursor-pointer border-b-2 ${
+                        instRecipientType === 'cidadao'
+                          ? 'border-indigo-600 text-indigo-700'
+                          : 'border-transparent text-slate-500 hover:text-slate-800'
+                      }`}
+                      id="tab-destinatario-cidadao"
+                    >
+                      Cidadão
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInstRecipientType('instituicao');
+                        setComposeData(prev => ({ ...prev, to: '' }));
+                      }}
+                      className={`pb-1 px-1 font-bold transition-all cursor-pointer border-b-2 ${
+                        instRecipientType === 'instituicao'
+                          ? 'border-indigo-600 text-indigo-700'
+                          : 'border-transparent text-slate-500 hover:text-slate-800'
+                      }`}
+                      id="tab-destinatario-instituicao"
+                    >
+                      Instituição
+                    </button>
                   </div>
                 </div>
 
-                {/* F59 — resultado do lookup REAL: estados honestos, zero encenação.
-                    Não encontrado NÃO bloqueia o envio oficial (entrega pré-registo),
-                    mas bloqueia a difusão de emergência (botão na linha de acções). */}
-                <AnimatePresence mode="wait">
-                  {lookupVisible && recipientLookup?.status === 'busy' && (
-                    <motion.div
-                      key="rl-busy"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3.5 mt-2 flex items-center gap-3">
-                        <Loader2 className="animate-spin text-indigo-600 shrink-0" size={16} />
-                        <span className="text-xs font-bold text-indigo-950">A consultar o BI na plataforma CDA…</span>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {lookupVisible && recipientLookup?.status === 'found' && recipientLookup.citizen && (
-                    <motion.div
-                      key="rl-found"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mt-2 flex items-start gap-3" id="recipient-verified-card">
-                        <CheckCircle2 className="text-emerald-600 shrink-0 mt-0.5" size={18} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] text-emerald-800 font-bold m-0">
-                            {recipientLookup.citizen.name} — BI {recipientLookup.citizen.bi}
-                          </p>
+                {instRecipientType === 'cidadao' ? (
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      placeholder="Número do BI exacto (ex.: 000123456LA789)"
+                      value={composeData.to}
+                      onChange={(e) => {
+                        setComposeData({ ...composeData, to: e.target.value });
+                      }}
+                      disabled={lookupVisible && recipientLookup?.status === 'busy'}
+                      className="w-full bg-white border border-line rounded-2xl pl-5 pr-12 py-3.5 md:py-4 text-xs md:text-sm font-mono font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none disabled:opacity-75 disabled:bg-slate-50"
+                      id="recipient-bi-input"
+                    />
+                    <div className="absolute right-4 flex items-center gap-2">
+                      {lookupVisible && recipientLookup?.status === 'busy' ? (
+                        <Loader2 className="animate-spin text-indigo-600" size={18} />
+                      ) : (
+                        <button
+                          onClick={() => fireRecipientLookup(composeData.to)}
+                          type="button"
+                          title="Consultar este BI na plataforma CDA (consulta auditada)"
+                          className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-indigo-600 transition-all cursor-pointer"
+                          disabled={!composeData.to.trim() || !onRecipientLookup}
+                          id="recipient-bi-search-btn"
+                        >
+                          <Search size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      placeholder="Introduza o Código Institucional (ex.: AGT-9921-SR)"
+                      value={composeData.to}
+                      onChange={(e) => {
+                        setComposeData({ ...composeData, to: e.target.value.toUpperCase().replace(/\s+/g, '') });
+                      }}
+                      className="w-full bg-white border border-line rounded-2xl pl-5 pr-12 py-3.5 md:py-4 text-xs md:text-sm font-mono font-bold text-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                      id="recipient-inst-input"
+                    />
+                    <div className="absolute right-4 flex items-center gap-2">
+                      {instRegistry?.status === 'checking' ? (
+                        <Loader2 className="animate-spin text-indigo-600" size={18} />
+                      ) : (
+                        <div className="p-1.5 text-slate-400">
+                          <Building size={16} />
                         </div>
-                      </div>
-                    </motion.div>
-                  )}
+                      )}
+                    </div>
+                  </div>
+                )}
 
-                  {lookupVisible && recipientLookup?.status === 'not_found' && (
-                    <motion.div
-                      key="rl-notfound"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mt-2 flex items-start gap-3" id="recipient-not-found">
-                        <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
-                        <div>
-                          <span className="text-xs font-black text-amber-950 block">Cidadão ainda não registado na plataforma.</span>
-                          <span className="text-[10.5px] text-amber-800 font-bold block mt-0.5">
-                            A mensagem ficará guardada e será entregue quando ele criar a conta com este BI.
+                {/* F59 — resultado do lookup REAL (Cidadão) */}
+                {instRecipientType === 'cidadao' && (
+                  <AnimatePresence mode="wait">
+                    {lookupVisible && recipientLookup?.status === 'busy' && (
+                      <motion.div
+                        key="rl-busy"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3.5 mt-2 flex items-center gap-3">
+                          <Loader2 className="animate-spin text-indigo-600 shrink-0" size={16} />
+                          <span className="text-xs font-bold text-indigo-950">A consultar o BI na plataforma CDA…</span>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {lookupVisible && recipientLookup?.status === 'found' && recipientLookup.citizen && (
+                      <motion.div
+                        key="rl-found"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mt-2 flex items-start gap-3" id="recipient-verified-card">
+                          <CheckCircle2 className="text-emerald-600 shrink-0 mt-0.5" size={18} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] text-emerald-800 font-bold m-0">
+                              {recipientLookup.citizen.name} — BI {recipientLookup.citizen.bi}
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {lookupVisible && recipientLookup?.status === 'not_found' && (
+                      <motion.div
+                        key="rl-notfound"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mt-2 flex items-start gap-3" id="recipient-not-found">
+                          <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
+                          <div>
+                            <span className="text-xs font-black text-amber-950 block">Cidadão ainda não registado na plataforma.</span>
+                            <span className="text-[10.5px] text-amber-800 font-bold block mt-0.5">
+                              A mensagem ficará guardada e será entregue quando ele criar a conta com este BI.
+                            </span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {lookupVisible && recipientLookup?.status === 'error' && (
+                      <motion.div
+                        key="rl-error"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 mt-2 flex items-center gap-3">
+                          <AlertTriangle className="text-rose-600 shrink-0" size={16} />
+                          <span className="text-xs font-bold text-rose-900">
+                            Não foi possível consultar o BI (Erro real: {recipientLookup.errorCode || 'DESCONHECIDO'}).
                           </span>
                         </div>
-                      </div>
-                    </motion.div>
-                  )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                )}
 
-                  {lookupVisible && recipientLookup?.status === 'error' && (
-                    <motion.div
-                      key="rl-error"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 mt-2 flex items-center gap-3">
-                        <AlertTriangle className="text-rose-600 shrink-0" size={16} />
-                        <span className="text-xs font-bold text-rose-900">
-                          Não foi possível consultar o BI (Erro real: {recipientLookup.errorCode || 'DESCONHECIDO'}).
-                        </span>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {/* P0-B — resultado da verificação do registo institucional (Instituição) */}
+                {instRecipientType === 'instituicao' && instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && (
+                  <div className={`mt-2 rounded-2xl border p-3.5 text-[10px] md:text-xs font-bold flex items-start gap-2.5 ${
+                    instRegistry.status === 'registada'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      : instRegistry.status === 'nao_registada'
+                        ? 'bg-amber-50 border-amber-200 text-amber-900'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                  }`}>
+                    {instRegistry.status === 'checking' && (<><Loader2 className="animate-spin shrink-0 mt-0.5 text-indigo-600" size={16} /><span>A verificar o código no registo institucional…</span></>)}
+                    {instRegistry.status === 'registada' && (<><CheckCircle2 className="shrink-0 mt-0.5 text-emerald-600" size={16} /><span>Instituição registada na plataforma — entrega garantida ao código {instRegistry.code}.</span></>)}
+                    {instRegistry.status === 'nao_registada' && (<><AlertTriangle className="shrink-0 mt-0.5 text-amber-600" size={16} /><span>Código não registado na plataforma. Confirme o código da instituição destinatária.</span></>)}
+                    {instRegistry.status === 'erro' && (<><AlertTriangle className="shrink-0 mt-0.5 text-rose-600" size={16} /><span>Verificação do registo indisponível de momento.</span></>)}
+                  </div>
+                )}
               </div>
               {multiDestControls}
               <div className="space-y-2">
@@ -1585,7 +1670,7 @@ export function MailContent({
                 || (!composeData.body && !(isInst && sondagensCompostas.length > 0))
                 || distribuindoSondagens
                 || enviando
-                || (!isInst && !!instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && instRegistry.status === 'nao_registada')}
+                || ((!isInst || instRecipientType === 'instituicao') && !!instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && instRegistry.status === 'nao_registada')}
               className="w-full md:flex-[2] bg-primary text-white py-4 rounded-2xl font-black text-sm md:text-base shadow-xl shadow-primary/25 hover:bg-primary/95 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 md:gap-3 cursor-pointer"
             >
               {(distribuindoSondagens || enviando) ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
