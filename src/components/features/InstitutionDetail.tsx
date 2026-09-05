@@ -693,143 +693,154 @@ export function InstitutionDetail({
         </div>
       </section>
 
-      {/* 3 Colunas de Correspondência (Fidelidade Visual com a Imagem) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Coluna A: Não Lidas */}
-        <section className="bg-white border border-slate-200/80 rounded-[24px] md:rounded-[32px] p-5 md:p-6 shadow-sm flex flex-col min-h-[350px] h-auto pb-6">
-          <div className="flex items-center justify-between mb-4 shrink-0">
-            <div className="flex items-center gap-2">
-              <Mail className="text-red-600" size={16} />
-              <h3 className="text-slate-900 font-black text-sm italic tracking-tighter uppercase">
-                Não Lidas
-              </h3>
-            </div>
-            <span className="text-sm font-black text-red-600">
-              {incomingMessages.filter(m => m.unread === 1).length}
-            </span>
-          </div>
+      {/* 3 Colunas de Correspondência — Layout dinâmico em Desktop (3 colunas ou 2 colunas 50/50 quando Não Lidas estiver vazia) */}
+      {(() => {
+        const instUnreadCount = incomingMessages.filter(m => m.unread === 1).length;
+        const instReadCount = incomingMessages.filter(m => m.unread !== 1).length;
+        const instSentCount = outgoingMessages.length;
+        const shouldHideInstUnread = instUnreadCount === 0 && (instReadCount > 0 || instSentCount > 0);
 
-          <div className="space-y-2.5 w-full max-h-[510px] overflow-y-auto custom-scrollbar pr-1">
-            {incomingMessages.filter(m => m.unread === 1).length === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center py-10 text-slate-400">
-                <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-2 shadow-sm">
-                  <Inbox size={16} className="text-slate-300" />
-                </div>
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Sem mensagens novas</p>
-              </div>
-            ) : (
-              incomingMessages.filter(m => m.unread === 1).map((msg) => (
-                <div
-                  key={msg.id}
-                  role="button"
-                  onClick={() => onSelectMessage(msg)}
-                  className="flex justify-between items-center text-xs border border-slate-100 hover:border-red-100 hover:bg-red-50/10 transition-all cursor-pointer px-3.5 py-3 rounded-2xl group/item"
-                >
-                  <div className="min-w-0 flex-1 truncate mr-3">
-                    <span className="font-black text-slate-900">{msg.org}: </span>
-                    <span className="text-slate-600 font-medium text-[11px] md:text-xs">
-                      {msg.preview}
-                    </span>
+        return (
+          <div className={`grid grid-cols-1 ${shouldHideInstUnread ? 'lg:grid-cols-2' : 'lg:grid-cols-3'} gap-4`}>
+            {/* Coluna A: Não Lidas */}
+            {!shouldHideInstUnread && (
+              <section className="bg-white border border-slate-200/80 rounded-[24px] md:rounded-[32px] p-5 md:p-6 shadow-sm flex flex-col min-h-[350px] h-auto pb-6">
+                <div className="flex items-center justify-between mb-4 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <Mail className="text-red-600" size={16} />
+                    <h3 className="text-slate-900 font-black text-sm italic tracking-tighter uppercase">
+                      Não Lidas
+                    </h3>
                   </div>
-                  <span className="text-[9px] font-black text-white bg-red-600 px-2.5 py-0.5 rounded-full select-none whitespace-nowrap shadow-sm uppercase">
-                    {msg.date}
+                  <span className="text-sm font-black text-red-600">
+                    {instUnreadCount}
                   </span>
                 </div>
-              ))
-            )}
-          </div>
-        </section>
 
-        {/* Coluna B: Lidas */}
-        <section className="bg-white border border-slate-200/80 rounded-[24px] md:rounded-[32px] p-5 md:p-6 shadow-sm flex flex-col min-h-[350px] h-auto pb-6">
-          <div className="flex items-center justify-between mb-4 shrink-0">
-            <div className="flex items-center gap-2">
-              <Mail className="text-emerald-600" size={16} />
-              <h3 className="text-slate-900 font-black text-sm italic tracking-tighter uppercase">
-                Lidas
-              </h3>
-            </div>
-            <span className="text-sm font-black text-emerald-600">
-              {incomingMessages.filter(m => m.unread !== 1).length}
-            </span>
-          </div>
-
-          <div className="space-y-2.5 w-full max-h-[510px] overflow-y-auto custom-scrollbar pr-1">
-            {incomingMessages.filter(m => m.unread !== 1).length === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center py-10 text-slate-400">
-                <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-2 shadow-sm">
-                  <Inbox size={16} className="text-slate-300" />
+                <div className="space-y-2.5 w-full max-h-[510px] overflow-y-auto custom-scrollbar pr-1">
+                  {instUnreadCount === 0 ? (
+                    <div className="flex flex-col items-center justify-center text-center py-10 text-slate-400">
+                      <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-2 shadow-sm">
+                        <Inbox size={16} className="text-slate-300" />
+                      </div>
+                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Sem mensagens novas</p>
+                    </div>
+                  ) : (
+                    incomingMessages.filter(m => m.unread === 1).map((msg) => (
+                      <div
+                        key={msg.id}
+                        role="button"
+                        onClick={() => onSelectMessage(msg)}
+                        className="flex justify-between items-center text-xs border border-slate-100 hover:border-red-100 hover:bg-red-50/10 transition-all cursor-pointer px-3.5 py-3 rounded-2xl group/item"
+                      >
+                        <div className="min-w-0 flex-1 truncate mr-3">
+                          <span className="font-black text-slate-900">{msg.org}: </span>
+                          <span className="text-slate-600 font-medium text-[11px] md:text-xs">
+                            {msg.preview}
+                          </span>
+                        </div>
+                        <span className="text-[9px] font-black text-white bg-red-600 px-2.5 py-0.5 rounded-full select-none whitespace-nowrap shadow-sm uppercase">
+                          {msg.date}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Nenhuma mensagem lida</p>
+              </section>
+            )}
+
+            {/* Coluna B: Lidas */}
+            <section className="bg-white border border-slate-200/80 rounded-[24px] md:rounded-[32px] p-5 md:p-6 shadow-sm flex flex-col min-h-[350px] h-auto pb-6">
+              <div className="flex items-center justify-between mb-4 shrink-0">
+                <div className="flex items-center gap-2">
+                  <Mail className="text-emerald-600" size={16} />
+                  <h3 className="text-slate-900 font-black text-sm italic tracking-tighter uppercase">
+                    Lidas
+                  </h3>
+                </div>
+                <span className="text-sm font-black text-emerald-600">
+                  {instReadCount}
+                </span>
               </div>
-            ) : (
-              incomingMessages.filter(m => m.unread !== 1).map((msg) => (
-                <div
-                  key={msg.id}
-                  role="button"
-                  onClick={() => onSelectMessage(msg)}
-                  className="flex justify-between items-center text-xs border border-slate-100 hover:border-emerald-100 hover:bg-emerald-50/10 transition-all cursor-pointer px-3.5 py-3 rounded-2xl group/item"
-                >
-                  <div className="min-w-0 flex-1 truncate mr-3">
-                    <span className="font-black text-slate-900">{msg.org}: </span>
-                    <span className="text-slate-600 font-medium text-[11px] md:text-xs">
-                      {msg.preview}
-                    </span>
+
+              <div className="space-y-2.5 w-full max-h-[510px] overflow-y-auto custom-scrollbar pr-1">
+                {instReadCount === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-center py-10 text-slate-400">
+                    <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-2 shadow-sm">
+                      <Inbox size={16} className="text-slate-300" />
+                    </div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Nenhuma mensagem lida</p>
                   </div>
-                  <span className="text-[9px] font-black text-white bg-emerald-600 px-2.5 py-0.5 rounded-full select-none whitespace-nowrap shadow-sm uppercase">
-                    {msg.date}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        {/* Coluna C: Enviadas */}
-        <section className="bg-white border border-slate-200/80 rounded-[24px] md:rounded-[32px] p-5 md:p-6 shadow-sm flex flex-col min-h-[350px] h-auto pb-6">
-          <div className="flex items-center justify-between mb-4 shrink-0">
-            <div className="flex items-center gap-2">
-              <Send className="text-blue-600" size={16} />
-              <h3 className="text-slate-900 font-black text-sm italic tracking-tighter uppercase">
-                Enviadas
-              </h3>
-            </div>
-            <span className="text-sm font-black text-blue-600">
-              {outgoingMessages.length}
-            </span>
-          </div>
-
-          <div className="space-y-2.5 w-full max-h-[510px] overflow-y-auto custom-scrollbar pr-1">
-            {outgoingMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center py-10 text-slate-400">
-                <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-2 shadow-sm">
-                  <Inbox size={16} className="text-slate-300" />
-                </div>
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Nenhuma mensagem enviada</p>
+                ) : (
+                  incomingMessages.filter(m => m.unread !== 1).map((msg) => (
+                    <div
+                      key={msg.id}
+                      role="button"
+                      onClick={() => onSelectMessage(msg)}
+                      className="flex justify-between items-center text-xs border border-slate-100 hover:border-emerald-100 hover:bg-emerald-50/10 transition-all cursor-pointer px-3.5 py-3 rounded-2xl group/item"
+                    >
+                      <div className="min-w-0 flex-1 truncate mr-3">
+                        <span className="font-black text-slate-900">{msg.org}: </span>
+                        <span className="text-slate-600 font-medium text-[11px] md:text-xs">
+                          {msg.preview}
+                        </span>
+                      </div>
+                      <span className="text-[9px] font-black text-white bg-emerald-600 px-2.5 py-0.5 rounded-full select-none whitespace-nowrap shadow-sm uppercase">
+                        {msg.date}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
-            ) : (
-              outgoingMessages.map((msg) => (
-                <div
-                  key={msg.id}
-                  role="button"
-                  onClick={() => onSelectMessage(msg)}
-                  className="flex justify-between items-center text-xs border border-slate-100 hover:border-blue-100 hover:bg-blue-50/10 transition-all cursor-pointer px-3.5 py-3 rounded-2xl group/item"
-                >
-                  <div className="min-w-0 flex-1 truncate mr-3">
-                    <span className="font-black text-slate-900">{msg.org}: </span>
-                    <span className="text-slate-600 font-medium text-[11px] md:text-xs">
-                      {msg.preview}
-                    </span>
-                  </div>
-                  <span className="text-[9px] font-black text-white bg-blue-600 px-2.5 py-0.5 rounded-full select-none whitespace-nowrap shadow-sm uppercase">
-                    {msg.date}
-                  </span>
+            </section>
+
+            {/* Coluna C: Enviadas */}
+            <section className="bg-white border border-slate-200/80 rounded-[24px] md:rounded-[32px] p-5 md:p-6 shadow-sm flex flex-col min-h-[350px] h-auto pb-6">
+              <div className="flex items-center justify-between mb-4 shrink-0">
+                <div className="flex items-center gap-2">
+                  <Send className="text-blue-600" size={16} />
+                  <h3 className="text-slate-900 font-black text-sm italic tracking-tighter uppercase">
+                    Enviadas
+                  </h3>
                 </div>
-              ))
-            )}
+                <span className="text-sm font-black text-blue-600">
+                  {instSentCount}
+                </span>
+              </div>
+
+              <div className="space-y-2.5 w-full max-h-[510px] overflow-y-auto custom-scrollbar pr-1">
+                {instSentCount === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-center py-10 text-slate-400">
+                    <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-2 shadow-sm">
+                      <Inbox size={16} className="text-slate-300" />
+                    </div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Nenhuma mensagem enviada</p>
+                  </div>
+                ) : (
+                  outgoingMessages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      role="button"
+                      onClick={() => onSelectMessage(msg)}
+                      className="flex justify-between items-center text-xs border border-slate-100 hover:border-blue-100 hover:bg-blue-50/10 transition-all cursor-pointer px-3.5 py-3 rounded-2xl group/item"
+                    >
+                      <div className="min-w-0 flex-1 truncate mr-3">
+                        <span className="font-black text-slate-900">{msg.org}: </span>
+                        <span className="text-slate-600 font-medium text-[11px] md:text-xs">
+                          {msg.preview}
+                        </span>
+                      </div>
+                      <span className="text-[9px] font-black text-white bg-blue-600 px-2.5 py-0.5 rounded-full select-none whitespace-nowrap shadow-sm uppercase">
+                        {msg.date}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
           </div>
-        </section>
-      </div>
+        );
+      })()}
 
       {/* Box 2: Facturas, Recibos e Documentos Oficiais */}
       <div className="grid grid-cols-1 gap-4">

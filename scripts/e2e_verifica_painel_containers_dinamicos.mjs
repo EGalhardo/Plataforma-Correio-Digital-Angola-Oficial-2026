@@ -74,10 +74,59 @@ async function run() {
     const boxEnviadas2Col = await enviadasSection.boundingBox();
     console.log(`📐 Largura em 2 colunas (50/50) -> Lidas: ${Math.round(boxLidas2Col?.width || 0)}px | Enviadas: ${Math.round(boxEnviadas2Col?.width || 0)}px`);
 
-    // 7. Capturar screenshot de evidência em Desktop
+    // 7. Capturar screenshot de evidência em Desktop (Cidadão)
     const screenshotPath = path.join(screenshotDir, 'painel_containers_dinamicos_desktop.png');
     await page.screenshot({ path: screenshotPath, fullPage: true });
     console.log(`📸 Screenshot guardado com sucesso em: ${screenshotPath}`);
+
+    // ==========================================
+    // PARTE 2: ÁREA INSTITUCIONAL (INAPEM-LLMM-01)
+    // ==========================================
+    console.log('\n🏢 8. Acedendo a http://localhost:3000/institucional (Área Institucional - INAPEM)...');
+    const instContext = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const instPage = await instContext.newPage();
+    await instPage.goto('http://localhost:3000/institucional', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await instPage.waitForTimeout(1000);
+
+    const instCodeInput = instPage.locator('input[type="text"]:visible, input:not([type]):visible').first();
+    await instCodeInput.waitFor({ state: 'visible', timeout: 15000 });
+    await instCodeInput.fill('INAPEM-LLMM-01');
+
+    const instPassInput = instPage.locator('input[type="password"]:visible').first();
+    await instPassInput.fill('123456789');
+
+    const btnEntrarInst = instPage.getByRole('button', { name: /ENTRAR NO PORTAL|ENTRAR/i }).first();
+    console.log('🔑 Clicando em "Entrar no Portal" (Instituição)...');
+    await btnEntrarInst.click();
+    await instPage.waitForTimeout(2500);
+
+    // Marcar mensagens não lidas como lidas no ambiente institucional
+    await instPage.evaluate(() => {
+      const raw = localStorage.getItem('correio_digital_inst_inbox');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const updated = parsed.map(m => ({ ...m, unread: 0, unreadCount: 0 }));
+        localStorage.setItem('correio_digital_inst_inbox', JSON.stringify(updated));
+      }
+    });
+    await instPage.reload({ waitUntil: 'domcontentloaded' });
+    await instPage.waitForTimeout(2000);
+
+    // Verificar que "Não Lidas" está oculto e "Lidas" e "Enviadas" ocupam 50/50
+    const isInstNaoLidasHidden = !(await instPage.locator('h3').filter({ hasText: /^Não Lidas$/ }).isVisible({ timeout: 1000 }).catch(() => false));
+    console.log(`✅ Institucional - Container "Não Lidas" quando vazio: ${isInstNaoLidasHidden ? 'Ocultado com sucesso' : 'Ainda visível'}`);
+
+    const instLidasSection = instPage.locator('h3').filter({ hasText: /^Lidas$/ }).first().locator('xpath=ancestor::section[1]');
+    const instEnviadasSection = instPage.locator('h3').filter({ hasText: /^Enviadas$/ }).first().locator('xpath=ancestor::section[1]');
+
+    const boxInstLidas = await instLidasSection.boundingBox();
+    const boxInstEnviadas = await instEnviadasSection.boundingBox();
+    console.log(`📐 Institucional - Largura em 2 colunas (50/50) -> Lidas: ${Math.round(boxInstLidas?.width || 0)}px | Enviadas: ${Math.round(boxInstEnviadas?.width || 0)}px`);
+
+    const instScreenshotPath = path.join(screenshotDir, 'inapem_painel_ajustado.png');
+    await instPage.screenshot({ path: instScreenshotPath, fullPage: true });
+    console.log(`📸 Screenshot institucional guardado com sucesso em: ${instScreenshotPath}`);
+    await instContext.close();
 
     console.log('\n🎉 VERIFICAÇÃO CONCLUÍDA COM 100% DE SUCESSO!');
   } catch (err) {

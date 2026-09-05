@@ -72,10 +72,10 @@ export function HomeContent({
   const readCount = (inbox || []).filter(m => !m.unread).length;
   const sentCount = (sentMessages || []).length;
 
-  // Regra de layout desktop: quando "Não Lidas" estiver vazia (0) E simultaneamente
-  // "Lidas" e "Enviadas" contiverem correspondências (> 0), oculta "Não Lidas"
-  // no desktop e expande "Lidas" e "Enviadas" para 50% da largura útil cada (2 colunas).
-  const shouldHideUnread = unreadCount === 0 && readCount > 0 && sentCount > 0;
+  // Regra de layout desktop: quando "Não Lidas" estiver vazia (0) E os restantes
+  // possuírem correspondências (> 0), oculta "Não Lidas" no desktop e expande
+  // os restantes para 50% / 50% da largura útil cada (2 colunas).
+  const shouldHideUnread = unreadCount === 0 && (readCount > 0 || sentCount > 0);
 
   return (
     <div className="grid gap-3 md:gap-3.5">
