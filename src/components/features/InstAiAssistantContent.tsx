@@ -449,10 +449,10 @@ Contexto adicional:
       } else {
         throw new Error(data.error || 'Resposta inválida da IA');
       }
-    } catch (error) {
+    } catch (error: any) {
       registarTelemetria(false);
       console.error('AI Chat Error:', error);
-      setChatError(error.message || 'Erro ao processar resposta da IA');
+      setChatError(String(error?.message || error || 'Erro ao processar resposta da IA'));
       
       // Fallback com mensagem amigável
       const fallbackMsg: ChatMessage = {

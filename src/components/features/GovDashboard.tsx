@@ -316,11 +316,6 @@ export function GovDashboard({
     }, 6000);
     return () => clearInterval(timer);
   }, []);
-  const [] = useState<Institution | null>(null);
-  const [] = useState<string | null>(null);
-  const [] = useState<string | null>(null);
-  const [] = useState(85);
-  const [] = useState(true);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showSmartServices, setShowSmartServices] = useState(false);
   const [showRecentActivity, setShowRecentActivity] = useState(false);

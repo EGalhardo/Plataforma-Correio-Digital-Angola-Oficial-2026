@@ -885,9 +885,10 @@ export function AIChatAssistant({
         const errorMsg = data.error || 'Falha na resposta da IA';
         throw new Error(errorMsg);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Chat error:', error);
-      const userFriendlyError = error.message.includes('not configured') 
+      const errStr = String(error?.message || error || '');
+      const userFriendlyError = errStr.includes('not configured') 
         ? 'A chave da API Groq não foi configurada. Por favor, adicione GROQ_API_KEY no painel de Segredos (Settings -> Secrets).'
         : 'Desculpe, ocorreu um erro ao processar sua solicitação. Por favor, tente novamente mais tarde.';
       
