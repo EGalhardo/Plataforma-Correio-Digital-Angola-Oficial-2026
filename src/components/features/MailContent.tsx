@@ -958,42 +958,55 @@ export function MailContent({
           {isInst ? (
             <div className="grid grid-cols-1 gap-5 md:gap-6">
               <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-6 sm:gap-8 pl-1 pb-1">
-                  <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest cursor-default">
-                    {instRecipientType === 'cidadao' ? 'Destinatário (Nº do BI — exacto)' : 'Destinatário (Código Institucional)'}
-                  </label>
-                  <div className="flex items-center gap-6 text-xs md:text-sm">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setInstRecipientType('cidadao');
-                        setComposeData(prev => ({ ...prev, to: '' }));
-                      }}
-                      className={`pb-0.5 px-1 font-bold transition-all cursor-pointer border-b-2 ${
-                        instRecipientType === 'cidadao'
-                          ? 'border-indigo-600 text-indigo-700'
-                          : 'border-transparent text-slate-500 hover:text-slate-800'
-                      }`}
-                      id="tab-destinatario-cidadao"
-                    >
-                      Cidadão
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setInstRecipientType('instituicao');
-                        setComposeData(prev => ({ ...prev, to: '' }));
-                      }}
-                      className={`pb-0.5 px-1 font-bold transition-all cursor-pointer border-b-2 ${
-                        instRecipientType === 'instituicao'
-                          ? 'border-indigo-600 text-indigo-700'
-                          : 'border-transparent text-slate-500 hover:text-slate-800'
-                      }`}
-                      id="tab-destinatario-instituicao"
-                    >
-                      Instituição
-                    </button>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pl-1 pb-1">
+                  <div className="flex flex-wrap items-center gap-6 sm:gap-8">
+                    <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest cursor-default">
+                      {instRecipientType === 'cidadao' ? 'Destinatário (Nº do BI — exacto)' : 'Destinatário (Código Institucional)'}
+                    </label>
+                    <div className="flex items-center gap-6 text-xs md:text-sm">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInstRecipientType('cidadao');
+                          setComposeData(prev => ({ ...prev, to: '' }));
+                        }}
+                        className={`pb-0.5 px-1 font-bold transition-all cursor-pointer border-b-2 ${
+                          instRecipientType === 'cidadao'
+                            ? 'border-indigo-600 text-indigo-700'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
+                        id="tab-destinatario-cidadao"
+                      >
+                        Cidadão
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInstRecipientType('instituicao');
+                          setComposeData(prev => ({ ...prev, to: '' }));
+                        }}
+                        className={`pb-0.5 px-1 font-bold transition-all cursor-pointer border-b-2 ${
+                          instRecipientType === 'instituicao'
+                            ? 'border-indigo-600 text-indigo-700'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
+                        id="tab-destinatario-instituicao"
+                      >
+                        Instituição
+                      </button>
+                    </div>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={adicionarDestinatarioMulti}
+                    disabled={!composeData.to.trim()}
+                    className="inline-flex items-center justify-center gap-1.5 py-1 px-3 rounded-xl border border-dashed border-primary/30 text-primary text-[10px] md:text-[11px] font-black uppercase tracking-widest hover:bg-primary/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                    title="Adicionar este destinatário à lista de expedição múltipla"
+                    id="btn-add-multi-dest"
+                  >
+                    + Adicionar Destinatário (Envio Múltiplo)
+                  </button>
                 </div>
 
                 {instRecipientType === 'cidadao' ? (
@@ -1141,8 +1154,24 @@ export function MailContent({
                     {instRegistry.status === 'erro' && (<><AlertTriangle className="shrink-0 mt-0.5 text-rose-600" size={16} /><span>Verificação do registo indisponível de momento.</span></>)}
                   </div>
                 )}
+
+                {destinatariosMulti.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    {destinatariosMulti.map((d) => (
+                      <span key={d} className="inline-flex items-center gap-1.5 bg-primary/5 border border-primary/15 text-primary rounded-full pl-3 pr-1.5 py-1 text-[10px] md:text-[11px] font-black font-mono">
+                        {d}
+                        <button
+                          type="button"
+                          onClick={() => removerDestinatarioMulti(d)}
+                          aria-label={`Remover ${d}`}
+                          className="w-4 h-4 rounded-full bg-primary/10 hover:bg-red-100 hover:text-red-600 flex items-center justify-center transition-all text-[11px] leading-none cursor-pointer"
+                        >×</button>
+                      </span>
+                    ))}
+                    <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">→ {destinatariosMulti.length} destinatário(s) na lista</span>
+                  </div>
+                )}
               </div>
-              {multiDestControls}
               <div className="space-y-2">
                 <label className="text-[10px] md:text-sm font-black text-slate-600 uppercase tracking-widest pl-1">Título</label>
                 <input 
