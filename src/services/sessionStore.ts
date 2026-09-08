@@ -255,6 +255,9 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ...(fields.email ? { email: fields.email } : {}),
         ...(fields.phone ? { phone: fields.phone } : {})
       };
+      if (currentModeProfile.institutionName && !updatedProfile.institutionName) {
+        updatedProfile.institutionName = currentModeProfile.institutionName;
+      }
       const newProfiles = { ...prev, [appMode]: updatedProfile };
       localStorage.setItem("gov_active_profiles", JSON.stringify(newProfiles));
       return newProfiles;
@@ -262,13 +265,23 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const updateActiveProfileFields = (fields: Partial<ActiveProfile>) => {
-    setActiveProfiles(prev => ({
-      ...prev,
-      [appMode]: {
-        ...prev[appMode],
-        ...fields
-      }
-    }));
+    setActiveProfiles(prev => {
+      const current = prev[appMode] || PROFILES_MAP[appMode] || {};
+      const updated = {
+        ...current,
+        ...fields,
+        // Safeguard: never allow institutionName to be wiped with empty string or undefined
+        institutionName: (fields.institutionName !== undefined && fields.institutionName.trim())
+          ? fields.institutionName
+          : current.institutionName
+      };
+      const newProfiles = {
+        ...prev,
+        [appMode]: updated
+      };
+      localStorage.setItem("gov_active_profiles", JSON.stringify(newProfiles));
+      return newProfiles;
+    });
   };
 
   const hasPermission = (permission: string): boolean => {

@@ -2013,7 +2013,7 @@ return (
                       updateActiveProfileFields({
                         role: editRole,
                         departmentName: editDepartment,
-                        institutionName: editInstitution
+                        ...(editInstitution ? { institutionName: editInstitution } : {})
                       });
                     }
 

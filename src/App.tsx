@@ -2860,10 +2860,9 @@ export default function App() {
                 if (isUserMode) {
                   updateUserFields(hyd);
                 } else if (isInstMode && instIdentityRef.current?.type !== 'member') {
-                  if (hyd.name) updateActiveProfileFields({ institutionName: hyd.name });
                   updateUserFields(hyd);
                 } else if (isGovMode) {
-                  if (hyd.name) updateActiveProfileFields({ role: dbProfile.role || 'Administrador' });
+                  if (dbProfile.role) updateActiveProfileFields({ role: dbProfile.role });
                   updateUserFields(hyd);
                 }
               }
