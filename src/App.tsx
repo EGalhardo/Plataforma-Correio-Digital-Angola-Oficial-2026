@@ -2948,7 +2948,7 @@ export default function App() {
         // v37.23 (DESEMPENHO) — reutiliza o perfil já carregado no passo 0 (quando
         // foi), evitando um segundo round-trip à tabela `profiles` por execução.
         const dbProfile = instMemberSession ? null : (precisaHidratacaoPerfil ? dbProfilePre : await supabaseService.getProfile(bi));
-        if (dbProfile && isSubscribed) {
+        if (dbProfile && isSubscribed && !isProfileEditActive()) {
           const isCanonicalCitizen = appMode === 'user' && bi === DEMO_CREDENTIALS.user.identifier;
           const canonicalPreset = DEMO_CREDENTIALS.user;
           const dbNameMismatch = isCanonicalCitizen && dbProfile.name && dbProfile.name !== canonicalPreset.profileName;
@@ -2968,9 +2968,15 @@ export default function App() {
               role: 'user'
             }).catch(err => console.warn('CADA: Erro ao restaurar perfil canónico (conflito de chave mitigado):', err.message || err));
           } else {
-            if (dbProfile.name) setProfileName(dbProfile.name);
-            if (dbProfile.phone) setPhone(dbProfile.phone);
-            if (dbProfile.nif) setNif(dbProfile.nif);
+            const locProf = isGovMode ? lerPerfilLocal('admin', bi) : isInstMode ? lerPerfilLocal('institution', bi) : lerPerfilLocal('user', bi);
+            const effectiveName = locProf?.name || dbProfile.name;
+            const effectivePhone = locProf?.phone || dbProfile.phone;
+            const effectiveNif = locProf?.nif || dbProfile.nif;
+            const effectiveEmail = locProf?.email || dbProfile.email;
+
+            if (effectiveName) setProfileName(effectiveName);
+            if (effectivePhone) setPhone(effectivePhone);
+            if (effectiveNif) setNif(effectiveNif);
             if (dbProfile.passport) setPassport(dbProfile.passport);
             if (dbProfile.birth_date) {
               // Convert yyyy-mm-dd to dd/mm/yyyy for state compatibility
@@ -2981,9 +2987,12 @@ export default function App() {
             }
             if (dbProfile.filiation) setUserFiliation(dbProfile.filiation);
             if (dbProfile.marital_status) setUserMaritalStatus(dbProfile.marital_status);
-            if (dbProfile.email || (dbProfile as any).morada) {
+            if (effectiveEmail || (dbProfile as any).morada || effectiveName || effectivePhone || effectiveNif) {
               updateUserFields({
-                ...(dbProfile.email ? { email: dbProfile.email } : {}),
+                ...(effectiveName ? { name: effectiveName } : {}),
+                ...(effectivePhone ? { phone: effectivePhone } : {}),
+                ...(effectiveNif ? { nif: effectiveNif } : {}),
+                ...(effectiveEmail ? { email: effectiveEmail } : {}),
                 ...((dbProfile as any).morada ? { address: (dbProfile as any).morada } : {})
               });
             }

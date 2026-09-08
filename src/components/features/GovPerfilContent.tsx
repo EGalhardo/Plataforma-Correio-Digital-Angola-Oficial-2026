@@ -16,6 +16,7 @@ import { guardarPerfilLocal } from '../../services/perfilLocalService';
 import { cloudChangePassword, hasActiveCloudSession, isCloudBound } from '../../services/cloudAuthService';
 import { homologationStore } from '../../services/homologationStore';
 import { getAdminAgentCred, addAdminAgent, normalizeAgentNumber } from '../../services/adminAgentStore';
+import { beginProfileEdit, endProfileEdit } from '../../lib/profileEditGuard';
 
 interface AuditLog {
   id: string;
@@ -78,8 +79,9 @@ export function GovPerfilContent({
       setEditAdminName(user?.name || profileName || '');
       setEditAdminPhone(user?.phone || phone || '');
       setEditAdminNif(user?.nif || nif || '');
+      setEditAdminEmail(user?.email || 'admin@cda.gov.ao');
     }
-  }, [user?.name, user?.phone, user?.nif, profileName, phone, nif, isEditingAdmin]);
+  }, [user?.name, user?.phone, user?.nif, user?.email, profileName, phone, nif, isEditingAdmin]);
 
   // 2026-08-22 — MODO REAL: dados vivos da nuvem para a página Perfil.
   // (a) email funcional real (linha profiles do próprio agente/admin);
@@ -88,6 +90,22 @@ export function GovPerfilContent({
   //     espelho localStorage — em Modo Demo nada disto corre.
   const [contaCriadaEm, setContaCriadaEm] = useState('');
   const [logsNuvem, setLogsNuvem] = useState<AuditLog[] | null>(null);
+  React.useEffect(() => {
+    return () => {
+      endProfileEdit();
+    };
+  }, []);
+
+  const handleStartEdit = () => {
+    beginProfileEdit();
+    setIsEditingAdmin(true);
+  };
+
+  const handleCancelEdit = () => {
+    endProfileEdit();
+    setIsEditingAdmin(false);
+  };
+
   React.useEffect(() => {
     let vivo = true;
     (async () => {
@@ -184,6 +202,7 @@ export function GovPerfilContent({
     } else {
       setPasswordSuccessMsg('Informações da conta administrativa atualizadas com sucesso!');
     }
+    endProfileEdit();
     setIsEditingAdmin(false);
     setPasswordSuccess(true);
   };
@@ -404,7 +423,7 @@ export function GovPerfilContent({
                 {!isEditingAdmin ? (
                   <button
                     type="button"
-                    onClick={() => setIsEditingAdmin(true)}
+                    onClick={handleStartEdit}
                     className="p-2.5 bg-[#0E2B64] hover:bg-[#081a3d] text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm cursor-pointer border-0"
                   >
                     <Settings size={14} />
@@ -422,7 +441,7 @@ export function GovPerfilContent({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setIsEditingAdmin(false)}
+                      onClick={handleCancelEdit}
                       className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border-0"
                     >
                       <span>Cancelar</span>
@@ -466,8 +485,8 @@ export function GovPerfilContent({
                 <span className="text-xs font-bold text-slate-800 block mb-1 font-mono">
                   {user?.email || `${((profileName || 'Utilizador').toLowerCase().replace(/\s+/g, '.'))}@mindis.gov.ao`}
                 </span>
-                <span className="text-[9px] text-amber-600 font-bold bg-amber-50 rounded-lg px-2 py-0.5 border border-amber-100 italic block w-fit">
-                  Não é possível alterar o email funcional
+                <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 rounded-lg px-2 py-0.5 border border-emerald-100 italic block w-fit">
+                  Sincronizado e seguro
                 </span>
               </div>
 
@@ -483,7 +502,7 @@ export function GovPerfilContent({
               <div className="bg-white border border-slate-200 p-4 rounded-2xl h-full">
                 <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Contribuinte (NIF)</span>
                 <span className="text-xs font-mono font-bold text-slate-800 block">
-                  {showSensitiveData ? (nif || 'Não associado') : (nif ? nif.replace(/\d{4}$/, '****') : 'Não associado')}
+                  {showSensitiveData ? (user?.nif || nif || 'Não associado') : ((user?.nif || nif) ? (user?.nif || nif).replace(/\d{4}$/, '****') : 'Não associado')}
                 </span>
               </div>
 
@@ -491,7 +510,7 @@ export function GovPerfilContent({
               <div className="bg-white border border-slate-200 p-4 rounded-2xl h-full">
                 <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Passaporte</span>
                 <span className="text-xs font-mono font-bold text-slate-800 block">
-                  {showSensitiveData ? (passport || 'Não associado') : (passport ? passport.replace(/[A-Z0-9]{4}$/, '****') : 'Não associado')}
+                  {showSensitiveData ? (user?.passport || passport || 'Não associado') : ((user?.passport || passport) ? (user?.passport || passport).replace(/[A-Z0-9]{4}$/, '****') : 'Não associado')}
                 </span>
               </div>
 
