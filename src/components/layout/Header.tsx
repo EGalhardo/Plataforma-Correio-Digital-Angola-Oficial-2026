@@ -330,17 +330,8 @@ export function Header({
   };
 
   const getMainTitle = () => {
-    if (isAdmin) return activeProfile?.role || 'Administrador';
-    if (isInst) {
-      // v37.13 — modo real: a área central de conteúdo exibe APENAS o código
-      // institucional (ex.: «INAPEM-LLMM») em vez do nome longo; a via demo
-      // (sigla sem código real, ex.: «AGT») mantém o tratamento actual.
-      const codigo = resolveInstitutionCode(activeProfile?.institutionName || '');
-      if (isRealInstitutionalCode(codigo)) return codigo;
-      return activeProfile?.institutionName || `Olá, ${user?.firstName || 'Utilizador'}`;
-    }
-    const nameToUse = user?.firstName || 'Cidadão';
-    // Translate "Olá, " and merge with the name
+    const defaultFallback = isAdmin ? 'Administrador' : isInst ? 'Agente' : 'Cidadão';
+    const nameToUse = user?.firstName || (user?.name ? user.name.trim().split(' ')[0] : '') || defaultFallback;
     return `${translate("Olá")}, ${nameToUse}`;
   };
 

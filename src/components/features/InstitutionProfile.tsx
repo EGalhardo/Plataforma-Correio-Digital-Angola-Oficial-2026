@@ -62,7 +62,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
   // F8 — apenas os dados desta conta: campos vazios mostram "—" (sem dados demo do cidadão).
   const profileName = typeof originalProfileName === 'string' && originalProfileName.trim()
     ? originalProfileName
-    : (typeof originalInstitution === 'string' && originalInstitution.trim() ? originalInstitution.replace(/\s*\([^)]*\)\s*$/, '') : 'Agente Institucional');
+    : 'Agente Institucional';
   const bi = typeof originalBi === 'string' && originalBi ? originalBi : '';
   const phone = typeof originalPhone === 'string' && originalPhone ? originalPhone : '';
   const email = typeof originalEmail === 'string' && originalEmail ? originalEmail : '';

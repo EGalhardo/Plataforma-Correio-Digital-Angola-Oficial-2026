@@ -6031,7 +6031,7 @@ Ficha civil do titular:
             setTab={setTab}
             appMode={appMode}
             bi={bi}
-            profileName={activeProfile?.institutionName || profileName || ''}
+            profileName={profileName || user?.name || ''}
             institutionCode={institutionCode}
           />
           </PainelSuspense>
@@ -6041,7 +6041,7 @@ Ficha civil do titular:
           <PainelSuspense>
           <InstPagamentosContent
             institutionCode={institutionCode}
-            profileName={activeProfile?.institutionName || profileName || ''}
+            profileName={profileName || user?.name || ''}
             addAuditLog={addAuditLog}
             setTab={setTab}
           />

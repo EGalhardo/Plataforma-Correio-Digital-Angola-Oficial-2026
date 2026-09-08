@@ -47,8 +47,9 @@ export function GovPerfilContent({
   phone = '+244 925 555 777',
   nif = '5401328901',
   passport = 'AO-P987654',
-  profileName = 'Carlos Afonso Alberto'}: GovPerfilContentProps) {
+  profileName: originalProfileName = 'Carlos Afonso Alberto'}: GovPerfilContentProps) {
   const { user, updateUserFields } = useSession();
+  const profileName = user?.name || originalProfileName || 'Carlos Afonso Alberto';
   const [isEditingAdmin, setIsEditingAdmin] = useState(false);
   const [editAdminName, setEditAdminName] = useState(profileName || '');
   const [editAdminPhone, setEditAdminPhone] = useState(phone || '');
