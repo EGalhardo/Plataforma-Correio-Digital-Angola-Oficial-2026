@@ -51,7 +51,7 @@ export function GovPerfilContent({
   phone = '+244 925 555 777',
   nif = '5401328901',
   passport = 'AO-P987654',
-  profileName: originalProfileName = 'Carlos Afonso Alberto',
+  profileName: originalProfileName = 'Edlasio Galhardo',
   setProfileName,
   setPhone,
   setNif,
@@ -65,7 +65,7 @@ export function GovPerfilContent({
   onToggleEmergency
 }: GovPerfilContentProps) {
   const { user, updateUserFields } = useSession();
-  const profileName = user?.name || originalProfileName || 'Carlos Afonso Alberto';
+  const profileName = user?.name || originalProfileName || 'Edlasio Galhardo';
   const [isEditingAdmin, setIsEditingAdmin] = useState(false);
   const [editAdminName, setEditAdminName] = useState(profileName || '');
   const [editAdminPhone, setEditAdminPhone] = useState(user?.phone || phone || '');

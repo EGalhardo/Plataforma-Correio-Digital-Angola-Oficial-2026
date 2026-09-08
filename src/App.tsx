@@ -7164,7 +7164,25 @@ Ficha civil do titular:
         }
         // v37.14 — campo vazio na via demo: o identificador da sessão passa a
         // ser o da conta demo (espelha a via institucional).
-        if (!adminAgentOk && !typedAgent) setBi(DEMO_CREDENTIALS.admin.identifier);
+        if (!adminAgentOk) {
+          const admIdent = typedAgent || DEMO_CREDENTIALS.admin.identifier;
+          setBi(admIdent);
+          const locAg = lerPerfilLocal('admin', admIdent);
+          const demoName = locAg?.name || DEMO_CREDENTIALS.admin.profileName;
+          const demoPhone = locAg?.phone || DEMO_CREDENTIALS.admin.phone;
+          const demoNif = locAg?.nif || DEMO_CREDENTIALS.admin.nif;
+          const demoEmail = locAg?.email || 'admin@cda.gov.ao';
+          setProfileName(demoName);
+          setPhoneLocal(demoPhone);
+          setNifLocal(demoNif);
+          updateUserFields?.({
+            name: demoName,
+            bi: admIdent,
+            phone: demoPhone,
+            nif: demoNif,
+            email: demoEmail,
+          });
+        }
       }
 
       // ---- F31 (v12/ideologia v13): CIDADÃO autentica na NUVEM (Supabase Auth) ----
