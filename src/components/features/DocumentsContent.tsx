@@ -394,7 +394,7 @@ export function DocumentsContent({
       <motion.div 
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-6"
+        className="space-y-4 md:space-y-6 w-full"
       >
         <div className="flex items-center gap-4 mb-2">
           <button 

@@ -942,7 +942,7 @@ export function MailContent({
       <motion.div 
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-4 md:space-y-6 max-w-5xl mx-auto font-sans"
+        className="space-y-4 md:space-y-6 w-full font-sans"
       >
         {/* Header matched 1:1 to uploaded reference */}
         <div className="flex items-center gap-3.5 mb-2">
