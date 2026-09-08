@@ -176,7 +176,7 @@ export interface PermMatrix {
 export function GovDashboard({
   onNavigate,
   logSecurityEvent,
-  bi = '009874562LA041',
+  bi = 'ADMIN-0001',
   setBi,
   profileName = 'Edlasio Galhardo',
   setProfileName,

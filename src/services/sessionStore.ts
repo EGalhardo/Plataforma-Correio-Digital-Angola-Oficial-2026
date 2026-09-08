@@ -66,10 +66,10 @@ const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const sanitizeSessionUser = (candidate: Partial<SessionUser> | null | undefined): SessionUser => {
-    // F8 — fallback por modo: na área da Instituição os campos vazios NUNCA são
-    // preenchidos com os dados demo do cidadão.
+    // F8 — fallback por modo: na área da Instituição e Administração os campos vazios
+    // NUNCA são preenchidos com os dados demo do cidadão.
     const mode = (localStorage.getItem("gov_app_mode") as AppMode) || "user";
-    const base: SessionUser = mode === "institution" ? INSTITUTION_BASE_USER : CANONICAL_USER;
+    const base: SessionUser = (mode === "institution" || mode === "admin") ? INSTITUTION_BASE_USER : CANONICAL_USER;
     // v37.29 — ANTI-FUGA + fundo azul/inicial: se a hidratação definiu
     // EXPLICITAMENTE avatarUrl vazio (conta sem foto), NUNCA substituir pela
     // foto demo/mock — o Header/Perfil mostram o círculo azul com a inicial.
@@ -101,24 +101,24 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // preenchidos com os dados do utilizador demo (nome, e-mail, telefone,
     // filiação, estado civil, nível de verificação...) — a conta nova entra
     // LIMPA; cada campo só mostra o que pertence ao próprio titular.
-    const temIdentidade = mode === "user" && !!candidate && !!candidate.bi;
+    const temIdentidade = (mode === "user" || mode === "institution" || mode === "admin") && !!candidate && !!candidate.bi;
     const f = (v: string | undefined | null, fallback: string) =>
       temIdentidade ? (v || "") : (v || fallback);
     return {
       ...base,
       ...(candidate || {}),
       id: candidate?.id || base.id,
-      name: f(candidate?.name, base.name),
-      firstName: f(candidate?.firstName || candidate?.name?.trim()?.split(' ')?.[0], base.firstName),
-      lastName: f(candidate?.lastName || candidate?.name?.trim()?.split(' ')?.slice(-1)?.[0], base.lastName),
-      bi: f(candidate?.bi, base.bi),
-      nif: f(candidate?.nif, base.nif),
-      passport: f(candidate?.passport, base.passport),
-      phone: f(candidate?.phone, base.phone),
-      email: f(candidate?.email, base.email),
-      birthDate: f(candidate?.birthDate, base.birthDate),
-      filiation: f(candidate?.filiation, base.filiation),
-      maritalStatus: f(candidate?.maritalStatus, base.maritalStatus),
+      name: candidate?.name !== undefined ? candidate.name : f(candidate?.name, base.name),
+      firstName: candidate?.firstName !== undefined ? candidate.firstName : f(candidate?.firstName || candidate?.name?.trim()?.split(' ')?.[0], base.firstName),
+      lastName: candidate?.lastName !== undefined ? candidate.lastName : f(candidate?.lastName || candidate?.name?.trim()?.split(' ')?.slice(-1)?.[0], base.lastName),
+      bi: candidate?.bi !== undefined ? candidate.bi : f(candidate?.bi, base.bi),
+      nif: candidate?.nif !== undefined ? candidate.nif : f(candidate?.nif, base.nif),
+      passport: candidate?.passport !== undefined ? candidate.passport : f(candidate?.passport, base.passport),
+      phone: candidate?.phone !== undefined ? candidate.phone : f(candidate?.phone, base.phone),
+      email: candidate?.email !== undefined ? candidate.email : f(candidate?.email, base.email),
+      birthDate: candidate?.birthDate !== undefined ? candidate.birthDate : f(candidate?.birthDate, base.birthDate),
+      filiation: candidate?.filiation !== undefined ? candidate.filiation : f(candidate?.filiation, base.filiation),
+      maritalStatus: candidate?.maritalStatus !== undefined ? candidate.maritalStatus : f(candidate?.maritalStatus, base.maritalStatus),
       avatarUrl: avatar,
       verificationLevel: (temIdentidade
         ? (candidate?.verificationLevel || 'Pendente')

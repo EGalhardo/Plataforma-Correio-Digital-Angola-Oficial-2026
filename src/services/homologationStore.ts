@@ -31,7 +31,7 @@ const THREADS_KEY = 'cda_homologation_threads_v1';
 
 // Identidades demo canónicas do piloto — NUNCA passam por homologação,
 // para não quebrar o fluxo de demonstração já existente.
-const ALWAYS_ACTIVE_IDENTIFIERS = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP'];
+const ALWAYS_ACTIVE_IDENTIFIERS = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP', 'ADMIN-0001'];
 
 export const normalizeHomologationBi = (bi?: string): string =>
   (bi || '').toUpperCase().replace(/\s+/g, '').trim();

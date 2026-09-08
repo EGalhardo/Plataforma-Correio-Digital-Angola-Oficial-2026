@@ -186,9 +186,6 @@ export const syncProfileToCloud = async (
 ): Promise<ProfileSyncResult> => {
   const bi = (patch.bi || '').trim();
   if (!bi) return { outcome: 'error', message: 'BI ausente.', fields: [] };
-  if (homologationStore.isExempt(bi)) {
-    return { outcome: 'demo', fields: [] };
-  }
   if (!client?.from) return { outcome: 'unavailable', message: 'cliente Supabase ausente.', fields: [] };
 
   const cols = toColumns(patch);

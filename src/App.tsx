@@ -1753,7 +1753,7 @@ export default function App() {
       govPin: '7788',
     },
     admin: {
-      identifier: 'ADM-8812-OP',
+      identifier: 'ADMIN-0001',
       password: 'GALHARDO',
       profileName: 'Edlasio Galhardo',
       phone: '+244 923 456 789',
@@ -2838,12 +2838,22 @@ export default function App() {
         if (precisaHidratacaoPerfil) {
           {
             const dbProfile = dbProfilePre;
-              if (dbProfile && isSubscribed) {
+            if (dbProfile && isSubscribed) {
               const hyd: { name?: string; email?: string; phone?: string; nif?: string; passport?: string; address?: string; filiation?: string; maritalStatus?: string; birthDate?: string } = {};
-              if (typeof dbProfile.name === 'string' && dbProfile.name.trim()) hyd.name = dbProfile.name.trim();
-              if (typeof dbProfile.email === 'string' && dbProfile.email.trim()) hyd.email = dbProfile.email.trim();
-              if (typeof dbProfile.phone === 'string' && dbProfile.phone.trim()) hyd.phone = dbProfile.phone.trim();
-              if (typeof dbProfile.nif === 'string' && dbProfile.nif.trim()) hyd.nif = dbProfile.nif.trim();
+              const locProf = isGovMode ? lerPerfilLocal('admin', bi) : isInstMode ? lerPerfilLocal('institution', bi) : lerPerfilLocal('user', bi);
+
+              if (locProf?.name) hyd.name = locProf.name;
+              else if (typeof dbProfile.name === 'string' && dbProfile.name.trim()) hyd.name = dbProfile.name.trim();
+
+              if (locProf?.email) hyd.email = locProf.email;
+              else if (typeof dbProfile.email === 'string' && dbProfile.email.trim()) hyd.email = dbProfile.email.trim();
+
+              if (locProf?.phone) hyd.phone = locProf.phone;
+              else if (typeof dbProfile.phone === 'string' && dbProfile.phone.trim()) hyd.phone = dbProfile.phone.trim();
+
+              if (locProf?.nif) hyd.nif = locProf.nif;
+              else if (typeof dbProfile.nif === 'string' && dbProfile.nif.trim()) hyd.nif = dbProfile.nif.trim();
+
               if (typeof dbProfile.passport === 'string' && dbProfile.passport.trim()) hyd.passport = dbProfile.passport.trim();
               if (typeof (dbProfile as any).morada === 'string' && (dbProfile as any).morada.trim()) hyd.address = (dbProfile as any).morada.trim();
               if (typeof dbProfile.filiation === 'string' && dbProfile.filiation.trim()) hyd.filiation = dbProfile.filiation.trim();
@@ -7031,7 +7041,8 @@ Ficha civil do titular:
       if (isGovMode) {
         const typedAgent = bi.trim().toUpperCase();
         let adminAgentOk = false; // P1 — sessão de agente REAL verificada neste submit
-        if (typedAgent && typedAgent !== DEMO_CREDENTIALS.admin.identifier) {
+        const isDemoAdminAccount = !typedAgent || typedAgent === 'ADMIN-0001' || typedAgent === 'ADM-8812-OP' || typedAgent === DEMO_CREDENTIALS.admin.identifier;
+        if (typedAgent && !isDemoAdminAccount) {
           // F32 (v12/D4-a) — a palavra-passe do agente vive no Supabase Auth: nuvem
           // primeiro, migração just-in-time (D2), transição local marcada (até F-c)
           // e fallback honesto (D3). Contas demo nunca entram nesta via.
@@ -7152,8 +7163,35 @@ Ficha civil do titular:
             return;
           }
           // Identificadores fora do formato ADMIN-NNNN (ou legado 'Admin-NN') seguem a via demo existente
+        } else if (typedAgent && isDemoAdminAccount) {
+          const cred = resolveAdminAgentLogin(typedAgent, loginPasswordInput);
+          if (cred) {
+            adminAgentOk = true;
+            setProfileName(cred.name);
+            setBi(typedAgent);
+            setPhoneLocal(''); setNifLocal(''); setPassportLocal('');
+            setUserBirthDate(''); setUserFiliation(''); setUserMaritalStatus('');
+            setVerificationStatus('Administrador Geral / Central');
+            updateUserFields?.({
+              name: cred.name, bi: typedAgent, phone: '', nif: '', passport: '',
+              birthDate: '', filiation: '', maritalStatus: '', email: '',
+              avatarUrl: makeInstNeutralAvatar('AD'),
+            });
+            const locAg = lerPerfilLocal('admin', typedAgent);
+            if (locAg && Object.keys(locAg).length) {
+              setProfileName(locAg.name || cred.name);
+              if (locAg.phone) setPhoneLocal(locAg.phone);
+              if (locAg.nif) setNifLocal(locAg.nif);
+              updateUserFields?.({
+                name: locAg.name || cred.name,
+                phone: locAg.phone || '',
+                nif: locAg.nif || '',
+                email: locAg.email || '',
+              });
+            }
+          }
         }
-        // P1 — via demo da Administração (conta ADM-8812-OP, campo vazio que
+        // P1 — via demo da Administração (conta ADMIN-0001 / ADM-8812-OP, campo vazio que
         // assume a demo, ou identificador legado sem credencial própria): a
         // senha demo passa a ser exigida (antes QUALQUER senha abria sessão).
         if (!adminAgentOk && loginPasswordInput !== DEMO_CREDENTIALS.admin.password) {
@@ -7647,7 +7685,7 @@ Ficha civil do titular:
                           name="cda-utilizador"
                           autoComplete="off"
                           onChange={(e) => { loginInteragidoRef.current = true; setBi(e.target.value.toUpperCase()); }}
-                          placeholder={isInstMode ? "AGT-9921-SR" : isGovMode ? "ADM-8812-OP" : "009874562LA041"}
+                          placeholder={isInstMode ? "AGT-9921-SR" : isGovMode ? "ADMIN-0001" : "009874562LA041"}
                           maxLength={isInstMode ? 20 : 14}
                         />
                       </div>

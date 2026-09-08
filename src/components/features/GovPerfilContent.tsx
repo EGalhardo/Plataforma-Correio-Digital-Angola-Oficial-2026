@@ -15,6 +15,7 @@ import { guardarAvatar, iniciaisDe, isPlaceholderAvatar, lerAvatarLocal } from '
 import { guardarPerfilLocal } from '../../services/perfilLocalService';
 import { cloudChangePassword, hasActiveCloudSession, isCloudBound } from '../../services/cloudAuthService';
 import { homologationStore } from '../../services/homologationStore';
+import { getAdminAgentCred, addAdminAgent, normalizeAgentNumber } from '../../services/adminAgentStore';
 
 interface AuditLog {
   id: string;
@@ -47,7 +48,7 @@ interface GovPerfilContentProps {
 
 export function GovPerfilContent({ 
   logs,
-  bi = '001928374LA092',
+  bi = 'ADMIN-0001',
   phone = '+244 925 555 777',
   nif = '5401328901',
   passport = 'AO-P987654',
@@ -73,10 +74,12 @@ export function GovPerfilContent({
   const [editAdminNif, setEditAdminNif] = useState(user?.nif || nif || '');
 
   React.useEffect(() => {
-    setEditAdminName(user?.name || profileName || '');
-    setEditAdminPhone(user?.phone || phone || '');
-    setEditAdminNif(user?.nif || nif || '');
-  }, [user?.name, user?.phone, user?.nif, profileName, phone, nif]);
+    if (!isEditingAdmin) {
+      setEditAdminName(user?.name || profileName || '');
+      setEditAdminPhone(user?.phone || phone || '');
+      setEditAdminNif(user?.nif || nif || '');
+    }
+  }, [user?.name, user?.phone, user?.nif, profileName, phone, nif, isEditingAdmin]);
 
   // 2026-08-22 — MODO REAL: dados vivos da nuvem para a página Perfil.
   // (a) email funcional real (linha profiles do próprio agente/admin);
@@ -131,18 +134,40 @@ export function GovPerfilContent({
     setNif?.(editAdminNif);
     // 2026-08-20 — espelho local por conta: os dados editados voltam no
     // próximo login, também na conta demo da Administração.
-    guardarPerfilLocal('admin', bi || '', {
+    const currentBi = bi || 'ADMIN-0001';
+    guardarPerfilLocal('admin', currentBi, {
       name: editAdminName,
       phone: editAdminPhone,
       email: editAdminEmail,
       nif: editAdminNif,
     });
+    // Sincroniza também no adminAgentStore e correio_digital_admin_workers caso exista o agente
+    try {
+      const cred = getAdminAgentCred(currentBi);
+      if (cred) {
+        addAdminAgent({ ...cred, name: editAdminName });
+      }
+      const rawW = localStorage.getItem('correio_digital_admin_workers');
+      if (rawW) {
+        const arrW = JSON.parse(rawW);
+        if (Array.isArray(arrW)) {
+          const normBi = normalizeAgentNumber(currentBi);
+          const updatedArr = arrW.map((w: any) => {
+            if (normalizeAgentNumber(w?.agentId) === normBi) {
+              return { ...w, name: editAdminName, phone: editAdminPhone, email: editAdminEmail };
+            }
+            return w;
+          });
+          localStorage.setItem('correio_digital_admin_workers', JSON.stringify(updatedArr));
+        }
+      }
+    } catch { /* melhor esforço */ }
     // 2026-08-20 — persistência real (mesmo padrão da página Perfil do cidadão):
     // nome/telefone/e-mail/NIF vão para `profiles` (bi = Nº de Agente) via
-    // /api/perfil-sync (service role). Contas demo (ADM-8812-OP) ficam locais
+    // /api/perfil-sync (service role). Contas demo (ADM-8812-OP / ADMIN-0001) ficam locais
     // (outcome 'demo'); falhas de nuvem ficam em fila local — feedback honesto.
-    if (hasValidSupabaseKeys() && bi) {
-      const patch = buildCitizenContaPatch(bi, {
+    if (hasValidSupabaseKeys() && currentBi) {
+      const patch = buildCitizenContaPatch(currentBi, {
         name: editAdminName,
         phone: editAdminPhone,
         email: editAdminEmail,
@@ -150,9 +175,9 @@ export function GovPerfilContent({
       });
       const res = await syncProfileToCloud(supabase, patch);
       if (res.outcome === 'error' || res.outcome === 'unavailable') {
-        guardarPendenciaPerfil(bi, patch);
+        guardarPendenciaPerfil(currentBi, patch);
       } else if (res.outcome === 'ok' || res.outcome === 'created' || res.outcome === 'schema_retry') {
-        limparPendenciaPerfil(bi);
+        limparPendenciaPerfil(currentBi);
       }
       const fb = contaSaveFeedbackFromOutcome(res.outcome);
       setPasswordSuccessMsg(fb.text);
