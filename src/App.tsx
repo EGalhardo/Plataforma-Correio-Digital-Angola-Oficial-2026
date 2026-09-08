@@ -6518,6 +6518,10 @@ Ficha civil do titular:
             nif={nif}
             passport={passport}
             profileName={profileName}
+            setProfileName={setProfileName}
+            setPhone={setPhone}
+            setNif={setNif}
+            setPassport={setPassport}
             userBirthDate={userBirthDate}
             userFiliation={userFiliation}
             userMaritalStatus={userMaritalStatus}

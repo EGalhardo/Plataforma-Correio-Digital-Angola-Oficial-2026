@@ -33,6 +33,10 @@ interface GovPerfilContentProps {
   nif?: string;
   passport?: string;
   profileName?: string;
+  setProfileName?: (val: string | ((prev: string) => string)) => void;
+  setPhone?: (val: string | ((prev: string) => string)) => void;
+  setNif?: (val: string | ((prev: string) => string)) => void;
+  setPassport?: (val: string | ((prev: string) => string)) => void;
   userBirthDate?: string;
   userFiliation?: string;
   userMaritalStatus?: string;
@@ -47,20 +51,32 @@ export function GovPerfilContent({
   phone = '+244 925 555 777',
   nif = '5401328901',
   passport = 'AO-P987654',
-  profileName: originalProfileName = 'Carlos Afonso Alberto'}: GovPerfilContentProps) {
+  profileName: originalProfileName = 'Carlos Afonso Alberto',
+  setProfileName,
+  setPhone,
+  setNif,
+  setPassport,
+  userBirthDate,
+  userFiliation,
+  userMaritalStatus,
+  hasFacialAuth,
+  hasTwoFactor,
+  govPin,
+  onToggleEmergency
+}: GovPerfilContentProps) {
   const { user, updateUserFields } = useSession();
   const profileName = user?.name || originalProfileName || 'Carlos Afonso Alberto';
   const [isEditingAdmin, setIsEditingAdmin] = useState(false);
   const [editAdminName, setEditAdminName] = useState(profileName || '');
-  const [editAdminPhone, setEditAdminPhone] = useState(phone || '');
-  const [editAdminEmail, setEditAdminEmail] = useState('admin@cda.gov.ao');
-  const [editAdminNif, setEditAdminNif] = useState(nif || '');
+  const [editAdminPhone, setEditAdminPhone] = useState(user?.phone || phone || '');
+  const [editAdminEmail, setEditAdminEmail] = useState(user?.email || 'admin@cda.gov.ao');
+  const [editAdminNif, setEditAdminNif] = useState(user?.nif || nif || '');
 
   React.useEffect(() => {
-    setEditAdminName(profileName || '');
-    setEditAdminPhone(phone || '');
-    setEditAdminNif(nif || '');
-  }, [profileName, phone, nif]);
+    setEditAdminName(user?.name || profileName || '');
+    setEditAdminPhone(user?.phone || phone || '');
+    setEditAdminNif(user?.nif || nif || '');
+  }, [user?.name, user?.phone, user?.nif, profileName, phone, nif]);
 
   // 2026-08-22 — MODO REAL: dados vivos da nuvem para a página Perfil.
   // (a) email funcional real (linha profiles do próprio agente/admin);
@@ -110,6 +126,9 @@ export function GovPerfilContent({
       email: editAdminEmail,
       nif: editAdminNif
     });
+    setProfileName?.(editAdminName);
+    setPhone?.(editAdminPhone);
+    setNif?.(editAdminNif);
     // 2026-08-20 — espelho local por conta: os dados editados voltam no
     // próximo login, também na conta demo da Administração.
     guardarPerfilLocal('admin', bi || '', {
