@@ -363,12 +363,12 @@ export function Header({
       {/* Mobile AppBar */}
       <header 
         style={{ top: hasEmergencyBanner ? '32px' : '0' }}
-        className={`md:hidden fixed left-0 right-0 h-16 border-b px-4 flex items-center justify-between z-50 transition-all bg-white ${
+        className={`md:hidden fixed left-0 right-0 h-14 border-b px-3.5 flex items-center justify-between z-50 transition-all bg-white ${
         isAdmin ? 'border-slate-100 text-slate-900 shadow-sm' : 
         isInst ? 'border-red-200 text-slate-900' : 'text-slate-900 border-line/40'
       }`}>
         <div className="flex items-center" onClick={() => setTab(isAdmin ? 'gov-dashboard' : 'home')}>
-          {/* v37.36 — PARIDADE CLARO/ESCURO: mesma altura (39px), mesmo tecto
+          {/* v37.36 — PARIDADE CLARO/ESCURO: mesma altura (34px), mesmo tecto
               maxWidth 45vw e mesma ancoragem esquerda nos dois temas; a marca
               escura normalizada tem o mesmo rácio da clara (4.137). */}
           <LazyImage
@@ -376,7 +376,7 @@ export function Header({
             alt="Correio Digital"
             priority={true}
             placeholder="skeleton"
-            style={{ height: '39px', width: 'auto', maxWidth: '45vw', objectFit: 'contain', objectPosition: 'left center', cursor: 'pointer', backgroundColor: 'transparent' }}
+            style={{ height: '34px', width: 'auto', maxWidth: '45vw', objectFit: 'contain', objectPosition: 'left center', cursor: 'pointer', backgroundColor: 'transparent' }}
           />
           {isAdmin && (
             <span className={`ml-2 text-[8px] font-black uppercase px-1.5 py-0.5 rounded leading-none bg-slate-900 text-white`}>
@@ -514,7 +514,7 @@ export function Header({
       {/* Desktop Greeting Header */}
       <div 
         style={{ top: hasEmergencyBanner ? '32px' : '0' }}
-        className={`px-4 py-3 md:px-8 md:pt-6 md:pb-2 border-b flex justify-between items-center transition-all sticky z-20 ${
+        className={`hidden md:flex px-4 py-3 md:px-8 md:pt-6 md:pb-2 border-b justify-between items-center transition-all sticky z-20 ${
         isAdmin ? 'bg-white border-slate-100 text-slate-900 shadow-sm' : 
         'bg-white border-line/5'
       }`}>

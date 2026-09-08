@@ -477,13 +477,13 @@ export function GovDashboard({
   return (
     <div
       id="gov-dashboard-wrapper"
-      className="min-h-screen bg-white text-slate-600 p-4 md:p-8 font-sans"
+      className="bg-white text-slate-600 font-sans"
     >
-      <div className="max-w-[1600px] mx-auto space-y-6 md:space-y-8">
+      <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-8">
         {/* Top Header Section */}
         <header
           id="gov-header"
-          className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-4 border-b border-slate-100"
+          className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 md:gap-4 mb-4 md:mb-8 pb-3 md:pb-4 border-b border-slate-100"
         >
           <div>
             <h1 className="text-xl md:text-3xl font-black italic tracking-tighter text-slate-950 uppercase leading-none">

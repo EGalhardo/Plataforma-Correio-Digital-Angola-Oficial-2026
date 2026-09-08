@@ -533,9 +533,9 @@ export function SolicitarDocumentoContent({
   const currentCategoryObj = CATEGORY_OPTIONS.find(o => o.id === docCategory);
 
   return (
-    <section className="space-y-6 pb-12" id="solicitacao-documento-central">
+    <section className="space-y-4 md:space-y-6 pb-6 md:pb-12" id="solicitacao-documento-central">
       {/* Visual Progress Steps Header */}
-      <div className="bg-white border border-slate-150 rounded-[32px] p-6 shadow-sm">
+      <div className="bg-white border border-slate-150 rounded-[24px] md:rounded-[32px] p-4 md:p-6 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3 text-left">
             <div className="w-10 h-10 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center">

@@ -330,12 +330,12 @@ export function GovPerfilContent({
   };
 
   return (
-    <section className="space-y-6 text-slate-950 animate-fade-in font-sans">
+    <section className="space-y-4 md:space-y-6 text-slate-950 animate-fade-in font-sans">
       {/* Header row — harmonizado com o Perfil do Cidadão e da Instituição:
           «Minha Conta» + saudação + selo de estado autenticado. Aparece
           sempre que a página renderiza (autenticado), incluindo no modo
           simulado (conta de demonstração da Administração). */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-5 mb-2 gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-3 md:pb-5 mb-1 md:mb-2 gap-3 md:gap-4">
         <div>
           <span className="text-xs uppercase font-bold tracking-widest text-slate-400">Minha Conta</span>
           <h1 className="text-2xl md:text-3xl font-black text-slate-950 tracking-tight">

@@ -320,8 +320,8 @@ export function GovCorrespondenciasContent({
 
   if (showVideoPage) {
     return (
-      <div className="pb-32 font-sans animate-fadeIn">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-8 border-b border-slate-100 mb-8">
+      <div className="pb-6 md:pb-16 font-sans animate-fadeIn">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 py-3 md:py-6 border-b border-slate-100 mb-4 md:mb-8">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setShowVideoPage(false)}
@@ -349,10 +349,10 @@ export function GovCorrespondenciasContent({
   }
 
   return (
-    <div className="pb-32 font-sans">
+    <div className="pb-6 md:pb-16 font-sans">
       
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 py-8 border-b border-slate-100 mb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 py-3 md:py-6 border-b border-slate-100 mb-4 md:mb-8">
         <div>
           <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter italic uppercase leading-none font-sans flex items-center gap-2">
             Correspondências Digitais

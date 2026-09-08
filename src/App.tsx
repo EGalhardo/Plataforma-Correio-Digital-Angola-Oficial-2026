@@ -8437,7 +8437,7 @@ Ficha civil do titular:
         <div 
           ref={contentRef}
           data-cda-scroll=""
-          className={`flex-1 px-3 sm:px-4 pb-20 md:pb-8 md:p-8 overflow-y-auto custom-scrollbar ${emergencyMode && isGovMode ? 'pt-[88px] md:pt-1' : (isGovMode ? 'pt-[68px] md:pt-1' : 'pt-[68px] md:pt-4')}`}
+          className={`flex-1 px-2.5 sm:px-4 md:px-8 pb-[72px] md:pb-8 overflow-y-auto custom-scrollbar ${emergencyMode && isGovMode ? 'pt-[92px] md:pt-1' : (isGovMode ? 'pt-[60px] md:pt-1' : 'pt-[60px] md:pt-4')}`}
         >
           <div className="max-w-[1400px] mx-auto">
             {renderContent()}

@@ -220,7 +220,7 @@ export function GovSegurancaContent({
   }, [dadosReais, pesquisaAuditoria, filtroGravidade]);
 
   return (
-    <div className="pb-24">
+    <div className="pb-8 md:pb-24">
       {/* FASE 3 — ALERTAS AUTOMÁTICOS DE PADRÕES ANÓMALOS: analisa o estado atual
           (utilizadores biométricos, protocolo SOC) e destaca padrões que precisam
           de atenção — calculado automaticamente, sem ação do admin. */}
@@ -237,7 +237,7 @@ export function GovSegurancaContent({
         if (ativos === 0) alertas.push({ nivel: 'info', texto: 'Nenhum utilizador biométrico ativo no momento.' });
         if (alertas.length === 0) return null;
         return (
-          <div className="mb-8 border border-slate-200 rounded-3xl p-5 bg-white shadow-sm">
+          <div className="mb-4 md:mb-8 border border-slate-200 rounded-3xl p-4 md:p-5 bg-white shadow-sm">
             <div className="flex items-center gap-2 mb-3">
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
               <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-800">Alertas automáticos de segurança</h4>

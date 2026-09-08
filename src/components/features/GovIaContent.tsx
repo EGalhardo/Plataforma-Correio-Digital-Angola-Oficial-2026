@@ -438,7 +438,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
   const totalDocs = knowledgeBases.reduce((sum, b) => sum + b.docsCount, 0);
 
   return (
-    <div className="pb-24 text-left animate-fadeIn space-y-6 w-full max-w-none mx-auto px-1 sm:px-2 font-sans">
+    <div className="pb-8 md:pb-24 text-left animate-fadeIn space-y-4 md:space-y-6 w-full max-w-none mx-auto px-1 sm:px-2 font-sans">
       
       {/* Toast Alert */}
       <AnimatePresence>

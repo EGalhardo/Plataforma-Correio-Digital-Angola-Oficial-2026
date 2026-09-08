@@ -979,9 +979,9 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   // Mocked activity logs for details
 
   return (
-    <div className="pb-32 font-sans text-xs">
+    <div className="pb-6 md:pb-16 font-sans text-xs">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 py-8 border-b border-slate-100 mb-8 font-sans">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 py-3 md:py-6 border-b border-slate-100 mb-4 md:mb-8 font-sans">
         <div>
           <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter italic uppercase leading-none font-sans">
             Gestão Institucional

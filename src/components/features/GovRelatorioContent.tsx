@@ -671,7 +671,7 @@ export function GovRelatorioContent({
   };
 
   return (
-    <div className="pb-24 text-left animate-fadeIn space-y-6 w-full max-w-none mx-auto px-1 sm:px-2">
+    <div className="pb-8 md:pb-24 text-left animate-fadeIn space-y-4 md:space-y-6 w-full max-w-none mx-auto px-1 sm:px-2">
 
       {/* FASE 3 — RELATÓRIO EXECUTIVO AUTOMÁTICO: métricas REAIS agregadas dos
           dados recebidos (correspondences + auditLogs) com exportação CSV. */}

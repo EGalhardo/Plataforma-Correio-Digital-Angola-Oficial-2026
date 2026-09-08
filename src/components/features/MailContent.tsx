@@ -942,7 +942,7 @@ export function MailContent({
       <motion.div 
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-6 max-w-5xl mx-auto font-sans"
+        className="space-y-4 md:space-y-6 max-w-5xl mx-auto font-sans"
       >
         {/* Header matched 1:1 to uploaded reference */}
         <div className="flex items-center gap-3.5 mb-2">
@@ -2013,8 +2013,8 @@ export function MailContent({
 
 
   return (
-    <section className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <section className="space-y-4 md:space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
             <Mail size={20} className="md:w-6 md:h-6" />

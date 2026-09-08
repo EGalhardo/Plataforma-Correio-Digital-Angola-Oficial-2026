@@ -190,7 +190,7 @@ export function GovEmissaoContent({
   const unreadTotal = instituicaoInbox.filter(m => m.unread).length;
 
   return (
-    <div className="pb-32 relative md:pt-2 space-y-6">
+    <div className="pb-6 md:pb-16 relative space-y-4 md:space-y-6">
        {/* Emergency Overlay Block */}
        <AnimatePresence>
          {emergencyMode && (

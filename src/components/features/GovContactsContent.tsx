@@ -2287,9 +2287,9 @@ export function GovContactsContent({
   if (appMode === 'institution' || appMode === 'admin-workers') {
     const isPlatformAdmin = appMode === 'admin-workers';
     return (
-      <div className="pb-8 md:pb-16 text-left animate-fadeIn">
+      <div className="pb-6 md:pb-16 text-left animate-fadeIn">
         {/* Banner header for Workers */}
-        <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="mb-4 md:mb-8 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white">
@@ -3312,9 +3312,9 @@ export function GovContactsContent({
   }
 
   return (
-    <div className="pb-32 md:pt-2">
+    <div className="pb-6 md:pb-16">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 text-left animate-fadeIn">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 mb-4 md:mb-10 text-left animate-fadeIn">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 bg-indigo-600 rounded-[20px] flex items-center justify-center text-white shadow-2xl shadow-indigo-200 border-2 border-indigo-500">
             <Users size={28} />

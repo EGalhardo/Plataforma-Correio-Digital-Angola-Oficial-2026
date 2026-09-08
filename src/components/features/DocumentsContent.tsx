@@ -823,9 +823,9 @@ export function DocumentsContent({
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4 md:space-y-6">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
             {isInst ? <Folder size={20} className="md:w-6 md:h-6" /> : <Receipt size={20} className="md:w-6 md:h-6" />}

@@ -551,7 +551,7 @@ Contexto adicional:
   };
 
   return (
-    <div className="space-y-6 max-w-none w-full pb-6 md:pb-12 text-[#1e293b] font-sans antialiased" id="inst-ai-assistant-root">
+    <div className="space-y-4 md:space-y-6 max-w-none w-full pb-6 md:pb-12 text-[#1e293b] font-sans antialiased" id="inst-ai-assistant-root">
       
       {/* Dynamic Action Toast Notification */}
       <AnimatePresence>

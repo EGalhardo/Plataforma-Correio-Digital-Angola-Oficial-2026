@@ -91,7 +91,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
   }, [unifiedList, activeTab, searchTerm]);
 
   return (
-    <div className="pb-32 md:pt-2 font-sans">
+    <div className="pb-6 md:pb-16 font-sans">
       {/* Feedback Toast */}
       <AnimatePresence>
         {actionFeedback && (
@@ -99,7 +99,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[300] bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/10 backdrop-blur-xl"
+            className="fixed bottom-20 md:bottom-32 left-1/2 -translate-x-1/2 z-[300] bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/10 backdrop-blur-xl"
           >
             <ShieldCheck size={18} className="text-emerald-500" />
             <span className="text-[11px] font-black uppercase tracking-widest">{actionFeedback.message}</span>
@@ -108,7 +108,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
       </AnimatePresence>
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 py-8 border-b border-slate-100 mb-8 font-sans">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 py-3 md:py-6 border-b border-slate-100 mb-4 md:mb-8 font-sans">
         <div>
           <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter italic uppercase leading-none font-sans">
             Controle de Emissão Documental

@@ -1246,7 +1246,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
   };
 
   return (
-    <div className="space-y-8 w-full pb-8 md:pb-16 px-2 sm:px-4 pt-2 relative animate-fade-in" id="inst-qrcode-replica-view">
+    <div className="space-y-4 md:space-y-8 w-full pb-6 md:pb-16 px-1 sm:px-4 relative animate-fade-in" id="inst-qrcode-replica-view">
       
       {/* Toast floating system */}
       {toastMessage && (
