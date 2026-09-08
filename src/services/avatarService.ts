@@ -73,6 +73,49 @@ const PADROES_PLACEHOLDER = [
 export const isPlaceholderAvatar = (url: string | null | undefined): boolean => {
   if (!url) return true; // sem URL = sem foto
   const u = String(url).toLowerCase();
-  if (u.startsWith('data:image/svg')) return false; // avatar neutro (iniciais) é válido
+  if (u.startsWith('data:image/')) return false; // data-URL de imagem carregada pelo utilizador é válida
+  if (u.includes('storage') || u.includes('/fotos_perfil/')) return false; // ficheiro no storage é foto própria
   return PADROES_PLACEHOLDER.some((p) => u.includes(p));
 };
+
+/** Prepara e comprime uma foto (File) para upload e pré-visualização instantânea. */
+export const prepararAvatarParaUpload = (file: File): Promise<{ preview: string; blob: Blob }> =>
+  new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const originalDataUrl = String(event.target?.result || '');
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const LADO_MAX = 512;
+          const escala = Math.min(1, LADO_MAX / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(img.width * escala));
+          canvas.height = Math.max(1, Math.round(img.height * escala));
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('sem contexto 2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob((blob) => {
+            if (blob && blob.size > 0) {
+              if (blob.size < file.size) {
+                const fr = new FileReader();
+                fr.onload = () => resolve({ preview: String(fr.result || ''), blob });
+                fr.onerror = () => resolve({ preview: '', blob });
+                fr.readAsDataURL(blob);
+              } else {
+                resolve({ preview: file.size < 300 * 1024 ? originalDataUrl : '', blob: file });
+              }
+            } else {
+              resolve({ preview: originalDataUrl, blob: file });
+            }
+          }, 'image/jpeg', 0.85);
+        } catch {
+          resolve({ preview: originalDataUrl, blob: file });
+        }
+      };
+      img.onerror = () => resolve({ preview: originalDataUrl, blob: file });
+      img.src = originalDataUrl;
+    };
+    reader.onerror = () => resolve({ preview: '', blob: file });
+    reader.readAsDataURL(file);
+  });

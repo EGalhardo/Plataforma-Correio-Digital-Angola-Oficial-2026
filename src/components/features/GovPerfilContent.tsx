@@ -11,7 +11,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { hasValidSupabaseKeys, supabaseService, removerFicheiroStoragePorUrl } from '../../services/supabaseService';
 import { syncProfileToCloud, buildCitizenContaPatch, contaSaveFeedbackFromOutcome, guardarPendenciaPerfil, limparPendenciaPerfil } from '../../services/profileSyncService';
 import { carregarDadosReaisAdmin } from '../../services/adminRealDataService';
-import { guardarAvatar, iniciaisDe, isPlaceholderAvatar, lerAvatarLocal } from '../../services/avatarService';
+import { guardarAvatar, iniciaisDe, isPlaceholderAvatar, lerAvatarLocal, prepararAvatarParaUpload } from '../../services/avatarService';
 import { guardarPerfilLocal } from '../../services/perfilLocalService';
 import { cloudChangePassword, hasActiveCloudSession, isCloudBound } from '../../services/cloudAuthService';
 import { homologationStore } from '../../services/homologationStore';
@@ -212,42 +212,46 @@ export function GovPerfilContent({
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const currentBi = bi || user?.bi || 'ADMIN-0001';
     try {
       setIsUploadingPhoto(true);
+      setPasswordError('');
+      
+      const avatarAntigo = lerAvatarLocal('admin', currentBi);
+      const { preview, blob } = await prepararAvatarParaUpload(file);
+      
+      if (preview) {
+        updateUserFields({ avatarUrl: preview });
+        guardarAvatar('admin', currentBi, preview);
+      }
+      
       if (hasValidSupabaseKeys()) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `admin_${bi || 'SOC'}_${Date.now()}.${fileExt}`;
+        const ext = (blob.type && blob.type.split('/')[1]) || file.name.split('.').pop() || 'jpg';
+        const fileName = `admin_${currentBi}_${Date.now()}.${ext}`;
         const filePath = `avatars/${fileName}`;
-        const avatarAntigo = lerAvatarLocal('admin', bi || '');
-        const publicUrl = await supabaseService.uploadFile('fotos_perfil', filePath, file);
+        const publicUrl = await supabaseService.uploadFile('fotos_perfil', filePath, blob);
         if (publicUrl) {
           updateUserFields({ avatarUrl: publicUrl });
-          // v37.78.23 — ZERO RASTOS: a foto ANTERIOR não fica órfã no Storage.
           if (avatarAntigo && avatarAntigo !== publicUrl && /fotos_perfil/.test(avatarAntigo)) {
             removerFicheiroStoragePorUrl(avatarAntigo).catch(() => undefined);
           }
-          // 2026-08-20 — persistir a foto por conta (localStorage por Nº de
-          // Agente + user_metadata do Auth): sem isto o login seguinte repunha
-          // o avatar neutro e a foto revertia.
-          guardarAvatar('admin', bi || '', publicUrl);
+          guardarAvatar('admin', currentBi, publicUrl);
           setPasswordSuccess(true);
           setPasswordSuccessMsg('Foto do administrador atualizada no Supabase Storage.');
+        } else {
+          setPasswordSuccess(true);
+          setPasswordSuccessMsg('Foto de perfil atualizada com sucesso.');
         }
       } else {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const base64String = event.target?.result as string;
-          updateUserFields({ avatarUrl: base64String });
-          guardarAvatar('admin', bi || '', base64String);
-          setPasswordSuccess(true);
-          setPasswordSuccessMsg('Foto do administrador atualizada na sessão interativa.');
-        };
-        reader.readAsDataURL(file);
+        setPasswordSuccess(true);
+        setPasswordSuccessMsg('Foto de perfil atualizada na sessão local.');
       }
     } catch (e) {
+      console.error('Falha ao processar foto:', e);
       setPasswordError('Falha ao carregar a nova foto de perfil.');
     } finally {
       setIsUploadingPhoto(false);
+      if (e.target) e.target.value = '';
     }
   };
 

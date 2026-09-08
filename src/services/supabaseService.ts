@@ -896,25 +896,27 @@ export const supabaseService = {
     if (!hasValidSupabaseKeys()) return null;
     try {
       // 2026-08-20 — Modo Real: o cliente sem claims não escreve nos buckets
-      // (RLS de storage). Com sessão Supabase, o upload vai pelo servidor
-      // (/api/upload — service role). Sem sessão (demo), caminho directo.
+      // (RLS de storage). Usa /api/upload (service role) com ou sem token.
       const token = await obterTokenSessao();
-      if (token) {
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
-          reader.onerror = () => reject(new Error('falha ao ler ficheiro'));
-          reader.readAsDataURL(file);
-        });
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+        reader.onerror = () => reject(new Error('falha ao ler ficheiro'));
+        reader.readAsDataURL(file);
+      });
+
+      try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers.Authorization = `Bearer ${token}`;
         const r = await fetch('/api/upload', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers,
           body: JSON.stringify({ bucket: bucketName, caminho: filePath, base64, tipo: (file as File).type || undefined }),
         });
         const j = await r.json().catch(() => null);
-        if (j && j.ok) return j.url as string;
-        throw new Error(j?.erro || 'Falha no upload via servidor');
-      }
+        if (j && j.ok && j.url) return j.url as string;
+      } catch { /* fallback direct */ }
+
       const { error } = await supabase.storage
         .from(bucketName)
         .upload(filePath, file, { cacheControl: '3600', upsert: true });

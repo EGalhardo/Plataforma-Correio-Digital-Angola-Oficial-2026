@@ -985,7 +985,7 @@ export default function App() {
       // escolhido outra neste dispositivo (2026-08-20: a foto deixa de
       // reverter a cada login; chave por identificador, sem contaminação
       // entre contas).
-      avatarUrl: lerAvatarLocal(mode, preset.identifier) || MOCK_SESSION_USER.avatarUrl,
+      avatarUrl: lerAvatarLocal(mode, preset.identifier) || (mode === 'admin' ? '' : MOCK_SESSION_USER.avatarUrl),
     });
   };
 
@@ -7181,10 +7181,11 @@ Ficha civil do titular:
             setPhoneLocal(''); setNifLocal(''); setPassportLocal('');
             setUserBirthDate(''); setUserFiliation(''); setUserMaritalStatus('');
             setVerificationStatus('Administrador Geral / Central');
+            const fotoAdminLocal = lerAvatarLocal('admin', typedAgent);
             updateUserFields?.({
               name: cred.name, bi: typedAgent, phone: '', nif: '', passport: '',
               birthDate: '', filiation: '', maritalStatus: '', email: '',
-              avatarUrl: makeInstNeutralAvatar('AD'),
+              avatarUrl: fotoAdminLocal || makeInstNeutralAvatar('AD'),
             });
             const locAg = lerPerfilLocal('admin', typedAgent);
             if (locAg && Object.keys(locAg).length) {
@@ -7196,6 +7197,7 @@ Ficha civil do titular:
                 phone: locAg.phone || '',
                 nif: locAg.nif || '',
                 email: locAg.email || '',
+                avatarUrl: fotoAdminLocal || makeInstNeutralAvatar('AD'),
               });
             }
           }
@@ -7215,6 +7217,7 @@ Ficha civil do titular:
           const admIdent = typedAgent || DEMO_CREDENTIALS.admin.identifier;
           setBi(admIdent);
           const locAg = lerPerfilLocal('admin', admIdent);
+          const fotoAdminLocal = lerAvatarLocal('admin', admIdent);
           const demoName = locAg?.name || DEMO_CREDENTIALS.admin.profileName;
           const demoPhone = locAg?.phone || DEMO_CREDENTIALS.admin.phone;
           const demoNif = locAg?.nif || DEMO_CREDENTIALS.admin.nif;
@@ -7228,6 +7231,7 @@ Ficha civil do titular:
             phone: demoPhone,
             nif: demoNif,
             email: demoEmail,
+            avatarUrl: fotoAdminLocal || makeInstNeutralAvatar('AD'),
           });
         }
       }
