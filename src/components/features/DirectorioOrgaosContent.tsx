@@ -39,12 +39,16 @@ export function DirectorioOrgaosContent({ onVoltar }: Props) {
     if (categoria) { setCategoria(null); return; }
     onVoltar?.();
   };
+  // Sem onVoltar (embutido, ex.: separador «Contactos de Instituições») o botão
+  // «voltar» só aparece quando há uma categoria/entidade para recuar.
+  const mostrarVoltar = !!onVoltar || !!categoria || !!selecionada;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-4">
+    <div className={`${onVoltar ? 'max-w-5xl mx-auto' : 'w-full'} space-y-4`}>
       {/* Cabeçalho */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
+          {mostrarVoltar && (
           <button
             type="button"
             onClick={voltar}
@@ -53,6 +57,7 @@ export function DirectorioOrgaosContent({ onVoltar }: Props) {
           >
             <ChevronLeft size={18} />
           </button>
+          )}
           <div>
             <h2 className="text-base md:text-xl font-black text-primary leading-tight flex items-center gap-2">
               <Landmark size={20} className="text-[#0c2340]" />

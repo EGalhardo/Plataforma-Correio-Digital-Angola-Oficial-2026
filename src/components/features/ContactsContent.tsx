@@ -5,7 +5,8 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, Plus, Search, ShieldCheck, ShieldAlert, Trash2, Info, Edit, User, CreditCard, CheckCircle, X, Check, Bell, Phone, ChevronDown, Mail } from 'lucide-react';
+import { Users, Plus, Search, ShieldCheck, ShieldAlert, Trash2, Info, Edit, User, CreditCard, CheckCircle, X, Check, Bell, Phone, ChevronDown, Mail, Siren, Landmark } from 'lucide-react';
+import { DirectorioOrgaosContent } from './DirectorioOrgaosContent';
 import { Contact } from '../../types';
 import { notify } from '../../lib/notify';
 import {
@@ -41,6 +42,8 @@ export function ContactsContent({
   onUpdateContact,
 }: ContactsContentProps) {
   const [selectedClassification, setSelectedClassification] = useState<'Todos' | 'Emergência' | 'Normal'>('Todos');
+  // 2026-09-09 — separadores da área central: Contactos de Emergências | Contactos de Instituições
+  const [separador, setSeparador] = useState<'emergencias' | 'instituicoes'>('emergencias');
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [editErrors, setEditErrors] = useState<string[]>([]);
   const [editForm, setEditForm] = useState<{ name: string; bi: string; relation: string; phone?: string; whatsapp?: string; email?: string; type?: 'Normal' | 'Emergência' }>({
@@ -173,31 +176,64 @@ export function ContactsContent({
         </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-2xl md:rounded-[32px] p-4 md:p-8 shadow-xs space-y-4 md:space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 md:gap-6 pb-3 md:pb-6 border-b border-slate-100 text-left">
-          <div>
-            <h4 className="font-black text-slate-900 text-base md:text-xl uppercase tracking-tight flex items-center gap-2">
-              <Users size={20} className="text-[#0E2B64]" />
-              Círculo de Confiança: Registos Autorizados
-            </h4>
-            <p className="text-xs text-slate-500 font-medium normal-case mt-0.5">
-              Lista autenticada de familiares, dependentes e contactos oficiais sincronizados
-            </p>
+      {/* Separadores: Contactos de Emergências | Contactos de Instituições */}
+      <div role="tablist" aria-label="Tipo de contactos" className="flex items-end gap-2 md:gap-6 border-b border-slate-200 overflow-x-auto custom-scrollbar-h">
+        {([
+          { chave: 'emergencias', rotulo: 'Contactos de Emergências', Icone: Siren },
+          { chave: 'instituicoes', rotulo: 'Contactos de Instituições', Icone: Landmark },
+        ] as const).map(({ chave, rotulo, Icone }) => {
+          const activo = separador === chave;
+          return (
+            <button
+              key={chave}
+              type="button"
+              role="tab"
+              aria-selected={activo}
+              onClick={() => setSeparador(chave)}
+              className={`relative flex items-center gap-3 px-4 md:px-8 py-3 md:py-4 -mb-px whitespace-nowrap text-sm md:text-lg font-black transition-colors bg-transparent border-0 border-b-[3px] cursor-pointer ${
+                activo ? 'text-primary border-primary' : 'text-slate-400 border-transparent hover:text-slate-600'
+              }`}
+              id={`tab-contactos-${chave}`}
+            >
+              <Icone size={22} className="md:w-7 md:h-7 shrink-0" strokeWidth={activo ? 2.2 : 1.8} />
+              {rotulo}
+            </button>
+          );
+        })}
+      </div>
+
+      {separador === 'instituicoes' && (
+        <div role="tabpanel" aria-labelledby="tab-contactos-instituicoes" className="bg-white border border-slate-200 rounded-2xl md:rounded-[32px] p-4 md:p-8 shadow-xs">
+          <DirectorioOrgaosContent />
+        </div>
+      )}
+
+      {separador === 'emergencias' && (
+      <div role="tabpanel" aria-labelledby="tab-contactos-emergencias" className="bg-white border border-slate-200 rounded-2xl md:rounded-[32px] p-4 md:p-8 shadow-xs space-y-4 md:space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 md:gap-6 text-left">
+          <div className="flex items-center gap-3 md:gap-4">
+            <Siren size={40} className="text-primary shrink-0 md:w-12 md:h-12" strokeWidth={1.8} />
+            <div>
+              <h4 className="font-black text-primary text-base md:text-xl uppercase tracking-tight">
+                Contactos de Emergência
+              </h4>
+              <p className="text-xs text-slate-500 font-medium normal-case mt-0.5">
+                Lista de contactos de emergência para situações críticas e urgentes.
+              </p>
+            </div>
           </div>
 
           {/* Tabbar para filtro de classificação */}
-          <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-200 self-start lg:self-center shrink-0 shadow-3xs">
+          <div className="flex bg-slate-100 p-1 rounded-full border border-slate-200 self-start lg:self-center shrink-0 shadow-3xs">
             {(['Todos', 'Emergência', 'Normal'] as const).map((tab) => (
               <button
                 key={tab}
                 type="button"
                 onClick={() => setSelectedClassification(tab)}
-                className={`relative px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+                className={`relative px-4 md:px-5 py-2 rounded-full text-[10px] md:text-[11px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer border-0 ${
                   selectedClassification === tab
-                    ? tab === 'Emergência'
-                      ? 'bg-red-600 text-white shadow-xs'
-                      : 'bg-[#0E2B64] text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-primary text-white shadow-xs'
+                    : 'bg-transparent text-slate-600 hover:text-slate-900'
                 }`}
               >
                 {tab}
@@ -272,15 +308,15 @@ export function ContactsContent({
             </div>
 
             {/* Desktop View: Full Table */}
-            <div className="hidden md:block overflow-auto rounded-[24px] border border-slate-100 bg-slate-50/20 custom-scrollbar max-h-[500px]">
+            <div className="hidden md:block overflow-auto rounded-[24px] border border-slate-200 bg-white custom-scrollbar max-h-[500px]">
             <table className="mobile-data-table w-full text-left border-collapse min-w-[700px]">
               <thead className="sticky top-0 z-10 bg-primary">
-                <tr className="bg-primary text-white text-[10px] font-black uppercase tracking-wider">
-                  <th className="py-4 px-5 rounded-l-2xl">Contacto / Relação</th>
-                  <th className="py-4 px-5">Identidade BI</th>
-                  <th className="py-4 px-5">Vínculo Família</th>
-                  <th className="py-4 px-5">Estado de Vínculo</th>
-                  <th className="py-4 px-5 text-center rounded-r-2xl">Ações</th>
+                <tr className="bg-primary text-white text-[11px] font-black uppercase tracking-wider">
+                  <th className="py-4 px-6 rounded-l-2xl">Contacto / Relação</th>
+                  <th className="py-4 px-6">Identidade BI</th>
+                  <th className="py-4 px-6">Vínculo Família</th>
+                  <th className="py-4 px-6">Estado de Vínculo</th>
+                  <th className="py-4 px-6 text-center rounded-r-2xl">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -295,9 +331,9 @@ export function ContactsContent({
                       transition={{ delay: index * 0.03 }}
                       className="text-xs text-slate-800 hover:bg-slate-50/70 transition-colors"
                     >
-                      <td className="py-4 px-5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-primary font-black text-sm border border-slate-200 shadow-3xs uppercase">
+                      <td className="py-5 px-6">
+                        <div className="flex items-center gap-4">
+                          <div className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-primary font-black text-sm border border-slate-200 shadow-3xs uppercase shrink-0">
                             {(() => {
                               const initials = (contact?.name || 'C').split(' ').map((n: string) => n?.[0] || '').join('').substring(0, 2);
                               return (initials === 'MD' || initials === 'md') ? (
@@ -309,32 +345,32 @@ export function ContactsContent({
                           </div>
                           <div>
                             <span className="font-extrabold text-slate-900 text-sm block uppercase italic tracking-tight">{contact.name}</span>
-                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mt-0.5">{contact.relation}</span>
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mt-1">{contact.relation}</span>
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-5 font-mono font-bold text-slate-700 tracking-wider">
+                      <td className="py-5 px-6 font-mono font-bold text-slate-700 tracking-wider">
                         {contact.bi}
                       </td>
-                      <td className="py-4 px-5">
-                        <div className="flex items-center gap-1.5 text-indigo-700 font-mono text-[9px] font-black mb-1 border-b border-indigo-50 pb-0.5 max-w-[120px]">
-                          <ShieldCheck size={11} className="text-indigo-500" />
+                      <td className="py-5 px-6">
+                        <div className="flex items-center gap-1.5 text-[#2563eb] font-mono text-[11px] font-bold mb-1.5 border-b border-slate-200 pb-1 max-w-[190px]">
+                          <ShieldCheck size={13} className="text-[#2563eb]" />
                           <span>Protocolo Activo</span>
                         </div>
-                        <div className="inline-flex mt-1">
+                        <div className="inline-flex mt-0.5">
                           {(contact.type || 'Normal') === 'Emergência' ? (
-                            <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-red-50 text-red-700 border border-red-200 shadow-3xs">
+                            <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-red-50 text-red-600 border border-red-100 shadow-3xs">
                               Emergência
                             </span>
                           ) : (
-                            <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-3xs">
+                            <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-800 border border-emerald-100 shadow-3xs">
                               Normal
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-5">
-                        <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider ${
+                      <td className="py-5 px-6">
+                        <span className={`inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider ${
                           contact.status === 'Confirmado' 
                             ? 'text-emerald-600' 
                             : 'text-orange-700'
@@ -342,28 +378,28 @@ export function ContactsContent({
                           {contact.status}
                         </span>
                       </td>
-                      <td className="py-4 px-5 text-center">
-                        <div className="flex items-center justify-center gap-2">
+                      <td className="py-5 px-6 text-center">
+                        <div className="flex items-center justify-center gap-3">
                           <button 
                             onClick={() => openEditModal(contact)}
                             className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all border-0 bg-transparent cursor-pointer"
                             title="Editar contacto e protocolo"
                           >
-                            <Edit size={14} />
+                            <Edit size={16} />
                           </button>
                           <button 
                             onClick={() => setContactToDelete(contact)}
                             className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all border-0 bg-transparent cursor-pointer"
                             title="Remover contacto"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={16} />
                           </button>
                           <button 
                             onClick={() => openEditModal(contact)}
                             className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all border-0 bg-transparent cursor-pointer"
                             title="Informações de Vínculo"
                           >
-                            <Info size={14} />
+                            <Info size={16} />
                           </button>
                         </div>
                       </td>
@@ -400,6 +436,7 @@ export function ContactsContent({
           </div>
         )}
       </div>
+      )}
 
       <AnimatePresence>
         {editingContact && (
