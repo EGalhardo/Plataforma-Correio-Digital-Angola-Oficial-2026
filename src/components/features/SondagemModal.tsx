@@ -85,6 +85,9 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
   };
 
   const enviar = async () => {
+    if (modoIA && (!pergunta.trim() || validas.length < 2)) {
+      setAlerta('Preencha os temas e as informações e clique em «Gerar com IA» antes de criar a sondagem.'); return;
+    }
     const faltas: string[] = [];
     if (!pergunta.trim()) faltas.push('a Pergunta');
     if (validas.length < 2) faltas.push('pelo menos duas opções (Texto A e Texto B)');
@@ -147,13 +150,13 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
         onFechar={() => !enviando && onFechar()}
         icone={modoIA ? BrainCircuit : BarChart3}
         titulo={modoIA ? 'Criar Sondagem com IA' : 'Criar Sondagem'}
-        subtitulo={modoIA ? 'A Inteligência Artificial sugere a pergunta e as opções — reveja antes de criar' : 'Difusão oficial pelo Correio Digital Angola — modelo WhatsApp'}
+        subtitulo={modoIA ? 'A Inteligência Artificial ajuda a criar o inquérito' : 'Difusão oficial pelo Correio Digital Angola — modelo WhatsApp'}
         maxW="max-w-2xl"
       >
         <div className="space-y-5 text-left">
           {/* Inquérito IA — o que investigar e o que recolher */}
           {modoIA && (
-            <div className="rounded-2xl border border-blue-100 bg-blue-50/40 p-4 space-y-4">
+            <div className="space-y-4">
               <div>
                 <label className="block font-sans font-black text-[10px] uppercase tracking-widest text-slate-500 mb-1.5">Temas que pretende investigar</label>
                 <textarea
@@ -180,7 +183,7 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
               </div>
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <p className="m-0 text-[11px] font-semibold text-slate-500">
-                  {geradoIA ? 'Sugestão gerada. Pode editar a pergunta e as opções abaixo antes de criar.' : 'A IA transforma estes dados numa pergunta com opções de resposta.'}
+                  {geradoIA ? 'Inquérito gerado pela IA. Clique em «Criar Sondagem» para o inserir na mensagem.' : 'A IA transforma estes dados numa pergunta com opções de resposta.'}
                 </p>
                 <button
                   type="button"
@@ -196,7 +199,8 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
             </div>
           )}
 
-          {/* Pergunta */}
+          {/* Pergunta (oculta no modo IA: a IA gera-a a partir dos temas/informações) */}
+          {!modoIA && (<>
           <div>
             <label className="block font-sans font-black text-[10px] uppercase tracking-widest text-slate-500 mb-1.5">Pergunta</label>
             <input
@@ -281,6 +285,8 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
               'A calcular audiência…'
             )}
           </div>
+
+          </>)}
 
           {/* Rodapé */}
           <div className="flex items-center justify-end gap-3 pt-1">
