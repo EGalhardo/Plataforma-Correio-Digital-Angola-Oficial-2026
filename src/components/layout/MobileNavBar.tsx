@@ -90,13 +90,14 @@ export function MobileNavBar({
   const isAdminOrInst = appMode === 'admin' || appMode === 'institution';
 
   return (
-    <nav className={`md:hidden fixed bottom-0 left-0 right-0 h-16 border-t flex items-center px-2 z-50 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)] transition-colors bg-white border-[#D1D5DB] ${
-      isAdminOrInst ? 'overflow-x-auto justify-start gap-2 scrollbar-none snap-x snap-mandatory' : 'justify-around'
+    <nav className={`md:hidden fixed bottom-0 left-0 right-0 h-16 border-t flex items-center px-2 z-50 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.06)] transition-colors bg-white/95 backdrop-blur-md border-slate-200 ${
+      isAdminOrInst ? 'overflow-x-auto justify-start gap-1 scrollbar-none snap-x snap-mandatory' : 'justify-around'
     }`}>
       {itensVisiveis.map(({ id, label, icon: Icon }) => {
         const bloqueado = equipaBloqueadaId === id;
         const semPermissao = !bloqueado && !isPaginaPermitida(id);
         const inativo = bloqueado || semPermissao;
+        const isActive = tab === id;
         const tituloBloqueio = bloqueado
           ? translate('Apenas o responsável desta área pode aceder à página Equipa.')
           : semPermissao
@@ -115,23 +116,23 @@ export function MobileNavBar({
             if (id !== 'documento') setSelectedDoc(null);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-          className={`flex flex-col items-center justify-center gap-0.5 transition-all px-2.5 h-full relative shrink-0 ${
-            isAdminOrInst ? 'min-w-[72px] snap-start' : 'flex-1'
-          } ${inativo ? 'opacity-60 cursor-not-allowed text-slate-500 select-none' : tab === id ? 'text-indigo-600' : 'text-slate-400'}`}
+          className={`flex flex-col items-center justify-center gap-1 transition-all px-2.5 h-full relative shrink-0 ${
+            isAdminOrInst ? 'min-w-[70px] snap-start' : 'flex-1'
+          } ${inativo ? 'opacity-40 cursor-not-allowed text-slate-400 select-none' : isActive ? 'text-[#0E2B64]' : 'text-slate-400 hover:text-slate-600'}`}
         >
-          <div className={`transition-all duration-300 ${tab === id ? 'scale-110' : 'scale-100'}`}>
-            <Icon size={19} strokeWidth={tab === id ? '2.5' : '2'} className={inativo ? 'text-slate-500' : ''} />
+          <div className={`transition-all duration-200 ${isActive ? 'scale-105' : 'scale-100'}`}>
+            <Icon size={19} strokeWidth={isActive ? '2.4' : '1.8'} className={inativo ? 'text-slate-400' : ''} />
           </div>
-          <span className={`text-[8px] font-black uppercase tracking-tight transition-all ${inativo ? 'opacity-60' : tab === id ? 'opacity-100' : 'opacity-60'} flex items-center gap-1 whitespace-nowrap justify-center`}>
+          <span className={`text-[10px] font-bold tracking-tight transition-all ${inativo ? 'opacity-50' : isActive ? 'font-extrabold text-[#0E2B64]' : 'text-slate-500'} flex items-center gap-1 whitespace-nowrap justify-center`}>
             {translate(label)}
             {inativo && (
-              <span className="text-[7px] font-bold text-red-400">
+              <span className="text-[7px] font-bold text-red-500">
                 (Sem Acesso)
               </span>
             )}
           </span>
-          {tab === id && (
-            <motion.div layoutId="activeTab" className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-1 rounded-b-full bg-indigo-600" />
+          {isActive && (
+            <motion.div layoutId="activeTab" className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 rounded-b-full bg-[#0E2B64]" />
           )}
         </button>
         );

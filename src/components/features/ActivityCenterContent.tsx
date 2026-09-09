@@ -116,8 +116,8 @@ export function ActivityCenterContent({
             <History size={20} className="md:w-6 md:h-6" />
           </div>
           <div>
-            <h3 className="text-lg md:text-2xl font-black text-primary leading-tight uppercase italic tracking-tighter">{title}</h3>
-            <p className="text-[10px] md:text-sm text-slate-500 font-bold max-w-2xl">{subtitle}</p>
+            <h3 className="text-lg md:text-2xl font-black text-primary leading-tight uppercase tracking-tight">{title}</h3>
+            <p className="text-xs text-slate-500 font-medium normal-case max-w-2xl">{subtitle}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 no-scrollbar">
@@ -128,53 +128,53 @@ export function ActivityCenterContent({
 
       <div className="grid grid-cols-3 gap-2 md:gap-4">
         {topMetrics.map((metric) => (
-          <div key={metric.label} className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-3 md:p-5 shadow-sm text-left">
-            <span className="text-[8.5px] md:text-[9px] font-black text-slate-400 uppercase tracking-tight md:tracking-widest block mb-0.5 truncate">{metric.label}</span>
-            <div className="text-xl md:text-2xl font-black text-slate-950">{metric.value}</div>
-            <p className="hidden md:block text-[10px] text-slate-500 font-semibold mt-1">{metric.description}</p>
+          <div key={metric.label} className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-3 md:p-5 shadow-xs text-left">
+            <span className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5 truncate">{metric.label}</span>
+            <div className="text-lg md:text-2xl font-black text-slate-950">{metric.value}</div>
+            <p className="hidden md:block text-[10px] text-slate-500 font-medium mt-1">{metric.description}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-6">
-        <div className="bg-white border border-slate-200 rounded-[28px] p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-1.5 h-6 bg-primary rounded-full" />
-            <h4 className="text-sm font-black text-slate-950 uppercase tracking-tight">Linha Temporal Recente</h4>
+      <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4 md:gap-6">
+        <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-5 shadow-xs">
+          <div className="flex items-center gap-2 mb-3 md:mb-4">
+            <div className="w-1.5 h-5 bg-primary rounded-full" />
+            <h4 className="text-xs md:text-sm font-bold text-slate-950 uppercase tracking-tight">Linha Temporal Recente</h4>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {activityItems.length > 0 ? activityItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => setTab(item.target)}
-                className="w-full text-left bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-2xl p-4 transition-all cursor-pointer"
+                className="w-full text-left bg-slate-50 hover:bg-slate-100 border border-slate-150 rounded-xl md:rounded-2xl p-3.5 transition-all cursor-pointer"
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 text-primary flex items-center justify-center shrink-0">
-                    <item.icon size={16} />
+                  <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-white border border-slate-200 text-primary flex items-center justify-center shrink-0">
+                    <item.icon size={15} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <span className="block text-xs font-black text-slate-900 truncate">{item.title}</span>
-                    <p className="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">{item.desc}</p>
+                    <span className="block text-xs font-bold text-slate-900 truncate">{item.title}</span>
+                    <p className="text-[11px] text-slate-500 font-medium mt-0.5 leading-relaxed">{item.desc}</p>
                   </div>
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">{item.action}</span>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider shrink-0">{item.action}</span>
                 </div>
               </button>
             )) : (
-              <div className="py-10 text-center bg-slate-50 border border-dashed border-slate-200 rounded-[24px]">
-                <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Sem actividade registada</p>
+              <div className="py-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-xl md:rounded-2xl">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sem actividade registada</p>
               </div>
             )}
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="bg-white border border-slate-200 rounded-[28px] p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
+        <div className="space-y-4 md:space-y-6">
+          <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-5 shadow-xs">
+            <div className="flex items-center gap-2 mb-3 md:mb-4">
               <Building2 size={16} className="text-primary" />
-              <h4 className="text-sm font-black text-slate-950 uppercase tracking-tight">Estado dos Fluxos</h4>
+              <h4 className="text-xs md:text-sm font-bold text-slate-950 uppercase tracking-tight">Estado dos Fluxos</h4>
             </div>
-            <div className="space-y-3 text-[11px]">
+            <div className="space-y-2.5 text-[11px]">
               <div className="flex justify-between items-center bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-100">
                 <span className="font-bold text-slate-700">Correspondências pendentes</span>
                 <span className="font-black text-amber-600">{messages.filter((item) => item.unread).length}</span>
@@ -190,10 +190,10 @@ export function ActivityCenterContent({
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-[28px] p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
+          <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-5 shadow-xs">
+            <div className="flex items-center gap-2 mb-3 md:mb-4">
               <CheckCircle2 size={16} className="text-primary" />
-              <h4 className="text-sm font-black text-slate-950 uppercase tracking-tight">Atalhos de Continuidade</h4>
+              <h4 className="text-xs md:text-sm font-bold text-slate-950 uppercase tracking-tight">Atalhos de Continuidade</h4>
             </div>
             <div className="space-y-2">
               {(isAdmin
@@ -216,7 +216,7 @@ export function ActivityCenterContent({
                 <button
                   key={link.target}
                   onClick={() => setTab(link.target)}
-                  className="w-full text-left py-3 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-700 transition-all cursor-pointer"
+                  className="w-full text-left py-2.5 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-xl text-[10px] font-bold uppercase tracking-wider text-slate-700 transition-all cursor-pointer"
                 >
                   {link.label}
                 </button>

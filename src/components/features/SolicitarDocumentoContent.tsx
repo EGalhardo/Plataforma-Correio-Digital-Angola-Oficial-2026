@@ -535,18 +535,18 @@ export function SolicitarDocumentoContent({
   return (
     <section className="space-y-4 md:space-y-6 pb-6 md:pb-12" id="solicitacao-documento-central">
       {/* Visual Progress Steps Header */}
-      <div className="bg-white border border-slate-150 rounded-[24px] md:rounded-[32px] p-4 md:p-6 shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 mb-4 md:mb-6">
           <div className="flex items-center gap-3 text-left">
             <div className="w-10 h-10 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center shrink-0">
               <Layers size={20} />
             </div>
             <div>
-              <span className="text-[9px] font-black uppercase text-indigo-600 tracking-wider block font-sans">{t("Sistema de Chancela Estatal")}</span>
-              <h2 className="text-lg md:text-xl font-black uppercase italic tracking-tighter text-slate-900 leading-none">{t("Solicitar Documento Digital")}</h2>
+              <span className="text-[9.5px] font-bold uppercase text-indigo-600 tracking-wider block font-sans">{t("Sistema de Chancela Estatal")}</span>
+              <h2 className="text-lg md:text-xl font-black uppercase tracking-tight text-slate-900 leading-tight">{t("Solicitar Documento Digital")}</h2>
             </div>
           </div>
-          <div className="bg-slate-50 border border-slate-150 font-mono text-[10px] font-bold text-slate-500 uppercase px-3.5 py-1.5 rounded-xl">
+          <div className="bg-slate-50 border border-slate-200 font-mono text-[10px] font-bold text-slate-600 uppercase px-3 py-1.5 rounded-xl self-start md:self-auto">
             {t("Protocolo Descentralizado:")} CDA-v4.2
           </div>
         </div>

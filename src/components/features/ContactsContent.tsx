@@ -173,31 +173,31 @@ export function ContactsContent({
         </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-[32px] p-6 md:p-8 shadow-sm space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 pb-6 border-b border-slate-100">
+      <div className="bg-white border border-slate-200 rounded-2xl md:rounded-[32px] p-4 md:p-8 shadow-xs space-y-4 md:space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 md:gap-6 pb-3 md:pb-6 border-b border-slate-100 text-left">
           <div>
-            <h4 className="font-black text-slate-900 text-lg md:text-xl italic uppercase tracking-tight flex items-center gap-2">
-              <Users size={20} className="text-primary" />
+            <h4 className="font-black text-slate-900 text-base md:text-xl uppercase tracking-tight flex items-center gap-2">
+              <Users size={20} className="text-[#0E2B64]" />
               Círculo de Confiança: Registos Autorizados
             </h4>
-            <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">
+            <p className="text-xs text-slate-500 font-medium normal-case mt-0.5">
               Lista autenticada de familiares, dependentes e contactos oficiais sincronizados
             </p>
           </div>
 
           {/* Tabbar para filtro de classificação */}
-          <div className="flex bg-white p-1 rounded-2xl border border-slate-300 self-start lg:self-center shrink-0 shadow-3xs">
+          <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-200 self-start lg:self-center shrink-0 shadow-3xs">
             {(['Todos', 'Emergência', 'Normal'] as const).map((tab) => (
               <button
                 key={tab}
                 type="button"
                 onClick={() => setSelectedClassification(tab)}
-                className={`relative px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+                className={`relative px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                   selectedClassification === tab
                     ? tab === 'Emergência'
-                      ? 'bg-red-600 text-white shadow-sm'
-                      : 'bg-primary text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-800'
+                      ? 'bg-red-600 text-white shadow-xs'
+                      : 'bg-[#0E2B64] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 {tab}

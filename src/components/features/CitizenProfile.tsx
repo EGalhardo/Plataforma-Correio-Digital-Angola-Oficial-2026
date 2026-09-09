@@ -445,20 +445,20 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(280px,0.95fr)_minmax(500px,2fr)] gap-4 items-stretch">
           {/* Photo Card with profile stats — h-full: altura igual à das Informações Pessoais */}
-          <div className="bg-white border border-slate-200 rounded-[32px] p-6 flex flex-col items-center text-center relative overflow-hidden shadow-sm h-full">
+          <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[32px] p-5 md:p-6 flex flex-col items-center text-center relative overflow-hidden shadow-xs h-full">
             
-            <div className="relative mt-4 mb-4 group">
-              <div className="w-32 h-32 md:w-36 md:h-36 rounded-[28px] border border-slate-150 p-1 bg-white relative overflow-hidden">
+            <div className="relative mt-2 md:mt-4 mb-4 group">
+              <div className="w-28 h-28 md:w-36 md:h-36 rounded-2xl md:rounded-[28px] border border-slate-150 p-1 bg-white relative overflow-hidden">
                 {userProfilePhoto ? (
                   <img 
                     src={userProfilePhoto} 
                     alt={profileName} 
-                    className="w-full h-full rounded-[22px] object-cover transition-all group-hover:scale-105"
+                    className="w-full h-full rounded-xl md:rounded-[22px] object-cover transition-all group-hover:scale-105"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
                   /* v37.29 — sem foto: fundo azul com a primeira letra do nome */
-                  <div className="w-full h-full rounded-[22px] bg-blue-600 flex items-center justify-center text-white font-black text-5xl select-none">
+                  <div className="w-full h-full rounded-xl md:rounded-[22px] bg-blue-600 flex items-center justify-center text-white font-black text-4xl md:text-5xl select-none">
                     {iniciaisDe(profileName)}
                   </div>
                 )}
@@ -532,10 +532,10 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
           </div>
 
           {/* INFORMAÇÕES PESSOAIS Card — h-full: altura igual à do Perfil */}
-          <div className="bg-white border border-slate-200 rounded-[32px] p-6 md:p-8 space-y-6 text-left shadow-sm h-full">
-            <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[32px] p-4 md:p-8 space-y-4 md:space-y-6 text-left shadow-xs h-full">
+            <div className="border-b border-slate-100 pb-3 md:pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 md:gap-4">
               <div>
-                <h2 className="font-black text-slate-950 text-xl uppercase tracking-tight">Informações Pessoais</h2>
+                <h2 className="font-black text-slate-950 text-lg md:text-xl uppercase tracking-tight">Informações Pessoais</h2>
                 <p className="text-xs text-slate-500 font-medium normal-case mt-0.5">
                   {isEditingInfo ? 'A editar ficha civil e dados do cidadão' : 'Ficha civil do cidadão titular sincronizada nacionalmente'}
                 </p>

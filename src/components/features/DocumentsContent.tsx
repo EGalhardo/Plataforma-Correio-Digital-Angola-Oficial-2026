@@ -861,13 +861,13 @@ export function DocumentsContent({
       </div>
 
        {/* 1. Contentor "Instituições Conectadas" */}
-       <section className="bg-white border border-slate-200 rounded-[24px] md:rounded-[32px] p-4 md:p-6 shadow-sm overflow-hidden relative group">
+       <section className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-xs overflow-hidden relative group">
          <div className="flex flex-row items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-100">
            <div className="flex items-center gap-2 min-w-0">
-             <div className="w-1.5 h-5 md:h-6 bg-primary rounded-full shrink-0" />
-             <h3 className="text-slate-950 font-black text-xs md:text-sm italic tracking-normal uppercase truncate">{translate("Instituições Conectadas")}</h3>
+             <div className="w-1.5 h-4 md:h-5 bg-primary rounded-full shrink-0" />
+             <h3 className="text-slate-900 font-bold text-xs md:text-sm leading-none truncate">{translate("Instituições Conectadas")}</h3>
            </div>
-           <div className="text-[8.5px] md:text-[9px] font-black text-slate-400 uppercase tracking-wider text-right shrink-0">{translate("Governação Electrónica")}</div>
+           <div className="text-[10px] font-semibold text-slate-400 text-right shrink-0">{translate("Governação Electrónica")}</div>
          </div>
         
         <div className="flex flex-nowrap gap-2 md:gap-3 overflow-x-auto custom-scrollbar-h pb-2">
@@ -878,9 +878,9 @@ export function DocumentsContent({
               <button 
                 key={name}
                 onClick={() => setSelectedInst(name)}
-                className={`px-4 md:px-5 py-2.5 md:py-3 rounded-2xl text-[10.5px] md:text-xs font-black uppercase transition-all cursor-pointer shrink-0 text-left flex items-center gap-2 border ${
+                className={`px-3.5 md:px-5 py-2 md:py-2.5 rounded-full text-[10.5px] md:text-xs font-bold uppercase transition-all cursor-pointer shrink-0 text-left flex items-center gap-2 border ${
                   isActive 
-                    ? 'bg-primary border-primary text-white shadow-md' 
+                    ? 'bg-[#0E2B64] border-[#0E2B64] text-white shadow-xs' 
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300 shadow-none'
                 }`}
               >
@@ -898,17 +898,17 @@ export function DocumentsContent({
       </section>
 
       {/* Message List */}
-      <div className="bg-white rounded-[32px] p-4 md:p-8 shadow-sm space-y-4 md:space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 md:gap-6 pb-2 md:pb-6 text-left">
+      <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[32px] p-4 md:p-8 shadow-xs space-y-4 md:space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 md:gap-6 pb-2 md:pb-4 border-b border-slate-100 text-left">
           <div>
-            <h4 className="font-black text-slate-900 text-base md:text-xl italic uppercase tracking-tight flex items-center gap-2">
-              <FolderOpen size={18} className="text-indigo-600 shrink-0 md:w-5 md:h-5" />
+            <h4 className="font-black text-slate-900 text-base md:text-xl uppercase tracking-tight flex items-center gap-2">
+              <FolderOpen size={18} className="text-[#0E2B64] shrink-0 md:w-5 md:h-5" />
               {!isInst 
                 ? (selectedInst === 'Todas' ? 'Todas as Cobranças & Facturas Recebidas' : `Cobranças & Facturas Recebidas: ${selectedInst}`)
                 : (isInst ? 'Repositório de Documentos: Expediente de Entrada' : 'Pasta Digital de Documentos Homologados')
               }
             </h4>
-            <p className="text-[10px] md:text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-1">
+            <p className="text-xs text-slate-500 font-medium normal-case mt-0.5 leading-relaxed">
               {!isInst 
                 ? (selectedInst === 'Todas' ? 'Gestão unificada de liquidações, encargos correntes e histórico de facturas oficiais integradas' : `Gestão ativa de liquidações, taxas administrativas e facturas oficiais integradas para a entidade ${selectedInst}`)
                 : (isInst ? 'Gestão de submissões de cidadãos, requerimentos de certidão e documentos para validação administrativa' : 'Consulta e acompanhamento de certidões, autenticações de assinatura, alvarás digitais e termos oficiais')
@@ -923,8 +923,8 @@ export function DocumentsContent({
                 <Coins size={15} />
               </div>
               <div>
-                <div className="text-[8.5px] font-black text-slate-400 uppercase tracking-wider leading-none">Saldo QR Code</div>
-                <div className="text-xs md:text-sm font-mono font-black text-emerald-700 mt-0.5">{walletBalance.toLocaleString('de-DE')} Kz</div>
+                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">Saldo QR Code</div>
+                <div className="text-xs md:text-sm font-mono font-bold text-emerald-700 mt-0.5">{walletBalance.toLocaleString('de-DE')} Kz</div>
               </div>
             </div>
           )}

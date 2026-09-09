@@ -652,17 +652,17 @@ export function PastaDigitalContent({
   return (
     <div className="space-y-6 pb-12">
       {/* 1. TOP TITLE BANNER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-red-600 text-white rounded-[20px] flex items-center justify-center shadow-lg shadow-red-600/10 shrink-0">
-            <Folder size={26} />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4 md:pb-5 text-left">
+        <div className="flex items-center gap-3.5 md:gap-4">
+          <div className="w-12 h-12 md:w-14 md:h-14 bg-red-600 text-white rounded-2xl flex items-center justify-center shadow-xs shrink-0">
+            <Folder size={24} />
           </div>
           <div>
-            <span className="text-[9px] font-black tracking-[0.2em] text-red-600 uppercase">{t("CORREIO DIGITAL DE ANGOLA")}</span>
-            <h3 className="text-xl md:text-2xl font-black text-slate-900 leading-tight uppercase italic tracking-tighter">
+            <span className="text-[9.5px] font-bold tracking-wider text-red-600 uppercase">{t("CORREIO DIGITAL DE ANGOLA")}</span>
+            <h3 className="text-lg md:text-2xl font-black text-slate-900 leading-tight uppercase tracking-tight">
               {t("Pasta Digital de Documentos")}
             </h3>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">
+            <p className="text-xs text-slate-500 font-medium normal-case mt-0.5">
               {t("Visualização Direta, Partilha e Solicitação de Certidões Autenticadas do Estado")}
             </p>
           </div>
@@ -675,18 +675,18 @@ export function PastaDigitalContent({
               setScannedDocument(null);
               setInvalidScanToken(false);
             }}
-            className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#0c2340] hover:bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md shadow-[#0c2340]/10 cursor-pointer border-0"
+            className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#0c2340] hover:bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer border-0"
           >
             <Camera size={14} /> {t("Validar com Câmara")}
           </button>
           <button 
             onClick={() => setTab('solicitar-documento')}
-            className="flex-1 sm:flex-initial px-4 py-2.5 bg-red-600 hover:bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md shadow-red-600/10 cursor-pointer border-0"
+            className="flex-1 sm:flex-initial px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer border-0"
           >
             <Plus size={14} /> {t("Solicitar Documento")}
           </button>
-          <span className="w-full sm:w-auto px-3.5 py-2.5 bg-slate-50 border border-slate-150 text-slate-700 text-[10px] font-black tracking-wider uppercase rounded-xl flex items-center justify-center gap-1.5 shadow-xs">
-            <ShieldCheck size={14} className="text-red-500 animate-pulse" /> {t("Custódia de Documentos")}
+          <span className="w-full sm:w-auto px-3.5 py-2 bg-slate-50 border border-slate-200 text-slate-700 text-[10px] font-bold tracking-wider uppercase rounded-xl flex items-center justify-center gap-1.5 shadow-3xs">
+            <ShieldCheck size={14} className="text-emerald-600" /> {t("Custódia de Documentos")}
           </span>
         </div>
       </div>

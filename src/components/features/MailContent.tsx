@@ -2126,14 +2126,14 @@ export function MailContent({
       </div>
 
       {/* Message List */}
-      <div className="bg-white rounded-[32px] p-4 md:p-8 shadow-sm space-y-4 md:space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 md:gap-6 pb-2 md:pb-6 text-left">
+      <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[32px] p-4 md:p-8 shadow-xs space-y-4 md:space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 md:gap-6 pb-2 md:pb-4 border-b border-slate-100 text-left">
           <div>
-            <h4 className="font-black text-slate-900 text-base md:text-xl italic uppercase tracking-tight flex items-center gap-2">
-              <Mail size={18} className="text-indigo-600 shrink-0 md:w-5 md:h-5" />
+            <h4 className="font-black text-slate-900 text-base md:text-xl uppercase tracking-tight flex items-center gap-2">
+              <Mail size={18} className="text-[#0E2B64] shrink-0 md:w-5 md:h-5" />
               {isInst ? 'Correio Institucional: Expediente de Entrada' : 'Correio Oficial Digital: Caixa de Entrada'}
             </h4>
-            <p className="text-[10px] md:text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-1">
+            <p className="text-xs text-slate-500 font-medium normal-case mt-0.5 leading-relaxed">
               {isInst ? 'Gestão de submissões de cidadãos, requerimentos e auditorias pendentes de resposta' : 'Consulta e acompanhamento de certidões, avisos, pendências tributárias e faturas oficiais'}
             </p>
           </div>

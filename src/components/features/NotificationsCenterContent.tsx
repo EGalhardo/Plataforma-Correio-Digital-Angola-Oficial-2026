@@ -36,8 +36,8 @@ export function NotificationsCenterContent({ notifications, setTab, appMode }: N
             <Bell size={20} className="md:w-6 md:h-6" />
           </div>
           <div>
-            <h3 className="text-lg md:text-2xl font-black text-primary leading-tight uppercase italic tracking-tighter">Centro de Notificações</h3>
-            <p className="text-[10px] md:text-sm text-slate-500 font-bold uppercase tracking-wider">{notifications.length} alertas sincronizados</p>
+            <h3 className="text-lg md:text-2xl font-black text-primary leading-tight uppercase tracking-tight">Centro de Notificações</h3>
+            <p className="text-xs text-slate-500 font-medium normal-case">{notifications.length} alertas sincronizados</p>
           </div>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 no-scrollbar">
@@ -47,31 +47,31 @@ export function NotificationsCenterContent({ notifications, setTab, appMode }: N
       </div>
 
       <div className="grid grid-cols-3 gap-2 md:gap-4">
-        <div className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-3 md:p-5 shadow-sm text-left">
-          <span className="text-[8.5px] md:text-[9px] font-black text-slate-400 uppercase tracking-tight md:tracking-widest block mb-0.5 truncate">Prioridade</span>
-          <div className="text-xl md:text-2xl font-black text-slate-950">{grouped.warning.length}</div>
-          <p className="hidden md:block text-[10px] text-slate-500 font-semibold mt-1">Alertas que exigem atenção imediata.</p>
+        <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-3 md:p-5 shadow-xs text-left">
+          <span className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5 truncate">Prioridade</span>
+          <div className="text-lg md:text-2xl font-black text-slate-950">{grouped.warning.length}</div>
+          <p className="hidden md:block text-[10px] text-slate-500 font-medium mt-1">Alertas que exigem atenção imediata.</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-3 md:p-5 shadow-sm text-left">
-          <span className="text-[8.5px] md:text-[9px] font-black text-slate-400 uppercase tracking-tight md:tracking-widest block mb-0.5 truncate">Concluídas</span>
-          <div className="text-xl md:text-2xl font-black text-slate-950">{grouped.success.length}</div>
-          <p className="hidden md:block text-[10px] text-slate-500 font-semibold mt-1">Confirmações de emissão ou entrega.</p>
+        <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-3 md:p-5 shadow-xs text-left">
+          <span className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5 truncate">Concluídas</span>
+          <div className="text-lg md:text-2xl font-black text-slate-950">{grouped.success.length}</div>
+          <p className="hidden md:block text-[10px] text-slate-500 font-medium mt-1">Confirmações de emissão ou entrega.</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-3 md:p-5 shadow-sm text-left">
-          <span className="text-[8.5px] md:text-[9px] font-black text-slate-400 uppercase tracking-tight md:tracking-widest block mb-0.5 truncate">Informativas</span>
-          <div className="text-xl md:text-2xl font-black text-slate-950">{grouped.info.length}</div>
-          <p className="hidden md:block text-[10px] text-slate-500 font-semibold mt-1">Eventos operacionais do sistema.</p>
+        <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-3 md:p-5 shadow-xs text-left">
+          <span className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5 truncate">Informativas</span>
+          <div className="text-lg md:text-2xl font-black text-slate-950">{grouped.info.length}</div>
+          <p className="hidden md:block text-[10px] text-slate-500 font-medium mt-1">Eventos operacionais do sistema.</p>
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3 md:space-y-4">
         {sections.map((section) => (
-          <div key={section.key} className="bg-white border border-slate-200 rounded-[28px] p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <div className={`w-8 h-8 rounded-xl border flex items-center justify-center ${section.theme}`}>
-                <section.icon size={16} />
+          <div key={section.key} className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-5 shadow-xs">
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`w-7 h-7 md:w-8 md:h-8 rounded-xl border flex items-center justify-center ${section.theme}`}>
+                <section.icon size={15} />
               </div>
-              <h4 className="text-sm font-black text-slate-950 uppercase tracking-tight">{section.label}</h4>
+              <h4 className="text-xs md:text-sm font-bold text-slate-950 uppercase tracking-tight">{section.label}</h4>
             </div>
 
             {section.items.length > 0 ? (
@@ -80,24 +80,24 @@ export function NotificationsCenterContent({ notifications, setTab, appMode }: N
                   <button
                     key={item.id}
                     onClick={() => navigateToTarget(item.targetTab)}
-                    className="w-full text-left bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-2xl p-4 transition-all cursor-pointer"
+                    className="w-full text-left bg-slate-50 hover:bg-slate-100 border border-slate-150 rounded-xl md:rounded-2xl p-3.5 transition-all cursor-pointer"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <span className="block text-xs font-black text-slate-900">{item.title}</span>
-                        <p className="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">{item.message}</p>
+                        <span className="block text-xs font-bold text-slate-900">{item.title}</span>
+                        <p className="text-[11px] text-slate-500 font-medium mt-0.5 leading-relaxed">{item.message}</p>
                       </div>
                       <div className="shrink-0 text-right">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">{item.time}</span>
-                        <span className="text-[9px] text-primary font-bold mt-2 inline-flex items-center gap-1">Abrir <ChevronRight size={12} /></span>
+                        <span className="text-[9px] font-mono font-bold text-slate-400 uppercase block">{item.time}</span>
+                        <span className="text-[9px] text-primary font-bold mt-1.5 inline-flex items-center gap-0.5">Abrir <ChevronRight size={11} /></span>
                       </div>
                     </div>
                   </button>
                 ))}
               </div>
             ) : (
-              <div className="py-10 text-center bg-slate-50 border border-dashed border-slate-200 rounded-[24px]">
-                <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Nenhum registo nesta secção</p>
+              <div className="py-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-xl md:rounded-2xl">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Nenhum registo nesta secção</p>
               </div>
             )}
           </div>

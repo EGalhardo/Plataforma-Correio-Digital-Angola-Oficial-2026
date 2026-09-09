@@ -600,15 +600,15 @@ export function GovDashboard({
         </div>
 
         {/* Instituições Conectadas Horizontal Panel */}
-        <section className="bg-white border border-slate-200 rounded-[24px] md:rounded-[32px] p-5 overflow-hidden relative text-left">
-          <div className="flex flex-col md:flex-row md:items-center justify-between md:relative gap-2 mb-4 pb-2 border-b border-slate-100">
+        <section className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-5 overflow-hidden relative text-left shadow-xs">
+          <div className="flex flex-col md:flex-row md:items-center justify-between md:relative gap-2 mb-3 pb-2 border-b border-slate-100">
             <div className="flex items-center gap-2">
-               <div className="w-1.5 h-6 bg-red-650 rounded-full" />
+               <div className="w-1.5 h-4 md:h-5 bg-red-650 rounded-full" />
                <div className="min-w-0">
-                  <h3 className="text-slate-950 font-black text-xs md:text-base italic tracking-tighter uppercase leading-none">Instituições Conectadas</h3>
+                  <h3 className="text-slate-900 font-bold text-xs md:text-sm leading-none">Instituições Conectadas</h3>
                </div>
             </div>
-            <div className="md:absolute md:left-1/2 md:-translate-x-1/2 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center mt-1 md:mt-0">
+            <div className="md:absolute md:left-1/2 md:-translate-x-1/2 text-[10px] font-semibold text-slate-400 text-center mt-1 md:mt-0">
               Governação Electrónica
             </div>
             <div className="hidden md:block" />
