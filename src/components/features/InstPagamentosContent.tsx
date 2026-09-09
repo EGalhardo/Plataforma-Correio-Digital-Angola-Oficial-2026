@@ -123,25 +123,25 @@ export function InstPagamentosContent({ institutionCode = '', addAuditLog }: Ins
 
   return (
     <div className="space-y-5 max-w-4xl mx-auto w-full pb-10 animate-fade-in" id="inst-pagamentos-root">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
         <div>
-          <h1 className="text-lg font-black text-slate-900 m-0 inline-flex items-center gap-2">
+          <h1 className="text-base md:text-lg font-black text-slate-900 m-0 inline-flex items-center gap-2">
             <Banknote className="w-5 h-5 text-[#0c2340]" /> Pagamentos — cobranças {sigla && <span className="text-slate-400">({sigla})</span>}
           </h1>
-          <p className="text-[11px] text-slate-500 font-semibold m-0 mt-0.5">
+          <p className="text-[10px] md:text-[11px] text-slate-500 font-semibold m-0 mt-0.5">
             Registe taxas, faturas e outras cobranças; o cidadão vê-as na área «Pagamentos» dele.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => void carregar()}
-            className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-800 transition-colors"
+            className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-600 hover:text-slate-900 transition-colors px-3 py-1.5 rounded-full border border-slate-200 bg-white shadow-3xs cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${carregando ? 'animate-spin' : ''}`} /> Atualizar
           </button>
           <button
             onClick={() => { setMostrarForm(v => !v); setErro(''); setOkMsg(''); }}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[#0c2340] text-white text-[11px] font-black uppercase tracking-widest px-3 py-2 hover:bg-[#14365f] transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-full bg-[#0c2340] text-white text-[10.5px] font-black uppercase tracking-wider px-3.5 py-1.5 hover:bg-[#14365f] transition-colors shadow-sm cursor-pointer border-0"
           >
             <Plus className="w-3.5 h-3.5" /> Nova cobrança
           </button>

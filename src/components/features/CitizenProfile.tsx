@@ -386,9 +386,9 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
     <section className="space-y-4 md:space-y-6 text-slate-950 animate-fade-in font-sans">
       
       {/* Header row as seen in screenshot 3 */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-3 md:pb-5 mb-1 md:mb-2 gap-3 md:gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-3 md:pb-5 mb-1 md:mb-2 gap-3 md:gap-4 text-left">
         <div>
-          <span className="text-xs uppercase font-bold tracking-widest text-slate-400">Minha Conta</span>
+          <span className="text-xs uppercase font-bold tracking-wider text-slate-400">Minha Conta</span>
           <h1 className="text-2xl md:text-3xl font-black text-slate-950 tracking-tight">Bem-vindo, {profileName.split(' ')[0]}</h1>
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -536,7 +536,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
             <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <h2 className="font-black text-slate-950 text-xl uppercase tracking-tight">Informações Pessoais</h2>
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+                <p className="text-xs text-slate-500 font-medium normal-case mt-0.5">
                   {isEditingInfo ? 'A editar ficha civil e dados do cidadão' : 'Ficha civil do cidadão titular sincronizada nacionalmente'}
                 </p>
               </div>

@@ -162,11 +162,17 @@
 
 @media (max-width: 1024px) {
   .mobile-data-table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
+    display: table;
     -webkit-overflow-scrolling: touch;
   }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 @media (max-width: 768px) {

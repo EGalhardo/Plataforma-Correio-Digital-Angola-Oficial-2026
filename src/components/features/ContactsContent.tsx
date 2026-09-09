@@ -207,7 +207,72 @@ export function ContactsContent({
         </div>
 
         {finalContacts.length > 0 ? (
-          <div className="overflow-auto rounded-[24px] border border-slate-100 bg-slate-50/20 custom-scrollbar max-h-[500px]">
+          <>
+            {/* Mobile View: Contact Cards */}
+            <div className="block md:hidden space-y-3">
+              {finalContacts.map((contact) => {
+                const initials = (contact?.name || 'C').split(' ').map((n: string) => n?.[0] || '').join('').substring(0, 2);
+                return (
+                  <div
+                    key={contact.id}
+                    className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm space-y-3 text-left"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-primary font-black text-xs border border-slate-200 uppercase shrink-0">
+                          {(initials === 'MD' || initials === 'md') ? (
+                            <Users size={16} className="text-primary" />
+                          ) : (
+                            initials
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="font-extrabold text-slate-900 text-sm block uppercase italic tracking-tight truncate">{contact.name}</span>
+                          <span className="text-[9.5px] font-black text-slate-500 uppercase tracking-wider block mt-0.5">{contact.relation}</span>
+                        </div>
+                      </div>
+
+                      {(contact.type || 'Normal') === 'Emergência' ? (
+                        <span className="px-2.5 py-1 rounded-full text-[8.5px] font-black uppercase tracking-wider bg-red-50 text-red-700 border border-red-200 shrink-0">
+                          Emergência
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-full text-[8.5px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                          Normal
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-[10px]">
+                      <span className="font-mono font-bold text-slate-700">BI: {contact.bi}</span>
+                      <span className={`font-black uppercase tracking-wider ${contact.status === 'Confirmado' ? 'text-emerald-600' : 'text-orange-700'}`}>
+                        {contact.status}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
+                      <button 
+                        onClick={() => openEditModal(contact)}
+                        className="px-3 py-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all border-0 cursor-pointer text-[10px] font-black uppercase tracking-wider flex items-center gap-1"
+                        title="Editar contacto"
+                      >
+                        <Edit size={12} /> Editar
+                      </button>
+                      <button 
+                        onClick={() => setContactToDelete(contact)}
+                        className="px-3 py-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-all border-0 cursor-pointer text-[10px] font-black uppercase tracking-wider flex items-center gap-1"
+                        title="Remover contacto"
+                      >
+                        <Trash2 size={12} /> Remover
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop View: Full Table */}
+            <div className="hidden md:block overflow-auto rounded-[24px] border border-slate-100 bg-slate-50/20 custom-scrollbar max-h-[500px]">
             <table className="mobile-data-table w-full text-left border-collapse min-w-[700px]">
               <thead className="sticky top-0 z-10 bg-primary">
                 <tr className="bg-primary text-white text-[10px] font-black uppercase tracking-wider">
@@ -308,6 +373,7 @@ export function ContactsContent({
               </tbody>
             </table>
           </div>
+          </>
         ) : (
           <div className="py-12 md:py-20 text-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-[32px] md:rounded-[40px] space-y-3 md:space-y-4">
             <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm text-slate-200">

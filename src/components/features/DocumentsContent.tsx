@@ -853,22 +853,21 @@ export function DocumentsContent({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 px-1 text-[10px] font-black uppercase tracking-widest">
-        {!isInst && <button onClick={() => setTab('home')} className="cda-link-text">{translate("Painel")}</button>}
-        {!isInst && <button onClick={() => setTab('historico')} className="cda-link-text">{translate("Ver Histórico")}</button>}
-        <button onClick={() => setTab('notificacoes')} className="cda-link-text">{translate("Notificações")}</button>
-        {isInst && <button onClick={() => setTab('inst-qrcode')} className="cda-link-text">{translate("Validação QR")}</button>}
+      <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar">
+        {!isInst && <button onClick={() => setTab('home')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{translate("Painel")}</button>}
+        {!isInst && <button onClick={() => setTab('historico')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{translate("Ver Histórico")}</button>}
+        <button onClick={() => setTab('notificacoes')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{translate("Notificações")}</button>
+        {isInst && <button onClick={() => setTab('inst-qrcode')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{translate("Validação QR")}</button>}
       </div>
 
        {/* 1. Contentor "Instituições Conectadas" */}
-       <section className="bg-white border border-slate-200 rounded-[32px] p-5 md:p-6 shadow-sm overflow-hidden relative group">
-         <div className="flex flex-col md:flex-row md:items-center justify-between md:relative gap-2 mb-4 pb-2 border-b border-slate-50">
-           <div className="flex items-center gap-2.5">
-             <div className="w-1.5 h-6 bg-primary rounded-full" />
-             <h3 className="text-slate-950 font-black text-xs md:text-sm italic tracking-tighter uppercase">{translate("Instituições Conectadas")}</h3>
+       <section className="bg-white border border-slate-200 rounded-[24px] md:rounded-[32px] p-4 md:p-6 shadow-sm overflow-hidden relative group">
+         <div className="flex flex-row items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-100">
+           <div className="flex items-center gap-2 min-w-0">
+             <div className="w-1.5 h-5 md:h-6 bg-primary rounded-full shrink-0" />
+             <h3 className="text-slate-950 font-black text-xs md:text-sm italic tracking-normal uppercase truncate">{translate("Instituições Conectadas")}</h3>
            </div>
-           <div className="md:absolute md:left-1/2 md:-translate-x-1/2 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center mt-1 md:mt-0">{translate("Governação Electrónica")}</div>
-           <div className="hidden md:block" />
+           <div className="text-[8.5px] md:text-[9px] font-black text-slate-400 uppercase tracking-wider text-right shrink-0">{translate("Governação Electrónica")}</div>
          </div>
         
         <div className="flex flex-nowrap gap-2 md:gap-3 overflow-x-auto custom-scrollbar-h pb-2">
@@ -879,15 +878,15 @@ export function DocumentsContent({
               <button 
                 key={name}
                 onClick={() => setSelectedInst(name)}
-                className={`px-5 py-3 rounded-2xl text-[11px] md:text-xs font-black uppercase transition-all cursor-pointer shrink-0 text-left flex items-center gap-2.5 border ${
+                className={`px-4 md:px-5 py-2.5 md:py-3 rounded-2xl text-[10.5px] md:text-xs font-black uppercase transition-all cursor-pointer shrink-0 text-left flex items-center gap-2 border ${
                   isActive 
-                    ? 'bg-primary border-primary text-white shadow-lg' 
-                    : 'bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-400 shadow-none'
+                    ? 'bg-primary border-primary text-white shadow-md' 
+                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300 shadow-none'
                 }`}
               >
                 <Building2 size={13} className={isActive ? 'text-white/80' : 'text-slate-400'} />
                 <span>{name}</span>
-                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                <span className={`text-[8.5px] md:text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
                   isActive ? 'bg-indigo-950 text-white' : 'bg-red-600 text-white'
                 }`}>
                   {countForInst}
@@ -899,17 +898,17 @@ export function DocumentsContent({
       </section>
 
       {/* Message List */}
-      <div className="bg-white rounded-[32px] p-6 md:p-8 shadow-sm space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 pb-6">
+      <div className="bg-white rounded-[32px] p-4 md:p-8 shadow-sm space-y-4 md:space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 md:gap-6 pb-2 md:pb-6 text-left">
           <div>
-            <h4 className="font-black text-slate-900 text-lg md:text-xl italic uppercase tracking-tight flex items-center gap-2">
-              <FolderOpen size={20} className="text-indigo-600" />
+            <h4 className="font-black text-slate-900 text-base md:text-xl italic uppercase tracking-tight flex items-center gap-2">
+              <FolderOpen size={18} className="text-indigo-600 shrink-0 md:w-5 md:h-5" />
               {!isInst 
                 ? (selectedInst === 'Todas' ? 'Todas as Cobranças & Facturas Recebidas' : `Cobranças & Facturas Recebidas: ${selectedInst}`)
                 : (isInst ? 'Repositório de Documentos: Expediente de Entrada' : 'Pasta Digital de Documentos Homologados')
               }
             </h4>
-            <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">
+            <p className="text-[10px] md:text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-1">
               {!isInst 
                 ? (selectedInst === 'Todas' ? 'Gestão unificada de liquidações, encargos correntes e histórico de facturas oficiais integradas' : `Gestão ativa de liquidações, taxas administrativas e facturas oficiais integradas para a entidade ${selectedInst}`)
                 : (isInst ? 'Gestão de submissões de cidadãos, requerimentos de certidão e documentos para validação administrativa' : 'Consulta e acompanhamento de certidões, autenticações de assinatura, alvarás digitais e termos oficiais')
@@ -919,22 +918,96 @@ export function DocumentsContent({
           
           {/* Wallet Balance Widget for User mode when viewing invoices */}
           {!isInst && (
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 flex items-center gap-3 self-start lg:self-center">
-              <div className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center">
-                <Coins size={16} />
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 flex items-center gap-2.5 self-start lg:self-center">
+              <div className="w-7 h-7 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center shrink-0">
+                <Coins size={15} />
               </div>
               <div>
-                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Saldo QR Code</div>
-                <div className="text-xs md:text-sm font-mono font-black text-emerald-700 mt-1">{walletBalance.toLocaleString('de-DE')} Kz</div>
+                <div className="text-[8.5px] font-black text-slate-400 uppercase tracking-wider leading-none">Saldo QR Code</div>
+                <div className="text-xs md:text-sm font-mono font-black text-emerald-700 mt-0.5">{walletBalance.toLocaleString('de-DE')} Kz</div>
               </div>
             </div>
           )}
         </div>
 
         {!isInst ? (
-          // --- USER INVOICES TABLE ---
+          // --- USER INVOICES ---
           filteredInvoicesForSelectedInst.length > 0 ? (
-            <div className="overflow-auto rounded-[24px] bg-slate-50/20 custom-scrollbar max-h-[500px]">
+            <>
+              {/* Mobile View: Invoice Cards */}
+              <div className="block md:hidden space-y-3">
+                {filteredInvoicesForSelectedInst.map((item) => {
+                  const isPendente = item.status === 'Pendente';
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm space-y-2.5 text-left"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                            isPendente 
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200' 
+                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          }`}>
+                            {isPendente ? 'Aguardando' : 'Liquidada'}
+                          </span>
+                          <span className="text-[9px] font-mono text-slate-400 font-bold">FAT#{item.id}</span>
+                        </div>
+                        <span className="text-xs font-mono font-black text-slate-900">{item.amount}</span>
+                      </div>
+
+                      <div>
+                        <h5 className="font-extrabold text-slate-900 text-sm tracking-tight">{item.org}</h5>
+                        <p className="text-[11px] text-slate-600 font-medium leading-relaxed mt-0.5">{item.description}</p>
+                      </div>
+
+                      <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-[10px] font-mono">
+                        <span className="text-slate-500 font-bold">Entidade: <strong className="text-slate-800">{item.entity}</strong></span>
+                        <span className="text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
+                          Ref: {item.reference.match(/.{1,3}/g)?.join(' ') || item.reference}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                        {isPendente ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActivePayingInvoice(item);
+                                setShowPaySuccess(false);
+                                setPayMethod('express');
+                              }}
+                              className="flex-1 py-2 bg-primary hover:bg-primary/95 text-white text-[9.5px] font-black uppercase tracking-wider rounded-xl cursor-pointer shadow-sm text-center border-0"
+                            >
+                              PAGAR FATURA
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedInvoiceForDetail(item)}
+                              className="flex-1 py-2 text-slate-700 bg-slate-100 hover:bg-slate-200 text-[9.5px] font-black uppercase tracking-wider rounded-xl cursor-pointer text-center border border-slate-200/60"
+                            >
+                              VER DOCUMENTO
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedInvoiceForDetail(item)}
+                            className="w-full py-2 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-[9.5px] font-black uppercase tracking-wider rounded-xl cursor-pointer text-center border border-emerald-100"
+                          >
+                            VER DOCUMENTO
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop View: Invoice Table */}
+              <div className="hidden md:block overflow-auto rounded-[24px] bg-slate-50/20 custom-scrollbar max-h-[500px]">
               <table className="mobile-data-table w-full text-left border-collapse min-w-[900px]">
                 <thead className="sticky top-0 z-10 bg-primary">
                   <tr className="bg-primary text-white text-[10px] font-black uppercase tracking-widest">
@@ -1056,6 +1129,7 @@ export function DocumentsContent({
                 </tbody>
               </table>
             </div>
+            </>
           ) : (
             <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[24px] md:rounded-[32px] p-12 md:p-20 text-center space-y-4">
               <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm text-slate-400 border border-slate-200">
@@ -1072,7 +1146,71 @@ export function DocumentsContent({
         ) : (
           // --- ORIGINAL DOCUMENTS TABLE ---
           finalFilteredDocs.length > 0 ? (
-            <div className="overflow-auto rounded-[24px] bg-slate-50/20 custom-scrollbar max-h-[500px]">
+            <>
+              {/* Mobile View: Document Cards */}
+              <div className="block md:hidden space-y-3">
+                {finalFilteredDocs.map((item) => {
+                  const isUrgente = item.status === 'Urgente' || item.priorityScale === 'Crítico' || item.priorityScale === 'Urgente';
+                  const cleanOrg = isInst 
+                    ? item.org
+                        .replace(/^Cidadão:\s*Cidadão:\s*/i, '')
+                        .replace(/^CIDADÃO:\s*CIDADÃO:\s*/i, '')
+                        .replace(/^CIDADÃO:\s*Cidadão:\s*/i, '')
+                        .replace(/^Cidadão:\s*CIDADÃO:\s*/i, '')
+                        .replace(/^Cidadão:\s*/i, '')
+                        .replace(/^CIDADÃO:\s*/i, '')
+                    : ((item.org || '').startsWith('SOC - ') 
+                        ? item.org.replace('SOC - ', '') 
+                        : item.org
+                      );
+
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => handleSelectMessage(item)}
+                      className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-primary/30 transition-all cursor-pointer text-left space-y-2.5 active:scale-[0.99]"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                            item.unread 
+                              ? 'bg-red-600 text-white border border-red-600' 
+                              : 'bg-slate-100 text-slate-500 border border-slate-200'
+                          }`}>
+                            {item.unread ? 'Não Lido' : 'Consultado'}
+                          </span>
+                          <span className="text-[9px] font-bold text-slate-400 font-mono">DOC: #{item.id}</span>
+                          {item.unread && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#f87171] inline-block animate-pulse shrink-0" />
+                          )}
+                        </div>
+                        <span className="text-[9px] font-mono text-slate-400 font-bold">{item.date}</span>
+                      </div>
+
+                      <div>
+                        <h5 className="font-extrabold text-slate-900 text-sm tracking-tight leading-snug">
+                          {translate(item.details?.subject || item.preview.substring(0, 45))}
+                        </h5>
+                        <p className="text-[11px] text-slate-500 font-medium line-clamp-2 mt-1 leading-relaxed">
+                          {translate(item.preview)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[9.5px]">
+                        <span className="font-bold text-slate-600 truncate max-w-[65%]">
+                          {isInst ? `Cidadão: ${cleanOrg}` : `Órgão: ${cleanOrg}`}
+                        </span>
+                        <span className="text-primary font-black uppercase tracking-wider flex items-center gap-1">
+                          {isInst ? translate('ANALISAR') : translate('ABRIR')} &rarr;
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop View: Full 7-column Table */}
+              <div className="hidden md:block overflow-auto rounded-[24px] bg-slate-50/20 custom-scrollbar max-h-[500px]">
               <table className="mobile-data-table w-full text-left border-collapse min-w-[900px]">
                 <thead className="sticky top-0 z-10 bg-primary">
                   <tr className="bg-primary text-white text-[10px] font-black uppercase tracking-widest">
@@ -1088,6 +1226,18 @@ export function DocumentsContent({
                 <tbody className="bg-white">
                   {finalFilteredDocs.map((item) => {
                     const isUrgente = item.status === 'Urgente' || item.priorityScale === 'Crítico' || item.priorityScale === 'Urgente';
+                    const cleanOrg = isInst 
+                      ? item.org
+                          .replace(/^Cidadão:\s*Cidadão:\s*/i, '')
+                          .replace(/^CIDADÃO:\s*CIDADÃO:\s*/i, '')
+                          .replace(/^CIDADÃO:\s*Cidadão:\s*/i, '')
+                          .replace(/^Cidadão:\s*CIDADÃO:\s*/i, '')
+                          .replace(/^Cidadão:\s*/i, '')
+                          .replace(/^CIDADÃO:\s*/i, '')
+                      : ((item.org || '').startsWith('SOC - ') 
+                          ? item.org.replace('SOC - ', '') 
+                          : item.org
+                        );
                     return (
                       <tr key={item.id} className="text-xs text-[#334155] hover:bg-slate-50/60 transition-colors">
                         {/* Cidadão / Órgão Emissor Column */}
@@ -1108,11 +1258,8 @@ export function DocumentsContent({
                             </div>
                             <div className="font-black italic text-slate-900 text-[11px] md:text-sm uppercase tracking-tight leading-none">
                               {isInst 
-                                ? `CIDADÃO: ${item.org}` 
-                                : ((item.org || '').startsWith('SOC - ') 
-                                    ? item.org.replace('SOC - ', '') 
-                                    : `ÓRGÃO: ${item.org}`
-                                  )
+                                ? `CIDADÃO: ${cleanOrg}` 
+                                : `ÓRGÃO: ${cleanOrg}`
                               }
                             </div>
                           </div>
@@ -1182,6 +1329,7 @@ export function DocumentsContent({
                 </tbody>
               </table>
             </div>
+            </>
           ) : (
             <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[24px] md:rounded-[32px] p-12 md:p-20 text-center space-y-4">
               <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm text-slate-400 border border-slate-200">

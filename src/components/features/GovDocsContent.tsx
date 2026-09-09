@@ -148,11 +148,11 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 px-1 text-[10px] font-black uppercase tracking-widest">
-        <button onClick={() => setTab?.('gov-dashboard')} className="cda-link-text">Voltar ao Painel</button>
-        <button onClick={() => setTab?.('historico')} className="cda-link-text">Ver Histórico</button>
-        <button onClick={() => setTab?.('notificacoes')} className="cda-link-text">Notificações</button>
-        <button onClick={() => setShowMetrics(prev => !prev)} className="cda-link-text">
+      <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar mb-4">
+        <button onClick={() => setTab?.('gov-dashboard')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">Voltar ao Painel</button>
+        <button onClick={() => setTab?.('historico')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">Ver Histórico</button>
+        <button onClick={() => setTab?.('notificacoes')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">Notificações</button>
+        <button onClick={() => setShowMetrics(prev => !prev)} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">
           {showMetrics ? 'Ocultar métricas' : 'Ver métricas de emissão'}
         </button>
       </div>

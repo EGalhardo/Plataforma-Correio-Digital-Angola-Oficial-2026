@@ -378,17 +378,17 @@ export function GovCorrespondenciasContent({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 px-1 text-[10px] font-black uppercase tracking-widest mb-6">
-        <button onClick={() => setIsDispatchModalOpen(true)} className="cda-link-text">Novo Expediente</button>
+      <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar mb-6">
+        <button onClick={() => setIsDispatchModalOpen(true)} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">Novo Expediente</button>
         <button 
           onClick={() => setShowVideoPage(true)} 
-          className="bg-indigo-50 hover:bg-indigo-200 text-indigo-800 border border-indigo-200 rounded-xl px-3.5 py-1.5 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer text-[10px] font-black uppercase tracking-widest"
+          className="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-full px-3.5 py-2 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer text-[10px] font-black uppercase tracking-wider whitespace-nowrap shrink-0 shadow-3xs"
         >
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           Video Atendimento
         </button>
-        <button onClick={() => onNavigate?.('gov-docs')} className="cda-link-text">Emissão Documental</button>
-        <button onClick={() => setShowTelemetry(prev => !prev)} className="cda-link-text">
+        <button onClick={() => onNavigate?.('gov-docs')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">Emissão Documental</button>
+        <button onClick={() => setShowTelemetry(prev => !prev)} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">
           {showTelemetry ? 'Ocultar métricas operacionais' : 'Mostrar métricas operacionais'}
         </button>
       </div>
@@ -622,7 +622,58 @@ export function GovCorrespondenciasContent({
             <p className="text-slate-400 italic font-sans text-xs">A carregar o Expediente a partir da base central…</p>
           </div>
         ) : filteredCorrespondences.length > 0 ? (
-          <div className={`overflow-auto rounded-[24px] bg-white border border-slate-200 shadow-3xs custom-scrollbar ${filteredCorrespondences.length > 4 ? 'max-h-[350px]' : ''}`}>
+          <>
+            {/* Mobile View: Clean responsive cards */}
+            <div className="block md:hidden space-y-3">
+              {filteredCorrespondences.map((item) => (
+                <div
+                  key={item.id}
+                  className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2.5 text-left"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-mono text-[9px] font-black text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                        {item.id}
+                      </span>
+                      <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[8px] font-black uppercase font-mono">
+                        {item.institution}
+                      </span>
+                      <span className={`inline-flex items-center px-2 py-0.5 border rounded-full text-[8px] font-black uppercase ${getPriorityColorStyles(item.priority)}`}>
+                        {t(item.priority || '')}
+                      </span>
+                    </div>
+                    <span className="text-[9px] font-mono text-slate-400 font-bold">{item.sentDate}</span>
+                  </div>
+
+                  <div>
+                    <h5 className="font-black text-slate-800 text-xs tracking-tight leading-snug">
+                      {t(item.subject)}
+                    </h5>
+                    <p className="text-[10.5px] text-slate-500 font-medium line-clamp-2 mt-1 leading-relaxed">
+                      {t(item.body || '')}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[10px]">
+                    <span className="font-bold text-slate-600 truncate max-w-[60%]">
+                      Para: {t(item.recipient)}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setSelectedLetter(item);
+                        setIsForwarding(false);
+                      }}
+                      className="py-1 px-3 bg-[#0c2340] hover:bg-slate-800 border-0 rounded-xl text-[9px] font-black uppercase text-white tracking-wider transition-colors cursor-pointer inline-flex items-center gap-1"
+                    >
+                      <Eye size={11} /> Ficha
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop View: Full Table */}
+            <div className={`hidden md:block overflow-auto rounded-[24px] bg-white border border-slate-200 shadow-3xs custom-scrollbar ${filteredCorrespondences.length > 4 ? 'max-h-[350px]' : ''}`}>
             <table className="mobile-data-table w-full text-left border-collapse min-w-[1100px]">
               <thead className="sticky top-0 z-15 bg-[#0E2B64] border-b border-[#0E2B64]/90 text-white text-[9.5px] font-black uppercase tracking-widest">
                 <tr>
@@ -761,6 +812,7 @@ export function GovCorrespondenciasContent({
               </tbody>
             </table>
           </div>
+          </>
         ) : (
           <div className="p-16 bg-white border border-slate-200 rounded-[32px] text-center text-slate-400 italic font-sans shadow-3xs text-xs">
             Nenhuma correspondência governamental corresponde aos filtros de supervisão aplicados.

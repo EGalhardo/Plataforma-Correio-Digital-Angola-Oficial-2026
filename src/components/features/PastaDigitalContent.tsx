@@ -668,34 +668,34 @@ export function PastaDigitalContent({
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0 sm:self-start md:self-auto flex-wrap">
+        <div className="flex items-center gap-2 shrink-0 sm:self-start md:self-auto flex-wrap w-full sm:w-auto">
           <button 
             onClick={() => {
               setIsScannerOpen(true);
               setScannedDocument(null);
               setInvalidScanToken(false);
             }}
-            className="px-4 py-2.5 bg-[#0c2340] hover:bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-md shadow-[#0c2340]/10 cursor-pointer border-0"
+            className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#0c2340] hover:bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md shadow-[#0c2340]/10 cursor-pointer border-0"
           >
             <Camera size={14} /> {t("Validar com Câmara")}
           </button>
           <button 
             onClick={() => setTab('solicitar-documento')}
-            className="px-4 py-2.5 bg-red-600 hover:bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-md shadow-red-600/10 cursor-pointer border-0"
+            className="flex-1 sm:flex-initial px-4 py-2.5 bg-red-600 hover:bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md shadow-red-600/10 cursor-pointer border-0"
           >
             <Plus size={14} /> {t("Solicitar Documento")}
           </button>
-          <span className="px-3.5 py-2.5 bg-slate-50 border border-slate-150 text-slate-700 text-[10px] font-black tracking-widest uppercase rounded-xl flex items-center gap-1.5 shadow-xs">
+          <span className="w-full sm:w-auto px-3.5 py-2.5 bg-slate-50 border border-slate-150 text-slate-700 text-[10px] font-black tracking-wider uppercase rounded-xl flex items-center justify-center gap-1.5 shadow-xs">
             <ShieldCheck size={14} className="text-red-500 animate-pulse" /> {t("Custódia de Documentos")}
           </span>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 px-1 text-[10px] font-black uppercase tracking-widest">
-        <button onClick={() => setTab('home')} className="cda-link-text">{t("Painel")}</button>
-        <button onClick={() => setTab('historico')} className="cda-link-text">{t("Ver Histórico")}</button>
-        <button onClick={() => setTab('notificacoes')} className="cda-link-text">{t("Notificações")}</button>
-        <button onClick={() => setShowArchiveGuide(prev => !prev)} className="cda-link-text">
+      <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar">
+        <button onClick={() => setTab('home')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Painel")}</button>
+        <button onClick={() => setTab('historico')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Ver Histórico")}</button>
+        <button onClick={() => setTab('notificacoes')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Notificações")}</button>
+        <button onClick={() => setShowArchiveGuide(prev => !prev)} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">
           {showArchiveGuide ? t('Ocultar explicação') : t('Como funciona a pasta?')}
         </button>
       </div>
@@ -778,7 +778,7 @@ export function PastaDigitalContent({
         </div>
 
         {/* Categories Pills Filters */}
-        <div className="flex items-center gap-1 flex-wrap overflow-x-auto select-none">
+        <div className="flex items-center gap-1.5 overflow-x-auto select-none no-scrollbar pb-0.5">
           {[
             { id: 'todas', label: 'Todos' },
             { id: 'civil', label: 'Civis' },
@@ -789,29 +789,29 @@ export function PastaDigitalContent({
             <button
               key={cat.id}
               onClick={() => setCatFilter(cat.id)}
-              className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider border cursor-pointer ${
+              className={`px-3.5 py-2 rounded-full text-[9.5px] font-black uppercase tracking-wider border cursor-pointer whitespace-nowrap transition-all ${
                 catFilter === cat.id 
-                  ? 'bg-slate-955 text-white border-transparent bg-slate-950' 
-                  : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100'
+                  ? 'bg-slate-950 text-white border-transparent' 
+                  : 'bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200'
               }`}
             >
               {cat.label}
             </button>
           ))}
           
-          <div className="hidden md:block w-[1px] h-6 bg-slate-150 mx-1" />
+          <div className="hidden md:block w-[1px] h-6 bg-slate-200 mx-1" />
 
           {/* Quick Sort Control */}
-          <div className="flex border border-slate-150 rounded-xl p-0.5 bg-white items-center text-[10px] text-slate-400 font-extrabold pb-0.5">
+          <div className="flex border border-slate-200 rounded-full p-0.5 bg-white items-center text-[10px] text-slate-400 font-extrabold shrink-0">
             <button
               onClick={() => setSortBy('date')}
-              className={`px-2.5 py-1.5 rounded-lg text-[9px] uppercase font-black tracking-wider transition-all cursor-pointer ${sortBy === 'date' ? 'bg-slate-100 text-slate-800' : 'text-slate-500 hover:text-slate-800'}`}
+              className={`px-3 py-1.5 rounded-full text-[9px] uppercase font-black tracking-wider transition-all cursor-pointer ${sortBy === 'date' ? 'bg-slate-100 text-slate-800' : 'text-slate-500 hover:text-slate-800'}`}
             >
               Data
             </button>
             <button
               onClick={() => setSortBy('name')}
-              className={`px-2.5 py-1.5 rounded-lg text-[9px] uppercase font-black tracking-wider transition-all cursor-pointer ${sortBy === 'name' ? 'bg-slate-100 text-slate-800' : 'text-slate-500 hover:text-slate-800'}`}
+              className={`px-3 py-1.5 rounded-full text-[9px] uppercase font-black tracking-wider transition-all cursor-pointer ${sortBy === 'name' ? 'bg-slate-100 text-slate-800' : 'text-slate-500 hover:text-slate-800'}`}
             >
               Nome
             </button>

@@ -111,27 +111,27 @@ export function ActivityCenterContent({
   return (
     <section className="space-y-4 md:space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
-            <History size={24} />
+        <div className="flex items-center gap-3.5 text-left">
+          <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shrink-0">
+            <History size={20} className="md:w-6 md:h-6" />
           </div>
           <div>
             <h3 className="text-lg md:text-2xl font-black text-primary leading-tight uppercase italic tracking-tighter">{title}</h3>
-            <p className="text-[10px] md:text-sm text-slate-600 font-semibold max-w-2xl">{subtitle}</p>
+            <p className="text-[10px] md:text-sm text-slate-500 font-bold max-w-2xl">{subtitle}</p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-4 text-[10px] font-black uppercase tracking-widest">
-          <button onClick={() => setTab(isAdmin ? 'gov-dashboard' : 'home')} className="text-slate-400 hover:text-primary transition-colors cursor-pointer">Voltar ao Painel</button>
-          <button onClick={() => setTab('notificacoes')} className="text-slate-400 hover:text-primary transition-colors cursor-pointer">Notificações</button>
+        <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 no-scrollbar">
+          <button onClick={() => setTab(isAdmin ? 'gov-dashboard' : 'home')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">Voltar ao Painel</button>
+          <button onClick={() => setTab('notificacoes')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">Notificações</button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-2 md:gap-4">
         {topMetrics.map((metric) => (
-          <div key={metric.label} className="bg-white border border-slate-200 rounded-[28px] p-5 shadow-sm">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">{metric.label}</span>
-            <div className="text-2xl font-black text-slate-950">{metric.value}</div>
-            <p className="text-[10px] text-slate-500 font-semibold mt-1">{metric.description}</p>
+          <div key={metric.label} className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-3 md:p-5 shadow-sm text-left">
+            <span className="text-[8.5px] md:text-[9px] font-black text-slate-400 uppercase tracking-tight md:tracking-widest block mb-0.5 truncate">{metric.label}</span>
+            <div className="text-xl md:text-2xl font-black text-slate-950">{metric.value}</div>
+            <p className="hidden md:block text-[10px] text-slate-500 font-semibold mt-1">{metric.description}</p>
           </div>
         ))}
       </div>

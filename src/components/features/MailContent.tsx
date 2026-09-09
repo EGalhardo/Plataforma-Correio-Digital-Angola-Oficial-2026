@@ -2033,23 +2033,24 @@ export function MailContent({
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 px-1 text-[10px] font-black uppercase tracking-widest">
+      <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar">
         <button 
           onClick={onNavigateToVideoAtendimento}
-          className="text-indigo-600 hover:text-indigo-800 font-black uppercase tracking-widest text-[10px] transition-colors flex items-center gap-1.5 cursor-pointer bg-transparent border-0"
+          className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
         >
-          <Video size={14} className="shrink-0" />
-          VideoAtendimento
+          <Video size={13} className="shrink-0" />
+          <span>VideoAtendimento</span>
           {videoSessionCount > 0 && (
-            <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse ml-1">
+            <span className="bg-red-500 text-white text-[8.5px] font-black px-1.5 py-0.5 rounded-full animate-pulse ml-0.5 leading-none">
               {videoSessionCount}
             </span>
           )}
         </button>
-        {/* v37.7 — a opção «Sondagem» deixou a toolbar do Correio: agora só
-            existe DENTRO da correspondência seleccionada (MessageDetail), para
-            se saber sempre a que correspondência cada sondagem pertence. */}
-        {isInst && <button onClick={() => setTab('inst-qrcode')} className="cda-link-text">{translateText("Validação QR", currentLanguage)}</button>}
+        {isInst && (
+          <button onClick={() => setTab('inst-qrcode')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer shrink-0">
+            {translateText("Validação QR", currentLanguage)}
+          </button>
+        )}
       </div>
 
       {/* REGRA DE ESTADO DAS ENVIADAS (v37.78.16): a cópia do remetente é
@@ -2057,7 +2058,7 @@ export function MailContent({
           pertence apenas à cópia do DESTINATÁRIO (regras R1–R6, v37.78.12). */}
       {/* Filters & Tabs Container */}
       <div className="bg-white border border-slate-300 rounded-[32px] p-2.5 shadow-sm flex flex-col lg:flex-row gap-3">
-        <div className="flex flex-wrap md:flex-nowrap gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl lg:min-w-[500px] w-full lg:w-auto">
+        <div className="grid grid-cols-2 sm:flex sm:flex-nowrap gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl lg:min-w-[500px] w-full lg:w-auto">
           {[
             { id: 'lidas', label: 'Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && !m.unread).length },
             { id: 'naoLidas', label: 'Não Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && m.unread).length },
@@ -2125,21 +2126,89 @@ export function MailContent({
       </div>
 
       {/* Message List */}
-      <div className="bg-white rounded-[32px] p-6 md:p-8 shadow-sm space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 pb-6">
+      <div className="bg-white rounded-[32px] p-4 md:p-8 shadow-sm space-y-4 md:space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 md:gap-6 pb-2 md:pb-6 text-left">
           <div>
-            <h4 className="font-black text-slate-900 text-lg md:text-xl italic uppercase tracking-tight flex items-center gap-2">
-              <Mail size={20} className="text-indigo-600" />
+            <h4 className="font-black text-slate-900 text-base md:text-xl italic uppercase tracking-tight flex items-center gap-2">
+              <Mail size={18} className="text-indigo-600 shrink-0 md:w-5 md:h-5" />
               {isInst ? 'Correio Institucional: Expediente de Entrada' : 'Correio Oficial Digital: Caixa de Entrada'}
             </h4>
-            <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">
+            <p className="text-[10px] md:text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-1">
               {isInst ? 'Gestão de submissões de cidadãos, requerimentos e auditorias pendentes de resposta' : 'Consulta e acompanhamento de certidões, avisos, pendências tributárias e faturas oficiais'}
             </p>
           </div>
         </div>
 
         {filteredMessages.length > 0 ? (
-          <div className="overflow-auto rounded-[24px] bg-slate-50/20 custom-scrollbar max-h-[500px]">
+          <>
+            {/* Mobile View: Clean responsive cards */}
+            <div className="block md:hidden space-y-3">
+              {filteredMessages.slice(0, limiteListaCorreio).map((item) => {
+                const isUrgente = item.status === 'Urgente' || item.priorityScale === 'Crítico' || item.priorityScale === 'Urgente';
+                const cleanOrg = t(isInst 
+                  ? item.org
+                      .replace(/^Cidadão:\s*Cidadão:\s*/i, '')
+                      .replace(/^CIDADÃO:\s*CIDADÃO:\s*/i, '')
+                      .replace(/^CIDADÃO:\s*Cidadão:\s*/i, '')
+                      .replace(/^Cidadão:\s*CIDADÃO:\s*/i, '')
+                      .replace(/^Cidadão:\s*/i, '')
+                      .replace(/^CIDADÃO:\s*/i, '')
+                  : ((item.org || '').startsWith('SOC - ') 
+                      ? item.org.replace('SOC - ', '') 
+                      : item.org
+                    )
+                );
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => handleSelectMessage(item)}
+                    className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-primary/30 transition-all cursor-pointer text-left space-y-2.5 active:scale-[0.99]"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                          ehCopiaEnviadaRemetente(item)
+                            ? 'bg-blue-600 text-white'
+                            : item.unread 
+                            ? 'bg-red-600 text-white' 
+                            : 'bg-emerald-600 text-white'
+                        }`}>
+                          {t(ehCopiaEnviadaRemetente(item) ? 'Enviada' : (item.unread ? 'Não Lida' : 'Lida'))}
+                        </span>
+                        <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${getOrgBadgeStyles(item.org)}`}>
+                          {t((item.org || '').toUpperCase().startsWith('SOC - ') ? 'SOC' : item.org)}
+                        </span>
+                        {item.unread && !ehCopiaEnviadaRemetente(item) && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                        )}
+                      </div>
+                      <span className="text-[9px] font-mono text-slate-400 font-bold shrink-0">{item.date}</span>
+                    </div>
+
+                    <div>
+                      <h5 className="font-extrabold text-slate-900 text-sm tracking-tight leading-snug">
+                        {t(item.details?.subject || item.preview.substring(0, 45))}
+                      </h5>
+                      <p className="text-[11px] text-slate-500 font-medium line-clamp-2 mt-1 leading-relaxed">
+                        {t(item.preview)}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[9.5px]">
+                      <span className="font-bold text-slate-600 truncate max-w-[65%]">
+                        {isInst ? `Cidadão: ${cleanOrg}` : `Órgão: ${cleanOrg}`}
+                      </span>
+                      <span className="text-primary font-black uppercase tracking-wider flex items-center gap-1">
+                        Ver Detalhes &rarr;
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop View: Full 7-column Table */}
+            <div className="hidden md:block overflow-auto rounded-[24px] bg-slate-50/20 custom-scrollbar max-h-[500px]">
             <table className="mobile-data-table w-full text-left border-collapse min-w-[900px]">
               <thead className="sticky top-0 z-10 bg-primary">
                 <tr className="bg-primary text-white text-[10px] font-black uppercase tracking-widest">
@@ -2304,7 +2373,8 @@ export function MailContent({
                 </button>
               </div>
             )}
-          </div>
+            </div>
+          </>
         ) : (
           <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[24px] md:rounded-[32px] p-12 md:p-20 text-center space-y-4">
             <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm text-slate-200">

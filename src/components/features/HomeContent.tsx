@@ -79,7 +79,7 @@ export function HomeContent({
 
   return (
     <div className="grid gap-3 md:gap-3.5">
-      <section className="relative h-[280px] md:h-[385px] rounded-[20px] md:rounded-[24px] overflow-hidden shadow-xl border border-line/60">
+      <section className="relative h-[190px] sm:h-[260px] md:h-[385px] rounded-[20px] md:rounded-[24px] overflow-hidden shadow-xl border border-line/60">
         <AnimatePresence mode="wait">
           <motion.div
             key={`${isInst ? 'gov' : 'user'}-${activeSlide}`}
@@ -112,7 +112,7 @@ export function HomeContent({
         <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none" />
 
         {/* Slide Indicators */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
+        <div className="absolute bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
           {slides.map((_, i) => (
             <button
               key={i}
@@ -127,8 +127,8 @@ export function HomeContent({
 
       {/* Quick Summary / Security Status */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-        <div className="bg-white border border-slate-200 rounded-[28px] md:rounded-[32px] p-4 md:p-6 flex items-center gap-4 md:gap-6 shadow-sm overflow-hidden relative group">
-          <div className={`w-12 h-12 md:w-16 md:h-16 ${isInst ? 'bg-white border-slate-100' : 'bg-green-600 border-green-600'} rounded-2xl flex items-center justify-center shadow-sm shrink-0 border`}>
+        <div className="bg-white border border-slate-200 rounded-[24px] md:rounded-[32px] p-4 md:p-6 flex items-center gap-3.5 md:gap-6 shadow-sm overflow-hidden relative group">
+          <div className={`w-11 h-11 md:w-16 md:h-16 ${isInst ? 'bg-white border-slate-100' : 'bg-green-600 border-green-600'} rounded-2xl flex items-center justify-center shadow-sm shrink-0 border`}>
             {isInst ? (
               /*
                * v37.39 — o logótipo é sempre resolvido no App (logótipo próprio >
@@ -151,16 +151,16 @@ export function HomeContent({
                 onError={() => { if (instLogoUrl) setLogoFalhouEm(instLogoUrl); }}
               />
             ) : (
-              <ShieldCheck size={24} className="md:w-8 md:h-8 text-white" />
+              <ShieldCheck size={22} className="md:w-8 md:h-8 text-white" />
             )}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-[9px] md:text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1 truncate">{t("ID Digital")}</div>
-            <div className="text-base md:text-xl font-black text-slate-900 leading-tight italic tracking-tighter">
+          <div className="min-w-0 flex-1 text-left">
+            <div className="text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-wider mb-0.5 truncate">{t("ID Digital")}</div>
+            <div className="text-sm md:text-xl font-black text-slate-900 leading-tight italic tracking-tight truncate">
               {isInst ? t('Agente {sigla} Verificado').replace('{sigla}', instSigla || 'AGT') : t('Cidadão Verificado')}
             </div>
             <div className="flex items-center gap-1.5 mt-1">
-              <div className={`w-1.5 h-1.5 rounded-full ${isInst && instVerified === false ? 'bg-red-600' : 'bg-emerald-500'} animate-pulse`} />
+              <div className={`w-1.5 h-1.5 rounded-full ${isInst && instVerified === false ? 'bg-red-600' : 'bg-emerald-500'} animate-pulse shrink-0`} />
               <span className="text-[9px] md:text-xs font-bold text-slate-700">{t("Protocolo Ativado 100%")}</span>
             </div>
           </div>
@@ -169,51 +169,52 @@ export function HomeContent({
         <div 
           role="button"
           onClick={() => setTab('correspondencias')}
-          className="bg-white border border-slate-200 rounded-[28px] md:rounded-[32px] p-4 md:p-6 flex items-center gap-4 md:gap-6 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all cursor-pointer group relative overflow-hidden"
+          className="bg-white border border-slate-200 rounded-[24px] md:rounded-[32px] p-4 md:p-6 flex items-center gap-3.5 md:gap-6 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all cursor-pointer group relative overflow-hidden text-left"
         >
-          <div className="w-12 h-12 md:w-16 md:h-16 bg-red-600 text-white rounded-2xl flex items-center justify-center shadow-sm shrink-0 group-hover:scale-110 transition-transform border border-red-600">
-            <Mail size={24} className="md:w-8 md:h-8 font-bold" />
+          <div className="w-11 h-11 md:w-16 md:h-16 bg-red-600 text-white rounded-2xl flex items-center justify-center shadow-sm shrink-0 group-hover:scale-110 transition-transform border border-red-600">
+            <Mail size={22} className="md:w-8 md:h-8 font-bold" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[9px] md:text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1 truncate">{t("Novas Mensagens")}</div>
-            <AnimatedCounter
-              to={unreadTotal}
-              duration={1200}
-              className="text-base md:text-xl font-black text-slate-900 leading-tight italic tracking-tighter"
-              triggerOnVisible
-            />
-            <span className="text-base md:text-xl font-black text-slate-900 leading-tight italic tracking-tighter"> {t("Não Lidas")}</span>
+            <div className="text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-wider mb-0.5 truncate">{t("Novas Mensagens")}</div>
+            <div className="flex items-baseline gap-1 truncate">
+              <AnimatedCounter
+                to={unreadTotal}
+                duration={1200}
+                className="text-sm md:text-xl font-black text-slate-900 leading-tight italic tracking-tight"
+                triggerOnVisible
+              />
+              <span className="text-sm md:text-xl font-black text-slate-900 leading-tight italic tracking-tight"> {t("Não Lidas")}</span>
+            </div>
             <div className="text-[9px] md:text-xs text-primary font-bold mt-1">{t("Ver Correspondências")} &rarr;</div>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 px-1 text-[10px] font-black uppercase tracking-widest">
-        <button onClick={() => setTab('historico')} className="cda-link-text">{t("Ver Histórico")}</button>
-        <button onClick={() => setTab('notificacoes')} className="cda-link-text">{t("Notificações")}</button>
-        <button onClick={() => setTab('directorio-orgaos')} className="cda-link-text">{t("Directório de Órgãos")}</button>
+      <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar">
+        <button onClick={() => setTab('historico')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Ver Histórico")}</button>
+        <button onClick={() => setTab('notificacoes')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Notificações")}</button>
+        <button onClick={() => setTab('directorio-orgaos')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Directório de Órgãos")}</button>
         {isInst ? (
-          <button onClick={() => setTab('inst-pagamentos')} className="cda-link-text">{t("Pagamentos")}</button>
+          <button onClick={() => setTab('inst-pagamentos')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Pagamentos")}</button>
         ) : (
-          <button onClick={() => setTab('pagamentos')} className="cda-link-text">{t("Pagamentos")}</button>
+          <button onClick={() => setTab('pagamentos')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Pagamentos")}</button>
         )}
         {isInst && (
-          <button onClick={() => setTab('inst-qrcode')} className="cda-link-text">{t("Validação QR")}</button>
+          <button onClick={() => setTab('inst-qrcode')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Validação QR")}</button>
         )}
       </div>
 
-      <section className="bg-white border border-slate-200 rounded-[24px] md:rounded-[32px] p-5 shadow-sm overflow-hidden relative group">
-        <div className="flex flex-col md:flex-row md:items-center justify-between md:relative gap-2 mb-4 pb-2 border-b border-slate-50">
-          <div className="flex items-center gap-2">
-             <div className="w-1.5 h-6 bg-primary rounded-full" />
+      <section className="bg-white border border-slate-200 rounded-[24px] md:rounded-[32px] p-4 md:p-5 shadow-sm overflow-hidden relative group">
+        <div className="flex flex-row items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-100">
+          <div className="flex items-center gap-2 min-w-0">
+             <div className="w-1.5 h-5 md:h-6 bg-primary rounded-full shrink-0" />
              <div className="min-w-0">
-                <h3 className="text-slate-950 font-black text-xs md:text-base italic tracking-tighter uppercase leading-none">{t("Instituições Conectadas")}</h3>
+                <h3 className="text-slate-950 font-black text-xs md:text-base italic tracking-normal uppercase leading-none truncate">{t("Instituições Conectadas")}</h3>
              </div>
           </div>
-          <div className="md:absolute md:left-1/2 md:-translate-x-1/2 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center mt-1 md:mt-0">
+          <div className="text-[8.5px] md:text-[9px] font-black text-slate-400 uppercase tracking-wider text-right shrink-0">
             {t("Governação Electrónica")}
           </div>
-          <div className="hidden md:block" />
         </div>
          <div className="flex flex-nowrap gap-2 md:gap-3 overflow-x-auto custom-scrollbar-h pb-2">
           {["INAPEM", "SME", "AGT", "ENDE", "EPAL", "Tribunal", "Hospital", "Ministerios", "Polícia Nacional", "Notário", "Registo Civil", "Seguro Social", "Administradoras", "INE"].map((name) => {

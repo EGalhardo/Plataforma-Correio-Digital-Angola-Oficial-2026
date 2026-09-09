@@ -580,24 +580,24 @@ Contexto adicional:
       </AnimatePresence>
 
       {/* CABEÇALHO DA PÁGINA (PAGE HEADER) */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 py-2 px-1" id="ia-header-section">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 md:gap-4 py-2 px-1" id="ia-header-section">
         <div className="text-left min-w-0">
-          <h1 className="text-2xl md:text-[28px] font-black text-slate-800 tracking-tight m-0 leading-tight">
+          <h1 className="text-xl md:text-[28px] font-black text-slate-800 tracking-tight m-0 leading-tight">
             IA
           </h1>
-          <p className="text-xs md:text-sm text-slate-500 font-bold mt-1.5">
+          <p className="text-xs md:text-sm text-slate-500 font-bold mt-1">
             Configure e gerencie o assistente virtual da sua instituição.
           </p>
         </div>
 
         {/* State and Preview Trigger */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           {setTab && (
             <button
               onClick={() => setTab('home')}
-              className="bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl px-3.5 py-2 border border-slate-200 text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0"
+              className="bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-full px-3.5 py-1.5 border border-slate-200 text-[10.5px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-3xs active:scale-95 shrink-0"
             >
-              <ArrowLeft size={14} strokeWidth={2.5} />
+              <ArrowLeft size={13} strokeWidth={2.5} />
               Voltar ao Painel
             </button>
           )}
@@ -617,41 +617,41 @@ Contexto adicional:
             ) : (
               <span className="w-2 h-2 rounded-full bg-red-500" />
             )}
-            {aiStatus === 'connected' ? '● INTEGRAÇÃO IA ATIVA' : aiStatus === 'loading' ? '● A CARREGAR' : '● DESCONECTADO'}
-          </div>
-
-          {/* Tabs de navegação interna */}
-          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 overflow-x-auto max-w-full">
-            {[
-              { key: 'config', label: 'Configuração' },
-              { key: 'chat', label: 'Chat Teste' },
-              { key: 'knowledge', label: 'Base de Conhecimento' },
-              { key: 'history', label: 'Histórico' },
-            ].map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveSubTab(tab.key as any)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border-0 whitespace-nowrap ${
-                  activeSubTab === tab.key
-                    ? 'bg-[#0E2B64] text-white shadow-sm'
-                    : 'bg-transparent text-slate-500 hover:text-[#0E2B64]'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+            {aiStatus === 'connected' ? 'INTEGRAÇÃO IA ATIVA' : aiStatus === 'loading' ? 'A CARREGAR' : 'DESCONECTADO'}
           </div>
 
           <button
             type="button"
             onClick={() => setIsPreviewOpen(true)}
-            className="bg-[#0E2B64] hover:bg-[#081a3d] text-white py-2 px-4 rounded-xl text-xs font-black uppercase tracking-wider inline-flex items-center gap-2 transition-all cursor-pointer shadow-none border-none shrink-0"
+            className="bg-[#0E2B64] hover:bg-[#081a3d] text-white py-1.5 px-3.5 rounded-full text-[10.5px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 transition-all cursor-pointer shadow-none border-none shrink-0"
             id="preview-assistant-btn"
           >
-            <Eye size={14} className="stroke-[2.5]" />
+            <Eye size={13} className="stroke-[2.5]" />
             <span>PRÉ-VISUALIZAR ASSISTENTE</span>
           </button>
         </div>
+      </div>
+
+      {/* Tabs de navegação interna */}
+      <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-2xl p-1.5 overflow-x-auto custom-scrollbar-h no-scrollbar w-full">
+        {[
+          { key: 'config', label: 'Configuração' },
+          { key: 'chat', label: 'Chat Teste' },
+          { key: 'knowledge', label: 'Base de Conhecimento' },
+          { key: 'history', label: 'Histórico' },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveSubTab(tab.key as any)}
+            className={`px-3.5 py-2 rounded-xl text-[10.5px] font-black uppercase tracking-wider transition-all cursor-pointer border-0 whitespace-nowrap ${
+              activeSubTab === tab.key
+                ? 'bg-[#0E2B64] text-white shadow-sm'
+                : 'bg-transparent text-slate-500 hover:text-[#0E2B64]'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* SUB-TAB: CONFIGURAÇÃO */}

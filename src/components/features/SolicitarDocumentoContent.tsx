@@ -538,11 +538,11 @@ export function SolicitarDocumentoContent({
       <div className="bg-white border border-slate-150 rounded-[24px] md:rounded-[32px] p-4 md:p-6 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3 text-left">
-            <div className="w-10 h-10 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center shrink-0">
               <Layers size={20} />
             </div>
             <div>
-              <span className="text-[9px] font-black uppercase text-indigo-600 tracking-widest block font-sans">{t("Sistema de Chancela Estatal")}</span>
+              <span className="text-[9px] font-black uppercase text-indigo-600 tracking-wider block font-sans">{t("Sistema de Chancela Estatal")}</span>
               <h2 className="text-lg md:text-xl font-black uppercase italic tracking-tighter text-slate-900 leading-none">{t("Solicitar Documento Digital")}</h2>
             </div>
           </div>
@@ -551,15 +551,14 @@ export function SolicitarDocumentoContent({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 px-1 text-[10px] font-black uppercase tracking-widest mb-4">
-          <button onClick={() => setTab('home')} className="text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer flex items-center gap-1 font-extrabold">{t("Voltar ao Painel")}</button>
-          <span className="text-slate-300">|</span>
-          <button onClick={() => setTab('historico')} className="text-slate-400 hover:text-primary transition-colors cursor-pointer">{t("Ver Histórico")}</button>
-          <button onClick={() => setTab('notificacoes')} className="text-slate-400 hover:text-primary transition-colors cursor-pointer">{t("Notificações")}</button>
+        <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar mb-4">
+          <button onClick={() => setTab('home')} className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs transition-all cursor-pointer flex items-center gap-1 shrink-0">{t("Voltar ao Painel")}</button>
+          <button onClick={() => setTab('historico')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer shrink-0">{t("Ver Histórico")}</button>
+          <button onClick={() => setTab('notificacoes')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer shrink-0">{t("Notificações")}</button>
         </div>
 
         {/* Steps visual flow bar */}
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 pt-2 border-t border-slate-100">
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5 md:gap-2 pt-2 border-t border-slate-100">
           {[
             { id: 'solicitacao', label: t('1. Pedido') },
             { id: 'upload', label: t('2. Anexos') },
@@ -578,7 +577,7 @@ export function SolicitarDocumentoContent({
             return (
               <div 
                 key={item.id} 
-                className={`flex flex-col items-start gap-1 p-2.5 rounded-xl border text-left transition-all ${
+                className={`flex flex-col items-start gap-1 p-2 md:p-2.5 rounded-xl border text-left transition-all ${
                   isActive ? 'bg-indigo-600/5 border-indigo-500 text-indigo-900 shadow-xs' :
                   isCompleted ? 'bg-emerald-50/40 border-emerald-200/80 text-emerald-800' :
                   'bg-slate-50/50 border-slate-100 text-slate-400'
@@ -596,7 +595,7 @@ export function SolicitarDocumentoContent({
                       {idx + 1}
                     </div>
                   )}
-                  <span className="text-[10px] font-black tracking-tighter uppercase whitespace-nowrap">
+                  <span className="text-[10px] font-black tracking-tight uppercase whitespace-nowrap">
                     {item.label.includes('. ') ? item.label.split('. ')[1] : item.label}
                   </span>
                 </div>
@@ -618,13 +617,13 @@ export function SolicitarDocumentoContent({
           >
             {/* Category selection list */}
             <div className="lg:col-span-2 space-y-6 text-left">
-              <div className="bg-white border border-slate-150 rounded-[32px] p-6 md:p-8 space-y-5 shadow-sm">
+              <div className="bg-white border border-slate-150 rounded-[32px] p-5 md:p-8 space-y-5 shadow-sm">
                 <div>
                   <h4 className="text-slate-800 font-extrabold text-sm md:text-base uppercase tracking-tight">Qual ato governamental pretende requerer?</h4>
                   <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Selecione uma categoria de documento digital para carregar as chaves de chancela</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-3.5">
                   {CATEGORY_OPTIONS.map((opt) => (
                     <button
                       type="button"
@@ -633,7 +632,7 @@ export function SolicitarDocumentoContent({
                         setDocCategory(opt.id as any);
                         addAuditLog(`Selecionou categoria de ato: ${opt.title}`, 'info');
                       }}
-                      className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between h-32 group cursor-pointer ${
+                      className={`p-3.5 md:p-4 rounded-2xl border text-left transition-all flex flex-col justify-between min-h-[110px] md:h-32 group cursor-pointer ${
                         docCategory === opt.id 
                           ? 'bg-indigo-600/5 border-indigo-500 text-indigo-950 shadow-md shadow-indigo-600/5' 
                           : 'bg-slate-50/50 border-slate-150 hover:border-slate-300 text-slate-700'
