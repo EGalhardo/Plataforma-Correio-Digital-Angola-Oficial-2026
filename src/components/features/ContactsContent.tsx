@@ -125,8 +125,7 @@ export function ContactsContent({
             <Users size={24} />
           </div>
           <div>
-            <h3 className="text-lg md:text-2xl font-black text-primary leading-tight">Círculo de Confiança</h3>
-            <p className="text-[10px] md:text-sm text-slate-800 font-black uppercase tracking-widest">{contacts.length} Contactos Registados</p>
+            <h3 className="text-lg md:text-2xl font-black text-primary leading-tight">Contactos</h3>
           </div>
         </div>
         <div className="flex gap-2">
