@@ -730,40 +730,43 @@ export function WebRTCVideoCallRoom({
   return (
     <div id="webrtc-video-call-container" className="bg-slate-950 border border-slate-800 rounded-3xl overflow-hidden relative shadow-2xl flex flex-col justify-between select-none">
       
-      {/* 1. TOP STATUS BAR */}
-      <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-slate-950/90 via-slate-950/60 to-transparent p-4 flex items-center justify-between pointer-events-none">
-        <div className="flex items-center gap-2.5">
-          <div className={`w-3 h-3 rounded-full flex items-center justify-center ${hasRemoteStream ? 'bg-emerald-500 shadow-[0_0_10px_#10b981]' : 'bg-amber-500 animate-ping'}`}>
-            <span className="w-1.5 h-1.5 bg-white rounded-full" />
-          </div>
-          <div>
-            <span className="text-white text-xs font-black uppercase tracking-wider block leading-none">
-              {hasRemoteStream ? 'EM DIRETO' : 'A AGUARDAR'}
-            </span>
-            <span className="text-[10px] text-slate-400 font-semibold truncate max-w-[200px] block mt-0.5">
-              {subject || 'Videoatendimento Governamental Oficial'}
+      {/* 1. TOP STATUS BAR (Discrete & Clean) */}
+      <div className="absolute top-0 left-0 right-0 z-30 p-3 flex items-center justify-between pointer-events-none">
+        {/* If waiting for peer, show room info; if in live call, keep top clear */}
+        {!hasRemoteStream ? (
+          <div className="flex items-center gap-2 bg-slate-950/70 backdrop-blur-md px-3 py-1 rounded-full border border-slate-800">
+            <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
+            <span className="text-white text-[11px] font-black uppercase tracking-wider">
+              A AGUARDAR PARTICIPANTE
             </span>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center gap-1.5 bg-slate-950/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-emerald-500/30">
+            <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]" />
+            <span className="text-emerald-300 text-[10px] font-black uppercase tracking-wider">
+              EM DIRETO
+            </span>
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           {hasRemoteStream && (
-            <div className="bg-emerald-950/80 border border-emerald-600/50 text-emerald-300 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
-              <Clock size={12} className="text-emerald-400 animate-pulse" />
+            <div className="bg-slate-950/70 backdrop-blur-md border border-slate-700/80 text-emerald-300 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold flex items-center gap-1.5 shadow-sm">
+              <Clock size={11} className="text-emerald-400 animate-pulse" />
               <span>{formatTimer(callDuration)}</span>
             </div>
           )}
-          <div className="bg-slate-900/80 border border-slate-700 text-slate-300 px-3 py-1 rounded-full text-[10px] font-mono font-bold flex items-center gap-1">
-            <ShieldCheck size={12} className="text-indigo-400" />
-            <span>P2P DTLS-SRTP</span>
+          <div className="bg-slate-950/70 backdrop-blur-md border border-slate-800 text-slate-300 px-2.5 py-1 rounded-full text-[9px] font-mono font-bold flex items-center gap-1">
+            <ShieldCheck size={11} className="text-indigo-400" />
+            <span>P2P</span>
           </div>
         </div>
       </div>
 
-      {/* 2. MAIN LARGE SCREEN (REMOTE PARTICIPANT) */}
+      {/* 2. MAIN LARGE SCREEN (REMOTE PARTICIPANT - 100% CLEAN VIDEO) */}
       <div className="relative w-full aspect-video min-h-[320px] md:min-h-[480px] bg-slate-950 flex items-center justify-center overflow-hidden">
         
-        {/* Remote Video Stream Tag (Rendered when remote stream is active) */}
+        {/* Remote Video Stream Tag (Rendered with 100% clean unobstructed view) */}
         <video
           ref={remoteVideoRef}
           data-testid="remote-video"
@@ -772,17 +775,7 @@ export function WebRTCVideoCallRoom({
           className={`w-full h-full object-cover transition-opacity duration-500 ${hasRemoteStream ? 'opacity-100' : 'opacity-0'}`}
         />
 
-        {/* Remote Participant Banner (when connected) */}
-        {hasRemoteStream && (
-          <div className="absolute bottom-16 left-4 z-20 bg-slate-950/80 border border-slate-700/80 backdrop-blur-md px-3.5 py-1.5 rounded-xl flex items-center gap-2 shadow-lg">
-            <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
-            <span className="text-white text-xs font-extrabold uppercase tracking-wide">
-              {remoteParticipant || remoteUserName || 'Interlocutor Oficial'}
-            </span>
-          </div>
-        )}
-
-        {/* WAITING SCREEN (Shown while waiting for the second participant to enter) */}
+        {/* WAITING SCREEN (Shown ONLY while waiting for the second participant to enter) */}
         {!hasRemoteStream && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950 text-center">
             
@@ -820,14 +813,14 @@ export function WebRTCVideoCallRoom({
         )}
 
         {/* 3. SMALL PiP SCREEN (LOCAL USER CAMERA / RETORNO) */}
-        <div className="absolute bottom-16 right-3 md:bottom-18 md:right-5 w-[110px] h-[150px] md:w-[155px] md:h-[215px] bg-slate-950 border-2 border-indigo-500/80 rounded-2xl overflow-hidden shadow-2xl z-40 transition-all flex flex-col justify-between shrink-0 select-none group">
+        <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 w-[100px] h-[140px] md:w-[150px] md:h-[200px] bg-slate-950 border-2 border-indigo-500/80 rounded-2xl overflow-hidden shadow-2xl z-40 transition-all flex flex-col justify-between shrink-0 select-none group">
           
-          {/* Futuristic laser scanner */}
+          {/* Futuristic corner brackets */}
           <div className="absolute inset-0 pointer-events-none z-20">
-            <div className="absolute top-2 left-2 w-2.5 h-2.5 border-t-2 border-l-2 border-indigo-400 rounded-tl" />
-            <div className="absolute top-2 right-2 w-2.5 h-2.5 border-t-2 border-r-2 border-indigo-400 rounded-tr" />
-            <div className="absolute bottom-2 left-2 w-2.5 h-2.5 border-b-2 border-l-2 border-indigo-400 rounded-bl" />
-            <div className="absolute bottom-2 right-2 w-2.5 h-2.5 border-b-2 border-r-2 border-indigo-400 rounded-br" />
+            <div className="absolute top-2 left-2 w-2 h-2 border-t-2 border-l-2 border-indigo-400 rounded-tl" />
+            <div className="absolute top-2 right-2 w-2 h-2 border-t-2 border-r-2 border-indigo-400 rounded-tr" />
+            <div className="absolute bottom-2 left-2 w-2 h-2 border-b-2 border-l-2 border-indigo-400 rounded-bl" />
+            <div className="absolute bottom-2 right-2 w-2 h-2 border-b-2 border-r-2 border-indigo-400 rounded-br" />
             <div
               className="w-full h-0.5 bg-gradient-to-r from-transparent via-indigo-400 to-transparent absolute shadow-[0_0_8px_rgba(99,102,241,0.8)]"
               style={{ top: `${scanOffset}%` }}
@@ -835,14 +828,14 @@ export function WebRTCVideoCallRoom({
           </div>
 
           {/* PiP Header */}
-          <div className="absolute top-1 left-0 right-0 z-30 px-2 py-0.5 flex items-center justify-between bg-slate-950/70 backdrop-blur-xs">
+          <div className="absolute top-1 left-0 right-0 z-30 px-1.5 py-0.5 flex items-center justify-between bg-slate-950/60 backdrop-blur-xs">
             <div className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[7.5px] font-black text-white uppercase tracking-wider font-mono">
-                {currentUserName ? currentUserName.slice(0, 10).toUpperCase() : 'EU'}
+              <span className="text-[7.5px] font-bold text-white uppercase tracking-wider font-mono">
+                EU
               </span>
             </div>
-            <span className="text-[7px] text-emerald-400 font-bold font-mono">LIVE</span>
+            <span className="text-[6.5px] text-emerald-400 font-bold font-mono">LIVE</span>
           </div>
 
           {/* Local Video Tag */}
@@ -869,7 +862,7 @@ export function WebRTCVideoCallRoom({
             )}
           </div>
 
-          {/* Quick Switch Camera button on mobile PiP hover */}
+          {/* Quick Switch Camera button on mobile PiP */}
           <button
             type="button"
             onClick={(e) => {
@@ -884,13 +877,20 @@ export function WebRTCVideoCallRoom({
 
       </div>
 
-      {/* 4. BOTTOM ACTION CONTROL BAR */}
-      <div className="bg-slate-950/95 border-t border-slate-800 p-3.5 flex items-center justify-between z-30">
+      {/* 4. BOTTOM ACTION CONTROL BAR (Clean & Informative) */}
+      <div className="bg-slate-950/95 border-t border-slate-800 px-4 py-3 flex items-center justify-between z-30 gap-3">
         
-        {/* Left info */}
-        <div className="hidden sm:flex items-center gap-2 text-slate-400 text-xs font-semibold">
-          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span className="truncate max-w-[150px]">{currentUserName}</span>
+        {/* Left: Remote Participant Info (Positioned outside the video stream) */}
+        <div className="flex items-center gap-2 min-w-0 max-w-[180px] md:max-w-[280px]">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${hasRemoteStream ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-amber-500'}`} />
+          <div className="min-w-0">
+            <span className="text-white text-xs font-black truncate block leading-tight">
+              {remoteParticipant || remoteUserName || 'Interlocutor Oficial'}
+            </span>
+            <span className="text-[9px] text-slate-400 truncate block">
+              {subject || 'Videoatendimento'}
+            </span>
+          </div>
         </div>
 
         {/* Center Control Buttons */}

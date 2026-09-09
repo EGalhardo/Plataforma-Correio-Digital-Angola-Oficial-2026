@@ -532,8 +532,9 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
             </motion.div>
           )}
 
-          {/* Content */}
-          <div className="bg-white border border-slate-200 rounded-[24px] p-4 md:p-6 shadow-sm dark:bg-slate-900 dark:border-slate-700">
+          {/* Content (Oculto durante videochamada activa para foco 100% no vídeo) */}
+          {!(activeTab === 'video' && selectedSession && isInCall) && (
+            <div className="bg-white border border-slate-200 rounded-[24px] p-4 md:p-6 shadow-sm dark:bg-slate-900 dark:border-slate-700">
             <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-4 flex items-center gap-2 dark:text-slate-100">
               <Users size={16} className="text-primary" />
               {activeTab === 'agenda' && 'Atendimentos Disponíveis'}
@@ -740,6 +741,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
               </div>
             )}
           </div>
+          )}
         </div>
 
         {/* Right Column (only visible when not viewing an active video session) */}
