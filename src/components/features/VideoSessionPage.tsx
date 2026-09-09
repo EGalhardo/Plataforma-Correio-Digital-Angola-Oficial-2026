@@ -40,16 +40,13 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../../hooks/useLanguage';
 import { notify } from '../../lib/notify';
+import { useSession } from '../../services/sessionStore';
 import { VideoSessionService } from '../../services/videoSessionService';
 import type { VideoSessionExtended } from '../../services/videoSessionService';
 import { supabaseService } from '../../services/supabaseService';
 import { generateProtocol } from '../../utils/protocolGenerator';
 import type { Message } from '../../types';
-
-// Servidor Jitsi configurável (FASE 2026-08-15): por defeito usa o serviço
-// público meet.jit.si, mas pode apontar para um servidor próprio (self-hosted)
-// via variável de ambiente VITE_JITSI_SERVER_URL — sem alterar código.
-const JITSI_SERVER = import.meta.env?.VITE_JITSI_SERVER_URL || 'https://meet.jit.si';
+import { WebRTCVideoCallRoom } from './WebRTCVideoCallRoom';
 
 // 2026-09-02 — FORMATO DE DATA EUROPEU (DD/MM/AAAA): o input HTML type="date"
 // retorna a data no formato ISO 8601 (AAAA-MM-DD), mas em Angola usamos o
@@ -62,506 +59,6 @@ const formatarDataEuropeu = (dataISO: string): string => {
   const [ano, mes, dia] = partesData;
   return `${dia}/${mes}/${ano}`;
 };
-
-function LocalWebcamOverlay() {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const [cameraState, setCameraState] = useState<'loading' | 'live' | 'virtual'>('loading');
-  const [scanOffset, setScanOffset] = useState(0);
-
-  // Auto scanning effect
-  useEffect(() => {
-    const handle = setInterval(() => {
-      setScanOffset(prev => {
-        if (prev >= 100) return 0;
-        return prev + 1.5;
-      });
-    }, 45);
-    return () => clearInterval(handle);
-  }, []);
-
-  const startCamera = async () => {
-    try {
-      setCameraState('loading');
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
-      }
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-      }
-      
-      const constraints = {
-        video: {
-          width: { ideal: 240 },
-          height: { ideal: 320 },
-          facingMode: 'user'
-        },
-        audio: false
-      };
-      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      streamRef.current = mediaStream;
-      setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        videoRef.current.play().catch(e => console.error(e));
-      }
-      setCameraState('live');
-    } catch (err) {
-      console.warn("Failsafe: Real camera blocked by sandbox/permission. Using Certified Virtual Stream.", err);
-      setCameraState('virtual');
-    }
-  };
-
-  useEffect(() => {
-    startCamera();
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
-
-  return (
-    <div className="absolute bottom-12 right-2 md:bottom-14 md:right-4 w-[110px] h-[155px] md:w-[150px] md:h-[210px] bg-slate-950 border-2 border-emerald-500 rounded-2xl overflow-hidden shadow-2xl z-40 transition-all flex flex-col justify-between shrink-0 select-none animate-scale-up">
-      {/* Target scanning focus overlay */}
-      <div className="absolute inset-0 pointer-events-none z-20">
-        <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-emerald-400 rounded-tl" />
-        <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-emerald-400 rounded-tr" />
-        <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-emerald-400 rounded-bl" />
-        <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-emerald-400 rounded-br" />
-        
-        {/* Animated horizontal scanning line */}
-        <div 
-          className="w-full h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent absolute shadow-[0_0_8px_rgba(52,211,153,0.8)]"
-          style={{ top: `${scanOffset}%` }}
-        />
-      </div>
-
-      {/* Top Banner Status */}
-      <div className="absolute top-1 left-0 right-0 z-30 px-2 flex items-center justify-between pointer-events-none bg-slate-950/60 backdrop-blur-xs">
-        <div className="flex items-center gap-1.5">
-          <span className={`w-1.5 h-1.5 rounded-full ${cameraState === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-indigo-400 animate-pulse'}`} />
-          <span className="text-[7.5px] md:text-[8px] font-black text-white uppercase tracking-wider font-mono">
-            {cameraState === 'live' ? 'AUTO-CÂMARA' : 'CÂMARA VIRTUAL'}
-          </span>
-        </div>
-        <span className="text-[7px] md:text-[8px] text-emerald-400 font-bold font-mono">99.8%</span>
-      </div>
-
-      {/* Main Stream Rendering Area */}
-      <div className="relative flex-1 w-full h-full bg-slate-900 group">
-        {cameraState === 'loading' && (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-            <RefreshCw size={14} className="text-emerald-400 animate-spin" />
-            <span className="text-[7px] font-bold text-slate-400 uppercase">Acedendo...</span>
-          </div>
-        )}
-
-        {/* Real Camera Video Tag */}
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className={`w-full h-full object-cover ${cameraState === 'live' ? 'block' : 'hidden'}`}
-        />
-
-        {/* Certified Virtual Camera Stream */}
-        {cameraState === 'virtual' && (
-          <div className="w-full h-full relative flex items-center justify-center overflow-hidden bg-slate-950">
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(14,165,233,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(14,165,233,0.05)_1px,transparent_1px)] bg-[size:10px_10px] pointer-events-none" />
-            <img 
-              src="https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png" 
-              alt="Edlasio Galhardo - Biometric Photo" 
-              className="w-full h-full object-cover opacity-80 animate-pulse-subtle"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-30 bg-emerald-500/90 text-slate-950 px-1.5 py-0.5 rounded-full text-[6.5px] md:text-[7.5px] font-black uppercase tracking-wider flex items-center gap-1 shadow-md border border-emerald-400">
-              <span className="w-1 h-1 rounded-full bg-slate-950 animate-ping" />
-              IDENTIFICADO
-            </div>
-          </div>
-        )}
-
-        {/* Hover Option to toggle */}
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            if (cameraState === 'virtual') {
-              startCamera();
-            } else {
-              setCameraState('virtual');
-              if (streamRef.current) {
-                streamRef.current.getTracks().forEach(t => t.stop());
-                streamRef.current = null;
-              }
-              if (stream) {
-                stream.getTracks().forEach(t => t.stop());
-                setStream(null);
-              }
-            }
-          }}
-          className="absolute inset-x-0 bottom-0 py-1 bg-slate-950/80 hover:bg-slate-950 text-white text-[7.5px] font-black uppercase tracking-widest text-center transition-all opacity-0 group-hover:opacity-100 cursor-pointer border-0 z-30"
-        >
-          {cameraState === 'virtual' ? 'Tentar Câmara Real' : 'Activar Virtual'}
-        </button>
-      </div>
-
-      {/* Bottom telemetry line */}
-      <div className="bg-slate-950 border-t border-slate-800 py-1 px-2 flex justify-between text-[6.5px] md:text-[7.5px] font-mono text-slate-400 leading-none">
-        <span>EDLASIO G.</span>
-        <span className="text-emerald-400">FPS: 30</span>
-      </div>
-    </div>
-  );
-}
-
-interface JitsiEmbedProps {
-  roomName: string;
-  subject: string;
-  isActive: boolean;
-  isVideoOn?: boolean;
-}
-
-/**
- * 2026-08-22 — DOIS ECRÃS (semântica correcta de videochamada):
- *  · ECRÃ GRANDE = o OUTRO participante. Usa a API externa do Jitsi
- *    (external_api.js) para saber QUEM está na sala: sem participante remoto,
- *    o ecrã grande mostra a TELA DE OFFLINE ("A aguardar o outro
- *    participante…") — nunca a filmagem própria.
- *  · ECRÃ PEQUENO (canto inferior direito, PiP) = SEMPRE a filmagem LOCAL
- *    (self-view) do utilizador que está a ver o ecrã.
- * Se a API externa não carregar (rede/DNS), o ecrã grande mostra o estado de
- * erro honesto com ajuda — a filmagem própria continua apenas no PiP.
- */
-function JitsiEmbed({ roomName, subject, isActive, isVideoOn = true }: JitsiEmbedProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const apiRef = useRef<any>(null);
-  const estadoRef = useRef<string>('checking');
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // 2026-08-22 — recuperação robusta: `tentativa` força REMONTAGEM real da
-  // sala (o botão "Tentar novamente" antigo só mudava estado — a sala antiga
-  // ficava presa); retriesRef conta as tentativas automáticas desta montagem.
-  const [tentativa, setTentativa] = useState(0);
-  const retriesRef = useRef(0);
-  const inicioRef = useRef(Date.now());
-  const [segundosEspera, setSegundosEspera] = useState(0);
-
-  const [remoteCount, setRemoteCount] = useState(0);
-  const [callState, setCallState] = useState<'checking' | 'connecting' | 'connected' | 'interrompida' | 'error'>('checking');
-  const [erroDetalhe, setErroDetalhe] = useState('');
-
-  // Cronómetro da espera pelo outro participante (ecrã "a aguardar").
-  useEffect(() => {
-    setSegundosEspera(0);
-    if (callState === 'connected' && remoteCount === 0) {
-      const h = setInterval(() => setSegundosEspera((s) => s + 1), 1000);
-      return () => clearInterval(h);
-    }
-  }, [callState, remoteCount]);
-
-  useEffect(() => {
-    if (!isActive) return;
-    let cancelado = false;
-    retriesRef.current = 0;
-    inicioRef.current = Date.now();
-    setCallState('checking');
-    setErroDetalhe('');
-    setRemoteCount(0);
-    estadoRef.current = 'checking';
-
-    const marcar = (s: string) => { estadoRef.current = s; };
-
-    const carregarScript = (): Promise<void> => new Promise((resolve, reject) => {
-      const w = window;
-      if (w.JitsiMeetExternalAPI) { resolve(); return; }
-      const existente = document.getElementById('cda-jitsi-external-api') as HTMLScriptElement | null;
-      // 2026-08-22 — script que JÁ FALHOU nunca vai disparar 'load': marca e
-      // remove, para a próxima tentativa recarregar do zero em vez de pendurar.
-      if (existente && existente.dataset.falhou === '1') {
-        existente.remove();
-      } else if (existente) {
-        existente.addEventListener('load', () => resolve(), { once: true });
-        existente.addEventListener('error', () => reject(new Error('script falhou')), { once: true });
-        return;
-      }
-      const s = document.createElement('script');
-      s.id = 'cda-jitsi-external-api';
-      s.src = `${JITSI_SERVER}/external_api.js`;
-      s.async = true;
-      s.onload = () => resolve();
-      s.onerror = () => { s.dataset.falhou = '1'; reject(new Error('script indisponível')); };
-      document.body.appendChild(s);
-    });
-
-    const criarSala = () => {
-      const w = window;
-      if (!w.JitsiMeetExternalAPI || !containerRef.current) return;
-      try {
-        const api = new w.JitsiMeetExternalAPI(JITSI_SERVER.replace('https://', ''), {
-          roomName,
-          parentNode: containerRef.current,
-          width: '100%',
-          height: '100%',
-          configOverwrite: {
-            prejoinPageEnabled: false,
-            disableDeepLinking: true,
-            startWithAudioMuted: false,
-            startWithVideoMuted: false,
-            disableSimulcast: false,
-          },
-          interfaceConfigOverwrite: {
-            SHOW_JITSI_WATERMARK: false,
-            SHOW_BRAND_WATERMARK: false,
-            SHOW_POWERED_BY: false,
-            DEFAULT_REMOTE_DISPLAY_NAME: 'Outro participante',
-            MOBILE_APP_PROMO: false,
-          },
-        });
-        apiRef.current = api;
-
-        const atualizarParticipantes = () => {
-          try {
-            const partes = api.getParticipantsInfo ? api.getParticipantsInfo() : [];
-            const n = Array.isArray(partes) ? Math.max(0, partes.length - 1) : 0;
-            if (!cancelado) setRemoteCount(n);
-          } catch { /* melhor esforço */ }
-        };
-
-        api.on('videoConferenceJoined', () => {
-          if (cancelado) return;
-          // 2026-08-22 — RECUPERAÇÃO: a ligação pode confirmar-se DEPOIS de um
-          // erro/timeout ter sido mostrado (redes lentas) — volta ao estado
-          // ligado em vez de deixar o utilizador preso no ecrã de erro.
-          setCallState('connected');
-          marcar('connected');
-          setErroDetalhe('');
-          atualizarParticipantes();
-        });
-        api.on('participantJoined', atualizarParticipantes);
-        api.on('participantLeft', atualizarParticipantes);
-        // backup: poll periódico (alguns clientes não disparam os eventos).
-        pollRef.current = setInterval(atualizarParticipantes, 4000);
-        // 2026-08-22 — diagnóstico de erros do Jitsi (antes invisíveis).
-        api.on?.('errorOccurred', (e: any) => {
-          console.warn('[VIDEO-JITSI] errorOccurred:', e);
-        });
-        api.on('videoConferenceLeft', () => {
-          if (cancelado) return;
-          // 2026-08-22 — NÃO é erro fatal: a sessão foi interrompida (o
-          // utilizador saiu ou a rede caiu) — mostra ecrã calmo com reentrada.
-          marcar('interrompida');
-          setCallState('interrompida');
-          setErroDetalhe('A ligação de vídeo foi interrompida.');
-        });
-      } catch (e) {
-        if (!cancelado) {
-          setCallState('error');
-          setErroDetalhe('Não foi possível criar a sala de vídeo.');
-        }
-      }
-    };
-
-    const iniciar = async () => {
-      try {
-        setCallState('connecting');
-        marcar('connecting');
-        await carregarScript();
-        if (cancelado) return;
-        criarSala();
-      } catch (e) {
-        if (!cancelado) {
-          setCallState('error');
-          setErroDetalhe('O módulo de vídeo não carregou a partir do servidor (rede/DNS bloqueado?).');
-        }
-      }
-    };
-
-    // 2026-08-22 — PACIÊNCIA COM RETRIES (substitui o timeout único de 30s que
-    // disparava o erro "O servidor de vídeo não respondeu a tempo" em redes
-    // lentas — reproduzido e confirmado em E2E). A cada ciclo de 45s sem
-    // ligação: refaz a sala do zero (até 2x). Só após ~2m15s SEM ligação é que
-    // mostra o erro honesto — e o botão "Tentar novamente" agora REMONTA a
-    // sala (tentativa+1), não apenas muda o estado.
-    const monitor = setInterval(() => {
-      if (cancelado || estadoRef.current === 'connected' || estadoRef.current === 'interrompida') return;
-      const decorrido = Date.now() - inicioRef.current;
-      if (retriesRef.current < 2 && decorrido > 45000 * (retriesRef.current + 1)) {
-        retriesRef.current += 1;
-        try { apiRef.current?.dispose?.(); } catch { /* melhor esforço */ }
-        apiRef.current = null;
-        setCallState('connecting');
-        void iniciar();
-      } else if (retriesRef.current >= 2 && decorrido > 140000) {
-        setCallState('error');
-        setErroDetalhe('O servidor de vídeo não respondeu após várias tentativas.');
-      }
-    }, 5000);
-
-    void iniciar();
-
-    return () => {
-      cancelado = true;
-      if (monitor) clearInterval(monitor);
-      if (pollRef.current) clearInterval(pollRef.current);
-      pollRef.current = null;
-      try { apiRef.current?.dispose?.(); } catch { /* melhor esforço */ }
-      apiRef.current = null;
-    };
-  }, [isActive, roomName, tentativa]);
-
-  // ---------- Ecrã grande (o outro participante) ----------
-  const renderEcrãGrande = () => {
-    if (!isActive) {
-      return (
-        <div className="aspect-video flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
-          <div className="text-center space-y-3">
-            <div className="w-16 h-16 bg-indigo-600/20 rounded-full flex items-center justify-center mx-auto">
-              <Video size={28} className="text-indigo-400" />
-            </div>
-            <p className="text-slate-400 text-xs font-semibold">VideoAtendimento disponível</p>
-            <p className="text-slate-500 text-[10px]">Selecione uma sessão e clique em "Entrar"</p>
-          </div>
-        </div>
-      );
-    }
-
-    if (callState === 'error') {
-      return (
-        <div className="w-full h-[280px] md:h-[480px] flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950 p-6">
-          <div className="text-center space-y-4 max-w-md">
-            <div className="w-14 h-14 bg-rose-500/15 rounded-2xl flex items-center justify-center mx-auto">
-              <WifiOff size={26} className="text-rose-400" />
-            </div>
-            <div>
-              <h4 className="text-white text-sm font-black uppercase tracking-wide">Sala de vídeo indisponível</h4>
-              <p className="text-slate-400 text-[11px] font-medium leading-relaxed mt-2">
-                O servidor de vídeo (<span className="text-indigo-300">{JITSI_SERVER.replace('https://', '')}</span>) não está acessível a partir da sua rede.
-                {erroDetalhe ? ` ${erroDetalhe}` : ''}
-              </p>
-            </div>
-            <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-3 text-left space-y-1">
-              <p className="text-[9px] font-black uppercase tracking-widest text-amber-400">Possíveis causas e soluções</p>
-              <p className="text-[10px] text-slate-300 font-medium leading-snug">• Verifique a ligação à internet e que o DNS resolve domínios externos.</p>
-              <p className="text-[10px] text-slate-300 font-medium leading-snug">• Redes corporativas/operadoras com filtros podem bloquear o domínio de vídeo.</p>
-              <p className="text-[10px] text-slate-300 font-medium leading-snug">• Experimente outra rede (ex.: dados móveis) e tente novamente.</p>
-            </div>
-            <button
-              type="button"
-              // 2026-08-22 — remontagem REAL da sala (tentativa+1 refaz o efeito):
-              // o botão antigo só mudava o estado e a sala antiga ficava presa.
-              onClick={() => { setErroDetalhe(''); setRemoteCount(0); setTentativa((t) => t + 1); }}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer border-none"
-            >
-              Tentar novamente
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    if (callState === 'interrompida') {
-      return (
-        <div className="w-full h-[280px] md:h-[480px] flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950 p-6">
-          <div className="text-center space-y-4 max-w-md">
-            <div className="w-14 h-14 bg-amber-500/15 rounded-2xl flex items-center justify-center mx-auto">
-              <PhoneOff size={26} className="text-amber-400" />
-            </div>
-            <div>
-              <h4 className="text-white text-sm font-black uppercase tracking-wide">Ligação de vídeo interrompida</h4>
-              <p className="text-slate-400 text-[11px] font-medium leading-relaxed mt-2">
-                A sessão foi interrompida (queda de rede ou saída da sala). A sessão de video-atendimento
-                continua agendada — pode voltar a entrar na sala abaixo. Se o outro participante ainda
-                estiver à espera, reaparecerá assim que reentrar.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => { setErroDetalhe(''); setRemoteCount(0); setTentativa((t) => t + 1); }}
-              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer border-none"
-            >
-              Voltar a entrar na sala
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <>
-        {/* A sala Jitsi monta AQUI (ecrã grande = o outro participante). */}
-        <div ref={containerRef} className="w-full h-[280px] md:h-[480px]" />
-
-        {/* ENQUANTO O OUTRO PARTICIPANTE NÃO ESTÁ NA SALA: tela de OFFLINE por
-            cima — o ecrã grande NUNCA mostra a filmagem própria (a self-view
-            fica apenas no PiP do canto inferior direito). */}
-        {(callState === 'checking' || callState === 'connecting') && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/95">
-            <div className="text-center space-y-4 max-w-sm px-6">
-              <Loader2 size={28} className="animate-spin text-indigo-400 mx-auto" />
-              <div>
-                <h4 className="text-white text-sm font-black uppercase tracking-wide">A ligar à sala de vídeo…</h4>
-                <p className="text-slate-400 text-[11px] font-medium leading-relaxed mt-2">
-                  A estabelecer a ligação segura com o servidor de vídeo. Em redes mais lentas isto pode
-                  demorar mais de um minuto — a plataforma tenta automaticamente até à ligação ser concluída.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-        {callState === 'connected' && remoteCount === 0 && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/95">
-            <div className="text-center space-y-4 max-w-sm px-6">
-              <div className="w-20 h-20 bg-slate-800/80 border border-slate-700 rounded-full flex items-center justify-center mx-auto relative">
-                <VideoOff size={30} className="text-slate-400" />
-                <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-amber-500 animate-pulse border-2 border-slate-950" />
-              </div>
-              <div>
-                <h4 className="text-white text-sm font-black uppercase tracking-wide">O outro participante ainda não se encontra na sala</h4>
-                <p className="text-slate-400 text-[11px] font-medium leading-relaxed mt-2">
-                  Deve aguardar. Você está ligado e a sua imagem aparece no ecrã pequeno (canto inferior direito). Assim que o outro participante entrar, a imagem dele aparece AQUI, no ecrã grande.
-                </p>
-              </div>
-              <div className="inline-flex items-center gap-2 bg-slate-800/70 border border-slate-700 rounded-full px-4 py-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">
-                  Sala ativa • a aguardar {Math.floor(segundosEspera / 60)}m {String(segundosEspera % 60).padStart(2, '0')}s
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-      </>
-    );
-  };
-
-  return (
-    <div id="video-atendimento-container" className="bg-slate-950 border border-slate-700 rounded-2xl overflow-hidden relative shadow-xl">
-      <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-r from-indigo-900/80 to-slate-900/80 backdrop-blur-sm px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-white text-[10px] font-black uppercase tracking-wider">Correio Digital Angola</span>
-        </div>
-        <span className="text-indigo-300 text-[9px] font-semibold truncate max-w-[180px]">{subject}</span>
-      </div>
-
-      {renderEcrãGrande()}
-
-      {/* ECRÃ PEQUENO (PiP) — SEMPRE a filmagem LOCAL do utilizador. */}
-      {isActive && isVideoOn && <LocalWebcamOverlay />}
-
-      <div className="absolute bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-sm px-4 py-2 border-t border-slate-700">
-        <p className="text-[9px] text-slate-400 text-center">
-          💡 O ecrã grande mostra o outro participante; a sua filmagem aparece no ecrã pequeno (canto inferior direito).
-        </p>
-      </div>
-    </div>
-  );
-}
 
 interface VideoSessionPageProps {
   onBack?: () => void;
@@ -583,7 +80,7 @@ const mockSessions = [
 
   {
     id: 'sessao-demo',
-    subject: 'CONFERÊNCIA DEMO ACTIVA - Testar Jitsi Meet',
+    subject: 'CONFERÊNCIA DEMO ACTIVA - VideoAtendimento Oficial',
     hostName: 'Dr. Edlásio Galhardo (Agente de Atendimento)',
     time: 'Sessão Activa',
     date: 'Hoje (Demonstração)',
@@ -625,7 +122,12 @@ const mockSessions = [
 
 export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '', instCode = '', instDisplayName = '', sessionDemo = false }: VideoSessionPageProps) {
   const { t } = useLanguage();
+  const { user, activeProfile } = useSession();
   
+  const currentDisplayName = isInst 
+    ? (instDisplayName || activeProfile?.institutionName || (user?.name ? `${user.name} (INAPEM)` : 'Agente Institucional'))
+    : (user?.name || activeProfile?.name || 'Cidadão');
+
   const [sessions, setSessions] = useState<any[]>([]);
 
   // ==========================================================================
@@ -1012,14 +514,20 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
             ))}
           </div>
 
-          {/* JITSI EMBED PARA DESKTOP/MOBILE - DEBAIXO DO TABBAR EM ABA VIDEO ATIVA */}
+          {/* SALA WEBRTC NATIVA DE VIDEOATENDIMENTO - ECRÃ GRANDE (OUTRO PARTICIPANTE) + PIP RETORNO */}
           {activeTab === 'video' && selectedSession && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-              <JitsiEmbed 
+              <WebRTCVideoCallRoom 
                 roomName={selectedSession.roomName || `cda-atendimento-${selectedSession.id}`} 
                 subject={selectedSession.subject} 
                 isActive={isInCall} 
                 isVideoOn={isVideoOn}
+                isAudioOn={isAudioOn}
+                isScreenSharing={isScreenSharing}
+                currentUserRole={isInst ? 'institution' : 'citizen'}
+                currentUserName={currentDisplayName}
+                remoteUserName={isInst ? (selectedSession.guestName || 'Cidadão') : (selectedSession.hostName || 'Agente Institucional')}
+                onEndCall={handleEndCall}
               />
             </motion.div>
           )}
@@ -1032,7 +540,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
               {activeTab === 'historico' && 'Histórico de Sessões'}
               {activeTab === 'calendario' && 'Calendário de Videoatendimentos'}
               {activeTab === 'ajuda' && 'Guias e Tutorial'}
-              {activeTab === 'video' && 'VideoAtendimento - Jitsi Meet'}
+              {activeTab === 'video' && 'VideoAtendimento Oficial em Tempo Real'}
             </h4>
             
             {isLoading ? (
@@ -1246,13 +754,19 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                   {isInCall && <span className="text-[10px] font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg">{formatDuration(callDuration)}</span>}
                 </div>
                 
-                {/* Jitsi Embed visível na coluna direita para Desktops */}
+                {/* WebRTC Video Call Room visível na coluna direita para Desktops */}
                 {isLargeScreen ? (
-                  <JitsiEmbed 
+                  <WebRTCVideoCallRoom 
                     roomName={selectedSession.roomName || `cda-atendimento-${selectedSession.id}`} 
                     subject={selectedSession.subject} 
                     isActive={isInCall} 
                     isVideoOn={isVideoOn}
+                    isAudioOn={isAudioOn}
+                    isScreenSharing={isScreenSharing}
+                    currentUserRole={isInst ? 'institution' : 'citizen'}
+                    currentUserName={currentDisplayName}
+                    remoteUserName={isInst ? (selectedSession.guestName || 'Cidadão') : (selectedSession.hostName || 'Agente Institucional')}
+                    onEndCall={handleEndCall}
                   />
                 ) : (
                   <div className="bg-slate-900/10 border border-dashed border-slate-300 rounded-2xl p-6 text-center text-slate-500">

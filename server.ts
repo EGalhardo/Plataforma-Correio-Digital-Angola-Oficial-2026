@@ -2173,6 +2173,64 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
     });
   });
 
+  // ==========================================================================
+  // WebRTC Real-Time Signaling Hub (Low-latency multi-device signaling)
+  // ==========================================================================
+  const webrtcRoomMessages = new Map<string, Array<{ id: number; sender: string; timestamp: number; payload: any }>>();
+  let webrtcMsgCounter = 0;
+
+  app.post("/api/webrtc/signal", (req, res) => {
+    try {
+      const { room, sender, type, payload } = req.body || {};
+      if (!room || !sender) {
+        return res.status(400).json({ error: 'room and sender are required' });
+      }
+      const cleanRoom = String(room).replace(/[^a-zA-Z0-9\-_]/g, '');
+      const dataPayload = payload || req.body;
+      const msg = {
+        id: ++webrtcMsgCounter,
+        sender: String(sender),
+        timestamp: Date.now(),
+        payload: { ...dataPayload, type: type || dataPayload.type, sender, room: cleanRoom },
+      };
+      
+      let list = webrtcRoomMessages.get(cleanRoom);
+      if (!list) {
+        list = [];
+        webrtcRoomMessages.set(cleanRoom, list);
+      }
+      list.push(msg);
+      if (list.length > 100) {
+        list.splice(0, list.length - 100);
+      }
+      res.json({ ok: true, id: msg.id });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Signal failed' });
+    }
+  });
+
+  app.get("/api/webrtc/poll", (req, res) => {
+    try {
+      const room = String(req.query.room || '').replace(/[^a-zA-Z0-9\-_]/g, '');
+      const sender = String(req.query.sender || '');
+      const since = Number(req.query.since || 0);
+
+      if (!room) {
+        return res.status(400).json({ error: 'room parameter required' });
+      }
+
+      const list = webrtcRoomMessages.get(room) || [];
+      const messages = list
+        .filter(m => m.id > since && m.sender !== sender)
+        .map(m => m.payload);
+
+      const latestId = list.length > 0 ? list[list.length - 1].id : since;
+      res.json({ ok: true, latestId, messages });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Poll failed' });
+    }
+  });
+
   app.get('/api/security/readiness', async (_req, res) => {
     // FIX: handler async em Express 4 — sem try/catch qualquer exceção derruba o processo (unhandled rejection)
     try {

@@ -4,6 +4,7 @@ import { Video, Calendar, User, Copy, Plus, Play, Square, RefreshCw, ShieldCheck
 import { Message, VideoSession, VideoSessionEvent } from '../../types';
 import { useSession } from '../../services/sessionStore';
 import { VideoSessionService } from '../../services/videoSessionService';
+import { WebRTCVideoCallRoom } from './WebRTCVideoCallRoom';
 
 interface VideoSessionPanelProps {
   message?: Message;
@@ -254,49 +255,15 @@ export function VideoSessionPanel({ message, addAuditLog }: VideoSessionPanelPro
       {isJoining && session ? (
         // ACTIVE CONFERENCE SCREEN
         <div className="space-y-4">
-          <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden relative shadow-lg">
-            {/* The standard Iframe Jitsi defined in our guidelines */}
-            <iframe
-              src={`https://meet.jit.si/${session.roomName}`}
-              style={{ border: '0px #ffffff none', width: '100%' }}
-              name="Jitsi"
-              scrolling="no"
-              frameBorder="0"
-              marginHeight={0}
-              marginWidth={0}
-              height="480px"
-              allowFullScreen
-              allow="camera; microphone"
-              title="Videoatendimento Oficial"
-            />
-          </div>
-
-          <div className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-2xl flex-wrap">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-              <ShieldCheck size={16} className="text-emerald-500" />
-              <span>Ligado de forma encriptada a</span>
-              <span className="font-mono font-black text-indigo-700 bg-white border px-1.5 py-0.5 rounded-md">{session.roomName}</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleCopyLink}
-                className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                title="Copiar link"
-              >
-                <Copy size={13} />
-                Partilhar
-              </button>
-
-              <button
-                onClick={handleLeaveVideo}
-                className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-              >
-                <Square size={13} fill="currentColor" />
-                Desligar Chamada
-              </button>
-            </div>
-          </div>
+          <WebRTCVideoCallRoom
+            roomName={session.roomName}
+            subject={session.subject}
+            isActive={isJoining}
+            currentUserRole={appMode === 'institution' ? 'institution' : 'citizen'}
+            currentUserName={appMode === 'user' ? (user?.name || 'Cidadão') : `Oficial (${message?.org || 'Geral'})`}
+            remoteUserName={appMode === 'user' ? (message?.org || 'Instituição Oficial') : (user?.name || 'Cidadão')}
+            onEndCall={handleLeaveVideo}
+          />
         </div>
       ) : session ? (
         // SESSION OVERVIEW SCREEN

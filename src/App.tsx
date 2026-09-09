@@ -285,8 +285,8 @@ export const persistReadMessageId = (rawBi: string, ...ids: number[]): void => {
 // ============================================================================
 const HASH_TAB_FALLBACKS: Record<string, Record<string, string>> = {
   user: { mensagem: 'correspondencias', documento: 'documentos', instituicao: 'home' },
-  institution: { mensagem: 'correspondencias', documento: 'documentos', instituicao: 'home' },
-  admin: { home: 'gov-dashboard', mensagem: 'gov-correspondencias', documento: 'gov-docs', instituicao: 'gov-interoperabilidade' },
+  institution: { mensagem: 'correspondencias', documento: 'documentos', instituicao: 'home', 'inst-video': 'video-atendimento' },
+  admin: { home: 'gov-dashboard', mensagem: 'gov-correspondencias', documento: 'gov-docs', instituicao: 'gov-interoperabilidade', 'inst-video': 'video-atendimento' },
 };
 const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
   user: new Set([
@@ -300,13 +300,14 @@ const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
     'home', 'correspondencias', 'gov-contatos', 'contatos', 'contactos',
     'inst-qrcode', 'inst-ai-assistant', 'perfil', 'inst-pagamentos',
     'sondagens', // v36 — lista/resultados de sondagens da instituição
-    'historico', 'notificacoes', 'documentos',
+    'historico', 'notificacoes', 'documentos', 'video-atendimento', 'inst-video',
     'mensagem', 'documento', 'instituicao',
   ]),
   admin: new Set([
     'home', 'gov-dashboard', 'gov-interoperabilidade', 'gov-correspondencias',
     'gov-contatos', 'gov-trabalhadores', 'gov-relatorio', 'gov-ia',
     'gov-seguranca', 'gov-perfil', 'gov-emissao', 'historico', 'notificacoes',
+    'video-atendimento', 'inst-video',
     'mensagem', 'documento', 'instituicao',
   ]),
 };
