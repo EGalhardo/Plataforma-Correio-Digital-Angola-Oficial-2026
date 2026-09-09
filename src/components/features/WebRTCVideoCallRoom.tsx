@@ -23,7 +23,6 @@ import {
   Monitor,
   ShieldCheck,
   Clock,
-  Sparkles,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -99,7 +98,6 @@ export function WebRTCVideoCallRoom({
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [isSharingScreen, setIsSharingScreen] = useState(isScreenSharing);
   const [callDuration, setCallDuration] = useState(0);
-  const [waitingTime, setWaitingTime] = useState(0);
   const [isCameraLoading, setIsCameraLoading] = useState(true);
   const [scanOffset, setScanOffset] = useState(0);
 
@@ -111,13 +109,11 @@ export function WebRTCVideoCallRoom({
     return () => clearInterval(handle);
   }, []);
 
-  // Timers: Call duration & waiting time
+  // Timer: duração da chamada (o tempo de espera deixou de ser exibido — 2026-09-09)
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (isActive && hasRemoteStream) {
       timer = setInterval(() => setCallDuration((prev) => prev + 1), 1000);
-    } else if (isActive && !hasRemoteStream) {
-      timer = setInterval(() => setWaitingTime((prev) => prev + 1), 1000);
     }
     return () => clearInterval(timer);
   }, [isActive, hasRemoteStream]);
@@ -732,22 +728,16 @@ export function WebRTCVideoCallRoom({
       
       {/* 1. TOP STATUS BAR (Discrete & Clean) */}
       <div className="absolute top-0 left-0 right-0 z-30 p-3 flex items-center justify-between pointer-events-none">
-        {/* If waiting for peer, show room info; if in live call, keep top clear */}
-        {!hasRemoteStream ? (
-          <div className="flex items-center gap-2 bg-slate-950/70 backdrop-blur-md px-3 py-1 rounded-full border border-slate-800">
-            <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
-            <span className="text-white text-[11px] font-black uppercase tracking-wider">
-              A AGUARDAR PARTICIPANTE
-            </span>
-          </div>
-        ) : (
+        {/* 2026-09-09: em espera o canto superior esquerdo fica limpo (o estado
+            «Aguardar Participante» é mostrado no centro do ecrã grande) */}
+        {hasRemoteStream ? (
           <div className="flex items-center gap-1.5 bg-slate-950/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-emerald-500/30">
             <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]" />
             <span className="text-emerald-300 text-[10px] font-black uppercase tracking-wider">
               EM DIRETO
             </span>
           </div>
-        )}
+        ) : <div />}
 
         <div className="flex items-center gap-2">
           {hasRemoteStream && (
@@ -777,7 +767,7 @@ export function WebRTCVideoCallRoom({
 
         {/* WAITING SCREEN (Shown ONLY while waiting for the second participant to enter) */}
         {!hasRemoteStream && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950 text-center">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 pb-[160px] sm:pb-6 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950 text-center">
             
             {/* Animated Radar Pulse */}
             <div className="relative mb-6 flex items-center justify-center">
@@ -788,27 +778,9 @@ export function WebRTCVideoCallRoom({
               </div>
             </div>
 
-            <div className="max-w-md space-y-2">
-              <h3 className="text-white font-black text-base md:text-lg uppercase tracking-tight">
-                Sala de Videoatendimento Ativa
-              </h3>
-              <p className="text-slate-400 text-xs md:text-sm leading-relaxed">
-                A aguardar a entrada de <strong className="text-indigo-300 font-bold">{remoteUserName || 'outro participante'}</strong>…
-              </p>
-              <div className="pt-2">
-                <span className="inline-flex items-center gap-2 bg-slate-900 border border-slate-800 text-slate-400 px-4 py-1.5 rounded-full text-[11px] font-mono">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                  Tempo de espera: {formatTimer(waitingTime)} • Sala: {roomName}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-6 bg-slate-900/60 border border-slate-800/80 rounded-2xl px-5 py-3 max-w-sm text-left flex items-start gap-3">
-              <Sparkles size={18} className="text-amber-400 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-slate-300 font-medium leading-normal">
-                A sua câmara está ligada no ecrã de retorno (canto inferior direito). Assim que o outro participante aceder à sessão, a imagem e áudio dele aparecerão aqui instantaneamente.
-              </p>
-            </div>
+            <h3 className="text-white font-black text-sm sm:text-base md:text-lg uppercase tracking-tight">
+              Aguardar Participante
+            </h3>
           </div>
         )}
 
