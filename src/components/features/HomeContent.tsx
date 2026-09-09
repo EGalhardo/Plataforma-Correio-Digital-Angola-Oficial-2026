@@ -237,9 +237,9 @@ export function HomeContent({
                     }
                   }}
                   className="px-4 py-2 rounded-full text-[10px] md:text-xs font-black bg-[#0E2B64] text-white border border-[#0E2B64] whitespace-nowrap hover:bg-[#0c2350] transition-all cursor-pointer shadow-md hover:shadow-lg text-center"
-                  title={(isInst || !onDoubleClickInstitution) ? name : "Dê duplo clique para ver detalhes desta instituição"}
+                  title={(isInst || !onDoubleClickInstitution) ? t(name) : t("Dê duplo clique para ver detalhes desta instituição")}
                 >
-                  {name}
+                  {t(name)}
                 </button>
                 {unreadCount > 0 && (
                   <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-black text-white shadow-md animate-pulse ring-1 ring-white">
@@ -278,7 +278,7 @@ export function HomeContent({
                       <span className="font-extrabold text-slate-900 group-hover/item:text-primary transition-colors">{t(m.org)}:</span>
                       <span className="ml-1 text-slate-600 font-medium">{t(m.preview)}</span>
                     </div>
-                    <span className="text-white font-bold shrink-0 text-[10px] bg-red-600 px-2 py-0.5 rounded-lg font-mono shadow-xs">{m.date}</span>
+                    <span className="text-white font-bold shrink-0 text-[10px] bg-red-600 px-2 py-0.5 rounded-lg font-mono shadow-xs">{t(m.date)}</span>
                   </div>
                 ))
               )}
@@ -301,7 +301,7 @@ export function HomeContent({
                   <span className="font-extrabold text-slate-800">{t(m.org)}:</span>
                   <span className="ml-1 text-slate-500 font-medium">{t(m.preview)}</span>
                 </div>
-                <span className="text-white font-bold shrink-0 text-[10px] bg-emerald-600 px-2 py-0.5 rounded-lg font-mono">{m.date}</span>
+                <span className="text-white font-bold shrink-0 text-[10px] bg-emerald-600 px-2 py-0.5 rounded-lg font-mono">{t(m.date)}</span>
               </div>
             ))}
           </div>
@@ -322,7 +322,7 @@ export function HomeContent({
                   <span className="font-extrabold text-slate-800">{t(m.org)}:</span>
                   <span className="ml-1 text-slate-500 font-medium">{t(m.preview)}</span>
                 </div>
-                <span className="text-white font-bold shrink-0 text-[10px] bg-blue-600 px-2 py-0.5 rounded-lg font-mono">{m.date}</span>
+                <span className="text-white font-bold shrink-0 text-[10px] bg-blue-600 px-2 py-0.5 rounded-lg font-mono">{t(m.date)}</span>
               </div>
             ))}
           </div>

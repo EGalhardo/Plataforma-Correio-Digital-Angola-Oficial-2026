@@ -2182,7 +2182,7 @@ export function MailContent({
                           <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                         )}
                       </div>
-                      <span className="text-[9px] font-mono text-slate-400 font-bold shrink-0">{item.date}</span>
+                      <span className="text-[9px] font-mono text-slate-400 font-bold shrink-0">{t(item.date)}</span>
                     </div>
 
                     <div>
@@ -2303,7 +2303,7 @@ export function MailContent({
                       <td className="py-5 px-5 text-center">
                         <div className="text-slate-800 font-bold font-mono text-[11px] tracking-tight">
                           {item.protocol?.officialTime || '11:00'}
-                          <div className="text-[9.5px] font-bold text-slate-400 font-sans mt-0.5">{item.date}</div>
+                          <div className="text-[9.5px] font-bold text-slate-400 font-sans mt-0.5">{t(item.date)}</div>
                         </div>
                       </td>
 

@@ -3,9 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { LanguageCode } from '../../types';
-import { translateText, updateDynamicCache } from '../../services/translationService';
+import {
+  translateText,
+  updateDynamicCache,
+  drainMissingTranslations,
+  onMissingTranslation,
+  resetMissingTranslations,
+} from '../../services/translationService';
 import { 
   MOCK_CORRESPONDENCES, 
   MOCK_INSTITUTIONAL_INBOX, 
@@ -213,10 +219,84 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   });
 
   const [isTranslating, setIsTranslating] = useState(false);
+  // Versão da cache: incrementa quando chegam traduções novas para forçar
+  // re-render dos consumidores de t() (dados reais traduzidos em 2.º plano).
+  const [cacheVersion, setCacheVersion] = useState(0);
+  const langRef = useRef<LanguageCode>(currentLanguage);
+  langRef.current = currentLanguage;
 
   useEffect(() => {
     localStorage.setItem('cda_current_language', currentLanguage);
+    // nova selecção de língua = nova oportunidade para textos que falharam antes
+    resetMissingTranslations(currentLanguage);
   }, [currentLanguage]);
+
+  // Pedido de tradução de um lote ao servidor (partilhado pelos 2 fluxos)
+  const traduzirLote = useCallback(async (lang: LanguageCode, batch: string[]) => {
+    const response = await fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texts: batch, targetLanguage: lang }),
+    });
+    if (!response.ok) return {};
+    const data = await response.json();
+    const out: Record<string, string> = {};
+    if (data && Array.isArray(data.translations)) {
+      batch.forEach((originalText, index) => {
+        const translatedVal = data.translations[index];
+        if (translatedVal && translatedVal !== originalText) out[originalText.trim()] = translatedVal;
+      });
+    }
+    return out;
+  }, []);
+
+  // ---- Tradução em 2.º plano dos DADOS REAIS (2026-09-09) -----------------
+  // translateText() regista em fila tudo o que não conseguiu traduzir
+  // (mensagens/notificações/documentos vindos do Supabase). Aqui drenamos
+  // essa fila com debounce e enviamos ao /api/translate em lotes de 40.
+  const drainTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draining = useRef(false);
+  const drenarFila = useCallback(async () => {
+    if (draining.current) return;
+    const lang = langRef.current;
+    if (lang === 'pt') return;
+    const pendentes = drainMissingTranslations(lang);
+    if (pendentes.length === 0) return;
+    draining.current = true;
+    setIsTranslating(true);
+    try {
+      for (let i = 0; i < pendentes.length; i += 40) {
+        const lote = pendentes.slice(i, i + 40);
+        try {
+          const trads = await traduzirLote(lang, lote);
+          if (Object.keys(trads).length > 0 && langRef.current === lang) {
+            updateDynamicCache(lang, trads);
+            setCacheVersion(v => v + 1);
+          }
+        } catch (err) {
+          console.warn('[i18n] lote de dados reais falhou:', err);
+        }
+      }
+    } finally {
+      draining.current = false;
+      setIsTranslating(false);
+      // podem ter entrado novos textos enquanto traduzíamos
+      if (langRef.current !== 'pt') {
+        drainTimer.current = setTimeout(drenarFila, 400);
+      }
+    }
+  }, [traduzirLote]);
+
+  useEffect(() => {
+    onMissingTranslation(() => {
+      if (drainTimer.current) clearTimeout(drainTimer.current);
+      drainTimer.current = setTimeout(drenarFila, 350);
+    });
+    return () => {
+      onMissingTranslation(null);
+      if (drainTimer.current) clearTimeout(drainTimer.current);
+    };
+  }, [drenarFila]);
 
   // Translate dynamic data in the background when language changes
   useEffect(() => {
@@ -240,23 +320,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         
         for (const batch of batches) {
           try {
-            const response = await fetch('/api/translate', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ texts: batch, targetLanguage: currentLanguage })
-            });
-            
-            if (response.ok) {
-              const data = await response.json();
-              if (data && Array.isArray(data.translations)) {
-                batch.forEach((originalText, index) => {
-                  const translatedVal = data.translations[index];
-                  if (translatedVal && translatedVal !== originalText) {
-                    allTranslations[originalText.trim()] = translatedVal;
-                  }
-                });
-              }
-            }
+            Object.assign(allTranslations, await traduzirLote(currentLanguage, batch));
           } catch (err) {
             console.warn('Translation batch failed, continuing with next batch:', err);
           }
@@ -265,7 +329,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         // Update the global translation service
         if (Object.keys(allTranslations).length > 0) {
           updateDynamicCache(currentLanguage, allTranslations);
+          setCacheVersion(v => v + 1);
         }
+        // Dados reais já renderizados em PT ficaram na fila → traduzir agora
+        drenarFila();
         
       } catch (err) {
         console.error("Failed to automatically translate app data:", err);
@@ -275,7 +342,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     };
 
     loadTranslations();
-  }, [currentLanguage]);
+  }, [currentLanguage, traduzirLote, drenarFila]);
 
   const t = (text: string): string => {
     if (!text) return text;
@@ -284,8 +351,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     return translateText(text, currentLanguage);
   };
 
+  // cacheVersion entra no value para que os consumidores re-renderizem
+  // quando chegam traduções de dados reais (sem alterar a API pública).
+  const value: LanguageContextType & { cacheVersion: number } = { currentLanguage, setCurrentLanguage, t, isTranslating, cacheVersion };
   return (
-    <LanguageContext.Provider value={{ currentLanguage, setCurrentLanguage, t, isTranslating }}>
+    <LanguageContext.Provider value={value}>
       {children}
     </LanguageContext.Provider>
   );

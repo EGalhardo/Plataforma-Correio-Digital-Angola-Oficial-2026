@@ -151,6 +151,8 @@ function LanguageSelectorDropdown({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  // Indicador de tradução IA em curso (dados dinâmicos) — 2026-09-09
+  const { isTranslating } = useLanguage();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -174,10 +176,13 @@ function LanguageSelectorDropdown({
         className="flex items-center gap-1.5 px-3.5 py-2 rounded-full hover:bg-slate-100/50 transition-all bg-white text-[#0c2340] font-black active:scale-98"
         style={{ cursor: 'pointer' }}
       >
-        <Globe size={16} className="text-[#0055ff] shrink-0" strokeWidth={2.4} />
+        <Globe size={16} className={`text-[#0055ff] shrink-0 ${isTranslating ? 'animate-spin' : ''}`} strokeWidth={2.4} />
         <span className="text-[11px] font-black uppercase text-slate-800 tracking-tight font-sans">
           {activeOption.flagCode}
         </span>
+        {isTranslating && (
+          <span className="sr-only" role="status" aria-live="polite">A traduzir conteúdo…</span>
+        )}
         <ChevronDown size={11} className={`text-slate-400 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 

@@ -16,6 +16,52 @@ import { MUNICIPALITIES_BY_PROVINCE, CITIES_BY_PROVINCE, COMMUNES_BY_MUNICIPALIT
 
 dotenv.config({ path: ['.env', '.env.local'] });
 
+// ---- Cache persistente de traduções (/api/translate) ------------------------
+// Cada texto traduzido pela IA é guardado em disco por língua. Em pedidos
+// seguintes é servido sem consumir quota — o selector fica funcional mesmo
+// quando Gemini/Groq esgotam o free-tier.
+import { readFileSync as _rfs, writeFileSync as _wfs, mkdirSync as _mk, existsSync as _ex } from "fs";
+const TRAD_CACHE_DIR = path.join(process.cwd(), ".cache");
+const TRAD_CACHE_FILE = path.join(TRAD_CACHE_DIR, "traducoes.json");
+let tradCache: Record<string, Record<string, string>> = {};
+try { if (_ex(TRAD_CACHE_FILE)) tradCache = JSON.parse(_rfs(TRAD_CACHE_FILE, "utf8")); } catch { tradCache = {}; }
+let tradCacheTimer: ReturnType<typeof setTimeout> | null = null;
+function tradCacheGet(lang: string, text: string): string | undefined { return tradCache[lang]?.[text]; }
+function tradCachePut(lang: string, pares: Record<string, string>): void {
+  if (!Object.keys(pares).length) return;
+  tradCache[lang] = { ...(tradCache[lang] || {}), ...pares };
+  if (tradCacheTimer) clearTimeout(tradCacheTimer);
+  tradCacheTimer = setTimeout(() => {
+    try { _mk(TRAD_CACHE_DIR, { recursive: true }); _wfs(TRAD_CACHE_FILE, JSON.stringify(tradCache)); }
+    catch (e) { console.warn("[Translate API] não foi possível gravar cache:", (e as Error).message); }
+  }, 1500);
+}
+// Groq: pausa por modelo após 429 (quota diária separada por modelo)
+const groqBloqueadoAte: Record<string, number> = {};
+function groqBloqueado(model: string): boolean { return Date.now() < (groqBloqueadoAte[model] || 0); }
+function marcarGroqQuota(model: string, msg: string): void {
+  const m = msg.match(/try again in (?:(\d+)m)?([\d.]+)s/i);
+  const seg = m ? (parseInt(m[1] || "0") * 60 + Math.ceil(parseFloat(m[2]))) : 120;
+  groqBloqueadoAte[model] = Date.now() + Math.min(seg, 900) * 1000;
+  console.warn(`[Translate API] Groq ${model} em pausa ${seg}s (quota).`);
+}
+
+// ---- Circuit-breaker da quota Gemini (/api/translate) ----------------------
+// A chave free-tier tem limite diário baixo; quando devolve 429 não vale a
+// pena voltar a tentar em cada pedido (cada tentativa custa segundos).
+const geminiBloqueadoAte: Record<string, number> = {};
+function geminiQuotaBloqueada(model: string): boolean { return Date.now() < (geminiBloqueadoAte[model] || 0); }
+function marcarGeminiQuota(model: string, msg: string): void {
+  const diaria = /PerDay|per day|daily/i.test(msg);
+  const m = msg.match(/retry in ([\d.]+)/i);
+  // "retry in Xs" do Google é o tempo até à próxima janela; para quota
+  // diária esgotada o realista é esperar bastante mais (evita 1 chamada
+  // falhada por minuto o dia todo).
+  const seg = m ? Math.max(Math.ceil(parseFloat(m[1])), diaria ? 600 : 0) : (diaria ? 600 : 60);
+  geminiBloqueadoAte[model] = Date.now() + Math.min(seg, 900) * 1000;
+  console.warn(`[Translate API] Gemini ${model} em pausa ${seg}s (quota ${diaria ? 'diária' : 'por minuto'}).`);
+}
+
 async function startServer() {
   const app = express();
   // v37.5 — porta configurável (permite servir o build de produção noutra
@@ -3394,6 +3440,43 @@ A nossa inteligência artificial ajuda a traduzir termos jurídicos complexos e 
         "Canal": { um: "Ovitu", ki: "Nzila", kk: "Nzila", ch: "Nzila", ng: "Nzila", kw: "Omukalo", nh: "Onzila", fi: "Nzila" },
         "Temperatura": { um: "Ovitu viosi", ki: "Kixala kiosi", kk: "Kinkulu kiosi", ch: "Kufunga kwosi", ng: "Kisalu kyosi", kw: "Oshilongwa shoshi", nh: "Omuhonga yosi", fi: "Nzila yosi" },
         "Responsável Institucional": { um: "Okutwala ovingonjo", ki: "Kutwala vihandela", kk: "Kutwala nkenda", ch: "Kutwala mwenya", ng: "Kutwala vihandeka", kw: "Okutwala oshilongo", nh: "Okutwala omilandu", fi: "Twala mutinu" },
+        // ---- 2026-09-09 (3.ª leva): dias, atalhos da Home, entidades e estados ----
+        "Hoje": { um: "Etailo", ki: "Lelu", kk: "Wau", ch: "Lelu", ng: "Lelo", kw: "Nena", nh: "Hano", fi: "Lelu" },
+        "Ontem": { um: "Hela", ki: "Mazulu", kk: "Mazono", ch: "Lelu lya", ng: "Kala", kw: "Ohela", nh: "Ohela", fi: "Zuzi" },
+        "Seg": { um: "Seg", ki: "Seg", kk: "Seg", ch: "Mon", ng: "Mus", kw: "Seg", nh: "Seg", fi: "Seg" },
+        "Ter": { um: "Ter", ki: "Ter", kk: "Ter", ch: "Tal", ng: "Val", kw: "Ter", nh: "Ter", fi: "Ter" },
+        "Qua": { um: "Qua", ki: "Qua", kk: "Qua", ch: "Mok", ng: "Tat", kw: "Qua", nh: "Qua", fi: "Qua" },
+        "Qui": { um: "Qui", ki: "Qui", kk: "Qui", ch: "Nku", ng: "Wan", kw: "Qui", nh: "Qui", fi: "Qui" },
+        "Sex": { um: "Sex", ki: "Sex", kk: "Sex", ch: "Lum", ng: "Tan", kw: "Sex", nh: "Sex", fi: "Sex" },
+        "Sáb": { um: "Sáb", ki: "Sáb", kk: "Sáb", ch: "Mos", ng: "Sab", kw: "Sáb", nh: "Sáb", fi: "Sáb" },
+        "Sab": { um: "Sab", ki: "Sab", kk: "Sab", ch: "Mos", ng: "Sab", kw: "Sab", nh: "Sab", fi: "Sab" },
+        "Dom": { um: "Dom", ki: "Dom", kk: "Dom", ch: "Mab", ng: "Dom", kw: "Dom", nh: "Dom", fi: "Dom" },
+        "Pagamentos": { um: "Ofeto", ki: "Lifutu", kk: "Nfutisulu", ch: "Mavulavula", ng: "Lifuto", kw: "Omafuto", nh: "Omafeto", fi: "Zifutu" },
+        "Hospital": { um: "Ohospitali", ki: "Sipitili", kk: "Sipitau", ch: "Ohospitali", ng: "Sipitela", kw: "Oshipangelo", nh: "Oshipangelo", fi: "Sipitadi" },
+        "Tribunal": { um: "Osemba", ki: "Tumbunalu", kk: "Mbazi a Nkanu", ch: "Tribunali", ng: "Tribunali", kw: "Omhangu", nh: "Otyihanganeso", fi: "Tribunali" },
+        "Notário": { um: "Onotaliu", ki: "Notaliu", kk: "Notariu", ch: "Notáriu", ng: "Notariu", kw: "Onotaria", nh: "Onotaliu", fi: "Notariu" },
+        "Registo Civil": { um: "Ondando Yocisoko", ki: "Soneka ya muenhu", kk: "Soneka kia Luvila", ch: "Registo Civili", ng: "Kusoneka Vantu", kw: "Oshishangelo shOvakwashiwana", nh: "Otyiregisto Tyocivili", fi: "Registu Sivil" },
+        "Seguro Social": { um: "Osegulu Yomanu", ki: "Kikalakalu kia mbeji", kk: "Ntanini a Yantu", ch: "Seguro Sociali", ng: "Kuvungula ca Mbongo", kw: "Eameno lOnkalonawa", nh: "Oseguru Yososhiali", fi: "Seguru Sosiadi" },
+        "Polícia Nacional": { um: "Opolici Yofeka", ki: "Polisia ya ixi", kk: "Polisia a Nsi", ch: "Polícia Nacionali", ng: "Polisia ya Lifuti", kw: "Opolifi yOshilongo", nh: "Opolisia Yonashionali", fi: "Polisia Nasionadi" },
+        "Ministérios": { um: "Olo-ministeli", ki: "Inzo ja jinguvulu", kk: "Mavula ma Luyalu", ch: "Ministériosi", ng: "Vuministeli", kw: "Ouministeli", nh: "Oministeliu", fi: "Ziministiriu" },
+        "Ministerios": { um: "Olo-ministeli", ki: "Inzo ja jinguvulu", kk: "Mavula ma Luyalu", ch: "Ministerios", ng: "Vuministeli", kw: "Ouministeli", nh: "Oministeliu", fi: "Ziministiriu" },
+        "Administradoras": { um: "Olo-administradola", ki: "Atumini", kk: "Ayadi", ch: "Administradoras", ng: "Vantungi", kw: "Ovakwatelikomesho", nh: "Ovaumbiki", fi: "Ziadministradora" },
+        "Verificado": { um: "Cakolekiwa", ki: "Kidiki", kk: "Zitisiwa", ch: "Kavumbwa", ng: "Cakula", kw: "Shakolekwa", nh: "Tyatambulwa", fi: "Ditondolo" },
+        "Recente": { um: "Cokaliye", ki: "Kioso-kioso", kk: "Mpa", ch: "Kusukila", ng: "Caha", kw: "Oshipe", nh: "Otyipe", fi: "Bia mpa" },
+        "Emitida": { um: "Caeciwa", ki: "Bhana", kk: "Vana", ch: "Kusindikila", ng: "Canahewa", kw: "Shandjewandjewa", nh: "Tyatundiswa", fi: "Divaulua" },
+        "Recebida": { um: "Catambula", ki: "Tambula", kk: "Tambula", ch: "Kusombela", ng: "Catambuka", kw: "Shatambulwa", nh: "Tyatambulwa", fi: "Ditambulua" },
+        "Enviada": { um: "Catumiwa", ki: "Tumisa", kk: "Tuma", ch: "Kusendela", ng: "Catumika", kw: "Shatumwa", nh: "Tyatuminwa", fi: "Ditumua" },
+        "Pendente": { um: "Cikevelela", ki: "Kinda", kk: "Vingila", ch: "Kukwenda", ng: "Cindende", kw: "Shatelelwa", nh: "Tyateyelela", fi: "Divingila" },
+        "Concluído": { um: "Camala", ki: "Zubika", kk: "Manisa", ch: "Kukwata", ng: "Camaneka", kw: "Shamanifwa", nh: "Tyapu", fi: "Dimana" },
+        "Lida": { um: "Catangiwa", ki: "Tanga", kk: "Tanga", ch: "Kusomwa", ng: "Catanduka", kw: "Shaleshwa", nh: "Tyatandulwa", fi: "Ditangama" },
+        "Não lida": { um: "Kacatangiwe", ki: "Kakatanga", kk: "Kilembo Tanga", ch: "Kusomwa te", ng: "Kacitandukile", kw: "Inashileshwa", nh: "Hatyatandulwe", fi: "Kadi tangama ko" },
+        "Urgente": { um: "Ciyandula", ki: "Lusolo", kk: "Nzaki", ch: "Urgente", ng: "Cakufwila", kw: "Meendelelo", nh: "Otyipuka", fi: "Nsualu" },
+        "Normal": { um: "Cisungama", ki: "Mbe", kk: "Kaka", ch: "Normal", ng: "Cangoco", kw: "Paushito", nh: "Otyoene", fi: "Kizola" },
+        "Emergência": { um: "Ocitangi", ki: "Mbe-mbe", kk: "Vuvu kia Lufua", ch: "Emergência", ng: "Cipitela ca Mbasi", kw: "Oshiponga", nh: "Otyipuka Tyocititila", fi: "Lusadisu lua nsualu" },
+        "Protocolo Ativado 100%": { um: "Opotokolo Yakolekiwa 100%", ki: "Polotokolu Iala ku kikalakalu 100%", kk: "Porotokolo Yasikila 100%", ch: "Protocolo Ativádi 100%", ng: "Oprotokolo Yakolela 100%", kw: "Oprotokolo ya tula moilonga 100%", nh: "Oprotokolu Yatumbulwa 100%", fi: "Protokolu Ditondolo 100%" },
+        "Consulta confirmada!": { um: "Okusandola kwakolekiwa!", ki: "Kusota kuakidiki!", kk: "Nkanikinu wa Sikila!", ch: "Kusomba confirmada!", ng: "Kutala canapu!", kw: "Ekonaatelo la kolekwa!", nh: "Okutandulwa Kwakolelewa!", fi: "Nkutakanu yitondolo!" },
+        "Ver detalhes": { um: "Tala ovina viaco", ki: "Tala jimbote", kk: "Tala Mambu", ch: "Kuvona detalhes", ng: "Tala vimo", kw: "Tala omauyelele", nh: "Tala Otyipuka", fi: "Tala mambu" },
+        "Cidadão Verificado": { um: "Ufeka Wakolekiwa", ki: "Muanxi uakidiki", kk: "Mvula-Nsi wa Zitisiwa", ch: "Muntu Kavumbwa", ng: "Muntu Wakula", kw: "Omukwashiwana a kolekwa", nh: "Omulume Watambulwa", fi: "Muan'nsi Ditondolo" },
       };
       const tradStatico = (t: string): string | null => {
         const chave = STATIC_UI_TERMS[t.trim()];
@@ -3408,6 +3491,8 @@ A nossa inteligência artificial ajuda a traduzir termos jurídicos complexos e 
       const resultados: string[] = texts.map((t: string, i: number) => {
         const est = tradStatico(t);
         if (est !== null) return est;
+        const emCache = tradCacheGet(targetLanguage, String(t).trim());
+        if (emCache) return emCache;
         pendentes.push(i);
         return t;
       });
@@ -3710,14 +3795,22 @@ ${langName}
 STRINGS:
 ${JSON.stringify(textosPendentes, null, 2)}`;
 
-      if (apiKey) {
+      // Gemini: 2 modelos com quotas free-tier independentes (20 pedidos/dia
+      // por modelo). Cada um tem a sua pausa após 429. Testado 2026-09-09:
+      // 3.6-flash e 3.5-flash traduzem bem para as línguas nacionais.
+      const GEMINI_MODELOS = ["gemini-3.6-flash", "gemini-3.5-flash"];
+      for (const geminiModel of GEMINI_MODELOS) {
+        if (!apiKey || geminiQuotaBloqueada(geminiModel)) continue;
         try {
           const response = await ai.models.generateContent({
-            model: "gemini-3.6-flash",
+            model: geminiModel,
             contents: userPrompt,
             config: {
               systemInstruction: systemPrompt,
               temperature: 0.1,
+              // Tradução não precisa de raciocínio longo: sem "thinking" a
+              // latência cai de dezenas de segundos para poucos segundos.
+              thinkingConfig: { thinkingBudget: 0 },
               responseMimeType: "application/json",
               responseSchema: {
                 type: Type.ARRAY,
@@ -3738,34 +3831,40 @@ ${JSON.stringify(textosPendentes, null, 2)}`;
                   ? traduzirParcial(tr)
                   : tr;
               });
+              tradCachePut(targetLanguage, Object.fromEntries(pendentes.map((idx, k) => [textosPendentes[k].trim(), resultados[idx]]).filter(([a, b]) => a !== b)));
               return res.json({ translations: resultados });
             }
           }
         } catch (geminiErr) {
           const errMsg = geminiErr?.message || String(geminiErr);
           const isRateLimit = errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED");
-          const isUnavailable = errMsg.includes("503") || errMsg.includes("UNAVAILABLE");
+          const isUnavailable = errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || /high demand/i.test(errMsg);
           if (isRateLimit) {
-            console.warn("[Translate API] Gemini rate limit exceeded (429). Using fallback.");
+            marcarGeminiQuota(geminiModel, errMsg);
           } else if (isUnavailable) {
-            console.warn("[Translate API] Gemini service temporarily unavailable (503). Using fallback.");
+            console.warn(`[Translate API] Gemini ${geminiModel} indisponível (503). A tentar seguinte.`);
+            marcarGeminiQuota(geminiModel, "retry in 60");
           } else {
-            console.warn("[Translate API] Gemini translation skipped:", errMsg.substring(0, 150));
+            console.warn(`[Translate API] Gemini ${geminiModel} skipped:`, errMsg.substring(0, 150));
           }
         }
       }
 
-      // Fallback with Groq if configured
-      if (groqApiKey && groq) {
+      // Fallback with Groq if configured — 2 modelos com quotas diárias separadas
+      // Só o 120b: o gpt-oss-20b NÃO conhece as línguas nacionais (testado 2026-09-09:
+      // devolve "kópa kópa kópa" ou o português inalterado) — pior do que não traduzir.
+      const GROQ_MODELOS = ["openai/gpt-oss-120b"];
+      for (const groqModel of GROQ_MODELOS) {
+        if (!groqApiKey || !groq || groqBloqueado(groqModel)) continue;
         try {
           const completion = await groq.chat.completions.create({
             messages: [
               { role: "system", content: systemPrompt + " Retorne SOMENTE a lista JSON bruta, sem explicações, marcações markdown ou comentários adicionais, começando com [ e terminando com ]." },
               { role: "user", content: userPrompt }
             ],
-            model: "openai/gpt-oss-120b",
-            temperature: 0.1
-          });
+            model: groqModel,
+            temperature: 0.1,
+          }, { timeout: 25000 });
           if (completion.choices && completion.choices[0] && completion.choices[0].message) {
             const raw = completion.choices[0].message.content || '[]';
             const cleanRaw = raw.substring(raw.indexOf('['), raw.lastIndexOf(']') + 1);
@@ -3778,6 +3877,7 @@ ${JSON.stringify(textosPendentes, null, 2)}`;
                   ? traduzirParcial(tr)
                   : tr;
               });
+              tradCachePut(targetLanguage, Object.fromEntries(pendentes.map((idx, k) => [textosPendentes[k].trim(), resultados[idx]]).filter(([a, b]) => a !== b)));
               return res.json({ translations: resultados });
             }
           }
@@ -3786,13 +3886,18 @@ ${JSON.stringify(textosPendentes, null, 2)}`;
           const isAuthError = errMsg.includes("401") || errMsg.includes("invalid_api_key") || errMsg.includes("Invalid API Key");
           if (isAuthError) {
             console.warn("[Translate API] Groq key is invalid/unauthorized (401). Using local default fallback.");
+            break;
+          } else if (errMsg.includes("429")) {
+            marcarGroqQuota(groqModel, errMsg);
           } else {
-            console.warn("[Translate API] Groq translation skipped:", errMsg.substring(0, 150));
+            console.warn(`[Translate API] Groq ${groqModel} skipped:`, errMsg.substring(0, 150));
           }
         }
       }
 
-      // Safe return: estáticos já traduzidos + pendentes no original (fallback)
+      // Safe return: estáticos já traduzidos + pendentes com tradução parcial
+      // palavra-a-palavra (melhor do que devolver tudo em português)
+      pendentes.forEach((idx) => { resultados[idx] = traduzirParcial(resultados[idx]); });
       return res.json({ translations: resultados });
     } catch (err) {
       console.error("Error in /api/translate:", err);

@@ -1154,7 +1154,44 @@ export default async function handler(req: any, res: any) {
         "Último Acesso": { um: "Ovitu vyokule", ki: "Kixala kia kule", kk: "Kinkulu kia kule", ch: "Kufunga kwa kule", ng: "Kisalu kya kule", kw: "Oshilongwa shokule", nh: "Omuhonga yokule", fi: "Nzila ya kule" },
         "Canal": { um: "Ovitu", ki: "Nzila", kk: "Nzila", ch: "Nzila", ng: "Nzila", kw: "Omukalo", nh: "Onzila", fi: "Nzila" },
         "Temperatura": { um: "Ovitu viosi", ki: "Kixala kiosi", kk: "Kinkulu kiosi", ch: "Kufunga kwosi", ng: "Kisalu kyosi", kw: "Oshilongwa shoshi", nh: "Omuhonga yosi", fi: "Nzila yosi" },
-        "Responsável Institucional": { um: "Okutwala ovingonjo", ki: "Kutwala vihandela", kk: "Kutwala nkenda", ch: "Kutwala mwenya", ng: "Kutwala vihandeka", kw: "Okutwala oshilongo", nh: "Okutwala omilandu", fi: "Twala mutinu" }
+        "Responsável Institucional": { um: "Okutwala ovingonjo", ki: "Kutwala vihandela", kk: "Kutwala nkenda", ch: "Kutwala mwenya", ng: "Kutwala vihandeka", kw: "Okutwala oshilongo", nh: "Okutwala omilandu", fi: "Twala mutinu" },
+        // ---- 2026-09-09 (3.ª leva): dias, atalhos da Home, entidades e estados ----
+        "Hoje": { um: "Etailo", ki: "Lelu", kk: "Wau", ch: "Lelu", ng: "Lelo", kw: "Nena", nh: "Hano", fi: "Lelu" },
+        "Ontem": { um: "Hela", ki: "Mazulu", kk: "Mazono", ch: "Lelu lya", ng: "Kala", kw: "Ohela", nh: "Ohela", fi: "Zuzi" },
+        "Seg": { um: "Seg", ki: "Seg", kk: "Seg", ch: "Mon", ng: "Mus", kw: "Seg", nh: "Seg", fi: "Seg" },
+        "Ter": { um: "Ter", ki: "Ter", kk: "Ter", ch: "Tal", ng: "Val", kw: "Ter", nh: "Ter", fi: "Ter" },
+        "Qua": { um: "Qua", ki: "Qua", kk: "Qua", ch: "Mok", ng: "Tat", kw: "Qua", nh: "Qua", fi: "Qua" },
+        "Qui": { um: "Qui", ki: "Qui", kk: "Qui", ch: "Nku", ng: "Wan", kw: "Qui", nh: "Qui", fi: "Qui" },
+        "Sex": { um: "Sex", ki: "Sex", kk: "Sex", ch: "Lum", ng: "Tan", kw: "Sex", nh: "Sex", fi: "Sex" },
+        "Sáb": { um: "Sáb", ki: "Sáb", kk: "Sáb", ch: "Mos", ng: "Sab", kw: "Sáb", nh: "Sáb", fi: "Sáb" },
+        "Sab": { um: "Sab", ki: "Sab", kk: "Sab", ch: "Mos", ng: "Sab", kw: "Sab", nh: "Sab", fi: "Sab" },
+        "Dom": { um: "Dom", ki: "Dom", kk: "Dom", ch: "Mab", ng: "Dom", kw: "Dom", nh: "Dom", fi: "Dom" },
+        "Pagamentos": { um: "Ofeto", ki: "Lifutu", kk: "Nfutisulu", ch: "Mavulavula", ng: "Lifuto", kw: "Omafuto", nh: "Omafeto", fi: "Zifutu" },
+        "Hospital": { um: "Ohospitali", ki: "Sipitili", kk: "Sipitau", ch: "Ohospitali", ng: "Sipitela", kw: "Oshipangelo", nh: "Oshipangelo", fi: "Sipitadi" },
+        "Tribunal": { um: "Osemba", ki: "Tumbunalu", kk: "Mbazi a Nkanu", ch: "Tribunali", ng: "Tribunali", kw: "Omhangu", nh: "Otyihanganeso", fi: "Tribunali" },
+        "Notário": { um: "Onotaliu", ki: "Notaliu", kk: "Notariu", ch: "Notáriu", ng: "Notariu", kw: "Onotaria", nh: "Onotaliu", fi: "Notariu" },
+        "Registo Civil": { um: "Ondando Yocisoko", ki: "Soneka ya muenhu", kk: "Soneka kia Luvila", ch: "Registo Civili", ng: "Kusoneka Vantu", kw: "Oshishangelo shOvakwashiwana", nh: "Otyiregisto Tyocivili", fi: "Registu Sivil" },
+        "Seguro Social": { um: "Osegulu Yomanu", ki: "Kikalakalu kia mbeji", kk: "Ntanini a Yantu", ch: "Seguro Sociali", ng: "Kuvungula ca Mbongo", kw: "Eameno lOnkalonawa", nh: "Oseguru Yososhiali", fi: "Seguru Sosiadi" },
+        "Polícia Nacional": { um: "Opolici Yofeka", ki: "Polisia ya ixi", kk: "Polisia a Nsi", ch: "Polícia Nacionali", ng: "Polisia ya Lifuti", kw: "Opolifi yOshilongo", nh: "Opolisia Yonashionali", fi: "Polisia Nasionadi" },
+        "Ministérios": { um: "Olo-ministeli", ki: "Inzo ja jinguvulu", kk: "Mavula ma Luyalu", ch: "Ministériosi", ng: "Vuministeli", kw: "Ouministeli", nh: "Oministeliu", fi: "Ziministiriu" },
+        "Ministerios": { um: "Olo-ministeli", ki: "Inzo ja jinguvulu", kk: "Mavula ma Luyalu", ch: "Ministerios", ng: "Vuministeli", kw: "Ouministeli", nh: "Oministeliu", fi: "Ziministiriu" },
+        "Administradoras": { um: "Olo-administradola", ki: "Atumini", kk: "Ayadi", ch: "Administradoras", ng: "Vantungi", kw: "Ovakwatelikomesho", nh: "Ovaumbiki", fi: "Ziadministradora" },
+        "Verificado": { um: "Cakolekiwa", ki: "Kidiki", kk: "Zitisiwa", ch: "Kavumbwa", ng: "Cakula", kw: "Shakolekwa", nh: "Tyatambulwa", fi: "Ditondolo" },
+        "Recente": { um: "Cokaliye", ki: "Kioso-kioso", kk: "Mpa", ch: "Kusukila", ng: "Caha", kw: "Oshipe", nh: "Otyipe", fi: "Bia mpa" },
+        "Emitida": { um: "Caeciwa", ki: "Bhana", kk: "Vana", ch: "Kusindikila", ng: "Canahewa", kw: "Shandjewandjewa", nh: "Tyatundiswa", fi: "Divaulua" },
+        "Recebida": { um: "Catambula", ki: "Tambula", kk: "Tambula", ch: "Kusombela", ng: "Catambuka", kw: "Shatambulwa", nh: "Tyatambulwa", fi: "Ditambulua" },
+        "Enviada": { um: "Catumiwa", ki: "Tumisa", kk: "Tuma", ch: "Kusendela", ng: "Catumika", kw: "Shatumwa", nh: "Tyatuminwa", fi: "Ditumua" },
+        "Pendente": { um: "Cikevelela", ki: "Kinda", kk: "Vingila", ch: "Kukwenda", ng: "Cindende", kw: "Shatelelwa", nh: "Tyateyelela", fi: "Divingila" },
+        "Concluído": { um: "Camala", ki: "Zubika", kk: "Manisa", ch: "Kukwata", ng: "Camaneka", kw: "Shamanifwa", nh: "Tyapu", fi: "Dimana" },
+        "Lida": { um: "Catangiwa", ki: "Tanga", kk: "Tanga", ch: "Kusomwa", ng: "Catanduka", kw: "Shaleshwa", nh: "Tyatandulwa", fi: "Ditangama" },
+        "Não lida": { um: "Kacatangiwe", ki: "Kakatanga", kk: "Kilembo Tanga", ch: "Kusomwa te", ng: "Kacitandukile", kw: "Inashileshwa", nh: "Hatyatandulwe", fi: "Kadi tangama ko" },
+        "Urgente": { um: "Ciyandula", ki: "Lusolo", kk: "Nzaki", ch: "Urgente", ng: "Cakufwila", kw: "Meendelelo", nh: "Otyipuka", fi: "Nsualu" },
+        "Normal": { um: "Cisungama", ki: "Mbe", kk: "Kaka", ch: "Normal", ng: "Cangoco", kw: "Paushito", nh: "Otyoene", fi: "Kizola" },
+        "Emergência": { um: "Ocitangi", ki: "Mbe-mbe", kk: "Vuvu kia Lufua", ch: "Emergência", ng: "Cipitela ca Mbasi", kw: "Oshiponga", nh: "Otyipuka Tyocititila", fi: "Lusadisu lua nsualu" },
+        "Protocolo Ativado 100%": { um: "Opotokolo Yakolekiwa 100%", ki: "Polotokolu Iala ku kikalakalu 100%", kk: "Porotokolo Yasikila 100%", ch: "Protocolo Ativádi 100%", ng: "Oprotokolo Yakolela 100%", kw: "Oprotokolo ya tula moilonga 100%", nh: "Oprotokolu Yatumbulwa 100%", fi: "Protokolu Ditondolo 100%" },
+        "Consulta confirmada!": { um: "Okusandola kwakolekiwa!", ki: "Kusota kuakidiki!", kk: "Nkanikinu wa Sikila!", ch: "Kusomba confirmada!", ng: "Kutala canapu!", kw: "Ekonaatelo la kolekwa!", nh: "Okutandulwa Kwakolelewa!", fi: "Nkutakanu yitondolo!" },
+        "Ver detalhes": { um: "Tala ovina viaco", ki: "Tala jimbote", kk: "Tala Mambu", ch: "Kuvona detalhes", ng: "Tala vimo", kw: "Tala omauyelele", nh: "Tala Otyipuka", fi: "Tala mambu" },
+        "Cidadão Verificado": { um: "Ufeka Wakolekiwa", ki: "Muanxi uakidiki", kk: "Mvula-Nsi wa Zitisiwa", ch: "Muntu Kavumbwa", ng: "Muntu Wakula", kw: "Omukwashiwana a kolekwa", nh: "Omulume Watambulwa", fi: "Muan'nsi Ditondolo" },
       };
       const tradStatico = (t: string): string | null => {
         const chave = STATIC_UI_TERMS[String(t || '').trim()];
@@ -1162,9 +1199,11 @@ export default async function handler(req: any, res: any) {
         return null;
       };
       const pendentes: number[] = [];
+      const memCache = ((globalThis as any).__cdaTradCache || {})[targetLanguage] || {};
       const resultados: string[] = texts.map((t: string, i: number) => {
         const est = tradStatico(t);
         if (est !== null) return est;
+        if (memCache[String(t).trim()]) return memCache[String(t).trim()];
         pendentes.push(i);
         return t;
       });
@@ -1209,16 +1248,19 @@ export default async function handler(req: any, res: any) {
 
       const userTranslationPrompt = `Língua de Destino: ${selectedLanguageName}\nLista de textos a traduzir:\n${JSON.stringify(textosPendentes, null, 2)}`;
 
-      if (groq) {
+      // 2 modelos Groq com quotas diárias separadas + pausa por modelo após 429
+      // Só o 120b: o gpt-oss-20b não conhece as línguas nacionais (devolve lixo ou PT).
+      for (const groqModel of ["openai/gpt-oss-120b"]) {
+        if (!groq || (globalThis as any).__cdaGroqPausa?.[groqModel] > Date.now()) continue;
         try {
           const completion = await groq.chat.completions.create({
             messages: [
               { role: "system", content: translationSystemPrompt },
               { role: "user", content: userTranslationPrompt }
             ],
-            model: "openai/gpt-oss-120b",
-            temperature: 0.1
-          });
+            model: groqModel,
+            temperature: 0.1,
+          }, { timeout: 25000 });
 
           const rawContent = completion.choices?.[0]?.message?.content || '[]';
           const cleanRaw = rawContent.substring(rawContent.indexOf('['), rawContent.lastIndexOf(']') + 1);
@@ -1231,14 +1273,26 @@ export default async function handler(req: any, res: any) {
                 ? traduzirParcial(tr)
                 : tr;
             });
+            // cache em memória (instância quente da função) — poupa quota
+            const mem = ((globalThis as any).__cdaTradCache ||= {});
+            mem[targetLanguage] = { ...(mem[targetLanguage] || {}), ...Object.fromEntries(pendentes.map((idx, k) => [textosPendentes[k].trim(), resultados[idx]]).filter(([a, b]) => a !== b)) };
             return res.status(200).json({ translations: resultados });
           }
         } catch (e: any) {
-          console.error("Erro na tradução dinâmica do Groq Serverless:", e.message || e);
+          const msg = String(e?.message || e);
+          if (msg.includes("429")) {
+            const m = msg.match(/try again in (?:(\d+)m)?([\d.]+)s/i);
+            const seg = m ? (parseInt(m[1] || "0") * 60 + Math.ceil(parseFloat(m[2]))) : 120;
+            ((globalThis as any).__cdaGroqPausa ||= {})[groqModel] = Date.now() + Math.min(seg, 900) * 1000;
+            console.warn(`[translate] Groq ${groqModel} em pausa ${seg}s (quota).`);
+          } else {
+            console.error(`Erro na tradução dinâmica do Groq (${groqModel}):`, msg.slice(0, 150));
+          }
         }
       }
 
-      // Fallback: estáticos já traduzidos + pendentes no original
+      // Fallback: estáticos já traduzidos + pendentes com tradução parcial palavra-a-palavra
+      pendentes.forEach((idx: number) => { resultados[idx] = traduzirParcial(resultados[idx]); });
       return res.status(200).json({ translations: resultados });
     }
 

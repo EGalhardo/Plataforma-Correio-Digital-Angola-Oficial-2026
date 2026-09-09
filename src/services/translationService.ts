@@ -267,6 +267,40 @@ const STATIC_TRANSLATE_MAP: Record<string, Record<LanguageCode, string>> = {
   "Não tem permissão para aceder a esta página. Contacte o responsável da instituição.": { pt: "Não tem permissão para aceder a esta página. Contacte o responsável da instituição.", um: "Kape na nzila yokwingila mu pagina eyi. Londela o responsável.", ki: "Kape na nzila yokwingila mu pagina eyi. Londela o responsável.", kk: "Kape na nzila yokwingila mu pagina eyi. Londela o responsável.", ch: "Kape na nzila yokwingila mu pagina eyi. Londela o responsável.", ng: "Kape na nzila yokwingila mu pagina eyi. Londela o responsável.", kw: "Kape na nzila yokwingila mu pagina eyi. Londela o responsável.", nh: "Kape na nzila yokwingila mu pagina eyi. Londela o responsável.", fi: "Kape na nzila yokwingila mu pagina eyi. Londela o responsável." },
   "Sem acesso a esta página": { pt: "Sem acesso a esta página", um: "Kape na nzila yo pagina eyi", ki: "Kape na nzila yo pagina eyi", kk: "Kape na nzila yo pagina eyi", ch: "Kape na nzila yo pagina eyi", ng: "Kape na nzila yo pagina eyi", kw: "Kape na nzila yo pagina eyi", nh: "Kape na nzila yo pagina eyi", fi: "Kape na nzila yo pagina eyi" },
 
+  // ---- 2026-09-09: termos da Home/Correio que ficavam em PT (dias, atalhos, entidades, estados) ----
+  "Hoje": { pt: "Hoje", um: "Etailo", ki: "Lelu", kk: "Wau", ch: "Lelu", ng: "Lelo", kw: "Nena", nh: "Hano", fi: "Lelu" },
+  "Ontem": { pt: "Ontem", um: "Hela", ki: "Mazulu", kk: "Mazono", ch: "Lelu lya", ng: "Kala", kw: "Ohela", nh: "Ohela", fi: "Zuzi" },
+  "Seg": { pt: "Seg", um: "Seg", ki: "Seg", kk: "Seg", ch: "Mon", ng: "Mus", kw: "Seg", nh: "Seg", fi: "Seg" },
+  "Ter": { pt: "Ter", um: "Ter", ki: "Ter", kk: "Ter", ch: "Tal", ng: "Val", kw: "Ter", nh: "Ter", fi: "Ter" },
+  "Qua": { pt: "Qua", um: "Qua", ki: "Qua", kk: "Qua", ch: "Mok", ng: "Tat", kw: "Qua", nh: "Qua", fi: "Qua" },
+  "Qui": { pt: "Qui", um: "Qui", ki: "Qui", kk: "Qui", ch: "Nku", ng: "Wan", kw: "Qui", nh: "Qui", fi: "Qui" },
+  "Sex": { pt: "Sex", um: "Sex", ki: "Sex", kk: "Sex", ch: "Lum", ng: "Tan", kw: "Sex", nh: "Sex", fi: "Sex" },
+  "Sáb": { pt: "Sáb", um: "Sáb", ki: "Sáb", kk: "Sáb", ch: "Mos", ng: "Sab", kw: "Sáb", nh: "Sáb", fi: "Sáb" },
+  "Sab": { pt: "Sab", um: "Sab", ki: "Sab", kk: "Sab", ch: "Mos", ng: "Sab", kw: "Sab", nh: "Sab", fi: "Sab" },
+  "Dom": { pt: "Dom", um: "Dom", ki: "Dom", kk: "Dom", ch: "Mab", ng: "Dom", kw: "Dom", nh: "Dom", fi: "Dom" },
+  "Pagamentos": { pt: "Pagamentos", um: "Ofeto", ki: "Lifutu", kk: "Nfutisulu", ch: "Mavulavula", ng: "Lifuto", kw: "Omafuto", nh: "Omafeto", fi: "Zifutu" },
+  "Hospital": { pt: "Hospital", um: "Ohospitali", ki: "Sipitili", kk: "Sipitau", ch: "Ohospitali", ng: "Sipitela", kw: "Oshipangelo", nh: "Oshipangelo", fi: "Sipitadi" },
+  "Tribunal": { pt: "Tribunal", um: "Osemba", ki: "Tumbunalu", kk: "Mbazi a Nkanu", ch: "Tribunali", ng: "Tribunali", kw: "Omhangu", nh: "Otyihanganeso", fi: "Tribunali" },
+  "Notário": { pt: "Notário", um: "Onotaliu", ki: "Notaliu", kk: "Notariu", ch: "Notáriu", ng: "Notariu", kw: "Onotaria", nh: "Onotaliu", fi: "Notariu" },
+  "Registo Civil": { pt: "Registo Civil", um: "Ondando Yocisoko", ki: "Soneka ya muenhu", kk: "Soneka kia Luvila", ch: "Registo Civili", ng: "Kusoneka Vantu", kw: "Oshishangelo shOvakwashiwana", nh: "Otyiregisto Tyocivili", fi: "Registu Sivil" },
+  "Seguro Social": { pt: "Seguro Social", um: "Osegulu Yomanu", ki: "Kikalakalu kia mbeji", kk: "Ntanini a Yantu", ch: "Seguro Sociali", ng: "Kuvungula ca Mbongo", kw: "Eameno lOnkalonawa", nh: "Oseguru Yososhiali", fi: "Seguru Sosiadi" },
+  "Polícia Nacional": { pt: "Polícia Nacional", um: "Opolici Yofeka", ki: "Polisia ya ixi", kk: "Polisia a Nsi", ch: "Polícia Nacionali", ng: "Polisia ya Lifuti", kw: "Opolifi yOshilongo", nh: "Opolisia Yonashionali", fi: "Polisia Nasionadi" },
+  "Ministérios": { pt: "Ministérios", um: "Olo-ministeli", ki: "Inzo ja jinguvulu", kk: "Mavula ma Luyalu", ch: "Ministériosi", ng: "Vuministeli", kw: "Ouministeli", nh: "Oministeliu", fi: "Ziministiriu" },
+  "Ministerios": { pt: "Ministerios", um: "Olo-ministeli", ki: "Inzo ja jinguvulu", kk: "Mavula ma Luyalu", ch: "Ministerios", ng: "Vuministeli", kw: "Ouministeli", nh: "Oministeliu", fi: "Ziministiriu" },
+  "Administradoras": { pt: "Administradoras", um: "Olo-administradola", ki: "Atumini", kk: "Ayadi", ch: "Administradoras", ng: "Vantungi", kw: "Ovakwatelikomesho", nh: "Ovaumbiki", fi: "Ziadministradora" },
+  "Verificado": { pt: "Verificado", um: "Cakolekiwa", ki: "Kidiki", kk: "Zitisiwa", ch: "Kavumbwa", ng: "Cakula", kw: "Shakolekwa", nh: "Tyatambulwa", fi: "Ditondolo" },
+  "Recente": { pt: "Recente", um: "Cokaliye", ki: "Kioso-kioso", kk: "Mpa", ch: "Kusukila", ng: "Caha", kw: "Oshipe", nh: "Otyipe", fi: "Bia mpa" },
+  "Emitida": { pt: "Emitida", um: "Caeciwa", ki: "Bhana", kk: "Vana", ch: "Kusindikila", ng: "Canahewa", kw: "Shandjewandjewa", nh: "Tyatundiswa", fi: "Divaulua" },
+  "Recebida": { pt: "Recebida", um: "Catambula", ki: "Tambula", kk: "Tambula", ch: "Kusombela", ng: "Catambuka", kw: "Shatambulwa", nh: "Tyatambulwa", fi: "Ditambulua" },
+  "Enviada": { pt: "Enviada", um: "Catumiwa", ki: "Tumisa", kk: "Tuma", ch: "Kusendela", ng: "Catumika", kw: "Shatumwa", nh: "Tyatuminwa", fi: "Ditumua" },
+  "Concluído": { pt: "Concluído", um: "Camala", ki: "Zubika", kk: "Manisa", ch: "Kukwata", ng: "Camaneka", kw: "Shamanifwa", nh: "Tyapu", fi: "Dimana" },
+  "Não lida": { pt: "Não lida", um: "Kacatangiwe", ki: "Kakatanga", kk: "Kilembo Tanga", ch: "Kusomwa te", ng: "Kacitandukile", kw: "Inashileshwa", nh: "Hatyatandulwe", fi: "Kadi tangama ko" },
+  "Urgente": { pt: "Urgente", um: "Ciyandula", ki: "Lusolo", kk: "Nzaki", ch: "Urgente", ng: "Cakufwila", kw: "Meendelelo", nh: "Otyipuka", fi: "Nsualu" },
+  "Normal": { pt: "Normal", um: "Cisungama", ki: "Mbe", kk: "Kaka", ch: "Normal", ng: "Cangoco", kw: "Paushito", nh: "Otyoene", fi: "Kizola" },
+  "Emergência": { pt: "Emergência", um: "Ocitangi", ki: "Mbe-mbe", kk: "Vuvu kia Lufua", ch: "Emergência", ng: "Cipitela ca Mbasi", kw: "Oshiponga", nh: "Otyipuka Tyocititila", fi: "Lusadisu lua nsualu" },
+  "Protocolo Ativado 100%": { pt: "Protocolo Ativado 100%", um: "Opotokolo Yakolekiwa 100%", ki: "Polotokolu Iala ku kikalakalu 100%", kk: "Porotokolo Yasikila 100%", ch: "Protocolo Ativádi 100%", ng: "Oprotokolo Yakolela 100%", kw: "Oprotokolo ya tula moilonga 100%", nh: "Oprotokolu Yatumbulwa 100%", fi: "Protokolu Ditondolo 100%" },
+  "Consulta confirmada!": { pt: "Consulta confirmada!", um: "Okusandola kwakolekiwa!", ki: "Kusota kuakidiki!", kk: "Nkanikinu wa Sikila!", ch: "Kusomba confirmada!", ng: "Kutala canapu!", kw: "Ekonaatelo la kolekwa!", nh: "Okutandulwa Kwakolelewa!", fi: "Nkutakanu yitondolo!" },
+  "Ver detalhes": { pt: "Ver detalhes", um: "Tala ovina viaco", ki: "Tala jimbote", kk: "Tala Mambu", ch: "Kuvona detalhes", ng: "Tala vimo", kw: "Tala omauyelele", nh: "Tala Otyipuka", fi: "Tala mambu" },
 };
 
 // Dynamic cache that will be populated by the LanguageContext via API
@@ -329,23 +363,95 @@ export function translateText(text: unknown, lang: LanguageCode): string {
     return langCache[trimmed];
   }
   
-  // 3. Try partial matching in static map
+  // 3. Try partial matching in static map — SÓ palavras inteiras (2026-09-09).
+  //    Antes usava includes()+RegExp sem fronteiras: "IA" corrompia "auditoria"
+  //    → "auditorOlondunge", "via" → "vOlondunge", etc. Agora exige \b e
+  //    ignora chaves muito curtas (< 4 letras) na correspondência parcial.
   for (const [key, translations] of Object.entries(STATIC_TRANSLATE_MAP)) {
-    if (trimmed.toLowerCase().includes(key.toLowerCase()) && translations[lang]) {
-      return trimmed.replace(new RegExp(key, 'gi'), translations[lang]);
+    if (key.length < 4 || !translations[lang]) continue;
+    const re = wholeWordRegex(key);
+    if (re.test(trimmed)) {
+      const out = trimmed.replace(re, translations[lang]);
+      if (out !== trimmed) return out;
     }
   }
   
-  // 4. Try partial matching in dynamic cache
+  // 4. Try partial matching in dynamic cache (mesma regra de palavra inteira)
   if (langCache) {
     for (const [key, translatedValue] of Object.entries(langCache)) {
-      if (trimmed.toLowerCase().includes(key.toLowerCase())) {
-        return trimmed.replace(new RegExp(key, 'gi'), translatedValue);
+      if (key.length < 4 || !translatedValue) continue;
+      const re = wholeWordRegex(key);
+      if (re.test(trimmed)) {
+        const out = trimmed.replace(re, translatedValue);
+        if (out !== trimmed) return out;
       }
     }
   }
   
+  // 5. Sem tradução: registar para o lote dinâmico seguinte (dados reais
+  //    vindos do Supabase nunca constavam dos mocks, logo nunca eram
+  //    enviados ao /api/translate). O LanguageContext drena esta fila.
+  registerMissing(lang, trimmed);
   return original;
+}
+
+// ---------------------------------------------------------------------------
+// Utilitários (2026-09-09)
+// ---------------------------------------------------------------------------
+const regexCache = new Map<string, RegExp>();
+function wholeWordRegex(key: string): RegExp {
+  let re = regexCache.get(key);
+  if (!re) {
+    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // (?<![\p{L}\p{N}]) / (?![\p{L}\p{N}]) = fronteira de palavra Unicode
+    // (\b não reconhece acentos: "ção", "ã", etc.)
+    re = new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'giu');
+    regexCache.set(key, re);
+  }
+  re.lastIndex = 0;
+  return re;
+}
+
+// Fila de textos sem tradução, por língua (drenada pelo LanguageContext)
+const missingQueue: Record<string, Set<string>> = {};
+const MAX_MISSING = 400;
+let missingListener: ((lang: LanguageCode) => void) | null = null;
+
+// Textos já enviados ao servidor nesta sessão (por língua) — evita reenviar
+// o mesmo texto em cada re-render/página quando a IA não o conseguiu traduzir.
+const jaPedidos: Record<string, Set<string>> = {};
+
+function registerMissing(lang: LanguageCode, text: string): void {
+  if (lang === 'pt' || text.length < 2 || text.length > 600) return;
+  if (!/\p{L}/u.test(text)) return;                 // sem letras → nada a traduzir
+  if (/^[A-Z0-9][A-Z0-9-]{1,}$/.test(text)) return;   // siglas/códigos: AGT, SME, LA041
+  if (jaPedidos[lang]?.has(text)) return;
+  const q = (missingQueue[lang] ||= new Set());
+  if (q.has(text) || q.size >= MAX_MISSING) return;
+  q.add(text);
+  missingListener?.(lang);
+}
+
+/** Devolve e limpa a fila de textos por traduzir para a língua. */
+export function drainMissingTranslations(lang: LanguageCode): string[] {
+  const q = missingQueue[lang];
+  if (!q || q.size === 0) return [];
+  const out = Array.from(q);
+  q.clear();
+  const sent = (jaPedidos[lang] ||= new Set());
+  out.forEach(t => sent.add(t));
+  return out;
+}
+
+/** Permite voltar a pedir textos falhados (ex.: quando a IA recupera quota). */
+export function resetMissingTranslations(lang?: LanguageCode): void {
+  if (lang) { delete jaPedidos[lang]; delete missingQueue[lang]; }
+  else { for (const k of Object.keys(jaPedidos)) delete jaPedidos[k]; for (const k of Object.keys(missingQueue)) delete missingQueue[k]; }
+}
+
+/** Regista o callback chamado quando surgem textos novos por traduzir. */
+export function onMissingTranslation(cb: ((lang: LanguageCode) => void) | null): void {
+  missingListener = cb;
 }
 
 // Clear translation cache
