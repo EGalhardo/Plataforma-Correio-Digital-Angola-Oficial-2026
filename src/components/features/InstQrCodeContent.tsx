@@ -23,7 +23,8 @@ import {
   Key,
   FileCheck,
   Keyboard,
-  ArrowLeft
+  ArrowLeft,
+  Loader2
 } from 'lucide-react';
 // QRCode loaded dynamically
 import { Html5Qrcode } from 'html5-qrcode';
@@ -101,19 +102,18 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
 
   // Scanner - Camera State
   const [cameraRunning, setCameraRunning] = useState(false);
-  // 2026-09-02 — CAMERA SWITCH (Mobile): estado para alternar entre câmera
-  // frontal (user/selfie) e traseira (environment) em dispositivos com
-  // múltiplas câmeras (telemóveis, tablets). 'environment' é o padrão
-  // (ideal para ler QR Codes em papéis/objetos); 'user' é útil quando o
-  // utilizador precisa de ler um QR exibido no próprio dispositivo ou em
-  // tablets montados em suportes fixos.
   const [cameraFacingMode, setCameraFacingMode] = useState<'environment' | 'user'>('environment');
-  // 2026-09-02 — REF para debounce: armazenar o valor actual de cameraFacingMode
-  // para evitar stale closures no setTimeout do toggleCameraFacingMode.
+  const [availableCameras, setAvailableCameras] = useState<Array<{ id: string; label: string }>>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
+  const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
   const cameraFacingModeRef = useRef(cameraFacingMode);
   useEffect(() => {
     cameraFacingModeRef.current = cameraFacingMode;
   }, [cameraFacingMode]);
+  const selectedCameraIdRef = useRef(selectedCameraId);
+  useEffect(() => {
+    selectedCameraIdRef.current = selectedCameraId;
+  }, [selectedCameraId]);
   // QRCode Module - loaded dynamically
   const [qrCode, setQrCode] = useState<any>(null);
 
@@ -317,74 +317,115 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
     }
   }, []);
 
-  // Start/Stop camera using useEffect to guarantee the target canvas is fully rendered in the DOM
-  useEffect(() => {
-    let active = true;
-    // 2026-09-02 — GUARD: verificar se ainda estamos activos antes de continuar
-    const guard = () => {
-      if (!active) {
-        console.log('[CDA-DEBUG] Guard: active=false, abortando');
-        return false;
-      }
-      return true;
-    };
-    const initCamera = async () => {
-      if (cameraRunning) {
-        // Wait a small delay to let React commit the render and guarantee react-reader-camera-view exists
-        await new Promise(resolve => setTimeout(resolve, 80));
-        if (!guard()) return;
-
-        const el = document.getElementById("react-reader-camera-view");
-        if (!el) {
-          console.error("react-reader-camera-view wrapper div not found in DOM");
-          setCameraRunning(false);
-          showToast('Erro ao iniciar visualizador de câmera.', 'error');
-          return;
+  // -------------------------
+  // CAMERA STREAM & SCANNER CONTROLS
+  // -------------------------
+  const cleanupCameraInstance = async () => {
+    stopJsQrLoop();
+    if (qrReaderRef.current) {
+      try {
+        if (qrReaderRef.current.isScanning) {
+          await qrReaderRef.current.stop();
         }
+        qrReaderRef.current.clear();
+      } catch (e) {
+        console.warn('[CDA-camera] Erro ao parar qrReader:', e);
+      }
+      qrReaderRef.current = null;
+    }
+    // Parar diretamente quaisquer faixas de MediaStream remanescentes no elemento de vídeo
+    const videoEl = document.querySelector("#react-reader-camera-view video") as HTMLVideoElement | null;
+    if (videoEl && videoEl.srcObject) {
+      try {
+        const stream = videoEl.srcObject as MediaStream;
+        stream.getTracks().forEach(track => {
+          try { track.stop(); } catch {}
+        });
+        videoEl.srcObject = null;
+      } catch {}
+    }
+  };
 
-        try {
-          // 2026-08-21 — correção do leitor de câmara:
-          //  · qrbox ADAPTATIVO (função): antes o quadrado fixo de 220px não
-          //    cabia nos ecrãs pequenos/laptops e o QR do telemóvel nunca
-          //    ficava dentro da zona de leitura — a leitura falhava;
-          //  · resolução ideal alta (1920×1080) para QRs exibidos em ecrãs;
-          //  · fps 15 + aspectRatio 1.0;
-          //  · callback de erro com feedback visível.
-          // Para-se qualquer instância anterior antes de arrancar (evita
-          // "camera in use" ao reabrir o separador).
-          if (qrReaderRef.current) {
-            try { await qrReaderRef.current.stop(); } catch { /* ignora */ }
-            qrReaderRef.current = null;
+  const startCameraStream = async (
+    targetFacingMode: 'environment' | 'user',
+    targetCameraId: string | null
+  ) => {
+    await cleanupCameraInstance();
+
+    // Aguardar que o React renderize o container react-reader-camera-view no DOM
+    let el = document.getElementById("react-reader-camera-view");
+    let retries = 0;
+    while (!el && retries < 20) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+      el = document.getElementById("react-reader-camera-view");
+      retries++;
+    }
+
+    if (!el) {
+      console.error("react-reader-camera-view wrapper div não encontrado no DOM");
+      setCameraRunning(false);
+      showToast('Erro ao iniciar visualizador de câmara.', 'error');
+      return false;
+    }
+
+    // Enumerar câmaras disponíveis para permitir troca entre múltiplos dispositivos
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      if (cameras && cameras.length > 0) {
+        setAvailableCameras(cameras);
+      }
+    } catch (err) {
+      console.warn("[CDA-camera] Não foi possível enumerar câmaras:", err);
+    }
+
+    try {
+      const html5QrCode = new Html5Qrcode("react-reader-camera-view");
+      qrReaderRef.current = html5QrCode;
+
+      const cameraSelector = targetCameraId ? targetCameraId : { facingMode: targetFacingMode };
+
+      await html5QrCode.start(
+        cameraSelector,
+        {
+          fps: 15,
+          aspectRatio: 1.0,
+          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            const qrboxSize = Math.floor(minEdge * 0.75);
+            return { width: qrboxSize, height: qrboxSize };
+          },
+        },
+        (decodedText) => {
+          if (scanResolvedRef.current) return;
+          scanResolvedRef.current = true;
+          stopJsQrLoop();
+          stopCamera();
+          processResult(decodedText, 'câmera');
+        },
+        (errMsg) => {
+          if (errMsg && !String(errMsg).includes('No MultiFormat Readers')) {
+            setReadStatusText('⏳ A procurar QR Code… mantenha o código dentro do quadrado.');
           }
+        }
+      );
+
+      setReadStatusText('📷 Aponte a câmara ao QR Code — mantenha-o dentro do quadrado.');
+      startJsQrLoop();
+      return true;
+    } catch (err) {
+      console.error("[CDA-camera] Falha ao iniciar câmara:", err);
+
+      // Se falhou com deviceId específico, tentar fallback para facingMode
+      if (targetCameraId) {
+        try {
+          console.log("[CDA-camera] Tentando fallback com facingMode...");
           const html5QrCode = new Html5Qrcode("react-reader-camera-view");
           qrReaderRef.current = html5QrCode;
-          // 2026-08-21 — FIX CRÍTICO da câmara: o seletor 'cameraIdOrConfig' do
-          // html5-qrcode 2.3.8 aceita EXATAMENTE 1 chave (deviceId OU facingMode).
-          // Passar { facingMode, width, height } faz o start() rejeitar de
-          // imediato ("should have exactly 1 key... found 3 keys") e a câmara
-          // nunca abria — em qualquer dispositivo (reproduzido em teste E2E
-          // com câmara virtual; a via Ficheiro nunca foi afetada).
-          // A resolução alta (para QRs exibidos em ecrãs) passa a ir em
-          // videoConstraints (passado diretamente ao getUserMedia).
-          // 2026-09-02 — CAMERA SWITCH: facingMode agora é dinâmico (controlado
-          // pelo estado cameraFacingMode), permitindo alternar entre câmera
-          // traseira e frontal em dispositivos mobile/tablet.
           await html5QrCode.start(
-            { facingMode: cameraFacingMode },
+            { facingMode: targetFacingMode },
             {
               fps: 15,
               aspectRatio: 1.0,
-              videoConstraints: {
-                // O runtime do html5-qrcode passa este objeto DIRETO ao
-                // getUserMedia (MediaStreamConstraints), embora o .d.ts o
-                // tipe erradamente como MediaTrackConstraints — daí o cast.
-                video: {
-                  facingMode: cameraFacingMode,
-                  width: { ideal: 1920 },
-                  height: { ideal: 1080 },
-                },
-                audio: false,
-              } as unknown as MediaTrackConstraints,
               qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
                 const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
                 const qrboxSize = Math.floor(minEdge * 0.75);
@@ -392,124 +433,104 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
               },
             },
             (decodedText) => {
-              // guarda anti dupla-deteção (o jsQR pode disparar primeiro)
               if (scanResolvedRef.current) return;
               scanResolvedRef.current = true;
               stopJsQrLoop();
               stopCamera();
               processResult(decodedText, 'câmera');
             },
-            (errMsg) => {
-              // feedback honesto: falhas contínuas de leitura aparecem no ecrã
-              if (active && errMsg && !String(errMsg).includes('No MultiFormat Readers')) {
-                setReadStatusText('⏳ A procurar QR Code… mantenha o código dentro do quadrado.');
-              }
-            }
+            () => {}
           );
+          setSelectedCameraId(null);
           setReadStatusText('📷 Aponte a câmara ao QR Code — mantenha-o dentro do quadrado.');
-          // 2026-08-21 — arranca o decodificador jsQR sobre o vídeo (ver
-          // comentário em jsQrLoopRef): o ZXing interno falha em QRs densos
-          // no tamanho que a câmara produz.
           startJsQrLoop();
-        } catch (err) {
-          console.error("Camera start failed:", err);
-          if (active) {
-            setCameraRunning(false);
-            setReadStatusText('');
-            showToast('Câmara não disponível ou permissão recusada. Pode usar o separador "Ficheiro" para carregar a imagem do QR Code.', 'error');
-          }
+          return true;
+        } catch (fallbackErr) {
+          console.error("[CDA-camera] Fallback com facingMode também falhou:", fallbackErr);
         }
       }
-    };
 
-    initCamera();
-
-    return () => {
-      // 2026-09-02 — CLEANUP ROBUSTO: parar a câmara e o jsQR loop antes de
-      // desmontar ou reiniciar o useEffect. Previne memory leaks e "Camera in use"
-      // errors após múltiplas alternâncias (teste de robustez: 40 alternâncias).
-      active = false;
-      stopJsQrLoop();
-      if (qrReaderRef.current) {
-        if (qrReaderRef.current.isScanning) {
-          qrReaderRef.current.stop().catch(err => {
-            console.warn('[CDA-DEBUG] Erro ao parar câmara no cleanup:', err);
-          });
-        }
-        qrReaderRef.current = null;
-      }
-    };
-  }, [cameraRunning, cameraFacingMode]);
-
-  // Automatically turn off camera when switching tabs or views
-  useEffect(() => {
-    if (activeMainTab !== 'reader' || activeReadTab !== 'camera') {
-      stopCamera();
+      await cleanupCameraInstance();
+      setCameraRunning(false);
+      setReadStatusText('');
+      showToast('Câmara não disponível ou permissão recusada. Pode usar o separador "Ficheiro" para carregar a imagem do QR Code.', 'error');
+      return false;
     }
-  }, [activeMainTab, activeReadTab]);
+  };
 
-  // Clean camera up on unmount
-  useEffect(() => {
-    return () => {
-      stopJsQrLoop();
-      if (qrReaderRef.current && qrReaderRef.current.isScanning) {
-        qrReaderRef.current.stop().catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
-      }
-    };
-  }, []);
-
-  // -------------------------
-  // READER PROCESSORS OR ACTIONS
-  // -------------------------
-  const startCamera = () => {
+  const startCamera = async () => {
     setCameraRunning(true);
-    setReadStatusText('');
+    setReadStatusText('⏳ A iniciar câmara...');
+    await startCameraStream(cameraFacingMode, selectedCameraId);
   };
 
   const stopCamera = async () => {
-    stopJsQrLoop();
-    if (qrReaderRef.current) {
-      if (qrReaderRef.current.isScanning) {
-        try {
-          await qrReaderRef.current.stop();
-        } catch (e) {
-          console.warn("Error stopping scanner instance:", e);
-        }
-      }
-      qrReaderRef.current = null;
-    }
+    await cleanupCameraInstance();
     setCameraRunning(false);
+    setReadStatusText('');
   };
 
-  // 2026-09-02 — Alternar entre câmara frontal e traseira (mobile-friendly).
-  // Apenas altera o estado cameraFacingMode — o useEffect de inicialização
-  // (que tem cameraFacingMode nas dependências) detecta a mudança e reinicia
-  // automaticamente a câmara com a nova configuração. O useEffect já tem
-  // lógica para parar qualquer instância anterior antes de iniciar uma nova.
-  // Feedback visual via toast.
-  // 2026-09-02 — DEBOUNCE: prevenir múltiplas alternâncias rápidas que causam
-  // race conditions e memory leaks. Se o utilizador clicar muito rápido, apenas
-  // a última alteração é processada após 500ms.
-  const toggleCameraFacingMode = (() => {
-    let debounceTimer: NodeJS.Timeout | null = null;
-    return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        // Usar ref para evitar stale closure — ler o valor actual do estado
-        const newFacingMode = cameraFacingModeRef.current === 'environment' ? 'user' : 'environment';
-        // Apenas altera o estado — o useEffect gere automaticamente a paragem da
-        // câmara anterior e o reinício com a nova câmara (está nas dependências).
-        setCameraFacingMode(newFacingMode);
+  const toggleCameraFacingMode = async () => {
+    if (isSwitchingCamera) return;
+    setIsSwitchingCamera(true);
+
+    try {
+      let nextFacing: 'environment' | 'user' = cameraFacingMode === 'environment' ? 'user' : 'environment';
+      let nextCamId: string | null = null;
+
+      // Se temos mais que uma câmara identificada pelo browser, ciclar pela lista
+      if (availableCameras.length > 1) {
+        const currentIdx = selectedCameraId
+          ? availableCameras.findIndex(c => c.id === selectedCameraId)
+          : -1;
+        const nextIdx = (currentIdx + 1) % availableCameras.length;
+        nextCamId = availableCameras[nextIdx].id;
+        const nextLabel = (availableCameras[nextIdx].label || '').toLowerCase();
+        if (nextLabel.includes('front') || nextLabel.includes('user') || nextLabel.includes('selfie') || nextLabel.includes('facetime')) {
+          nextFacing = 'user';
+        } else if (nextLabel.includes('back') || nextLabel.includes('rear') || nextLabel.includes('environment')) {
+          nextFacing = 'environment';
+        }
+      }
+
+      setCameraFacingMode(nextFacing);
+      setSelectedCameraId(nextCamId);
+
+      const ok = await startCameraStream(nextFacing, nextCamId);
+      if (ok) {
+        const camLabel = nextCamId ? availableCameras.find(c => c.id === nextCamId)?.label : null;
         showToast(
-          newFacingMode === 'user'
-            ? '📸 Câmara frontal activada (selfie)'
-            : '📸 Câmara traseira activada',
+          camLabel
+            ? `📸 Câmara: ${camLabel}`
+            : nextFacing === 'user'
+              ? '📸 Câmara frontal activada (selfie)'
+              : '📸 Câmara traseira activada',
           'info'
         );
-        debounceTimer = null;
-      }, 500);
+      }
+    } catch (err) {
+      console.error("[CDA-camera] Erro ao alternar câmara:", err);
+      showToast('Erro ao alternar de câmara.', 'error');
+    } finally {
+      setIsSwitchingCamera(false);
+    }
+  };
+
+  // Desligar câmara automaticamente ao mudar de aba
+  useEffect(() => {
+    if (activeMainTab !== 'reader' || activeReadTab !== 'camera') {
+      if (cameraRunning) {
+        stopCamera();
+      }
+    }
+  }, [activeMainTab, activeReadTab, cameraRunning]);
+
+  // Limpar stream ao desmontar o componente
+  useEffect(() => {
+    return () => {
+      cleanupCameraInstance();
     };
-  })();
+  }, []);
 
   const parseStructuredPayload = (raw: string) => {
     const payload: Record<string, string> = {};
@@ -1550,21 +1571,44 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
                   <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-2.5 text-[11px] font-semibold max-w-md text-center leading-relaxed">
                     💡 Não consegue ler o QR da câmara? Use o separador <strong>Ficheiro</strong> para carregar a imagem do QR Code — o sistema localiza a correspondência/documento digital na mesma.
                   </div>
-                  {/* 2026-09-02 — BOTÃO DE ALTERNÂNCIA CÂMARA FRONTAL/TRASEIRA
-                      (mobile-first): permite ao utilizador mudar entre a
-                      câmara traseira (padrão, ideal para ler QRs em papéis)
-                      e a câmara frontal (útil em tablets montados ou para
-                      ler QRs exibidos no próprio dispositivo). */}
+                  {/* 2026-09-02 — BOTÃO DE ALTERNÂNCIA DE CÂMARA (Desktop / Mobile / Multi-Câmara):
+                      Permite alternar de forma limpa entre câmara traseira/frontal ou
+                      entre múltiplos dispositivos de vídeo conectados, com feedback
+                      imediato e prevenção de concorrência. */}
                   <div className="flex gap-2 flex-wrap justify-center">
                     <button
+                      type="button"
+                      id="btn-toggle-camera"
                       onClick={(e) => { e.stopPropagation(); toggleCameraFacingMode(); }}
-                      className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 py-3 px-5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-xs active:scale-95"
-                      title={cameraFacingMode === 'environment' ? 'Mudar para câmara frontal (selfie)' : 'Mudar para câmara traseira'}
+                      disabled={isSwitchingCamera}
+                      className="bg-blue-50 hover:bg-blue-100 disabled:opacity-60 disabled:cursor-not-allowed text-blue-700 border border-blue-200 py-3 px-5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-xs active:scale-95"
+                      title={
+                        availableCameras.length > 1
+                          ? 'Alternar entre câmaras disponíveis'
+                          : cameraFacingMode === 'environment'
+                            ? 'Mudar para câmara frontal (selfie)'
+                            : 'Mudar para câmara traseira'
+                      }
                     >
-                      <Camera className="w-4 h-4" />
-                      {cameraFacingMode === 'environment' ? '📷 Mudar p/ Frontal' : '🤳 Mudar p/ Traseira'}
+                      {isSwitchingCamera ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin text-blue-700" />
+                          A mudar câmara...
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="w-4 h-4" />
+                          {availableCameras.length > 2
+                            ? `📷 Mudar Câmara (${(availableCameras.findIndex(c => c.id === selectedCameraId) >= 0 ? availableCameras.findIndex(c => c.id === selectedCameraId) + 1 : 1)}/${availableCameras.length})`
+                            : cameraFacingMode === 'environment'
+                              ? '📷 Mudar p/ Frontal'
+                              : '🤳 Mudar p/ Traseira'}
+                        </>
+                      )}
                     </button>
                     <button 
+                      type="button"
+                      id="btn-stop-camera"
                       onClick={(e) => { e.stopPropagation(); stopCamera(); }}
                       className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-3 px-8 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-xs"
                     >
