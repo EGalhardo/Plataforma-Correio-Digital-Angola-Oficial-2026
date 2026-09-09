@@ -308,6 +308,18 @@ export function AIChatAssistant({
   // Acumula a transcrição FINAL completa da fala do utilizador (2026-08-18):
   // antes, cada segmento final substituía o input — frases longas ficavam truncadas.
   const transcriptAcumuladoRef = useRef('');
+  // 2026-09-09 — robustez do ciclo falar→ouvir:
+  //  - falandoRef: estado próprio da síntese (não confiar em speechSynthesis.speaking,
+  //    que no Chrome fica "preso" a true quando o onend não dispara);
+  //  - ttsGenRef: geração da fala corrente (ignora callbacks de falas canceladas);
+  //  - ttsWatchdogRef: temporizador de segurança que retoma a escuta se o motor
+  //    de voz não terminar (bug conhecido do Chrome com vozes remotas > ~15 s);
+  //  - utterancesRef: mantém referências vivas (bug do Chrome: utterance
+  //    recolhida pelo GC → onend nunca dispara).
+  const falandoRef = useRef(false);
+  const ttsGenRef = useRef(0);
+  const ttsWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const utterancesRef = useRef<SpeechSynthesisUtterance[]>([]);
   const iaLiveActiveRef = useRef(iaLiveActive);
   const skipAutoPresentationRef = useRef(false);
 
@@ -385,45 +397,123 @@ export function AIChatAssistant({
     }
   }, [messages, isLoading]);
 
+  // Divide o texto em frases curtas: evita o corte silencioso do Chrome em
+  // falas longas (onend nunca dispara) e mantém a prosódia natural.
+  const dividirEmFrases = (texto: string, max = 180): string[] => {
+    const frases = texto.split(/(?<=[.!?…:;])\s+|\n+/).map(f => f.trim()).filter(Boolean);
+    const partes: string[] = [];
+    let atual = '';
+    for (const f of frases) {
+      if (f.length > max) {
+        if (atual) { partes.push(atual); atual = ''; }
+        // frase gigante sem pontuação: parte por vírgulas/espaços
+        let resto = f;
+        while (resto.length > max) {
+          let corte = resto.lastIndexOf(', ', max);
+          if (corte < max * 0.5) corte = resto.lastIndexOf(' ', max);
+          if (corte <= 0) corte = max;
+          partes.push(resto.slice(0, corte).trim());
+          resto = resto.slice(corte).replace(/^,?\s*/, '');
+        }
+        if (resto) atual = resto;
+        continue;
+      }
+      if ((atual + ' ' + f).trim().length > max) { partes.push(atual); atual = f; }
+      else atual = (atual + ' ' + f).trim();
+    }
+    if (atual) partes.push(atual);
+    return partes;
+  };
+
+  const limparWatchdogTts = () => {
+    if (ttsWatchdogRef.current) { clearTimeout(ttsWatchdogRef.current); ttsWatchdogRef.current = null; }
+  };
+
+  // Retoma o microfone depois de a IA falar (ou de a fala falhar).
+  const retomarEscuta = (atraso = 150) => {
+    falandoRef.current = false;
+    limparWatchdogTts();
+    transcriptAcumuladoRef.current = '';
+    if (!iaLiveActiveRef.current || !recognitionRef.current) return;
+    setTimeout(() => {
+      if (!iaLiveActiveRef.current || !recognitionRef.current || isTranscribingRef.current) return;
+      try { recognitionRef.current.start(); } catch (e) { /* já iniciado */ }
+    }, atraso);
+  };
+
   const speak = (text: string, onEndCallback?: () => void) => {
     if (currentLanguage !== 'pt') return;
     if (!iaLiveActiveRef.current) return;
-    window.speechSynthesis.cancel();
-    
-    // Stop listening while speaking to avoid echo
-    if (recognitionRef.current && isTranscribingRef.current) {
-      try { recognitionRef.current.stop(); } catch(e) {}
-    }
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    const gen = ++ttsGenRef.current;
+    limparWatchdogTts();
+    utterancesRef.current = [];
+    try { window.speechSynthesis.cancel(); } catch (e) {}
+    // Chrome pode ficar em estado "paused" após cancel(): garantir que fala.
+    try { window.speechSynthesis.resume(); } catch (e) {}
+    falandoRef.current = true;
+
+    // Parar a escuta SEMPRE enquanto a IA fala (evita eco). Antes dependia de
+    // isTranscribingRef, que ainda podia estar a false (onstart pendente) —
+    // o microfone continuava ligado e "ouvia" a própria IA.
+    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
     transcriptAcumuladoRef.current = '';
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+    }
 
     // Filter out asterisks and markdown formatting symbols so the speech synthesis engine doesn't verbalize stars/asterisks
     const cleanText = text.replace(/\*/g, '').trim();
+    const partes = dividirEmFrases(cleanText);
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    // v37.52 — voz pt natural (antes: lang 'pt-AO' inexistente → voz robótica).
-    aplicarVozPt(utterance, { rate: 1.0, pitch: 1.0 });
-    
-    utterance.onend = () => {
+    let terminado = false;
+    const terminar = () => {
+      if (terminado || gen !== ttsGenRef.current) return; // fala já substituída por outra
+      terminado = true;
+      utterancesRef.current = [];
+      limparWatchdogTts();
       if (onEndCallback) {
+        falandoRef.current = false;
         onEndCallback();
       } else {
         // Resume listening after speaking if still active
-        if (iaLiveActiveRef.current && recognitionRef.current) {
-          try {
-            recognitionRef.current.stop();
-          } catch (e) {}
-          setTimeout(() => {
-            if (iaLiveActiveRef.current) {
-              try {
-                recognitionRef.current.start();
-              } catch (e) {}
-            }
-          }, 150);
-        }
+        retomarEscuta();
       }
     };
+    const armarWatchdog = (ms: number) => {
+      limparWatchdogTts();
+      ttsWatchdogRef.current = setTimeout(() => {
+        if (gen !== ttsGenRef.current) return;
+        console.warn('[IA voz] síntese sem fim detectado — a retomar a escuta.');
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+        terminar();
+      }, ms);
+    };
 
-    window.speechSynthesis.speak(utterance);
+    if (!partes.length) { terminar(); return; }
+
+    partes.forEach((parte, i) => {
+      const utterance = new SpeechSynthesisUtterance(parte);
+      // v37.52 — voz pt natural (antes: lang 'pt-AO' inexistente → voz robótica).
+      aplicarVozPt(utterance, { rate: 1.0, pitch: 1.0 });
+      // orçamento por frase (fala pt ≈ 15 caracteres/s → 90 ms/carácter + margem);
+      // se o motor parar a meio, o watchdog devolve o microfone ao utilizador
+      utterance.onstart = () => { if (gen === ttsGenRef.current) armarWatchdog(2500 + parte.length * 90); };
+      utterance.onend = () => { if (i === partes.length - 1) terminar(); };
+      utterance.onerror = (ev: SpeechSynthesisErrorEvent) => {
+        // 'interrupted'/'canceled' = substituída por nova fala (cancel()) — a nova trata da retoma
+        if (ev.error === 'interrupted' || ev.error === 'canceled') return;
+        console.warn('[IA voz] erro de síntese:', ev.error);
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+        terminar();
+      };
+      utterancesRef.current.push(utterance);
+      window.speechSynthesis.speak(utterance);
+    });
+    // Se a síntese nem sequer arrancar (sem vozes, bloqueada, motor preso),
+    // não deixar o utilizador sem microfone: retomar ao fim de 6 s.
+    armarWatchdog(6000);
   };
 
   const getPageFriendlyName = (key: string): string => {
@@ -522,7 +612,12 @@ export function AIChatAssistant({
   useEffect(() => {
     const wSp = window as unknown as { SpeechRecognition?: new () => ReconhecimentoVoz; webkitSpeechRecognition?: new () => ReconhecimentoVoz };
     const SpeechRecognition = wSp.SpeechRecognition || wSp.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+    if (!SpeechRecognition) {
+      if (iaLiveActive) {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'O seu navegador não suporta reconhecimento de voz. Utilize o Google Chrome, Microsoft Edge ou Safari para falar com o assistente, ou escreva a sua pergunta.' }]);
+      }
+      return;
+    }
 
     let recognition: ReconhecimentoVoz;
     try {
@@ -537,27 +632,38 @@ export function AIChatAssistant({
     recognition.lang = 'pt-PT'; // v37.57 — pt-AO é inválido p/ SpeechRecognition; pt-PT reconhecido
 
     recognition.onresult = (event: ResultadoReconhecimento) => {
+      // Enquanto a IA fala, o que o microfone capta é eco da própria voz — ignorar.
+      if (falandoRef.current) return;
+
       // Acumula TODOS os segmentos finais — nunca substitui (frases longas
       // ou com pausas deixavam de aparecer completas).
+      let interino = '';
       for (let i = event.resultIndex; i < event.results.length; ++i) {
+        const seg = event.results[i][0].transcript.trim();
+        if (!seg) continue;
         if (event.results[i].isFinal) {
-          const seg = event.results[i][0].transcript.trim();
-          if (seg) transcriptAcumuladoRef.current = (transcriptAcumuladoRef.current + ' ' + seg).trim();
+          transcriptAcumuladoRef.current = (transcriptAcumuladoRef.current + ' ' + seg).trim();
+        } else {
+          interino = (interino + ' ' + seg).trim();
         }
       }
 
       const total = transcriptAcumuladoRef.current;
-      if (total) {
-        setInput(total);
-        
-        // Debounce: Wait for a short pause of silence before sending
-        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = setTimeout(() => {
-          handleSendMessage(total);
-          // limpa após envio para a próxima fala começar do zero
-          transcriptAcumuladoRef.current = '';
-        }, 1200); // 1.2s of silence before sending
-      }
+      // Mostrar em tempo real o que está a ser dito (finais + interinos),
+      // para o utilizador ter feedback imediato de que está a ser ouvido.
+      const visivel = (total + ' ' + interino).trim();
+      if (visivel) setInput(visivel);
+
+      // Debounce: só envia após 1.2 s sem QUALQUER resultado novo (interino ou
+      // final) — antes, um final seguido de mais fala era enviado truncado.
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = setTimeout(() => {
+        const pronto = transcriptAcumuladoRef.current;
+        if (!pronto || falandoRef.current) return;
+        // limpa antes do envio para a próxima fala começar do zero
+        transcriptAcumuladoRef.current = '';
+        handleSendMessage(pronto);
+      }, 1200); // 1.2s of silence before sending
     };
 
     recognition.onstart = () => {
@@ -569,7 +675,7 @@ export function AIChatAssistant({
       // Auto-restart only if active and NOT currently speaking
       // Small timeout to avoid rapid restart loops
       setTimeout(() => {
-        if (iaLiveActiveRef.current && !window.speechSynthesis.speaking && !isTranscribingRef.current) {
+        if (iaLiveActiveRef.current && !falandoRef.current && !isTranscribingRef.current) {
           try {
             recognition.start();
           } catch (e) {}
@@ -587,7 +693,10 @@ export function AIChatAssistant({
       if (event.error === 'network') {
         setTimeout(() => { if (iaLiveActiveRef.current) try { recognition.start(); } catch(e) {} }, 1000);
       }
-      if (event.error === 'not-allowed') {
+      if (event.error === 'audio-capture') {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'Não foi detectado nenhum microfone. Verifique se o microfone está ligado e autorizado para este site.' }]);
+      }
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         setMessages(prev => [...prev, { role: 'assistant', content: 'Permissão de microfone negada. Por favor, ative o microfone nas configurações do seu navegador para usar a voz.' }]);
         if (stopIaVoice) {
           try {
@@ -613,6 +722,10 @@ export function AIChatAssistant({
 
     return () => {
       isTranscribingRef.current = false;
+      falandoRef.current = false;
+      ttsGenRef.current++;
+      limparWatchdogTts();
+      utterancesRef.current = [];
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       
       // Detach handlers immediately to prevent any async callbacks during aborting or destruction
