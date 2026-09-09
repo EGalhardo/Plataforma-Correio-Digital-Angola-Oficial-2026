@@ -51,6 +51,7 @@ import { Message, LanguageCode } from '../../types';
 import { translateText } from '../../utils/translator';
 import { useLanguage } from '../../hooks/useLanguage';
 import { SondagemModal } from './SondagemModal';
+import { TipoInqueritoModal, type TipoInquerito } from './TipoInqueritoModal';
 import { CdaConfirmModal } from '../ui/CdaConfirm';
 import { CdaModal } from '../ui/CdaModal';
 import {
@@ -394,6 +395,9 @@ export function MailContent({
 
   // v36 — Sondagens: estado do modal de criação + nome da instituição (profiles)
   const [showSondagemModal, setShowSondagemModal] = useState(false);
+  // 2026-09-09 — «Criar Inquérito» abre primeiro o popup «Tipo de Inquérito»
+  const [showTipoInquerito, setShowTipoInquerito] = useState(false);
+  const [tipoInquerito, setTipoInquerito] = useState<TipoInquerito>('normal');
   const [instNomeSondagem, setInstNomeSondagem] = useState('');
   // v37 — sondagens inseridas como blocos na área de conteúdo da composição
   const [sondagensCompostas, setSondagensCompostas] = useState<Sondagem[]>([]);
@@ -881,15 +885,27 @@ export function MailContent({
 
   // v36/v37 — modal de criação de sondagem partilhado pelas duas vistas (compositor e lista)
   const sondagemModalJsx = isInst ? (
-    <SondagemModal
-      aberto={showSondagemModal}
-      onFechar={() => setShowSondagemModal(false)}
-      codigoInstituicao={bi}
-      nomeInstituicao={instNomeSondagem || bi}
-      criadaPor={bi}
-      addAuditLog={(a, t) => addAuditLog?.(a, t)}
-      onCriarBloco={adicionarSondagemBloco}
-    />
+    <>
+      <TipoInqueritoModal
+        aberto={showTipoInquerito}
+        onFechar={() => setShowTipoInquerito(false)}
+        onConfirmar={(tipo) => {
+          setTipoInquerito(tipo);
+          setShowTipoInquerito(false);
+          setShowSondagemModal(true);
+        }}
+      />
+      <SondagemModal
+        aberto={showSondagemModal}
+        onFechar={() => setShowSondagemModal(false)}
+        codigoInstituicao={bi}
+        nomeInstituicao={instNomeSondagem || bi}
+        criadaPor={bi}
+        addAuditLog={(a, t) => addAuditLog?.(a, t)}
+        onCriarBloco={adicionarSondagemBloco}
+        modo={tipoInquerito}
+      />
+    </>
   ) : null;
 
   // Popup de avisos das sondagens (limite, falha de distribuição)
@@ -1702,7 +1718,7 @@ export function MailContent({
                       setAvisoSondagens('Limite de 5 inquéritos por mensagem atingido.');
                       return;
                     }
-                    setShowSondagemModal(true);
+                    setShowTipoInquerito(true);
                   }}
                   className="border border-blue-200 hover:border-blue-300 text-blue-600 bg-white hover:bg-blue-50/50 font-bold text-xs md:text-sm px-4 py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
                   id="btn-criar-inquerito"

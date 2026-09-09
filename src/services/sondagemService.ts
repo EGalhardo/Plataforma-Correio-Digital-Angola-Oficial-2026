@@ -665,3 +665,34 @@ export const responderSondagem = async (
     return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
 };
+
+// ---------------------------------------------------------------------------
+// 2026-09-09 — Inquérito IA: a partir dos temas a investigar e das informações
+// a recolher, o servidor (/api/inquerito-ia) devolve uma sondagem sugerida no
+// formato do popup «Criar Sondagem». O agente revê e só depois cria.
+// ---------------------------------------------------------------------------
+export interface SugestaoInqueritoIA { pergunta: string; opcoes: string[]; permitirVarias: boolean; }
+
+export const gerarInqueritoIA = async (params: {
+  temas: string; informacoes: string; instituicao: string;
+}): Promise<SondagemResultado<SugestaoInqueritoIA>> => {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 60000);
+    const resp = await fetch('/api/inquerito-ia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok || !json?.ok || !json.sondagem) {
+      return { ok: false, motivo: 'erro', mensagem: json?.erro || 'A IA está temporariamente indisponível. Tente novamente ou crie o inquérito manualmente.' };
+    }
+    return { ok: true, dados: json.sondagem as SugestaoInqueritoIA };
+  } catch (e) {
+    const abortado = (e as Error)?.name === 'AbortError';
+    return { ok: false, motivo: 'erro', mensagem: abortado ? 'A IA demorou demasiado a responder. Tente novamente.' : 'Não foi possível contactar a IA. Verifique a ligação e tente novamente.' };
+  }
+};

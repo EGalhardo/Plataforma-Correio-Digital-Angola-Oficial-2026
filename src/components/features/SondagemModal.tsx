@@ -6,10 +6,10 @@
 // mantém-se o comportamento v36.1 (criar + difundir imediatamente).
 // ============================================================================
 import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { BarChart3, Plus, Trash2, AlertTriangle, BrainCircuit, Loader2, Sparkles } from 'lucide-react';
 import { CdaModal } from '../ui/CdaModal';
 import {
-  audienciaV37, criarSondagem, criarRascunhoSondagem, sondagensDisponiveis,
+  audienciaV37, criarSondagem, criarRascunhoSondagem, gerarInqueritoIA, sondagensDisponiveis,
   type AbrangenciaSondagem, type OpcaoSondagem, type Sondagem,
 } from '../../services/sondagemService';
 
@@ -25,13 +25,21 @@ interface Props {
   addAuditLog: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
   /** v37: quando presente, «Criar Sondagem» insere rascunho na composição. */
   onCriarBloco?: (sondagem: Sondagem) => void;
+  /** 2026-09-09: 'ia' = Inquérito IA (temas + informações → IA sugere pergunta/opções). */
+  modo?: 'normal' | 'ia';
 }
 
-export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstituicao, criadaPor, addAuditLog, onCriarBloco }: Props) {
+export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstituicao, criadaPor, addAuditLog, onCriarBloco, modo = 'normal' }: Props) {
+  const modoIA = modo === 'ia';
   const [pergunta, setPergunta] = useState('');
   const [opcoes, setOpcoes] = useState<OpcaoSondagem[]>([novaOpcao(0), novaOpcao(1)]);
   const [permitirVarias, setPermitirVarias] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  // Inquérito IA
+  const [temasIA, setTemasIA] = useState('');
+  const [informacoesIA, setInformacoesIA] = useState('');
+  const [gerandoIA, setGerandoIA] = useState(false);
+  const [geradoIA, setGeradoIA] = useState(false);
   const [disponivel, setDisponivel] = useState<boolean | null>(null);
   const [ambito, setAmbito] = useState<{ classificacao: AbrangenciaSondagem; n: number; semProvincia?: number } | null>(null);
   const [alerta, setAlerta] = useState<string | null>(null);
@@ -40,6 +48,7 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
     if (!aberto) return;
     setPergunta(''); setOpcoes([novaOpcao(0), novaOpcao(1)]);
     setPermitirVarias(false); setEnviando(false); setAlerta(null); setAmbito(null);
+    setTemasIA(''); setInformacoesIA(''); setGerandoIA(false); setGeradoIA(false);
     (async () => {
       const ok = await sondagensDisponiveis();
       setDisponivel(ok);
@@ -58,6 +67,22 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
     const textos = opcoes.map(o => o.texto.trim()).filter(Boolean);
     return textos;
   }, [opcoes]);
+
+  const gerarComIA = async () => {
+    const faltas: string[] = [];
+    if (!temasIA.trim()) faltas.push('os Temas que pretende investigar');
+    if (!informacoesIA.trim()) faltas.push('as Informações que precisam ser recolhidas');
+    if (faltas.length) { setAlerta(`Para a IA criar o inquérito está a faltar preencher: ${faltas.join(' e ')}.`); return; }
+    setGerandoIA(true);
+    const r = await gerarInqueritoIA({ temas: temasIA.trim(), informacoes: informacoesIA.trim(), instituicao: nomeInstituicao });
+    setGerandoIA(false);
+    if (!r.ok || !r.dados) { setAlerta(r.mensagem || 'Não foi possível gerar o inquérito com IA.'); return; }
+    setPergunta(r.dados.pergunta);
+    setOpcoes(r.dados.opcoes.map((texto, i) => ({ id: LETRAS[i] || String(i), texto })));
+    setPermitirVarias(r.dados.permitirVarias);
+    setGeradoIA(true);
+    addAuditLog(`Inquérito IA gerado para revisão (temas: «${temasIA.trim().slice(0, 60)}»).`, 'info');
+  };
 
   const enviar = async () => {
     const faltas: string[] = [];
@@ -120,12 +145,57 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
       <CdaModal
         aberto={aberto}
         onFechar={() => !enviando && onFechar()}
-        icone={BarChart3}
-        titulo="Criar Sondagem"
-        subtitulo="Difusão oficial pelo Correio Digital Angola — modelo WhatsApp"
+        icone={modoIA ? BrainCircuit : BarChart3}
+        titulo={modoIA ? 'Criar Sondagem com IA' : 'Criar Sondagem'}
+        subtitulo={modoIA ? 'A Inteligência Artificial sugere a pergunta e as opções — reveja antes de criar' : 'Difusão oficial pelo Correio Digital Angola — modelo WhatsApp'}
         maxW="max-w-2xl"
       >
         <div className="space-y-5 text-left">
+          {/* Inquérito IA — o que investigar e o que recolher */}
+          {modoIA && (
+            <div className="rounded-2xl border border-blue-100 bg-blue-50/40 p-4 space-y-4">
+              <div>
+                <label className="block font-sans font-black text-[10px] uppercase tracking-widest text-slate-500 mb-1.5">Temas que pretende investigar</label>
+                <textarea
+                  value={temasIA}
+                  maxLength={1500}
+                  rows={3}
+                  onChange={(e) => setTemasIA(e.target.value)}
+                  placeholder="Ex.: satisfação com o atendimento presencial; tempo de espera nos balcões; utilização dos serviços digitais"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-[#2563eb]/40 focus:border-[#2563eb]"
+                  id="inquerito-ia-temas"
+                />
+              </div>
+              <div>
+                <label className="block font-sans font-black text-[10px] uppercase tracking-widest text-slate-500 mb-1.5">Informações que precisam ser recolhidas</label>
+                <textarea
+                  value={informacoesIA}
+                  maxLength={1500}
+                  rows={3}
+                  onChange={(e) => setInformacoesIA(e.target.value)}
+                  placeholder="Ex.: grau de satisfação; principal motivo de insatisfação; canal preferido para ser atendido"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-[#2563eb]/40 focus:border-[#2563eb]"
+                  id="inquerito-ia-informacoes"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="m-0 text-[11px] font-semibold text-slate-500">
+                  {geradoIA ? 'Sugestão gerada. Pode editar a pergunta e as opções abaixo antes de criar.' : 'A IA transforma estes dados numa pergunta com opções de resposta.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={gerarComIA}
+                  disabled={gerandoIA || enviando}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#2563eb] hover:bg-blue-700 disabled:opacity-60 text-white text-[11px] font-black uppercase tracking-widest border-0 cursor-pointer shadow"
+                  id="btn-gerar-inquerito-ia"
+                >
+                  {gerandoIA ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  {gerandoIA ? 'A gerar…' : geradoIA ? 'Gerar novamente' : 'Gerar com IA'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Pergunta */}
           <div>
             <label className="block font-sans font-black text-[10px] uppercase tracking-widest text-slate-500 mb-1.5">Pergunta</label>
@@ -224,7 +294,7 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
             <button
               type="button"
               onClick={enviar}
-              disabled={enviando}
+              disabled={enviando || gerandoIA}
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#2563eb] hover:bg-blue-700 disabled:opacity-60 text-white text-[11px] font-black uppercase tracking-widest border-0 cursor-pointer shadow"
             >
               <Plus size={14} /> {enviando ? 'A criar…' : 'Criar Sondagem'}
@@ -238,7 +308,7 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
         aberto={!!alerta}
         onFechar={() => setAlerta(null)}
         icone={AlertTriangle}
-        titulo="Sondagem"
+        titulo={modoIA ? 'Sondagem com IA' : 'Sondagem'}
         tomIcone="bg-amber-50 text-amber-600 border-amber-100"
         maxW="max-w-md"
       >
