@@ -21,7 +21,11 @@ if [ -z "$TOKEN" ]; then
   exit 1
 fi
 
-git remote set-url origin "https://${TOKEN}@github.com/${REPO}.git"
+if git remote get-url origin >/dev/null 2>&1; then
+  git remote set-url origin "https://${TOKEN}@github.com/${REPO}.git"
+else
+  git remote add origin "https://${TOKEN}@github.com/${REPO}.git"
+fi
 echo "→ Remote autenticado. A fazer push de $(git branch --show-current)..."
 git push origin "$(git branch --show-current)"
 echo "✓ Push concluído para ${REPO}"
