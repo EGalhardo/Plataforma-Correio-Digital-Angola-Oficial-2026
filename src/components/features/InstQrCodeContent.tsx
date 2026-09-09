@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import jsQR from 'jsqr';
 import {
   QrCode,
   ScanLine,
@@ -133,60 +134,100 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
   messagesRef.current = messages;
   const documentsRef = useRef<Document[]>(documents);
   documentsRef.current = documents;
-  // 2026-08-21 — MOTOR DE DESCODIFICAÇÃO DA CÂMARA (jsQR):
-  // o ZXing empacotado no html5-qrcode falha em QR Codes DENSOS quando o
-  // canvas passa dos ~250px (provado em browser com o QR real do utilizador:
-  // 150px LÊ, 298px FALHA, 318px pixel-perfect FALHA, 600px FALHA). A câmara
-  // alimenta o ZXing SEMPRE com ~250px (proporção vídeo/caixa fixa) — a
-  // leitura por câmara falhava em qualquer dispositivo, enquanto a via
-  // Ficheiro funciona (imagens ~150-180px). O jsQR descodifica exatamente os
-  // mesmos frames da câmara (verificado no canvas real da app). O html5-qrcode
-  // continua a gerir o stream da câmara e a via Ficheiro; o jsQR substitui
-  // apenas o decodificador do vídeo.
-  const jsQrLoopRef = useRef<number | null>(null);
-  const jsQrCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const jsQrPromiseRef = useRef<Promise<typeof import('jsqr')> | null>(null);
+  // 2026-09-09 — PIPELINE MULTI-MOTOR DE DESCODIFICAÇÃO DE QR CODES:
+  // 1. Motor Nativo (Hardware/GPU): BarcodeDetector (Chrome/Edge/Safari/Android),
+  //    descodifica em tempo real a 60fps diretamente do frame de vídeo;
+  // 2. Motor Software (jsQR): processamento multi-escala com suporte a inversão
+  //    de cores (attemptBoth) e recorte de alta definição (ROI central) para
+  //    leitura instantânea de códigos densos (governamentais/protocolos longos);
+  // 3. Motor Html5Qrcode/ZXing: descodificador auxiliar de retaguarda.
+  const scanLoopRef = useRef<number | null>(null);
+  const scanCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const barcodeDetectorRef = useRef<any>(null);
   const scanResolvedRef = useRef(false);
 
-  const stopJsQrLoop = () => {
-    if (jsQrLoopRef.current !== null) {
-      clearInterval(jsQrLoopRef.current);
-      jsQrLoopRef.current = null;
+  const stopQrScanningLoop = () => {
+    if (scanLoopRef.current !== null) {
+      clearInterval(scanLoopRef.current);
+      scanLoopRef.current = null;
     }
   };
 
-  const startJsQrLoop = () => {
-    stopJsQrLoop();
+  const startQrScanningLoop = () => {
+    stopQrScanningLoop();
     scanResolvedRef.current = false;
-    jsQrLoopRef.current = window.setInterval(async () => {
+    scanLoopRef.current = window.setInterval(async () => {
       try {
         const video = document.querySelector<HTMLVideoElement>('#react-reader-camera-view video');
         if (!video || video.readyState < 2 || video.videoWidth === 0 || scanResolvedRef.current) return;
-        if (!jsQrCanvasRef.current) jsQrCanvasRef.current = document.createElement('canvas');
-        const canvas = jsQrCanvasRef.current;
-        // tamanho controlado (~400px) — o jsQR lê com folga nesta escala
-        const scale = Math.min(1, 400 / video.videoWidth);
-        const w = Math.round(video.videoWidth * scale);
-        const h = Math.round(video.videoHeight * scale);
-        if (canvas.width !== w) canvas.width = w;
-        if (canvas.height !== h) canvas.height = h;
+
+        // 1. MOTOR NATIVO: BarcodeDetector acelerado por hardware
+        if (typeof (window as any).BarcodeDetector !== 'undefined') {
+          try {
+            if (!barcodeDetectorRef.current) {
+              barcodeDetectorRef.current = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+            }
+            const barcodes = await barcodeDetectorRef.current.detect(video);
+            if (barcodes && barcodes.length > 0 && barcodes[0]?.rawValue && !scanResolvedRef.current) {
+              scanResolvedRef.current = true;
+              stopQrScanningLoop();
+              stopCamera();
+              processResult(barcodes[0].rawValue, 'câmera');
+              return;
+            }
+          } catch {
+            // Silenciosamente continua para o motor jsQR
+          }
+        }
+
+        // 2. MOTOR SOFTWARE: jsQR com Multi-Escala + Inversão de Cores
+        if (!scanCanvasRef.current) scanCanvasRef.current = document.createElement('canvas');
+        const canvas = scanCanvasRef.current;
+        const videoW = video.videoWidth;
+        const videoH = video.videoHeight;
+        if (!videoW || !videoH) return;
+
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return;
+
+        // Pass 1: Imagem completa escalada (alta fidelidade até 960px para apanhar QR em qualquer ponto do enquadramento)
+        const maxDim = 960;
+        const scale = Math.min(1, maxDim / Math.max(videoW, videoH));
+        const w = Math.round(videoW * scale);
+        const h = Math.round(videoH * scale);
+
+        if (canvas.width !== w) canvas.width = w;
+        if (canvas.height !== h) canvas.height = h;
+
         ctx.drawImage(video, 0, 0, w, h);
-        const img = ctx.getImageData(0, 0, w, h);
-        if (!jsQrPromiseRef.current) jsQrPromiseRef.current = import('jsqr');
-        const jsQR = (await jsQrPromiseRef.current).default;
-        const code = jsQR(img.data, w, h);
+        const imgData = ctx.getImageData(0, 0, w, h);
+        let code = jsQR(imgData.data, w, h, { inversionAttempts: 'attemptBoth' });
+
+        // Pass 2: Recorte central em Alta Definição (ROI a 100% da resolução nativa para QRs densos ao centro)
+        if (!code && (videoW >= 600 || videoH >= 600)) {
+          const cropSize = Math.min(videoW, videoH) * 0.75;
+          const sx = (videoW - cropSize) / 2;
+          const sy = (videoH - cropSize) / 2;
+          const cropDim = Math.min(Math.round(cropSize), 720);
+
+          if (canvas.width !== cropDim) canvas.width = cropDim;
+          if (canvas.height !== cropDim) canvas.height = cropDim;
+
+          ctx.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, cropDim, cropDim);
+          const cropImgData = ctx.getImageData(0, 0, cropDim, cropDim);
+          code = jsQR(cropImgData.data, cropDim, cropDim, { inversionAttempts: 'attemptBoth' });
+        }
+
         if (code && code.data && !scanResolvedRef.current) {
           scanResolvedRef.current = true;
-          stopJsQrLoop();
+          stopQrScanningLoop();
           stopCamera();
           processResult(code.data, 'câmera');
         }
       } catch {
-        /* frame ilegível — tenta a próxima */
+        /* frame ilegível — continua no próximo ciclo */
       }
-    }, 150);
+    }, 60);
   };
 
   // Scanner - File State
@@ -321,7 +362,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
   // CAMERA STREAM & SCANNER CONTROLS
   // -------------------------
   const cleanupCameraInstance = async () => {
-    stopJsQrLoop();
+    stopQrScanningLoop();
     if (qrReaderRef.current) {
       try {
         if (qrReaderRef.current.isScanning) {
@@ -379,7 +420,10 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
     }
 
     try {
-      const html5QrCode = new Html5Qrcode("react-reader-camera-view");
+      const html5QrCode = new Html5Qrcode("react-reader-camera-view", {
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+        verbose: false
+      });
       qrReaderRef.current = html5QrCode;
 
       const cameraSelector = targetCameraId ? targetCameraId : { facingMode: targetFacingMode };
@@ -387,18 +431,13 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
       await html5QrCode.start(
         cameraSelector,
         {
-          fps: 15,
-          aspectRatio: 1.0,
-          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            const qrboxSize = Math.floor(minEdge * 0.75);
-            return { width: qrboxSize, height: qrboxSize };
-          },
+          fps: 20,
+          disableFlip: false,
         },
         (decodedText) => {
           if (scanResolvedRef.current) return;
           scanResolvedRef.current = true;
-          stopJsQrLoop();
+          stopQrScanningLoop();
           stopCamera();
           processResult(decodedText, 'câmera');
         },
@@ -410,7 +449,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
       );
 
       setReadStatusText('📷 Aponte a câmara ao QR Code — mantenha-o dentro do quadrado.');
-      startJsQrLoop();
+      startQrScanningLoop();
       return true;
     } catch (err) {
       console.error("[CDA-camera] Falha ao iniciar câmara:", err);
@@ -419,23 +458,21 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
       if (targetCameraId) {
         try {
           console.log("[CDA-camera] Tentando fallback com facingMode...");
-          const html5QrCode = new Html5Qrcode("react-reader-camera-view");
+          const html5QrCode = new Html5Qrcode("react-reader-camera-view", {
+            experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+            verbose: false
+          });
           qrReaderRef.current = html5QrCode;
           await html5QrCode.start(
             { facingMode: targetFacingMode },
             {
-              fps: 15,
-              aspectRatio: 1.0,
-              qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-                const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                const qrboxSize = Math.floor(minEdge * 0.75);
-                return { width: qrboxSize, height: qrboxSize };
-              },
+              fps: 20,
+              disableFlip: false,
             },
             (decodedText) => {
               if (scanResolvedRef.current) return;
               scanResolvedRef.current = true;
-              stopJsQrLoop();
+              stopQrScanningLoop();
               stopCamera();
               processResult(decodedText, 'câmera');
             },
@@ -443,7 +480,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
           );
           setSelectedCameraId(null);
           setReadStatusText('📷 Aponte a câmara ao QR Code — mantenha-o dentro do quadrado.');
-          startJsQrLoop();
+          startQrScanningLoop();
           return true;
         } catch (fallbackErr) {
           console.error("[CDA-camera] Fallback com facingMode também falhou:", fallbackErr);
@@ -897,30 +934,59 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
     setReadImgPreview(url);
     setReadStatusText('⏳ Lendo QR Code...');
 
-    const tempId = 'temp-read-qr-canvas';
-    let tempEl = document.getElementById(tempId);
-    if (!tempEl) {
-      tempEl = document.createElement('div');
-      tempEl.id = tempId;
-      tempEl.style.display = 'none';
-      document.body.appendChild(tempEl);
-    }
+    // 1. Descodificação direta de alta performance via jsQR em canvas
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          const imgData = ctx.getImageData(0, 0, img.width, img.height);
+          const code = jsQR(imgData.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
+          if (code && code.data) {
+            setReadStatusText('✅ QR Code lido com sucesso!');
+            processResult(code.data, 'arquivo');
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('[CDA-file] jsQR não detetou no ficheiro:', e);
+      }
 
-    const tmpScanner = new Html5Qrcode(tempId);
-    tmpScanner.scanFile(file, true)
-      .then((result) => {
-        setReadStatusText('✅ QR Code lido com sucesso!');
-        processResult(result, 'arquivo');
-      })
-      .catch(() => {
-        setReadStatusText('❌ Nenhum QR Code encontrado na imagem.');
-        showToast('Não foi possível ler nenhum QR Code na imagem.', 'error');
-        setTimeout(() => {
-          setReadSelectedFile(null);
-          setReadImgPreview('');
-          setReadStatusText('');
-        }, 3000);
-      });
+      // 2. Fallback secundário com Html5Qrcode scanFile
+      const tempId = 'temp-read-qr-canvas';
+      let tempEl = document.getElementById(tempId);
+      if (!tempEl) {
+        tempEl = document.createElement('div');
+        tempEl.id = tempId;
+        tempEl.style.display = 'none';
+        document.body.appendChild(tempEl);
+      }
+
+      const tmpScanner = new Html5Qrcode(tempId, { experimentalFeatures: { useBarCodeDetectorIfSupported: true }, verbose: false });
+      tmpScanner.scanFile(file, true)
+        .then((result) => {
+          setReadStatusText('✅ QR Code lido com sucesso!');
+          processResult(result, 'arquivo');
+        })
+        .catch(() => {
+          setReadStatusText('❌ Nenhum QR Code encontrado na imagem.');
+          showToast('Não foi possível ler nenhum QR Code na imagem.', 'error');
+          setTimeout(() => {
+            setReadSelectedFile(null);
+            setReadImgPreview('');
+            setReadStatusText('');
+          }, 3000);
+        });
+    };
+    img.onerror = () => {
+      setReadStatusText('❌ Falha ao carregar ficheiro de imagem.');
+      showToast('Não foi possível processar o ficheiro de imagem.', 'error');
+    };
+    img.src = url;
   };
 
   const handleDragOver = (e: React.DragEvent) => {
