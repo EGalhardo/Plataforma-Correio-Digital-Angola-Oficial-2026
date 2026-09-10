@@ -30,7 +30,7 @@ export const HIGHLIGHT_SLIDES: Slide[] = [
     title: "Seu BI é o seu endereço digital",
     subtitle: "Aceda a correspondências e documentos oficiais de forma segura e centralizada em qualquer lugar.",
     image: "https://i.postimg.cc/s24k4tkd/1-Desktop.png",
-    mobileImage: "https://i.postimg.cc/PxyLsDRC/1.png",
+    mobileImage: "https://i.postimg.cc/cCjZZTW5/0w.png",
     btn: "Ver Correspondências",
     action: "correspondencias"
   },
@@ -39,7 +39,7 @@ export const HIGHLIGHT_SLIDES: Slide[] = [
     title: "Segurança de Nível Estatal",
     subtitle: "Dados protegidos por criptografia de ponta a ponta e biometria para garantir a total privacidade do cidadão.",
     image: "https://i.postimg.cc/DwVRkvFK/3-Desktop.png",
-    mobileImage: "https://i.postimg.cc/8P0Zgf8G/3.png",
+    mobileImage: "https://i.postimg.cc/Vs3LxLNY/1w.jpg",
     btn: "Configurar Segurança",
     action: "perfil"
   },
@@ -48,7 +48,7 @@ export const HIGHLIGHT_SLIDES: Slide[] = [
     title: "Notificações em Tempo Real",
     subtitle: "Receba alertas instantâneos sobre multas, impostos e agendamentos governamentais.",
     image: "https://i.postimg.cc/k45pFDNC/4-Desktop.png",
-    mobileImage: "https://i.postimg.cc/1XgNGtvV/4.png",
+    mobileImage: "https://i.postimg.cc/dV9sZ2jW/2w.jpg",
     btn: "Ver Alertas",
     action: "correspondencias"
   },
@@ -57,7 +57,7 @@ export const HIGHLIGHT_SLIDES: Slide[] = [
     title: "Contactos de Emergência",
     subtitle: "Mantenha a sua rede de confiança atualizada para situações críticas.",
     image: "https://i.postimg.cc/br7VhT7R/5-Desktop.png",
-    mobileImage: "https://i.postimg.cc/pTSmLvPd/5.png",
+    mobileImage: "https://i.postimg.cc/DwfVDt18/3w.png",
     btn: "Gerir Contactos",
     action: "contatos"
   },
@@ -66,7 +66,7 @@ export const HIGHLIGHT_SLIDES: Slide[] = [
     title: "Assistência por IA Oficial",
     subtitle: "Tire dúvidas sobre processos burocráticos e receba orientações personalizadas.",
     image: "https://i.postimg.cc/PqLKHcdm/6-Desktop.png",
-    mobileImage: "https://i.postimg.cc/Bv6DSM2R/6.png",
+    mobileImage: "https://i.postimg.cc/T3NsshRs/4w.jpg",
     btn: "Abrir Conversa",
     action: "home"
   },
@@ -75,7 +75,7 @@ export const HIGHLIGHT_SLIDES: Slide[] = [
     title: "Angola Digital em Movimento",
     subtitle: "A modernização dos serviços públicos ao serviço de todos os angolanos.",
     image: "https://i.postimg.cc/NMjsL1zv/7.png",
-    mobileImage: "https://i.postimg.cc/9MgLXD41/7.png",
+    mobileImage: "https://i.postimg.cc/25B0Xw9m/5w.jpg",
     btn: "Saber Mais",
     action: "home"
   }
@@ -131,6 +131,7 @@ export const INST_HIGHLIGHT_SLIDES: Slide[] = [
     title: "Interoperabilidade Ativa",
     subtitle: "Conectividade em tempo real entre todas as instituições do Estado para um serviço público ágil.",
     image: "https://i.postimg.cc/Z5WRTqbM/e1.png",
+    mobileImage: "https://i.postimg.cc/cCjZZTW5/0w.png",
     btn: "Ver Redes",
     action: "home"
   },
@@ -139,6 +140,7 @@ export const INST_HIGHLIGHT_SLIDES: Slide[] = [
     title: "Comunicação Consular e Diplomática",
     subtitle: "Expediente digital seguro para embaixadas, consulados e missões diplomáticas no exterior.",
     image: "https://i.postimg.cc/sfKD7Wvd/e2.png",
+    mobileImage: "https://i.postimg.cc/3JJnH7br/1w.jpg",
     btn: "Ver Mensagens",
     action: "home"
   },
@@ -147,6 +149,7 @@ export const INST_HIGHLIGHT_SLIDES: Slide[] = [
     title: "Segurança de Dados Institucionais",
     subtitle: "Criptografia avançada e auditoria permanente em todos os fluxos de correspondência oficial.",
     image: "https://i.postimg.cc/dQWwLKxJ/e3.png",
+    mobileImage: "https://i.postimg.cc/zvDS5S7j/2w.jpg",
     btn: "Auditoria",
     action: "home"
   },
@@ -155,6 +158,7 @@ export const INST_HIGHLIGHT_SLIDES: Slide[] = [
     title: "Modernização Administrativa",
     subtitle: "Redução de burocracia e facilitação de processos de emissão de certidões e alvarás.",
     image: "https://i.postimg.cc/qMPf3Bc8/e4.png",
+    mobileImage: "https://i.postimg.cc/Zqk80hjb/3w.jpg",
     btn: "Consultar",
     action: "home"
   },
@@ -163,6 +167,7 @@ export const INST_HIGHLIGHT_SLIDES: Slide[] = [
     title: "Angola Digital 2026",
     subtitle: "Uma era de governação eletrónica mais eficiente, inclusiva e transparente.",
     image: "https://i.postimg.cc/rwXbpncJ/e5.png",
+    mobileImage: "https://i.postimg.cc/prd83VVD/4w.jpg",
     btn: "Saber Mais",
     action: "home"
   },
@@ -171,6 +176,7 @@ export const INST_HIGHLIGHT_SLIDES: Slide[] = [
     title: "Gestão Integrada de Redes",
     subtitle: "Monitorização em tempo real da conectividade e tráfego de dados intergovenamentais.",
     image: "https://i.postimg.cc/nVspjW8N/e6.png",
+    mobileImage: "https://i.postimg.cc/ZKCpcqMd/5w.jpg",
     btn: "Monitor de Tráfego",
     action: "home"
   }
