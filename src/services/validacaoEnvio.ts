@@ -32,6 +32,8 @@ export function validarEnvio(d: {
   /** v37.78.3 — sondagens embutidas (não afecta a validação; presente no
    *  composeData partilhado com o App). */
   sondagensIds?: number[];
+  /** 2026-09-10 — Inquéritos com IA embutidos (não afecta a validação). */
+  inqueritosIaIds?: number[];
 }): ResultadoValidacaoEnvio {
   const bloqueios: string[] = [];
   const avisos: string[] = [];

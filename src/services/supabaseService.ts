@@ -1133,7 +1133,7 @@ export const supabaseService = {
     }
   },
 
-  async sendOfficialMessage(msg: Message, citizenBi: string, institutionLabel: string, sondagemIds?: number[]) {
+  async sendOfficialMessage(msg: Message, citizenBi: string, institutionLabel: string, sondagemIds?: number[], inqueritoIaIds?: number[]) {
     if (!hasValidSupabaseKeys()) return null;
     try {
       const resolvedBi = resolveCitizenBi(citizenBi);
@@ -1156,6 +1156,11 @@ export const supabaseService = {
         // excluído da difusão por âmbito para não receber duas entregas iguais).
         ...(sondagemIds && sondagemIds.length
           ? { sondagem_id: sondagemIds[0], sondagem_ids: sondagemIds }
+          : {}),
+        // 2026-09-10 — Inquérito(s) com IA embutido(s): o destinatário manual
+        // vê o cartão «Responder por conversa» na própria mensagem (v38).
+        ...(inqueritoIaIds && inqueritoIaIds.length
+          ? { inquerito_ia_id: inqueritoIaIds[0], inquerito_ia_ids: inqueritoIaIds }
           : {}),
       };
       return await gravarDados(
@@ -1631,7 +1636,10 @@ export const supabaseService = {
           protocol: protocoloDaLinha(item.protocol_number),
           // v36 — sondagem ligada à difusão; v37 — múltiplas sondagens embutidas
           sondagem_id: (item as any).sondagem_id ?? null,
-          sondagem_ids: (item as any).sondagem_ids ?? null
+          sondagem_ids: (item as any).sondagem_ids ?? null,
+          // 2026-09-10 — Inquérito(s) com IA conversacional embutido(s) (v38)
+          inquerito_ia_id: (item as any).inquerito_ia_id ?? null,
+          inquerito_ia_ids: (item as any).inquerito_ia_ids ?? null
         };
       });
     } catch (e) {
@@ -1707,7 +1715,10 @@ export const supabaseService = {
         protocol: protocoloDaLinha(item.protocol_number),
         // v36 — sondagem ligada à difusão; v37 — múltiplas sondagens embutidas
         sondagem_id: (item as any).sondagem_id ?? null,
-        sondagem_ids: (item as any).sondagem_ids ?? null
+        sondagem_ids: (item as any).sondagem_ids ?? null,
+        // 2026-09-10 — Inquérito(s) com IA conversacional embutido(s) (v38)
+        inquerito_ia_id: (item as any).inquerito_ia_id ?? null,
+        inquerito_ia_ids: (item as any).inquerito_ia_ids ?? null
       }));
 
       // F14 — IDs do canal legado por sigla: cópias locais etiquetadas por
@@ -1771,7 +1782,10 @@ export const supabaseService = {
         protocol: protocoloDaLinha(item.protocol_number),
         // v36 — sondagem ligada à difusão; v37 — múltiplas sondagens embutidas
         sondagem_id: (item as any).sondagem_id ?? null,
-        sondagem_ids: (item as any).sondagem_ids ?? null
+        sondagem_ids: (item as any).sondagem_ids ?? null,
+        // 2026-09-10 — Inquérito(s) com IA conversacional embutido(s) (v38)
+        inquerito_ia_id: (item as any).inquerito_ia_id ?? null,
+        inquerito_ia_ids: (item as any).inquerito_ia_ids ?? null
       }));
     } catch (e) {
       console.error('Supabase getSentMessagesBySender error:', e);
@@ -1867,7 +1881,10 @@ export const supabaseService = {
             protocol: protocoloDaLinha(item.protocol_number),
             // v36 — sondagem ligada à difusão (enquete estilo WhatsApp); v37 — múltiplas
             sondagem_id: (item as any).sondagem_id ?? null,
-            sondagem_ids: (item as any).sondagem_ids ?? null
+            sondagem_ids: (item as any).sondagem_ids ?? null,
+            // 2026-09-10 — Inquérito(s) com IA conversacional embutido(s) (v38)
+            inquerito_ia_id: (item as any).inquerito_ia_id ?? null,
+            inquerito_ia_ids: (item as any).inquerito_ia_ids ?? null
           };
         };
         const mapped = rows.map(mapRow);

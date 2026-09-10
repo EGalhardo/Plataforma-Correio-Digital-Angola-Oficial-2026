@@ -205,6 +205,15 @@ Este comando devolve:
 
 ---
 
+## Inquérito com IA (v38)
+
+Modalidade conversacional de inquérito: a instituição escreve 2 textos, a IA
+deduz o guião e conversa com cada cidadão (texto/voz); a instituição vê apenas
+agregados. Guia técnico, contratos da API, migração e testes em
+[`docs/INQUERITO_COM_IA.md`](docs/INQUERITO_COM_IA.md).
+
+---
+
 ## Nota
 
 O projeto está preparado para continuar a evoluir sem alterar a identidade visual do portal, preservando simplicidade, atratividade e foco institucional.

@@ -1959,7 +1959,7 @@ export default function App() {
   const [correspondenciaTab, setCorrespondenciaTab] = useState('lidas');
   const [videoSessionCount, setVideoSessionCount] = useState(0);
   const [isComposing, setIsComposing] = useState(false);
-  const [composeData, setComposeData] = useState<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[] }>({ to: '', subject: '', body: '', attachments: [], toArray: [] });
+  const [composeData, setComposeData] = useState<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[]; inqueritosIaIds?: number[] }>({ to: '', subject: '', body: '', attachments: [], toArray: [] });
 
   const [documentosTab, setDocumentosTab] = useState('lidas');
   const [isDocComposing, setIsDocComposing] = useState(false);
@@ -4568,6 +4568,8 @@ export default function App() {
           attachments: composeData.attachments || [],
           // v37.78.3 — sondagens embutidas: cada cópia leva o cartão de resposta.
           ...(composeData.sondagensIds?.length ? { sondagensIds: composeData.sondagensIds } : {}),
+          // 2026-09-10 — Inquéritos com IA embutidos: cada cópia leva o cartão de conversa.
+          ...(composeData.inqueritosIaIds?.length ? { inqueritosIaIds: composeData.inqueritosIaIds } : {}),
           // v37.78.8 — sem comprovativo individual (o resumo abre no fim do lote).
           silencioso: true,
         }).then(res => ({ dest, res }))
@@ -4619,6 +4621,8 @@ export default function App() {
     // correspondência oficial do destinatário MANUAL leva o cartão de resposta
     // (a difusão por âmbito excluiu este destinatário para não duplicar entregas).
     const sondagensIdsEnvio = override?.sondagensIds ?? composeData.sondagensIds;
+    // 2026-09-10 — Inquéritos com IA embutidos (mesmo mecanismo das sondagens).
+    const inqueritosIaIdsEnvio = override?.inqueritosIaIds ?? composeData.inqueritosIaIds;
     // Validação do conteúdo: destinatário e corpo obrigatórios (corpo só com espaços não envia).
     if (!to || !body.trim()) {
       notify('A mensagem está vazia. Escreva o conteúdo antes de enviar.', 'warning');
@@ -4718,7 +4722,7 @@ export default function App() {
     const isOfficialDispatch = isInstMode || isGovMode;
     try {
       const sendPromise = isOfficialDispatch
-        ? supabaseService.sendOfficialMessage(newMessage, to, isInstMode ? institutionCode : 'CDA', sondagensIdsEnvio)
+        ? supabaseService.sendOfficialMessage(newMessage, to, isInstMode ? institutionCode : 'CDA', sondagensIdsEnvio, inqueritosIaIdsEnvio)
         : supabaseService.sendCitizenMessage(newMessage, bi, to, user.name || profileName);
       await sendPromise;
       // v37.78.12 — PERFORMANCE: as 3 escritas pós-envio são INDEPENDENTES

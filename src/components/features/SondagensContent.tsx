@@ -3,7 +3,7 @@
 // (v36.1, spec §5). Gráfico de barras via recharts (chunk «charts» já existe).
 // ============================================================================
 import { useCallback, useEffect, useState } from 'react';
-import { BarChart3, ChevronDown, ChevronUp, Lock, Users } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronUp, Lock, Users, MessagesSquare, Loader2 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList,
 } from 'recharts';
@@ -11,6 +11,13 @@ import {
   encerrarSondagem, listarSondagens, resultadosSondagem, sondagensDisponiveis,
   type Sondagem,
 } from '../../services/sondagemService';
+// 2026-09-10 — Inquéritos com IA (PROMPT v3 §4.5): aparecem na mesma lista
+// com badge «IA», contadores e popup «Resultados do Inquérito com IA».
+import {
+  inqueritosIaDisponiveis, listarInqueritosIA, contadoresInqueritoIA,
+  type InqueritoIA, type ContadoresInqueritoIA,
+} from '../../services/inqueritoIaService';
+import { InqueritoIaResultados } from './InqueritoIaResultados';
 
 const CORES = ['#2563eb', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316', '#64748b', '#0c2340'];
 
@@ -25,6 +32,10 @@ export function SondagensContent({ codigoInstituicao, addAuditLog }: Props) {
   const [aberta, setAberta] = useState<number | null>(null);
   const [dados, setDados] = useState<Record<number, { rotulo: string; votos: number }[]>>({});
   const [carregando, setCarregando] = useState(false);
+  // Inquéritos com IA
+  const [listaIA, setListaIA] = useState<InqueritoIA[]>([]);
+  const [contIA, setContIA] = useState<Record<number, ContadoresInqueritoIA>>({});
+  const [resultadosIA, setResultadosIA] = useState<InqueritoIA | null>(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -34,6 +45,16 @@ export function SondagensContent({ codigoInstituicao, addAuditLog }: Props) {
       const r = await listarSondagens(codigoInstituicao);
       // v37: rascunhos vivem apenas no compositor — a lista mostra ativa/encerrada
       if (r.ok) setLista((r.dados || []).filter(s => s.status !== 'rascunho'));
+      if (await inqueritosIaDisponiveis()) {
+        const q = await listarInqueritosIA(codigoInstituicao);
+        if (q.ok) {
+          const itens = q.dados || [];
+          setListaIA(itens);
+          // contadores em paralelo (RPC leve); falhas individuais não bloqueiam
+          const pares = await Promise.all(itens.map(async (i) => [i.id, await contadoresInqueritoIA(i)] as const));
+          setContIA(Object.fromEntries(pares));
+        }
+      }
     }
     setCarregando(false);
   }, [codigoInstituicao]);
@@ -69,7 +90,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog }: Props) {
         <span className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><BarChart3 size={18} /></span>
         <div>
           <h2 className="font-sans font-black text-[#0c2340] text-base uppercase tracking-tight">Sondagens</h2>
-          <p className="text-[11px] font-medium text-slate-500">Sondagens criadas por {codigoInstituicao} — clique para ver os resultados.</p>
+          <p className="text-[11px] font-medium text-slate-500">Sondagens e inquéritos com IA criados por {codigoInstituicao} — clique para ver os resultados.</p>
         </div>
       </div>
 
@@ -82,10 +103,56 @@ export function SondagensContent({ codigoInstituicao, addAuditLog }: Props) {
         </div>
       )}
 
-      {disponivel === true && !carregando && lista.length === 0 && (
+      {disponivel === true && !carregando && lista.length === 0 && listaIA.length === 0 && (
         <div className="rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center">
-          <p className="text-sm font-semibold text-slate-500">Ainda não criou nenhuma sondagem. Use «Criar Sondagem» na página Correio.</p>
+          <p className="text-sm font-semibold text-slate-500">Ainda não criou nenhuma sondagem. Use «Criar Inquérito» na página Correio.</p>
         </div>
+      )}
+
+      {/* 2026-09-10 — Inquéritos com IA (conversacionais) */}
+      {listaIA.map((q) => {
+        const c = contIA[q.id];
+        const titulo = q.guiao?.objectivo || q.o_que_pretende_saber;
+        return (
+          <div key={`ia-${q.id}`} className="rounded-2xl border border-indigo-100 bg-white shadow-sm overflow-hidden" data-testid="inquerito-ia-linha">
+            <button
+              type="button"
+              onClick={() => setResultadosIA(q)}
+              className="w-full flex items-center justify-between gap-3 px-5 py-4 bg-transparent border-0 cursor-pointer text-left hover:bg-indigo-50/40 transition-colors"
+              title="Ver resultados do inquérito com IA"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-slate-800 truncate m-0 flex items-center gap-2">
+                  <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest"><MessagesSquare size={10} /> IA</span>
+                  <span className="truncate">{titulo}</span>
+                </p>
+                <p className="text-[11px] font-medium text-slate-500 mt-1 m-0 flex items-center gap-x-1.5 flex-wrap">
+                  {new Date(q.created_at).toLocaleDateString('pt-PT')} · âmbito {q.abrangencia === 'nacional' ? 'Nacional' : q.abrangencia === 'regional' ? 'Regional' : 'Local'} ·{' '}
+                  <span className={q.status === 'ativo' ? 'text-emerald-600 font-bold' : 'text-slate-500 font-bold'}>{q.status}</span>
+                  <span className="text-slate-300">|</span>
+                  {c ? (
+                    <span className="tabular-nums" data-testid="inquerito-ia-contadores-linha">
+                      <b className="text-slate-700">{c.enviados}</b> enviados · <b className="text-blue-700">{c.iniciados}</b> iniciados · <b className="text-emerald-700">{c.concluidos}</b> concluídos · <b className="text-rose-700">{c.recusados}</b> recusados
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1"><Loader2 size={11} className="animate-spin" /> a contar…</span>
+                  )}
+                </p>
+              </div>
+              <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-indigo-600">Resultados</span>
+            </button>
+          </div>
+        );
+      })}
+
+      {resultadosIA && (
+        <InqueritoIaResultados
+          aberto
+          onFechar={() => setResultadosIA(null)}
+          inquerito={resultadosIA}
+          addAuditLog={addAuditLog}
+          onEncerrado={(id) => setListaIA((prev) => prev.map((p) => (p.id === id ? { ...p, status: 'encerrado' } : p)))}
+        />
       )}
 
       {lista.map((s) => {
