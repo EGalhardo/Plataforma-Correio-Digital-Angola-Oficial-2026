@@ -75,9 +75,13 @@ cai na conversa guiada do núcleo (sem IA), sem bloquear o cidadão.
 1. **SQL**: `supabase/v38_inqueritos_ia.sql` no SQL Editor do Supabase (já
    aplicado; é idempotente).
 2. **Variáveis** (Vercel e `.env` local): `GEMINI_API_KEY` e/ou `GROQ_API_KEY`
-   (já existentes); opcional `INQUERITO_IA_SAL` — sal do hash do BI. Se não
-   definido, usa-se um sal fixo interno; **definir em produção** e nunca o
-   alterar depois (mudar o sal quebra a ligação hash ↔ participação).
+   (já existentes) e `INQUERITO_IA_SAL` — sal do hash SHA-256 do BI
+   (`sha256(BI|SAL)`), gerado com `openssl rand -hex 32`. **Definida na Vercel
+   em 2026-09-10** (Production/Preview/Development, encriptada) e no cofre
+   local do dono. Cadeia de recurso no código: `INQUERITO_IA_SAL` →
+   `SUPABASE_SERVICE_ROLE_KEY` → constante interna. **Nunca alterar** depois do
+   1.º inquérito real: mudar o sal quebra a ligação participação ↔ cidadão nos
+   inquéritos activos (os encerrados mantêm os agregados).
 3. Não há passos de build adicionais.
 
 ## 5. Testes
