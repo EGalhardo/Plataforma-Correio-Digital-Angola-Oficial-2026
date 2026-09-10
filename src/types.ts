@@ -59,6 +59,9 @@ export interface ReplySendPayload {
   /** v37.78.3 — ids das sondagens embutidas na composição (expedição múltipla
    *  com sondagem: cada cópia do destinatário leva o cartão de resposta). */
   sondagensIds?: number[];
+  /** 2026-09-10 — ids dos Inquéritos com IA (conversacionais) embutidos na
+   *  composição (mesmo mecanismo das sondagens: messages.inquerito_ia_ids). */
+  inqueritosIaIds?: number[];
   /** v37.78.8 — EXPEDIÇÃO MÚLTIPLA: suprime o comprovativo individual deste
    *  envio; o resumo do LOTE abre UMA única vez no fim (1 confirmação para
    *  N destinatários, nunca N popups empilhados). */
@@ -111,6 +114,10 @@ export interface Message {
   sondagem_id?: number | null;
   /** v37 — múltiplas sondagens embutidas na mesma mensagem (retrocompatível). */
   sondagem_ids?: number[] | null;
+  /** 2026-09-10 (v38) — Inquérito com IA conversacional ligado à difusão; nullable. */
+  inquerito_ia_id?: number | null;
+  /** 2026-09-10 (v38) — múltiplos inquéritos IA embutidos (espelho de sondagem_ids). */
+  inquerito_ia_ids?: number[] | null;
   /** F15 — chave da sessão remetente (caixa "Enviadas" isolada por conta). */
   senderKey?: string;
 }

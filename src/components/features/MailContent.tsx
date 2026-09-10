@@ -57,7 +57,12 @@ import { CdaModal } from '../ui/CdaModal';
 import {
   distribuirSondagensCompostas, removerRascunhoSondagem, registarExpedicaoSondagens, type Sondagem,
 } from '../../services/sondagemService';
-import { Video, Loader2, CheckCircle2, AlertTriangle, Sparkles, CheckCheck, ClipboardCheck } from 'lucide-react';
+// 2026-09-10 — Inquérito com IA conversacional (PROMPT v3, Fase 2): bloco no
+// compositor + difusão pelo âmbito, espelhando o pipeline das sondagens.
+import {
+  distribuirInqueritosIA, removerRascunhoInqueritoIA, registarExpedicaoInqueritosIA, type InqueritoIA,
+} from '../../services/inqueritoIaService';
+import { Video, Loader2, CheckCircle2, AlertTriangle, Sparkles, CheckCheck, ClipboardCheck, MessagesSquare, Mic } from 'lucide-react';
 // F59 — a pesquisa teatral de 8s com textos governamentais inventados e
 // correspondência em MOCK_CITIZENS/MOCK_USERS foi REMOVIDA: o lookup do
 // destinatário é REAL (RPC auditada) e chega por props do App.
@@ -96,8 +101,8 @@ const getOrgBadgeStyles = (org: string) => {
 interface MailContentProps {
   isComposing: boolean;
   setIsComposing: (composing: boolean) => void;
-  composeData: { to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[] };
-  setComposeData: React.Dispatch<React.SetStateAction<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[] }>>;
+  composeData: { to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[]; inqueritosIaIds?: number[] };
+  setComposeData: React.Dispatch<React.SetStateAction<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[]; inqueritosIaIds?: number[] }>>;
   handleSendMessage: () => void | Promise<unknown>;
   unreadTotal: number;
   correspondenciaTab: string;
@@ -252,9 +257,12 @@ export function MailContent({
   const tentarEnviar = async () => {
     if (enviando || distribuindoSondagens) return; // v37.62 — anti-duplicação
     const v = validarEnvio(composeData);
-    // v37 — com sondagens na composição o corpo pode ir vazio (a distribuição
-    // trata do conteúdo); retira apenas o bloqueio de corpo vazio.
-    if (isInst && sondagensCompostas.length > 0) {
+    const temSondagens = isInst && sondagensCompostas.length > 0;
+    const temInqIA = isInst && inqueritosIaCompostos.length > 0;
+    const temBlocos = temSondagens || temInqIA;
+    // v37 — com sondagens/inquéritos na composição o corpo pode ir vazio (a
+    // distribuição trata do conteúdo); retira apenas o bloqueio de corpo vazio.
+    if (temBlocos) {
       v.bloqueios = v.bloqueios.filter((b) => b !== 'Escreve o conteúdo da mensagem antes de enviar.');
     }
     setValidacao(v);
@@ -266,7 +274,9 @@ export function MailContent({
     // v37 §1.5 — com sondagens na composição: ativa rascunhos e distribui por
     // âmbito (1 mensagem por cidadão, todas as sondagens embutidas) ANTES do
     // envio normal. Falha na distribuição ⇒ envio abortado com aviso honesto.
-    if (isInst && sondagensCompostas.length > 0) {
+    // 2026-09-10 — os Inquéritos com IA seguem o MESMO pipeline (difusão própria,
+    // 1 mensagem por cidadão com o cartão de conversa embutido).
+    if (temBlocos) {
       setDistribuindoSondagens(true);
       // v37.78.3 — destinatários MANUAIS da composição (to + toArray): excluídos
       // da difusão por âmbito porque recebem a própria correspondência oficial
@@ -277,77 +287,126 @@ export function MailContent({
           .map((t) => String(t || '').trim().toUpperCase().replace(/\s+/g, ''))
           .filter((t) => t && t !== 'TODOS'),
       ));
-      const dist = await distribuirSondagensCompostas({
-        codigo: bi,
-        nomeInstituicao: instNomeSondagem || bi,
-        sondagens: sondagensCompostas,
-        assuntoBase: composeData.subject || '',
-        corpoExtra: composeData.body || '',
-        excluirBis: manuais,
-      });
-      // v37.78.14 — ANTI-DUPLICAÇÃO: o flag só desce DEPOIS de o ramo TODOS
-      // concluir (popup de sucesso) ou de um erro honesto. Antes, a janela
-      // entre o fim da difusão e o popup permitia um 2.º clique duplicar toda
-      // a distribuição (44 entregas em vez de 22 — visto em produção).
-      if (!dist.ok || !dist.dados) {
-        setDistribuindoSondagens(false);
-        setAvisoSondagens(
-          dist.motivo === 'audiencia_vazia'
-            ? 'Não há cidadãos no âmbito desta instituição para receber a sondagem. Nada foi enviado.'
-            : dist.mensagem || 'Não foi possível distribuir a sondagem. Nada foi enviado.',
+      const nomeInst = instNomeSondagem || bi;
+      let audiencia = 0;
+      let classificacao = '';
+      if (temSondagens) {
+        const dist = await distribuirSondagensCompostas({
+          codigo: bi,
+          nomeInstituicao: nomeInst,
+          sondagens: sondagensCompostas,
+          assuntoBase: composeData.subject || '',
+          corpoExtra: composeData.body || '',
+          excluirBis: manuais,
+        });
+        // v37.78.14 — ANTI-DUPLICAÇÃO: o flag só desce DEPOIS de o ramo TODOS
+        // concluir (popup de sucesso) ou de um erro honesto. Antes, a janela
+        // entre o fim da difusão e o popup permitia um 2.º clique duplicar toda
+        // a distribuição (44 entregas em vez de 22 — visto em produção).
+        if (!dist.ok || !dist.dados) {
+          setDistribuindoSondagens(false);
+          setAvisoSondagens(
+            dist.motivo === 'audiencia_vazia'
+              ? 'Não há cidadãos no âmbito desta instituição para receber a sondagem. Nada foi enviado.'
+              : dist.mensagem || 'Não foi possível distribuir a sondagem. Nada foi enviado.',
+          );
+          return;
+        }
+        audiencia = dist.dados.audiencia; classificacao = dist.dados.classificacao;
+        addAuditLog?.(
+          `${sondagensCompostas.length} sondagem(ns) da instituição ${nomeInst} distribuída(s) a ${dist.dados.audiencia} cidadão(s)${manuais.length ? ` (destinatário(s) manual(is) ${manuais.join(', ')} recebe(m) a correspondência oficial com a(s) sondagem(ns) embutida(s))` : ''} — âmbito ${dist.dados.classificacao}, ${new Date().toLocaleString('pt-PT')}.`,
+          'success',
         );
-        return;
       }
-      addAuditLog?.(
-        `${sondagensCompostas.length} sondagem(ns) da instituição ${instNomeSondagem || bi} distribuída(s) a ${dist.dados.audiencia} cidadão(s)${manuais.length ? ` (destinatário(s) manual(is) ${manuais.join(', ')} recebe(m) a correspondência oficial com a(s) sondagem(ns) embutida(s))` : ''} — âmbito ${dist.dados.classificacao}, ${new Date().toLocaleString('pt-PT')}.`,
-        'success',
-      );
+      if (temInqIA) {
+        const distIA = await distribuirInqueritosIA({
+          codigo: bi,
+          nomeInstituicao: nomeInst,
+          inqueritos: inqueritosIaCompostos,
+          assuntoBase: composeData.subject || '',
+          corpoExtra: composeData.body || '',
+          excluirBis: manuais,
+        });
+        if (!distIA.ok || !distIA.dados) {
+          setDistribuindoSondagens(false);
+          if (temSondagens) setSondagensCompostas([]); // já distribuídas — não repetir num 2.º clique
+          setAvisoSondagens(
+            distIA.motivo === 'audiencia_vazia'
+              ? 'Não há cidadãos no âmbito desta instituição para receber o inquérito. Nada foi enviado.'
+              : distIA.motivo === 'sem_migracao'
+                ? 'Inquérito com IA disponível em Modo Real (Supabase) — aguarda a migração v38.'
+                : `${temSondagens ? 'A(s) sondagem(ns) foi(ram) distribuída(s), mas ' : ''}${distIA.mensagem || 'não foi possível distribuir o inquérito com IA.'}`,
+          );
+          return;
+        }
+        audiencia = Math.max(audiencia, distIA.dados.audiencia); classificacao = classificacao || distIA.dados.classificacao;
+        addAuditLog?.(
+          `${inqueritosIaCompostos.length} inquérito(s) com IA da instituição ${nomeInst} distribuído(s) a ${distIA.dados.audiencia} cidadão(s)${manuais.length ? ` (destinatário(s) manual(is) ${manuais.join(', ')} recebe(m) a correspondência oficial com o cartão de conversa embutido)` : ''} — âmbito ${distIA.dados.classificacao}, ${new Date().toLocaleString('pt-PT')}.`,
+          'success',
+        );
+      }
+      const corpoPadrao = temInqIA && !temSondagens
+        ? `${nomeInst} convida-o(a) a participar num breve inquérito conduzido por um assistente inteligente, por texto ou voz. A participação é anónima e demora poucos minutos. Abra a mensagem e toque em «Iniciar Inquérito».`
+        : temInqIA
+          ? `${nomeInst} convida-o(a) a participar na(s) sondagem(ns) e no inquérito oficial incluídos nesta mensagem. Abra a mensagem, toque em «Ver detalhes Completos», responda à(s) sondagem(ns) e toque em «Iniciar Inquérito».`
+          : `${nomeInst} convida-o(a) a participar na(s) sondagem(ns) oficial(is) incluída(s) nesta mensagem. Abra a mensagem, toque em «Ver detalhes Completos», escolha a sua opção e confirme com «Responder».`;
       // Destinatário «Todos» (v37): a difusão pelo âmbito oficial já entregou —
       // regista-se a expedição única (visível em «Enviadas») e confirma-se ao
       // utilizador com popup de sucesso.
       if (String(composeData.to).trim().toUpperCase() === 'TODOS') {
         const assuntoFinal = composeData.subject?.trim()
-          || `Sondagem${sondagensCompostas.length > 1 ? 's' : ''}: ${sondagensCompostas[0]?.pergunta || ''}`;
-        const corpoFinal = composeData.body?.trim()
-          || `${instNomeSondagem || bi} convida-o(a) a participar na(s) sondagem(ns) oficial(is) incluída(s) nesta mensagem. Abra a mensagem, toque em «Ver detalhes Completos», escolha a sua opção e confirme com «Responder».`;
-        await registarExpedicaoSondagens({
-          codigo: bi,
-          nomeInstituicao: instNomeSondagem || bi,
-          assunto: assuntoFinal,
-          corpo: corpoFinal,
-          sondagemIds: sondagensCompostas.map(s => s.id),
-        });
+          || (temSondagens
+            ? `Sondagem${sondagensCompostas.length > 1 ? 's' : ''}: ${sondagensCompostas[0]?.pergunta || ''}`
+            : `Inquérito: ${inqueritosIaCompostos[0]?.guiao?.objectivo || inqueritosIaCompostos[0]?.o_que_pretende_saber || ''}`);
+        const corpoFinal = composeData.body?.trim() || corpoPadrao;
+        if (temSondagens) {
+          await registarExpedicaoSondagens({
+            codigo: bi, nomeInstituicao: nomeInst, assunto: assuntoFinal, corpo: corpoFinal,
+            sondagemIds: sondagensCompostas.map(s => s.id),
+          });
+        }
+        if (temInqIA) {
+          await registarExpedicaoInqueritosIA({
+            codigo: bi, nomeInstituicao: nomeInst, assunto: assuntoFinal, corpo: corpoFinal,
+            inqueritoIds: inqueritosIaCompostos.map(q => q.id),
+          });
+        }
         invalidateMessagesReadCache();
         // v37.5 — a linha «TODOS» tem de aparecer de imediato nas «Enviadas»:
         // fura o micro-cache e força o refetch das caixas sem esperar o Realtime.
         onRefreshMail?.();
         setSondagensCompostas([]);
+        setInqueritosIaCompostos([]);
         setComposeData({ ...composeData, to: '', subject: '', body: '' });
         setAvisosConfirmados(false);
         setValidacao({ bloqueios: [], avisos: [] });
         setSucessoSondagens(
-          `Correspondência enviada com sucesso: ${dist.dados.audiencia} cidadão(s) no âmbito ${dist.dados.classificacao}. O registo da expedição está na lista «Enviadas».`,
+          `Correspondência enviada com sucesso: ${audiencia} cidadão(s) no âmbito ${classificacao}. O registo da expedição está na lista «Enviadas».`,
         );
         setDistribuindoSondagens(false);
         return;
       }
       setDistribuindoSondagens(false);
+      const idsSondagens = sondagensCompostas.map((s) => s.id);
+      const idsInqIA = inqueritosIaCompostos.map((q) => q.id);
       setSondagensCompostas([]);
+      setInqueritosIaCompostos([]);
       // v37.78.3 — as sondagens seguem EMBUTIDAS na correspondência oficial do
       //(s) destinatário(s) manual(is) (messages.sondagem_ids → cartão de
       // resposta no detalhe). Actualização por updater: segura contra o estado
       // stale do closure (updateBodyText acima também escreve no composeData).
       if (manuais.length) {
-        const idsParaEmbutir = sondagensCompostas.map((s) => s.id);
-        setComposeData((prev) => ({ ...prev, sondagensIds: idsParaEmbutir }));
+        setComposeData((prev) => ({
+          ...prev,
+          ...(idsSondagens.length ? { sondagensIds: idsSondagens } : {}),
+          ...(idsInqIA.length ? { inqueritosIaIds: idsInqIA } : {}),
+        }));
       }
       // Sem texto próprio, o corpo descreve as sondagens embutidas (pipeline
       // de envio exige corpo não vazio). O envio segue no tick seguinte para
       // o estado do corpo propagar (v37.78.3: pelo ref, para ler o estado NOVO).
       if (!composeData.body.trim()) {
-        updateBodyText(
-          `${instNomeSondagem || bi} convida-o(a) a participar na(s) sondagem(ns) oficial(is) incluída(s) nesta mensagem. Abra a mensagem, toque em «Ver detalhes Completos», escolha a sua opção e confirme com «Responder».`,
-        );
+        updateBodyText(corpoPadrao);
         setTimeout(() => handleSendMessageRef.current(), 150);
         return;
       }
@@ -402,6 +461,9 @@ export function MailContent({
   // v37 — sondagens inseridas como blocos na área de conteúdo da composição
   const [sondagensCompostas, setSondagensCompostas] = useState<Sondagem[]>([]);
   const [sondagemARemover, setSondagemARemover] = useState<Sondagem | null>(null);
+  // 2026-09-10 — Inquéritos com IA (conversacionais) inseridos como blocos
+  const [inqueritosIaCompostos, setInqueritosIaCompostos] = useState<InqueritoIA[]>([]);
+  const [inqueritoIaARemover, setInqueritoIaARemover] = useState<InqueritoIA | null>(null);
   const [distribuindoSondagens, setDistribuindoSondagens] = useState(false);
   // v37.62 — anti-duplicação + loading no envio normal do compositor.
   const [enviando, setEnviando] = useState(false);
@@ -871,15 +933,29 @@ export function MailContent({
   // v37 — blocos de sondagem na área de conteúdo da composição
   const adicionarSondagemBloco = (s: Sondagem) => {
     setSondagensCompostas(prev => {
-      if (prev.length >= 5) {
+      if (prev.length + inqueritosIaCompostos.length >= 5) {
         setAvisoSondagens('Limite de 5 sondagens por mensagem atingido.');
         return prev;
       }
       // v37 — destinatário automático «Todos» (difusão pelo âmbito oficial)
-      if (prev.length === 0 && !composeData.to.trim()) {
+      if (prev.length === 0 && inqueritosIaCompostos.length === 0 && !composeData.to.trim()) {
         setComposeData({ ...composeData, to: 'Todos' });
       }
       return [...prev, s];
+    });
+  };
+
+  // 2026-09-10 — bloco «Inquérito com IA» na área de conteúdo da composição
+  const adicionarInqueritoIaBloco = (q: InqueritoIA) => {
+    setInqueritosIaCompostos(prev => {
+      if (prev.length + sondagensCompostas.length >= 5) {
+        setAvisoSondagens('Limite de 5 inquéritos por mensagem atingido.');
+        return prev;
+      }
+      if (prev.length === 0 && sondagensCompostas.length === 0 && !composeData.to.trim()) {
+        setComposeData({ ...composeData, to: 'Todos' });
+      }
+      return [...prev, q];
     });
   };
 
@@ -903,6 +979,7 @@ export function MailContent({
         criadaPor={bi}
         addAuditLog={(a, t) => addAuditLog?.(a, t)}
         onCriarBloco={adicionarSondagemBloco}
+        onCriarBlocoIA={adicionarInqueritoIaBloco}
         modo={tipoInquerito}
       />
     </>
@@ -1558,6 +1635,72 @@ export function MailContent({
               </div>
             )}
 
+            {/* 2026-09-10 — Inquéritos com IA inseridos como blocos na área de conteúdo */}
+            {isInst && inqueritosIaCompostos.length > 0 && (
+              <div className="space-y-3 mt-4" data-testid="inqueritos-ia-compostos">
+                {sondagensCompostas.length === 0 && (
+                  <p className="text-[10px] font-black uppercase tracking-wider text-blue-600 m-0">
+                    Inquéritos incluídos nesta mensagem ({inqueritosIaCompostos.length}/5)
+                  </p>
+                )}
+                {inqueritosIaCompostos.map((q) => (
+                  <div key={q.id} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setInqueritoIaARemover(q)}
+                      title="Remover inquérito da mensagem"
+                      className="absolute -top-2 -right-2 z-10 w-7 h-7 rounded-full bg-white shadow border border-slate-200 text-slate-400 hover:text-rose-500 transition-colors flex items-center justify-center cursor-pointer"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                    <div className="rounded-xl bg-[#d9fdd3] shadow-xs overflow-hidden text-left border border-emerald-200/60">
+                      <div className="px-4 pt-3 pb-2">
+                        <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-[#546565] m-0">
+                          <MessagesSquare size={12} /> Inquérito com IA
+                        </p>
+                        <p className="text-sm font-bold text-[#111b21] mt-1.5 m-0 leading-snug">{q.guiao?.objectivo || q.o_que_pretende_saber}</p>
+                        <p className="text-xs text-[#111b21]/80 font-medium mt-2 m-0 leading-snug">«{q.guiao?.saudacao}»</p>
+                        <p className="flex items-center gap-1.5 text-xs text-[#546565] font-semibold mt-2 m-0 flex-wrap">
+                          <CheckCheck size={13} className="text-[#53bdeb] shrink-0" />
+                          {q.guiao?.campos?.length || 0} informação(ões) · até {q.guiao?.maxPerguntas || 0} perguntas
+                          {q.canal === 'ambos' && <span className="inline-flex items-center gap-1 ml-1"><Mic size={11} /> texto ou voz</span>}
+                          {q.canal === 'texto' && <span className="ml-1">· só texto</span>}
+                        </p>
+                        <p className="flex items-center justify-end gap-1 text-[10px] text-[#667781] mt-2 m-0">
+                          {new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
+                          <CheckCheck size={13} className="text-[#53bdeb]" />
+                        </p>
+                      </div>
+                      <div className="bg-[#cfF8c6]/60 border-t border-[#111b21]/5 py-1.5 text-center text-xs font-semibold text-[#546565]">
+                        Iniciar Inquérito
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Confirmação de remoção de inquérito com IA */}
+            {inqueritoIaARemover && (
+              <CdaConfirmModal
+                aberto
+                titulo="Remover Inquérito"
+                mensagem={`Remover o inquérito com IA «${inqueritoIaARemover.guiao?.objectivo || inqueritoIaARemover.o_que_pretende_saber}» desta mensagem? O rascunho será eliminado.`}
+                textoConfirmar="Remover"
+                perigoso
+                onConfirmar={async () => {
+                  const alvo = inqueritoIaARemover;
+                  setInqueritoIaARemover(null);
+                  setInqueritosIaCompostos(prev => prev.filter(x => x.id !== alvo.id));
+                  if (inqueritosIaCompostos.length <= 1 && sondagensCompostas.length === 0 && composeData.to.trim().toUpperCase() === 'TODOS') {
+                    setComposeData({ ...composeData, to: '' });
+                  }
+                  await removerRascunhoInqueritoIA(alvo.id);
+                }}
+                onCancelar={() => setInqueritoIaARemover(null)}
+              />
+            )}
+
             {/* Confirmação de remoção de sondagem */}
             {sondagemARemover && (
               <CdaConfirmModal
@@ -1570,7 +1713,7 @@ export function MailContent({
                   const alvo = sondagemARemover;
                   setSondagemARemover(null);
                   setSondagensCompostas(prev => prev.filter(x => x.id !== alvo.id));
-                  if (sondagensCompostas.length <= 1 && composeData.to.trim().toUpperCase() === 'TODOS') {
+                  if (sondagensCompostas.length <= 1 && inqueritosIaCompostos.length === 0 && composeData.to.trim().toUpperCase() === 'TODOS') {
                     setComposeData({ ...composeData, to: '' });
                   }
                   await removerRascunhoSondagem(alvo.id);
@@ -1680,7 +1823,7 @@ export function MailContent({
                 disabled={
                   !(composeData.to || (composeData.toArray || []).length > 0) ||
                   (isInst && !composeData.subject) ||
-                  (!composeData.body && !(isInst && sondagensCompostas.length > 0)) ||
+                  (!composeData.body && !(isInst && (sondagensCompostas.length > 0 || inqueritosIaCompostos.length > 0))) ||
                   distribuindoSondagens ||
                   enviando ||
                   ((!isInst || instRecipientType === 'instituicao') && !!instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && instRegistry.status === 'nao_registada')
@@ -1714,7 +1857,7 @@ export function MailContent({
                 <button
                   type="button"
                   onClick={() => {
-                    if (sondagensCompostas.length >= 5) {
+                    if (sondagensCompostas.length + inqueritosIaCompostos.length >= 5) {
                       setAvisoSondagens('Limite de 5 inquéritos por mensagem atingido.');
                       return;
                     }
@@ -1839,6 +1982,8 @@ export function MailContent({
               limparRascunhoLocal();
               for (const s of sondagensCompostas) { await removerRascunhoSondagem(s.id); }
               setSondagensCompostas([]);
+              for (const q of inqueritosIaCompostos) { await removerRascunhoInqueritoIA(q.id); }
+              setInqueritosIaCompostos([]);
               setIsComposing(false);
             }}
             onCancelar={() => setConfirmarDescarteRascunho(false)}

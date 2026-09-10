@@ -71,9 +71,14 @@ import {
   Sparkles,
   Loader2,
   Video,
-  BarChart3
+  BarChart3,
+  MessagesSquare
 } from 'lucide-react';
 import { Message, SENSITIVITY_LEVELS, PRIORITY_CONFIGS, ReplySendPayload, ReplySendResult } from '../../types';
+// 2026-09-10 — Inquérito com IA conversacional (PROMPT v3 §4.2): botão
+// «Iniciar Inquérito» na correspondência do cidadão + chat em popup.
+import { InqueritoIaChat } from './InqueritoIaChat';
+import { buscarInqueritoIA, minhaRespostaInqueritoIA, type InqueritoIA, type RespostaInqueritoIA } from '../../services/inqueritoIaService';
 import { generateProtocol, generateTimelineEvents, getCategoryMetadata, canonicalProtocolPayload, sealProtocolContent, buildQrCodeDeepLink } from '../../utils/protocolGenerator';
 import { supabaseService, resolveInstitutionCode } from '../../services/supabaseService';
 import { VideoSessionPanel } from './VideoSessionPanel';
@@ -308,6 +313,110 @@ export function MessageDetail({
   const [sondInstVotos, setSondInstVotos] = useState<Record<number, { rotulo: string; votos: number }[]>>({});
   const [sondInstCarregando, setSondInstCarregando] = useState(false);
   const ehInstSondagem = !cidadaoBi && idsSondagem.length > 0;
+
+  // ---- 2026-09-10 — Inquérito com IA (cidadão): estado do(s) inquérito(s) embutido(s)
+  const idsInqIA: number[] = (
+    selectedMessage?.inquerito_ia_ids?.length
+      ? (selectedMessage?.inquerito_ia_ids as (number | string)[])
+      : (selectedMessage?.inquerito_ia_id ? [selectedMessage?.inquerito_ia_id] : [])
+  ).map(Number).filter((n) => Number.isFinite(n) && n > 0);
+  const [inqIaItens, setInqIaItens] = useState<Record<number, InqueritoIA>>({});
+  const [inqIaMinha, setInqIaMinha] = useState<Record<number, RespostaInqueritoIA | null>>({});
+  const [inqIaAberto, setInqIaAberto] = useState<InqueritoIA | null>(null);
+  useEffect(() => {
+    if (!cidadaoBi || idsInqIA.length === 0) return;
+    let vivo = true;
+    (async () => {
+      for (const id of idsInqIA) {
+        const r = await buscarInqueritoIA(id);
+        if (!vivo) return;
+        if (r.ok && r.dados) {
+          setInqIaItens((p) => ({ ...p, [id]: r.dados as InqueritoIA }));
+          const m = await minhaRespostaInqueritoIA(id, cidadaoBi);
+          if (!vivo) return;
+          setInqIaMinha((p) => ({ ...p, [id]: m.ok ? (m.dados ?? null) : null }));
+        }
+      }
+    })();
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cidadaoBi, selectedMessage?.id]);
+  const recarregarMinhaRespostaIA = async (id: number) => {
+    if (!cidadaoBi) return;
+    const m = await minhaRespostaInqueritoIA(id, cidadaoBi);
+    setInqIaMinha((p) => ({ ...p, [id]: m.ok ? (m.dados ?? null) : null }));
+  };
+  const marcarRespondidaIA = () => {
+    if (!selectedMessage || !onUpdateMessage) return;
+    if (selectedMessage.details?.state === 'Respondida') return;
+    const agora = new Date();
+    onUpdateMessage({
+      ...selectedMessage,
+      details: selectedMessage.details ? { ...selectedMessage.details, state: 'Respondida' } : undefined,
+      auditLogs: [...(selectedMessage.auditLogs || []), `${agora.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })} - Inquérito com IA concluído pelo cidadão`],
+    });
+  };
+  // Cartões «Iniciar Inquérito» (um por inquérito embutido) — só na área do cidadão.
+  const inqIaJsx = cidadaoBi && idsInqIA.length > 0 ? (
+    <div className="mt-8 space-y-3" data-testid="inquerito-ia-cartoes">
+      {idsInqIA.map((id) => {
+        const q = inqIaItens[id];
+        const minha = inqIaMinha[id];
+        if (!q) return null;
+        const encerrado = q.status === 'encerrado';
+        const concluido = minha?.estado === 'concluido';
+        const emCurso = minha?.estado === 'em_curso' && (minha.historico?.length || 0) > 0;
+        const dataConc = concluido && minha?.concluido_em ? new Date(minha.concluido_em).toLocaleDateString('pt-PT') : null;
+        return (
+          <div key={`inq-ia-${id}`} className="rounded-2xl border border-indigo-100 bg-white shadow-sm overflow-hidden" data-testid="inquerito-ia-cartao">
+            <div className="px-5 py-4 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100 flex items-center gap-2.5">
+              <span className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0"><MessagesSquare size={16} /></span>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-500 m-0">Inquérito com IA · {q.instituicao_nome}</p>
+                <p className="text-sm font-bold text-slate-800 leading-snug m-0">{q.guiao?.objectivo || q.o_que_pretende_saber}</p>
+              </div>
+            </div>
+            <div className="px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-[11px] font-medium text-slate-500 m-0">
+                {encerrado
+                  ? 'Este inquérito já foi encerrado pela instituição.'
+                  : concluido
+                    ? 'Obrigado — a sua participação foi registada.'
+                    : `Uma conversa breve${q.canal === 'texto' ? ' por texto' : ' por texto ou voz'}, anónima, com até ${q.guiao?.maxPerguntas || 10} perguntas.`}
+              </p>
+              {concluido ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-black uppercase tracking-wider border border-emerald-100" data-testid="inquerito-ia-respondido">
+                  <Check size={13} /> Respondido{dataConc ? ` em ${dataConc}` : ''}
+                </span>
+              ) : encerrado ? (
+                <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-slate-100 text-slate-500 text-[11px] font-black uppercase tracking-wider">Inquérito encerrado</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setInqIaAberto(q)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black uppercase tracking-widest border-0 cursor-pointer shadow active:scale-95 transition-all"
+                  id={`btn-iniciar-inquerito-ia-${id}`}
+                >
+                  <MessagesSquare size={14} /> {emCurso ? 'Retomar Inquérito' : 'Iniciar Inquérito'}
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+      {inqIaAberto && cidadaoBi && (
+        <InqueritoIaChat
+          aberto
+          onFechar={() => { const id = inqIaAberto.id; setInqIaAberto(null); void recarregarMinhaRespostaIA(id); }}
+          inquerito={inqIaAberto}
+          cidadaoBi={cidadaoBi}
+          onConcluido={marcarRespondidaIA}
+          addAuditLog={addAuditLog}
+        />
+      )}
+    </div>
+  ) : null;
+
   const abrirSondagensInstituicao = async () => {
     setSondInstAberta(true);
     if (idsSondagem.every(id => sondInstItens[id] && sondInstVotos[id])) return;
@@ -2369,6 +2478,9 @@ depende de integração futura com a infra-estrutura de chaves nacional.
             ))
           ) : null}
 
+          {/* 2026-09-10 — Inquérito com IA: cartão «Iniciar Inquérito» (cidadão) */}
+          {inqIaJsx}
+
           {/* v37.7 — Sondagem contextual (instituição): só dentro da correspondência */}
           {sondInstJsx}
 
@@ -3869,6 +3981,9 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         </React.Fragment>
                       ))
                     ) : null}
+
+                    {/* 2026-09-10 — Inquérito com IA: cartão «Iniciar Inquérito» (cidadão) */}
+                    {inqIaJsx}
 
                     {/* v37.7 — Sondagem contextual (instituição): só dentro da correspondência */}
                     {sondInstJsx}
