@@ -47,6 +47,7 @@ import { supabaseService } from '../../services/supabaseService';
 import { generateProtocol } from '../../utils/protocolGenerator';
 import type { Message } from '../../types';
 import { WebRTCVideoCallRoom } from './WebRTCVideoCallRoom';
+import { CdaModal } from '../ui/CdaModal';
 
 // 2026-09-02 — FORMATO DE DATA EUROPEU (DD/MM/AAAA): o input HTML type="date"
 // retorna a data no formato ISO 8601 (AAAA-MM-DD), mas em Angola usamos o
@@ -951,54 +952,85 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
         document.body
       )}
 
-      {/* 2026-08-22 — MODAL DE CONFIRMAÇÃO: eliminar agendamento (instituição) */}
+      {/* 2026-08-22 — MODAL DE CONFIRMAÇÃO: eliminar agendamento.
+          2026-09-10 — redesenhado no padrão único de popups (CdaModal):
+          faixa escura com ícone em chip, corpo simples com cartão-resumo da
+          sessão e botões no estilo CdaConfirm (Cancelar neutro / Eliminar rosa). */}
       {sessaoAEliminar && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" onClick={() => { if (!aEliminar) setSessaoAEliminar(null); }} />
-          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 dark:border-slate-700 overflow-hidden">
-            <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
-              <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center shrink-0 border border-rose-100/40 shadow-sm">
-                <Trash2 size={26} strokeWidth={2.5} />
+        <CdaModal
+          aberto
+          onFechar={() => { if (!aEliminar) setSessaoAEliminar(null); }}
+          icone={Trash2}
+          titulo="Eliminar Agendamento"
+          subtitulo="Acção irreversível"
+          maxW="max-w-md"
+          tomIcone="bg-rose-500/20 text-rose-300 border-rose-400/20"
+          padding="p-6 md:p-7"
+        >
+          <p className="text-sm text-slate-600 leading-relaxed m-0">
+            {isInst ? (
+              <>Vai remover este video-atendimento da agenda da instituição. O cidadão será notificado e <span className="font-bold text-slate-800">mantém o registo na área dele</span>.</>
+            ) : (
+              <>Vai remover este video-atendimento da sua área. A instituição será notificada e <span className="font-bold text-slate-800">mantém o registo na própria agenda</span>.</>
+            )}
+          </p>
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 divide-y divide-slate-200/80 overflow-hidden">
+            <div className="flex items-center gap-3 px-4 py-3">
+              <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 text-indigo-600 flex items-center justify-center shrink-0">
+                <Video size={16} strokeWidth={2.5} />
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">Eliminar Agendamento</h3>
-                <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none">Confirmação definitiva</p>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 m-0 leading-none">Assunto</p>
+                <p className="text-sm font-bold text-slate-800 m-0 mt-1 leading-snug">{sessaoAEliminar.subject}</p>
               </div>
-              <button onClick={() => { if (!aEliminar) setSessaoAEliminar(null); }} className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-0 bg-transparent cursor-pointer">
-                <X size={20} />
-              </button>
             </div>
-            <div className="p-6 space-y-4">
-              <p className="text-xs text-slate-600 dark:text-slate-300 font-bold leading-relaxed">
-                {isInst ? (
-                  <>Tem a certeza que pretende eliminar este video-atendimento da agenda da instituição? O cidadão será notificado do cancelamento e <span className="font-black">o registo permanecerá na área dele</span> até o próprio eliminar.</>
-                ) : (
-                  <>Tem a certeza que pretende eliminar este video-atendimento da sua área? A instituição será notificada e <span className="font-black">manterá o registo na própria agenda</span>.</>
-                )}
-              </p>
-              <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-1.5">
-                <p className="text-[11px] font-black text-slate-800 dark:text-slate-100">{sessaoAEliminar.subject}</p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">
-                  Cidadão: {sessaoAEliminar.guestName}{sessaoAEliminar.guestBi ? ` (${sessaoAEliminar.guestBi})` : ''}
-                </p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">
-                  Marcado para: {sessaoAEliminar.scheduledFor ? formatarDataEuropeu(sessaoAEliminar.scheduledFor.split(' ')[0]) + (sessaoAEliminar.scheduledFor.split(' ')[1] ? ' às ' + sessaoAEliminar.scheduledFor.split(' ')[1] : '') : '—'}
+            <div className="flex items-center gap-3 px-4 py-3">
+              <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 text-indigo-600 flex items-center justify-center shrink-0">
+                <User size={16} strokeWidth={2.5} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 m-0 leading-none">Cidadão</p>
+                <p className="text-sm font-bold text-slate-800 m-0 mt-1 truncate">
+                  {sessaoAEliminar.guestName}{sessaoAEliminar.guestBi ? <span className="font-semibold text-slate-500"> · {sessaoAEliminar.guestBi}</span> : null}
                 </p>
               </div>
-              <div className="flex gap-3">
-                <button onClick={() => { if (!aEliminar) setSessaoAEliminar(null); }} className="flex-1 py-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer transition-colors">Cancelar</button>
-                <button
-                  onClick={() => void handleEliminarAgenda()}
-                  disabled={aEliminar}
-                  className="flex-1 py-3 bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-white rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer border-0 shadow-md flex items-center justify-center gap-2 transition-colors"
-                >
-                  {aEliminar ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                  {aEliminar ? 'A eliminar…' : 'Eliminar Definitivamente'}
-                </button>
+            </div>
+            <div className="flex items-center gap-3 px-4 py-3">
+              <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 text-indigo-600 flex items-center justify-center shrink-0">
+                <Calendar size={16} strokeWidth={2.5} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 m-0 leading-none">Marcado para</p>
+                <p className="text-sm font-bold text-slate-800 m-0 mt-1 truncate">
+                  {sessaoAEliminar.scheduledFor
+                    ? formatarDataEuropeu(sessaoAEliminar.scheduledFor.split(' ')[0]) + (sessaoAEliminar.scheduledFor.split(' ')[1] ? ' às ' + sessaoAEliminar.scheduledFor.split(' ')[1] : '')
+                    : '—'}
+                </p>
               </div>
             </div>
           </div>
-        </div>,
+
+          <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-1">
+            <button
+              type="button"
+              onClick={() => { if (!aEliminar) setSessaoAEliminar(null); }}
+              disabled={aEliminar}
+              className="px-6 py-3 rounded-2xl font-bold text-xs text-slate-500 bg-slate-100 hover:bg-slate-200 disabled:opacity-60 transition-colors cursor-pointer border-none"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleEliminarAgenda()}
+              disabled={aEliminar}
+              className="px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-60 transition-colors cursor-pointer border-none shadow-sm flex items-center justify-center gap-2"
+            >
+              {aEliminar ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              {aEliminar ? 'A eliminar…' : 'Eliminar'}
+            </button>
+          </div>
+        </CdaModal>,
         document.body
       )}
     </section>
