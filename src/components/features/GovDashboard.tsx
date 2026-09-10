@@ -187,6 +187,7 @@ export function GovDashboard({
   userMaritalStatus = 'Solteiro',
   setUserMaritalStatus,
   addAuditLog,
+  isMobile = false,
 }: GovDashboardProps & { appMode?: AppMode }) {
   const { institutions: masterInstitutions } = useInstitutions();
   const [dadosReais, setDadosReais] = useState<AdminRealData | null>(null);
@@ -521,7 +522,8 @@ export function GovDashboard({
               className="absolute inset-0"
             >
               <motion.img 
-                src={GOV_HIGHLIGHT_SLIDES[activeSlide % GOV_HIGHLIGHT_SLIDES.length].image} 
+                src={(isMobile && GOV_HIGHLIGHT_SLIDES[activeSlide % GOV_HIGHLIGHT_SLIDES.length].mobileImage)
+                  || GOV_HIGHLIGHT_SLIDES[activeSlide % GOV_HIGHLIGHT_SLIDES.length].image} 
                 alt={GOV_HIGHLIGHT_SLIDES[activeSlide % GOV_HIGHLIGHT_SLIDES.length].title}
                 initial={{ scale: 1.03 }}
                 animate={{ scale: 1 }}

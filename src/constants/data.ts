@@ -87,7 +87,7 @@ export const GOV_HIGHLIGHT_SLIDES: Slide[] = [
     title: "Portal do Agente AGT",
     subtitle: "Gestão centralizada de serviços tributários e comunicações oficiais.",
     image: "https://i.postimg.cc/ydQKDYCd/1-Desktop.png",
-    mobileImage: "https://i.postimg.cc/QxWDM34x/1.png",
+    mobileImage: "https://i.postimg.cc/cCjZZTW5/0w.png",
     btn: "Ver Mensagens",
     action: "gov-emissao"
   },
