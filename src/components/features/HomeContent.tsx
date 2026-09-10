@@ -79,7 +79,7 @@ export function HomeContent({
 
   return (
     <div className="grid gap-3 md:gap-3.5">
-      <section className="relative h-[221px] sm:h-[312px] md:h-[385px] rounded-2xl md:rounded-[28px] overflow-hidden shadow-xs border border-slate-200/90 bg-slate-900">
+      <section className="relative w-full aspect-square md:aspect-auto md:h-[385px] rounded-2xl md:rounded-[28px] overflow-hidden shadow-xs border border-slate-200/90 bg-slate-900">
         <AnimatePresence mode="wait">
           <motion.div
             key={`${isInst ? 'gov' : 'user'}-${activeSlide}`}
