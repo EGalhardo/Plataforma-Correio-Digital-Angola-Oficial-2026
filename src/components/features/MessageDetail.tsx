@@ -75,6 +75,7 @@ import {
   MessagesSquare
 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
+import { PinoMapa } from '../ui/PinoMapa';
 import { estadoExpiracao } from '../../utils/dataExpiracao';
 import { Message, SENSITIVITY_LEVELS, PRIORITY_CONFIGS, ReplySendPayload, ReplySendResult } from '../../types';
 // 2026-09-10 — Inquérito com IA conversacional (PROMPT v3 §4.2): botão
@@ -2399,6 +2400,10 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               referrerPolicy="no-referrer-when-downgrade"
               title="Google Maps Location" aria-label="Google Maps Location"
             />
+
+            {/* 2026-09-11 (T46) — pino da plataforma no ponto exacto (o embed
+                centra a vista no local pesquisado; o pino marca o centro). */}
+            <PinoMapa rotulo={mainAddressLine} oculto={mapLoading} testId="pino-mapa-detalhe" />
 
             {/* FLOATING ADDRESS OVERLAY CARD: Exactly matching Image 2 style */}
             <div className="absolute top-4 left-4 z-10 w-[240px] sm:w-[320px] bg-white rounded-2xl p-4 shadow-xl border border-slate-100/60 translate-y-0 transition-transform">

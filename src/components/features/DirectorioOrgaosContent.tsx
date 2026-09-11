@@ -13,6 +13,7 @@
 import { useState } from 'react';
 import { Landmark, Search, Info, ExternalLink, Phone, MapPin, Mail, Map as MapIcon, ChevronUp } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
+import { PinoMapa } from '../ui/PinoMapa';
 import { InstitutionLogo } from '../ui/InstitutionLogo';
 import { getInstitutionLogoUrl } from '../../config/institutionLogos';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -215,7 +216,7 @@ export function DirectorioOrgaosContent({ onVoltar, onEnviarMensagem }: Props) {
                 {mapaAberto && (
                   <div className="space-y-2" data-testid="directorio-ficha-mapa">
                     {!mapaFalhou ? (
-                      <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 h-[220px] md:h-[280px]">
+                      <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 h-[220px] md:h-[280px]">
                         <iframe
                           title={`${t('Localização de')} ${selecionada.sigla}`}
                           src={urlMapaEmbutido(contactos.latitude, contactos.longitude)}
@@ -225,6 +226,8 @@ export function DirectorioOrgaosContent({ onVoltar, onEnviarMensagem }: Props) {
                           onError={() => setMapaFalhou(true)}
                           data-testid="directorio-ficha-mapa-iframe"
                         />
+                        {/* 2026-09-11 (T46) — pino da plataforma no centro (= coordenadas do órgão) */}
+                        <PinoMapa rotulo={selecionada.sigla} testId="pino-mapa-directorio" />
                       </div>
                     ) : (
                       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-start gap-3" data-testid="directorio-ficha-mapa-fallback">
