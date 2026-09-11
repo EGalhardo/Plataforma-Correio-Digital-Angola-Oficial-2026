@@ -26,6 +26,7 @@ import {
   Wallet,
   Info
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { Document, DigitalProtocol } from '../../types';
 import { generateProtocol } from '../../utils/protocolGenerator';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -538,6 +539,7 @@ export function SolicitarDocumentoContent({
       <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 mb-4 md:mb-6">
           <div className="flex items-center gap-3 text-left">
+            <BotaoVoltar />
             <div className="w-10 h-10 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center shrink-0">
               <Layers size={20} />
             </div>

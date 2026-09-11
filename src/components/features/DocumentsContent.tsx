@@ -37,6 +37,7 @@ import {
   Copy,
   Printer
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { Message, LanguageCode } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
 
@@ -397,14 +398,7 @@ export function DocumentsContent({
         className="space-y-4 md:space-y-6 w-full"
       >
         <div className="flex items-center gap-4 mb-2">
-          <button 
-            onClick={() => setIsComposing(false)}
-            className="flex items-center justify-center w-10 h-10 bg-white border-2 border-[#d1dbe5] rounded-full text-[#384e6e] hover:bg-slate-50 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95 shrink-0"
-            aria-label="Voltar"
-            title="Voltar aos Documentos"
-          >
-            <ArrowLeft size={16} className="text-[#384e6e]" />
-          </button>
+          <BotaoVoltar onClick={() => setIsComposing(false)} titulo="Voltar aos Documentos" />
           <div>
             <h3 className="text-base md:text-xl font-black text-primary leading-none">Novo Documento Oficial</h3>
             <p className="text-[9px] md:text-[10px] text-slate-700 font-black uppercase tracking-widest mt-1">Submissão Oficial Homologada</p>
@@ -581,14 +575,7 @@ export function DocumentsContent({
 
         {/* Action Header / Top Bar (non-printable) */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 no-print bg-slate-50 border border-slate-200/80 p-4 rounded-[24px]">
-          <button 
-            type="button"
-            onClick={() => setSelectedInvoiceForDetail(null)}
-            className="flex items-center justify-center w-10 h-10 bg-white border border-[#d1dbe5] rounded-full text-[#384e6e] hover:bg-slate-50 transition-all shadow-sm cursor-pointer hover:scale-105 active:scale-95 shrink-0"
-            title="Voltar às Facturas"
-          >
-            <ArrowLeft size={16} />
-          </button>
+          <BotaoVoltar onClick={() => setSelectedInvoiceForDetail(null)} titulo="Voltar às Facturas" />
 
           <div className="flex items-center gap-2">
             {isPendente && (
@@ -827,6 +814,7 @@ export function DocumentsContent({
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
         <div className="flex items-center gap-4">
+          <BotaoVoltar />
           <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
             {isInst ? <Folder size={20} className="md:w-6 md:h-6" /> : <Receipt size={20} className="md:w-6 md:h-6" />}
           </div>

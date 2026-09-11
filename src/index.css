@@ -413,6 +413,19 @@ html.dark .bg-\[\#f1f5f9\] {
   background-color: rgb(20, 29, 49) !important;
 }
 
+/* 2026-09-11 — SETA DE VOLTAR das subpáginas (<BotaoVoltar />) no modo escuro:
+   fundo/linha da paleta escura e seta em azul claro (#9db8ff). */
+html.dark .cda-btn-voltar {
+  background-color: rgb(15, 26, 51) !important;
+  border-color: rgb(38, 52, 85) !important;
+  color: #9db8ff !important;
+  box-shadow: none !important;
+}
+html.dark .cda-btn-voltar:hover {
+  background-color: rgb(24, 38, 70) !important;
+  color: #e2e8f0 !important;
+}
+
 /* 2026-09-11 — NAVBAR MOBILE (barra inferior) no modo escuro: mesmas cores do
    AppBar mobile (fundo rgb(9,17,36), linha rgb(38,52,85)); sem sombra; item
    activo em azul claro (#9db8ff, o mesmo dos títulos azul-marinho no escuro),

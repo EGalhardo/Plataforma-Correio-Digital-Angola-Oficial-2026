@@ -10,6 +10,7 @@
  * fluxo completo decidido pelo dono a 2026-08-09.
  */
 import { useCallback, useEffect, useState } from 'react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import {
   AlertTriangle, Banknote, CheckCircle2, CreditCard, Info, Loader2,
   Plus, RefreshCw, Save, Trash2,
@@ -124,13 +125,16 @@ export function InstPagamentosContent({ institutionCode = '', addAuditLog }: Ins
   return (
     <div className="space-y-5 max-w-4xl mx-auto w-full pb-10 animate-fade-in" id="inst-pagamentos-root">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
-        <div>
+        <div className="flex items-center gap-3 min-w-0">
+        <BotaoVoltar />
+        <div className="min-w-0">
           <h1 className="text-base md:text-lg font-black text-slate-900 m-0 inline-flex items-center gap-2">
             <Banknote className="w-5 h-5 text-[#0c2340]" /> Pagamentos — cobranças {sigla && <span className="text-slate-400">({sigla})</span>}
           </h1>
           <p className="text-[10px] md:text-[11px] text-slate-500 font-semibold m-0 mt-0.5">
             Registe taxas, faturas e outras cobranças; o cidadão vê-as na área «Pagamentos» dele.
           </p>
+        </div>
         </div>
         <div className="flex items-center gap-2">
           <button

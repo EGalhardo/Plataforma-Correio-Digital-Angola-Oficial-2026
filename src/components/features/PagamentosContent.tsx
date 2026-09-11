@@ -12,10 +12,11 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ArrowLeft, Banknote, CalendarClock, CreditCard, FileText, Info,
+  Banknote, CalendarClock, CreditCard, FileText, Info,
   Loader2, RefreshCw, Wallet, AlertTriangle, XCircle, CheckCircle2,
   Download, FlaskConical,
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import {
   FRASE_GATEWAY_PENDENTE, METODOS_PAGAMENTO, MetodoPagamento, Pagamento,
   carregarPagamentosDoCidadao, documentoRefCombina, formatarKz,
@@ -363,12 +364,10 @@ export function PagamentosContent({ citizenBi, setTab, pagamentosDemoFallback }:
   if (selecionado) {
     return (
       <div className="space-y-5 max-w-3xl mx-auto w-full pb-10 animate-fade-in">
-        <button
-          onClick={() => setSelecionado(null)}
-          className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-slate-500 hover:text-slate-800 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> Voltar às cobranças
-        </button>
+        <div className="flex items-center gap-3">
+          <BotaoVoltar onClick={() => setSelecionado(null)} titulo="Voltar às cobranças" />
+          <span className="text-xs font-black uppercase tracking-widest text-slate-500">Voltar às cobranças</span>
+        </div>
 
         <div className="bg-white border border-slate-200 rounded-[24px] p-6 space-y-5">
           <div className="flex items-start justify-between gap-3">
@@ -458,13 +457,7 @@ export function PagamentosContent({ citizenBi, setTab, pagamentosDemoFallback }:
     <div className="space-y-5 max-w-3xl mx-auto w-full pb-10 animate-fade-in">
       <div className="flex flex-row items-center justify-between gap-2 text-left">
         <div className="flex items-center gap-2.5 min-w-0">
-          <button
-            onClick={() => setTab('home')}
-            className="w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors shrink-0"
-            aria-label="Voltar"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
+          <BotaoVoltar />
           <div className="min-w-0">
             <h1 className="text-base md:text-lg font-black text-slate-900 m-0 inline-flex items-center gap-1.5 truncate">
               <Wallet className="w-4 h-4 md:w-5 md:h-5 text-[#0c2340] shrink-0" /> Pagamentos

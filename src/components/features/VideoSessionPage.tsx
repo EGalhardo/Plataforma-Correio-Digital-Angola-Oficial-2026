@@ -27,7 +27,6 @@ import {
   CameraOff,
   Mic,
   MicOff,
-  ArrowLeft,
   History,
   Shield,
   VideoOff,
@@ -38,6 +37,7 @@ import {
   AlertTriangle,
   Trash2
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { useLanguage } from '../../hooks/useLanguage';
 import { notify } from '../../lib/notify';
 import { useSession } from '../../services/sessionStore';
@@ -445,9 +445,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <button onClick={onBack} className="w-10 h-10 md:w-12 md:h-12 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700">
-            <ArrowLeft size={18} className="md:w-5 md:h-5" />
-          </button>
+          <BotaoVoltar onClick={onBack} />
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
               <Video size={24} />

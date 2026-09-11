@@ -4,6 +4,7 @@
  */
 
 import { useState, useMemo, useEffect, FormEvent, useRef } from 'react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { notify } from '../../lib/notify';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -654,6 +655,7 @@ export function PastaDigitalContent({
       {/* 1. TOP TITLE BANNER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4 md:pb-5 text-left">
         <div className="flex items-center gap-3.5 md:gap-4">
+          <BotaoVoltar />
           <div className="w-12 h-12 md:w-14 md:h-14 bg-red-600 text-white rounded-2xl flex items-center justify-center shadow-xs shrink-0">
             <Folder size={24} />
           </div>

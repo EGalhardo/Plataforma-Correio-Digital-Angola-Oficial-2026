@@ -45,6 +45,7 @@ import { HomeContent } from './components/features/HomeContent';
 
 // UI Components
 import { LazyImage } from './components/ui/LazyImage';
+import { VoltarContext } from './context/navegacao/VoltarContext';
 
 // Constants & Types
 import { 
@@ -1676,6 +1677,47 @@ export default function App() {
   // (mensagem aberta, documento, notificações, histórico…) ficam livres.
   const TAB_PAGINAS_LIVRES = new Set(['mensagem', 'documento', 'notificacoes', 'historico', 'video-atendimento', 'inst-pagamentos']);
   void instIdentity; // consumida pela F4 (equipa/perfil)
+
+  // 2026-09-11 — SETA DE VOLTAR das subpáginas: pilha das páginas visitadas
+  // nesta sessão. `voltarPagina()` regressa à página anterior VÁLIDA (nunca a
+  // um detalhe que depende de selecção — mensagem/documento/instituição — nem à
+  // própria página), limpa as selecções e, sem histórico, cai no Painel do
+  // portal. A pilha é reiniciada ao sair da área (stage ≠ 'app').
+  const pilhaPaginasRef = useRef<string[]>([]);
+  const tabAnteriorRef = useRef<string | null>(null);
+  const aVoltarRef = useRef(false);
+  const painelDoModo = isGovMode ? 'gov-dashboard' : 'home';
+  useEffect(() => {
+    if (stage !== 'app') { pilhaPaginasRef.current = []; tabAnteriorRef.current = null; return; }
+    const anterior = tabAnteriorRef.current;
+    tabAnteriorRef.current = tab;
+    if (aVoltarRef.current) { aVoltarRef.current = false; return; } // regresso: não empilha
+    if (anterior && anterior !== tab) {
+      const pilha = pilhaPaginasRef.current;
+      if (pilha[pilha.length - 1] !== anterior) pilha.push(anterior);
+      if (pilha.length > 30) pilha.splice(0, pilha.length - 30);
+    }
+  }, [tab, stage]);
+  const voltarPagina = useCallback(() => {
+    const pilha = pilhaPaginasRef.current;
+    let destino: string | undefined;
+    while (pilha.length) {
+      const candidata = pilha.pop() as string;
+      if (candidata === tab) continue;
+      if (HASH_TAB_FALLBACKS[appMode]?.[candidata]) continue; // detalhe sem selecção
+      if (paginasMenu && !paginasMenu.includes(candidata) && !TAB_PAGINAS_LIVRES.has(candidata)) continue;
+      destino = candidata;
+      break;
+    }
+    aVoltarRef.current = true;
+    setSelectedMessage(null);
+    setSelectedDoc(null);
+    setSelectedInstitution(null);
+    setTab(destino || painelDoModo);
+    window.scrollTo({ top: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, appMode, paginasMenuKey, painelDoModo]);
+  const voltarCtx = useMemo(() => ({ voltar: voltarPagina }), [voltarPagina]);
 
   // Claro/Escuro Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -8455,7 +8497,9 @@ Ficha civil do titular:
           className={`flex-1 px-2.5 sm:px-4 md:px-8 pb-[72px] md:pb-8 overflow-y-auto custom-scrollbar ${emergencyMode && isGovMode ? 'pt-[92px] md:pt-1' : (isGovMode ? 'pt-[60px] md:pt-1' : 'pt-[60px] md:pt-4')}`}
         >
           <div className="max-w-[1400px] mx-auto">
-            {renderContent()}
+            <VoltarContext.Provider value={voltarCtx}>
+              {renderContent()}
+            </VoltarContext.Provider>
           </div>
         </div>
       </div>

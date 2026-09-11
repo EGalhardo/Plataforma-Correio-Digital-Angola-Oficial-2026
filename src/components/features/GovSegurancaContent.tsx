@@ -20,6 +20,7 @@ import {
   Fingerprint,
   TrendingUp
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -263,6 +264,7 @@ export function GovSegurancaContent({
       {/* Title Header Section */}
       <div className="mb-12">
         <div className="flex items-center gap-3 mb-2">
+          <BotaoVoltar />
           <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white">
             <ShieldCheck size={16} />
           </div>

@@ -28,6 +28,7 @@ import {
   Activity,
   X
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { 
   ComposedChart, 
   Line, 
@@ -765,7 +766,8 @@ export function GovRelatorioContent({
 
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <BotaoVoltar />
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#0E2B64] border border-[#0E2B64] rounded-full text-[10px] font-sans tracking-wider uppercase font-black text-white">
                 <Globe size={11} className="text-white animate-pulse" />
                 Conselho Digital de Angola

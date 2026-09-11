@@ -25,6 +25,7 @@ import {
   Landmark,
   RefreshCw
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 
 import { Institution, Message } from '../../types';
 import { MUNICIPALITIES_BY_PROVINCE, CITIES_BY_PROVINCE, COMMUNES_BY_MUNICIPALITY, INSTITUTION_TYPES, mapTypeToCategory, generateSigla } from '../../config/institutionCatalog';
@@ -982,6 +983,8 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     <div className="pb-6 md:pb-16 font-sans text-xs">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 py-3 md:py-6 border-b border-slate-100 mb-4 md:mb-8 font-sans">
+        <div className="flex items-center gap-4">
+        <BotaoVoltar />
         <div>
           <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter italic uppercase leading-none font-sans">
             Gestão Institucional
@@ -990,6 +993,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
             <div className="w-1 h-2 bg-indigo-600 rounded-full" />
             Cadastro Administrativo Nacional &bull; Províncias e Ministérios Integrados
           </div>
+        </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">

@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search,
@@ -122,6 +123,7 @@ export function WalletContent({
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
+          <BotaoVoltar />
           <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
             <QrCode size={24} />
           </div>

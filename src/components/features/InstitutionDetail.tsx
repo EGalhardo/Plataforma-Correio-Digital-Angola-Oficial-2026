@@ -6,7 +6,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
-  ArrowLeft,
   Mail,
   Send,
   FileText,
@@ -21,6 +20,7 @@ import {
   ChevronDown,
   Building
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { Message, Institution } from '../../types';
 import { InstitutionLogo } from '../ui/InstitutionLogo';
 import {
@@ -478,13 +478,7 @@ export function InstitutionDetail({
     <div className="space-y-4">
       {/* Back to Panel Header */}
       <div className="flex items-center justify-between bg-white border border-slate-200/80 rounded-[20px] p-3 shadow-sm">
-        <button
-          onClick={onBack}
-          className="flex items-center justify-center w-8 h-8 text-slate-800 hover:text-primary hover:bg-slate-50 transition-colors rounded-xl border border-slate-100 shadow-sm cursor-pointer"
-          title="Voltar ao Painel"
-        >
-          <ArrowLeft size={14} />
-        </button>
+        <BotaoVoltar onClick={onBack} />
         <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase italic">
           Interconexão Automática
         </span>

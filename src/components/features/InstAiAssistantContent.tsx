@@ -26,13 +26,13 @@ import {
   Sliders,
   Info,
   Save,
-  ArrowLeft,
   Loader2,
   Cpu,
   Database,
   Zap,
   RefreshCw as ReloadIcon
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 
 interface InstAiAssistantProps {
   addAuditLog?: (action: string, type: 'info' | 'success' | 'warning' | 'critical') => void;
@@ -75,6 +75,7 @@ interface AIStats {
 }
 
 export function InstAiAssistantContent({ addAuditLog, setTab, profileName = '', institutionCode = '' }: InstAiAssistantProps) {
+  void setTab; // 2026-09-11 — navegação de regresso passou para <BotaoVoltar /> (VoltarContext)
   // Navigation Sub Tab State
   const [activeSubTab, setActiveSubTab] = useState<'config' | 'knowledge' | 'history' | 'chat'>('config');
 
@@ -581,27 +582,20 @@ Contexto adicional:
 
       {/* CABEÇALHO DA PÁGINA (PAGE HEADER) */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 md:gap-4 py-2 px-1" id="ia-header-section">
-        <div className="text-left min-w-0">
+        <div className="flex items-center gap-3 text-left min-w-0">
+          <BotaoVoltar />
+          <div className="min-w-0">
           <h1 className="text-xl md:text-[28px] font-black text-slate-800 tracking-tight m-0 leading-tight">
             IA
           </h1>
           <p className="text-xs md:text-sm text-slate-500 font-bold mt-1">
             Configure e gerencie o assistente virtual da sua instituição.
           </p>
+          </div>
         </div>
 
         {/* State and Preview Trigger */}
         <div className="flex items-center gap-2 flex-wrap">
-          {setTab && (
-            <button
-              onClick={() => setTab('home')}
-              className="bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-full px-3.5 py-1.5 border border-slate-200 text-[10.5px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-3xs active:scale-95 shrink-0"
-            >
-              <ArrowLeft size={13} strokeWidth={2.5} />
-              Voltar ao Painel
-            </button>
-          )}
-
           {/* Status Indicator: AI Connection */}
           <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-none border shrink-0 ${
             aiStatus === 'connected' 

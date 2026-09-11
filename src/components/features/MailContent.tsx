@@ -47,6 +47,7 @@ import {
   ListOrdered,
   Info
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { Message, LanguageCode, ReplySendPayload } from '../../types';
 import { translateText } from '../../utils/translator';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -1086,6 +1087,16 @@ export function MailContent({
       >
         {/* Header matched 1:1 to uploaded reference */}
         <div className="flex items-center gap-3.5 mb-2">
+          <BotaoVoltar
+            titulo="Voltar ao Correio"
+            onClick={() => {
+              if (composeData.body?.trim() || composeData.subject?.trim() || (composeData.attachments && composeData.attachments.length > 0)) {
+                setConfirmarDescarteRascunho(true);
+              } else {
+                setIsComposing(false);
+              }
+            }}
+          />
           <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-md shadow-blue-600/20 shrink-0">
             <Mail size={22} className="text-white" strokeWidth={2.2} />
           </div>
@@ -2224,6 +2235,7 @@ export function MailContent({
     <section className="space-y-4 md:space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
         <div className="flex items-center gap-4">
+          <BotaoVoltar />
           <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
             <Mail size={20} className="md:w-6 md:h-6" />
           </div>

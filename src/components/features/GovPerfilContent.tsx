@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Lock, History, Eye, EyeOff, Check, BadgeCheck, Settings, Camera, CheckCircle2 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { useSession } from '../../services/sessionStore';
 import { supabase } from '../../lib/supabaseClient';
 import { hasValidSupabaseKeys, supabaseService, removerFicheiroStoragePorUrl } from '../../services/supabaseService';
@@ -336,7 +337,9 @@ export function GovPerfilContent({
           sempre que a página renderiza (autenticado), incluindo no modo
           simulado (conta de demonstração da Administração). */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-3 md:pb-5 mb-1 md:mb-2 gap-3 md:gap-4">
-        <div>
+        <div className="flex items-center gap-4">
+          <BotaoVoltar />
+          <div>
           <span className="text-xs uppercase font-bold tracking-widest text-slate-400">Minha Conta</span>
           <h1 className="text-2xl md:text-3xl font-black text-slate-950 tracking-tight">
             Bem-vindo, {(profileName || user?.name || 'Administrador').split(' ')[0]}
@@ -344,6 +347,7 @@ export function GovPerfilContent({
           <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">
             Administração do Correio Digital de Angola
           </p>
+          </div>
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-full text-emerald-700 font-extrabold text-[11px] uppercase tracking-wider">

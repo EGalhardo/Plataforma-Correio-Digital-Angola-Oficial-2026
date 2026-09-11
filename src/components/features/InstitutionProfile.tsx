@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   X,
 } from "lucide-react";
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { motion, AnimatePresence } from "motion/react";
 import { useSession } from "../../services/sessionStore";
 import { supabaseService, hasValidSupabaseKeys, removerFicheiroStoragePorUrl } from "../../services/supabaseService";
@@ -283,10 +284,13 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
       
       {/* Header row as seen in screenshot 2 */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-3 md:pb-5 mb-1 md:mb-2 gap-3 md:gap-4">
-        <div>
+        <div className="flex items-center gap-4">
+          <BotaoVoltar />
+          <div>
           <span className="text-xs uppercase font-bold tracking-widest text-slate-400">Minha Conta</span>
           <h1 className="text-2xl md:text-3xl font-black text-slate-950 tracking-tight">Perfil do Utilizador</h1>
           <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">Gerencie suas informações pessoais e preferências de acesso</p>
+          </div>
         </div>
         <div className="flex items-center gap-2 px-4 py-2 bg-[#f0f4ff] border border-blue-200 rounded-full text-blue-700 font-extrabold text-[11px] uppercase tracking-wider">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 bg-emerald-500 animate-pulse" />

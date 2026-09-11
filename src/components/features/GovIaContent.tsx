@@ -32,6 +32,7 @@ import {
   Cpu as CpuIcon,
   X
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { supabase } from '../../lib/supabaseClient';
 // 2026-08-23 — MODO REAL: telemetria da IA vem do log real (ia_conversas_log).
@@ -473,6 +474,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           
           <div className="flex items-start gap-4">
+            <BotaoVoltar />
             <div className="p-3 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-2xl shadow-md shrink-0">
               <Bot size={32} className={aiStats.groqConfigured ? 'animate-pulse' : 'opacity-50'} />
             </div>

@@ -1,5 +1,6 @@
 import { Bell, BadgeCheck, ShieldAlert, Info, ChevronRight } from 'lucide-react';
 import { AppNotification, AppMode } from '../../types';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 
 interface NotificationsCenterContentProps {
   notifications: AppNotification[];
@@ -12,10 +13,6 @@ export function NotificationsCenterContent({ notifications, setTab, appMode }: N
     success: notifications.filter((n) => n.type === 'success'),
     warning: notifications.filter((n) => n.type === 'warning'),
     info: notifications.filter((n) => n.type === 'info')
-  };
-
-  const goHome = () => {
-    setTab(appMode === 'admin' ? 'gov-dashboard' : 'home');
   };
 
   const navigateToTarget = (targetTab: string) => {
@@ -32,6 +29,7 @@ export function NotificationsCenterContent({ notifications, setTab, appMode }: N
     <section className="space-y-4 md:space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
         <div className="flex items-center gap-3.5 text-left">
+          <BotaoVoltar />
           <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shrink-0">
             <Bell size={20} className="md:w-6 md:h-6" />
           </div>
@@ -41,7 +39,6 @@ export function NotificationsCenterContent({ notifications, setTab, appMode }: N
           </div>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 no-scrollbar">
-          <button onClick={goHome} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">Voltar ao Painel</button>
           <button onClick={() => setTab('historico')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">Ver Histórico</button>
         </div>
       </div>

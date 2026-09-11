@@ -7,7 +7,8 @@
 // ============================================================================
 
 import { useState } from 'react';
-import { Landmark, ChevronLeft, Search, Info, ExternalLink } from 'lucide-react';
+import { Landmark, Search, Info, ExternalLink } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { useLanguage } from '../../hooks/useLanguage';
 import {
   CATEGORIAS_DIRECTORIO,
@@ -49,14 +50,7 @@ export function DirectorioOrgaosContent({ onVoltar }: Props) {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           {mostrarVoltar && (
-          <button
-            type="button"
-            onClick={voltar}
-            aria-label="Voltar"
-            className="w-10 h-10 flex items-center justify-center rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
-          >
-            <ChevronLeft size={18} />
-          </button>
+          <BotaoVoltar onClick={voltar} />
           )}
           <div>
             <h2 className="text-base md:text-xl font-black text-primary leading-tight flex items-center gap-2">

@@ -12,7 +12,6 @@ import { isStorageRef, resolveStorageUrl, buildStorageRef } from '../../lib/secu
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
-  ArrowLeft,
   Calendar,
   Clock,
   MapPin,
@@ -74,6 +73,7 @@ import {
   BarChart3,
   MessagesSquare
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { Message, SENSITIVITY_LEVELS, PRIORITY_CONFIGS, ReplySendPayload, ReplySendResult } from '../../types';
 // 2026-09-10 — Inquérito com IA conversacional (PROMPT v3 §4.2): botão
 // «Iniciar Inquérito» na correspondência do cidadão + chat em popup.
@@ -2301,13 +2301,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
         {/* Header with Back Arrow and Title */}
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => setShowLocationPage(false)}
-              className="text-[#384e6e] hover:text-slate-900 hover:bg-slate-100/60 p-2.5 rounded-full transition-all cursor-pointer flex items-center justify-center border border-slate-200 shadow-3xs bg-white"
-              title="Voltar ao Detalhe" aria-label="Voltar ao Detalhe"
-            >
-              <ArrowLeft size={24} />
-            </button>
+            <BotaoVoltar onClick={() => setShowLocationPage(false)} titulo="Voltar ao Detalhe" />
             <div>
               <span className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest leading-none block mb-1">
                 {t("Tramitação de Correspondência")}
@@ -2479,14 +2473,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
         className="space-y-6 pt-2 pb-6 text-left"
       >
         <div className="flex items-center">
-          <button 
-            type="button"
-            onClick={() => setActiveAction(null)}
-            className="text-[#384e6e] hover:text-slate-900 hover:bg-slate-100/60 p-2 rounded-full transition-all cursor-pointer flex items-center justify-center border-0 outline-none"
-            title="Voltar" aria-label="Voltar"
-          >
-            <ArrowLeft size={24} />
-          </button>
+          <BotaoVoltar onClick={() => setActiveAction(null)} />
         </div>
 
         <div className="bg-white p-8 md:p-11 rounded-[24px] border border-slate-300 shadow-[0_8px_30px_rgb(0,0,0,0.03)] selection:bg-indigo-100 select-text">
@@ -3125,16 +3112,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
       className="space-y-4"
     >
       <div className="flex items-center justify-between gap-3">
-        <button 
-          onClick={() => {
-            setTab(backTab || 'correspondencias');
-            setSelectedMessage(null);
-          }}
-          className="text-[#384e6e] hover:text-slate-900 hover:bg-slate-100/60 p-2 rounded-full transition-all cursor-pointer flex items-center justify-center border-0 outline-none"
-          title="Voltar ao Correio" aria-label="Voltar ao Correio"
-        >
-          <ArrowLeft size={24} />
-        </button>
+        <BotaoVoltar />
         
         <div className="flex items-center gap-2">
           {isDeleted ? (
@@ -3307,16 +3285,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
             >
               {/* Header */}
               <div className="flex items-center gap-3 pb-4 border-b border-slate-150">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveOfficialAction(null);
-                  }}
-                  className="flex items-center justify-center w-10 h-10 bg-white border-2 border-[#d1dbe5] rounded-full text-[#384e6e] hover:bg-slate-50 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
-                  title="Voltar" aria-label="Voltar"
-                >
-                  <ArrowLeft size={16} className="text-[#384e6e]" />
-                </button>
+                <BotaoVoltar onClick={() => setActiveOfficialAction(null)} />
                 <div className="text-left">
                   <h4 className="font-extrabold text-[#111A2E] text-sm md:text-base flex items-center gap-1.5 uppercase tracking-wide">
                      Trâmite Oficial: {activeOfficialAction}
@@ -3979,13 +3948,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               className="space-y-6"
             >
               <div className="flex items-center gap-3 pb-4 border-b border-line">
-                <button 
-                  onClick={() => setActiveAction(null)}
-                  className="flex items-center justify-center w-10 h-10 bg-white border-2 border-[#d1dbe5] rounded-full text-[#384e6e] hover:bg-slate-50 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
-                  title="Voltar" aria-label="Voltar"
-                >
-                  <ArrowLeft size={16} className="text-[#384e6e]" />
-                </button>
+                <BotaoVoltar onClick={() => setActiveAction(null)} />
                 <div>
                   <h4 className="font-bold text-primary">{activeAction}</h4>
                   <p className="text-sm text-slate-600 uppercase tracking-wider">{selectedMessage.org}</p>

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, FileText, Clock, ShieldCheck, Check, XCircle, AlertCircle } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { Document as DocumentType, DocRequest } from '../../types';
 
 interface GovDocsContentProps {
@@ -109,6 +110,8 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 py-3 md:py-6 border-b border-slate-100 mb-4 md:mb-8 font-sans">
+        <div className="flex items-center gap-4">
+        <BotaoVoltar />
         <div>
           <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter italic uppercase leading-none font-sans">
             Controle de Emissão Documental
@@ -117,6 +120,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
             <div className="w-1 h-2 bg-red-650 rounded-full" />
             AGT &bull; Terminal de Rastreamento de Documentos de Angola
           </div>
+        </div>
         </div>
         
         <div className="flex items-center bg-white p-1 rounded-[22px] border border-slate-200 shadow-sm">

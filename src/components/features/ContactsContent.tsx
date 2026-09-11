@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Users, Plus, Search, ShieldCheck, ShieldAlert, Trash2, Info, Edit, User, CreditCard, CheckCircle, X, Check, Bell, Phone, ChevronDown, Mail, Siren, Landmark } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { DirectorioOrgaosContent } from './DirectorioOrgaosContent';
 import { Contact } from '../../types';
 import { notify } from '../../lib/notify';
@@ -121,6 +122,7 @@ export function ContactsContent({
     <section className="space-y-4 md:space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
         <div className="flex items-center gap-4">
+          <BotaoVoltar />
           <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
             <Users size={24} />
           </div>

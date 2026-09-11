@@ -15,6 +15,7 @@ import {
   X,
   Camera
 } from "lucide-react";
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { motion, AnimatePresence } from "motion/react";
 import { supabaseService, hasValidSupabaseKeys, removerFicheiroStoragePorUrl } from "../../services/supabaseService";
 import { guardarAvatar, iniciaisDe, lerAvatarLocal } from '../../services/avatarService';
@@ -387,9 +388,12 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
       
       {/* Header row as seen in screenshot 3 */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-3 md:pb-5 mb-1 md:mb-2 gap-3 md:gap-4 text-left">
-        <div>
-          <span className="text-xs uppercase font-bold tracking-wider text-slate-400">Minha Conta</span>
-          <h1 className="text-2xl md:text-3xl font-black text-slate-950 tracking-tight">Bem-vindo, {profileName.split(' ')[0]}</h1>
+        <div className="flex items-center gap-4">
+          <BotaoVoltar />
+          <div>
+            <span className="text-xs uppercase font-bold tracking-wider text-slate-400">Minha Conta</span>
+            <h1 className="text-2xl md:text-3xl font-black text-slate-950 tracking-tight">Bem-vindo, {profileName.split(' ')[0]}</h1>
+          </div>
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           {temPendenciaLocal && (

@@ -4,6 +4,7 @@
 // ============================================================================
 import { useCallback, useEffect, useState } from 'react';
 import { BarChart3, ChevronDown, ChevronUp, Lock, Users, MessagesSquare, Loader2 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList,
 } from 'recharts';
@@ -87,6 +88,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog }: Props) {
   return (
     <div className="space-y-4" data-testid="sondagens-root">
       <div className="flex items-center gap-2.5">
+        <BotaoVoltar />
         <span className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><BarChart3 size={18} /></span>
         <div>
           <h2 className="font-sans font-black text-[#0c2340] text-base uppercase tracking-tight">Sondagens</h2>
