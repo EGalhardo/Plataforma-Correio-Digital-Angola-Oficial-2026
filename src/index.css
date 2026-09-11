@@ -751,3 +751,19 @@ html.dark [data-testid="compositor-data-expiracao"].bg-blue-50 {
   border-color: rgb(59, 130, 246) !important;
   color: #9db8ff !important;
 }
+
+/* 2026-09-11 (T45) — Data de Expiração no Detalhe / Ver detalhes Completos:
+   as regras globais html.dark .bg-* pintavam o selo de cinzento claro. */
+html.dark [data-testid="completo-data-expiracao"] {
+  background: rgb(15, 26, 51) !important;
+  border-color: rgba(224, 82, 82, 0.55) !important;
+}
+html.dark [data-testid="completo-data-expiracao"] span,
+html.dark [data-testid="detalhe-data-expiracao"] span.font-mono,
+html.dark [data-testid="detalhe-grelha-data-expiracao"] .font-bold {
+  color: #f87171 !important;
+}
+html.dark [data-testid="completo-data-expiracao"] span.text-slate-400,
+html.dark [data-testid="detalhe-data-expiracao"] span.text-slate-400 {
+  color: #94a3b8 !important;
+}

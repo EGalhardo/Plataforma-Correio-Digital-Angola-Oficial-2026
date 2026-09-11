@@ -3,7 +3,7 @@
  * Uso: npx tsx testes/unit_data_expiracao.mjs
  */
 import {
-  hojeISO, dataISOParaLocal, formatarDataExpiracao, dataExpiracaoParaISO, validarDataExpiracao,
+  hojeISO, dataISOParaLocal, formatarDataExpiracao, dataExpiracaoParaISO, validarDataExpiracao, estadoExpiracao,
 } from '../src/utils/dataExpiracao.ts';
 import { validarEnvio } from '../src/services/validacaoEnvio.ts';
 
@@ -35,6 +35,22 @@ const comData = validarEnvio({ ...base, dataExpiracao: '2099-01-01' });
 check('validarEnvio: com Data de Expiração o aviso desaparece', !comData.avisos.some((a) => /fala de prazo/.test(a)));
 check('validarEnvio: data passada bloqueia', validarEnvio({ ...base, dataExpiracao: '2000-01-01' }).bloqueios.some((b) => /anterior a hoje/.test(b)));
 check('validarEnvio: sem data não bloqueia', semData.bloqueios.length === 0);
+
+// T45 — estado da expiração (Detalhe da Correspondência)
+const e1 = estadoExpiracao('2026-09-14T22:59:59.999+00:00', '14/09/2026', agora);
+check('estado: definida via deadline_at', e1.definida && e1.rotulo === '14/09/2026' && !e1.expirada && e1.diasRestantes === 3 && e1.descricao === 'Faltam 3 dias');
+const e2 = estadoExpiracao(null, '21/09/2026', agora);
+check('estado: fallback rótulo DD/MM/YYYY', e2.definida && e2.rotulo === '21/09/2026' && e2.diasRestantes === 10);
+const e3 = estadoExpiracao(null, 'Sem prazo', agora);
+check('estado: «Sem prazo» ⇒ não definida', !e3.definida && e3.rotulo === 'Sem prazo' && e3.descricao === '');
+const e4 = estadoExpiracao(null, '25 de Maio de 2026', agora);
+check('estado: texto livre preserva rótulo, não definida', !e4.definida && e4.rotulo === '25 de Maio de 2026');
+const e5 = estadoExpiracao(dataExpiracaoParaISO('2026-09-11'), null, agora);
+check('estado: expira hoje', e5.definida && e5.diasRestantes === 0 && e5.descricao === 'Expira hoje');
+const e6 = estadoExpiracao(dataExpiracaoParaISO('2026-09-09'), null, agora);
+check('estado: expirada há 2 dias', e6.expirada && e6.diasRestantes === -2 && e6.descricao === 'Expirada há 2 dias');
+check('estado: amanhã', estadoExpiracao(dataExpiracaoParaISO('2026-09-12'), null, agora).descricao === 'Expira amanhã');
+check('estado: ISO inválido + sem rótulo ⇒ Sem prazo', !estadoExpiracao('lixo', '', agora).definida);
 
 console.log(`=== RESULTADO: ${ok}/${total} verificações OK ===`);
 process.exit(ok === total ? 0 : 1);

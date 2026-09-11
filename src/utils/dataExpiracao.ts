@@ -59,3 +59,56 @@ export function validarDataExpiracao(
   }
   return { ok: true, erro: '' };
 }
+
+// ----------------------------------------------------------------------------
+// 2026-09-11 (T45) — Estado da expiração para o Detalhe da Correspondência.
+// Fonte primária: `deadlineAt` (ISO, messages.deadline_at). Fallback: o rótulo
+// humano `details.deadline` quando está em DD/MM/YYYY (mensagens locais /
+// antigas). «Sem prazo», vazio ou texto livre ⇒ não definida.
+// ----------------------------------------------------------------------------
+export interface EstadoExpiracao {
+  /** true quando existe uma data de expiração concreta. */
+  definida: boolean;
+  /** Rótulo humano (DD/MM/YYYY) ou «Sem prazo». */
+  rotulo: string;
+  /** true quando a data já passou (fim do dia). */
+  expirada: boolean;
+  /** Dias inteiros até à expiração (0 = expira hoje); null se não definida. */
+  diasRestantes: number | null;
+  /** Texto curto de apoio: «Expira hoje», «Faltam 3 dias», «Expirada há 2 dias». */
+  descricao: string;
+}
+
+const PADRAO_DD_MM_AAAA = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+
+export function estadoExpiracao(
+  deadlineAt: string | null | undefined,
+  rotuloGuardado: string | null | undefined,
+  agora: Date = new Date(),
+): EstadoExpiracao {
+  let fim: Date | null = null;
+  if (deadlineAt) {
+    const d = new Date(deadlineAt);
+    if (!Number.isNaN(d.getTime())) fim = d;
+  }
+  if (!fim) {
+    const m = PADRAO_DD_MM_AAAA.exec((rotuloGuardado || '').trim());
+    if (m) {
+      const local = dataISOParaLocal(`${m[3]}-${m[2]}-${m[1]}`);
+      if (local) { local.setHours(23, 59, 59, 999); fim = local; }
+    }
+  }
+  if (!fim) {
+    const r = (rotuloGuardado || '').trim();
+    return { definida: false, rotulo: r && !/^sem prazo$/i.test(r) ? r : 'Sem prazo', expirada: false, diasRestantes: null, descricao: '' };
+  }
+  const rotulo = `${doisDigitos(fim.getDate())}/${doisDigitos(fim.getMonth() + 1)}/${fim.getFullYear()}`;
+  const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+  const diaFim = new Date(fim.getFullYear(), fim.getMonth(), fim.getDate());
+  const dias = Math.round((diaFim.getTime() - hoje.getTime()) / 86_400_000);
+  const expirada = dias < 0;
+  const descricao = expirada
+    ? (dias === -1 ? 'Expirada ontem' : `Expirada há ${-dias} dias`)
+    : dias === 0 ? 'Expira hoje' : dias === 1 ? 'Expira amanhã' : `Faltam ${dias} dias`;
+  return { definida: true, rotulo, expirada, diasRestantes: dias, descricao };
+}

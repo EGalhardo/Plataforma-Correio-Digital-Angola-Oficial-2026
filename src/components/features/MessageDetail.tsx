@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
   Calendar,
+  CalendarClock,
   Clock,
   MapPin,
   Check,
@@ -74,6 +75,7 @@ import {
   MessagesSquare
 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
+import { estadoExpiracao } from '../../utils/dataExpiracao';
 import { Message, SENSITIVITY_LEVELS, PRIORITY_CONFIGS, ReplySendPayload, ReplySendResult } from '../../types';
 // 2026-09-10 — Inquérito com IA conversacional (PROMPT v3 §4.2): botão
 // «Iniciar Inquérito» na correspondência do cidadão + chat em popup.
@@ -844,6 +846,9 @@ export function MessageDetail({
     return 'Rua Deolinda Rodrigues, n-227, Benfica, Luanda';
   };
   const messageLocality = getMessageLocality(selectedMessage);
+  // 2026-09-11 (T45) — Data de Expiração escolhida pelo remetente no compositor
+  // (messages.deadline_at; fallback ao rótulo DD/MM/YYYY de details.deadline).
+  const expiracao = estadoExpiracao(selectedMessage.deadlineAt, selectedMessage.details?.deadline);
 
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [showLocationPage, setShowLocationPage] = useState(false);
@@ -2477,9 +2482,28 @@ depende de integração futura com a infra-estrutura de chaves nacional.
         </div>
 
         <div className="bg-white p-8 md:p-11 rounded-[24px] border border-slate-300 shadow-[0_8px_30px_rgb(0,0,0,0.03)] selection:bg-indigo-100 select-text">
-          <div className="flex items-center gap-3 mb-8 text-[#0c2340]">
-            <FileText size={24} className="text-[#0c2340]" />
-            <span className="font-sans font-extrabold text-[#0c2340] text-base md:text-lg">Conteúdo do Documento</span>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-8 text-[#0c2340]">
+            <div className="flex items-center gap-3">
+              <FileText size={24} className="text-[#0c2340]" />
+              <span className="font-sans font-extrabold text-[#0c2340] text-base md:text-lg">Conteúdo do Documento</span>
+            </div>
+            {/* 2026-09-11 (T45) — Data de Expiração também na vista completa */}
+            <div
+              className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 ${expiracao.definida ? (expiracao.expirada ? 'bg-rose-50 border-rose-200' : 'bg-red-50/70 border-red-200') : 'bg-slate-50 border-slate-200'}`}
+              data-testid="completo-data-expiracao"
+              title={expiracao.descricao || undefined}
+            >
+              <CalendarClock size={14} className={expiracao.definida ? (expiracao.expirada ? 'text-rose-600' : 'text-[#e05252]') : 'text-slate-400'} />
+              <div className="leading-none">
+                <span className="text-[8px] font-black text-slate-400 block uppercase tracking-wider">Data de Expiração</span>
+                <span className={`text-xs font-bold font-mono mt-0.5 block ${expiracao.definida ? (expiracao.expirada ? 'text-rose-700' : 'text-[#e05252]') : 'text-slate-500'}`}>
+                  {expiracao.rotulo}
+                  {expiracao.definida && expiracao.descricao && (
+                    <span className="ml-1.5 font-sans font-semibold text-[9px] uppercase tracking-wider opacity-80">· {expiracao.descricao}</span>
+                  )}
+                </span>
+              </div>
+            </div>
           </div>
           {selectedMessage.details?.body && selectedMessage.details.body.trim().length > 0 ? (
             <div className="space-y-6 text-slate-700 text-sm md:text-[15px] leading-relaxed tracking-wide font-sans">
@@ -4460,6 +4484,20 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                       <span className="text-xs font-bold text-slate-900 mt-0.5 block md:max-w-md leading-relaxed underline decoration-dotted decoration-indigo-500/40 group-hover:text-indigo-700">{messageLocality}</span>
                     </div>
                   </div>
+                  <div className="w-[1px] h-5 bg-slate-200 hidden sm:block" />
+                  {/* 2026-09-11 (T45) — Data de Expiração definida pelo remetente */}
+                  <div className="flex items-center gap-2 min-w-0" data-testid="detalhe-data-expiracao" title={expiracao.descricao || undefined}>
+                    <CalendarClock size={13} className={`${expiracao.definida ? (expiracao.expirada ? 'text-rose-600' : 'text-[#e05252]') : 'text-slate-400'} shrink-0`} />
+                    <div>
+                      <span className="text-[8px] font-black text-slate-400 block uppercase tracking-wider font-display leading-none">Data de Expiração</span>
+                      <span className={`text-xs font-bold font-mono mt-0.5 block leading-none ${expiracao.definida ? (expiracao.expirada ? 'text-rose-700' : 'text-[#e05252]') : 'text-slate-500'}`}>
+                        {expiracao.rotulo}
+                        {expiracao.definida && expiracao.descricao && (
+                          <span className="ml-1.5 font-sans font-semibold text-[9px] uppercase tracking-wider opacity-80">· {expiracao.descricao}</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
               <p className="text-slate-700 mb-6 leading-relaxed font-medium text-[11px] md:text-base">{t(selectedMessage.preview)}</p>
@@ -4612,13 +4650,21 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3 text-slate-700">
-                            <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center shrink-0 border border-blue-600">
-                              <Calendar size={16} className="text-white" />
+                          {/* 2026-09-11 (T45) — Data de Expiração (antes «Prazo Limite Regulamentar») */}
+                          <div className="flex items-center gap-3 text-slate-700" data-testid="detalhe-grelha-data-expiracao">
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${expiracao.definida ? 'bg-[#e05252] border-[#e05252]' : 'bg-blue-600 border-blue-600'}`}>
+                              <CalendarClock size={16} className="text-white" />
                             </div>
                             <div>
-                              <small className="text-slate-500 text-[9px] md:text-xs font-black uppercase tracking-[0.15em] block leading-none mb-1">{t("Prazo Limite Regulamentar")}</small>
-                              <div className="text-xs md:text-sm font-bold text-primary">{t(selectedMessage.details.deadline || '')}</div>
+                              <small className="text-slate-500 text-[9px] md:text-xs font-black uppercase tracking-[0.15em] block leading-none mb-1">{t("Data de Expiração")}</small>
+                              <div className={`text-xs md:text-sm font-bold flex flex-wrap items-center gap-1.5 ${expiracao.definida ? (expiracao.expirada ? 'text-rose-700' : 'text-[#e05252]') : 'text-primary'}`}>
+                                <span>{expiracao.rotulo}</span>
+                                {expiracao.definida && expiracao.descricao && (
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-mono font-bold uppercase tracking-wider ${expiracao.expirada ? 'bg-rose-100 text-rose-700' : 'bg-red-50 text-[#e05252]'}`}>
+                                    {expiracao.descricao}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
 
