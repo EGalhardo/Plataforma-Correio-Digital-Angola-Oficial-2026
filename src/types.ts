@@ -66,6 +66,9 @@ export interface ReplySendPayload {
    *  envio; o resumo do LOTE abre UMA única vez no fim (1 confirmação para
    *  N destinatários, nunca N popups empilhados). */
   silencioso?: boolean;
+  /** 2026-09-11 — Data de Expiração da correspondência (YYYY-MM-DD do
+   *  selector; vazio = sem prazo). Expedição múltipla: cada cópia leva a mesma. */
+  dataExpiracao?: string;
 }
 
 export interface ReplySendResult {
@@ -102,6 +105,10 @@ export interface Message {
   sensitivity?: 'Público' | 'Privado' | 'Sensível' | 'Restrito' | 'Ultra Restrito';
   priorityScale?: 'Normal' | 'Importante' | 'Urgente' | 'Crítico';
   deadlineHoursRemaining?: number;
+  /** 2026-09-11 — Data de Expiração escolhida no compositor (ISO 8601, fim do
+   *  dia local). Espelho de messages.deadline_at; details.deadline guarda o
+   *  rótulo humano (DD/MM/YYYY ou «Sem prazo»). */
+  deadlineAt?: string | null;
   /** Canal oficial de homologação (Área de Administração ⇄ Cidadão) — visível mesmo com conta pendente de ativação. */
   homologation?: boolean;
   /** BI do cidadão a quem a mensagem de homologação se destina. */

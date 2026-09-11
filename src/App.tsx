@@ -78,6 +78,7 @@ import {
   ReplySendResult
 } from './types';
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, sealProtocolContent, canonicalProtocolPayload } from './utils/protocolGenerator';
+import { validarDataExpiracao, formatarDataExpiracao, dataExpiracaoParaISO } from './utils/dataExpiracao';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente } from './utils/ordenacaoCronologica';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao } from './services/supabaseService';
@@ -2007,7 +2008,7 @@ export default function App() {
   const [correspondenciaTab, setCorrespondenciaTab] = useState('lidas');
   const [videoSessionCount, setVideoSessionCount] = useState(0);
   const [isComposing, setIsComposing] = useState(false);
-  const [composeData, setComposeData] = useState<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[]; inqueritosIaIds?: number[] }>({ to: '', subject: '', body: '', attachments: [], toArray: [] });
+  const [composeData, setComposeData] = useState<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[]; inqueritosIaIds?: number[]; dataExpiracao?: string }>({ to: '', subject: '', body: '', attachments: [], toArray: [] });
 
   const [documentosTab, setDocumentosTab] = useState('lidas');
   const [isDocComposing, setIsDocComposing] = useState(false);
@@ -4618,6 +4619,8 @@ export default function App() {
           ...(composeData.sondagensIds?.length ? { sondagensIds: composeData.sondagensIds } : {}),
           // 2026-09-10 — Inquéritos com IA embutidos: cada cópia leva o cartão de conversa.
           ...(composeData.inqueritosIaIds?.length ? { inqueritosIaIds: composeData.inqueritosIaIds } : {}),
+          // 2026-09-11 — Data de Expiração: a mesma para todas as cópias do lote.
+          ...(composeData.dataExpiracao ? { dataExpiracao: composeData.dataExpiracao } : {}),
           // v37.78.8 — sem comprovativo individual (o resumo abre no fim do lote).
           silencioso: true,
         }).then(res => ({ dest, res }))
@@ -4671,6 +4674,16 @@ export default function App() {
     const sondagensIdsEnvio = override?.sondagensIds ?? composeData.sondagensIds;
     // 2026-09-10 — Inquéritos com IA embutidos (mesmo mecanismo das sondagens).
     const inqueritosIaIdsEnvio = override?.inqueritosIaIds ?? composeData.inqueritosIaIds;
+    // 2026-09-11 — Data de Expiração do compositor (YYYY-MM-DD; vazio = sem
+    // prazo). Rótulo humano em details.deadline; carimbo ISO em deadlineAt.
+    const dataExpiracaoEnvio = (override ? override.dataExpiracao : composeData.dataExpiracao) || '';
+    const vDataExpiracao = validarDataExpiracao(dataExpiracaoEnvio);
+    if (!vDataExpiracao.ok) {
+      notify(vDataExpiracao.erro, 'warning');
+      return { ok: false, error: vDataExpiracao.erro };
+    }
+    const deadlineRotulo = formatarDataExpiracao(dataExpiracaoEnvio) || 'Sem prazo';
+    const deadlineAtEnvio = dataExpiracaoParaISO(dataExpiracaoEnvio);
     // Validação do conteúdo: destinatário e corpo obrigatórios (corpo só com espaços não envia).
     if (!to || !body.trim()) {
       notify('A mensagem está vazia. Escreva o conteúdo antes de enviar.', 'warning');
@@ -4708,10 +4721,11 @@ export default function App() {
       preview: effectiveSubject,
       date: "hoje",
       status: "Informativo",
+      deadlineAt: deadlineAtEnvio,
       details: {
         subject: effectiveSubject,
         body: body,
-        deadline: "Sem prazo",
+        deadline: deadlineRotulo,
         state: "Entregue & Autenticado",
         // 2026-08-21 — resposta vinculada à correspondência original
         // (marcador RESPONDE_A lido pelo Expediente da Administração).

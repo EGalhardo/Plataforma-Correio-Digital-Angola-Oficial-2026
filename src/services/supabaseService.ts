@@ -32,6 +32,8 @@ interface LinhaMensagem {
   deadline_text: string; state_indicator: string; actions: string[];
   attachments: string[]; sensitivity: string; priority_scale: string;
   deadline_hours_remaining: number; sender_bi: string; recipient_bi: string;
+  /** 2026-09-11 — Data de Expiração (timestamptz) escolhida no compositor. */
+  deadline_at?: string | null;
   protocol_number?: string | null;
   document_type?: string | null;
 }
@@ -234,6 +236,8 @@ const createMessagePayload = ({
   sensitivity: msg.sensitivity || 'Privado',
   priority_scale: msg.priorityScale || 'Normal',
   deadline_hours_remaining: msg.deadlineHoursRemaining || null,
+  // 2026-09-11 — Data de Expiração do compositor (null = sem prazo).
+  deadline_at: msg.deadlineAt || null,
   protocol_id: null,
   protocol_number: msg.protocol?.protocolNumber || null,
 });
@@ -1624,6 +1628,7 @@ export const supabaseService = {
           sensitivity: item.sensitivity as Message['sensitivity'],
           priorityScale: item.priority_scale as Message['priorityScale'],
           deadlineHoursRemaining: item.deadline_hours_remaining,
+          deadlineAt: item.deadline_at ?? null,
           // P0-A — chaves reais da nuvem para verificacao de integridade no detalhe.
           senderKey: item.sender_bi,
           recipientBi: item.recipient_bi,
@@ -1707,6 +1712,7 @@ export const supabaseService = {
         sensitivity: item.sensitivity as Message['sensitivity'],
         priorityScale: item.priority_scale as Message['priorityScale'],
         deadlineHoursRemaining: item.deadline_hours_remaining,
+        deadlineAt: item.deadline_at ?? null,
         // P0-A — chaves reais guardadas na nuvem (base do payload canonico CDA-P1
         // usado na verificacao de integridade do protocolo no detalhe da mensagem).
         senderKey: item.sender_bi,
@@ -1775,6 +1781,7 @@ export const supabaseService = {
         sensitivity: item.sensitivity as Message['sensitivity'],
         priorityScale: item.priority_scale as Message['priorityScale'],
         deadlineHoursRemaining: item.deadline_hours_remaining,
+        deadlineAt: item.deadline_at ?? null,
         // P0-A — chaves reais da nuvem para verificacao de integridade no detalhe.
         senderKey: item.sender_bi,
         recipientBi: item.recipient_bi,
@@ -1872,6 +1879,7 @@ export const supabaseService = {
             sensitivity: item.sensitivity as Message['sensitivity'],
             priorityScale: item.priority_scale as Message['priorityScale'],
             deadlineHoursRemaining: item.deadline_hours_remaining,
+            deadlineAt: item.deadline_at ?? null,
             senderKey,
             recipientBi,
             // v27 — numero de protocolo ligado na nuvem (validacao real do QR):

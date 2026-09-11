@@ -45,7 +45,8 @@ import {
   User,
   Building2,
   ListOrdered,
-  Info
+  Info,
+  CalendarClock
 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { Message, LanguageCode, ReplySendPayload } from '../../types';
@@ -73,6 +74,7 @@ import { supabaseService, isRealInstitutionalCode, invalidateMessagesReadCache }
 import { notify } from '../../lib/notify';
 import { traduzirErro } from '../../lib/erroAmigavel';
 import { validarEnvio } from '../../services/validacaoEnvio';
+import { hojeISO, formatarDataExpiracao } from '../../utils/dataExpiracao';
 import { assistenteDocumento } from '../../services/aiDocumentoService';
 import { MARCADOR_CLAREZA_SUGESTAO } from '../../services/aiDocumentoCore';
 import type { ResultadoValidacaoEnvio } from '../../services/validacaoEnvio';
@@ -102,8 +104,8 @@ const getOrgBadgeStyles = (org: string) => {
 interface MailContentProps {
   isComposing: boolean;
   setIsComposing: (composing: boolean) => void;
-  composeData: { to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[]; inqueritosIaIds?: number[] };
-  setComposeData: React.Dispatch<React.SetStateAction<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[]; inqueritosIaIds?: number[] }>>;
+  composeData: { to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[]; inqueritosIaIds?: number[]; dataExpiracao?: string };
+  setComposeData: React.Dispatch<React.SetStateAction<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[]; inqueritosIaIds?: number[]; dataExpiracao?: string }>>;
   /** 2026-09-11 — aceita um payload opcional (mesma pipeline do App) para a
    *  expedição «Todos» servir também o(s) destinatário(s) manual(is). */
   handleSendMessage: (override?: ReplySendPayload) => void | Promise<unknown>;
@@ -213,6 +215,7 @@ export function MailContent({
         subject: composeData.subject || '',
         body: composeData.body || '',
         attachments: composeData.attachments || [],
+        dataExpiracao: composeData.dataExpiracao || '',
         gravadoEm: Date.now(),
       }));
     } catch { /* quota/modo privado — melhor esforço, nunca bloqueia */ }
@@ -241,7 +244,7 @@ export function MailContent({
     setValidacao(null);
     setAvisosConfirmados(false);
     setClareza(null);
-  }, [composeData.to, composeData.subject, composeData.body, composeData.attachments]);
+  }, [composeData.to, composeData.subject, composeData.body, composeData.attachments, composeData.dataExpiracao]);
 
   // S6-camada-IA — chama o assistente com a acao rever_clareza. Erro/serviço
   // indisponível vira aviso âmbar honesto; NUNCA interfere com tentarEnviar.
@@ -421,7 +424,7 @@ export function MailContent({
         onRefreshMail?.();
         setSondagensCompostas([]);
         setInqueritosIaCompostos([]);
-        setComposeData({ ...composeData, to: '', toArray: [], subject: '', body: '', sondagensIds: undefined, inqueritosIaIds: undefined });
+        setComposeData({ ...composeData, to: '', toArray: [], subject: '', body: '', sondagensIds: undefined, inqueritosIaIds: undefined, dataExpiracao: '' });
         setAvisosConfirmados(false);
         setValidacao({ bloqueios: [], avisos: [] });
         const servidosManuais = manuais.filter((m) => !manuaisFalhados.includes(m));
@@ -679,6 +682,7 @@ export function MailContent({
           body: r.body || '',
           attachments: Array.isArray(r.attachments) ? r.attachments : [],
           toArray: Array.isArray(r.toArray) ? r.toArray : [],
+          dataExpiracao: typeof r.dataExpiracao === 'string' ? r.dataExpiracao : '',
         } as any);
         notify('Rascunho recuperado automaticamente — o seu texto anterior foi preservado.', 'info');
       }
@@ -1564,6 +1568,42 @@ export function MailContent({
                   </label>
                 </div>
               </div>
+
+              {/* 2026-09-11 — Data de Expiração: mesma linha do «Anexar», encostada
+                  à direita (justify-between do toolbar). Vazio = sem prazo; a data
+                  segue para messages.deadline_at e para o rótulo «EXPIRA:». */}
+              <label
+                className={`ml-auto flex items-center gap-1.5 h-7 pl-2 pr-1.5 rounded-lg border transition-all cursor-pointer select-none ${
+                  composeData.dataExpiracao
+                    ? 'bg-blue-50 border-blue-200 text-blue-700'
+                    : 'bg-slate-100/60 border-slate-200/60 text-slate-600 hover:bg-slate-100'
+                }`}
+                title="Data de Expiração da correspondência (opcional)"
+                data-testid="compositor-data-expiracao"
+              >
+                <CalendarClock size={14} className="shrink-0" />
+                <span className="text-[10px] font-black uppercase tracking-wider whitespace-nowrap">Data de Expiração</span>
+                <input
+                  id="input-data-expiracao"
+                  type="date"
+                  aria-label="Data de Expiração"
+                  min={hojeISO()}
+                  value={composeData.dataExpiracao || ''}
+                  onChange={(e) => setComposeData({ ...composeData, dataExpiracao: e.target.value })}
+                  className="h-5 bg-transparent border-0 outline-none text-[11px] font-bold font-mono text-slate-800 cursor-pointer w-[9.5rem]"
+                />
+                {composeData.dataExpiracao && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); setComposeData({ ...composeData, dataExpiracao: '' }); }}
+                    title={`Remover data de expiração (${formatarDataExpiracao(composeData.dataExpiracao)})`}
+                    aria-label="Remover data de expiração"
+                    className="p-0.5 rounded-md text-blue-700 hover:bg-blue-100 transition-all"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </label>
             </div>
 
             <textarea 
@@ -2085,6 +2125,13 @@ export function MailContent({
                             {(composeData.attachments || []).length > 4 ? ' …' : ''}
                           </span>
                         </>}
+                  </span>
+                </div>
+                {/* 2026-09-11 — Data de Expiração escolhida no compositor. */}
+                <div className="flex gap-3 text-sm" data-testid="rever-data-expiracao">
+                  <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Expira em</span>
+                  <span className={`font-bold break-words min-w-0 ${composeData.dataExpiracao ? 'text-rose-600' : 'text-slate-800'}`}>
+                    {composeData.dataExpiracao ? formatarDataExpiracao(composeData.dataExpiracao) : 'Sem prazo'}
                   </span>
                 </div>
               </div>

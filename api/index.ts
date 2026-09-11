@@ -3422,6 +3422,8 @@ const DADOS_COLUNAS: Record<string, Record<string, boolean>> = {
     status: true, subject: true, body: true, deadline_text: true, state_indicator: true,
     actions: true, attachments: true, sensitivity: true, priority_scale: true,
     deadline_hours_remaining: true, protocol_number: true, created_at: true,
+    // 2026-09-11 — Data de Expiração escolhida no compositor «Nova Mensagem».
+    deadline_at: true,
     // v37.78.3 — sondagens embutidas (v37): sem estas colunas o proxy
     // descartava-as em silêncio e o destinatário manual via a mensagem SEM
     // cartão de resposta à sondagem (idem server.ts — manter sincronizado).

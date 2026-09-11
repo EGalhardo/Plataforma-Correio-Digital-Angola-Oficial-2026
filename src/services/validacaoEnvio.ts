@@ -8,6 +8,8 @@
 // futura; o determinístico é gratuito, offline e previsível.)
 // ============================================================================
 
+import { validarDataExpiracao } from '../utils/dataExpiracao';
+
 export interface ResultadoValidacaoEnvio {
   bloqueios: string[];
   avisos: string[];
@@ -34,6 +36,8 @@ export function validarEnvio(d: {
   sondagensIds?: number[];
   /** 2026-09-10 — Inquéritos com IA embutidos (não afecta a validação). */
   inqueritosIaIds?: number[];
+  /** 2026-09-11 — Data de Expiração (YYYY-MM-DD; vazio = sem prazo). */
+  dataExpiracao?: string;
 }): ResultadoValidacaoEnvio {
   const bloqueios: string[] = [];
   const avisos: string[] = [];
@@ -61,9 +65,15 @@ export function validarEnvio(d: {
     avisos.push(`Levas ${anexos.length} anexos; confirma que são todos necessários e legíveis.`);
   }
 
-  if (body.length > 0 && PADRAO_PRAZO.test(body) && !PADRAO_DATA.test(body)) {
+  // 2026-09-11 — com Data de Expiração definida, o prazo já vai estruturado
+  // (EXPIRA: DD/MM/YYYY); o aviso de «prazo sem data» deixa de fazer sentido.
+  const temDataExpiracao = !!(d.dataExpiracao || '').trim();
+  if (body.length > 0 && !temDataExpiracao && PADRAO_PRAZO.test(body) && !PADRAO_DATA.test(body)) {
     avisos.push('O texto fala de prazo mas não indica uma data concreta — o destinatário pode ficar sem orientação clara.');
   }
+
+  const vData = validarDataExpiracao(d.dataExpiracao);
+  if (!vData.ok) bloqueios.push(vData.erro);
 
   return { bloqueios, avisos };
 }

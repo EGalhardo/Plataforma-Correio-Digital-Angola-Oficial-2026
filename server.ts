@@ -409,6 +409,8 @@ const DADOS_COLUNAS: Record<string, Record<string, boolean>> = {
     status: true, subject: true, body: true, deadline_text: true, state_indicator: true,
     actions: true, attachments: true, sensitivity: true, priority_scale: true,
     deadline_hours_remaining: true, protocol_number: true, created_at: true,
+    // 2026-09-11 — Data de Expiração escolhida no compositor «Nova Mensagem».
+    deadline_at: true,
     // v37.78.3 — sondagens embutidas na correspondência oficial (v37): o
     // destinatário manual da composição recebe a mensagem com o cartão de
     // resposta (sondagem_id retrocompat v36 + sondagem_ids v37 multi). Sem
