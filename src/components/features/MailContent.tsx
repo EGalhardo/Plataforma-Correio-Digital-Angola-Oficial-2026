@@ -47,7 +47,7 @@ import {
   ListOrdered,
   Info
 } from 'lucide-react';
-import { Message, LanguageCode } from '../../types';
+import { Message, LanguageCode, ReplySendPayload } from '../../types';
 import { translateText } from '../../utils/translator';
 import { useLanguage } from '../../hooks/useLanguage';
 import { SondagemModal } from './SondagemModal';
@@ -103,7 +103,9 @@ interface MailContentProps {
   setIsComposing: (composing: boolean) => void;
   composeData: { to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[]; inqueritosIaIds?: number[] };
   setComposeData: React.Dispatch<React.SetStateAction<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[]; inqueritosIaIds?: number[] }>>;
-  handleSendMessage: () => void | Promise<unknown>;
+  /** 2026-09-11 — aceita um payload opcional (mesma pipeline do App) para a
+   *  expedição «Todos» servir também o(s) destinatário(s) manual(is). */
+  handleSendMessage: (override?: ReplySendPayload) => void | Promise<unknown>;
   unreadTotal: number;
   correspondenciaTab: string;
   setCorrespondenciaTab: (tab: string) => void;
@@ -117,6 +119,10 @@ interface MailContentProps {
   handleSelectMessage: (msg: Message) => void;
   setTab: (tab: string) => void;
   bi: string;
+  /** 2026-09-11 — nome OFICIAL da instituição com sessão (activeProfile), sem
+   *  o sufixo «(CÓDIGO)». É o nome que a IA usa nos inquéritos e o remetente
+   *  nas sondagens. Sem ele cai-se em profiles.name → código. */
+  nomeInstituicao?: string;
   isInst?: boolean;
   onDeleteMessage?: (id: number) => void;
   onRestoreMessage?: (id: number) => void;
@@ -167,6 +173,7 @@ export function MailContent({
   handleSelectMessage,
   setTab,
   bi,
+  nomeInstituicao,
   isInst,
   onDeleteMessage,
   onRestoreMessage,
@@ -287,7 +294,7 @@ export function MailContent({
           .map((t) => String(t || '').trim().toUpperCase().replace(/\s+/g, ''))
           .filter((t) => t && t !== 'TODOS'),
       ));
-      const nomeInst = instNomeSondagem || bi;
+      const nomeInst = nomeInstituicao?.trim() || instNomeSondagem || bi;
       let audiencia = 0;
       let classificacao = '';
       if (temSondagens) {
@@ -371,17 +378,57 @@ export function MailContent({
             inqueritoIds: inqueritosIaCompostos.map(q => q.id),
           });
         }
+        // 2026-09-11 — DESTINATÁRIO(S) MANUAL(IS) com «Todos»: foram excluídos
+        // da difusão por âmbito (excluirBis) e este ramo terminava aqui sem os
+        // servir — o cidadão indicado à mão nunca recebia a correspondência
+        // nem a notificação (visto em produção: «Inquerito Inteligente»).
+        // Cada um recebe agora a correspondência oficial própria, com o(s)
+        // cartão(ões) embutido(s), protocolo e notificação, pela MESMA pipeline
+        // do App (override silencioso: sem comprovativo individual).
+        const idsSondTodos = sondagensCompostas.map((s) => s.id);
+        const idsInqTodos = inqueritosIaCompostos.map((q) => q.id);
+        const manuaisFalhados: string[] = [];
+        if (manuais.length) {
+          const resultados = await Promise.all(manuais.map(async (dest) => {
+            try {
+              const r = await handleSendMessageRef.current({
+                to: dest,
+                subject: assuntoFinal,
+                body: corpoFinal,
+                // O compositor guarda os anexos já serializados (strings JSON);
+                // a pipeline do App normaliza ambos os formatos.
+                attachments: (composeData.attachments || []) as unknown as ReplySendPayload['attachments'],
+                ...(idsSondTodos.length ? { sondagensIds: idsSondTodos } : {}),
+                ...(idsInqTodos.length ? { inqueritosIaIds: idsInqTodos } : {}),
+                silencioso: true,
+              }) as { ok?: boolean } | undefined;
+              return { dest, ok: !!r && r.ok === true };
+            } catch {
+              return { dest, ok: false };
+            }
+          }));
+          for (const r of resultados) if (!r.ok) manuaisFalhados.push(r.dest);
+          const servidos = manuais.filter((m) => !manuaisFalhados.includes(m));
+          addAuditLog?.(
+            `Expedição «Todos» — destinatário(s) manual(is) servido(s) com a correspondência oficial: ${servidos.length ? servidos.join(', ') : 'nenhum'}${manuaisFalhados.length ? ` — falhou para: ${manuaisFalhados.join(', ')}` : ''}.`,
+            manuaisFalhados.length ? 'warning' : 'success',
+          );
+        }
         invalidateMessagesReadCache();
         // v37.5 — a linha «TODOS» tem de aparecer de imediato nas «Enviadas»:
         // fura o micro-cache e força o refetch das caixas sem esperar o Realtime.
         onRefreshMail?.();
         setSondagensCompostas([]);
         setInqueritosIaCompostos([]);
-        setComposeData({ ...composeData, to: '', subject: '', body: '' });
+        setComposeData({ ...composeData, to: '', toArray: [], subject: '', body: '', sondagensIds: undefined, inqueritosIaIds: undefined });
         setAvisosConfirmados(false);
         setValidacao({ bloqueios: [], avisos: [] });
+        const servidosManuais = manuais.filter((m) => !manuaisFalhados.includes(m));
         setSucessoSondagens(
-          `Correspondência enviada com sucesso: ${audiencia} cidadão(s) no âmbito ${classificacao}. O registo da expedição está na lista «Enviadas».`,
+          `Correspondência enviada com sucesso: ${audiencia} cidadão(s) no âmbito ${classificacao}`
+          + (servidosManuais.length ? ` e ${servidosManuais.length} destinatário(s) directo(s) (${servidosManuais.join(', ')})` : '')
+          + `. O registo da expedição está na lista «Enviadas».`
+          + (manuaisFalhados.length ? ` Atenção: não foi possível entregar ao(s) destinatário(s) ${manuaisFalhados.join(', ')} — envie-lhe(s) a correspondência individualmente.` : ''),
         );
         setDistribuindoSondagens(false);
         return;
@@ -975,7 +1022,7 @@ export function MailContent({
         aberto={showSondagemModal}
         onFechar={() => setShowSondagemModal(false)}
         codigoInstituicao={bi}
-        nomeInstituicao={instNomeSondagem || bi}
+        nomeInstituicao={nomeInstituicao?.trim() || instNomeSondagem || bi}
         criadaPor={bi}
         addAuditLog={(a, t) => addAuditLog?.(a, t)}
         onCriarBloco={adicionarSondagemBloco}

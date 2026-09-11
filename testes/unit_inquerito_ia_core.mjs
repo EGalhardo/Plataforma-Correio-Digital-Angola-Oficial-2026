@@ -7,6 +7,8 @@ import {
   normalizarGuiaoIA, normalizarPassoIA, guiaoPorTemplate, condicaoSatisfeita,
   proximoCampoGuiado, perguntaGuiada, interpretarRespostaGuiada, sanitizarTextoPrompt,
   campoSensivel, slugChave, RE_RECUSA, MAX_PERGUNTAS_POR_DURACAO,
+  INQUERITO_IA_GUIAO_SISTEMA, INQUERITO_IA_CONVERSA_SISTEMA,
+  chaveDetalhe, ehChaveDetalhe, chavesRecolhidas, agregarCamposRespostas,
 } from '../src/services/inqueritoIaCore.ts';
 
 let n = 0;
@@ -141,6 +143,54 @@ t('RE_RECUSA distingue recusa de participação de resposta negativa', () => {
   assert.equal(RE_RECUSA.test('agora não, obrigado'), true);
   assert.equal(RE_RECUSA.test('Não temos água canalizada'), false);
   assert.equal(RE_RECUSA.test('Sim'), false);
+});
+
+// ---- 2026-09-11 (tarefa 34) — nome da instituição, detalhes e agregação ----
+t('prompts exigem o nome EXACTO da instituição com sessão', () => {
+  assert.match(INQUERITO_IA_GUIAO_SISTEMA, /nome EXACTAMENTE como está/);
+  assert.match(INQUERITO_IA_CONVERSA_SISTEMA, /usa esse nome EXACTO/);
+  assert.match(INQUERITO_IA_CONVERSA_SISTEMA, /"detalhesExtraidos"/);
+});
+
+t('normalizarPassoIA aceita detalhesExtraidos (só chaves do guião, sem números longos)', () => {
+  const p = normalizarPassoIA(JSON.stringify({
+    proximaMensagem: 'E quantas pessoas vivem em casa?',
+    camposExtraidos: { agua_canalizada: 'Sim' },
+    detalhesExtraidos: { agua_canalizada: 'tanque', telefone: 'ligue 923456789', fonte_alternativa: '923456789' },
+    respostaRapida: null, terminou: false, motivoFim: null,
+  }), guiao);
+  assert.deepEqual(p.detalhesExtraidos, { agua_canalizada: 'Tanque' });
+  const semDet = normalizarPassoIA(JSON.stringify({ proximaMensagem: 'Ok', camposExtraidos: {} }), guiao);
+  assert.deepEqual(semDet.detalhesExtraidos, {});
+});
+
+t('chaveDetalhe / ehChaveDetalhe / chavesRecolhidas', () => {
+  assert.equal(chaveDetalhe('fonte_rendimento'), 'fonte_rendimento__detalhe');
+  assert.equal(ehChaveDetalhe('fonte_rendimento__detalhe'), true);
+  assert.equal(ehChaveDetalhe('fonte_rendimento'), false);
+  assert.deepEqual(chavesRecolhidas({ a: '1', a__detalhe: 'x', b: '2' }), ['a', 'b']);
+  assert.deepEqual(chavesRecolhidas(null), []);
+});
+
+t('agregarCamposRespostas desdobra cada valor pelos detalhes («(1 Motorista), (3 Arquitecto)»)', () => {
+  const linhas = [
+    { campos: { fonte_rendimento: 'Trabalho', fonte_rendimento__detalhe: 'Motorista', tem_agua: 'Sim' } },
+    { campos: { fonte_rendimento: 'Trabalho', fonte_rendimento__detalhe: 'Arquitecto' } },
+    { campos: { fonte_rendimento: 'trabalho', fonte_rendimento__detalhe: 'arquitecto' } },
+    { campos: { fonte_rendimento: 'Trabalho', fonte_rendimento__detalhe: 'Arquitecto', tem_agua: 'Sim' } },
+    { campos: { fonte_rendimento: 'Pensão' } },
+    { campos: null },
+  ];
+  const agr = agregarCamposRespostas(linhas);
+  const trabalho = agr.find((a) => a.chave === 'fonte_rendimento' && a.valor === 'Trabalho');
+  assert.equal(trabalho.total, 4);
+  assert.deepEqual(trabalho.detalhes, [{ valor: 'Arquitecto', total: 3 }, { valor: 'Motorista', total: 1 }]);
+  const pensao = agr.find((a) => a.chave === 'fonte_rendimento' && a.valor === 'Pensão');
+  assert.equal(pensao.total, 1);
+  assert.equal(pensao.detalhes, undefined);
+  assert.equal(agr.find((a) => a.chave === 'tem_agua').total, 2);
+  // as chaves de detalhe nunca aparecem como campo
+  assert.ok(agr.every((a) => !a.chave.endsWith('__detalhe')));
 });
 
 console.log(`\n${n} testes OK`);

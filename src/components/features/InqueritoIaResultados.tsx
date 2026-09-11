@@ -4,6 +4,9 @@
 // por campo do guião, barras horizontais com percentagens (só agregados —
 // nunca respostas individuais); texto livre → 10 valores mais frequentes;
 // «Exportar CSV» (agregados); «Encerrar inquérito» com CdaConfirmModal.
+// 2026-09-11 — cada valor desdobra-se pelas especificações concretas que os
+// cidadãos deram («Emprego — (1 Motorista), (3 Arquitecto)»), continuando a
+// mostrar apenas contagens.
 // Padrão único de popups do app: CdaModal.
 // ============================================================================
 import { useEffect, useMemo, useState } from 'react';
@@ -52,22 +55,38 @@ export const normalizarValorAgregado = (campo: CampoGuiaoIA | undefined, bruto: 
   return v.charAt(0).toUpperCase() + v.slice(1);
 };
 
-/** Agrupa agregados por campo, normalizando e ordenando por total. */
-const agruparPorCampo = (agr: AgregadoInqueritoIA[], guiao: InqueritoIA['guiao']) => {
-  const porCampo = new Map<string, Map<string, number>>();
+export interface LinhaResultado { valor: string; total: number; detalhes: { valor: string; total: number }[] }
+
+/** Texto do desdobramento de uma linha: «(1 Motorista), (3 Arquitecto)». */
+export const textoDetalhes = (detalhes: { valor: string; total: number }[]): string =>
+  detalhes.map((d) => `(${d.total} ${d.valor})`).join(', ');
+
+/** Agrupa agregados por campo, normalizando e ordenando por total. Os
+ *  detalhes (2026-09-11) de valores que se fundem após a normalização são
+ *  somados por especificação. Exportado para os testes unitários. */
+export const agruparPorCampo = (agr: AgregadoInqueritoIA[], guiao: InqueritoIA['guiao']) => {
+  const porCampo = new Map<string, Map<string, { total: number; detalhes: Map<string, number> }>>();
   for (const a of agr) {
     const campo = guiao.campos.find((c) => c.chave === a.chave);
     const valor = normalizarValorAgregado(campo, a.valor);
     if (!valor) continue;
     if (!porCampo.has(a.chave)) porCampo.set(a.chave, new Map());
     const m = porCampo.get(a.chave)!;
-    m.set(valor, (m.get(valor) || 0) + a.total);
+    const linha = m.get(valor) || { total: 0, detalhes: new Map<string, number>() };
+    linha.total += a.total;
+    for (const d of a.detalhes || []) linha.detalhes.set(d.valor, (linha.detalhes.get(d.valor) || 0) + d.total);
+    m.set(valor, linha);
   }
   // ordem do guião primeiro; chaves desconhecidas no fim
   const ordem = [...guiao.campos.map((c) => c.chave), ...[...porCampo.keys()].filter((k) => !guiao.campos.some((c) => c.chave === k))];
   return ordem.filter((k) => porCampo.has(k)).map((chave) => {
     const campo = guiao.campos.find((c) => c.chave === chave);
-    const linhas = [...porCampo.get(chave)!.entries()].map(([valor, total]) => ({ valor, total })).sort((a, b) => b.total - a.total);
+    const linhas: LinhaResultado[] = [...porCampo.get(chave)!.entries()]
+      .map(([valor, l]) => ({
+        valor, total: l.total,
+        detalhes: [...l.detalhes.entries()].map(([v, t]) => ({ valor: v, total: t })).sort((a, b) => b.total - a.total || a.valor.localeCompare(b.valor)),
+      }))
+      .sort((a, b) => b.total - a.total);
     const total = linhas.reduce((s, l) => s + l.total, 0);
     const textoLivre = !campo || campo.tipo === 'texto_curto';
     return { chave, rotulo: campo?.rotulo || chave, tipo: campo?.tipo || 'texto_curto', total, linhas: textoLivre ? linhas.slice(0, 10) : linhas, truncado: textoLivre && linhas.length > 10 };
@@ -102,9 +121,9 @@ export function InqueritoIaResultados({ aberto, onFechar, inquerito, onEncerrado
   const concluidos = cont?.concluidos ?? 0;
 
   const exportarCsv = () => {
-    const linhas = [['inquerito_id', 'campo', 'rotulo', 'valor', 'total', 'percentagem']];
+    const linhas = [['inquerito_id', 'campo', 'rotulo', 'valor', 'total', 'percentagem', 'detalhes']];
     for (const g of grupos) for (const l of g.linhas) {
-      linhas.push([String(inquerito.id), g.chave, g.rotulo, l.valor, String(l.total), g.total ? `${Math.round((l.total / g.total) * 100)}%` : '0%']);
+      linhas.push([String(inquerito.id), g.chave, g.rotulo, l.valor, String(l.total), g.total ? `${Math.round((l.total / g.total) * 100)}%` : '0%', textoDetalhes(l.detalhes)]);
     }
     const csv = '\ufeff' + linhas.map((r) => r.map((c) => csvEscape(String(c))).join(';')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -182,12 +201,21 @@ export function InqueritoIaResultados({ aberto, onFechar, inquerito, onEncerrado
                     {g.linhas.map((l, i) => {
                       const pct = g.total ? Math.round((l.total / g.total) * 100) : 0;
                       return (
-                        <div key={l.valor} className="flex items-center gap-3">
-                          <span className="w-36 sm:w-44 shrink-0 text-[12px] font-semibold text-slate-700 truncate" title={l.valor}>{l.valor}</span>
-                          <div className="flex-1 h-4 rounded-full bg-slate-100 overflow-hidden">
-                            <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(pct, 2)}%`, background: CORES[(gi + i) % CORES.length] }} />
+                        <div key={l.valor} data-testid="inquerito-ia-valor">
+                          <div className="flex items-center gap-3">
+                            <span className="w-36 sm:w-44 shrink-0 text-[12px] font-semibold text-slate-700 truncate" title={l.valor}>{l.valor}</span>
+                            <div className="flex-1 h-4 rounded-full bg-slate-100 overflow-hidden">
+                              <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(pct, 2)}%`, background: CORES[(gi + i) % CORES.length] }} />
+                            </div>
+                            <span className="w-16 shrink-0 text-right text-[11px] font-black text-slate-700 tabular-nums">{pct}% <span className="text-slate-400 font-semibold">({l.total})</span></span>
                           </div>
-                          <span className="w-16 shrink-0 text-right text-[11px] font-black text-slate-700 tabular-nums">{pct}% <span className="text-slate-400 font-semibold">({l.total})</span></span>
+                          {/* 2026-09-11 — desdobramento pelas especificações dadas pelos cidadãos
+                              («Emprego — (1 Motorista), (3 Arquitecto)»). Só contagens, nunca quem. */}
+                          {l.detalhes.length > 0 && (
+                            <p className="m-0 mt-0.5 pl-1 text-[11px] font-medium text-slate-500 leading-snug" data-testid="inquerito-ia-detalhes">
+                              <span className="text-slate-400">↳ </span>{textoDetalhes(l.detalhes)}
+                            </p>
+                          )}
                         </div>
                       );
                     })}

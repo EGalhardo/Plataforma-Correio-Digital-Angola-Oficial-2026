@@ -1616,6 +1616,12 @@ export default function App() {
     prevStageForHashRef.current = stage;
   }, [stage, loginSubMode, appMode]);
   const institutionCode = resolveInstitutionCode(activeProfile?.institutionName || bi || '');
+  // 2026-09-11 — nome oficial da instituição da sessão, canónico e sem o
+  // sufixo «(CÓDIGO)» (activeProfile.institutionName = «Nome (CÓDIGO)»).
+  const nomeOficialInstituicaoSessao = useMemo(() => {
+    const bruto = String(activeProfile?.institutionName || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    return normalizarNomeInstituicao(bruto) || bruto;
+  }, [activeProfile?.institutionName]);
   // F3/F7 — estado da conta institucional: 'restricted' = pendente/em correções (a área abre na mesma; o estado alimenta o tom do indicador Online); 'full' = aprovada
   const [instGate, setInstGate] = useState<'none' | 'restricted' | 'full'>('none');
   
@@ -5800,6 +5806,10 @@ Ficha civil do titular:
             handleSelectMessage={handleSelectMessage}
             setTab={setTab}
             bi={bi}
+            // 2026-09-11 — nome OFICIAL da instituição com sessão (sem o
+            // sufixo «(CÓDIGO)»): remetente das sondagens e nome que a IA usa
+            // nos Inquéritos com IA (antes caía em profiles.name → código).
+            nomeInstituicao={isInstMode ? nomeOficialInstituicaoSessao : undefined}
             isInst={isInstMode}
             onDeleteMessage={handleDeleteMessage}
             onRestoreMessage={handleRestoreMessage}

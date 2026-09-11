@@ -24,6 +24,9 @@ import {
 } from './sondagemService';
 import {
   guiaoPorTemplate,
+  agregarCamposRespostas,
+  ehChaveDetalhe,
+  type AgregadoInqueritoIA,
   type CanalIA,
   type DuracaoIA,
   type GuiaoIA,
@@ -71,7 +74,7 @@ export interface RespostaInqueritoIA {
 }
 
 export interface ContadoresInqueritoIA { enviados: number; iniciados: number; concluidos: number; recusados: number; }
-export interface AgregadoInqueritoIA { chave: string; valor: string; total: number; }
+export type { AgregadoInqueritoIA } from './inqueritoIaCore';
 
 // ---- sonda de disponibilidade v38 (cache em memória) -----------------------
 let v38Ok: boolean | null = null;
@@ -424,29 +427,26 @@ export const contadoresInqueritoIA = async (q: InqueritoIA): Promise<ContadoresI
  *  (só respostas concluídas; nunca devolve linhas individuais à UI). */
 export const agregadosInqueritoIA = async (id: number): Promise<SondagemResultado<AgregadoInqueritoIA[]>> => {
   try {
+    // 2026-09-11 — 1.º os `campos` das respostas concluídas (proxy autenticado
+    // ou leitura directa): é a única forma de ligar cada detalhe ao valor a que
+    // pertence («Emprego → Motorista ×1»). A RPC cda_inquerito_ia_agregados
+    // continua como recurso quando a leitura falha (sem desdobramento).
+    const linhas = await lerLinhasDados<Pick<RespostaInqueritoIA, 'estado' | 'campos'>>('inquerito_ia_respostas', { inquerito_id: id, estado: 'concluido' }, undefined, async () => {
+      const { data: d, error: e } = await supabase.from('inquerito_ia_respostas').select('estado,campos').eq('inquerito_id', id).eq('estado', 'concluido');
+      if (e) throw e;
+      return (d || []) as Pick<RespostaInqueritoIA, 'estado' | 'campos'>[];
+    }).catch(() => null);
+    if (Array.isArray(linhas)) return { ok: true, dados: agregarCamposRespostas(linhas) };
     const { data, error } = await supabase.rpc('cda_inquerito_ia_agregados', { p_inquerito_id: id });
     if (!error && Array.isArray(data)) {
-      return { ok: true, dados: data.map((r: any) => ({ chave: String(r.chave), valor: String(r.valor), total: Number(r.total || 0) })) };
+      return {
+        ok: true,
+        dados: data
+          .filter((r: any) => !ehChaveDetalhe(String(r.chave)))
+          .map((r: any) => ({ chave: String(r.chave), valor: String(r.valor), total: Number(r.total || 0) })),
+      };
     }
-    const linhas = await lerLinhasDados<Pick<RespostaInqueritoIA, 'estado' | 'campos'>>('inquerito_ia_respostas', { inquerito_id: id, estado: 'concluido' }, undefined, async () => {
-      const { data: d } = await supabase.from('inquerito_ia_respostas').select('estado,campos').eq('inquerito_id', id).eq('estado', 'concluido');
-      return (d || []) as Pick<RespostaInqueritoIA, 'estado' | 'campos'>[];
-    });
-    const mapa = new Map<string, number>();
-    for (const r of linhas || []) {
-      for (const [k, v] of Object.entries(r.campos || {})) {
-        const val = String(v ?? '').trim();
-        if (!val) continue;
-        const norm = val.charAt(0).toUpperCase() + val.slice(1);
-        const key = `${k}\u0000${norm}`;
-        mapa.set(key, (mapa.get(key) || 0) + 1);
-      }
-    }
-    const out: AgregadoInqueritoIA[] = [...mapa.entries()].map(([key, total]) => {
-      const [chave, valor] = key.split('\u0000');
-      return { chave, valor, total };
-    }).sort((a, b) => a.chave.localeCompare(b.chave) || b.total - a.total);
-    return { ok: true, dados: out };
+    return erro(error?.message || 'Não foi possível carregar os resultados.');
   } catch (e: unknown) {
     return erro(String((e as Error)?.message || e));
   }

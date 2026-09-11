@@ -52,15 +52,15 @@ Decisões de produto (do dono):
 | Ficheiro | Papel |
 |---|---|
 | `supabase/v38_inqueritos_ia.sql` | Tabelas `inqueritos_ia`, `inquerito_ia_respostas`; colunas `messages.inquerito_ia_id` / `inquerito_ia_ids`; RPCs `cda_inquerito_ia_contadores` e `cda_inquerito_ia_agregados` (`security definer` — devolvem só contagens); RLS. Idempotente. **Já aplicado em produção.** |
-| `src/services/inqueritoIaCore.ts` | Núcleo puro partilhado (prompts, validação/normalização do guião e da resposta da IA, guião template, conversa guiada de contingência, `so_se`). Cópia embutida em `api/index.ts` entre `// ===INQ-IA-CORE-INICIO===` / `FIM` — verificada por `testes/paridade_inquerito_ia_core.mjs`. |
+| `src/services/inqueritoIaCore.ts` | Núcleo puro partilhado (prompts, validação/normalização do guião e da resposta da IA, guião template, conversa guiada de contingência, `so_se`; **2026-09-11**: prompts exigem o nome EXACTO da instituição com sessão, `detalhesExtraidos` → `campos[chave__detalhe]`, `agregarCamposRespostas` com desdobramento por detalhe). Cópia embutida em `api/index.ts` entre `// ===INQ-IA-CORE-INICIO===` / `FIM` — verificada por `testes/paridade_inquerito_ia_core.mjs`. |
 | `server.ts` (dev) e `api/index.ts` (Vercel) | Endpoints `POST /api/inquerito-ia/guiao`, `/conversa`, `/hash`. Gemini → Groq (`openai/gpt-oss-120b`) → contingência. Rate-limit por IP+rota (20/min guião, 40/min conversa). **Toda a alteração tem de ser feita nos dois ficheiros.** |
 | `src/services/inqueritoIaService.ts` | Cliente: `gerarGuiaoIA`, `criarInqueritoIA`, `expedirInqueritoIA`, `conversarInqueritoIA`, `iniciarOuRetomarRespostaIA`, `guardarProgressoIA`, `concluirRespostaIA`, `recusarRespostaIA`, `listarInqueritosIA`, `encerrarInqueritoIA`, `contadoresInqueritoIA`, `agregadosInqueritoIA`. Escritas passam por `gravarDados` (proxy `/api/dados` quando a sessão não tem JWT). |
 | `src/components/features/SondagemModal.tsx` | Modo `ia`: 2 textareas, pré-visualização automática (debounce 1,2 s), opções avançadas recolhidas, botão «Criar Inquérito». |
 | `src/components/features/TipoInqueritoModal.tsx` | Opção «Inquérito IA» (subtítulo/ícone). |
-| `src/components/features/MailContent.tsx` | Bloco «Inquérito com IA» no compositor (`data-testid=inqueritos-ia-compostos`), destinatário «Todos» automático, expedição (1 mensagem por cidadão + linha TODOS). |
+| `src/components/features/MailContent.tsx` | Bloco «Inquérito com IA» no compositor (`data-testid=inqueritos-ia-compostos`), destinatário «Todos» automático, expedição (1 mensagem por cidadão + linha TODOS). **2026-09-11**: no ramo «Todos», cada destinatário MANUAL (chip) recebe a sua correspondência oficial (cartões embutidos, protocolo, notificação) pela pipeline do App; recebe `nomeInstituicao` (nome oficial da sessão) para as sondagens e para a IA. |
 | `src/components/features/MessageDetail.tsx` | Cidadão: container «Iniciar/Retomar Inquérito», pill «Respondido em …», «Encerrado». Instituição (correspondência enviada): container com estado do cidadão («Este cidadão respondeu» / «Ainda sem resposta», derivado do `state_indicator`, nunca do conteúdo), contadores e «Ver Resultados» (mesmo popup de agregados). |
 | `src/components/features/InqueritoIaChat.tsx` | Popup de conversa (texto/voz, chips, progresso, recusa, retoma, «Concluir»). |
-| `src/components/features/InqueritoIaResultados.tsx` | Popup «Resultados do Inquérito com IA» (contadores, agregados normalizados por campo, CSV, encerrar). |
+| `src/components/features/InqueritoIaResultados.tsx` | Popup «Resultados do Inquérito com IA» (contadores, agregados normalizados por campo, CSV, encerrar). **2026-09-11**: cada valor desdobra-se pelos detalhes («Emprego — ↳ (1 Motorista), (3 Arquitecto)», `data-testid=inquerito-ia-detalhes`); CSV com coluna `detalhes`. |
 | `src/components/features/SondagensContent.tsx` | Lista da instituição — inclui os inquéritos IA com badge e contadores. |
 | `src/types.ts` | `Message.inqueritoIaId / inqueritoIaIds`. |
 
@@ -108,6 +108,8 @@ cai na conversa guiada do núcleo (sem IA), sem bloquear o cidadão.
 | `ASSUNTO=… node testes/e2e_f3_voz_confirmacao_inquerito_ia.mjs` | voz automática (TTS + microfone simulados no browser) e ecrã «Participação registada»; não grava respostas | nenhum |
 | `node testes/e2e_f3_chat_inquerito_ia.mjs [mock\|real]` | chat do cidadão sobre uma correspondência já existente | mock: nenhum |
 | `node testes/e2e_f4_inst_correspondencia_inquerito_ia.mjs` | instituição abre uma correspondência enviada com inquérito: container, estado do cidadão, contadores, «Ver Resultados» | nenhum |
+| `node testes/e2e_t34_manual_nome_detalhes_inquerito_ia.mjs` | tarefa 34: destinatário manual + «Todos» (mensagem + notificação na BD), nome oficial enviado a `/guiao` e `/conversa`, detalhe guardado (`fonte_rendimento__detalhe`) e desdobrado nos Resultados/CSV; encerra o inquérito de teste | 1 inquérito «[TESTE T34 …]» (encerrado no fim) |
+| `node testes/e2e_t34_sondagem_manual_todos.mjs` | tarefa 34: sondagem NORMAL + destinatário manual + «Todos» → mensagem com cartão, protocolo e notificação | 1 sondagem «[TESTE T34 …]» |
 | `node testes/e2e_f4_resultados_inquerito_ia.mjs` | resultados na instituição sobre dados existentes | nenhum |
 | `node testes/e2e_inquerito_ia_real_ciclo_completo.mjs` | ciclo real com IA real (validação final) | quota + 1 inquérito real |
 

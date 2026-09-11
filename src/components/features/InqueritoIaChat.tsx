@@ -22,7 +22,7 @@ import {
 } from '../../services/inqueritoIaService';
 import {
   LIMITE_TEXTO_CIDADAO, MENSAGEM_AGRADECIMENTO, MENSAGEM_RECUSA, RE_RECUSA,
-  proximoCampoGuiado, perguntaGuiada, interpretarRespostaGuiada,
+  proximoCampoGuiado, perguntaGuiada, interpretarRespostaGuiada, chaveDetalhe, chavesRecolhidas,
 } from '../../services/inqueritoIaCore';
 
 // Superfície mínima da Web Speech API (a lib DOM do TS não traz SpeechRecognition).
@@ -229,6 +229,12 @@ export function InqueritoIaChat({ aberto, onFechar, inquerito, cidadaoBi, onConc
     for (const [k, v] of Object.entries(passo.camposExtraidos || {})) {
       if (guiao.campos.some((c) => c.chave === k) && String(v ?? '').trim()) novosCampos[k] = String(v).trim();
     }
+    // 2026-09-11 — detalhe concreto de um campo de categoria («Motorista» para
+    // fonte_rendimento=Emprego): guardado à parte (chave__detalhe) para os
+    // resultados da instituição desdobrarem cada valor. Nunca é mostrado aqui.
+    for (const [k, v] of Object.entries(passo.detalhesExtraidos || {})) {
+      if (guiao.campos.some((c) => c.chave === k) && String(v ?? '').trim()) novosCampos[chaveDetalhe(k)] = String(v).trim();
+    }
     setCampos(novosCampos);
     const novoHist = [...hist, { de: 'ia' as const, texto: passo.proximaMensagem }];
     setHistorico(novoHist);
@@ -291,12 +297,12 @@ export function InqueritoIaChat({ aberto, onFechar, inquerito, cidadaoBi, onConc
     if (!respostaId || aConcluir) return;
     setAConcluir(true);
     const ultimo = historico[historico.length - 1];
-    const recusou = ultimo?.de === 'ia' && ultimo.texto === MENSAGEM_RECUSA && Object.keys(campos).length === 0;
+    const recusou = ultimo?.de === 'ia' && ultimo.texto === MENSAGEM_RECUSA && chavesRecolhidas(campos).length === 0;
     if (!recusou) {
       const r = await concluirRespostaIA({ respostaId, historico, campos, canalUsado });
       setAConcluir(false);
       if (!r.ok) { setErro(r.mensagem || 'Não foi possível concluir. Tente novamente.'); return; }
-      addAuditLog?.(`Inquérito com IA «${guiao.objectivo}» concluído pelo cidadão (${Object.keys(campos).length} informação(ões), canal ${canalUsado}).`, 'success');
+      addAuditLog?.(`Inquérito com IA «${guiao.objectivo}» concluído pelo cidadão (${chavesRecolhidas(campos).length} informação(ões), canal ${canalUsado}).`, 'success');
       onConcluido?.();
       pararVoz(); if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       setConfirmacao(true); // ecrã «Participação registada»; ao fechar volta ao detalhe da correspondência
