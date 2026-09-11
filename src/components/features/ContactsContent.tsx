@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, Plus, Search, ShieldCheck, ShieldAlert, Trash2, Info, Edit, User, CreditCard, CheckCircle, X, Check, Bell, Phone, ChevronDown, Mail, Siren, Landmark } from 'lucide-react';
+import { Users, Plus, Search, ShieldCheck, ShieldAlert, Trash2, Info, Edit, User, CreditCard, CheckCircle, X, Check, Bell, Phone, ChevronDown, Mail, UserRound, Landmark } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { DirectorioOrgaosContent } from './DirectorioOrgaosContent';
 import { Contact } from '../../types';
@@ -46,7 +46,10 @@ export function ContactsContent({
   onEnviarMensagemOrgao,
 }: ContactsContentProps) {
   const [selectedClassification, setSelectedClassification] = useState<'Todos' | 'Emergência' | 'Normal'>('Todos');
-  // 2026-09-09 — separadores da área central: Contactos de Emergências | Contactos de Instituições
+  // 2026-09-09 — separadores da área central. 2026-09-11 — renomeados para o
+  // MESMO eixo (quem é o contacto): «Contactos Pessoais» (círculo de confiança;
+  // a emergência é um atributo/filtro dentro) | «Contactos Institucionais».
+  // As chaves internas mantêm-se por compatibilidade (ids/testes).
   const [separador, setSeparador] = useState<'emergencias' | 'instituicoes'>('emergencias');
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [editErrors, setEditErrors] = useState<string[]>([]);
@@ -180,12 +183,12 @@ export function ContactsContent({
         </div>
       </div>
 
-      {/* Separadores: Contactos de Emergências | Contactos de Instituições */}
+      {/* Separadores: Contactos Pessoais | Contactos Institucionais */}
       {/* 2026-09-11 — tabbar 20% mais compacto (texto, ícones, espaçamentos e linha activa reduzidos proporcionalmente) */}
       <div role="tablist" aria-label="Tipo de contactos" className="flex items-end gap-1.5 md:gap-5 border-b border-slate-200 overflow-x-auto custom-scrollbar-h">
         {([
-          { chave: 'emergencias', rotulo: 'Contactos de Emergências', Icone: Siren },
-          { chave: 'instituicoes', rotulo: 'Contactos de Instituições', Icone: Landmark },
+          { chave: 'emergencias', rotulo: 'Contactos Pessoais', Icone: UserRound },
+          { chave: 'instituicoes', rotulo: 'Contactos Institucionais', Icone: Landmark },
         ] as const).map(({ chave, rotulo, Icone }) => {
           const activo = separador === chave;
           return (
@@ -217,13 +220,13 @@ export function ContactsContent({
       <div role="tabpanel" aria-labelledby="tab-contactos-emergencias" className="bg-white border border-slate-200 rounded-2xl md:rounded-[32px] p-4 md:p-8 shadow-xs space-y-4 md:space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 md:gap-6 text-left">
           <div className="flex items-center gap-3 md:gap-4">
-            <Siren size={40} className="text-primary shrink-0 md:w-12 md:h-12" strokeWidth={1.8} />
+            <UserRound size={40} className="text-primary shrink-0 md:w-12 md:h-12" strokeWidth={1.8} />
             <div>
               <h4 className="font-black text-primary text-base md:text-xl uppercase tracking-tight">
-                Contactos de Emergência
+                Contactos Pessoais
               </h4>
               <p className="text-xs text-slate-500 font-medium normal-case mt-0.5">
-                Lista de contactos de emergência para situações críticas e urgentes.
+                Pessoas do seu círculo de confiança (família e próximos). Marque como «Emergência» quem deve ser avisado em situações críticas.
               </p>
             </div>
           </div>

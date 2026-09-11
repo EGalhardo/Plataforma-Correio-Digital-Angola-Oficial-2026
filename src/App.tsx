@@ -5423,9 +5423,10 @@ Nesta secção são apresentados alertas, confirmações de emissão, respostas 
       case 'contactos':
       case 'contatos':
         const contactsSummary = contacts.map(c => `- Nome: ${c.name}, Grau: ${c.relation}, Telefone: ${c.phone || 'Sem telefone'}, Tipo: ${c.type || 'Normal'}, Estado: ${c.status}`).join('\n');
-        return `Você está nos Contactos de Emergência e Conexões Familiares.
-Aqui estão cadastrados familiares e vizinhos confiáveis que o governo de Angola pode avisar de forma automatizada em cenários de contingência nacional.
-Contactos guardados no seu perfil:
+        return `Você está na página Contactos, com dois separadores: «Contactos Pessoais» e «Contactos Institucionais».
+Em Contactos Pessoais estão as pessoas do círculo de confiança do cidadão (familiares e próximos); os marcados como «Emergência» são os que o governo de Angola pode avisar de forma automatizada em cenários de contingência nacional.
+Em Contactos Institucionais está o Directório de Órgãos do Estado (referência, com ficha de contacto e botão «Enviar Mensagem»).
+Contactos pessoais guardados no seu perfil:
 ${contactsSummary || 'Nenhum contacto cadastrado.'}`;
       
       case 'perfil':

@@ -7,7 +7,7 @@
 // simulados (directorioContactosDemo.ts) e botão «Enviar Mensagem» que abre o
 // compositor com o código institucional simulado. Quando as instituições
 // acederem à plataforma, só `contactosDoOrgao()` muda (dados reais).
-// Separado dos Contactos de Emergência (ContactsContent) — nunca misturar.
+// Separado dos Contactos Pessoais (ContactsContent) — nunca misturar.
 // ============================================================================
 
 import { useState } from 'react';
@@ -63,7 +63,7 @@ export function DirectorioOrgaosContent({ onVoltar, onEnviarMensagem }: Props) {
     if (categoria) { setCategoria(null); return; }
     onVoltar?.();
   };
-  // Sem onVoltar (embutido, ex.: separador «Contactos de Instituições») o botão
+  // Sem onVoltar (embutido, ex.: separador «Contactos Institucionais») o botão
   // «voltar» só aparece quando há uma categoria/entidade para recuar.
   const mostrarVoltar = !!onVoltar || !!categoria || !!selecionada;
 
