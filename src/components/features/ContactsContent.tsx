@@ -181,7 +181,8 @@ export function ContactsContent({
       </div>
 
       {/* Separadores: Contactos de Emergências | Contactos de Instituições */}
-      <div role="tablist" aria-label="Tipo de contactos" className="flex items-end gap-2 md:gap-6 border-b border-slate-200 overflow-x-auto custom-scrollbar-h">
+      {/* 2026-09-11 — tabbar 20% mais compacto (texto, ícones, espaçamentos e linha activa reduzidos proporcionalmente) */}
+      <div role="tablist" aria-label="Tipo de contactos" className="flex items-end gap-1.5 md:gap-5 border-b border-slate-200 overflow-x-auto custom-scrollbar-h">
         {([
           { chave: 'emergencias', rotulo: 'Contactos de Emergências', Icone: Siren },
           { chave: 'instituicoes', rotulo: 'Contactos de Instituições', Icone: Landmark },
@@ -194,12 +195,12 @@ export function ContactsContent({
               role="tab"
               aria-selected={activo}
               onClick={() => setSeparador(chave)}
-              className={`relative flex items-center gap-3 px-4 md:px-8 py-3 md:py-4 -mb-px whitespace-nowrap text-sm md:text-lg font-black transition-colors bg-transparent border-0 border-b-[3px] cursor-pointer ${
+              className={`relative flex items-center gap-2.5 px-3 md:px-6 py-2.5 md:py-3 -mb-px whitespace-nowrap text-[0.7rem] md:text-[0.9rem] font-black transition-colors bg-transparent border-0 border-b-2 cursor-pointer ${
                 activo ? 'text-primary border-primary' : 'text-slate-400 border-transparent hover:text-slate-600'
               }`}
               id={`tab-contactos-${chave}`}
             >
-              <Icone size={22} className="md:w-7 md:h-7 shrink-0" strokeWidth={activo ? 2.2 : 1.8} />
+              <Icone size={18} className="md:w-[1.4rem] md:h-[1.4rem] shrink-0" strokeWidth={activo ? 2.2 : 1.8} />
               {rotulo}
             </button>
           );
