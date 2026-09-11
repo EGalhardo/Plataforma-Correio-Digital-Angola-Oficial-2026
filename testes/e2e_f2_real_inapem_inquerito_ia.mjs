@@ -26,6 +26,7 @@ await page.locator('#btn-tipo-inquerito-ok').click();
 await page.waitForTimeout(600);
 await page.locator('#inquerito-ia-temas').fill('[TESTE] Se as famílias do bairro têm acesso a água potável e energia eléctrica e quais as maiores dificuldades');
 await page.locator('#inquerito-ia-informacoes').fill('Tem água canalizada em casa; onde vai buscar água; distância; horas de energia por dia; principal problema');
+await page.locator('#btn-gerar-guiao-ia').click(); // 2026-09-11 — geração a pedido
 // espera pela pré-visualização real (IA)
 await page.waitForFunction(() => /informaç/.test(document.querySelector('[data-testid="inquerito-ia-preview"]')?.textContent || ''), null, { timeout: 90000 });
 const preview = await page.locator('[data-testid="inquerito-ia-preview"]').innerText();

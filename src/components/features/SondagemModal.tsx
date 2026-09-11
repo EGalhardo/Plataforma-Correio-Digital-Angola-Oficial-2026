@@ -6,7 +6,7 @@
 // mantém-se o comportamento v36.1 (criar + difundir imediatamente).
 // ============================================================================
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Plus, Trash2, AlertTriangle, Loader2, MessagesSquare, RefreshCw, ChevronRight, MessageCircle } from 'lucide-react';
+import { BarChart3, Plus, Trash2, AlertTriangle, Loader2, MessagesSquare, RefreshCw, ChevronRight, MessageCircle, Sparkles } from 'lucide-react';
 import { CdaModal } from '../ui/CdaModal';
 import {
   audienciaV37, criarSondagem, criarRascunhoSondagem, sondagensDisponiveis,
@@ -92,29 +92,29 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
     })();
   }, [aberto, codigoInstituicao, nomeInstituicao, modoIA]);
 
-  // ---- Guião automático (debounce 1,2 s após parar de escrever) --------------
+  // ---- Guião gerado A PEDIDO (botão «Gerar com IA») ---------------------------
+  // 2026-09-11 — antes, o guião era gerado automaticamente 1,2 s após cada
+  // pausa na escrita: uma instituição que corrigisse o texto várias vezes
+  // disparava 5–10 chamadas ao modelo por inquérito e esgotava a quota diária.
+  // Agora há UMA chamada por intenção explícita; se os textos/opções mudarem
+  // depois de gerar, a pré-visualização fica «desactualizada» e é preciso
+  // gerar de novo antes de «Criar Inquérito».
   const assinaturaTextos = `${temasIA.trim()}\u0000${informacoesIA.trim()}\u0000${duracaoIA}\u0000${tomIA}`;
-  const gerarGuiao = async (forcar = false) => {
+  const camposPreenchidos = !!temasIA.trim() && !!informacoesIA.trim();
+  const guiaoActual = !!guiaoIA && guiaoParaTextos === assinaturaTextos;
+  const guiaoDesactualizado = !!guiaoIA && !guiaoActual;
+  const gerarGuiao = async () => {
     const oQue = temasIA.trim(); const info = informacoesIA.trim();
-    if (!oQue || !info) return null;
-    if (!forcar && guiaoIA && guiaoParaTextos === assinaturaTextos) return guiaoIA;
+    if (!oQue || !info) { setAlerta('Preencha os dois campos antes de gerar com IA.'); return null; }
     const meu = ++pedidoGuiaoRef.current;
     setGerandoIA(true);
     const r = await gerarGuiaoInqueritoIA({ oQuePretendeSaber: oQue, informacoes: info, instituicao: nomeInstituicao, duracao: duracaoIA, tom: tomIA });
     if (meu !== pedidoGuiaoRef.current) return null; // resposta obsoleta
     setGerandoIA(false);
-    if (!r.ok || !r.dados) return null;
+    if (!r.ok || !r.dados) { setAlerta(r.mensagem || 'Não foi possível gerar o guião. Tente novamente.'); return null; }
     setGuiaoIA(r.dados.guiao); setGuiaoOrigem(r.dados.origem); setGuiaoParaTextos(assinaturaTextos);
     return r.dados.guiao;
   };
-  useEffect(() => {
-    if (!aberto || !modoIA) return;
-    if (!temasIA.trim() || !informacoesIA.trim()) return;
-    if (guiaoIA && guiaoParaTextos === assinaturaTextos) return;
-    const t = setTimeout(() => { void gerarGuiao(); }, 1200);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aberto, modoIA, assinaturaTextos]);
 
   const validas = useMemo(() => {
     const textos = opcoes.map(o => o.texto.trim()).filter(Boolean);
@@ -130,14 +130,12 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
     if (faltas.length) { setAlerta(`Indique ${faltas.join(' e ')}.`); return; }
     if (disponivelIA === false) { setAlerta('Inquérito com IA disponível em Modo Real (Supabase) — aguarda a migração v38.'); return; }
     if (ambito && ambito.classificacao === 'local' && ambito.n === 0) { setAlerta('Não há cidadãos registados no sistema desta instituição.'); return; }
+    // O guião tem de existir e corresponder aos textos actuais — nunca se gera
+    // implicitamente aqui (uma chamada à IA só por acção explícita do utilizador).
+    if (!guiaoIA || !guiaoActual) { setAlerta(guiaoIA ? 'Os campos foram alterados depois da geração. Clique em «Gerar com IA» para actualizar o guião antes de criar.' : 'Clique primeiro em «Gerar com IA» para preparar a conversa.'); return; }
     setEnviando(true);
-    let guiao = guiaoIA && guiaoParaTextos === assinaturaTextos ? guiaoIA : null;
-    let origem = guiaoOrigem || 'ia';
-    if (!guiao) {
-      const g = await gerarGuiao(true);
-      guiao = g; origem = guiaoOrigem || 'ia';
-      if (!guiao) { setEnviando(false); setAlerta('Não foi possível preparar o inquérito. Tente novamente.'); return; }
-    }
+    const guiao = guiaoIA;
+    const origem = guiaoOrigem || 'ia';
     const rasc = await criarRascunhoInqueritoIA({
       codigo: codigoInstituicao, nomeInstituicao, criadoPor: criadaPor,
       oQuePretendeSaber: temasIA.trim(), informacoes: informacoesIA.trim(),
@@ -250,36 +248,52 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
                 />
               </div>
 
-              {/* Pré-visualização automática (só leitura) */}
-              <div className="rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3" data-testid="inquerito-ia-preview">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="m-0 flex items-center gap-1.5 font-sans font-black text-[10px] uppercase tracking-widest text-blue-700">
-                    <MessageCircle size={13} /> Como a IA vai começar
-                  </p>
-                  {guiaoIA && !gerandoIA && (
-                    <button
-                      type="button"
-                      onClick={() => void gerarGuiao(true)}
-                      disabled={enviando}
-                      className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-blue-700 hover:text-blue-900 bg-transparent border-0 cursor-pointer"
-                      id="btn-regenerar-guiao-ia"
-                    >
-                      <RefreshCw size={12} /> Regenerar
-                    </button>
-                  )}
-                </div>
+              {/* Botão «Gerar com IA» — única forma de chamar a IA (poupa quota) */}
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="m-0 text-[11px] font-semibold text-slate-500">
+                  {guiaoDesactualizado
+                    ? 'Os campos mudaram — gere de novo para actualizar a conversa.'
+                    : guiaoIA
+                      ? 'Guião pronto. Pode regenerar ou criar o inquérito.'
+                      : 'Preencha os dois campos e clique em «Gerar com IA».'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void gerarGuiao()}
+                  disabled={!camposPreenchidos || gerandoIA || enviando}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest border cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                    guiaoIA && !guiaoDesactualizado
+                      ? 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow'
+                  }`}
+                  id="btn-gerar-guiao-ia"
+                >
+                  {gerandoIA ? <Loader2 size={14} className="animate-spin" /> : guiaoIA ? <RefreshCw size={14} /> : <Sparkles size={14} />}
+                  {gerandoIA ? 'A gerar…' : guiaoIA ? (guiaoDesactualizado ? 'Gerar de novo com IA' : 'Regenerar') : 'Gerar com IA'}
+                </button>
+              </div>
+
+              {/* Pré-visualização (só leitura) — aparece depois de gerar */}
+              <div
+                className={`rounded-xl border px-4 py-3 ${guiaoDesactualizado ? 'border-amber-200 bg-amber-50/50' : 'border-blue-100 bg-blue-50/50'}`}
+                data-testid="inquerito-ia-preview"
+                data-estado={gerandoIA ? 'a-gerar' : guiaoDesactualizado ? 'desactualizado' : guiaoIA ? 'pronto' : 'vazio'}
+              >
+                <p className={`m-0 flex items-center gap-1.5 font-sans font-black text-[10px] uppercase tracking-widest ${guiaoDesactualizado ? 'text-amber-700' : 'text-blue-700'}`}>
+                  <MessageCircle size={13} /> Como a IA vai começar{guiaoDesactualizado ? ' · desactualizado' : ''}
+                </p>
                 {gerandoIA ? (
                   <p className="m-0 mt-2 flex items-center gap-2 text-sm font-medium text-slate-500"><Loader2 size={14} className="animate-spin" /> A preparar a conversa…</p>
                 ) : guiaoIA ? (
                   <>
-                    <p className="m-0 mt-2 text-sm font-medium text-slate-800 leading-snug">«{guiaoIA.saudacao}»</p>
+                    <p className={`m-0 mt-2 text-sm font-medium leading-snug ${guiaoDesactualizado ? 'text-slate-500' : 'text-slate-800'}`}>«{guiaoIA.saudacao}»</p>
                     <p className="m-0 mt-2 text-[11px] font-semibold text-slate-500">
                       A IA vai recolher {guiaoIA.campos.length} informação(ões) em até {guiaoIA.maxPerguntas} perguntas
                       {guiaoOrigem === 'template' ? ' · guião simplificado (IA indisponível neste momento)' : ''}.
                     </p>
                   </>
                 ) : (
-                  <p className="m-0 mt-2 text-sm font-medium text-slate-500">Preencha os dois campos acima — a pré-visualização aparece automaticamente.</p>
+                  <p className="m-0 mt-2 text-sm font-medium text-slate-500">A pré-visualização aparece aqui depois de clicar em «Gerar com IA».</p>
                 )}
               </div>
 
@@ -428,8 +442,9 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
             <button
               type="button"
               onClick={enviar}
-              disabled={enviando}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#2563eb] hover:bg-blue-700 disabled:opacity-60 text-white text-[11px] font-black uppercase tracking-widest border-0 cursor-pointer shadow"
+              disabled={enviando || (modoIA && (!guiaoActual || gerandoIA))}
+              title={modoIA && !guiaoActual ? 'Gere primeiro a conversa com IA' : undefined}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#2563eb] hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-[11px] font-black uppercase tracking-widest border-0 cursor-pointer shadow"
               id={modoIA ? 'btn-criar-inquerito-ia' : undefined}
             >
               {enviando ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} {enviando ? 'A criar…' : modoIA ? 'Criar Inquérito' : 'Criar Sondagem'}

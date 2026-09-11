@@ -41,47 +41,62 @@ await page.locator('#opcao-inquerito-ia').click();
 await page.locator('#btn-tipo-inquerito-ok').click();
 await page.waitForTimeout(600);
 
-const titulo = await page.getByText('Criar Inquérito com IA').first().isVisible();
-console.log('popup título «Criar Inquérito com IA»:', titulo);
-console.log('botão «Gerar com IA» ausente:', (await page.locator('#btn-gerar-inquerito-ia').count()) === 0);
-console.log('textareas visíveis:', await page.locator('#inquerito-ia-temas').isVisible(), await page.locator('#inquerito-ia-informacoes').isVisible());
-console.log('campos «Pergunta»/opções ocultos:', (await page.getByText(/^Pergunta$/).count()) === 0);
-const preview0 = await page.locator('[data-testid="inquerito-ia-preview"]').innerText();
-console.log('preview inicial:', preview0.split('\n')[1]);
+// 2026-09-11 (T37) — geração A PEDIDO: a IA só é chamada no botão «Gerar com IA».
+const R = []; const ok = (n, c, x = '') => { R.push(!!c); console.log(`${c ? '✔' : '✘'} ${n}${x ? ' — ' + x : ''}`); };
+ok('popup «Criar Inquérito com IA» aberto', await page.getByText('Criar Inquérito com IA').first().isVisible());
+ok('2 campos de texto visíveis', await page.locator('#inquerito-ia-temas').isVisible() && await page.locator('#inquerito-ia-informacoes').isVisible());
+const gerar = page.locator('#btn-gerar-guiao-ia'); const criar = page.locator('#btn-criar-inquerito-ia'); const preview = page.locator('[data-testid="inquerito-ia-preview"]');
+ok('botão «Gerar com IA» existe e está DESACTIVADO com campos vazios', (await gerar.count()) === 1 && await gerar.isDisabled());
+ok('«Criar Inquérito» DESACTIVADO sem guião', await criar.isDisabled());
+ok('pré-visualização vazia com instrução', (await preview.getAttribute('data-estado')) === 'vazio' && /Gerar com IA/.test(await preview.innerText()));
 
-// Validação: criar sem preencher
-await page.locator('#btn-criar-inquerito-ia').click();
-await page.waitForTimeout(400);
-console.log('alerta campos vazios:', await page.getByText(/Indique o que pretende saber e que informações/).isVisible());
-await page.getByRole('button', { name: 'Fechar' }).last().click();
-await page.waitForTimeout(300);
-
-// Preencher → pré-visualização automática (debounce 1,2 s)
+// Escrever (com correcções) NÃO chama a IA
+await page.locator('#inquerito-ia-temas').fill('Se as famílias do bairro têm água');
+await page.locator('#inquerito-ia-informacoes').fill('Tem água canalizada');
+await page.waitForTimeout(1600);
 await page.locator('#inquerito-ia-temas').fill('Se as famílias do bairro têm água potável');
 await page.locator('#inquerito-ia-informacoes').fill('Tem água canalizada; onde vai buscar; distância');
-await page.waitForTimeout(600);
-console.log('pedidos /guiao antes do debounce:', pedidosGuiao);
-await page.waitForTimeout(1500);
-console.log('pedidos /guiao após debounce:', pedidosGuiao);
-const preview1 = await page.locator('[data-testid="inquerito-ia-preview"]').innerText();
-console.log('preview mostra saudação:', preview1.includes('Sou o assistente da AGT'), '| resumo:', /3 informaç/.test(preview1));
+await page.waitForTimeout(1600);
+ok('escrever/corrigir os campos NÃO gera pedidos /guiao (poupança de quota)', pedidosGuiao === 0, `pedidos=${pedidosGuiao}`);
+ok('«Gerar com IA» fica ACTIVO com os 2 campos preenchidos', await gerar.isEnabled());
+ok('«Criar Inquérito» continua desactivado até gerar', await criar.isDisabled());
+
+// Gerar
+await gerar.click();
+await page.waitForFunction(() => document.querySelector('[data-testid="inquerito-ia-preview"]')?.getAttribute('data-estado') === 'pronto', null, { timeout: 15000 });
+const preview1 = await preview.innerText();
+ok('1 clique = 1 pedido /guiao', pedidosGuiao === 1, `pedidos=${pedidosGuiao}`);
+ok('pré-visualização mostra a saudação e o resumo', preview1.includes('Sou o assistente da AGT') && /3 informaç/.test(preview1));
+ok('botão passa a «Regenerar»', /Regenerar/i.test(await gerar.innerText()));
+ok('«Criar Inquérito» ACTIVO depois de gerar', await criar.isEnabled());
 await page.screenshot({ path: 'testes/evidencias/f2_popup_inquerito_ia.png' });
 
-// Opções avançadas
+// Alterar texto depois de gerar → desactualizado; criar volta a ficar bloqueado
+await page.locator('#inquerito-ia-informacoes').fill('Tem água canalizada; onde vai buscar; distância; horas de energia');
+await page.waitForTimeout(300);
+ok('alterar os campos marca a pré-visualização como DESACTUALIZADA (sem chamar a IA)', (await preview.getAttribute('data-estado')) === 'desactualizado' && pedidosGuiao === 1);
+ok('«Criar Inquérito» bloqueia até gerar de novo', await criar.isDisabled());
+ok('botão indica «Gerar de novo com IA»', /Gerar de novo/i.test(await gerar.innerText()));
+
+// Opções avançadas também desactualizam, mas NÃO geram sozinhas
+await gerar.click();
+await page.waitForFunction(() => document.querySelector('[data-testid="inquerito-ia-preview"]')?.getAttribute('data-estado') === 'pronto', null, { timeout: 15000 });
 await page.locator('#btn-opcoes-avancadas-ia').click();
 await page.getByRole('button', { name: /Curto/ }).click();
-await page.getByRole('button', { name: 'Só texto' }).click();
 await page.getByRole('button', { name: 'Formal' }).click();
 await page.waitForTimeout(1600);
-console.log('regenerou após mudar duração/tom (1 pedido por debounce):', pedidosGuiao === 2, '| total', pedidosGuiao);
+ok('mudar duração/tom NÃO gera automaticamente (só marca desactualizado)', pedidosGuiao === 2 && (await preview.getAttribute('data-estado')) === 'desactualizado', `pedidos=${pedidosGuiao}`);
+await gerar.click();
+await page.waitForFunction(() => document.querySelector('[data-testid="inquerito-ia-preview"]')?.getAttribute('data-estado') === 'pronto', null, { timeout: 15000 });
+ok('regenerar após opções = mais 1 pedido (total 3)', pedidosGuiao === 3, `pedidos=${pedidosGuiao}`);
 await page.screenshot({ path: 'testes/evidencias/f2_popup_inquerito_ia_avancadas.png' });
 
 // Criar Inquérito (demo → sem Supabase real → alerta honesto de migração)
-await page.locator('#btn-criar-inquerito-ia').click();
+await criar.click();
 await page.waitForTimeout(1500);
 const alertaMig = await page.getByText(/aguarda a migração v38/).count();
 const bloco = await page.locator('[data-testid="inqueritos-ia-compostos"]').count();
-console.log('resultado criar (demo): alerta migração =', alertaMig > 0, '| bloco no compositor =', bloco > 0);
+ok('criar (demo): alerta de migração OU bloco no compositor; sem novo pedido à IA', (alertaMig > 0 || bloco > 0) && pedidosGuiao === 3, `alerta=${alertaMig > 0} bloco=${bloco > 0} pedidos=${pedidosGuiao}`);
 await page.screenshot({ path: 'testes/evidencias/f2_apos_criar.png' });
 if (bloco > 0) {
   const txt = await page.locator('[data-testid="inqueritos-ia-compostos"]').innerText();
@@ -96,5 +111,6 @@ if (bloco > 0) {
   console.log('bloco removido:', (await page.locator('[data-testid="inqueritos-ia-compostos"]').count()) === 0);
   console.log('destinatário limpo:', await page.locator('input[value="Todos"]').count() === 0);
 }
-console.log('erros de página:', erros.length ? erros : 'nenhum');
+ok('sem erros de página', erros.length === 0, erros.join(' | '));
 await browser.close();
+const f = R.filter((x) => !x).length; console.log(`\n${R.length - f}/${R.length} verificações OK`); process.exit(f ? 1 : 0);

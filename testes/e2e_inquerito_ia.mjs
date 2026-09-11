@@ -125,6 +125,7 @@ ok('a2 popup «Criar Inquérito com IA»', await page.getByText('Criar Inquérit
 ok('a3 sem botão «Gerar com IA» (pré-visualização é automática)', (await page.locator('#btn-gerar-inquerito-ia').count()) === 0);
 await page.locator('#inquerito-ia-temas').fill('Como os cidadãos se deslocam para o trabalho');
 await page.locator('#inquerito-ia-informacoes').fill('Meio de transporte; tempo de viagem; se usa táxi colectivo');
+await page.locator('#btn-gerar-guiao-ia').click(); // 2026-09-11 — geração a pedido
 await page.waitForFunction(() => /3 informaç/.test(document.querySelector('[data-testid="inquerito-ia-preview"]')?.textContent || ''), null, { timeout: 15000 });
 const preview = await page.locator('[data-testid="inquerito-ia-preview"]').innerText();
 ok('a4 pré-visualização apareceu sozinha (debounce, 1 pedido /guiao)', /Sou o assistente do INAPEM/.test(preview) && page.__pedidos.guiao === 1, `${page.__pedidos.guiao} pedido(s)`);
@@ -159,6 +160,7 @@ await irHash(page, '#/correspondencias');
 await abrirPopupIA(page);
 await page.locator('#inquerito-ia-temas').fill('Como os cidadãos se deslocam para o trabalho');
 await page.locator('#inquerito-ia-informacoes').fill('Meio de transporte; tempo de viagem; se usa táxi colectivo');
+await page.locator('#btn-gerar-guiao-ia').click(); // 2026-09-11 — geração a pedido
 await page.waitForFunction(() => /3 informaç/.test(document.querySelector('[data-testid="inquerito-ia-preview"]')?.textContent || ''), null, { timeout: 15000 }).catch(() => {});
 await page.screenshot({ path: 'testes/evidencias/e2e_a_popup_mobile.png' });
 ok('a10 popup em mobile 390×844 (captura)', await page.getByText('Criar Inquérito com IA').first().isVisible());

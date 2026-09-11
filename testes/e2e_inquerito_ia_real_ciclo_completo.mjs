@@ -86,6 +86,7 @@ const nCampos = await page.locator('[role="dialog"] textarea, .fixed textarea').
 ok('A3 exactamente 2 campos de texto', nCampos === 2, `${nCampos}`);
 await page.locator('#inquerito-ia-temas').fill('Como os cidadãos se deslocam para o trabalho e que dificuldades têm com os transportes públicos');
 await page.locator('#inquerito-ia-informacoes').fill('Meio de transporte principal; tempo de viagem em minutos; custo diário; usa táxi colectivo (candongueiro); principal problema');
+await page.locator('#btn-gerar-guiao-ia').click(); // 2026-09-11 — geração a pedido
 let preview = '';
 try {
   await page.waitForFunction(() => /informaç/.test(document.querySelector('[data-testid="inquerito-ia-preview"]')?.textContent || ''), null, { timeout: 90000 });

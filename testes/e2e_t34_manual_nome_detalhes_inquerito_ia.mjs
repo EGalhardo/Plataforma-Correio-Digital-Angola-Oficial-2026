@@ -113,6 +113,7 @@ await page.locator('#opcao-inquerito-ia').click();
 await page.locator('#btn-tipo-inquerito-ok').click(); await page.waitForTimeout(600);
 await page.locator('#inquerito-ia-temas').fill('Fonte de rendimento das famílias');
 await page.locator('#inquerito-ia-informacoes').fill('Fonte de rendimento; se tem água em casa');
+await page.locator('#btn-gerar-guiao-ia').click(); // 2026-09-11 — geração a pedido
 await page.waitForFunction(() => /2 informaç/.test(document.querySelector('[data-testid="inquerito-ia-preview"]')?.textContent || ''), null, { timeout: 15000 });
 ok('a3 /guiao recebe o NOME OFICIAL da instituição (não o código)', page.__pedidos.instGuiao === NOME_OFICIAL, `instituicao=«${page.__pedidos.instGuiao}»`);
 const preview = await page.locator('[data-testid="inquerito-ia-preview"]').innerText();
