@@ -4824,6 +4824,20 @@ export default function App() {
     setIsComposing(true);
   };
 
+  // T41 (2026-09-11) — «Enviar Mensagem» a partir da ficha de um órgão do
+  // Directório (DEMONSTRAÇÃO): abre o compositor com o DESTINATÁRIO já
+  // preenchido com o código institucional simulado; título/corpo ficam para
+  // o cidadão. Segue o fluxo normal do compositor (sem lógica especial).
+  // TODO (fase real): o código virá da conta institucional real do órgão.
+  const handleEnviarMensagemOrgao = (destino: { codigo: string; nome: string; sigla: string }) => {
+    setComposeData({ to: destino.codigo, subject: '', body: '', attachments: [], toArray: [] });
+    setSelectedMessage(null);
+    setTab('correspondencias');
+    setIsComposing(true);
+    window.scrollTo({ top: 0 });
+    addAuditLog(`Compositor aberto a partir do Directório de Órgãos: ${destino.sigla} (${destino.codigo}).`, 'info');
+  };
+
   // S5 — rascunho gerado pela IA entra no compositor para REVISAO humana;
   // o envio continua 100% manual (a IA nunca envia).
   const handleResponderComRascunho = (msg: Message, rascunho: string) => {
@@ -6177,6 +6191,7 @@ Ficha civil do titular:
             onUpdateContactType={handleUpdateContactType}
             emergencyStatus={emergencyProfileState(currentContacts)}
             onUpdateContact={handleUpdateContact}
+            onEnviarMensagemOrgao={isUserMode ? handleEnviarMensagemOrgao : undefined}
           />
         );
       case 'perfil':

@@ -29,6 +29,8 @@ interface ContactsContentProps {
   emergencyStatus?: EmergencyProfileState;
   /** F55 — edição REAL do contacto completo; devolve erros de validação (vazio = gravado). */
   onUpdateContact?: (contact: Contact) => string[];
+  /** T41 — «Enviar Mensagem» na ficha de um órgão do Directório (demonstração). */
+  onEnviarMensagemOrgao?: (destino: { codigo: string; nome: string; sigla: string }) => void;
 }
 
 export function ContactsContent({
@@ -41,6 +43,7 @@ export function ContactsContent({
   onUpdateContactType,
   emergencyStatus,
   onUpdateContact,
+  onEnviarMensagemOrgao,
 }: ContactsContentProps) {
   const [selectedClassification, setSelectedClassification] = useState<'Todos' | 'Emergência' | 'Normal'>('Todos');
   // 2026-09-09 — separadores da área central: Contactos de Emergências | Contactos de Instituições
@@ -205,7 +208,7 @@ export function ContactsContent({
 
       {separador === 'instituicoes' && (
         <div role="tabpanel" aria-labelledby="tab-contactos-instituicoes" className="bg-white border border-slate-200 rounded-2xl md:rounded-[32px] p-4 md:p-8 shadow-xs">
-          <DirectorioOrgaosContent />
+          <DirectorioOrgaosContent onEnviarMensagem={onEnviarMensagemOrgao} />
         </div>
       )}
 
