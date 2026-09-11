@@ -380,12 +380,31 @@ export const encerrarInqueritoIA = async (id: number): Promise<SondagemResultado
 };
 
 /** Contadores via RPC (rápido); degrada para contagem no cliente. */
+/** «Enviados» = correspondências REALMENTE ligadas ao inquérito (difusão +
+ *  destinatários manuais, que ficam fora de `destinatarios`). Conta as
+ *  mensagens; se não conseguir, usa o valor guardado. (2026-09-11) */
+const contarEnviadosInqueritoIA = async (q: InqueritoIA): Promise<number | null> => {
+  try {
+    const { count, error } = await supabase
+      .from('messages').select('id', { count: 'exact', head: true })
+      .eq('inquerito_ia_id', q.id).neq('recipient_bi', 'TODOS');
+    if (!error && typeof count === 'number') return count;
+  } catch { /* fallback abaixo */ }
+  try {
+    const linhas = await lerLinhasDados<{ id: number | string }>('messages', { inquerito_ia_id: q.id }, undefined, async () => [], { limite: 5000 });
+    if (Array.isArray(linhas) && linhas.length) return linhas.length; // a linha TODOS não tem inquerito_ia_id ligado neste caminho
+  } catch { /* noop */ }
+  return null;
+};
+
 export const contadoresInqueritoIA = async (q: InqueritoIA): Promise<ContadoresInqueritoIA> => {
+  const enviadosReais = await contarEnviadosInqueritoIA(q);
   try {
     const { data, error } = await supabase.rpc('cda_inquerito_ia_contadores', { p_inquerito_id: q.id });
     const row = Array.isArray(data) ? data[0] : data;
     if (!error && row) {
-      return { enviados: Number(row.enviados || 0), iniciados: Number(row.iniciados || 0), concluidos: Number(row.concluidos || 0), recusados: Number(row.recusados || 0) };
+      const guardado = Number(row.enviados || 0);
+      return { enviados: Math.max(guardado, enviadosReais ?? 0), iniciados: Number(row.iniciados || 0), concluidos: Number(row.concluidos || 0), recusados: Number(row.recusados || 0) };
     }
   } catch { /* segue para fallback */ }
   const linhas = await lerLinhasDados<Pick<RespostaInqueritoIA, 'estado'>>('inquerito_ia_respostas', { inquerito_id: q.id }, undefined, async () => {
@@ -394,7 +413,7 @@ export const contadoresInqueritoIA = async (q: InqueritoIA): Promise<ContadoresI
   });
   const l = linhas || [];
   return {
-    enviados: Number(q.destinatarios || 0),
+    enviados: Math.max(Number(q.destinatarios || 0), enviadosReais ?? 0),
     iniciados: l.length,
     concluidos: l.filter((r) => r.estado === 'concluido').length,
     recusados: l.filter((r) => r.estado === 'recusado').length,

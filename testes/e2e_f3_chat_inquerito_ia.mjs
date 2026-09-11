@@ -115,7 +115,9 @@ console.log('sem resumo/campos no DOM:', !vazou, '| bolhas IA:', await page.loca
 console.log('sem caixa de texto no fim:', (await page.locator('#inquerito-ia-input').count()) === 0);
 await page.screenshot({ path: `testes/evidencias/f3_${modo}_fim.png` });
 await page.locator('#btn-inquerito-ia-concluir').click();
-await page.waitForTimeout(3000);
+  await page.locator('[data-testid="inquerito-ia-confirmacao"]').waitFor({ timeout: 15000 }).catch(() => {});
+  { const v = page.locator('#btn-inquerito-ia-voltar'); if (await v.count()) await v.click(); }
+  await page.waitForTimeout(2500);
 console.log('chat fechado:', (await chat.count()) === 0);
 console.log('pill Respondido:', await page.locator('[data-testid="inquerito-ia-respondido"]').count() > 0);
 await page.screenshot({ path: `testes/evidencias/f3_${modo}_respondido.png` });

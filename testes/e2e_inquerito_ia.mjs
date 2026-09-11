@@ -198,7 +198,10 @@ const cidadao = async (c, vp, valores, tag) => {
   const vazou = /meio_transporte|tempo_viagem|usa_candongueiro|Meio de transporte principal|Tempo de viagem \(minutos\)|Usa táxi colectivo|Resumo/i.test(dom);
   ok(`b8 [${tag}] ASSERÇÃO NEGATIVA: nada extraído/resumo no DOM`, !vazou);
   await page.screenshot({ path: `testes/evidencias/e2e_b_fim_${tag}.png` });
-  await page.locator('#btn-inquerito-ia-concluir').click(); await page.waitForTimeout(3000);
+  await page.locator('#btn-inquerito-ia-concluir').click();
+  await page.locator('[data-testid="inquerito-ia-confirmacao"]').waitFor({ timeout: 15000 }).catch(() => {});
+  { const v = page.locator('#btn-inquerito-ia-voltar'); if (await v.count()) await v.click(); }
+  await page.waitForTimeout(2500);
   ok(`b9 [${tag}] chat fechado + pill «Respondido»`, (await chat.count()) === 0 && (await page.locator('[data-testid="inquerito-ia-respondido"]').count()) > 0);
   await page.screenshot({ path: `testes/evidencias/e2e_b_respondido_${tag}.png` });
   ok(`b10 [${tag}] sem erros JS`, page.__erros.length === 0, page.__erros.join(' | '));

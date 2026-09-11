@@ -78,7 +78,8 @@ import { Message, SENSITIVITY_LEVELS, PRIORITY_CONFIGS, ReplySendPayload, ReplyS
 // 2026-09-10 — Inquérito com IA conversacional (PROMPT v3 §4.2): botão
 // «Iniciar Inquérito» na correspondência do cidadão + chat em popup.
 import { InqueritoIaChat } from './InqueritoIaChat';
-import { buscarInqueritoIA, minhaRespostaInqueritoIA, type InqueritoIA, type RespostaInqueritoIA } from '../../services/inqueritoIaService';
+import { InqueritoIaResultados } from './InqueritoIaResultados';
+import { buscarInqueritoIA, minhaRespostaInqueritoIA, contadoresInqueritoIA, type InqueritoIA, type RespostaInqueritoIA, type ContadoresInqueritoIA } from '../../services/inqueritoIaService';
 import { generateProtocol, generateTimelineEvents, getCategoryMetadata, canonicalProtocolPayload, sealProtocolContent, buildQrCodeDeepLink } from '../../utils/protocolGenerator';
 import { supabaseService, resolveInstitutionCode } from '../../services/supabaseService';
 import { VideoSessionPanel } from './VideoSessionPanel';
@@ -323,8 +324,11 @@ export function MessageDetail({
   const [inqIaItens, setInqIaItens] = useState<Record<number, InqueritoIA>>({});
   const [inqIaMinha, setInqIaMinha] = useState<Record<number, RespostaInqueritoIA | null>>({});
   const [inqIaAberto, setInqIaAberto] = useState<InqueritoIA | null>(null);
+  // 2026-09-11 — vista da INSTITUIÇÃO: container com estado + «Ver Resultados»
+  const [inqIaContadores, setInqIaContadores] = useState<Record<number, ContadoresInqueritoIA>>({});
+  const [inqIaResultados, setInqIaResultados] = useState<InqueritoIA | null>(null);
   useEffect(() => {
-    if (!cidadaoBi || idsInqIA.length === 0) return;
+    if (idsInqIA.length === 0) return;
     let vivo = true;
     (async () => {
       for (const id of idsInqIA) {
@@ -332,9 +336,15 @@ export function MessageDetail({
         if (!vivo) return;
         if (r.ok && r.dados) {
           setInqIaItens((p) => ({ ...p, [id]: r.dados as InqueritoIA }));
-          const m = await minhaRespostaInqueritoIA(id, cidadaoBi);
-          if (!vivo) return;
-          setInqIaMinha((p) => ({ ...p, [id]: m.ok ? (m.dados ?? null) : null }));
+          if (cidadaoBi) {
+            const m = await minhaRespostaInqueritoIA(id, cidadaoBi);
+            if (!vivo) return;
+            setInqIaMinha((p) => ({ ...p, [id]: m.ok ? (m.dados ?? null) : null }));
+          } else {
+            const c = await contadoresInqueritoIA(r.dados as InqueritoIA);
+            if (!vivo) return;
+            setInqIaContadores((p) => ({ ...p, [id]: c }));
+          }
         }
       }
     })();
@@ -412,6 +422,69 @@ export function MessageDetail({
           cidadaoBi={cidadaoBi}
           onConcluido={marcarRespondidaIA}
           addAuditLog={addAuditLog}
+        />
+      )}
+    </div>
+  ) : null;
+
+  // Container «Inquérito com IA» na correspondência ENVIADA (instituição):
+  // estado desta correspondência (o cidadão respondeu? — pelo state_indicator,
+  // nunca pelo conteúdo), contadores globais e «Ver Resultados» (agregados).
+  const inqIaInstJsx = !cidadaoBi && idsInqIA.length > 0 ? (
+    <div className="mt-6 space-y-3" data-testid="inquerito-ia-cartoes-inst">
+      {idsInqIA.map((id) => {
+        const q = inqIaItens[id];
+        const c = inqIaContadores[id];
+        const respondida = selectedMessage?.details?.state === 'Respondida';
+        const ehDifusao = /^todos$/i.test(String(selectedMessage?.recipientBi || (selectedMessage as any)?.recipient_bi || ''));
+        return (
+          <div key={`inq-ia-inst-${id}`} className="rounded-2xl border border-indigo-100 bg-white shadow-sm overflow-hidden" data-testid="inquerito-ia-cartao-inst">
+            <div className="px-5 py-4 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100 flex items-center gap-2.5">
+              <span className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0"><MessagesSquare size={16} /></span>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-500 m-0">Inquérito com IA · anexado a esta correspondência</p>
+                <p className="text-sm font-bold text-slate-800 leading-snug m-0">{q ? (q.guiao?.objectivo || q.o_que_pretende_saber) : 'A carregar…'}</p>
+              </div>
+            </div>
+            <div className="px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
+              <div className="min-w-0">
+                {!ehDifusao && (
+                  respondida ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-black uppercase tracking-wider border border-emerald-100" data-testid="inquerito-ia-inst-respondido">
+                      <Check size={13} /> Este cidadão respondeu
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-black uppercase tracking-wider border border-amber-100" data-testid="inquerito-ia-inst-pendente">
+                      Ainda sem resposta deste cidadão
+                    </span>
+                  )
+                )}
+                <p className="text-[11px] font-medium text-slate-500 m-0 mt-1.5 tabular-nums">
+                  {q && <span className={q.status === 'ativo' ? 'text-emerald-600 font-bold' : 'text-slate-500 font-bold'}>{q.status}</span>}
+                  {c && <> · <b className="text-slate-700">{c.enviados}</b> enviados · <b className="text-blue-700">{c.iniciados}</b> iniciados · <b className="text-emerald-700">{c.concluidos}</b> concluídos · <b className="text-rose-700">{c.recusados}</b> recusados</>}
+                </p>
+                <p className="text-[10px] font-medium text-slate-400 m-0 mt-1 flex items-center gap-1"><Lock size={10} /> As respostas são anónimas — só os resultados agregados podem ser consultados.</p>
+              </div>
+              <button
+                type="button"
+                disabled={!q}
+                onClick={() => q && setInqIaResultados(q)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-[11px] font-black uppercase tracking-widest border-0 cursor-pointer shadow active:scale-95 transition-all"
+                id={`btn-resultados-inquerito-ia-${id}`}
+              >
+                <BarChart3 size={14} /> Ver Resultados
+              </button>
+            </div>
+          </div>
+        );
+      })}
+      {inqIaResultados && (
+        <InqueritoIaResultados
+          aberto
+          onFechar={() => setInqIaResultados(null)}
+          inquerito={inqIaResultados}
+          addAuditLog={addAuditLog}
+          onEncerrado={(id) => setInqIaItens((p) => (p[id] ? { ...p, [id]: { ...p[id], status: 'encerrado' } } : p))}
         />
       )}
     </div>
@@ -2480,6 +2553,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
 
           {/* 2026-09-10 — Inquérito com IA: cartão «Iniciar Inquérito» (cidadão) */}
           {inqIaJsx}
+          {inqIaInstJsx}
 
           {/* v37.7 — Sondagem contextual (instituição): só dentro da correspondência */}
           {sondInstJsx}
@@ -3984,6 +4058,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
 
                     {/* 2026-09-10 — Inquérito com IA: cartão «Iniciar Inquérito» (cidadão) */}
                     {inqIaJsx}
+                    {inqIaInstJsx}
 
                     {/* v37.7 — Sondagem contextual (instituição): só dentro da correspondência */}
                     {sondInstJsx}

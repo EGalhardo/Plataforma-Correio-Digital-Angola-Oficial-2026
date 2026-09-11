@@ -157,7 +157,10 @@ await page.waitForSelector('#btn-inquerito-ia-concluir', { timeout: 20000 });
 const domB = await page.locator('[data-testid="inquerito-ia-chat"]').innerText();
 ok('B11 fim: agradecimento + «Concluir», sem resumo/campos', /obrigad/i.test(await ultimaIa(page)) && !/meio_transporte|tempo_viagem|custo|Resumo/i.test(domB.replace(/custo diário/gi, '')) );
 await page.screenshot({ path: 'testes/evidencias/ciclo_B_fim.png' });
-await page.locator('#btn-inquerito-ia-concluir').click(); await page.waitForTimeout(3000);
+await page.locator('#btn-inquerito-ia-concluir').click();
+  await page.locator('[data-testid="inquerito-ia-confirmacao"]').waitFor({ timeout: 15000 }).catch(() => {});
+  { const v = page.locator('#btn-inquerito-ia-voltar'); if (await v.count()) await v.click(); }
+  await page.waitForTimeout(2500);
 ok('B12 pill «Respondido em …»', (await page.locator('[data-testid="inquerito-ia-respondido"]').count()) > 0, await page.locator('[data-testid="inquerito-ia-respondido"]').innerText().catch(() => ''));
 await page.screenshot({ path: 'testes/evidencias/ciclo_B_respondido.png' });
 // Reabrir a correspondência: estado persistente
@@ -203,7 +206,10 @@ for (const r of respostasC) {
 await page.waitForSelector('#btn-inquerito-ia-concluir', { timeout: 20000 });
 ok('C3 conversa terminou com agradecimento', /obrigad/i.test(await ultimaIa(page)));
 await page.screenshot({ path: 'testes/evidencias/ciclo_C_fim_mobile.png' });
-await page.locator('#btn-inquerito-ia-concluir').click(); await page.waitForTimeout(3000);
+await page.locator('#btn-inquerito-ia-concluir').click();
+  await page.locator('[data-testid="inquerito-ia-confirmacao"]').waitFor({ timeout: 15000 }).catch(() => {});
+  { const v = page.locator('#btn-inquerito-ia-voltar'); if (await v.count()) await v.click(); }
+  await page.waitForTimeout(2500);
 ok('C4 pill «Respondido» (mobile)', (await page.locator('[data-testid="inquerito-ia-respondido"]').count()) > 0);
 ok('C5 sem erros JS (cidadão 02)', page.__erros.length === 0, page.__erros.join(' | '));
 await page.context().close();

@@ -30,19 +30,9 @@ for (const vp of [{ w: 1366, h: 900, tag: 'desktop' }, { w: 390, h: 844, tag: 'm
   ok(`[${vp.tag}] contadores no popup`, /Enviados[\s\S]*Iniciados[\s\S]*Concluídos[\s\S]*Recusados/i.test(txt));
   ok(`[${vp.tag}] sem respostas individuais / hash no DOM`, !/[0-9a-f]{64}/.test(txt) && !/002399714|005404692/.test(txt));
   await page.screenshot({ path: `testes/evidencias/f4_${vp.tag}_resultados.png` });
-  if (vp.tag === 'desktop') {
-    // Encerrar via UI (o inquérito #11 foi reaberto só para este teste)
-    const btnEnc = page.locator('#btn-encerrar-inquerito-ia');
-    ok('[desktop] inquérito activo → botão «Encerrar inquérito»', (await btnEnc.count()) === 1);
-    await btnEnc.click(); await page.waitForTimeout(500);
-    ok('[desktop] confirmação CdaConfirm (perigoso)', await page.getByText(/Encerrar este inquérito\?/).isVisible());
-    await page.screenshot({ path: 'testes/evidencias/f4_desktop_confirmar_encerrar.png' });
-    await page.getByRole('button', { name: /^Encerrar$/ }).click(); await page.waitForTimeout(2500);
-    const txt2 = await modal.innerText();
-    ok('[desktop] após encerrar: estado «encerrado» e botão desaparece', /encerrado/.test(txt2) && (await btnEnc.count()) === 0);
-  } else {
-    ok(`[${vp.tag}] inquérito encerrado → sem botão Encerrar`, (await page.locator('#btn-encerrar-inquerito-ia').count()) === 0);
-  }
+  // Estado do botão «Encerrar» coerente com o estado do inquérito (nunca encerra inquéritos reais aqui)
+  const activo = /·\s*ativo/.test(txt); const nEnc = await page.locator('#btn-encerrar-inquerito-ia').count();
+  ok(`[${vp.tag}] botão «Encerrar» ${activo ? 'presente (activo)' : 'ausente (encerrado)'}`, activo ? nEnc === 1 : nEnc === 0);
   if (vp.tag === 'desktop') {
     const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), page.locator('#btn-exportar-csv-inquerito-ia').click()]);
     const p = await dl.path(); const csv = fs.readFileSync(p, 'utf8');
