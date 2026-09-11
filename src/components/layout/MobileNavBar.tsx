@@ -90,7 +90,11 @@ export function MobileNavBar({
   const isAdminOrInst = appMode === 'admin' || appMode === 'institution';
 
   return (
-    <nav className={`md:hidden fixed bottom-0 left-0 right-0 h-16 border-t flex items-center px-2 z-50 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.06)] transition-colors bg-white/95 backdrop-blur-md border-slate-200 ${
+    // 2026-09-11 — MODO ESCURO: o fundo `bg-white/95` não era coberto pelos
+    // overrides globais do tema (só bg-white, /70, /80, /90) e o navbar ficava
+    // branco no escuro. A classe `cda-mobile-nav` recebe em index.css as
+    // MESMAS cores do AppBar mobile (fundo rgb(9,17,36), linha rgb(38,52,85)).
+    <nav className={`cda-mobile-nav md:hidden fixed bottom-0 left-0 right-0 h-16 border-t flex items-center px-2 z-50 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.06)] transition-colors bg-white/95 backdrop-blur-md border-slate-200 ${
       isAdminOrInst ? 'overflow-x-auto justify-start gap-1 scrollbar-none snap-x snap-mandatory' : 'justify-around'
     }`}>
       {itensVisiveis.map(({ id, label, icon: Icon }) => {
@@ -116,7 +120,9 @@ export function MobileNavBar({
             if (id !== 'documento') setSelectedDoc(null);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-          className={`flex flex-col items-center justify-center gap-1 transition-all px-2.5 h-full relative shrink-0 ${
+          data-ativo={isActive ? 'true' : undefined}
+          data-inativo={inativo ? 'true' : undefined}
+          className={`cda-mobile-nav-item flex flex-col items-center justify-center gap-1 transition-all px-2.5 h-full relative shrink-0 ${
             isAdminOrInst ? 'min-w-[70px] snap-start' : 'flex-1'
           } ${inativo ? 'opacity-40 cursor-not-allowed text-slate-400 select-none' : isActive ? 'text-[#0E2B64]' : 'text-slate-400 hover:text-slate-600'}`}
         >
@@ -132,7 +138,7 @@ export function MobileNavBar({
             )}
           </span>
           {isActive && (
-            <motion.div layoutId="activeTab" className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 rounded-b-full bg-[#0E2B64]" />
+            <motion.div layoutId="activeTab" className="cda-mobile-nav-indicador absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 rounded-b-full bg-[#0E2B64]" />
           )}
         </button>
         );

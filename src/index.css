@@ -413,6 +413,37 @@ html.dark .bg-\[\#f1f5f9\] {
   background-color: rgb(20, 29, 49) !important;
 }
 
+/* 2026-09-11 — NAVBAR MOBILE (barra inferior) no modo escuro: mesmas cores do
+   AppBar mobile (fundo rgb(9,17,36), linha rgb(38,52,85)); sem sombra; item
+   activo em azul claro (#9db8ff, o mesmo dos títulos azul-marinho no escuro),
+   inactivos em cinza claro; itens sem acesso mantêm a opacidade reduzida. */
+html.dark .cda-mobile-nav {
+  background-color: rgba(9, 17, 36, 0.95) !important;
+  border-color: rgb(38, 52, 85) !important;
+  box-shadow: none !important;
+}
+html.dark .cda-mobile-nav-item,
+html.dark .cda-mobile-nav-item span,
+html.dark .cda-mobile-nav-item svg {
+  color: #94a3b8 !important;
+}
+html.dark .cda-mobile-nav-item:hover:not([data-inativo]),
+html.dark .cda-mobile-nav-item:hover:not([data-inativo]) span,
+html.dark .cda-mobile-nav-item:hover:not([data-inativo]) svg {
+  color: #e2e8f0 !important;
+}
+html.dark .cda-mobile-nav-item[data-ativo],
+html.dark .cda-mobile-nav-item[data-ativo] span,
+html.dark .cda-mobile-nav-item[data-ativo] svg {
+  color: #9db8ff !important;
+}
+html.dark .cda-mobile-nav-item .text-red-500 {
+  color: #f87171 !important;
+}
+html.dark .cda-mobile-nav-indicador {
+  background-color: #9db8ff !important;
+}
+
 /* Border Overrides in dark mode (using more visible rgb(38, 52, 85)) */
 html.dark .border-slate-100 {
   border-color: rgb(38, 52, 85) !important;
