@@ -392,6 +392,8 @@ export default function App() {
     return 'splash';
   });
   const [triggerRefetch, setTriggerRefetch] = useState(0);
+  // T55 — ids de notificações já vistos nesta sessão (null = ainda sem 1.ª leitura).
+  const notifIdsVistosRef = useRef<Set<number> | null>(null);
   // Tick para forçar re-render quando a conta é ativada no ecrã de homologação
   const [gateRefreshTick, setGateRefreshTick] = useState(0);
   const [tab, setTab] = useState(() => {
@@ -3250,6 +3252,21 @@ export default function App() {
 
         // 7. Notifications
         if (dbNotifs !== null) {
+          // 2026-09-12 (T55) — AVISO ACTIVO de notificações novas: as linhas
+          // vindas da nuvem que ainda não tinham sido vistas nesta sessão
+          // (ex.: «Denúncia — Em análise» activada pela instituição) disparam
+          // um toast. O primeiro carregamento só memoriza os ids (sem toast).
+          try {
+            const vistos = notifIdsVistosRef.current;
+            const minhas = dbNotifs.filter(n => n.unread !== false);
+            if (vistos === null) {
+              notifIdsVistosRef.current = new Set(dbNotifs.map(n => n.id));
+            } else {
+              const novas = minhas.filter(n => !vistos.has(n.id));
+              dbNotifs.forEach(n => vistos.add(n.id));
+              novas.slice(0, 3).forEach(n => notify(`${n.title}: ${String(n.message || '').replace(/\s*\([^)]*\)\s*$/, '')}`, 'info', { duracaoMs: 9000 }));
+            }
+          } catch { /* aviso é melhor-esforço */ }
           if (!isDemoSession) {
             setNotifications(dbNotifs);
           } else {
@@ -4517,6 +4534,7 @@ export default function App() {
   // sessão de nuvem activa). Best-effort: sem rede o logout local prossegue; o
   // marcador cda_cloud_accounts_v1 NUNCA é apagado (a conta continua migrada).
   const handleLogout = async (clearAll = false) => {
+    notifIdsVistosRef.current = null; // T55 — a próxima sessão recomeça sem toasts retroactivos
     // P-URL — v37.42: ao terminar a sessão o URL passa para o login DA ÁREA
     // (pathname já reflecte o prefixo /admin ou /institucional), mantendo a
     // privacidade pós-logout e o encaminhamento correcto (§3).

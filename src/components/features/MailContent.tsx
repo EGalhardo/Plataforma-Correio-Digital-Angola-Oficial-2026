@@ -10,6 +10,8 @@ import {
   ArrowLeft,
   Send,
   Mail,
+  Eye,
+  RotateCcw,
   Plus,
   Search,
 
@@ -2640,41 +2642,54 @@ export function MailContent({
                         </span>
                       </td>
 
-                      {/* Ações Column */}
+                      {/* Ações Column — 2026-09-12 (T55): ícones circulares
+                          (Abrir/Analisar · Eliminar · Restaurar) com tooltip e
+                          aria-label; alinhados ao centro da célula. */}
                       <td className="py-5 px-5 text-center">
-                        <div className="flex items-center justify-center gap-3">
+                        <div className="flex items-center justify-center gap-2" data-testid="acoes-linha">
                           <button
                             type="button"
                             onClick={() => handleSelectMessage(item)}
-                            className="text-[9.5px] font-black uppercase text-indigo-650 hover:text-indigo-900 transition-colors tracking-widest hover:underline cursor-pointer bg-transparent border-0 outline-none"
+                            title={isInst ? t('Analisar') : t('Abrir')}
+                            aria-label={isInst ? 'Analisar' : 'Abrir'}
+                            data-acao="abrir"
+                            className="w-8 h-8 rounded-full flex items-center justify-center bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all cursor-pointer shadow-xs active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
                           >
-                            {isInst ? 'ANALISAR' : 'ABRIR'}
+                            <Eye size={14} />
                           </button>
                           {correspondenciaTab === 'excluidas' ? (
-                            <div className="flex items-center justify-center gap-1.5">
+                            <>
                               <button
                                 type="button"
                                 onClick={() => onRestoreMessage && onRestoreMessage(item.id)}
-                                className="text-[9.5px] font-black uppercase text-emerald-600 hover:text-emerald-700 transition-colors tracking-widest hover:underline cursor-pointer bg-transparent border-0 outline-none"
+                                title={t('Restaurar')}
+                                aria-label="Restaurar"
+                                data-acao="restaurar"
+                                className="w-8 h-8 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all cursor-pointer shadow-xs active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
                               >
-                                Restaurar
+                                <RotateCcw size={14} />
                               </button>
-                              <span className="text-slate-400">|</span>
                               <button
                                 type="button"
                                 onClick={() => setMessageToDelete({ id: item.id, isPermanent: true })}
-                                className="text-[9.5px] font-black uppercase text-rose-600 hover:text-rose-800 transition-colors tracking-widest hover:underline cursor-pointer bg-transparent border-0 outline-none"
+                                title={t('Eliminar permanentemente')}
+                                aria-label="Eliminar permanentemente"
+                                data-acao="eliminar"
+                                className="w-8 h-8 rounded-full flex items-center justify-center bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all cursor-pointer shadow-xs active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
                               >
-                                Eliminar
+                                <Trash2 size={14} />
                               </button>
-                            </div>
+                            </>
                           ) : (
                             <button
                               type="button"
                               onClick={() => setMessageToDelete({ id: item.id, isPermanent: false })}
-                              className="text-[9.5px] font-black uppercase text-rose-600 hover:text-rose-800 transition-colors tracking-widest hover:underline cursor-pointer bg-transparent border-0 outline-none"
+                              title={t('Eliminar')}
+                              aria-label="Eliminar"
+                              data-acao="eliminar"
+                              className="w-8 h-8 rounded-full flex items-center justify-center bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all cursor-pointer shadow-xs active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
                             >
-                              Eliminar
+                              <Trash2 size={14} />
                             </button>
                           )}
                         </div>

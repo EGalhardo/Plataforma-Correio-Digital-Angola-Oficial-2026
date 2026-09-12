@@ -778,3 +778,15 @@ html.dark [data-testid="popup-enviar-mensagem"] button[aria-pressed="true"] {
 html.dark [data-testid="popup-enviar-mensagem"] button[aria-pressed="true"] h4 {
   color: #e2e8f0 !important;
 }
+
+/* ==========================================================================
+   2026-09-12 (T55) — Correio: botões de acção em ícone (Abrir · Eliminar ·
+   Restaurar) da tabela de correspondência — variante escura harmonizada
+   (sem disco branco). Selecção por data-acao para não tocar noutros botões.
+   ========================================================================== */
+html.dark [data-testid="acoes-linha"] [data-acao="abrir"] { background-color: rgba(99,102,241,.16) !important; border-color: rgba(129,140,248,.35) !important; color: #a5b4fc !important; }
+html.dark [data-testid="acoes-linha"] [data-acao="abrir"]:hover { background-color: #4f46e5 !important; border-color: #4f46e5 !important; color: #fff !important; }
+html.dark [data-testid="acoes-linha"] [data-acao="eliminar"] { background-color: rgba(244,63,94,.14) !important; border-color: rgba(251,113,133,.35) !important; color: #fda4af !important; }
+html.dark [data-testid="acoes-linha"] [data-acao="eliminar"]:hover { background-color: #e11d48 !important; border-color: #e11d48 !important; color: #fff !important; }
+html.dark [data-testid="acoes-linha"] [data-acao="restaurar"] { background-color: rgba(16,185,129,.14) !important; border-color: rgba(52,211,153,.35) !important; color: #6ee7b7 !important; }
+html.dark [data-testid="acoes-linha"] [data-acao="restaurar"]:hover { background-color: #059669 !important; border-color: #059669 !important; color: #fff !important; }
