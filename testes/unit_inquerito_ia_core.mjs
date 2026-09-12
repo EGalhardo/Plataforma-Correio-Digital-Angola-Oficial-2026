@@ -9,6 +9,7 @@ import {
   campoSensivel, slugChave, RE_RECUSA, MAX_PERGUNTAS_POR_DURACAO,
   INQUERITO_IA_GUIAO_SISTEMA, INQUERITO_IA_CONVERSA_SISTEMA,
   chaveDetalhe, ehChaveDetalhe, chavesRecolhidas, agregarCamposRespostas,
+  separarInformacoes, apenasPrimeiraPergunta,
 } from '../src/services/inqueritoIaCore.ts';
 
 let n = 0;
@@ -136,6 +137,45 @@ t('guiaoPorTemplate constrói campos a partir do texto livre e nunca fica vazio'
   assert.equal(g.campos.find((c) => c.chave.includes('distancia')).tipo, 'distancia');
   const vazio = guiaoPorTemplate({ oQuePretendeSaber: 'x', informacoes: '', instituicao: '', duracao: 'normal' });
   assert.equal(vazio.campos.length, 1);
+});
+
+t('T35: separarInformacoes desdobra vírgulas e «se tem X e Y» em informações atómicas', () => {
+  assert.deepEqual(
+    separarInformacoes('Fonte de rendimento, se tem agua canlaizada e luz electrica.'),
+    ['Fonte de rendimento', 'se tem agua canlaizada', 'se tem luz electrica'],
+  );
+  assert.deepEqual(
+    separarInformacoes('Meio de transporte; tempo de viagem e se usa táxi colectivo'),
+    ['Meio de transporte', 'tempo de viagem', 'se usa táxi colectivo'],
+  );
+  assert.deepEqual(separarInformacoes(''), []);
+});
+
+t('T35: guiaoPorTemplate do inquérito #21 gera 3 campos, um por informação, com perguntas guiadas naturais', () => {
+  const g = guiaoPorTemplate({
+    oQuePretendeSaber: 'Condicoes de vida da populacao.',
+    informacoes: 'Fonte de rendimento, se tem agua canlaizada e luz electrica.',
+    instituicao: 'INAPEM — Instituto Nacional de Apoio as Micro, Pequenas e Médias Empresas', duracao: 'normal',
+  });
+  assert.equal(g.campos.length, 3);
+  assert.deepEqual(g.campos.map((c) => [c.chave, c.tipo]), [
+    ['fonte_de_rendimento', 'texto_curto'], ['tem_agua_canlaizada', 'sim_nao'], ['tem_luz_electrica', 'sim_nao'],
+  ]);
+  assert.ok(!g.saudacao.includes('..'), 'sem pontuação duplicada na saudação');
+  const perguntas = g.campos.map((c) => perguntaGuiada(c).texto);
+  assert.equal(perguntas[0], 'Pode dizer-me, por favor, qual é a sua fonte de rendimento?');
+  assert.equal(perguntas[1], 'Tem agua canlaizada? Sim ou não?');
+  assert.equal(perguntas[2], 'Tem luz electrica? Sim ou não?');
+  for (const p of perguntas) assert.equal((p.match(/\?/g) || []).length <= 2 && !/rendimento.*(agua|luz)/i.test(p), true, `pergunta única: ${p}`);
+});
+
+t('T35: normalizarPassoIA reduz uma mensagem com várias perguntas à primeira', () => {
+  assert.equal(apenasPrimeiraPergunta('Obrigado! Qual é a sua fonte de rendimento? E tem água canalizada?'), 'Obrigado! Qual é a sua fonte de rendimento?');
+  assert.equal(apenasPrimeiraPergunta('Tem água canalizada em casa?'), 'Tem água canalizada em casa?');
+  assert.equal(apenasPrimeiraPergunta('Muito obrigado pela sua participação.'), 'Muito obrigado pela sua participação.');
+  const guiao = { objectivo: 'x', saudacao: 'Olá', maxPerguntas: 5, campos: [{ chave: 'fonte_rendimento', rotulo: 'Fonte', tipo: 'texto_curto', so_se: null }, { chave: 'agua', rotulo: 'Água', tipo: 'sim_nao', so_se: null }] };
+  const passo = normalizarPassoIA(JSON.stringify({ proximaMensagem: 'Qual é a sua fonte de rendimento? Tem água canalizada e luz eléctrica?', camposExtraidos: {}, terminou: false }), guiao);
+  assert.equal(passo.proximaMensagem, 'Qual é a sua fonte de rendimento?');
 });
 
 t('RE_RECUSA distingue recusa de participação de resposta negativa', () => {

@@ -95,20 +95,20 @@ Deduz:
 - "saudacao": 1 a 2 frases (máx. 220 caracteres) com que a conversa começa: apresenta o levantamento em nome da instituição e PEDE CONSENTIMENTO para fazer algumas perguntas (ex.: «Posso fazer-lhe algumas perguntas?»).
 - "campos": as informações a recolher — o número de campos deve ser PRÓXIMO do número máximo de perguntas indicado (nunca menos de 4 nem mais de 15): desdobra cada tema pedido pela instituição em informações concretas e complementares (ex.: «acesso a energia» → tem energia da rede; horas por dia com energia; frequência de falhas; fonte alternativa; custo mensal). Cada campo tem "chave" (slug em minúsculas com underscores, ex. agua_canalizada), "rotulo" (nome curto legível, ex. «Água canalizada»), "tipo" (um de: sim_nao, texto_curto, numero, distancia, escolha), "opcoes" (só quando tipo=escolha: 2 a 6 opções curtas) e "so_se" (null, ou uma condição simples no formato "chave = Valor" quando o campo só faz sentido em certos casos, ex. "agua_canalizada = Não").
 - "maxPerguntas": o número máximo de perguntas indicado pela instituição.
-Regras: nunca incluas campos de dados pessoais sensíveis (BI, telefone, morada exacta, NIF, dados bancários, saúde, religião, política) — a recolha é anónima; não repitas campos; ordena os campos do geral para o específico, com os condicionais logo a seguir ao campo de que dependem.
+Regras: cada campo corresponde a UMA ÚNICA informação atómica — se a instituição juntar vários assuntos numa frase (ex.: «fonte de rendimento, se tem água canalizada e luz eléctrica»), separa-os em campos distintos (fonte_rendimento; agua_canalizada; luz_electrica), nunca num só campo; não cries dois campos para a mesma informação (ex.: «fonte de rendimento» e «tipo de rendimento» são um só campo, de preferência tipo escolha com opções) — para aprofundar, usa campos complementares (valor, frequência, alternativa, custo, dificuldade); nunca incluas campos de dados pessoais sensíveis (BI, telefone, morada exacta, NIF, dados bancários, saúde, religião, política) — a recolha é anónima; não repitas campos; ordena os campos do geral para o específico, com os condicionais logo a seguir ao campo de que dependem.
 Responde APENAS com JSON válido, sem markdown nem comentários, exactamente neste formato:
 {"objectivo":"...","saudacao":"...","campos":[{"chave":"...","rotulo":"...","tipo":"sim_nao","opcoes":null,"so_se":null}],"maxPerguntas":10}`;
 
 export const INQUERITO_IA_CONVERSA_SISTEMA = `És o assistente de inquéritos oficiais do Correio Digital Angola e estás a conversar com um cidadão em nome de uma instituição pública angolana, seguindo um GUIÃO.
-Fala em português europeu (norma de Angola), com frases curtas e simples, sem termos técnicos, no tom indicado (próximo = cordial e caloroso; formal = institucional e sóbrio). Trata o cidadão por «o senhor/a senhora» ou de forma neutra; nunca por «tu».
+Fala em português europeu (norma de Angola), com frases curtas e simples, sem termos técnicos, no tom indicado (próximo = cordial e caloroso; formal = institucional e sóbrio). Trata o cidadão por «o senhor/a senhora» ou de forma neutra; nunca por «tu». A moeda é sempre o kwanza (Kz) — nunca euros, dólares ou reais.
 Falas em nome da instituição indicada em «Instituição:» — quando te apresentares ou a referires, usa esse nome EXACTO (nunca outra sigla, outro organismo ou um nome genérico).
 Comportamento:
-1. Faz UMA pergunta de cada vez. Nunca listes várias perguntas na mesma mensagem.
+1. Faz UMA ÚNICA pergunta de cada vez, sobre UM único campo — nunca juntes dois campos na mesma frase (errado: «Qual o seu rendimento e tem água canalizada?»; certo: «Qual é a sua principal fonte de rendimento?»). Se um campo do guião misturar vários assuntos, pergunta apenas o primeiro e guarda os outros para as perguntas seguintes. A mensagem tem no máximo um ponto de interrogação.
 2. Lê a última resposta do cidadão e extrai, para os campos do guião, apenas o que for CLARAMENTE dito (normaliza: «não, usamos chafariz» → agua_canalizada="Não", fonte_alternativa_agua="Chafariz"). Se a resposta for ambígua, pede uma clarificação curta em vez de adivinhar.
 3. Respeita as condições "so_se": só perguntas um campo condicional quando a condição se verificar nos campos já recolhidos.
-4. Nunca repitas uma pergunta cujo campo já esteja preenchido. Prioriza os campos por ordem do guião.
+4. Nunca repitas uma pergunta cujo campo já esteja preenchido. Prioriza os campos por ordem do guião. INFERE o que for evidente: «sou motorista numa empresa» preenche fonte_rendimento=Emprego/Salário (detalhe «Motorista») sem voltar a perguntar. Se o cidadão não responder ao que foi perguntado, reformula UMA vez; se continuar sem resposta útil, regista o que der, deixa esse campo em branco e PASSA AO CAMPO SEGUINTE — nunca faças a mesma pergunta mais de duas vezes.
 5. Se o cidadão recusar participar (ex.: «não», «agora não», «não quero») logo na saudação ou pedir para parar, agradece com uma frase e termina com motivoFim="recusado".
-6. APROFUNDA a conversa: se o cidadão acrescentar informação relevante para o objectivo (ex.: «temos luz mas há muitas falhas»), faz a seguir uma pergunta de seguimento curta sobre isso (frequência, causa, impacto, alternativa) antes de mudar de tema — regista o que couber num campo do guião e, se não couber em nenhum, usa a pergunta apenas para enriquecer a próxima. Usa o orçamento de perguntas indicado: enquanto faltarem campos aplicáveis ou perguntas, NÃO termines. Só termina quando (a) todos os campos aplicáveis estiverem preenchidos E já tiveres feito pelo menos dois terços do máximo de perguntas, ou (b) atingires o máximo de perguntas. Termina com UMA frase de agradecimento (ex.: «Muito obrigado pela sua participação. As suas respostas foram registadas.») e motivoFim="concluido" ou "limite_perguntas".
+6. APROFUNDA a conversa com UMA pergunta de seguimento de cada vez: se o cidadão acrescentar informação relevante para o objectivo (ex.: «temos luz mas há muitas falhas»), faz a seguir uma pergunta de seguimento curta sobre isso (frequência, causa, impacto, alternativa) antes de mudar de tema — regista o que couber num campo do guião e, se não couber em nenhum, usa a pergunta apenas para enriquecer a próxima. Usa o orçamento de perguntas indicado: enquanto faltarem campos aplicáveis ou perguntas, NÃO termines. Só termina quando (a) todos os campos aplicáveis estiverem preenchidos E já tiveres feito pelo menos dois terços do máximo de perguntas, ou (b) atingires o máximo de perguntas. Termina com UMA frase de agradecimento (ex.: «Muito obrigado pela sua participação. As suas respostas foram registadas.») e motivoFim="concluido" ou "limite_perguntas".
 6b. Se a resposta trouxer informação para um campo diferente do perguntado, regista-a também. Faz ligações naturais entre as perguntas («Já que falou em…») em vez de saltar de tema em tema.
 7. Nunca peças dados pessoais sensíveis (BI, telefone, morada exacta, NIF, dados bancários, saúde, religião, política), mesmo que o cidadão os ofereça — não os registes.
 8. NUNCA mostres ao cidadão os campos extraídos, resumos ou listas do que foi registado; o cidadão apenas conversa.
@@ -169,12 +169,27 @@ export const normalizarGuiaoIA = (bruto: string, maxPerguntas: number): { guiao:
   return { guiao: { objectivo, saudacao, campos, maxPerguntas }, descartados };
 };
 
+/** Reduz uma mensagem com várias perguntas à primeira pergunta (mantendo o
+ *  preâmbulo). «Obrigado! Qual é o rendimento? E tem água?» → «Obrigado! Qual
+ *  é o rendimento?». Mensagens sem «?» ou com um só «?» passam intactas. */
+export const apenasPrimeiraPergunta = (texto: string): string => {
+  const t = String(texto || '').trim();
+  const n = (t.match(/\?/g) || []).length;
+  if (n <= 1) return t;
+  const i = t.indexOf('?');
+  return t.slice(0, i + 1).trim();
+};
+
 /** Normaliza a saída do endpoint /conversa. Filtra chaves fora do guião. */
 export const normalizarPassoIA = (bruto: string, guiao: GuiaoIA): PassoConversaIA | null => {
   const j = extrairJson(bruto);
   if (!j) return null;
-  const proximaMensagem = String(j.proximaMensagem || j.mensagem || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+  let proximaMensagem = String(j.proximaMensagem || j.mensagem || '').replace(/\s+/g, ' ').trim().slice(0, 500);
   if (!proximaMensagem) return null;
+  // 2026-09-11 — GUARDA «uma pergunta de cada vez»: se o modelo devolver
+  // várias perguntas («…? … ?»), fica só a primeira (com o texto que a
+  // antecede). A conversa continua no passo seguinte com o resto.
+  proximaMensagem = apenasPrimeiraPergunta(proximaMensagem);
   const permitidas = new Set(guiao.campos.map((c) => c.chave));
   const camposExtraidos: Record<string, string> = {};
   if (j.camposExtraidos && typeof j.camposExtraidos === 'object') {
@@ -218,29 +233,54 @@ export const normalizarPassoIA = (bruto: string, guiao: GuiaoIA): PassoConversaI
 // ============================================================================
 
 const RE_SIM_NAO = /^(se|caso)\s+(tem|t[êe]m|possui|possuem|h[áa]|existe|usa|utiliza|disp[õo]e|est[áa])\b|\((sim\/n[ãa]o|s\/n)\)/i;
-const RE_NUMERO = /\b(quantos?|quantas?|n[uú]mero de|idade|quantidade|valor|custo|pre[cç]o|rendimento)\b/i;
+const RE_NUMERO = /\b(quantos?|quantas?|n[uú]mero de|idade|quantidade|valor|custo|pre[cç]o|rendimento\s+(mensal|m[ée]dio|anual|familiar)|sal[áa]rio)\b/i;
+/** «fonte/tipo/principal de X» é qualitativo (texto), mesmo que X sugira número. */
+const RE_QUALITATIVO = /\b(fonte|tipo|principal|origem|forma|meio)\s+(de|do|da)\b/i;
 const RE_DISTANCIA = /\b(dist[âa]ncia|a que dist|quilómetros|km|metros)\b/i;
+
+/** 2026-09-11 — separa o texto livre «que informações precisa de recolher»
+ *  em informações INDIVIDUAIS: por `;`, quebras de linha, vírgulas e pela
+ *  conjunção «e» — e, dentro de «se tem X e Y», desdobra em «se tem X» e
+ *  «se tem Y». Antes, «Fonte de rendimento, se tem água e luz» virava UM
+ *  campo e a IA/modo guiado faziam três perguntas de uma vez. */
+export const separarInformacoes = (texto: string): string[] => {
+  const brutas = String(texto || '')
+    .split(/[;\n,]+|\s+e\s+(?=(?:se|caso|quantos?|quantas?|qual|quais|onde|como|tem|t[êe]m|h[áa])\b)/i)
+    .map((p) => p.replace(/^[\s\-•*\d.)]+/, '').replace(/^(e|ou)\s+/i, '').replace(/[.!?\s]+$/, '').trim())
+    .filter((p) => p.length >= 3);
+  const saida: string[] = [];
+  for (const p of brutas) {
+    // «se tem água canalizada e luz eléctrica» → «se tem água canalizada», «se tem luz eléctrica»
+    const m = p.match(/^((?:se|caso)\s+(?:tem|t[êe]m|possui|possuem|h[áa]|existe|usa|utiliza|disp[õo]e|est[áa])\s+)(.+)$/i);
+    if (m) {
+      const itens = m[2].split(/\s+(?:e|ou)\s+/i).map((i) => i.trim()).filter((i) => i.length >= 2);
+      if (itens.length > 1) { for (const i of itens) saida.push(`${m[1]}${i}`); continue; }
+    }
+    // «X e Y» genérico sem verbo (ex.: «água e luz») quando ambos são curtos
+    const partesE = p.split(/\s+e\s+/i).map((i) => i.trim()).filter(Boolean);
+    if (partesE.length > 1 && partesE.every((i) => i.split(/\s+/).length <= 3)) { saida.push(...partesE); continue; }
+    saida.push(p);
+  }
+  return saida;
+};
 
 /** Constrói um guião determinístico a partir dos 2 campos do popup. Usado
  *  quando a IA não responde (503) — o inquérito é criado na mesma. */
 export const guiaoPorTemplate = (params: {
   oQuePretendeSaber: string; informacoes: string; instituicao: string; duracao: DuracaoIA;
 }): GuiaoIA => {
-  const objectivo = sanitizarTextoPrompt(params.oQuePretendeSaber, 200) || 'Levantamento de informação junto dos cidadãos';
+  const objectivo = (sanitizarTextoPrompt(params.oQuePretendeSaber, 200) || 'Levantamento de informação junto dos cidadãos').replace(/[.!?\s]+$/, ''); // sem pontuação final (evitava «…populacao..»)
   const inst = sanitizarTextoPrompt(params.instituicao, 100) || 'a instituição';
   const saudacao = `Olá! ${inst} está a realizar um breve inquérito sobre ${objectivo.charAt(0).toLowerCase()}${objectivo.slice(1)}. Posso fazer-lhe algumas perguntas?`;
-  const partes = String(params.informacoes || '')
-    .split(/[;\n]+|\s+e\s+(?=se\s)/i)
-    .map((p) => p.replace(/^[\s\-•*\d.)]+/, '').trim())
-    .filter((p) => p.length >= 3);
+  const partes = separarInformacoes(params.informacoes);
   const vistos = new Set<string>();
   const campos: CampoGuiaoIA[] = [];
   for (const p of partes) {
-    const rotuloBase = p.replace(/\((sim\/n[ãa]o|s\/n)\)/i, '').replace(/^(se|caso)\s+/i, '').trim();
+    const rotuloBase = p.replace(/\((sim\/n[ãa]o|s\/n)\)/i, '').replace(/^(se|caso)\s+/i, '').replace(/[.!?]+$/, '').trim();
     const rotulo = (rotuloBase.charAt(0).toUpperCase() + rotuloBase.slice(1)).slice(0, 80);
     const chave = slugChave(rotulo);
     if (!rotulo || vistos.has(chave)) continue;
-    const tipo: TipoCampoIA = RE_SIM_NAO.test(p) ? 'sim_nao' : RE_DISTANCIA.test(p) ? 'distancia' : RE_NUMERO.test(p) ? 'numero' : 'texto_curto';
+    const tipo: TipoCampoIA = RE_SIM_NAO.test(p) ? 'sim_nao' : RE_DISTANCIA.test(p) ? 'distancia' : (RE_NUMERO.test(p) && !RE_QUALITATIVO.test(p)) ? 'numero' : 'texto_curto';
     const campo: CampoGuiaoIA = { chave, rotulo, tipo, so_se: null };
     if (campoSensivel(campo)) continue;
     vistos.add(chave);
@@ -269,13 +309,18 @@ export const proximoCampoGuiado = (guiao: GuiaoIA, recolhidos: Record<string, st
 
 /** Pergunta por template para o modo guiado (sem IA). */
 export const perguntaGuiada = (campo: CampoGuiaoIA): { texto: string; respostaRapida: string[] | null } => {
-  const r = campo.rotulo.charAt(0).toLowerCase() + campo.rotulo.slice(1);
+  // 2026-09-11 — rótulo limpo: sem «se/caso» inicial nem pontuação final. Se
+  // já começa por verbo («Tem água canalizada», «Usa táxi») vira pergunta
+  // directa; caso contrário antepõe-se «Tem …?». Nunca se ecoa a frase crua.
+  const base = campo.rotulo.replace(/^(se|caso)\s+/i, '').replace(/[.!?]+$/, '').trim();
+  const r = base.charAt(0).toLowerCase() + base.slice(1);
+  const comecaPorVerbo = /^(tem|t[êe]m|possui|possuem|h[áa]|existe|usa|utiliza|disp[õo]e|est[áa]|costuma|recebe|paga|frequenta|trabalha|vive|mora|consegue)\b/i.test(r);
   switch (campo.tipo) {
-    case 'sim_nao': return { texto: `${campo.rotulo}? Sim ou não?`, respostaRapida: ['Sim', 'Não'] };
-    case 'escolha': return { texto: `Relativamente a ${r}, qual destas opções se aplica?`, respostaRapida: campo.opcoes || null };
-    case 'numero': return { texto: `Pode indicar um número para ${r}?`, respostaRapida: null };
-    case 'distancia': return { texto: `Aproximadamente a que distância? (${r})`, respostaRapida: null };
-    default: return { texto: `Pode dizer-me, por favor, ${r}?`, respostaRapida: null };
+    case 'sim_nao': return { texto: comecaPorVerbo ? `${base.charAt(0).toUpperCase() + base.slice(1)}? Sim ou não?` : `Tem ${r}? Sim ou não?`, respostaRapida: ['Sim', 'Não'] };
+    case 'escolha': return { texto: `Quanto a ${r}, qual destas opções se aplica ao seu caso?`, respostaRapida: campo.opcoes || null };
+    case 'numero': return { texto: /rendimento|sal[áa]rio|custo|valor|pre[çc]o|gasto/i.test(r) ? `Qual é, aproximadamente, o seu ${r}, em kwanzas?` : `Quantos(as)? Indique, por favor, ${r}.`, respostaRapida: null };
+    case 'distancia': return { texto: `A que distância fica, aproximadamente (${r})?`, respostaRapida: null };
+    default: return { texto: /^(qual|quais|onde|como|quando|porqu[eê]|o que)\b/i.test(r) ? `${base}?` : `Pode dizer-me, por favor, qual é a sua ${r}?`, respostaRapida: null };
   }
 };
 

@@ -214,7 +214,15 @@ export function InqueritoIaChat({ aberto, onFechar, inquerito, cidadaoBi, onConc
 
   const pedirPasso = useCallback(async (hist: TrocaIA[], cmp: Record<string, string>) => {
     setAPensar(true); setRespostaRapida(null);
-    const r = await conversarInqueritoIA({ guiao, historico: hist, camposRecolhidos: cmp, instituicao: inquerito.instituicao_nome, tom: inquerito.tom });
+    const params = { guiao, historico: hist, camposRecolhidos: cmp, instituicao: inquerito.instituicao_nome, tom: inquerito.tom };
+    let r = await conversarInqueritoIA(params);
+    // 2026-09-11 — uma falha isolada da IA (503/timeout) é quase sempre
+    // transitória: repete-se UMA vez antes de desistir. Antes, a 1.ª falha não
+    // de validação atirava logo o cidadão para o modo guiado (resposta #29).
+    if ((!r.ok || !r.dados) && r.motivo !== 'validacao' && faseRef.current !== 'fim') {
+      await new Promise((res) => setTimeout(res, 1500));
+      r = await conversarInqueritoIA(params);
+    }
     setAPensar(false);
     if (!r.ok || !r.dados) {
       falhasRef.current += 1;
