@@ -3265,43 +3265,9 @@ depende de integração futura com a infra-estrutura de chaves nacional.
         </div>
       )}
 
-      {/* Q-2 — QR de localização: todas as correspondências têm QR para abrir
-          directamente na plataforma (deep-link) e validar na nuvem. */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-center gap-4 print:hidden">
-        <div
-          onClick={triggerVerification}
-          className="flex flex-col items-center shrink-0 border border-emerald-200 bg-emerald-50/40 p-2 rounded-xl shadow-sm cursor-pointer hover:bg-emerald-50 hover:border-emerald-300 active:scale-95 transition-all group"
-          title="Digitalize para localizar esta correspondência na plataforma" aria-label="Digitalize para localizar esta correspondência na plataforma"
-        >
-          <QrCodeImage
-            value={storedProtocol?.qr_code_url || protocol.qrCodeUrl}
-            size={92}
-            className="w-[92px] h-[92px] object-contain transition-transform group-hover:scale-105"
-          />
-          <span className="text-[7.5px] font-mono text-emerald-700 uppercase mt-1.5 tracking-wider font-black flex items-center gap-1 leading-none">
-            <QrCode size={8} /> VALIDAR QR
-          </span>
-        </div>
-        <div className="flex-1 min-w-0 text-left space-y-1.5">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">QR Code de Localização</span>
-          <p className="text-xs font-bold text-slate-700 leading-relaxed">
-            Digitalize com o telemóvel para abrir esta correspondência directamente na plataforma.
-          </p>
-          <p className="font-mono text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1 inline-block">
-            {protocol.protocolNumber}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={copiarLinkQr}
-          className="shrink-0 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-extrabold text-[10px] uppercase tracking-wide transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-          title="Copiar ligação da correspondência" aria-label="Copiar ligação da correspondência"
-        >
-          <QrCode size={13} />
-          {qrLinkCopiado ? 'Copiado ✓' : 'Copiar ligação'}
-        </button>
-      </div>
-
+      {/* 2026-09-12 — o cartão superior «QR Code de Localização» foi removido:
+          a página passa a ter UM único QR (o cartão «QR Code de Localização»
+          da grelha do protocolo, mais abaixo), que absorveu «Copiar ligação». */}
       <section className={`border border-line rounded-2xl p-5 bg-white shadow-sm relative overflow-hidden select-none print:hidden ${sensConfig.screenshotProtection ? 'selection:bg-transparent' : ''}`}>
         <AnimatePresence mode="wait">
           {activeOfficialAction ? (
@@ -4734,9 +4700,9 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                       </div>
                     </div>
 
-                    {/* QR Code de Protocolo (Lado Direito) */}
+                    {/* QR Code de Localização (Lado Direito) — único QR da página */}
                     <div className="flex flex-col items-center justify-center p-6 bg-white rounded-3xl border border-line/60 lg:w-[280px] shrink-0 self-center lg:self-stretch">
-                      <div className="text-[10px] font-extrabold text-slate-500 uppercase tracking-[0.2em] mb-4">QR CODE DE PROTOCOLO</div>
+                      <div className="text-[10px] font-extrabold text-slate-500 uppercase tracking-[0.2em] mb-4">QR CODE DE LOCALIZAÇÃO</div>
                       <div 
                         onClick={triggerVerification}
                         className="p-3 bg-white border border-line/40 rounded-2xl shadow-md group relative overflow-hidden text-center w-full cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/10 transition-all active:scale-95 flex flex-col items-center justify-center"
@@ -4753,6 +4719,18 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           <QrCode size={9} /> CLIQUE PARA VALIDAR
                         </span>
                       </div>
+                      <p className="text-[10px] text-slate-500 font-semibold text-center leading-relaxed mt-3 mb-0">
+                        Digitalize com o telemóvel para abrir esta correspondência directamente na plataforma.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={copiarLinkQr}
+                        className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-extrabold text-[10px] uppercase tracking-wide transition-all active:scale-95 cursor-pointer"
+                        title="Copiar ligação da correspondência" aria-label="Copiar ligação da correspondência"
+                      >
+                        <QrCode size={13} />
+                        {qrLinkCopiado ? 'Copiado ✓' : 'Copiar ligação'}
+                      </button>
                     </div>
                   </div>
                 </div>
