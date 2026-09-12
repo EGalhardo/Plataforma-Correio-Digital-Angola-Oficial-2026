@@ -1,12 +1,13 @@
 /**
  * T56 — Badge da foto de perfil e menu «Mensagens e Notificações»:
- *   (a) o badge vermelho da foto indica notificações NÃO LIDAS (não apenas
- *       correio não lido) e coincide com o contador do menu;
+ *   (a) [T58b] o badge vermelho da foto = correspondências «Não Lidas» e
+ *       coincide com o contador do menu; as notificações por ler aparecem na
+ *       linha de detalhe do menu («N não lidas · M notificações por ler»);
  *   (b) as linhas de notificação do menu são CLICÁVEIS: abrem o detalhe
  *       («Fechar»/«Aceder»), marcam como lida (badge decresce, read_at na
  *       nuvem) e «Aceder» navega para a página alvo;
- *   (c) ao vivo: a instituição activa uma fase da denúncia e o badge do
- *       cidadão sobe SEM recarregar a página. Contas REAIS.
+ *   (c) ao vivo: a instituição activa uma fase da denúncia e o contador de
+ *       notificações por ler do cidadão sobe SEM recarregar. Contas REAIS.
  * Uso: node testes/e2e_t56_badge_e_menu_notificacoes.mjs   (BASE=…)
  * Requer SUPABASE_SERVICE_ROLE_KEY e VITE_SUPABASE_ANON_KEY.
  */
@@ -47,6 +48,9 @@ const badge = async (page) => {
 const abrirMenu = async (page) => { await avatar(page).click(); await page.waitForTimeout(600); };
 // NB: o header desktop e o mobile (md:hidden) renderizam ambos o menu — usar só o VISÍVEL.
 const contadorMenu = async (page) => Number((await page.locator('div.fixed.z-\\[160\\]:visible span.bg-red-600').first().innerText().catch(() => '0')).trim() || 0);
+// [T58b] notificações por ler indicadas no menu («N não lidas · M notificações por ler»)
+const notifsMenu = async (page) => { const d = (await page.locator('[data-testid="menu-decomposicao"]:visible').first().innerText().catch(() => '')).trim(); const m = /·\s*(\d+)\s*notifica/i.exec(d); return m ? Number(m[1]) : -1; };
+const painelNaoLidas = async (page) => { const t = await page.locator('body').innerText(); const m = /NOVAS MENSAGENS\s*\n\s*(\d+)\s*\n?\s*Não Lidas/i.exec(t); return m ? Number(m[1]) : -1; };
 const naoLidasNuvem = async () => (await rest(`notifications?select=id&target_bi=eq.${CID.user}&read_at=is.null`)).length;
 
 const browser = await chromium.launch();
@@ -82,11 +86,14 @@ try {
   // ───────────── (a) badge da foto ─────────────
   ok(await login(page, '/', CID.user, CID.pass), 'a. login cidadão REAL');
   await page.waitForTimeout(2500);
-  const b0 = await badge(page);
-  ok(b0 >= 1, `a. badge da foto VISÍVEL com notificações não lidas (${b0})`);
+  let b0 = await badge(page), nl0 = await painelNaoLidas(page);
+  for (let k = 0; k < 8; k++) { await page.waitForTimeout(2000); const b2 = await badge(page), n2 = await painelNaoLidas(page); if (b2 === b0 && n2 === nl0) break; b0 = b2; nl0 = n2; }
+  ok(b0 === nl0, `a. badge da foto (${b0}) = correspondências «Não Lidas» (${nl0}) — não conta notificações`);
   await abrirMenu(page);
   const m0 = await contadorMenu(page);
   ok(m0 === b0, `a. contador do menu (${m0}) coincide com o badge (${b0})`);
+  const n0 = await notifsMenu(page);
+  ok(n0 >= 1, `a. menu indica notificações por ler (${n0})`);
   const linhas = page.locator('[data-testid="menu-notificacao"]:visible');
   ok((await linhas.count()) > 0, `a. menu lista notificações (${await linhas.count()})`);
   ok((await linhas.first().getAttribute('data-unread')) === '1', 'a. notificações NÃO LIDAS aparecem primeiro');
@@ -102,7 +109,7 @@ try {
   ok((await page.locator('div.fixed.z-\\[160\\]:visible').count()) === 0, 'b. menu da foto fecha ao abrir o detalhe');
   await page.screenshot({ path: 'testes/evidencias/t56_detalhe_notificacao.png' });
   const b1 = await badge(page);
-  ok(b1 === b0 - 1, `b. badge decresce após abrir (${b0} → ${b1})`);
+  ok(b1 === b0, `b. badge NÃO muda ao abrir uma notificação (${b0} → ${b1}): só conta correio`);
   await page.waitForTimeout(2500);
   const nuvem1 = await naoLidasNuvem();
   ok(nuvem1 === nuvem0 - 1, `b. notificação marcada como lida na nuvem (${nuvem0} → ${nuvem1})`);
@@ -120,12 +127,13 @@ try {
 
   // ───────────── (c) ao vivo: nova fase → badge sobe sem reload ─────────────
   const bAntes = await badge(page);
+  await abrirMenu(page); const nAntes = await notifsMenu(page); await page.keyboard.press('Escape'); await page.mouse.click(5, 5); await page.waitForTimeout(300);
   const r1 = await apiFase(tokR, idDen, faseB);
   ok(r1.status === 200 && r1.json?.notificado === true, `c. responsável activa «${faseB}» (HTTP ${r1.status}, notificado=${r1.json?.notificado})`);
-  let bDepois = bAntes;
-  for (let k = 0; k < 12 && bDepois <= bAntes; k++) { await page.waitForTimeout(2500); bDepois = await badge(page); }
-  ok(bDepois === bAntes + 1, `c. badge sobe AO VIVO sem recarregar (${bAntes} → ${bDepois})`);
-  await abrirMenu(page);
+  let nDepois = nAntes;
+  for (let k = 0; k < 12 && nDepois <= nAntes; k++) { await page.waitForTimeout(2500); await abrirMenu(page); nDepois = await notifsMenu(page); if (nDepois <= nAntes) { await page.keyboard.press('Escape'); await page.mouse.click(5, 5); await page.waitForTimeout(300); } }
+  ok(nDepois === nAntes + 1, `c. notificações por ler sobem AO VIVO sem recarregar (${nAntes} → ${nDepois})`);
+  ok((await badge(page)) === bAntes, `c. badge mantém-se = «Não Lidas» (${bAntes}) — notificação nova não altera o badge`);
   ok(/^Denúncia — /.test((await linhas.first().innerText()).trim()) && (await linhas.first().getAttribute('data-unread')) === '1', 'c. menu mostra a nova notificação «Denúncia — …» não lida em primeiro');
   await page.screenshot({ path: 'testes/evidencias/t56_badge_ao_vivo.png' });
 
@@ -137,6 +145,7 @@ try {
   await abrirMenu(p2);
   const mInst = await contadorMenu(p2); const bInst = await badge(p2);
   ok(mInst === bInst, `d. instituição: badge (${bInst}) coincide com o contador do menu (${mInst})`);
+  ok(bInst === (await painelNaoLidas(p2)), `d. instituição: badge (${bInst}) = «Não Lidas» do Painel`);
   await ctx2.close(); await ctx.close();
 
   ok(erros.length === 0, `e. sem erros JS (${erros.length})`);

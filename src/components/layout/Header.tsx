@@ -79,11 +79,11 @@ function UnreadMessagesMenu({
 }) {
   if (!open) return null;
 
-  // 2026-09-12 (T58) — o contador do menu é a MESMA soma do badge da foto
-  // (correio não lido + notificações não lidas) e mostra a decomposição, para
-  // o utilizador perceber de onde vem o número («0 correio · 61 notificações»).
+  // 2026-09-12 (T58b) — o contador do menu é o MESMO número do badge da foto:
+  // correspondências NÃO LIDAS (= «Não Lidas» do Painel). As notificações por
+  // ler são mostradas à parte, na linha de detalhe, e NÃO entram no indicador.
   const unreadNotifs = notifications.filter(n => n.unread !== false).length;
-  const unreadCount = messages.length + unreadNotifs;
+  const unreadCount = messages.length;
 
   // Estrutura idêntica ao dropdown de Notificações (padrão comprovado da app):
   // backdrop fixo fecha ao clicar fora + painel fixo independente do z-index e
@@ -96,7 +96,7 @@ function UnreadMessagesMenu({
           <span className="flex flex-col min-w-0">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">{translate("Mensagens e Notificações")}</span>
             <span data-testid="menu-decomposicao" className="text-[8.5px] font-bold text-slate-400 tracking-wide leading-none mt-0.5">
-              {messages.length} {translate("correio")} · {unreadNotifs} {translate("notificações")}
+              {messages.length} {translate("não lidas")} · {unreadNotifs} {translate("notificações por ler")}
             </span>
           </span>
           <span data-testid="menu-contador" className="text-[9px] font-black text-white bg-red-600 rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center leading-none">{unreadCount}</span>
@@ -298,12 +298,14 @@ export function Header({
   const { t: translate } = useLanguage();
   const isUserMode = appMode === 'user';
   const isInstitutionMode = appMode === 'institution';
-  // 2026-09-12 (T56) — o badge da foto conta correio NÃO LIDO + notificações
-  // NÃO LIDAS (antes, no cidadão/instituição, só contava o correio: uma
-  // notificação nova — ex.: fase da denúncia — não acendia o badge).
+  // 2026-09-12 (T58b) — no cidadão e na instituição o badge da foto é
+  // EXACTAMENTE o número de correspondências «Não Lidas» do Painel (fonte única:
+  // unreadTotal em App.tsx). As notificações por ler são listadas no menu e no
+  // Centro de Notificações, mas não entram no indicador (T56 revertido a pedido).
+  // No admin (sem caixa de correio) o badge continua a contar notificações.
   const unreadNotifCount = notifications.filter(n => n.unread !== false).length;
-  const unreadCount = (isUserMode || isInstitutionMode) && typeof unreadCorrespondencesCount === 'number'
-    ? unreadCorrespondencesCount + unreadNotifCount
+  const unreadCount = (isUserMode || isInstitutionMode)
+    ? (typeof unreadCorrespondencesCount === 'number' ? unreadCorrespondencesCount : 0)
     : unreadNotifCount;
   const [showUnreadMenu, setShowUnreadMenu] = useState(false);
   // Cor do indicador Online por estado da conta (só no modo cidadão)

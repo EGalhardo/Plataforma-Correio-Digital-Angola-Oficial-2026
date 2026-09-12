@@ -1,8 +1,8 @@
 /**
  * T58 — Coerência entre o badge da foto, o menu «Mensagens e Notificações» e o
  *       painel «Não Lidas» — para TODAS as contas reais:
- *   (a) invariante: badge = correio não lido («Não Lidas» do Painel) +
- *       notificações não lidas; o menu mostra a decomposição («N correio ·
+ *   (a) invariante (T58b): badge = correspondências «Não Lidas» do Painel;
+ *       as notificações por ler NÃO entram; o menu mostra a linha («N não lidas ·
  *       M notificações») e o mesmo total;
  *   (b) correspondência eliminada apenas pela OUTRA parte continua visível
  *       (e contada) na caixa do destinatário — antes desaparecia da caixa mas
@@ -65,7 +65,7 @@ const abrirMenu = async (page) => { await avatar(page).click(); await page.waitF
 const menuInfo = async (page) => {
   const c = Number((await page.locator('[data-testid="menu-contador"]:visible').first().innerText().catch(() => '0')).trim() || 0);
   const d = (await page.locator('[data-testid="menu-decomposicao"]:visible').first().innerText().catch(() => '')).trim();
-  const m = /(\d+)\s*correio\s*·\s*(\d+)\s*notifica/i.exec(d);
+  const m = /(\d+)\s*não lidas\s*·\s*(\d+)\s*notifica/i.exec(d);
   return { contador: c, correio: m ? Number(m[1]) : -1, notifs: m ? Number(m[2]) : -1, texto: d };
 };
 const fecharMenu = async (page) => { await page.keyboard.press('Escape'); await page.mouse.click(5, 5); await page.waitForTimeout(300); };
@@ -86,8 +86,8 @@ try {
     await abrirMenu(page); const m = await menuInfo(page);
     ok(m.correio >= 0 && m.notifs >= 0, `${c.rotulo}: menu mostra a decomposição («${m.texto}»)`);
     ok(m.contador === b, `${c.rotulo}: contador do menu (${m.contador}) = badge (${b})`);
-    ok(m.correio === nl, `${c.rotulo}: «correio» do menu (${m.correio}) = painel «Não Lidas» (${nl})`);
-    ok(b === nl + m.notifs, `${c.rotulo}: badge (${b}) = Não Lidas (${nl}) + notificações não lidas (${m.notifs})`);
+    ok(m.correio === nl, `${c.rotulo}: «não lidas» do menu (${m.correio}) = painel «Não Lidas» (${nl})`);
+    ok(b === nl, `${c.rotulo}: badge (${b}) = «Não Lidas» do Painel (${nl}) — notificações (${m.notifs}) NÃO entram`);
     // nuvem: notificações não lidas da conta = parcela do menu
     const nuvemNotifs = await naoLidasVisiveisNuvem(c.chave);
     if (c.chave.startsWith('INAPEM')) {
