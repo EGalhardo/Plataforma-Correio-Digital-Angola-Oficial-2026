@@ -44,6 +44,8 @@ interface HeaderProps {
   unreadMessages?: Message[];
   /** Abre uma mensagem não lida (marca-a como lida e navega para Correspondências). */
   onOpenUnreadMessage?: (message: Message) => void;
+  /** 2026-09-12 (T56) — abre o detalhe de uma notificação a partir do menu da foto. */
+  onOpenNotification?: (n: AppNotification) => void;
   /** Tom do indicador Online por estado da conta do cidadão (null = tom padrão verde). */
   citizenOnlineTone?: 'red' | 'green' | 'yellow' | null;
   chatAssistantRecognitionRef?: { current: { stop(): void } | null };
@@ -56,6 +58,7 @@ function UnreadMessagesMenu({
   messages,
   notifications = [],
   onOpenMessage,
+  onOpenNotification,
   onShowNotifications,
   onLogout,
   translate
@@ -65,6 +68,7 @@ function UnreadMessagesMenu({
   messages: Message[];
   notifications?: AppNotification[];
   onOpenMessage?: (message: Message) => void;
+  onOpenNotification?: (n: AppNotification) => void;
   onShowNotifications: () => void;
   onLogout?: (clearAll?: boolean) => void;
   translate: (key: string) => string;
@@ -105,17 +109,26 @@ function UnreadMessagesMenu({
                   <Mail size={13} className="text-slate-300 shrink-0 mt-1.5" />
                 </button>
               ))}
-              {notifications.slice(0, 3).map((n) => (
-                <div
+              {/* 2026-09-12 (T56) — notificações NÃO LIDAS primeiro e CLICÁVEIS:
+                  abre o detalhe (com «Aceder») e marca como lida. */}
+              {[...notifications].sort((x, y) => Number(y.unread !== false) - Number(x.unread !== false)).slice(0, 3).map((n) => (
+                <button
                   key={n.id}
-                  className="px-4 py-2.5 hover:bg-slate-50/80 transition-colors flex items-start gap-2.5"
+                  type="button"
+                  onClick={() => { onOpenNotification?.(n); onClose(); }}
+                  data-testid="menu-notificacao"
+                  data-unread={n.unread !== false ? '1' : '0'}
+                  className={`w-full text-left px-4 py-2.5 transition-colors flex items-start gap-2.5 cursor-pointer border-0 ${n.unread !== false ? 'bg-blue-50/40 hover:bg-blue-50/80' : 'bg-transparent hover:bg-slate-50/80'}`}
                 >
-                  <Bell size={13} className="text-[#2563eb] shrink-0 mt-1" />
-                  <div className="flex-1 min-w-0">
-                    <span className="block text-[10.5px] font-bold text-slate-700 truncate">{n.title}</span>
+                  <span className="relative shrink-0 mt-1">
+                    <Bell size={13} className="text-[#2563eb]" />
+                    {n.unread !== false && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-red-500" />}
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className={`block text-[10.5px] truncate ${n.unread !== false ? 'font-black text-slate-900' : 'font-bold text-slate-700'}`}>{n.title}</span>
                     <span className="block text-[9.5px] text-slate-500 truncate">{n.message}</span>
-                  </div>
-                </div>
+                  </span>
+                </button>
               ))}
             </>
           )}
@@ -252,6 +265,7 @@ export function Header({
   unreadCorrespondencesCount,
   unreadMessages = [],
   onOpenUnreadMessage,
+  onOpenNotification,
   citizenOnlineTone = null,
   chatAssistantRecognitionRef,
   handleLogout
@@ -260,9 +274,13 @@ export function Header({
   const { t: translate } = useLanguage();
   const isUserMode = appMode === 'user';
   const isInstitutionMode = appMode === 'institution';
+  // 2026-09-12 (T56) — o badge da foto conta correio NÃO LIDO + notificações
+  // NÃO LIDAS (antes, no cidadão/instituição, só contava o correio: uma
+  // notificação nova — ex.: fase da denúncia — não acendia o badge).
+  const unreadNotifCount = notifications.filter(n => n.unread !== false).length;
   const unreadCount = (isUserMode || isInstitutionMode) && typeof unreadCorrespondencesCount === 'number'
-    ? unreadCorrespondencesCount
-    : notifications.filter(n => n.unread !== false).length;
+    ? unreadCorrespondencesCount + unreadNotifCount
+    : unreadNotifCount;
   const [showUnreadMenu, setShowUnreadMenu] = useState(false);
   // Cor do indicador Online por estado da conta (só no modo cidadão)
   // O tom por estado da conta aplica-se ao cidadão E à instituição (pendente → vermelho…)
@@ -507,6 +525,7 @@ export function Header({
               messages={unreadMessages}
               notifications={notifications}
               onOpenMessage={onOpenUnreadMessage}
+              onOpenNotification={onOpenNotification}
               onShowNotifications={() => setShowNotifications(true)}
               onLogout={handleLogout}
               translate={translate}
@@ -679,6 +698,7 @@ export function Header({
               messages={unreadMessages}
               notifications={notifications}
               onOpenMessage={onOpenUnreadMessage}
+              onOpenNotification={onOpenNotification}
               onShowNotifications={() => setShowNotifications(true)}
               onLogout={handleLogout}
               translate={translate}

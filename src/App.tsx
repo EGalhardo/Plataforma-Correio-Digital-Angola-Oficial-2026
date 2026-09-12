@@ -4133,6 +4133,14 @@ export default function App() {
     handleSelectMessage(message);
     setTab('mensagem');
   };
+  // 2026-09-12 (T56) — notificação clicada no menu da foto: abre o detalhe
+  // («Fechar»/«Aceder»), marca como lida localmente e na nuvem (read_at).
+  const handleOpenNotification = (n: AppNotification) => {
+    setActiveNotificationModal(n);
+    setNotifications((prev) => prev.map((item) => item.id === n.id ? { ...item, unread: false } : item));
+    if (!isDemoSession && n.id) void supabaseService.markNotificationRead(n.id);
+    setShowNotifications(false);
+  };
 
   // F11 — Documentos da instituição real seguem o MESMO escopo do Correio:
   // apenas o canal oficial da própria instituição + o que lhe foi endereçado.
@@ -8530,6 +8538,7 @@ Ficha civil do titular:
             unreadCorrespondencesCount={unreadTotal}
             unreadMessages={unreadMessagesList}
             onOpenUnreadMessage={handleOpenUnreadMessage}
+            onOpenNotification={handleOpenNotification}
             handleLogout={handleLogout}
             citizenOnlineTone={isInstMode ? institutionOnlineTone : citizenOnlineTone}
             chatAssistantRecognitionRef={chatAssistantRecognitionRef} // Repassar ref do reconhecimento de voz
