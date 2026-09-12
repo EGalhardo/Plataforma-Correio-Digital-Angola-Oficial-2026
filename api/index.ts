@@ -4067,6 +4067,137 @@ async function dadosExecutarPedido(opts: {
   }
 }
 
+// ===DENUNCIA-CORE-INICIO=== (cópia sincronizada de src/services/denunciaCore.ts)
+type DenunciaFase = 'registada' | 'recebida' | 'em_analise' | 'respondida' | 'encerrada';
+const DENUNCIA_FASES: ReadonlyArray<{ id: DenunciaFase; ordem: number; rotulo: string; notificacao: string }> = [
+  { id: 'registada', ordem: 0, rotulo: 'Registada', notificacao: 'A sua denúncia foi registada com protocolo oficial.' },
+  { id: 'recebida', ordem: 1, rotulo: 'Recebida', notificacao: 'A sua denúncia foi recebida pela instituição.' },
+  { id: 'em_analise', ordem: 2, rotulo: 'Em análise', notificacao: 'A sua denúncia passou a «Em análise».' },
+  { id: 'respondida', ordem: 3, rotulo: 'Respondida', notificacao: 'A instituição respondeu à sua denúncia.' },
+  { id: 'encerrada', ordem: 4, rotulo: 'Encerrada', notificacao: 'O processo da sua denúncia foi encerrado.' },
+];
+const denunciaDefinicaoFase = (id: string) => DENUNCIA_FASES.find((f) => f.id === id) || null;
+const denunciaEhAssuntoDenuncia = (assunto: string | null | undefined) =>
+  String(assunto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim().startsWith('[DENUNCIA]');
+const denunciaFaseDeEstado = (state: string | null | undefined): DenunciaFase | null => {
+  const s = String(state || '');
+  if (!s.startsWith('DENUNCIA:')) return null;
+  const id = s.slice('DENUNCIA:'.length).trim().toLowerCase();
+  return denunciaDefinicaoFase(id) ? (id as DenunciaFase) : null;
+};
+const denunciaFaseActual = (estados: ReadonlyArray<string | null | undefined>) => {
+  let melhor = DENUNCIA_FASES[0];
+  for (const st of estados) {
+    const id = denunciaFaseDeEstado(st);
+    if (!id) continue;
+    const def = denunciaDefinicaoFase(id)!;
+    if (def.ordem > melhor.ordem) melhor = def;
+  }
+  return melhor;
+};
+const denunciaPodeActivar = (actual: DenunciaFase, pretendida: DenunciaFase): { ok: true } | { ok: false; motivo: string } => {
+  const a = denunciaDefinicaoFase(actual)!;
+  const prox = DENUNCIA_FASES.find((f) => f.ordem === a.ordem + 1) || null;
+  if (!prox) return { ok: false, motivo: 'A denúncia já está encerrada.' };
+  const alvo = denunciaDefinicaoFase(pretendida);
+  if (!alvo) return { ok: false, motivo: 'Fase desconhecida.' };
+  if (alvo.ordem <= a.ordem) return { ok: false, motivo: 'Não é possível recuar para uma fase anterior.' };
+  if (alvo.id !== prox.id) return { ok: false, motivo: `Active primeiro a fase «${prox.rotulo}».` };
+  return { ok: true };
+};
+const denunciaEhResponsavelDaPlataforma = (agente: string | null | undefined) => {
+  const partes = String(agente || '').trim().toUpperCase().split('-');
+  return partes.length >= 2 && /^0*1$/.test(partes[partes.length - 1]);
+};
+const denunciaCodigoInstituicaoBase = (codigo: string | null | undefined) => {
+  const c = String(codigo || '').trim().toUpperCase();
+  const partes = c.split('-');
+  return partes.length > 2 && /^\d+$/.test(partes[partes.length - 1]) ? partes.slice(0, -1).join('-') : c;
+};
+// ===DENUNCIA-CORE-FIM===
+
+// ============================================================================
+// 2026-09-12 (T53) — DENÚNCIAS: activar fase do cronograma.
+//   POST /api/denuncia/fase  { id, fase }   (sessão da instituição obrigatória)
+//   · só o RESPONSÁVEL da plataforma (agente -01) da instituição DESTINATÁRIA;
+//   · a correspondência tem de ser denúncia (assunto «[DENÚNCIA] …»);
+//   · avanço só para a frente e sem saltos (denunciaCore.podeActivar);
+//   · grava message_state_history (state «DENUNCIA:<fase>») e notifica o
+//     cidadão remetente. Núcleo puro em src/services/denunciaCore.ts.
+// ============================================================================
+async function denunciaActivarFase(opts: {
+  supaUrl: string; serviceKey: string; authorization?: string; body: any;
+}): Promise<{ status: number; json: Record<string, unknown> }> {
+  const { supaUrl, serviceKey, body } = opts;
+  const id = Number(body?.id);
+  const fase = String(body?.fase || '').trim().toLowerCase();
+  if (!Number.isFinite(id) || id <= 0) return { status: 400, json: { ok: false, erro: 'ID inválido.' } };
+  if (!denunciaDefinicaoFase(fase)) return { status: 400, json: { ok: false, erro: 'Fase desconhecida.' } };
+  const token = String(opts.authorization || '').replace(/^Bearer\s+/i, '').trim();
+  if (!token) return { status: 401, json: { ok: false, erro: 'Sessão obrigatória.' } };
+  const ident = await dadosResolverIdentidade(supaUrl, serviceKey, token);
+  if ('erro' in ident) return { status: 401, json: { ok: false, erro: ident.erro } };
+  if (!ident.isInst) return { status: 403, json: { ok: false, erro: 'Só a instituição destinatária pode actualizar a fase da denúncia.' } };
+  // Agente autenticado: user_metadata.agent (INAPEM-LLMM-01); instCode = INAPEM-LLMM.
+  let agente = '';
+  try {
+    const ru = await fetch(`${supaUrl}/auth/v1/user`, { headers: { apikey: serviceKey, Authorization: `Bearer ${token}` } });
+    const u = ru.ok ? await ru.json() : null;
+    const meta: any = { ...((u && u.app_metadata) || {}), ...((u && u.user_metadata) || {}) };
+    agente = String(meta.agent || '').trim().toUpperCase();
+  } catch { /* melhor esforço */ }
+  if (!agente && ident.bi) agente = ident.bi;
+  if (!denunciaEhResponsavelDaPlataforma(agente)) {
+    return { status: 403, json: { ok: false, erro: 'Apenas o responsável da plataforma da instituição pode actualizar a fase da denúncia.' } };
+  }
+  const H = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+  const rm = await fetch(`${supaUrl}/rest/v1/messages?id=eq.${id}&select=id,subject,sender_bi,recipient_bi,org`, { headers: H });
+  const rows = rm.ok ? await rm.json().catch(() => []) : [];
+  const row = Array.isArray(rows) && rows[0] ? rows[0] : null;
+  if (!row) return { status: 404, json: { ok: false, erro: 'Correspondência não encontrada.' } };
+  if (!denunciaEhAssuntoDenuncia(row.subject)) return { status: 400, json: { ok: false, erro: 'Esta correspondência não é uma denúncia.' } };
+  const minha = denunciaCodigoInstituicaoBase(ident.instCode || ident.bi || agente);
+  const dest = denunciaCodigoInstituicaoBase(row.recipient_bi);
+  if (!minha || minha !== dest) return { status: 403, json: { ok: false, erro: 'Esta denúncia não foi dirigida à sua instituição.' } };
+  const rh = await fetch(`${supaUrl}/rest/v1/message_state_history?message_id=eq.${id}&select=state`, { headers: H });
+  const hist = rh.ok ? await rh.json().catch(() => []) : [];
+  const actual = denunciaFaseActual((Array.isArray(hist) ? hist : []).map((h: any) => h.state));
+  const regra = denunciaPodeActivar(actual.id, fase as any);
+  if (regra.ok === false) return { status: 409, json: { ok: false, erro: regra.motivo, faseActual: actual.id } };
+  const def = denunciaDefinicaoFase(fase)!;
+  const agora = new Date();
+  const ri = await fetch(`${supaUrl}/rest/v1/message_state_history`, {
+    method: 'POST', headers: { ...H, Prefer: 'return=minimal' },
+    body: JSON.stringify([{
+      message_id: id,
+      state: `DENUNCIA:${def.id}`,
+      event_date: agora.toISOString().slice(0, 10),
+      event_time: agora.toTimeString().slice(0, 8),
+      responsible: `Responsável da plataforma · ${minha}`,
+      description: `Fase «${def.rotulo}» activada pelo responsável da plataforma da instituição ${minha}.`,
+    }]),
+  });
+  if (!ri.ok) {
+    const txt = await ri.text().catch(() => '');
+    return { status: ri.status, json: { ok: false, erro: `Gravação falhou (${ri.status}). ${txt.slice(0, 120)}` } };
+  }
+  // Notificação ao cidadão remetente (melhor esforço — a fase já ficou gravada).
+  let notificado = false;
+  try {
+    const rn = await fetch(`${supaUrl}/rest/v1/notifications`, {
+      method: 'POST', headers: { ...H, Prefer: 'return=minimal' },
+      body: JSON.stringify([{
+        target_bi: String(row.sender_bi || '').toUpperCase(),
+        title: `Denúncia — ${def.rotulo}`,
+        message: `${def.notificacao} (${String(row.subject || '').replace(/^\[[^\]]*\]\s*/, '').slice(0, 80) || 'sem assunto'})`,
+        time_text: 'Agora', type: def.id === 'encerrada' ? 'success' : 'info', target_tab: 'correspondencias',
+      }]),
+    });
+    notificado = rn.ok;
+  } catch { /* melhor esforço */ }
+  return { status: 200, json: { ok: true, fase: def.id, rotulo: def.rotulo, em: agora.toISOString(), notificado } };
+}
+
 async function dadosResolverEExecutar(opts: {
   supaUrl: string; serviceKey: string; req: any;
   body: any;
@@ -4303,6 +4434,16 @@ async function dadosResolverEExecutar(opts: {
 
 
     // Rota do proxy CRUD do Modo Real (ver bloco PROXY CRUD acima).
+    // 2026-09-12 (T53) — Denúncias: activar fase do cronograma (só responsável -01).
+    if (url.includes('/api/denuncia/fase') && method === 'POST') {
+      const supaUrlDf = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+      const serviceKeyDf = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+      if (!supaUrlDf || !serviceKeyDf) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      const authDf = String(req.headers.authorization || '');
+      const rDf = await denunciaActivarFase({ supaUrl: supaUrlDf, serviceKey: serviceKeyDf, authorization: authDf, body: body || {} });
+      return res.status(rDf.status).json(rDf.json);
+    }
+
     if (url.includes('/api/dados') && method === 'POST') {
       const supaUrlDados = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
       const serviceKeyDados = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';

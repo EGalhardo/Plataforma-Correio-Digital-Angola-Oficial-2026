@@ -82,6 +82,7 @@ import { validarDataExpiracao, formatarDataExpiracao, dataExpiracaoParaISO } fro
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente } from './utils/ordenacaoCronologica';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao } from './services/supabaseService';
+import { ehAssuntoDenuncia, estadoDeFase, codigoInstituicaoBase } from './services/denunciaCore';
 import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
 import { lerPerfilLocal } from './services/perfilLocalService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
@@ -4097,7 +4098,10 @@ export default function App() {
   const currentInbox = ordenarMensagensPorMaisRecente(isInstMode
     ? (isDemoInstitutionSession
         ? instInbox.filter(m => !m.homologation || isOwnHomologationMail(m))
-        : instInbox.filter(m => isOwnHomologationMail(m) || isInstitutionAddressedMail(m)))
+        : instInbox.filter(m => (isOwnHomologationMail(m) || isInstitutionAddressedMail(m))
+            // 2026-09-12 (T53) — denúncias só chegam ao RESPONSÁVEL da plataforma;
+            // colaboradores (agentes -02, -03, …) nunca as vêem.
+            && (instIdentity?.type !== 'member' || !ehAssuntoDenuncia(m.details?.subject || m.preview))))
     : homologationPendingForCitizen
       ? inbox.filter(isOwnHomologationMail)
       : isDemoCitizenSession
@@ -4799,6 +4803,16 @@ export default function App() {
           responsible: user.name,
           description: `Correspondência enviada para ${to}.`
         }),
+        // 2026-09-12 (T53) — denúncia do cidadão: a fase «Registada» do
+        // cronograma fica activa automaticamente no momento do envio.
+        ...(!isOfficialDispatch && ehAssuntoDenuncia(effectiveSubject)
+          ? [supabaseService.insertMessageStateEvent({
+              messageId,
+              state: estadoDeFase('registada'),
+              responsible: 'Sistema CDA',
+              description: `Denúncia registada na plataforma e dirigida a ${to}. Fase «Registada» activada automaticamente.`,
+            })]
+          : []),
         isOfficialDispatch
           ? supabaseService.insertNotification({
               title: 'Nova Correspondência Oficial',
@@ -4806,6 +4820,15 @@ export default function App() {
               type: 'info',
               targetTab: 'correspondencias'
             }, to)
+          : ehAssuntoDenuncia(effectiveSubject)
+          // 2026-09-12 (T53) — denúncia: a notificação à instituição NUNCA
+          // revela o nome do cidadão (remetente anónimo).
+          ? supabaseService.insertNotification({
+              title: 'Nova Denúncia Anónima',
+              message: `Uma denúncia anónima foi registada e aguarda o responsável da plataforma de ${to}.`,
+              type: 'info',
+              targetTab: 'correspondencias'
+            }, codigoInstituicaoBase(resolveInstitutionCode(to)))
           : supabaseService.insertNotification({
               title: 'Nova Solicitação do Cidadão',
               message: `${user.name} enviou uma nova correspondência para ${to}.`,
@@ -4813,7 +4836,7 @@ export default function App() {
               targetTab: 'correspondencias'
               // v37.78.2 — destinatário-cidadão (BI completo) é notificado pelo
               // próprio BI; resolveInstitutionCode() reduziria '005404692BO043' a 'BO'.
-            }, /^\d{9}[A-Z]{2}\d{3}$/.test(to.toUpperCase()) ? to.toUpperCase() : resolveInstitutionCode(to)),
+            }, /^\d{9}[A-Z]{2}\d{3}$/.test(to.toUpperCase()) ? to.toUpperCase() : codigoInstituicaoBase(resolveInstitutionCode(to))),
       ]);
     } catch (err) {
       console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err);
@@ -5985,6 +6008,7 @@ Ficha civil do titular:
             backTab={selectedInstitution ? 'instituicao' : 'correspondencias'}
             cidadaoBi={isUserMode ? bi : undefined}
             addAuditLog={addAuditLog}
+            podeGerirDenuncia={isInstMode && instIdentity?.type === 'responsible'}
           />
           {isUserMode && bi ? (
             <PagamentosInlineCidadao

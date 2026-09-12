@@ -6,6 +6,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { CdaModal } from '../ui/CdaModal';
+import { CronogramaDenuncia } from './CronogramaDenuncia';
+import { ehAssuntoDenuncia, faseDeEstado, definicaoFase } from '../../services/denunciaCore';
 import { notify } from '../../lib/notify';
 import { responderSondagem, buscarSondagem, resultadosSondagem, type Sondagem } from '../../services/sondagemService';
 import { isStorageRef, resolveStorageUrl, buildStorageRef } from '../../lib/secureStorage';
@@ -77,7 +79,7 @@ import {
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { PinoMapa } from '../ui/PinoMapa';
 import { estadoExpiracao } from '../../utils/dataExpiracao';
-import { Message, SENSITIVITY_LEVELS, PRIORITY_CONFIGS, ReplySendPayload, ReplySendResult } from '../../types';
+import { Message, CorrespondenceStateEvent, SENSITIVITY_LEVELS, PRIORITY_CONFIGS, ReplySendPayload, ReplySendResult } from '../../types';
 // 2026-09-10 — Inquérito com IA conversacional (PROMPT v3 §4.2): botão
 // «Iniciar Inquérito» na correspondência do cidadão + chat em popup.
 import { InqueritoIaChat } from './InqueritoIaChat';
@@ -279,6 +281,9 @@ interface MessageDetailProps {
   cidadaoBi?: string;
   /** v36 — auditoria global (usada pelo cartão de sondagem). */
   addAuditLog?: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
+  /** 2026-09-12 (T53) — cronograma da denúncia: true quando a sessão é o
+   *  RESPONSÁVEL da plataforma da instituição destinatária (pode activar fases). */
+  podeGerirDenuncia?: boolean;
 }
 
 export function MessageDetail({
@@ -295,6 +300,7 @@ export function MessageDetail({
   backTab,
   cidadaoBi,
   addAuditLog,
+  podeGerirDenuncia,
 }: MessageDetailProps) {
   const { t } = useLanguage();
 
@@ -308,6 +314,9 @@ export function MessageDetail({
   const [respSond, setRespSond] = useState<Record<number, { escolhas: string[]; registada: boolean }>>({});
   const [confirmaSond, setConfirmaSond] = useState(false);
   const [popupSond, setPopupSond] = useState<{ ok: boolean; texto: string } | null>(null);
+  // 2026-09-12 (T53) — avisos do cronograma da denúncia (regra/permissão/sucesso).
+  const [avisoDenuncia, setAvisoDenuncia] = useState<{ texto: string; tipo: 'success' | 'error' | 'info' } | null>(null);
+  const ehDenunciaActual = ehAssuntoDenuncia(selectedMessage.details?.subject || selectedMessage.preview);
   const [registandoSond, setRegistandoSond] = useState(false);
 
   // ---- v37.7 — «Sondagem» contextual da instituição: a opção só existe DENTRO
@@ -739,6 +748,22 @@ export function MessageDetail({
         >
           {popupSond?.ok ? 'Concluir' : 'Fechar'}
         </button>
+      </CdaModal>
+      <CdaModal
+        aberto={!!avisoDenuncia}
+        onFechar={() => setAvisoDenuncia(null)}
+        icone={avisoDenuncia?.tipo === 'success' ? CheckCircle2 : AlertTriangle}
+        titulo={avisoDenuncia?.tipo === 'success' ? 'Fase Activada' : 'Cronograma da Denúncia'}
+        subtitulo={avisoDenuncia?.tipo === 'success' ? 'Cronograma actualizado' : 'Acção não permitida'}
+        tomIcone={avisoDenuncia?.tipo === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}
+        maxW="max-w-md"
+      >
+        <div className={`rounded-2xl border p-5 text-center ${avisoDenuncia?.tipo === 'success' ? 'bg-gradient-to-b from-emerald-50/80 to-white border-emerald-100' : 'bg-amber-50/70 border-amber-100'}`} data-testid="aviso-denuncia">
+          <p className="text-sm font-semibold text-slate-700 m-0 leading-relaxed">{avisoDenuncia?.texto}</p>
+        </div>
+        <div className="flex justify-center pt-1">
+          <button type="button" onClick={() => setAvisoDenuncia(null)} className="px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer border-none shadow-sm" id="btn-aviso-denuncia-fechar">Fechar</button>
+        </div>
       </CdaModal>
     </>
   );
@@ -4296,7 +4321,10 @@ depende de integração futura com a infra-estrutura de chaves nacional.
 
                       <div className="space-y-6">
                         {(selectedMessage.stateHistory || generateTimelineEvents(selectedMessage, protocol)).map((evt, idx) => {
-                          const config = STATE_STYLING[evt.state] || {
+                          // 2026-09-12 (T53) — eventos «DENUNCIA:<fase>» ganham rótulo legível.
+                          const faseDen = faseDeEstado(evt.state);
+                          const rotuloEstado = faseDen ? `Denúncia · ${definicaoFase(faseDen)?.rotulo || faseDen}` : evt.state;
+                          const config = STATE_STYLING[evt.state] || (faseDen ? STATE_STYLING['Entregue'] : undefined) || {
                             bg: 'bg-slate-50',
                             text: 'text-slate-800',
                             border: 'border-slate-200',
@@ -4314,7 +4342,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                               <div className="flex flex-wrap items-center gap-2">
                                 {/* State chip */}
                                 <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border leading-none tracking-tight uppercase ${config.bg} ${config.text} ${config.border}`}>
-                                  {evt.state}
+                                  {rotuloEstado}
                                 </span>
 
                                 {/* Timestamp */}
@@ -4684,19 +4712,45 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         </div>
                       </div>
 
-                      {/* Botão de Ver detalhes Completos */}
-                      <div className="w-full pt-6 border-t border-slate-150 flex justify-start mt-6">
+                      {/* Botão de Ver detalhes Completos + (T53) cronograma da denúncia à direita */}
+                      <div className="w-full pt-6 border-t border-slate-150 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 mt-6">
                         <button
                           type="button"
                           onClick={() => {
                             setActiveAction('Ver detalhes');
                             addAuditLogToMessage('Visualizou detalhes completos do documento');
                           }}
-                          className="text-xs font-black uppercase tracking-wider text-white bg-blue-950 hover:bg-blue-900 px-5 py-3 rounded-full shadow-md flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 font-bold"
+                          className="text-xs font-black uppercase tracking-wider text-white bg-blue-950 hover:bg-blue-900 px-5 py-3 rounded-full shadow-md flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 font-bold self-start shrink-0"
                         >
                           <Eye size={13} className="text-white" />
                           Ver detalhes Completos
                         </button>
+                        {ehDenunciaActual && (
+                          <CronogramaDenuncia
+                            messageId={selectedMessage.id}
+                            podeGerir={!cidadaoBi && !!podeGerirDenuncia}
+                            onRegistar={(texto) => {
+                              addAuditLogToMessage(texto);
+                              addAuditLog?.(texto, 'success');
+                              // refresca «Cronologia & Estado» com o novo evento da nuvem
+                              const baseId = selectedMessage.id >= 10000 && selectedMessage.id < 90000000 ? selectedMessage.id - 10000 : selectedMessage.id;
+                              void supabaseService.getMessageStateHistory(baseId).then((history) => {
+                                if (!history || history.length === 0) return;
+                                setSelectedMessage({
+                                  ...selectedMessage,
+                                  stateHistory: history.map((event: { state?: string; event_date?: string; event_time?: string; responsible?: string; description?: string }) => ({
+                                    state: (event.state || '') as CorrespondenceStateEvent['state'],
+                                    date: event.event_date ? new Date(event.event_date).toLocaleDateString('pt-AO') : '',
+                                    time: event.event_time?.slice(0, 5) || '',
+                                    responsible: event.responsible || '',
+                                    description: event.description || '',
+                                  })),
+                                });
+                              }).catch(() => { /* melhor esforço */ });
+                            }}
+                            onAviso={(texto, tipo) => setAvisoDenuncia({ texto, tipo })}
+                          />
+                        )}
                       </div>
                     </div>
 

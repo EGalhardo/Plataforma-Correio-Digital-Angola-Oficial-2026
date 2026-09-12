@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { ehAssuntoDenuncia, REMETENTE_ANONIMO, codigoInstituicaoBase } from './denunciaCore';
 import { Message, Document, Contact, UserRequest, DocRequest, Correspondence, AppNotification, DigitalProtocol } from '../types';
 import { generateProtocol } from '../utils/protocolGenerator';
 import { MOCK_CITIZENS, MOCK_USERS, MOCK_SESSION_USER, MOCK_INSTITUTIONS } from '../constants/mocks';
@@ -1109,7 +1110,11 @@ export const supabaseService = {
       // destinatário inexistente e o cidadão nunca a recebia.
       const labelNorm = String(institutionLabel || '').trim().toUpperCase();
       const ehBIDestinatario = /^\d{9}[A-Z]{2}\d{3}$/.test(labelNorm);
-      const institutionCode = ehBIDestinatario ? labelNorm : resolveInstitutionCode(institutionLabel);
+      // 2026-09-12 (T54) — a caixa institucional é a do CÓDIGO-BASE (INAPEM-LLMM);
+      // os agentes (-01, -02, …) são logins. Um destinatário escrito com o
+      // sufixo do agente é normalizado para o código-base — caso contrário a
+      // linha ficava com recipient_bi=INAPEM-LLMM-01 e a instituição nunca a via.
+      const institutionCode = ehBIDestinatario ? labelNorm : codigoInstituicaoBase(resolveInstitutionCode(institutionLabel));
       // v37.78.12 — PERFORMANCE: as duas garantias de perfil correm em paralelo.
       await Promise.all([
         ensureProfileExists(citizenBi, citizenName || msg.details?.body?.match(/Atentamente,\s*([\wÀ-ÿ\s]+)/i)?.[1]?.trim() || 'Cidadão', 'user'),
@@ -1695,7 +1700,11 @@ export const supabaseService = {
 
       const mapped: Message[] = linhas.map((item: LinhaMensagem) => ({
         id: Number(item.id),
-        org: profilesByBi.has(item.sender_bi) ? `Cidadão: ${profilesByBi.get(item.sender_bi)}` : `Cidadão: ${item.sender_bi}`,
+        // 2026-09-12 (T53) — denúncias chegam à instituição como «Anónimo»:
+        // o nome/BI do cidadão nunca é exposto no correio institucional.
+        org: ehAssuntoDenuncia(item.subject || item.preview)
+          ? REMETENTE_ANONIMO
+          : profilesByBi.has(item.sender_bi) ? `Cidadão: ${profilesByBi.get(item.sender_bi)}` : `Cidadão: ${item.sender_bi}`,
         preview: item.preview,
         date: new Date(item.created_at).toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' }),
         createdAt: item.created_at,
