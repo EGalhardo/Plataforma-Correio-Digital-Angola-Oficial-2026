@@ -46,7 +46,9 @@ import {
   Building2,
   ListOrdered,
   Info,
-  CalendarClock
+  CalendarClock,
+  Ban,
+  ChevronRight
 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { Message, LanguageCode, ReplySendPayload } from '../../types';
@@ -222,6 +224,13 @@ export function MailContent({
   };
   const [avisosConfirmados, setAvisosConfirmados] = useState(false);
   const [showTipoEnvioModal, setShowTipoEnvioModal] = useState(false);
+  // 2026-09-12 — popup «Enviar Mensagem» comum às duas áreas. Cidadão: «Mensagem
+  // Normal» / «Denunciar»; Instituição: «Mensagem Normal» / «Mensagem de
+  // Emergência». Clicar numa opção avança de imediato; «Ok» avança com a opção
+  // realçada (a primeira, por defeito). A denúncia segue o envio normal com o
+  // assunto prefixado — a revisão e o comprovativo mostram a etiqueta.
+  type ModalidadeEnvio = 'normal' | 'emergencia' | 'denuncia';
+  const [modalidadeRealcada, setModalidadeRealcada] = useState<ModalidadeEnvio>('normal');
   // S6-camada-IA — revisao de clareza OPCIONAL (fail-safe: falha da IA nunca
   // bloqueia o envio; o utilizador decide se usa a versão melhorada)
   type EstadoClareza =
@@ -492,6 +501,48 @@ export function MailContent({
       })
       .finally(() => setEnviando(false));
   };
+
+  const PREFIXO_DENUNCIA = '[DENÚNCIA]';
+  const ehDenuncia = (composeData.subject || '').trim().toUpperCase().startsWith(PREFIXO_DENUNCIA);
+
+  const abrirPopupEnvio = () => {
+    setModalidadeRealcada('normal');
+    setShowTipoEnvioModal(true);
+  };
+
+  const escolherModalidadeEnvio = (m: ModalidadeEnvio) => {
+    setShowTipoEnvioModal(false);
+    if (m === 'emergencia') {
+      if (onEmergencyBroadcast) onEmergencyBroadcast(); else tentarEnviar();
+      return;
+    }
+    if (m === 'denuncia' && !ehDenuncia) {
+      // O assunto é opcional para o cidadão; o prefixo identifica a modalidade
+      // no detalhe, na revisão e no comprovativo sem alterar a base de dados.
+      setComposeData((prev) => ({
+        ...prev,
+        subject: `${PREFIXO_DENUNCIA} ${(prev.subject || '').trim()}`.trim(),
+      }));
+    }
+    tentarEnviar();
+  };
+
+  const opcoesEnvio: Array<{
+    id: ModalidadeEnvio; titulo: string; descricao: string; etiqueta?: string;
+    Icone: typeof Mail; tom: 'azul' | 'vermelho' | 'cinza'; idDom: string;
+  }> = isInst
+    ? [
+        { id: 'normal', titulo: 'Mensagem Normal', etiqueta: 'Oficial', Icone: Mail, tom: 'azul', idDom: 'btn-modal-opcao-normal',
+          descricao: 'Envio de correspondência digital oficial padronizada para a caixa do destinatário.' },
+        { id: 'emergencia', titulo: 'Mensagem de Emergência', etiqueta: 'Prioritário', Icone: ShieldAlert, tom: 'vermelho', idDom: 'btn-modal-opcao-emergencia',
+          descricao: 'Alerta de emergência com difusão prioritária para a rede de contactos familiares.' },
+      ]
+    : [
+        { id: 'normal', titulo: 'Mensagem Normal', etiqueta: 'Oficial', Icone: Mail, tom: 'azul', idDom: 'btn-modal-opcao-normal',
+          descricao: 'Envio de correspondência digital oficial padronizada para a caixa do destinatário.' },
+        { id: 'denuncia', titulo: 'Denunciar', Icone: Ban, tom: 'cinza', idDom: 'btn-modal-opcao-denunciar',
+          descricao: 'Comunicar uma irregularidade, mau atendimento ou conduta suspeita. A mensagem segue marcada como denúncia.' },
+      ];
 
   const [editorBold, setEditorBold] = useState(false);
   const [editorItalic, setEditorItalic] = useState(false);
@@ -1912,10 +1963,12 @@ export function MailContent({
               <button
                 type="button"
                 onClick={() => {
-                  if (isInst) {
-                    setShowTipoEnvioModal(true);
-                  } else {
+                  // Após confirmar avisos («Enviar mesmo assim») a modalidade já
+                  // foi escolhida — segue directo, sem repetir o popup.
+                  if (!isInst && avisosConfirmados && validacao && validacao.avisos.length > 0) {
                     tentarEnviar();
+                  } else {
+                    abrirPopupEnvio();
                   }
                 }}
                 disabled={
@@ -1987,80 +2040,74 @@ export function MailContent({
           </div>
         </div>
 
-        {/* Modal de Escolha do Tipo de Envio (Área Institucional) */}
+        {/* Popup «Enviar Mensagem» — modalidade de envio (Cidadão e Instituição) */}
         {showTipoEnvioModal && (
           <CdaModal
             aberto
             onFechar={() => setShowTipoEnvioModal(false)}
             icone={Mail}
             titulo="Enviar Mensagem"
-            subtitulo="Selecione a modalidade de envio desta correspondência oficial"
-            maxW="max-w-md"
-            padding="p-6"
+            subtitulo="Selecione a modalidade de envio"
+            maxW="max-w-xl"
+            padding="p-5 md:p-6"
           >
-            <div className="space-y-4 text-left">
+            <div className="space-y-4 text-left" data-testid="popup-enviar-mensagem">
               <div className="space-y-3">
-                {/* Opção 1: Mensagem Normal */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowTipoEnvioModal(false);
-                    tentarEnviar();
-                  }}
-                  className="w-full bg-white hover:bg-blue-50/60 border-2 border-slate-200 hover:border-blue-500 rounded-2xl p-4 transition-all flex items-start gap-3.5 text-left group cursor-pointer active:scale-98 shadow-xs"
-                  id="btn-modal-opcao-normal"
-                >
-                  <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center shrink-0 transition-colors">
-                    <Mail size={20} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-sm text-slate-900 group-hover:text-blue-700 m-0">Mensagem Normal</h4>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">Oficial</span>
-                    </div>
-                    <p className="text-xs text-slate-500 font-medium mt-1 m-0 leading-relaxed">
-                      Envio de correspondência digital oficial padronizada para a caixa do destinatário.
-                    </p>
-                  </div>
-                </button>
-
-                {/* Opção 2: Mensagem de Emergência */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowTipoEnvioModal(false);
-                    if (onEmergencyBroadcast) {
-                      onEmergencyBroadcast();
-                    } else {
-                      tentarEnviar();
-                    }
-                  }}
-                  className="w-full bg-white hover:bg-red-50/60 border-2 border-slate-200 hover:border-red-500 rounded-2xl p-4 transition-all flex items-start gap-3.5 text-left group cursor-pointer active:scale-98 shadow-xs"
-                  id="btn-modal-opcao-emergencia"
-                >
-                  <div className="w-11 h-11 rounded-xl bg-red-50 text-red-600 group-hover:bg-red-600 group-hover:text-white flex items-center justify-center shrink-0 transition-colors">
-                    <ShieldAlert size={20} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-sm text-slate-900 group-hover:text-red-700 m-0">Mensagem de Emergência</h4>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-50 px-2 py-0.5 rounded-md">Prioritário</span>
-                    </div>
-                    <p className="text-xs text-slate-500 font-medium mt-1 m-0 leading-relaxed">
-                      Alerta de emergência com difusão prioritária para a rede de contactos familiares.
-                    </p>
-                  </div>
-                </button>
+                {opcoesEnvio.map((op) => {
+                  const activa = modalidadeRealcada === op.id;
+                  const icone = op.tom === 'azul'
+                    ? 'bg-blue-50 text-blue-600'
+                    : op.tom === 'vermelho' ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-600';
+                  const etiqueta = op.tom === 'vermelho' ? 'text-red-600 bg-red-50' : 'text-blue-600 bg-blue-50';
+                  return (
+                    <button
+                      key={op.id}
+                      type="button"
+                      onClick={() => escolherModalidadeEnvio(op.id)}
+                      onMouseEnter={() => setModalidadeRealcada(op.id)}
+                      onFocus={() => setModalidadeRealcada(op.id)}
+                      aria-pressed={activa}
+                      className={`w-full rounded-2xl p-4 flex items-center gap-4 text-left cursor-pointer transition-all active:scale-[0.99] border-2 ${
+                        activa ? 'border-blue-500 bg-blue-50/60 shadow-xs' : 'border-slate-200 bg-white hover:border-blue-300'
+                      }`}
+                      id={op.idDom}
+                    >
+                      <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 ${icone}`}>
+                        <op.Icone size={24} strokeWidth={2.25} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start sm:items-center justify-between gap-2 flex-col sm:flex-row">
+                          <h4 className="font-bold text-sm md:text-base text-slate-900 m-0 leading-snug">{op.titulo}</h4>
+                          {op.etiqueta && (
+                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shrink-0 ${etiqueta}`}>
+                              {op.etiqueta}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 font-medium mt-1 m-0 leading-relaxed">{op.descricao}</p>
+                      </div>
+                      <ChevronRight size={20} className={`shrink-0 ${activa ? 'text-blue-600' : 'text-slate-400'}`} />
+                    </button>
+                  );
+                })}
               </div>
 
-              <div className="flex justify-end pt-2">
+              <div className="grid grid-cols-2 gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowTipoEnvioModal(false)}
-                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                  className="w-full px-5 py-3 rounded-xl font-bold text-sm text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer border-none"
                   id="btn-fechar-modal-tipo-envio"
                 >
                   Fechar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => escolherModalidadeEnvio(modalidadeRealcada)}
+                  className="w-full px-5 py-3 rounded-xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-colors cursor-pointer border-none"
+                  id="btn-ok-modal-tipo-envio"
+                >
+                  Ok
                 </button>
               </div>
             </div>
@@ -2109,6 +2156,14 @@ export function MailContent({
                       : composeData.to || '—'}
                   </span>
                 </div>
+                {!isInst && (
+                  <div className="flex gap-3 text-sm" data-testid="rever-modalidade">
+                    <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Modalidade</span>
+                    <span className={`font-bold min-w-0 ${ehDenuncia ? 'text-rose-600' : 'text-slate-800'}`}>
+                      {ehDenuncia ? 'Denúncia' : 'Mensagem Normal'}
+                    </span>
+                  </div>
+                )}
                 <div className="flex gap-3 text-sm">
                   <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Assunto</span>
                   <span className="font-bold text-slate-800 break-words min-w-0">{composeData.subject?.trim() || '(sem assunto)'}</span>

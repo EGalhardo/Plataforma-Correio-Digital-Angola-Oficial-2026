@@ -767,3 +767,14 @@ html.dark [data-testid="completo-data-expiracao"] span.text-slate-400,
 html.dark [data-testid="detalhe-data-expiracao"] span.text-slate-400 {
   color: #94a3b8 !important;
 }
+
+/* 2026-09-12 (T52) — popup «Enviar Mensagem» (modalidade de envio): a opção
+   realçada usa bg-blue-50/60, que a regra global html.dark .bg-* pintava de
+   cinzento claro (texto ilegível). Mesma paleta do selo Data de Expiração. */
+html.dark [data-testid="popup-enviar-mensagem"] button[aria-pressed="true"] {
+  background: rgb(15, 26, 51) !important;
+  border-color: rgb(59, 130, 246) !important;
+}
+html.dark [data-testid="popup-enviar-mensagem"] button[aria-pressed="true"] h4 {
+  color: #e2e8f0 !important;
+}

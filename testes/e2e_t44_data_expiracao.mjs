@@ -13,6 +13,14 @@
  */
 import { chromium } from 'playwright';
 
+// T52 (2026-09-12) — no cidadão, «Enviar Mensagem» abre primeiro o popup de
+// modalidade; confirma-se com «Ok» (Mensagem Normal) antes de prosseguir.
+async function clicarEnviarCidadao(pg) {
+  await pg.locator('#btn-enviar-mensagem').click(); await pg.waitForTimeout(500);
+  const ok = pg.locator('#btn-ok-modal-tipo-envio');
+  if (await ok.count()) { await ok.click(); await pg.waitForTimeout(800); }
+}
+
 const BASE = process.env.BASE || 'http://localhost:3000';
 const SUPA = 'https://klrclczcahfycfdxzdqs.supabase.co';
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -99,7 +107,7 @@ try {
   const btnEnviar = page.locator('#btn-enviar-mensagem');
   await btnEnviar.waitFor({ timeout: 10000 });
   await page.waitForFunction(() => !document.querySelector('#btn-enviar-mensagem')?.disabled, null, { timeout: 15000 }).catch(() => {});
-  await btnEnviar.click(); await page.waitForTimeout(800);
+  await clicarEnviarCidadao(page); await page.waitForTimeout(300);
   ok(await page.getByText(/não pode ser anterior a hoje/).count() >= 1, '(d) bloqueio «não pode ser anterior a hoje»');
 
   // limpar com o botão e voltar a escolher
@@ -110,7 +118,7 @@ try {
 
   // (e) envio real
   await page.waitForFunction(() => !document.querySelector('#btn-enviar-mensagem')?.disabled, null, { timeout: 15000 }).catch(() => {});
-  await btnEnviar.click(); await page.waitForTimeout(1500);
+  await clicarEnviarCidadao(page); await page.waitForTimeout(700);
   // modal «Rever antes de enviar» mostra a data e confirma o envio
   const rever = page.locator('[data-testid="rever-data-expiracao"]');
   ok(await rever.isVisible().catch(() => false) && (await rever.innerText()).includes(rotuloAlvo), `(e) «Rever antes de enviar» mostra Expira em ${rotuloAlvo}`);
@@ -145,7 +153,7 @@ try {
     await rp.locator('#input-data-expiracao').fill(isoAlvo);
     await rp.waitForFunction(() => !document.querySelector('#btn-enviar-mensagem')?.disabled, null, { timeout: 20000 }).catch(() => {});
     const antes = await fetch(`${SUPA}/rest/v1/messages?select=id&sender_bi=eq.002399714LA030&order=id.desc&limit=1`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } }).then((r) => r.json()).catch(() => []);
-    await rp.locator('#btn-enviar-mensagem').click(); await rp.waitForTimeout(1500);
+    await clicarEnviarCidadao(rp); await rp.waitForTimeout(700);
     await rp.getByRole('button', { name: /^Enviar Correspondência$/ }).first().click();
     await rp.waitForFunction(() => !document.querySelector('#btn-enviar-mensagem'), null, { timeout: 60000 }).catch(() => {});
     await rp.waitForTimeout(5000);
