@@ -46,6 +46,8 @@ interface HeaderProps {
   onOpenUnreadMessage?: (message: Message) => void;
   /** 2026-09-12 (T56) — abre o detalhe de uma notificação a partir do menu da foto. */
   onOpenNotification?: (n: AppNotification) => void;
+  /** 2026-09-12 (T58) — marca TODAS as notificações não lidas como lidas (badge → só correio). */
+  onMarkAllNotificationsRead?: () => void;
   /** Tom do indicador Online por estado da conta do cidadão (null = tom padrão verde). */
   citizenOnlineTone?: 'red' | 'green' | 'yellow' | null;
   chatAssistantRecognitionRef?: { current: { stop(): void } | null };
@@ -59,6 +61,7 @@ function UnreadMessagesMenu({
   notifications = [],
   onOpenMessage,
   onOpenNotification,
+  onMarkAllNotificationsRead,
   onShowNotifications,
   onLogout,
   translate
@@ -69,13 +72,18 @@ function UnreadMessagesMenu({
   notifications?: AppNotification[];
   onOpenMessage?: (message: Message) => void;
   onOpenNotification?: (n: AppNotification) => void;
+  onMarkAllNotificationsRead?: () => void;
   onShowNotifications: () => void;
   onLogout?: (clearAll?: boolean) => void;
   translate: (key: string) => string;
 }) {
   if (!open) return null;
 
-  const unreadCount = messages.length + notifications.filter(n => n.unread !== false).length;
+  // 2026-09-12 (T58) — o contador do menu é a MESMA soma do badge da foto
+  // (correio não lido + notificações não lidas) e mostra a decomposição, para
+  // o utilizador perceber de onde vem o número («0 correio · 61 notificações»).
+  const unreadNotifs = notifications.filter(n => n.unread !== false).length;
+  const unreadCount = messages.length + unreadNotifs;
 
   // Estrutura idêntica ao dropdown de Notificações (padrão comprovado da app):
   // backdrop fixo fecha ao clicar fora + painel fixo independente do z-index e
@@ -85,8 +93,13 @@ function UnreadMessagesMenu({
       <div className="fixed inset-0 z-[150]" onClick={onClose} />
       <div className="fixed top-16 md:top-20 right-3 md:right-6 z-[160] w-[min(92vw,340px)] bg-white rounded-2xl shadow-[0_20px_50px_rgba(15,23,42,0.18)] border border-slate-100 overflow-hidden text-left animate-fadeIn">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">{translate("Mensagens e Notificações")}</span>
-          <span className="text-[9px] font-black text-white bg-red-600 rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center leading-none">{unreadCount}</span>
+          <span className="flex flex-col min-w-0">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">{translate("Mensagens e Notificações")}</span>
+            <span data-testid="menu-decomposicao" className="text-[8.5px] font-bold text-slate-400 tracking-wide leading-none mt-0.5">
+              {messages.length} {translate("correio")} · {unreadNotifs} {translate("notificações")}
+            </span>
+          </span>
+          <span data-testid="menu-contador" className="text-[9px] font-black text-white bg-red-600 rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center leading-none">{unreadCount}</span>
         </div>
         <div className="max-h-[260px] overflow-y-auto custom-scrollbar divide-y divide-slate-50">
           {messages.length === 0 && notifications.length === 0 ? (
@@ -134,6 +147,16 @@ function UnreadMessagesMenu({
           )}
         </div>
         <div className="p-2.5 bg-slate-50/80 border-t border-slate-100 flex flex-col gap-1.5">
+          {unreadNotifs > 0 && onMarkAllNotificationsRead && (
+            <button
+              type="button"
+              data-testid="menu-marcar-todas-lidas"
+              onClick={() => { onMarkAllNotificationsRead(); }}
+              className="w-full px-3 py-2 rounded-xl bg-white hover:bg-slate-100 transition-colors text-[9.5px] font-black uppercase tracking-widest text-slate-600 flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200/80 shadow-2xs"
+            >
+              <Check size={11} className="text-emerald-600" /> {translate("Marcar notificações como lidas")} ({unreadNotifs})
+            </button>
+          )}
           <button
             type="button"
             onClick={() => { onClose(); onShowNotifications(); }}
@@ -266,6 +289,7 @@ export function Header({
   unreadMessages = [],
   onOpenUnreadMessage,
   onOpenNotification,
+  onMarkAllNotificationsRead,
   citizenOnlineTone = null,
   chatAssistantRecognitionRef,
   handleLogout
@@ -526,6 +550,7 @@ export function Header({
               notifications={notifications}
               onOpenMessage={onOpenUnreadMessage}
               onOpenNotification={onOpenNotification}
+              onMarkAllNotificationsRead={onMarkAllNotificationsRead}
               onShowNotifications={() => setShowNotifications(true)}
               onLogout={handleLogout}
               translate={translate}
@@ -699,6 +724,7 @@ export function Header({
               notifications={notifications}
               onOpenMessage={onOpenUnreadMessage}
               onOpenNotification={onOpenNotification}
+              onMarkAllNotificationsRead={onMarkAllNotificationsRead}
               onShowNotifications={() => setShowNotifications(true)}
               onLogout={handleLogout}
               translate={translate}

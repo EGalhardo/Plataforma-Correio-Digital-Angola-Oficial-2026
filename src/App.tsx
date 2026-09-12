@@ -3052,6 +3052,32 @@ export default function App() {
           }
         }
 
+        // 2026-09-12 (T58) — ELIMINAÇÃO É POR PARTE (regra R2): a linha só tem
+        // UMA cópia na nuvem e «EliminadaPermanente» é carimbada por QUEM
+        // eliminou (marcador ELIM_PERM:<chave>). Antes, o filtro escondia a
+        // mensagem a AMBAS as partes: quando a instituição apagava a cópia
+        // dela, o cidadão perdia a carta da caixa mas ela continuava «não
+        // lida» na nuvem → o badge contava-a e «Não Lidas» mostrava 0.
+        // Agora só sai da caixa de quem a eliminou; para a outra parte fica
+        // visível (estado normal), até ela própria a eliminar.
+        const normElimT58 = (v?: string) => String(v || '').toUpperCase().replace(/\s+/g, '').replace(/-\d{2}$/, '');
+        const minhaChaveT58 = normElimT58(isInstMode ? normalizeInstCode(effectiveInstCode || institutionCode || bi) : normalizeHomologationBi(bi));
+        const foraDaMinhaCaixa = (m: Message): boolean => {
+          const st = String(m.details?.state || '');
+          if (st === 'Arquivada') return true;
+          if (st !== 'EliminadaPermanente') return false;
+          const marcas = (Array.isArray(m.details?.actions) ? (m.details!.actions as string[]) : [])
+            .filter(x => typeof x === 'string' && x.startsWith('ELIM_PERM:'))
+            .map(x => normElimT58(x.slice('ELIM_PERM:'.length)));
+          // sem marcador (legado) → comportamento antigo: escondida para todos
+          return marcas.length === 0 || marcas.includes(minhaChaveT58);
+        };
+        const visivelParaMim = (m: Message): Message => {
+          if (String(m.details?.state || '') !== 'EliminadaPermanente' || foraDaMinhaCaixa(m)) return m;
+          // eliminada apenas pela OUTRA parte: para mim continua uma correspondência normal
+          return { ...m, details: { ...m.details, state: 'Entregue & Autenticado' } };
+        };
+
         // 2. Citizen/Institution messages — já lidas acima (consulta única, N-3)
         if (dbMessages !== null && isSubscribed) {
           // F12 — marca de titularidade: o cidadão/instituição REAL só vê o que
@@ -3063,11 +3089,11 @@ export default function App() {
           // estado local/mock). Eliminadas/arquivadas ficam fora da caixa em
           // qualquer dispositivo. Demo mantém a fusão de sempre.
           if (!isDemoSession) {
-            setInbox(incoming.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
-            setDocInbox(docs.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+            setInbox(incoming.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
+            setDocInbox(docs.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
             if (isInstMode) {
-              setInstInbox(incoming.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
-              setInstDocInbox(docs.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+              setInstInbox(incoming.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
+              setInstDocInbox(docs.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
             }
           } else {
             setInbox(prevLocal => {
@@ -3124,8 +3150,8 @@ export default function App() {
           const sentDoc = dbSentMessages.filter(m => isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey }));
           
           if (!isDemoSession) {
-            setSentMessages(sentNormal.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
-            setDocSentMessages(sentDoc.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+            setSentMessages(sentNormal.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
+            setDocSentMessages(sentDoc.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
           } else {
             setSentMessages(prevLocal => {
               const dbIds = new Set(sentNormal.map(m => m.id));
@@ -3174,8 +3200,8 @@ export default function App() {
             const legacyIds = new Set(mailbox.legacyIds);
             
             if (!isDemoSession) {
-              setInstInbox(instNormal.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
-              setInstDocInbox(instDoc.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+              setInstInbox(instNormal.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
+              setInstDocInbox(instDoc.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
             } else {
               setInstInbox(prevLocal => {
                 const dbIds = new Set(instNormal.map(m => m.id));
@@ -4135,6 +4161,21 @@ export default function App() {
   };
   // 2026-09-12 (T56) — notificação clicada no menu da foto: abre o detalhe
   // («Fechar»/«Aceder»), marca como lida localmente e na nuvem (read_at).
+  // 2026-09-12 (T58) — «Marcar notificações como lidas»: limpa as não lidas
+  // da conta (local + nuvem, num único UPDATE) para o badge voltar a reflectir
+  // apenas correio pendente. Sem isto, contas com dezenas de notificações
+  // antigas (ex.: 61 no Edlasio) tinham o badge «preso» sem forma de o baixar
+  // a não ser abrir uma a uma.
+  const handleMarkAllNotificationsRead = () => {
+    const alvo = sessionOwnerKey;
+    setNotifications((prev) => prev.map((item) => (item.ownerId === alvo || isDemoSession) && item.unread !== false ? { ...item, unread: false } : item));
+    if (!isDemoSession) {
+      void supabaseService.markAllNotificationsRead(isInstMode ? (institutionCode || bi) : bi).then((ok) => {
+        if (ok) notify('Notificações marcadas como lidas.', 'success');
+      });
+    }
+  };
+
   const handleOpenNotification = (n: AppNotification) => {
     setActiveNotificationModal(n);
     setNotifications((prev) => prev.map((item) => item.id === n.id ? { ...item, unread: false } : item));
@@ -8542,6 +8583,7 @@ Ficha civil do titular:
             unreadMessages={unreadMessagesList}
             onOpenUnreadMessage={handleOpenUnreadMessage}
             onOpenNotification={handleOpenNotification}
+            onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
             handleLogout={handleLogout}
             citizenOnlineTone={isInstMode ? institutionOnlineTone : citizenOnlineTone}
             chatAssistantRecognitionRef={chatAssistantRecognitionRef} // Repassar ref do reconhecimento de voz

@@ -831,7 +831,7 @@ export const gravarDados = async <T,>(
   operacao: 'insert' | 'update' | 'delete',
   filtros: Record<string, string | number> | undefined,
   dados: Record<string, unknown> | Record<string, unknown>[] | undefined,
-  extra: { upsert?: boolean; onConflict?: string; retorno?: boolean } | undefined,
+  extra: { upsert?: boolean; onConflict?: string; retorno?: boolean; isNull?: string[] } | undefined,
   direto: () => Promise<T | null>,
 ): Promise<T | null> => {
   const token = await obterTokenSessao();
@@ -2032,6 +2032,28 @@ export const supabaseService = {
    * video-atendimento só desaparece quando o dia do agendamento passa).
    * Best-effort: devolve false se a nuvem não responder (nunca lança).
    */
+  /**
+   * 2026-09-12 (T58) — Marca TODAS as notificações NÃO LIDAS do destinatário
+   * como lidas (um único UPDATE no servidor: target_bi próprio + read_at IS
+   * NULL). Devolve true se a nuvem confirmou; false se não havia nada a
+   * marcar ou a nuvem não respondeu (nunca lança).
+   */
+  async markAllNotificationsRead(targetBi: string): Promise<boolean> {
+    if (!hasValidSupabaseKeys() || !targetBi) return false;
+    try {
+      const r = await gravarDados(
+        'notifications', 'update', { target_bi: targetBi },
+        { read_at: new Date().toISOString() },
+        { isNull: ['read_at'] },
+        async () => null,
+      );
+      return r !== null;
+    } catch (e) {
+      console.warn('Supabase markAllNotificationsRead error:', e);
+      return false;
+    }
+  },
+
   async markNotificationRead(id: number): Promise<boolean> {
     if (!hasValidSupabaseKeys() || !id) return false;
     try {

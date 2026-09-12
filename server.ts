@@ -880,8 +880,28 @@ async function dadosExecutarPedido(opts: {
       if (operacao === 'update') {
         const limpa = dadosSanitizarLinha(tabela, body?.dados);
         if (!limpa || !Object.keys(limpa).length) return { status: 400, json: { ok: false, erro: 'Nada para atualizar.' } };
+        // 2026-09-12 (T58) — notificações: um não-admin só actualiza as SUAS
+        // (target_bi próprio). Antes o escopo era vazio e bastava um filtro
+        // {id}/{target_bi} para tocar notificações de terceiros.
+        let qUpd = q;
+        if (tabela === 'notifications' && ident && !ident.isAdmin) {
+          const meu = String(ident.instCode || ident.bi || '').toUpperCase();
+          if (!meu) return { status: 403, json: { ok: false, erro: 'Sem identidade para actualizar notificações.' } };
+          if (filtros.target_bi && String(filtros.target_bi).toUpperCase() !== meu) {
+            return { status: 403, json: { ok: false, erro: 'Sem permissão sobre notificações de outra conta.' } };
+          }
+          if (!filtros.target_bi) qUpd = `${qUpd}${qUpd ? '&' : ''}target_bi=eq.${encodeURIComponent(meu)}`;
+        }
+        // 2026-09-12 (T58) — `isNull` no update (ex.: marcar TODAS as notificações
+        // não lidas: read_at=is.null) — evita 1 pedido por notificação e não
+        // reescreve o read_at das já lidas.
+        if (Array.isArray(body?.isNull)) {
+          for (const col of body.isNull) {
+            if (typeof col === 'string' && DADOS_COLUNAS[tabela][col]) qUpd = `${qUpd}&${col}=is.null`;
+          }
+        }
         // return=representation: deteta o no-op silencioso (RLS/escopo sem match).
-        const r = await fetch(`${supaUrl}/rest/v1/${tabela}?${q}`, {
+        const r = await fetch(`${supaUrl}/rest/v1/${tabela}?${qUpd}`, {
           method: 'PATCH', headers: { ...headers, Prefer: 'return=representation' }, body: JSON.stringify(limpa),
         });
         if (!r.ok) {
