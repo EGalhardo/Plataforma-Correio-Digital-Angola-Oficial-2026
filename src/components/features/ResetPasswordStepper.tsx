@@ -128,7 +128,7 @@ export function ResetPasswordStepper({ onCancel, onSuccess, addAuditLog, appMode
   };
 
   return (
-    <div className="w-full flex flex-col justify-between min-h-[440px] flex-1 font-sans">
+    <div className="w-full flex flex-col justify-between min-h-[396px] flex-1 font-sans">
       <div className="flex-1 flex flex-col justify-center">
         <AnimatePresence mode="wait">
 

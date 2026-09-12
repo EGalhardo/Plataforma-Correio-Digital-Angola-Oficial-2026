@@ -715,7 +715,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   };
 
   return (
-    <div className="w-full flex flex-col justify-between min-h-[440px] flex-1 font-sans">
+    <div className="w-full flex flex-col justify-between min-h-[396px] flex-1 font-sans">
       {/* Dynamic High-Fidelity Stepper Indicator */}
       {step !== 'success' && step !== 1 && (
         <div className="relative flex items-center justify-between w-full max-w-lg mx-auto mb-4 select-none px-4">
@@ -788,7 +788,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.28 }}
-              className="space-y-4"
+              className="space-y-3"
             >
               {/* Centered User Avatar exactly like the Login image */}
               <div className="text-center space-y-1.5">
@@ -807,7 +807,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               </div>
 
               {/* Form Input fields */}
-              <div className="space-y-3.5 pt-0 max-w-lg mx-auto">
+              <div className="space-y-3 pt-0 max-w-lg mx-auto">
                 {/* Nome Completo */}
                 <div className="grid gap-1 text-left">
                   <span className="text-[10.5px] text-slate-500 font-extrabold tracking-wider uppercase">
@@ -941,7 +941,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 </div>
 
                 {/* Password requirements banner matching image 1 perfectly */}
-                <div className="bg-[#f0f4f9] rounded-xl p-3 flex items-center gap-3 shadow-2xs border border-slate-100">
+                <div className="bg-[#f0f4f9] rounded-xl p-2.5 flex items-center gap-3 shadow-2xs border border-slate-100">
                   <ShieldCheck size={18} className="text-[#2563eb] shrink-0" />
                   <span className="text-slate-700 text-[10.5px] font-bold leading-normal font-sans">
                     A senha deve ter pelo menos 8 caracteres, incluindo letras e números.
@@ -950,7 +950,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               </div>
 
               {/* Horizontal Separator Line */}
-              <div className="border-t border-slate-100/80 my-2 max-w-lg mx-auto" />
+              <div className="border-t border-slate-100/80 my-1 max-w-lg mx-auto" />
 
               {/* Actions Footer */}
               <div className="flex flex-col gap-2.5 max-w-lg mx-auto w-full pt-0">

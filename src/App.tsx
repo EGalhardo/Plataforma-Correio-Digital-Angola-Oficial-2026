@@ -7652,12 +7652,15 @@ Ficha civil do titular:
         {/* v37.45 — escala proporcional do ecrã de autenticação (login / registo /
             esqueci senha / facial): −20% (v37.44), depois 0.88; v37.78.36 —
             +10% proporcional a pedido do dono (2026-08-31) → zoom 0.968, com
-            todos os elementos e espaçamentos a manter a harmonia. */}
+            todos os elementos e espaçamentos a manter a harmonia.
+            2026-09-12 (T57) — altura dos contentores principais de Login /
+            Registo / Redefinir Senha −10%: min-h 615→554 (painel interno
+            440→396); espaçamentos do Registo apertados um degrau para caber. */}
         <div style={{ zoom: 0.968 }} className="max-w-[940px] w-full mx-auto grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-4.5 items-stretch">
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className={`hidden md:flex rounded-3xl border ${loginSubMode === 'face-capture' ? 'p-6 min-h-[485px]' : 'p-8 md:p-8 min-h-[615px]'} ${theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-[#E2E8F0]'} flex-col items-center justify-center text-center shadow-sm h-full relative overflow-hidden transition-all duration-300`}
+            className={`hidden md:flex rounded-3xl border ${loginSubMode === 'face-capture' ? 'p-6 min-h-[485px]' : 'p-8 md:p-8 min-h-[554px]'} ${theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-[#E2E8F0]'} flex-col items-center justify-center text-center shadow-sm h-full relative overflow-hidden transition-all duration-300`}
           >
             <div className="absolute top-0 right-0 w-80 h-80 bg-primary/2 rounded-full -mr-40 -mt-40 blur-3xl pointer-events-none" />
             
@@ -7723,7 +7726,7 @@ Ficha civil do titular:
             id="cda-login-form-container"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className={`bg-white rounded-3xl ${loginSubMode === 'face-capture' ? 'p-4.5 md:p-5.5 min-h-[485px]' : 'p-7 md:p-8 min-h-[615px]'} shadow-xl border border-[#E2E8F0] flex flex-col justify-between h-full transition-all duration-300 relative ${
+            className={`bg-white rounded-3xl ${loginSubMode === 'face-capture' ? 'p-4.5 md:p-5.5 min-h-[485px]' : 'p-7 md:p-8 min-h-[554px]'} shadow-xl border border-[#E2E8F0] flex flex-col justify-between h-full transition-all duration-300 relative ${
               highlightSteps 
                 ? 'ring-4 ring-blue-500 ring-offset-4 shadow-[0_0_30px_rgba(37,99,235,0.35)] scale-[1.01]' 
                 : ''
@@ -8200,7 +8203,7 @@ Ficha civil do titular:
                   exit={{ opacity: 0, y: -10 }}
                   className="flex-1 flex flex-col justify-center"
                 >
-                  <div className="w-full flex flex-col justify-between min-h-[440px] flex-1 font-sans">
+                  <div className="w-full flex flex-col justify-between min-h-[396px] flex-1 font-sans">
                     <div className="flex-1 flex flex-col justify-center space-y-4">
                       <div className="text-center space-y-1.5">
                         <div className="flex justify-center mb-1">
