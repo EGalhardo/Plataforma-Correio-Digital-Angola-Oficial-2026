@@ -32,7 +32,6 @@ import {
   addAdminAgent,
   ADMIN_ALFA_AGENT,
   hasActiveAdminAlfa,
-  isAdminAgentPasswordTaken,
   setAdminAlfa,
   resetAdminAlfaLocal,
 } from '../../services/adminAgentStore';
@@ -164,10 +163,6 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
     }
     if (password !== confirmPassword) {
       setError('As palavras-passe não coincidem. Confirme a senha antes de concluir o registo.');
-      return;
-    }
-    if (isAdminAgentPasswordTaken(password)) {
-      setError('Esta palavra-passe já está a ser usada por outro agente da Administração. Como a palavra-passe identifica a pessoa no login, escolha outra.');
       return;
     }
 

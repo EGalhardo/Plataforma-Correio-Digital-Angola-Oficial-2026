@@ -31,7 +31,10 @@ const THREADS_KEY = 'cda_homologation_threads_v1';
 
 // Identidades demo canónicas do piloto — NUNCA passam por homologação,
 // para não quebrar o fluxo de demonstração já existente.
-const ALWAYS_ACTIVE_IDENTIFIERS = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP', 'ADMIN-0001'];
+// 2026-09-13 (T61) — ADMIN-0001 (Admin Alfa) deixou de ser tratado como demo:
+// é uma conta REAL com sessão Supabase Auth (perfil, signOut e correspondência
+// oficial seguem a via da nuvem, como qualquer agente ADMIN-NNNN).
+const ALWAYS_ACTIVE_IDENTIFIERS = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP'];
 
 export const normalizeHomologationBi = (bi?: string): string =>
   (bi || '').toUpperCase().replace(/\s+/g, '').trim();

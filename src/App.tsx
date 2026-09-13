@@ -7228,7 +7228,13 @@ Ficha civil do titular:
       if (isGovMode) {
         const typedAgent = bi.trim().toUpperCase();
         let adminAgentOk = false; // P1 — sessão de agente REAL verificada neste submit
-        const isDemoAdminAccount = !typedAgent || typedAgent === 'ADMIN-0001' || typedAgent === 'ADM-8812-OP' || typedAgent === DEMO_CREDENTIALS.admin.identifier;
+        // 2026-09-13 — ADMIN-0001 (Admin Alfa) é uma conta REAL: autentica-se
+        // na NUVEM (Supabase Auth) como qualquer agente ADMIN-NNNN, para que
+        // as decisões da consola (homologações, correspondência oficial)
+        // fiquem gravadas na base central. Antes entrava pela via demo local
+        // (senha 'GALHARDO') SEM sessão Auth — a homologação do cidadão ficava
+        // apenas neste dispositivo (F48). Só ADM-8812-OP permanece demo.
+        const isDemoAdminAccount = !typedAgent || typedAgent === 'ADM-8812-OP';
         if (typedAgent && !isDemoAdminAccount) {
           // F32 (v12/D4-a) — a palavra-passe do agente vive no Supabase Auth: nuvem
           // primeiro, migração just-in-time (D2), transição local marcada (até F-c)
@@ -7380,7 +7386,7 @@ Ficha civil do titular:
             }
           }
         }
-        // P1 — via demo da Administração (conta ADMIN-0001 / ADM-8812-OP, campo vazio que
+        // P1 — via demo da Administração (conta ADM-8812-OP, campo vazio que
         // assume a demo, ou identificador legado sem credencial própria): a
         // senha demo passa a ser exigida (antes QUALQUER senha abria sessão).
         if (!adminAgentOk && loginPasswordInput !== DEMO_CREDENTIALS.admin.password) {

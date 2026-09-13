@@ -69,8 +69,8 @@ import { registoPublicoProxy, eliminarCidadaoAdmin, eliminarAgente, permissoesAg
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { limparPendenciaPerfil } from '../../services/profileSyncService';
 import { limparLoginFalhas } from '../../services/loginSecurityService';
-import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, updateInstMemberProfile, isInstPasswordTaken, buildAgentNumber, splitAgentNumber } from '../../services/institutionRegistrationStore';
-import { addAdminAgent, updateAdminAgentPassword, updateAdminAgentPermissions, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber, getAdminAgentCreds, ADMIN_ALFA_AGENT } from '../../services/adminAgentStore';
+import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, updateInstMemberProfile, buildAgentNumber, splitAgentNumber } from '../../services/institutionRegistrationStore';
+import { addAdminAgent, updateAdminAgentPassword, updateAdminAgentPermissions, removeAdminAgentByWorker, nextAdminAgentNumber, getAdminAgentCreds, ADMIN_ALFA_AGENT } from '../../services/adminAgentStore';
 import { useSession } from '../../services/sessionStore';
 
 interface AuditLog {
@@ -1653,17 +1653,8 @@ export function GovContactsContent({
         notify('A Confirmação da Senha não coincide com a Senha introduzida. Verifique os dois campos.');
         return;
       }
-      if (instReg && isInstPasswordTaken(regCode, newWorkerPassword, isEditingWorker ? (editingWorkerId || undefined) : undefined)) {
-        notify('Esta senha já está a ser usada por outra credencial desta instituição. Como a senha identifica a pessoa no login, escolha outra.');
-        return;
-      }
-      if (adminCredsOn) {
-        const editingAgentNum = isEditingWorker ? workers.find(w => w.id === editingWorkerId)?.agentId : undefined;
-        if (isAdminAgentPasswordTaken(newWorkerPassword, editingAgentNum)) {
-          notify('Esta palavra-passe já está a ser usada por outro agente da Administração. Como a palavra-passe identifica a pessoa no login, escolha outra.');
-          return;
-        }
-      }
+      // 2026-09-13 — senhas repetidas permitidas: a identidade é o Nº Agente,
+      // nunca a senha; não se verifica nem se revela reutilização.
     }
 
     if (isEditingWorker && editingWorkerId) {
@@ -2053,10 +2044,6 @@ export function GovContactsContent({
     const instRegD = (appMode === 'institution' && regCodeD) ? getLocalInstReg(regCodeD) : undefined;
     if (instRegD) {
       if (workerDrawerPwd.length < 8) { notify('A nova senha deve ter pelo menos 8 caracteres.'); return; }
-      if (isInstPasswordTaken(regCodeD, workerDrawerPwd, selectedWorker.id)) {
-        notify('Esta senha já está a ser usada por outra credencial desta instituição. Escolha outra.');
-        return;
-      }
       updateInstMemberPassword(regCodeD, selectedWorker.id, workerDrawerPwd, true);
       // 2026-08-22 — nuvem sincronizada na reposição (antes só local)
       {
@@ -2078,10 +2065,6 @@ export function GovContactsContent({
       const agentNum = selectedWorker.agentId || '';
       if (!/^Admin-\d+$/i.test(agentNum)) { notify('Este elemento não tem um Nº Agente Admin (ADMIN-NNNN) — a palavra-passe do login Admin só se aplica a agentes com esse formato.'); return; }
       if (workerDrawerPwd.length < 8) { notify('A nova palavra-passe deve ter pelo menos 8 caracteres.'); return; }
-      if (isAdminAgentPasswordTaken(workerDrawerPwd, agentNum)) {
-        notify('Esta palavra-passe já está a ser usada por outro agente da Administração. Escolha outra.');
-        return;
-      }
       updateAdminAgentPassword(agentNum, workerDrawerPwd);
       // 2026-08-22 — nuvem sincronizada na reposição (antes só local)
       if (isCloudBound(agentNum) && isSupabaseConfigured()) {
@@ -2827,7 +2810,7 @@ export function GovContactsContent({
                           </div>
                         </div>
                         <p className="text-[9px] text-slate-400 font-bold leading-snug m-0 mr-1 select-none">
-                          {isPlatformAdmin ? (<>O membro entra com <strong>Nº Agente Admin + esta palavra-passe</strong> no login da Administração.</>) : (<>O colaborador entra com <strong>Código da instituição + esta senha</strong>.</>)} A senha identifica a pessoa — não pode repetir outra credencial activa e ficará guardada apenas neste dispositivo.
+                          {isPlatformAdmin ? (<>O membro entra com <strong>Nº Agente Admin + esta palavra-passe</strong> no login da Administração.</>) : (<>O colaborador entra com <strong>Nº Agente Institucional (CÓDIGO-NN) + esta senha</strong>.</>)} A senha ficará guardada apenas neste dispositivo.
                         </p>
                       </>
                     )}
@@ -4877,17 +4860,21 @@ export function GovContactsContent({
 
                           // HOMOLOGAÇÃO: aprovação ativa a conta + correspondência oficial automática ao cidadão
                           homologationStore.setStatus(selectedReviewCitizen.biNumber || '', 'active', undefined, selectedReviewCitizen.name);
-                          notifyAccountApproved(selectedReviewCitizen.biNumber || '', selectedReviewCitizen.name);
-                          // 2026-08-21 — em modo real a mensagem de aprovação é
-                          // PERSISTIDA na nuvem (protocolo selado): aparece na
-                          // página "Correspondências" do admin e na caixa do
-                          // cidadão em qualquer dispositivo. Demo mantém só o
-                          // canal local (o serviço devolve null sem sessão).
-                          void enviarMensagemAdministrativa(
+                          // 2026-09-13 — a correspondência «Conta Ativada» é gravada na
+                          // NUVEM (fonte canónica: chega à caixa do cidadão em qualquer
+                          // dispositivo, não lida → badge). O canal local de homologação
+                          // só entra como recurso quando a nuvem recusa/está indisponível
+                          // — nunca os dois (evita a mensagem em duplicado no mesmo
+                          // dispositivo).
+                          const nuvemAtivacao = await enviarMensagemAdministrativa(
                             selectedReviewCitizen.biNumber || '',
                             'Conta Ativada — Homologação Aprovada pela Área de Administração',
                             `Exmo(a). ${selectedReviewCitizen.name || 'Cidadão(ã)'}, informamos que a sua identidade foi HOMOLOGADA e a sua conta no Correio Digital de Angola está oficialmente ATIVA. A partir deste momento pode receber correspondência oficial de todas as instituições integradas. Bem-vindo à rede nacional de correio digital.`
                           );
+                          if (!nuvemAtivacao?.ok) {
+                            notifyAccountApproved(selectedReviewCitizen.biNumber || '', selectedReviewCitizen.name);
+                            addAuditLog?.(`[F48] Correspondência «Conta Ativada» de ${selectedReviewCitizen.biNumber} NÃO gravada na base central (sem sessão Auth de administração ou nuvem indisponível) — ficou apenas no canal local deste dispositivo.`, 'warning');
+                          }
 
                           addAuditLog?.(`Auditoria: Cadastro do cidadão "${selectedReviewCitizen.name}" homologado e ativado biometricamente pelo agente Admin.`, 'success');
                           setSelectedReviewCitizen(null);

@@ -15,10 +15,8 @@
 import { supabase } from '../lib/supabaseClient';
 import { gravarDados, lerLinhasDados } from './supabaseService';
 import {
-  audienciaV37,
   classificarInstituicao,
   sondagensDisponiveis,
-  v37Disponivel,
   type AbrangenciaSondagem,
   type SondagemResultado,
 } from './sondagemService';
@@ -260,9 +258,61 @@ const notificarDestinatarios = async (bis: string[], titulo: string, texto: stri
 };
 
 /**
- * Activa os rascunhos e distribui UMA correspondência por cidadão do âmbito
- * com os inquéritos embutidos (inquerito_ia_id + inquerito_ia_ids) — espelho
- * exacto de distribuirSondagensCompostas (v37).
+ * 2026-09-13 — AUDIÊNCIA «TODOS» DO INQUÉRITO COM IA (decisão do dono): os
+ * cidadãos que JÁ TROCARAM CORRESPONDÊNCIA com a instituição (mensagens
+ * enviadas/recebidas, pedidos e requisições de documentos — RPC v36
+ * `cda_audiencia_sondagem`). Não há difusão nacional/regional para inquéritos
+ * com IA: «Todos» significa sempre a relação pré-existente com a instituição.
+ */
+export const audienciaCorrespondenciaInqueritoIA = async (
+  codigo: string,
+): Promise<SondagemResultado<{ bis: string[] }>> => {
+  try {
+    const { data, error } = await supabase.rpc('cda_audiencia_sondagem', { p_code: codigo });
+    if (error) return erro(error.message || 'Audiência indisponível.');
+    const linhas: unknown[] = Array.isArray(data) ? (data as unknown[]) : [];
+    const bis = [...new Set(linhas.map((b) => String((b as { bi?: string })?.bi ?? b).trim().toUpperCase()).filter((b) => /^\d{9}[A-Z]{2}\d{3}$/.test(b)))];
+    return { ok: true, dados: { bis } };
+  } catch (e: unknown) {
+    return erro(String((e as Error)?.message || e));
+  }
+};
+
+/**
+ * 2026-09-13 — DESTINATÁRIO(S) MANUAL(IS): quando o campo Destinatário tem 1
+ * ou mais B.I. (e não «Todos»), o inquérito segue APENAS para esses cidadãos,
+ * embutido na correspondência oficial de cada um (pipeline normal do App).
+ * Aqui apenas se activam os rascunhos com a contagem real de destinatários —
+ * sem qualquer difusão por âmbito.
+ */
+export const ativarInqueritosIAParaDestinatarios = async (params: {
+  inqueritos: InqueritoIA[]; destinatarios: string[];
+}): Promise<SondagemResultado<{ audiencia: number }>> => {
+  try {
+    if (!params.inqueritos.length) return erro('Sem inquéritos para activar.', 'validacao');
+    const n = new Set(params.destinatarios.map((d) => String(d || '').trim().toUpperCase()).filter(Boolean)).size;
+    if (n === 0) return erro('Indique pelo menos um destinatário.', 'validacao');
+    if (!(await inqueritosIaDisponiveis())) return erro('Inquérito com IA aguarda a migração v38 no Supabase.', 'sem_migracao');
+    const patch = { status: 'ativo', abrangencia: 'local', audiencia_total: n, destinatarios: n };
+    for (const q of params.inqueritos) {
+      const r = await gravarDados('inqueritos_ia', 'update', { id: q.id }, patch, undefined, async () => {
+        const { error } = await supabase.from('inqueritos_ia').update(patch).eq('id', q.id);
+        if (error) throw error;
+        return { escrito: true } as unknown as any;
+      });
+      if (!r) return erro(`Não foi possível activar o inquérito #${q.id}.`);
+    }
+    return { ok: true, dados: { audiencia: n } };
+  } catch (e: unknown) {
+    return erro(String((e as Error)?.message || e));
+  }
+};
+
+/**
+ * Activa os rascunhos e distribui UMA correspondência por cidadão da audiência
+ * com os inquéritos embutidos (inquerito_ia_id + inquerito_ia_ids).
+ * 2026-09-13 — audiência = cidadãos com correspondência trocada com a
+ * instituição (audienciaCorrespondenciaInqueritoIA), já não o âmbito v37.
  */
 export const distribuirInqueritosIA = async (params: {
   codigo: string; nomeInstituicao: string; inqueritos: InqueritoIA[];
@@ -271,10 +321,10 @@ export const distribuirInqueritosIA = async (params: {
   try {
     if (!params.inqueritos.length) return erro('Sem inquéritos para distribuir.', 'validacao');
     if (!(await inqueritosIaDisponiveis())) return erro('Inquérito com IA aguarda a migração v38 no Supabase.', 'sem_migracao');
-    if (!(await sondagensDisponiveis()) || !(await v37Disponivel())) return erro('A difusão exige as migrações v36/v37 no Supabase.', 'sem_migracao');
-    const aud = await audienciaV37(params.codigo, params.nomeInstituicao);
+    if (!(await sondagensDisponiveis())) return erro('A difusão exige a migração v36 no Supabase.', 'sem_migracao');
+    const aud = await audienciaCorrespondenciaInqueritoIA(params.codigo);
     if (!aud.ok || !aud.dados) return erro(aud.mensagem || 'Audiência indisponível.', aud.motivo || 'erro');
-    const { classificacao } = aud.dados;
+    const classificacao: AbrangenciaSondagem = 'local';
     let bis = aud.dados.bis;
     if (params.excluirBi) bis = bis.filter((b) => b.toUpperCase() !== String(params.excluirBi).toUpperCase());
     if (params.excluirBis?.length) {

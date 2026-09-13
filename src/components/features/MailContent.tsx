@@ -66,7 +66,8 @@ import {
 // 2026-09-10 — Inquérito com IA conversacional (PROMPT v3, Fase 2): bloco no
 // compositor + difusão pelo âmbito, espelhando o pipeline das sondagens.
 import {
-  distribuirInqueritosIA, removerRascunhoInqueritoIA, registarExpedicaoInqueritosIA, type InqueritoIA,
+  distribuirInqueritosIA, removerRascunhoInqueritoIA, registarExpedicaoInqueritosIA,
+  ativarInqueritosIAParaDestinatarios, type InqueritoIA,
 } from '../../services/inqueritoIaService';
 import { Video, Loader2, CheckCircle2, AlertTriangle, Sparkles, CheckCheck, ClipboardCheck, MessagesSquare, Mic } from 'lucide-react';
 // F59 — a pesquisa teatral de 8s com textos governamentais inventados e
@@ -340,7 +341,32 @@ export function MailContent({
           'success',
         );
       }
-      if (temInqIA) {
+      // 2026-09-13 — INQUÉRITO COM IA: o campo Destinatário decide a audiência.
+      //  • 1 ou mais B.I. indicados (sem «Todos») → o inquérito segue APENAS
+      //    para esses cidadãos, embutido na correspondência oficial de cada um
+      //    (nenhuma difusão por âmbito — antes, quando o destinatário manual
+      //    esgotava o âmbito, a difusão ficava vazia e o envio abortava).
+      //  • «Todos» → todos os cidadãos que já trocaram correspondência com
+      //    esta instituição (destinatários manuais adicionais, se existirem,
+      //    são excluídos da difusão porque recebem a cópia própria).
+      const paraTodos = String(composeData.to).trim().toUpperCase() === 'TODOS';
+      if (temInqIA && !paraTodos) {
+        const act = await ativarInqueritosIAParaDestinatarios({ inqueritos: inqueritosIaCompostos, destinatarios: manuais });
+        if (!act.ok || !act.dados) {
+          setDistribuindoSondagens(false);
+          if (temSondagens) setSondagensCompostas([]);
+          setAvisoSondagens(
+            act.motivo === 'sem_migracao'
+              ? 'Inquérito com IA disponível em Modo Real (Supabase) — aguarda a migração v38.'
+              : act.mensagem || 'Não foi possível activar o inquérito com IA para o(s) destinatário(s) indicado(s).',
+          );
+          return;
+        }
+        addAuditLog?.(
+          `${inqueritosIaCompostos.length} inquérito(s) com IA da instituição ${nomeInst} dirigido(s) a ${act.dados.audiencia} destinatário(s) indicado(s) (${manuais.join(', ')}) — ${new Date().toLocaleString('pt-PT')}.`,
+          'success',
+        );
+      } else if (temInqIA) {
         const distIA = await distribuirInqueritosIA({
           codigo: bi,
           nomeInstituicao: nomeInst,
@@ -354,7 +380,7 @@ export function MailContent({
           if (temSondagens) setSondagensCompostas([]); // já distribuídas — não repetir num 2.º clique
           setAvisoSondagens(
             distIA.motivo === 'audiencia_vazia'
-              ? 'Não há cidadãos no âmbito desta instituição para receber o inquérito. Nada foi enviado.'
+              ? 'Não há cidadãos que já tenham trocado correspondência com esta instituição para receber o inquérito. Indique o(s) B.I. no campo Destinatário. Nada foi enviado.'
               : distIA.motivo === 'sem_migracao'
                 ? 'Inquérito com IA disponível em Modo Real (Supabase) — aguarda a migração v38.'
                 : `${temSondagens ? 'A(s) sondagem(ns) foi(ram) distribuída(s), mas ' : ''}${distIA.mensagem || 'não foi possível distribuir o inquérito com IA.'}`,
@@ -1042,8 +1068,11 @@ export function MailContent({
         setAvisoSondagens('Limite de 5 sondagens por mensagem atingido.');
         return prev;
       }
-      // v37 — destinatário automático «Todos» (difusão pelo âmbito oficial)
-      if (prev.length === 0 && inqueritosIaCompostos.length === 0 && !composeData.to.trim()) {
+      // v37 — destinatário automático «Todos» (difusão pelo âmbito oficial).
+      // 2026-09-13 — só quando NÃO há destinatário algum (nem no campo, nem
+      // nos chips «Adicionar destinatário»): com B.I. indicado(s) o envio é
+      // dirigido apenas a esse(s) cidadão(s).
+      if (prev.length === 0 && inqueritosIaCompostos.length === 0 && !composeData.to.trim() && !(composeData.toArray || []).some((t) => t && t.trim())) {
         setComposeData({ ...composeData, to: 'Todos' });
       }
       return [...prev, s];
@@ -1057,7 +1086,8 @@ export function MailContent({
         setAvisoSondagens('Limite de 5 inquéritos por mensagem atingido.');
         return prev;
       }
-      if (prev.length === 0 && sondagensCompostas.length === 0 && !composeData.to.trim()) {
+      // 2026-09-13 — idem: «Todos» só sem qualquer destinatário (campo e chips).
+      if (prev.length === 0 && sondagensCompostas.length === 0 && !composeData.to.trim() && !(composeData.toArray || []).some((t) => t && t.trim())) {
         setComposeData({ ...composeData, to: 'Todos' });
       }
       return [...prev, q];

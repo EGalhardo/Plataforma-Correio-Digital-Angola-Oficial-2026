@@ -747,16 +747,19 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
       };
       return [newInst, ...prev];
     });
-    homologationStore.addMessage(
-      code, 'admin',
-      `Exmos. Senhores da ${row.nome} (${code}), informamos que a vossa adesão ao Correio Digital Angola foi APROVADA pela Área de Administração e a conta da instituição encontra-se oficialmente ATIVA. Todas as funcionalidades da área institucional ficam disponíveis de imediato. Bem-vindos à rede nacional de correio digital.`
-    );
-    // 2026-09-02 — CORRECÇÃO: Removida a chamada a enviarMensagemAdministrativa()
-    // porque criava duplicação — a mensagem já foi adicionada ao canal de homologação
-    // (homologationStore.addMessage acima), que é o canal oficial para comunicações
-    // sobre o estado da conta. Enviar para a caixa de correio também fazia o
-    // utilizador ver a mesma mensagem duas vezes.
-    onLog?.(`Instituição APROVADA: ${row.nome} (${code}) — conta activa e ficha criada na página Instituições.`, 'success');
+    // 2026-09-13 — A correspondência «Adesão Aprovada» é gravada na NUVEM
+    // (fonte canónica: chega à caixa da instituição em QUALQUER dispositivo,
+    // não lida → badge). O canal local de homologação (só neste dispositivo)
+    // fica como recurso quando a nuvem recusa/está indisponível — nunca os
+    // dois ao mesmo tempo (era essa a duplicação corrigida em 2026-09-02).
+    const textoAprovacao = `Exmos. Senhores da ${row.nome} (${code}), informamos que a vossa adesão ao Correio Digital Angola foi APROVADA pela Área de Administração e a conta da instituição encontra-se oficialmente ATIVA. Todas as funcionalidades da área institucional ficam disponíveis de imediato. Bem-vindos à rede nacional de correio digital.`;
+    const nuvem = await enviarMensagemAdministrativa(code, 'Adesão Aprovada — Conta Institucional Ativada pela Área de Administração', textoAprovacao);
+    if (nuvem?.ok) {
+      onLog?.(`Instituição APROVADA: ${row.nome} (${code}) — conta activa, ficha criada na página Instituições e correspondência oficial de aprovação gravada na base central.`, 'success');
+    } else {
+      homologationStore.addMessage(code, 'admin', textoAprovacao);
+      onLog?.(`Instituição APROVADA: ${row.nome} (${code}) — ATENÇÃO: a correspondência de aprovação NÃO foi gravada na base central (sem sessão Auth de administração ou nuvem indisponível); ficou apenas no canal local deste dispositivo.`, 'warning');
+    }
     await fetchSolicitacoes();
     setSelectedSolicitacao(null);
     setSolBusy(false);

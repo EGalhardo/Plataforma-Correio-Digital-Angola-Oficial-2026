@@ -14,7 +14,7 @@ import { Lock, CheckCircle2, AlertTriangle, UploadCloud, ShieldCheck, Landmark, 
 import { useLanguage } from '../../hooks/useLanguage';
 import type { InstitutionIdentity } from '../../services/institutionSessionService';
 import {
-  getLocalInstReg, isInstPasswordTaken, setInstResponsiblePassword,
+  getLocalInstReg, setInstResponsiblePassword,
   updateInstMemberPassword, setInstLogo
 } from '../../services/institutionRegistrationStore';
 import { alterarSenhaAgente } from '../../services/supabaseService';
@@ -79,11 +79,6 @@ export function InstitutionAccessPanel({ code, identity, onAudit }: PanelProps) 
     }
     if (newPwd === actual) {
       setPwdMsg({ kind: 'err', text: 'A nova palavra-passe não pode ser igual à actual.' });
-      return;
-    }
-    // Anti-duplicação: a senha identifica a pessoa — sem repetições dentro da instituição
-    if (isInstPasswordTaken(code, newPwd, member?.id)) {
-      setPwdMsg({ kind: 'err', text: 'Esta palavra-passe já está em uso por outra credencial desta instituição. Escolha outra.' });
       return;
     }
     if (newPwd !== confirmPwd) {
@@ -253,10 +248,6 @@ export function InstitutionForcedPasswordChange({ code, memberId, memberName, on
     }
     if (newPwd === currentPwd) {
       setMsg({ kind: 'err', text: 'A nova palavra-passe deve ser diferente da palavra-passe inicial.' });
-      return;
-    }
-    if (isInstPasswordTaken(code, newPwd, member.id)) {
-      setMsg({ kind: 'err', text: 'Esta palavra-passe já está em uso por outra credencial desta instituição. Escolha outra.' });
       return;
     }
     if (newPwd !== confirmPwd) {

@@ -183,7 +183,7 @@ export function GovPerfilContent({
     } catch { /* melhor esforço */ }
     // 2026-08-20 — persistência real (mesmo padrão da página Perfil do cidadão):
     // nome/telefone/e-mail/NIF vão para `profiles` (bi = Nº de Agente) via
-    // /api/perfil-sync (service role). Contas demo (ADM-8812-OP / ADMIN-0001) ficam locais
+    // /api/perfil-sync (service role). Contas demo (ADM-8812-OP) ficam locais
     // (outcome 'demo'); falhas de nuvem ficam em fila local — feedback honesto.
     if (hasValidSupabaseKeys() && currentBi) {
       const patch = buildCitizenContaPatch(currentBi, {
