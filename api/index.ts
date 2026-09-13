@@ -4827,7 +4827,15 @@ async function dadosResolverEExecutar(opts: {
         const signJson = await signResp.json().catch(() => null);
         const signed = signJson && (signJson.signedURL || signJson.signedUrl);
         if (!signed) return res.status(500).json({ ok: false, erro: 'Falha ao assinar.' });
-        return res.status(200).json({ ok: true, url: signed });
+        // 2026-09-13 — a API REST do Storage devolve `signedURL` RELATIVO
+        // («/object/sign/<bucket>/<path>?token=…»); devolvido tal qual, o
+        // browser resolvia-o contra o domínio da app → <img> partido na consola
+        // (fotos frente/verso do B.I. em branco). Normaliza para URL absoluto
+        // do Storage, como faz o SDK (createSignedUrl).
+        const urlAbsoluto = /^https?:\/\//i.test(String(signed))
+          ? String(signed)
+          : `${supaUrlSign.replace(/\/+$/, '')}/storage/v1${String(signed).startsWith('/') ? '' : '/'}${signed}`;
+        return res.status(200).json({ ok: true, url: encodeURI(urlAbsoluto) });
       } catch (e: any) {
         console.error('[URL-ASSINADA] Exceção:', e);
         return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });

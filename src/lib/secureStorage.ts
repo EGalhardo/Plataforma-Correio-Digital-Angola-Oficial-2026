@@ -75,6 +75,16 @@ export const clearSignedUrlCache = (): void => { signedCache.clear(); };
 /** Tamanho actual da cache (introspecção para suites). */
 export const signedUrlCacheSize = (): number => signedCache.size;
 
+/** Completa um URL assinado relativo («/object/sign/…») com a base do Storage
+ *  do projecto; URLs já absolutos passam intactos. */
+export const absolutizarUrlStorage = (supabase: SupabaseClient, url: string): string => {
+  const u = (url || '').trim();
+  if (!u || /^https?:\/\//i.test(u)) return u;
+  const baseStorage = String((supabase as unknown as { storage?: { url?: string } })?.storage?.url || '').replace(/\/+$/, '');
+  const base = baseStorage || `${(import.meta.env?.VITE_SUPABASE_URL || 'https://klrclczcahfycfdxzdqs.supabase.co').replace(/\/+$/, '')}/storage/v1`;
+  return `${base}${u.startsWith('/') ? '' : '/'}${u}`;
+};
+
 /**
  * Resolve uma referência (marcador/URL legada) para um URL utilizável em
  * <img>/<a>/download:
@@ -109,17 +119,15 @@ export const resolveStorageUrl = async (
         return data.signedUrl;
       }
     } catch { /* segue para fallback */ }
-
-    // Fallback de janela de deploy: bucket ainda público → URL pública serve.
-    try {
-      const { data } = supabase.storage.from(ref.bucket).getPublicUrl(ref.path);
-      if (data?.publicUrl) return data.publicUrl;
-    } catch { /* nada a fazer */ }
   }
 
   // 2026-08-20 — Modo Real: com a RLS de storage endurecida o cliente sem
   // claims não assina objetos de buckets privados. Com sessão Supabase, o
   // servidor assina com a service role (/api/url-assinada).
+  // 2026-09-13 — passa a ser tentado ANTES do URL público: com o bucket
+  // privado, `getPublicUrl` devolve sempre um URL (que responde 400) e
+  // curto-circuitava este passo — a consola mostrava <img> partido em vez da
+  // foto do B.I. (relato do dono: frente/verso em branco no popup do cidadão).
   try {
     const { data: sessao } = await supabase.auth.getSession();
     const token = sessao?.session?.access_token;
@@ -131,11 +139,28 @@ export const resolveStorageUrl = async (
       });
       const j = await r.json().catch(() => null);
       if (j && j.ok && j.url) {
-        signedCache.set(key, { url: j.url, expiresAt: Date.now() + ttlSeconds * 1000 });
-        return j.url;
+        // 2026-09-13 — defesa em profundidade: se o servidor devolver o
+        // caminho relativo do Storage («/object/sign/…»), completa-o com a
+        // base do projecto (senão o browser resolvia-o contra o domínio da app).
+        const urlServidor = absolutizarUrlStorage(supabase, String(j.url));
+        signedCache.set(key, { url: urlServidor, expiresAt: Date.now() + ttlSeconds * 1000 });
+        return urlServidor;
       }
     }
   } catch { /* melhor esforço */ }
+
+  // Último recurso (janela de deploy com bucket ainda público): URL pública —
+  // só se responder de facto; num bucket privado devolve-se '' e a UI mostra
+  // o aviso honesto em vez de uma imagem partida.
+  if (supabase?.storage?.from) {
+    try {
+      const { data } = supabase.storage.from(ref.bucket).getPublicUrl(ref.path);
+      if (data?.publicUrl) {
+        const r = await fetch(data.publicUrl, { method: 'HEAD' });
+        if (r.ok) return data.publicUrl;
+      }
+    } catch { /* nada a fazer */ }
+  }
 
   return '';
 };
