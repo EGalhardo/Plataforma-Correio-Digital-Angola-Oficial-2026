@@ -2638,8 +2638,14 @@ export default function App() {
     const readIds = getReadMessageIds(bi);
     if (readIds.size === 0) return;
     const baseOfId = (id: number) => (id >= 10000 && id < 90000000 ? id - 10000 : id);
+    // 2026-09-13 — a chave de «duplicado» inclui o instante de criação: só é
+    // duplicado a MESMA correspondência (mesmo remetente, assunto e created_at)
+    // recriada com id diferente. Antes bastava remetente+assunto, e uma
+    // correspondência NOVA com o mesmo assunto de outra já lida (ex.: INAPEM →
+    // Edlasio «Sondagem 123» em dias diferentes) nascia «Lida»: sem badge na
+    // foto de perfil e sem entrar em «Não Lidas» (relato do dono).
     const conteudoDe = (m: Message) =>
-      `${(m.org || '').toUpperCase()}::${String(m.details?.subject || m.preview || '').trim().toLowerCase()}`;
+      `${(m.org || '').toUpperCase()}::${String(m.details?.subject || m.preview || '').trim().toLowerCase()}::${String(m.createdAt || m.date || '').trim()}`;
     const applyRead = (list: Message[]) => {
       // v37.59 — invariante «se está em Lidas não pode estar em Não Lidas»:
       // a fusão/nuvem por vezes recria a mesma correspondência com id diferente,
