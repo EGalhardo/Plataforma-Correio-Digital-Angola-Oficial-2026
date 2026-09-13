@@ -69,6 +69,7 @@ import {
   Document,
   Contact,
   AppNotification,
+  PendingRegistration,
   AppMode,
   UserRequest,
   DocRequest,
@@ -81,7 +82,7 @@ import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, se
 import { validarDataExpiracao, formatarDataExpiracao, dataExpiracaoParaISO } from './utils/dataExpiracao';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente } from './utils/ordenacaoCronologica';
-import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao } from './services/supabaseService';
+import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao, listarRegistosPendentes, EVENTO_REGISTOS_ALTERADOS } from './services/supabaseService';
 import { ehAssuntoDenuncia, estadoDeFase, codigoInstituicaoBase } from './services/denunciaCore';
 import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
 import { lerPerfilLocal } from './services/perfilLocalService';
@@ -4165,29 +4166,33 @@ export default function App() {
     handleSelectMessage(message);
     setTab('mensagem');
   };
-  // 2026-09-12 (T56) — notificação clicada no menu da foto: abre o detalhe
-  // («Fechar»/«Aceder»), marca como lida localmente e na nuvem (read_at).
-  // 2026-09-12 (T58) — «Marcar notificações como lidas»: limpa as não lidas
-  // da conta (local + nuvem, num único UPDATE) para o badge voltar a reflectir
-  // apenas correio pendente. Sem isto, contas com dezenas de notificações
-  // antigas (ex.: 61 no Edlasio) tinham o badge «preso» sem forma de o baixar
-  // a não ser abrir uma a uma.
-  const handleMarkAllNotificationsRead = () => {
-    const alvo = sessionOwnerKey;
-    setNotifications((prev) => prev.map((item) => (item.ownerId === alvo || isDemoSession) && item.unread !== false ? { ...item, unread: false } : item));
-    if (!isDemoSession) {
-      void supabaseService.markAllNotificationsRead(isInstMode ? (institutionCode || bi) : bi).then((ok) => {
-        if (ok) notify('Notificações marcadas como lidas.', 'success');
-      });
-    }
+  // 2026-09-13 — Administração: registos (cidadãos/instituições) ainda não
+  // homologados = ÚNICO conteúdo do menu da foto e do indicador do admin.
+  // Recarrega ao entrar, a cada 60 s e imediatamente após cada decisão da
+  // consola (evento EVENTO_REGISTOS_ALTERADOS). Sem sessão real (demo) fica
+  // vazio — a demo não tem fila de homologação na nuvem.
+  const [pendingRegistrations, setPendingRegistrations] = useState<PendingRegistration[]>([]);
+  useEffect(() => {
+    if (stage !== 'app' || !isGovMode || isDemoAdminSession) { setPendingRegistrations([]); return; }
+    let cancelado = false;
+    const carregar = async () => {
+      const lista = await listarRegistosPendentes();
+      if (!cancelado && lista !== null) setPendingRegistrations(lista);
+    };
+    void carregar();
+    const timer = window.setInterval(() => { void carregar(); }, 60_000);
+    const aoAlterar = () => { void carregar(); };
+    window.addEventListener(EVENTO_REGISTOS_ALTERADOS, aoAlterar);
+    return () => { cancelado = true; window.clearInterval(timer); window.removeEventListener(EVENTO_REGISTOS_ALTERADOS, aoAlterar); };
+  }, [stage, isGovMode, isDemoAdminSession]);
+  const handleOpenPendingRegistration = (r: PendingRegistration) => {
+    setShowNotifications(false);
+    setTab(r.kind === 'instituicao' ? 'gov-interoperabilidade' : 'gov-contatos');
   };
 
-  const handleOpenNotification = (n: AppNotification) => {
-    setActiveNotificationModal(n);
-    setNotifications((prev) => prev.map((item) => item.id === n.id ? { ...item, unread: false } : item));
-    if (!isDemoSession && n.id) void supabaseService.markNotificationRead(n.id);
-    setShowNotifications(false);
-  };
+  // 2026-09-13 — o menu da foto deixou de listar notificações gerais (só
+  // correio não lido / registos por homologar); os handlers T56/T58 de
+  // notificação no menu foram removidos. O Centro de Notificações mantém-se.
 
   // F11 — Documentos da instituição real seguem o MESMO escopo do Correio:
   // apenas o canal oficial da própria instituição + o que lhe foi endereçado.
@@ -8594,8 +8599,8 @@ Ficha civil do titular:
             unreadCorrespondencesCount={unreadTotal}
             unreadMessages={unreadMessagesList}
             onOpenUnreadMessage={handleOpenUnreadMessage}
-            onOpenNotification={handleOpenNotification}
-            onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+            pendingRegistrations={pendingRegistrations}
+            onOpenPendingRegistration={handleOpenPendingRegistration}
             handleLogout={handleLogout}
             citizenOnlineTone={isInstMode ? institutionOnlineTone : citizenOnlineTone}
             chatAssistantRecognitionRef={chatAssistantRecognitionRef} // Repassar ref do reconhecimento de voz

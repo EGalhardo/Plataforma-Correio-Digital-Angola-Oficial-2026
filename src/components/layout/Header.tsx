@@ -5,9 +5,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mic, Globe, ChevronDown, Check, Sun, Moon, Mail, Bell, LogOut } from 'lucide-react';
+import { Mic, Globe, ChevronDown, Check, Sun, Moon, Mail, LogOut, UserPlus, Building2 } from 'lucide-react';
 import { useSession } from '../../services/sessionStore';
-import { AppNotification, AppMode, LanguageCode, LANGUAGE_OPTIONS, Message } from '../../types';
+import { AppNotification, AppMode, LanguageCode, LANGUAGE_OPTIONS, Message, PendingRegistration } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
 import { LazyImage } from '../ui/LazyImage';
 import logoModoClaro from '../../assets/images/logomarca_modo_claro_crop.png';
@@ -22,7 +22,8 @@ interface HeaderProps {
   iaLiveActive: boolean;
   startIaVoice: () => void;
   stopIaVoice: () => void;
-  notifications: AppNotification[];
+  /** Mantido por compatibilidade (o Centro de Notificações lê-as do App). */
+  notifications?: AppNotification[];
   showNotifications: boolean;
   setShowNotifications: (show: boolean) => void;
   userProfilePhoto?: string;
@@ -44,10 +45,11 @@ interface HeaderProps {
   unreadMessages?: Message[];
   /** Abre uma mensagem não lida (marca-a como lida e navega para Correspondências). */
   onOpenUnreadMessage?: (message: Message) => void;
-  /** 2026-09-12 (T56) — abre o detalhe de uma notificação a partir do menu da foto. */
-  onOpenNotification?: (n: AppNotification) => void;
-  /** 2026-09-12 (T58) — marca TODAS as notificações não lidas como lidas (badge → só correio). */
-  onMarkAllNotificationsRead?: () => void;
+  /** 2026-09-13 — Admin: registos (cidadãos/instituições) ainda não homologados.
+   *  São o ÚNICO conteúdo do menu da foto e do indicador na Administração. */
+  pendingRegistrations?: PendingRegistration[];
+  /** Abre a página de homologação do registo pendente (Cidadãos / Interoperabilidade). */
+  onOpenPendingRegistration?: (r: PendingRegistration) => void;
   /** Tom do indicador Online por estado da conta do cidadão (null = tom padrão verde). */
   citizenOnlineTone?: 'red' | 'green' | 'yellow' | null;
   chatAssistantRecognitionRef?: { current: { stop(): void } | null };
@@ -58,32 +60,36 @@ function UnreadMessagesMenu({
   open,
   onClose,
   messages,
-  notifications = [],
+  pendingRegistrations = [],
+  isAdmin = false,
   onOpenMessage,
-  onOpenNotification,
-  onMarkAllNotificationsRead,
-  onShowNotifications,
+  onOpenPendingRegistration,
   onLogout,
   translate
 }: {
   open: boolean;
   onClose: () => void;
   messages: Message[];
-  notifications?: AppNotification[];
+  pendingRegistrations?: PendingRegistration[];
+  isAdmin?: boolean;
   onOpenMessage?: (message: Message) => void;
-  onOpenNotification?: (n: AppNotification) => void;
-  onMarkAllNotificationsRead?: () => void;
-  onShowNotifications: () => void;
+  onOpenPendingRegistration?: (r: PendingRegistration) => void;
   onLogout?: (clearAll?: boolean) => void;
   translate: (key: string) => string;
 }) {
   if (!open) return null;
 
-  // 2026-09-12 (T58b) — o contador do menu é o MESMO número do badge da foto:
-  // correspondências NÃO LIDAS (= «Não Lidas» do Painel). As notificações por
-  // ler são mostradas à parte, na linha de detalhe, e NÃO entram no indicador.
-  const unreadNotifs = notifications.filter(n => n.unread !== false).length;
-  const unreadCount = messages.length;
+  // 2026-09-13 — o menu da foto mostra APENAS o que o indicador conta:
+  //  • cidadão/instituição → correspondências NÃO LIDAS (= «Não Lidas» do Painel);
+  //  • administração → registos de cidadãos/instituições AINDA NÃO APROVADOS.
+  // Notificações gerais deixaram de ser listadas aqui (continuam no Centro de
+  // Notificações). O contador do cabeçalho é o MESMO número do badge.
+  const unreadCount = isAdmin ? pendingRegistrations.length : messages.length;
+  const titulo = isAdmin ? translate("Registos por Homologar") : translate("Correspondências Não Lidas");
+  const subtitulo = isAdmin
+    ? `${pendingRegistrations.length} ${translate("registos pendentes")}`
+    : `${messages.length} ${translate("não lidas")}`;
+  const vazio = isAdmin ? translate("Sem registos pendentes de homologação.") : translate("Sem correspondências por ler.");
 
   // Estrutura idêntica ao dropdown de Notificações (padrão comprovado da app):
   // backdrop fixo fecha ao clicar fora + painel fixo independente do z-index e
@@ -94,76 +100,59 @@ function UnreadMessagesMenu({
       <div className="fixed top-16 md:top-20 right-3 md:right-6 z-[160] w-[min(92vw,340px)] bg-white rounded-2xl shadow-[0_20px_50px_rgba(15,23,42,0.18)] border border-slate-100 overflow-hidden text-left animate-fadeIn">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
           <span className="flex flex-col min-w-0">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">{translate("Mensagens e Notificações")}</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">{titulo}</span>
             <span data-testid="menu-decomposicao" className="text-[8.5px] font-bold text-slate-400 tracking-wide leading-none mt-0.5">
-              {messages.length} {translate("não lidas")} · {unreadNotifs} {translate("notificações por ler")}
+              {subtitulo}
             </span>
           </span>
           <span data-testid="menu-contador" className="text-[9px] font-black text-white bg-red-600 rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center leading-none">{unreadCount}</span>
         </div>
         <div className="max-h-[260px] overflow-y-auto custom-scrollbar divide-y divide-slate-50">
-          {messages.length === 0 && notifications.length === 0 ? (
-            <div className="px-4 py-6 text-center text-[11px] font-bold text-slate-400">{translate("Sem mensagens ou notificações pendentes.")}</div>
+          {unreadCount === 0 ? (
+            <div className="px-4 py-6 text-center text-[11px] font-bold text-slate-400">{vazio}</div>
+          ) : isAdmin ? (
+            pendingRegistrations.map((r) => (
+              <button
+                key={`${r.kind}:${r.id}`}
+                type="button"
+                data-testid="menu-registo-pendente"
+                data-kind={r.kind}
+                onClick={() => { onOpenPendingRegistration?.(r); onClose(); }}
+                className="w-full text-left px-4 py-3 hover:bg-blue-50/60 transition-colors cursor-pointer flex items-start gap-2.5"
+              >
+                <span className="mt-1.5 w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[10px] font-black uppercase tracking-wide text-slate-800 truncate">
+                    {r.kind === 'instituicao' ? translate("Registo de Instituição") : translate("Registo de Cidadão")}
+                  </span>
+                  <span className="block text-[11px] font-bold text-slate-600 truncate">{r.name}</span>
+                  <span className="block text-[9px] font-semibold text-slate-400 mt-0.5 font-mono">{r.code} · {r.createdAt}</span>
+                </span>
+                {r.kind === 'instituicao'
+                  ? <Building2 size={13} className="text-slate-300 shrink-0 mt-1.5" />
+                  : <UserPlus size={13} className="text-slate-300 shrink-0 mt-1.5" />}
+              </button>
+            ))
           ) : (
-            <>
-              {messages.map((msg) => (
-                <button
-                  key={msg.id}
-                  type="button"
-                  onClick={() => { onOpenMessage?.(msg); onClose(); }}
-                  className="w-full text-left px-4 py-3 hover:bg-blue-50/60 transition-colors cursor-pointer flex items-start gap-2.5"
-                >
-                  <span className="mt-1.5 w-2 h-2 rounded-full bg-blue-600 shrink-0" />
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-[10px] font-black uppercase tracking-wide text-slate-800 truncate">{msg.org}</span>
-                    <span className="block text-[11px] font-bold text-slate-600 truncate">{msg.details?.subject || msg.preview}</span>
-                    <span className="block text-[9px] font-semibold text-slate-400 mt-0.5">{msg.date}</span>
-                  </span>
-                  <Mail size={13} className="text-slate-300 shrink-0 mt-1.5" />
-                </button>
-              ))}
-              {/* 2026-09-12 (T56) — notificações NÃO LIDAS primeiro e CLICÁVEIS:
-                  abre o detalhe (com «Aceder») e marca como lida. */}
-              {[...notifications].sort((x, y) => Number(y.unread !== false) - Number(x.unread !== false)).slice(0, 3).map((n) => (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => { onOpenNotification?.(n); onClose(); }}
-                  data-testid="menu-notificacao"
-                  data-unread={n.unread !== false ? '1' : '0'}
-                  className={`w-full text-left px-4 py-2.5 transition-colors flex items-start gap-2.5 cursor-pointer border-0 ${n.unread !== false ? 'bg-blue-50/40 hover:bg-blue-50/80' : 'bg-transparent hover:bg-slate-50/80'}`}
-                >
-                  <span className="relative shrink-0 mt-1">
-                    <Bell size={13} className="text-[#2563eb]" />
-                    {n.unread !== false && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-red-500" />}
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className={`block text-[10.5px] truncate ${n.unread !== false ? 'font-black text-slate-900' : 'font-bold text-slate-700'}`}>{n.title}</span>
-                    <span className="block text-[9.5px] text-slate-500 truncate">{n.message}</span>
-                  </span>
-                </button>
-              ))}
-            </>
+            messages.map((msg) => (
+              <button
+                key={msg.id}
+                type="button"
+                onClick={() => { onOpenMessage?.(msg); onClose(); }}
+                className="w-full text-left px-4 py-3 hover:bg-blue-50/60 transition-colors cursor-pointer flex items-start gap-2.5"
+              >
+                <span className="mt-1.5 w-2 h-2 rounded-full bg-blue-600 shrink-0" />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[10px] font-black uppercase tracking-wide text-slate-800 truncate">{msg.org}</span>
+                  <span className="block text-[11px] font-bold text-slate-600 truncate">{msg.details?.subject || msg.preview}</span>
+                  <span className="block text-[9px] font-semibold text-slate-400 mt-0.5">{msg.date}</span>
+                </span>
+                <Mail size={13} className="text-slate-300 shrink-0 mt-1.5" />
+              </button>
+            ))
           )}
         </div>
         <div className="p-2.5 bg-slate-50/80 border-t border-slate-100 flex flex-col gap-1.5">
-          {unreadNotifs > 0 && onMarkAllNotificationsRead && (
-            <button
-              type="button"
-              data-testid="menu-marcar-todas-lidas"
-              onClick={() => { onMarkAllNotificationsRead(); }}
-              className="w-full px-3 py-2 rounded-xl bg-white hover:bg-slate-100 transition-colors text-[9.5px] font-black uppercase tracking-widest text-slate-600 flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200/80 shadow-2xs"
-            >
-              <Check size={11} className="text-emerald-600" /> {translate("Marcar notificações como lidas")} ({unreadNotifs})
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => { onClose(); onShowNotifications(); }}
-            className="w-full px-3 py-2 rounded-xl bg-white hover:bg-slate-100 transition-colors text-[9.5px] font-black uppercase tracking-widest text-slate-600 flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200/80 shadow-2xs"
-          >
-            <Bell size={11} className="text-[#2563eb]" /> {translate("Ver Notificações")}
-          </button>
           <button
             type="button"
             onClick={() => { onClose(); onLogout?.(false); }}
@@ -270,7 +259,6 @@ export function Header({
   iaLiveActive, 
   startIaVoice, 
   stopIaVoice, 
-  notifications, 
   setShowNotifications,
   NotificationDropdown,
   isChatOpen,
@@ -288,8 +276,8 @@ export function Header({
   unreadCorrespondencesCount,
   unreadMessages = [],
   onOpenUnreadMessage,
-  onOpenNotification,
-  onMarkAllNotificationsRead,
+  pendingRegistrations = [],
+  onOpenPendingRegistration,
   citizenOnlineTone = null,
   chatAssistantRecognitionRef,
   handleLogout
@@ -302,11 +290,12 @@ export function Header({
   // EXACTAMENTE o número de correspondências «Não Lidas» do Painel (fonte única:
   // unreadTotal em App.tsx). As notificações por ler são listadas no menu e no
   // Centro de Notificações, mas não entram no indicador (T56 revertido a pedido).
-  // No admin (sem caixa de correio) o badge continua a contar notificações.
-  const unreadNotifCount = notifications.filter(n => n.unread !== false).length;
+  // 2026-09-13 — na Administração o badge = registos (cidadãos/instituições)
+  // AINDA NÃO APROVADOS; desaparece quando o último é decidido. As notificações
+  // gerais não entram no indicador em nenhuma área.
   const unreadCount = (isUserMode || isInstitutionMode)
     ? (typeof unreadCorrespondencesCount === 'number' ? unreadCorrespondencesCount : 0)
-    : unreadNotifCount;
+    : pendingRegistrations.length;
   const [showUnreadMenu, setShowUnreadMenu] = useState(false);
   // Cor do indicador Online por estado da conta (só no modo cidadão)
   // O tom por estado da conta aplica-se ao cidadão E à instituição (pendente → vermelho…)
@@ -549,11 +538,10 @@ export function Header({
               open={showUnreadMenu}
               onClose={() => setShowUnreadMenu(false)}
               messages={unreadMessages}
-              notifications={notifications}
+              pendingRegistrations={pendingRegistrations}
+              isAdmin={isAdmin}
               onOpenMessage={onOpenUnreadMessage}
-              onOpenNotification={onOpenNotification}
-              onMarkAllNotificationsRead={onMarkAllNotificationsRead}
-              onShowNotifications={() => setShowNotifications(true)}
+              onOpenPendingRegistration={onOpenPendingRegistration}
               onLogout={handleLogout}
               translate={translate}
             />
@@ -723,11 +711,10 @@ export function Header({
               open={showUnreadMenu}
               onClose={() => setShowUnreadMenu(false)}
               messages={unreadMessages}
-              notifications={notifications}
+              pendingRegistrations={pendingRegistrations}
+              isAdmin={isAdmin}
               onOpenMessage={onOpenUnreadMessage}
-              onOpenNotification={onOpenNotification}
-              onMarkAllNotificationsRead={onMarkAllNotificationsRead}
-              onShowNotifications={() => setShowNotifications(true)}
+              onOpenPendingRegistration={onOpenPendingRegistration}
               onLogout={handleLogout}
               translate={translate}
             />

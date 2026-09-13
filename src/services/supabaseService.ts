@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { ehAssuntoDenuncia, REMETENTE_ANONIMO, codigoInstituicaoBase } from './denunciaCore';
-import { Message, Document, Contact, UserRequest, DocRequest, Correspondence, AppNotification, DigitalProtocol } from '../types';
+import { Message, Document, Contact, UserRequest, DocRequest, Correspondence, AppNotification, DigitalProtocol, PendingRegistration } from '../types';
 import { generateProtocol } from '../utils/protocolGenerator';
 import { MOCK_CITIZENS, MOCK_USERS, MOCK_SESSION_USER, MOCK_INSTITUTIONS } from '../constants/mocks';
 import { cloudSignIn, syntheticAdminEmail } from './cloudAuthService';
@@ -844,6 +844,52 @@ export const gravarDados = async <T,>(
   if (r && r.erro === 'demo') return direto();
   console.warn(`[CDA-proxy] escrita ${operacao} ${tabela} via servidor falhou:`, r?.erro || 'rede');
   return null;
+};
+
+/** 2026-09-13 — registos de cidadãos/instituições AINDA NÃO homologados
+ *  (`solicitacoes_registo.status` ≠ Aprovado/Rejeitado). Alimentam o menu da
+ *  foto e o indicador da Administração. Leitura via proxy do servidor (sessão
+ *  admin) com fallback ao SELECT directo; qualquer falha devolve null (o
+ *  indicador mantém o último valor conhecido — nunca inventa zero). */
+export const listarRegistosPendentes = async (): Promise<PendingRegistration[] | null> => {
+  const ESTADOS_DECIDIDOS = new Set(['APROVADO', 'REJEITADO', 'REPROVADO', 'NÃO APROVADO', 'NAO APROVADO', 'BLOQUEADO']);
+  const mapear = (linhas: any[]): PendingRegistration[] => linhas
+    .filter((r) => r && r.bi_numero && !ESTADOS_DECIDIDOS.has(String(r.status || '').trim().toUpperCase()))
+    .map((r) => {
+      const code = String(r.bi_numero).trim().toUpperCase();
+      const dt = r.criado_em ? new Date(r.criado_em) : null;
+      return {
+        id: String(r.id ?? code),
+        code,
+        name: String(r.nome || code),
+        kind: /^\d{9}[A-Z]{2}\d{3}$/.test(code) ? 'cidadao' : 'instituicao',
+        status: String(r.status || 'Pendente'),
+        createdAt: dt && !isNaN(dt.getTime()) ? dt.toLocaleDateString('pt-PT') : '',
+      } as PendingRegistration;
+    })
+    .sort((a, b) => (b.id > a.id ? 1 : -1));
+  try {
+    const viaProxy = await registoPublicoProxy('select');
+    if (viaProxy !== null) return viaProxy.ok && Array.isArray(viaProxy.linhas) ? mapear(viaProxy.linhas) : null;
+    if (!hasValidSupabaseKeys()) return null;
+    const { data, error } = await supabase
+      .from('solicitacoes_registo')
+      .select('id,nome,bi_numero,status,criado_em')
+      .order('criado_em', { ascending: false })
+      .limit(500);
+    if (error) throw error;
+    return mapear(data || []);
+  } catch (e) {
+    console.warn('[CDA] listarRegistosPendentes indisponível:', (e as Error)?.message || e);
+    return null;
+  }
+};
+
+/** Evento DOM disparado pela consola de administração após decidir um registo
+ *  (aprovar/rejeitar/…) — o App recarrega de imediato os registos pendentes. */
+export const EVENTO_REGISTOS_ALTERADOS = 'cda:registos-alterados';
+export const anunciarRegistosAlterados = (): void => {
+  try { window.dispatchEvent(new Event(EVENTO_REGISTOS_ALTERADOS)); } catch { /* SSR/teste */ }
 };
 
 export const supabaseService = {

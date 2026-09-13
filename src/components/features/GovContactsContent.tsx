@@ -65,7 +65,7 @@ import {
 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { supabase } from '../../lib/supabaseClient';
-import { registoPublicoProxy, eliminarCidadaoAdmin, eliminarAgente, permissoesAgente, alterarSenhaAgente, enviarMensagemAdministrativa, equipaMembroCloud } from '../../services/supabaseService';
+import { registoPublicoProxy, anunciarRegistosAlterados, eliminarCidadaoAdmin, eliminarAgente, permissoesAgente, alterarSenhaAgente, enviarMensagemAdministrativa, equipaMembroCloud } from '../../services/supabaseService';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { limparPendenciaPerfil } from '../../services/profileSyncService';
 import { limparLoginFalhas } from '../../services/loginSecurityService';
@@ -1133,7 +1133,7 @@ export function GovContactsContent({
       // sem sessão (demo) mantém-se o caminho directo de sempre.
       const viaProxy = await registoPublicoProxy('update', { id: recordId }, payload);
       if (viaProxy !== null) {
-        if (viaProxy.ok) return true;
+        if (viaProxy.ok) { anunciarRegistosAlterados(); return true; }
         console.warn('[REGISTOS] atualização via servidor falhou:', viaProxy.erro);
         return false;
       }
@@ -1149,6 +1149,7 @@ export function GovContactsContent({
         console.error(error);
         return false;
       }
+      anunciarRegistosAlterados();
       return true;
     } catch (err) {
       console.error(err);

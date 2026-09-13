@@ -168,6 +168,18 @@ export interface Slide {
   action: string;
 }
 
+/** 2026-09-13 — registo (cidadão ou instituição) ainda não homologado pela
+ *  Administração: alimenta o menu da foto de perfil e o indicador do admin. */
+export interface PendingRegistration {
+  id: string;
+  /** B.I. do cidadão ou código institucional (bi_numero). */
+  code: string;
+  name: string;
+  kind: 'cidadao' | 'instituicao';
+  status: string;
+  createdAt: string;
+}
+
 export interface AppNotification {
   id: number;
   title: string;

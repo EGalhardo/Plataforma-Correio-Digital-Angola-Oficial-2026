@@ -36,7 +36,7 @@ import {
 } from '../../services/sondagemService';
 import { useSession } from '../../services/sessionStore';
 import { supabaseService } from '../../services/supabaseService';
-import { registoPublicoProxy, enviarMensagemAdministrativa, eliminarInstituicaoCloud, aprovarInstituicaoAdmin, eliminarInstituicaoAdmin } from '../../services/supabaseService';
+import { registoPublicoProxy, anunciarRegistosAlterados, enviarMensagemAdministrativa, eliminarInstituicaoCloud, aprovarInstituicaoAdmin, eliminarInstituicaoAdmin } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore } from '../../services/homologationStore';
 // 2026-08-23 — MODO REAL: métricas da base central (nunca simuladas). Sem
@@ -681,6 +681,9 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   // ---- Acções das Solicitações de Registo (modelo do cidadão) ----
   const persistSolicitationStatus = async (row: LinhaSolicitacao, status: string) => {
     updateLocalInstReg(row.bi_numero, { status });
+    try { await persistSolicitationStatusNuvem(row, status); } finally { anunciarRegistosAlterados(); }
+  };
+  const persistSolicitationStatusNuvem = async (row: LinhaSolicitacao, status: string) => {
     const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
     if (!ready) return;
     // 2026-09-02 — CORRECÇÃO CRÍTICA: O filtro deve usar bi_numero (código institucional)
