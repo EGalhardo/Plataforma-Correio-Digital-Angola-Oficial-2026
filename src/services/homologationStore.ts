@@ -184,8 +184,12 @@ export const notifyAccountUnblocked = (bi: string, name?: string): void => {
 // F14 — Canal oficial multi-dispositivo da instituição: a thread de homologação
 // é local ao dispositivo; um login noutro dispositivo deixava a conta real SEM
 // a correspondência oficial da Área de Administração. Se a thread estiver
-// vazia, reconstrói-a a partir do registo (confirmação de recepção; + mensagem
-// de aprovação quando a conta já está activa). Nunca sobrescreve o que existe.
+// vazia, reconstrói-a a partir do registo (confirmação de recepção).
+// Nunca sobrescreve o que existe.
+// 2026-09-13 (T62) — a mensagem local de APROVAÇÃO deixou de ser reconstruída:
+// desde T61 a correspondência «Adesão Aprovada — Conta Institucional Ativada»
+// é gravada na NUVEM pela consola do Admin e chega a todos os dispositivos;
+// a cópia local aparecia como duplicado na caixa da instituição.
 // ----------------------------------------------------------------------------
 export const ensureInstitutionHomologationChannel = (
   codeRaw: string,
@@ -205,11 +209,4 @@ export const ensureInstitutionHomologationChannel = (
     'admin',
     `Exmos. Senhores da ${base} (${sig}), a Área de Administração do Correio Digital Angola confirma a receção da vossa solicitação de adesão (Código Institucional: ${code}). O pedido já foi enviado para análise e em menos de 24 horas receberão uma resposta oficial através deste canal. Enquanto o pedido estiver pendente, cada comunicação oficial chega a esta caixa como correspondência não lida — o aviso aparece no badge da foto de perfil e no menu "Mensagens não lidas".`
   );
-  if (status === 'active') {
-    homologationStore.addMessage(
-      code,
-      'admin',
-      `Exmos. Senhores da ${base} (${code}), informamos que a vossa adesão ao Correio Digital Angola foi APROVADA pela Área de Administração e a conta da instituição encontra-se oficialmente ATIVA. Todas as funcionalidades da área institucional ficam disponíveis de imediato. Bem-vindos à rede nacional de correio digital.`
-    );
-  }
 };
