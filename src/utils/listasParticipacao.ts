@@ -14,3 +14,12 @@ export function listarParticipacao(messages: Message[], tipo: 'inqueritos' | 'de
       ...(anonimizar ? [] : [m.org, m.preview])]);
   });
 }
+
+export type AbaInquerito = 'normal' | 'ia';
+
+/** Filtro da tabbar Normal/IA da página Inquéritos (estilo Contactos). Itens
+ *  com ambos os tipos aparecem nas duas abas — pertencem legitimamente a cada
+ *  uma (têm sondagem normal E inquérito com IA para responder). */
+export function filtrarAbaInquerito(messages: Message[], aba: AbaInquerito): Message[] {
+  return messages.filter(m => aba === 'ia' ? temInqueritoIA(m) : temInqueritoNormal(m));
+}

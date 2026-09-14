@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {filtrarAbaInquerito as aba, temInqueritoNormal as isN, temInqueritoIA as isIA} from '../../src/utils/listasParticipacao';
+const m=(id:number,extra={})=>({id,details:{subject:'x'},...extra} as any);
+let checks=0;
+const N=m(1,{sondagem_id:7}), I=m(2,{inquerito_ia_id:9}), B=m(3,{sondagem_id:7,inquerito_ia_id:9}), X=m(4,{});
+assert.equal(isN(N),true);checks++;
+assert.equal(isIA(N),false);checks++;
+assert.equal(isN(I),false);checks++;
+assert.equal(isIA(I),true);checks++;
+assert.deepEqual(aba([N,I,B,X],'normal').map(x=>x.id),[1,3]);checks++;
+assert.deepEqual(aba([N,I,B,X],'ia').map(x=>x.id),[2,3]);checks++;
+assert.equal(aba([N,I,B,X],'normal').length+aba([N,I,B,X],'ia').length,4);checks++;
+assert.equal(isN(m(5,{sondagem_ids:[1,2]})),true);checks++;
+assert.equal(isIA(m(6,{inquerito_ia_ids:[]})),false);checks++;
+console.log(`${checks} verificações de abas aprovadas.`);

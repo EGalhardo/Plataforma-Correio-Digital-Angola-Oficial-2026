@@ -44,6 +44,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
   const [listaIA, setListaIA] = useState<InqueritoIA[]>([]);
   const [contIA, setContIA] = useState<Record<number, ContadoresInqueritoIA>>({});
   const [resultadosIA, setResultadosIA] = useState<InqueritoIA | null>(null);
+  const [aba, setAba] = useState<'normal' | 'ia'>('normal');
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -101,6 +102,18 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
           <h2 className="font-sans font-black text-[#0c2340] text-base uppercase tracking-tight">{title}</h2>
           <p className="text-[11px] font-medium text-slate-500">Sondagens e inquéritos com IA criados por {codigoInstituicao} — clique para ver os resultados.</p>
         </div>
+      <div role="tablist" aria-label="Tipo de inquérito" data-aba-inquerito={aba}
+        className="flex bg-slate-100 p-1 rounded-full border border-slate-200 self-center shrink-0 shadow-3xs">
+        {(['normal', 'ia'] as const).map(a => (
+          <button key={a} type="button" role="tab" aria-selected={aba === a} data-aba={a}
+            onClick={() => setAba(a)}
+            className={`relative px-4 md:px-5 py-2 rounded-full text-[10px] md:text-[11px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer border-0 ${
+              aba === a ? 'bg-primary text-white shadow-xs' : 'bg-transparent text-slate-600 hover:text-slate-900'
+            }`}>
+            {a === 'normal' ? 'Normal' : 'IA'}
+          </button>
+        ))}
+      </div>
         {onCreate && <button type="button" onClick={onCreate} className="w-full sm:w-auto shrink-0 flex items-center justify-center gap-2 bg-primary text-white rounded-2xl px-5 py-3 text-xs font-black shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-colors">
           <Plus size={17} aria-hidden="true" />Criar Inquéritos
         </button>}
@@ -123,13 +136,19 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
         </div>
       )}
 
-      {disponivel === true && !carregando && lista.length === 0 && listaIA.length === 0 && (
+      {disponivel === true && !carregando && aba === 'normal' && lista.length === 0 && (
         <div className="rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center">
-          <p className="text-sm font-semibold text-slate-500">Ainda não criou nenhuma sondagem. Use «Criar Inquérito» na página Correio.</p>
+          <p className="text-sm font-semibold text-slate-500">Ainda não criou sondagens normais. Use «Criar Inquérito» na página Correio.</p>
+        </div>
+      )}
+      {disponivel === true && !carregando && aba === 'ia' && listaIA.length === 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center">
+          <p className="text-sm font-semibold text-slate-500">Ainda não criou inquéritos com IA. Use «Criar Inquérito» na página Correio.</p>
         </div>
       )}
 
-      <ListaRolavel count={listaIA.length + lista.length} label="Lista de inquéritos">
+      <ListaRolavel count={aba === 'ia' ? listaIA.length : lista.length} label="Lista de inquéritos">
+      {aba === 'ia' && (<>
       {/* 2026-09-10 — Inquéritos com IA (conversacionais) */}
       {listaIA.map((q) => {
         const c = contIA[q.id];
@@ -165,7 +184,9 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
           </div>
         );
       })}
+      </>)}
 
+      {aba === 'normal' && (<>
       {lista.map((s) => {
         const totalVotos = (dados[s.id] || []).reduce((a, b) => a + b.votos, 0);
         return (
@@ -234,6 +255,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
           </div>
         );
       })}
+      </>)}
       </ListaRolavel>
       {resultadosIA && (
         <InqueritoIaResultados

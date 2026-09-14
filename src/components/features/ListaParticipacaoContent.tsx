@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Plus, ClipboardList, ShieldAlert, Search, ArrowRight } from 'lucide-react';
 import type { Message, AppNotification } from '../../types';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
-import { listarParticipacao, temInqueritoIA, temInqueritoNormal } from '../../utils/listasParticipacao';
+import { listarParticipacao, temInqueritoIA, temInqueritoNormal, filtrarAbaInquerito, type AbaInquerito } from '../../utils/listasParticipacao';
 import { novidadesPorMensagem } from '../../utils/notificacoesAtalhos';
 import { useLanguage } from '../../hooks/useLanguage';
 
@@ -20,12 +20,17 @@ interface Props {
 export function ListaParticipacaoContent({tipo, isInst, messages, notifications = [], onOpen, onBack, onCreate}: Props) {
   const {t} = useLanguage();
   const [query, setQuery] = useState('');
-  useEffect(() => setQuery(''), [tipo, isInst]);
+  const [aba, setAba] = useState<AbaInquerito>('normal');
+  useEffect(() => { setQuery(''); setAba('normal'); }, [tipo, isInst]);
   const inqueritos = tipo === 'inqueritos';
   const titulo = inqueritos ? 'Inquéritos' : isInst ? 'Denúncias recebidas' : 'Denúncias';
   const anonimizar = !inqueritos && isInst;
-  const lista = listarParticipacao(messages, tipo, query, anonimizar);
-  const total = listarParticipacao(messages, tipo).length;
+  const base = useMemo(() => {
+    const todos = listarParticipacao(messages, tipo);
+    return inqueritos ? filtrarAbaInquerito(todos, aba) : todos;
+  }, [messages, tipo, inqueritos, aba]);
+  const lista = useMemo(() => listarParticipacao(base, tipo, query, anonimizar), [base, tipo, query, anonimizar]);
+  const total = base.length;
   // Denúncias do cidadão vivem nas ENVIADAS: o «não lido» é recibo do
   // destinatário — as novidades são os avisos de estado ligados a cada item.
   const fundeNaoLidas = inqueritos || isInst;
@@ -48,6 +53,20 @@ export function ListaParticipacaoContent({tipo, isInst, messages, notifications 
           : isInst ? 'Consulte as denúncias dirigidas à sua instituição e acompanhe o respectivo processo.'
           : 'Consulte as denúncias que enviou e acompanhe o respectivo processo.')}</p>
       </div>
+      {inqueritos && (
+        <div role="tablist" aria-label={t('Tipo de inquérito')} data-aba-inquerito={aba}
+          className="flex bg-slate-100 p-1 rounded-full border border-slate-200 self-center shrink-0 shadow-3xs">
+          {(['normal', 'ia'] as const).map(a => (
+            <button key={a} type="button" role="tab" aria-selected={aba === a} data-aba={a}
+              onClick={() => { setAba(a); setQuery(''); }}
+              className={`relative px-4 md:px-5 py-2 rounded-full text-[10px] md:text-[11px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer border-0 ${
+                aba === a ? 'bg-primary text-white shadow-xs' : 'bg-transparent text-slate-600 hover:text-slate-900'
+              }`}>
+              {a === 'normal' ? t('Normal') : t('IA')}
+            </button>
+          ))}
+        </div>
+      )}
       {!inqueritos && !isInst && onCreate && <button type="button" onClick={onCreate} className="w-full sm:w-auto shrink-0 flex items-center justify-center gap-2 bg-primary text-white rounded-2xl px-5 py-3 text-xs font-black shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-colors">
         <Plus size={17} aria-hidden="true" />{t('Criar Denúncia')}
       </button>}
@@ -61,7 +80,7 @@ export function ListaParticipacaoContent({tipo, isInst, messages, notifications 
       {novidades.orfas > 0 && <span> · +{novidades.orfas} {t('avisos nas notificações')}</span>}
     </p>
     {lista.length === 0 ? <div className="p-8 text-center rounded-2xl border border-slate-200 bg-white text-slate-500">
-      {t(query.trim() ? 'Nenhum resultado para esta procura.' : inqueritos ? 'Ainda não recebeu inquéritos.' : isInst ? 'Ainda não recebeu denúncias.' : 'Ainda não enviou denúncias.')}
+      {t(query.trim() ? 'Nenhum resultado para esta procura.' : inqueritos ? (aba === 'ia' ? 'Ainda não recebeu inquéritos com IA.' : 'Ainda não recebeu inquéritos normais.') : isInst ? 'Ainda não recebeu denúncias.' : 'Ainda não enviou denúncias.')}
     </div> : <ListaRolavel count={lista.length} label={t(titulo)}>
       {lista.map(m=>{ const nov = novidades.porMensagem.get(m.id);
         return <button type="button" key={m.id} data-msg-id={m.id} onClick={()=>onOpen(m)} className="w-full min-w-0 text-left bg-white border border-slate-200 rounded-2xl p-4 md:p-5 hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors">
@@ -70,8 +89,6 @@ export function ListaParticipacaoContent({tipo, isInst, messages, notifications 
             <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-500">
               <span>#{m.id}</span><span>{m.date}</span>
               {inqueritos && <span className="text-indigo-700">{t(temInqueritoIA(m) ? temInqueritoNormal(m) ? 'Normal e com IA' : 'Com IA' : 'Normal')}</span>}
-              {nov?.naoLida && <span data-pill="nao-lida" className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wide">{t('Não lida')}</span>}
-              {!!nov?.atualizacoes && <span data-pill="atualizacoes" data-atualizacoes={nov.atualizacoes} className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black uppercase tracking-wide">{nov.atualizacoes} {t(nov.atualizacoes === 1 ? 'atualização' : 'atualizações')}</span>}
             </div>
             <h3 className="font-bold text-primary break-words">{m.details?.subject || m.preview || t(titulo)}</h3>
             <p className="text-xs text-slate-500 break-words">{anonimizar ? t('Remetente: Anónimo') : `${t(inqueritos ? 'Instituição' : 'Destinatário')}: ${m.org || '—'}`}</p>
