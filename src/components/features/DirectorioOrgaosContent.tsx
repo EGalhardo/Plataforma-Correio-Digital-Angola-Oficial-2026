@@ -1,3 +1,4 @@
+import { correspondePesquisa } from '../../utils/pesquisaContactosCorreio';
 // ============================================================================
 // Directório de Órgãos — área de REFERÊNCIA (pilar 3 do design)
 // ----------------------------------------------------------------------------
@@ -10,7 +11,7 @@
 // Separado dos Contactos Pessoais (ContactsContent) — nunca misturar.
 // ============================================================================
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Landmark, Search, Info, ExternalLink, Phone, MapPin, Mail, Map as MapIcon, ChevronUp } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { PinoMapa } from '../ui/PinoMapa';
@@ -21,12 +22,12 @@ import { contactosDoOrgao, urlGoogleMaps, urlMapaEmbutido } from '../../constant
 import {
   CATEGORIAS_DIRECTORIO,
   DIRECTORIO_INSTITUCIONAL_ANGOLA,
-  pesquisarDirectorio,
   type CategoriaDirectorio,
   type EntidadeDirectorio,
 } from '../../constants/directorioInstitucionalAngola';
 
 interface Props {
+  searchQuery?: string;
   onVoltar?: () => void;
   /**
    * T41 — «Enviar Mensagem» na ficha do órgão: abre o compositor com o
@@ -36,11 +37,13 @@ interface Props {
   onEnviarMensagem?: (destino: { codigo: string; nome: string; sigla: string }) => void;
 }
 
-export function DirectorioOrgaosContent({ onVoltar, onEnviarMensagem }: Props) {
+export function DirectorioOrgaosContent({ onVoltar, onEnviarMensagem, searchQuery }: Props) {
   const { t } = useLanguage();
   const [categoria, setCategoria] = useState<CategoriaDirectorio | null>(null);
   const [selecionada, setSelecionada] = useState<EntidadeDirectorio | null>(null);
-  const [busca, setBusca] = useState('');
+  const [buscaLocal, setBusca] = useState('');
+  const busca = searchQuery ?? buscaLocal;
+  useEffect(() => { if (searchQuery !== undefined) { setSelecionada(null); setCategoria(null); } }, [searchQuery]);
   // T41 — mapa embutido (lazy: só carrega quando expandido) e fallback se falhar.
   const [mapaAberto, setMapaAberto] = useState(false);
   const [mapaFalhou, setMapaFalhou] = useState(false);
@@ -51,7 +54,7 @@ export function DirectorioOrgaosContent({ onVoltar, onEnviarMensagem }: Props) {
     setMapaFalhou(false);
   };
 
-  const resultadoBusca = busca.trim() ? pesquisarDirectorio(busca) : [];
+  const resultadoBusca = busca.trim() ? DIRECTORIO_INSTITUCIONAL_ANGOLA.filter(e => correspondePesquisa(busca, [e.nome, e.sigla, ...(e.servicos || [])])) : [];
   const aMostrar = busca.trim()
     ? resultadoBusca
     : (categoria
@@ -87,7 +90,7 @@ export function DirectorioOrgaosContent({ onVoltar, onEnviarMensagem }: Props) {
       </div>
 
       {/* Pesquisa */}
-      <div className="relative">
+      {searchQuery === undefined && <div className="relative">
         <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
           value={busca}
@@ -95,7 +98,7 @@ export function DirectorioOrgaosContent({ onVoltar, onEnviarMensagem }: Props) {
           placeholder={t('Pesquisar órgão (nome ou sigla)...')}
           className="w-full bg-white border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-xs font-semibold text-slate-800 outline-none focus:border-[#2563eb]/50 transition-all"
         />
-      </div>
+      </div>}
 
       {/* Seleção de entidade */}
       {selecionada && (

@@ -1,3 +1,4 @@
+import { isContactoInstitucional } from '../../utils/pesquisaContactosCorreio';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -18,6 +19,7 @@ import {
 } from '../../services/emergencyContactsService';
 
 interface ContactsContentProps {
+  onAddContact?: (institutional: boolean) => void;
   contacts: Contact[];
   filteredContacts: Contact[];
   searchContact: string;
@@ -35,6 +37,7 @@ interface ContactsContentProps {
 
 export function ContactsContent({
   contacts,
+  onAddContact,
   filteredContacts,
   searchContact,
   setSearchContact,
@@ -120,6 +123,7 @@ export function ContactsContent({
   };
 
   const finalContacts = filteredContacts.filter(contact => {
+    if (isContactoInstitucional(contact)) return false;
     if (selectedClassification === 'Todos') return true;
     const type = contact.type || 'Normal';
     return type === selectedClassification;
@@ -138,7 +142,7 @@ export function ContactsContent({
         </div>
         <div className="flex gap-2">
           <button 
-            onClick={() => setIsAddingContact(true)}
+            onClick={() => onAddContact ? onAddContact(separador === 'instituicoes') : setIsAddingContact(true)}
             className="bg-primary text-white rounded-2xl px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-center gap-2.5 md:gap-3 shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all text-xs md:text-sm font-black"
           >
             <Plus size={18} className="md:w-5 md:h-5" />
@@ -171,7 +175,7 @@ export function ContactsContent({
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
           <input 
             type="text"
-            placeholder="Pesquisar no círculo de confiança..."
+            placeholder={separador === 'instituicoes' ? "Procurar por Contactos institucionais" : "Procurar por Contactos Pessoais"}
             value={searchContact}
             onChange={(e) => setSearchContact(e.target.value)}
             className="w-full bg-white border border-slate-200 rounded-2xl pl-12 pr-4 py-3 md:py-3.5 text-xs md:text-sm font-bold text-slate-900 focus:ring-4 focus:ring-primary/5 focus:bg-white focus:border-primary/20 transition-all outline-none placeholder:text-slate-500"
@@ -197,7 +201,7 @@ export function ContactsContent({
               type="button"
               role="tab"
               aria-selected={activo}
-              onClick={() => setSeparador(chave)}
+              onClick={() => { setSeparador(chave); setSearchContact(''); }}
               className={`relative flex items-center gap-2.5 px-3 md:px-6 py-2.5 md:py-3 -mb-px whitespace-nowrap text-[0.7rem] md:text-[0.9rem] font-black transition-colors bg-transparent border-0 border-b-2 cursor-pointer ${
                 activo ? 'text-primary border-primary' : 'text-slate-400 border-transparent hover:text-slate-600'
               }`}
@@ -212,7 +216,19 @@ export function ContactsContent({
 
       {separador === 'instituicoes' && (
         <div role="tabpanel" aria-labelledby="tab-contactos-instituicoes" className="bg-white border border-slate-200 rounded-2xl md:rounded-[32px] p-4 md:p-8 shadow-xs">
-          <DirectorioOrgaosContent onEnviarMensagem={onEnviarMensagemOrgao} />
+          {filteredContacts.filter(isContactoInstitucional).length > 0 && (
+            <div className="space-y-3" aria-label="Instituições adicionadas">
+              <h4 className="font-bold text-primary">Instituições adicionadas</h4>
+              {filteredContacts.filter(isContactoInstitucional).map(contact => (
+                <article key={contact.id} className="p-4 border border-slate-200 rounded-2xl bg-white">
+                  <h5 className="font-bold text-primary">{contact.name}</h5>
+                  <p className="text-sm text-slate-600">NIF / Código: {contact.bi}</p>
+                  <p className="text-sm text-slate-600">{contact.phone} · {contact.email}</p>
+                </article>
+              ))}
+            </div>
+          )}
+          <DirectorioOrgaosContent searchQuery={searchContact} onEnviarMensagem={onEnviarMensagemOrgao} />
         </div>
       )}
 

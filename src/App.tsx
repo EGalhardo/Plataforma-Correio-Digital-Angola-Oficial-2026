@@ -1,3 +1,4 @@
+import { pesquisarContacto, pesquisarMensagem, CONTACTO_INSTITUCIONAL } from './utils/pesquisaContactosCorreio';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -4332,12 +4333,7 @@ export default function App() {
 
     if (!searchMail.trim()) return base;
     
-    const term = searchMail.toLowerCase();
-    return base.filter(m => 
-      (m.org?.toLowerCase().includes(term) ?? false) || 
-      (m.preview?.toLowerCase().includes(term) ?? false) ||
-      (m.details?.subject?.toLowerCase().includes(term) ?? false)
-    );
+    return base.filter(m => pesquisarMensagem(m, searchMail));
   }, [correspondenciaTab, currentInbox, currentSentMessages, searchMail, deletedMessageIds, hiddenMessageIds]);
 
   const filteredDocMessages = useMemo(() => {
@@ -4371,12 +4367,7 @@ export default function App() {
 
   const filteredContacts = useMemo(() => {
     if (!searchContact.trim()) return currentContacts;
-    const term = searchContact.toLowerCase();
-    return currentContacts.filter(c => 
-      (c.name?.toLowerCase().includes(term) ?? false) || 
-      (c.bi?.toLowerCase().includes(term) ?? false) ||
-      (c.relation?.toLowerCase().includes(term) ?? false)
-    );
+    return currentContacts.filter(c => pesquisarContacto(c, searchContact));
   }, [currentContacts, searchContact]);
 
   const addAuditLog = (action: string, type: 'info' | 'warning' | 'critical' | 'success' = 'info') => {
@@ -6300,6 +6291,11 @@ Ficha civil do titular:
         ) : (
           <ContactsContent
             contacts={currentContacts}
+            onAddContact={(institutional) => {
+              setContactFormErrors([]);
+              setContactForm({ name: '', bi: '', relation: institutional ? CONTACTO_INSTITUCIONAL : '', phone: '', whatsapp: '', email: '', type: 'Normal' });
+              setIsAddingContact(true);
+            }}
             filteredContacts={filteredContacts}
             searchContact={searchContact}
             setSearchContact={setSearchContact}
@@ -8667,7 +8663,8 @@ Ficha civil do titular:
         recognitionRefOut={chatAssistantRecognitionRef} // Exportar ref de voz do assistente para o App
       />
 
-      <AddContactModal 
+      <AddContactModal
+        institutional={contactForm.relation === CONTACTO_INSTITUCIONAL}
         isAddingContact={isAddingContact} 
         setIsAddingContact={setIsAddingContact} 
         contactForm={contactForm} 
