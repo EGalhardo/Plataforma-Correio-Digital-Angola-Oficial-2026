@@ -1,3 +1,4 @@
+import { handleOcorrencias } from '../server/ocorrencias';
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
@@ -1509,6 +1510,7 @@ const inqIaChamarModelo = async (sistema: string, utilizador: string, maxTokens:
 
 export default async function handler(req: any, res: any) {
   const { method, url } = req;
+  if (String(url || '').split('?')[0] === '/api/ocorrencias') return handleOcorrencias(req, res);
 
   // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');

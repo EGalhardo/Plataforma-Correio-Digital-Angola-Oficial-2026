@@ -190,6 +190,7 @@ const GovCorrespondenciasContent = lazy(() => import('./components/features/GovC
 const GovRelatorioContent = lazy(() => import('./components/features/GovRelatorioContent').then(m => ({ default: m.GovRelatorioContent })));
 const GovIaContent = lazy(() => import('./components/features/GovIaContent').then(m => ({ default: m.GovIaContent })));
 const InstQrCodeContent = lazy(() => import('./components/features/InstQrCodeContent').then(m => ({ default: m.InstQrCodeContent })));
+const OcorrenciasPage = lazy(() => import('./features/ocorrencias/OcorrenciasPage').then(m => ({ default: m.OcorrenciasPage })));
 const SondagensContent = lazy(() => import('./components/features/SondagensContent').then(m => ({ default: m.SondagensContent }))); // v36
 const InstAiAssistantContent = lazy(() => import('./components/features/InstAiAssistantContent').then(m => ({ default: m.InstAiAssistantContent })));
 // 2026-08-08 — Pagamentos (frontend-only; gateway só após validação INAPEM)
@@ -298,14 +299,14 @@ const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
   user: new Set([
     'home', 'correspondencias', 'contatos', 'contactos', 'perfil', 'historico',
     'notificacoes', 'pagamentos', 'documentos', 'qr-code', 'pasta-digital',
-    'solicitar-documento', 'video-atendimento', 'inqueritos', 'denuncias',
+    'solicitar-documento', 'video-atendimento', 'inqueritos', 'denuncias', 'ocorrencias',
     // tabs de detalhe — só via fallback (HASH_TAB_FALLBACKS)
     'mensagem', 'documento', 'instituicao',
   ]),
   institution: new Set([
     'home', 'correspondencias', 'gov-contatos', 'contatos', 'contactos',
     'inst-qrcode', 'inst-ai-assistant', 'perfil', 'inst-pagamentos',
-    'inqueritos', 'denuncias', 'sondagens', // v36 — lista/resultados de sondagens da instituição
+    'ocorrencias', 'inqueritos', 'denuncias', 'sondagens', // v36 — lista/resultados de sondagens da instituição
     'historico', 'notificacoes', 'documentos', 'video-atendimento', 'inst-video',
     'mensagem', 'documento', 'instituicao',
   ]),
@@ -1682,7 +1683,7 @@ export default function App() {
   const paginasMenuKey = paginasMenu ? paginasMenu.join('|') : '';
   // Navegação/tabs que nunca são "páginas" — detalhes e sobreposições
   // (mensagem aberta, documento, notificações, histórico…) ficam livres.
-  const TAB_PAGINAS_LIVRES = new Set(['inqueritos', 'denuncias', 'mensagem', 'documento', 'notificacoes', 'historico', 'video-atendimento', 'inst-pagamentos']);
+  const TAB_PAGINAS_LIVRES = new Set(['ocorrencias', 'inqueritos', 'denuncias', 'mensagem', 'documento', 'notificacoes', 'historico', 'video-atendimento', 'inst-pagamentos']);
   void instIdentity; // consumida pela F4 (equipa/perfil)
 
   // 2026-09-11 — SETA DE VOLTAR das subpáginas: pilha das páginas visitadas
@@ -6215,6 +6216,8 @@ Ficha civil do titular:
           />
           </PainelSuspense>
         );
+      case 'ocorrencias':
+        return <PainelSuspense><OcorrenciasPage onBack={() => setTab('home')} /></PainelSuspense>;
       case 'inqueritos':
         if (isInstMode) return (
           <PainelSuspense><SondagensContent title="Inquéritos" codigoInstituicao={bi} addAuditLog={addAuditLog} onBack={() => setTab('home')} onCreate={() => { setIsComposing(true); setTab('correspondencias'); }} /></PainelSuspense>

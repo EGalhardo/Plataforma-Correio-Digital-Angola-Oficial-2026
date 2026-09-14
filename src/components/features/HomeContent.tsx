@@ -6,7 +6,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShieldCheck, Mail, Video, ClipboardList, MapPin, ShieldAlert } from 'lucide-react';
-import { notify } from '../../lib/notify';
 import { HIGHLIGHT_SLIDES, INST_HIGHLIGHT_SLIDES } from '../../constants/data';
 import { Message, LanguageCode } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -188,9 +187,7 @@ export function HomeContent({
         {[
           { label: 'Vídeo-Atendimento', Icon: Video, action: () => setTab('video-atendimento') },
           { label: 'Inquéritos', Icon: ClipboardList, action: () => setTab('inqueritos') },
-          { label: isInst ? 'Ocorrências recebidas' : 'Ocorrências Locais', Icon: MapPin, action: () => {
-            notify(t('O módulo de Ocorrências Locais ainda não está disponível.'), 'info');
-          } },
+          { label: isInst ? 'Ocorrências recebidas' : 'Ocorrências Locais', Icon: MapPin, action: () => setTab('ocorrencias') },
           { label: isInst ? 'Denúncias recebidas' : 'Denúncias', Icon: ShieldAlert, action: () => setTab('denuncias') },
         ].map(({ label, Icon, action }) => (
           <button

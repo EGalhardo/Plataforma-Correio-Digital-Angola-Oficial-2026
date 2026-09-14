@@ -1,3 +1,4 @@
+import { handleOcorrencias } from './server/ocorrencias';
 import express from "express";
 import type { Response as ExpressResponse } from "express";
 import path from "path";
@@ -75,6 +76,7 @@ async function startServer() {
   // Conhecimento (base64 inflaciona ~33%); o upload directo browser→Storage
   // cobre os casos maiores e o servidor valida o tamanho por endpoint.
   app.use(express.json({ limit: '150mb' }));
+  app.all('/api/ocorrencias', handleOcorrencias);
 
   // Limpa caracteres especiais/markdown das respostas da IA (2026-08-18).
   // Remove # * _ ` ~ > e formatação markdown, preservando pontuação, números,
