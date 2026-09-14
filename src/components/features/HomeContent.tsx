@@ -187,19 +187,11 @@ export function HomeContent({
       <nav aria-label={t('Atalhos do Painel')} className="grid grid-cols-2 xl:grid-cols-4 auto-rows-fr gap-2 py-1 px-0.5">
         {[
           { label: 'Vídeo-Atendimento', Icon: Video, action: () => setTab('video-atendimento') },
-          { label: 'Inquéritos', Icon: ClipboardList, action: () => {
-            setTab(isInst ? 'sondagens' : 'correspondencias');
-            if (!isInst) notify(t('Os inquéritos recebidos estão nas respectivas mensagens do Correio.'), 'info');
-          } },
+          { label: 'Inquéritos', Icon: ClipboardList, action: () => setTab('inqueritos') },
           { label: isInst ? 'Ocorrências recebidas' : 'Ocorrências Locais', Icon: MapPin, action: () => {
             notify(t('O módulo de Ocorrências Locais ainda não está disponível.'), 'info');
           } },
-          { label: isInst ? 'Denúncias recebidas' : 'Denúncias', Icon: ShieldAlert, action: () => {
-            setTab('correspondencias');
-            notify(t(isInst
-              ? 'Consulte as denúncias recebidas no Correio. Pode procurá-las pelo assunto «Denúncia».'
-              : 'Para apresentar uma denúncia, seleccione «Nova Mensagem» e depois «Denunciar» no Correio.'), 'info');
-          } },
+          { label: isInst ? 'Denúncias recebidas' : 'Denúncias', Icon: ShieldAlert, action: () => setTab('denuncias') },
         ].map(({ label, Icon, action }) => (
           <button
             key={label}

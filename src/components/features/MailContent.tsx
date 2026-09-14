@@ -69,7 +69,7 @@ import {
   distribuirInqueritosIA, removerRascunhoInqueritoIA, registarExpedicaoInqueritosIA,
   ativarInqueritosIAParaDestinatarios, type InqueritoIA,
 } from '../../services/inqueritoIaService';
-import { Video, Loader2, CheckCircle2, AlertTriangle, Sparkles, CheckCheck, ClipboardCheck, MessagesSquare, Mic } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle, Sparkles, CheckCheck, ClipboardCheck, MessagesSquare, Mic } from 'lucide-react';
 // F59 — a pesquisa teatral de 8s com textos governamentais inventados e
 // correspondência em MOCK_CITIZENS/MOCK_USERS foi REMOVIDA: o lookup do
 // destinatário é REAL (RPC auditada) e chega por props do App.
@@ -187,8 +187,6 @@ export function MailContent({
   onRestoreMessage,
   deletedMessageIds = [],
   hiddenMessageIds = [],
-  onNavigateToVideoAtendimento,
-  videoSessionCount = 0,
   recipientLookup,
   onRecipientLookup,
   onEmergencyBroadcast,
@@ -2387,25 +2385,13 @@ export function MailContent({
         </button>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar">
-        <button 
-          onClick={onNavigateToVideoAtendimento}
-          className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
-        >
-          <Video size={13} className="shrink-0" />
-          <span>VideoAtendimento</span>
-          {videoSessionCount > 0 && (
-            <span className="bg-red-500 text-white text-[8.5px] font-black px-1.5 py-0.5 rounded-full animate-pulse ml-0.5 leading-none">
-              {videoSessionCount}
-            </span>
-          )}
-        </button>
+      {isInst && <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar">
         {isInst && (
           <button onClick={() => setTab('inst-qrcode')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer shrink-0">
             {translateText("Validação QR", currentLanguage)}
           </button>
         )}
-      </div>
+      </div>}
 
       {/* REGRA DE ESTADO DAS ENVIADAS (v37.78.16): a cópia do remetente é
           sempre «Enviada» — nunca «Não Lida»/«Lida». O estado de leitura

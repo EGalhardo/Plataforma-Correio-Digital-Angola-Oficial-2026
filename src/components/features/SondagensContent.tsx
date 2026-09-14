@@ -24,10 +24,12 @@ const CORES = ['#2563eb', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
 
 interface Props {
   codigoInstituicao: string;
+  title?: string;
+  onBack?: () => void;
   addAuditLog: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
 }
 
-export function SondagensContent({ codigoInstituicao, addAuditLog }: Props) {
+export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sondagens', onBack }: Props) {
   const [disponivel, setDisponivel] = useState<boolean | null>(null);
   const [lista, setLista] = useState<Sondagem[]>([]);
   const [aberta, setAberta] = useState<number | null>(null);
@@ -88,10 +90,10 @@ export function SondagensContent({ codigoInstituicao, addAuditLog }: Props) {
   return (
     <div className="space-y-4" data-testid="sondagens-root">
       <div className="flex items-center gap-2.5">
-        <BotaoVoltar />
+        <BotaoVoltar onClick={onBack} />
         <span className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><BarChart3 size={18} /></span>
         <div>
-          <h2 className="font-sans font-black text-[#0c2340] text-base uppercase tracking-tight">Sondagens</h2>
+          <h2 className="font-sans font-black text-[#0c2340] text-base uppercase tracking-tight">{title}</h2>
           <p className="text-[11px] font-medium text-slate-500">Sondagens e inquéritos com IA criados por {codigoInstituicao} — clique para ver os resultados.</p>
         </div>
       </div>

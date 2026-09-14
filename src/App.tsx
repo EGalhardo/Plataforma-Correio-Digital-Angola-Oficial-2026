@@ -1,3 +1,4 @@
+import { ListaParticipacaoContent } from './components/features/ListaParticipacaoContent';
 import { pesquisarContacto, pesquisarMensagem, CONTACTO_INSTITUCIONAL } from './utils/pesquisaContactosCorreio';
 /**
  * @license
@@ -297,14 +298,14 @@ const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
   user: new Set([
     'home', 'correspondencias', 'contatos', 'contactos', 'perfil', 'historico',
     'notificacoes', 'pagamentos', 'documentos', 'qr-code', 'pasta-digital',
-    'solicitar-documento', 'video-atendimento',
+    'solicitar-documento', 'video-atendimento', 'inqueritos', 'denuncias',
     // tabs de detalhe — só via fallback (HASH_TAB_FALLBACKS)
     'mensagem', 'documento', 'instituicao',
   ]),
   institution: new Set([
     'home', 'correspondencias', 'gov-contatos', 'contatos', 'contactos',
     'inst-qrcode', 'inst-ai-assistant', 'perfil', 'inst-pagamentos',
-    'sondagens', // v36 — lista/resultados de sondagens da instituição
+    'inqueritos', 'denuncias', 'sondagens', // v36 — lista/resultados de sondagens da instituição
     'historico', 'notificacoes', 'documentos', 'video-atendimento', 'inst-video',
     'mensagem', 'documento', 'instituicao',
   ]),
@@ -1681,7 +1682,7 @@ export default function App() {
   const paginasMenuKey = paginasMenu ? paginasMenu.join('|') : '';
   // Navegação/tabs que nunca são "páginas" — detalhes e sobreposições
   // (mensagem aberta, documento, notificações, histórico…) ficam livres.
-  const TAB_PAGINAS_LIVRES = new Set(['mensagem', 'documento', 'notificacoes', 'historico', 'video-atendimento', 'inst-pagamentos']);
+  const TAB_PAGINAS_LIVRES = new Set(['inqueritos', 'denuncias', 'mensagem', 'documento', 'notificacoes', 'historico', 'video-atendimento', 'inst-pagamentos']);
   void instIdentity; // consumida pela F4 (equipa/perfil)
 
   // 2026-09-11 — SETA DE VOLTAR das subpáginas: pilha das páginas visitadas
@@ -4400,7 +4401,10 @@ export default function App() {
   }, []);
 
   // Handlers
-  const handleSelectMessage = (message: Message) => {
+  const [messageReturnTab, setMessageReturnTab] = useState<string | null>(null);
+  const handleSelectMessage = (message: Message, origem?: 'recebidas' | 'enviadas', returnTab?: string) => {
+    const origemEfectiva = origem || correspondenciaTab;
+    setMessageReturnTab(returnTab || null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setSelectedMessage(message);
     setWasOpenedUnread(!!message.unread);
@@ -4421,7 +4425,7 @@ export default function App() {
         }
       }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
     }
-    setMessageSource(correspondenciaTab === 'enviadas' ? 'enviados' : 'correspondencias');
+    setMessageSource(origemEfectiva === 'enviadas' ? 'enviados' : 'correspondencias');
     
     if (message.unread) {
       const baseId = message.id >= 10000 && message.id < 90000000 ? message.id - 10000 : message.id;
@@ -4445,7 +4449,7 @@ export default function App() {
          normR2((message as any).recipientBi) !== minhaChaveR2) ||
         // cópia aberta a partir da tab «Enviadas» — exclui auto-envio
         // (recipientBi === mim), cuja abertura continua a marcar leitura.
-        (correspondenciaTab === 'enviadas' && normR2((message as any).recipientBi) !== minhaChaveR2);
+        (origemEfectiva === 'enviadas' && normR2((message as any).recipientBi) !== minhaChaveR2);
 
       if (abertaPeloRemetente) {
         addAuditLog(`Correspondência ID ${baseId} aberta pelo remetente — recibo de leitura do destinatário intocado (REGRA R2).`, 'info');
@@ -6074,7 +6078,7 @@ Ficha civil do titular:
             onDeleteMessage={handleDeleteMessage}
             onRestoreMessage={handleRestoreMessage}
             isDeleted={deletedMessageIds.includes(selectedMessage.id)}
-            backTab={selectedInstitution ? 'instituicao' : 'correspondencias'}
+            backTab={messageReturnTab || (selectedInstitution ? 'instituicao' : 'correspondencias')}
             cidadaoBi={isUserMode ? bi : undefined}
             addAuditLog={addAuditLog}
             podeGerirDenuncia={isInstMode && instIdentity?.type === 'responsible'}
@@ -6211,6 +6215,19 @@ Ficha civil do titular:
           />
           </PainelSuspense>
         );
+      case 'inqueritos':
+        if (isInstMode) return (
+          <PainelSuspense><SondagensContent title="Inquéritos" codigoInstituicao={bi} addAuditLog={addAuditLog} onBack={() => setTab('home')} /></PainelSuspense>
+        );
+        return <ListaParticipacaoContent tipo="inqueritos" isInst={false}
+          messages={currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
+          onOpen={m => handleSelectMessage(m, 'recebidas', 'inqueritos')}
+          onBack={() => setTab('home')} />;
+      case 'denuncias':
+        return <ListaParticipacaoContent tipo="denuncias" isInst={isInstMode}
+          messages={(isInstMode ? currentInbox : currentSentMessages).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
+          onOpen={m => handleSelectMessage(m, isInstMode ? 'recebidas' : 'enviadas', 'denuncias')}
+          onBack={() => setTab('home')} />;
       case 'sondagens': // v36 — lista + resultados (spec §5)
         return (
           <PainelSuspense>
