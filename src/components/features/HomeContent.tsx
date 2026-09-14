@@ -89,7 +89,8 @@ export function HomeContent({
     return () => {active = false; controller.abort(); window.clearInterval(timer); window.removeEventListener('focus', visible); document.removeEventListener('visibilitychange', visible);};
   }, [notificationOwnerKey, realSession]);
   const badgeCounts = contarNotificacoesAtalhos(notifications, inbox || [], !!isInst,
-    realSession && ocorrenciasCount.owner === notificationOwnerKey ? ocorrenciasCount.count : 0);
+    realSession && ocorrenciasCount.owner === notificationOwnerKey ? ocorrenciasCount.count : 0,
+    sentMessages || []);
 
   /**
    * v37.39 — se a logomarca oficial falhar (URL removida/fora do ar), cai no

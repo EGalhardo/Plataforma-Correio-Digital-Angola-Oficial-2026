@@ -38,6 +38,8 @@ import {
   AlertTriangle,
   Trash2
 } from 'lucide-react';
+import type { AppNotification } from '../../types';
+import { ligarNotificacoesSessoes, tipoPorAlvoTitulo } from '../../utils/notificacoesAtalhos';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { useLanguage } from '../../hooks/useLanguage';
 import { notify } from '../../lib/notify';
@@ -75,6 +77,8 @@ interface VideoSessionPageProps {
   instCode?: string;
   instDisplayName?: string;
   sessionDemo?: boolean;
+  /** Avisos da sessão (mesma fonte do badge do atalho) para assinalar sessões. */
+  notifications?: AppNotification[];
 }
 
 // mockSessions com atendimentos disponíveis e 1 sessão de demonstração sempre activa
@@ -122,15 +126,25 @@ const mockSessions = [
   }
 ];
 
-export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '', instCode = '', instDisplayName = '', sessionDemo = false }: VideoSessionPageProps) {
+export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '', instCode = '', instDisplayName = '', sessionDemo = false, notifications = [] }: VideoSessionPageProps) {
   const { t } = useLanguage();
   const { user, activeProfile } = useSession();
+  // Avisos não lidos de vídeo (mesma classificação do badge do atalho).
+  const avisosVideo = useMemo(
+    () => notifications.filter(n => n.unread !== false && tipoPorAlvoTitulo(n) === 'video-atendimento'),
+    [notifications],
+  );
   
   const currentDisplayName = isInst 
     ? (instDisplayName || activeProfile?.institutionName || (user?.name ? `${user.name} (INAPEM)` : 'Agente Institucional'))
     : (user?.name || activeProfile?.name || 'Cidadão');
 
   const [sessions, setSessions] = useState<any[]>([]);
+  // Sessões assinaladas com os avisos que lhes dizem respeito (soma = badge).
+  const avisosPorSessao = useMemo(
+    () => ligarNotificacoesSessoes(avisosVideo, (sessions || []).map(s => ({ id: String(s.id), subject: s.subject }))),
+    [avisosVideo, sessions],
+  );
 
   // ==========================================================================
   // 2026-08-22 — AGENDAMENTO pela INSTITUIÇÃO (qualquer cidadão registado)
@@ -543,6 +557,11 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
               {activeTab === 'ajuda' && 'Guias e Tutorial'}
               {activeTab === 'video' && 'VideoAtendimento Oficial em Tempo Real'}
             </h4>
+            {avisosVideo.length > 0 && (activeTab === 'agenda' || activeTab === 'historico') && (
+              <p data-avisos-video={avisosVideo.length} className="text-[11px] font-bold text-red-600 mb-3" aria-live="polite">
+                {avisosVideo.length} {t(avisosVideo.length === 1 ? 'aviso não lido' : 'avisos não lidos')} — {t('sessões assinaladas abaixo')}
+              </p>
+            )}
             
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
@@ -571,6 +590,11 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                                 <div className="flex items-center gap-2 mb-1">
                                   <span className={`w-2 h-2 rounded-full ${statusConfig.color}`} />
                                   <span className={`text-[10px] font-black uppercase text-slate-500 cda-video-agenda-label ${statusConfig.semClass}`}>{statusConfig.text}</span>
+                                  {!!avisosPorSessao.get(String(session.id))?.length && (
+                                    <span data-sessao-aviso={session.id} className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wide">
+                                      {avisosPorSessao.get(String(session.id))!.length} {t(avisosPorSessao.get(String(session.id))!.length === 1 ? 'aviso' : 'avisos')}
+                                    </span>
+                                  )}
                                 </div>
                                 <h5 className="text-sm font-black text-slate-800 mb-1 cda-video-agenda-title">{session.subject}</h5>
                                 <div className="flex items-center gap-3 text-[10px] text-slate-500 cda-video-agenda-meta">
@@ -627,7 +651,13 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                       <div key={session.id} className={`p-4 border ${statusConfig.border} ${statusConfig.bg} ${statusConfig.borderDark} ${statusConfig.bgDark} rounded-2xl opacity-75`}>
                         <div className="flex items-center justify-between">
                           <div>
-                            <span className="text-[10px] font-black uppercase text-slate-500 mb-1 block dark:text-slate-400">{statusConfig.text}</span>
+                            <span className="text-[10px] font-black uppercase text-slate-500 mb-1 block dark:text-slate-400">{statusConfig.text}
+                              {!!avisosPorSessao.get(String(session.id))?.length && (
+                                <span data-sessao-aviso={session.id} className="ml-2 px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wide">
+                                  {avisosPorSessao.get(String(session.id))!.length} {t(avisosPorSessao.get(String(session.id))!.length === 1 ? 'aviso' : 'avisos')}
+                                </span>
+                              )}
+                            </span>
                             <h5 className="text-xs font-black text-slate-700 dark:text-slate-200">{session.subject}</h5>
                             <p className="text-[9px] text-slate-500 mt-0.5 dark:text-slate-400">{session.date} - {session.time}</p>
                           </div>

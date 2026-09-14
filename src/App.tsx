@@ -84,6 +84,7 @@ import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, se
 import { validarDataExpiracao, formatarDataExpiracao, dataExpiracaoParaISO } from './utils/dataExpiracao';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente } from './utils/ordenacaoCronologica';
+import { contarNotificacoesAtalhos, assuntoChave, normalizarTexto } from './utils/notificacoesAtalhos';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao, listarRegistosPendentes, EVENTO_REGISTOS_ALTERADOS } from './services/supabaseService';
 import { ehAssuntoDenuncia, estadoDeFase, codigoInstituicaoBase } from './services/denunciaCore';
 import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
@@ -4237,13 +4238,21 @@ export default function App() {
     }
     // 2026-08-22 — a notificação de AGENDAMENTO de video-atendimento só
     // desaparece QUANDO O DIA DO AGENDAMENTO É ULTRAPASSADO (nunca por ter
-    // sido lida): o texto oficial traz "… para o dia AAAA-MM-DD às HH:MM" —
-    // depois desse dia a notificação esconde-se sozinha (não é apagada).
+    // sido lida): o texto oficial traz "… para o dia AAAA-MM-DD às HH:MM" ou
+    // "… para o dia DD/MM/AAAA às HH:MM" — depois desse dia a notificação
+    // esconde-se sozinha (não é apagada). 2026-09-14: coberto também o formato
+    // DD/MM/AAAA (agendamentos passados ficavam visíveis e no badge p/ sempre).
     const hoje = new Date().toISOString().slice(0, 10);
+    const diaUltrapassado = (texto: string): boolean => {
+      const iso = /dia\s+(\d{4}-\d{2}-\d{2})/i.exec(texto);
+      if (iso) return iso[1] < hoje;
+      const pt = /dia\s+(\d{2})[\/-](\d{2})[\/-](\d{4})/i.exec(texto);
+      if (pt) return `${pt[3]}-${pt[2]}-${pt[1]}` < hoje;
+      return false;
+    };
     return base.filter(n => {
-      if (n.targetTab !== 'video-atendimento') return true;
-      const m = /dia\s+(\d{4}-\d{2}-\d{2})/i.exec(String(n.message || ''));
-      return !m || m[1] >= hoje;
+      if (n.targetTab !== 'video-atendimento' && n.targetTab !== 'inst-video') return true;
+      return !diaUltrapassado(String(n.message || ''));
     });
   }, [notifications, isDemoSession, sessionOwnerKey]);
 
@@ -4427,6 +4436,27 @@ export default function App() {
       }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
     }
     setMessageSource(origemEfectiva === 'enviadas' ? 'enviados' : 'correspondencias');
+    // v37.78.28 — CICLO DE VIDA DA NOTIFICAÇÃO (reporte do dono 2026-08-31 +
+    // 2026-09-14): ao ABRIR a correspondência, os avisos associados (texto
+    // contém o mesmo assunto, sem [ETIQUETA], insensível a acentos/maiúsculas)
+    // passam a LIDOS — read_at na nuvem + estado local — e saem dos badges.
+    // Corre SEMPRE (dentro e fora de «Não lida», destinatário e remetente):
+    // abrir uma denúncia ENVIADA limpa os avisos de estado «Recebida/…» —
+    // antes ficavam «não lidos» para sempre. O recibo de leitura da MENSAGEM
+    // continua protegido pela REGRA R2 (só o destinatário o escreve).
+    const limparAvisosDaCorrespondencia = () => {
+      const assuntoAberto = assuntoChave(message);
+      const corresponde = (n: typeof notifications[number]) =>
+        n.unread !== false && assuntoAberto.length >= 5 && normalizarTexto(n.message || '').includes(assuntoAberto);
+      setNotifications(prev => prev.map(n => (corresponde(n) ? { ...n, unread: false } : n)));
+      if (isOnline && hasValidSupabaseKeys()) {
+        notifications.filter(corresponde).forEach(n => {
+          supabaseService.markNotificationRead(n.id).catch(() => undefined);
+        });
+      }
+    };
+
+    limparAvisosDaCorrespondencia();
     
     if (message.unread) {
       const baseId = message.id >= 10000 && message.id < 90000000 ? message.id - 10000 : message.id;
@@ -4497,22 +4527,6 @@ export default function App() {
         }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
       }
 
-      // v37.78.28 — CICLO DE VIDA DA NOTIFICAÇÃO (reporte do dono 2026-08-31):
-      // ao ABRIR a correspondência, a notificação associada (texto contém o
-      // mesmo assunto) passa a LIDA — read_at na nuvem + estado local — e
-      // desaparece da lista de alertas/badge. Antes ficava «não lida» para
-      // sempre, mesmo depois de o destinatário já ter aberto a correspondência.
-      {
-        const assuntoAberto = String(message.details?.subject || message.preview || '').trim();
-        const corresponde = (n: typeof notifications[number]) =>
-          n.unread !== false && assuntoAberto.length >= 5 && String(n.message || '').includes(assuntoAberto);
-        setNotifications(prev => prev.map(n => (corresponde(n) ? { ...n, unread: false } : n)));
-        if (isOnline && hasValidSupabaseKeys()) {
-          notifications.filter(corresponde).forEach(n => {
-            supabaseService.markNotificationRead(n.id).catch(() => undefined);
-          });
-        }
-      }
 
       // Registo de auditoria certificado para provar sincronização
       addAuditLog(`Correspondência ID ${baseId} marcada como lida na área do destinatário (estado do remetente intocado — REGRA R2).`, 'success');
@@ -5493,6 +5507,7 @@ Serviços ativos: Notificações em tempo real e interconexão garantida.`;
               onBack={() => setTab('correspondencias')}
               onNavigateToMail={() => setTab('correspondencias')}
               addAuditLog={addAuditLog}
+              notifications={currentNotifications}
               // 2026-08-22 — contexto do papel: a instituição agenda com o
               // cidadão; o cidadão vê as sessões agendadas PARA ele.
               isInst={isInstMode}
@@ -6003,6 +6018,7 @@ Ficha civil do titular:
               onBack={() => setTab('correspondencias')}
               onNavigateToMail={() => setTab('correspondencias')}
               addAuditLog={addAuditLog}
+              notifications={currentNotifications}
               // 2026-08-22 — contexto do papel: a instituição agenda com o
               // cidadão; o cidadão vê as sessões agendadas PARA ele.
               isInst={isInstMode}
@@ -6224,14 +6240,16 @@ Ficha civil do titular:
         return <PainelSuspense><OcorrenciasPage onBack={() => setTab('home')} /></PainelSuspense>;
       case 'inqueritos':
         if (isInstMode) return (
-          <PainelSuspense><SondagensContent title="Inquéritos" codigoInstituicao={bi} addAuditLog={addAuditLog} onBack={() => setTab('home')} onCreate={() => { setIsComposing(true); setTab('correspondencias'); }} /></PainelSuspense>
+          <PainelSuspense><SondagensContent title="Inquéritos" codigoInstituicao={bi} addAuditLog={addAuditLog} onBack={() => setTab('home')} onCreate={() => { setIsComposing(true); setTab('correspondencias'); }} novidadesNaoLidas={contarNotificacoesAtalhos(currentNotifications, currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)), true).inqueritos} onVerNotificacoes={() => setTab('notificacoes')} /></PainelSuspense>
         );
         return <ListaParticipacaoContent tipo="inqueritos" isInst={false}
+          notifications={currentNotifications}
           messages={currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
           onOpen={m => handleSelectMessage(m, 'recebidas', 'inqueritos')}
           onBack={() => setTab('home')} />;
       case 'denuncias':
         return <ListaParticipacaoContent tipo="denuncias" isInst={isInstMode}
+          notifications={currentNotifications}
           onCreate={isUserMode ? () => { setIsComposing(true); setTab('correspondencias'); } : undefined}
           messages={(isInstMode ? currentInbox : currentSentMessages).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
           onOpen={m => handleSelectMessage(m, isInstMode ? 'recebidas' : 'enviadas', 'denuncias')}

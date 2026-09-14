@@ -29,9 +29,12 @@ interface Props {
   onBack?: () => void;
   onCreate?: () => void;
   addAuditLog: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
+  /** Avisos não lidos sobre inquéritos (mesma contagem do badge do atalho). */
+  novidadesNaoLidas?: number;
+  onVerNotificacoes?: () => void;
 }
 
-export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sondagens', onBack, onCreate }: Props) {
+export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sondagens', onBack, onCreate, novidadesNaoLidas = 0, onVerNotificacoes }: Props) {
   const [disponivel, setDisponivel] = useState<boolean | null>(null);
   const [lista, setLista] = useState<Sondagem[]>([]);
   const [aberta, setAberta] = useState<number | null>(null);
@@ -102,6 +105,14 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
           <Plus size={17} aria-hidden="true" />Criar Inquéritos
         </button>}
       </div>
+
+      {novidadesNaoLidas > 0 && (
+        <button type="button" onClick={onVerNotificacoes} data-novidades-inqueritos={novidadesNaoLidas}
+          className="w-full rounded-2xl border border-red-200 bg-red-50 px-5 py-3 flex items-center gap-3 text-left hover:bg-red-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 transition-colors cursor-pointer">
+          <span className="shrink-0 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-black tabular-nums leading-none" role="status">{novidadesNaoLidas}</span>
+          <span className="text-[12px] font-bold text-red-800">{novidadesNaoLidas === 1 ? 'novidade não lida sobre inquéritos' : 'novidades não lidas sobre inquéritos'} — ver notificações</span>
+        </button>
+      )}
 
       {disponivel === false && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 flex items-center gap-3" data-testid="selo-sondagens-migracao">
