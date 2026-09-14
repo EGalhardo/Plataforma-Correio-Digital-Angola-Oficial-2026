@@ -5,7 +5,8 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, Mail } from 'lucide-react';
+import { ShieldCheck, Mail, Video, ClipboardList, MapPin, ShieldAlert } from 'lucide-react';
+import { notify } from '../../lib/notify';
 import { HIGHLIGHT_SLIDES, INST_HIGHLIGHT_SLIDES } from '../../constants/data';
 import { Message, LanguageCode } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -183,19 +184,34 @@ export function HomeContent({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar">
-        <button onClick={() => setTab('historico')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Ver Histórico")}</button>
-        <button onClick={() => setTab('notificacoes')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Notificações")}</button>
-        <button onClick={() => setTab('directorio-orgaos')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Directório de Órgãos")}</button>
-        {isInst ? (
-          <button onClick={() => setTab('inst-pagamentos')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Pagamentos")}</button>
-        ) : (
-          <button onClick={() => setTab('pagamentos')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Pagamentos")}</button>
-        )}
-        {isInst && (
-          <button onClick={() => setTab('inst-qrcode')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Validação QR")}</button>
-        )}
-      </div>
+      <nav aria-label={t('Atalhos do Painel')} className="grid grid-cols-2 xl:grid-cols-4 auto-rows-fr gap-2 py-1 px-0.5">
+        {[
+          { label: 'Vídeo-Atendimento', Icon: Video, action: () => setTab('video-atendimento') },
+          { label: 'Inquéritos', Icon: ClipboardList, action: () => {
+            setTab(isInst ? 'sondagens' : 'correspondencias');
+            if (!isInst) notify(t('Os inquéritos recebidos estão nas respectivas mensagens do Correio.'), 'info');
+          } },
+          { label: isInst ? 'Ocorrências recebidas' : 'Ocorrências Locais', Icon: MapPin, action: () => {
+            notify(t('O módulo de Ocorrências Locais ainda não está disponível.'), 'info');
+          } },
+          { label: isInst ? 'Denúncias recebidas' : 'Denúncias', Icon: ShieldAlert, action: () => {
+            setTab('correspondencias');
+            notify(t(isInst
+              ? 'Consulte as denúncias recebidas no Correio. Pode procurá-las pelo assunto «Denúncia».'
+              : 'Para apresentar uma denúncia, seleccione «Nova Mensagem» e depois «Denunciar» no Correio.'), 'info');
+          } },
+        ].map(({ label, Icon, action }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={action}
+            className="min-w-0 min-h-14 px-3 py-3 flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-wide shadow-3xs hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all cursor-pointer"
+          >
+            <Icon size={17} aria-hidden="true" className="text-primary shrink-0" />
+            <span className="min-w-0 text-center leading-relaxed break-words">{t(label)}</span>
+          </button>
+        ))}
+      </nav>
 
       <section className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-5 shadow-xs overflow-hidden relative group">
         <div className="flex flex-row items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-100">
