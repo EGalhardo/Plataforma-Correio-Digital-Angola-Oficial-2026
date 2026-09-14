@@ -1,4 +1,4 @@
-import { handleOcorrencias } from './server/ocorrencias';
+import { handleOcorrencias } from './server/ocorrencias.js';
 import express from "express";
 import type { Response as ExpressResponse } from "express";
 import path from "path";

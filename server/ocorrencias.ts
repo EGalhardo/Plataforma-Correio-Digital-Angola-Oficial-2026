@@ -8,7 +8,7 @@ import {
   acoesOcorrencia,
   type ActorOcorrencia,
   type DadosOcorrencia,
-} from "../src/features/ocorrencias/model";
+} from "../src/features/ocorrencias/model.js";
 const BUCKET = "cda-ocorrencias";
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

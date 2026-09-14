@@ -1,4 +1,4 @@
-import { handleOcorrencias } from '../server/ocorrencias';
+import { handleOcorrencias } from '../server/ocorrencias.js';
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
