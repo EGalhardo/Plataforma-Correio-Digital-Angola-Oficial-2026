@@ -47,7 +47,7 @@ export function ListaParticipacaoContent({tipo, isInst, messages, notifications 
     <header className="flex flex-wrap items-center gap-3">
       <BotaoVoltar onClick={onBack}/>
       <span className="p-3 rounded-2xl bg-primary/10 text-primary"><Icon size={24}/></span>
-      <div className="flex-1 min-w-0"><h2 className="text-xl md:text-2xl font-black text-primary">{t(titulo)}</h2>
+      <div className={inqueritos ? "min-w-0" : "flex-1 min-w-0"}><h2 className="text-xl md:text-2xl font-black text-primary">{t(titulo)}</h2>
         {!inqueritos && <p className="text-xs md:text-sm text-slate-500">{t(isInst ? 'Consulte as denúncias dirigidas à sua instituição e acompanhe o respectivo processo.' : 'Consulte as denúncias que enviou e acompanhe o respectivo processo.')}</p>}
       </div>
       {inqueritos && (

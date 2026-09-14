@@ -98,7 +98,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
       <div className="flex flex-wrap items-center gap-2.5">
         <BotaoVoltar onClick={onBack} />
         <span className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><BarChart3 size={18} /></span>
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0">
           <h2 className="font-sans font-black text-[#0c2340] text-base uppercase tracking-tight">{title}</h2>
           <p className="text-[11px] font-medium text-slate-500">Sondagens e inquéritos com IA criados por {codigoInstituicao} — clique para ver os resultados.</p>
         </div>
@@ -121,6 +121,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
           );
         })}
       </div>
+        <div className="flex-1" aria-hidden="true" />
         {onCreate && <button type="button" onClick={onCreate} className="w-full sm:w-auto shrink-0 flex items-center justify-center gap-2 bg-primary text-white rounded-2xl px-5 py-3 text-xs font-black shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-colors">
           <Plus size={17} aria-hidden="true" />Criar Inquéritos
         </button>}
