@@ -1,3 +1,4 @@
+import { ListaRolavel } from '../ui/ListaRolavel';
 import { useState, useEffect } from 'react';
 import { ClipboardList, ShieldAlert, Search, ArrowRight } from 'lucide-react';
 import type { Message } from '../../types';
@@ -41,7 +42,7 @@ export function ListaParticipacaoContent({tipo, isInst, messages, onOpen, onBack
     <p className="text-xs font-bold text-slate-500" aria-live="polite">{lista.length} {t('de')} {total} {t(inqueritos ? 'mensagens com inquéritos' : 'denúncias')}</p>
     {lista.length === 0 ? <div className="p-8 text-center rounded-2xl border border-slate-200 bg-white text-slate-500">
       {t(query.trim() ? 'Nenhum resultado para esta procura.' : inqueritos ? 'Ainda não recebeu inquéritos.' : isInst ? 'Ainda não recebeu denúncias.' : 'Ainda não enviou denúncias.')}
-    </div> : <div className="grid gap-3">
+    </div> : <ListaRolavel count={lista.length} label={t(titulo)}>
       {lista.map(m=><button type="button" key={m.id} onClick={()=>onOpen(m)} className="w-full min-w-0 text-left bg-white border border-slate-200 rounded-2xl p-4 md:p-5 hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
@@ -55,6 +56,6 @@ export function ListaParticipacaoContent({tipo, isInst, messages, onOpen, onBack
         </div>
         <span className="block text-xs font-bold text-primary mt-3">{t(inqueritos ? 'Consultar inquérito' : 'Consultar denúncia')}</span>
       </button>)}
-    </div>}
+    </ListaRolavel>}
   </section>;
 }

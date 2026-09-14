@@ -1,3 +1,4 @@
+import { ListaRolavel } from '../ui/ListaRolavel';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -552,7 +553,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                 {/* Agenda — container "Atendimentos Disponíveis" com acabamento premium no modo escuro
                     (fundo #091124 + cards glassmorphism; modo claro inalterado — ver index.css html.dark .cda-video-agenda*) */}
                 {activeTab === 'agenda' && (
-                  <div className="space-y-3 cda-video-agenda">
+                  <ListaRolavel count={sessions.filter(s => s.status === 'disponivel' || s.status === 'agendada' || s.status === 'em_curso').length} label="Atendimentos disponíveis" className="cda-video-agenda">
                     {sessions
                       .filter(s => s.status === 'disponivel' || s.status === 'agendada' || s.status === 'em_curso')
                       .map(session => {
@@ -614,11 +615,11 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                         </p>
                       </div>
                     )}
-                  </div>
+                  </ListaRolavel>
                 )}
 
                 {/* Histórico */}
-                {activeTab === 'historico' && sessions
+                {activeTab === 'historico' && <ListaRolavel count={sessions.filter(s => s.status === 'concluida' || s.status === 'cancelada').length} label="Histórico de sessões">{sessions
                   .filter(s => s.status === 'concluida' || s.status === 'cancelada')
                   .map(session => {
                     const statusConfig = getStatusConfig(session.status);
@@ -634,7 +635,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                         </div>
                       </div>
                     );
-                  })}
+                  })}</ListaRolavel>}
 
                 {/* Calendário */}
                 {activeTab === 'calendario' && (

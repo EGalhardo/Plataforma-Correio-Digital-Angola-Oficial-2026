@@ -1,3 +1,4 @@
+import { ListaRolavel } from '../ui/ListaRolavel';
 // ============================================================================
 // SondagensContent — lista de sondagens da instituição + resultados expandidos
 // (v36.1, spec §5). Gráfico de barras via recharts (chunk «charts» já existe).
@@ -113,6 +114,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
         </div>
       )}
 
+      <ListaRolavel count={listaIA.length + lista.length} label="Lista de inquéritos">
       {/* 2026-09-10 — Inquéritos com IA (conversacionais) */}
       {listaIA.map((q) => {
         const c = contIA[q.id];
@@ -148,16 +150,6 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
           </div>
         );
       })}
-
-      {resultadosIA && (
-        <InqueritoIaResultados
-          aberto
-          onFechar={() => setResultadosIA(null)}
-          inquerito={resultadosIA}
-          addAuditLog={addAuditLog}
-          onEncerrado={(id) => setListaIA((prev) => prev.map((p) => (p.id === id ? { ...p, status: 'encerrado' } : p)))}
-        />
-      )}
 
       {lista.map((s) => {
         const totalVotos = (dados[s.id] || []).reduce((a, b) => a + b.votos, 0);
@@ -227,6 +219,16 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
           </div>
         );
       })}
+      </ListaRolavel>
+      {resultadosIA && (
+        <InqueritoIaResultados
+          aberto
+          onFechar={() => setResultadosIA(null)}
+          inquerito={resultadosIA}
+          addAuditLog={addAuditLog}
+          onEncerrado={(id) => setListaIA((prev) => prev.map((p) => (p.id === id ? { ...p, status: 'encerrado' } : p)))}
+        />
+      )}
     </div>
   );
 }
