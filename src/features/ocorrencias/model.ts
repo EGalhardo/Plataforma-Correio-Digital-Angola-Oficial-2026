@@ -19,6 +19,41 @@ export const ESTADOS_OCORRENCIAS: Record<string, string> = {
   encerrada: "Encerrada",
   reabertura_solicitada: "Reabertura solicitada",
 };
+/** 2026-09-14 (04/07) — percurso principal da ocorrência para a cronologia. */
+export const TIMELINE_OCORRENCIA = [
+  "submetida",
+  "recebida",
+  "em_analise",
+  "em_resolucao",
+  "resolvida",
+] as const;
+export interface TransicaoEstado {
+  alvo: string;
+  acao: string;
+  exigeNota: boolean;
+}
+/** 2026-09-14 (07) — estados-alvo válidos a partir do estado actual, mapeados
+ *  para as acções já existentes (mesmas regras de `acoesOcorrencia`). */
+export function transicoesEstado(estado: string): TransicaoEstado[] {
+  const out: TransicaoEstado[] = [];
+  if (["submetida", "encaminhada"].includes(estado))
+    out.push({ alvo: "recebida", acao: "receber", exigeNota: false });
+  if (
+    ["recebida", "aguarda_informacao", "reabertura_solicitada"].includes(estado)
+  )
+    out.push({ alvo: "em_analise", acao: "analisar", exigeNota: true });
+  if (estado === "em_analise")
+    out.push({
+      alvo: "em_resolucao",
+      acao: "iniciar_resolucao",
+      exigeNota: true,
+    });
+  if (estado === "em_resolucao")
+    out.push({ alvo: "resolvida", acao: "resolver", exigeNota: true });
+  if (["em_analise", "em_resolucao", "reabertura_solicitada"].includes(estado))
+    out.push({ alvo: "encerrada", acao: "encerrar", exigeNota: true });
+  return out;
+}
 export interface ActorOcorrencia {
   id: string;
   papel: "cidadao" | "instituicao";
@@ -46,6 +81,8 @@ export interface DadosOcorrencia {
 export interface Ocorrencia extends DadosOcorrencia {
   id: string;
   numero: number;
+  capa_url?: string | null;
+  capa_nome?: string | null;
   cidadao_nome: string;
   instituicao_nome: string;
   estado: string;

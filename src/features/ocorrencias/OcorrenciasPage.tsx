@@ -23,6 +23,8 @@ import {
   AlertTriangle,
   Loader2,
   Send,
+  Check,
+  MessageSquare,
 } from "lucide-react";
 import { ListaRolavel } from "../../components/ui/ListaRolavel";
 import {
@@ -37,6 +39,8 @@ import {
   validarOcorrencia,
   protocoloOcorrencia,
   acoesOcorrencia,
+  transicoesEstado,
+  TIMELINE_OCORRENCIA,
   type ActorOcorrencia,
   type InstituicaoOcorrencia,
   type DadosOcorrencia,
@@ -46,11 +50,17 @@ import {
   type NotificacaoOcorrencia,
   type AcaoOcorrencia,
 } from "./model";
+import { MUNICIPALITIES_BY_PROVINCE } from "../../config/institutionCatalog";
 const date = (s: string) =>
   new Date(s).toLocaleString("pt-AO", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+const hora = (s: string) =>
+  new Date(s).toLocaleString("pt-AO", {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -82,6 +92,169 @@ function Estado({ value }: { value: string }) {
     >
       {ESTADOS_OCORRENCIAS[value] || value}
     </span>
+  );
+}
+function TimelineOcorrencia({
+  estado,
+  events,
+}: {
+  estado: string;
+  events: EventoOcorrencia[];
+}) {
+  const datas = new Map<string, string>();
+  for (const e of events) {
+    if (e.estado_novo && !datas.has(e.estado_novo))
+      datas.set(e.estado_novo, e.criado_em);
+  }
+  const idx = (TIMELINE_OCORRENCIA as readonly string[]).indexOf(estado);
+  const extras = [
+    "encaminhada",
+    "aguarda_informacao",
+    "encerrada",
+    "reabertura_solicitada",
+  ].filter((st) => st === estado || datas.has(st));
+  return (
+    <div className="space-y-3">
+      <ol className="space-y-3">
+        {TIMELINE_OCORRENCIA.map((st, i) => {
+          const feito = idx >= 0 ? i <= idx : datas.has(st);
+          const atual = st === estado;
+          return (
+            <li key={st} className="flex gap-3 items-start">
+              <span
+                className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                  feito
+                    ? "bg-primary text-white"
+                    : "bg-slate-200 text-slate-400"
+                }`}
+              >
+                {feito ? (
+                  <Check size={12} />
+                ) : (
+                  <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                )}
+              </span>
+              <div className="min-w-0">
+                <p
+                  className={`text-xs font-bold ${
+                    atual
+                      ? "text-primary"
+                      : feito
+                        ? "text-slate-700"
+                        : "text-slate-400"
+                  }`}
+                >
+                  {ESTADOS_OCORRENCIAS[st]}
+                  {atual ? " (actual)" : ""}
+                </p>
+                {datas.get(st) && (
+                  <p className="text-[11px] text-slate-500">
+                    {date(datas.get(st) as string)}
+                  </p>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+      {extras.length > 0 && (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {extras.map((st) => (
+            <span key={st} className="inline-flex">
+              <Estado value={st} />
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+function TabelaHistorico({ events }: { events: EventoOcorrencia[] }) {
+  if (!events.length)
+    return (
+      <p className="text-sm text-slate-500">Sem histórico registado.</p>
+    );
+  return (
+    <div className="overflow-auto max-h-[420px] rounded-xl border border-slate-200">
+      <table className="w-full text-sm min-w-[560px]">
+        <thead className="sticky top-0 bg-slate-50">
+          <tr className="text-left text-xs text-slate-500">
+            <th className="font-bold px-4 py-2.5">Autor</th>
+            <th className="font-bold px-4 py-2.5">Data</th>
+            <th className="font-bold px-4 py-2.5">Acção</th>
+          </tr>
+        </thead>
+        <tbody>
+          {events.map((e) => (
+            <tr key={e.id} className="border-t border-slate-100 align-top">
+              <td className="px-4 py-2.5 text-xs font-bold text-slate-700">
+                {e.actor_nome}
+                {e.actor_instituicao ? (
+                  <span className="block font-normal text-slate-500">
+                    {e.actor_instituicao}
+                  </span>
+                ) : null}
+              </td>
+              <td className="px-4 py-2.5 text-[11px] text-slate-500 whitespace-nowrap">
+                {date(e.criado_em)}
+              </td>
+              <td className="px-4 py-2.5 text-xs text-slate-600">
+                <span className="font-bold">
+                  {String(e.acao || "").replace(/_/g, " ")}
+                </span>
+                {e.descricao ? (
+                  <span className="block whitespace-pre-wrap break-words">
+                    {e.descricao}
+                  </span>
+                ) : null}
+                {e.destino_codigo ? (
+                  <span className="block text-indigo-700">
+                    Destino: {e.destino_codigo}
+                  </span>
+                ) : null}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+function BolhasComunicacao({ events }: { events: EventoOcorrencia[] }) {
+  const comTexto = [...events]
+    .reverse()
+    .filter((e) => e.descricao && e.descricao.trim());
+  if (!comTexto.length)
+    return <p className="text-sm text-slate-500">Ainda sem comunicações.</p>;
+  return (
+    <div className="space-y-3">
+      {comTexto.map((e) => {
+        const inst = e.actor_papel === "instituicao";
+        return (
+          <div
+            key={e.id}
+            className={`flex ${inst ? "justify-start" : "justify-end"}`}
+          >
+            <div
+              className={`max-w-[85%] rounded-2xl p-3 text-sm ${
+                inst
+                  ? "bg-indigo-50 text-slate-800 rounded-tl-sm"
+                  : "bg-slate-100 text-slate-800 rounded-tr-sm"
+              }`}
+            >
+              <p className="text-[11px] font-bold text-slate-500">
+                {e.actor_nome}
+                {e.actor_instituicao ? ` · ${e.actor_instituicao}` : ""} ·{" "}
+                {hora(e.criado_em)}
+              </p>
+              <p className="whitespace-pre-wrap break-words mt-1">
+                {e.descricao}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 function Empty({ children }: { children?: ReactNode }) {
@@ -303,7 +476,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
   const [actor, setActor] = useState<ActorOcorrencia | null>(null),
     [institutions, setInstitutions] = useState<InstituicaoOcorrencia[]>([]);
   const [view, setView] = useState<
-    "lista" | "criar" | "rever" | "detalhe" | "notificacoes"
+    "lista" | "criar" | "rever" | "detalhe" | "notificacoes" | "encaminhar"
   >("lista");
   const [boot, setBoot] = useState(true),
     [busy, setBusy] = useState(false),
@@ -329,8 +502,27 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
     [detailPhotos, setDetailPhotos] = useState<FotoOcorrencia[]>([]),
     [moreHistory, setMoreHistory] = useState(false);
   const [action, setAction] = useState<AcaoOcorrencia | null>(null);
+  const [contagens, setContagens] = useState<Record<string, number>>({});
+  const [abaNotif, setAbaNotif] = useState<"todas" | "naoLidas">("todas");
+  const [deDetalhe, setDeDetalhe] = useState(false);
+  const [tratResp, setTratResp] = useState("");
+  const [tratAlvo, setTratAlvo] = useState("");
+  const [tratNota, setTratNota] = useState("");
+  const [encDestino, setEncDestino] = useState("");
+  const [encMotivo, setEncMotivo] = useState("");
+  const [verFotos, setVerFotos] = useState(false);
+  const [esclarecimento, setEsclarecimento] = useState("");
+  useEffect(() => {
+    setTratResp(selected?.responsavel || "");
+    setTratAlvo("");
+    setTratNota("");
+    setEncDestino("");
+    setEncMotivo("");
+    setVerFotos(true);
+    setEsclarecimento("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id]);
   const [notifs, setNotifs] = useState<NotificacaoOcorrencia[]>([]),
-    [unreadOnly, setUnreadOnly] = useState(false),
     [unread, setUnread] = useState(0),
     [moreNotifs, setMoreNotifs] = useState(false);
   const notifFetchId = useRef(0);
@@ -406,6 +598,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
           );
           setTotal(r.total);
           setMore(r.mais);
+          if (!append) setContagens(r.contagens || {});
         }
       } catch (e) {
         if (request === fetchId.current) showError(e);
@@ -450,7 +643,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
       setError("");
       try {
         const r = await ocorrenciasApi("notificacoes", {
-          naoLidas: unreadOnly,
+          naoLidas: abaNotif === "naoLidas",
           offset: append ? notifs.length : 0,
         });
         if (mounted.current && request === notifFetchId.current) {
@@ -475,14 +668,14 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
           setLoading(false);
       }
     },
-    [unreadOnly, notifs.length, refreshUnread],
+    [abaNotif, notifs.length, refreshUnread],
   );
   useEffect(() => {
     if (actor && view === "notificacoes") void loadNotifs();
     return () => {
       notifFetchId.current++;
     };
-  }, [actor, view, unreadOnly]);
+  }, [actor, view, abaNotif]);
   const openDetail = async (key: string) => {
     setLoading(true);
     setError("");
@@ -628,6 +821,84 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
       setBusy(false);
     }
   };
+  const executarAcao = async (
+    operacao: string,
+    dados: Record<string, string>,
+  ): Promise<boolean> => {
+    if (!selected) return false;
+    setBusy(true);
+    setActionError("");
+    setError("");
+    try {
+      const r = await ocorrenciasApi("actuar", {
+        id: selected.id,
+        versao: selected.versao,
+        operacao,
+        dados,
+        pedido: crypto.randomUUID(),
+      });
+      setSelected(r.ocorrencia);
+      setAction(null);
+      setSuccess(
+        "Actualização guardada. O histórico e a notificação foram registados.",
+      );
+      if (operacao === "encaminhar") {
+        setView("lista");
+        void loadList();
+      } else void openDetail(r.ocorrencia.id);
+      void refreshUnread();
+      return true;
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message : "Não foi possível actualizar.";
+      setActionError(msg);
+      setError(msg);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+  const submitEsclarecimento = async () => {
+    if (esclarecimento.trim().length < 5) {
+      setError("Escreva um esclarecimento com pelo menos 5 caracteres.");
+      return;
+    }
+    if (await executarAcao("esclarecer", { descricao: esclarecimento.trim() }))
+      setEsclarecimento("");
+  };
+  const submitResponsavel = async () => {
+    if (tratResp.trim().length < 2) {
+      setError("Indique o nome do responsável ou da equipa.");
+      return;
+    }
+    await executarAcao("atribuir", { responsavel: tratResp.trim() });
+  };
+  const submitTratamento = async () => {
+    const t = transicoes.find((x) => x.alvo === tratAlvo);
+    if (!selected || !t) return;
+    if (t.exigeNota && tratNota.trim().length < 5) {
+      setError("Indique a justificação da alteração (mínimo 5 caracteres).");
+      return;
+    }
+    if (await executarAcao(t.acao, { descricao: tratNota.trim() }))
+      setTratNota("");
+  };
+  const submitEncaminhar = async () => {
+    if (!encDestino) {
+      setError("Seleccione a instituição de destino.");
+      return;
+    }
+    if (encMotivo.trim().length < 5) {
+      setError(
+        "Indique o motivo do encaminhamento (mínimo 5 caracteres).",
+      );
+      return;
+    }
+    await executarAcao("encaminhar", {
+      instituicao_codigo: encDestino,
+      descricao: encMotivo.trim(),
+    });
+  };
   const markRead = async (n: NotificacaoOcorrencia, open: boolean) => {
     setError("");
     setLoading(true);
@@ -638,7 +909,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
       );
       void refreshUnread();
       if (open) await openDetail(n.ocorrencia_id);
-      else if (unreadOnly) await loadNotifs();
+      else if (abaNotif === "naoLidas") await loadNotifs();
     } catch (e) {
       showError(e);
     } finally {
@@ -653,11 +924,21 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
       return;
     }
     if (view === "lista") onBack();
+    else if (view === "encaminhar") setView("detalhe");
     else setView("lista");
   };
   const currentInstitution = institutions.find(
     (i) => i.codigo === data.instituicao_codigo,
   );
+  const acoesCidada =
+    !institutional && selected
+      ? acoesOcorrencia(selected.estado, false)
+      : [];
+  const podeEsclarecer = acoesCidada.some((a) => a.id === "esclarecer");
+  const transicoes =
+    institutional && selected ? transicoesEstado(selected.estado) : [];
+  const acoesTrat =
+    institutional && selected ? acoesOcorrencia(selected.estado, true) : [];
   if (boot)
     return (
       <div role="status" className={`${panel} text-center text-slate-500`}>
@@ -702,14 +983,20 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                 ? "Rever e enviar"
                 : view === "notificacoes"
                   ? "Notificações de Ocorrências"
-                  : view === "detalhe" && selected
-                    ? `Ocorrência ${protocoloOcorrencia(selected.numero)}`
-                    : title}
+                  : view === "encaminhar"
+                    ? "Encaminhar ocorrência"
+                    : view === "detalhe" && selected
+                      ? institutional
+                        ? `Tratar ocorrência ${protocoloOcorrencia(selected.numero)}`
+                        : `Ocorrência ${protocoloOcorrencia(selected.numero)}`
+                      : title}
           </h2>
           <p className="text-xs md:text-sm text-slate-500 mt-1">
-            {institutional
-              ? "Triagem e acompanhamento das ocorrências dirigidas à sua instituição."
-              : "Comunique problemas da sua localidade e acompanhe a resposta."}
+            {view === "encaminhar" && selected
+              ? `protocolo ${protocoloOcorrencia(selected.numero)}`
+              : institutional
+                ? "Triagem e acompanhamento das ocorrências dirigidas à sua instituição."
+                : "Comunique problemas da sua localidade e acompanhe a resposta."}
           </p>
         </div>
         {view === "lista" && !institutional && (
@@ -723,7 +1010,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
           </button>
         )}
       </header>
-      {!["criar", "rever"].includes(view) && (
+      {!["criar", "rever", "encaminhar"].includes(view) && (
         <nav
           className="flex gap-2 flex-wrap"
           aria-label="Navegação de Ocorrências"
@@ -740,6 +1027,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
           <button
             className={view === "notificacoes" ? primary : secondary}
             onClick={() => {
+              setDeDetalhe(view === "detalhe");
               setView("notificacoes");
               setError("");
             }}
@@ -775,8 +1063,35 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
       )}
       {view === "lista" && (
         <>
+          {institutional && (
+            <div
+              className="flex flex-wrap gap-2"
+              aria-label="Ocorrências por estado"
+            >
+              {(
+                [
+                  ["recebida", "Recebidas"],
+                  ["em_analise", "Em análise"],
+                  ["em_resolucao", "Em resolução"],
+                ] as const
+              ).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  title={`Filtrar: ${label}`}
+                  onClick={() => setState((prev) => (prev === k ? "" : k))}
+                  className={`${state === k ? primary : secondary} !rounded-full`}
+                >
+                  {label}
+                  <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[10px] font-black">
+                    {contagens[k] || 0}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
           <div
-            className={`grid grid-cols-1 sm:grid-cols-2 ${institutional ? "xl:grid-cols-5" : "xl:grid-cols-4"} gap-3`}
+            className={`grid grid-cols-1 sm:grid-cols-2 ${institutional ? "xl:grid-cols-5" : "xl:grid-cols-3"} gap-3`}
           >
             <Field label="Procurar ocorrência">
               <div className="relative">
@@ -806,18 +1121,20 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                 ))}
               </select>
             </Field>
-            <Field label="Categoria">
-              <select
-                className={input}
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-              >
-                <option value="">Todas as categorias</option>
-                {CATEGORIAS_OCORRENCIAS.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            </Field>
+            {institutional && (
+              <Field label="Categoria">
+                <select
+                  className={input}
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                >
+                  <option value="">Todas as categorias</option>
+                  {CATEGORIAS_OCORRENCIAS.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </select>
+              </Field>
+            )}
             {institutional && (
               <Field label="Bairro / Localidade">
                 <input
@@ -860,41 +1177,112 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                     : "Ainda não registou ocorrências. Utilize «Registar ocorrência» para começar."}
             </Empty>
           ) : (
-            <ListaRolavel count={list.length} label={title}>
-              {list.map((o) => (
-                <button
-                  key={o.id}
-                  type="button"
-                  disabled={loading}
-                  onClick={() => void openDetail(o.id)}
-                  className={`${panel} !space-y-2 text-left hover:border-primary/40 transition-colors disabled:opacity-60`}
-                >
-                  <div className="flex flex-wrap gap-2 justify-between">
-                    <span className="font-bold text-xs text-slate-500">
-                      {protocoloOcorrencia(o.numero)} · {date(o.criado_em)}
-                    </span>
-                    <Estado value={o.estado} />
+            institutional ? (
+              <>
+                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                  <div className="overflow-auto max-h-[560px]">
+                    <table className="w-full text-sm min-w-[640px]">
+                      <thead className="sticky top-0 bg-slate-50">
+                        <tr className="text-left text-xs text-slate-500">
+                          <th className="font-bold px-4 py-3">Nº</th>
+                          <th className="font-bold px-4 py-3">Ocorrência</th>
+                          <th className="font-bold px-4 py-3">Localidade</th>
+                          <th className="font-bold px-4 py-3">Estado</th>
+                          <th className="font-bold px-4 py-3">Acção</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {list.map((o) => (
+                          <tr
+                            key={o.id}
+                            className="border-t border-slate-100 hover:bg-slate-50/60"
+                          >
+                            <td className="px-4 py-3 font-bold text-xs text-slate-500 whitespace-nowrap">
+                              {protocoloOcorrencia(o.numero)}
+                            </td>
+                            <td className="px-4 py-3 font-bold text-primary break-words">
+                              {o.titulo}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-slate-600">
+                              {o.bairro}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="space-y-1">
+                                <Estado value={o.estado} />
+                                <p className="text-[11px] text-slate-500">
+                                  {o.responsavel || "Por atribuir"}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <button
+                                type="button"
+                                disabled={loading}
+                                onClick={() => void openDetail(o.id)}
+                                className={`${secondary} !px-3 !py-1.5`}
+                              >
+                                Ver
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                  <h3 className="font-black text-primary text-base break-words">
-                    {o.titulo}
-                  </h3>
-                  <p className="text-xs text-slate-500 flex gap-1.5">
-                    <MapPin size={14} className="shrink-0" />
-                    {o.bairro} · {o.municipio} · {o.provincia}
-                  </p>
-                  <p className="text-xs text-slate-500 break-words">
-                    {o.categoria} ·{" "}
-                    {institutional
-                      ? `Responsável: ${o.responsavel || "Por atribuir"}`
-                      : o.instituicao_nome}
-                  </p>
-                  <span className="text-xs text-primary font-bold inline-flex gap-2 items-center">
-                    Ver detalhes
-                    <ArrowRight size={14} />
-                  </span>
-                </button>
-              ))}
-            </ListaRolavel>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Até 10 itens visíveis · Role para consultar mais.
+                </p>
+              </>
+            ) : (
+              <ListaRolavel count={list.length} label={title}>
+                {list.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => void openDetail(o.id)}
+                    className={`${panel} !space-y-2 text-left hover:border-primary/40 transition-colors disabled:opacity-60`}
+                  >
+                    <div className="flex gap-3 justify-between">
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <span className="font-bold text-xs text-slate-500">
+                          {protocoloOcorrencia(o.numero)}
+                        </span>
+                        <h3 className="font-black text-primary text-base break-words">
+                          {o.titulo}
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          {o.bairro} · {o.municipio}
+                        </p>
+                        <p className="text-xs text-slate-500 flex flex-wrap items-center gap-1.5">
+                          Status: <Estado value={o.estado} />
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Criada em {date(o.criado_em)}
+                        </p>
+                      </div>
+                      {o.capa_url ? (
+                        <img
+                          src={o.capa_url}
+                          alt={o.capa_nome || o.titulo}
+                          loading="lazy"
+                          className="w-28 h-20 md:w-36 md:h-24 object-cover rounded-xl border border-slate-200 shrink-0"
+                        />
+                      ) : (
+                        <span className="w-28 h-20 md:w-36 md:h-24 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
+                          <Camera size={20} />
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-primary font-bold inline-flex gap-2 items-center">
+                      Ver detalhes
+                      <ArrowRight size={14} />
+                    </span>
+                  </button>
+                ))}
+              </ListaRolavel>
+            )
           )}
           {more && (
             <button
@@ -977,31 +1365,69 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
               problema ocorre.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {(
-                [
-                  ["provincia", "Província *", 100, 2],
-                  ["municipio", "Município *", 100, 2],
-                  ["bairro", "Bairro / Localidade *", 160, 2],
-                  ["rua", "Rua (opcional)", 180, 0],
-                ] as const
-              ).map(([key, label, max, min]) => (
-                <div key={key}>
-                  <Field label={label}>
-                    <input
-                      className={input}
-                      required={min > 0}
-                      minLength={min}
-                      maxLength={max}
-                      value={data[key]}
-                      onChange={(e) =>
-                        setData({ ...data, [key]: e.target.value })
-                      }
-                    />
-                  </Field>
-                </div>
-              ))}
+              <Field label="Província *">
+                <select
+                  required
+                  className={input}
+                  value={data.provincia}
+                  onChange={(e) =>
+                    setData({
+                      ...data,
+                      provincia: e.target.value,
+                      municipio: "",
+                    })
+                  }
+                >
+                  <option value="">Seleccione a província</option>
+                  {Object.keys(MUNICIPALITIES_BY_PROVINCE)
+                    .filter((pr) => pr !== "Todas")
+                    .map((pr) => (
+                      <option key={pr} value={pr}>
+                        {pr}
+                      </option>
+                    ))}
+                </select>
+              </Field>
+              <Field label="Município *">
+                <select
+                  required
+                  className={input}
+                  value={data.municipio}
+                  disabled={!data.provincia}
+                  onChange={(e) =>
+                    setData({ ...data, municipio: e.target.value })
+                  }
+                >
+                  <option value="">
+                    {data.provincia
+                      ? "Seleccione o município"
+                      : "Escolha primeiro a província"}
+                  </option>
+                  {(MUNICIPALITIES_BY_PROVINCE[data.provincia] || [])
+                    .filter((m) => m !== "Todos")
+                    .map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                </select>
+              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Bairro / Localidade *">
+                  <input
+                    className={input}
+                    required
+                    minLength={2}
+                    maxLength={160}
+                    value={data.bairro}
+                    onChange={(e) =>
+                      setData({ ...data, bairro: e.target.value })
+                    }
+                  />
+                </Field>
+              </div>
             </div>
-            <Field label="Ponto de referência *">
+            <Field label="Rua / Ponto de referência *">
               <input
                 className={input}
                 required
@@ -1096,6 +1522,28 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                 ))}
               </select>
             </Field>
+            {currentInstitution && (
+              <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <span className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
+                  <Building2 size={18} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-primary break-words">
+                    {currentInstitution.nome}
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    {currentInstitution.codigo}
+                    {currentInstitution.municipio
+                      ? ` · ${currentInstitution.municipio}`
+                      : ""}
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 shrink-0">
+                  <ShieldCheck size={14} />
+                  Habilitada no CDA
+                </span>
+              </div>
+            )}
             {!institutions.length && (
               <p role="alert" className="text-amber-800 text-sm">
                 Não existem instituições habilitadas disponíveis. Não é possível
@@ -1132,35 +1580,66 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
       {view === "rever" && (
         <div className="space-y-4">
           <div className={panel}>
-            <h3 className="font-black text-primary text-xl">{data.titulo}</h3>
-            <span className="text-xs font-bold text-indigo-700">
-              {data.categoria}
-            </span>
-            <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">
-              {data.descricao}
-            </p>
-            <div className="border-t pt-3 text-sm text-slate-600 space-y-1">
-              <p className="font-bold">Localização manual</p>
-              <p>
+            <h3 className="font-black text-primary">Detalhes da Ocorrência</h3>
+            <dl className="text-sm space-y-2">
+              <div className="flex gap-3">
+                <dt className="w-24 shrink-0 text-slate-500">Categoria</dt>
+                <dd className="font-bold text-slate-800">{data.categoria}</dd>
+              </div>
+              <div className="flex gap-3">
+                <dt className="w-24 shrink-0 text-slate-500">Título</dt>
+                <dd className="font-bold text-slate-800 break-words">
+                  {data.titulo}
+                </dd>
+              </div>
+              <div className="flex gap-3">
+                <dt className="w-24 shrink-0 text-slate-500">Descrição</dt>
+                <dd className="text-slate-700 whitespace-pre-wrap break-words">
+                  {data.descricao}
+                </dd>
+              </div>
+            </dl>
+          </div>
+          <div className={panel}>
+            <h3 className="font-black text-primary">Localização</h3>
+            <div className="flex gap-3 text-sm">
+              <span className="w-24 shrink-0 text-slate-500">Endereço</span>
+              <span className="text-slate-700">
                 {data.bairro} · {data.municipio} · {data.provincia}
-              </p>
-              {data.rua && <p>{data.rua}</p>}
-              <p>{data.referencia}</p>
+                <br />
+                {data.referencia}
+              </span>
             </div>
+          </div>
+          <div className={panel}>
+            <h3 className="font-black text-primary">Anexos</h3>
+            <p className="text-sm text-slate-600">
+              Fotografias ({photos.length})
+            </p>
             <Photos photos={photos} />
           </div>
           <div className={panel}>
-            <h3 className="font-bold text-primary">Instituição destinatária</h3>
-            <p className="text-sm">
-              {currentInstitution?.nome} · {data.instituicao_codigo}
-            </p>
-            <span className="inline-flex gap-1 text-xs text-emerald-700">
-              <ShieldCheck size={14} />
-              Registada e aprovada no CDA
-            </span>
+            <h3 className="font-black text-primary">Instituição Destinatária</h3>
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <span className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
+                <Building2 size={18} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-primary break-words">
+                  {currentInstitution?.nome}
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  {data.instituicao_codigo}
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 shrink-0">
+                <ShieldCheck size={14} />
+                Habilitada no CDA
+              </span>
+            </div>
             <p className="text-xs text-slate-500">
-              A descrição, as fotografias e a localização serão partilhadas com
-              a instituição destinatária.
+              Fotografias e localização serão partilhadas com a instituição
+              destinatária.
             </p>
           </div>
           <label className="flex items-start gap-3 p-4 rounded-xl border bg-white text-sm">
@@ -1218,72 +1697,138 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
               Actualizar detalhes
             </button>
           </div>
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-            <div className="xl:col-span-2 space-y-4">
+          {institutional ? (
+            <div className="space-y-4">
               <div className={panel}>
                 <h3 className="text-xl font-black text-primary break-words">
                   {selected.titulo}
                 </h3>
-                <p className="text-xs font-bold text-indigo-700">
-                  {selected.categoria}
+                <p className="text-xs text-slate-500 flex gap-1.5 items-center">
+                  <MapPin size={14} />
+                  {selected.bairro} · {selected.municipio} ·{" "}
+                  {selected.provincia}
                 </p>
                 <p className="text-sm whitespace-pre-wrap break-words text-slate-700">
                   {selected.descricao}
                 </p>
-                <div className="text-sm text-slate-600 space-y-1 border-t pt-3">
-                  <p className="font-bold">Localização manual</p>
-                  <p>
-                    {selected.bairro} · {selected.municipio} ·{" "}
-                    {selected.provincia}
-                  </p>
-                  {selected.rua && <p>{selected.rua}</p>}
-                  <p>{selected.referencia}</p>
-                </div>
-                <Photos photos={detailPhotos} />
-                <p className="text-[11px] text-slate-400">
-                  As ligações das fotografias expiram por segurança. Utilize
-                  «Actualizar detalhes» para renová-las.
+                <p className="text-xs text-slate-500">
+                  {selected.categoria} · {selected.referencia}
                 </p>
+                {detailPhotos.length > 0 && (
+                  <>
+                    <Photos photos={detailPhotos} />
+                    <p className="text-[11px] text-slate-400">
+                      As ligações das fotografias expiram por segurança.
+                      Utilize «Actualizar detalhes» para renová-las.
+                    </p>
+                  </>
+                )}
+              </div>
+              <div className={panel}>
+                <div>
+                  <span className="block text-xs font-bold text-slate-600 mb-1.5">
+                    Responsável pelo tratamento
+                  </span>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      className={input}
+                      value={tratResp}
+                      minLength={2}
+                      maxLength={160}
+                      placeholder="Ex.: Equipa técnica"
+                      disabled={busy || loading}
+                      onChange={(e) => setTratResp(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className={`${secondary} shrink-0`}
+                      disabled={busy || loading}
+                      onClick={() => void submitResponsavel()}
+                    >
+                      Atribuir
+                    </button>
+                  </div>
+                </div>
+                {transicoes.length > 0 && (
+                  <>
+                    <Field label="Actualizar estado">
+                      <select
+                        className={input}
+                        value={tratAlvo}
+                        disabled={busy || loading}
+                        onChange={(e) => setTratAlvo(e.target.value)}
+                      >
+                        <option value="">Seleccione o novo estado</option>
+                        {transicoes.map((t) => (
+                          <option key={t.alvo} value={t.alvo}>
+                            {ESTADOS_OCORRENCIAS[t.alvo] || t.alvo}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Justificação da alteração *">
+                      <textarea
+                        className={input}
+                        rows={4}
+                        minLength={5}
+                        maxLength={5000}
+                        value={tratNota}
+                        disabled={busy || loading}
+                        onChange={(e) => setTratNota(e.target.value)}
+                        placeholder="Descreva a intervenção ou o motivo"
+                      />
+                    </Field>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        className={primary}
+                        disabled={busy || loading || !tratAlvo}
+                        onClick={() => void submitTratamento()}
+                      >
+                        Guardar actualização
+                      </button>
+                    </div>
+                  </>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {acoesTrat.some((a) => a.id === "pedir_esclarecimento") && (
+                    <button
+                      type="button"
+                      className={secondary}
+                      disabled={busy || loading}
+                      onClick={() => {
+                        const a = acoesTrat.find(
+                          (x) => x.id === "pedir_esclarecimento",
+                        );
+                        setActionError("");
+                        if (a) setAction(a);
+                      }}
+                    >
+                      Pedir esclarecimento
+                    </button>
+                  )}
+                  {acoesTrat.some((a) => a.id === "encaminhar") && (
+                    <button
+                      type="button"
+                      className={primary}
+                      disabled={busy || loading}
+                      onClick={() => setView("encaminhar")}
+                    >
+                      Encaminhar
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className={panel}>
+                <h3 className="font-black text-primary">Acompanhamento</h3>
+                <TimelineOcorrencia estado={selected.estado} events={events} />
               </div>
               <div className={panel}>
                 <h3 className="font-black text-primary flex items-center gap-2">
                   <Clock size={18} />
-                  Histórico e comunicações
+                  Histórico
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Do mais recente para o mais antigo. Cada actualização
-                  identifica o autor, a data e a justificação.
-                </p>
-                <ListaRolavel
-                  count={events.length}
-                  label="Histórico da ocorrência"
-                >
-                  {events.map((e) => (
-                    <article
-                      key={e.id}
-                      className="border-l-2 border-indigo-200 pl-4 py-2 space-y-1"
-                    >
-                      <div className="flex flex-wrap justify-between gap-2">
-                        <Estado value={e.estado_novo} />
-                        <time className="text-[11px] text-slate-500">
-                          {date(e.criado_em)}
-                        </time>
-                      </div>
-                      <p className="text-xs font-bold text-slate-700">
-                        {e.actor_nome}{" "}
-                        {e.actor_instituicao ? `· ${e.actor_instituicao}` : ""}
-                      </p>
-                      <p className="text-sm whitespace-pre-wrap break-words text-slate-600">
-                        {e.descricao}
-                      </p>
-                      {e.destino_codigo && (
-                        <p className="text-xs text-indigo-700">
-                          Destino: {e.destino_codigo}
-                        </p>
-                      )}
-                    </article>
-                  ))}
-                </ListaRolavel>
+                <TabelaHistorico events={events} />
                 {moreHistory && (
                   <button
                     className={secondary}
@@ -1309,87 +1854,379 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                 )}
               </div>
             </div>
-            <aside className="space-y-4">
-              <div className={panel}>
-                <h3 className="font-black text-primary">Acompanhamento</h3>
-                <dl className="space-y-3 text-xs">
-                  <div>
-                    <dt className="text-slate-500">Instituição responsável</dt>
-                    <dd className="font-bold mt-1 break-words">
-                      {selected.instituicao_nome}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500">Responsável / equipa</dt>
-                    <dd className="font-bold mt-1">
-                      {selected.responsavel || "Por atribuir"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500">Data de submissão</dt>
-                    <dd className="mt-1">{date(selected.criado_em)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500">Última actualização</dt>
-                    <dd className="mt-1">{date(selected.actualizado_em)}</dd>
-                  </div>
-                </dl>
-                <p className="text-xs text-slate-500">
-                  «Submetida» significa guardada no CDA. «Recebida» só é
-                  atribuída após confirmação da instituição.
-                </p>
-              </div>
-              <div className={panel}>
-                <h3 className="font-black text-primary">
-                  {institutional ? "Tratar ocorrência" : "A sua participação"}
-                </h3>
-                {acoesOcorrencia(selected.estado, !!institutional).length ? (
-                  acoesOcorrencia(selected.estado, !!institutional).map((a) => (
-                    <button
-                      key={a.id}
-                      className={`${secondary} w-full`}
-                      onClick={() => {
-                        setActionError("");
-                        setAction(a);
-                      }}
-                      disabled={busy || loading}
-                    >
-                      {a.label}
-                    </button>
-                  ))
-                ) : (
-                  <p className="text-xs text-slate-500">
-                    {["resolvida", "encerrada"].includes(selected.estado)
-                      ? "Ocorrência concluída. O histórico permanece disponível."
-                      : "Aguarde uma actualização da instituição."}
+          ) : (
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+              <div className="xl:col-span-2 space-y-4">
+                <div className={panel}>
+                  <h3 className="text-xl font-black text-primary break-words">
+                    {selected.titulo}
+                  </h3>
+                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <dt className="text-xs text-slate-500">Categoria</dt>
+                      <dd className="font-bold text-slate-800">
+                        {selected.categoria}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-slate-500">Localização</dt>
+                      <dd className="font-bold text-slate-800">
+                        {selected.bairro} · {selected.municipio}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-slate-500">
+                        Instituição responsável
+                      </dt>
+                      <dd className="font-bold text-slate-800 break-words">
+                        {selected.instituicao_nome}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-slate-500">Enviada em</dt>
+                      <dd className="font-bold text-slate-800">
+                        {date(selected.criado_em)}
+                      </dd>
+                    </div>
+                  </dl>
+                  <p className="text-sm whitespace-pre-wrap break-words text-slate-700">
+                    {selected.descricao}
                   </p>
-                )}
+                  <div className="text-sm text-slate-600 space-y-1 border-t pt-3">
+                    <p className="font-bold">Localização manual</p>
+                    <p>
+                      {selected.bairro} · {selected.municipio} ·{" "}
+                      {selected.provincia}
+                    </p>
+                    {selected.rua && <p>{selected.rua}</p>}
+                    <p>{selected.referencia}</p>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="font-bold text-primary text-sm">
+                      Fotografias ({detailPhotos.length})
+                    </h4>
+                    <button
+                      type="button"
+                      className={secondary}
+                      onClick={() => setVerFotos((v) => !v)}
+                    >
+                      {verFotos ? "Ocultar fotografias" : "Ver fotografias"}
+                    </button>
+                  </div>
+                  {verFotos && detailPhotos.length > 0 && (
+                    <Photos photos={detailPhotos} />
+                  )}
+                  {verFotos && detailPhotos.length === 0 && (
+                    <p className="text-sm text-slate-500">
+                      Sem fotografias anexadas.
+                    </p>
+                  )}
+                  <p className="text-[11px] text-slate-400">
+                    As ligações das fotografias expiram por segurança. Utilize
+                    «Actualizar detalhes» para renová-las.
+                  </p>
+                </div>
+                <div className={panel}>
+                  <h3 className="font-black text-primary flex items-center gap-2">
+                    <MessageSquare size={18} />
+                    Comunicações
+                  </h3>
+                  <BolhasComunicacao events={events} />
+                  {podeEsclarecer && (
+                    <div className="space-y-2">
+                      <textarea
+                        className={input}
+                        rows={3}
+                        maxLength={5000}
+                        value={esclarecimento}
+                        disabled={busy || loading}
+                        onChange={(e) => setEsclarecimento(e.target.value)}
+                        placeholder="Adicionar esclarecimento..."
+                        aria-label="Adicionar esclarecimento"
+                      />
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          className={primary}
+                          disabled={
+                            busy ||
+                            loading ||
+                            esclarecimento.trim().length < 5
+                          }
+                          onClick={() => void submitEsclarecimento()}
+                        >
+                          Enviar esclarecimento
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className={panel}>
+                  <h3 className="font-black text-primary flex items-center gap-2">
+                    <Clock size={18} />
+                    Histórico
+                  </h3>
+                  <TabelaHistorico events={events} />
+                  {moreHistory && (
+                    <button
+                      className={secondary}
+                      disabled={loading}
+                      onClick={async () => {
+                        setLoading(true);
+                        try {
+                          const r = await ocorrenciasApi("historico", {
+                            id: selected.id,
+                            offset: events.length,
+                          });
+                          setEvents((prev) => [...prev, ...r.lista]);
+                          setMoreHistory(r.mais);
+                        } catch (e) {
+                          showError(e);
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                    >
+                      Carregar mais histórico
+                    </button>
+                  )}
+                </div>
               </div>
-            </aside>
-          </div>
+              <aside className="space-y-4">
+                <div className={panel}>
+                  <h3 className="font-black text-primary">Informação</h3>
+                  <dl className="space-y-3 text-xs">
+                    <div>
+                      <dt className="text-slate-500">Instituição responsável</dt>
+                      <dd className="font-bold mt-1 break-words">
+                        {selected.instituicao_nome}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-slate-500">Responsável / equipa</dt>
+                      <dd className="font-bold mt-1">
+                        {selected.responsavel || "Por atribuir"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-slate-500">Data de submissão</dt>
+                      <dd className="mt-1">{date(selected.criado_em)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-slate-500">Última actualização</dt>
+                      <dd className="mt-1">{date(selected.actualizado_em)}</dd>
+                    </div>
+                  </dl>
+                  <p className="text-xs text-slate-500">
+                    «Submetida» significa guardada no CDA. «Recebida» só é
+                    atribuída após confirmação da instituição.
+                  </p>
+                </div>
+                <div className={panel}>
+                  <h3 className="font-black text-primary">Acompanhamento</h3>
+                  <TimelineOcorrencia
+                    estado={selected.estado}
+                    events={events}
+                  />
+                </div>
+                <div className={panel}>
+                  <h3 className="font-black text-primary">A sua participação</h3>
+                  {acoesCidada
+                    .filter((a) => a.id !== "esclarecer")
+                    .map((a) => (
+                      <button
+                        key={a.id}
+                        className={`${secondary} w-full`}
+                        onClick={() => {
+                          setActionError("");
+                          setAction(a);
+                        }}
+                        disabled={busy || loading}
+                      >
+                        {a.label}
+                      </button>
+                    ))}
+                  {acoesCidada.length === 0 && (
+                    <p className="text-xs text-slate-500">
+                      {["resolvida", "encerrada"].includes(selected.estado)
+                        ? "Ocorrência concluída. O histórico permanece disponível."
+                        : "Aguarde uma actualização da instituição."}
+                    </p>
+                  )}
+                </div>
+              </aside>
+            </div>
+          )}
           {!institutional && <Safety />}
         </>
+      )}
+      {view === "encaminhar" && selected && (
+        <div className="space-y-4">
+          <div className={panel}>
+            <h3 className="text-xl font-black text-primary break-words">
+              {selected.titulo}
+            </h3>
+            <p className="text-xs text-slate-500 flex gap-1.5 items-center">
+              <MapPin size={14} />
+              {selected.bairro} · {selected.municipio}
+            </p>
+          </div>
+          <div className={panel}>
+            <Field label="Instituição de destino *">
+              <select
+                className={input}
+                value={encDestino}
+                disabled={busy}
+                onChange={(e) => setEncDestino(e.target.value)}
+              >
+                <option value="">Instituições habilitadas no CDA</option>
+                {institutions
+                  .filter((it) => it.codigo !== selected.instituicao_codigo)
+                  .map((it) => (
+                    <option key={it.codigo} value={it.codigo}>
+                      {it.nome} · {it.codigo}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            {(() => {
+              const dest = institutions.find((it) => it.codigo === encDestino);
+              return dest ? (
+                <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <span className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
+                    <Building2 size={18} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-primary break-words">
+                      {dest.nome}
+                    </p>
+                    <p className="text-[11px] text-slate-500">{dest.codigo}</p>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 shrink-0">
+                    <ShieldCheck size={14} />
+                    Habilitada
+                  </span>
+                </div>
+              ) : null;
+            })()}
+            <Field label="Motivo do encaminhamento *">
+              <textarea
+                className={input}
+                rows={4}
+                minLength={5}
+                maxLength={5000}
+                value={encMotivo}
+                disabled={busy}
+                onChange={(e) => setEncMotivo(e.target.value)}
+                placeholder="Ex.: Competência de manutenção da iluminação pública."
+              />
+            </Field>
+            <fieldset>
+              <legend className="text-xs font-bold text-slate-600 mb-1.5">
+                O encaminhamento inclui sempre
+              </legend>
+              <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                {["Fotografias", "Descrição", "Localização", "Histórico"].map(
+                  (t) => (
+                    <label
+                      key={t}
+                      className="flex gap-2 items-center text-slate-700"
+                    >
+                      <input type="checkbox" checked disabled />
+                      {t}
+                    </label>
+                  ),
+                )}
+              </div>
+            </fieldset>
+            <p className="text-xs text-slate-500">
+              A origem, o destino e a justificação ficam registados no
+              histórico. O cidadão será notificado após confirmação do
+              encaminhamento.
+            </p>
+          </div>
+          {institutions.filter((it) => it.codigo !== selected.instituicao_codigo)
+            .length === 0 && (
+            <p className="flex gap-2 text-xs text-indigo-800 bg-indigo-50 border border-indigo-200 rounded-xl p-3">
+              <AlertTriangle size={16} className="shrink-0" />
+              Sem instituição habilitada? Mantenha a ocorrência em análise e
+              informe o cidadão; não há destino automático.
+            </p>
+          )}
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              className={secondary}
+              disabled={busy}
+              onClick={() => setView("detalhe")}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className={primary}
+              disabled={busy || !encDestino || encMotivo.trim().length < 5}
+              onClick={() => void submitEncaminhar()}
+            >
+              Confirmar encaminhamento
+            </button>
+          </div>
+        </div>
       )}
       {view === "notificacoes" && (
         <>
           <div className="flex flex-wrap justify-between items-center gap-3">
-            <label className="text-sm flex gap-2 items-center">
-              <input
-                type="checkbox"
-                checked={unreadOnly}
-                disabled={loading}
-                onChange={(e) => setUnreadOnly(e.target.checked)}
-              />
-              Apenas não lidas
-            </label>
-            <button
-              className={secondary}
-              onClick={() => void loadNotifs()}
-              disabled={loading}
+            <div
+              role="tablist"
+              aria-label="Filtro de notificações"
+              className="flex gap-2"
             >
-              <RefreshCw size={14} />
-              Actualizar notificações
-            </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={abaNotif === "todas"}
+                onClick={() => setAbaNotif("todas")}
+                className={abaNotif === "todas" ? primary : secondary}
+              >
+                Todas
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={abaNotif === "naoLidas"}
+                onClick={() => setAbaNotif("naoLidas")}
+                className={abaNotif === "naoLidas" ? primary : secondary}
+              >
+                Não lidas{" "}
+                {unread > 0 && (
+                  <span className="bg-red-600 text-white rounded-full px-2 py-0.5 text-[10px]">
+                    {unread}
+                  </span>
+                )}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {deDetalhe && selected && (
+                <button
+                  className={primary}
+                  onClick={() => {
+                    setDeDetalhe(false);
+                    setView("detalhe");
+                  }}
+                >
+                  <ArrowLeft size={14} />
+                  Voltar à ocorrência
+                </button>
+              )}
+              <button
+                className={secondary}
+                onClick={() => void loadNotifs()}
+                disabled={loading}
+              >
+                <RefreshCw size={14} />
+                Actualizar notificações
+              </button>
+            </div>
           </div>
           {loading && (
             <p role="status" className="text-xs text-slate-500">
@@ -1419,8 +2256,11 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                       )}
                       {n.titulo}
                     </h3>
-                    <time className="text-[11px] text-slate-500 shrink-0">
-                      {date(n.criado_em)}
+                    <time
+                      className="text-[11px] text-slate-500 shrink-0"
+                      title={date(n.criado_em)}
+                    >
+                      {hora(n.criado_em)}
                     </time>
                   </div>
                   <p className="text-sm text-slate-600 whitespace-pre-wrap break-words">

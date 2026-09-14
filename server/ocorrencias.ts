@@ -333,10 +333,57 @@ export async function handleOcorrencias(req: any, res: any) {
           .order("id")
           .range(offset, offset + 49);
         const rows = checked<any[]>(r) || [];
+        // 2026-09-14 — contagens por estado (06 · lista institucional): mesmo
+        // âmbito e filtros da lista, excepto o filtro de estado.
+        let qc = scoped(db.from("cda_ocorrencias").select("estado"), a);
+        if (b.categoria) qc = qc.eq("categoria", text(b.categoria, 80));
+        if (number) qc = qc.eq("numero", Number(number[1]));
+        else if (search)
+          qc = qc.or(
+            `titulo.ilike.%${search}%,bairro.ilike.%${search}%,municipio.ilike.%${search}%`,
+          );
+        if (locality) qc = qc.ilike("bairro", `%${locality}%`);
+        const rc = await qc.range(0, 1999);
+        const contagens: Record<string, number> = {};
+        for (const row of checked<any[]>(rc) || []) {
+          const e = String((row as any).estado || "");
+          if (e) contagens[e] = (contagens[e] || 0) + 1;
+        }
+        // 2026-09-14 — capa: primeira fotografia de cada ocorrência da página
+        // (01 · cartões do cidadão). Falhas de assinatura não quebram a lista.
+        const ids = rows.map((x: any) => x.id);
+        if (ids.length) {
+          const rf =
+            checked<any[]>(
+              await db
+                .from("cda_ocorrencias_fotos")
+                .select("id,nome,tamanho,caminho,ocorrencia_id,criado_em")
+                .in("ocorrencia_id", ids)
+                .order("criado_em"),
+            ) || [];
+          const primeira = new Map<string, any>();
+          for (const f of rf)
+            if (!primeira.has(f.ocorrencia_id))
+              primeira.set(f.ocorrencia_id, f);
+          const chaves = [...primeira.keys()];
+          const assinadas = await Promise.all(
+            chaves.map((k) => signedPhoto(db, primeira.get(k)).catch(() => null)),
+          );
+          const porOc = new Map<string, any>();
+          chaves.forEach((k, i) => {
+            if (assinadas[i]) porOc.set(k, assinadas[i]);
+          });
+          for (const x of rows as any[]) {
+            const c = porOc.get(x.id);
+            x.capa_url = c ? c.url : null;
+            x.capa_nome = c ? c.nome : null;
+          }
+        }
         result = {
           lista: rows,
           total: r.count || 0,
           mais: offset + rows.length < (r.count || 0),
+          contagens,
         };
         break;
       }
