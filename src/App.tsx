@@ -6217,7 +6217,7 @@ Ficha civil do titular:
         );
       case 'inqueritos':
         if (isInstMode) return (
-          <PainelSuspense><SondagensContent title="Inquéritos" codigoInstituicao={bi} addAuditLog={addAuditLog} onBack={() => setTab('home')} /></PainelSuspense>
+          <PainelSuspense><SondagensContent title="Inquéritos" codigoInstituicao={bi} addAuditLog={addAuditLog} onBack={() => setTab('home')} onCreate={() => { setIsComposing(true); setTab('correspondencias'); }} /></PainelSuspense>
         );
         return <ListaParticipacaoContent tipo="inqueritos" isInst={false}
           messages={currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
@@ -6225,6 +6225,7 @@ Ficha civil do titular:
           onBack={() => setTab('home')} />;
       case 'denuncias':
         return <ListaParticipacaoContent tipo="denuncias" isInst={isInstMode}
+          onCreate={isUserMode ? () => { setIsComposing(true); setTab('correspondencias'); } : undefined}
           messages={(isInstMode ? currentInbox : currentSentMessages).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
           onOpen={m => handleSelectMessage(m, isInstMode ? 'recebidas' : 'enviadas', 'denuncias')}
           onBack={() => setTab('home')} />;

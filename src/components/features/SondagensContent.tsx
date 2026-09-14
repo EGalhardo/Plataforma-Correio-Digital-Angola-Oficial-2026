@@ -4,7 +4,7 @@ import { ListaRolavel } from '../ui/ListaRolavel';
 // (v36.1, spec §5). Gráfico de barras via recharts (chunk «charts» já existe).
 // ============================================================================
 import { useCallback, useEffect, useState } from 'react';
-import { BarChart3, ChevronDown, ChevronUp, Lock, Users, MessagesSquare, Loader2 } from 'lucide-react';
+import { Plus, BarChart3, ChevronDown, ChevronUp, Lock, Users, MessagesSquare, Loader2 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList,
@@ -27,10 +27,11 @@ interface Props {
   codigoInstituicao: string;
   title?: string;
   onBack?: () => void;
+  onCreate?: () => void;
   addAuditLog: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
 }
 
-export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sondagens', onBack }: Props) {
+export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sondagens', onBack, onCreate }: Props) {
   const [disponivel, setDisponivel] = useState<boolean | null>(null);
   const [lista, setLista] = useState<Sondagem[]>([]);
   const [aberta, setAberta] = useState<number | null>(null);
@@ -90,13 +91,16 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
 
   return (
     <div className="space-y-4" data-testid="sondagens-root">
-      <div className="flex items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-2.5">
         <BotaoVoltar onClick={onBack} />
         <span className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><BarChart3 size={18} /></span>
-        <div>
+        <div className="flex-1 min-w-0">
           <h2 className="font-sans font-black text-[#0c2340] text-base uppercase tracking-tight">{title}</h2>
           <p className="text-[11px] font-medium text-slate-500">Sondagens e inquéritos com IA criados por {codigoInstituicao} — clique para ver os resultados.</p>
         </div>
+        {onCreate && <button type="button" onClick={onCreate} className="w-full sm:w-auto shrink-0 flex items-center justify-center gap-2 bg-primary text-white rounded-2xl px-5 py-3 text-xs font-black shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-colors">
+          <Plus size={17} aria-hidden="true" />Criar Inquéritos
+        </button>}
       </div>
 
       {disponivel === false && (
