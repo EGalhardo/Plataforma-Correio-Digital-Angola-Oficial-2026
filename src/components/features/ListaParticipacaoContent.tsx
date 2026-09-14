@@ -1,6 +1,6 @@
 import { ListaRolavel } from '../ui/ListaRolavel';
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, ClipboardList, ShieldAlert, Search, ArrowRight } from 'lucide-react';
+import { Plus, ClipboardList, ShieldAlert, Search, ArrowRight, Bot } from 'lucide-react';
 import type { Message, AppNotification } from '../../types';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { listarParticipacao, temInqueritoIA, temInqueritoNormal, filtrarAbaInquerito, type AbaInquerito } from '../../utils/listasParticipacao';
@@ -48,23 +48,27 @@ export function ListaParticipacaoContent({tipo, isInst, messages, notifications 
       <BotaoVoltar onClick={onBack}/>
       <span className="p-3 rounded-2xl bg-primary/10 text-primary"><Icon size={24}/></span>
       <div className="flex-1 min-w-0"><h2 className="text-xl md:text-2xl font-black text-primary">{t(titulo)}</h2>
-        <p className="text-xs md:text-sm text-slate-500">{t(inqueritos
-          ? 'Inquéritos recebidos — consulte a mensagem para responder e acompanhar a sua participação.'
-          : isInst ? 'Consulte as denúncias dirigidas à sua instituição e acompanhe o respectivo processo.'
-          : 'Consulte as denúncias que enviou e acompanhe o respectivo processo.')}</p>
+        {!inqueritos && <p className="text-xs md:text-sm text-slate-500">{t(isInst ? 'Consulte as denúncias dirigidas à sua instituição e acompanhe o respectivo processo.' : 'Consulte as denúncias que enviou e acompanhe o respectivo processo.')}</p>}
       </div>
       {inqueritos && (
         <div role="tablist" aria-label={t('Tipo de inquérito')} data-aba-inquerito={aba}
-          className="flex bg-slate-100 p-1 rounded-full border border-slate-200 self-center shrink-0 shadow-3xs">
-          {(['normal', 'ia'] as const).map(a => (
-            <button key={a} type="button" role="tab" aria-selected={aba === a} data-aba={a}
-              onClick={() => { setAba(a); setQuery(''); }}
-              className={`relative px-4 md:px-5 py-2 rounded-full text-[10px] md:text-[11px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer border-0 ${
-                aba === a ? 'bg-primary text-white shadow-xs' : 'bg-transparent text-slate-600 hover:text-slate-900'
-              }`}>
-              {a === 'normal' ? t('Normal') : t('IA')}
-            </button>
-          ))}
+          className="flex items-end gap-1.5 md:gap-5 border-b border-slate-200 overflow-x-auto custom-scrollbar-h shrink-0">
+          {([
+            { a: 'normal', rotulo: t('Normal'), Icone: ClipboardList },
+            { a: 'ia', rotulo: t('IA'), Icone: Bot },
+          ] as const).map(({ a, rotulo, Icone }) => {
+            const activo = aba === a;
+            return (
+              <button key={a} type="button" role="tab" aria-selected={activo} data-aba={a} id={`tab-inqueritos-${a}`}
+                onClick={() => { setAba(a); setQuery(''); }}
+                className={`relative flex items-center gap-2.5 px-3 md:px-6 py-2.5 md:py-3 -mb-px whitespace-nowrap text-[0.7rem] md:text-[0.9rem] font-black transition-colors bg-transparent border-0 border-b-2 cursor-pointer ${
+                  activo ? 'text-primary border-primary' : 'text-slate-400 border-transparent hover:text-slate-600'
+                }`}>
+                <Icone size={18} className="md:w-[1.4rem] md:h-[1.4rem] shrink-0" strokeWidth={activo ? 2.2 : 1.8} />
+                {rotulo}
+              </button>
+            );
+          })}
         </div>
       )}
       {!inqueritos && !isInst && onCreate && <button type="button" onClick={onCreate} className="w-full sm:w-auto shrink-0 flex items-center justify-center gap-2 bg-primary text-white rounded-2xl px-5 py-3 text-xs font-black shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-colors">
