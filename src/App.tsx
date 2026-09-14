@@ -5886,6 +5886,10 @@ Ficha civil do titular:
             isMobile={isMobile}
             setTab={setTab}
             unreadTotal={unreadTotal}
+            notifications={currentNotifications}
+            notificationsLoading={!isDemoSession && !cloudSyncedOnce}
+            notificationOwnerKey={`${sessionOwnerKey}:${bi}`}
+            realSession={!isDemoSession}
             inbox={currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
             sentMessages={currentSentMessages.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
             handleSelectMessage={handleSelectMessage}

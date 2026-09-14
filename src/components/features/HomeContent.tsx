@@ -3,11 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useId } from 'react';
+import { ocorrenciasApi } from '../../features/ocorrencias/client';
+import { contarNotificacoesAtalhos, type AtalhoPainel } from '../../utils/notificacoesAtalhos';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShieldCheck, Mail, Video, ClipboardList, MapPin, ShieldAlert } from 'lucide-react';
 import { HIGHLIGHT_SLIDES, INST_HIGHLIGHT_SLIDES } from '../../constants/data';
-import { Message, LanguageCode } from '../../types';
+import { Message, LanguageCode, AppNotification } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
 import { LazyImage } from '../ui/LazyImage';
 import { AnimatedCounter } from '../ui/AnimatedCounter';
@@ -18,6 +20,10 @@ interface HomeContentProps {
   isMobile: boolean;
   setTab: (tab: string) => void;
   unreadTotal: number;
+  notifications?: AppNotification[];
+  notificationOwnerKey?: string;
+  realSession?: boolean;
+  notificationsLoading?: boolean;
   inbox: Message[];
   sentMessages: Message[];
   handleSelectMessage: (msg: Message) => void;
@@ -44,6 +50,10 @@ export function HomeContent({
   isMobile,
   setTab,
   unreadTotal,
+  notifications = [],
+  notificationOwnerKey = "",
+  realSession = false,
+  notificationsLoading = false,
   inbox,
   sentMessages,
   handleSelectMessage,
@@ -56,6 +66,31 @@ export function HomeContent({
   instVerified,
   onDoubleClickInstitution}: HomeContentProps) {
   const { t } = useLanguage();
+  const badgeId = useId();
+  const [ocorrenciasCount, setOcorrenciasCount] = useState<{owner: string; count: number}>({owner: '', count: 0});
+  useEffect(() => {
+    if (!realSession || !notificationOwnerKey) return;
+    let active = true, fetching = false;
+    const controller = new AbortController();
+    const refresh = async () => {
+      if (!active || fetching || document.visibilityState === 'hidden') return;
+      fetching = true;
+      try {
+        const r = await ocorrenciasApi<{total: number}>('notificacoes', {naoLidas: true}, controller.signal);
+        if (active) setOcorrenciasCount({owner: notificationOwnerKey, count: r.total});
+      } catch { /* Não substituir uma contagem conhecida por zero numa falha de rede. */ }
+      finally { fetching = false; }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 15000);
+    const visible = () => void refresh();
+    window.addEventListener('focus', visible);
+    document.addEventListener('visibilitychange', visible);
+    return () => {active = false; controller.abort(); window.clearInterval(timer); window.removeEventListener('focus', visible); document.removeEventListener('visibilitychange', visible);};
+  }, [notificationOwnerKey, realSession]);
+  const badgeCounts = contarNotificacoesAtalhos(notifications, inbox || [], !!isInst,
+    realSession && ocorrenciasCount.owner === notificationOwnerKey ? ocorrenciasCount.count : 0);
+
   /**
    * v37.39 — se a logomarca oficial falhar (URL removida/fora do ar), cai no
    * avatar neutro com a sigla em vez do bloco genérico "Imagem não disponível".
@@ -183,21 +218,28 @@ export function HomeContent({
         </div>
       </div>
 
-      <nav aria-label={t('Atalhos do Painel')} className="grid grid-cols-2 xl:grid-cols-4 auto-rows-fr gap-2 py-1 px-0.5">
+      <nav aria-busy={notificationsLoading} aria-label={t('Atalhos do Painel')} className="grid grid-cols-2 xl:grid-cols-4 auto-rows-fr gap-2 py-1 px-0.5">
         {[
-          { label: 'Vídeo-Atendimento', Icon: Video, action: () => setTab('video-atendimento') },
-          { label: 'Inquéritos', Icon: ClipboardList, action: () => setTab('inqueritos') },
-          { label: isInst ? 'Ocorrências recebidas' : 'Ocorrências Locais', Icon: MapPin, action: () => setTab('ocorrencias') },
-          { label: isInst ? 'Denúncias recebidas' : 'Denúncias', Icon: ShieldAlert, action: () => setTab('denuncias') },
-        ].map(({ label, Icon, action }) => (
+          { key: 'video-atendimento' as AtalhoPainel, label: 'Vídeo-Atendimento', Icon: Video, action: () => setTab('video-atendimento') },
+          { key: 'inqueritos' as AtalhoPainel, label: 'Inquéritos', Icon: ClipboardList, action: () => setTab('inqueritos') },
+          { key: 'ocorrencias' as AtalhoPainel, label: isInst ? 'Ocorrências recebidas' : 'Ocorrências Locais', Icon: MapPin, action: () => setTab('ocorrencias') },
+          { key: 'denuncias' as AtalhoPainel, label: isInst ? 'Denúncias recebidas' : 'Denúncias', Icon: ShieldAlert, action: () => setTab('denuncias') },
+        ].map(({ key, label, Icon, action }) => (
           <button
-            key={label}
+            key={key}
+            aria-label={t(label)}
+            aria-describedby={badgeCounts[key] > 0 ? `${badgeId}-${key}` : undefined}
+            title={badgeCounts[key] > 0 ? `${t(label)} — ${badgeCounts[key]} ${t('notificações não lidas')}` : t(label)}
             type="button"
             onClick={action}
             className="min-w-0 min-h-14 px-3 py-3 flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-wide shadow-3xs hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all cursor-pointer"
           >
             <Icon size={17} aria-hidden="true" className="text-primary shrink-0" />
             <span className="min-w-0 text-center leading-relaxed break-words">{t(label)}</span>
+            {badgeCounts[key] > 0 && <span id={`${badgeId}-${key}`} data-notification-badge={key} className="shrink-0 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-black tabular-nums leading-none" role="status">
+              <span aria-hidden="true">{badgeCounts[key] > 99 ? '99+' : badgeCounts[key]}</span>
+              <span className="sr-only">{badgeCounts[key]} {t('notificações não lidas')}</span>
+            </span>}
           </button>
         ))}
       </nav>
