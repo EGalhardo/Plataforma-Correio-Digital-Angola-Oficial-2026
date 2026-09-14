@@ -191,17 +191,30 @@ const deriveProfileName = (identifier: string, fallbackName?: string) => {
   return identifier;
 };
 
+// F-AUDIT (2026-09-14) — a RLS esconde de anon as linhas alheias de
+// profiles: o SELECT acima devolve data=null mesmo quando a linha EXISTE, e
+// o INSERT de compensação falha sempre com 403. Sem esta cache, cada envio
+// gerava 403s repetidos. Códigos que a RLS recusa criar são lembrados na
+// sessão e saltados (o envio não depende deles — verificado E2E).
+const perfisNaoCriaveis = new Set<string>();
 const ensureProfileExists = async (bi: string, name?: string, role?: 'user' | 'institution' | 'admin') => {
-  if (!hasValidSupabaseKeys()) return;
+  if (!hasValidSupabaseKeys() || !bi || perfisNaoCriaveis.has(bi)) return;
   try {
     const { data, error } = await supabase.from('profiles').select('bi').eq('bi', bi).maybeSingle();
     if (error) throw error;
     if (!data) {
-      await supabase.from('profiles').insert([{
+      const { error: insErr } = await supabase.from('profiles').insert([{
         bi,
         name: deriveProfileName(bi, name),
         role: role || inferProfileRole(bi),
       }]);
+      // 42501/403/401 = RLS recusou: a linha pode existir (invisível) ou o
+      // anon não pode criar — marcar para não repetir o pedido condenado.
+      if (insErr && ((insErr as { code?: string }).code === '42501' || [401, 403].includes((insErr as { status?: number }).status || 0))) {
+        perfisNaoCriaveis.add(bi);
+        return;
+      }
+      if (insErr) throw insErr;
     }
   } catch (e) {
     console.warn('ensureProfileExists warning:', bi, e);
