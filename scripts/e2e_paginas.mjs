@@ -15,10 +15,10 @@
 //      nativas da app (constam publicamente em src/App.tsx), varredura de
 //      cada item da navegação lateral + ligações secundárias do painel.
 //   C) Fluxos funcionais: abrir o DETALHE DE UMA MENSAGEM (ABRIR/ANALISAR),
-//      selo honesto de gateway na página Pagamentos do cidadão
-//      (data-testid="selo-gateway-pendente"), formulário de cobrança na
-//      página Pagamentos da instituição (#inst-pagamentos-root) e LOGOUT
-//      («Sair do Canal» tem de voltar ao ecrã de login).
+//      popup «Criar Sondagem» no compositor institucional (via TipoInqueritoModal)
+//      e LOGOUT («Sair do Canal» tem de voltar ao ecrã de login).
+//      (2026-09-15: as verificações das páginas de Pagamentos foram removidas —
+//      as funcionalidades «Pagamentos»/«inst-pagamentos» deixaram de existir.)
 //
 //   Para cada página: FAIL se botão inexistente, conteúdo quase vazio,
 //   exceção JS não apanhada, ou elemento funcional obrigatório em falta;
@@ -52,10 +52,10 @@ const PAPEL = {
       ['home', 'Painel', /Institui/i], ['correspondencias', 'Correio', /Caixa|Receb|Nova Mensagem|Correio/i],
       ['contatos', 'Contactos', /Confian|Contact/i], ['perfil', 'Perfil', /Conta|Perfil|Verifica/i],
     ],
-    extras: [ // botões "cda-link-text" no painel principal
-      ['historico', 'Ver Histórico', /Hist[óo]rico/i],
-      ['notificacoes', 'Notificações', /Notifica/i],
-      ['pagamentos', 'Pagamentos', /gateway|INAPEM|Por pagar|Pagamentos/i],
+    extras: [ // 2026-09-15 — o container «Serviços» do painel foi removido e a
+      // funcionalidade «Pagamentos» eliminada: páginas secundárias via deep link (hash).
+      ['historico', '', /Hist[óo]rico/i],
+      ['notificacoes', '', /Notifica/i],
     ],
   },
   instituicao: {
@@ -67,7 +67,7 @@ const PAPEL = {
       ['gov-contatos', 'Equipa', /Equipa|Membro|Colaborador/i], ['inst-qrcode', 'QR Code', /Valida|QR/i],
       ['inst-ai-assistant', 'IA', /IA|Assistente|Groq|Conhecimento/i], ['perfil', 'Perfil', /Conta|Perfil|Verifica|Institui/i],
     ],
-    extras: [['inst-pagamentos', 'Pagamentos', /Cobran|gateway|Pagamentos|BI do cidad/i]],
+    extras: [], // 2026-09-15 — «Pagamentos» (inst-pagamentos) foi eliminado do painel
   },
   admin: {
     tab: 'Admin', id: 'ADM-8812-OP', pass: 'GALHARDO',
@@ -210,7 +210,7 @@ async function correrPapel(role, cfg) {
     }
 
     // 1) login
-    await page.getByPlaceholder(/LA041|AGT-9921-SR|ADM-8812-OP/).fill(cfg.id);
+    await page.getByPlaceholder(/LA041|AGT-9921-SR|ADM-8812-OP|ADMIN-0001/).fill(cfg.id);
     await page.getByPlaceholder('••••••••••••').fill(cfg.pass);
     await page.getByRole('button', { name: /Entrar no Portal/ }).click();
     const painel = page.getByRole('button', { name: 'Painel', exact: true }).first();
@@ -248,13 +248,18 @@ async function correrPapel(role, cfg) {
     // 3) páginas secundárias a partir do painel
     const btnPainel = page.locator('nav button', { hasText: /^\s*Painel\s*$/ }).first();
     for (const [id, label, marcador] of cfg.extras) {
-      if (await btnPainel.isVisible().catch(() => false)) { await btnPainel.click(); await page.waitForTimeout(1200); }
-      const alvo = page.locator('button.cda-link-text', { hasText: new RegExp(esc(label)) }).first();
-      if (!(await alvo.isVisible().catch(() => false))) {
-        reg(role, id, 'FAIL', `liga secundária «${label}» não encontrada no painel`);
-        continue;
+      if (label) {
+        if (await btnPainel.isVisible().catch(() => false)) { await btnPainel.click(); await page.waitForTimeout(1200); }
+        const alvo = page.locator('button.cda-link-text', { hasText: new RegExp(esc(label)) }).first();
+        if (!(await alvo.isVisible().catch(() => false))) {
+          reg(role, id, 'FAIL', `liga secundária «${label}» não encontrada no painel`);
+          continue;
+        }
+        await alvo.click();
+      } else {
+        // label vazio = página secundária sem entrada no painel: entra por deep link (hash P-URL).
+        await page.evaluate((h) => { window.location.hash = h; }, `#/${id}`);
       }
-      await alvo.click();
       await page.waitForTimeout(1800);
       const texto = await page.evaluate(() => document.body.innerText.trim());
       if (texto.length < 400) { reg(role, id, 'FAIL', `conteúdo quase vazio (${texto.length} chars)`); continue; }
@@ -262,27 +267,9 @@ async function correrPapel(role, cfg) {
       else reg(role, id, 'PASS', `${texto.length} chars`);
       await page.screenshot({ path: `${SHOTS}/${role}-${id}.png` });
 
-      // 3a) verificações funcionais dentro das páginas de pagamentos
-      if (id === 'pagamentos') {
-        const selo = page.locator('[data-testid="selo-gateway-pendente"]').first();
-        const ok = await selo.isVisible().catch(() => false);
-        reg(role, 'pagamentos-selo', ok ? 'PASS' : 'FAIL',
-          ok ? 'selo honesto de gateway pendente presente' : 'selo data-testid="selo-gateway-pendente" em falta');
-      }
-      if (id === 'inst-pagamentos') {
-        const root = page.locator('#inst-pagamentos-root').first();
-        const okRoot = await root.isVisible().catch(() => false);
-        // O formulário de cobrança abre recolhido por desenho — clicar
-        // «Nova cobrança» antes de exigir os campos (correção 2026-08-08).
-        const toggle = page.getByRole('button', { name: /Nova cobrança/i }).first();
-        if (okRoot && await toggle.isVisible().catch(() => false)) {
-          await toggle.click();
-          await page.waitForTimeout(900);
-        }
-        const nInputs = okRoot ? await root.locator('input, textarea').count().catch(() => 0) : 0;
-        reg(role, 'inst-pagamentos-form', okRoot && nInputs > 0 ? 'PASS' : 'FAIL',
-          okRoot ? `formulário de cobrança presente (${nInputs} campos)` : '#inst-pagamentos-root não renderizou');
-      }
+      // 3a) verificações funcionais das páginas de pagamentos — REMOVIDAS
+      // (2026-09-15): as funcionalidades «Pagamentos» (cidadão) e «inst-pagamentos»
+      // (instituição) foram eliminadas da plataforma a pedido do dono.
     }
 
     // 4) fluxo funcional: abrir o detalhe de uma mensagem (ABRIR / ANALISAR)
@@ -329,11 +316,20 @@ async function correrPapel(role, cfg) {
         reg(role, 'sondagem-modal', 'WARN', 'compositor «Nova Mensagem» não abriu para testar');
       } else {
         await novaMsg.click(); await page.waitForTimeout(1200);
-        const btnCriar = page.locator('#btn-criar-sondagem');
+        // 2026-09 — gatilho renomeado pela evolução da app: «Criar Inquérito»
+        // (#btn-criar-inquerito) abre o TipoInqueritoModal; «Inquérito Normal» +
+        // OK abre o popup «Criar Sondagem» (SondagemModal).
+        const btnCriar = page.locator('#btn-criar-inquerito');
         if (!(await btnCriar.isVisible().catch(() => false))) {
-          reg(role, 'sondagem-modal', 'FAIL', 'botão «Criar Sondagem» inexistente no compositor');
+          reg(role, 'sondagem-modal', 'FAIL', 'botão «Criar Inquérito» inexistente no compositor');
         } else {
           await btnCriar.click(); await page.waitForTimeout(900);
+          const opcaoNormal = page.locator('#opcao-inquerito-normal');
+          if (await opcaoNormal.isVisible().catch(() => false)) {
+            await opcaoNormal.click();
+            await page.locator('#btn-tipo-inquerito-ok').click();
+            await page.waitForTimeout(900);
+          }
           const campo = page.getByPlaceholder(/Escreva a pergunta da sondagem/).first();
           const okCampo = await campo.isVisible().catch(() => false);
           if (!okCampo) {
