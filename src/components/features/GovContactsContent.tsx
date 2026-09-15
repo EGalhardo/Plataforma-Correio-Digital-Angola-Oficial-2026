@@ -2203,6 +2203,11 @@ export function GovContactsContent({
     }
 
     setWorkers(prev => prev.filter(w => w.id !== id));
+    // AUDIT-FIX(F5): a tabela renderiza `equipaCombinada` = workers + membros
+    // da base central. Sem remover também de `membrosCloudInst`, o colaborador
+    // eliminado continuava visível (contador a 0 mas linha presente).
+    setMembrosCloudInst(prev => prev.filter(m =>
+      m.id !== id && (m.agentId || '').toUpperCase().replace(/\s+/g, '') !== agente));
     // v37.68 — persistir a remoção no ESPELHO localStorage da Equipa: sem isto,
     // no refresh a lista é relida de `correio_digital_admin_workers` (admin) ou
     // `correio_digital_workers_<inst>` (instituição) e o colaborador eliminado
