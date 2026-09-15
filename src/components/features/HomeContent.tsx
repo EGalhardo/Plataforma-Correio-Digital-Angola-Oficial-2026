@@ -7,7 +7,7 @@ import { useState, useEffect, useId } from 'react';
 import { ocorrenciasApi } from '../../features/ocorrencias/client';
 import { contarNotificacoesAtalhos, type AtalhoPainel } from '../../utils/notificacoesAtalhos';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, Mail, Video, ClipboardList, MapPin, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, Mail, Video, ClipboardList, MapPin, ShieldAlert, Receipt, Wallet, Bell, History, Folder, QrCode, Landmark, FileText, FilePlus2 } from 'lucide-react';
 import { HIGHLIGHT_SLIDES, INST_HIGHLIGHT_SLIDES } from '../../constants/data';
 import { Message, LanguageCode, AppNotification } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -244,6 +244,46 @@ export function HomeContent({
           </button>
         ))}
       </nav>
+
+      {/* UX: acesso rápido aos Serviços — estas páginas existiam mas não tinham
+          nenhuma entrada na navegação (só alcançáveis por URL directo). */}
+      <section aria-label={t('Serviços')} className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-5 shadow-xs">
+        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+          <div className="w-1.5 h-4 md:h-5 bg-primary rounded-full shrink-0" />
+          <h3 className="text-xs md:text-sm font-black text-slate-900 uppercase tracking-tight">{t('Serviços')}</h3>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 auto-rows-fr gap-2">
+          {(isInst ? [
+            { id: 'documentos', label: 'Documentos', Icon: FileText },
+            { id: 'pasta-digital', label: 'Pasta Digital', Icon: Folder },
+            { id: 'inst-pagamentos', label: 'Pagamentos', Icon: Wallet },
+            { id: 'solicitar-documento', label: 'Solicitar Documento', Icon: FilePlus2 },
+            { id: 'notificacoes', label: 'Notificações', Icon: Bell },
+            { id: 'historico', label: 'Histórico', Icon: History },
+            { id: 'directorio-orgaos', label: 'Directório de Órgãos', Icon: Landmark },
+          ] : [
+            { id: 'documentos', label: 'Facturas', Icon: Receipt },
+            { id: 'pagamentos', label: 'Pagamentos', Icon: Wallet },
+            { id: 'qr-code', label: 'Carteira QR', Icon: QrCode },
+            { id: 'pasta-digital', label: 'Pasta Digital', Icon: Folder },
+            { id: 'notificacoes', label: 'Notificações', Icon: Bell },
+            { id: 'historico', label: 'Histórico', Icon: History },
+            { id: 'directorio-orgaos', label: 'Directório de Órgãos', Icon: Landmark },
+          ]).map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              aria-label={t(label)}
+              title={t(label)}
+              onClick={() => setTab(id)}
+              className="min-w-0 min-h-14 px-3 py-3 flex items-center justify-center gap-2 bg-slate-50 hover:bg-primary/5 text-slate-700 border border-slate-200 rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-wide shadow-3xs hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all cursor-pointer"
+            >
+              <Icon size={17} aria-hidden="true" className="text-primary shrink-0" />
+              <span className="min-w-0 text-center leading-relaxed break-words">{t(label)}</span>
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-5 shadow-xs overflow-hidden relative group">
         <div className="flex flex-row items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-100">

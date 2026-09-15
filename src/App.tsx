@@ -303,19 +303,21 @@ const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
     'home', 'correspondencias', 'contatos', 'contactos', 'perfil', 'historico',
     'notificacoes', 'pagamentos', 'documentos', 'qr-code', 'pasta-digital',
     'solicitar-documento', 'video-atendimento', 'inqueritos', 'denuncias', 'ocorrencias',
+    'directorio-orgaos', // UX: deep link do Directório (render existe, faltava o hash)
     // tabs de detalhe — só via fallback (HASH_TAB_FALLBACKS)
     'mensagem', 'documento', 'instituicao',
   ]),
   institution: new Set([
     'home', 'correspondencias', 'gov-contatos', 'contatos', 'contactos',
-    'inst-qrcode', 'inst-ai-assistant', 'perfil', 'inst-pagamentos',
+    'inst-qrcode', 'qr-code', 'inst-ai-assistant', 'perfil', 'inst-pagamentos', 'pagamentos',
+    'pasta-digital', 'solicitar-documento', 'directorio-orgaos', // UX: deep links em falta
     'ocorrencias', 'inqueritos', 'denuncias', 'sondagens', // v36 — lista/resultados de sondagens da instituição
     'historico', 'notificacoes', 'documentos', 'video-atendimento', 'inst-video',
     'mensagem', 'documento', 'instituicao',
   ]),
   admin: new Set([
     'home', 'gov-dashboard', 'gov-interoperabilidade', 'gov-correspondencias',
-    'gov-contatos', 'gov-trabalhadores', 'gov-relatorio', 'gov-ia',
+    'gov-contatos', 'gov-trabalhadores', 'gov-relatorio', 'gov-stats', 'gov-ia', 'directorio-orgaos', // UX: deep links em falta
     'gov-seguranca', 'gov-perfil', 'gov-emissao', 'gov-docs', 'gov-documentos',
     'historico', 'notificacoes',
     'video-atendimento', 'inst-video',

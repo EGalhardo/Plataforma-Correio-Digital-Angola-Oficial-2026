@@ -1,4 +1,5 @@
-import { Bell, BadgeCheck, ShieldAlert, Info, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import { Bell, BadgeCheck, ShieldAlert, Info, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { AppNotification, AppMode } from '../../types';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 
@@ -8,7 +9,19 @@ interface NotificationsCenterContentProps {
   appMode: AppMode;
 }
 
+/** UX: mensagens longas começam truncadas (2 linhas) com «Ver mais». */
+const LIMITE_EXPANDIR = 140;
+
 export function NotificationsCenterContent({ notifications, setTab, appMode }: NotificationsCenterContentProps) {
+  const [expandidos, setExpandidos] = useState<Set<string | number>>(new Set());
+  const alternar = (id: string | number) => {
+    setExpandidos(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
   const grouped = {
     success: notifications.filter((n) => n.type === 'success'),
     warning: notifications.filter((n) => n.type === 'warning'),
@@ -73,16 +86,32 @@ export function NotificationsCenterContent({ notifications, setTab, appMode }: N
 
             {section.items.length > 0 ? (
               <div className="space-y-2">
-                {section.items.map((item) => (
+                {section.items.map((item) => {
+                  const longa = (item.message || '').length > LIMITE_EXPANDIR;
+                  const expandida = expandidos.has(item.id);
+                  return (
                   <button
                     key={item.id}
                     onClick={() => navigateToTarget(item.targetTab)}
                     className="w-full text-left bg-slate-50 hover:bg-slate-100 border border-slate-150 rounded-xl md:rounded-2xl p-3.5 transition-all cursor-pointer"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div>
+                      <div className="min-w-0">
                         <span className="block text-xs font-bold text-slate-900">{item.title}</span>
-                        <p className="text-[11px] text-slate-500 font-medium mt-0.5 leading-relaxed">{item.message}</p>
+                        <p className={`text-[11px] text-slate-500 font-medium mt-0.5 leading-relaxed ${longa && !expandida ? 'line-clamp-2' : ''}`}>{item.message}</p>
+                        {longa && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            aria-expanded={expandida}
+                            onClick={(e) => { e.stopPropagation(); alternar(item.id); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); alternar(item.id); } }}
+                            className="inline-flex items-center gap-0.5 mt-1 text-[10px] font-black uppercase tracking-wider text-primary hover:underline cursor-pointer"
+                          >
+                            {expandida ? 'Ver menos' : 'Ver mais'}
+                            {expandida ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                          </span>
+                        )}
                       </div>
                       <div className="shrink-0 text-right">
                         <span className="text-[9px] font-mono font-bold text-slate-400 uppercase block">{item.time}</span>
@@ -90,7 +119,8 @@ export function NotificationsCenterContent({ notifications, setTab, appMode }: N
                       </div>
                     </div>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="py-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-xl md:rounded-2xl">
