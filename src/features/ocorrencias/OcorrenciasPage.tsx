@@ -927,8 +927,13 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
     else if (view === "encaminhar") setView("detalhe");
     else setView("lista");
   };
+  // O campo aceita digitação livre do código; a normalização permite
+  // confirmar contra a lista de habilitadas (sugestões + cartão de confirmação).
+  const codigoDigitado = (data.instituicao_codigo || "")
+    .toUpperCase()
+    .replace(/\s+/g, "");
   const currentInstitution = institutions.find(
-    (i) => i.codigo === data.instituicao_codigo,
+    (i) => i.codigo === codigoDigitado,
   );
   const acoesCidada =
     !institutional && selected
@@ -1500,28 +1505,44 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
               Instituição destinatária
             </h3>
             <p className="text-xs text-slate-500">
-              Só são apresentadas instituições com registo aprovado no CDA.
-              Confirme que a instituição escolhida é responsável pelo problema e
-              pela localidade.
+              Digite o código institucional da responsável pelo problema e pela
+              localidade (ex.: INAPEM-LLMM). A lista sugere instituições com
+              registo aprovado no CDA.
             </p>
-            <Field label="Instituição habilitada *">
-              <select
+            <Field label="Código institucional *">
+              <input
+                type="text"
                 required
                 className={input}
+                placeholder="Ex.: INAPEM-LLMM"
+                autoComplete="off"
+                spellCheck={false}
+                list="oco-instituicoes-habilitadas"
                 value={data.instituicao_codigo}
                 onChange={(e) =>
-                  setData({ ...data, instituicao_codigo: e.target.value })
+                  setData({
+                    ...data,
+                    instituicao_codigo: e.target.value
+                      .toUpperCase()
+                      .replace(/\s+/g, ""),
+                  })
                 }
-              >
-                <option value="">Seleccione a instituição responsável</option>
+              />
+              <datalist id="oco-instituicoes-habilitadas">
                 {institutions.map((i) => (
                   <option key={i.codigo} value={i.codigo}>
-                    {i.nome} · {i.codigo}
+                    {i.nome}
                     {i.municipio ? ` · ${i.municipio}` : ""}
                   </option>
                 ))}
-              </select>
+              </datalist>
             </Field>
+            {codigoDigitado && !currentInstitution && (
+              <p role="alert" className="text-amber-800 text-sm">
+                Este código não consta da lista de instituições habilitadas
+                carregada. Verifique a digitação antes de enviar.
+              </p>
+            )}
             {currentInstitution && (
               <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <span className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
@@ -1546,8 +1567,8 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
             )}
             {!institutions.length && (
               <p role="alert" className="text-amber-800 text-sm">
-                Não existem instituições habilitadas disponíveis. Não é possível
-                enviar neste momento.
+                Não foi possível carregar a lista de instituições habilitadas.
+                Pode digitar o código na mesma — confirme que está correcto.
               </p>
             )}
           </div>
@@ -1626,16 +1647,28 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-primary break-words">
-                  {currentInstitution?.nome}
+                  {currentInstitution?.nome || data.instituicao_codigo}
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  {data.instituicao_codigo}
+                  {currentInstitution
+                    ? `${data.instituicao_codigo}${
+                        currentInstitution.municipio
+                          ? ` · ${currentInstitution.municipio}`
+                          : ""
+                      }`
+                    : data.instituicao_codigo}
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 shrink-0">
-                <ShieldCheck size={14} />
-                Habilitada no CDA
-              </span>
+              {currentInstitution ? (
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 shrink-0">
+                  <ShieldCheck size={14} />
+                  Habilitada no CDA
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 shrink-0">
+                  Código informado
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-500">
               Fotografias e localização serão partilhadas com a instituição

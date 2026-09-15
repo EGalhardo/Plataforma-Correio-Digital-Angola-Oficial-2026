@@ -153,7 +153,7 @@ export function validarOcorrencia(d: DadosOcorrencia): string[] {
   )
     errors.push("Rua: máximo de 180 caracteres.");
   if (!/^[A-Z0-9][A-Z0-9-]{2,29}$/.test(d.instituicao_codigo || ""))
-    errors.push("Seleccione uma instituição habilitada.");
+    errors.push("Código institucional: indique um código válido (ex.: INAPEM-LLMM).");
   return errors;
 }
 export interface AcaoOcorrencia {
