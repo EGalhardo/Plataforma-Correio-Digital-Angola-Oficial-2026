@@ -2580,7 +2580,7 @@ export function MailContent({
 
             {/* Desktop View: Full 7-column Table */}
             <div className="hidden md:block overflow-auto rounded-[24px] bg-slate-50/20 custom-scrollbar max-h-[500px]">
-            <table className="mobile-data-table w-full text-left border-collapse min-w-[900px]">
+            <table className="mobile-data-table w-full text-left border-collapse min-w-0">
               <thead className="sticky top-0 z-10 bg-primary">
                 <tr className="bg-primary text-white text-[10px] font-black uppercase tracking-widest">
                   <th className="py-4 px-5 rounded-l-2xl">{isInst ? t("Cidadão / Requerente") : t("Órgão Emissor")}</th>
@@ -2625,8 +2625,8 @@ export function MailContent({
                               <span className="w-1.5 h-1.5 rounded-full bg-[#f87171] inline-block animate-pulse shrink-0" />
                             )}
                           </div>
-                          <div className="font-black italic text-slate-900 text-[11px] md:text-sm tracking-tight leading-none" title={conv.multiplos ? conv.destinatarios.join(', ') : undefined}>
-                            {conv.multiplos ? resumoDestinatarios(conv, 3) : t(isInst 
+                          <div className="font-black italic text-slate-900 text-[11px] md:text-sm tracking-tight leading-none break-words" title={conv.multiplos ? conv.destinatarios.join(', ') : undefined}>
+                            {conv.multiplos ? resumoDestinatarios(conv, 99) : t(isInst 
                               ? item.org
                                   .replace(/^Cidadão:\s*Cidadão:\s*/i, '')
                                   .replace(/^CIDADÃO:\s*CIDADÃO:\s*/i, '')
@@ -2646,8 +2646,8 @@ export function MailContent({
                       {/* Assunto Tema Column */}
                       <td className="py-5 px-5">
                         <div className="space-y-1 text-left">
-                          <div className="font-extrabold text-[#1e293b] text-xs md:text-sm tracking-tight">
-                            {t(item.details?.subject || item.preview.substring(0, 30))}
+                          <div className="font-extrabold text-[#1e293b] text-xs md:text-sm tracking-tight break-words">
+                            {t(item.details?.subject || item.preview)}
                           </div>
                           <div className="text-[9px] text-[#94a3b8] font-black tracking-widest leading-none">
                             {isInst ? t('Requerimento Fiscal') : t(item.protocol?.category || 'Notificação Digital')}
@@ -2657,7 +2657,7 @@ export function MailContent({
 
                       {/* Conteúdo / Detalhe Column */}
                       <td className="py-5 px-5">
-                        <div className="text-[#64748b] text-[11px] font-medium max-w-[280px] break-words whitespace-normal leading-relaxed" title={t(item.preview)}>
+                        <div className="text-[#64748b] text-[11px] font-medium w-full break-words whitespace-normal leading-relaxed" title={t(item.preview)}>
                           {t(item.preview)}
                         </div>
                       </td>
