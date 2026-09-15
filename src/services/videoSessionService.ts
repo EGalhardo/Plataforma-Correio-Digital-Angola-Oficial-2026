@@ -40,6 +40,7 @@ interface LinhaVideoSessao {
   session_id?: string | number; sessionId?: string | number;
   event_type?: string; eventType?: string; bi?: string; user_name?: string; userName?: string;
   description?: string; timestamp?: string;
+  actor?: string; actor_type?: string; metadata?: { bi?: string; user_name?: string } | null;
 }
 
 export interface VideoSessionExtended extends VideoSession {
@@ -243,6 +244,15 @@ const mapearLinhaSessao = (d: LinhaVideoSessao): VideoSessionExtended | null => 
     participantCount: d.participant_count || d.participantCount || 2,
   };
 };
+
+// AUDIT-FIX(F1): PROD video_session_events usa o esquema moderno
+// {actor, actor_type, metadata} (migração fora do repo); schema.sql descreve o
+// esquema legado {bi, user_name}. O log tenta o moderno e recai no legado,
+// memorizando em sessão o esquema que funciona.
+type EventsSchemaKind = 'modern' | 'legacy' | null;
+let eventsSchema: EventsSchemaKind = null;
+const isMissingColumnError = (code?: string, message?: string): boolean =>
+  code === 'PGRST204' || /Could not find the '.+' column/i.test(message || '');
 
 export const VideoSessionService = {
   /**
@@ -558,21 +568,48 @@ export const VideoSessionService = {
     saveLocalEvents(localEvents);
 
     if (hasValidSupabaseKeys() && isUUID(id) && isUUID(sessionId)) {
+      // AUDIT-FIX(F1): tenta esquema moderno, recai no legado (ver nota no topo).
+      const actorType = /\d+LA\d+/i.test(bi || '') ? 'cidadao' : 'instituicao';
+      const modernPayload = {
+        id,
+        session_id: sessionId,
+        event_type: eventType,
+        actor: bi,
+        actor_type: actorType,
+        description,
+        metadata: { bi, user_name: userName },
+        timestamp,
+      };
+      const legacyPayload = {
+        id,
+        session_id: sessionId,
+        event_type: eventType,
+        bi,
+        user_name: userName,
+        description,
+        timestamp,
+      };
       try {
-        await supabase.from('video_session_events').insert([{
-          id,
-          session_id: sessionId,
-          event_type: eventType,
-          bi,
-          user_name: userName,
-          description,
-          timestamp,
-        }]);
+        const order: EventsSchemaKind[] =
+          eventsSchema === 'legacy' ? ['legacy', 'modern'] : ['modern', 'legacy'];
+        let logged = false;
+        for (const kind of order) {
+          if (kind === null) continue;
+          const payload = kind === 'modern' ? modernPayload : legacyPayload;
+          const { error } = await supabase.from('video_session_events').insert([payload]);
+          if (!error) {
+            eventsSchema = kind;
+            logged = true;
+            break;
+          }
+          // Coluna ausente => tentar o outro esquema; outro erro => abortar.
+          if (!isMissingColumnError(error.code, error.message)) throw error;
+        }
+        if (!logged) throw new Error('video_session_events: nenhum esquema aceite');
       } catch (err) {
         console.warn('Supabase Session Event logging failed:', err);
       }
     }
-
     if (eventType === 'entrada' || eventType === 'saida') {
       this.createNotification(
         sessionId, 
@@ -601,15 +638,19 @@ export const VideoSessionService = {
 
       if (error) throw error;
       if (data && data.length > 0) {
-        return data.map((d: LinhaVideoSessao) => ({
-          id: String(d.id ?? ''),
-          sessionId: String(d.session_id ?? d.sessionId ?? ''),
-          eventType: (d.event_type || d.eventType) as VideoSessionEvent['eventType'],
-          bi: d.bi,
-          userName: d.user_name || d.userName,
-          description: d.description,
-          timestamp: d.timestamp,
-        }));
+        // AUDIT-FIX(F1): lê esquema moderno (actor/metadata) ou legado (bi/user_name).
+        return data.map((d: LinhaVideoSessao) => {
+          const meta = (d.metadata ?? {}) as { bi?: string; user_name?: string };
+          return {
+            id: String(d.id ?? ''),
+            sessionId: String(d.session_id ?? d.sessionId ?? ''),
+            eventType: (d.event_type || d.eventType) as VideoSessionEvent['eventType'],
+            bi: d.actor ?? meta.bi ?? d.bi,
+            userName: meta.user_name ?? d.user_name ?? d.userName,
+            description: d.description,
+            timestamp: d.timestamp,
+          };
+        });
       }
     } catch (e) {
       console.warn('Supabase event query failed, serving fallback:', e);
