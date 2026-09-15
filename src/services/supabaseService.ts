@@ -1627,6 +1627,9 @@ export const supabaseService = {
    */
   async getProfile(bi: string) {
     if (!hasValidSupabaseKeys()) return null;
+    // F10 (auditoria E2E 2026-09-15): BI vazio nunca chega à rede — evita
+    // GET /api/perfil?bi= (400) e leitura RLS inútil nos fluxos de hidratação.
+    if (!bi || !String(bi).trim()) return null;
     try {
       const { data, error } = await supabase
         .from('profiles')
