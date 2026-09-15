@@ -497,9 +497,9 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
         </div>
       </div>
 
-      <div className={`grid grid-cols-1 ${activeTab === 'video' && selectedSession ? '' : 'lg:grid-cols-3'} gap-6`}>
+      <div className={`grid grid-cols-1 ${selectedSession && activeTab !== 'video' ? 'lg:grid-cols-3' : ''} gap-6`}>
         {/* Left Column */}
-        <div className={`${activeTab === 'video' && selectedSession ? 'w-full' : 'lg:col-span-2'} space-y-4`}>
+        <div className={`${selectedSession && activeTab !== 'video' ? 'lg:col-span-2' : 'w-full'} space-y-4`}>
           {/* Tabs */}
           <div className="bg-white border border-slate-200 rounded-2xl p-1.5 flex gap-1 dark:bg-slate-900 dark:border-slate-700">
             {[
@@ -842,7 +842,10 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                 </div>
               </motion.div>
             ) : (
-              <div className="bg-white border border-slate-200 rounded-[24px] p-5 shadow-sm">
+              // 2026-09-15 — em desktop (lg+) o placeholder do lado direito deixa de
+              // ser exibido: a área esquerda ocupa a largura útil (harmonia do layout).
+              // No telemóvel continua a apresentar-se abaixo do conteúdo (comportamento inalterado).
+              <div className="bg-white border border-slate-200 rounded-[24px] p-5 shadow-sm lg:hidden">
                 <div className="text-center py-8">
                   <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Video size={28} className="text-indigo-600" />
