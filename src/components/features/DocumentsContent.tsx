@@ -35,7 +35,8 @@ import {
   Smartphone,
   Check,
   Copy,
-  Printer
+  Printer,
+  FileText
 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { Message, LanguageCode } from '../../types';
@@ -919,8 +920,50 @@ export function DocumentsContent({
         </div>
 
         {!isInst ? (
-          // --- USER INVOICES ---
-          filteredInvoicesForSelectedInst.length > 0 ? (
+          // --- USER INVOICES + RECEIVED OFFICIAL DOCUMENTS ---
+          <>
+            {/* AUDIT-FIX(F2): o cidadão nunca via os documentos oficiais
+                submetidos pelas instituições (finalFilteredDocs era calculado
+                mas só renderizado no ramo da instituição). Secção própria
+                acima das facturas; clique abre o detalhe (mensagem). */}
+            {finalFilteredDocs.length > 0 && (
+              <div className="space-y-3 pb-2">
+                <h5 className="font-black text-slate-900 text-xs md:text-sm uppercase tracking-tight flex items-center gap-2">
+                  <FileText size={16} className="text-[#0E2B64] shrink-0" />
+                  Documentos oficiais recebidos ({finalFilteredDocs.length})
+                </h5>
+                <div className="space-y-2.5">
+                  {finalFilteredDocs.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => handleSelectMessage(item)}
+                      className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-primary/30 transition-all cursor-pointer text-left space-y-1.5 active:scale-[0.99]"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shrink-0 ${
+                            item.unread
+                              ? 'bg-red-600 text-white border border-red-600'
+                              : 'bg-slate-100 text-slate-500 border border-slate-200'
+                          }`}>
+                            {item.unread ? 'Não Lido' : 'Consultado'}
+                          </span>
+                          <span className="text-[9px] font-bold text-slate-400 font-mono shrink-0">DOC: #{item.id}</span>
+                        </div>
+                        <span className="text-[9px] font-mono text-slate-400 font-bold shrink-0">{item.date}</span>
+                      </div>
+                      <div className="font-black text-slate-900 text-xs md:text-sm leading-snug break-words">
+                        {item.details?.subject || item.preview}
+                      </div>
+                      <div className="text-[10px] md:text-[11px] text-slate-500 font-semibold truncate">
+                        {item.org}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {filteredInvoicesForSelectedInst.length > 0 ? (
             <>
               {/* Mobile View: Invoice Cards */}
               <div className="block md:hidden space-y-3">
@@ -1119,6 +1162,8 @@ export function DocumentsContent({
             </div>
             </>
           ) : (
+            <>
+            {finalFilteredDocs.length === 0 ? (
             <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[24px] md:rounded-[32px] p-12 md:p-20 text-center space-y-4">
               <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm text-slate-400 border border-slate-200">
                 <Receipt size={32} />
@@ -1130,8 +1175,12 @@ export function DocumentsContent({
                 </p>
               </div>
             </div>
+            ) : null}
+            </>
+          )}
+          </>
           )
-        ) : (
+        : (
           // --- ORIGINAL DOCUMENTS TABLE ---
           finalFilteredDocs.length > 0 ? (
             <>
