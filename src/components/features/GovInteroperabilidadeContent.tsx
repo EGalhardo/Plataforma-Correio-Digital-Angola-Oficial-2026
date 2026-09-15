@@ -42,7 +42,7 @@ import { homologationStore } from '../../services/homologationStore';
 // 2026-08-23 — MODO REAL: métricas da base central (nunca simuladas). Sem
 // medição real o cartão mostra «—» em vez de percentagens decorativas.
 import { carregarDadosReaisAdmin, type AdminRealData } from '../../services/adminRealDataService';
-import { parseInstPack, isInstitutionObservacao, normalizeInstCode, getLocalInstRegs, updateLocalInstReg } from '../../services/institutionRegistrationStore';
+import { parseInstPack, isInstitutionObservacao, normalizeInstCode, getLocalInstRegs, updateLocalInstReg, buildInstObservacoes } from '../../services/institutionRegistrationStore';
 import { purgeInstitutionLocalResidues } from '../../services/institutionSessionService';
 import { parsePvicFromObservacoes } from '../../services/preVerificationService';
 import { shouldUseMockFallback } from '../../config/runtime';
@@ -399,6 +399,8 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   const [solReason, setSolReason] = useState('');
   const [solError, setSolError] = useState('');
   const [solBusy, setSolBusy] = useState(false);
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createError, setCreateError] = useState('');
   const [adminSolInput, setAdminSolInput] = useState('');
   const [solThreadTick, setSolThreadTick] = useState(0);
   const [solToDelete, setSolToDelete] = useState<any | null>(null);   // F8 — popup de confirmação de eliminação
@@ -491,6 +493,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     setFormInstCode('');
     setFormStatusLocal('Ativa');
     setFormLogoFile(null);
+    setCreateError('');
     setIsCreateModalOpen(true);
   };
 
@@ -558,42 +561,137 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   }, [autoSyncAtivo]);
 
   // Save new institution
-  const handleCreate = (e: React.FormEvent) => {
+  // Registo directo pela Administração: segue o caminho canónico (linha
+  // Aprovada em solicitacoes_registo + homologação + mensagem oficial na nuvem)
+  // em vez de criar apenas uma ficha local com métricas inventadas.
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formFullName) return;
-
-    const computedSigla = formName || generateSigla(formFullName);
-    const assignedCategory = mapTypeToCategory(formTypeInst);
-
+    if (createBusy) return;
+    const nome = formFullName.trim();
+    if (!nome) { setCreateError('Indique o nome completo da instituição.'); return; }
+    const email = formContactEmail.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setCreateError('Indique um email de contacto válido — é para aí que seguem os acessos e avisos.');
+      return;
+    }
+    const computedSigla = (formName || generateSigla(nome)).toUpperCase();
+    const code = normalizeInstCode(formInstCode || `${computedSigla}-001`);
+    if (!/^[A-Z0-9-]{3,}$/.test(code)) {
+      setCreateError('Código institucional inválido (use letras, números e hífens, ex.: INAPEM-LLMM).');
+      return;
+    }
+    const dupFila = solicitacoes.some((r: any) => normalizeInstCode(r.bi_numero) === code);
+    const dupFicha = institutions.some(i => normalizeInstCode(i.instCode || '') === code);
+    if (dupFila || dupFicha) {
+      setCreateError(`O código ${code} já existe na plataforma — use outro código ou edite a ficha existente.`);
+      return;
+    }
+    setCreateBusy(true);
+    setCreateError('');
+    const observacoes = buildInstObservacoes({
+      v: 1,
+      sigla: computedSigla,
+      nomeCompleto: nome,
+      tipo: formTypeInst,
+      provincia: formProvince,
+      cidade: formCidade,
+      municipio: formMunicipio,
+      comuna: formComuna,
+      endereco: formAddress || 'Sede do Órgão',
+      emailContacto: email,
+      emailAcesso: email,
+      telefone: formContactPhone,
+      responsavel: formResponsibleName,
+      cargo: formResponsibleRole,
+      agentNumber: `${code}-01`,
+    }, `Registo directo pela Área de Administração (${code}).`);
+    // 1. Linha canónica na base central, já Aprovada
+    let cloudOk = false;
+    let cloudErro = '';
+    const payload = {
+      nome,
+      email,
+      bi_numero: code,
+      url_frente: null,
+      url_verso: null,
+      url_selfie: null,
+      status: 'Aprovado',
+      observacoes,
+    };
+    try {
+      const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (ready) {
+        const viaProxy = await registoPublicoProxy('insert', undefined, payload);
+        if (viaProxy === null) {
+          const { error } = await supabase.from('solicitacoes_registo').insert([payload]);
+          if (!error) cloudOk = true;
+          else cloudErro = error.code === '23505' ? 'duplicado' : (error.message || 'insert');
+        } else if (viaProxy.ok) {
+          cloudOk = true;
+        } else {
+          cloudErro = viaProxy.erro || 'proxy';
+        }
+      } else {
+        cloudErro = 'sem-nuvem';
+      }
+    } catch (err: any) {
+      cloudErro = err?.message || 'rede';
+    }
+    if (cloudErro === 'duplicado' || /duplicate|23505/i.test(cloudErro)) {
+      setCreateBusy(false);
+      setCreateError(`O código ${code} já existe na base central — use outro código.`);
+      return;
+    }
+    // 2. Homologação (activa, ou bloqueada se registada como Inativa)
+    if (formStatusLocal === 'Ativa') homologationStore.setStatus(code, 'active', undefined, nome);
+    else homologationStore.setStatus(code, 'blocked', 'Registada como Inativa pela Administração.', nome);
+    // 3. Ficha local com os dados reais do formulário (zeros honestos, sem aleatórios)
     const newInst: Institution = {
-      id: `inst-${computedSigla.toLowerCase()}-${Math.floor(Math.random() * 900) + 100}`,
+      id: `inst-${computedSigla.toLowerCase()}-${Date.now() % 100000}`,
       name: computedSigla,
-      fullName: formFullName,
-      category: assignedCategory,
+      fullName: nome,
+      category: mapTypeToCategory(formTypeInst),
       province: formProvince,
       municipio: formMunicipio,
       status: formStatusLocal,
       totalCorrespondence: 0,
-      totalAgents: Math.floor(Math.random() * 35) + 10,
-      lastActivity: "Criado agora",
-      responseRate: "100%",
+      totalAgents: 1,
+      lastActivity: 'Registada agora',
+      responseRate: '100%',
       typeInst: formTypeInst,
       cidade: formCidade,
       comuna: formComuna,
-      address: formAddress || "Sede do Orgão",
+      address: formAddress || 'Sede do Órgão',
       registrationDate: new Date().toLocaleDateString('pt-PT'),
-      aiUsageRate: "85%",
-      performanceScore: "95.2%",
-      contactEmail: formContactEmail || `geral@${computedSigla.toLowerCase()}.gov.ao`,
-      contactPhone: formContactPhone || "+244 923 000 000",
-      responsibleName: formResponsibleName || "Dr. António Fernando",
-      responsibleRole: formResponsibleRole || "Director Geral",
-      instCode: formInstCode || `${computedSigla.toUpperCase()}-001`,
+      aiUsageRate: '0%',
+      performanceScore: '100%',
+      contactEmail: email,
+      contactPhone: formContactPhone,
+      responsibleName: formResponsibleName,
+      responsibleRole: formResponsibleRole,
+      instCode: code,
     };
-
-    setInstitutions([newInst, ...institutions]);
+    setInstitutions(prev => [newInst, ...prev]);
+    // 4. Mensagem oficial de aprovação na nuvem (mesmo texto do fluxo oficial)
+    if (formStatusLocal === 'Ativa') {
+      const textoAprovacao = `Exmos. Senhores da ${nome} (${code}), informamos que a vossa adesão ao Correio Digital Angola foi APROVADA pela Área de Administração e a conta da instituição encontra-se oficialmente ATIVA. Todas as funcionalidades da área institucional ficam disponíveis de imediato. Bem-vindos à rede nacional de correio digital.`;
+      const nuvem = await enviarMensagemAdministrativa(code, 'Adesão Aprovada — Conta Institucional Ativada pela Área de Administração', textoAprovacao);
+      if (nuvem?.ok) {
+        if (onLog) onLog(`INSTITUIÇÃO REGISTADA: ${nome} (${code}) — linha Aprovada na base central e correspondência oficial de aprovação gravada.`, 'success');
+      } else {
+        homologationStore.addMessage(code, 'admin', textoAprovacao);
+        if (onLog) onLog(`INSTITUIÇÃO REGISTADA: ${nome} (${code}) — ATENÇÃO: a correspondência de aprovação NÃO foi gravada na base central (sem sessão Auth de administração ou nuvem indisponível); ficou apenas no canal local deste dispositivo.`, 'warning');
+      }
+    } else if (onLog) {
+      onLog(`INSTITUIÇÃO REGISTADA: ${nome} (${code}) como Inativa — sem homologação activa até ser activada.`, 'warning');
+    }
+    if (!cloudOk && onLog) {
+      onLog(`INSTITUIÇÃO ${code}: a linha NÃO foi gravada na base central (${cloudErro || 'nuvem indisponível'}) — ficou apenas a ficha local deste dispositivo; volte a registar quando houver ligação.`, 'warning');
+    }
+    anunciarRegistosAlterados();
+    await fetchSolicitacoes();
+    setCreateBusy(false);
     setIsCreateModalOpen(false);
-    if (onLog) onLog(`INSTITUIÇÃO CRIADA: ${newInst.name} (${newInst.fullName})`, 'success');
   };
 
   // Save changes to institution
@@ -1991,12 +2089,18 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                 <div className="border-t border-dashed border-slate-150 pt-2" />
 
+                {createError && !editingInstitution && (
+                  <p role="alert" className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+                    {createError}
+                  </p>
+                )}
                 {/* Actions Row */}
                 <div className="pt-2 shrink-0 flex items-center justify-between gap-4">
                   <button
                     type="button"
+                    disabled={createBusy}
                     onClick={() => { setIsCreateModalOpen(false); setEditingInstitution(null); }}
-                    className="px-6 py-3.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-[20px] font-extrabold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    className="px-6 py-3.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-[20px] font-extrabold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                   >
                     <X size={15} />
                     Cancelar
@@ -2004,10 +2108,11 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                   <button
                     type="submit"
-                    className="flex-1 bg-[#4f46e5] hover:bg-[#4338ca] text-white py-3.5 rounded-[20px] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#4f46e5]/15 flex items-center justify-center gap-2.5 transition-all duration-300 cursor-pointer active:scale-98 font-sans border-0"
+                    disabled={createBusy && !editingInstitution}
+                    className="flex-1 bg-[#4f46e5] hover:bg-[#4338ca] text-white py-3.5 rounded-[20px] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#4f46e5]/15 flex items-center justify-center gap-2.5 transition-all duration-300 cursor-pointer active:scale-98 font-sans border-0 disabled:opacity-60"
                   >
                     <CheckCircle size={15} className="stroke-[3]" />
-                    {editingInstitution ? 'Guardar Instituição' : 'Criar Instituição'}
+                    {editingInstitution ? 'Guardar Instituição' : (createBusy ? 'A registar…' : 'Criar Instituição')}
                   </button>
                 </div>
               </form>

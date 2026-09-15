@@ -42,6 +42,7 @@ import { isInstitutionObservacao } from '../../services/institutionRegistrationS
 
 interface GovIaContentProps {
   onLog?: (action: string, type: 'info' | 'success' | 'warning' | 'critical') => void;
+  onNavigate?: (tab: string) => void;
 }
 
 interface AIProvider {
@@ -98,7 +99,7 @@ interface GovAiStats {
   totalDocs: number;
 }
 
-export function GovIaContent({ onLog }: GovIaContentProps) {
+export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
   // Toast notification state
   const [showToast, setShowToast] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
@@ -926,7 +927,10 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
           </div>
 
           <button
-            onClick={() => triggerToast('A redirecionar para relatórios consolidados...', 'info')}
+            onClick={() => {
+              if (onNavigate) onNavigate('gov-relatorio');
+              else triggerToast('A redirecionar para relatórios consolidados...', 'info');
+            }}
             className="w-full mt-4 py-3 bg-[#0E2B64] hover:bg-[#0C2454] text-white rounded-[16px] text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 border border-[#0E2B64] shadow-xs"
           >
             <BarChart2 size={14} className="text-white" />

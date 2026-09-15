@@ -5,6 +5,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import * as XLSX from 'xlsx';
 import { AnimatedCounter } from '../ui/AnimatedCounter';
 import {
   FileText,
@@ -647,15 +648,24 @@ export function GovRelatorioContent({
         csvContentRows.push(["MINJUS - Registo Predial", "150.000 chamadas", "Online", "Validação Notarial", "99.90%"]);
       }
 
-      // Encode CSV
-      const formattedCsv = "data:text/csv;charset=utf-8,\uFEFF" + csvContentRows.map(e => e.map(cell => `"${cell}"`).join(";")).join("\n");
-      const encodedUri = encodeURI(formattedCsv);
-      const outputAnchor = document.createElement("a");
-      outputAnchor.setAttribute("href", encodedUri);
-      outputAnchor.setAttribute("download", `CDA_Relatorio_${activeTab}_2026.csv`);
-      document.body.appendChild(outputAnchor);
-      outputAnchor.click();
-      document.body.removeChild(outputAnchor);
+      if (format === 'Excel') {
+        // Ficheiro Microsoft Excel genuíno (.xlsx) com as mesmas linhas do relatório
+        const ws = XLSX.utils.aoa_to_sheet(csvContentRows.map(r => r.map(c => c ?? '')));
+        ws['!cols'] = (csvContentRows[5] || []).map(() => ({ wch: 28 }));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Relatorio');
+        XLSX.writeFile(wb, `CDA_Relatorio_${activeTab}_2026.xlsx`);
+      } else {
+        // Encode CSV
+        const formattedCsv = "data:text/csv;charset=utf-8,\uFEFF" + csvContentRows.map(e => e.map(cell => `"${cell}"`).join(";")).join("\n");
+        const encodedUri = encodeURI(formattedCsv);
+        const outputAnchor = document.createElement("a");
+        outputAnchor.setAttribute("href", encodedUri);
+        outputAnchor.setAttribute("download", `CDA_Relatorio_${activeTab}_2026.csv`);
+        document.body.appendChild(outputAnchor);
+        outputAnchor.click();
+        document.body.removeChild(outputAnchor);
+      }
     } catch (e) {
       console.warn("Failed link simulation: ", e);
     }

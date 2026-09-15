@@ -511,7 +511,7 @@ export function GovDashboard({
         </header>
 
         {/* Imagens Publicitárias / Destaques do Governo */}
-        <section className="relative h-[280px] md:h-[385px] rounded-[20px] md:rounded-[24px] overflow-hidden shadow-sm border border-slate-200">
+        <section className="relative h-[280px] md:h-[385px] rounded-[20px] md:rounded-[24px] overflow-hidden shadow-sm border border-slate-200 bg-gradient-to-br from-[#0E2B64] via-[#14306b] to-[#1e3a8a]">
           <AnimatePresence mode="wait">
             <motion.div
               key={`gov-destaque-${activeSlide}`}

@@ -314,7 +314,8 @@ const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
   admin: new Set([
     'home', 'gov-dashboard', 'gov-interoperabilidade', 'gov-correspondencias',
     'gov-contatos', 'gov-trabalhadores', 'gov-relatorio', 'gov-ia',
-    'gov-seguranca', 'gov-perfil', 'gov-emissao', 'historico', 'notificacoes',
+    'gov-seguranca', 'gov-perfil', 'gov-emissao', 'gov-docs', 'gov-documentos',
+    'historico', 'notificacoes',
     'video-atendimento', 'inst-video',
     'mensagem', 'documento', 'instituicao',
   ]),
@@ -6846,7 +6847,7 @@ Ficha civil do titular:
         );
       case 'gov-ia':
         return (
-          <PainelSuspense><GovIaContent onLog={addAuditLog} /></PainelSuspense>
+          <PainelSuspense><GovIaContent onLog={addAuditLog} onNavigate={setTab} /></PainelSuspense>
         );
       case 'gov-seguranca':
         return (
