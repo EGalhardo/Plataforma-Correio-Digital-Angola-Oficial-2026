@@ -32,6 +32,7 @@ import {
   prepararFotografia,
   OcorrenciaRequestError,
 } from "./client";
+import { MapaOcorrencia } from "./MapaOcorrencia";
 import {
   CATEGORIAS_OCORRENCIAS,
   ESTADOS_OCORRENCIAS,
@@ -97,9 +98,13 @@ function Estado({ value }: { value: string }) {
 function TimelineOcorrencia({
   estado,
   events,
+  clicavel = false,
+  onPonto,
 }: {
   estado: string;
   events: EventoOcorrencia[];
+  clicavel?: boolean;
+  onPonto?: (alvo: string) => void;
 }) {
   const datas = new Map<string, string>();
   for (const e of events) {
@@ -119,8 +124,8 @@ function TimelineOcorrencia({
         {TIMELINE_OCORRENCIA.map((st, i) => {
           const feito = idx >= 0 ? i <= idx : datas.has(st);
           const atual = st === estado;
-          return (
-            <li key={st} className="flex gap-3 items-start">
+          const conteudo = (
+            <>
               <span
                 className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
                   feito
@@ -153,6 +158,22 @@ function TimelineOcorrencia({
                   </p>
                 )}
               </div>
+            </>
+          );
+          return (
+            <li key={st}>
+              {clicavel ? (
+                <button
+                  type="button"
+                  onClick={() => onPonto?.(st)}
+                  title={`Mudar estado para ${ESTADOS_OCORRENCIAS[st]}`}
+                  className="flex gap-3 items-start text-left w-full rounded-lg p-1 -m-1 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  {conteudo}
+                </button>
+              ) : (
+                <span className="flex gap-3 items-start">{conteudo}</span>
+              )}
             </li>
           );
         })}
@@ -508,6 +529,10 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
   const [tratResp, setTratResp] = useState("");
   const [tratAlvo, setTratAlvo] = useState("");
   const [tratNota, setTratNota] = useState("");
+  const [tlAlvo, setTlAlvo] = useState<string | null>(null);
+  const [tlNota, setTlNota] = useState("");
+  const [tlBloqueio, setTlBloqueio] = useState("");
+  const [tlErro, setTlErro] = useState("");
   const [encDestino, setEncDestino] = useState("");
   const [encMotivo, setEncMotivo] = useState("");
   const [verFotos, setVerFotos] = useState(false);
@@ -882,6 +907,64 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
     }
     if (await executarAcao(t.acao, { descricao: tratNota.trim() }))
       setTratNota("");
+  };
+  // Mudança de estado por clique no cronograma: só avança UM nível (sem
+  // retroceder nem saltar), e só para alvos válidos na matriz de transições.
+  const pedirMudancaTimeline = (alvo: string) => {
+    if (!selected) return;
+    const atual = selected.estado;
+    const tl = TIMELINE_OCORRENCIA as readonly string[];
+    const rotulo = (st: string) => ESTADOS_OCORRENCIAS[st] || st;
+    setTlNota("");
+    setTlErro("");
+    setTlAlvo(alvo);
+    if (alvo === atual) {
+      setTlBloqueio(`A ocorrência já está em «${rotulo(atual)}».`);
+      return;
+    }
+    const ia = tl.indexOf(atual);
+    const ib = tl.indexOf(alvo);
+    if (ia >= 0 && ib >= 0) {
+      if (ib < ia) {
+        setTlBloqueio(
+          `Não é possível retroceder de «${rotulo(atual)}» para «${rotulo(alvo)}».`,
+        );
+        return;
+      }
+      if (ib - ia > 1) {
+        setTlBloqueio(
+          `Só é possível avançar um nível de cada vez (actual: «${rotulo(atual)}»).`,
+        );
+        return;
+      }
+    }
+    if (!transicoes.some((x) => x.alvo === alvo)) {
+      setTlBloqueio(
+        `«${rotulo(alvo)}» não é um passo válido a partir de «${rotulo(atual)}».`,
+      );
+      return;
+    }
+    setTlBloqueio("");
+  };
+  const confirmarMudancaTimeline = async () => {
+    const t = transicoes.find((x) => x.alvo === tlAlvo);
+    if (!selected || !tlAlvo || !t) return;
+    if (t.exigeNota && tlNota.trim().length < 5) {
+      setTlErro("Indique a justificação da alteração (mínimo 5 caracteres).");
+      return;
+    }
+    if (await executarAcao(t.acao, { descricao: tlNota.trim() })) {
+      setTlAlvo(null);
+      setTlNota("");
+      setTlBloqueio("");
+      setTlErro("");
+    }
+  };
+  const fecharMudancaTimeline = () => {
+    setTlAlvo(null);
+    setTlNota("");
+    setTlBloqueio("");
+    setTlErro("");
   };
   const submitEncaminhar = async () => {
     if (!encDestino) {
@@ -1758,6 +1841,18 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                 )}
               </div>
               <div className={panel}>
+                <h3 className="font-black text-primary flex items-center gap-2">
+                  <MapPin size={18} />
+                  Mapa da ocorrência
+                </h3>
+                <MapaOcorrencia
+                  provincia={selected.provincia}
+                  municipio={selected.municipio}
+                  bairro={selected.bairro}
+                  rua={selected.rua}
+                />
+              </div>
+              <div className={panel}>
                 <div>
                   <span className="block text-xs font-bold text-slate-600 mb-1.5">
                     Responsável pelo tratamento
@@ -1854,8 +1949,96 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
               </div>
               <div className={panel}>
                 <h3 className="font-black text-primary">Acompanhamento</h3>
-                <TimelineOcorrencia estado={selected.estado} events={events} />
+                <p className="text-xs text-slate-500 -mt-1">
+                  Clique num ponto para propor a mudança de estado.
+                </p>
+                <TimelineOcorrencia
+                  estado={selected.estado}
+                  events={events}
+                  clicavel
+                  onPonto={pedirMudancaTimeline}
+                />
               </div>
+              {tlAlvo !== null && selected && (
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Actualizar estado da ocorrência"
+                  onClick={fecharMudancaTimeline}
+                >
+                  <div
+                    className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl space-y-4"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <h3 className="font-black text-primary">
+                      Actualizar estado
+                    </h3>
+                    {tlBloqueio ? (
+                      <p role="alert" className="text-sm text-amber-800">
+                        {tlBloqueio}
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-sm text-slate-700">
+                          Pretende actualizar a ocorrência de{" "}
+                          <strong>
+                            «
+                            {ESTADOS_OCORRENCIAS[selected.estado] ||
+                              selected.estado}
+                            »
+                          </strong>{" "}
+                          para{" "}
+                          <strong>
+                            «{ESTADOS_OCORRENCIAS[tlAlvo] || tlAlvo}»
+                          </strong>
+                          ?
+                        </p>
+                        {transicoes.find((x) => x.alvo === tlAlvo)
+                          ?.exigeNota && (
+                          <Field label="Justificação da alteração *">
+                            <textarea
+                              className={input}
+                              rows={3}
+                              minLength={5}
+                              maxLength={5000}
+                              value={tlNota}
+                              disabled={busy}
+                              onChange={(e) => setTlNota(e.target.value)}
+                              placeholder="Descreva a intervenção ou o motivo"
+                            />
+                          </Field>
+                        )}
+                        {tlErro && (
+                          <p role="alert" className="text-sm text-rose-700">
+                            {tlErro}
+                          </p>
+                        )}
+                      </>
+                    )}
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        className={secondary}
+                        disabled={busy}
+                        onClick={fecharMudancaTimeline}
+                      >
+                        {tlBloqueio ? "Fechar" : "Cancelar"}
+                      </button>
+                      {!tlBloqueio && (
+                        <button
+                          type="button"
+                          className={primary}
+                          disabled={busy}
+                          onClick={() => void confirmarMudancaTimeline()}
+                        >
+                          {busy ? "A actualizar…" : "Confirmar actualização"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className={panel}>
                 <h3 className="font-black text-primary flex items-center gap-2">
                   <Clock size={18} />
