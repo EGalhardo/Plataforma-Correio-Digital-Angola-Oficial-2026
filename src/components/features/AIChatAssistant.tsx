@@ -123,19 +123,16 @@ const NAV_DESTINOS: DestinoNav[] = [
   { termos: ['historico', 'histórico', 'atividades', 'atividade', 'linha do tempo'], tab: 'historico', label: 'Histórico de Atividades', papeis: ['user', 'institution', 'admin'] },
   { termos: ['notificacoes', 'notificações', 'notificacao', 'notificação', 'alerta', 'alertas', 'central de alertas'], tab: 'notificacoes', label: 'Central de Notificações', papeis: ['user', 'institution', 'admin'] },
   { termos: ['video atendimento', 'videoatendimento', 'vídeo atendimento', 'videochamada', 'vídeo chamada', 'chamada', 'conferencia', 'conferência'], tab: 'video-atendimento', label: 'Video Atendimento', papeis: ['user', 'institution', 'admin'] },
-  { termos: ['documentos', 'documento', 'certidoes', 'certidões', 'certidao', 'certidão', 'arquivo'], tab: 'documentos', label: 'Documentos', papeis: ['user', 'institution'] },
+  { termos: ['documentos', 'documento', 'certidoes', 'certidões', 'certidao', 'certidão', 'arquivo'], tab: 'documentos', label: 'Documentos', papeis: ['institution'] },
 
   // ---- Cidadão / comum ----
   { termos: ['contactos', 'contacto', 'contatos', 'contato', 'vizinhos', 'vizinho', 'emergencia', 'emergência', 'parentes', 'circulo de confiança', 'círculo de confiança', 'confianca', 'confiança'], tab: 'contactos', label: 'Contactos', papeis: ['user'] },
   { termos: ['perfil', 'minha conta', 'meu perfil', 'dados pessoais', 'biometria'], tab: 'perfil', label: 'Meu Perfil', papeis: ['user', 'institution'] },
-  { termos: ['pagamentos', 'pagamento', 'taxas', 'taxa', 'cobranca', 'cobrança', 'emolumentos', 'emolumento'], tab: 'pagamentos', label: 'Pagamentos', papeis: ['user'] },
-  { termos: ['pasta digital', 'minha pasta', 'processos digitais', 'dossier'], tab: 'pasta-digital', label: 'Pasta Digital', papeis: ['user'] },
   { termos: ['qr code', 'qr', 'codigo qr', 'código qr', 'carteira digital', 'carteira', 'passaporte', 'offline'], tab: 'qr-code', label: 'QR Code', papeis: ['user'] },
   { termos: ['solicitar documento', 'pedir documento', 'solicitacao de documento', 'pedido de documento'], tab: 'solicitar-documento', label: 'Solicitar Documento', papeis: ['user'] },
 
   // ---- Instituição ----
   { termos: ['equipa', 'colaboradores', 'colaborador', 'trabalhadores', 'trabalhador', 'membros', 'membro', 'operadores', 'operador', 'funcionarios', 'funcionário'], tab: 'gov-contatos', label: 'Equipa', papeis: ['institution'] },
-  { termos: ['pagamentos', 'pagamento', 'cobrancas', 'cobrança', 'cobrancas', 'taxas', 'emolumentos'], tab: 'inst-pagamentos', label: 'Pagamentos e Cobranças', papeis: ['institution'] },
   { termos: ['qr code', 'qr', 'validacao', 'validação', 'validar', 'codigo qr'], tab: 'inst-qrcode', label: 'Validação por QR Code', papeis: ['institution'] },
   { termos: ['ia', 'assistente ia', 'assistente', 'inteligencia artificial', 'inteligência artificial', 'base de conhecimento', 'conhecimento'], tab: 'inst-ai-assistant', label: 'Assistência IA', papeis: ['institution'] },
 

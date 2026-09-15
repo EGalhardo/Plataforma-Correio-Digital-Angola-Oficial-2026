@@ -109,12 +109,6 @@ import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLoc
 import { retomarRegistosBg, temRegistoBgAtivo } from './services/registoBgService';
 import { puxarPerfilDaNuvem, reenviarPendenciasPerfil, temPendenciaPerfil } from './services/profileSyncService';
 import { buildAutoFillProfile, type CitizenAutoFillProfile } from './services/autoFillService';
-import { carregarPagamentosDoCidadao } from './services/pagamentosService';
-import {
-  alertaJaEmitido, formatarDiasRestantes, marcarAlertaEmitido,
-  montarAlertasDePagamentos, mensagemDeAlerta, PAGAMENTOS_DEMO_PRAZOS,
-  tituloDeAlerta,
-} from './services/prazoAlertsService';
 // F55 — Contactos de Emergência (núcleo puro testado). F57: as funções de
 // alerta continuam no serviço, agora sem consumidor no lado do cidadão —
 // reservadas ao fluxo institucional (v20), sem código zombie na UI.
@@ -196,10 +190,6 @@ const InstQrCodeContent = lazy(() => import('./components/features/InstQrCodeCon
 const OcorrenciasPage = lazy(() => import('./features/ocorrencias/OcorrenciasPage').then(m => ({ default: m.OcorrenciasPage })));
 const SondagensContent = lazy(() => import('./components/features/SondagensContent').then(m => ({ default: m.SondagensContent }))); // v36
 const InstAiAssistantContent = lazy(() => import('./components/features/InstAiAssistantContent').then(m => ({ default: m.InstAiAssistantContent })));
-// 2026-08-08 — Pagamentos (frontend-only; gateway só após validação INAPEM)
-const PagamentosContent = lazy(() => import('./components/features/PagamentosContent').then(m => ({ default: m.PagamentosContent })));
-const PagamentosInlineCidadao = lazy(() => import('./components/features/PagamentosContent').then(m => ({ default: m.PagamentosInlineCidadao })));
-const InstPagamentosContent = lazy(() => import('./components/features/InstPagamentosContent').then(m => ({ default: m.InstPagamentosContent })));
 const SolicitarDocumentoContent = lazy(() => import('./components/features/SolicitarDocumentoContent').then(m => ({ default: m.SolicitarDocumentoContent })));
 const RegisterStepper = lazy(() => import('./components/features/RegisterStepper').then(m => ({ default: m.RegisterStepper })));
 // 2026-08-14 — performance: componentes pesados fora do bundle principal
@@ -234,7 +224,6 @@ const DocumentsContent = lazyPainel(() => import('./components/features/Document
 const WalletContent = lazyPainel(() => import('./components/features/WalletContent').then(m => ({ default: m.WalletContent })));
 const ContactsContent = lazyPainel(() => import('./components/features/ContactsContent').then(m => ({ default: m.ContactsContent })));
 const DocumentDetail = lazyPainel(() => import('./components/features/DocumentDetail').then(m => ({ default: m.DocumentDetail })));
-const PastaDigitalContent = lazyPainel(() => import('./components/features/PastaDigitalContent').then(m => ({ default: m.PastaDigitalContent })));
 const ActivityCenterContent = lazyPainel(() => import('./components/features/ActivityCenterContent').then(m => ({ default: m.ActivityCenterContent })));
 const NotificationsCenterContent = lazyPainel(() => import('./components/features/NotificationsCenterContent').then(m => ({ default: m.NotificationsCenterContent })));
 const GovEmissaoContent = lazyPainel(() => import('./components/features/GovEmissaoContent').then(m => ({ default: m.GovEmissaoContent })));
@@ -294,14 +283,14 @@ export const persistReadMessageId = (rawBi: string, ...ids: number[]): void => {
 //    limpo (replaceState) para não revelar a última página ao login seguinte.
 // ============================================================================
 const HASH_TAB_FALLBACKS: Record<string, Record<string, string>> = {
-  user: { mensagem: 'correspondencias', documento: 'documentos', instituicao: 'home' },
+  user: { mensagem: 'correspondencias', documento: 'home', instituicao: 'home' },
   institution: { mensagem: 'correspondencias', documento: 'documentos', instituicao: 'home', 'inst-video': 'video-atendimento' },
   admin: { home: 'gov-dashboard', mensagem: 'gov-correspondencias', documento: 'gov-docs', instituicao: 'gov-interoperabilidade', 'inst-video': 'video-atendimento' },
 };
 const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
   user: new Set([
     'home', 'correspondencias', 'contatos', 'contactos', 'perfil', 'historico',
-    'notificacoes', 'pagamentos', 'documentos', 'qr-code', 'pasta-digital',
+    'notificacoes', 'qr-code',
     'solicitar-documento', 'video-atendimento', 'inqueritos', 'denuncias', 'ocorrencias',
     'directorio-orgaos', // UX: deep link do Directório (render existe, faltava o hash)
     // tabs de detalhe — só via fallback (HASH_TAB_FALLBACKS)
@@ -309,8 +298,8 @@ const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
   ]),
   institution: new Set([
     'home', 'correspondencias', 'gov-contatos', 'contatos', 'contactos',
-    'inst-qrcode', 'qr-code', 'inst-ai-assistant', 'perfil', 'inst-pagamentos', 'pagamentos',
-    'pasta-digital', 'solicitar-documento', 'directorio-orgaos', // UX: deep links em falta
+    'inst-qrcode', 'qr-code', 'inst-ai-assistant', 'perfil',
+    'solicitar-documento', 'directorio-orgaos', // UX: deep links em falta
     'ocorrencias', 'inqueritos', 'denuncias', 'sondagens', // v36 — lista/resultados de sondagens da instituição
     'historico', 'notificacoes', 'documentos', 'video-atendimento', 'inst-video',
     'mensagem', 'documento', 'instituicao',
@@ -1689,7 +1678,7 @@ export default function App() {
   const paginasMenuKey = paginasMenu ? paginasMenu.join('|') : '';
   // Navegação/tabs que nunca são "páginas" — detalhes e sobreposições
   // (mensagem aberta, documento, notificações, histórico…) ficam livres.
-  const TAB_PAGINAS_LIVRES = new Set(['ocorrencias', 'inqueritos', 'denuncias', 'mensagem', 'documento', 'notificacoes', 'historico', 'video-atendimento', 'inst-pagamentos']);
+  const TAB_PAGINAS_LIVRES = new Set(['ocorrencias', 'inqueritos', 'denuncias', 'mensagem', 'documento', 'notificacoes', 'historico', 'video-atendimento']);
   void instIdentity; // consumida pela F4 (equipa/perfil)
 
   // 2026-09-11 — SETA DE VOLTAR das subpáginas: pilha das páginas visitadas
@@ -1732,6 +1721,16 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, appMode, paginasMenuKey, painelDoModo]);
   const voltarCtx = useMemo(() => ({ voltar: voltarPagina }), [voltarPagina]);
+
+  // 2026-09-15 — Funcionalidades removidas (Facturas do cidadão, Pagamentos e
+  // Pasta Digital): deep links/atalhos obsoletos regressam ao Painel em vez
+  // de caírem em página inexistente.
+  useEffect(() => {
+    if (stage !== 'app') return;
+    const removidos = ['pagamentos', 'inst-pagamentos', 'pasta-digital'];
+    if (removidos.includes(tab) || (tab === 'documentos' && !isInstMode)) setTab('home');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, tab, isInstMode]);
 
   // Claro/Escuro Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -3863,55 +3862,6 @@ export default function App() {
     isOwnHomologationMail(m) || (!!m.recipientBi && normalizeHomologationBi(m.recipientBi) === normalizeHomologationBi(bi));
 
   // ==========================================================================
-  // Etapa #3 — ALERTAS AUTOMÁTICOS DE PRAZOS (cobranças)
-  // Verificador que corre no arranque da sessão do cidadão e depois a cada
-  // 5 minutos: lê as cobranças pendentes (nuvem; na demo, prazos demo), e para
-  // cada prazo vencido/urgente/próximo emite UMA notificação única (anti-
-  // duplicação em localStorage). Só gera alertas novos — nunca re-notifica.
-  // ==========================================================================
-  const verificarPrazosAutomaticamente = useCallback(async () => {
-    if (stage !== 'app' || appMode !== 'user' || !bi.trim()) return;
-    const r = await carregarPagamentosDoCidadao(bi);
-    let lista = r.pagamentos;
-    // Sessão de demonstração sem cobranças na nuvem → prazos demo (visíveis).
-    if (isDemoCitizenSession && lista.length === 0) {
-      lista = PAGAMENTOS_DEMO_PRAZOS();
-    }
-    const alertas = montarAlertasDePagamentos(lista);
-    const novas = alertas.filter(a => !alertaJaEmitido(a.chave));
-    if (novas.length === 0) return;
-    const notifs: AppNotification[] = novas.map(a => {
-      marcarAlertaEmitido(a.chave);
-      return stampNotif({
-        id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
-        type: a.estado === 'proximo' ? 'info' : 'warning',
-        title: tituloDeAlerta(a),
-        message: mensagemDeAlerta(a),
-        time: 'Agora',
-        targetTab: 'pagamentos',
-        unread: true,
-      });
-    });
-    setNotifications(prev => [...notifs, ...prev]);
-    const temVencido = novas.some(a => a.estado === 'vencido');
-    addAuditLog(`[PRAZOS] ${novas.length} alerta(s) de prazo emitido(s) para o cidadão (${novas.map(a => `${a.descricao} → ${formatarDiasRestantes(a.dias)}`).join('; ')}).`, temVencido ? 'critical' : 'warning');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, appMode, bi, isDemoCitizenSession]);
-
-  useEffect(() => {
-    if (stage !== 'app' || appMode !== 'user') return;
-    void verificarPrazosAutomaticamente();
-    const id = setInterval(() => void verificarPrazosAutomaticamente(), 5 * 60 * 1000);
-    return () => clearInterval(id);
-  }, [verificarPrazosAutomaticamente, stage, appMode]);
-
-  // Cobranças demo com prazos (identidade estável — prazos relativos a hoje).
-  const pagamentosDemoFallback = useMemo(
-    () => (isDemoCitizenSession ? PAGAMENTOS_DEMO_PRAZOS() : undefined),
-    [isDemoCitizenSession],
-  );
-
-  // ==========================================================================
   // Etapa #4 — SYNC AUTOMÁTICO DO PERFIL com o Supabase
   // Corre no arranque da sessão do cidadão REAL (não demo, ligada à nuvem) e
   // depois a cada 5 minutos, fazendo:
@@ -5529,10 +5479,6 @@ Nela estão armazenados eletronicamente os seguintes documentos civis do cidadã
 ${docsSummary || 'Nenhum documento adicionado.'}
 As credenciais têm assinatura criptográfica ativa e um código QR de integridade visualizado para validação por fiscais de estado.`;
       
-      case 'pasta-digital':
-        return `Você está na Pasta Digital Integrada.
-Nesta área estão organizados os dossiers, certidões, anexos certificados e comprovativos históricos associados ao perfil ${profileName}.`;
-
       case 'historico':
         return `Você está no Centro de Histórico Operacional.
 Aqui pode acompanhar correspondências, documentos, notificações e solicitações recentes do perfil ativo no Correio Digital Angola.`;
@@ -6025,6 +5971,7 @@ Ficha civil do titular:
           </PainelSuspense>
         );
       case 'documentos':
+        if (!isInstMode) return null; // 2026-09-15 — «Facturas» (cidadão) removida; o guarda de navegação regressa ao Painel. A instituição mantém os Documentos.
         return (
           <DocumentsContent
             isComposing={isDocComposing}
@@ -6109,13 +6056,6 @@ Ficha civil do titular:
             addAuditLog={addAuditLog}
             podeGerirDenuncia={isInstMode && instIdentity?.type === 'responsible'}
           />
-          {isUserMode && bi ? (
-            <PagamentosInlineCidadao
-              citizenBi={bi}
-              assuntoDocumento={selectedMessage.subject || ''}
-              onAbrirPagamentos={() => setTab('pagamentos')}
-            />
-          ) : null}
           </div>
           </PainelSuspense>
         );
@@ -6188,19 +6128,6 @@ Ficha civil do titular:
             autoFillProfile={autoFillProfile}
           />
           </PainelSuspense>
-        );
-      case 'pasta-digital':
-        return (
-          <PastaDigitalContent
-            documents={currentDocuments}
-            docRequests={docRequests.filter(r => r.userBi === bi)}
-            onCreateRequest={handleCreateDocRequest}
-            setSelectedDoc={setSelectedDoc}
-            setTab={setTab}
-            logSecurityEvent={logSecurityEvent}
-            emergencyMode={emergencyMode}
-            correspondences={currentCorrespondences}
-          />
         );
       case 'historico':
         return (
@@ -6278,27 +6205,6 @@ Ficha civil do titular:
             bi={bi}
             profileName={profileName || user?.name || ''}
             institutionCode={institutionCode}
-          />
-          </PainelSuspense>
-        );
-      case 'inst-pagamentos':
-        return (
-          <PainelSuspense>
-          <InstPagamentosContent
-            institutionCode={institutionCode}
-            profileName={profileName || user?.name || ''}
-            addAuditLog={addAuditLog}
-            setTab={setTab}
-          />
-          </PainelSuspense>
-        );
-      case 'pagamentos':
-        return (
-          <PainelSuspense>
-          <PagamentosContent
-            citizenBi={bi}
-            setTab={setTab}
-            pagamentosDemoFallback={pagamentosDemoFallback}
           />
           </PainelSuspense>
         );

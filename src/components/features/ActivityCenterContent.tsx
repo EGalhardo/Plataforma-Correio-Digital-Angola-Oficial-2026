@@ -62,7 +62,7 @@ export function ActivityCenterContent({
       title: document.name,
       desc: `${document.issuer} • ${document.issuedAt}`,
       action: 'Documento',
-      target: 'pasta-digital',
+      target: isAdmin ? 'gov-docs' : isInstitution ? 'documentos' : 'qr-code',
       icon: FileText,
     })),
     ...docRequests.slice(0, 3).map((request) => ({
@@ -70,7 +70,7 @@ export function ActivityCenterContent({
       title: request.docType,
       desc: `${request.institution} • ${request.status}`,
       action: 'Solicitação',
-      target: isAdmin ? 'gov-docs' : 'pasta-digital',
+      target: isAdmin ? 'gov-docs' : isInstitution ? 'documentos' : 'solicitar-documento',
       icon: Clock3,
     })),
     ...notifications.slice(0, 3).map((notification) => ({
@@ -211,7 +211,7 @@ export function ActivityCenterContent({
                     ]
                   : [
                       { label: 'Abrir Correspondências', target: 'correspondencias' },
-                      { label: 'Abrir Pasta Digital', target: 'pasta-digital' },
+                      { label: 'Abrir Carteira Digital', target: 'qr-code' },
                     ]
               ).map((link) => (
                 <button

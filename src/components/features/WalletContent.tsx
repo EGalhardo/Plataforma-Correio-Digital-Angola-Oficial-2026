@@ -148,7 +148,6 @@ export function WalletContent({
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar mb-4">
-        <button onClick={() => setTab('pasta-digital')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{translate("Abrir Pasta Digital")}</button>
         <button onClick={() => setTab('historico')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{translate("Ver Histórico")}</button>
         <button onClick={() => setTab('notificacoes')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{translate("Notificações")}</button>
         <button onClick={() => setShowRequestsHistory(prev => !prev)} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">

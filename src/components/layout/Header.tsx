@@ -353,7 +353,6 @@ export function Header({
       case 'correspondencias': return 'Correio Digital';
       case 'documentos': return 'Documentos e Tramitações';
       case 'qr-code': return 'QR Code';
-      case 'pasta-digital': return 'Pasta Digital';
       case 'historico': return 'Meu Histórico';
       case 'notificacoes': return 'Centro de Notificações';
       case 'solicitar-documento': return 'Solicitar Documento';
