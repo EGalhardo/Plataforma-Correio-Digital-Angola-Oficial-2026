@@ -84,6 +84,8 @@ import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, se
 import { validarDataExpiracao, formatarDataExpiracao, dataExpiracaoParaISO } from './utils/dataExpiracao';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente } from './utils/ordenacaoCronologica';
+import { agruparConversas, conversaDe, resumoDestinatarios } from './utils/conversasThread';
+import { PainelConversa } from './components/features/PainelConversa';
 import { contarNotificacoesAtalhos, assuntoChave, normalizarTexto } from './utils/notificacoesAtalhos';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao, listarRegistosPendentes, EVENTO_REGISTOS_ALTERADOS } from './services/supabaseService';
 import { ehAssuntoDenuncia, estadoDeFase, codigoInstituicaoBase } from './services/denunciaCore';
@@ -3137,28 +3139,11 @@ export default function App() {
         const dbSentMessages = mailbox ? mailbox.sent : null;
         if (dbSentMessages !== null && isSubscribed) {
           // F15 — marca da sessão remetente ("Enviadas" isolada por conta)
-          // v37.77 — DIFUSÕES AGRUPADAS: uma sondagem/emergência distribuída a
-          // N cidadãos gera N linhas na nuvem (cada destinatário precisa da
-          // sua cópia), mas o espelho «Enviadas» do EMISSOR passa a mostrar o
-          // lote UMA vez com o selo «Difusão para N destinatários» — antes
-          // 1 sondagem a 23 cidadãos aparecia como 23 correspondências
-          // enviadas (interpretado como resíduo de contas eliminadas).
-          const agruparDifusoes = (msgs: typeof dbSentMessages): typeof dbSentMessages => {
-            const grupos = new Map<string, { cabeca: (typeof msgs)[number]; total: number }>();
-            const ordem: string[] = [];
-            for (const m of msgs) {
-              const chaveLote = m.createdAt && m.details?.subject ? `${m.details.subject}|${m.createdAt}` : '';
-              if (!chaveLote) { ordem.push(`#${m.id}`); grupos.set(`#${m.id}`, { cabeca: m, total: 1 }); continue; }
-              const g = grupos.get(chaveLote);
-              if (g) g.total += 1;
-              else { ordem.push(chaveLote); grupos.set(chaveLote, { cabeca: m, total: 1 }); }
-            }
-            return ordem.map(chave => {
-              const g = grupos.get(chave)!;
-              return g.total > 1 ? { ...g.cabeca, broadcastRecipients: g.total } : g.cabeca;
-            });
-          };
-          const sentNormal = agruparDifusoes(dbSentMessages.filter(m => !isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey })));
+          // Conversas estilo Gmail: o espelho guarda TODAS as cópias (sem a
+          // fusão lossy v37.77, cuja chave assunto+timestamp nunca agrupava);
+          // a lista «Enviadas» agrupa por conversa na apresentação e o detalhe
+          // mostra a lista de destinatários (PainelConversa).
+          const sentNormal = dbSentMessages.filter(m => !isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey }));
           const sentDoc = dbSentMessages.filter(m => isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey }));
           
           if (!isDemoSession) {
@@ -4348,6 +4333,13 @@ export default function App() {
     return base.filter(m => pesquisarMensagem(m, searchMail));
   }, [correspondenciaTab, currentInbox, currentSentMessages, searchMail, deletedMessageIds, hiddenMessageIds]);
 
+  // Conversas das «Enviadas» visíveis (estilo Gmail): base para o painel do
+  // detalhe e para as pastas da página Inquéritos (SondagensContent).
+  const conversasCaixaEnviadas = useMemo(
+    () => agruparConversas(currentSentMessages.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id))),
+    [currentSentMessages, deletedMessageIds, hiddenMessageIds],
+  );
+
   const filteredDocMessages = useMemo(() => {
     let base: Message[] = [];
     if (documentosTab === "enviadas") base = currentDocSentMessages;
@@ -5495,8 +5487,8 @@ Serviços ativos: Notificações em tempo real e interconexão garantida.`;
         const resumoRecebidas = visiveis.slice(0, 12).map(m =>
           `- De: ${rotuloDe(m)}, Assunto: ${m.details?.subject || m.preview}, Data: ${m.date}, Estado: ${m.unread ? 'Não Lida' : 'Lida'}`
         ).join('\n');
-        const resumoEnviadas = currentSentMessages.slice(0, 8).map(m =>
-          `- Para: ${m.org || m.recipientBi || 'Instituição'}, Assunto: ${m.details?.subject || m.preview}, Data: ${m.date}`
+        const resumoEnviadas = agruparConversas(currentSentMessages).slice(0, 8).map(c =>
+          `- Para: ${c.multiplos ? `${c.total} destinatários (${resumoDestinatarios(c, 3)})` : (c.representante.org || c.representante.recipientBi || 'Instituição')}, Assunto: ${c.assunto}, Data: ${c.representante.date}`
         ).join('\n');
         return `Você está na aba de Correspondência Oficial (Recebidas).\nTotal de correspondências recebidas: ${visiveis.length} (das quais ${naoLidas} não lidas).\n\nRECEBIDAS:\n${resumoRecebidas || 'Nenhuma correspondência recebida.'}\n\nENVIADAS (recentes):\n${resumoEnviadas || 'Nenhuma correspondência enviada.'}`;
       }
@@ -6077,9 +6069,19 @@ Ficha civil do titular:
             </div>
           );
         }
+        // Conversa da mensagem aberta (Enviadas da instituição): o painel
+        // lista os destinatários; o detalhe mostra o conteúdo (idêntico).
+        const conversaAberta = isInstMode ? conversaDe(conversasCaixaEnviadas, selectedMessage.id) : null;
         return (
           <PainelSuspense>
           <div className="flex flex-col gap-4">
+          {conversaAberta && conversaAberta.multiplos && (
+            <PainelConversa
+              conversa={conversaAberta}
+              selectedId={selectedMessage.id}
+              onSelect={(m) => setSelectedMessage(m)}
+            />
+          )}
           <MessageDetail
             selectedMessage={selectedMessage}
             setSelectedMessage={setSelectedMessage}
@@ -6241,7 +6243,7 @@ Ficha civil do titular:
         return <PainelSuspense><OcorrenciasPage onBack={() => setTab('home')} /></PainelSuspense>;
       case 'inqueritos':
         if (isInstMode) return (
-          <PainelSuspense><SondagensContent title="Inquéritos" codigoInstituicao={bi} addAuditLog={addAuditLog} onBack={() => setTab('home')} onCreate={() => { setIsComposing(true); setTab('correspondencias'); }} novidadesNaoLidas={contarNotificacoesAtalhos(currentNotifications, currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)), true).inqueritos} onVerNotificacoes={() => setTab('notificacoes')} /></PainelSuspense>
+          <PainelSuspense><SondagensContent title="Inquéritos" codigoInstituicao={bi} mensagensEnviadas={currentSentMessages} addAuditLog={addAuditLog} onBack={() => setTab('home')} onCreate={() => { setIsComposing(true); setTab('correspondencias'); }} novidadesNaoLidas={contarNotificacoesAtalhos(currentNotifications, currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)), true).inqueritos} onVerNotificacoes={() => setTab('notificacoes')} /></PainelSuspense>
         );
         return <ListaParticipacaoContent tipo="inqueritos" isInst={false}
           notifications={currentNotifications}

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
@@ -80,6 +80,7 @@ import { notify } from '../../lib/notify';
 import { traduzirErro } from '../../lib/erroAmigavel';
 import { validarEnvio } from '../../services/validacaoEnvio';
 import { hojeISO, formatarDataExpiracao } from '../../utils/dataExpiracao';
+import { agruparConversas, conversaUnica, resumoDestinatarios } from '../../utils/conversasThread';
 import { assistenteDocumento } from '../../services/aiDocumentoService';
 import { MARCADOR_CLAREZA_SUGESTAO } from '../../services/aiDocumentoCore';
 import type { ResultadoValidacaoEnvio } from '../../services/validacaoEnvio';
@@ -601,6 +602,28 @@ export function MailContent({
   // e oferece «Mostrar mais», evitando custo de render em caixas volumosas.
   const LIMITE_LISTA_CORREIO = 100;
   const [limiteListaCorreio, setLimiteListaCorreio] = useState(LIMITE_LISTA_CORREIO);
+
+  // Conversas estilo Gmail (só «Enviadas» da instituição): N cópias do mesmo
+  // envio = 1 linha. tamanhosConversa usa a caixa COMPLETA para o selo manter
+  // o total real mesmo com pesquisa activa.
+  const agruparEnviadas = !!isInst && correspondenciaTab === 'enviadas';
+  const baseEnviadasVisiveis = useMemo(
+    () => (sentMessages || []).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)),
+    [sentMessages, deletedMessageIds, hiddenMessageIds],
+  );
+  const tamanhosConversa = useMemo(() => {
+    const mapa = new Map<string, number>();
+    if (agruparEnviadas) for (const c of agruparConversas(baseEnviadasVisiveis)) mapa.set(c.chave, c.total);
+    return mapa;
+  }, [agruparEnviadas, baseEnviadasVisiveis]);
+  const linhasConversa = useMemo(
+    () => (agruparEnviadas ? agruparConversas(filteredMessages) : filteredMessages.map(conversaUnica)),
+    [agruparEnviadas, filteredMessages],
+  );
+  const contagemEnviadas = useMemo(
+    () => (isInst ? agruparConversas(baseEnviadasVisiveis).length : baseEnviadasVisiveis.length),
+    [isInst, baseEnviadasVisiveis],
+  );
   // v37.78.30 — DEFAULT INTELIGENTE (reporte do dono 2026-08-31): o Correio
   // abre na tab «Não Lidas» SEMPRE que houver correspondência por ler — era
   // aqui que a resposta de um cidadão «desaparecia»: a tab inicial era
@@ -666,7 +689,7 @@ export function MailContent({
 
   const [editingAttachmentIdx, setEditingAttachmentIdx] = useState<number | null>(null);
   const [editingAttachmentContent, setEditingAttachmentContent] = useState<string>('');
-  const [messageToDelete, setMessageToDelete] = useState<{ id: number; isPermanent: boolean } | null>(null);
+  const [messageToDelete, setMessageToDelete] = useState<{ id: number; ids?: number[]; isPermanent: boolean } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgressMessage, setUploadProgressMessage] = useState('');
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -2402,7 +2425,7 @@ export function MailContent({
           {[
             { id: 'lidas', label: 'Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && !m.unread).length },
             { id: 'naoLidas', label: 'Não Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && m.unread).length },
-            { id: 'enviadas', label: 'Enviadas', count: sentMessages.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)).length },
+            { id: 'enviadas', label: 'Enviadas', count: contagemEnviadas },
             { id: 'excluidas', label: 'Arquivadas', count: [...inbox, ...sentMessages].filter(m => deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)).length }
           ].map(tab => {
             const isActive = correspondenciaTab === tab.id;
@@ -2479,12 +2502,15 @@ export function MailContent({
           </div>
         </div>
 
-        {filteredMessages.length > 0 ? (
+        {linhasConversa.length > 0 ? (
           <>
             {/* Mobile View: Clean responsive cards */}
             <div className="block md:hidden space-y-3">
-              {filteredMessages.slice(0, limiteListaCorreio).map((item) => {
+              {linhasConversa.slice(0, limiteListaCorreio).map((conv) => {
+                const item = conv.representante;
+                const totalConversa = tamanhosConversa.get(conv.chave) ?? conv.total;
                 const isUrgente = item.status === 'Urgente' || item.priorityScale === 'Crítico' || item.priorityScale === 'Urgente';
+                const linhaDestinatarios = `${totalConversa} destinatários: ${resumoDestinatarios(conv, 3)}`;
                 const cleanOrg = t(isInst 
                   ? item.org
                       .replace(/^Cidadão:\s*Cidadão:\s*/i, '')
@@ -2500,7 +2526,7 @@ export function MailContent({
                 );
                 return (
                   <div
-                    key={item.id}
+                    key={conv.chave}
                     onClick={() => handleSelectMessage(item)}
                     className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-primary/30 transition-all cursor-pointer text-left space-y-2.5 active:scale-[0.99]"
                   >
@@ -2518,8 +2544,13 @@ export function MailContent({
                         <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${getOrgBadgeStyles(item.org)}`}>
                           {t((item.org || '').toUpperCase().startsWith('SOC - ') ? 'SOC' : item.org)}
                         </span>
-                        {item.unread && !ehCopiaEnviadaRemetente(item) && (
+                        {!!item.unread && !ehCopiaEnviadaRemetente(item) && (
                           <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                        )}
+                        {conv.multiplos && (
+                          <span className="text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-violet-600 text-white" title={`${totalConversa} destinatários receberam esta correspondência`}>
+                            {totalConversa} {t('destinatários')}
+                          </span>
                         )}
                       </div>
                       <span className="text-[9px] font-mono text-slate-400 font-bold shrink-0">{t(item.date)}</span>
@@ -2536,7 +2567,7 @@ export function MailContent({
 
                     <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[9.5px]">
                       <span className="font-bold text-slate-600 truncate max-w-[65%]">
-                        {isInst ? `Cidadão: ${cleanOrg}` : `Órgão: ${cleanOrg}`}
+                        {conv.multiplos ? linhaDestinatarios : (isInst ? `Cidadão: ${cleanOrg}` : `Órgão: ${cleanOrg}`)}
                       </span>
                       <span className="text-primary font-black uppercase tracking-wider flex items-center gap-1">
                         Ver Detalhes &rarr;
@@ -2562,10 +2593,12 @@ export function MailContent({
                 </tr>
               </thead>
               <tbody className="bg-white">
-                {filteredMessages.slice(0, limiteListaCorreio).map((item) => {
+                {linhasConversa.slice(0, limiteListaCorreio).map((conv) => {
+                  const item = conv.representante;
+                  const totalConversa = tamanhosConversa.get(conv.chave) ?? conv.total;
                   const isUrgente = item.status === 'Urgente' || item.priorityScale === 'Crítico' || item.priorityScale === 'Urgente';
                   return (
-                    <tr key={item.id} className="text-xs text-[#334155] hover:bg-slate-50/60 transition-colors">
+                    <tr key={conv.chave} className="text-xs text-[#334155] hover:bg-slate-50/60 transition-colors">
                       {/* Cidadão / Órgão Emissor Column */}
                       <td className="py-5 px-5">
                         <div className="space-y-1.5">
@@ -2583,17 +2616,17 @@ export function MailContent({
                               {t((item.org || '').toUpperCase().startsWith('SOC - ') ? 'SOC' : item.org)}
                             </span>
                             <span className="text-[9px] font-bold text-slate-400 font-mono">ID: #{item.id}</span>
-                            {(item as any).broadcastRecipients ? (
-                              <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-violet-600 text-white border border-violet-600" title="Uma difusão enviada para vários destinatários — cada um recebeu a sua cópia">
-                                {t('Difusão')} · {(item as any).broadcastRecipients} {t('destinatários')}
+                            {conv.multiplos ? (
+                              <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-violet-600 text-white border border-violet-600" title="Uma conversa enviada para vários destinatários — cada um recebeu a sua cópia; abrir mostra a lista">
+                                {t('Conversa')} · {totalConversa} {t('destinatários')}
                               </span>
                             ) : null}
-                            {item.unread && !ehCopiaEnviadaRemetente(item) && (
+                            {!!item.unread && !ehCopiaEnviadaRemetente(item) && (
                               <span className="w-1.5 h-1.5 rounded-full bg-[#f87171] inline-block animate-pulse shrink-0" />
                             )}
                           </div>
-                          <div className="font-black italic text-slate-900 text-[11px] md:text-sm tracking-tight leading-none">
-                            {t(isInst 
+                          <div className="font-black italic text-slate-900 text-[11px] md:text-sm tracking-tight leading-none" title={conv.multiplos ? conv.destinatarios.join(', ') : undefined}>
+                            {conv.multiplos ? resumoDestinatarios(conv, 3) : t(isInst 
                               ? item.org
                                   .replace(/^Cidadão:\s*Cidadão:\s*/i, '')
                                   .replace(/^CIDADÃO:\s*CIDADÃO:\s*/i, '')
@@ -2687,7 +2720,7 @@ export function MailContent({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setMessageToDelete({ id: item.id, isPermanent: true })}
+                                onClick={() => setMessageToDelete({ id: item.id, ids: conv.multiplos ? conv.copias.map(c => c.id) : undefined, isPermanent: true })}
                                 title={t('Eliminar permanentemente')}
                                 aria-label="Eliminar permanentemente"
                                 data-acao="eliminar"
@@ -2699,7 +2732,7 @@ export function MailContent({
                           ) : (
                             <button
                               type="button"
-                              onClick={() => setMessageToDelete({ id: item.id, isPermanent: false })}
+                              onClick={() => setMessageToDelete({ id: item.id, ids: conv.multiplos ? conv.copias.map(c => c.id) : undefined, isPermanent: false })}
                               title={t('Eliminar')}
                               aria-label="Eliminar"
                               data-acao="eliminar"
@@ -2715,14 +2748,14 @@ export function MailContent({
                 })}
               </tbody>
             </table>
-            {filteredMessages.length > limiteListaCorreio && (
+            {linhasConversa.length > limiteListaCorreio && (
               <div className="p-3 text-center bg-white border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setLimiteListaCorreio(l => l + 200)}
                   className="px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-wider text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors cursor-pointer border-none"
                 >
-                  Mostrar mais ({filteredMessages.length - limiteListaCorreio} linha(s) restante(s))
+                  Mostrar mais ({linhasConversa.length - limiteListaCorreio} linha(s) restante(s))
                 </button>
               </div>
             )}
@@ -2763,12 +2796,16 @@ export function MailContent({
                 <Trash2 size={32} className="text-red-600" />
               </div>
               <h3 className="text-xl font-black text-primary mb-3">
-                {messageToDelete.isPermanent ? t("Eliminar Permanentemente?") : t("Eliminar Correspondência?")}
+                {messageToDelete.ids && messageToDelete.ids.length > 1
+                  ? (messageToDelete.isPermanent ? t("Eliminar Conversa Permanentemente?") : t("Eliminar Conversa?"))
+                  : (messageToDelete.isPermanent ? t("Eliminar Permanentemente?") : t("Eliminar Correspondência?"))}
               </h3>
               <p className="text-slate-600 text-sm leading-relaxed mb-8">
-                {messageToDelete.isPermanent 
-                  ? t("Deseja eliminar permanentemente esta correspondência oficial? Ela não será mais visível no seu portal, mas continuará registada no sistema do Estado.")
-                  : t("Tem a certeza que deseja eliminar esta correspondência oficial? A cópia da outra parte só é removida quando ela também eliminar.")}
+                {messageToDelete.ids && messageToDelete.ids.length > 1
+                  ? t(`Esta conversa foi enviada a ${messageToDelete.ids.length} destinatários — todas as ${messageToDelete.ids.length} cópias serão eliminadas da sua caixa. Deseja continuar?`)
+                  : (messageToDelete.isPermanent 
+                    ? t("Deseja eliminar permanentemente esta correspondência oficial? Ela não será mais visível no seu portal, mas continuará registada no sistema do Estado.")
+                    : t("Tem a certeza que deseja eliminar esta correspondência oficial? A cópia da outra parte só é removida quando ela também eliminar."))}
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <button 
@@ -2782,7 +2819,7 @@ export function MailContent({
                   type="button"
                   onClick={() => {
                     if (onDeleteMessage) {
-                      onDeleteMessage(messageToDelete.id);
+                      for (const id of (messageToDelete.ids && messageToDelete.ids.length > 1 ? messageToDelete.ids : [messageToDelete.id])) onDeleteMessage(id);
                     }
                     setMessageToDelete(null);
                   }}

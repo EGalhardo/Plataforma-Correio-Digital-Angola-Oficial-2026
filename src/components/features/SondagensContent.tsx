@@ -2,9 +2,13 @@ import { ListaRolavel } from '../ui/ListaRolavel';
 // ============================================================================
 // SondagensContent — lista de sondagens da instituição + resultados expandidos
 // (v36.1, spec §5). Gráfico de barras via recharts (chunk «charts» já existe).
+// Pastas por correspondência (estilo Gmail): todas as perguntas/inquéritos da
+// MESMA correspondência ficam na mesma pasta; abrir mostra um gráfico por
+// pergunta. Perguntas sem correspondência (difusão por âmbito) ficam em pasta
+// própria.
 // ============================================================================
-import { useCallback, useEffect, useState } from 'react';
-import { Plus, BarChart3, ChevronDown, ChevronUp, Lock, Users, MessagesSquare, Loader2, ClipboardList, Bot } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Plus, BarChart3, ChevronDown, ChevronUp, Lock, Users, MessagesSquare, Loader2, ClipboardList, Bot, FolderOpen } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList,
@@ -20,6 +24,8 @@ import {
   type InqueritoIA, type ContadoresInqueritoIA,
 } from '../../services/inqueritoIaService';
 import { InqueritoIaResultados } from './InqueritoIaResultados';
+import type { Message } from '../../types';
+import { agruparConversas, type Conversa } from '../../utils/conversasThread';
 
 const CORES = ['#2563eb', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316', '#64748b', '#0c2340'];
 
@@ -32,12 +38,28 @@ interface Props {
   /** Avisos não lidos sobre inquéritos (mesma contagem do badge do atalho). */
   novidadesNaoLidas?: number;
   onVerNotificacoes?: () => void;
+  /** Enviadas da instituição: ligam cada pergunta à sua correspondência. */
+  mensagensEnviadas?: Message[];
 }
 
-export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sondagens', onBack, onCreate, novidadesNaoLidas = 0, onVerNotificacoes }: Props) {
+interface Pasta<T> {
+  chave: string;
+  conversa: Conversa | null;
+  itens: T[];
+}
+
+function dataConversa(c: Conversa): string {
+  if (c.representante.createdAt) {
+    const d = new Date(c.representante.createdAt);
+    if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('pt-PT');
+  }
+  return c.representante.date || '';
+}
+
+export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sondagens', onBack, onCreate, novidadesNaoLidas = 0, onVerNotificacoes, mensagensEnviadas = [] }: Props) {
   const [disponivel, setDisponivel] = useState<boolean | null>(null);
   const [lista, setLista] = useState<Sondagem[]>([]);
-  const [aberta, setAberta] = useState<number | null>(null);
+  const [pastaAberta, setPastaAberta] = useState<string | null>(null);
   const [dados, setDados] = useState<Record<number, { rotulo: string; votos: number }[]>>({});
   const [carregando, setCarregando] = useState(false);
   // Inquéritos com IA
@@ -70,18 +92,64 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  const expandir = async (s: Sondagem) => {
-    if (aberta === s.id) { setAberta(null); return; }
-    setAberta(s.id);
-    if (dados[s.id]) return;
+  // --- Pastas por correspondência -------------------------------------------
+  const conversasEnv = useMemo(() => agruparConversas(mensagensEnviadas || []), [mensagensEnviadas]);
+  const conversaPorSondagem = useMemo(() => {
+    const m = new Map<number, Conversa>();
+    for (const c of conversasEnv) for (const id of c.sondagemIds) if (!m.has(id)) m.set(id, c);
+    return m;
+  }, [conversasEnv]);
+  const conversaPorIA = useMemo(() => {
+    const m = new Map<number, Conversa>();
+    for (const c of conversasEnv) for (const id of c.inqueritoIaIds) if (!m.has(id)) m.set(id, c);
+    return m;
+  }, [conversasEnv]);
+  const pastas: Pasta<Sondagem>[] = useMemo(() => {
+    const out: Pasta<Sondagem>[] = [];
+    const idx = new Map<string, Pasta<Sondagem>>();
+    for (const s of lista) {
+      const c = conversaPorSondagem.get(s.id) || null;
+      const chave = c ? `t:${c.chave}` : `s:${s.id}`;
+      let p = idx.get(chave);
+      if (!p) { p = { chave, conversa: c, itens: [] }; idx.set(chave, p); out.push(p); }
+      p.itens.push(s);
+    }
+    return out;
+  }, [lista, conversaPorSondagem]);
+  const pastasIA: Pasta<InqueritoIA>[] = useMemo(() => {
+    const out: Pasta<InqueritoIA>[] = [];
+    const idx = new Map<string, Pasta<InqueritoIA>>();
+    for (const q of listaIA) {
+      const c = conversaPorIA.get(q.id) || null;
+      const chave = c ? `t:${c.chave}` : `q:${q.id}`;
+      let p = idx.get(chave);
+      if (!p) { p = { chave, conversa: c, itens: [] }; idx.set(chave, p); out.push(p); }
+      p.itens.push(q);
+    }
+    return out;
+  }, [listaIA, conversaPorIA]);
+
+  const carregarResultados = useCallback(async (s: Sondagem) => {
     const r = await resultadosSondagem(s.id);
     if (!r.ok) return;
     const cont: Record<string, number> = {};
     for (const resp of r.dados || []) for (const esc of resp.escolhas) cont[esc] = (cont[esc] || 0) + 1;
-    setDados(prev => ({
-      ...prev,
-      [s.id]: s.opcoes.map(o => ({ rotulo: o.texto.length > 26 ? o.texto.slice(0, 23) + '…' : o.texto, votos: cont[o.id] || 0 })),
-    }));
+    setDados(prev => {
+      if (prev[s.id]) return prev;
+      return {
+        ...prev,
+        [s.id]: s.opcoes.map(o => ({ rotulo: o.texto.length > 26 ? o.texto.slice(0, 23) + '…' : o.texto, votos: cont[o.id] || 0 })),
+      };
+    });
+  }, []);
+
+  const abrirPasta = (p: Pasta<Sondagem>) => {
+    if (pastaAberta === p.chave) { setPastaAberta(null); return; }
+    setPastaAberta(p.chave);
+    // um gráfico por pergunta: carrega em paralelo os que ainda faltam
+    for (const s of p.itens) {
+      if (!dados[s.id]) void carregarResultados(s);
+    }
   };
 
   const encerrar = async (s: Sondagem) => {
@@ -89,7 +157,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
     if (r.ok) {
       addAuditLog(`Sondagem «${s.pergunta.slice(0, 60)}» encerrada.`, 'info');
       setLista(prev => prev.map(p => p.id === s.id ? { ...p, status: 'encerrada' } : p));
-      setAberta(null);
+      setPastaAberta(null);
     }
   };
 
@@ -155,109 +223,163 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
         </div>
       )}
 
-      <ListaRolavel count={aba === 'ia' ? listaIA.length : lista.length} label="Lista de inquéritos">
+      <ListaRolavel count={aba === 'ia' ? pastasIA.length : pastas.length} label="Lista de inquéritos">
       {aba === 'ia' && (<>
-      {/* 2026-09-10 — Inquéritos com IA (conversacionais) */}
-      {listaIA.map((q) => {
-        const c = contIA[q.id];
-        const titulo = q.guiao?.objectivo || q.o_que_pretende_saber;
+      {/* Inquéritos com IA (conversacionais), agrupados por correspondência */}
+      {pastasIA.map((p) => {
+        const aberta = pastaAberta === p.chave;
+        const titulo = p.conversa ? p.conversa.assunto : (p.itens[0]?.guiao?.objectivo || p.itens[0]?.o_que_pretende_saber || 'Inquérito com IA');
         return (
-          <div key={`ia-${q.id}`} className="rounded-2xl border border-indigo-100 bg-white shadow-sm overflow-hidden" data-testid="inquerito-ia-linha">
+          <div key={p.chave} className="rounded-2xl border border-indigo-100 bg-white shadow-sm overflow-hidden" data-testid="inquerito-ia-pasta">
             <button
               type="button"
-              onClick={() => setResultadosIA(q)}
+              onClick={() => setPastaAberta(aberta ? null : p.chave)}
               className="w-full flex items-center justify-between gap-3 px-5 py-4 bg-transparent border-0 cursor-pointer text-left hover:bg-indigo-50/40 transition-colors"
-              title="Ver resultados do inquérito com IA"
+              title={p.conversa ? 'Ver inquéritos desta correspondência' : 'Ver resultados do inquérito com IA'}
             >
               <div className="min-w-0">
                 <p className="text-sm font-bold text-slate-800 truncate m-0 flex items-center gap-2">
                   <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest"><MessagesSquare size={10} /> IA</span>
+                  {p.conversa && <FolderOpen size={14} className="text-indigo-500 shrink-0" />}
                   <span className="truncate">{titulo}</span>
                 </p>
                 <p className="text-[11px] font-medium text-slate-500 mt-1 m-0 flex items-center gap-x-1.5 flex-wrap">
-                  {new Date(q.created_at).toLocaleDateString('pt-PT')} · âmbito {q.abrangencia === 'nacional' ? 'Nacional' : q.abrangencia === 'regional' ? 'Regional' : 'Local'} ·{' '}
-                  <span className={q.status === 'ativo' ? 'text-emerald-600 font-bold' : 'text-slate-500 font-bold'}>{q.status}</span>
-                  <span className="text-slate-300">|</span>
-                  {c ? (
-                    <span className="tabular-nums" data-testid="inquerito-ia-contadores-linha">
-                      <b className="text-slate-700">{c.enviados}</b> enviados · <b className="text-blue-700">{c.iniciados}</b> iniciados · <b className="text-emerald-700">{c.concluidos}</b> concluídos · <b className="text-rose-700">{c.recusados}</b> recusados
-                    </span>
+                  {p.conversa ? (
+                    <>{dataConversa(p.conversa)} · {p.itens.length} {p.itens.length === 1 ? 'inquérito' : 'inquéritos'} · {p.conversa.total} {p.conversa.total === 1 ? 'destinatário' : 'destinatários'}</>
                   ) : (
-                    <span className="inline-flex items-center gap-1"><Loader2 size={11} className="animate-spin" /> a contar…</span>
+                    <>{p.itens[0] && new Date(p.itens[0].created_at).toLocaleDateString('pt-PT')} · âmbito {p.itens[0]?.abrangencia === 'nacional' ? 'Nacional' : p.itens[0]?.abrangencia === 'regional' ? 'Regional' : 'Local'}</>
                   )}
                 </p>
               </div>
-              <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-indigo-600">Resultados</span>
+              {aberta ? <ChevronUp size={18} className="text-slate-400 shrink-0" /> : <ChevronDown size={18} className="text-slate-400 shrink-0" />}
             </button>
+            {aberta && (
+              <div className="px-3 pb-3 pt-1 border-t border-slate-100 space-y-2">
+                {p.itens.map((q) => {
+                  const c = contIA[q.id];
+                  const tituloQ = q.guiao?.objectivo || q.o_que_pretende_saber;
+                  return (
+                    <div key={`ia-${q.id}`} className="rounded-xl border border-slate-200 bg-white overflow-hidden" data-testid="inquerito-ia-linha">
+                      <button
+                        type="button"
+                        onClick={() => setResultadosIA(q)}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-transparent border-0 cursor-pointer text-left hover:bg-indigo-50/40 transition-colors"
+                        title="Ver resultados do inquérito com IA"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-bold text-slate-800 truncate m-0">{tituloQ}</p>
+                          <p className="text-[11px] font-medium text-slate-500 mt-1 m-0 flex items-center gap-x-1.5 flex-wrap">
+                            {new Date(q.created_at).toLocaleDateString('pt-PT')} · âmbito {q.abrangencia === 'nacional' ? 'Nacional' : q.abrangencia === 'regional' ? 'Regional' : 'Local'} ·{' '}
+                            <span className={q.status === 'ativo' ? 'text-emerald-600 font-bold' : 'text-slate-500 font-bold'}>{q.status}</span>
+                            <span className="text-slate-300">|</span>
+                            {c ? (
+                              <span className="tabular-nums" data-testid="inquerito-ia-contadores-linha">
+                                <b className="text-slate-700">{c.enviados}</b> enviados · <b className="text-blue-700">{c.iniciados}</b> iniciados · <b className="text-emerald-700">{c.concluidos}</b> concluídos · <b className="text-rose-700">{c.recusados}</b> recusados
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1"><Loader2 size={11} className="animate-spin" /> a contar…</span>
+                            )}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-indigo-600">Resultados</span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
       })}
       </>)}
 
       {aba === 'normal' && (<>
-      {lista.map((s) => {
-        const totalVotos = (dados[s.id] || []).reduce((a, b) => a + b.votos, 0);
+      {/* Sondagens normais, agrupadas por correspondência: um gráfico por pergunta */}
+      {pastas.map((p) => {
+        const aberta = pastaAberta === p.chave;
+        const unica = !p.conversa && p.itens.length === 1;
+        const titulo = p.conversa ? p.conversa.assunto : p.itens[0].pergunta;
         return (
-          <div key={s.id} className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div key={p.chave} className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden" data-testid="sondagem-pasta">
             <button
               type="button"
-              onClick={() => expandir(s)}
+              onClick={() => abrirPasta(p)}
               className="w-full flex items-center justify-between gap-3 px-5 py-4 bg-transparent border-0 cursor-pointer text-left hover:bg-slate-50 transition-colors"
             >
               <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-800 truncate">{s.pergunta}</p>
+                <p className="text-sm font-bold text-slate-800 truncate flex items-center gap-2">
+                  {p.conversa && <FolderOpen size={15} className="text-indigo-500 shrink-0" />}
+                  <span className="truncate">{titulo}</span>
+                </p>
                 <p className="text-[11px] font-medium text-slate-500 mt-0.5">
-                  {new Date(s.created_at).toLocaleDateString('pt-PT')} · âmbito {s.abrangencia === 'nacional' ? 'Nacional' : s.abrangencia === 'regional' ? 'Regional' : 'Local'} · {s.destinatarios ?? s.audiencia_total} destinatários ·{' '}
-                  <span className={s.status === 'ativa' ? 'text-emerald-600 font-bold' : 'text-slate-500 font-bold'}>{s.status}</span>
+                  {p.conversa ? (
+                    <>{dataConversa(p.conversa)} · {p.itens.length} {p.itens.length === 1 ? 'pergunta' : 'perguntas'} · {p.conversa.total} {p.conversa.total === 1 ? 'destinatário' : 'destinatários'}</>
+                  ) : (
+                    <>{new Date(p.itens[0].created_at).toLocaleDateString('pt-PT')} · âmbito {p.itens[0].abrangencia === 'nacional' ? 'Nacional' : p.itens[0].abrangencia === 'regional' ? 'Regional' : 'Local'} · {p.itens[0].destinatarios ?? p.itens[0].audiencia_total} destinatários ·{' '}
+                    <span className={p.itens[0].status === 'ativa' ? 'text-emerald-600 font-bold' : 'text-slate-500 font-bold'}>{p.itens[0].status}</span></>
+                  )}
                 </p>
               </div>
-              {aberta === s.id ? <ChevronUp size={18} className="text-slate-400 shrink-0" /> : <ChevronDown size={18} className="text-slate-400 shrink-0" />}
+              {aberta ? <ChevronUp size={18} className="text-slate-400 shrink-0" /> : <ChevronDown size={18} className="text-slate-400 shrink-0" />}
             </button>
 
-            {aberta === s.id && (
-              <div className="px-5 pb-5 pt-1 border-t border-slate-100">
-                {/* v37.6 — ao clicar, exibir a pergunta e as opções da sondagem/enquete */}
-                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 m-0">Pergunta da sondagem</p>
-                  <p className="text-[13px] font-bold text-slate-800 m-0">{s.pergunta}</p>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-3 mb-1.5 m-0">Opções</p>
-                  <ul className="m-0 pl-4 space-y-1">
-                    {s.opcoes.map(o => (
-                      <li key={o.id} className="text-[12px] font-semibold text-slate-700">{o.texto}</li>
-                    ))}
-                  </ul>
-                </div>
-                {dados[s.id] ? (
-                  <>
-                    <div className="h-56 w-full mt-3">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={dados[s.id]} margin={{ top: 8, right: 16, left: -18, bottom: 4 }}>
-                          <XAxis dataKey="rotulo" tick={{ fontSize: 10, fill: '#64748b' }} interval={0} />
-                          <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#64748b' }} />
-                          <Tooltip />
-                          <Bar dataKey="votos" radius={[6, 6, 0, 0]}>
-                            <LabelList dataKey="votos" position="top" style={{ fontSize: 11, fontWeight: 800, fill: '#0c2340' }} />
-                            {dados[s.id].map((_, i) => <Cell key={i} fill={CORES[i % CORES.length]} />)}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+            {aberta && (
+              <div className="px-5 pb-5 pt-1 border-t border-slate-100 space-y-4">
+                {p.itens.map((s) => {
+                  const totalVotos = (dados[s.id] || []).reduce((a, b) => a + b.votos, 0);
+                  return (
+                    <div key={s.id} className={p.itens.length > 1 ? 'rounded-xl border border-slate-200 bg-white px-4 py-3' : ''}>
+                      {(!unica || p.itens.length > 1) && (
+                        <p className="text-[13px] font-bold text-slate-800 m-0 mb-2">{s.pergunta}</p>
+                      )}
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        {p.itens.length === 1 && (
+                          <>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 m-0">Pergunta da sondagem</p>
+                            <p className="text-[13px] font-bold text-slate-800 m-0">{s.pergunta}</p>
+                          </>
+                        )}
+                        <p className={`text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 m-0 ${p.itens.length === 1 ? 'mt-3' : ''}`}>Opções</p>
+                        <ul className="m-0 pl-4 space-y-1">
+                          {s.opcoes.map(o => (
+                            <li key={o.id} className="text-[12px] font-semibold text-slate-700">{o.texto}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      {dados[s.id] ? (
+                        <>
+                          <div className="h-56 w-full mt-3">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={dados[s.id]} margin={{ top: 8, right: 16, left: -18, bottom: 4 }}>
+                                <XAxis dataKey="rotulo" tick={{ fontSize: 10, fill: '#64748b' }} interval={0} />
+                                <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#64748b' }} />
+                                <Tooltip />
+                                <Bar dataKey="votos" radius={[6, 6, 0, 0]}>
+                                  <LabelList dataKey="votos" position="top" style={{ fontSize: 11, fontWeight: 800, fill: '#0c2340' }} />
+                                  {dados[s.id].map((_, i) => <Cell key={i} fill={CORES[i % CORES.length]} />)}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <p className="text-[11px] font-semibold text-slate-500 mt-2 flex items-center gap-1.5">
+                            <Users size={13} /> {totalVotos} voto(s) registado(s) de {s.audiencia_total} destinatários.
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-[12px] font-medium text-slate-500 py-4">A carregar resultados…</p>
+                      )}
+                      {s.status === 'ativa' && (
+                        <button
+                          type="button"
+                          onClick={() => encerrar(s)}
+                          className="mt-3 px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-[10px] font-black uppercase tracking-widest bg-transparent cursor-pointer"
+                        >
+                          Encerrar sondagem
+                        </button>
+                      )}
                     </div>
-                    <p className="text-[11px] font-semibold text-slate-500 mt-2 flex items-center gap-1.5">
-                      <Users size={13} /> {totalVotos} voto(s) registado(s) de {s.audiencia_total} destinatários.
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-[12px] font-medium text-slate-500 py-4">A carregar resultados…</p>
-                )}
-                {s.status === 'ativa' && (
-                  <button
-                    type="button"
-                    onClick={() => encerrar(s)}
-                    className="mt-3 px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-[10px] font-black uppercase tracking-widest bg-transparent cursor-pointer"
-                  >
-                    Encerrar sondagem
-                  </button>
-                )}
+                  );
+                })}
               </div>
             )}
           </div>
