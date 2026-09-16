@@ -82,7 +82,7 @@ export async function reverterGeocodificacao(
 }> {
   try {
     const r = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&countrycodes=ao&zoom=12&lat=${lat}&lon=${lon}`,
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&countrycodes=ao&zoom=14&lat=${lat}&lon=${lon}`,
       { headers: { Accept: "application/json" } },
     );
     const j = (await r.json()) as { address?: Record<string, string> };
