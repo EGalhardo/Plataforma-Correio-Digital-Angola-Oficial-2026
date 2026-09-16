@@ -90,7 +90,41 @@ export interface Ocorrencia extends DadosOcorrencia {
   versao: number;
   criado_em: string;
   actualizado_em: string;
+  /** 2026-09-16 — localização automática (GPS): campos aditivos da migração
+   *  sql/ocorrencias/002_localizacao_gps.sql. Ausentes/NULL nas ocorrências
+   *  anteriores (tratadas como "manual") e enquanto a migração não for
+   *  executada no Supabase (o RPC antigo ignora os campos extras). */
+  tipo_localizacao?: "manual" | "automatica" | null;
+  lat?: number | null;
+  lon?: number | null;
+  precisao_m?: number | null;
 }
+/** Payload de criação (extensão aditiva de DadosOcorrencia): acrescenta o
+ *  modo de localização e, quando automático, as coordenadas GPS + precisão.
+ *  Sem renomear/remover campos existentes. */
+export interface DadosOcorrenciaEnvio extends DadosOcorrencia {
+  tipo_localizacao?: "manual" | "automatica";
+  lat?: number;
+  lon?: number;
+  precisao_m?: number;
+}
+export const rotuloTipoLocalizacao = (o: {
+  tipo_localizacao?: string | null;
+}): string =>
+  o.tipo_localizacao === "automatica"
+    ? "Localização automática (GPS)"
+    : "Localização manual";
+export const coordenadasGps = (o: {
+  lat?: number | null;
+  lon?: number | null;
+  precisao_m?: number | null;
+}): string | null =>
+  typeof o.lat === "number" && typeof o.lon === "number"
+    ? `${o.lat.toFixed(5)}, ${o.lon.toFixed(5)} · ±${Math.max(
+        1,
+        Math.round(o.precisao_m ?? 0),
+      )} m`
+    : null;
 export interface FotoOcorrencia {
   id: string;
   nome: string;

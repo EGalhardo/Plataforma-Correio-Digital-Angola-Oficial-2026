@@ -24,7 +24,11 @@ const CAPITAIS: Record<string, { lat: number; lon: number }> = {
   Zaire: { lat: -6.267, lon: 14.24 },
 };
 
-type Geo = { lat: number; lon: number; origem: "exacta" | "localidade" | "provincia" };
+type Geo = {
+  lat: number;
+  lon: number;
+  origem: "gps" | "exacta" | "localidade" | "provincia";
+};
 
 async function geocodificar(
   provincia: string,
@@ -63,20 +67,40 @@ async function geocodificar(
   return { ...fb, origem: "provincia" };
 }
 
-/** Mapa da área da ocorrência (OpenStreetMap incorporado + pino). */
+/** Mapa da área da ocorrência (OpenStreetMap incorporado + pino).
+ *  2026-09-16 — quando a ocorrência tem coordenadas GPS guardadas
+ *  (localização "Automática"), o mapa centra nessa posição real sem
+ *  geocodificação; caso contrário mantém a posição estimada da morada. */
 export function MapaOcorrencia({
   provincia,
   municipio,
   bairro,
   rua,
+  lat,
+  lon,
+  precisao,
 }: {
   provincia: string;
   municipio: string;
   bairro: string;
   rua?: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  precisao?: number | null;
 }) {
+  const gpsValido =
+    typeof lat === "number" &&
+    typeof lon === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lon) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lon) <= 180;
   const [geo, setGeo] = useState<Geo | null>(null);
   useEffect(() => {
+    if (gpsValido) {
+      setGeo({ lat: lat as number, lon: lon as number, origem: "gps" });
+      return;
+    }
     let vivo = true;
     setGeo(null);
     void geocodificar(provincia, municipio, bairro, rua || "").then((g) => {
@@ -85,14 +109,21 @@ export function MapaOcorrencia({
     return () => {
       vivo = false;
     };
-  }, [provincia, municipio, bairro, rua]);
+  }, [provincia, municipio, bairro, rua, gpsValido, lat, lon]);
   if (!geo)
     return (
       <div className="h-56 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center gap-2 text-sm text-slate-500">
         <Loader2 size={16} className="animate-spin" />A localizar a área…
       </div>
     );
-  const d = geo.origem === "exacta" ? 0.008 : geo.origem === "localidade" ? 0.02 : 0.08;
+  const d =
+    geo.origem === "gps"
+      ? Math.max(0.0015, (precisao && precisao > 0 ? precisao : 25) / 111320)
+      : geo.origem === "exacta"
+        ? 0.008
+        : geo.origem === "localidade"
+          ? 0.02
+          : 0.08;
   const src =
     `https://www.openstreetmap.org/export/embed.html?bbox=${geo.lon - d}%2C${geo.lat - d}%2C${geo.lon + d}%2C${geo.lat + d}` +
     `&layer=mapnik&marker=${geo.lat}%2C${geo.lon}`;
@@ -108,11 +139,16 @@ export function MapaOcorrencia({
       </div>
       <p className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
         <MapPin size={12} className="shrink-0" />
-        {geo.origem === "provincia"
-          ? "Aproximação à capital da província (morada sem coordenadas exactas)."
-          : geo.origem === "localidade"
-            ? "Aproximação à localidade indicada."
-            : "Localização estimada da morada indicada."}{" "}
+        {geo.origem === "gps"
+          ? `Posição GPS real do dispositivo (±${Math.max(
+              1,
+              Math.round(precisao ?? 0),
+            )} m).`
+          : geo.origem === "provincia"
+            ? "Aproximação à capital da província (morada sem coordenadas exactas)."
+            : geo.origem === "localidade"
+              ? "Aproximação à localidade indicada."
+              : "Localização estimada da morada indicada."}{" "}
         <a
           href={`https://www.openstreetmap.org/?mlat=${geo.lat}&mlon=${geo.lon}#map=15/${geo.lat}/${geo.lon}`}
           target="_blank"

@@ -25,6 +25,7 @@ import {
   Send,
   Check,
   MessageSquare,
+  LocateFixed,
 } from "lucide-react";
 import { ListaRolavel } from "../../components/ui/ListaRolavel";
 import {
@@ -45,11 +46,14 @@ import {
   type ActorOcorrencia,
   type InstituicaoOcorrencia,
   type DadosOcorrencia,
+  type DadosOcorrenciaEnvio,
   type Ocorrencia,
   type FotoOcorrencia,
   type EventoOcorrencia,
   type NotificacaoOcorrencia,
   type AcaoOcorrencia,
+  rotuloTipoLocalizacao,
+  coordenadasGps,
 } from "./model";
 import { MUNICIPALITIES_BY_PROVINCE } from "../../config/institutionCatalog";
 const date = (s: string) =>
@@ -517,6 +521,21 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
     [photos, setPhotos] = useState<FotoOcorrencia[]>([]),
     [confirmed, setConfirmed] = useState(false),
     [attempted, setAttempted] = useState(false);
+  // 2026-09-16 — Localização "Manual"/"Automático (GPS)". O modo automático
+  // usa a API nativa de geolocalização do navegador (no telemóvel, o GPS do
+  // aparelho — o pedido de permissão é o diálogo nativo do sistema).
+  const [tipoLocalizacao, setTipoLocalizacao] = useState<
+    "manual" | "automatico"
+  >("manual");
+  const [gps, setGps] = useState<{
+    lat: number;
+    lon: number;
+    precisao: number;
+  } | null>(null);
+  const [gpsEstado, setGpsEstado] = useState<
+    "idle" | "carregando" | "sucesso" | "erro"
+  >("idle");
+  const [gpsErro, setGpsErro] = useState("");
   const createRequest = useRef(crypto.randomUUID());
   const [selected, setSelected] = useState<Ocorrencia | null>(null),
     [events, setEvents] = useState<EventoOcorrencia[]>([]),
@@ -725,10 +744,53 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
     setPhotos([]);
     setConfirmed(false);
     setAttempted(false);
+    setTipoLocalizacao("manual");
+    setGps(null);
+    setGpsEstado("idle");
+    setGpsErro("");
     createRequest.current = crypto.randomUUID();
     setError("");
     setSuccess("");
     setView("criar");
+  };
+  const obterGps = () => {
+    setGpsErro("");
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGpsEstado("erro");
+      setGpsErro(
+        "Este navegador não suporta geolocalização. Utilize a localização «Manual».",
+      );
+      return;
+    }
+    if (!window.isSecureContext) {
+      setGpsEstado("erro");
+      setGpsErro(
+        "A geolocalização só funciona em ligação segura (HTTPS). Em produção o portal é servido via HTTPS; neste ambiente, utilize a localização «Manual».",
+      );
+      return;
+    }
+    setGpsEstado("carregando");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGps({
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          precisao: pos.coords.accuracy,
+        });
+        setGpsEstado("sucesso");
+      },
+      (err) => {
+        setGpsEstado("erro");
+        setGpsErro(
+          err.code === 1
+            ? "Permissão de localização negada no navegador. Para a reativar, abra as definições de site do navegador e permita a localização (no telemóvel, também as definições de privacidade do aparelho) — ou use «Manual»."
+            : err.code === 2
+              ? "A localização do dispositivo não está disponível de momento (GPS desligado ou sem sinal). Ative a localização no telemóvel/computador e tente novamente — ou use «Manual»."
+              : "O GPS demorou demasiado a responder. Tente novamente num local aberto — ou use «Manual».",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    );
   };
   const cancelReport = async () => {
     if (
@@ -793,8 +855,20 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
     setError("");
     setAttempted(true);
     try {
+      // Extensão aditiva: modo de localização + coordenadas GPS quando
+      // automático (a migração 002 guarda os campos; o RPC antigo ignora-os).
+      const dadosEnvio: DadosOcorrenciaEnvio = {
+        ...data,
+        tipo_localizacao:
+          tipoLocalizacao === "automatico" && gps ? "automatica" : "manual",
+      };
+      if (tipoLocalizacao === "automatico" && gps) {
+        dadosEnvio.lat = gps.lat;
+        dadosEnvio.lon = gps.lon;
+        dadosEnvio.precisao_m = Math.max(1, Math.round(gps.precisao));
+      }
       const r = await ocorrenciasApi("criar", {
-        dados: data,
+        dados: dadosEnvio,
         fotos: photos.map((p) => p.id),
         pedido: createRequest.current,
         confirmado: confirmed,
@@ -1393,6 +1467,14 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
               setError(errs.join(" "));
               return;
             }
+            if (tipoLocalizacao === "automatico" && (!gps || gpsEstado !== "sucesso")) {
+              setGpsEstado("erro");
+              setGpsErro(
+                "Obtenha a localização GPS (ou mude para «Manual») antes de rever a ocorrência.",
+              );
+              setError("");
+              return;
+            }
             setError("");
             setConfirmed(false);
             setView("rever");
@@ -1446,12 +1528,141 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
           <div className={panel}>
             <h3 className="font-black text-primary flex gap-2">
               <MapPin size={18} />
-              Localização manual
+              Localização
             </h3>
-            <p className="text-xs text-slate-500">
-              Não é necessário autorizar GPS. Indique a localização onde o
-              problema ocorre.
-            </p>
+            <div
+              role="radiogroup"
+              aria-label="Tipo de localização"
+              className="grid grid-cols-2 gap-2"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={tipoLocalizacao === "manual"}
+                onClick={() => {
+                  setTipoLocalizacao("manual");
+                  setGpsErro("");
+                }}
+                className={`min-h-[48px] rounded-xl border-2 px-3 py-2.5 text-xs font-black cursor-pointer transition-colors ${
+                  tipoLocalizacao === "manual"
+                    ? "border-primary bg-primary/5 text-primary"
+                    : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                }`}
+              >
+                Manual
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={tipoLocalizacao === "automatico"}
+                onClick={() => {
+                  setTipoLocalizacao("automatico");
+                  setGpsErro("");
+                }}
+                className={`min-h-[48px] rounded-xl border-2 px-3 py-2.5 text-xs font-black cursor-pointer transition-colors ${
+                  tipoLocalizacao === "automatico"
+                    ? "border-primary bg-primary/5 text-primary"
+                    : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                }`}
+              >
+                Automático (GPS)
+              </button>
+            </div>
+            {tipoLocalizacao === "manual" ? (
+              <p className="text-xs text-slate-500">
+                Não é necessário autorizar GPS. Indique a localização onde o
+                problema ocorre.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {gpsEstado === "erro" ? (
+                  <div
+                    role="alert"
+                    className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900 space-y-2.5"
+                  >
+                    <p className="text-sm font-bold flex gap-2 items-start">
+                      <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                      {gpsErro}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void obterGps()}
+                        className={secondary}
+                      >
+                        <LocateFixed size={14} />
+                        Tentar novamente
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTipoLocalizacao("manual");
+                          setGpsErro("");
+                        }}
+                        className={secondary}
+                      >
+                        Usar localização Manual
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className={`rounded-xl border p-3 space-y-2 ${
+                      gpsEstado === "sucesso"
+                        ? "border-emerald-200 bg-emerald-50"
+                        : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
+                    {gpsEstado === "carregando" ? (
+                      <p className="text-sm font-bold text-slate-600 flex items-center gap-2">
+                        <Loader2 size={16} className="animate-spin" />
+                        A obter localização do GPS…
+                      </p>
+                    ) : gpsEstado === "sucesso" && gps ? (
+                      <>
+                        <p className="text-sm font-black text-emerald-800 flex items-center gap-2">
+                          <CheckCircle size={16} />
+                          Localização obtida
+                        </p>
+                        <p className="text-xs text-emerald-900 font-mono break-words">
+                          {gps.lat.toFixed(5)}, {gps.lon.toFixed(5)} · ±
+                          {Math.max(1, Math.round(gps.precisao))} m
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-xs text-slate-600">
+                        Vai ser pedido acesso ao GPS do seu dispositivo (no
+                        telemóvel, o pedido aparece no ecrã do aparelho). Se a
+                        primeira leitura demorar, mantenha a página aberta — de
+                        preferência num local aberto.
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void obterGps()}
+                        disabled={gpsEstado === "carregando"}
+                        className={primary}
+                      >
+                        {gpsEstado === "carregando" ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <LocateFixed size={16} />
+                        )}
+                        {gpsEstado === "sucesso"
+                          ? "Atualizar localização"
+                          : "Obter localização (GPS)"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs text-slate-500">
+                  As coordenadas GPS são guardadas com a ocorrência. Indique
+                  também a localidade abaixo para a instituição conseguir
+                  localizar o caso.
+                </p>
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Província *">
                 <select
@@ -1707,6 +1918,25 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
           <div className={panel}>
             <h3 className="font-black text-primary">Localização</h3>
             <div className="flex gap-3 text-sm">
+              <span className="w-24 shrink-0 text-slate-500">Tipo</span>
+              <span className="text-slate-700 font-bold">
+                {tipoLocalizacao === "automatico" && gps
+                  ? "Localização automática (GPS)"
+                  : "Localização manual"}
+              </span>
+            </div>
+            {tipoLocalizacao === "automatico" && gps && (
+              <div className="flex gap-3 text-sm">
+                <span className="w-24 shrink-0 text-slate-500">
+                  Coordenadas
+                </span>
+                <span className="text-slate-700 font-mono break-words">
+                  {gps.lat.toFixed(5)}, {gps.lon.toFixed(5)} · ±
+                  {Math.max(1, Math.round(gps.precisao))} m
+                </span>
+              </div>
+            )}
+            <div className="flex gap-3 text-sm">
               <span className="w-24 shrink-0 text-slate-500">Endereço</span>
               <span className="text-slate-700">
                 {data.bairro} · {data.municipio} · {data.provincia}
@@ -1824,6 +2054,13 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                   {selected.bairro} · {selected.municipio} ·{" "}
                   {selected.provincia}
                 </p>
+                <p className="text-xs font-bold text-slate-600 break-words">
+                  {rotuloTipoLocalizacao(selected)}
+                  {selected.tipo_localizacao === "automatica" &&
+                  coordenadasGps(selected)
+                    ? ` · ${coordenadasGps(selected)}`
+                    : ""}
+                </p>
                 <p className="text-sm whitespace-pre-wrap break-words text-slate-700">
                   {selected.descricao}
                 </p>
@@ -1850,6 +2087,9 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                   municipio={selected.municipio}
                   bairro={selected.bairro}
                   rua={selected.rua}
+                  lat={selected.lat}
+                  lon={selected.lon}
+                  precisao={selected.precisao_m}
                 />
               </div>
               <div className={panel}>
@@ -2109,13 +2349,21 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                     {selected.descricao}
                   </p>
                   <div className="text-sm text-slate-600 space-y-1 border-t pt-3">
-                    <p className="font-bold">Localização manual</p>
+                    <p className="font-bold">
+                      {rotuloTipoLocalizacao(selected)}
+                    </p>
                     <p>
                       {selected.bairro} · {selected.municipio} ·{" "}
                       {selected.provincia}
                     </p>
                     {selected.rua && <p>{selected.rua}</p>}
                     <p>{selected.referencia}</p>
+                    {selected.tipo_localizacao === "automatica" &&
+                    coordenadasGps(selected) ? (
+                      <p className="font-mono text-xs text-slate-500">
+                        GPS: {coordenadasGps(selected)}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="font-bold text-primary text-sm">
