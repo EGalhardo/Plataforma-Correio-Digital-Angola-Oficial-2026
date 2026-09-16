@@ -33,7 +33,11 @@ import {
   prepararFotografia,
   OcorrenciaRequestError,
 } from "./client";
-import { MapaOcorrencia } from "./MapaOcorrencia";
+import {
+  MapaOcorrencia,
+  reverterGeocodificacao,
+  provinciaMaisProxima,
+} from "./MapaOcorrencia";
 import {
   CATEGORIAS_OCORRENCIAS,
   ESTADOS_OCORRENCIAS,
@@ -536,6 +540,18 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
     "idle" | "carregando" | "sucesso" | "erro"
   >("idle");
   const [gpsErro, setGpsErro] = useState("");
+  // 2026-09-16 — no modo Automático os campos de endereço ficam ocultos: a
+  // localidade (província/município/bairro/referência) é derivada das
+  // coordenadas GPS (geocodificação reversa + fallback pela província mais
+  // próxima) e preenchida no formulário para respeitar a estrutura do
+  // registo (a base exige os quatro campos não vazios).
+  const [localGps, setLocalGps] = useState<{
+    provincia: string;
+    municipio: string;
+    bairro: string;
+    referencia: string;
+  } | null>(null);
+  const [localGpsAObter, setLocalGpsAObter] = useState(false);
   const createRequest = useRef(crypto.randomUUID());
   const [selected, setSelected] = useState<Ocorrencia | null>(null),
     [events, setEvents] = useState<EventoOcorrencia[]>([]),
@@ -748,10 +764,49 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
     setGps(null);
     setGpsEstado("idle");
     setGpsErro("");
+    setLocalGps(null);
+    setLocalGpsAObter(false);
     createRequest.current = crypto.randomUUID();
     setError("");
     setSuccess("");
     setView("criar");
+  };
+  // Deriva a localidade das coordenadas GPS e preenche os campos de endereço
+  // (ocultos no modo Automático): geocodificação reversa (mesmo recurso do
+  // mapa) + fallbacks determinísticos — a base de dados exige os quatro
+  // campos não vazios, por isso sempre há valor final.
+  const normalizarNome = (s: string) =>
+    (s || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase();
+  const derivarLocalidadeGps = async (lat: number, lon: number) => {
+    setLocalGpsAObter(true);
+    try {
+      const rev = await reverterGeocodificacao(lat, lon);
+      const provincias = Object.keys(MUNICIPALITIES_BY_PROVINCE).filter(
+        (p) => p !== "Todas",
+      );
+      const provBruta = rev.provincia || provinciaMaisProxima(lat, lon);
+      const provincia =
+        provincias.find((p) => normalizarNome(p) === normalizarNome(provBruta)) ||
+        provBruta;
+      const listaMunicipios = MUNICIPALITIES_BY_PROVINCE[provincia] || [];
+      const munBruto = rev.municipio || provincia;
+      const municipio =
+        listaMunicipios.find(
+          (m) => normalizarNome(m) === normalizarNome(munBruto),
+        ) || munBruto;
+      const bairro = rev.bairro || municipio;
+      const referencia =
+        rev.rua || `GPS: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+      const loc = { provincia, municipio, bairro, referencia };
+      setLocalGps(loc);
+      setData((prev) => ({ ...prev, ...loc }));
+    } finally {
+      setLocalGpsAObter(false);
+    }
   };
   const obterGps = () => {
     setGpsErro("");
@@ -778,6 +833,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
           precisao: pos.coords.accuracy,
         });
         setGpsEstado("sucesso");
+        void derivarLocalidadeGps(pos.coords.latitude, pos.coords.longitude);
       },
       (err) => {
         setGpsEstado("erro");
@@ -1475,6 +1531,12 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
               setError("");
               return;
             }
+            if (tipoLocalizacao === "automatico" && localGpsAObter) {
+              setError(
+                "A localidade do GPS ainda está a ser determinada. Aguarde uns segundos e volte a tentar.",
+              );
+              return;
+            }
             setError("");
             setConfirmed(false);
             setView("rever");
@@ -1530,43 +1592,53 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
               <MapPin size={18} />
               Localização
             </h3>
+            {/* Tabbar no estilo da página Contactos (sublinhado activo). */}
             <div
-              role="radiogroup"
+              role="tablist"
               aria-label="Tipo de localização"
-              className="grid grid-cols-2 gap-2"
+              className="flex items-end gap-1.5 md:gap-5 border-b border-slate-200 overflow-x-auto custom-scrollbar-h"
             >
-              <button
-                type="button"
-                role="radio"
-                aria-checked={tipoLocalizacao === "manual"}
-                onClick={() => {
-                  setTipoLocalizacao("manual");
-                  setGpsErro("");
-                }}
-                className={`min-h-[48px] rounded-xl border-2 px-3 py-2.5 text-xs font-black cursor-pointer transition-colors ${
-                  tipoLocalizacao === "manual"
-                    ? "border-primary bg-primary/5 text-primary"
-                    : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
-                }`}
-              >
-                Manual
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={tipoLocalizacao === "automatico"}
-                onClick={() => {
-                  setTipoLocalizacao("automatico");
-                  setGpsErro("");
-                }}
-                className={`min-h-[48px] rounded-xl border-2 px-3 py-2.5 text-xs font-black cursor-pointer transition-colors ${
-                  tipoLocalizacao === "automatico"
-                    ? "border-primary bg-primary/5 text-primary"
-                    : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
-                }`}
-              >
-                Automático (GPS)
-              </button>
+              {(
+                [
+                  { chave: "manual" as const, rotulo: "Manual", Icone: MapPin },
+                  {
+                    chave: "automatico" as const,
+                    rotulo: "Automático (GPS)",
+                    Icone: LocateFixed,
+                  },
+                ] as const
+              ).map(({ chave, rotulo, Icone }) => {
+                const activo = tipoLocalizacao === chave;
+                return (
+                  <button
+                    key={chave}
+                    type="button"
+                    role="tab"
+                    aria-selected={activo}
+                    onClick={() => {
+                      setTipoLocalizacao(chave);
+                      setGpsErro("");
+                      // Re-sincronizar a localidade derivada do GPS já obtido
+                      // (a leitura GPS volta a ser a fonte de verdade).
+                      if (chave === "automatico" && gps)
+                        void derivarLocalidadeGps(gps.lat, gps.lon);
+                    }}
+                    className={`relative flex items-center gap-2.5 px-3 md:px-6 py-2.5 md:py-3 -mb-px whitespace-nowrap text-[0.7rem] md:text-[0.9rem] font-black transition-colors bg-transparent border-0 border-b-2 cursor-pointer ${
+                      activo
+                        ? "text-primary border-primary"
+                        : "text-slate-400 border-transparent hover:text-slate-600"
+                    }`}
+                    id={`tab-localizacao-${chave}`}
+                  >
+                    <Icone
+                      size={18}
+                      className="md:w-[1.4rem] md:h-[1.4rem] shrink-0"
+                      strokeWidth={activo ? 2.2 : 1.8}
+                    />
+                    {rotulo}
+                  </button>
+                );
+              })}
             </div>
             {tipoLocalizacao === "manual" ? (
               <p className="text-xs text-slate-500">
@@ -1628,6 +1700,17 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                           {gps.lat.toFixed(5)}, {gps.lon.toFixed(5)} · ±
                           {Math.max(1, Math.round(gps.precisao))} m
                         </p>
+                        {localGpsAObter ? (
+                          <p className="text-xs text-emerald-900/80 flex items-center gap-2">
+                            <Loader2 size={13} className="animate-spin shrink-0" />
+                            A determinar a localidade a partir do GPS…
+                          </p>
+                        ) : localGps ? (
+                          <p className="text-xs text-emerald-900 font-bold break-words">
+                            Localidade: {localGps.bairro} · {localGps.municipio} ·{" "}
+                            {localGps.provincia}
+                          </p>
+                        ) : null}
                       </>
                     ) : (
                       <p className="text-xs text-slate-600">
@@ -1657,13 +1740,17 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                   </div>
                 )}
                 <p className="text-xs text-slate-500">
-                  As coordenadas GPS são guardadas com a ocorrência. Indique
-                  também a localidade abaixo para a instituição conseguir
-                  localizar o caso.
+                  As coordenadas GPS e a localidade aproximada que delas se
+                  obtém são guardadas com a ocorrência e partilhadas com a
+                  instituição.
                 </p>
               </div>
             )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Campos de endereço: apenas no modo Manual — no Automático o
+                GPS determina a localidade (ver localGps). */}
+            {tipoLocalizacao === "manual" && (
+              <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Província *">
                 <select
                   required
@@ -1726,19 +1813,21 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                 </Field>
               </div>
             </div>
-            <Field label="Rua / Ponto de referência *">
-              <input
-                className={input}
-                required
-                minLength={3}
-                maxLength={500}
-                value={data.referencia}
-                onChange={(e) =>
-                  setData({ ...data, referencia: e.target.value })
-                }
-                placeholder="Ex.: junto à escola, em frente ao mercado"
-              />
-            </Field>
+              <Field label="Rua / Ponto de referência *">
+                <input
+                  className={input}
+                  required
+                  minLength={3}
+                  maxLength={500}
+                  value={data.referencia}
+                  onChange={(e) =>
+                    setData({ ...data, referencia: e.target.value })
+                  }
+                  placeholder="Ex.: junto à escola, em frente ao mercado"
+                />
+              </Field>
+              </>
+            )}
           </div>
           <div className={panel}>
             <h3 className="font-black text-primary flex items-center gap-2">

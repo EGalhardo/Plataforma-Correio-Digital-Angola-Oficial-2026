@@ -67,6 +67,61 @@ async function geocodificar(
   return { ...fb, origem: "provincia" };
 }
 
+/** 2026-09-16 — geocodificação REVERSA (o mesmo recurso OpenStreetMap/
+ *  Nominatim que o mapa já utiliza): deriva a localidade aproximada a
+ *  partir das coordenadas GPS. Falha suave (objeto vazio) — quem chama
+ *  aplica os fallbacks. */
+export async function reverterGeocodificacao(
+  lat: number,
+  lon: number,
+): Promise<{
+  provincia?: string;
+  municipio?: string;
+  bairro?: string;
+  rua?: string;
+}> {
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&countrycodes=ao&zoom=12&lat=${lat}&lon=${lon}`,
+      { headers: { Accept: "application/json" } },
+    );
+    const j = (await r.json()) as { address?: Record<string, string> };
+    const a = j.address || {};
+    return {
+      provincia: a.state || undefined,
+      municipio:
+        a.city || a.town || a.municipality || a.county || undefined,
+      bairro:
+        a.suburb ||
+        a.neighbourhood ||
+        a.quarter ||
+        a.city_district ||
+        a.village ||
+        undefined,
+      rua: a.road
+        ? `${a.road}${a.house_number ? ` ${a.house_number}` : ""}`
+        : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+/** 2026-09-16 — província mais próxima pela capital (fallback quando a
+ *  geocodificação reversa não devolve estado). */
+export function provinciaMaisProxima(lat: number, lon: number): string {
+  let melhor = "Luanda";
+  let melhorD = Infinity;
+  for (const [nome, c] of Object.entries(CAPITAIS)) {
+    const d = (c.lat - lat) ** 2 + (c.lon - lon) ** 2;
+    if (d < melhorD) {
+      melhorD = d;
+      melhor = nome;
+    }
+  }
+  return melhor;
+}
+
 /** Mapa da área da ocorrência (OpenStreetMap incorporado + pino).
  *  2026-09-16 — quando a ocorrência tem coordenadas GPS guardadas
  *  (localização "Automática"), o mapa centra nessa posição real sem
