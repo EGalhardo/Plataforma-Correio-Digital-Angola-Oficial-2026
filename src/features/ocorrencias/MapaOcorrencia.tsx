@@ -188,7 +188,7 @@ export function MapaOcorrencia({
         <iframe
           title="Mapa da área da ocorrência"
           src={src}
-          className="w-full h-56 border-0"
+          className="w-full h-[240px] sm:h-[300px] lg:h-[380px] border-0"
           loading="lazy"
         />
       </div>

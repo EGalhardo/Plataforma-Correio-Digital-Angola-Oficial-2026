@@ -224,7 +224,7 @@ export function HomeContent({
           { key: 'video-atendimento' as AtalhoPainel, label: 'Vídeo-Atendimento', Icon: Video, action: () => setTab('video-atendimento') },
           { key: 'inqueritos' as AtalhoPainel, label: 'Inquéritos', Icon: ClipboardList, action: () => setTab('inqueritos') },
           { key: 'ocorrencias' as AtalhoPainel, label: isInst ? 'Ocorrências recebidas' : 'Ocorrências Locais', Icon: MapPin, action: () => setTab('ocorrencias') },
-          { key: 'denuncias' as AtalhoPainel, label: isInst ? 'Denúncias recebidas' : 'Denúncias', Icon: ShieldAlert, action: () => setTab('denuncias') },
+          { key: 'denuncias' as AtalhoPainel, label: 'Livro de Reclamações', Icon: ShieldAlert, action: () => setTab('denuncias') },
         ].map(({ key, label, Icon, action }) => (
           <button
             key={key}

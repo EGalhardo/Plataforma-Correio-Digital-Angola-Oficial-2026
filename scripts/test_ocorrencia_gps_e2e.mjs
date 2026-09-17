@@ -22,7 +22,7 @@ const SHOT = '/home/user/cda_test/test_ocorrencia_gps';
 
 const LAT = -8.8306; // centro de Luanda (Coreia) — posição do dispositivo
 const LON = 13.2225;
-const MARC = 'E2E-GPS-1609';
+const MARC = 'E2E-GPS-1609B';
 const LAT5 = LAT.toFixed(5);
 const LON5 = LON.toFixed(5);
 
