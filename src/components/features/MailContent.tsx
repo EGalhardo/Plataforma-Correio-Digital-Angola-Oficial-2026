@@ -567,8 +567,8 @@ export function MailContent({
     : [
         { id: 'normal', titulo: 'Mensagem Normal', etiqueta: 'Oficial', Icone: Mail, tom: 'azul', idDom: 'btn-modal-opcao-normal',
           descricao: 'Envio de correspondência digital oficial padronizada para a caixa do destinatário.' },
-        { id: 'denuncia', titulo: 'Denunciar', Icone: Ban, tom: 'cinza', idDom: 'btn-modal-opcao-denunciar',
-          descricao: 'Comunicar uma irregularidade, mau atendimento ou conduta suspeita. A mensagem segue marcada como denúncia.' },
+        { id: 'denuncia', titulo: 'Reclamação', Icone: Ban, tom: 'cinza', idDom: 'btn-modal-opcao-denunciar',
+          descricao: 'Comunicar uma irregularidade, mau atendimento ou conduta suspeita. A mensagem segue marcada como reclamação.' },
       ];
 
   const [editorBold, setEditorBold] = useState(false);
@@ -2213,7 +2213,7 @@ export function MailContent({
                   <div className="flex gap-3 text-sm" data-testid="rever-modalidade">
                     <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Modalidade</span>
                     <span className={`font-bold min-w-0 ${ehDenuncia ? 'text-rose-600' : 'text-slate-800'}`}>
-                      {ehDenuncia ? 'Denúncia' : 'Mensagem Normal'}
+                      {ehDenuncia ? 'Reclamação' : 'Mensagem Normal'}
                     </span>
                   </div>
                 )}
