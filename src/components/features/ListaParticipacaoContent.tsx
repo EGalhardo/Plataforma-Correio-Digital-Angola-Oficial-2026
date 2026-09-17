@@ -23,7 +23,7 @@ export function ListaParticipacaoContent({tipo, isInst, messages, notifications 
   const [aba, setAba] = useState<AbaInquerito>('normal');
   useEffect(() => { setQuery(''); setAba('normal'); }, [tipo, isInst]);
   const inqueritos = tipo === 'inqueritos';
-  const titulo = inqueritos ? 'Inquéritos' : isInst ? 'Denúncias recebidas' : 'Denúncias';
+  const titulo = inqueritos ? 'Inquéritos' : 'Livro de Reclamações';
   const anonimizar = !inqueritos && isInst;
   const base = useMemo(() => {
     const todos = listarParticipacao(messages, tipo);
