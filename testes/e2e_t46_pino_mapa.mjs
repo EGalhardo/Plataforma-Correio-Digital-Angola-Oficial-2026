@@ -2,8 +2,14 @@
  * T46 — Pino de localização sobre os mapas embutidos:
  *  (a) «Ver Localização» do Detalhe da Correspondência (Google embed);
  *  (b) «Ver no mapa» da ficha do órgão no Directório (OpenStreetMap embed).
- * Verifica: pino visível, centrado no contentor do mapa (ponta = centro),
- * sem capturar eventos (pointer-events: none), rótulo, e capturas.
+ * (a) 2026-09-18 (commit 8b3c207): o pino sobreposto da plataforma foi
+ *     REMOVIDO desta vista — ficava fixo no centro do contentor e não
+ *     acompanhava o mapa ao arrastar. O marcador passa a ser o nativo do
+ *     Google Maps (embed com `q=`), que acompanha arrasto e zoom. O teste
+ *     verifica: iframe do Google com `q=` e `output=embed`, ausência do
+ *     pino sobreposto (em Mapa e em Satélite) e capturas.
+ * (b) Directório: pino da plataforma centrado (ponta = centro), sem capturar
+ *     eventos (pointer-events: none), rótulo = sigla, `marker=` no URL.
  * Uso: node testes/e2e_t46_pino_mapa.mjs   (BASE=https://… para produção)
  */
 import { chromium } from 'playwright';
@@ -39,26 +45,26 @@ try {
   const linha = page.locator('tr').filter({ has: page.getByRole('button', { name: /ABRIR/i }) }).first();
   await linha.getByRole('button', { name: /ABRIR/i }).first().click(); await page.waitForTimeout(2500);
   await page.locator('[title="Clique para ver no mapa"]').first().click(); await page.waitForTimeout(1500);
-  const pinoA = page.locator('[data-testid="pino-mapa-detalhe"]');
-  await pinoA.waitFor({ state: 'attached', timeout: 15000 });
-  await page.waitForFunction(() => { const el = document.querySelector('[data-testid="pino-mapa-detalhe"]'); return el && getComputedStyle(el).opacity === '1'; }, null, { timeout: 20000 }).catch(() => {});
-  ok(await pinoA.isVisible(), '(a) pino visível no mapa do Detalhe («Ver Localização»)');
-  ok(await pinoA.locator('svg path').count() === 1, '(a) pino desenhado (SVG)');
-  const cA = await centroPino(pinoA); const mA = await centroMapa(pinoA);
-  ok(Math.abs(cA.x - mA.x) < 3 && Math.abs(cA.y - mA.y) < 3, `(a) ponta do pino no centro do mapa (Δ ${Math.abs(cA.x - mA.x).toFixed(1)}, ${Math.abs(cA.y - mA.y).toFixed(1)} px)`);
-  ok(await pinoA.evaluate((el) => getComputedStyle(el).pointerEvents === 'none'), '(a) pino não bloqueia interacção com o mapa (pointer-events: none)');
-  const rotA = (await pinoA.innerText()).trim();
-  ok(rotA.length > 0, `(a) rótulo por cima do pino («${rotA}»)`);
+  const mapaA = page.locator('iframe[title="Google Maps Location"]');
+  await mapaA.waitFor({ state: 'attached', timeout: 15000 });
+  await page.waitForFunction(() => { const el = document.querySelector('iframe[title="Google Maps Location"]'); return el && getComputedStyle(el).opacity === '1'; }, null, { timeout: 30000 }).catch(() => {});
+  ok(await mapaA.isVisible(), '(a) mapa do Detalhe («Ver Localização») visível');
+  const srcA = (await mapaA.getAttribute('src')) || '';
+  ok(/maps\.google\.com\/maps\?q=.+&output=embed/.test(srcA) && !/&t=k/.test(srcA), '(a) embed do Google com «q=» (marcador nativo, acompanha arrasto/zoom) em vista Mapa');
+  ok(await page.locator('[data-testid="pino-mapa-detalhe"]').count() === 0, '(a) sem pino sobreposto fixo no centro (removido em 8b3c207)');
   await page.screenshot({ path: 'testes/evidencias/t46_pino_detalhe.png', fullPage: false });
-  // satélite mantém o pino
+  // satélite mantém o marcador nativo e continua sem pino sobreposto
   await page.getByRole('button', { name: /^Satélite$/i }).first().click(); await page.waitForTimeout(1500);
-  await page.waitForFunction(() => { const el = document.querySelector('[data-testid="pino-mapa-detalhe"]'); return el && getComputedStyle(el).opacity === '1'; }, null, { timeout: 20000 }).catch(() => {});
-  ok(await pinoA.isVisible(), '(a) pino mantém-se na vista Satélite');
+  await page.waitForFunction(() => { const el = document.querySelector('iframe[title="Google Maps Location"]'); return el && /&t=k/.test(el.getAttribute('src') || '') && getComputedStyle(el).opacity === '1'; }, null, { timeout: 30000 }).catch(() => {});
+  const srcSat = (await mapaA.getAttribute('src')) || '';
+  ok(/&t=k/.test(srcSat) && /\?q=.+&output=embed/.test(srcSat), '(a) vista Satélite mantém o embed com «q=» (marcador nativo)');
+  ok(await page.locator('[data-testid="pino-mapa-detalhe"]').count() === 0, '(a) vista Satélite continua sem pino sobreposto');
 
   // (b) Directório → ficha AGT → Ver no mapa
   await page.evaluate(() => { window.location.hash = '#/contatos'; }); await page.waitForTimeout(2000);
   await page.locator('#tab-contactos-instituicoes').click(); await page.waitForTimeout(800);
-  await page.getByPlaceholder(/Pesquisar órgão/i).first().fill('AGT'); await page.waitForTimeout(600);
+  // 2026-09-18 — dentro de Contactos, o Directório usa o campo «Procurar por Contactos institucionais»
+  await page.getByPlaceholder(/Procurar por Contactos institucionais|Pesquisar órgão/i).first().fill('AGT'); await page.waitForTimeout(600);
   await page.locator('button', { hasText: /Administração Geral Tributária|AGT/ }).filter({ hasNot: page.locator('#tab-contactos-instituicoes') }).first().click(); await page.waitForTimeout(800);
   await page.locator('#btn-directorio-ver-mapa').click(); await page.waitForTimeout(1500);
   const pinoB = page.locator('[data-testid="pino-mapa-directorio"]');
@@ -77,7 +83,7 @@ try {
   ok(await login(mp), '(mobile) login');
   await mp.evaluate(() => { window.location.hash = '#/contatos'; }); await mp.waitForTimeout(2000);
   await mp.locator('#tab-contactos-instituicoes').click(); await mp.waitForTimeout(800);
-  await mp.getByPlaceholder(/Pesquisar órgão/i).first().fill('AGT'); await mp.waitForTimeout(600);
+  await mp.getByPlaceholder(/Procurar por Contactos institucionais|Pesquisar órgão/i).first().fill('AGT'); await mp.waitForTimeout(600);
   await mp.locator('button', { hasText: /Administração Geral Tributária|AGT/ }).filter({ hasNot: mp.locator('#tab-contactos-instituicoes') }).first().click(); await mp.waitForTimeout(800);
   await mp.locator('#btn-directorio-ver-mapa').click(); await mp.waitForTimeout(1500);
   const pinoM = mp.locator('[data-testid="pino-mapa-directorio"]');

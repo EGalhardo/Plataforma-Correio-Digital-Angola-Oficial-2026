@@ -8,6 +8,14 @@
  * A Vercel está ligada ao repositório GitHub; cada push dispara um
  * deployment. Este script acompanha o deployment até ao estado final
  * (READY / ERROR / CANCELED) e devolve o URL de produção.
+ *
+ * 2026-09-18 — para deployments de produção confirma também que o domínio
+ * de produção (correio-digital-angola-oficial.vercel.app) passou a apontar
+ * para o novo deployment. Já aconteceu o build ficar READY sem a Vercel
+ * trocar o alias (aliasAssigned=false); nesse caso o script promove o
+ * deployment via API (POST /v10/projects/{id}/promote/{deploymentId}) e
+ * volta a confirmar. Só termina com sucesso quando a produção serve o
+ * commit pedido.
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
@@ -18,9 +26,11 @@ const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 process.chdir(raiz);
 
 const PROJETO_ID = 'prj_ostCSaPP5KvYcUeqk8wSsIHjs2Xn'; // correio-digital-angola-oficial
+const DOMINIO_PRODUCAO = 'correio-digital-angola-oficial.vercel.app';
 const API = 'https://api.vercel.com';
 const ESPERA_ENTRE_POLLS_MS = 5000;
 const TEMPO_LIMITE_MS = 300000; // 5 minutos
+const TEMPO_LIMITE_ALIAS_MS = 180000; // 3 minutos para a troca do alias de produção
 
 function lerToken() {
   const ficheiro = path.join(raiz, '.env.deploy');
@@ -37,10 +47,44 @@ function lerToken() {
   return token;
 }
 
-async function apiVercel(caminho, token) {
-  const res = await fetch(`${API}${caminho}`, { headers: { Authorization: `Bearer ${token}` } });
+async function apiVercel(caminho, token, metodo = 'GET') {
+  const res = await fetch(`${API}${caminho}`, { method: metodo, headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(`Vercel API ${res.status}: ${await res.text()}`);
-  return res.json();
+  const texto = await res.text();
+  return texto ? JSON.parse(texto) : {};
+}
+
+/** Deployment (url) para o qual o domínio de produção aponta neste momento. */
+async function alvoDoDominioProducao(token) {
+  const { aliases } = await apiVercel(`/v4/aliases?projectId=${PROJETO_ID}&limit=50`, token);
+  const a = (aliases || []).find((x) => x.alias === DOMINIO_PRODUCAO);
+  return a?.deployment?.url || null;
+}
+
+/**
+ * Garante que o domínio de produção serve o deployment indicado. Se ao fim
+ * de 60 s a Vercel ainda não tiver trocado o alias, promove o deployment
+ * pela API e continua a aguardar até TEMPO_LIMITE_ALIAS_MS.
+ */
+async function confirmarAliasProducao(dep, token) {
+  const inicioAlias = Date.now();
+  let promovido = false;
+  let ultimoAlvo = null;
+  while (Date.now() - inicioAlias < TEMPO_LIMITE_ALIAS_MS) {
+    const alvo = await alvoDoDominioProducao(token);
+    if (alvo !== ultimoAlvo) {
+      console.log(`  ${DOMINIO_PRODUCAO} → ${alvo || '(sem alias)'}`);
+      ultimoAlvo = alvo;
+    }
+    if (alvo === dep.url) return true;
+    if (!promovido && Date.now() - inicioAlias > 60000) {
+      console.log('  … a Vercel não trocou o alias de produção; a promover o deployment via API.');
+      await apiVercel(`/v10/projects/${PROJETO_ID}/promote/${dep.uid}`, token, 'POST');
+      promovido = true;
+    }
+    await new Promise((r) => setTimeout(r, ESPERA_ENTRE_POLLS_MS));
+  }
+  return false;
 }
 
 const shaAlvo = process.argv[2] || execSync('git rev-parse HEAD').toString().trim();
@@ -66,7 +110,16 @@ while (Date.now() - inicio < TEMPO_LIMITE_MS) {
 
   if (dep.state === 'READY') {
     const alvo = dep.target === 'production' || dep.target === 'staging' ? dep.target : 'preview';
-    console.log(`\n✓ Deploy concluído (${alvo}): https://${dep.url}`);
+    console.log(`\n✓ Build concluído (${alvo}): https://${dep.url}`);
+    if (dep.target === 'production') {
+      console.log(`→ A confirmar que ${DOMINIO_PRODUCAO} aponta para este deployment…`);
+      const ok = await confirmarAliasProducao(dep, token);
+      if (!ok) {
+        console.error(`\n✗ ${DOMINIO_PRODUCAO} continua a servir outro deployment. Veja em https://vercel.com/dashboard`);
+        process.exit(4);
+      }
+      console.log(`\n✓ Produção actualizada: https://${DOMINIO_PRODUCAO} (commit ${shaAlvo.slice(0, 7)})`);
+    }
     process.exit(0);
   }
   if (['ERROR', 'CANCELED'].includes(dep.state)) {
