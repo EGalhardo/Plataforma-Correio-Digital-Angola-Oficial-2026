@@ -4883,7 +4883,13 @@ export default function App() {
   const handleReply = (msg: Message) => {
     // `org` é apenas o rótulo exibido. Para entregar a resposta, usar a chave
     // canónica do remetente original (BI/código institucional), não o texto.
-    const recipient = msg.senderKey || msg.recipientBi || resolveInstitutionCode(msg.org);
+    // 2026-09-18 — numa mensagem ENVIADA o `senderKey` é a PRÓPRIA conta (F15);
+    // «Responder» segue então para o destinatário original, nunca para si própria.
+    const minhaChave = String((isInstMode ? (institutionCode || bi) : isGovMode ? 'CDA' : bi) || '').trim().toUpperCase();
+    const enviadaPorMim = !!msg.senderKey && String(msg.senderKey).trim().toUpperCase() === minhaChave;
+    const recipient = enviadaPorMim
+      ? (msg.recipientBi || '')
+      : (msg.senderKey || msg.recipientBi || resolveInstitutionCode(msg.org));
     setComposeData({
       to: recipient,
       subject: `RE: ${msg.details?.subject || msg.preview.substring(0, 30)}`,
