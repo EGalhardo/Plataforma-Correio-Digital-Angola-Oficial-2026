@@ -49,8 +49,8 @@ export function ListaParticipacaoContent({tipo, isInst, messages, notifications 
       {inqueritos
         ? <span className="p-3 rounded-2xl bg-primary/10 text-primary"><Icon size={24}/></span>
         : <span className="p-2 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
-            <img src="https://i.postimg.cc/tCVhVFsd/ANIESA.png" alt="ANIESA" loading="lazy"
-                 className="h-8 w-8 object-contain" />
+            <img src="https://i.postimg.cc/y8j1d36z/ANIESA-2.jpg" alt="ANIESA" loading="lazy"
+                 className="h-[72px] w-[72px] md:h-[88px] md:w-[88px] object-contain rounded-xl" />
           </span>}
       <div className={inqueritos ? "min-w-0" : "flex-1 min-w-0"}><h2 className="text-xl md:text-2xl font-black text-primary">{t(titulo)}</h2>
         {!inqueritos && <p className="text-xs md:text-sm text-slate-500">{t(isInst ? 'Consulte as denúncias dirigidas à sua instituição e acompanhe o respectivo processo.' : 'Consulte as denúncias que enviou e acompanhe o respectivo processo.')}</p>}
