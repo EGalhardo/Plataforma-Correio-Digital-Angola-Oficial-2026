@@ -1677,11 +1677,7 @@ export function MailContent({
                   à direita (justify-between do toolbar). Vazio = sem prazo; a data
                   segue para messages.deadline_at e para o rótulo «EXPIRA:». */}
               <label
-                className={`ml-auto flex items-center gap-1.5 h-7 pl-2 pr-1.5 rounded-lg border transition-all cursor-pointer select-none ${
-                  composeData.dataExpiracao
-                    ? 'bg-blue-50 border-blue-200 text-blue-700'
-                    : 'bg-slate-100/60 border-slate-200/60 text-slate-600 hover:bg-slate-100'
-                }`}
+                className="ml-auto flex items-center gap-1.5 h-7 pl-2 pr-1.5 rounded-lg border bg-blue-600 border-blue-600 text-white hover:bg-blue-700 transition-all cursor-pointer select-none"
                 title="Data de Expiração da correspondência (opcional)"
                 data-testid="compositor-data-expiracao"
               >
@@ -1694,7 +1690,8 @@ export function MailContent({
                   min={hojeISO()}
                   value={composeData.dataExpiracao || ''}
                   onChange={(e) => setComposeData({ ...composeData, dataExpiracao: e.target.value })}
-                  className="h-5 bg-transparent border-0 outline-none text-[11px] font-bold font-mono text-slate-800 cursor-pointer w-[9.5rem]"
+                  style={{ colorScheme: 'dark' }}
+                  className="h-5 bg-transparent border-0 outline-none text-[11px] font-bold font-mono text-white cursor-pointer w-[9.5rem]"
                 />
                 {composeData.dataExpiracao && (
                   <button
@@ -1702,7 +1699,7 @@ export function MailContent({
                     onClick={(e) => { e.preventDefault(); setComposeData({ ...composeData, dataExpiracao: '' }); }}
                     title={`Remover data de expiração (${formatarDataExpiracao(composeData.dataExpiracao)})`}
                     aria-label="Remover data de expiração"
-                    className="p-0.5 rounded-md text-blue-700 hover:bg-blue-100 transition-all"
+                    className="p-0.5 rounded-md text-white/90 hover:bg-white/20 transition-all"
                   >
                     <X size={12} />
                   </button>
