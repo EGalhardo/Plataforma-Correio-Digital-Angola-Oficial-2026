@@ -77,7 +77,6 @@ import {
   MessagesSquare
 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
-import { PinoMapa } from '../ui/PinoMapa';
 import { estadoExpiracao } from '../../utils/dataExpiracao';
 import { Message, CorrespondenceStateEvent, SENSITIVITY_LEVELS, PRIORITY_CONFIGS, ReplySendPayload, ReplySendResult } from '../../types';
 // 2026-09-10 — Inquérito com IA conversacional (PROMPT v3 §4.2): botão
@@ -2314,6 +2313,10 @@ depende de integração futura com a infra-estrutura de chaves nacional.
   if (showLocationPage) {
     const currentQuery = mapQuery || messageLocality;
     const isSatellite = mapType === 'satellite';
+    // 2026-09-18 — o pino é o marcador nativo do Google Maps (o embed com `q=`
+    // desenha-o no local e este acompanha o mapa ao arrastar/zoom). O antigo
+    // pino sobreposto (PinoMapa) ficava fixo no centro do contentor e, ao
+    // puxar o mapa para o lado, não acompanhava o local — removido desta vista.
     const embedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(currentQuery)}&t=${isSatellite ? 'k' : ''}&z=16&ie=UTF8&iwloc=&output=embed`;
     const openInNewTabUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(currentQuery)}`;
     const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(currentQuery)}`;
@@ -2425,10 +2428,6 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               referrerPolicy="no-referrer-when-downgrade"
               title="Google Maps Location" aria-label="Google Maps Location"
             />
-
-            {/* 2026-09-11 (T46) — pino da plataforma no ponto exacto (o embed
-                centra a vista no local pesquisado; o pino marca o centro). */}
-            <PinoMapa rotulo={mainAddressLine} oculto={mapLoading} testId="pino-mapa-detalhe" />
 
             {/* FLOATING ADDRESS OVERLAY CARD: Exactly matching Image 2 style */}
             <div className="absolute top-4 left-4 z-10 w-[240px] sm:w-[320px] bg-white rounded-2xl p-4 shadow-xl border border-slate-100/60 translate-y-0 transition-transform">
