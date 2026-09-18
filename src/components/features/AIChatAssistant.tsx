@@ -150,50 +150,64 @@ const NAV_DESTINOS: DestinoNav[] = [
   { termos: ['perfil', 'minha conta', 'perfil admin'], tab: 'gov-perfil', label: 'Perfil Admin', papeis: ['admin'] },
 ];
 
+// 2026-09-18 — nomes alinhados com as páginas que existem hoje e com as
+// apresentações de voz (services/voicePresentations.ts): removidas Pagamentos,
+// Pasta Digital e «Documentos» do cidadão; acrescentadas as páginas novas.
 const PAGE_FRIENDLY_NAMES: Record<AppMode, Record<string, string>> = {
   user: {
-    home: "Painel Principal",
-    correspondencias: "Correio Digital",
-    documentos: "Documentos e Certificados",
-    "pasta-digital": "Pasta Digital",
-    "qr-code": "QR Code e Carteira",
-    historico: "Histórico de Atividades",
-    notificacoes: "Central de Notificações",
-    contactos: "Círculo de Confiança",
-    contatos: "Círculo de Confiança",
-    pagamentos: "Pagamentos e Emolumentos",
-    perfil: "Meu Perfil",
-    "video-atendimento": "Video Atendimento"
+    home: "Painel",
+    correspondencias: "Correio",
+    contatos: "Contactos",
+    contactos: "Contactos",
+    perfil: "Perfil",
+    "qr-code": "QR Code e Carteira Digital",
+    "solicitar-documento": "Solicitar Documento",
+    historico: "Histórico",
+    notificacoes: "Centro de Notificações",
+    "video-atendimento": "Vídeo-Atendimento",
+    inqueritos: "Inquéritos",
+    ocorrencias: "Ocorrências Locais",
+    denuncias: "Livro de Reclamações",
+    "directorio-orgaos": "Directório de Órgãos"
   },
   institution: {
-    home: "Painel Principal",
+    home: "Painel",
     correspondencias: "Correio Institucional",
-    documentos: "Gestão de Documentos",
     "gov-contatos": "Equipa",
     "inst-qrcode": "Validação por QR Code",
     "inst-ai-assistant": "Assistência IA",
-    "inst-pagamentos": "Pagamentos e Cobranças",
     perfil: "Perfil Institucional",
-    "video-atendimento": "Video Atendimento"
+    documentos: "Expedientes e Arquivos",
+    "qr-code": "Emissão Documental",
+    historico: "Histórico",
+    notificacoes: "Centro de Notificações",
+    "video-atendimento": "Vídeo-Atendimento",
+    inqueritos: "Inquéritos",
+    sondagens: "Sondagens",
+    ocorrencias: "Ocorrências Recebidas",
+    denuncias: "Livro de Reclamações"
   },
   admin: {
-    "gov-dashboard": "Painel Principal SOC",
-    "gov-interoperabilidade": "Interoperabilidade",
+    "gov-dashboard": "Painel Nacional",
+    "gov-interoperabilidade": "Instituições",
     "gov-correspondencias": "Correspondências",
     "gov-contatos": "Cidadãos",
     "gov-trabalhadores": "Equipa",
-    "gov-emissao": "Emissão de Documentos",
-    "gov-docs": "Arquivo de Documentos",
-    "gov-documentos": "Arquivo de Documentos",
+    "gov-emissao": "Emissão (Correio Oficial)",
+    "gov-docs": "Emissão Documental",
+    "gov-documentos": "Emissão Documental",
     "gov-relatorio": "Relatórios",
-    "gov-ia": "IA (Nacional)",
-    "gov-seguranca": "Auditoria de Segurança",
-    "gov-perfil": "Perfil Admin",
-    historico: "Histórico Geral",
-    notificacoes: "Central de Notificações",
-    "video-atendimento": "Video Atendimento"
+    "gov-ia": "IA Nacional",
+    "gov-seguranca": "Auditoria e Segurança",
+    "gov-perfil": "Perfil do Administrador",
+    historico: "Histórico Operacional",
+    notificacoes: "Centro de Notificações",
+    "video-atendimento": "Vídeo-Atendimento"
   }
 };
+
+/** Chaves que são meros aliases de outra página já listada (evita botões duplicados). */
+const ALIASES_APRESENTACAO: ReadonlySet<string> = new Set(['contactos', 'gov-documentos']);
 
 interface PendingNavigation {
   targetTab: string;
@@ -1156,7 +1170,7 @@ export function AIChatAssistant({
             {Object.keys(PAGE_PRESENTATIONS[appMode] || {})
               .filter(pageKey => {
                 const isFriendlyNamePage = PAGE_FRIENDLY_NAMES[appMode] && (pageKey in PAGE_FRIENDLY_NAMES[appMode]);
-                return isFriendlyNamePage && pageKey !== activeTab;
+                return isFriendlyNamePage && pageKey !== activeTab && !ALIASES_APRESENTACAO.has(pageKey);
               }).length > 0 && (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
@@ -1170,7 +1184,8 @@ export function AIChatAssistant({
                   {Object.keys(PAGE_PRESENTATIONS[appMode] || {})
                     .filter(pageKey => {
                       const isFriendlyNamePage = PAGE_FRIENDLY_NAMES[appMode] && (pageKey in PAGE_FRIENDLY_NAMES[appMode]);
-                      return isFriendlyNamePage && pageKey !== activeTab;
+                      // aliases da mesma página (contactos/contatos, gov-documentos/gov-docs) só uma vez na lista
+                      return isFriendlyNamePage && pageKey !== activeTab && !ALIASES_APRESENTACAO.has(pageKey);
                     })
                     .map(pageKey => {
                       const label = getPageFriendlyName(pageKey);
