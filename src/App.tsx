@@ -3104,10 +3104,18 @@ export default function App() {
           // estado local/mock). Eliminadas/arquivadas ficam fora da caixa em
           // qualquer dispositivo. Demo mantém a fusão de sempre.
           if (!isDemoSession) {
-            setInbox(incoming.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
+            // QA-REAL 2026-09-19 — a página «Carteira» deixou de existir no
+            // portal (remoção de funcionalidades 2026-09-15), mas as emissões
+            // oficiais continuam a criar correspondência documental (__DOC__).
+            // Sem esta linha, o cidadão/instituição NUNCA via essas mensagens
+            // (F12: titularidade endereçada à chave tem de ser visível).
+            // As docs passam a aparecer TAMBÉM na caixa principal; docInbox
+            // mantém-se para retro-compatibilidade (Perfil, IA, eliminações).
+            const caixaCompleta = [...incoming, ...docs];
+            setInbox(caixaCompleta.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
             setDocInbox(docs.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
             if (isInstMode) {
-              setInstInbox(incoming.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
+              setInstInbox(caixaCompleta.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
               setInstDocInbox(docs.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
             }
           } else {
