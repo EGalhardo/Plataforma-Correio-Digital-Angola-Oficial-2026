@@ -406,7 +406,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
             </span>
           )}
 
-          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-full text-emerald-700 font-extrabold text-[11px] uppercase tracking-wider">
+          <div className="flex items-center gap-2 px-4 py-2 bg-white border border-emerald-100 rounded-full text-emerald-700 font-extrabold text-[11px] uppercase tracking-wider">
             <CheckCircle2 size={14} className="text-emerald-600 fill-emerald-100" />
             <span>Conta verificada e activa</span>
           </div>
@@ -422,7 +422,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
             exit={{ opacity: 0, y: -10 }}
             className={`p-4 border rounded-2xl flex items-start gap-3 text-xs relative ${
               feedback.type === 'success' 
-                ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900' 
+                ? 'bg-white border-emerald-200 text-emerald-900' 
                 : feedback.type === 'error'
                 ? 'bg-rose-50/90 border-rose-200 text-rose-900'
                 : 'bg-slate-50/90 border-slate-150 text-slate-800'
@@ -508,7 +508,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
             </div>
 
             <h3 className="text-xl font-black text-slate-950 tracking-tight mb-1 uppercase">{profileName}</h3>
-            <div className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[9px] font-black uppercase tracking-wider mb-6 border border-emerald-100">
+            <div className="inline-flex items-center gap-1 px-3 py-1 bg-white text-emerald-700 rounded-full text-[9px] font-black uppercase tracking-wider mb-6 border border-emerald-100">
               <ShieldCheck size={11} className="text-emerald-600" />
               CIDADÃO VERIFICADO
             </div>
@@ -681,7 +681,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                         {field.value}
                       </span>
                       {field.verified && (
-                        <span className="flex items-center gap-1 text-[8px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md uppercase tracking-wider shrink-0">
+                        <span className="flex items-center gap-1 text-[8px] font-black text-emerald-700 bg-white border border-emerald-200 px-1.5 py-0.5 rounded-md uppercase tracking-wider shrink-0">
                           <Check size={10} strokeWidth={3} />
                           Verificado
                         </span>
@@ -781,7 +781,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                 <div
                   className={`mb-3 px-3 py-2 rounded-xl border text-[10px] font-bold leading-relaxed ${
                     emergencyState.complete
-                      ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                      ? 'bg-white border-emerald-100 text-emerald-700'
                       : 'bg-amber-50 border-amber-200 text-amber-800'
                   }`}
                   id="profile-emergency-contacts-state"
@@ -798,7 +798,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                         <p className="text-xs font-extrabold text-slate-800">{contact.name}</p>
                         <p className="text-[10px] text-slate-400 font-medium">{contact.relation}</p>
                       </div>
-                      <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+                      <div className="w-8 h-8 rounded-full bg-white text-emerald-600 flex items-center justify-center border border-emerald-100">
                         <Smartphone size={14} />
                       </div>
                     </div>

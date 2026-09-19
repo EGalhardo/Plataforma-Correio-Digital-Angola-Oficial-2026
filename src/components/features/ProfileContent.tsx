@@ -856,7 +856,7 @@ return (
                     )}
 
                     {captureSuccess && (
-                      <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl inline-flex items-center gap-2 max-w-md text-left">
+                      <div className="p-3 bg-white border border-emerald-100 rounded-xl inline-flex items-center gap-2 max-w-md text-left">
                         <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
                         <span className="text-emerald-800 text-[10.5px] font-bold">
                           Assinatura biométrica facial certificada e vinculada à sua ID do SME nacional.
@@ -908,7 +908,7 @@ return (
                     </div>
 
                     <div className="pt-4 border-t border-slate-100 flex flex-col items-center">
-                      <div className="bg-emerald-50 border border-emerald-100 p-4.5 rounded-2xl w-full text-center space-y-2">
+                      <div className="bg-white border border-emerald-100 p-4.5 rounded-2xl w-full text-center space-y-2">
                         <Award className="text-emerald-600 mx-auto" size={28} />
                         <h4 className="text-slate-800 font-black text-sm uppercase tracking-wide">Pronto Para Selagem de Identidade</h4>
                         <p className="text-slate-500 text-xs">
@@ -1059,7 +1059,7 @@ return (
                       <div className="text-[11px] text-red-650 font-black bg-red-50 border border-red-200 rounded-xl px-3 py-2">{passwordError}</div>
                     )}
                     {passwordSuccess && (
-                      <div className="text-[11px] text-emerald-700 font-extrabold bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 flex items-center gap-1.5">
+                      <div className="text-[11px] text-emerald-700 font-extrabold bg-white border border-emerald-200 rounded-xl px-3 py-2 flex items-center gap-1.5">
                         <Check size={13} className="text-emerald-600" />
                         {passwordSuccessMsg || 'Palavra-passe alterada com sucesso!'}
                       </div>
@@ -1810,7 +1810,7 @@ return (
 
                             <div className="flex items-center gap-2 font-sans select-none">
                               {dev.authorized ? (
-                                <span className="text-[9px] bg-emerald-50 text-emerald-600 font-extrabold uppercase px-2 py-0.5 rounded-full border border-emerald-100">
+                                <span className="text-[9px] bg-white text-emerald-600 font-extrabold uppercase px-2 py-0.5 rounded-full border border-emerald-100">
                                   Confiável
                                 </span>
                               ) : (
@@ -1914,7 +1914,7 @@ return (
                     )}
 
                     {supabaseSuccessMsg && (
-                      <div className="p-3.5 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs font-medium font-sans">
+                      <div className="p-3.5 bg-white text-emerald-900 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs font-medium font-sans">
                         <CheckCircle2 size={15} className="text-emerald-600 shrink-0 mt-0.5" />
                         <div className="space-y-1.5 flex-1 p-0.5">
                           <p className="font-bold text-emerald-900">{supabaseSuccessMsg}</p>
