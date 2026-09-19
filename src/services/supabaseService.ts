@@ -1884,7 +1884,7 @@ export const supabaseService = {
     if (!hasValidSupabaseKeys()) return null;
     return readThroughMessagesCache(`own:${recipientKey}|${senderKey}`, async () => {
       try {
-        const rows = (await lerLinhasDados<LinhaMensagem>(
+        const linhas = await lerLinhasDados<LinhaMensagem>(
           'messages',
           undefined,
           { col: 'created_at', dir: 'desc' },
@@ -1925,7 +1925,15 @@ export const supabaseService = {
             return (data || []) as LinhaMensagem[];
           },
           { limite: 500 },
-        )) || [];
+        );
+        // F50 (2026-09-19) — FALHA ≠ VAZIO. Antes, uma leitura indisponível
+        // (proxy/rede) era convertida numa caixa «vazia mas válida» e o App
+        // (modo real) substituía a lista visível por ela: a correspondência
+        // desaparecia durante ~14 s até ao carregamento seguinte — o «pisca»
+        // reportado pelo proprietário. Devolver null mantém o ÚLTIMO ESTADO
+        // BOM no ecrã, exactamente como já fazem getInbox/getSentMessages.
+        if (linhas === null) return null;
+        const rows = linhas;
         const norm = (v?: string | null) => (v || '').toUpperCase();
         const mapRow = (item: LinhaMensagem): Message => {
           // P0-A — chaves reais da nuvem (desestruturado: o contrato da
