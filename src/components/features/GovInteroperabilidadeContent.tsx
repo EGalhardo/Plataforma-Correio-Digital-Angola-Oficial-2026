@@ -404,6 +404,9 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   const [adminSolInput, setAdminSolInput] = useState('');
   const [solThreadTick, setSolThreadTick] = useState(0);
   const [solToDelete, setSolToDelete] = useState<any | null>(null);   // F8 — popup de confirmação de eliminação
+  const [instToDelete, setInstToDelete] = useState<Institution | null>(null); // 2026-09-19 — eliminação na lista de instituições
+  const [instDelBusy, setInstDelBusy] = useState(false);
+  const [instDelError, setInstDelError] = useState('');
 
   const solState = (status?: string): 'pendente' | 'ativa' | 'rejeitada' | 'correcao' => {
     if (status === 'Aprovado') return 'ativa';
@@ -588,6 +591,11 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     }
     setCreateBusy(true);
     setCreateError('');
+    // 2026-09-19 — CONTA NOVA NASCE LIMPA: o código pode ter tido uma vida
+    // anterior neste dispositivo (eliminar → re-criar): purgar os vestígios
+    // locais ANTES de gravar a ficha nova. Os vestígios da nuvem são limpos
+    // pelo servidor no momento em que o registo novo é gravado.
+    try { purgeInstitutionLocalResidues(code); } catch { /* melhor esforço */ }
     const observacoes = buildInstObservacoes({
       v: 1,
       sigla: computedSigla,
@@ -751,6 +759,61 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     }
 
     if (onLog) onLog(`INSTITUIÇÃO ${newStatus === 'Ativa' ? 'ACTIVADA' : 'SUSPENSA'}: ${inst.name}`, newStatus === 'Ativa' ? 'success' : 'warning');
+  };
+
+  // 2026-09-19 — ELIMINAR INSTITUIÇÃO na lista da página (pedido do proprietário).
+  // Reutiliza a cadeia já existente na eliminação de solicitações — RPC admin →
+  // endpoint admin → cascata de nuvem → purga local — para não deixar registos
+  // órfãos na base central. A ficha só sai da lista no fim, e nunca se a nuvem recusar.
+  const handleDeleteInstitution = async (inst: Institution) => {
+    const code = normalizeInstCode(inst.instCode || '');
+    setInstDelBusy(true);
+    setInstDelError('');
+    if (code) {
+      const regAntes = getLocalInstRegs().find((r) => normalizeInstCode(r.code) === code);
+      const agentesDaInstituicao = [
+        code,
+        `${code}-01`,
+        regAntes?.agentNumber || '',
+        ...((regAntes?.members || []).map((m) => m.agentNumber || '')),
+      ].filter(Boolean);
+      let remotoEliminado = false;
+      const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (ready) {
+        try {
+          const { data, error } = await supabase.rpc('cda_admin_alfa_eliminar_registo', { p_identificador: code });
+          if (!error && data?.ok) {
+            remotoEliminado = true;
+            try {
+              const resCloud = await eliminarInstituicaoCloud(code, agentesDaInstituicao);
+              if (!resCloud.ok) onLog?.(`Eliminação de ${code}: limpeza de nuvem (contas Auth/avatares) indisponível (${resCloud.erro}).`, 'warning');
+            } catch { /* ignora */ }
+          }
+        } catch { /* cai no endpoint admin */ }
+      }
+      if (!remotoEliminado) {
+        try {
+          const resultado = await eliminarInstituicaoAdmin(code, agentesDaInstituicao);
+          if (!resultado.ok) {
+            setInstDelError(`Não foi possível eliminar a instituição: ${resultado.erro || 'Erro desconhecido'}`);
+            setInstDelBusy(false);
+            return;
+          }
+        } catch {
+          setInstDelError('A eliminação está indisponível. A instituição não foi removida.');
+          setInstDelBusy(false);
+          return;
+        }
+      }
+      try { purgeInstitutionLocalResidues(code, regAntes); } catch { /* ignora */ }
+    }
+    setInstitutions(prev => prev.filter(i => i.id !== inst.id));
+    onLog?.(
+      `INSTITUIÇÃO ELIMINADA: ${inst.fullName || inst.name}${code ? ` (${code})` : ''} — ficha removida da lista${code ? ', registo (local e nuvem), homologação e acessos eliminados em cascata' : ' (ficha sem código institucional: apenas local)'}.`,
+      'critical'
+    );
+    setInstDelBusy(false);
+    setInstToDelete(null);
   };
 
   // Toggle status from inside detail dossier
@@ -1544,7 +1607,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                   <th className="py-4 px-4 text-center">Correspondência</th>
                   <th className="py-4 px-4 text-center">Utilização da IA</th>
                   <th className="py-4 px-4 text-center">Estado</th>
-                  <th className="py-4 px-4 text-center rounded-r-[20px] w-[210px]">Ações</th>
+                  <th className="py-4 px-4 text-center rounded-r-[20px] w-[250px]">Ações</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-100">
@@ -1634,6 +1697,13 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           title={inst.status === 'Ativa' ? 'Suspender Instituição' : 'Ativar Instituição'}
                         >
                           <Power size={11} className="stroke-[2.5]" />
+                        </button>
+                        <button
+                          onClick={() => { setInstDelError(''); setInstToDelete(inst); }}
+                          className="p-1.5 rounded-lg border bg-white border-slate-200 text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-all cursor-pointer"
+                          title="Eliminar Instituição"
+                        >
+                          <Trash2 size={11} className="stroke-[2.5]" />
                         </button>
                       </div>
                     </td>
@@ -2426,6 +2496,104 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                     className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white rounded-full py-3 text-[10px] font-black uppercase tracking-[0.12em] whitespace-nowrap transition-all cursor-pointer border-none shadow-md shadow-rose-200 flex items-center justify-center gap-2 active:scale-95"
                   >
                     <Trash2 size={14} /> {solBusy ? 'A eliminar…' : 'Eliminar Definitivamente'}
+                  </button>
+                </div>
+                </motion.div>
+              </motion.div>
+            </>
+          );
+        })()}
+      </AnimatePresence>
+      , document.body)}
+
+      {/* ===== MODAL DE CONFIRMAÇÃO — Eliminar Instituição da lista (2026-09-19) ===== */}
+      {createPortal(
+      <AnimatePresence>
+        {instToDelete && (() => {
+          const inst = instToDelete;
+          const code = normalizeInstCode(inst.instCode || '');
+          return (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                onClick={() => { if (!instDelBusy) setInstToDelete(null); }}
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4"
+                style={{ zIndex: 99998 }}
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.94 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.94 }}
+                  className="w-[92%] max-w-[480px] bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.25)] border border-slate-100 overflow-hidden text-center relative"
+                  style={{ zIndex: 99999 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                <div className="h-1.5 w-full bg-gradient-to-r from-rose-400 via-rose-600 to-rose-400" />
+                <button
+                  type="button"
+                  disabled={instDelBusy}
+                  onClick={() => setInstToDelete(null)}
+                  className="absolute top-4 right-4 w-7 h-7 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer flex items-center justify-center disabled:opacity-60"
+                  title="Fechar"
+                >
+                  <X size={13} />
+                </button>
+
+                <div className="px-7 md:px-9 pt-9 pb-6">
+                  <div className="mx-auto w-20 h-20 rounded-full bg-rose-50 border border-rose-100 shadow-[0_0_36px_rgba(244,63,94,0.18)] flex items-center justify-center mb-5">
+                    <Trash2 size={34} className="text-rose-600" strokeWidth={2.2} />
+                  </div>
+
+                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-600 mb-2">
+                    Eliminar Instituição{code ? ` — ${code}` : ''}
+                  </div>
+                  <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight">{inst.fullName || inst.name}</h3>
+                  <span className="block mx-auto mt-2.5 mb-6 h-[3px] w-14 rounded-full bg-rose-600" />
+
+                  <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-3.5 text-left mb-5">
+                    <AlertTriangle size={30} className="text-rose-500 shrink-0" strokeWidth={2.2} />
+                    <p className="text-[11px] leading-snug text-slate-600 font-medium">
+                      <span className="font-black text-slate-900">Esta acção é <span className="text-rose-600">definitiva e irreversível</span>.</span><br />
+                      {code
+                        ? 'Serão removidos: a ficha desta lista, o registo (local e nuvem), o estado de homologação, o canal oficial de mensagens e as leituras associadas, bem como os acessos dos agentes.'
+                        : 'Será removida apenas a ficha local desta lista (esta entidade não tem código institucional associado na base central).'}
+                    </p>
+                  </div>
+
+                  {instDelError && (
+                    <div className="bg-red-50 border border-red-200 rounded-2xl p-3 mb-4 text-left">
+                      <p className="text-[11px] text-red-700 font-medium flex items-center gap-2">
+                        <AlertTriangle size={16} className="text-red-500 shrink-0" />
+                        {instDelError}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 text-left mb-2 px-1">
+                    <span className="w-9 h-9 rounded-full bg-rose-50 border border-rose-100 text-rose-600 font-black text-[15px] flex items-center justify-center shrink-0 select-none">?</span>
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-800 leading-snug">Confirma a eliminação desta instituição?</p>
+                      <p className="text-[10.5px] font-medium text-slate-500 mt-0.5">Esta acção não poderá ser desfeita.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-100 px-7 md:px-9 py-5 flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={instDelBusy}
+                    onClick={() => setInstToDelete(null)}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-700 rounded-full py-3 text-[10px] font-black uppercase tracking-[0.12em] whitespace-nowrap transition-colors cursor-pointer border-none flex items-center justify-center gap-2"
+                  >
+                    <X size={14} /> Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={instDelBusy}
+                    onClick={() => { void handleDeleteInstitution(inst); }}
+                    className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white rounded-full py-3 text-[10px] font-black uppercase tracking-[0.12em] whitespace-nowrap transition-all cursor-pointer border-none shadow-md shadow-rose-200 flex items-center justify-center gap-2 active:scale-95"
+                  >
+                    <Trash2 size={14} /> {instDelBusy ? 'A eliminar…' : 'Eliminar Definitivamente'}
                   </button>
                 </div>
                 </motion.div>

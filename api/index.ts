@@ -1442,6 +1442,85 @@ const inqIaChaveRl = (req: any, body: any, sufixo: string): string =>
 const INQ_IA_SAL = process.env.INQUERITO_IA_SAL || process.env.SUPABASE_SERVICE_ROLE_KEY || 'cda-inquerito-ia';
 const inqIaHashBi = (bi: string): string => createHash('sha256').update(`${String(bi || '').trim().toUpperCase()}|${INQ_IA_SAL}`).digest('hex');
 
+// ============================================================================
+// v37.80 — CONTA NOVA NASCE LIMPA (2026-09-19, pedido do proprietário).
+// Sempre que um registo NOVO entra na fila oficial (cidadão, instituição ou
+// agente), os vestígios das vidas anteriores da MESMA chave são removidos da
+// base central. Sem isto, o ciclo eliminar → re-criar com o mesmo BI/código
+// herdava órfãos da conta antiga (correspondência, histórico, notificações,
+// contactos, documentos, votos e inquéritos, sessões de vídeo, alertas,
+// protocolos e a ficha de perfil antiga) que apareciam na conta nova.
+// Best-effort por tabela: uma falha pontual nunca aborta as restantes nem o
+// registo. Só corre DEPOIS de o registo novo estar gravado com sucesso, pelo
+// que qualquer linha encontrada é, por definição, de uma vida anterior.
+// ============================================================================
+async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chaveRaw: string): Promise<Record<string, number>> {
+  const chave = String(chaveRaw || '').trim().toUpperCase().replace(/\s+/g, '');
+  const out: Record<string, number> = {};
+  if (!chave || !/^[A-Za-z0-9][A-Za-z0-9._-]{2,23}$/.test(chave)) return out;
+  const H = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+  const k = encodeURIComponent(chave);
+  const apagar = async (tabela: string, filtro: string): Promise<number> => {
+    try {
+      const r = await fetch(`${supaUrl}/rest/v1/${tabela}?${filtro}`, { method: 'DELETE', headers: { ...H, Prefer: 'return=minimal' } });
+      return r.ok ? 1 : -1;
+    } catch { return -1; }
+  };
+  const lerIds = async (tabela: string, filtro: string): Promise<any[]> => {
+    try {
+      const r = await fetch(`${supaUrl}/rest/v1/${tabela}?select=id&${filtro}&limit=5000`, { headers: H });
+      const j = await r.json().catch(() => []);
+      return Array.isArray(j) ? j.map((x: any) => x.id) : [];
+    } catch { return []; }
+  };
+  // ids dos pais ANTES de os apagar (histórico e eventos dependem deles)
+  const [idsMsg, idsSess, idsSond, idsInq] = await Promise.all([
+    lerIds('messages', `or=(sender_bi.eq.${k},recipient_bi.eq.${k})`),
+    lerIds('video_sessions', `or=(host_bi.eq.${k},guest_bi.eq.${k},citizen_bi.eq.${k},institution_code.eq.${k})`),
+    lerIds('sondagens', `instituicao_code=eq.${k}`),
+    lerIds('inqueritos_ia', `instituicao_code=eq.${k}`),
+  ]);
+  // Fase A — tabelas independentes (em paralelo, uma só ida à rede)
+  const [
+    mensagens, notificacoes, contactosDono, contactosQueApontam, pedidos, pedidosRecebidos,
+    pedidosDocumentos, documentos, videoSessoes, alertasEmergencia, sondagens, votos,
+    inqueritos, conversasIa, baseConhecimento, protocolos, historicoResponsavel,
+  ] = await Promise.all([
+    apagar('messages', `or=(sender_bi.eq.${k},recipient_bi.eq.${k})`),
+    apagar('notifications', `target_bi=eq.${k}`),
+    apagar('contacts', `owner_bi=eq.${k}`),
+    apagar('contacts', `bi=eq.${k}`),
+    apagar('user_requests', `user_bi=eq.${k}`),
+    apagar('user_requests', `institution=eq.${k}`),
+    apagar('document_requests', `user_bi=eq.${k}`),
+    apagar('documents', `holder_bi=eq.${k}`),
+    apagar('video_sessions', `or=(host_bi.eq.${k},guest_bi.eq.${k},citizen_bi.eq.${k},institution_code.eq.${k})`),
+    apagar('emergency_alerts', `citizen_bi=eq.${k}`),
+    apagar('sondagens', `instituicao_code=eq.${k}`),
+    apagar('sondagem_respostas', `cidadao_bi=eq.${k}`),
+    apagar('inqueritos_ia', `instituicao_code=eq.${k}`),
+    apagar('ia_conversas_log', `sigla=eq.${k}`),
+    apagar('kb_fontes_instituicao', `sigla=eq.${k}`),
+    apagar('digital_protocols', `issuer_institution=eq.${k}`),
+    apagar('message_state_history', `responsible=eq.${k}`),
+  ]);
+  // Fase B — dependentes dos pais + ficha de identidade (por último, por causa das FKs)
+  const [historicoMensagens, videoEventos, sondagensVotos, inqueritosRespostas, perfis] = await Promise.all([
+    idsMsg.length ? apagar('message_state_history', `message_id=in.(${idsMsg.join(',')})`) : 0,
+    idsSess.length ? apagar('video_session_events', `session_id=in.(${idsSess.join(',')})`) : 0,
+    idsSond.length ? apagar('sondagem_respostas', `sondagem_id=in.(${idsSond.join(',')})`) : 0,
+    idsInq.length ? apagar('inquerito_ia_respostas', `inquerito_id=in.(${idsInq.join(',')})`) : 0,
+    apagar('profiles', `bi=eq.${k}`),
+  ]);
+  Object.assign(out, {
+    mensagens, historicoResponsavel, historicoMensagens, notificacoes, contactosDono, contactosQueApontam,
+    pedidos, pedidosRecebidos, pedidosDocumentos, documentos, videoSessoes, videoEventos, alertasEmergencia,
+    sondagens, sondagensVotos, votos, inqueritos, inqueritosRespostas, conversasIa, baseConhecimento,
+    protocolos, perfis,
+  });
+  return out;
+}
+
 const inqIaChamarModelo = async (sistema: string, utilizador: string, maxTokens: number): Promise<{ texto: string; modelo: string } | null> => {
   // 2026-09-11 — orçamento de tempo TOTAL (Vercel maxDuration = 30 s). Antes,
   // dois Gemini × 25 s esgotavam a função antes de chegar ao Groq e o pedido
@@ -4009,6 +4088,24 @@ async function dadosExecutarPedido(opts: {
       if (!r.ok) {
         const txt = await r.text().catch(() => '');
         return { status: r.status, json: { ok: false, erro: `Gravação falhou (${r.status}). ${txt.slice(0, 160)}` } };
+      }
+      // 2026-09-19 — CONTA NOVA NASCE LIMPA: um registo NOVO na fila oficial
+      // (cidadão ou instituição) não pode herdar órfãos de vidas anteriores da
+      // mesma chave (eliminar → re-criar com o mesmo BI/código). Corre só aqui,
+      // depois de o registo estar gravado: tudo o que se encontre é, por
+      // definição, de uma conta antiga. Instituições: o responsável (-01) da
+      // mesma família de chaves também nasce limpo.
+      if (tabela === 'solicitacoes_registo' && linhas.length) {
+        const chaveNova = String(linhas[0]?.bi_numero || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (chaveNova) {
+          try {
+            const limpo = await purgarResiduosContaNova(supaUrl, serviceKey, chaveNova);
+            if (chaveNova.includes('-')) {
+              Object.assign(limpo, { agente01: await purgarResiduosContaNova(supaUrl, serviceKey, `${chaveNova}-01`) });
+            }
+            console.log('[CONTA-NOVA] resíduos de vidas anteriores removidos:', chaveNova, JSON.stringify(limpo));
+          } catch (e) { console.warn('[CONTA-NOVA] limpeza indisponível:', String(e).slice(0, 120)); }
+        }
       }
       const resp = body?.retorno ? await r.json().catch(() => []) : [];
       return { status: 200, json: { ok: true, linhas: Array.isArray(resp) ? resp : [resp].filter(Boolean), gravado: true } };
