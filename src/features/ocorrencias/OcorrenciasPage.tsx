@@ -26,6 +26,7 @@ import {
   Check,
   MessageSquare,
   LocateFixed,
+  Trash2,
 } from "lucide-react";
 import { ListaRolavel } from "../../components/ui/ListaRolavel";
 import {
@@ -517,6 +518,9 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
   const [list, setList] = useState<Ocorrencia[]>([]),
     [total, setTotal] = useState(0),
     [more, setMore] = useState(false);
+  // 2026-09-20 — Eliminação de ocorrências (cidadão e instituição): guarda a
+  // ocorrência escolhida para o diálogo de confirmação.
+  const [paraEliminar, setParaEliminar] = useState<Ocorrencia | null>(null);
   const [query, setQuery] = useState(""),
     [state, setState] = useState(""),
     [category, setCategory] = useState(""),
@@ -941,6 +945,31 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
       showError(e);
       if (e instanceof OcorrenciaRequestError && [400, 403].includes(e.status))
         setAttempted(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const eliminar = async (o: Ocorrencia) => {
+    setBusy(true);
+    setError("");
+    try {
+      await ocorrenciasApi("eliminar", { id: o.id });
+      setParaEliminar(null);
+      setSuccess(`Ocorrência ${protocoloOcorrencia(o.numero)} eliminada.`);
+      setList((prev) => prev.filter((x) => x.id !== o.id));
+      setTotal((t) => Math.max(0, t - 1));
+      if (selected?.id === o.id) {
+        setSelected(null);
+        setView("lista");
+      }
+      void loadList();
+      void refreshUnread();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Não foi possível eliminar a ocorrência.",
+      );
     } finally {
       setBusy(false);
     }
@@ -1433,14 +1462,27 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                               </div>
                             </td>
                             <td className="px-4 py-3">
-                              <button
-                                type="button"
-                                disabled={loading}
-                                onClick={() => void openDetail(o.id)}
-                                className={`${secondary} !px-3 !py-1.5`}
-                              >
-                                Ver
-                              </button>
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  disabled={loading}
+                                  onClick={() => void openDetail(o.id)}
+                                  className={`${secondary} !px-3 !py-1.5`}
+                                >
+                                  Ver
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={loading || busy}
+                                  onClick={() => setParaEliminar(o)}
+                                  title="Eliminar ocorrência"
+                                  aria-label={`Eliminar ${protocoloOcorrencia(o.numero)}`}
+                                  className={`${secondary} !px-3 !py-1.5 !text-red-600 !border-red-200 hover:!bg-red-50`}
+                                >
+                                  <Trash2 size={14} />
+                                  Eliminar
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -1455,49 +1497,63 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
             ) : (
               <ListaRolavel count={list.length} label={title}>
                 {list.map((o) => (
-                  <button
-                    key={o.id}
-                    type="button"
-                    disabled={loading}
-                    onClick={() => void openDetail(o.id)}
-                    className={`${panel} !space-y-2 text-left hover:border-primary/40 transition-colors disabled:opacity-60`}
-                  >
-                    <div className="flex gap-3 justify-between">
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <span className="font-bold text-xs text-slate-500">
-                          {protocoloOcorrencia(o.numero)}
-                        </span>
-                        <h3 className="font-black text-primary text-base break-words">
-                          {o.titulo}
-                        </h3>
-                        <p className="text-xs text-slate-500">
-                          {o.bairro} · {o.municipio}
-                        </p>
-                        <p className="text-xs text-slate-500 flex flex-wrap items-center gap-1.5">
-                          Status: <Estado value={o.estado} />
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          Criada em {date(o.criado_em)}
-                        </p>
+                  <div key={o.id} className="space-y-2">
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => void openDetail(o.id)}
+                      className={`${panel} w-full !space-y-2 text-left hover:border-primary/40 transition-colors disabled:opacity-60`}
+                    >
+                      <div className="flex gap-3 justify-between">
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <span className="font-bold text-xs text-slate-500">
+                            {protocoloOcorrencia(o.numero)}
+                          </span>
+                          <h3 className="font-black text-primary text-base break-words">
+                            {o.titulo}
+                          </h3>
+                          <p className="text-xs text-slate-500">
+                            {o.bairro} · {o.municipio}
+                          </p>
+                          <p className="text-xs text-slate-500 flex flex-wrap items-center gap-1.5">
+                            Status: <Estado value={o.estado} />
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Criada em {date(o.criado_em)}
+                          </p>
+                        </div>
+                        {o.capa_url ? (
+                          <img
+                            src={o.capa_url}
+                            alt={o.capa_nome || o.titulo}
+                            loading="lazy"
+                            className="w-28 h-20 md:w-36 md:h-24 object-cover rounded-xl border border-slate-200 shrink-0"
+                          />
+                        ) : (
+                          <span className="w-28 h-20 md:w-36 md:h-24 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
+                            <Camera size={20} />
+                          </span>
+                        )}
                       </div>
-                      {o.capa_url ? (
-                        <img
-                          src={o.capa_url}
-                          alt={o.capa_nome || o.titulo}
-                          loading="lazy"
-                          className="w-28 h-20 md:w-36 md:h-24 object-cover rounded-xl border border-slate-200 shrink-0"
-                        />
-                      ) : (
-                        <span className="w-28 h-20 md:w-36 md:h-24 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
-                          <Camera size={20} />
-                        </span>
-                      )}
+                      <span className="text-xs text-primary font-bold inline-flex gap-2 items-center">
+                        Ver detalhes
+                        <ArrowRight size={14} />
+                      </span>
+                    </button>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        disabled={loading || busy}
+                        onClick={() => setParaEliminar(o)}
+                        title="Eliminar ocorrência"
+                        aria-label={`Eliminar ${protocoloOcorrencia(o.numero)}`}
+                        className={`${secondary} !px-3 !py-1.5 !text-red-600 !border-red-200 hover:!bg-red-50`}
+                      >
+                        <Trash2 size={14} />
+                        Eliminar
+                      </button>
                     </div>
-                    <span className="text-xs text-primary font-bold inline-flex gap-2 items-center">
-                      Ver detalhes
-                      <ArrowRight size={14} />
-                    </span>
-                  </button>
+                  </div>
                 ))}
               </ListaRolavel>
             )
@@ -2852,6 +2908,60 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
             </button>
           )}
         </>
+      )}
+      {paraEliminar && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Eliminar ocorrência"
+          onClick={() => {
+            if (!busy) setParaEliminar(null);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex gap-3 items-start">
+              <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={20} />
+              <div className="space-y-1 min-w-0">
+                <h3 className="font-black text-primary">Eliminar ocorrência</h3>
+                <p className="text-sm text-slate-600">
+                  Esta acção é definitiva. A ocorrência, o histórico, as
+                  notificações e as fotografias são removidos e deixam de
+                  aparecer nas duas áreas.
+                </p>
+                <p className="text-xs font-bold text-slate-500 break-words">
+                  {protocoloOcorrencia(paraEliminar.numero)} · {paraEliminar.titulo}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-end">
+              <button
+                type="button"
+                className={secondary}
+                disabled={busy}
+                onClick={() => setParaEliminar(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void eliminar(paraEliminar)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 text-white font-bold text-xs hover:bg-red-700 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+              >
+                {busy ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Trash2 size={14} />
+                )}
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {action && selected && (
         <ActionDialog

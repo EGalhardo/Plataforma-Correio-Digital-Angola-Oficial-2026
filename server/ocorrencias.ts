@@ -559,6 +559,76 @@ export async function handleOcorrencias(req: any, res: any) {
         };
         break;
       }
+      case "eliminar": {
+        // 2026-09-20 — Eliminação definitiva: o cidadão elimina as suas
+        // ocorrências e a instituição as do seu âmbito (a autorização e o
+        // âmbito são os mesmos de todas as outras acções: occurrence()).
+        // Remove primeiro os registos dependentes para não deixar órfãos:
+        // leituras → notificações → eventos → fotografias (+ Storage) e só no
+        // fim a ocorrência. As fotografias temporárias (ocorrencia_id nulo)
+        // não são tocadas.
+        const row = await occurrence(db, a, b.id);
+        const notifs =
+          checked(
+            await db
+              .from("cda_ocorrencias_notificacoes")
+              .select("id")
+              .eq("ocorrencia_id", row.id),
+          ) || [];
+        if (notifs.length)
+          checked(
+            await db
+              .from("cda_ocorrencias_leituras")
+              .delete()
+              .in(
+                "notificacao_id",
+                notifs.map((n: any) => n.id),
+              ),
+          );
+        checked(
+          await db
+            .from("cda_ocorrencias_notificacoes")
+            .delete()
+            .eq("ocorrencia_id", row.id),
+        );
+        const fotos =
+          checked(
+            await db
+              .from("cda_ocorrencias_fotos")
+              .select("caminho")
+              .eq("ocorrencia_id", row.id),
+          ) || [];
+        checked(
+          await db
+            .from("cda_ocorrencias_eventos")
+            .delete()
+            .eq("ocorrencia_id", row.id),
+        );
+        checked(
+          await db
+            .from("cda_ocorrencias_fotos")
+            .delete()
+            .eq("ocorrencia_id", row.id),
+        );
+        if (fotos.length)
+          await db.storage
+            .from(BUCKET)
+            .remove(fotos.map((f: any) => f.caminho));
+        const apagadas = checked(
+          await db
+            .from("cda_ocorrencias")
+            .delete()
+            .eq("id", row.id)
+            .select("id"),
+        );
+        if (!apagadas || !apagadas.length)
+          fail(
+            404,
+            "Ocorrência não encontrada ou já encaminhada para outra instituição.",
+          );
+        result = { eliminada: true, numero: row.numero };
+        break;
+      }
       case "actuar": {
         const row = await occurrence(db, a, b.id);
         const action = text(b.operacao, 50);
