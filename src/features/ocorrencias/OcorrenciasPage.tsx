@@ -308,9 +308,10 @@ function Photos({
   proporcional = false,
 }: {
   photos: FotoOcorrencia[];
-  /** 2026-09-20 — «Tratar ocorrência» (instituição): mostra a fotografia na
-   *  proporção natural e por inteiro (sem cortes). Nos restantes locais a
-   *  apresentação mantém-se como estava. */
+  /** 2026-09-20 — «Tratar ocorrência» (instituição): caixa de dimensão ÚNICA
+   *  para todas as fotografias (mesma largura e altura), com a imagem inteira
+   *  visível (contida, sem cortes). Nos restantes locais a apresentação
+   *  mantém-se como estava. */
   proporcional?: boolean;
 }) {
   return photos.length ? (
@@ -330,7 +331,7 @@ function Photos({
             alt={f.nome}
             className={
               proporcional
-                ? "w-full h-auto max-h-[420px] object-contain bg-slate-50"
+                ? "block w-full h-[180px] sm:h-[220px] md:h-[260px] object-contain bg-slate-50"
                 : "w-full h-28 md:h-36 object-cover"
             }
           />
