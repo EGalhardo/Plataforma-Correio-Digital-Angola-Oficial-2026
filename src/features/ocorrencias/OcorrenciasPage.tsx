@@ -303,9 +303,20 @@ function Safety() {
     </p>
   );
 }
-function Photos({ photos }: { photos: FotoOcorrencia[] }) {
+function Photos({
+  photos,
+  proporcional = false,
+}: {
+  photos: FotoOcorrencia[];
+  /** 2026-09-20 — «Tratar ocorrência» (instituição): mostra a fotografia na
+   *  proporção natural e por inteiro (sem cortes). Nos restantes locais a
+   *  apresentação mantém-se como estava. */
+  proporcional?: boolean;
+}) {
   return photos.length ? (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+    <div
+      className={`grid grid-cols-2 sm:grid-cols-3 gap-3${proporcional ? " items-start" : ""}`}
+    >
       {photos.map((f) => (
         <a
           key={f.id}
@@ -317,7 +328,11 @@ function Photos({ photos }: { photos: FotoOcorrencia[] }) {
           <img
             src={f.url}
             alt={f.nome}
-            className="w-full h-28 md:h-36 object-cover"
+            className={
+              proporcional
+                ? "w-full h-auto max-h-[420px] object-contain bg-slate-50"
+                : "w-full h-28 md:h-36 object-cover"
+            }
           />
           <span className="block p-2 text-[11px] text-slate-500 truncate">
             {f.nome}
@@ -2214,7 +2229,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                 </p>
                 {detailPhotos.length > 0 && (
                   <>
-                    <Photos photos={detailPhotos} />
+                    <Photos photos={detailPhotos} proporcional />
                     <p className="text-[11px] text-slate-400">
                       As ligações das fotografias expiram por segurança.
                       Utilize «Actualizar detalhes» para renová-las.
