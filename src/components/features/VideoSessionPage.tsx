@@ -866,13 +866,13 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
           B.I. real — nada de nomes inventados).
           ========================================================================== */}
       {showAgendar && isInst && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-[9999] flex items-start justify-center p-4 overflow-y-auto overscroll-contain" role="dialog" aria-modal="true">
           {/* 2026-08-22 — fundo PRETO translúcido (preto cinzento) com blur;
               o popup fica SEMPRE por cima (portal no <body>, acima de todo o
               layout da aplicação). */}
           <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" onClick={() => setShowAgendar(false)} />
 
-          <div className="relative w-full max-w-[520px] bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 overflow-hidden animate-fadeIn">
+          <div className="relative w-full max-w-[520px] bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 overflow-hidden my-auto animate-fadeIn">
             {/* Cabeçalho do popup */}
             <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
               <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center shrink-0 border border-indigo-100/40 shadow-sm">

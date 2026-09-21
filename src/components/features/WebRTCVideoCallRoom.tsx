@@ -800,7 +800,7 @@ export function WebRTCVideoCallRoom({
       )}
 
       {/* 2. MAIN LARGE SCREEN (REMOTE PARTICIPANT - 100% CLEAN VIDEO) */}
-      <div className="relative w-full aspect-video min-h-[320px] md:min-h-[480px] bg-slate-950 flex items-center justify-center overflow-hidden">
+      <div className="relative w-full aspect-video min-h-[200px] md:min-h-[480px] bg-slate-950 flex items-center justify-center overflow-hidden">
         
         {/* Remote Video Stream Tag (Rendered with 100% clean unobstructed view) */}
         <video
