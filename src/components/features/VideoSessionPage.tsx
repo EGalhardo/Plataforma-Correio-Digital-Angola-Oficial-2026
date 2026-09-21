@@ -538,6 +538,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                 isVideoOn={isVideoOn}
                 isAudioOn={isAudioOn}
                 isScreenSharing={isScreenSharing}
+                    onScreenShareChange={setIsScreenSharing}
                 currentUserRole={isInst ? 'institution' : 'citizen'}
                 currentUserName={currentDisplayName}
                 remoteUserName={isInst ? (selectedSession.guestName || 'Cidadão') : (selectedSession.hostName || 'Agente Institucional')}
@@ -795,6 +796,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                     isVideoOn={isVideoOn}
                     isAudioOn={isAudioOn}
                     isScreenSharing={isScreenSharing}
+                    onScreenShareChange={setIsScreenSharing}
                     currentUserRole={isInst ? 'institution' : 'citizen'}
                     currentUserName={currentDisplayName}
                     remoteUserName={isInst ? (selectedSession.guestName || 'Cidadão') : (selectedSession.hostName || 'Agente Institucional')}

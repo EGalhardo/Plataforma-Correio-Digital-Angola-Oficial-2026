@@ -45,6 +45,9 @@ export interface WebRTCVideoCallRoomProps {
   isVideoOn?: boolean;
   isAudioOn?: boolean;
   isScreenSharing?: boolean;
+  /** Avisa a página sempre que a partilha de ecrã começa/pára (a página tem
+   *  botões próprios de partilha nas barras de controlo). */
+  onScreenShareChange?: (sharing: boolean) => void;
   onEndCall?: () => void;
   currentUserRole?: 'institution' | 'citizen' | 'admin';
   currentUserName?: string;
@@ -58,6 +61,7 @@ export function WebRTCVideoCallRoom({
   isVideoOn = true,
   isAudioOn = true,
   isScreenSharing = false,
+  onScreenShareChange,
   onEndCall,
   currentUserRole = 'citizen',
   currentUserName = 'Cidadão CDA',
@@ -71,6 +75,11 @@ export function WebRTCVideoCallRoom({
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  // 2026-09-21 — PARTILHA DE ECRÃ: guardar a stream do ecrã para poder parar a
+  // captura SEMPRE (botão, paragem pelo navegador, desligar a chamada e sair da
+  // página). Antes não havia referência nenhuma: o navegador continuava a
+  // partilhar o ecrã depois de sair da chamada e já não havia botão para parar.
+  const screenStreamRef = useRef<MediaStream | null>(null);
   const candidateQueue = useRef<RTCIceCandidateInit[]>([]);
   const isNegotiating = useRef(false);
 
@@ -643,7 +652,6 @@ export function WebRTCVideoCallRoom({
       }
     };
   }, [isActive, roomName, initLocalMedia, sendSignal]);
-
   // Toggle Microphone
   const toggleMicrophone = () => {
     const nextMuted = !localAudioMuted;
@@ -703,39 +711,115 @@ export function WebRTCVideoCallRoom({
     }
   };
 
-  // Screen Sharing
-  const toggleScreenShare = async () => {
-    if (!isSharingScreen) {
-      try {
-        const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        const screenTrack = displayStream.getVideoTracks()[0];
+  // Screen Sharing — PARAR: pára MESMO a captura do ecrã e devolve a câmara à
+  // faixa de vídeo que estava a ser enviada, sem re-abrir a câmara.
+  const pararPartilhaDeEcra = useCallback(async () => {
+    const display = screenStreamRef.current;
+    screenStreamRef.current = null;
 
-        screenTrack.onended = () => {
-          setIsSharingScreen(false);
-          initLocalMedia();
-        };
+    // 1) Parar a captura (faz desaparecer a barra «a partilhar» do navegador)
+    if (display) {
+      display.getTracks().forEach((t) => { t.onended = null; t.stop(); });
+    }
 
-        if (peerConnectionRef.current) {
-          const senders = peerConnectionRef.current.getSenders();
-          const videoSender = senders.find((s) => s.track && s.track.kind === 'video');
-          if (videoSender) {
-            await videoSender.replaceTrack(screenTrack);
-          }
-        }
-
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = displayStream;
-        }
-
-        setIsSharingScreen(true);
-      } catch (err) {
-        console.warn('[CDA-WebRTC] Partilha de ecrã cancelada:', err);
+    // 2) O vídeo local volta a mostrar a câmara
+    if (localVideoRef.current && localVideoRef.current.srcObject === display) {
+      localVideoRef.current.srcObject = localStreamRef.current;
+      if (localStreamRef.current) {
+        await localVideoRef.current.play().catch(() => {});
       }
-    } else {
+    }
+
+    // 3) Devolver a câmara ao sender de vídeo (sem novo getUserMedia)
+    const camara = localStreamRef.current?.getVideoTracks()[0];
+    const pc = peerConnectionRef.current;
+    if (pc) {
+      const videoSender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
+      if (videoSender && camara) {
+        try { await videoSender.replaceTrack(camara); } catch { /* sender já mudou */ }
+      }
+    }
+
+    setIsSharingScreen(false);
+    onScreenShareChange?.(false);
+
+    // Sem câmara viva (ex.: falhou no arranque) → recuperar a câmara.
+    if (!camara) {
+      try { await initLocalMedia(); } catch { /* fica sem vídeo local até novo toque */ }
+    }
+  }, [initLocalMedia, onScreenShareChange]);
+
+  // Screen Sharing — INICIAR: captura o ecrã e substitui a faixa de vídeo enviada.
+  const iniciarPartilhaDeEcra = useCallback(async () => {
+    if (screenStreamRef.current) return;
+    try {
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const screenTrack = displayStream.getVideoTracks()[0];
+
+      screenStreamRef.current = displayStream;
+
+      // Paragem pelo próprio navegador («Parar partilha») → restaurar a câmara.
+      screenTrack.onended = () => { void pararPartilhaDeEcra(); };
+
+      const pc = peerConnectionRef.current;
+      if (pc) {
+        const videoSender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
+        if (videoSender) {
+          try { await videoSender.replaceTrack(screenTrack); } catch { /* sem sender ainda */ }
+        }
+      }
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = displayStream;
+        await localVideoRef.current.play().catch(() => {});
+      }
+
+      setIsSharingScreen(true);
+      onScreenShareChange?.(true);
+    } catch (err) {
+      console.warn('[CDA-WebRTC] Partilha de ecrã cancelada:', err);
       setIsSharingScreen(false);
-      await initLocalMedia();
+      onScreenShareChange?.(false);
+    }
+  }, [onScreenShareChange, pararPartilhaDeEcra]);
+
+  const toggleScreenShare = async () => {
+    if (!isSharingScreen && !screenStreamRef.current) {
+      await iniciarPartilhaDeEcra();
+    } else {
+      await pararPartilhaDeEcra();
     }
   };
+
+  // 2026-09-21 — PARTILHA DE ECRÃ: os botões de partilha das barras de controlo
+  // da PÁGINA só mudavam a prop `isScreenSharing` e a sala ignorava-a — ficava
+  // «em partilha» sem captura nenhuma e o botão «Parar Partilha» re-abria a
+  // câmara. Agora a prop comanda a captura real (e a sala avisa a página).
+  const partilhaPropAnteriorRef = useRef(isScreenSharing);
+  useEffect(() => {
+    if (!isActive) { partilhaPropAnteriorRef.current = isScreenSharing; return; }
+    if (partilhaPropAnteriorRef.current === isScreenSharing) {
+      // A prop diz «a partilhar» mas não há captura nenhuma (o botão de partilha
+      // da página foi tocado FORA da chamada) → corrigir o estado em vez de
+      // mostrar «Parar Partilha» sem partilha (que re-abria a câmara ao parar).
+      if (isScreenSharing && !screenStreamRef.current) onScreenShareChange?.(false);
+      return;
+    }
+    partilhaPropAnteriorRef.current = isScreenSharing;
+    if (isScreenSharing) void iniciarPartilhaDeEcra();
+    else void pararPartilhaDeEcra();
+  }, [isScreenSharing, isActive, iniciarPartilhaDeEcra, pararPartilhaDeEcra]);
+
+  // 2026-09-21 — Paragem garantida ao sair: desligar a chamada, sair da sala ou
+  // navegar para outro ecrã com partilha activa deixava a captura de ecrã viva
+  // (o navegador continuava a partilhar, sem botão para parar).
+  useEffect(() => () => {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((t) => { t.onended = null; t.stop(); });
+      screenStreamRef.current = null;
+    }
+  }, []);
+
 
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
