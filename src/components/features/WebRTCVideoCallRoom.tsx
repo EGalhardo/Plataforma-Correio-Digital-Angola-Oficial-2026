@@ -23,6 +23,7 @@ import {
   Monitor,
   ShieldCheck,
   Clock,
+  Volume2,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -100,6 +101,14 @@ export function WebRTCVideoCallRoom({
   const [callDuration, setCallDuration] = useState(0);
   const [isCameraLoading, setIsCameraLoading] = useState(true);
   const [scanOffset, setScanOffset] = useState(0);
+  // 2026-09-21 — SOM DO INTERLOCUTOR: o vídeo remoto era silenciado em
+  // DEFINITIVO quando a primeira reprodução falhava (qualquer erro, incluindo o
+  // AbortError transitório «interrupted by a new load request»), pelo que
+  // nenhum dos dois lados ouvia o outro. Agora só se silencia quando a
+  // reprodução é recusada por POLÍTICA (NotAllowedError), e nesse caso o som
+  // fica recuperável: aviso + botão «Ligar som» na barra de controlos e
+  // recuperação automática no primeiro toque/toque na sala.
+  const [somBloqueado, setSomBloqueado] = useState(false);
 
   // Laser animation in PiP
   useEffect(() => {
@@ -176,6 +185,34 @@ export function WebRTCVideoCallRoom({
     } catch {}
   }, []);
 
+  /** Reproduz o vídeo do interlocutor COM som; só silencia (para o vídeo não
+   *  ficar preto) se a política do navegador recusar a reprodução. */
+  const tentarTocarRemoto = useCallback((tentativa = 0) => {
+    const v = remoteVideoRef.current;
+    if (!v) return;
+    v.muted = false;
+    v.play().then(() => setSomBloqueado(false)).catch((e: any) => {
+      const recusaDePolitica = e && e.name === 'NotAllowedError';
+      if (!recusaDePolitica && tentativa < 3) {
+        // interrupção transitória (AbortError): repetir sem silenciar
+        setTimeout(() => tentarTocarRemoto(tentativa + 1), 250);
+        return;
+      }
+      v.muted = true;
+      setSomBloqueado(true);
+      v.play().catch(() => {});
+    });
+  }, []);
+
+  /** Liga o som do interlocutor (botão «Ligar som» / primeiro toque na sala). */
+  const ligarSomRemoto = useCallback(() => {
+    const v = remoteVideoRef.current;
+    if (!v) return;
+    setSomBloqueado(false);
+    v.muted = false;
+    v.play().catch(() => setSomBloqueado(true));
+  }, []);
+
   // Create or retrieve PeerConnection
   const getOrCreatePeerConnection = useCallback((targetPeerId?: string) => {
     let pc = peerConnectionRef.current;
@@ -207,12 +244,7 @@ export function WebRTCVideoCallRoom({
 
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = stream;
-          remoteVideoRef.current.play().catch(() => {
-            if (remoteVideoRef.current) {
-              remoteVideoRef.current.muted = true;
-              remoteVideoRef.current.play().catch(() => {});
-            }
-          });
+          tentarTocarRemoto();
         }
       };
 
@@ -466,14 +498,18 @@ export function WebRTCVideoCallRoom({
       if (remoteVideoRef.current.srcObject !== remoteStreamRef.current) {
         remoteVideoRef.current.srcObject = remoteStreamRef.current;
       }
-      remoteVideoRef.current.play().catch(() => {
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.muted = true;
-          remoteVideoRef.current.play().catch(() => {});
-        }
-      });
+      tentarTocarRemoto();
     }
-  }, [hasRemoteStream, connectionState]);
+  }, [hasRemoteStream, connectionState, tentarTocarRemoto]);
+
+  // Som bloqueado nunca fica preso: o primeiro toque/toque na sala volta a
+  // ligar o áudio do interlocutor (o vídeo continua a tocar, sem som, até lá).
+  useEffect(() => {
+    if (!somBloqueado) return;
+    const recuperar = () => ligarSomRemoto();
+    document.addEventListener('pointerdown', recuperar, { once: true });
+    return () => document.removeEventListener('pointerdown', recuperar);
+  }, [somBloqueado, ligarSomRemoto]);
 
   useEffect(() => {
     if (localStreamRef.current && localVideoRef.current) {
@@ -753,6 +789,16 @@ export function WebRTCVideoCallRoom({
         </div>
       </div>
 
+      {/* 2026-09-21 — Aviso de som bloqueado pelo navegador (recuperável) */}
+      {somBloqueado && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
+          <div className="bg-amber-500/90 text-slate-950 font-black text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
+            <Volume2 size={12} />
+            Toque para ouvir o interlocutor
+          </div>
+        </div>
+      )}
+
       {/* 2. MAIN LARGE SCREEN (REMOTE PARTICIPANT - 100% CLEAN VIDEO) */}
       <div className="relative w-full aspect-video min-h-[320px] md:min-h-[480px] bg-slate-950 flex items-center justify-center overflow-hidden">
         
@@ -919,6 +965,19 @@ export function WebRTCVideoCallRoom({
           >
             <Monitor size={20} />
           </button>
+
+          {/* 2026-09-21 — Ligar som do interlocutor (aparece só quando a
+              reprodução automática com som foi recusada pelo navegador) */}
+          {somBloqueado && (
+            <button
+              type="button"
+              onClick={ligarSomRemoto}
+              title="Ligar som do interlocutor"
+              className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all border-0 cursor-pointer shadow-md active:scale-95 bg-emerald-500/90 text-white hover:bg-emerald-600 shadow-emerald-500/30 animate-pulse"
+            >
+              <Volume2 size={20} />
+            </button>
+          )}
 
           {/* Hangup / Leave Call */}
           <button
