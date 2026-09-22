@@ -722,32 +722,55 @@ export function WebRTCVideoCallRoom({
       display.getTracks().forEach((t) => { t.onended = null; t.stop(); });
     }
 
-    // 2) O vídeo local volta a mostrar a câmara
-    if (localVideoRef.current && localVideoRef.current.srcObject === display) {
-      localVideoRef.current.srcObject = localStreamRef.current;
-      if (localStreamRef.current) {
-        await localVideoRef.current.play().catch(() => {});
-      }
+    // 2) O vídeo local volta a mostrar a câmara. Ao contrário da versão anterior,
+    //    NÃO se exige que a referência ainda seja a stream do ecrã: o <video>
+    //    pode ter sido recriado (ligar/desligar câmara, re-render) e nesse caso
+    //    a pré-visualização ficava presa no último fotograma do ecrã.
+    const v = localVideoRef.current;
+    const camara = localStreamRef.current?.getVideoTracks()[0];
+    if (v && localStreamRef.current) {
+      if (v.srcObject !== localStreamRef.current) v.srcObject = localStreamRef.current;
+      await v.play().catch(() => {});
     }
 
     // 3) Devolver a câmara ao sender de vídeo (sem novo getUserMedia)
-    const camara = localStreamRef.current?.getVideoTracks()[0];
     const pc = peerConnectionRef.current;
-    if (pc) {
-      const videoSender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
-      if (videoSender && camara) {
-        try { await videoSender.replaceTrack(camara); } catch { /* sender já mudou */ }
+    const devolverCamaraAoSender = async () => {
+      const sender = pc?.getSenders().find((s) => s.track && s.track.kind === 'video');
+      const track = localStreamRef.current?.getVideoTracks()[0];
+      if (sender && track && track.readyState === 'live') {
+        try { await sender.replaceTrack(track); } catch { /* sender já mudou */ }
       }
-    }
+    };
+    await devolverCamaraAoSender();
 
     setIsSharingScreen(false);
     onScreenShareChange?.(false);
 
-    // Sem câmara viva (ex.: falhou no arranque) → recuperar a câmara.
-    if (!camara) {
-      try { await initLocalMedia(); } catch { /* fica sem vídeo local até novo toque */ }
+    // 4) Verificação final (é isto que garante «voltar a filmar-me»): se a câmara
+    //    não está viva ou o sender ficou sem faixa, recuperar a câmara e voltar a
+    //    ligá-la ao sender. Nunca fica sem câmara depois de parar a partilha.
+    const camaraViva = !!localStreamRef.current?.getVideoTracks().some((t) => t.readyState === 'live');
+    const senderSemFaixa = !!pc && !pc.getSenders().some((s) => s.track && s.track.kind === 'video');
+    if (!camaraViva || senderSemFaixa) {
+      try {
+        await initLocalMedia();
+        await devolverCamaraAoSender();
+      } catch { /* fica sem vídeo local até novo toque */ }
+      return;
     }
-  }, [initLocalMedia, onScreenShareChange]);
+
+    // 5) Última rede de segurança: se passado um instante o <video> local continuar
+    //    sem imagens (0×0) com a câmara ligada, recuperar a câmara de raiz.
+    const camaraEstavaLigada = !localVideoMuted;
+    window.setTimeout(() => {
+      const vv = localVideoRef.current;
+      const viva = localStreamRef.current?.getVideoTracks().some((t) => t.readyState === 'live');
+      if (camaraEstavaLigada && vv && vv.srcObject && vv.videoWidth === 0 && !viva) {
+        void initLocalMedia();
+      }
+    }, 900);
+  }, [initLocalMedia, onScreenShareChange, localVideoMuted]);
 
   // Screen Sharing — INICIAR: captura o ecrã e substitui a faixa de vídeo enviada.
   const iniciarPartilhaDeEcra = useCallback(async () => {
@@ -809,6 +832,36 @@ export function WebRTCVideoCallRoom({
     if (isScreenSharing) void iniciarPartilhaDeEcra();
     else void pararPartilhaDeEcra();
   }, [isScreenSharing, isActive, iniciarPartilhaDeEcra, pararPartilhaDeEcra]);
+
+  // 2026-09-21 — VIGILÂNCIA DA CAPTURA: nem todos os navegadores/percursos
+  // disparam o evento «ended» quando a captura do ecrã termina (barra do
+  // navegador, ecrã fechado, sistema). Sem aviso, a app ficava presa em «Parar
+  // Partilha de Ecrã» com a imagem do ecrã congelada e a câmara não voltava.
+  // Aqui verifica-se a cada 1 s enquanto se partilha: se a faixa morreu, a
+  // partilha termina e a câmara volta sozinha.
+  useEffect(() => {
+    if (!isSharingScreen) return;
+    const vigilancia = window.setInterval(() => {
+      const captura = screenStreamRef.current;
+      if (!captura) return;
+      const faixa = captura.getVideoTracks()[0];
+      if (!faixa || faixa.readyState !== 'live') void pararPartilhaDeEcra();
+    }, 1000);
+    return () => window.clearInterval(vigilancia);
+  }, [isSharingScreen, pararPartilhaDeEcra]);
+
+  // 2026-09-21 — GARANTIA DE RETORNO À CÂMARA: sempre que a partilha termina (por
+  // qualquer via: botão, barra do navegador, desligar/sair), a pré-visualização
+  // local («EU») tem de estar a mostrar a câmara — mesmo que o elemento <video>
+  // tenha sido recriado durante a partilha.
+  useEffect(() => {
+    if (isSharingScreen || !isActive) return;
+    const v = localVideoRef.current;
+    if (v && localStreamRef.current && v.srcObject !== localStreamRef.current) {
+      v.srcObject = localStreamRef.current;
+      void v.play().catch(() => {});
+    }
+  }, [isSharingScreen, isActive, isCameraLoading, localVideoMuted]);
 
   // 2026-09-21 — Paragem garantida ao sair: desligar a chamada, sair da sala ou
   // navegar para outro ecrã com partilha activa deixava a captura de ecrã viva
