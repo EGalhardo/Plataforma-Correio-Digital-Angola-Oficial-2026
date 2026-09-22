@@ -1043,20 +1043,17 @@ export default function App() {
     const phone = (isMember
       ? (perfilAgente?.phone || memberRec?.phone || '')
       : (perfilPersistido?.phone || pack?.telefone || '')).trim();
-    // Foto do agente: 1) captura facial desta pessoa (registada na página Conta);
-    // 2) foto de perfil carregada por esta conta; 3) logótipo (responsável);
-    // 4) avatar neutro gerado — nunca fotos de terceiros.
+    // Foto do agente: 1) foto de perfil carregada por esta conta; 2) logótipo
+    // (responsável); 3) avatar neutro gerado — nunca fotos de terceiros.
+    // 2026-09-22 — relato do dono: «quando realizar registo facial não deve
+    // mudar a foto de perfil». A captura do REGISTO FACIAL deixou de ser fonte
+    // da foto de perfil: era a 1.ª prioridade deste bloco e o rosto registado
+    // (matriz biométrica, não uma fotografia escolhida) passava a ser a foto da
+    // conta em todos os logins seguintes.
     let avatar = '';
     // 2026-08-21 — a foto de perfil é POR PESSOA: o colaborador usa as chaves
     // do seu Nº de agente (nunca a foto do responsável/instituição).
     const avatarKey = isMember ? personKey : code;
-    try {
-      const faceRaw = localStorage.getItem(`cda_demo_face_institution_${personKey}`);
-      if (faceRaw) {
-        const d = JSON.parse(faceRaw);
-        if (d?.imageDataUrl) avatar = d.imageDataUrl as string;
-      }
-    } catch { /* ignora */ }
     if (!avatar) {
       try {
         const pp = localStorage.getItem(`cda_inst_profile_photo_${avatarKey}`);
@@ -1216,16 +1213,13 @@ export default function App() {
         }
       } catch (_) { /* ignora */ }
 
-      // 3) Foto biometrica local (matricula facial de 3 capturas deste dispositivo)
-      try {
-        const faceRaw = localStorage.getItem(`cda_demo_face_${appMode}_${normalized}`);
-        if (faceRaw) {
-          const faceData = JSON.parse(faceRaw);
-          if (faceData?.imageDataUrl) resolvedAvatar = faceData.imageDataUrl;
-        }
-      } catch (_) { /* ignora */ }
+      // 2026-09-22 — relato do dono: «quando realizar registo facial não deve
+      // mudar a foto de perfil». A captura do REGISTO FACIAL (matriz biométrica
+      // de 3 capturas) deixou de ser fonte da foto de perfil: era usada aqui e o
+      // rosto registado passava a ser a foto da conta nos logins seguintes. A
+      // selfie/documentos da adesão e a foto escolhida pelo cidadão mantêm-se.
 
-      // 4) Foto de PERFIL escolhida pelo cidadão na página Perfil (2026-08-20):
+      // 3) Foto de PERFIL escolhida pelo cidadão na página Perfil (2026-08-20):
       // tem prioridade sobre a selfie KYC/face — sem isto a nova foto revertia
       // para a antiga no login seguinte. Fontes: Auth metadata (nuvem) e
       // localStorage deste dispositivo (por BI).
@@ -2899,10 +2893,22 @@ export default function App() {
         // evento realtime); agora correm em simultâneo.
         let dbProfilePre: Awaited<ReturnType<typeof supabaseService.getProfile>> | null = null;
         let mailbox: Awaited<ReturnType<typeof supabaseService.getOwnMailbox>>;
+        // F50-bis (2026-09-22) — relato do dono: «fiz login facial e as
+        // correspondências não apareceram». Sem SESSÃO DE NUVEM (login facial cuja
+        // credencial local não se restabeleceu, ou nuvem indisponível) a leitura
+        // cai no caminho DIRECTO (RLS) e devolve uma lista VAZIA em vez de falhar;
+        // o modo real tratava-a como resposta oficial e substituía a caixa
+        // visível por ela («Silêncio de Comunicações», 0 correspondências). Sem
+        // sessão do titular, vazio NÃO é leitura oficial: mantém-se o último
+        // estado bom (a correspondência continua no ecrã). Demo intocado.
+        const temSessaoDaNuvem = homologationStore.isExempt(bi) ? true : await hasActiveCloudSession(supabase);
         [dbProfilePre, mailbox] = await Promise.all([
           precisaHidratacaoPerfil ? supabaseService.getProfile(bi) : Promise.resolve(null),
           supabaseService.getOwnMailbox(mailboxRecipientKey, sentSenderKey)
         ]);
+        if (!temSessaoDaNuvem && mailbox && mailbox.incoming.length === 0) {
+          mailbox = null;
+        }
         if (precisaHidratacaoPerfil) {
           {
             const dbProfile = dbProfilePre;
