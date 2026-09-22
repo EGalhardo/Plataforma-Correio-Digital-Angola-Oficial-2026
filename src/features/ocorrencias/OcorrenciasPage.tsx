@@ -116,9 +116,22 @@ function TimelineOcorrencia({
   onPonto?: (alvo: string) => void;
 }) {
   const datas = new Map<string, string>();
+  // 2026-09-22 — DESCRIÇÃO NO CRONOGRAMA: o cidadão via o estado e a data no
+  // Acompanhamento, mas não o texto que a instituição escreveu ao mudar o estado
+  // («A análise está sendo feita»), que só aparecia em Comunicações/Histórico.
+  // Guarda-se aqui a descrição do evento que chegou a cada estado (o mais
+  // recente, porque `events` vem por ordem decrescente).
+  const notas = new Map<string, string>();
   for (const e of events) {
     if (e.estado_novo && !datas.has(e.estado_novo))
       datas.set(e.estado_novo, e.criado_em);
+    if (
+      e.estado_novo &&
+      !notas.has(e.estado_novo) &&
+      e.descricao &&
+      e.descricao.trim()
+    )
+      notas.set(e.estado_novo, e.descricao.trim());
   }
   const idx = (TIMELINE_OCORRENCIA as readonly string[]).indexOf(estado);
   const extras = [
@@ -164,6 +177,11 @@ function TimelineOcorrencia({
                 {datas.get(st) && (
                   <p className="text-[11px] text-slate-500">
                     {date(datas.get(st) as string)}
+                  </p>
+                )}
+                {notas.get(st) && (
+                  <p className="text-[11px] text-slate-600 whitespace-pre-wrap break-words mt-0.5">
+                    {notas.get(st)}
                   </p>
                 )}
               </div>
