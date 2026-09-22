@@ -86,6 +86,12 @@ import { MARCADOR_CLAREZA_SUGESTAO } from '../../services/aiDocumentoCore';
 import type { ResultadoValidacaoEnvio } from '../../services/validacaoEnvio';
 import { buildStorageRef } from '../../lib/secureStorage';
 
+// 2026-09-22 (auditoria BUG-002) — TIPOS DE ANEXO: fonte única da lista já publicada
+// no campo de anexos. Antes a lista existia SÓ no atributo `accept` (sugestão do
+// sistema operativo): um ficheiro de outro tipo (ex.: .exe) era aceite em silêncio.
+// Agora a mesma lista valida o ficheiro de verdade — o que ainda a usa no `accept`.
+const ANEXOS_TIPOS_ACEITES = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif', '.txt', '.csv', '.xls', '.xlsx', '.ppt', '.pptx', '.zip'];
+const anexoTemTipoAceite = (f: File) => ANEXOS_TIPOS_ACEITES.includes(`.${(f.name.split('.').pop() || '').toLowerCase()}`);
 
 const getOrgBadgeStyles = (org: string) => {
   const o = org.toUpperCase();
@@ -887,12 +893,25 @@ export function MailContent({
       // v37.78.10 — guarda de tamanho: > 10 MB recusado com aviso claro.
       const dentroLimite = Array.from(files).filter((f: File) => f.size <= 10 * 1024 * 1024) as File[];
       const foraLimite = Array.from(files).filter((f: File) => f.size > 10 * 1024 * 1024) as File[];
+      // 2026-09-22 (auditoria BUG-002) — guarda de TIPO: ficheiros fora da lista
+      // aceite são recusados com aviso, em vez de anexados em silêncio. Os dois
+      // avisos (tamanho e tipo) são mostrados em conjunto, sem bloquear os
+      // ficheiros válidos que vierem na mesma escolha.
+      const tipoRecusado = dentroLimite.filter((f: File) => !anexoTemTipoAceite(f));
+      const tipoAceite = dentroLimite.filter((f: File) => anexoTemTipoAceite(f));
+      const avisosAnexo: string[] = [];
       if (foraLimite.length) {
-        setUploadError(
+        avisosAnexo.push(
           `${foraLimite.map(f => `«${f.name}» (${(f.size / (1024 * 1024)).toFixed(1)} MB)`).join(', ')} excede${foraLimite.length === 1 ? '' : 'm'} o limite de 10 MB por ficheiro. Compacte (zip) ou reduza antes de anexar.`
         );
       }
-      if (!dentroLimite.length) { setIsUploading(false); return; }
+      if (tipoRecusado.length) {
+        avisosAnexo.push(
+          `${tipoRecusado.map(f => `«${f.name}»`).join(', ')} — tipo de ficheiro não permitido nos anexos. Formatos aceites: ${ANEXOS_TIPOS_ACEITES.join(', ')}.`
+        );
+      }
+      if (avisosAnexo.length) setUploadError(avisosAnexo.join(' '));
+      if (!tipoAceite.length) { setIsUploading(false); return; }
 
       // v37.78.29 — ANEXO OTIMISTA (reporte do dono 2026-08-31: «demora muito
       // para anexar»): os chips aparecem JÁ (metadados locais) e o upload
@@ -901,7 +920,7 @@ export function MailContent({
       // aparecia DEPOIS do upload completo; em rede móvel, MB significavam
       // muitos segundos «a anexar». O envio continua bloqueado enquanto há
       // uploads em trânsito (§13) — nenhum ficheiro se perde.
-      const pendentes = dentroLimite.map((file) => ({
+      const pendentes = tipoAceite.map((file) => ({
         file,
         pendId: `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
       }));
@@ -1932,7 +1951,16 @@ export function MailContent({
               <div className="flex items-start gap-3 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-bold mt-3 animate-fadeIn">
                 <AlertTriangle size={18} className="text-rose-600 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-black block uppercase tracking-wider mb-0.5 text-rose-950">Limite de Anexos Excedido</span>
+                  {/* 2026-09-22 (auditoria BUG-002) — o título passa a dizer o motivo
+                      real: um ficheiro pode ser recusado por TIPO (não só por tamanho).
+                      Mesmo elemento e estilo; só o texto acompanha o caso. */}
+                  <span className="font-black block uppercase tracking-wider mb-0.5 text-rose-950">
+                    {!/tipo de ficheiro não permitido/i.test(uploadError)
+                      ? 'Limite de Anexos Excedido'
+                      : /excede o limite/i.test(uploadError)
+                        ? 'Anexos Recusados'
+                        : 'Anexo Recusado'}
+                  </span>
                   <span className="text-rose-700 leading-relaxed font-semibold">{uploadError}</span>
                 </div>
               </div>

@@ -92,6 +92,11 @@ import { QrCodeImage } from '../ui/QrCodeImage';
 import { AssistenteDocumento } from './AssistenteDocumento';
 import { SondagemResponderCard } from './SondagemResponderCard';
 
+// 2026-09-22 (auditoria BUG-002) — TIPOS DE ANEXO: mesma fonte única usada no
+// compositor institucional (MailContent). A lista já existia SÓ no atributo
+// `accept` do campo de anexos; passa a ser também a validação de verdade.
+const ANEXOS_TIPOS_ACEITES = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif', '.txt', '.csv', '.xls', '.xlsx', '.ppt', '.pptx', '.zip'];
+
 const STATE_STYLING: Record<string, { bg: string; text: string; border: string; bgDot: string; textIcon: string }> = {
   'Enviada': { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', bgDot: 'bg-emerald-200', textIcon: 'text-emerald-600' },
   'Recebida': { bg: 'bg-slate-50', text: 'text-slate-800', border: 'border-slate-200', bgDot: 'bg-slate-150', textIcon: 'text-slate-600' },
@@ -1497,8 +1502,17 @@ depende de integração futura com a infra-estrutura de chaves nacional.
     if (!files) return;
     const isFileExist = (name: string) => inlineAttachedFiles.some(f => f.name === name);
     const reads: Promise<{ name: string; size: string; content?: string; type?: string }>[] = [];
+    // 2026-09-22 (auditoria BUG-002) — guarda de TIPO, igual à do compositor
+    // institucional: a lista vive no atributo `accept` do próprio campo; um
+    // ficheiro de outro tipo deixa de ser anexado em silêncio e passa a ser
+    // recusado com aviso no ecrã (o mesmo bloco de erro já existente).
+    const tipoRecusado: string[] = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      if (!ANEXOS_TIPOS_ACEITES.includes(`.${(file.name.split('.').pop() || '').toLowerCase()}`)) {
+        tipoRecusado.push(`«${file.name}»`);
+        continue;
+      }
       if (isFileExist(file.name)) continue;
       const sz = file.size;
       const sizeStr = sz < 1024 ? `${sz} B` : sz < 1024 * 1024 ? `${(sz / 1024).toFixed(1)} KB` : `${(sz / (1024 * 1024)).toFixed(1)} MB`;
@@ -1530,6 +1544,9 @@ depende de integração futura com a infra-estrutura de chaves nacional.
         } else localFallback();
       }));
     }
+    setDetailReplyError(tipoRecusado.length
+      ? `${tipoRecusado.join(', ')} — tipo de ficheiro não permitido nos anexos. Formatos aceites: ${ANEXOS_TIPOS_ACEITES.join(', ')}.`
+      : null);
     Promise.all(reads).then(newFiles => {
       if (newFiles.length) setInlineAttachedFiles(prev => [...prev, ...newFiles]);
     });
