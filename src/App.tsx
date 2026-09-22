@@ -328,7 +328,16 @@ const detectaPapel = (id: string): 'user' | 'institution' | 'admin' | null => {
   if (!s) return null;
   if (/^ADM/.test(s)) return 'admin';      // ADMIN-0001, ADM-8812-OP
   if (/^\d/.test(s)) return 'user';        // BI do cidadão (002399714LA030)
-  return 'institution';                    // AGT-9921-SR, INAPEM-LLMM-01
+  // 2026-09-22 (auditoria BUG-001) — só é tratado como Código Institucional um
+  // valor com a FORMA de código institucional (mesmo formato usado no registo
+  // de ocorrências: letras/dígitos/hífen). Antes, QUALQUER texto não numérico
+  // era assumido como instituição: escrever um valor inválido no login do
+  // Cidadão (ex.: «abc123!!!») mudava o utilizador para a área Institucional e
+  // mostrava o erro dela («O Código Institucional … não foi reconhecido.») em
+  // vez do erro do Cidadão. Com um código plausível (AGT-9921-SR,
+  // INAPEM-LLMM-01) a troca automática de área continua a funcionar igual.
+  if (/^[A-Z0-9][A-Z0-9-]{2,29}$/.test(s)) return 'institution';
+  return null;                             // valor que não é credencial plausível
 };
 const resolveHashToTab = (hash: string, mode: string): string | null => {
   const raw = hash.replace(/^#\/?/, '').split('?')[0].trim();
