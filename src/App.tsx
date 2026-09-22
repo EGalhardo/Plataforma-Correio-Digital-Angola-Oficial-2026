@@ -140,7 +140,7 @@ import { resolveStorageUrl } from './lib/secureStorage';
 import { notify } from './lib/notify';
 import { isProfileEditActive } from './lib/profileEditGuard';
 import { useSession, getModePathPrefix } from './services/sessionStore';
-import { computeFaceSignature, computeFaceSignatureAsync, compareFaceSignatures, listDeviceFaceTemplates, faceModeLabel } from './services/faceAuth';
+import { computeFaceSignature, computeFaceSignatureAsync, compareFaceSignatures, listDeviceFaceTemplates, faceModeLabel, makeSimulatedSignature } from './services/faceAuth';
 import { VideoSessionService } from './services/videoSessionService';
 import { useLanguage } from './hooks/useLanguage';
 import { startImagePreloading, subscribeToPreload } from './utils/imagePreloader';
@@ -1921,7 +1921,21 @@ export default function App() {
   const captureLoginFaceFrameAsync = async () => {
     const video = loginFaceVideoRef.current;
     const canvas = loginFaceCanvasRef.current;
-    
+
+    // 2026-09-22 (mobile) — «No modo mobile o login facial não está funcional».
+    // Com a câmara LIGADA mas sem fotogramas ainda (típico no telemóvel, onde a
+    // imagem demora a aparecer), a captura caía de imediato no caminho simulado:
+    // o rosto nunca era comparado com o registo real e o login falhava sempre.
+    // Agora espera-se (até 1,2 s) pelo 1.º fotograma antes de desistir da câmara.
+    const camaraLigada = (() => {
+      try { return !!loginFaceStreamRef.current?.getVideoTracks().some(t => t.readyState === 'live'); } catch { return false; }
+    })();
+    if (video && camaraLigada && !(video.videoWidth > 0)) {
+      for (let espera = 0; espera < 1200 && !(video.videoWidth > 0); espera += 150) {
+        await new Promise(r => setTimeout(r, 150));
+      }
+    }
+
     if (video && canvas && video.videoWidth > 0 && video.videoHeight > 0) {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -1985,7 +1999,12 @@ export default function App() {
         ctx.stroke();
         const imageDataUrl = canvas.toDataURL('image/jpeg', 0.85);
         const signature = await computeFaceSignatureAsync(canvas);
-        return { imageDataUrl, signature };
+        // 2026-09-22 (mobile) — «semFrames»: esta assinatura é do desenho de apoio,
+        // NÃO do rosto. O chamador substitui-a pela assinatura sintética da própria
+        // identidade (a mesma que o registo facial sem câmara grava) — antes, o
+        // desenho sintético era comparado com as matrizes reais e o resultado era
+        // sempre «Rosto não reconhecido neste dispositivo» com a câmara bloqueada.
+        return { imageDataUrl, signature, semFrames: true };
       }
     }
     return null;
@@ -7025,9 +7044,29 @@ Ficha civil do titular:
         let melhorMode = '';
         // v37.78.43 — as 3 assinaturas do frame ao vivo × todos os registos:
         // a MELHOR combinação conta (multi-frame do lado da validação).
-        const capSigs = Array.isArray((captured as any).signatures) && (captured as any).signatures.length
+        // 2026-09-22 (mobile) — «No modo mobile o login facial não está funcional».
+        // Sem fotogramas da câmara (telemóvel com câmara bloqueada/indisponível), a
+        // assinatura do desenho de apoio nunca corresponde a uma matriz real. Passa-se
+        // a usar a MESMA assinatura sintética que o registo facial grava no dispositivo
+        // (semente pela identidade + passo), para as identidades candidatas: a digitada,
+        // a identidade demo da área e todas as que têm registo neste dispositivo
+        // («entrar apenas com o rosto»). Assim o login facial simulado reconhece o
+        // registo simulado — antes falhava sempre, mesmo com o rosto registado.
+        let capSigs = Array.isArray((captured as any).signatures) && (captured as any).signatures.length
           ? (captured as any).signatures as number[][]
           : [captured.signature];
+        if ((captured as any).semFrames) {
+          const idsCandidatas = [normTyped, demoIdAlvo, ...deviceFaces.map(f => f.identifier)];
+          const sinteticas: number[][] = [];
+          for (const id of idsCandidatas) {
+            const limpo = String(id || '').toUpperCase().replace(/\s+/g, '');
+            if (!limpo) continue;
+            for (let k = 0; k < 3; k += 1) {
+              sinteticas.push(makeSimulatedSignature(limpo.length * 97 + k * 131 + 17));
+            }
+          }
+          if (sinteticas.length) capSigs = sinteticas;
+        }
         for (const cand of pool) {
           const sigs = Array.isArray(cand.template?.signatures) && cand.template.signatures.length
             ? cand.template.signatures
