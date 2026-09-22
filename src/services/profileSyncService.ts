@@ -442,7 +442,15 @@ export const puxarPerfilDaNuvem = async (
   // 2026-08-20 — RLS endurecida: leitura directa pode devolver vazio com a
   // linha existente. Reencaminha para o servidor (service role).
   try {
-    const resp = await fetch(`/api/perfil?bi=${encodeURIComponent(bi.trim())}`);
+    // QA-SEC-001 (auditoria 2026-09-22): anexa a SESSÃO quando existir — só
+    // assim o servidor devolve o perfil COMPLETO; anónimo recebe o mínimo.
+    let hdrsPerfil: Record<string, string> | undefined;
+    try {
+      const { data: sessP } = await client.auth.getSession();
+      const tokP = sessP?.session?.access_token;
+      if (tokP) hdrsPerfil = { Authorization: `Bearer ${tokP}` };
+    } catch { /* sem sessão → chamada anónima (payload mínimo) */ }
+    const resp = await fetch(`/api/perfil?bi=${encodeURIComponent(bi.trim())}`, hdrsPerfil ? { headers: hdrsPerfil } : undefined);
     const json = await resp.json().catch(() => null);
     if (json && json.ok === true && json.perfil) {
       const campos = profileRowToCitizenFields(json.perfil as Record<string, unknown>);

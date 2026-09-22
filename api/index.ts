@@ -1263,6 +1263,23 @@ const KB_REGISTO: KbInstituicao[] = [
 const normChaveElim = (v: unknown): string =>
   String(v || '').trim().toUpperCase().replace(/\s+/g, '').replace(/-\d{2}$/, '');
 
+// QA-SEC-001 (auditoria 2026-09-22) — rate-limit em memória para leituras
+// ANÓNIMAS de perfil: 20 pedidos/minuto por IP (anti-enumeração de BIs).
+// Em serverless o Map persiste enquanto a instância estiver quente (mitigação
+// parcial por instância); pedidos com sessão válida NÃO são limitados.
+const PERFIL_RL_JANELA_MS = 60_000;
+const PERFIL_RL_MAX = 20;
+const perfilRL = new Map<string, { n: number; ate: number }>();
+const perfilRateLimitOk = (req: any): boolean => {
+  const ip = String((req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'desconhecido');
+  const agora = Date.now();
+  if (perfilRL.size > 5000) for (const [k, v] of perfilRL) if (agora > v.ate) perfilRL.delete(k);
+  const e = perfilRL.get(ip);
+  if (!e || agora > e.ate) { perfilRL.set(ip, { n: 1, ate: agora + PERFIL_RL_JANELA_MS }); return true; }
+  e.n += 1;
+  return e.n <= PERFIL_RL_MAX;
+};
+
 function extrairRefsAnexo(attachments: unknown): { bucket: string; path: string }[] {
   const refs: { bucket: string; path: string }[] = [];
   const considerar = (raw: unknown) => {
@@ -3593,6 +3610,23 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         const bi = String((req.query && (req.query as any).bi) || '').trim().toUpperCase();
         if (!BI_VALIDO_PERFIL.test(bi)) return res.status(400).json({ ok: false, erro: 'BI inválido.' });
         if (!supaUrlPerfil || !serviceKeyPerfil) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        // QA-SEC-001 (auditoria 2026-09-22) — blindagem anti-enumeração/PII:
+        //  a) com SESSÃO VÁLIDA: perfil completo (comportamento anterior);
+        //  b) anónimo: payload MÍNIMO {bi,name,role} — nunca morada, estado
+        //     civil, filiação, documentos ou contactos;
+        //  c) anónimo com RATE-LIMIT por IP (ver perfilRateLimitOk).
+        let comSessao = false;
+        const tokenPerfil = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (tokenPerfil) {
+          try {
+            const ident = await dadosResolverIdentidade(supaUrlPerfil, serviceKeyPerfil, tokenPerfil);
+            comSessao = !('erro' in ident);
+          } catch { comSessao = false; }
+        }
+        if (!comSessao && !perfilRateLimitOk(req)) {
+          res.setHeader('Retry-After', '60');
+          return res.status(429).json({ ok: false, erro: 'Demasiados pedidos. Tente novamente dentro de instantes.' });
+        }
         const readResp = await fetch(`${supaUrlPerfil}/rest/v1/profiles?bi=eq.${encodeURIComponent(bi)}&select=*`, {
           headers: { apikey: serviceKeyPerfil, Authorization: `Bearer ${serviceKeyPerfil}` },
         });
@@ -3601,7 +3635,11 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
           return res.status(500).json({ ok: false, erro: txt.slice(0, 200) });
         }
         const rows = await readResp.json().catch(() => []);
-        return res.status(200).json({ ok: true, perfil: Array.isArray(rows) && rows.length ? rows[0] : null });
+        const linha = Array.isArray(rows) && rows.length ? rows[0] : null;
+        const perfil = comSessao
+          ? linha
+          : (linha ? { bi: linha.bi, name: linha.name, role: linha.role } : null);
+        return res.status(200).json({ ok: true, perfil });
       } catch (e: any) {
         console.error('[PERFIL-GET] Exceção:', e);
         return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
@@ -4357,11 +4395,20 @@ async function dadosResolverEExecutar(opts: {
         }
         const detalhesEc: Record<string, number> = {};
         // notificações por ASSUNTO (único; ambas as partes)
+        // QA-BUG-001 (auditoria 2026-09-22): TITULARIDADE na limpeza — o filtro
+        // só por assunto apagava notificações de QUALQUER utilizador. Agora o
+        // DELETE fica restrito às DUAS partes, mantendo variantes «SIGLA-NN».
         try {
           const assuntoEc = String(rowEc.subject || '').trim();
-          if (assuntoEc) {
+          const chavesEc: string[] = [...new Set(
+            [rowEc.sender_bi, rowEc.recipient_bi].flatMap((v: unknown) => [String(v || '').trim(), normChaveElim(v)])
+          )].filter(Boolean);
+          if (assuntoEc && chavesEc.length > 0) {
             const padraoEc = encodeURIComponent(assuntoEc);
-            const rNot = await fetch(`${supaUrlEc}/rest/v1/notifications?or=(message.ilike.*${padraoEc}*,title.ilike.*${padraoEc}*)`,
+            const alvosEc = chavesEc
+              .map((k) => { const e = encodeURIComponent(k); return `target_bi.eq.${e},target_bi.ilike.${e}-*`; })
+              .join(',');
+            const rNot = await fetch(`${supaUrlEc}/rest/v1/notifications?or=(message.ilike.*${padraoEc}*,title.ilike.*${padraoEc}*)&and=(or(${alvosEc}))`,
               { method: 'DELETE', headers: { ...HEc, Prefer: 'return=representation' } });
             if (rNot.ok) { const nl = await rNot.json().catch(() => []); detalhesEc.notificacoes = Array.isArray(nl) ? nl.length : 0; }
           }

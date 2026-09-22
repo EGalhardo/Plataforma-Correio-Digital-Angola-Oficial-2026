@@ -302,15 +302,53 @@ async function startServer() {
   const PERFIL_COLUNAS = ['name','phone','nif','passport','birth_date','filiation','marital_status','email','morada'] as const;
   const BI_VALIDO = /^[A-Z0-9][A-Z0-9\-]{3,23}$/;
 
+  // QA-SEC-001 (auditoria 2026-09-22) — rate-limit em memória para leituras
+  // ANÓNIMAS de perfil: 20 pedidos/minuto por IP (anti-enumeração de BIs).
+  // Pedidos com sessão válida NÃO são limitados (a app hidrata em lote).
+  const PERFIL_RL_JANELA_MS = 60_000;
+  const PERFIL_RL_MAX = 20;
+  const perfilRL = new Map<string, { n: number; ate: number }>();
+  const perfilRateLimitOk = (req: any): boolean => {
+    const ip = String((req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'desconhecido');
+    const agora = Date.now();
+    if (perfilRL.size > 5000) for (const [k, v] of perfilRL) if (agora > v.ate) perfilRL.delete(k);
+    const e = perfilRL.get(ip);
+    if (!e || agora > e.ate) { perfilRL.set(ip, { n: 1, ate: agora + PERFIL_RL_JANELA_MS }); return true; }
+    e.n += 1;
+    return e.n <= PERFIL_RL_MAX;
+  };
+
   app.get("/api/perfil", async (req, res) => {
     try {
       const bi = String((req.query as any)?.bi || '').trim().toUpperCase();
       if (!BI_VALIDO.test(bi)) return res.status(400).json({ ok: false, erro: 'BI inválido.' });
       const admin = createSupabaseAdminClient();
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      // QA-SEC-001 (auditoria 2026-09-22) — blindagem anti-enumeração/PII:
+      //  a) com SESSÃO VÁLIDA: comportamento anterior (perfil completo — usado
+      //     para hidratar o Perfil do cidadão/instituição e pesquisas da app);
+      //  b) anónimo: payload MÍNIMO {bi,name,role} (existência + nome de
+      //     exibição) — NUNCA morada, estado civil, filiação, documentos ou
+      //     contactos;
+      //  c) anónimo com RATE-LIMIT por IP contra enumeração em massa de BIs.
+      const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      let comSessao = false;
+      if (token) {
+        try {
+          const { data: sessUa, error: sessErr } = await admin.auth.getUser(token);
+          comSessao = !sessErr && !!sessUa?.user;
+        } catch { comSessao = false; }
+      }
+      if (!comSessao && !perfilRateLimitOk(req)) {
+        res.setHeader('Retry-After', '60');
+        return res.status(429).json({ ok: false, erro: 'Demasiados pedidos. Tente novamente dentro de instantes.' });
+      }
       const { data, error } = await admin.from('profiles').select('*').eq('bi', bi).maybeSingle();
       if (error) return res.status(500).json({ ok: false, erro: error.message });
-      return res.status(200).json({ ok: true, perfil: data || null });
+      const perfil = comSessao
+        ? (data || null)
+        : (data ? { bi: data.bi, name: data.name, role: data.role } : null);
+      return res.status(200).json({ ok: true, perfil });
     } catch (e) {
       console.error('[PERFIL-GET] Exceção:', e);
       return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
@@ -1637,12 +1675,23 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
       // 1) notificações das partes que referenciam o assunto (fantasmas)
       try {
         // corresponde por ASSUNTO (único, com carimbo temporal): as notificações
-        // das duas partes (remetente/destinatário) referem o assunto; filtrar
-        // por target_bi deixaria passar variantes com nº de agente.
+        // das duas partes (remetente/destinatário) referem o assunto.
+        // QA-BUG-001 (auditoria 2026-09-22): TITULARIDADE na limpeza — o filtro
+        // só por assunto apagava notificações de QUALQUER utilizador cujo texto
+        // contivesse o assunto (ex.: sondagens com o mesmo assunto para vários
+        // cidadãos). Agora o DELETE fica restrito às DUAS partes da mensagem,
+        // mantendo as variantes «SIGLA-NN» de agente (a fronteira por hífen não
+        // colide: TEQ-CCC ≠ TEQ-CCC2).
         const assunto = String(row.subject || '').trim();
-        if (assunto) {
+        const chavesPartes: string[] = [...new Set(
+          [row.sender_bi, row.recipient_bi].flatMap((v: unknown) => [String(v || '').trim(), normChaveElim(v)])
+        )].filter(Boolean);
+        if (assunto && chavesPartes.length > 0) {
           const padrao = encodeURIComponent(assunto);
-          const filtro = `or=(message.ilike.*${padrao}*,title.ilike.*${padrao}*)`;
+          const alvos = chavesPartes
+            .map((k) => { const e = encodeURIComponent(k); return `target_bi.eq.${e},target_bi.ilike.${e}-*`; })
+            .join(',');
+          const filtro = `or=(message.ilike.*${padrao}*,title.ilike.*${padrao}*)&and=(or(${alvos}))`;
           const r = await fetch(`${process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL}/rest/v1/notifications?${filtro}`,
             { method: 'DELETE', headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY || '', Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || ''}`, Prefer: 'return=representation' } });
           if (r.ok) { const rows = await r.json().catch(() => []); detalhes.notificacoes = Array.isArray(rows) ? rows.length : 0; }
@@ -2600,9 +2649,30 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
     }
   });
 
-  app.get('/api/security/readiness', async (_req, res) => {
+  app.get('/api/security/readiness', async (req, res) => {
     // FIX: handler async em Express 4 — sem try/catch qualquer exceção derruba o processo (unhandled rejection)
     try {
+      // QA-SEC-002 (auditoria 2026-09-22): este diagnóstico devolve contagens
+      // internas, flags de runtime e bloqueadores de produção — acesso RESTRITO
+      // a sessões com role 'admin' OU à chave operacional READINESS_TOKEN
+      // (quando definida no ambiente do servidor). Público recebe apenas 403.
+      const tokR = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      const chaveOpsR = (process.env.READINESS_TOKEN || '').trim();
+      let autorizadoReadiness = false;
+      if (tokR && chaveOpsR && tokR === chaveOpsR) autorizadoReadiness = true;
+      if (!autorizadoReadiness && tokR) {
+        try {
+          const adminR = createSupabaseAdminClient();
+          if (adminR) {
+            const { data: rUsr, error: rErr } = await adminR.auth.getUser(tokR);
+            const roleR = String(((rUsr?.user?.user_metadata || {}) as Record<string, unknown>).role || '').toLowerCase();
+            autorizadoReadiness = !rErr && !!rUsr?.user && roleR === 'admin';
+          }
+        } catch { autorizadoReadiness = false; }
+      }
+      if (!autorizadoReadiness) {
+        return res.status(403).json({ ok: false, erro: 'Diagnóstico restrito à Administração/operação.' });
+      }
       const runtimeFlags = getRuntimeFlags();
       const blockers: string[] = [];
       const warnings: string[] = [];

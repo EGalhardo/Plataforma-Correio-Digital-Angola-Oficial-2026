@@ -1643,7 +1643,12 @@ export const supabaseService = {
     }
     // Fallback via servidor (service role) — a linha pode estar oculta por RLS
     try {
-      const resp = await fetch(`/api/perfil?bi=${encodeURIComponent(bi)}`);
+      // QA-SEC-001 (auditoria 2026-09-22): anexa a SESSÃO quando existir — só
+      // assim o servidor devolve o perfil COMPLETO; chamadas anónimas recebem
+      // o payload mínimo (existência + nome) e têm rate-limit.
+      const { data: sessPerfil } = await supabase.auth.getSession();
+      const tokPerfil = sessPerfil?.session?.access_token;
+      const resp = await fetch(`/api/perfil?bi=${encodeURIComponent(bi)}`, tokPerfil ? { headers: { Authorization: `Bearer ${tokPerfil}` } } : undefined);
       const json = await resp.json().catch(() => null);
       if (json && json.ok === true && json.perfil) return json.perfil;
     } catch (e) {
