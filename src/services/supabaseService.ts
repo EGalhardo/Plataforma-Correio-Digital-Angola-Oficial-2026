@@ -793,9 +793,22 @@ const obterTokenSessao = async (): Promise<string | null> => {
     const agora = Date.now();
     if (dadosTokenCache && agora - dadosTokenCacheTs < 60_000) return dadosTokenCache;
     const { data } = await supabase.auth.getSession();
-    dadosTokenCache = data?.session?.access_token || null;
-    dadosTokenCacheTs = agora;
-    return dadosTokenCache;
+    const tok = data?.session?.access_token || null;
+    // 2026-09-22 (PISCA-de-correspondência) — NUNCA memorizar `null`: quando o
+    // getSession falha/renova a meio de um pico de rede (2G/3G), ele devolve
+    // sessão nula de forma TRANSIENTE. Antes, esse null ficava retido por 60 s:
+    // a leitura da caixa caía no caminho DIRECTO anónimo (RLS devolve [] como
+    // sucesso!) enquanto o guarda-chuva F50-bis (hasActiveCloudSession, sem
+    // cache) já via a sessão recuperada → caixa substituída por vazia e a
+    // correspondência «piscava» (desaparecia segundos e voltava). Com null por
+    // cache eliminado, cada tentativa re-consulta a sessão fresca: token e o
+    // guarda F50-bis concordam sempre e a falha degrada para «manter o último
+    // estado bom» em vez de «varrer o ecrã».
+    if (tok) {
+      dadosTokenCache = tok;
+      dadosTokenCacheTs = agora;
+    }
+    return tok;
   } catch {
     return null;
   }
