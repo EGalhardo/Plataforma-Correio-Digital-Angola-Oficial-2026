@@ -293,6 +293,13 @@ export function WebRTCVideoCallRoom({
       const senders = pc.getSenders();
       localStreamRef.current.getTracks().forEach((track) => {
         const hasTrack = senders.some((s) => s.track && s.track.id === track.id);
+        // 2026-09-22 — NUNCA adicionar um SEGUNDO sender de vídeo: durante a
+        // partilha de ecrã o sender de vídeo já existe (com a faixa do ecrã) e
+        // esta verificação, por comparar o id da faixa da câmara, acrescentava a
+        // câmara como sender extra — o outro lado passava a receber duas faixas
+        // de vídeo e podia ver a errada.
+        const jaTemVideo = senders.some((s) => s.track && s.track.kind === 'video');
+        if (jaTemVideo && track.kind === 'video') return;
         if (!hasTrack) {
           try {
             pc!.addTrack(track, localStreamRef.current!);
@@ -736,10 +743,16 @@ export function WebRTCVideoCallRoom({
     // 3) Devolver a câmara ao sender de vídeo (sem novo getUserMedia)
     const pc = peerConnectionRef.current;
     const devolverCamaraAoSender = async () => {
-      const sender = pc?.getSenders().find((s) => s.track && s.track.kind === 'video');
       const track = localStreamRef.current?.getVideoTracks()[0];
-      if (sender && track && track.readyState === 'live') {
-        try { await sender.replaceTrack(track); } catch { /* sender já mudou */ }
+      if (!track || track.readyState !== 'live') return;
+      // 2026-09-22 — trocar TODOS os senders de vídeo: em algumas sessões a
+      // ligação fica com mais do que um sender (a câmara foi adicionada quando
+      // o ecrã já estava a ser enviado) e trocar só o primeiro deixava o outro
+      // lado a receber o que não devia.
+      for (const sender of pc?.getSenders() || []) {
+        if (sender.track && sender.track.kind === 'video') {
+          try { await sender.replaceTrack(track); } catch { /* sender já mudou */ }
+        }
       }
     };
     await devolverCamaraAoSender();
@@ -786,9 +799,11 @@ export function WebRTCVideoCallRoom({
 
       const pc = peerConnectionRef.current;
       if (pc) {
-        const videoSender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
-        if (videoSender) {
-          try { await videoSender.replaceTrack(screenTrack); } catch { /* sem sender ainda */ }
+        // Todos os senders de vídeo passam a enviar o ecrã (ver nota acima).
+        for (const sender of pc.getSenders()) {
+          if (sender.track && sender.track.kind === 'video') {
+            try { await sender.replaceTrack(screenTrack); } catch { /* sem sender ainda */ }
+          }
         }
       }
 
