@@ -1281,8 +1281,8 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
             {view === "encaminhar" && selected
               ? `protocolo ${protocoloOcorrencia(selected.numero)}`
               : institutional
-                ? "Triagem e acompanhamento das ocorrências dirigidas à sua instituição."
-                : "Comunique problemas da sua localidade e acompanhe a resposta."}
+                ? "Receba, encaminhe e acompanhe problemas comunicados pelos cidadãos."
+                : "Comunique problemas da sua localidade e acompanhe o seu tratamento."}
           </p>
         </div>
         {view === "lista" && !institutional && (

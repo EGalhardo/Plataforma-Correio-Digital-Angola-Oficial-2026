@@ -58,10 +58,16 @@ export function ListaParticipacaoContent({tipo, isInst, messages, notifications 
           className="h-[72px] w-[72px] md:h-[88px] md:w-[88px] object-contain rounded-xl"
         />
       </span>
-      <div className={inqueritos ? "min-w-0" : "flex-1 min-w-0"}><h2 className="text-xl md:text-2xl font-black text-primary">{t(titulo)}</h2>
-        {!inqueritos && <p className="text-xs md:text-sm text-slate-500">{t(isInst
-          ? novaDenuncia ? 'Consulte as denuncias dirigidas à sua instituição e acompanhe o respectivo processo.' : 'Consulte as denúncias dirigidas à sua instituição e acompanhe o respectivo processo.'
-          : novaDenuncia ? 'Consulte as denuncias que enviou e acompanhe o respectivo processo.' : 'Consulte as denúncias que enviou e acompanhe o respectivo processo.')}</p>}
+      <div className="flex-1 min-w-0"><h2 className="text-xl md:text-2xl font-black text-primary">{t(titulo)}</h2>
+        <p className="text-xs md:text-sm text-slate-500">{t(inqueritos
+          ? 'Participe em inquéritos por múltipla escolha ou através de uma conversa com IA.'
+          : novaDenuncia
+            ? isInst
+              ? 'Receba e trate denúncias com segurança, confidencialidade e rastreabilidade.'
+              : 'Apresente a sua denúncia de forma simples, segura e anónima.'
+            : isInst
+              ? 'Receba, acompanhe e responda às reclamações apresentadas pelos cidadãos.'
+              : 'Apresente a sua reclamação de forma simples, segura e acompanhe a resposta da instituição.')}</p>
       </div>
       {inqueritos && (
         <div role="tablist" aria-label={t('Tipo de inquérito')} data-aba-inquerito={aba}

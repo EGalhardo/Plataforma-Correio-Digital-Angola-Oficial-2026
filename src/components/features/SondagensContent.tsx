@@ -175,7 +175,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
         </span>
         <div className="min-w-0 flex-1">
           <h2 className="font-sans font-black text-[#0c2340] text-xl md:text-2xl tracking-tight">{title}</h2>
-          <p className="text-xs md:text-sm text-slate-500 font-medium">Sondagens e inquéritos com IA criados por {codigoInstituicao} — clique para ver os resultados.</p>
+          <p className="text-xs md:text-sm text-slate-500 font-medium">Crie e realize inquéritos por múltipla escolha ou através de conversas com IA.</p>
         </div>
       <div role="tablist" aria-label="Tipo de inquérito" data-aba-inquerito={aba}
         className="flex items-end gap-1.5 md:gap-5 border-b border-slate-200 overflow-x-auto custom-scrollbar-h shrink-0">

@@ -485,8 +485,10 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
             </span>
             <div>
               <h3 className="text-lg md:text-2xl font-black text-primary leading-tight">{t("VideoAtendimento")}</h3>
-              <p className="text-[10px] md:text-sm text-slate-600 font-black uppercase tracking-widest">
-                {availableCount + inProgressCount} atendimentos disponíveis
+              <p className="text-xs md:text-sm text-slate-500 font-medium">
+                {t(isInst
+                  ? "Atenda cidadãos à distância, de forma simples e organizada."
+                  : "Fale com as instituições à distância, de forma simples e cómoda.")}
               </p>
             </div>
           </div>
