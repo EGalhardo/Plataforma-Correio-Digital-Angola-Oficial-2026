@@ -80,6 +80,16 @@ export function WebRTCVideoCallRoom({
   // página). Antes não havia referência nenhuma: o navegador continuava a
   // partilhar o ecrã depois de sair da chamada e já não havia botão para parar.
   const screenStreamRef = useRef<MediaStream | null>(null);
+  // 2026-09-22 (partilha como TOGGLE a 100%) — duas marcas de corrida:
+  // `iniciarEmCursoRef` impede um 2.º getDisplayMedia enquanto o 1.º picker
+  // ainda está aberto (clique rápido no botão, ou botão da página + botão da
+  // sala em sequência): sem isto apareciam DOIS pedidos de partilha ao
+  // utilizador. `pararPedidoRef` regista um pedido de PARAR feito enquanto o
+  // picker estava aberto: se o utilizador pediu para parar, a captura que
+  // resolve depois é abortada de imediato — nunca fica partilha a correr com
+  // o botão em estado «desligado» (era o «pisca» da partilha).
+  const iniciarEmCursoRef = useRef(false);
+  const pararPedidoRef = useRef(false);
   const candidateQueue = useRef<RTCIceCandidateInit[]>([]);
   const isNegotiating = useRef(false);
 
@@ -721,6 +731,9 @@ export function WebRTCVideoCallRoom({
   // Screen Sharing — PARAR: pára MESMO a captura do ecrã e devolve a câmara à
   // faixa de vídeo que estava a ser enviada, sem re-abrir a câmara.
   const pararPartilhaDeEcra = useCallback(async () => {
+    // Pedido de paragem SEMPRE registado primeiro: se houver um picker de
+    // partilha aberto neste instante, a captura que resolver a seguir aborta.
+    pararPedidoRef.current = true;
     const display = screenStreamRef.current;
     screenStreamRef.current = null;
 
@@ -787,10 +800,24 @@ export function WebRTCVideoCallRoom({
 
   // Screen Sharing — INICIAR: captura o ecrã e substitui a faixa de vídeo enviada.
   const iniciarPartilhaDeEcra = useCallback(async () => {
-    if (screenStreamRef.current) return;
+    // Um picker de cada vez: já a partilhar OU já a pedir → ignorar.
+    if (screenStreamRef.current || iniciarEmCursoRef.current) return;
+    iniciarEmCursoRef.current = true;
+    pararPedidoRef.current = false;
     try {
       const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      // O utilizador pediu PARAR enquanto o picker estava aberto (toggle rápido,
+      // ou barra da página): abortar a captura que acabou de chegar.
+      if (pararPedidoRef.current) {
+        displayStream.getTracks().forEach((t) => { t.onended = null; t.stop(); });
+        return;
+      }
       const screenTrack = displayStream.getVideoTracks()[0];
+      if (!screenTrack) {
+        // Partilha sem faixa de vídeo (ex.: só áudio) — não deixar estado preso.
+        displayStream.getTracks().forEach((t) => { t.onended = null; t.stop(); });
+        return;
+      }
 
       screenStreamRef.current = displayStream;
 
@@ -818,6 +845,8 @@ export function WebRTCVideoCallRoom({
       console.warn('[CDA-WebRTC] Partilha de ecrã cancelada:', err);
       setIsSharingScreen(false);
       onScreenShareChange?.(false);
+    } finally {
+      iniciarEmCursoRef.current = false;
     }
   }, [onScreenShareChange, pararPartilhaDeEcra]);
 
@@ -1108,7 +1137,7 @@ export function WebRTCVideoCallRoom({
           <button
             type="button"
             onClick={toggleScreenShare}
-            title={isSharingScreen ? 'Parar Partilha de Ecrã' : 'Partilhar Ecrã'}
+            title={isSharingScreen ? 'Parar Partilha de Tela' : 'Partilha de Tela'}
             className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all border-0 cursor-pointer shadow-md active:scale-95 ${
               isSharingScreen
                 ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-600/30'

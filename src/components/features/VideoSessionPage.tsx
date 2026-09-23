@@ -358,6 +358,19 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isInCall, setIsInCall] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+
+  // 2026-09-22 («Partilha de tela» como toggle) — o botão de partilha da barra
+  // da página só age DENTRO de chamada: antes, tocá-lo no estado de espera
+  // apenas acendia o botão (bg-primary) sem captura nenhuma — um estado
+  // fantasma que confundia. Em chamada, o clique alterna a partilha real
+  // (a sala executa iniciar/parar e devolve a câmara ao parar).
+  const handleTogglePartilhaBarra = () => {
+    if (!isInCall) return;
+    setIsScreenSharing(!isScreenSharing);
+  };
+  const tituloPartilhaBarra = isInCall
+    ? (isScreenSharing ? 'Parar Partilha de Tela' : 'Partilha de Tela')
+    : 'Partilha de Tela (disponível durante a chamada)';
   
   const [isLargeScreen, setIsLargeScreen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true);
 
@@ -737,7 +750,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                           <button onClick={() => setIsVideoOn(!isVideoOn)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isVideoOn ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600' : 'bg-red-500 text-white'}`}>
                             {isVideoOn ? <Camera size={18} /> : <CameraOff size={18} />}
                           </button>
-                          <button onClick={() => setIsScreenSharing(!isScreenSharing)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isScreenSharing ? 'bg-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600'}`}>
+                          <button onClick={handleTogglePartilhaBarra} title={tituloPartilhaBarra} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isScreenSharing ? 'bg-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600'}`}>
                             <Monitor size={18} />
                           </button>
                           {isInCall ? (
@@ -817,7 +830,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                   <button onClick={() => setIsVideoOn(!isVideoOn)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isVideoOn ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-red-500 text-white'}`}>
                     {isVideoOn ? <Camera size={18} /> : <CameraOff size={18} />}
                   </button>
-                  <button onClick={() => setIsScreenSharing(!isScreenSharing)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isScreenSharing ? 'bg-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                  <button onClick={handleTogglePartilhaBarra} title={tituloPartilhaBarra} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isScreenSharing ? 'bg-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
                     <Monitor size={18} />
                   </button>
                   {isInCall ? (
