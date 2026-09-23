@@ -2707,6 +2707,33 @@ export const supabaseService = {
   },
 
   /**
+   * 2026-09-22 — DIFUSÃO «TODOS» da Nova Mensagem: o universo oficial é
+   * «cidadãos que JÁ trocaram contacto com esta instituição» (RPC v36
+   * security-definer: pedidos de documentos/serviços dirigidos à instituição
+   * + correspondência trocada em qualquer direcção). Devolve a lista de B.I.
+   * válidos; null em falha de consulta (o chamador NÃO envia — fail-closed,
+   * nunca difundir a cidadãos errados por causa de um erro de leitura).
+   */
+  async listarCidadaosComContacto(codigo: string): Promise<string[] | null> {
+    if (!hasValidSupabaseKeys()) return null;
+    const alvo = (codigo || '').trim();
+    if (!alvo) return [];
+    try {
+      const { data, error } = await supabase.rpc('cda_audiencia_sondagem', { p_code: alvo });
+      if (error) throw error;
+      const bis = new Set<string>();
+      for (const b of (data as unknown as string[] | null) || []) {
+        const v = String(b || '').trim().toUpperCase();
+        if (/^\d{9}[A-Z]{2}\d{3}$/.test(v)) bis.add(v);
+      }
+      return [...bis];
+    } catch (e) {
+      console.error('Supabase listarCidadaosComContacto error:', e);
+      return null;
+    }
+  },
+
+  /**
    * P0-B — verifica REALMENTE se um código institucional consta (aprovado) do
    * registo oficial (catálogo canónico ou RPC cda_instituicao_existe, security definer, exact-match).
    * Nunca assume: código inexistente devolve registered=false.

@@ -4768,6 +4768,78 @@ export default function App() {
       notify('A mensagem está vazia. Escreva o conteúdo antes de enviar.', 'warning');
       return { ok: false, error: 'A mensagem está vazia. Escreva o conteúdo antes de enviar.' };
     }
+    // 2026-09-22 — «TODOS» NO CAMPO DESTINATÁRIO (Nova Mensagem): o campo
+    // comanda SEMPRE a entrega real. Antes, uma difusão manual «Todos» caía
+    // no envio simples e gravava UMA linha partilhada recipient_bi='TODOS',
+    // que a regra v37.31 mostra a TODO o cidadão — incluindo cidadãos que
+    // NUNCA trocaram contacto com a instituição (fuga de alcance). Agora:
+    //  • Instituição → fan-out individual pela MESMA pipeline: uma
+    //    correspondência com protocolo + notificação POR cidadão que já
+    //    trocou contacto com a instituição (RPC v36). Nunca se grava a
+    //    linha partilhada: quem não tem contacto prévio NÃO recebe.
+    //  • Cidadão → bloqueado com aviso honesto (difusão é prerrogativa
+    //    de instituição oficial; resposta directa/override intocada).
+    if (!override && /^TODOS$/i.test(to)) {
+      if (!isInstMode) {
+        notify('A difusão «Todos» é exclusiva de instituições oficiais. Indique o destinatário concreto da sua correspondência.', 'warning');
+        addAuditLog('BLOQUEIO — cidadão tentou difusão «Todos» na Nova Mensagem (prerrogativa institucional).', 'warning');
+        return { ok: false, blocked: true, error: 'Difusão «Todos» exclusiva de instituições oficiais.' };
+      }
+      const codigoDifusao = resolveInstitutionCode(institutionCode || bi) || (institutionCode || bi);
+      const pool = await supabaseService.listarCidadaosComContacto(codigoDifusao);
+      if (pool === null) {
+        notify('Não foi possível consultar os cidadãos com contacto prévio com esta instituição. Nada foi enviado — tente novamente.', 'error');
+        return { ok: false, error: 'Consulta da audiência indisponível.' };
+      }
+      if (pool.length === 0) {
+        notify('Não há cidadãos que tenham trocado contacto com esta instituição. Indique o(s) B.I. no campo Destinatário. Nada foi enviado.', 'warning');
+        return { ok: false, error: 'Audiência vazia.' };
+      }
+      let okDif = 0;
+      const falhadosDif: string[] = [];
+      const protocolosDif: string[] = [];
+      let protocoloDif: DigitalProtocol | undefined;
+      const resultadosDif = await Promise.all(pool.map((dest) =>
+        executeOfficialSend({
+          to: dest,
+          body,
+          subject: rawSubject,
+          attachments,
+          ...(composeData.dataExpiracao ? { dataExpiracao: composeData.dataExpiracao } : {}),
+          silencioso: true,
+        }).then((res) => ({ dest, res })),
+      ));
+      for (const { dest, res } of resultadosDif) {
+        if (res.ok) {
+          okDif += 1;
+          if (res.protocol) {
+            protocolosDif.push(res.protocol.protocolNumber);
+            protocoloDif = protocoloDif || res.protocol;
+          }
+        } else falhadosDif.push(dest);
+      }
+      setIsComposing(false);
+      setComposeData({ to: '', subject: '', body: '', attachments: [], toArray: [] });
+      addAuditLog(`Difusão «Todos» (${codigoDifusao}): ${okDif}/${pool.length} cidadão(s) com contacto prévio servido(s)${falhadosDif.length ? ` — falharam: ${falhadosDif.join(', ')}` : ''}${protocolosDif.length ? ` — 1.º protocolo: ${protocolosDif[0]}` : ''}.`, okDif === pool.length ? 'info' : 'warning');
+      if (protocoloDif) {
+        setSuccessProtocolModal({
+          protocolNumber: protocoloDif.protocolNumber,
+          org: `Difusão «Todos»: ${okDif} cidadão(s) com contacto prévio`,
+          subject: (rawSubject || '').trim() || body.trim().replace(/\s+/g, ' ').slice(0, 60).trim() || '(sem assunto)',
+          digitalSignature: protocoloDif.digitalSignature,
+          documentHash: protocoloDif.documentHash,
+          officialIssueDate: protocoloDif.officialIssueDate || new Date().toLocaleDateString('pt-PT'),
+          officialTime: protocoloDif.officialTime || new Date().toLocaleTimeString('pt-PT').substring(0, 5),
+        });
+      }
+      notify(
+        okDif === pool.length
+          ? `Correspondência distribuída a ${okDif} cidadão(s) com contacto prévio com esta instituição.`
+          : `Difusão «Todos»: ${okDif}/${pool.length} entregue(s)${falhadosDif.length ? ` — sem entrega para: ${falhadosDif.join(', ')}` : ''}.`,
+        okDif === pool.length ? 'success' : 'warning',
+      );
+      return { ok: okDif > 0, error: falhadosDif.length ? `Falhou para: ${falhadosDif.join(', ')}` : undefined };
+    }
     // P0-B — anti void-delivery (decisão §0.1 do dono: BLOQUEAR): destinatário
     // com formato de código institucional TEM de constar (aprovado) do registo
     // oficial. Falha de infra (errorCode) NÃO bloqueia — o registo volta a

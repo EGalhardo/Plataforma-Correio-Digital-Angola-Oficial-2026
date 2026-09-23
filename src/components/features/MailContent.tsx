@@ -682,6 +682,10 @@ export function MailContent({
   const normalizedDestBi = composeData.to.trim().toUpperCase();
   const lookupVisible =
     !!isInst &&
+    // 2026-09-22 — destinatário «Todos» (difusão pelo âmbito de contactos
+    // prévios): não é um B.I. — o cartão «cidadão não registado» seria
+    // enganador; o envio de texto simples segue pela pipeline de difusão.
+    normalizedDestBi !== 'TODOS' &&
     !!recipientLookup &&
     recipientLookup.status !== 'idle' &&
     recipientLookup.lookedUpBi === normalizedDestBi;
