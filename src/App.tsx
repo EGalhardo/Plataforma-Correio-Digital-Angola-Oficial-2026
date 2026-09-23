@@ -140,7 +140,7 @@ import { resolveStorageUrl } from './lib/secureStorage';
 import { notify } from './lib/notify';
 import { isProfileEditActive } from './lib/profileEditGuard';
 import { useSession, getModePathPrefix } from './services/sessionStore';
-import { computeFaceSignature, computeFaceSignatureAsync, compareFaceSignatures, listDeviceFaceTemplates, faceModeLabel, makeSimulatedSignature } from './services/faceAuth';
+import { computeFaceSignature, computeFaceSignatureAsync, compareFaceSignatures, listDeviceFaceTemplates, faceModeLabel, makeSimulatedSignature, buildFaceMatchPool } from './services/faceAuth';
 import { VideoSessionService } from './services/videoSessionService';
 import { useLanguage } from './hooks/useLanguage';
 import { startImagePreloading, subscribeToPreload } from './utils/imagePreloader';
@@ -7091,14 +7091,21 @@ Ficha civil do titular:
       const demoIdAlvo = (DEMO_CREDENTIALS[appMode]?.identifier || '').toUpperCase().replace(/\s+/g, '');
       let deviceFaces: ReturnType<typeof listDeviceFaceTemplates> = [];
       try { deviceFaces = listDeviceFaceTemplates(); } catch { deviceFaces = []; }
-      let stored: ReturnType<typeof readStoredDemoFace> = readStoredDemoFace();
-      if (!stored && normTyped && normTyped !== demoIdAlvo) {
-        const porId = deviceFaces.find(f => f.identifier === normTyped);
-        if (porId) stored = porId.template;
-      }
-      const pool: { mode: string; identifier: string; template: ReturnType<typeof readStoredDemoFace> }[] = stored
-        ? [{ mode: appMode, identifier: normTyped || '', template: stored }]
-        : deviceFaces.map(f => ({ mode: f.mode, identifier: f.identifier, template: f.template }));
+      // v37.78.44 — BUG DO DONO: «depois de entrar com OUTRA conta, o login facial
+      // deixa de funcionar». Antes, quando a chave exacta (área + identidade em
+      // memória — tipicamente a ÚLTIMA conta usada, ou a identidade demo implícita)
+      // tinha template, o rosto era comparado APENAS contra essa conta: a outra
+      // conta com face registada ficava inacessível («Rosto não reconhecido»).
+      // Agora a coerência é feita contra TODAS as matrizes do dispositivo
+      // (como no caminho «entrar só com o rosto»); a candidata da identidade
+      // em memória fica apenas em primeiro na ordem de tentativa (mesma UX),
+      // sem excluir as restantes (lógica pura em faceAuth.buildFaceMatchPool). A
+      // segurança mantém-se: a face tem de bater o limiar com ALGUM registo local.
+      const pool: { mode: string; identifier: string; template: ReturnType<typeof readStoredDemoFace> }[] =
+        buildFaceMatchPool(
+          deviceFaces.map(f => ({ mode: f.mode, identifier: f.identifier, template: f.template })),
+          normTyped || demoIdAlvo,
+        );
       setDeviceFaceCount(deviceFaces.length);
 
       setFaceCaptureHint(pool.length === 1
