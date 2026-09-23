@@ -236,9 +236,9 @@ export async function startImagePreloading(): Promise<void> {
         try {
           await preloadSingleImage(url, isWebpSupported);
           currentStats.progress.loaded += 1;
-        } catch (err) {
+        } catch (err: any) {
           currentStats.progress.failed += 1;
-          const msg = err.message || Error(err).message;
+          const msg = err instanceof Error ? err.message : String(err || 'Erro desconhecido ao carregar imagem');
           currentStats.errors.push(msg);
           console.error(`[ImagePreloader] Internal error preloading ${url}: ${msg}`);
         } finally {

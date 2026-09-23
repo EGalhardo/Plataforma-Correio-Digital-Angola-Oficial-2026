@@ -55,6 +55,18 @@ if (apiKey) {
   }
 }
 
+const getRuntimeFlags = () => ({
+  local_bootstrap: (process.env.VITE_ENABLE_LOCAL_BOOTSTRAP || 'true') !== 'false',
+  mock_fallback: (process.env.VITE_ENABLE_MOCK_FALLBACK || 'false') !== 'false',
+  supabase_auto_seed: (process.env.VITE_ENABLE_SUPABASE_AUTO_SEED || 'false') === 'true',
+});
+
+// ==========================================================================
+// WebRTC Real-Time Signaling Hub (Low-latency multi-device signaling)
+// ==========================================================================
+const webrtcRoomMessages = new Map<string, Array<{ id: number; sender: string; timestamp: number; payload: any }>>();
+let webrtcMsgCounter = 0;
+
 // Limpa caracteres especiais/markdown das respostas da IA (2026-08-18).
 // Remove # * _ ` ~ > e formatação markdown, preservando pontuação, números,
 // acentos e termos úteis (Kz, %, etc.). Aplicada a TODAS as respostas IA.
@@ -1638,7 +1650,141 @@ export default async function handler(req: any, res: any) {
         supabase_url_configured: !!(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL),
         supabase_anon_configured: !!(process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY),
         supabase_service_role_configured: !!(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY),
+        runtime_flags: getRuntimeFlags(),
       });
+    }
+
+    // WebRTC Real-Time Signaling Hub (Mirror de server.ts)
+    if (url.includes('/api/webrtc/signal') && method === 'POST') {
+      try {
+        const { room, sender, type, payload } = body || {};
+        if (!room || !sender) {
+          return res.status(400).json({ error: 'room and sender are required' });
+        }
+        const cleanRoom = String(room).replace(/[^a-zA-Z0-9\-_]/g, '');
+        const dataPayload = payload || body;
+        const msg = {
+          id: ++webrtcMsgCounter,
+          sender: String(sender),
+          timestamp: Date.now(),
+          payload: { ...dataPayload, type: type || dataPayload.type, sender, room: cleanRoom },
+        };
+        let list = webrtcRoomMessages.get(cleanRoom);
+        if (!list) {
+          list = [];
+          webrtcRoomMessages.set(cleanRoom, list);
+        }
+        list.push(msg);
+        if (list.length > 100) {
+          list.splice(0, list.length - 100);
+        }
+        return res.status(200).json({ ok: true, id: msg.id });
+      } catch (err: any) {
+        return res.status(500).json({ error: err?.message || 'Signal failed' });
+      }
+    }
+
+    if (url.includes('/api/webrtc/poll') && method === 'GET') {
+      try {
+        const parsedUrl = new URL(url, 'http://localhost');
+        const room = String(parsedUrl.searchParams.get('room') || req.query?.room || '').replace(/[^a-zA-Z0-9\-_]/g, '');
+        const sender = String(parsedUrl.searchParams.get('sender') || req.query?.sender || '');
+        const since = Number(parsedUrl.searchParams.get('since') || req.query?.since || 0);
+
+        if (!room) {
+          return res.status(400).json({ error: 'room parameter required' });
+        }
+
+        const list = webrtcRoomMessages.get(room) || [];
+        const messages = list
+          .filter(m => m.id > since && m.sender !== sender)
+          .map(m => m.payload);
+
+        const latestId = list.length > 0 ? list[list.length - 1].id : since;
+        return res.status(200).json({ ok: true, latestId, messages });
+      } catch (err: any) {
+        return res.status(500).json({ error: err?.message || 'Poll failed' });
+      }
+    }
+
+    // QA-SEC-002: Endpoint /api/security/readiness (Mirror de server.ts)
+    if (url.includes('/api/security/readiness') && method === 'GET') {
+      try {
+        const tokR = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+        const chaveOpsR = (process.env.READINESS_TOKEN || '').trim();
+        let autorizadoReadiness = false;
+        if (tokR && chaveOpsR && tokR === chaveOpsR) autorizadoReadiness = true;
+        const supaUrlR = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+        const serviceKeyR = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+        if (!autorizadoReadiness && tokR && supaUrlR && serviceKeyR) {
+          try {
+            const identR = await dadosResolverIdentidade(supaUrlR, serviceKeyR, tokR);
+            autorizadoReadiness = !('erro' in identR) && !!identR.isAdmin;
+          } catch { autorizadoReadiness = false; }
+        }
+        if (!autorizadoReadiness) {
+          return res.status(403).json({ ok: false, erro: 'Diagnóstico restrito à Administração/operação.' });
+        }
+        const runtimeFlags = getRuntimeFlags();
+        const blockers: string[] = [];
+        const warnings: string[] = [];
+        const tableHealth: Record<string, { ok: boolean; count?: number; error?: string }> = {};
+
+        if (!serviceKeyR) {
+          warnings.push('SUPABASE_SERVICE_ROLE_KEY não configurada para operações administrativas.');
+        }
+        if (runtimeFlags.mock_fallback) {
+          blockers.push('VITE_ENABLE_MOCK_FALLBACK=true — desativar antes de produção.');
+        }
+        if (runtimeFlags.supabase_auto_seed) {
+          blockers.push('VITE_ENABLE_SUPABASE_AUTO_SEED=true — desativar antes de produção.');
+        }
+        if (runtimeFlags.local_bootstrap) {
+          warnings.push('VITE_ENABLE_LOCAL_BOOTSTRAP=true — confirmar estratégia offline antes de produção.');
+        }
+
+        if (!supaUrlR || !serviceKeyR) {
+          blockers.push('Credenciais do Supabase não configuradas no servidor.');
+        } else {
+          const tables = ['profiles','messages','message_state_history','documents','contacts','notifications','user_requests','document_requests','audit_logs','digital_protocols'];
+          for (const table of tables) {
+            try {
+              const rTb = await fetch(`${supaUrlR}/rest/v1/${table}?select=*&limit=0`, {
+                headers: {
+                  apikey: serviceKeyR,
+                  Authorization: `Bearer ${serviceKeyR}`,
+                  'Range-Unit': 'items',
+                  Prefer: 'count=exact',
+                },
+              });
+              if (!rTb.ok) {
+                const errTxt = await rTb.text();
+                tableHealth[table] = { ok: false, error: errTxt.slice(0, 100) };
+                blockers.push(`Tabela indisponível: ${table} (${errTxt.slice(0, 80)})`);
+              } else {
+                const cr = rTb.headers.get('content-range');
+                const mCr = cr ? cr.match(/\/(\d+)/) : null;
+                const count = mCr ? parseInt(mCr[1], 10) : undefined;
+                tableHealth[table] = { ok: true, count };
+              }
+            } catch (e: any) {
+              tableHealth[table] = { ok: false, error: e?.message || String(e) };
+              blockers.push(`Tabela indisponível: ${table} (${e?.message || e})`);
+            }
+          }
+        }
+
+        return res.status(200).json({
+          status: blockers.length === 0 ? 'production-candidate' : 'not-ready',
+          blockers,
+          warnings,
+          runtime_flags: runtimeFlags,
+          table_health: tableHealth,
+        });
+      } catch (err: any) {
+        console.error('error in /api/security/readiness:', err);
+        return res.status(500).json({ error: err?.message || 'Erro ao verificar prontidão de segurança.' });
+      }
     }
 
     // 2. Endpoint /api/translate (TRADUÇÃO DINÂMICA DE ECRÃS POR IA)

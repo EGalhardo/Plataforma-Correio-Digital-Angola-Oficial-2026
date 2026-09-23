@@ -91,7 +91,11 @@ export const InstitutionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           const filtered = migrated.filter(inst => !demoIds.has(inst.id));
           if (JSON.stringify(filtered) !== JSON.stringify(migrated)) {
             // Guarda a versão migrada no localStorage
-            setTimeout(() => localStorage.setItem("correio_digital_institutions", JSON.stringify(filtered)), 0);
+            setTimeout(() => {
+              try {
+                localStorage.setItem("correio_digital_institutions", JSON.stringify(filtered));
+              } catch { /* noop */ }
+            }, 0);
           }
           return filtered;
         }
