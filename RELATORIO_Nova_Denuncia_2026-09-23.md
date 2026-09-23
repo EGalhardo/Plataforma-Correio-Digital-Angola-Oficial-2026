@@ -26,7 +26,9 @@ A discriminação entre famílias é feita pelo assunto normalizado (NFD + strip
 | `src/services/supabaseService.ts` | **anonimato das duas famílias**: mensagem da nova fila chega à instituição com `sender_bi`/`sender` mascarados («Remetente: Anónimo», «Cidadão: Anónimo», «CIDADÃO: ANÓNIMO»). |
 | `src/App.tsx` | tab `'nova-denuncia'` no conjunto de tabs livres; `case 'nova-denuncia'` recicla `ListaParticipacaoContent`; envio com fase automática e notificação diferenciadas por família. |
 | `src/components/features/HomeContent.tsx` | 5.º atalho «Denuncia» (ícone `Flag`) **entre «Ocorrência(s)» e «Livro de Reclamações»** — cidadão e instituição; grelha `xl:grid-cols-5`. |
-| `src/components/features/ListaParticipacaoContent.tsx` | tipo `'nova-denuncia'`: título «Denuncia», ícone `Flag`, subtítulos/pesquisa/botão «Criar Denuncia»/contagem/vazio na grafia sem acento. |
+| `src/components/features/ListaParticipacaoContent.tsx` | tipo `'nova-denuncia'`: título «Denuncia», **imagem oficial «Denuncia.jpg» no cabeçalho** (`https://i.postimg.cc/Qx88Q30h/Denuncia.jpg`), subtítulos/pesquisa/botão «Criar Denuncia»/contagem/vazio na grafia sem acento. |
+| `src/config/institutionLogos.ts` | catálogo inclui entradas `'Denuncia'` / `'Denúncia'` apontando para a logomarca oficial. |
+| `src/utils/imagePreloader.ts` | pré-carregamento imediato das imagens oficiais da Denuncia e da ANIESA (0ms layout shift). |
 | `src/components/features/MailContent.tsx` | `ModalidadeEnvio` +`'nova-denuncia'`; opção **«Denuncia»** no popup «Enviar Mensagem» (`#btn-modal-opcao-denuncia`) — **Cidadão E Instituição** (decisão do dono); `escolherModalidadeEnvio` prefixa `[REGISTO DE DENÚNCIA]` quando escolhida. |
 | `src/components/features/MessageDetail.tsx` | cronograma `CronogramaDenuncia` activo para **qualquer** família (`ehAssuntoQualquerDenuncia`). |
 | `src/components/features/AIChatAssistant.tsx` | rótulo «Denuncia» nos mapas de contexto dos dois painéis. |

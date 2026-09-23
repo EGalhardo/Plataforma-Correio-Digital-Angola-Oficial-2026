@@ -38,6 +38,8 @@ export const INSTITUTION_LOGOS: Record<string, string> = {
   'Registo Civil': 'https://i.postimg.cc/w3hWyTd2/Administracao.jpg',
   'Seguro Social': 'https://i.postimg.cc/sM2KNYGw/Seguranca-Social.jpg',
   'INE': 'https://i.postimg.cc/CzScjThF/INE.jpg',
+  'Denuncia': 'https://i.postimg.cc/Qx88Q30h/Denuncia.jpg',
+  'Denúncia': 'https://i.postimg.cc/Qx88Q30h/Denuncia.jpg',
 };
 
 /**

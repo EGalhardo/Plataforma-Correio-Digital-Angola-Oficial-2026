@@ -50,10 +50,11 @@ export function ListaParticipacaoContent({tipo, isInst, messages, notifications 
   return <section className="space-y-4 md:space-y-6" aria-label={t(titulo)}>
     <header className="flex flex-wrap items-center gap-3">
       <BotaoVoltar onClick={onBack}/>
-      {inqueritos || novaDenuncia
+      {inqueritos
         ? <span className="p-3 rounded-2xl bg-primary/10 text-primary"><Icon size={24}/></span>
         : <span className="p-2 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
-            <img src="https://i.postimg.cc/y8j1d36z/ANIESA-2.jpg" alt="ANIESA" loading="lazy"
+            <img src={novaDenuncia ? "https://i.postimg.cc/Qx88Q30h/Denuncia.jpg" : "https://i.postimg.cc/y8j1d36z/ANIESA-2.jpg"}
+                 alt={novaDenuncia ? "Denuncia" : "ANIESA"} loading="lazy"
                  className="h-[72px] w-[72px] md:h-[88px] md:w-[88px] object-contain rounded-xl" />
           </span>}
       <div className={inqueritos ? "min-w-0" : "flex-1 min-w-0"}><h2 className="text-xl md:text-2xl font-black text-primary">{t(titulo)}</h2>

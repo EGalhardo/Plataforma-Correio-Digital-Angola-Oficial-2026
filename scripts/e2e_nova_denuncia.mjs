@@ -26,6 +26,9 @@ if (!BI_A || !PASS || !INST || !ORG) {
 const env = { SUPABASE_URL: SUPA_URL, SUPABASE_SERVICE_ROLE_KEY: SR };
 const H = { apikey: SR, Authorization: `Bearer ${SR}`, 'Content-Type': 'application/json' };
 const BARE = { apikey: SR, Authorization: `Bearer ${SR}` };
+const TOKEN = `QA-NOVA-DEN-${Date.now().toString().slice(-6)}`;
+const ASSUNTO = `Fiscalização comunitária ${TOKEN}`;
+const PREFIXO_NOVO = '[REGISTO DE DENÚNCIA]';
 
 // artefactos opcionais (screenshots/log): só com QA_OUT_DIR definido
 const OUT = (process.env.QA_OUT_DIR || '').trim();

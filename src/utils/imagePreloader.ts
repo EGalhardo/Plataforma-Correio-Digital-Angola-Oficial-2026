@@ -75,6 +75,8 @@ export function getAdvertisingImageUrls(): string[] {
   urls.add("https://i.postimg.cc/Rq5TKbdk/Correio-Digital-Angola.png");
   urls.add("https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png");
   urls.add("https://i.postimg.cc/4x1mS4hQ/AGT.jpg");
+  urls.add("https://i.postimg.cc/Qx88Q30h/Denuncia.jpg");
+  urls.add("https://i.postimg.cc/y8j1d36z/ANIESA-2.jpg");
 
   // Use optional chaining and type assertions to safe-guard against structure variations
   const addUrl = (url: unknown) => {
