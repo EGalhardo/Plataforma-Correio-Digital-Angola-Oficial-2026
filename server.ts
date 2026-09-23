@@ -1017,6 +1017,12 @@ const DENUNCIA_FASES: ReadonlyArray<{ id: DenunciaFase; ordem: number; rotulo: s
 const denunciaDefinicaoFase = (id: string) => DENUNCIA_FASES.find((f) => f.id === id) || null;
 const denunciaEhAssuntoDenuncia = (assunto: string | null | undefined) =>
   String(assunto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim().startsWith('[DENUNCIA]');
+// 2026-09-23 (T-v37.79) — nova fila «Denuncia» (marca «[REGISTO DE DENÚNCIA]»):
+// mesma máquina do Livro de Reclamações; grafia sem acento = nova fila nas notificações.
+const denunciaEhAssuntoNovaDenuncia = (assunto: string | null | undefined) =>
+  String(assunto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim().startsWith('[REGISTO DE DENUNCIA]');
+const denunciaEhAssuntoQualquerDenuncia = (assunto: string | null | undefined) =>
+  denunciaEhAssuntoDenuncia(assunto) || denunciaEhAssuntoNovaDenuncia(assunto);
 const denunciaFaseDeEstado = (state: string | null | undefined): DenunciaFase | null => {
   const s = String(state || '');
   if (!s.startsWith('DENUNCIA:')) return null;
@@ -1093,7 +1099,8 @@ async function denunciaActivarFase(opts: {
   const rows = rm.ok ? await rm.json().catch(() => []) : [];
   const row = Array.isArray(rows) && rows[0] ? rows[0] : null;
   if (!row) return { status: 404, json: { ok: false, erro: 'Correspondência não encontrada.' } };
-  if (!denunciaEhAssuntoDenuncia(row.subject)) return { status: 400, json: { ok: false, erro: 'Esta correspondência não é uma denúncia.' } };
+  const ehNovaFila = denunciaEhAssuntoNovaDenuncia(row.subject);
+  if (!denunciaEhAssuntoQualquerDenuncia(row.subject)) return { status: 400, json: { ok: false, erro: 'Esta correspondência não é uma denúncia nem denuncia.' } };
   const minha = denunciaCodigoInstituicaoBase(ident.instCode || ident.bi || agente);
   const dest = denunciaCodigoInstituicaoBase(row.recipient_bi);
   if (!minha || minha !== dest) return { status: 403, json: { ok: false, erro: 'Esta denúncia não foi dirigida à sua instituição.' } };
@@ -1126,8 +1133,8 @@ async function denunciaActivarFase(opts: {
       method: 'POST', headers: { ...H, Prefer: 'return=minimal' },
       body: JSON.stringify([{
         target_bi: String(row.sender_bi || '').toUpperCase(),
-        title: `Denúncia — ${def.rotulo}`,
-        message: `${def.notificacao} (${String(row.subject || '').replace(/^\[[^\]]*\]\s*/, '').slice(0, 80) || 'sem assunto'})`,
+        title: ehNovaFila ? `Denuncia — ${def.rotulo}` : `Denúncia — ${def.rotulo}`,
+        message: `${ehNovaFila ? def.notificacao.replace(/[Dd]enúncia/g, (m) => m === 'Denúncia' ? 'Denuncia' : 'denuncia') : def.notificacao} (${String(row.subject || '').replace(/^\[[^\]]*\]\s*/, '').slice(0, 80) || 'sem assunto'})`,
         time_text: 'Agora', type: def.id === 'encerrada' ? 'success' : 'info', target_tab: 'correspondencias',
       }]),
     });

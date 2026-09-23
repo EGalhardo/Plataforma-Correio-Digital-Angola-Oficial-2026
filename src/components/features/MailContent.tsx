@@ -49,7 +49,7 @@ import {
   ListOrdered,
   Info,
   CalendarClock,
-  Ban,
+  Ban, Flag,
   ChevronRight
 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
@@ -237,7 +237,9 @@ export function MailContent({
   // Emergência». Clicar numa opção avança de imediato; «Ok» avança com a opção
   // realçada (a primeira, por defeito). A denúncia segue o envio normal com o
   // assunto prefixado — a revisão e o comprovativo mostram a etiqueta.
-  type ModalidadeEnvio = 'normal' | 'emergencia' | 'denuncia';
+  // 2026-09-23 (T-v37.79) — 'nova-denuncia': opção «Denuncia» pedida pelo dono
+  // (fluxo idêntico à Reclamação/Denúncia mas com marca própria no assunto).
+  type ModalidadeEnvio = 'normal' | 'emergencia' | 'denuncia' | 'nova-denuncia';
   const [modalidadeRealcada, setModalidadeRealcada] = useState<ModalidadeEnvio>('normal');
   // S6-camada-IA — revisao de clareza OPCIONAL (fail-safe: falha da IA nunca
   // bloqueia o envio; o utilizador decide se usa a versão melhorada)
@@ -536,7 +538,9 @@ export function MailContent({
   };
 
   const PREFIXO_DENUNCIA = '[DENÚNCIA]';
+  const PREFIXO_NOVA_DENUNCIA = '[REGISTO DE DENÚNCIA]'; // 2026-09-23 (T-v37.79) — marca da nova fila «Denuncia» (mesma do denunciaCore)
   const ehDenuncia = (composeData.subject || '').trim().toUpperCase().startsWith(PREFIXO_DENUNCIA);
+  const ehNovaDenuncia = (composeData.subject || '').trim().toUpperCase().startsWith(PREFIXO_NOVA_DENUNCIA);
 
   const abrirPopupEnvio = () => {
     setModalidadeRealcada('normal');
@@ -557,6 +561,14 @@ export function MailContent({
         subject: `${PREFIXO_DENUNCIA} ${(prev.subject || '').trim()}`.trim(),
       }));
     }
+    // 2026-09-23 (T-v37.79) — «Denuncia»: prefixo próprio; se a mensagem já
+    // trouxer uma das marcas, não duplicar.
+    if (m === 'nova-denuncia' && !ehNovaDenuncia && !ehDenuncia) {
+      setComposeData((prev) => ({
+        ...prev,
+        subject: `${PREFIXO_NOVA_DENUNCIA} ${(prev.subject || '').trim()}`.trim(),
+      }));
+    }
     tentarEnviar();
   };
 
@@ -567,6 +579,11 @@ export function MailContent({
     ? [
         { id: 'normal', titulo: 'Mensagem Normal', etiqueta: 'Oficial', Icone: Mail, tom: 'azul', idDom: 'btn-modal-opcao-normal',
           descricao: 'Envio de correspondência digital oficial padronizada para a caixa do destinatário.' },
+        // 2026-09-23 (T-v37.79) — «Denuncia» também para a instituição
+        // (p.ex. comunicação formal a outra instituição; a fase avança do
+        // lado da instituição destinatária, exactamente como no Livro).
+        { id: 'nova-denuncia', titulo: 'Denuncia', etiqueta: 'Formal', Icone: Flag, tom: 'vermelho', idDom: 'btn-modal-opcao-denuncia',
+          descricao: 'Apresentar uma denuncia formal a outra instituição. A mensagem segue marcada como denuncia, com cronograma de tratamento.' },
         { id: 'emergencia', titulo: 'Mensagem de Emergência', etiqueta: 'Prioritário', Icone: ShieldAlert, tom: 'vermelho', idDom: 'btn-modal-opcao-emergencia',
           descricao: 'Alerta de emergência com difusão prioritária para a rede de contactos familiares.' },
       ]
@@ -575,6 +592,10 @@ export function MailContent({
           descricao: 'Envio de correspondência digital oficial padronizada para a caixa do destinatário.' },
         { id: 'denuncia', titulo: 'Reclamação', Icone: Ban, tom: 'cinza', idDom: 'btn-modal-opcao-denunciar',
           descricao: 'Comunicar uma irregularidade, mau atendimento ou conduta suspeita. A mensagem segue marcada como reclamação.' },
+        // 2026-09-23 (T-v37.79) — opção «Denuncia» pedida pelo dono no popup
+        // «Enviar Mensagem» (identificação própria no assunto via prefixo).
+        { id: 'nova-denuncia', titulo: 'Denuncia', etiqueta: 'Formal', Icone: Flag, tom: 'vermelho', idDom: 'btn-modal-opcao-denuncia',
+          descricao: 'Apresentar uma denuncia formal. A mensagem segue marcada como denuncia, com cronograma de tratamento.' },
       ];
 
   const [editorBold, setEditorBold] = useState(false);

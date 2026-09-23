@@ -55,6 +55,30 @@ export function ehAssuntoDenuncia(assunto: string | null | undefined): boolean {
   return NORMALIZAR(assunto || '').startsWith('[DENUNCIA]');
 }
 
+// ============================================================================
+// 2026-09-23 (T-v37.79) — «Denuncia» (nova fila do Painel, Cidadão E
+// Instituição, pedida pelo dono em 2026-09-23): a MESMA máquina do Livro de
+// Reclamações (5 fases no mesmo message_state_history «DENUNCIA:<fase>»,
+// cronograma, anonimato, responsável «-01»), mas com MARCA PRÓPRIA no assunto
+// para cada fila mostrar apenas os seus itens. A grafia sem acento —
+// «Denuncia», exactamente como o dono a escreveu — é também o separador
+// textual das duas famílias em títulos/notificações (acentuada = Livro;
+// sem acento = nova fila), sem mexer em correio já entregue.
+// ============================================================================
+export const PREFIXO_NOVA_DENUNCIA = '[REGISTO DE DENÚNCIA]';
+
+/** Correspondência da nova fila «Denuncia» (assunto «[REGISTO DE DENÚNCIA]»).
+ *  Pós-NORMALIZAR não colide com «[DENÚNCIA]»: o comprimento do token difere. */
+export function ehAssuntoNovaDenuncia(assunto: string | null | undefined): boolean {
+  return NORMALIZAR(assunto || '').startsWith('[REGISTO DE DENUNCIA]');
+}
+
+/** Qualquer família de denúncia (Livro de Reclamações OU nova fila «Denuncia»)
+ *  — usado pelas regras partilhadas (anonimato, cronograma, guarda de agentes). */
+export function ehAssuntoQualquerDenuncia(assunto: string | null | undefined): boolean {
+  return ehAssuntoDenuncia(assunto) || ehAssuntoNovaDenuncia(assunto);
+}
+
 export function definicaoFase(id: string | null | undefined): DefinicaoFase | null {
   return FASES_DENUNCIA.find((f) => f.id === id) || null;
 }

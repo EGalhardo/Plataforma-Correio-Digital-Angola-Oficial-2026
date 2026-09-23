@@ -7,7 +7,7 @@ import { useState, useEffect, useId } from 'react';
 import { ocorrenciasApi } from '../../features/ocorrencias/client';
 import { contarNotificacoesAtalhos, type AtalhoPainel } from '../../utils/notificacoesAtalhos';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, Mail, Video, ClipboardList, MapPin, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, Mail, Video, ClipboardList, MapPin, ShieldAlert, Flag } from 'lucide-react';
 import { HIGHLIGHT_SLIDES, INST_HIGHLIGHT_SLIDES } from '../../constants/data';
 import { Message, LanguageCode, AppNotification } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -219,11 +219,15 @@ export function HomeContent({
         </div>
       </div>
 
-      <nav aria-busy={notificationsLoading} aria-label={t('Atalhos do Painel')} className="grid grid-cols-2 xl:grid-cols-4 auto-rows-fr gap-2 py-1 px-0.5">
+      {/* 2026-09-23 (T-v37.79) — 5.º atalho «Denuncia» entre Ocorrências e o
+           Livro de Reclamações (pedido do dono, Cidadão E Instituição). A grelha
+           passa a 5 colunas em «xl» para manter os cinco na mesma linha. */}
+      <nav aria-busy={notificationsLoading} aria-label={t('Atalhos do Painel')} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 auto-rows-fr gap-2 py-1 px-0.5">
         {[
           { key: 'video-atendimento' as AtalhoPainel, label: 'Vídeo-Atendimento', Icon: Video, action: () => setTab('video-atendimento') },
           { key: 'inqueritos' as AtalhoPainel, label: 'Inquéritos', Icon: ClipboardList, action: () => setTab('inqueritos') },
           { key: 'ocorrencias' as AtalhoPainel, label: isInst ? 'Ocorrências recebidas' : 'Ocorrências Locais', Icon: MapPin, action: () => setTab('ocorrencias') },
+          { key: 'nova-denuncia' as AtalhoPainel, label: 'Denuncia', Icon: Flag, action: () => setTab('nova-denuncia') },
           { key: 'denuncias' as AtalhoPainel, label: 'Livro de Reclamações', Icon: ShieldAlert, action: () => setTab('denuncias') },
         ].map(({ key, label, Icon, action }) => (
           <button

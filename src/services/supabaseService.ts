@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import { ehAssuntoDenuncia, REMETENTE_ANONIMO, codigoInstituicaoBase } from './denunciaCore';
+import { ehAssuntoQualquerDenuncia, REMETENTE_ANONIMO, codigoInstituicaoBase } from './denunciaCore';
 import { Message, Document, Contact, UserRequest, DocRequest, Correspondence, AppNotification, DigitalProtocol, PendingRegistration } from '../types';
 import { generateProtocol } from '../utils/protocolGenerator';
 import { MOCK_CITIZENS, MOCK_USERS, MOCK_SESSION_USER, MOCK_INSTITUTIONS } from '../constants/mocks';
@@ -1782,7 +1782,7 @@ export const supabaseService = {
         id: Number(item.id),
         // 2026-09-12 (T53) — denúncias chegam à instituição como «Anónimo»:
         // o nome/BI do cidadão nunca é exposto no correio institucional.
-        org: ehAssuntoDenuncia(item.subject || item.preview)
+        org: ehAssuntoQualquerDenuncia(item.subject || item.preview)
           ? REMETENTE_ANONIMO
           : profilesByBi.has(item.sender_bi) ? `Cidadão: ${profilesByBi.get(item.sender_bi)}` : `Cidadão: ${item.sender_bi}`,
         preview: item.preview,

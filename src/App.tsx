@@ -88,7 +88,7 @@ import { agruparConversas, conversaDe, resumoDestinatarios } from './utils/conve
 import { PainelConversa } from './components/features/PainelConversa';
 import { contarNotificacoesAtalhos, assuntoChave, normalizarTexto } from './utils/notificacoesAtalhos';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao, listarRegistosPendentes, EVENTO_REGISTOS_ALTERADOS } from './services/supabaseService';
-import { ehAssuntoDenuncia, estadoDeFase, codigoInstituicaoBase } from './services/denunciaCore';
+import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia, ehAssuntoQualquerDenuncia, estadoDeFase, codigoInstituicaoBase } from './services/denunciaCore';
 import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
 import { lerPerfilLocal } from './services/perfilLocalService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
@@ -291,7 +291,7 @@ const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
   user: new Set([
     'home', 'correspondencias', 'contatos', 'contactos', 'perfil', 'historico',
     'notificacoes', 'qr-code',
-    'solicitar-documento', 'video-atendimento', 'inqueritos', 'denuncias', 'ocorrencias',
+    'solicitar-documento', 'video-atendimento', 'inqueritos', 'denuncias', 'nova-denuncia', 'ocorrencias',
     'directorio-orgaos', // UX: deep link do Directório (render existe, faltava o hash)
     // tabs de detalhe — só via fallback (HASH_TAB_FALLBACKS)
     'mensagem', 'documento', 'instituicao',
@@ -300,7 +300,7 @@ const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
     'home', 'correspondencias', 'gov-contatos', 'contatos', 'contactos',
     'inst-qrcode', 'qr-code', 'inst-ai-assistant', 'perfil',
     'solicitar-documento', 'directorio-orgaos', // UX: deep links em falta
-    'ocorrencias', 'inqueritos', 'denuncias', 'sondagens', // v36 — lista/resultados de sondagens da instituição
+    'ocorrencias', 'inqueritos', 'denuncias', 'nova-denuncia', 'sondagens', // v36 — lista/resultados de sondagens da instituição
     'historico', 'notificacoes', 'documentos', 'video-atendimento', 'inst-video',
     'mensagem', 'documento', 'instituicao',
   ]),
@@ -1681,7 +1681,7 @@ export default function App() {
   const paginasMenuKey = paginasMenu ? paginasMenu.join('|') : '';
   // Navegação/tabs que nunca são "páginas" — detalhes e sobreposições
   // (mensagem aberta, documento, notificações, histórico…) ficam livres.
-  const TAB_PAGINAS_LIVRES = new Set(['ocorrencias', 'inqueritos', 'denuncias', 'mensagem', 'documento', 'notificacoes', 'historico', 'video-atendimento']);
+  const TAB_PAGINAS_LIVRES = new Set(['ocorrencias', 'inqueritos', 'denuncias', 'nova-denuncia', 'mensagem', 'documento', 'notificacoes', 'historico', 'video-atendimento']);
   void instIdentity; // consumida pela F4 (equipa/perfil)
 
   // 2026-09-11 — SETA DE VOLTAR das subpáginas: pilha das páginas visitadas
@@ -4135,7 +4135,7 @@ export default function App() {
         : instInbox.filter(m => (isOwnHomologationMail(m) || isInstitutionAddressedMail(m))
             // 2026-09-12 (T53) — denúncias só chegam ao RESPONSÁVEL da plataforma;
             // colaboradores (agentes -02, -03, …) nunca as vêem.
-            && (instIdentity?.type !== 'member' || !ehAssuntoDenuncia(m.details?.subject || m.preview))))
+            && (instIdentity?.type !== 'member' || !ehAssuntoQualquerDenuncia(m.details?.subject || m.preview))))
     : homologationPendingForCitizen
       ? inbox.filter(isOwnHomologationMail)
       : isDemoCitizenSession
@@ -4952,12 +4952,16 @@ export default function App() {
         }),
         // 2026-09-12 (T53) — denúncia do cidadão: a fase «Registada» do
         // cronograma fica activa automaticamente no momento do envio.
-        ...(!isOfficialDispatch && ehAssuntoDenuncia(effectiveSubject)
+        // 2026-09-23 (T-v37.79) — a nova fila «Denuncia» partilha a mesma
+        // máquina de fases; a descrição segue a grafia da família.
+        ...(!isOfficialDispatch && ehAssuntoQualquerDenuncia(effectiveSubject)
           ? [supabaseService.insertMessageStateEvent({
               messageId,
               state: estadoDeFase('registada'),
               responsible: 'Sistema CDA',
-              description: `Denúncia registada na plataforma e dirigida a ${to}. Fase «Registada» activada automaticamente.`,
+              description: ehAssuntoNovaDenuncia(effectiveSubject)
+                ? `Denuncia registada na plataforma e dirigida a ${to}. Fase «Registada» activada automaticamente.`
+                : `Denúncia registada na plataforma e dirigida a ${to}. Fase «Registada» activada automaticamente.`,
             })]
           : []),
         isOfficialDispatch
@@ -4967,10 +4971,17 @@ export default function App() {
               type: 'info',
               targetTab: 'correspondencias'
             }, to)
-          : ehAssuntoDenuncia(effectiveSubject)
+          : ehAssuntoQualquerDenuncia(effectiveSubject)
           // 2026-09-12 (T53) — denúncia: a notificação à instituição NUNCA
           // revela o nome do cidadão (remetente anónimo).
-          ? supabaseService.insertNotification({
+          // 2026-09-23 (T-v37.79) — a nova fila «Denuncia» usa título sem
+          // acento (separador textual das duas famílias na classificação).
+          ? supabaseService.insertNotification(ehAssuntoNovaDenuncia(effectiveSubject) ? {
+              title: 'Nova Denuncia Anónima',
+              message: `Uma denuncia anónima foi registada e aguarda o responsável da plataforma de ${to}.`,
+              type: 'info',
+              targetTab: 'correspondencias'
+            } : {
               title: 'Nova Denúncia Anónima',
               message: `Uma denúncia anónima foi registada e aguarda o responsável da plataforma de ${to}.`,
               type: 'info',
@@ -6305,6 +6316,16 @@ Ficha civil do titular:
           onCreate={isUserMode ? () => { setIsComposing(true); setTab('correspondencias'); } : undefined}
           messages={(isInstMode ? currentInbox : currentSentMessages).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
           onOpen={m => handleSelectMessage(m, isInstMode ? 'recebidas' : 'enviadas', 'denuncias')}
+          onBack={() => setTab('home')} />;
+      // 2026-09-23 (T-v37.79) — «Denuncia»: fila nova pedida pelo dono —
+      // mesmo fluxo do Livro de Reclamações (componente partilhado), ferrada
+      // pela marca própria «[REGISTO DE DENÚNCIA]» no assunto.
+      case 'nova-denuncia':
+        return <ListaParticipacaoContent tipo="nova-denuncia" isInst={isInstMode}
+          notifications={currentNotifications}
+          onCreate={isUserMode ? () => { setIsComposing(true); setTab('correspondencias'); } : undefined}
+          messages={(isInstMode ? currentInbox : currentSentMessages).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
+          onOpen={m => handleSelectMessage(m, isInstMode ? 'recebidas' : 'enviadas', 'nova-denuncia')}
           onBack={() => setTab('home')} />;
       case 'sondagens': // v36 — lista + resultados (spec §5)
         return (

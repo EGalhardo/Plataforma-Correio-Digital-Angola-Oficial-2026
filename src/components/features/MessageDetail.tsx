@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { CdaModal } from '../ui/CdaModal';
 import { CronogramaDenuncia } from './CronogramaDenuncia';
-import { ehAssuntoDenuncia, faseDeEstado, definicaoFase } from '../../services/denunciaCore';
+import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia, ehAssuntoQualquerDenuncia, faseDeEstado, definicaoFase } from '../../services/denunciaCore';
 import { notify } from '../../lib/notify';
 import { responderSondagem, buscarSondagem, resultadosSondagem, type Sondagem } from '../../services/sondagemService';
 import { isStorageRef, resolveStorageUrl, buildStorageRef } from '../../lib/secureStorage';
@@ -320,7 +320,9 @@ export function MessageDetail({
   const [popupSond, setPopupSond] = useState<{ ok: boolean; texto: string } | null>(null);
   // 2026-09-12 (T53) — avisos do cronograma da denúncia (regra/permissão/sucesso).
   const [avisoDenuncia, setAvisoDenuncia] = useState<{ texto: string; tipo: 'success' | 'error' | 'info' } | null>(null);
-  const ehDenunciaActual = ehAssuntoDenuncia(selectedMessage.details?.subject || selectedMessage.preview);
+  // 2026-09-23 (T-v37.79) — «Denuncia» (marca «[REGISTO DE DENÚNCIA]») partilha
+  // o cronograma do Livro de Reclamações: a máquina de fases é a mesma.
+  const ehDenunciaActual = ehAssuntoQualquerDenuncia(selectedMessage.details?.subject || selectedMessage.preview);
   const [registandoSond, setRegistandoSond] = useState(false);
 
   // ---- v37.7 — «Sondagem» contextual da instituição: a opção só existe DENTRO

@@ -168,6 +168,7 @@ const PAGE_FRIENDLY_NAMES: Record<AppMode, Record<string, string>> = {
     inqueritos: "Inquéritos",
     ocorrencias: "Ocorrências Locais",
     denuncias: "Livro de Reclamações",
+    "nova-denuncia": "Denuncia",
     "directorio-orgaos": "Directório de Órgãos"
   },
   institution: {
@@ -185,7 +186,8 @@ const PAGE_FRIENDLY_NAMES: Record<AppMode, Record<string, string>> = {
     inqueritos: "Inquéritos",
     sondagens: "Sondagens",
     ocorrencias: "Ocorrências Recebidas",
-    denuncias: "Livro de Reclamações"
+    denuncias: "Livro de Reclamações",
+    "nova-denuncia": "Denuncia"
   },
   admin: {
     "gov-dashboard": "Painel Nacional",
