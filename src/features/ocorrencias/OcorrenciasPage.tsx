@@ -1253,8 +1253,13 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
         >
           <ArrowLeft size={18} />
         </button>
-        <span className="p-3 bg-primary/10 rounded-2xl text-primary">
-          <MapPin size={24} />
+        <span className="p-2 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+          <img
+            src="https://i.postimg.cc/nrmY1WZL/Ocorrencias-locais-(1).png"
+            alt="Ocorrências Locais"
+            loading="lazy"
+            className="h-[72px] w-[72px] md:h-[88px] md:w-[88px] object-contain rounded-xl"
+          />
         </span>
         <div className="min-w-0 flex-1">
           <h2 className="font-black text-primary text-xl md:text-2xl">

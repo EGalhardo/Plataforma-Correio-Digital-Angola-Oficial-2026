@@ -475,9 +475,14 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
         <div className="flex items-center gap-4">
           <BotaoVoltar onClick={onBack} />
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
-              <Video size={24} />
-            </div>
+            <span className="p-2 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+              <img
+                src="https://i.postimg.cc/4dqQVgDS/Video-Atendimento-(1).png"
+                alt="Video-Atendimento"
+                loading="lazy"
+                className="h-[72px] w-[72px] md:h-[88px] md:w-[88px] object-contain rounded-xl"
+              />
+            </span>
             <div>
               <h3 className="text-lg md:text-2xl font-black text-primary leading-tight">{t("VideoAtendimento")}</h3>
               <p className="text-[10px] md:text-sm text-slate-600 font-black uppercase tracking-widest">

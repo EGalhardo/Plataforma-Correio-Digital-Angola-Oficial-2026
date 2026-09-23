@@ -163,12 +163,19 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
 
   return (
     <div className="space-y-4" data-testid="sondagens-root">
-      <div className="flex flex-wrap items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-3">
         <BotaoVoltar onClick={onBack} />
-        <span className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><BarChart3 size={18} /></span>
-        <div className="min-w-0">
-          <h2 className="font-sans font-black text-[#0c2340] text-base uppercase tracking-tight">{title}</h2>
-          <p className="text-[11px] font-medium text-slate-500">Sondagens e inquéritos com IA criados por {codigoInstituicao} — clique para ver os resultados.</p>
+        <span className="p-2 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+          <img
+            src="https://i.postimg.cc/L4gTRJfp/Inquerito-(1).png"
+            alt="Inquéritos"
+            loading="lazy"
+            className="h-[72px] w-[72px] md:h-[88px] md:w-[88px] object-contain rounded-xl"
+          />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-sans font-black text-[#0c2340] text-xl md:text-2xl tracking-tight">{title}</h2>
+          <p className="text-xs md:text-sm text-slate-500 font-medium">Sondagens e inquéritos com IA criados por {codigoInstituicao} — clique para ver os resultados.</p>
         </div>
       <div role="tablist" aria-label="Tipo de inquérito" data-aba-inquerito={aba}
         className="flex items-end gap-1.5 md:gap-5 border-b border-slate-200 overflow-x-auto custom-scrollbar-h shrink-0">
