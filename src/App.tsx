@@ -3230,7 +3230,7 @@ export default function App() {
 
         if (isInstMode) {
           const mailbox = dbInstMailbox;
-          if (mailbox !== null && isSubscribed) {
+          if (mailbox !== null && isSubscribed && (temSessaoDaNuvem || mailbox.messages.length > 0)) {
             // F9/F14 — marca de destinatária: a conta real só recebe o endereçado
             // AO SEU CÓDIGO (consulta exacta). `legacyIds` = correio do canal por
             // sigla que versões anteriores fundiram indevidamente nesta conta —
@@ -3260,7 +3260,7 @@ export default function App() {
         }
 
         // 3. Documents
-        if (dbDocs !== null) {
+        if (dbDocs !== null && (temSessaoDaNuvem || dbDocs.length > 0)) {
           // F12 — titularidade do documento (sessões reais só vêem os seus).
           const taggedDocs = dbDocs.map(d => ({ ...d, holderBi: bi }));
           // 2026-08-20 — Modo Real: nuvem como fonte única dos documentos.
@@ -3276,7 +3276,7 @@ export default function App() {
         }
 
         // 4. Contacts
-        if (dbContacts !== null) {
+        if (dbContacts !== null && (temSessaoDaNuvem || dbContacts.length > 0)) {
           // F12 — cada contacto fica marcado com o dono da sessão que o fundiu.
           const taggedContacts = dbContacts.map(c => ({ ...c, ownerId: bi }));
           if (!isDemoSession) {
@@ -3291,7 +3291,7 @@ export default function App() {
         }
 
         // 5. User requests
-        if (dbUserRequests !== null) {
+        if (dbUserRequests !== null && (temSessaoDaNuvem || dbUserRequests.length > 0)) {
           if (!isDemoSession) {
             setUserRequests(dbUserRequests);
           } else {
@@ -3304,7 +3304,7 @@ export default function App() {
         }
 
         // 6. Doc Requests
-        if (dbDocRequests !== null) {
+        if (dbDocRequests !== null && (temSessaoDaNuvem || dbDocRequests.length > 0)) {
           if (!isDemoSession) {
             setDocRequests(dbDocRequests);
           } else {
@@ -3317,7 +3317,7 @@ export default function App() {
         }
 
         // 7. Notifications
-        if (dbNotifs !== null) {
+        if (dbNotifs !== null && (temSessaoDaNuvem || dbNotifs.length > 0)) {
           // 2026-09-12 (T55) — AVISO ACTIVO de notificações novas: as linhas
           // vindas da nuvem que ainda não tinham sido vistas nesta sessão
           // (ex.: «Denúncia — Em análise» activada pela instituição) disparam
@@ -3334,7 +3334,13 @@ export default function App() {
             }
           } catch { /* aviso é melhor-esforço */ }
           if (!isDemoSession) {
-            setNotifications(dbNotifs);
+            // 2026-09-23 (PISCA/Auditoria) — preserva notificações locais geradas nesta sessão
+            // (ex.: auditoria 990990 ou eventos de sistema) que ainda não estejam na nuvem.
+            setNotifications(prevLocal => {
+              const dbIds = new Set(dbNotifs.map(n => n.id));
+              const localOnly = prevLocal.filter(n => !dbIds.has(n.id) && (n.id >= 900000 || n.ownerId === sessionOwnerKey));
+              return [...dbNotifs, ...localOnly];
+            });
           } else {
             setNotifications(prevLocal => {
               const dbIds = new Set(dbNotifs.map(n => n.id));

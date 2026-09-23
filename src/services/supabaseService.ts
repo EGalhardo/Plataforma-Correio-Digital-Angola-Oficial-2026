@@ -838,7 +838,16 @@ export const lerLinhasDados = async <T,>(
   extra?: ExtrasLeitura,
 ): Promise<T[] | null> => {
   const token = await obterTokenSessao();
-  if (!token) return direto();
+  if (!token) {
+    // 2026-09-23 (PISCA / Falso Vazio) — tabelas com leitura pública ou ambiente
+    // sem chaves (demo/dev local) usam o caminho directo.
+    if (tabela === 'solicitacoes_registo' || !hasValidSupabaseKeys()) return direto();
+    // Para tabelas privadas em ambiente com Supabase, sem token de sessão o SELECT
+    // directo anónimo é bloqueado pelo RLS e devolve [] como sucesso (falso vazio),
+    // o que apagava do ecrã os dados existentes. Devolver null sinaliza leitura
+    // indisponível e preserva com segurança o último estado bom.
+    return null;
+  }
   const r = await proxyDados({
     tabela, operacao: 'select', filtros: filtros || {}, ordem,
     limite: extra?.limite ?? 2000,
