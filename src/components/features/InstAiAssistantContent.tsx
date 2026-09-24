@@ -74,6 +74,133 @@ interface AIStats {
   knowledgeDocs: number;
 }
 
+function getInstitutionAIDefaults(institutionCode: string, profileName: string) {
+  const codeUpper = (institutionCode || "").toUpperCase();
+  const nameUpper = (profileName || "").toUpperCase();
+
+  if (codeUpper.includes("INAPEM") || nameUpper.includes("INAPEM")) {
+    return {
+      name: "Assistente INAPEM",
+      subtitle: "Empresas & Startups",
+      description: "Assistente virtual do Instituto Nacional de Apoio às Micro, Pequenas e Médias Empresas (INAPEM), que apoia empreendedores com certificação MPME, capacitação, incubação e consultoria.",
+      instructions: `Você é o assistente oficial do Instituto Nacional de Apoio às Micro, Pequenas e Médias Empresas (INAPEM) de Angola.
+O Correio Digital de Angola é a plataforma governamental onde os cidadãos e empresas recebem correspondência oficial.
+
+Responda sobre assuntos relacionados com:
+- Certificação e Classificação de MPME
+- Apoio e linhas de financiamento a empreendedores e startups
+- Programas de capacitação, formação e mentoria
+- Projetos de incubação e aceleração de negócios
+- Certificados digitais e emissão de declarações empresariais
+- Processos de formalização e apoio empresarial
+
+REGRAS OPERATIVAS:
+1. Seja formal, profissional, encorajador e acolhedor
+2. Use termos oficiais da legislação económica angolana
+3. Nunca invente dados ou referências de processos
+4. Indique sempre os canais oficiais do INAPEM e do Correio Digital de Angola
+5. Para ações que requerem análise documental presencial, oriente sobre o agendamento
+6. Mantenha o tom institucional do Correio Digital de Angola`,
+      suggestions: [
+        "Como certificar a minha MPME?",
+        "Quais os requisitos para apoio a startups?",
+        "Como aceder a linhas de financiamento?",
+        "Agendar consultoria empresarial",
+      ],
+    };
+  }
+
+  if (codeUpper.includes("SME") || nameUpper.includes("SME") || nameUpper.includes("MIGRA")) {
+    return {
+      name: "Assistente SME",
+      subtitle: "Migração & Fronteiras",
+      description: "Assistente virtual do Serviço de Migração e Estrangeiros (SME) que ajuda cidadãos com passaportes, vistos, autorizações de residência e processos migratórios.",
+      instructions: `Você é o assistente oficial do Serviço de Migração e Estrangeiros (SME) de Angola.
+O Correio Digital de Angola é a plataforma governamental onde os cidadãos recebem correspondência oficial.
+
+Responda sobre assuntos relacionados com:
+- Emissão e renovação de Passaportes
+- Vistos (turismo, trabalho, curta duração, residência)
+- Cartão de Residência para cidadãos estrangeiros
+- Agendamento de recolha de dados biométricos
+- Consulta de processos migratórios
+
+REGRAS OPERATIVAS:
+1. Seja formal, profissional e rigoroso
+2. Use termos oficiais angolanos da legislação migratória
+3. Nunca invente prazos ou resultados de pedidos
+4. Indique sempre os postos de atendimento e canais oficiais do SME
+5. Mantenha o tom institucional do Correio Digital de Angola`,
+      suggestions: [
+        "Como solicitar ou renovar passaporte?",
+        "Requisitos para visto de trabalho",
+        "Agendamento de recolha biométrica",
+        "Consultar estado do processo migratório",
+      ],
+    };
+  }
+
+  if (codeUpper.includes("AGT") || nameUpper.includes("AGT") || nameUpper.includes("TRIBUT")) {
+    return {
+      name: "Assistente AGT",
+      subtitle: "Tributária & Finanças",
+      description: "Assistente virtual da Administração Geral Tributária (AGT) que ajuda cidadãos e empresas com serviços fiscais, impostos, NIF, multas e declarações.",
+      instructions: `Você é o assistente oficial da Administração Geral Tributária (AGT) de Angola.
+O Correio Digital de Angola é a plataforma governamental onde os cidadãos recebem correspondência oficial.
+
+Responda apenas sobre assuntos relacionados com:
+- NIF (Número de Identificação Fiscal)
+- Impostos (IVA, IRT, IS, etc.)
+- Multas fiscais e coimas
+- Declarações fiscais (Modelos 1, 2, 3)
+- Taxas e contribuições
+- Certidões fiscais e de quitação
+- Processos fiscais e contenciosos
+- Agendamentos de atendimento presencial
+- Status de declarações e liquidações
+
+REGRAS OPERATIVAS:
+1. Seja formal, profissional e acolhedor
+2. Use termos oficiais angolanos
+3. Nunca invente dados ou números de processo
+4. Indique sempre os canais oficiais (portal das Finanças, repartições fiscais)
+5. Para ações que requerem tratamento humano, redirecione para o atendimento presencial
+6. Mantenha o tom institucional do Correio Digital de Angola`,
+      suggestions: [
+        "Quais documentos preciso para o NIF?",
+        "Como pagar uma multa fiscal?",
+        "Estado da minha declaração de IVA",
+        "Agendar atendimento presencial",
+      ],
+    };
+  }
+
+  const sigla = institutionCode ? institutionCode.split("-")[0] : (profileName || "Institucional");
+  return {
+    name: `Assistente ${sigla}`,
+    subtitle: "Oficial & Suporte",
+    description: `Assistente virtual oficial de ${profileName || sigla} integrado no Correio Digital de Angola.`,
+    instructions: `Você é o assistente oficial de ${profileName || sigla} de Angola.
+O Correio Digital de Angola é a plataforma governamental onde os cidadãos recebem correspondência oficial.
+
+Responda sobre os serviços, processos, requerimentos e esclarecimentos da instituição.
+
+REGRAS OPERATIVAS:
+1. Seja formal, profissional e acolhedor
+2. Use termos oficiais angolanos
+3. Nunca invente dados ou números de processo
+4. Indique sempre os canais oficiais da instituição e do Correio Digital de Angola
+5. Para ações que requerem atendimento presencial, oriente o cidadão adequadamente
+6. Mantenha o tom institucional do Correio Digital de Angola`,
+    suggestions: [
+      "Quais os serviços disponíveis?",
+      "Como submeter um requerimento oficial?",
+      "Documentos necessários para atendimento",
+      "Agendar atendimento presencial",
+    ],
+  };
+}
+
 export function InstAiAssistantContent({ addAuditLog, setTab, profileName = '', institutionCode = '' }: InstAiAssistantProps) {
   void setTab; // 2026-09-11 — navegação de regresso passou para <BotaoVoltar /> (VoltarContext)
   // Navigation Sub Tab State
@@ -176,39 +303,17 @@ export function InstAiAssistantContent({ addAuditLog, setTab, profileName = '', 
     return () => clearTimeout(timer);
   }, []);
 
+  const instDefaults = getInstitutionAIDefaults(institutionCode, profileName);
+
   // Configuration States
-  const [assistantName, setAssistantName] = useState<string>('Assistente AGT');
-  const [description] = useState<string>(
-    'Assistente virtual da Administração Geral Tributária que ajuda cidadãos e empresas com serviços fiscais, impostos, NIF, multas e declarações.'
-  );
+  const [assistantName, setAssistantName] = useState<string>(instDefaults.name);
+  const [description] = useState<string>(instDefaults.description);
   const [model, setModel] = useState<string>('openai/gpt-oss-120b');
   const [temperature, setTemperature] = useState<string>('0.3');
   const [] = useState<string>('Português (Angola)');
 
   // System Instruction (personalizada para a instituição)
-  const [instructions, setInstructions] = useState<string>(
-    `Você é o assistente oficial da Administração Geral Tributária (AGT) de Angola.
-O Correio Digital de Angola é a plataforma governamental onde os cidadãos recebem correspondência oficial.
-
-Responda apenas sobre assuntos relacionados com:
-- NIF (Número de Identificação Fiscal)
-- Impostos (IVA, IRT, IS, etc.)
-- Multas fiscais e coimas
-- Declarações fiscais (Modelos 1, 2, 3)
-- Taxas e contribuições
-- Certidões fiscais e de quitação
-- Processos fiscais e contenciosos
-- Agendamentos de atendimento presencial
-- Status de declarações e liquidações
-
-REGRAS OPERATIVAS:
-1. Seja formal, profissional e acolhedor
-2. Use termos oficiais angolanos
-3. Nunca invente dados ou números de processo
-4. Indique sempre os canais oficiais (portal das Finanças, repartições fiscais)
-5. Para ações que requerem tratamento humano, redirecione para o atendimento presencial
-6. Mantenha o tom institucional do Correio Digital de Angola`
-  );
+  const [instructions, setInstructions] = useState<string>(instDefaults.instructions);
   const [tempInstructions, setTempInstructions] = useState<string>(instructions);
 
   // Is Editing Name inline state
@@ -224,7 +329,7 @@ REGRAS OPERATIVAS:
     {
       id: 'm1',
       sender: 'bot',
-      text: `Olá! Sou o ${assistantName}, assistente virtual oficial da ${institutionCode || 'instituição'} integrado no Correio Digital de Angola. Posso ajudá-lo com consultas fiscais, declarações, NIF, multas e certidões. Como posso auxiliar hoje?`,
+      text: `Olá! Sou o ${instDefaults.name}, assistente virtual oficial de ${profileName || institutionCode || 'instituição'} integrado no Correio Digital de Angola. Como posso auxiliar hoje?`,
       time: new Date().toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' }),
     }
   ]);
@@ -661,7 +766,7 @@ Contexto adicional:
                 <div className="w-14 h-14 md:w-16 md:h-16 bg-[#0E2B64] text-white rounded-2xl flex flex-col items-center justify-center shrink-0 border border-indigo-950/25 shadow-none select-none p-1">
                   <span title={institutionCode || 'AGT'} className="font-serif font-black text-sm md:text-base tracking-tight leading-none">{institutionCode || 'AGT'}</span>
                   <span className="text-[7.5px] md:text-[8px] font-bold uppercase tracking-wider text-slate-300 mt-1 text-center leading-none">
-                    Tributária
+                    {instDefaults.subtitle}
                   </span>
                 </div>
 
@@ -1113,12 +1218,12 @@ Contexto adicional:
             <div className="bg-white border border-[#0c2340]/15 rounded-2xl p-5">
               <h4 className="text-[10px] md:text-[11px] font-black text-[#0c2340] uppercase tracking-wider mb-2.5">SUGESTÕES RÁPIDAS</h4>
               <div className="space-y-2">
-                {[
-                  'Quais documentos preciso para o NIF?',
-                  'Como pagar uma multa fiscal?',
-                  'Estado da minha declaração de IVA',
+                {(instDefaults.suggestions || [
+                  'Quais os serviços disponíveis?',
+                  'Como submeter um requerimento oficial?',
+                  'Documentos necessários para atendimento',
                   'Agendar atendimento presencial',
-                ].map(suggestion => (
+                ]).map(suggestion => (
                   <button
                     key={suggestion}
                     onClick={() => {
