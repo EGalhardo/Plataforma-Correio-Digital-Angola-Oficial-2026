@@ -1782,7 +1782,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                   >
                     {gpsEstado === "carregando" ? (
                       <p className="text-sm font-bold text-slate-600 flex items-center gap-2">
-                        <Loader2 size={16} className="animate-spin" />
+                        <LocateFixed size={16} className="text-slate-400" />
                         A obter localização do GPS…
                       </p>
                     ) : gpsEstado === "sucesso" && gps ? (

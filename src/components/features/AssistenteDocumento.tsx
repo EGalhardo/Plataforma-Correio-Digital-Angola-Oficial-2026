@@ -288,7 +288,7 @@ export function AssistenteDocumento({ texto, titulo, remetente, className, onUsa
 
       {loading && (
         <p className="mt-3 text-[11px] font-bold text-indigo-600 flex items-center gap-2">
-          <Loader2 size={13} className="animate-spin" />
+          <Sparkles size={13} className="text-indigo-600 animate-pulse" />
           A analisar o documento…
         </p>
       )}

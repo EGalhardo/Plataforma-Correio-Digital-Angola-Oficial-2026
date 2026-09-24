@@ -4276,7 +4276,7 @@ export function GovContactsContent({
                         }}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest px-8 py-3.5 rounded-2xl cursor-pointer border-0 shadow-lg shadow-indigo-600/15 font-bold transition-all hover:scale-103"
                       >
-                        <Scan size={14} className="inline mr-2 animate-spin-slow" /> Executar Batimento por IA
+                        <Scan size={14} className="inline mr-2" /> Executar Batimento por IA
                       </button>
                     </div>
                   )}

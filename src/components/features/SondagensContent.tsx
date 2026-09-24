@@ -80,10 +80,10 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
         const q = await listarInqueritosIA(codigoInstituicao);
         if (q.ok) {
           const itens = q.dados || [];
-          setListaIA(itens);
           // contadores em paralelo (RPC leve); falhas individuais não bloqueiam
           const pares = await Promise.all(itens.map(async (i) => [i.id, await contadoresInqueritoIA(i)] as const));
           setContIA(Object.fromEntries(pares));
+          setListaIA(itens);
         }
       }
     }
@@ -284,7 +284,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
                                 <b className="text-slate-700">{c.enviados}</b> enviados · <b className="text-blue-700">{c.iniciados}</b> iniciados · <b className="text-emerald-700">{c.concluidos}</b> concluídos · <b className="text-rose-700">{c.recusados}</b> recusados
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1"><Loader2 size={11} className="animate-spin" /> a contar…</span>
+                              <span className="text-slate-400 font-medium">a contar…</span>
                             )}
                           </p>
                         </div>

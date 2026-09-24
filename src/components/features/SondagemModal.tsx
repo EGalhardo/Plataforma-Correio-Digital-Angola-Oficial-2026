@@ -283,7 +283,7 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
                   <MessageCircle size={13} /> Como a IA vai começar{guiaoDesactualizado ? ' · desactualizado' : ''}
                 </p>
                 {gerandoIA ? (
-                  <p className="m-0 mt-2 flex items-center gap-2 text-sm font-medium text-slate-500"><Loader2 size={14} className="animate-spin" /> A preparar a conversa…</p>
+                  <p className="m-0 mt-2 flex items-center gap-2 text-sm font-medium text-slate-500"><Sparkles size={14} className="text-blue-500 animate-pulse" /> A preparar a conversa…</p>
                 ) : guiaoIA ? (
                   <>
                     <p className={`m-0 mt-2 text-sm font-medium leading-snug ${guiaoDesactualizado ? 'text-slate-500' : 'text-slate-800'}`}>«{guiaoIA.saudacao}»</p>

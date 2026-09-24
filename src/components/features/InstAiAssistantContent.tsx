@@ -1080,7 +1080,7 @@ Contexto adicional:
                 disabled={isTyping || !chatInput.trim() || aiStatus !== 'connected'}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-0"
               >
-                {isTyping ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                <Send size={18} />
               </button>
             </div>
 

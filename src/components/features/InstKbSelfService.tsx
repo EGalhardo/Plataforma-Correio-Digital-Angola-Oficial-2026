@@ -451,7 +451,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
                   disabled={aExtrairFicheiro}
                   className="ml-auto inline-flex items-center gap-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] md:text-[11px] font-bold uppercase tracking-wider px-2.5 py-1.5 transition-colors cursor-pointer disabled:opacity-50"
                 >
-                  {aExtrairFicheiro ? <Loader2 size={10} className="animate-spin" /> : <FileText size={10} />}
+                  <FileText size={10} />
                   {aExtrairFicheiro ? 'A ler…' : 'Escolher ficheiro'}
                 </button>
               )}

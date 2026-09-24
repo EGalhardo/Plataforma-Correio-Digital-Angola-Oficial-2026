@@ -988,8 +988,10 @@ export function SolicitarDocumentoContent({
                     <h4 className="text-slate-800 font-extrabold text-sm md:text-base uppercase tracking-tight">Protocolo de Varredura e Consistência Técnica</h4>
                     <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Processando verificação automática inteligente em tempo real</p>
                   </div>
-                  {!validationSuccess && (
-                    <RefreshCw className="animate-spin text-indigo-600" size={20} />
+                  {!validationSuccess ? (
+                    <ShieldCheck className="text-indigo-600" size={20} />
+                  ) : (
+                    <CheckCircle2 className="text-emerald-600" size={20} />
                   )}
                 </div>
 

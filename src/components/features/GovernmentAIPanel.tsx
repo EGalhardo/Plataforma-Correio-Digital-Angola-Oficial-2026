@@ -232,11 +232,7 @@ export function GovernmentAIPanel({
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 text-slate-400 font-medium">
-                  {isLoading ? (
-                    <Loader2 size={24} className="text-primary animate-spin mb-2" />
-                  ) : (
-                    <Sparkles size={24} className="text-slate-300 mb-2" />
-                  )}
+                  <Sparkles size={24} className="text-slate-300 mb-2" />
                   <p className="text-xs uppercase tracking-wider font-extrabold text-slate-400">
                     {isLoading ? 'Análise De IA Em Curso...' : 'Pronto para analisar'}
                   </p>

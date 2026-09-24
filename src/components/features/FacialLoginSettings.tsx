@@ -324,7 +324,7 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
               className="bg-[#0E2B64] hover:bg-[#081a3d] text-white px-6 py-2.5 rounded-xl font-black text-[9.5px] uppercase tracking-widest transition-all cursor-pointer border-none flex items-center gap-2 disabled:opacity-60"
             >
               {isProcessingCapture
-                ? <><Loader2 size={13} className="animate-spin" /> A registar…</>
+                ? 'A registar…'
                 : <><Camera size={13} /> Capturar {step + 1}/3</>}
             </button>
           </div>

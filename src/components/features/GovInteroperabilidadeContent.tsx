@@ -1172,7 +1172,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                 : 'bg-emerald-500 hover:bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/15'
             }`}
           >
-            <Activity size={12} className={isRunningTests ? "animate-spin text-white" : ""} />
+            <Activity size={12} className={showTestPanel ? "" : "text-white"} />
             {showTestPanel ? 'Fechar Painel de Testes' : 'Abrir Painel de Testes'}
           </button>
 

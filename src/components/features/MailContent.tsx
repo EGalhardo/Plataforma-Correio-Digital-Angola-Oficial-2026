@@ -1327,7 +1327,9 @@ export function MailContent({
                 />
                 <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
                   {lookupVisible && recipientLookup?.status === 'busy' ? (
-                    <Loader2 className="animate-spin text-blue-600" size={18} />
+                    <span className="p-1 text-blue-500" title="A consultar...">
+                      <Search size={18} className="animate-pulse" />
+                    </span>
                   ) : (
                     <button
                       type="button"
@@ -2019,7 +2021,7 @@ export function MailContent({
             {clareza && (
               <div className="rounded-xl border border-purple-200 bg-purple-50/70 p-3 text-xs font-bold text-purple-900 space-y-2 mt-3">
                 {clareza.estado === 'a_carregar' && (
-                  <p className="flex items-center gap-2"><Loader2 size={14} className="animate-spin text-purple-600" /> A IA está a rever a clareza do texto…</p>
+                  <p className="flex items-center gap-2"><Sparkles size={14} className="text-purple-600 animate-pulse" /> A IA está a rever a clareza do texto…</p>
                 )}
                 {clareza.estado === 'erro' && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-amber-900">
