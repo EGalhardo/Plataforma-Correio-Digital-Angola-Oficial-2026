@@ -283,15 +283,43 @@ export const persistReadMessageId = (rawBi: string, ...ids: number[]): void => {
 //    limpo (replaceState) para não revelar a última página ao login seguinte.
 // ============================================================================
 const HASH_TAB_FALLBACKS: Record<string, Record<string, string>> = {
-  user: { mensagem: 'correspondencias', documento: 'home', instituicao: 'home' },
-  institution: { mensagem: 'correspondencias', documento: 'documentos', instituicao: 'home', 'inst-video': 'video-atendimento' },
-  admin: { home: 'gov-dashboard', mensagem: 'gov-correspondencias', documento: 'gov-docs', instituicao: 'gov-interoperabilidade', 'inst-video': 'video-atendimento' },
+  user: {
+    mensagem: 'correspondencias',
+    documento: 'solicitar-documento',
+    instituicao: 'home',
+    'livro-reclamacoes': 'denuncias',
+    'denuncia': 'nova-denuncia',
+    'inquerito': 'inqueritos',
+    'ocorrencia': 'ocorrencias'
+  },
+  institution: {
+    mensagem: 'correspondencias',
+    documento: 'documentos',
+    instituicao: 'home',
+    'inst-video': 'video-atendimento',
+    'inst-video-atendimento': 'video-atendimento',
+    'livro-reclamacoes': 'denuncias',
+    'denuncia': 'nova-denuncia',
+    'inquerito': 'inqueritos',
+    'ocorrencia': 'ocorrencias'
+  },
+  admin: {
+    home: 'gov-dashboard',
+    dashboard: 'gov-dashboard',
+    mensagem: 'gov-correspondencias',
+    documento: 'gov-docs',
+    instituicao: 'gov-interoperabilidade',
+    interoperabilidade: 'gov-interoperabilidade',
+    'inst-video': 'video-atendimento',
+    relatorios: 'gov-relatorio',
+    seguranca: 'gov-seguranca'
+  },
 };
 const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
   user: new Set([
     'home', 'correspondencias', 'contatos', 'contactos', 'perfil', 'historico',
     'notificacoes', 'qr-code',
-    'solicitar-documento', 'video-atendimento', 'inqueritos', 'denuncias', 'nova-denuncia', 'ocorrencias',
+    'solicitar-documento', 'video-atendimento', 'inqueritos', 'inquerito', 'denuncias', 'denuncia', 'nova-denuncia', 'livro-reclamacoes', 'ocorrencias', 'ocorrencia',
     'directorio-orgaos', // UX: deep link do Directório (render existe, faltava o hash)
     // tabs de detalhe — só via fallback (HASH_TAB_FALLBACKS)
     'mensagem', 'documento', 'instituicao',
@@ -300,14 +328,14 @@ const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
     'home', 'correspondencias', 'gov-contatos', 'contatos', 'contactos',
     'inst-qrcode', 'qr-code', 'inst-ai-assistant', 'perfil',
     'solicitar-documento', 'directorio-orgaos', // UX: deep links em falta
-    'ocorrencias', 'inqueritos', 'denuncias', 'nova-denuncia', 'sondagens', // v36 — lista/resultados de sondagens da instituição
-    'historico', 'notificacoes', 'documentos', 'video-atendimento', 'inst-video',
+    'ocorrencias', 'ocorrencia', 'inqueritos', 'inquerito', 'denuncias', 'denuncia', 'nova-denuncia', 'livro-reclamacoes', 'sondagens', // v36 — lista/resultados de sondagens da instituição
+    'historico', 'notificacoes', 'documentos', 'video-atendimento', 'inst-video', 'inst-video-atendimento',
     'mensagem', 'documento', 'instituicao',
   ]),
   admin: new Set([
-    'home', 'gov-dashboard', 'gov-interoperabilidade', 'gov-correspondencias',
-    'gov-contatos', 'gov-trabalhadores', 'gov-relatorio', 'gov-stats', 'gov-ia', 'directorio-orgaos', // UX: deep links em falta
-    'gov-seguranca', 'gov-perfil', 'gov-emissao', 'gov-docs', 'gov-documentos',
+    'home', 'dashboard', 'gov-dashboard', 'gov-interoperabilidade', 'interoperabilidade', 'gov-correspondencias',
+    'gov-contatos', 'gov-trabalhadores', 'gov-relatorio', 'relatorios', 'gov-stats', 'gov-ia', 'directorio-orgaos', // UX: deep links em falta
+    'gov-seguranca', 'seguranca', 'gov-perfil', 'gov-emissao', 'gov-docs', 'gov-documentos',
     'historico', 'notificacoes',
     'video-atendimento', 'inst-video',
     'mensagem', 'documento', 'instituicao',

@@ -11,7 +11,92 @@ import dotenv from "dotenv";
 import Groq from "groq-sdk";
 import { AVISO_IA, construirPrompts, juntarFontesKb, montarContextoKb, protegerTraducaoLinguaNacional, rowParaFonteKb, selecionarInstituicaoKb, validarPedido } from "./src/services/aiDocumentoCore";
 import { INQUERITO_IA_GUIAO_SISTEMA, INQUERITO_IA_CONVERSA_SISTEMA, normalizarGuiaoIA, normalizarPassoIA, sanitizarTextoPrompt, slugChave, perguntaGuiada, MENSAGEM_AGRADECIMENTO, MAX_PERGUNTAS_POR_DURACAO, LIMITE_HISTORICO_MODELO, type GuiaoIA, type CampoGuiaoIA, type DuracaoIA, type TomIA, type TrocaIA } from "./src/services/inqueritoIaCore";
-import { createHash } from "node:crypto";
+import { createHash, createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+
+// ============================================================================
+// CDA SECURE LAYER — Módulo Criptográfico AES-256-GCM Backend
+// ----------------------------------------------------------------------------
+// - Cifragem autenticada com AES-256-GCM (NIST SP 800-38D)
+// - IV aleatório e único de 12 bytes gerado por operação
+// - Auth Tag de 16 bytes (128 bits) garantindo confidencialidade + integridade
+// - Prefixo de versão canónico: cda_enc_v1:<iv_hex>:<auth_tag_hex>:<ciphertext_hex>
+// - Retrocompatibilidade total: texto em claro legado é preservado sem erro.
+// ============================================================================
+const CDA_CRYPTO_PREFIX = 'cda_enc_v1:';
+
+function getCdaMasterKey(): Buffer {
+  const rawKey = (process.env.CDA_ENCRYPTION_KEY || process.env.AES_MASTER_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || 'cda_sovereign_aes256_gcm_salt_2026').trim();
+  return createHash('sha256').update(rawKey).digest();
+}
+
+function cdaEncrypt(plaintext: string): string {
+  if (typeof plaintext !== 'string' || plaintext.length === 0) return plaintext;
+  if (plaintext.startsWith(CDA_CRYPTO_PREFIX)) return plaintext;
+
+  try {
+    const key = getCdaMasterKey();
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    
+    let encrypted = cipher.update(plaintext, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    const authTag = cipher.getAuthTag().toString('hex');
+    
+    return `${CDA_CRYPTO_PREFIX}${iv.toString('hex')}:${authTag}:${encrypted}`;
+  } catch (err) {
+    console.warn('[CDA-SECURE-LAYER] Falha ao cifrar:', err);
+    return plaintext;
+  }
+}
+
+function cdaDecrypt(ciphertextOrPlain: string): string {
+  if (typeof ciphertextOrPlain !== 'string' || ciphertextOrPlain.length === 0) return ciphertextOrPlain;
+  if (!ciphertextOrPlain.startsWith(CDA_CRYPTO_PREFIX)) {
+    return ciphertextOrPlain;
+  }
+
+  try {
+    const parts = ciphertextOrPlain.slice(CDA_CRYPTO_PREFIX.length).split(':');
+    if (parts.length !== 3) return ciphertextOrPlain;
+
+    const [ivHex, authTagHex, encryptedHex] = parts;
+    const key = getCdaMasterKey();
+    const iv = Buffer.from(ivHex, 'hex');
+    const authTag = Buffer.from(authTagHex, 'hex');
+    const decipher = createDecipheriv('aes-256-gcm', key, iv);
+    
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    
+    return decrypted;
+  } catch (err) {
+    console.warn('[CDA-SECURE-LAYER] Falha ao decifrar:', err);
+    return ciphertextOrPlain;
+  }
+}
+
+function cdaEncryptSensitiveFields<T extends Record<string, any>>(data: T, sensitiveFields: (keyof T)[]): T {
+  if (!data || typeof data !== 'object') return data;
+  const clone: any = Array.isArray(data) ? [...data] : { ...data };
+  for (const field of sensitiveFields) {
+    if (typeof clone[field] === 'string') {
+      clone[field] = cdaEncrypt(clone[field]);
+    }
+  }
+  return clone;
+}
+
+function cdaDecryptSensitiveFields<T extends Record<string, any>>(data: T, sensitiveFields: (keyof T)[]): T {
+  if (!data || typeof data !== 'object') return data;
+  const clone: any = Array.isArray(data) ? [...data] : { ...data };
+  for (const field of sensitiveFields) {
+    if (typeof clone[field] === 'string') {
+      clone[field] = cdaDecrypt(clone[field]);
+    }
+  }
+  return clone;
+}
 import { KB_REGISTO } from "./api/kb/registoKb";
 import type { FonteKb, FonteKbDinamicaRow } from "./src/services/aiDocumentoCore";
 import { directorioParaContextoIA } from "./src/constants/directorioInstitucionalAngola";
@@ -2350,6 +2435,60 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
     } catch (e) {
       console.error('[EMAIL-RECUPERACAO] Exceção:', e);
       return res.status(200).json({ ok: true, enviado: false });
+    }
+  });
+
+  // CDA SECURE LAYER: Verificação de Estado Criptográfico (Sem expor chaves)
+  app.get("/api/crypto/status", (_req, res) => {
+    try {
+      const hasCustomKey = !!(process.env.CDA_ENCRYPTION_KEY || process.env.AES_MASTER_KEY);
+      const testEnc = cdaEncrypt('cda-health-probe');
+      const testDec = cdaDecrypt(testEnc);
+      const isOperational = testDec === 'cda-health-probe';
+
+      return res.status(200).json({
+        ok: true,
+        layer: 'CDA Secure Layer v1',
+        algorithm: 'AES-256-GCM',
+        key_status: hasCustomKey ? 'configured' : 'derived',
+        prefix: CDA_CRYPTO_PREFIX,
+        operational: isOperational,
+        timestamp: new Date().toISOString()
+      });
+    } catch (e: any) {
+      return res.status(500).json({ ok: false, erro: e?.message || 'Erro no módulo criptográfico' });
+    }
+  });
+
+  // CDA SECURE LAYER: Cifragem de campos/payloads sensíveis (Backend Gateway)
+  app.post("/api/crypto/encrypt", (req, res) => {
+    try {
+      const { text, payload, fields } = req.body || {};
+      if (typeof text === 'string') {
+        return res.status(200).json({ ok: true, result: cdaEncrypt(text) });
+      }
+      if (payload && Array.isArray(fields)) {
+        return res.status(200).json({ ok: true, result: cdaEncryptSensitiveFields(payload, fields) });
+      }
+      return res.status(400).json({ ok: false, erro: 'Parâmetros inválidos.' });
+    } catch (e: any) {
+      return res.status(500).json({ ok: false, erro: e?.message || 'Erro ao cifrar.' });
+    }
+  });
+
+  // CDA SECURE LAYER: Decifragem de campos/payloads sensíveis (Backend Gateway)
+  app.post("/api/crypto/decrypt", (req, res) => {
+    try {
+      const { ciphertext, payload, fields } = req.body || {};
+      if (typeof ciphertext === 'string') {
+        return res.status(200).json({ ok: true, result: cdaDecrypt(ciphertext) });
+      }
+      if (payload && Array.isArray(fields)) {
+        return res.status(200).json({ ok: true, result: cdaDecryptSensitiveFields(payload, fields) });
+      }
+      return res.status(400).json({ ok: false, erro: 'Parâmetros inválidos.' });
+    } catch (e: any) {
+      return res.status(500).json({ ok: false, erro: e?.message || 'Erro ao decifrar.' });
     }
   });
 
