@@ -120,7 +120,7 @@ export const coordenadasGps = (o: {
   precisao_m?: number | null;
 }): string | null =>
   typeof o.lat === "number" && typeof o.lon === "number"
-    ? `${o.lat.toFixed(5)}, ${o.lon.toFixed(5)} · ±${Math.max(
+    ? `${o.lat.toFixed(6)}, ${o.lon.toFixed(6)} · ±${Math.max(
         1,
         Math.round(o.precisao_m ?? 0),
       )} m`

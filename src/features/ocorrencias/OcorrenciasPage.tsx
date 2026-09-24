@@ -626,6 +626,20 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
   const notifFetchId = useRef(0);
   const fetchId = useRef(0),
     mounted = useRef(true);
+  const gpsWatchRef = useRef<number | null>(null);
+  const gpsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const limparGpsWatch = () => {
+    if (gpsWatchRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.clearWatch(gpsWatchRef.current);
+      gpsWatchRef.current = null;
+    }
+    if (gpsTimerRef.current !== null) {
+      clearTimeout(gpsTimerRef.current);
+      gpsTimerRef.current = null;
+    }
+  };
+
   const institutional = actor?.papel === "instituicao";
   const title = institutional ? "Ocorrências recebidas" : "Ocorrências Locais";
   const showError = (e: unknown) => {
@@ -641,6 +655,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
     return () => {
       mounted.current = false;
       fetchId.current++;
+      limparGpsWatch();
     };
   }, []);
   const refreshUnread = useCallback(async () => {
@@ -838,7 +853,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
         ) || munBruto;
       const bairro = rev.bairro || municipio;
       const referencia =
-        rev.rua || `GPS: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+        rev.rua || `GPS: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
       const loc = { provincia, municipio, bairro, referencia };
       setLocalGps(loc);
       setData((prev) => ({ ...prev, ...loc }));
@@ -848,6 +863,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
   };
   const obterGps = () => {
     setGpsErro("");
+    limparGpsWatch();
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setGpsEstado("erro");
       setGpsErro(
@@ -863,28 +879,82 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
       return;
     }
     setGpsEstado("carregando");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGps({
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-          precisao: pos.coords.accuracy,
-        });
-        setGpsEstado("sucesso");
-        void derivarLocalidadeGps(pos.coords.latitude, pos.coords.longitude);
-      },
-      (err) => {
-        setGpsEstado("erro");
-        setGpsErro(
-          err.code === 1
-            ? "Permissão de localização negada no navegador. Para a reativar, abra as definições de site do navegador e permita a localização (no telemóvel, também as definições de privacidade do aparelho) — ou use «Manual»."
-            : err.code === 2
-              ? "A localização do dispositivo não está disponível de momento (GPS desligado ou sem sinal). Ative a localização no telemóvel/computador e tente novamente — ou use «Manual»."
-              : "O GPS demorou demasiado a responder. Tente novamente num local aberto — ou use «Manual».",
+
+    let melhorFix: GeolocationPosition | null = null;
+    let amostragem = 0;
+
+    const aplicarFix = (pos: GeolocationPosition) => {
+      limparGpsWatch();
+      setGps({
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        precisao: pos.coords.accuracy,
+      });
+      setGpsEstado("sucesso");
+      void derivarLocalidadeGps(pos.coords.latitude, pos.coords.longitude);
+    };
+
+    // Janela de convergência de alta precisão: aguarda estabilização dos satélites
+    gpsTimerRef.current = setTimeout(() => {
+      if (melhorFix) {
+        aplicarFix(melhorFix);
+      } else {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => aplicarFix(pos),
+          (err) => {
+            setGpsEstado("erro");
+            setGpsErro(
+              err.code === 1
+                ? "Permissão de localização negada no navegador. Para a reativar, abra as definições de site do navegador e permita a localização (no telemóvel, também as definições de privacidade do aparelho) — ou use «Manual»."
+                : err.code === 2
+                  ? "A localização do dispositivo não está disponível de momento (GPS desligado ou sem sinal). Ative a localização no telemóvel/computador e tente novamente — ou use «Manual»."
+                  : "O GPS demorou demasiado a responder. Tente novamente num local aberto — ou use «Manual».",
+            );
+          },
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
         );
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
-    );
+      }
+    }, 3500);
+
+    try {
+      gpsWatchRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          amostragem++;
+          if (!melhorFix || pos.coords.accuracy < melhorFix.coords.accuracy) {
+            melhorFix = pos;
+          }
+          // Se obteve precisão sub-3 metros com pelo menos 2 amostras convergidas
+          if (pos.coords.accuracy <= 3 && amostragem >= 2) {
+            aplicarFix(pos);
+          }
+        },
+        (err) => {
+          if (melhorFix) {
+            aplicarFix(melhorFix);
+            return;
+          }
+          limparGpsWatch();
+          setGpsEstado("erro");
+          setGpsErro(
+            err.code === 1
+              ? "Permissão de localização negada no navegador. Para a reativar, abra as definições de site do navegador e permita a localização (no telemóvel, também as definições de privacidade do aparelho) — ou use «Manual»."
+              : err.code === 2
+                ? "A localização do dispositivo não está disponível de momento (GPS desligado ou sem sinal). Ative a localização no telemóvel/computador e tente novamente — ou use «Manual»."
+                : "O GPS demorou demasiado a responder. Tente novamente num local aberto — ou use «Manual».",
+          );
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+      );
+    } catch {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => aplicarFix(pos),
+        (err) => {
+          setGpsEstado("erro");
+          setGpsErro("Não foi possível obter sinal GPS com precisão.");
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+    }
   };
   const cancelReport = async () => {
     if (
@@ -1253,12 +1323,12 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
         >
           <ArrowLeft size={18} />
         </button>
-        <span className="p-2 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+        <span className="p-2 rounded-[15%] bg-white border border-slate-200 flex items-center justify-center shrink-0">
           <img
             src="https://i.postimg.cc/nrmY1WZL/Ocorrencias-locais-(1).png"
             alt="Ocorrências Locais"
             loading="lazy"
-            className="h-[72px] w-[72px] md:h-[88px] md:w-[88px] object-contain rounded-xl"
+            className="h-[83px] w-[83px] md:h-[101px] md:w-[101px] object-contain rounded-[15%]"
           />
         </span>
         <div className="min-w-0 flex-1">
@@ -1566,10 +1636,10 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                             src={o.capa_url}
                             alt={o.capa_nome || o.titulo}
                             loading="lazy"
-                            className="w-28 h-20 md:w-36 md:h-24 object-cover rounded-xl border border-slate-200 shrink-0"
+                            className="w-[129px] h-[92px] md:w-[166px] md:h-[110px] object-cover rounded-[15%] border border-slate-200 shrink-0"
                           />
                         ) : (
-                          <span className="w-28 h-20 md:w-36 md:h-24 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
+                          <span className="w-[129px] h-[92px] md:w-[166px] md:h-[110px] rounded-[15%] bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
                             <Camera size={20} />
                           </span>
                         )}
@@ -1792,7 +1862,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                           Localização obtida
                         </p>
                         <p className="text-xs text-emerald-900 font-mono break-words">
-                          {gps.lat.toFixed(5)}, {gps.lon.toFixed(5)} · ±
+                          {gps.lat.toFixed(6)}, {gps.lon.toFixed(6)} · ±
                           {Math.max(1, Math.round(gps.precisao))} m
                         </p>
                         {localGpsAObter ? (
@@ -2115,7 +2185,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                   Coordenadas
                 </span>
                 <span className="text-slate-700 font-mono break-words">
-                  {gps.lat.toFixed(5)}, {gps.lon.toFixed(5)} · ±
+                  {gps.lat.toFixed(6)}, {gps.lon.toFixed(6)} · ±
                   {Math.max(1, Math.round(gps.precisao))} m
                 </span>
               </div>

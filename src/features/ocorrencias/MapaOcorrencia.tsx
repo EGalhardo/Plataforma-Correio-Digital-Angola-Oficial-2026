@@ -82,7 +82,7 @@ export async function reverterGeocodificacao(
 }> {
   try {
     const r = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&countrycodes=ao&zoom=14&lat=${lat}&lon=${lon}`,
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&countrycodes=ao&zoom=18&lat=${lat}&lon=${lon}`,
       { headers: { Accept: "application/json" } },
     );
     const j = (await r.json()) as { address?: Record<string, string> };
@@ -173,7 +173,7 @@ export function MapaOcorrencia({
     );
   const d =
     geo.origem === "gps"
-      ? Math.max(0.0015, (precisao && precisao > 0 ? precisao : 25) / 111320)
+      ? Math.max(0.0008, Math.min(0.003, (precisao && precisao > 0 ? precisao : 10) / 111320))
       : geo.origem === "exacta"
         ? 0.008
         : geo.origem === "localidade"
