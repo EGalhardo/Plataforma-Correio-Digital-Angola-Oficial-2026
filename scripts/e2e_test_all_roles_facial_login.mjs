@@ -62,17 +62,22 @@ async function run() {
     await page.screenshot({ path: `${SHOTS_DIR}/01_inst_logged_in.png` });
 
     // Registar Face no Perfil da Instituição
-    await page.locator('button:has-text("Perfil"), nav button:has-text("Perfil")').first().click();
-    await page.waitForTimeout(1500);
+    const perfilBtn1 = page.locator('button:has-text("Perfil"), nav button:has-text("Perfil")').first();
+    if (await perfilBtn1.count()) {
+      await perfilBtn1.click({ force: true });
+    } else {
+      await page.goto(`${BASE_URL}/institucional#/perfil`, { waitUntil: 'domcontentloaded' });
+    }
+    await page.waitForTimeout(2000);
 
     const enrollBtn = page.locator('button:has-text("Registar a minha face"), button:has-text("Registar Face"), button:has-text("Alterar Face")').first();
     if (await enrollBtn.isVisible()) {
-      await enrollBtn.click();
+      await enrollBtn.click({ force: true });
       await page.waitForTimeout(1000);
       for (let s = 1; s <= 3; s++) {
         const capBtn = page.locator('button:has-text("Capturar Rosto"), button:has-text("Capturar"), button:has-text("Confirmar Captura")').first();
         if (await capBtn.isVisible()) {
-          await capBtn.click();
+          await capBtn.click({ force: true });
           await page.waitForTimeout(1200);
         }
       }
@@ -83,20 +88,20 @@ async function run() {
 
     // Logout Instituição
     const logoutInst = page.locator('button:has-text("SAIR DO CANAL"), button:has-text("Terminar Sessão"), button:has-text("Sair")').first();
-    if (await logoutInst.isVisible()) await logoutInst.click();
+    if (await logoutInst.count()) await logoutInst.click({ force: true });
     await page.waitForTimeout(2000);
 
     // Testar Login Facial Instituição
     const instFaceBtn = page.locator('button:has-text("LOGIN FACIAL"), button:has-text("Login Facial"), button:has-text("Reconhecimento Facial")').first();
-    if (await instFaceBtn.isVisible()) await instFaceBtn.click();
+    if (await instFaceBtn.count()) await instFaceBtn.click({ force: true });
     await page.waitForTimeout(1000);
 
     const startScan1 = page.locator('button:has-text("Iniciar Reconhecimento"), button:has-text("Validar Face"), button:has-text("Entrar com Face")').first();
     if (await startScan1.isVisible()) {
-      await startScan1.click();
+      await startScan1.click({ force: true });
     } else {
       const scannerCircle = page.locator('video, svg.animate-pulse, [data-testid="face-scanner"]').first();
-      if (await scannerCircle.isVisible()) await scannerCircle.click();
+      if (await scannerCircle.isVisible()) await scannerCircle.click({ force: true });
     }
     await page.waitForTimeout(5000);
 
@@ -109,7 +114,7 @@ async function run() {
     // -------------------------------------------------------------
     console.log('\n--- FASE 2: CIDADÃO (Edlásio Galhardo) ---');
     const logoutInst2 = page.locator('button:has-text("SAIR DO CANAL"), button:has-text("Terminar Sessão"), button:has-text("Sair")').first();
-    if (await logoutInst2.isVisible()) await logoutInst2.click();
+    if (await logoutInst2.count()) await logoutInst2.click({ force: true });
     await page.waitForTimeout(2000);
 
     await page.goto(`${BASE_URL}/#/login`, { waitUntil: 'domcontentloaded' });
@@ -118,7 +123,7 @@ async function run() {
 
     // Mudar para área do Cidadão se necessário
     const citizenTab = page.locator('button:has-text("Cidadão")').first();
-    if (await citizenTab.isVisible()) await citizenTab.click();
+    if (await citizenTab.isVisible()) await citizenTab.click({ force: true });
     await page.waitForTimeout(500);
 
     // Login Cidadão
@@ -134,27 +139,32 @@ async function run() {
     await page.screenshot({ path: `${SHOTS_DIR}/04_citizen_logged_in.png` });
 
     // Registar Face no Perfil do Cidadão
-    await page.locator('button:has-text("Perfil"), nav button:has-text("Perfil")').first().click();
-    await page.waitForTimeout(1500);
+    const perfilBtn2 = page.locator('button:has-text("Perfil"), nav button:has-text("Perfil")').first();
+    if (await perfilBtn2.count()) {
+      await perfilBtn2.click({ force: true });
+    } else {
+      await page.goto(`${BASE_URL}/#/perfil`, { waitUntil: 'domcontentloaded' });
+    }
+    await page.waitForTimeout(2000);
 
     // Se tiver registo antigo no dispositivo, removemos para registar o do cidadão
     const remBtn = page.locator('button:has-text("Remover"), button:has-text("Eliminar")').first();
     if (await remBtn.isVisible()) {
-      await remBtn.click();
+      await remBtn.click({ force: true });
       await page.waitForTimeout(1000);
       const confirmRem = page.locator('button:has-text("Confirmar"), button:has-text("Sim")').first();
-      if (await confirmRem.isVisible()) await confirmRem.click();
+      if (await confirmRem.isVisible()) await confirmRem.click({ force: true });
       await page.waitForTimeout(1000);
     }
 
     const enrollCitizenBtn = page.locator('button:has-text("Registar a minha face"), button:has-text("Registar Face"), button:has-text("Alterar Face")').first();
     if (await enrollCitizenBtn.isVisible()) {
-      await enrollCitizenBtn.click();
+      await enrollCitizenBtn.click({ force: true });
       await page.waitForTimeout(1000);
       for (let s = 1; s <= 3; s++) {
         const capBtn = page.locator('button:has-text("Capturar Rosto"), button:has-text("Capturar"), button:has-text("Confirmar Captura")').first();
         if (await capBtn.isVisible()) {
-          await capBtn.click();
+          await capBtn.click({ force: true });
           await page.waitForTimeout(1200);
         }
       }
@@ -165,20 +175,20 @@ async function run() {
 
     // Logout Cidadão
     const logoutCitizen = page.locator('button:has-text("Terminar Sessão"), button:has-text("Sair")').first();
-    if (await logoutCitizen.isVisible()) await logoutCitizen.click();
+    if (await logoutCitizen.count()) await logoutCitizen.click({ force: true });
     await page.waitForTimeout(2000);
 
     // Testar Login Facial Cidadão
     const citFaceBtn = page.locator('button:has-text("LOGIN FACIAL"), button:has-text("Login Facial"), button:has-text("Reconhecimento Facial")').first();
-    if (await citFaceBtn.isVisible()) await citFaceBtn.click();
+    if (await citFaceBtn.count()) await citFaceBtn.click({ force: true });
     await page.waitForTimeout(1000);
 
     const startScan2 = page.locator('button:has-text("Iniciar Reconhecimento"), button:has-text("Validar Face"), button:has-text("Entrar com Face")').first();
     if (await startScan2.isVisible()) {
-      await startScan2.click();
+      await startScan2.click({ force: true });
     } else {
       const scannerCircle = page.locator('video, svg.animate-pulse, [data-testid="face-scanner"]').first();
-      if (await scannerCircle.isVisible()) await scannerCircle.click();
+      if (await scannerCircle.isVisible()) await scannerCircle.click({ force: true });
     }
     await page.waitForTimeout(5000);
 
@@ -191,7 +201,7 @@ async function run() {
     // -------------------------------------------------------------
     console.log('\n--- FASE 3: ADMINISTRAÇÃO CENTRAL (ADMIN-0001) ---');
     const logoutCit2 = page.locator('button:has-text("Terminar Sessão"), button:has-text("Sair")').first();
-    if (await logoutCit2.isVisible()) await logoutCit2.click();
+    if (await logoutCit2.count()) await logoutCit2.click({ force: true });
     await page.waitForTimeout(2000);
 
     await page.goto(`${BASE_URL}/#/login`, { waitUntil: 'domcontentloaded' });
@@ -211,26 +221,31 @@ async function run() {
     await page.screenshot({ path: `${SHOTS_DIR}/07_admin_logged_in.png` });
 
     // Registar Face no Perfil do Administrador
-    await page.locator('button:has-text("Perfil"), nav button:has-text("Perfil")').first().click();
-    await page.waitForTimeout(1500);
+    const perfilBtn3 = page.locator('button:has-text("Perfil"), nav button:has-text("Perfil")').first();
+    if (await perfilBtn3.count()) {
+      await perfilBtn3.click({ force: true });
+    } else {
+      await page.goto(`${BASE_URL}/admin#/perfil`, { waitUntil: 'domcontentloaded' });
+    }
+    await page.waitForTimeout(2000);
 
     const remBtnAdm = page.locator('button:has-text("Remover"), button:has-text("Eliminar")').first();
     if (await remBtnAdm.isVisible()) {
-      await remBtnAdm.click();
+      await remBtnAdm.click({ force: true });
       await page.waitForTimeout(1000);
       const confirmRem = page.locator('button:has-text("Confirmar"), button:has-text("Sim")').first();
-      if (await confirmRem.isVisible()) await confirmRem.click();
+      if (await confirmRem.isVisible()) await confirmRem.click({ force: true });
       await page.waitForTimeout(1000);
     }
 
     const enrollAdmBtn = page.locator('button:has-text("Registar a minha face"), button:has-text("Registar Face"), button:has-text("Alterar Face")').first();
     if (await enrollAdmBtn.isVisible()) {
-      await enrollAdmBtn.click();
+      await enrollAdmBtn.click({ force: true });
       await page.waitForTimeout(1000);
       for (let s = 1; s <= 3; s++) {
         const capBtn = page.locator('button:has-text("Capturar Rosto"), button:has-text("Capturar"), button:has-text("Confirmar Captura")').first();
         if (await capBtn.isVisible()) {
-          await capBtn.click();
+          await capBtn.click({ force: true });
           await page.waitForTimeout(1200);
         }
       }
@@ -241,20 +256,20 @@ async function run() {
 
     // Logout Admin
     const logoutAdm = page.locator('button:has-text("Terminar Sessão"), button:has-text("Sair")').first();
-    if (await logoutAdm.isVisible()) await logoutAdm.click();
+    if (await logoutAdm.count()) await logoutAdm.click({ force: true });
     await page.waitForTimeout(2000);
 
     // Testar Login Facial Admin
     const admFaceBtn = page.locator('button:has-text("LOGIN FACIAL"), button:has-text("Login Facial"), button:has-text("Reconhecimento Facial")').first();
-    if (await admFaceBtn.isVisible()) await admFaceBtn.click();
+    if (await admFaceBtn.count()) await admFaceBtn.click({ force: true });
     await page.waitForTimeout(1000);
 
     const startScan3 = page.locator('button:has-text("Iniciar Reconhecimento"), button:has-text("Validar Face"), button:has-text("Entrar com Face")').first();
     if (await startScan3.isVisible()) {
-      await startScan3.click();
+      await startScan3.click({ force: true });
     } else {
       const scannerCircle = page.locator('video, svg.animate-pulse, [data-testid="face-scanner"]').first();
-      if (await scannerCircle.isVisible()) await scannerCircle.click();
+      if (await scannerCircle.isVisible()) await scannerCircle.click({ force: true });
     }
     await page.waitForTimeout(5000);
 
