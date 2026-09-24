@@ -762,12 +762,9 @@ Contexto adicional:
             {/* CARTÃO 1: INFORMAÇÕES DO ASSISTENTE (Left) */}
             <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 shadow-xs flex flex-col justify-between min-w-0 overflow-hidden">
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 md:gap-5 min-w-0">
-                {/* Circular logo: Institutional circular avatar */}
-                <div className="w-14 h-14 md:w-16 md:h-16 bg-[#0E2B64] text-white rounded-2xl flex flex-col items-center justify-center shrink-0 border border-indigo-950/25 shadow-none select-none p-1">
-                  <span title={institutionCode || 'AGT'} className="font-serif font-black text-sm md:text-base tracking-tight leading-none">{institutionCode || 'AGT'}</span>
-                  <span className="text-[7.5px] md:text-[8px] font-bold uppercase tracking-wider text-slate-300 mt-1 text-center leading-none">
-                    {instDefaults.subtitle}
-                  </span>
+                {/* Ícone de IA do Assistente */}
+                <div className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-[#0E2B64] to-indigo-700 text-white rounded-2xl flex items-center justify-center shrink-0 border border-indigo-950/25 shadow-xs select-none">
+                  <Bot size={28} className="text-white stroke-[2.2]" />
                 </div>
 
                 <div className="flex-1 min-w-0 text-center sm:text-left space-y-2">
