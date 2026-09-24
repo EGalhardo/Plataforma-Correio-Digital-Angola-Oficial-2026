@@ -160,11 +160,16 @@ export const removeInstMember = (code: string, memberId: string): void => {
 };
 
 export const updateInstMemberPassword = (code: string, memberId: string, password: string, requireChangeOnNextLogin = false): void => {
-  const reg = getLocalInstReg(code);
+  const norm = normalizeInstCode(code);
+  const reg = getLocalInstReg(norm);
   if (!reg) return;
-  updateLocalInstReg(code, {
+  const targetMember = (reg.members || []).find(m => m.id === memberId);
+  updateLocalInstReg(norm, {
     members: (reg.members || []).map(m => m.id === memberId ? { ...m, password, mustChangePassword: requireChangeOnNextLogin } : m),
   });
+  if (targetMember?.agentNumber) {
+    try { localStorage.setItem(`inst_pass_${targetMember.agentNumber}`, password); } catch { /* ignore */ }
+  }
 };
 
 // 2026-08-21 — perfil do COLABORADOR editado por ELE na página Perfil:
@@ -191,7 +196,15 @@ export const updateInstMemberProfile = (
 export const isInstPasswordTaken = (_code: string, _password: string, _excludeMemberId?: string): boolean => false;
 
 export const setInstResponsiblePassword = (code: string, password: string): void => {
-  updateLocalInstReg(code, { password });
+  const norm = normalizeInstCode(code);
+  updateLocalInstReg(norm, { password });
+  try {
+    localStorage.setItem(`inst_pass_${norm}`, password);
+    const reg = getLocalInstReg(norm);
+    if (reg?.agentNumber) {
+      localStorage.setItem(`inst_pass_${reg.agentNumber}`, password);
+    }
+  } catch { /* ignore */ }
 };
 
 export const setInstLogo = (code: string, dataUrl: string): void => {

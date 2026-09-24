@@ -147,7 +147,7 @@ async function run() {
     await page.waitForTimeout(5000);
     await page.screenshot({ path: `${SHOTS}/07_after_facial_login_attempt.png` });
 
-    let hasInstContent = await page.locator('text=INAPEM, text=Correspondências, text=Painel').first().isVisible().catch(() => false);
+    const hasInstContent = await page.evaluate(() => document.body.innerText.includes('INAPEM-LMM') && document.body.innerText.includes('ÁREA INSTITUCIONAL'));
     console.log(`URL atual: ${page.url()}, Conteúdo Institucional visível: ${hasInstContent}`);
 
     if (hasInstContent) {
@@ -161,7 +161,7 @@ async function run() {
     // -------------------------------------------------------------
     console.log('\n--- PASSO 5: Sair e Entrar na conta do Cidadão Edlasio Galhardo ---');
     if (hasInstContent) {
-      const outBtn = page.locator('button:has-text("Terminar Sessão"), button:has-text("Sair")').first();
+      const outBtn = page.locator('button:has-text("SAIR DO CANAL"), button:has-text("Terminar Sessão"), button:has-text("Sair")').first();
       if (await outBtn.isVisible()) await outBtn.click();
       await page.waitForTimeout(2500);
     } else {
@@ -219,7 +219,7 @@ async function run() {
     await page.waitForTimeout(5000);
     await page.screenshot({ path: `${SHOTS}/10_final_login_facial_result.png` });
 
-    const finalInstVisible = await page.locator('text=INAPEM, text=Correspondências, text=Painel').first().isVisible().catch(() => false);
+    const finalInstVisible = await page.evaluate(() => document.body.innerText.includes('INAPEM-LMM') && document.body.innerText.includes('ÁREA INSTITUCIONAL'));
     console.log(`URL final: ${page.url()}, Conteúdo Institucional visível: ${finalInstVisible}`);
 
     if (finalInstVisible) {

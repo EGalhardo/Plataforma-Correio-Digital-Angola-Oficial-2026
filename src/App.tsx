@@ -2375,6 +2375,39 @@ export default function App() {
                   : `Login facial institucional (${res.code}) — ${res.identity?.type === 'member' ? `colaborador ${res.identity?.memberName}` : 'responsável'} autenticado.`,
                 res.outcome === 'restricted' ? 'warning' : 'success'
               );
+
+              // v37.78.43 — REESTABELECIMENTO DA SESSÃO DA NUVEM no login facial institucional
+              if (!homologationStore.isExempt(res.code) && isSupabaseConfigured()) {
+                try {
+                  const agentNum = res.identity?.agentNumber || targetBi;
+                  const instCode = res.code;
+                  const regLocal = getLocalInstReg(instCode);
+                  const isMember = res.identity?.type === 'member';
+                  let memberPass = '';
+                  if (isMember) {
+                    const mb = (regLocal?.members || []).find(m => m.agentNumber === agentNum || m.id === res.identity?.memberId);
+                    if (mb?.password) memberPass = mb.password;
+                  }
+                  const instPass = memberPass || regLocal?.password || localStorage.getItem(`inst_pass_${agentNum}`) || localStorage.getItem(`inst_pass_${instCode}`) || localStorage.getItem(`inst_pass_${targetBi}`);
+                  if (instPass) {
+                    const email = syntheticInstitutionAgentEmail(agentNum);
+                    const rCloud = await cloudSignIn(supabase, email, instPass);
+                    if (rCloud.outcome === 'ok') {
+                      addAuditLog(`[AUTH-CLOUD] Login facial institucional (${agentNum}): sessão da nuvem restabelecida com a credencial local — correspondências completas.`, 'success');
+                    } else {
+                      const respEmail = syntheticInstitutionAgentEmail(regLocal?.agentNumber || `${instCode}-01`);
+                      if (respEmail !== email) {
+                        const rResp = await cloudSignIn(supabase, respEmail, instPass);
+                        if (rResp.outcome === 'ok') {
+                          addAuditLog(`[AUTH-CLOUD] Login facial institucional (${instCode}): sessão da nuvem restabelecida via responsável.`, 'success');
+                        }
+                      }
+                    }
+                  }
+                } catch (eInstCloud) {
+                  console.warn('[AUTH-CLOUD] Falha ao restabelecer sessão cloud da instituição no login facial:', eInstCloud);
+                }
+              }
             } catch (e) {
               console.error('Erro no login facial institucional:', e);
               setLoginError('Falha na validação do login facial institucional. Tente novamente.');
@@ -7387,6 +7420,13 @@ Ficha civil do titular:
               registarLoginFalha(identLogin);
               return;
             }
+            try {
+              localStorage.setItem(`inst_pass_${typedCode}`, loginPasswordInput);
+              localStorage.setItem(`inst_pass_${result.code}`, loginPasswordInput);
+              if (result.identity?.agentNumber) {
+                localStorage.setItem(`inst_pass_${result.identity.agentNumber}`, loginPasswordInput);
+              }
+            } catch { /* ignore */ }
             applyInstitutionSessionIdentity(result);
             updateActiveProfileFields?.({ institutionName: `${result.name} (${result.code})` });
             setInstIdentity(result.identity || { type: 'responsible' });
