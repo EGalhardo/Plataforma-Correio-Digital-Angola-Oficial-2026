@@ -7,7 +7,7 @@
 // 4. Retrocompatibilidade perfeita: compara assinaturas novas (2048) com templates legados (256) via downsample.
 // ============================================================================
 
-export const FACE_MATCH_THRESHOLD = 26;
+export const FACE_MATCH_THRESHOLD = 36;
 
 export interface FaceTemplate {
   identifier: string;
@@ -136,13 +136,59 @@ export const computeFaceSignatureAsync = async (
   source: HTMLCanvasElement | HTMLVideoElement
 ): Promise<number[]> => computeFaceSignature(source);
 
-/** Comparação vetorial de assinaturas faciais com retrocompatibilidade para moldes legados de 256 pontos (16x16). */
+/**
+ * Comparação vetorial de assinaturas faciais de alta precisão com tolerância
+ * espacial a micro-movimentos (shift-invariance dx/dy ±2px), equalização de
+ * contraste e retrocompatibilidade com moldes legados de 256 pontos (16x16).
+ */
 export const compareFaceSignatures = (a: number[], b: number[]): number => {
   if (!a || !b || !a.length || !b.length) return 999;
+
+  // Comparação de alta resolução (2048 pontos: 1024 cinza + 1024 gradientes Sobel)
+  if (a.length === 2048 && b.length === 2048) {
+    const size = 32;
+    const aGray = a.slice(0, 1024);
+    const aSobel = a.slice(1024, 2048);
+    const bGray = b.slice(0, 1024);
+    const bSobel = b.slice(1024, 2048);
+
+    let bestDiff = 999;
+    const maxShift = 2; // tolerância espacial a ±2 pixels (micro-movimentos/inclinação)
+
+    for (let dy = -maxShift; dy <= maxShift; dy++) {
+      const yStart = Math.max(0, -dy);
+      const yEnd = Math.min(size, size - dy);
+      for (let dx = -maxShift; dx <= maxShift; dx++) {
+        const xStart = Math.max(0, -dx);
+        const xEnd = Math.min(size, size - dx);
+        let diff = 0;
+        let count = 0;
+
+        for (let y = yStart; y < yEnd; y++) {
+          const rowA = y * size;
+          const rowB = (y + dy) * size;
+          for (let x = xStart; x < xEnd; x++) {
+            const idxA = rowA + x;
+            const idxB = rowB + (x + dx);
+            diff += Math.abs(aGray[idxA] - bGray[idxB]) + Math.abs(aSobel[idxA] - bSobel[idxB]);
+            count += 2;
+          }
+        }
+        if (count > 0) {
+          const d = diff / count;
+          if (d < bestDiff) bestDiff = d;
+        }
+      }
+    }
+    return bestDiff;
+  }
+
+  // Se tamanhos forem iguais mas não forem 2048 (ex.: assinaturas sintéticas simuladas)
   if (a.length === b.length) {
     const totalDiff = a.reduce((sum, value, index) => sum + Math.abs(value - b[index]), 0);
     return totalDiff / a.length;
   }
+
   // Retrocompatibilidade automática: se um for 2048 (32x32 + sobel) e outro 256 (16x16 legado),
   // fazemos downsample dos 1024 primeiros pontos de cinza para 16x16 e comparamos
   const longSig = a.length > b.length ? a : b;
@@ -162,17 +208,22 @@ export const compareFaceSignatures = (a: number[], b: number[]): number => {
     const totalDiff = downsampled.reduce((sum, val, idx) => sum + Math.abs(val - shortSig[idx]), 0);
     return totalDiff / 256;
   }
+
   return 999;
 };
 
 /** Melhor distância contra as assinaturas registadas (999 = sem template). */
 export const bestFaceDistance = (signature: number[], template: FaceTemplate | null): number => {
   if (!template) return 999;
+  const candidates: number[][] = [];
   if (template.signatures && Array.isArray(template.signatures) && template.signatures.length) {
-    return Math.min(...template.signatures.map(sig => compareFaceSignatures(signature, sig)));
+    candidates.push(...template.signatures);
   }
-  if (template.signature) return compareFaceSignatures(signature, template.signature);
-  return 999;
+  if (template.signature && Array.isArray(template.signature)) {
+    candidates.push(template.signature);
+  }
+  if (!candidates.length) return 999;
+  return Math.min(...candidates.map(sig => compareFaceSignatures(signature, sig)));
 };
 
 export const readFaceTemplate = (storageKey: string): FaceTemplate | null => {

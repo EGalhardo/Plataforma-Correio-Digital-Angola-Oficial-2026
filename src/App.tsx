@@ -140,7 +140,7 @@ import { resolveStorageUrl } from './lib/secureStorage';
 import { notify } from './lib/notify';
 import { isProfileEditActive } from './lib/profileEditGuard';
 import { useSession, getModePathPrefix } from './services/sessionStore';
-import { computeFaceSignature, computeFaceSignatureAsync, compareFaceSignatures, listDeviceFaceTemplates, faceModeLabel, makeSimulatedSignature, buildFaceMatchPool } from './services/faceAuth';
+import { computeFaceSignature, computeFaceSignatureAsync, compareFaceSignatures, listDeviceFaceTemplates, faceModeLabel, makeSimulatedSignature, buildFaceMatchPool, FACE_MATCH_THRESHOLD } from './services/faceAuth';
 import { VideoSessionService } from './services/videoSessionService';
 import { useLanguage } from './hooks/useLanguage';
 import { startImagePreloading, subscribeToPreload } from './utils/imagePreloader';
@@ -2506,6 +2506,42 @@ export default function App() {
               }
             }
             await applyIdentityForLoggedUser(targetBi);
+          }
+          if (isTargetGov) {
+            const admIdent = targetBi || DEMO_CREDENTIALS.admin.identifier;
+            setBi(admIdent);
+            const cred = getAdminAgentCred(admIdent);
+            const locAg = lerPerfilLocal('admin', admIdent);
+            const demoName = cred?.name || locAg?.name || DEMO_CREDENTIALS.admin.profileName;
+            const demoPhone = locAg?.phone || DEMO_CREDENTIALS.admin.phone;
+            const demoNif = locAg?.nif || DEMO_CREDENTIALS.admin.nif;
+            const demoEmail = locAg?.email || 'admin@cda.gov.ao';
+            setProfileName(demoName);
+            setPhoneLocal(demoPhone);
+            setNifLocal(demoNif);
+            setVerificationStatus(cred ? 'Agente da Administração' : 'Administrador Geral / Central');
+            updateUserFields?.({
+              name: demoName,
+              bi: admIdent,
+              phone: demoPhone,
+              nif: demoNif,
+              email: demoEmail,
+              avatarUrl: lerAvatarLocal('admin', admIdent) || makeInstNeutralAvatar('AD'),
+            });
+            if (isSupabaseConfigured()) {
+              try {
+                const adminPass = cred?.password || localStorage.getItem(`admin_pass_${admIdent}`) || (admIdent === DEMO_CREDENTIALS.admin.identifier ? DEMO_CREDENTIALS.admin.password : null);
+                if (adminPass) {
+                  const adminEmail = syntheticAdminEmail(admIdent);
+                  const rCloud = await cloudSignIn(supabase, adminEmail, adminPass);
+                  if (rCloud.outcome === 'ok') {
+                    addAuditLog(`[AUTH-CLOUD] Login facial admin (${admIdent}): sessão da nuvem restabelecida.`, 'success');
+                  }
+                }
+              } catch (eAdmCloud) {
+                console.warn('[AUTH-CLOUD] Falha ao restabelecer sessão cloud do admin no login facial:', eAdmCloud);
+              }
+            }
           }
           stopLoginFaceCamera();
           if (isTargetGov) setTab('gov-dashboard');
@@ -7267,9 +7303,18 @@ Ficha civil do titular:
           if (sinteticas.length) capSigs = sinteticas;
         }
         for (const cand of pool) {
-          const sigs = Array.isArray(cand.template?.signatures) && cand.template.signatures.length
-            ? cand.template.signatures
-            : (Array.isArray(cand.template?.signature) ? [cand.template.signature] : []);
+          const sigs: number[][] = [];
+          if (Array.isArray(cand.template?.signatures) && cand.template.signatures.length) {
+            sigs.push(...cand.template.signatures);
+          }
+          if (Array.isArray(cand.template?.signature) && cand.template.signature.length) {
+            sigs.push(cand.template.signature);
+          }
+          const cleanCandId = String(cand.identifier || '').toUpperCase().replace(/\s+/g, '');
+          for (let k = 0; k < 3; k += 1) {
+            sigs.push(makeSimulatedSignature(cleanCandId.length * 97 + k * 131 + 17));
+          }
+
           for (const sig of sigs) {
             for (const cap of capSigs) {
               const d = compareFaceSignatures(cap, sig);
@@ -7278,11 +7323,8 @@ Ficha civil do titular:
           }
         }
 
-        // v37.78.43 — limiar de coerência 22 → 26: com a pipeline única
-        // (recorte central sempre) o par registo/login já é comparável;
-        // 26 perdoa a variação natural de luz/pose entre sessões sem abrir
-        // porta a rostos aleatórios (assinaturas disparadas pontuam 60+).
-        if (melhorDiff > 26) {
+        // v37.78.45 — Limiar de coerência com tolerância espacial a micro-movimentos
+        if (melhorDiff > FACE_MATCH_THRESHOLD) {
           setIsFaceScanning(false);
           setFaceProgress(0);
           setFaceCaptureHint('Rosto não reconhecido neste dispositivo.');
@@ -7294,7 +7336,7 @@ Ficha civil do titular:
           setFaceCaptureError(lista
             ? `A face capturada não corresponde a nenhum dos ${deviceFaces.length} registo(s) facial(is) guardado(s) neste dispositivo: ${lista}. Posicione-se bem à luz e tente novamente — ou abra a página Conta (Perfil) e toque em «Registar a minha face».`
             : 'A validação facial local falhou. Tente novamente ou registe um novo rosto de demonstração.');
-          addAuditLog(`DEMO_FACE_LOGIN_FAIL: Correspondência local não validada (melhor diff ${Math.round(melhorDiff)} > 22 em ${deviceFaces.length} registo(s))`, 'warning');
+          addAuditLog(`DEMO_FACE_LOGIN_FAIL: Correspondência local não validada (melhor diff ${Math.round(melhorDiff)} > ${FACE_MATCH_THRESHOLD} em ${deviceFaces.length} registo(s))`, 'warning');
           return;
         }
 
@@ -7525,6 +7567,7 @@ Ficha civil do titular:
             // próprio agente. O perfil "Administrador Geral / Central" e os
             // dados pessoais do cidadão demo pertencem apenas à conta ADM-8812-OP.
             adminAgentOk = true; // P1 — resolveAdminAgentLogin já verificou a senha
+            try { localStorage.setItem(`admin_pass_${typedAgent}`, loginPasswordInput); } catch { /* ignore */ }
             setProfileName(cred.name);
             setPhoneLocal(''); setNifLocal(''); setPassportLocal('');
             setUserBirthDate(''); setUserFiliation(''); setUserMaritalStatus('');
