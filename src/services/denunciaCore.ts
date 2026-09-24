@@ -140,7 +140,7 @@ export function ehResponsavelDaPlataforma(agente: string | null | undefined): bo
 export function codigoInstituicaoBase(codigo: string | null | undefined): string {
   const c = String(codigo || '').trim().toUpperCase();
   const partes = c.split('-');
-  if (partes.length > 2 && /^\d+$/.test(partes[partes.length - 1])) return partes.slice(0, -1).join('-');
+  if (partes.length >= 2 && /^\d+$/.test(partes[partes.length - 1])) return partes.slice(0, -1).join('-');
   return c;
 }
 

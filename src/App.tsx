@@ -3366,7 +3366,7 @@ export default function App() {
             // (ex.: auditoria 990990 ou eventos de sistema) que ainda não estejam na nuvem.
             setNotifications(prevLocal => {
               const dbIds = new Set(dbNotifs.map(n => n.id));
-              const localOnly = prevLocal.filter(n => !dbIds.has(n.id) && (n.id >= 900000 || n.ownerId === sessionOwnerKey));
+              const localOnly = prevLocal.filter(n => !dbIds.has(n.id) && (n.id >= 900000 || n.ownerId === sessionOwnerKey || (isInstMode && !!n.ownerId && codigoInstituicaoBase(n.ownerId) === codigoInstituicaoBase(sessionOwnerKey))));
               return [...dbNotifs, ...localOnly];
             });
           } else {
@@ -4241,7 +4241,16 @@ export default function App() {
   const currentNotifications = useMemo(() => {
     let base: AppNotification[];
     if (!isDemoSession) {
-      base = notifications.filter(n => n.ownerId === sessionOwnerKey);
+      base = notifications.filter(n => {
+        if (!n.ownerId) return false;
+        if (n.ownerId === sessionOwnerKey) return true;
+        if (isInstMode) {
+          const baseOwner = codigoInstituicaoBase(n.ownerId);
+          const baseSession = codigoInstituicaoBase(sessionOwnerKey);
+          return !!baseOwner && baseOwner === baseSession;
+        }
+        return false;
+      });
     } else {
       // F17 — piso de não-lidas também nas notificações (simuladas, só demo)
       if (notifications.length && !notifications.some(n => n.unread)) {

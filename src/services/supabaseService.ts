@@ -2138,11 +2138,27 @@ export const supabaseService = {
   async markAllNotificationsRead(targetBi: string): Promise<boolean> {
     if (!hasValidSupabaseKeys() || !targetBi) return false;
     try {
+      const cleanBi = targetBi.trim().toUpperCase();
+      const baseBi = codigoInstituicaoBase(cleanBi);
+      const targets = Array.from(new Set([cleanBi, baseBi].filter(Boolean)));
       const r = await gravarDados(
-        'notifications', 'update', { target_bi: targetBi },
+        'notifications', 'update', { target_bi: cleanBi },
         { read_at: new Date().toISOString() },
         { isNull: ['read_at'] },
-        async () => null,
+        async () => {
+          let query = supabase
+            .from('notifications')
+            .update({ read_at: new Date().toISOString() })
+            .is('read_at', null);
+          if (targets.length === 1) {
+            query = query.eq('target_bi', targets[0]);
+          } else {
+            query = query.in('target_bi', targets);
+          }
+          const { data, error } = await query;
+          if (error) throw error;
+          return data;
+        },
       );
       return r !== null;
     } catch (e) {
@@ -2173,16 +2189,25 @@ export const supabaseService = {
   async getNotifications(bi: string): Promise<any[] | null> {
     if (!hasValidSupabaseKeys()) return null;
     try {
+      const cleanBi = (bi || '').trim().toUpperCase();
+      const baseBi = codigoInstituicaoBase(cleanBi);
+      const targets = Array.from(new Set([cleanBi, baseBi].filter(Boolean)));
+
       const linhas = await lerLinhasDados<LinhaNotificacaoRow>(
         'notifications',
-        { target_bi: bi },
+        { target_bi: cleanBi },
         { col: 'id', dir: 'desc' },
         async () => {
-          const { data, error } = await supabase
+          let query = supabase
             .from('notifications')
             .select('*')
-            .eq('target_bi', bi)
             .order('id', { ascending: false });
+          if (targets.length === 1) {
+            query = query.eq('target_bi', targets[0]);
+          } else {
+            query = query.in('target_bi', targets);
+          }
+          const { data, error } = await query;
           if (error) throw error;
           return (data || []) as LinhaNotificacaoRow[];
         },
