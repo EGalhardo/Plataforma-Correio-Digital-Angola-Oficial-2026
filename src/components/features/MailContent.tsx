@@ -321,9 +321,13 @@ export function MailContent({
     });
   };
 
-  const tentarEnviar = async () => {
+  const tentarEnviar = async (forceSubject?: string) => {
     if (enviando || distribuindoSondagens) return; // v37.62 — anti-duplicação
-    const v = validarEnvio(composeData);
+    const currentData = {
+      ...composeData,
+      subject: forceSubject !== undefined ? forceSubject : composeData.subject,
+    };
+    const v = validarEnvio(currentData);
     const temSondagens = isInst && sondagensCompostas.length > 0;
     const temInqIA = isInst && inqueritosIaCompostos.length > 0;
     const temBlocos = temSondagens || temInqIA;
@@ -333,9 +337,8 @@ export function MailContent({
       v.bloqueios = v.bloqueios.filter((b) => b !== 'Escreve o conteúdo da mensagem antes de enviar.');
     }
     setValidacao(v);
-    if (v.bloqueios.length > 0) return;
-    if (v.avisos.length > 0 && !avisosConfirmados) {
-      setAvisosConfirmados(true);
+    if (v.bloqueios.length > 0) {
+      notify(v.bloqueios.join(' '), 'warning');
       return;
     }
     // v37 §1.5 — com sondagens na composição: ativa rascunhos e distribui por
@@ -350,7 +353,7 @@ export function MailContent({
       // com a(s) sondagem(ns) embutida(s). Antes disto recebiam duas mensagens
       // iguais (a difusão + a expedição manual).
       const manuais = Array.from(new Set(
-        [composeData.to, ...(composeData.toArray || [])]
+        [currentData.to, ...(currentData.toArray || [])]
           .map((t) => String(t || '').trim().toUpperCase().replace(/\s+/g, ''))
           .filter((t) => t && t !== 'TODOS'),
       ));
@@ -362,8 +365,8 @@ export function MailContent({
           codigo: bi,
           nomeInstituicao: nomeInst,
           sondagens: sondagensCompostas,
-          assuntoBase: composeData.subject || '',
-          corpoExtra: composeData.body || '',
+          assuntoBase: currentData.subject || '',
+          corpoExtra: currentData.body || '',
           excluirBis: manuais,
         });
         // v37.78.14 — ANTI-DUPLICAÇÃO: o flag só desce DEPOIS de o ramo TODOS
@@ -393,7 +396,7 @@ export function MailContent({
       //  • «Todos» → todos os cidadãos que já trocaram correspondência com
       //    esta instituição (destinatários manuais adicionais, se existirem,
       //    são excluídos da difusão porque recebem a cópia própria).
-      const paraTodos = String(composeData.to).trim().toUpperCase() === 'TODOS';
+      const paraTodos = String(currentData.to).trim().toUpperCase() === 'TODOS';
       if (temInqIA && !paraTodos) {
         const act = await ativarInqueritosIAParaDestinatarios({ inqueritos: inqueritosIaCompostos, destinatarios: manuais });
         if (!act.ok || !act.dados) {
@@ -415,8 +418,8 @@ export function MailContent({
           codigo: bi,
           nomeInstituicao: nomeInst,
           inqueritos: inqueritosIaCompostos,
-          assuntoBase: composeData.subject || '',
-          corpoExtra: composeData.body || '',
+          assuntoBase: currentData.subject || '',
+          corpoExtra: currentData.body || '',
           excluirBis: manuais,
         });
         if (!distIA.ok || !distIA.dados) {
@@ -445,12 +448,12 @@ export function MailContent({
       // Destinatário «Todos» (v37): a difusão pelo âmbito oficial já entregou —
       // regista-se a expedição única (visível em «Enviadas») e confirma-se ao
       // utilizador com popup de sucesso.
-      if (String(composeData.to).trim().toUpperCase() === 'TODOS') {
-        const assuntoFinal = composeData.subject?.trim()
+      if (paraTodos) {
+        const assuntoFinal = currentData.subject?.trim()
           || (temSondagens
             ? `Sondagem${sondagensCompostas.length > 1 ? 's' : ''}: ${sondagensCompostas[0]?.pergunta || ''}`
             : `Inquérito: ${inqueritosIaCompostos[0]?.guiao?.objectivo || inqueritosIaCompostos[0]?.o_que_pretende_saber || ''}`);
-        const corpoFinal = composeData.body?.trim() || corpoPadrao;
+        const corpoFinal = currentData.body?.trim() || corpoPadrao;
         if (temSondagens) {
           await registarExpedicaoSondagens({
             codigo: bi, nomeInstituicao: nomeInst, assunto: assuntoFinal, corpo: corpoFinal,
@@ -482,7 +485,7 @@ export function MailContent({
                 body: corpoFinal,
                 // O compositor guarda os anexos já serializados (strings JSON);
                 // a pipeline do App normaliza ambos os formatos.
-                attachments: (composeData.attachments || []) as unknown as ReplySendPayload['attachments'],
+                attachments: (currentData.attachments || []) as unknown as ReplySendPayload['attachments'],
                 ...(idsSondTodos.length ? { sondagensIds: idsSondTodos } : {}),
                 ...(idsInqTodos.length ? { inqueritosIaIds: idsInqTodos } : {}),
                 silencioso: true,
@@ -505,7 +508,7 @@ export function MailContent({
         onRefreshMail?.();
         setSondagensCompostas([]);
         setInqueritosIaCompostos([]);
-        setComposeData({ ...composeData, to: '', toArray: [], subject: '', body: '', sondagensIds: undefined, inqueritosIaIds: undefined, dataExpiracao: '' });
+        setComposeData({ ...currentData, to: '', toArray: [], subject: '', body: '', sondagensIds: undefined, inqueritosIaIds: undefined, dataExpiracao: '' });
         setAvisosConfirmados(false);
         setValidacao({ bloqueios: [], avisos: [] });
         const servidosManuais = manuais.filter((m) => !manuaisFalhados.includes(m));
@@ -537,7 +540,7 @@ export function MailContent({
       // Sem texto próprio, o corpo descreve as sondagens embutidas (pipeline
       // de envio exige corpo não vazio). O envio segue no tick seguinte para
       // o estado do corpo propagar (v37.78.3: pelo ref, para ler o estado NOVO).
-      if (!composeData.body.trim()) {
+      if (!currentData.body.trim()) {
         updateBodyText(corpoPadrao);
         setTimeout(() => handleSendMessageRef.current(), 150);
         return;
@@ -587,26 +590,28 @@ export function MailContent({
   const escolherModalidadeEnvio = (m: ModalidadeEnvio) => {
     setShowTipoEnvioModal(false);
     if (m === 'emergencia') {
-      if (onEmergencyBroadcast) onEmergencyBroadcast(); else tentarEnviar();
+      if (onEmergencyBroadcast) onEmergencyBroadcast(); else void tentarEnviar();
       return;
     }
+    let novoAssunto = (composeData.subject || '').trim();
     if (m === 'denuncia' && !ehDenuncia) {
       // O assunto é opcional para o cidadão; o prefixo identifica a modalidade
       // no detalhe, na revisão e no comprovativo sem alterar a base de dados.
+      novoAssunto = `${PREFIXO_DENUNCIA} ${novoAssunto}`.trim();
       setComposeData((prev) => ({
         ...prev,
-        subject: `${PREFIXO_DENUNCIA} ${(prev.subject || '').trim()}`.trim(),
+        subject: novoAssunto,
       }));
-    }
-    // 2026-09-23 (T-v37.79) — «Denuncia»: prefixo próprio; se a mensagem já
-    // trouxer uma das marcas, não duplicar.
-    if (m === 'nova-denuncia' && !ehNovaDenuncia && !ehDenuncia) {
+    } else if (m === 'nova-denuncia' && !ehNovaDenuncia && !ehDenuncia) {
+      // 2026-09-23 (T-v37.79) — «Denuncia»: prefixo próprio; se a mensagem já
+      // trouxer uma das marcas, não duplicar.
+      novoAssunto = `${PREFIXO_NOVA_DENUNCIA} ${novoAssunto}`.trim();
       setComposeData((prev) => ({
         ...prev,
-        subject: `${PREFIXO_NOVA_DENUNCIA} ${(prev.subject || '').trim()}`.trim(),
+        subject: novoAssunto,
       }));
     }
-    tentarEnviar();
+    void tentarEnviar(novoAssunto);
   };
 
   const opcoesEnvio: Array<{
@@ -2102,36 +2107,37 @@ export function MailContent({
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-2">
             <div className="flex flex-wrap items-center gap-3">
               {/* 1. Enviar Mensagem Oficial / Enviar Mensagem */}
-              <button
-                type="button"
-                onClick={() => {
-                  // Após confirmar avisos («Enviar mesmo assim») a modalidade já
-                  // foi escolhida — segue directo, sem repetir o popup.
-                  if (!isInst && avisosConfirmados && validacao && validacao.avisos.length > 0) {
-                    tentarEnviar();
-                  } else {
-                    abrirPopupEnvio();
-                  }
-                }}
-                disabled={
-                  !(composeData.to || (composeData.toArray || []).length > 0) ||
-                  (isInst && !composeData.subject) ||
-                  (!composeData.body && !(isInst && (sondagensCompostas.length > 0 || inqueritosIaCompostos.length > 0))) ||
-                  distribuindoSondagens ||
-                  enviando ||
-                  ((!isInst || instRecipientType === 'instituicao') && !!instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && instRegistry.status === 'nao_registada')
-                }
-                className="bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs md:text-sm px-5 py-3 rounded-xl shadow-xs active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 cursor-pointer"
-                id="btn-enviar-mensagem"
-              >
-                {distribuindoSondagens || enviando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                <span>
-                  {distribuindoSondagens ? 'A distribuir…'
-                    : enviando ? 'A enviar…'
-                    : isInst ? 'Enviar Mensagem Oficial'
-                    : avisosConfirmados && validacao && validacao.avisos.length > 0 ? 'Enviar mesmo assim' : 'Enviar Mensagem'}
-                </span>
-              </button>
+              {(() => {
+                const temDestinatario = Boolean((composeData.to || '').trim() || ((composeData.toArray || []).filter(Boolean).length > 0));
+                const temCorpoValido = Boolean((composeData.body || '').trim() || (isInst && (sondagensCompostas.length > 0 || inqueritosIaCompostos.length > 0)));
+                const temAssuntoValido = !isInst || Boolean((composeData.subject || '').trim());
+                const destNaoRegistado = (!isInst || instRecipientType === 'instituicao') && !!instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && instRegistry.status === 'nao_registada';
+                const podeEnviar = temDestinatario && temCorpoValido && temAssuntoValido && !distribuindoSondagens && !enviando && !isUploading && !destNaoRegistado;
+
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!temDestinatario) {
+                        notify("Indique o destinatário da correspondência antes de avançar.", "warning");
+                        return;
+                      }
+                      abrirPopupEnvio();
+                    }}
+                    disabled={!podeEnviar}
+                    className="bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs md:text-sm px-5 py-3 rounded-xl shadow-xs active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 cursor-pointer"
+                    id="btn-enviar-mensagem"
+                  >
+                    {distribuindoSondagens || enviando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                    <span>
+                      {distribuindoSondagens ? 'A distribuir…'
+                        : enviando ? 'A enviar…'
+                        : isInst ? 'Enviar Mensagem Oficial'
+                        : 'Enviar Mensagem'}
+                    </span>
+                  </button>
+                );
+              })()}
 
               {/* 2. Rever Clareza (IA) */}
               <button
