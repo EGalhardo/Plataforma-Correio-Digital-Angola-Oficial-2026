@@ -1418,6 +1418,7 @@ export default function App() {
   const loginFaceVideoRef = useRef<HTMLVideoElement | null>(null);
   const loginFaceCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const loginFaceStreamRef = useRef<MediaStream | null>(null);
+  const recognizedFaceRef = useRef<{ id: string; mode: string } | null>(null);
   const [isAddingContact, setIsAddingContact] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
@@ -1782,7 +1783,7 @@ export default function App() {
   useEffect(() => {
     // v37.43 — não limpar as credenciais durante o re-submit provocado pela
     // troca automática de área (detectaPapel); senão o 2º submit iria vazio.
-    if (pendingResubmitRef.current) return;
+    if (pendingResubmitRef.current || loginSubMode === 'face-capture' || recognizedFaceRef.current) return;
     if (stage === 'login' || stage === 'splash') {
       // v37.58 — refresh com sessão activa: restaurar o identificador real da
       // sessão em vez de pré-preencher a demo. Antes, o preset demo corria no
@@ -2331,29 +2332,37 @@ export default function App() {
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (loginSubMode === 'face-capture' && faceProgress === 100) {
-      if (emergencyMode && !isInstMode && !isGovMode && (bi.toLowerCase().includes('002931298') || bi.toLowerCase().includes('edlasio') || profileName.toLowerCase().includes('edlasio'))) {
+      const recTarget = recognizedFaceRef.current;
+      const targetBi = (recTarget?.id || bi || '').trim();
+      const targetMode = (recTarget?.mode || appMode);
+      const isTargetInst = targetMode === 'institution';
+      const isTargetGov = targetMode === 'admin';
+
+      if (emergencyMode && !isTargetInst && !isTargetGov && (targetBi.toLowerCase().includes('002931298') || targetBi.toLowerCase().includes('edlasio') || profileName.toLowerCase().includes('edlasio'))) {
         setLoginError("Autenticação Biométrica Recusada: Chaves Faciais Suspensas por Ordem do Protocolo SOC-AN-2026!");
         setFaceProgress(0);
         setIsFaceScanning(false);
+        recognizedFaceRef.current = null;
         return;
       }
       timer = setTimeout(() => {
         void (async () => {
           // F6/B6.3 — login facial também para instituições registadas: a face (verificada contra
           // o template da pessoa, registado na página Conta) substitui a senha. Gates idênticos.
-          if (isInstMode && bi.trim().toUpperCase() !== DEMO_CREDENTIALS.institution.identifier && bi.trim() !== '') {
+          if (isTargetInst && targetBi.toUpperCase() !== DEMO_CREDENTIALS.institution.identifier && targetBi !== '') {
             try {
-              const res = await resolveInstitutionFaceLogin(bi.trim(), supabase);
+              const res = await resolveInstitutionFaceLogin(targetBi, supabase);
               if (res.outcome === 'invalid' || res.outcome === 'deny') {
                 setLoginError(res.message || 'Login facial não autorizado para este Nº Agente.');
                 setFaceProgress(0);
                 setIsFaceScanning(false);
                 stopLoginFaceCamera();
                 setLoginSubMode('normal');
+                recognizedFaceRef.current = null;
                 addAuditLog(`Login facial institucional recusado (${res.code}): ${res.message}`, res.outcome === 'deny' ? 'critical' : 'warning');
                 return;
               }
-              applyInstitutionSessionIdentity(res);
+              await applyInstitutionSessionIdentity(res);
               updateActiveProfileFields?.({ institutionName: `${res.name} (${res.code})` });
               setBi(res.code);
               setInstIdentity(res.identity || { type: 'responsible' });
@@ -2373,10 +2382,11 @@ export default function App() {
               setIsFaceScanning(false);
               stopLoginFaceCamera();
               setLoginSubMode('normal');
+              recognizedFaceRef.current = null;
               return;
             }
           }
-          if (isInstMode && bi.trim().toUpperCase() === DEMO_CREDENTIALS.institution.identifier) {
+          if (isTargetInst && targetBi.toUpperCase() === DEMO_CREDENTIALS.institution.identifier) {
             setInstGate('full');
             setInstIdentity({ type: 'responsible' });
           }
@@ -2385,8 +2395,8 @@ export default function App() {
           // A face bateu => a conta existiu neste dispositivo (evidência local
           // forte); se a fila oficial já não tem registo deste B.I., o Admin
           // eliminou a conta => revogar + purgar vestígios (inclui a matriz facial).
-          if (!isInstMode && !isGovMode) {
-            const faceBi = bi.trim().toUpperCase().replace(/\s+/g, '');
+          if (!isTargetInst && !isTargetGov) {
+            const faceBi = targetBi.toUpperCase().replace(/\s+/g, '');
             if (faceBi && !homologationStore.isExempt(faceBi) && isSupabaseConfigured()) {
               try {
                 const pre = await readCitizenRegistrationStatus(supabase, faceBi);
@@ -2398,6 +2408,7 @@ export default function App() {
                   setIsFaceScanning(false);
                   stopLoginFaceCamera();
                   setLoginSubMode('normal');
+                  recognizedFaceRef.current = null;
                   addAuditLog(`Login facial do cidadão ${faceBi} recusado: registo inexistente na base central (conta eliminada pela Administração) — acesso revogado até novo registo + nova homologação (F47).`, 'critical');
                   return;
                 }
@@ -2413,6 +2424,7 @@ export default function App() {
                     setIsFaceScanning(false);
                     stopLoginFaceCamera();
                     setLoginSubMode('normal');
+                    recognizedFaceRef.current = null;
                     addAuditLog(`Login facial do cidadão ${faceBi} recusado: conta BLOQUEADA (estado lido da nuvem).`, 'critical');
                     return;
                   }
@@ -2422,6 +2434,7 @@ export default function App() {
                     setIsFaceScanning(false);
                     stopLoginFaceCamera();
                     setLoginSubMode('normal');
+                    recognizedFaceRef.current = null;
                     addAuditLog(`Login facial do cidadão ${faceBi} recusado: registo REJEITADO (estado lido da nuvem).`, 'critical');
                     return;
                   }
@@ -2440,8 +2453,8 @@ export default function App() {
           // de entrada ficava VAZIA. Restabelece a sessão com a credencial
           // local guardada neste dispositivo (mesmo padrão do restauro admin),
           // ANTES de entrar, para o carregamento de dados usar o caminho certo.
-          if (!isInstMode && !isGovMode) {
-            const faceBiCloud = bi.trim().toUpperCase().replace(/\s+/g, '');
+          if (!isTargetInst && !isTargetGov) {
+            const faceBiCloud = targetBi.toUpperCase().replace(/\s+/g, '');
             if (faceBiCloud && !homologationStore.isExempt(faceBiCloud) && isSupabaseConfigured()) {
               try {
                 const localPass = (() => { try { return localStorage.getItem(`citizen_pass_${faceBiCloud}`); } catch { return null; } })();
@@ -2459,11 +2472,12 @@ export default function App() {
                 console.warn('[AUTH-CLOUD] Falha ao restabelecer a sessão no login facial (não bloqueia a entrada):', eCloudFace);
               }
             }
+            await applyIdentityForLoggedUser(targetBi);
           }
-          await applyIdentityForLoggedUser();
           stopLoginFaceCamera();
-          if (isGovMode) setTab('gov-dashboard');
+          if (isTargetGov) setTab('gov-dashboard');
           setStage('app');
+          recognizedFaceRef.current = null;
           addAuditLog('Acesso concedido via Biometria Facial Local de Demonstração', 'success');
         })();
       }, 400); // v37.78.41 — transição pós-reconhecimento 2× mais rápida (800→400ms)
@@ -7263,6 +7277,7 @@ Ficha civil do titular:
 
         // v37.78.40 — reconhecido: assume a identidade e a ÁREA certas (corrige
         // o caso «registou como Cidadão, tentou entrar na área errada»).
+        recognizedFaceRef.current = { id: melhorId, mode: melhorMode };
         if (melhorId && melhorId !== normTyped) {
           setBi(melhorId);
           addAuditLog(`Login facial: rosto reconhecido como ${faceModeLabel(melhorMode)} ${melhorId} — identidade assumida automaticamente.`, 'info');
