@@ -349,6 +349,40 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
   // Knowledge Bases
   // Começa vazio e carrega as fontes reais (kb_fontes_instituicao) no efeito acima.
   const [knowledgeBases, setKnowledgeBases] = useState<AIBaseConfig[]>([]);
+  const [sincronizando, setSincronizando] = useState<boolean>(false);
+
+  const sincronizarBasesConhecimento = async () => {
+    setSincronizando(true);
+    try {
+      const { data: fontes, error: errKb } = await supabase
+        .from('kb_fontes_instituicao')
+        .select('id, sigla, titulo, tipo, ativo, atualizado_em')
+        .eq('ativo', true)
+        .order('atualizado_em', { ascending: false });
+
+      if (!errKb && Array.isArray(fontes)) {
+        const bases: AIBaseConfig[] = fontes.map((f: Record<string, unknown>) => ({
+          id: String(f.id),
+          title: String(f.titulo || 'Fonte sem título'),
+          type: String(f.tipo || 'Fonte'),
+          docsCount: 1,
+          institution: String(f.sigla || '—'),
+          status: 'synced',
+          lastUpdate: typeof f.atualizado_em === 'string' ? new Date(f.atualizado_em).toLocaleDateString('pt-AO') : '—',
+        }));
+        setKnowledgeBases(bases);
+        setAiStats(prev => ({ ...prev, totalBases: bases.length, totalDocs: bases.length }));
+        playSound('success');
+        triggerToast(`Bases de conhecimento sincronizadas com sucesso! ${bases.length} fontes ativas indexadas.`, 'success');
+      } else {
+        triggerToast('Não foi possível sincronizar as bases no momento.', 'warning');
+      }
+    } catch {
+      triggerToast('Erro de comunicação ao sincronizar bases.', 'error');
+    } finally {
+      setSincronizando(false);
+    }
+  };
 
   const [newKbTitle, setNewKbTitle] = useState<string>('');
   const [newInstName, setNewInstName] = useState<string>('');
@@ -856,10 +890,13 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
                   </div>
                 </div>
                 <button
-                  onClick={() => { playSound('success'); triggerToast('A lista mostrada já é a leitura actual da Base de Conhecimento — nada mais foi resincronizado.', 'info'); }}
-                  className="p-1 px-2.5 bg-white border border-emerald-200 hover:border-emerald-300 text-emerald-700 rounded-lg text-[9px] font-black uppercase tracking-wider cursor-pointer shadow-3xs"
+                  type="button"
+                  disabled={sincronizando}
+                  onClick={sincronizarBasesConhecimento}
+                  className="p-1 px-2.5 bg-white border border-emerald-200 hover:border-emerald-300 text-emerald-700 rounded-lg text-[9px] font-black uppercase tracking-wider cursor-pointer shadow-3xs disabled:opacity-50 flex items-center gap-1"
                 >
-                  Sincronizar
+                  {sincronizando && <Loader2 size={10} className="animate-spin" />}
+                  <span>{sincronizando ? 'A sincronizar...' : 'Sincronizar'}</span>
                 </button>
               </div>
             </div>
