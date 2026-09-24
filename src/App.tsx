@@ -7911,32 +7911,20 @@ Ficha civil do titular:
                 />
               </motion.div>
             ) : (
-              <div className="flex flex-col items-center relative z-10">
-                {/* v37.78.38 — logomarca +25% proporcional NO DESKTOP (pedido
-                    do dono 2026-08-31): 213→266px (captura facial 138→173px),
-                    margens um degrau acima (mb-6→mb-7 / mb-3.5→mb-4) e painéis
-                    min-h 555→615 / 440→485 — o conjunto cresce junto. */}
+              <div className="flex flex-col items-center justify-center relative z-10 my-auto">
                 <LazyImage
                   src="https://i.postimg.cc/7PWDMLZM/Logo2.png" 
                   alt="Correio Digital" 
                   priority={true}
                   placeholder="skeleton"
-                  className={loginSubMode === 'face-capture' ? "mb-4" : "mb-7"}
+                  className="mx-auto block"
                   style={{
-                    height: loginSubMode === 'face-capture' ? '173px' : '266px',
+                    height: loginSubMode === 'face-capture' ? '208px' : '319px',
                     width: 'auto',
                     objectFit: 'contain',
                     backgroundColor: 'transparent',
                   }}
                 />
-                <h1 className={`${loginSubMode === 'face-capture' ? 'text-lg md:text-xl mb-3' : 'text-xl md:text-2xl mb-4'} font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'} leading-tight italic uppercase tracking-tight`}>
-                  {t("O seu novo endereço digital oficial")}
-                </h1>
-                <div className={`${loginSubMode === 'face-capture' ? 'mt-3.5' : 'mt-6'} flex flex-col items-center`}>
-                  <div className="flex items-center gap-1.5 px-5 py-2.5 bg-[#0E2B64] border border-[#0E2B64] rounded-full text-[10px] text-white font-extrabold uppercase tracking-widest shadow-xs">
-                    <ShieldCheck size={14} className="text-emerald-400" /> {t("Infraestrutura Oficial Segura")}
-                  </div>
-                </div>
               </div>
             )}
           </motion.div>

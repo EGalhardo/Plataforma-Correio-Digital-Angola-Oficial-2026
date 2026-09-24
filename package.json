@@ -11,7 +11,7 @@
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit",
+    "lint": "./node_modules/.bin/tsc --noEmit",
     "seed:supabase": "tsx scripts/bootstrapSupabase.ts",
     "verify:supabase": "tsx scripts/verifySupabase.ts",
     "test:interop": "tsx scripts/testInteroperabilidade.ts",
