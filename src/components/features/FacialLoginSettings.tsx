@@ -9,13 +9,14 @@
 // PESSOA (BI / Nº Agente Institucional / Nº Agente Admin).
 // ============================================================================
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { CdaConfirmModal } from '../ui/CdaConfirm';
-import { ScanFace, ShieldCheck, Trash2, Camera, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { ScanFace, ShieldCheck, Trash2, Camera, AlertTriangle, CheckCircle2, Loader2, Ban } from 'lucide-react';
 import {
   buildFaceStorageKey, readFaceTemplate, computeFaceSignatureAsync,
-  makeSimulatedSignature, type FaceTemplate
+  makeSimulatedSignature, listDeviceFaceTemplates, faceModeLabel, type FaceTemplate
 } from '../../services/faceAuth';
+import { notify } from '../../lib/notify';
 
 interface FacialLoginSettingsProps {
   /** 'user' | 'institution' | 'admin' — tal como o appMode da sessão. */
@@ -29,17 +30,30 @@ interface FacialLoginSettingsProps {
 const STEPS = ['FRONTAL', 'ESQUERDA', 'SORRISO'] as const;
 
 export function FacialLoginSettings({ mode, personId, displayName, onAudit }: FacialLoginSettingsProps) {
+  const cleanPersonId = (personId || '').toUpperCase().replace(/\s+/g, '');
   const storageKey = buildFaceStorageKey(mode, personId);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   const [template, setTemplate] = useState<FaceTemplate | null>(() => readFaceTemplate(storageKey));
+  const [deviceRecords, setDeviceRecords] = useState(() => listDeviceFaceTemplates());
   const [capturing, setCapturing] = useState(false);
   const [step, setStep] = useState(0);
   const [cameraError, setCameraError] = useState(false);
   const [simulated, setSimulated] = useState(false);
+  const [avisoBloqueio, setAvisoBloqueio] = useState<string | null>(null);
   const capturesRef = useRef<number[][]>([]);
+
+  // Sincroniza o template e registos do dispositivo quando muda a identidade ou chave
+  useEffect(() => {
+    setTemplate(readFaceTemplate(storageKey));
+    setDeviceRecords(listDeviceFaceTemplates());
+  }, [storageKey, mode, cleanPersonId]);
+
+  // Regra de segurança: este dispositivo apenas permite 1 único registo facial guardado.
+  const outroRegisto = deviceRecords.find(r => r.identifier !== cleanPersonId || r.mode !== mode);
+  const dispositivoBloqueado = Boolean(outroRegisto || (!template && deviceRecords.length > 0));
 
   const stopCamera = () => {
     streamRef.current?.getTracks().forEach(t => t.stop());
@@ -47,6 +61,19 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
   };
 
   const startEnrollment = async () => {
+    // Verificar se este dispositivo já possui um registo facial de outra identidade
+    const freshRecords = listDeviceFaceTemplates();
+    setDeviceRecords(freshRecords);
+    const outro = freshRecords.find(r => r.identifier !== cleanPersonId || r.mode !== mode);
+    if (outro || (!template && freshRecords.length > 0)) {
+      const msg = "Não é possível adicionar seu registo por esse dispositivo já possui um registado.";
+      notify(msg, 'warning', { duracaoMs: 8000 });
+      setAvisoBloqueio(msg);
+      onAudit?.('LOGIN FACIAL: tentativa de registo recusada — dispositivo já possui um registo guardado.', 'warning');
+      return;
+    }
+
+    setAvisoBloqueio(null);
     capturesRef.current = [];
     setStep(0);
     setSimulated(false);
@@ -162,6 +189,19 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
         signature: avg,
         signatures: next,
       };
+
+      // Guarda estrita: verificar se outro registo foi gravado entretanto no dispositivo
+      const freshCheck = listDeviceFaceTemplates();
+      const outroAntesDeGravar = freshCheck.find(r => r.identifier !== payload.identifier || r.mode !== mode);
+      if (outroAntesDeGravar || (!template && freshCheck.length > 0 && !freshCheck.some(r => r.key === storageKey))) {
+        const msg = "Não é possível adicionar seu registo por esse dispositivo já possui um registado.";
+        notify(msg, 'warning', { duracaoMs: 8000 });
+        setErroGravacao(msg);
+        setDeviceRecords(freshCheck);
+        cancelEnrollment();
+        return;
+      }
+
       try {
         localStorage.setItem(storageKey, JSON.stringify(payload));
         // v37.78.40 — verificação por RELEITURA: só anuncia sucesso se o
@@ -171,7 +211,9 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
           throw new Error('releitura vazia');
         }
         setTemplate(payload);
+        setDeviceRecords(listDeviceFaceTemplates());
         setErroGravacao(null);
+        setAvisoBloqueio(null);
         onAudit?.(`LOGIN FACIAL: rosto registado na página Conta (${mode} · ${payload.identifier}) — guardado no armazenamento local deste navegador.`, 'success');
         // v37.78.39 — flash de sucesso animado (3s)
         setSucesso(true);
@@ -195,6 +237,8 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
   const removeTemplate = () => {
     try { localStorage.removeItem(storageKey); } catch { /* ignora */ }
     setTemplate(null);
+    setDeviceRecords(listDeviceFaceTemplates());
+    setAvisoBloqueio(null);
     onAudit?.(`LOGIN FACIAL: registo facial removido (${mode} · ${personId.toUpperCase().replace(/\s+/g, '')}).`, 'warning');
   };
 
@@ -207,25 +251,44 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
 
       {/* Estado do registo */}
       <div className={`flex items-center gap-2 rounded-2xl border px-4 py-3 text-[10.5px] font-bold ${
-        template
-          ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-          : 'bg-slate-50 border-slate-200 text-slate-500'
+        dispositivoBloqueado
+          ? 'bg-amber-50 border-amber-300 text-amber-800'
+          : template
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            : 'bg-slate-50 border-slate-200 text-slate-500'
       }`}>
-        {template ? <ShieldCheck size={14} /> : <AlertTriangle size={14} />}
-        {template
-          ? <span>Face registada neste dispositivo em <strong className="font-black">{template.capturedAt}</strong> — pode entrar com o rosto na página de login.</span>
-          : <span>Sem registo facial neste dispositivo. Registe a sua face para poder entrar com o rosto na página de login.</span>}
+        {dispositivoBloqueado ? <AlertTriangle size={14} className="text-amber-600 shrink-0" /> : template ? <ShieldCheck size={14} /> : <AlertTriangle size={14} />}
+        {dispositivoBloqueado
+          ? <span>Não é possível adicionar seu registo por esse dispositivo já possui um registado.</span>
+          : template
+            ? <span>Face registada neste dispositivo em <strong className="font-black">{template.capturedAt}</strong> — pode entrar com o rosto na página de login.</span>
+            : <span>Sem registo facial neste dispositivo. Registe a sua face para poder entrar com o rosto na página de login.</span>}
       </div>
 
       {/* v37.78.40 — ONDE o registo ficou guardado (transparência total para o
           utilizador: identidade + área + armazenamento local do navegador). */}
-      {template && (
+      {template && !dispositivoBloqueado && (
         <p className="mt-2 text-[9px] text-slate-400 font-bold leading-snug flex items-start gap-1.5">
           <ShieldCheck size={11} className="shrink-0 mt-0.5 text-emerald-400" />
           Guardado na memória deste dispositivo (armazenamento local do navegador) para:
           <strong className="font-black">{mode === 'institution' ? 'Institucional' : mode === 'admin' ? 'Administração' : 'Cidadão'} · {template.identifier}</strong>.
           Não é enviado para a internet.
         </p>
+      )}
+
+      {/* Detalhe do bloqueio por registo prévio */}
+      {dispositivoBloqueado && outroRegisto && (
+        <p className="mt-2 text-[9px] text-amber-700 font-bold leading-snug flex items-start gap-1.5">
+          <Ban size={11} className="shrink-0 mt-0.5 text-amber-500" />
+          Registo activo neste dispositivo: <strong className="font-black">{faceModeLabel(outroRegisto.mode)} ({outroRegisto.identifier})</strong>. Para registar uma nova face, remova primeiro o registo anterior existente no dispositivo.
+        </p>
+      )}
+
+      {/* Notificação / alerta de bloqueio */}
+      {avisoBloqueio && (
+        <div className="mt-3 flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-[10px] font-black text-amber-800 leading-relaxed">
+          <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" /> {avisoBloqueio}
+        </div>
       )}
 
       {/* v37.78.40 — erro de gravação VISÍVEL (armazenamento bloqueado/cheio) */}
@@ -334,7 +397,11 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
           <button
             type="button"
             onClick={startEnrollment}
-            className="bg-[#0E2B64] hover:bg-[#081a3d] text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer border-none flex items-center gap-2"
+            className={`px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer border-none flex items-center gap-2 ${
+              dispositivoBloqueado
+                ? 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                : 'bg-[#0E2B64] hover:bg-[#081a3d] text-white'
+            }`}
           >
             <Camera size={13} /> {template ? 'Atualizar a minha face' : 'Registar a minha face'}
           </button>

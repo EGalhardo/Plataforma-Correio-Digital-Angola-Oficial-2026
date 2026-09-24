@@ -28,6 +28,8 @@ import { purgeCitizenLocalResidues } from '../../services/accountGateService';
 import { gravarJob, correrRegistoBg, EVENTO_DESFECHO_BG, type RegistoBgJob } from '../../services/registoBgService';
 import { runRegistrationVerification, prewarmVerificationEngine, type RegistrationVerificationReport } from '../../services/verificationEngine';
 import { normalizarNome, normalizarTitulo, corrigirDominioEmail } from '../../services/textNormalizeService';
+import { listDeviceFaceTemplates } from '../../services/faceAuth';
+import { notify } from '../../lib/notify';
 
 const base64ToBlob = (base64Str: string): Blob => {
   try {
@@ -462,6 +464,17 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   // Fluxo robusto de registo em 3 capturas (Frente → Esquerda → Sorriso/Cima) com fusão criptográfica
   const startCameraScan = async () => {
     if (!webcamReady || isScanning || captureFinished) return;
+
+    // Regra de segurança: este dispositivo apenas permite 1 registo facial guardado
+    const existing = listDeviceFaceTemplates();
+    const cleanBi = (biNumber || '').toUpperCase().replace(/\s+/g, '');
+    if (existing.some(r => r.identifier !== cleanBi)) {
+      const msg = "Não é possível adicionar seu registo por esse dispositivo já possui um registado.";
+      notify(msg, 'warning', { duracaoMs: 8000 });
+      setFaceCaptureHint(msg);
+      addAuditLog('Biometria facial no Registo: tentativa recusada — dispositivo já possui um registo guardado', 'warning');
+      return;
+    }
 
     const captured = captureFaceFrame();
     if (!captured) {

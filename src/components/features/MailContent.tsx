@@ -50,7 +50,8 @@ import {
   Info,
   CalendarClock,
   Ban, Flag,
-  ChevronRight
+  ChevronRight,
+  Image as ImageIcon
 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { Message, LanguageCode, ReplySendPayload } from '../../types';
@@ -248,6 +249,42 @@ export function MailContent({
     | { estado: 'ok'; observacoes: string; sugestao: string }
     | { estado: 'erro'; erro: string };
   const [clareza, setClareza] = useState<EstadoClareza | null>(null);
+
+  // Parser limpo e elegante dos anexos para exibição no popup de revisão/confirmação
+  const parsedAttachmentsParaRevisao = useMemo(() => {
+    return (composeData.attachments || []).map((item, idx) => {
+      let name = `Documento_${idx + 1}`;
+      let size = '';
+      let type = '';
+      let isImage = false;
+      let previewUrl = '';
+      if (typeof item === 'string') {
+        const trimmed = item.trim();
+        if (trimmed.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            name = parsed.name || name;
+            size = parsed.size || '';
+            type = parsed.type || '';
+            if (type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(name)) {
+              isImage = true;
+              if (typeof parsed.content === 'string' && parsed.content.startsWith('data:image/')) {
+                previewUrl = parsed.content;
+              }
+            }
+          } catch {
+            name = trimmed.slice(0, 30);
+          }
+        } else {
+          name = trimmed;
+          if (/\.(jpg|jpeg|png|webp|gif|svg)$/i.test(name)) {
+            isImage = true;
+          }
+        }
+      }
+      return { name, size, type, isImage, previewUrl };
+    });
+  }, [composeData.attachments]);
 
   // v37.78.3 — envio diferido (corpo preenchido automaticamente + sondagens
   // embutidas): o setTimeout tem de invocar a versão MAIS RECENTE da pipeline
@@ -2247,65 +2284,122 @@ export function MailContent({
             onFechar={() => setRevisaoEnvio(false)}
             icone={ClipboardCheck}
             titulo="Rever antes de enviar"
-            subtitulo="Confirme os dados da correspondência"
-            maxW="max-w-lg"
+            subtitulo="Confirme os dados da sua correspondência oficial"
+            maxW="max-w-xl"
             padding="p-6 md:p-8"
           >
-            <div className="text-left space-y-3">
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5">
-                <div className="flex gap-3 text-sm">
-                  <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Destinatário</span>
-                  <span className="font-bold text-slate-800 break-words min-w-0">
-                    {(composeData.toArray || []).length > 0
-                      ? `${composeData.toArray.join(', ')} (${composeData.toArray.length} destinatários)`
-                      : composeData.to || '—'}
-                  </span>
+            <div className="text-left space-y-3.5">
+              <div className="bg-slate-50/80 border border-slate-200/90 rounded-2xl p-4 space-y-3 shadow-2xs">
+                {/* Destinatário */}
+                <div className="flex items-start gap-3 text-sm">
+                  <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-24 shrink-0 pt-0.5">Destinatário</span>
+                  <div className="font-bold text-slate-800 break-words min-w-0 flex items-center gap-1.5 flex-wrap">
+                    {(composeData.toArray || []).length > 0 ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-blue-700 shadow-2xs">
+                        <Building2 size={13} className="text-blue-500" />
+                        {composeData.toArray.join(', ')} ({composeData.toArray.length} destinatários)
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 shadow-2xs font-mono">
+                        {isInst ? <User size={13} className="text-slate-500" /> : <Building2 size={13} className="text-blue-500" />}
+                        {composeData.to || '—'}
+                      </span>
+                    )}
+                  </div>
                 </div>
+
+                {/* Modalidade */}
                 {!isInst && (
-                  <div className="flex gap-3 text-sm" data-testid="rever-modalidade">
-                    <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Modalidade</span>
-                    <span className={`font-bold min-w-0 ${ehDenuncia ? 'text-rose-600' : 'text-slate-800'}`}>
+                  <div className="flex items-center gap-3 text-sm" data-testid="rever-modalidade">
+                    <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-24 shrink-0">Modalidade</span>
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider ${
+                      ehDenuncia
+                        ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                        : 'bg-blue-100 text-blue-700 border border-blue-200'
+                    }`}>
+                      {ehDenuncia ? <Ban size={12} /> : <Mail size={12} />}
                       {ehDenuncia ? 'Reclamação' : 'Mensagem Normal'}
                     </span>
                   </div>
                 )}
-                <div className="flex gap-3 text-sm">
-                  <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Assunto</span>
-                  <span className="font-bold text-slate-800 break-words min-w-0">{composeData.subject?.trim() || '(sem assunto)'}</span>
-                </div>
-                <div className="flex gap-3 text-sm">
-                  <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Anexos</span>
-                  <span className="font-bold text-slate-800 min-w-0">
-                    {(composeData.attachments || []).length === 0
-                      ? 'Nenhum documento anexado'
-                      : <>
-                          {(composeData.attachments || []).length} documento(s)
-                          <span className="block text-xs font-medium text-slate-500 break-words">
-                            {(composeData.attachments || []).slice(0, 4).join(' · ')}
-                            {(composeData.attachments || []).length > 4 ? ' …' : ''}
-                          </span>
-                        </>}
+
+                {/* Assunto */}
+                <div className="flex items-start gap-3 text-sm">
+                  <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-24 shrink-0 pt-0.5">Assunto</span>
+                  <span className="font-extrabold text-slate-800 break-words min-w-0 text-xs md:text-sm">
+                    {composeData.subject?.trim() || '(sem assunto)'}
                   </span>
                 </div>
-                {/* 2026-09-11 — Data de Expiração escolhida no compositor. */}
-                <div className="flex gap-3 text-sm" data-testid="rever-data-expiracao">
-                  <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Expira em</span>
-                  <span className={`font-bold break-words min-w-0 ${composeData.dataExpiracao ? 'text-rose-600' : 'text-slate-800'}`}>
-                    {composeData.dataExpiracao ? formatarDataExpiracao(composeData.dataExpiracao) : 'Sem prazo'}
+
+                {/* Data de Expiração */}
+                <div className="flex items-center gap-3 text-sm" data-testid="rever-data-expiracao">
+                  <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-24 shrink-0">Expira em</span>
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-bold ${composeData.dataExpiracao ? 'text-amber-700' : 'text-slate-600'}`}>
+                    <CalendarClock size={13} className={composeData.dataExpiracao ? 'text-amber-500' : 'text-slate-400'} />
+                    {composeData.dataExpiracao ? formatarDataExpiracao(composeData.dataExpiracao) : 'Sem prazo de expiração'}
                   </span>
                 </div>
               </div>
+
+              {/* Anexos Apresentados com Elegância (sem texto bruto nem base64) */}
+              <div className="bg-slate-50/80 border border-slate-200/90 rounded-2xl p-4 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider">
+                    Ficheiros Anexados ({parsedAttachmentsParaRevisao.length})
+                  </span>
+                  <span className="text-[10.5px] font-bold text-slate-500">
+                    {parsedAttachmentsParaRevisao.length === 0 ? 'Nenhum ficheiro' : `${parsedAttachmentsParaRevisao.length} anexo(s)`}
+                  </span>
+                </div>
+
+                {parsedAttachmentsParaRevisao.length === 0 ? (
+                  <p className="text-xs text-slate-400 font-medium m-0 italic py-1">Nenhum documento ou imagem anexada a esta correspondência.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pt-1 pr-0.5">
+                    {parsedAttachmentsParaRevisao.map((att, i) => (
+                      <div key={i} className="flex items-center gap-2.5 p-2 bg-white rounded-xl border border-slate-200/90 shadow-2xs hover:border-blue-300 transition-colors">
+                        {att.isImage ? (
+                          att.previewUrl ? (
+                            <img src={att.previewUrl} alt={att.name} className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0 bg-slate-100" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                              <ImageIcon size={18} />
+                            </div>
+                          )
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                            <FileText size={18} />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-slate-800 truncate m-0" title={att.name}>
+                            {att.name}
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-medium m-0 flex items-center gap-1 mt-0.5">
+                            <span className="inline-block font-semibold text-slate-500">{att.isImage ? 'Imagem' : 'Documento'}</span>
+                            {att.size && <span>• {att.size}</span>}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Resumo da mensagem */}
               {composeData.body?.trim() && (
-                <div className="bg-white border border-slate-200 rounded-2xl p-4">
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
                   <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider block mb-1.5">Resumo da mensagem</span>
-                  <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line m-0">
+                  <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line m-0 line-clamp-4">
                     {composeData.body.trim().slice(0, 400)}{composeData.body.trim().length > 400 ? '…' : ''}
                   </p>
                 </div>
               )}
-              <p className="text-[11px] text-slate-400 font-medium m-0">
-                Ao tocar em «Enviar Correspondência» a mensagem é registada com número de protocolo e o destinatário é notificado.
+
+              <p className="text-[11px] text-slate-400 font-medium m-0 leading-relaxed">
+                Ao tocar em «Enviar Correspondência», a mensagem é transmitida com selo de protocolo e o destinatário é notificado em tempo real.
               </p>
+
               <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-1">
                 <button
                   type="button"
