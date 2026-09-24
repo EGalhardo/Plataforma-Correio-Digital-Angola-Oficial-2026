@@ -561,7 +561,7 @@ Contexto adicional:
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className={`fixed top-20 right-5 z-[200] max-w-sm px-4 py-3.5 rounded-2xl shadow-none flex items-center gap-3 border text-[13.5px] font-bold leading-tight ${
+            className={`fixed top-20 right-5 z-[200] max-w-sm px-4 py-3.5 rounded-2xl shadow-none flex items-center gap-3 border text-xs md:text-sm font-bold leading-tight ${
               toast.type === 'success' 
                 ? 'bg-emerald-600 border-emerald-500 text-white' 
                 : toast.type === 'warning'
@@ -585,11 +585,11 @@ Contexto adicional:
         <div className="flex items-center gap-3 text-left min-w-0">
           <BotaoVoltar />
           <div className="min-w-0">
-          <h1 className="text-[21px] md:text-[28px] font-black text-slate-800 tracking-tight m-0 leading-tight">
+          <h1 className="text-xl md:text-2xl font-black text-primary tracking-tight m-0 leading-tight">
             IA
           </h1>
-          <p className="text-[13.5px] md:text-[15px] text-slate-500 font-bold mt-1">
-            Configure e gerencie o assistente virtual da sua instituição.
+          <p className="text-xs md:text-sm text-slate-500 font-medium mt-1">
+            Configure e faça a gestão do assistente virtual da sua instituição.
           </p>
           </div>
         </div>
@@ -597,7 +597,7 @@ Contexto adicional:
         {/* State and Preview Trigger */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Status Indicator: AI Connection */}
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13.5px] font-black uppercase tracking-wider shadow-none border shrink-0 ${
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-none border shrink-0 ${
             aiStatus === 'connected' 
               ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
               : aiStatus === 'loading'
@@ -617,7 +617,7 @@ Contexto adicional:
           <button
             type="button"
             onClick={() => setIsPreviewOpen(true)}
-            className="bg-[#0E2B64] hover:bg-[#081a3d] text-white py-1.5 px-3.5 rounded-full text-[14px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 transition-all cursor-pointer shadow-none border-none shrink-0"
+            className="bg-[#0E2B64] hover:bg-[#081a3d] text-white py-1.5 px-3.5 rounded-full text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5 transition-all cursor-pointer shadow-none border-none shrink-0 py-2 px-3.5 rounded-xl"
             id="preview-assistant-btn"
           >
             <Eye size={13} className="stroke-[2.5]" />
@@ -637,7 +637,7 @@ Contexto adicional:
           <button
             key={tab.key}
             onClick={() => setActiveSubTab(tab.key as any)}
-            className={`px-3.5 py-2 rounded-xl text-[14px] font-black uppercase tracking-wider transition-all cursor-pointer border-0 whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border-0 whitespace-nowrap ${
               activeSubTab === tab.key
                 ? 'bg-[#0E2B64] text-white shadow-sm'
                 : 'bg-transparent text-slate-500 hover:text-[#0E2B64]'
@@ -655,12 +655,12 @@ Contexto adicional:
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
             
             {/* CARTÃO 1: INFORMAÇÕES DO ASSISTENTE (Left) */}
-            <div className="bg-white border border-slate-200 rounded-[24px] p-5 md:p-6 shadow-xs flex flex-col justify-between min-w-0 overflow-hidden">
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 shadow-xs flex flex-col justify-between min-w-0 overflow-hidden">
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 md:gap-5 min-w-0">
                 {/* Circular logo: Institutional circular avatar */}
-                <div className="w-[80px] h-[80px] md:w-[96px] md:h-[96px] bg-[#0E2B64] text-white rounded-full flex flex-col items-center justify-center shrink-0 border border-indigo-950/25 shadow-none select-none px-1">
-                  <span title={institutionCode || 'AGT'} className="font-serif font-black text-[12.5px] md:text-[13px] tracking-tighter truncate max-w-[96%]">{institutionCode || 'AGT'}</span>
-                  <span className="text-[9px] font-black uppercase tracking-[0.06em] text-[#94a3b8] mt-0.5 text-center leading-none max-w-[98%] truncate">
+                <div className="w-14 h-14 md:w-16 md:h-16 bg-[#0E2B64] text-white rounded-2xl flex flex-col items-center justify-center shrink-0 border border-indigo-950/25 shadow-none select-none p-1">
+                  <span title={institutionCode || 'AGT'} className="font-serif font-black text-sm md:text-base tracking-tight leading-none">{institutionCode || 'AGT'}</span>
+                  <span className="text-[7.5px] md:text-[8px] font-bold uppercase tracking-wider text-slate-300 mt-1 text-center leading-none">
                     Tributária
                   </span>
                 </div>
@@ -671,7 +671,7 @@ Contexto adicional:
                       <div className="flex items-center gap-1 max-w-full">
                         <input
                           type="text"
-                          className="bg-slate-50 border border-slate-200 text-[13.5px] font-bold text-[#0c2340] px-2.5 py-1 rounded-lg outline-none w-full max-w-[140px]"
+                          className="bg-slate-50 border border-slate-200 text-xs font-bold text-[#0c2340] px-2.5 py-1 rounded-lg outline-none w-full max-w-[140px]"
                           value={assistantName}
                           onChange={(e) => setAssistantName(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter') handleSaveGeneralConfig(); }}
@@ -679,20 +679,20 @@ Contexto adicional:
                         />
                         <button 
                           onClick={handleSaveGeneralConfig}
-                          className="p-1 text-emerald-600 hover:bg-emerald-50 rounded border-none bg-transparent cursor-pointer font-bold text-[13.5px]"
+                          className="p-1 text-emerald-600 hover:bg-emerald-50 rounded border-none bg-transparent cursor-pointer font-bold text-xs"
                         >
                           OK
                         </button>
                         <button 
                           onClick={() => setIsEditingNameInline(false)}
-                          className="p-1 text-slate-400 hover:bg-slate-50 rounded border-none bg-transparent cursor-pointer font-bold text-[13.5px]"
+                          className="p-1 text-slate-400 hover:bg-slate-50 rounded border-none bg-transparent cursor-pointer font-bold text-xs"
                         >
                           ESC
                         </button>
                       </div>
                     ) : (
                       <>
-                        <h2 className="text-[18px] md:text-[21px] font-black text-[#0c2340] tracking-tight m-0 leading-none truncate">{assistantName}</h2>
+                        <h2 className="text-base md:text-lg font-black text-[#0c2340] tracking-tight m-0 leading-none truncate">{assistantName}</h2>
                         <button
                           onClick={() => setIsEditingNameInline(true)}
                           className="p-1 bg-transparent border-none cursor-pointer text-slate-500 hover:text-slate-800 transition-colors shrink-0"
@@ -704,7 +704,7 @@ Contexto adicional:
                     )}
                   </div>
                   
-                  <p className="text-[13.5px] text-slate-600 font-bold leading-relaxed break-words">
+                  <p className="text-xs text-slate-500 font-normal leading-relaxed break-words">
                     {description}
                   </p>
                 </div>
@@ -732,32 +732,32 @@ Contexto adicional:
                   <div className="text-indigo-600 bg-indigo-50 w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
                     <Cpu size={13} className="stroke-[2.5]" />
                   </div>
-                  <span className="block text-[12.5px] font-bold text-slate-400 uppercase tracking-wider leading-none min-w-[70px] shrink-0">Modelo IA</span>
-                  <span className="font-extrabold text-[#0c2340] text-[13.5px] truncate min-w-0 flex-1">{model}</span>
+                  <span className="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider leading-none min-w-[70px] shrink-0">Modelo IA</span>
+                  <span className="font-bold text-[#0c2340] text-xs truncate min-w-0 flex-1">{model}</span>
                 </div>
 
                 <div className="flex items-center gap-3 py-2.5 min-w-0">
                   <div className="text-purple-600 bg-purple-50 w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
                     <Globe size={13} className="stroke-[2.5]" />
                   </div>
-                  <span className="block text-[12.5px] font-bold text-slate-400 uppercase tracking-wider leading-none min-w-[70px] shrink-0">Idioma</span>
-                  <span className="font-extrabold text-[#0c2340] text-[13.5px]">Pt Angola</span>
+                  <span className="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider leading-none min-w-[70px] shrink-0">Idioma</span>
+                  <span className="font-bold text-[#0c2340] text-xs">Pt Angola</span>
                 </div>
 
                 <div className="flex items-center gap-3 py-2.5 min-w-0">
                   <div className="text-slate-500 bg-slate-100 w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
                     <Sliders size={13} className="stroke-[2.5]" />
                   </div>
-                  <span className="block text-[12.5px] font-bold text-slate-400 uppercase tracking-wider leading-none min-w-[70px] shrink-0">Temperatura</span>
-                  <span className="font-extrabold text-[#0c2340] text-[13.5px]">{temperature}</span>
+                  <span className="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider leading-none min-w-[70px] shrink-0">Temperatura</span>
+                  <span className="font-bold text-[#0c2340] text-xs">{temperature}</span>
                 </div>
 
                 <div className="flex items-center gap-3 py-2.5 last:pb-0 min-w-0">
                   <div className="text-emerald-600 bg-emerald-50 w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
                     <ShieldCheck size={13} className="stroke-[2.5]" />
                   </div>
-                  <span className="block text-[12.5px] font-bold text-slate-400 uppercase tracking-wider leading-none min-w-[70px] shrink-0">Estado</span>
-                  <span className="font-extrabold text-[13.5px] inline-flex items-center gap-1.5">
+                  <span className="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider leading-none min-w-[70px] shrink-0">Estado</span>
+                  <span className="font-bold text-xs inline-flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${aiStatus === 'connected' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                     <span className={aiStatus === 'connected' ? 'text-emerald-700' : 'text-slate-500'}>
                       {aiStatus === 'connected' ? 'Online' : 'Offline'}
@@ -768,9 +768,9 @@ Contexto adicional:
             </div>
 
             {/* CARTÃO 2: ESTATÍSTICAS (Right) - AGORA COM DADOS REAIS */}
-            <div className="bg-white border border-slate-200 rounded-[24px] p-5 md:p-6 shadow-xs flex flex-col justify-between min-w-0 overflow-hidden">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-xs flex flex-col justify-between min-w-0 overflow-hidden">
               <div className="flex justify-between items-center mb-4 pb-1">
-                <span className="text-[13.5px] font-black text-[#0c2340] tracking-widest uppercase truncate">
+                <span className="text-xs md:text-sm font-black text-[#0c2340] tracking-wider uppercase truncate">
                   ESTATÍSTICAS DO ASSISTENTE
                 </span>
                 <button 
@@ -791,32 +791,32 @@ Contexto adicional:
                   <div className="w-7 h-7 bg-purple-100 text-[#534980] rounded-lg flex items-center justify-center mb-1.5 shrink-0">
                     <MessageSquare size={14} className="stroke-[2.5]" />
                   </div>
-                  <span className="block font-black text-[18px] md:text-[21px] text-[#0c2340] tracking-tight leading-none truncate">{aiStats.totalConversations.toLocaleString('pt-AO')}</span>
-                  <span className="text-[13px] font-extrabold text-[#534980] uppercase tracking-tight mt-1.5 block truncate">Conversas</span>
+                  <span className="block font-black text-base md:text-lg text-[#0c2340] tracking-tight leading-none truncate">{aiStats.totalConversations.toLocaleString('pt-AO')}</span>
+                  <span className="text-[9px] md:text-[10px] font-bold text-[#534980] uppercase tracking-wider mt-1 block truncate">Conversas</span>
                 </div>
 
                 <div className="bg-[#F8FAFF] border border-slate-200/80 rounded-xl p-3 text-left min-w-0 overflow-hidden">
                   <div className="w-7 h-7 bg-sky-100 text-[#284a7a] rounded-lg flex items-center justify-center mb-1.5 shrink-0">
                     <Users size={14} className="stroke-[2.5]" />
                   </div>
-                  <span className="block font-black text-[18px] md:text-[21px] text-[#0c2340] tracking-tight leading-none truncate">{aiStats.totalUsers.toLocaleString('pt-AO')}</span>
-                  <span className="text-[13px] font-extrabold text-[#284a7a] uppercase tracking-tight mt-1.5 block truncate">Utilizadores</span>
+                  <span className="block font-black text-base md:text-lg text-[#0c2340] tracking-tight leading-none truncate">{aiStats.totalUsers.toLocaleString('pt-AO')}</span>
+                  <span className="text-[9px] md:text-[10px] font-bold text-[#284a7a] uppercase tracking-wider mt-1 block truncate">Utilizadores</span>
                 </div>
 
                 <div className="bg-[#F5FDF8] border border-slate-200/80 rounded-xl p-3 text-left min-w-0 overflow-hidden">
                   <div className="w-7 h-7 bg-emerald-100 text-[#1e6136] rounded-lg flex items-center justify-center mb-1.5 shrink-0">
                     <CheckCircle2 size={14} className="stroke-[2.5]" />
                   </div>
-                  <span className="block font-black text-[18px] md:text-[21px] text-[#0c2340] tracking-tight leading-none truncate">{aiStats.resolutionRate}%</span>
-                  <span className="text-[13px] font-extrabold text-[#1e6136] uppercase tracking-tight mt-1.5 block truncate">Resoluções</span>
+                  <span className="block font-black text-base md:text-lg text-[#0c2340] tracking-tight leading-none truncate">{aiStats.resolutionRate}%</span>
+                  <span className="text-[9px] md:text-[10px] font-bold text-[#1e6136] uppercase tracking-wider mt-1 block truncate">Resoluções</span>
                 </div>
 
                 <div className="bg-[#FFFDF9] border border-slate-200/80 rounded-xl p-3 text-left min-w-0 overflow-hidden">
                   <div className="w-7 h-7 bg-amber-100 text-[#7c542c] rounded-lg flex items-center justify-center mb-1.5 shrink-0">
                     <Clock size={14} className="stroke-[2.5]" />
                   </div>
-                  <span className="block font-black text-[18px] md:text-[21px] text-[#0c2340] tracking-tight leading-none truncate">{aiStats.avgResponseTime}</span>
-                  <span className="text-[13px] font-extrabold text-[#7c542c] uppercase tracking-tight mt-1.5 block truncate">Tempo Médio</span>
+                  <span className="block font-black text-base md:text-lg text-[#0c2340] tracking-tight leading-none truncate">{aiStats.avgResponseTime}</span>
+                  <span className="text-[9px] md:text-[10px] font-bold text-[#7c542c] uppercase tracking-wider mt-1 block truncate">Tempo Médio</span>
                 </div>
               </div>
 
@@ -825,19 +825,19 @@ Contexto adicional:
                 <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl min-w-0 overflow-hidden">
                   <Zap size={13} className="text-emerald-600 shrink-0" />
                   <div className="min-w-0">
-                    <span className="text-[12.5px] text-slate-400 font-bold uppercase block truncate">Activos Hoje</span>
-                    <span className="text-[15px] font-black text-slate-800 truncate">{aiStats.activeToday}</span>
+                    <span className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase block truncate">Activos Hoje</span>
+                    <span className="text-xs md:text-sm font-black text-slate-800 truncate">{aiStats.activeToday}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl min-w-0 overflow-hidden">
                   <Database size={13} className="text-indigo-600 shrink-0" />
                   <div className="min-w-0">
-                    <span className="text-[12.5px] text-slate-400 font-bold uppercase block truncate">Docs Indexados</span>
-                    <span className="text-[15px] font-black text-slate-800 truncate">{kbResumo?.ativas ?? 0}</span>
+                    <span className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase block truncate">Docs Indexados</span>
+                    <span className="text-xs md:text-sm font-black text-slate-800 truncate">{kbResumo?.ativas ?? 0}</span>
                   </div>
                 </div>
               </div>
-              <p className="text-[13px] text-slate-400 font-semibold mt-3 leading-relaxed text-left">
+              <p className="text-[10px] md:text-[11px] text-slate-400 font-normal mt-2.5 leading-relaxed text-left">
                 Origens dos números: Conversas/Activos hoje — interacções reais registadas na telemetria central da plataforma (últimas 50) mais as desta sessão; Utilizadores — sessões distintas nesse registo; Resoluções — % de interacções em que a IA respondeu sem erro; Tempo médio — latência medida nessas interacções; Docs indexados — fontes reais da Base de Conhecimento. {telemetriaEstado === 'TABELA_AUSENTE' ? 'ATENÇÃO: a telemetria central ainda não está instalada no projecto (SQL v28 pendente) — os valores mostram apenas esta sessão. ' : ''}A plataforma não inventa estes valores.
               </p>
             </div>
@@ -846,17 +846,17 @@ Contexto adicional:
           {/* SEGUNDA LINHA: CONFIGURAÇÃO + INSTRUÇÕES + CONTEXTO */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start mt-2">
             {/* COLUNA ESQUERDA - CONFIGURAÇÃO GERAL (5 spans) */}
-            <div className="lg:col-span-5 bg-white border border-slate-200 rounded-[24px] p-5 md:p-6 shadow-xs flex flex-col justify-between text-left h-full min-h-[520px] min-w-0 overflow-hidden">
+            <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-xs flex flex-col justify-between text-left h-full min-h-[520px] min-w-0 overflow-hidden">
               <div className="flex-1 flex flex-col justify-between gap-5 min-w-0">
                 <div className="flex items-center gap-3.5 pb-4 border-b border-slate-100 min-w-0">
                   <div className="w-10 h-10 rounded-[14px] bg-indigo-50/70 flex items-center justify-center text-indigo-600 border border-indigo-100/40 shrink-0">
                     <Settings size={20} className="text-indigo-600 stroke-[2.2]" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-[15px] font-black text-[#0c2340] tracking-wider uppercase leading-none truncate">
+                    <h3 className="text-xs md:text-sm font-black text-[#0c2340] tracking-wider uppercase leading-none truncate">
                       CONFIGURAÇÃO GERAL
                     </h3>
-                    <span className="text-[14px] text-slate-500 font-semibold leading-relaxed mt-1 block truncate">
+                    <span className="text-xs text-slate-500 leading-relaxed mt-1 block truncate">
                       Configure as definições básicas do seu assistente.
                     </span>
                   </div>
@@ -864,12 +864,12 @@ Contexto adicional:
 
                 <div className="flex-grow flex flex-col gap-5 min-w-0">
                   <div className="space-y-2 text-left min-w-0">
-                    <label className="text-[14px] font-black text-slate-500 uppercase tracking-widest pl-0.5 block leading-none">
+                    <label className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-wider pl-0.5 block leading-none">
                       NOME DO ASSISTENTE
                     </label>
                     <input
                       type="text"
-                      className="w-full bg-[#f8fafc]/40 border border-slate-200 focus:border-indigo-500 rounded-xl px-4 py-3 text-[13.5px] font-semibold text-slate-800 outline-none transition-all shadow-xs"
+                      className="w-full bg-[#f8fafc]/40 border border-slate-200 focus:border-indigo-500 rounded-xl px-4 py-3 text-xs md:text-sm font-medium text-slate-800 outline-none transition-all shadow-xs"
                       placeholder="Ex: Assistente AGT"
                       value={assistantName}
                       onChange={(e) => setAssistantName(e.target.value)}
@@ -877,16 +877,16 @@ Contexto adicional:
                   </div>
 
                   <div className="space-y-2 text-left min-w-0">
-                    <label className="text-[14px] font-black text-slate-500 uppercase tracking-widest pl-0.5 block leading-none">
+                    <label className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-wider pl-0.5 block leading-none">
                       DESCRIÇÃO / INSTRUÇÃO DO SISTEMA
                     </label>
                     <textarea
-                      className="w-full flex-grow bg-[#f8fafc]/40 border border-slate-200 focus:border-indigo-500 rounded-xl px-4 py-3 text-[13.5px] font-semibold text-slate-800 outline-none transition-all leading-relaxed resize-none shadow-xs min-h-[240px] lg:min-h-[300px]"
+                      className="w-full flex-grow bg-[#f8fafc]/40 border border-slate-200 focus:border-indigo-500 rounded-xl px-4 py-3 text-xs md:text-sm font-medium text-slate-800 outline-none transition-all leading-relaxed resize-none shadow-xs min-h-[240px] lg:min-h-[300px]"
                       placeholder="Descreva a função operativa do assistente..."
                       value={tempInstructions}
                       onChange={(e) => setTempInstructions(e.target.value)}
                     />
-                    <p className="text-[13px] text-slate-400 font-medium">
+                    <p className="text-[10px] md:text-[11px] text-slate-400 font-medium">
                       Estas instruções definem como o assistente responde. Quanto mais específico, melhor a qualidade das respostas.
                     </p>
                   </div>
@@ -894,11 +894,11 @@ Contexto adicional:
                   {/* Modelo e Temperatura inline */}
                   <div className="grid grid-cols-2 gap-3 min-w-0">
                     <div className="space-y-1.5 min-w-0">
-                      <label className="text-[14px] font-black text-slate-500 uppercase tracking-widest pl-0.5 block truncate">Modelo IA</label>
+                      <label className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-wider pl-0.5 block truncate">Modelo IA</label>
                       <select
                         value={model}
                         onChange={(e) => setModel(e.target.value)}
-                        className="w-full bg-[#f8fafc]/40 border border-slate-200 rounded-xl px-3 py-2.5 text-[13.5px] font-semibold text-slate-800 outline-none cursor-pointer truncate"
+                        className="w-full bg-[#f8fafc]/40 border border-slate-200 rounded-xl px-3 py-2.5 text-xs md:text-sm font-medium text-slate-800 outline-none cursor-pointer truncate"
                       >
                         <option value="openai/gpt-oss-120b">GPT-OSS 120B (Groq)</option>
                         <option value="openai/gpt-oss-20b">GPT-OSS 20B (Groq)</option>
@@ -908,10 +908,10 @@ Contexto adicional:
                       </select>
                     </div>
                     <div className="space-y-1.5 min-w-0">
-                      <label className="text-[14px] font-black text-slate-500 uppercase tracking-widest pl-0.5 block truncate">Temperatura</label>
+                      <label className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-wider pl-0.5 block truncate">Temperatura</label>
                       <input
                         type="text"
-                        className="w-full bg-[#f8fafc]/40 border border-slate-200 rounded-xl px-3 py-2.5 text-[13.5px] font-semibold text-slate-800 outline-none"
+                        className="w-full bg-[#f8fafc]/40 border border-slate-200 rounded-xl px-3 py-2.5 text-xs md:text-sm font-medium text-slate-800 outline-none"
                         placeholder="0.3"
                         value={temperature}
                         onChange={(e) => setTemperature(e.target.value)}
@@ -925,7 +925,7 @@ Contexto adicional:
                 <button
                   type="button"
                   onClick={handleSaveGeneralConfig}
-                  className="w-full bg-[#0E2B64] hover:bg-[#081a3d] text-white py-3.5 rounded-[16px] font-extrabold text-[14px] uppercase tracking-widest transition-all cursor-pointer border-none flex items-center justify-center gap-2.5 shadow-xs active:scale-98"
+                  className="w-full bg-[#0E2B64] hover:bg-[#081a3d] text-white py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-2 shadow-xs active:scale-98"
                 >
                   <Save size={14} className="stroke-[2.5]" />
                   GUARDAR CONFIGURAÇÃO
@@ -934,16 +934,16 @@ Contexto adicional:
             </div>
 
             {/* COLUNA DIREITA - BASE DE CONHECIMENTO (E6: ligação à gestão real) */}
-            <div className="lg:col-span-7 bg-white border border-slate-200 rounded-[24px] p-6 md:p-8 shadow-xs flex flex-col text-left min-w-0 overflow-hidden">
+            <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-xs flex flex-col text-left min-w-0 overflow-hidden">
               <div className="flex flex-col items-center text-center gap-4 py-2 max-w-lg mx-auto">
                 <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
                   <Database className="w-7 h-7 text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="text-[15px] md:text-[16px] font-black text-[#0c2340] tracking-wider uppercase m-0">
+                  <h3 className="text-xs md:text-sm font-black text-[#0c2340] tracking-wider uppercase m-0">
                     Base de Conhecimento
                   </h3>
-                  <p className="text-[13.5px] text-slate-500 font-semibold mt-2 leading-relaxed">
+                  <p className="text-xs text-slate-500 font-normal mt-1.5 leading-relaxed">
                     {kbResumo === null
                       ? 'A carregar as fontes próprias da instituição…'
                       : kbResumo.total === 0
@@ -954,7 +954,7 @@ Contexto adicional:
                 <button
                   type="button"
                   onClick={() => setActiveSubTab('knowledge')}
-                  className="px-5 py-3 bg-[#0E2B64] hover:bg-[#081a3d] text-white rounded-xl text-[14px] font-black uppercase tracking-wider inline-flex items-center gap-2 transition-all cursor-pointer border-none shadow-sm active:scale-95"
+                  className="px-4 py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] text-white rounded-xl text-xs font-bold uppercase tracking-wider inline-flex items-center gap-2 transition-all cursor-pointer border-none shadow-xs active:scale-95"
                 >
                   <Plus size={14} className="stroke-[2.5]" />
                   Gerir a Base de Conhecimento
@@ -969,7 +969,7 @@ Contexto adicional:
               <Info className="w-4 h-4 text-indigo-600" />
             </div>
             <div>
-              <p className="text-[14px] text-indigo-950 font-bold leading-relaxed uppercase tracking-tight m-0">
+              <p className="text-xs text-indigo-950 font-medium leading-relaxed m-0">
                 <strong className="text-indigo-900 font-extrabold mr-1.5">Motor IA:</strong>
                 O assistente utiliza o modelo <strong className="text-indigo-700">{model}</strong> da Groq via API segura. 
                 As instruções definidas aqui são enviadas ao sistema em cada conversa. O contexto automático permite que a IA aceda aos dados seleccionados para respostas mais precisas.
@@ -983,22 +983,22 @@ Contexto adicional:
       {activeSubTab === 'chat' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Chat Area (2/3) */}
-          <div className="lg:col-span-2 bg-white border border-[#0c2340]/15 rounded-[24px] p-5 shadow-none flex flex-col" style={{ minHeight: '520px' }}>
+          <div className="lg:col-span-2 bg-white border border-[#0c2340]/15 rounded-2xl p-5 shadow-none flex flex-col" style={{ minHeight: '520px' }}>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
                   <Bot size={20} className="animate-pulse" />
                 </div>
                 <div>
-                  <h3 className="text-[15px] font-black text-[#0c2340] uppercase tracking-wide m-0">CHAT DE TESTE</h3>
-                  <span className="text-[13.5px] text-slate-400 font-semibold">
+                  <h3 className="text-xs md:text-sm font-black text-[#0c2340] uppercase tracking-wide m-0">CHAT DE TESTE</h3>
+                  <span className="text-xs text-slate-400 font-medium">
                     Teste o assistente em tempo real com a IA da Groq
                   </span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 {aiStatus === 'connected' && (
-                  <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[13px] font-black uppercase rounded-full">
+                  <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold uppercase rounded-full">
                     <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                     GROQ LIVE
                   </span>
@@ -1032,13 +1032,13 @@ Contexto adicional:
                       }`}>
                         {isUser ? <Users size={14} /> : <Bot size={14} />}
                       </div>
-                      <div className={`p-3 rounded-2xl text-[13.5px] font-medium leading-relaxed shadow-sm ${
+                      <div className={`p-3 rounded-2xl text-xs font-medium leading-relaxed shadow-xs ${
                         isUser 
                           ? 'bg-indigo-600 text-white rounded-tr-none' 
                           : 'bg-slate-100 text-slate-700 rounded-tl-none border border-slate-200'
                       }`}>
                         <span className="whitespace-pre-line">{msg.text}</span>
-                        <span className={`block text-[12px] mt-1 ${isUser ? 'text-indigo-200' : 'text-slate-400'} font-mono`}>{msg.time}</span>
+                        <span className={`block text-[10px] mt-1 ${isUser ? 'text-indigo-200' : 'text-slate-400'} font-mono`}>{msg.time}</span>
                       </div>
                     </div>
                   </div>
@@ -1049,7 +1049,7 @@ Contexto adicional:
                 <div className="flex justify-start">
                   <div className="flex gap-2 items-center p-3 bg-slate-100 rounded-2xl rounded-tl-none border border-slate-200">
                     <Loader2 size={14} className="animate-spin text-indigo-600" />
-                    <span className="text-[13.5px] font-bold text-slate-500">A processar com Groq...</span>
+                    <span className="text-xs font-bold text-slate-500">A processar com Groq...</span>
                   </div>
                 </div>
               )}
@@ -1073,7 +1073,7 @@ Contexto adicional:
                 onKeyPress={(e) => e.key === 'Enter' && handleSendTestChatMessage()}
                 placeholder={`Pergunte algo ao ${assistantName}...`}
                 disabled={isTyping || aiStatus !== 'connected'}
-                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13.5px] font-medium outline-none focus:border-indigo-400 transition-colors disabled:opacity-50"
+                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs md:text-sm font-medium outline-none focus:border-indigo-400 transition-colors disabled:opacity-50"
               />
               <button 
                 onClick={handleSendTestChatMessage}
@@ -1085,7 +1085,7 @@ Contexto adicional:
             </div>
 
             {aiStatus !== 'connected' && (
-              <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[13.5px] font-bold text-amber-700 text-center">
+              <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-700 text-center">
                 ⚠️ A IA não está ligada. Configure as variáveis de ambiente de IA (GEMINI_API_KEY ou GROQ_API_KEY) no painel de segredos do servidor.
               </div>
             )}
@@ -1094,24 +1094,24 @@ Contexto adicional:
           {/* Right Sidebar: Quick Actions + Info */}
           <div className="space-y-4">
             {/* Instrução Atual */}
-            <div className="bg-white border border-[#0c2340]/15 rounded-[20px] p-5">
-              <h4 className="text-[14px] font-black text-[#0c2340] uppercase tracking-widest mb-3">INSTRUÇÃO ATUAL DO SISTEMA</h4>
+            <div className="bg-white border border-[#0c2340]/15 rounded-2xl p-5">
+              <h4 className="text-[10px] md:text-[11px] font-black text-[#0c2340] uppercase tracking-wider mb-2.5">INSTRUÇÃO ATUAL DO SISTEMA</h4>
               <div className="bg-slate-50 rounded-xl p-3 max-h-[200px] overflow-y-auto">
-                <p className="text-[13.5px] text-slate-600 font-medium whitespace-pre-line leading-relaxed">
+                <p className="text-xs text-slate-600 font-medium whitespace-pre-line leading-relaxed">
                   {instructions.substring(0, 500)}{instructions.length > 500 ? '...' : ''}
                 </p>
               </div>
               <button
                 onClick={() => setActiveSubTab('config')}
-                className="w-full mt-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-[13.5px] font-black uppercase tracking-wider cursor-pointer border-0 transition-all"
+                className="w-full mt-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer border-0 transition-all"
               >
                 Editar Instrução →
               </button>
             </div>
 
             {/* Sugestões Rápidas */}
-            <div className="bg-white border border-[#0c2340]/15 rounded-[20px] p-5">
-              <h4 className="text-[14px] font-black text-[#0c2340] uppercase tracking-widest mb-3">SUGESTÕES RÁPIDAS</h4>
+            <div className="bg-white border border-[#0c2340]/15 rounded-2xl p-5">
+              <h4 className="text-[10px] md:text-[11px] font-black text-[#0c2340] uppercase tracking-wider mb-2.5">SUGESTÕES RÁPIDAS</h4>
               <div className="space-y-2">
                 {[
                   'Quais documentos preciso para o NIF?',
@@ -1125,7 +1125,7 @@ Contexto adicional:
                       setChatInput(suggestion);
                       setActiveSubTab('chat');
                     }}
-                    className="w-full text-left py-2.5 px-3 bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 rounded-xl text-[13.5px] font-semibold transition-all cursor-pointer border border-slate-100 hover:border-indigo-200"
+                    className="w-full text-left py-2.5 px-3 bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 rounded-xl text-xs font-medium transition-all cursor-pointer border border-slate-100 hover:border-indigo-200"
                   >
                     {suggestion}
                   </button>
@@ -1134,11 +1134,11 @@ Contexto adicional:
             </div>
 
             {/* Histórico de Interações */}
-            <div className="bg-white border border-[#0c2340]/15 rounded-[20px] p-5">
-              <h4 className="text-[14px] font-black text-[#0c2340] uppercase tracking-widest mb-3">ÚLTIMAS INTERACÇÕES</h4>
+            <div className="bg-white border border-[#0c2340]/15 rounded-2xl p-5">
+              <h4 className="text-[10px] md:text-[11px] font-black text-[#0c2340] uppercase tracking-wider mb-2.5">ÚLTIMAS INTERACÇÕES</h4>
               <div className="space-y-2 max-h-[180px] overflow-y-auto">
                 {interactionLogs.length === 0 && (
-                  <p className="text-[13.5px] text-slate-400 font-semibold leading-relaxed text-left p-2">
+                  <p className="text-xs text-slate-400 font-medium leading-relaxed text-left p-2">
                     {telemetriaEstado === 'TABELA_AUSENTE'
                       ? 'A telemetria central ainda não está instalada neste projecto (SQL v28 pendente). Use o Chat Teste — assim que a telemetria for activada, as interacções reais aparecem aqui.'
                       : 'Ainda não há conversas registadas. Use o Chat Teste ou o Preview — cada interacção real fica registada e aparece aqui.'}
@@ -1147,13 +1147,13 @@ Contexto adicional:
                 {interactionLogs.slice(0, 4).map(log => (
                   <div key={log.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-left">
                     <div className="flex items-center justify-between">
-                      <span className="text-[13.5px] font-black text-slate-700">{log.canal === 'preview_instituicao' ? 'Preview (cidadão)' : 'Chat Teste'}</span>
-                      <span className={`text-[12px] font-black uppercase px-1.5 py-0.5 rounded-full ${
+                      <span className="text-xs font-bold text-slate-700">{log.canal === 'preview_instituicao' ? 'Preview (cidadão)' : 'Chat Teste'}</span>
+                      <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full ${
                         log.respostaOk ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
                       }`}>{log.respostaOk ? 'Respondida' : 'Falhou'}</span>
                     </div>
-                    <span className="text-[13px] text-slate-400 block mt-0.5">{log.promptPreview || '(sem pré-visualização)'}</span>
-                    <span className="text-[12px] text-slate-400 font-mono block">{log.time}{log.latMs !== null ? ` · ${(log.latMs / 1000).toFixed(1)}s` : ''}</span>
+                    <span className="text-[11px] text-slate-400 block mt-0.5">{log.promptPreview || '(sem pré-visualização)'}</span>
+                    <span className="text-[10px] text-slate-400 font-mono block">{log.time}{log.latMs !== null ? ` · ${(log.latMs / 1000).toFixed(1)}s` : ''}</span>
                   </div>
                 ))}
               </div>
@@ -1174,18 +1174,18 @@ Contexto adicional:
 
       {/* SUB-TAB: HISTÓRICO */}
       {activeSubTab === 'history' && (
-        <div className="bg-white border border-[#0c2340]/15 rounded-[24px] p-6">
+        <div className="bg-white border border-[#0c2340]/15 rounded-2xl p-6">
           <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
             <div>
               <h3 className="text-[15px] font-black text-[#0c2340] uppercase tracking-wide m-0">HISTÓRICO DE INTERACÇÕES</h3>
-              <p className="text-[14px] text-slate-400 font-semibold mt-1">Últimas 50 interacções reais registadas nesta consola (telemetria central, append-only)</p>
+              <p className="text-xs text-slate-400 font-medium mt-1">Últimas 50 interacções reais registadas nesta consola (telemetria central, append-only)</p>
             </div>
           </div>
 
           {telemetriaEstado === 'TABELA_AUSENTE' && (
             <div className="mb-4 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-left">
-              <p className="text-[14px] font-black text-amber-800 uppercase tracking-wide">Telemetria central ainda não instalada</p>
-              <p className="text-[14px] text-amber-700 font-semibold mt-1 leading-relaxed">
+              <p className="text-xs font-black text-amber-800 uppercase tracking-wide">Telemetria central ainda não instalada</p>
+              <p className="text-xs text-amber-700 font-medium mt-1 leading-relaxed">
                 A tabela de telemetria (SQL v28) ainda não foi aplicada neste projecto. As conversas continuam a funcionar; quando o administrador aplicar a v28, este histórico passa a mostrar os registos reais.
               </p>
             </div>
@@ -1193,8 +1193,8 @@ Contexto adicional:
 
           {interactionLogs.length === 0 ? (
             <div className="py-10 px-6 text-center">
-              <p className="text-[15px] font-black text-slate-500 uppercase tracking-wide">Ainda sem conversas registadas</p>
-              <p className="text-[14px] text-slate-400 font-semibold mt-2 max-w-md mx-auto leading-relaxed">
+              <p className="text-xs font-black text-slate-500 uppercase tracking-wide">Ainda sem conversas registadas</p>
+              <p className="text-xs text-slate-400 font-medium mt-2 max-w-md mx-auto leading-relaxed">
                 {telemetriaEstado === 'TABELA_AUSENTE'
                   ? 'A telemetria central ainda não está instalada (SQL v28 pendente) — assim que for activada, as interacções reais desta consola aparecem aqui.'
                   : 'Use o Chat Teste ou o Preview do assistente — cada interacção real fica registada na telemetria central e aparece nesta lista. A plataforma não apresenta conversas de exemplo como se fossem reais.'}
@@ -1204,7 +1204,7 @@ Contexto adicional:
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-widest text-[13px] font-extrabold">
+                <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider text-[10px] md:text-[11px] font-black">
                   <th className="py-2.5 px-2 text-left">Quando</th>
                   <th className="py-2.5 px-2 text-left">Canal</th>
                   <th className="py-2.5 px-2 text-left">Pré-visualização do pedido</th>
@@ -1215,17 +1215,17 @@ Contexto adicional:
               <tbody>
                 {interactionLogs.map(log => (
                   <tr key={log.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                    <td className="py-2.5 px-2 text-[13.5px] text-slate-500 font-mono whitespace-nowrap">{log.time}</td>
-                    <td className="py-2.5 px-2 font-bold text-slate-800 text-[13.5px]">{log.canal === 'preview_instituicao' ? 'Preview (cidadão)' : 'Chat Teste'}</td>
-                    <td className="py-2.5 px-2 text-[13.5px] font-semibold text-slate-600 max-w-[260px] truncate">{log.promptPreview || '(sem pré-visualização)'}</td>
+                    <td className="py-2.5 px-2 text-xs text-slate-500 font-mono whitespace-nowrap">{log.time}</td>
+                    <td className="py-2.5 px-2 font-bold text-slate-800 text-xs">{log.canal === 'preview_instituicao' ? 'Preview (cidadão)' : 'Chat Teste'}</td>
+                    <td className="py-2.5 px-2 text-xs font-medium text-slate-600 max-w-[260px] truncate">{log.promptPreview || '(sem pré-visualização)'}</td>
                     <td className="py-2.5 px-2 text-center">
-                      <span className={`text-[13px] font-black uppercase px-2 py-0.5 rounded-full ${
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
                         log.respostaOk ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'
                       }`}>
                         {log.respostaOk ? 'Respondida' : 'Falhou'}
                       </span>
                     </td>
-                    <td className="py-2.5 px-2 text-right text-[13.5px] text-slate-400 font-mono">{log.latMs !== null ? `${(log.latMs / 1000).toFixed(1)}s` : '—'}</td>
+                    <td className="py-2.5 px-2 text-right text-xs text-slate-400 font-mono">{log.latMs !== null ? `${(log.latMs / 1000).toFixed(1)}s` : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1244,7 +1244,7 @@ Contexto adicional:
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.93, opacity: 0, y: 12 }}
               transition={{ type: 'spring', damping: 24, stiffness: 260 }}
-              className="bg-white rounded-[28px] border border-slate-100 shadow-[0_30px_70px_-20px_rgba(15,23,42,0.35)] w-full max-w-md h-[560px] flex flex-col overflow-hidden relative"
+              className="bg-white rounded-2xl border border-slate-100 shadow-[0_30px_70px_-20px_rgba(15,23,42,0.35)] w-full max-w-md h-[560px] flex flex-col overflow-hidden relative"
             >
               {/* Cabeçalho gradiente com avatar-bot e estado online */}
               <div className="relative bg-gradient-to-br from-[#0E2B64] via-indigo-700 to-violet-600 px-5 pt-5 pb-4 text-left shrink-0 overflow-hidden">
@@ -1255,10 +1255,10 @@ Contexto adicional:
                     <Bot size={22} className="stroke-[2.2]" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h4 className="text-[18px] md:text-[21px] font-black text-white tracking-tight m-0 leading-tight truncate">{assistantName}</h4>
+                    <h4 className="text-base md:text-lg font-black text-white tracking-tight m-0 leading-tight truncate">{assistantName}</h4>
                     <div className="flex items-center gap-1.5 mt-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-[13px] font-black text-emerald-200/95 uppercase tracking-[0.14em]">Online agora · Assistente IA</span>
+                      <span className="text-[10px] font-bold text-emerald-200 uppercase tracking-wider">Online agora · Assistente IA</span>
                     </div>
                   </div>
                   <button
@@ -1270,10 +1270,10 @@ Contexto adicional:
                   </button>
                 </div>
                 <div className="relative mt-3 flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-[12.5px] font-black uppercase tracking-[0.14em] text-white/90">
+                  <span className="px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-[10px] font-bold uppercase tracking-wider text-white/90">
                     {institutionCode || 'AGT'} · Oficial
                   </span>
-                  <span className="px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-[12.5px] font-black uppercase tracking-[0.14em] text-white/90">
+                  <span className="px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-[10px] font-bold uppercase tracking-wider text-white/90">
                     Groq IA
                   </span>
                 </div>
@@ -1291,13 +1291,13 @@ Contexto adicional:
                           <Bot size={13} />
                         </div>
                       )}
-                      <div className={`max-w-[80%] px-3.5 py-2.5 text-[13.5px] leading-relaxed text-left ${
+                      <div className={`max-w-[80%] px-3.5 py-2.5 text-xs md:text-sm leading-relaxed text-left ${
                         isUser
                           ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-2xl rounded-br-md font-semibold shadow-md shadow-indigo-200/60'
                           : 'bg-white text-slate-700 rounded-2xl rounded-bl-md font-medium border border-slate-200/80 shadow-sm whitespace-pre-line'
                       }`}>
                         <p className="m-0 leading-relaxed">{msg.text}</p>
-                        <span className={`block text-[12px] font-mono leading-none mt-1.5 text-right font-black select-none ${isUser ? 'text-indigo-100/80' : 'text-slate-400'}`}>
+                        <span className={`block text-[10px] font-mono leading-none mt-1.5 text-right font-bold select-none ${isUser ? 'text-indigo-100/80' : 'text-slate-400'}`}>
                           {msg.time}
                         </span>
                       </div>
@@ -1327,7 +1327,7 @@ Contexto adicional:
                 <div className="relative">
                   <input
                     type="text"
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 rounded-2xl pl-4 pr-12 py-3 text-[13.5px] text-slate-800 outline-none transition-all placeholder:text-slate-400 font-bold shadow-sm"
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 rounded-2xl pl-4 pr-12 py-3 text-xs md:text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400 font-medium shadow-xs"
                     placeholder="Escreva a sua pergunta…"
                     value={previewInput}
                     onChange={(e) => setPreviewInput(e.target.value)}
@@ -1343,7 +1343,7 @@ Contexto adicional:
                   </button>
                 </div>
                 <div className="text-center pt-1.5 select-none">
-                  <span className="text-[12px] text-slate-400 font-black uppercase tracking-wider">
+                  <span className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                     {institutionCode || 'Instituição'} — Correio Digital de Angola • Powered by Groq
                   </span>
                 </div>

@@ -306,7 +306,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
 
   if (!sigla) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-[14px] font-bold text-amber-900 flex items-start gap-2">
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs font-bold text-amber-900 flex items-start gap-2">
         <AlertTriangle size={15} className="shrink-0 mt-0.5" />
         <p>A Base de Conhecimento self-service precisa do código da instituição ligada. Entra com a conta institucional para gerir as fontes.</p>
       </div>
@@ -318,7 +318,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
       {/* Nota honesta de funcionamento */}
       <div className="bg-indigo-50/40 border border-indigo-100 rounded-xl p-3 flex items-start gap-2.5">
         <Info size={14} className="text-indigo-600 shrink-0 mt-0.5" />
-        <p className="text-[14px] text-indigo-950 font-bold leading-relaxed m-0">
+        <p className="text-xs text-indigo-950 font-medium leading-relaxed m-0">
           As fontes <strong>ativas</strong> entram nas respostas do Assistente de Documentos da plataforma quando o assunto envolve a <strong>{sigla}</strong> —
           a IA cita estas fontes e mostra no selo de proveniência quantos documentos oficiais usou. Revê cada texto antes de publicar.
         </p>
@@ -327,26 +327,26 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
       {/* Lista de fontes existentes */}
       <div className="bg-white border border-[#0c2340]/15 rounded-[20px] p-5">
         <div className="flex items-center justify-between mb-3 border-b border-slate-50 pb-2.5">
-          <h3 className="text-[13.5px] font-black text-[#0c2340] tracking-wider uppercase m-0 flex items-center gap-2">
+          <h3 className="text-xs md:text-sm font-black text-[#0c2340] tracking-wider uppercase m-0 flex items-center gap-2">
             <BookOpen size={14} className="text-indigo-600" /> Fontes da {sigla}
           </h3>
-          <span className="text-[13.5px] font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
+          <span className="text-[10px] md:text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
             {fontes.filter(f => f.ativo).length} ativas / {fontes.length}
           </span>
         </div>
 
         {estado === 'a_carregar' && (
-          <p className="text-[14px] font-bold text-slate-500 flex items-center gap-2 py-6 justify-center">
+          <p className="text-xs font-medium text-slate-500 flex items-center gap-2 py-6 justify-center">
             <Loader2 size={14} className="animate-spin" /> A carregar a base de conhecimento…
           </p>
         )}
         {erro && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[14px] font-bold text-amber-900 mb-2">{erro}</div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs font-bold text-amber-900 mb-2">{erro}</div>
         )}
         {estado === 'ok' && fontes.length === 0 && (
           <div className="flex flex-col items-center justify-center py-10 px-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
             <BookOpen className="w-9 h-9 text-slate-300 mb-2" />
-            <p className="text-[13.5px] text-slate-400 font-semibold text-center leading-relaxed">
+            <p className="text-xs text-slate-400 font-normal text-center leading-relaxed">
               A {sigla} ainda não tem fontes próprias. Adiciona a primeira em baixo.
             </p>
           </div>
@@ -357,12 +357,12 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
               <li key={f.id} className={`rounded-xl border p-3 ${f.ativo ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50 opacity-70'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[14px] font-black text-slate-800 leading-snug">{f.titulo}</p>
-                    <p className="text-[13px] font-bold text-slate-400 mt-1 uppercase tracking-wide">
+                    <p className="text-xs md:text-sm font-bold text-slate-800 leading-snug">{f.titulo}</p>
+                    <p className="text-[10px] md:text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-wider">
                       {ROTULO_TIPO[f.tipo]} · atualizado em {f.atualizado_em}{f.autor ? ` · por ${f.autor}` : ''} · {f.ativo ? 'ATIVA' : 'DESATIVADA'}
                     </p>
                     {f.fonte_url && (
-                      <a href={f.fonte_url} target="_blank" rel="noreferrer" className="text-[13px] font-bold text-indigo-600 hover:underline inline-flex items-center gap-1 mt-1 break-all">
+                      <a href={f.fonte_url} target="_blank" rel="noreferrer" className="text-[11px] font-medium text-indigo-600 hover:underline inline-flex items-center gap-1 mt-1 break-all">
                         <Globe size={10} /> {f.fonte_url}
                       </a>
                     )}
@@ -371,7 +371,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
                     <button
                       type="button"
                       onClick={() => void alternarAtivo(f)}
-                      className={`px-2.5 py-1.5 rounded-lg text-[13px] font-black uppercase tracking-wide cursor-pointer border ${f.ativo ? 'border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100' : 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'}`}
+                      className={`px-2.5 py-1.5 rounded-lg text-[10px] md:text-[11px] font-bold uppercase tracking-wider cursor-pointer border ${f.ativo ? 'border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100' : 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'}`}
                     >
                       {f.ativo ? 'Desativar' : 'Ativar'}
                     </button>
@@ -379,7 +379,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
                       <button
                         type="button"
                         onClick={() => void eliminar(f)}
-                        className="px-2.5 py-1.5 rounded-lg text-[13px] font-black uppercase tracking-wide cursor-pointer border border-red-300 text-white bg-red-500 hover:bg-red-600"
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] md:text-[11px] font-bold uppercase tracking-wider cursor-pointer border border-red-300 text-white bg-red-500 hover:bg-red-600"
                       >
                         Confirmar
                       </button>
@@ -387,7 +387,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
                       <button
                         type="button"
                         onClick={() => setConfirmarEliminar(f.id)}
-                        className="px-2.5 py-1.5 rounded-lg text-[13px] font-black uppercase tracking-wide cursor-pointer border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 inline-flex items-center gap-1"
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] md:text-[11px] font-bold uppercase tracking-wider cursor-pointer border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 inline-flex items-center gap-1"
                       >
                         <Trash2 size={10} /> Eliminar
                       </button>
@@ -402,37 +402,37 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
 
       {/* Nova fonte */}
       <div className="bg-white border border-[#0c2340]/15 rounded-[20px] p-5">
-        <h3 className="text-[13.5px] font-black text-[#0c2340] tracking-wider uppercase m-0 mb-3 flex items-center gap-2">
+        <h3 className="text-xs md:text-sm font-black text-[#0c2340] tracking-wider uppercase m-0 mb-3 flex items-center gap-2">
           <Plus size={14} className="text-indigo-600" /> Adicionar nova fonte
         </h3>
         <div className="space-y-3">
           <div>
-            <label className="text-[13.5px] font-black text-slate-500 uppercase tracking-wide">Título oficial do documento</label>
+            <label className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-wider">Título oficial do documento</label>
             <input
               value={titulo}
               onChange={e => { tituloEditadoManual.current = true; setTitulo(e.target.value); }}
               placeholder="Ex.: Instrução de atendimento ao contribuinte — 2026"
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-[13.5px] font-semibold outline-none focus:border-indigo-400"
+              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs md:text-sm font-medium outline-none focus:border-indigo-400"
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="text-[13.5px] font-black text-slate-500 uppercase tracking-wide">Tipo</label>
+              <label className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-wider">Tipo</label>
               <select
                 value={tipo}
                 onChange={e => { tipoEditadoManual.current = true; setTipo(e.target.value as KbFonteRow['tipo']); }}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-[13.5px] font-semibold outline-none focus:border-indigo-400 bg-white"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs md:text-sm font-medium outline-none focus:border-indigo-400 bg-white"
               >
                 {TIPOS_FONTE.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-[13.5px] font-black text-slate-500 uppercase tracking-wide">Link público da fonte (opcional)</label>
+              <label className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-wider">Link público da fonte (opcional)</label>
               <input
                 value={fonteUrl}
                 onChange={e => setFonteUrl(e.target.value)}
                 placeholder="https://…"
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-[13.5px] font-semibold outline-none focus:border-indigo-400"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs md:text-sm font-medium outline-none focus:border-indigo-400"
               />
             </div>
           </div>
@@ -441,7 +441,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
           <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3.5 space-y-2.5">
             <div className="flex items-center gap-2">
               <UploadCloud size={14} className="text-indigo-600 shrink-0" />
-              <p className="text-[13.5px] font-black uppercase tracking-widest text-slate-600 m-0">
+              <p className="text-[10px] md:text-[11px] font-black uppercase tracking-wider text-slate-600 m-0">
                 Carregar documento (PDF · Word .doc/.docx · TXT · sem limite)
               </p>
               {!kbFicheiro && (
@@ -449,7 +449,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={aExtrairFicheiro}
-                  className="ml-auto inline-flex items-center gap-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[13px] font-black uppercase tracking-wider px-2.5 py-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                  className="ml-auto inline-flex items-center gap-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] md:text-[11px] font-bold uppercase tracking-wider px-2.5 py-1.5 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {aExtrairFicheiro ? <Loader2 size={10} className="animate-spin" /> : <FileText size={10} />}
                   {aExtrairFicheiro ? 'A ler…' : 'Escolher ficheiro'}
@@ -472,8 +472,8 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
               <div className="flex items-center gap-2 rounded-xl bg-white border border-indigo-200 p-2.5">
                 <FileText size={14} className="text-indigo-600 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-bold text-slate-700 truncate m-0">{kbFicheiro.name}</p>
-                  <p className="text-[13px] text-slate-400 font-semibold m-0">
+                  <p className="text-xs md:text-sm font-bold text-slate-700 truncate m-0">{kbFicheiro.name}</p>
+                  <p className="text-[10px] text-slate-400 font-medium m-0">
                     {ROTULO_TIPO_FICHEIRO[(kbFicheiro.name.toLowerCase().endsWith('.pdf') ? 'pdf' : kbFicheiro.name.toLowerCase().endsWith('.docx') ? 'docx' : kbFicheiro.name.toLowerCase().endsWith('.doc') ? 'doc' : kbFicheiro.name.toLowerCase().endsWith('.txt') || kbFicheiro.name.toLowerCase().endsWith('.md') ? 'txt' : 'outro')]}
                     {ficheiroUrl ? ' · guardado como fonte' : ''}
                   </p>
@@ -490,29 +490,29 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
             )}
 
             {aExtrairFicheiro && (
-              <p className="text-[13.5px] text-indigo-700 font-bold flex items-center gap-1.5 m-0">
+              <p className="text-xs text-indigo-700 font-bold flex items-center gap-1.5 m-0">
                 <Loader2 size={11} className="animate-spin" /> A extrair o texto do documento…
               </p>
             )}
             {erroFicheiro && (
-              <p className="text-[13.5px] text-rose-700 font-bold flex items-start gap-1.5 m-0">
+              <p className="text-xs text-rose-700 font-bold flex items-start gap-1.5 m-0">
                 <AlertTriangle size={11} className="shrink-0 mt-0.5" /> {erroFicheiro}
               </p>
             )}
             {avisoFicheiro && (
-              <p className="text-[13.5px] text-amber-700 font-bold flex items-start gap-1.5 m-0">
+              <p className="text-xs text-amber-700 font-bold flex items-start gap-1.5 m-0">
                 <Info size={11} className="shrink-0 mt-0.5" /> {avisoFicheiro}
               </p>
             )}
             {kbFicheiro && texto.trim() && (
-              <p className="text-[13px] text-emerald-700 font-bold flex items-center gap-1.5 m-0">
+              <p className="text-xs text-emerald-700 font-bold flex items-center gap-1.5 m-0">
                 <CheckCircle2 size={11} className="shrink-0" /> Texto extraído ({texto.trim().length} caracteres) — o conteúdo abaixo foi preenchido; revê antes de publicar.
               </p>
             )}
           </div>
 
           <div>
-            <label className="text-[13.5px] font-black text-slate-500 uppercase tracking-wide">
+            <label className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-wider">
               Conteúdo que a IA pode usar ({texto.trim().length}/{MAX_TEXTO} caracteres)
             </label>
             <textarea
@@ -521,7 +521,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
               maxLength={MAX_TEXTO}
               rows={7}
               placeholder="Cola aqui o texto oficial: regras, passos, prazos, contactos — tal como publicado pela instituição."
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-[13.5px] font-semibold outline-none focus:border-indigo-400 resize-y"
+              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs md:text-sm font-medium outline-none focus:border-indigo-400 resize-y"
             />
           </div>
           {/* Etapa #5 — painel de preenchimento assistido de metadados */}
@@ -529,25 +529,25 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
             <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-3.5 space-y-2.5" data-testid="kb-assist-panel">
               <div className="flex items-center gap-2">
                 <Sparkles size={13} className="text-indigo-600 shrink-0" />
-                <p className="text-[13.5px] font-black uppercase tracking-widest text-indigo-900 m-0">
+                <p className="text-[10px] md:text-[11px] font-black uppercase tracking-wider text-indigo-900 m-0">
                   Metadados sugeridos a partir do conteúdo
                 </p>
                 <button
                   type="button"
                   onClick={aplicarTudoAssistido}
                   data-testid="kb-assist-aplicar-tudo"
-                  className="ml-auto inline-flex items-center gap-1 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-[13px] font-black uppercase tracking-wider px-2.5 py-1 transition-colors cursor-pointer"
+                  className="ml-auto inline-flex items-center gap-1 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] md:text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 transition-colors cursor-pointer"
                 >
                   <Wand2 size={10} /> Aplicar
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-[14px]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
                 <div className="rounded-xl bg-white border border-indigo-100 p-2.5">
-                  <p className="text-[13px] font-black uppercase tracking-widest text-slate-400 m-0">Tipo recomendado</p>
+                  <p className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-slate-400 m-0">Tipo recomendado</p>
                   <p className="font-black text-slate-800 m-0 mt-0.5 inline-flex items-center gap-1.5 flex-wrap">
                     {ROTULO_TIPO_KB[assistSugestoes.tipoSugerido]}
-                    <span className="text-[13px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-1.5 py-0.5">
+                    <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-1.5 py-0.5">
                       confiança {Math.round(assistSugestoes.confiancaTipo * 100)}%
                     </span>
                     {assistAplicado.includes('tipo') && (
@@ -558,17 +558,17 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
                     <button
                       type="button"
                       onClick={aplicarTipoAssistido}
-                      className="mt-1.5 text-[13px] font-black uppercase tracking-wider text-indigo-600 hover:text-indigo-800 underline underline-offset-2 cursor-pointer"
+                      className="mt-1.5 text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800 underline underline-offset-2 cursor-pointer"
                     >
                       Usar este tipo
                     </button>
                   )}
                 </div>
                 <div className="rounded-xl bg-white border border-indigo-100 p-2.5">
-                  <p className="text-[13px] font-black uppercase tracking-widest text-slate-400 m-0">Palavras-chave detectadas</p>
+                  <p className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-slate-400 m-0">Palavras-chave detectadas</p>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {assistSugestoes.palavrasChave.map(p => (
-                      <span key={p} className="rounded-full bg-slate-100 border border-slate-200 text-slate-600 text-[13px] font-bold px-2 py-0.5">
+                      <span key={p} className="rounded-full bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-bold px-2 py-0.5">
                         {p}
                       </span>
                     ))}
@@ -577,8 +577,8 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
               </div>
 
               {assistSugestoes.tituloSugerido && (
-                <div className="rounded-xl bg-white border border-indigo-100 p-2.5 text-[14px]">
-                  <p className="text-[13px] font-black uppercase tracking-widest text-slate-400 m-0">Título sugerido</p>
+                <div className="rounded-xl bg-white border border-indigo-100 p-2.5 text-xs">
+                  <p className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-slate-400 m-0">Título sugerido</p>
                   <p className="font-bold text-slate-700 m-0 mt-0.5 flex items-center gap-1.5 flex-wrap">
                     “{assistSugestoes.tituloSugerido}”
                     {assistAplicado.includes('título') && <CheckCircle2 size={12} className="text-emerald-600" />}
@@ -588,7 +588,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
                       type="button"
                       onClick={aplicarTituloAssistido}
                       data-testid="kb-assist-aplicar-titulo"
-                      className="mt-1.5 text-[13px] font-black uppercase tracking-wider text-indigo-600 hover:text-indigo-800 underline underline-offset-2 cursor-pointer"
+                      className="mt-1.5 text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800 underline underline-offset-2 cursor-pointer"
                     >
                       Usar este título
                     </button>
@@ -596,20 +596,20 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
                 </div>
               )}
 
-              <p className="text-[13px] font-semibold text-indigo-900/60 m-0 leading-snug">
+              <p className="text-[11px] font-semibold text-indigo-900/60 m-0 leading-snug">
                 Assistência local e determinística — revê sempre antes de publicar. Se já escreveste o título ou escolheste o tipo à mão, nada é sobrescrito.
               </p>
             </div>
           )}
 
           {formErro && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[14px] font-bold text-amber-900">{formErro}</div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs font-bold text-amber-900">{formErro}</div>
           )}
           <button
             type="button"
             onClick={() => void guardar()}
             disabled={aGuardar}
-            className="w-full py-3 px-4 bg-[#0E2B64] hover:bg-[#081a3d] text-white rounded-xl font-extrabold text-[13.5px] uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
+            className="w-full py-3 px-4 bg-[#0E2B64] hover:bg-[#081a3d] text-white rounded-xl font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {aGuardar ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} className="stroke-[2.5]" />}
             {aGuardar ? 'A guardar…' : 'Guardar fonte na base de conhecimento'}
