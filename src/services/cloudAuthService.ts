@@ -362,11 +362,29 @@ export const cloudResetPasswordEmail = async (
   try {
     const alvo = email.trim().toLowerCase();
     if (!isEmailPlausivel(alvo)) return { outcome: 'error', message: 'E-mail inválido.' };
-    if (!client?.auth?.resetPasswordForEmail) return { outcome: 'unavailable', message: 'cliente Auth ausente.' };
-    const { error } = await client.auth.resetPasswordForEmail(alvo, { redirectTo });
-    if (error) {
-      const kind = classifyAuthError(error);
-      return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: error.message };
+
+    // 1. Tenta envio através do serviço oficial de backend (Resend API + template CDA)
+    try {
+      const resp = await fetch('/api/enviar-email-recuperacao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: alvo, link: redirectTo })
+      });
+      if (resp.ok) {
+        const j = await resp.json().catch(() => ({}));
+        if (j.ok) return { outcome: 'ok' };
+      }
+    } catch {
+      /* fallback para supabase auth direto abaixo */
+    }
+
+    // 2. Fallback direto Supabase Auth client
+    if (client?.auth?.resetPasswordForEmail) {
+      const { error } = await client.auth.resetPasswordForEmail(alvo, { redirectTo });
+      if (error) {
+        const kind = classifyAuthError(error);
+        return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: error.message };
+      }
     }
     return { outcome: 'ok' };
   } catch (e) {

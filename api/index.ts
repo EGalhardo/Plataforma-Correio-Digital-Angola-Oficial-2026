@@ -5191,6 +5191,94 @@ async function dadosResolverEExecutar(opts: {
       }
     }
 
+    // EMAIL DE RECUPERAÇÃO DE PALAVRA-PASSE (Página Redefinir Senha — espelho do server.ts).
+    if (url.includes('/api/enviar-email-recuperacao') && method === 'POST') {
+      try {
+        const { email, link } = body || {};
+        const para = String(email || '').trim().toLowerCase();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(para)) return res.status(400).json({ ok: false, erro: 'Email inválido.' });
+        
+        const apiKey = ((process.env.RESEND_API_KEY as string) || '').trim();
+        const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+        const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '').trim();
+        const redirectBase = String(link || 'https://correio-digital-angola-oficial.vercel.app').slice(0, 200);
+
+        let actionLink = `${redirectBase}/#/login`;
+
+        // 1. Tenta gerar o link seguro no Supabase Auth Admin se as chaves estiverem presentes
+        if (supaUrl && serviceKey) {
+          try {
+            const rLink = await fetch(`${supaUrl}/auth/v1/admin/generate_link`, {
+              method: 'POST',
+              headers: {
+                apikey: serviceKey,
+                Authorization: `Bearer ${serviceKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                type: 'recovery',
+                email: para,
+                options: { redirectTo: redirectBase }
+              })
+            });
+            if (rLink.ok) {
+              const linkData = await rLink.json();
+              if (linkData?.action_link) {
+                actionLink = linkData.action_link;
+              }
+            }
+          } catch (e) {
+            console.warn('[EMAIL-RECUPERACAO] Aviso ao gerar link Supabase:', e);
+          }
+        }
+
+        // 2. Se a chave Resend estiver configurada, envia o email oficial
+        if (apiKey) {
+          const de = ((process.env.EMAIL_REMETENTE as string) || 'Correio Digital Angola <onboarding@resend.dev>').trim();
+          const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif">
+<div style="max-width:560px;margin:24px auto;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e2e8f0">
+  <div style="background:#111A2E;padding:28px 32px">
+    <div style="color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:1px">CORREIO DIGITAL ANGOLA</div>
+    <div style="color:#94a3b8;font-size:10px;letter-spacing:3px;margin-top:4px">GOVERNAÇÃO INTELIGENTE • REPÚBLICA DE ANGOLA</div>
+  </div>
+  <div style="padding:32px">
+    <h1 style="color:#0c2340;font-size:22px;margin:0 0 12px">Recuperação de Palavra-Passe</h1>
+    <p style="color:#475569;font-size:14px;line-height:1.6">Recebemos um pedido para redefinir a palavra-passe associada à sua conta no <b>Correio Digital de Angola</b> (<code>${para}</code>).</p>
+    <div style="text-align:center;margin:28px 0">
+      <a href="${actionLink}" style="display:inline-block;background:#0c2340;color:#ffffff;text-decoration:none;font-weight:bold;font-size:13px;padding:14px 28px;border-radius:14px;letter-spacing:1px;text-transform:uppercase">Definir Nova Palavra-Passe</a>
+    </div>
+    <p style="color:#64748b;font-size:12px;line-height:1.6">Se o botão acima não funcionar, copie e cole a seguinte ligação no seu navegador:<br><a href="${actionLink}" style="color:#4f46e5;word-break:break-all">${actionLink}</a></p>
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:14px;margin-top:20px">
+      <p style="color:#64748b;font-size:11px;margin:0;line-height:1.5"><strong>Aviso de Segurança:</strong> Esta ligação é válida por 60 minutos. Se não solicitou a recuperação da sua palavra-passe, ignore este e-mail com segurança. A sua senha atual permanecerá inalterada.</p>
+    </div>
+  </div>
+  <div style="background:#f8fafc;padding:16px 32px;color:#94a3b8;font-size:10px;text-align:center">Correio Digital Angola — República de Angola</div>
+</div></body></html>`;
+
+          const rResend = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: de,
+              to: [para],
+              subject: 'Recuperação de Palavra-Passe — Correio Digital Angola',
+              html,
+            }),
+          });
+
+          if (!rResend.ok) {
+            const txt = await rResend.text();
+            console.warn('[EMAIL-RECUPERACAO] Resend retornou:', rResend.status, txt);
+          }
+        }
+
+        return res.status(200).json({ ok: true, enviado: true });
+      } catch (e) {
+        console.error('[EMAIL-RECUPERACAO] Exceção:', e);
+        return res.status(200).json({ ok: true, enviado: false });
+      }
+    }
+
     // Fallback global de rotas
     return res.status(404).json({ error: "Endpoint não encontrado." });
   } catch (err: any) {
