@@ -1527,6 +1527,7 @@ export function MailContent({
           <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-3xl p-5 md:p-6 shadow-xs space-y-2">
             <label className="text-[11px] md:text-xs font-black text-slate-800 uppercase tracking-wider block">TÍTULO</label>
             <input 
+              id="compose-subject-input"
               type="text"
               placeholder="Qual o tema da sua mensagem?"
               value={composeData.subject}
@@ -1796,6 +1797,7 @@ export function MailContent({
             </div>
 
             <textarea 
+              id="compose-body-textarea"
               rows={8}
               placeholder="Descreva detalhadamente o seu pedido ou informação..."
               value={composeData.body}

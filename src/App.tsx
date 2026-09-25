@@ -5449,7 +5449,16 @@ export default function App() {
   };
 
   const handleInstEmergencyOpen = async () => {
-    if (recipientLookup.status !== 'found' || !recipientLookup.citizen.redeCompleta) return;
+    let currentLookup = recipientLookup;
+    if (currentLookup.status !== 'found' && composeData.to.trim()) {
+      const targetBi = composeData.to.trim().toUpperCase();
+      const res = await supabaseService.institutionLookupCidadao(targetBi);
+      if (res.found && res.citizen) {
+        currentLookup = { status: 'found', lookedUpBi: targetBi, citizen: res.citizen };
+        setRecipientLookup(currentLookup);
+      }
+    }
+    if (currentLookup.status !== 'found' || !currentLookup.citizen?.redeCompleta) return;
     if (!composeData.body.trim()) return;
     setInstEmgBroadcastOpen(true);
     // DEMO — rede fictícia declarada; ZERO chamadas reais.
@@ -5465,7 +5474,7 @@ export default function App() {
     setInstEmgRecipients(null);
     setInstEmgRecipientsError(null);
     setInstEmgRecipientsBusy(true);
-    const res = await supabaseService.institutionFetchRedeEmergencia(recipientLookup.citizen.bi);
+    const res = await supabaseService.institutionFetchRedeEmergencia(currentLookup.citizen.bi);
     setInstEmgRecipientsBusy(false);
     if (res.errorCode) {
       setInstEmgRecipientsError(res.errorCode);

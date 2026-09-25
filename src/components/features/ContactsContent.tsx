@@ -142,6 +142,7 @@ export function ContactsContent({
         </div>
         <div className="flex gap-2">
           <button 
+            id="btn-open-add-contact"
             onClick={() => onAddContact ? onAddContact(separador === 'instituicoes') : setIsAddingContact(true)}
             className="bg-primary text-white rounded-2xl px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-center gap-2.5 md:gap-3 shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all text-xs md:text-sm font-black"
           >
