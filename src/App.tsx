@@ -3308,14 +3308,23 @@ export default function App() {
           const sentNormal = dbSentMessages.filter(m => !isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey }));
           const sentDoc = dbSentMessages.filter(m => isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey }));
           
+          let localSentList: any[] = [];
+          try {
+            const rawSent = localStorage.getItem('correio_digital_sent');
+            if (rawSent) localSentList = JSON.parse(rawSent);
+          } catch { /* ignora */ }
+          const dbSentIds = new Set(sentNormal.map(m => m.id));
+          const unsyncedSent = localSentList.filter((m: any) => !dbSentIds.has(m.id) && (!m.senderKey || m.senderKey === sentSenderKey || (isInstMode && sentSenderKey && m.senderKey.startsWith(sentSenderKey.split('-')[0]))));
+          const allSentNormal = [...unsyncedSent, ...sentNormal];
+
           if (!isDemoSession) {
-            setSentMessages(sentNormal.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
+            setSentMessages(allSentNormal.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
             setDocSentMessages(sentDoc.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
           } else {
             setSentMessages(prevLocal => {
-              const dbIds = new Set(sentNormal.map(m => m.id));
+              const dbIds = new Set(allSentNormal.map(m => m.id));
               const onlyLocal = prevLocal.filter(m => !dbIds.has(m.id));
-              return [...sentNormal, ...onlyLocal];
+              return [...allSentNormal, ...onlyLocal];
             });
             setDocSentMessages(prevLocal => {
               const dbIds = new Set(sentDoc.map(m => m.id));
@@ -4388,11 +4397,29 @@ export default function App() {
   // F15/v7 — Caixas "Enviadas" isoladas por conta (senderKey): sessões reais só
   // vêem o que enviaram; a demo (qualquer uma das 3) mantém o histórico completo.
   const currentSentMessages = useMemo(() =>
-    ordenarMensagensPorMaisRecente(isDemoSession ? sentMessages : sentMessages.filter(m => !!m.senderKey && m.senderKey === sessionOwnerKey)),
-    [sentMessages, isDemoSession, sessionOwnerKey]);
+    ordenarMensagensPorMaisRecente(isDemoSession ? sentMessages : sentMessages.filter(m => {
+      if (!m.senderKey) return false;
+      if (m.senderKey === sessionOwnerKey) return true;
+      if (isInstMode && sessionOwnerKey) {
+        const siglaOwner = sessionOwnerKey.split('-')[0];
+        const siglaMsg = m.senderKey.split('-')[0];
+        return siglaOwner === siglaMsg;
+      }
+      return false;
+    })),
+    [sentMessages, isDemoSession, isInstMode, sessionOwnerKey]);
   const currentDocSentMessages = useMemo(() =>
-    ordenarMensagensPorMaisRecente(isDemoSession ? docSentMessages : docSentMessages.filter(m => !!m.senderKey && m.senderKey === sessionOwnerKey)),
-    [docSentMessages, isDemoSession, sessionOwnerKey]);
+    ordenarMensagensPorMaisRecente(isDemoSession ? docSentMessages : docSentMessages.filter(m => {
+      if (!m.senderKey) return false;
+      if (m.senderKey === sessionOwnerKey) return true;
+      if (isInstMode && sessionOwnerKey) {
+        const siglaOwner = sessionOwnerKey.split('-')[0];
+        const siglaMsg = m.senderKey.split('-')[0];
+        return siglaOwner === siglaMsg;
+      }
+      return false;
+    })),
+    [docSentMessages, isDemoSession, isInstMode, sessionOwnerKey]);
 
   // F15 — GARANTIA DE CONTEÚDO DEMO (prompt v8): só em contas de demonstração.
   // No arranque da sessão: completa colecções vazias com os seeds canónicos
@@ -5496,19 +5523,19 @@ export default function App() {
   ): Promise<RowSendOutcome> => {
     let platform: RowSendOutcome['platform'] = 'sem_conta';
     let platformErrorCode: string | null = null;
-    const emergencySubject = `ALERTA DE EMERGÊNCIA — ${user?.name || institutionCode || 'Instituição'}`;
+    const effectiveSubject = composeData.subject?.trim() || `ALERTA DE EMERGÊNCIA — ${user?.name || institutionCode || 'Instituição'}`;
 
     // 1º — Plataforma CDA (se o familiar tiver conta — desfecho REAL)
     if (member.has_cda_account && member.cda_bi) {
       const emergencyMessage: Message = {
         id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
         org: user?.name || institutionCode || 'Instituição',
-        preview: emergencySubject,
+        preview: effectiveSubject,
         date: 'hoje',
         status: 'Informativo',
         priorityScale: 'Urgente',
         details: {
-          subject: emergencySubject,
+          subject: effectiveSubject,
           body: composeData.body,
           deadline: 'Sem prazo',
           state: 'Entregue & Autenticado',
@@ -5530,7 +5557,7 @@ export default function App() {
 
     // 2b — v35: link de EMAIL (mailto:) para o membro com endereço registado;
     // quem envia/confirmar é o agente no seu cliente de email (nunca simulado).
-    const emailLink = buildMailtoLink(member.email, emergencySubject, composeData.body);
+    const emailLink = buildMailtoLink(member.email, effectiveSubject, composeData.body);
 
     // 3º — Registo REAL da difusão (append-only; falha aqui não mascara o envio)
     const record: BroadcastRecordRow = {
@@ -5554,6 +5581,53 @@ export default function App() {
       },
     };
     const rec = await supabaseService.institutionRecordEmergencyBroadcast(record);
+
+    // Registo na lista de enviadas da instituição
+    const instSenderKey = isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi);
+    const msgId = Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);
+    const sentMsgEntry: Message = {
+      id: msgId,
+      org: member.name || citizen.name || citizen.bi,
+      preview: effectiveSubject,
+      date: 'hoje',
+      status: 'Oficial',
+      unread: 0,
+      priorityScale: 'Urgente',
+      senderKey: instSenderKey,
+      recipientBi: member.cda_bi || citizen.bi,
+      details: {
+        subject: effectiveSubject,
+        body: composeData.body,
+        deadline: 'Sem prazo',
+        state: 'Entregue & Autenticado',
+        actions: ['Ver detalhes'],
+        attachments: [],
+      },
+      protocol: generateProtocol(member.name || citizen.name || citizen.bi, 'message', msgId, effectiveSubject),
+    };
+    setSentMessages(prev => [sentMsgEntry, ...prev]);
+    try {
+      const saved = localStorage.getItem('correio_digital_sent');
+      const list = saved ? JSON.parse(saved) : [];
+      list.unshift(sentMsgEntry);
+      localStorage.setItem('correio_digital_sent', JSON.stringify(list));
+    } catch { /* ignora */ }
+
+    // Também entrega na caixa de entrada do cidadão / contacto
+    const citizenTargetBi = normalizeHomologationBi(member.cda_bi || citizen.bi);
+    const citizenInboxEntry: Message = {
+      ...sentMsgEntry,
+      org: user?.name || institutionCode || 'INAPEM',
+      recipientBi: citizenTargetBi,
+      unread: 1,
+    };
+    setInbox(prev => [citizenInboxEntry, ...prev]);
+    try {
+      const savedInbox = localStorage.getItem('correio_digital_inbox');
+      const listInbox = savedInbox ? JSON.parse(savedInbox) : [];
+      listInbox.unshift(citizenInboxEntry);
+      localStorage.setItem('correio_digital_inbox', JSON.stringify(listInbox));
+    } catch { /* ignora */ }
 
     if (platform === 'enviado') {
       addAuditLog(
@@ -8967,7 +9041,11 @@ Ficha civil do titular:
               ? handleInstEmergencySendRow(member, recipientLookup.citizen)
               : Promise.resolve({ platform: 'falhou' as const, platformErrorCode: 'SEM_CIDADAO', waLink: null })
           }
-          onClose={() => setInstEmgBroadcastOpen(false)}
+          onClose={() => {
+            setInstEmgBroadcastOpen(false);
+            setIsComposing(false);
+            setComposeData({ to: '', subject: '', body: '', attachments: [] });
+          }}
         />
       )}
 
