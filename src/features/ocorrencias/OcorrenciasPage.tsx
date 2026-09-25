@@ -312,15 +312,6 @@ function Empty({ children }: { children?: ReactNode }) {
     </div>
   );
 }
-function Safety() {
-  return (
-    <p className="flex gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
-      <AlertTriangle size={16} className="shrink-0" />
-      Este canal não substitui os serviços de emergência nem garante atendimento
-      imediato. Em caso de perigo, procure assistência de emergência.
-    </p>
-  );
-}
 function Photos({
   photos,
   proporcional = false,
@@ -1676,7 +1667,6 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
               Carregar mais ocorrências
             </button>
           )}
-          {!institutional && <Safety />}
         </>
       )}
       {view === "criar" && (
@@ -2120,7 +2110,6 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
               </p>
             )}
           </div>
-          <Safety />
           <p className="text-xs text-slate-500">
             Este formulário ainda não foi enviado. Ao sair, os dados não
             submetidos podem perder-se; fotografias temporárias expiram após 24
@@ -2775,7 +2764,6 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
               </aside>
             </div>
           )}
-          {!institutional && <Safety />}
         </>
       )}
       {view === "encaminhar" && selected && (
