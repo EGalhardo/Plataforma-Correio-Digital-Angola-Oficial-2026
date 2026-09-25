@@ -1168,8 +1168,8 @@ export default function App() {
   // Contas demo canonicas manutem o preset; outros B.I.s carregam o perfil da nuvem (fallback local).
   // ITEM 3: biOverride — login por e-mail real resolve o B.I. da conta Auth e
   // precisa que a hidratação use ESSE B.I. (o state `bi` ainda não actualizou).
-  const applyIdentityForLoggedUser = async (biOverride?: string) => {
-    if (appMode !== 'user') return;
+  const applyIdentityForLoggedUser = async (biOverride?: string, forceCitizen = false) => {
+    if (appMode !== 'user' && !forceCitizen) return;
     // B.I. em branco no login = assume o identificador demo exibido como placeholder.
     const biBase = typeof biOverride === 'string' ? biOverride : bi;
     const normalized = (biBase.trim() || DEMO_CREDENTIALS.user.identifier).toUpperCase();
@@ -2334,7 +2334,8 @@ export default function App() {
     if (loginSubMode === 'face-capture' && faceProgress === 100) {
       const recTarget = recognizedFaceRef.current;
       const targetBi = (recTarget?.id || bi || '').trim();
-      const targetMode = (recTarget?.mode || appMode);
+      const detectedRole = targetBi ? detectaPapel(targetBi) : null;
+      const targetMode: 'user' | 'institution' | 'admin' = (recTarget?.mode || detectedRole || appMode) as any;
       const isTargetInst = targetMode === 'institution';
       const isTargetGov = targetMode === 'admin';
 
@@ -2505,7 +2506,7 @@ export default function App() {
                 console.warn('[AUTH-CLOUD] Falha ao restabelecer a sessão no login facial (não bloqueia a entrada):', eCloudFace);
               }
             }
-            await applyIdentityForLoggedUser(targetBi);
+            await applyIdentityForLoggedUser(targetBi, true);
           }
           if (isTargetGov) {
             const admIdent = targetBi || DEMO_CREDENTIALS.admin.identifier;
@@ -2544,7 +2545,14 @@ export default function App() {
             }
           }
           stopLoginFaceCamera();
-          if (isTargetGov) setTab('gov-dashboard');
+          setAppMode(targetMode);
+          const targetTab = isTargetGov ? 'gov-dashboard' : 'home';
+          setTab(targetTab);
+          const pathPrefix = getModePathPrefix(targetMode);
+          const targetPath = pathPrefix || '/';
+          try {
+            window.history.replaceState(null, '', `${targetPath}#/${targetTab}`);
+          } catch { /* melhor esforço */ }
           setStage('app');
           recognizedFaceRef.current = null;
           addAuditLog('Acesso concedido via Biometria Facial Local de Demonstração', 'success');
@@ -2552,7 +2560,7 @@ export default function App() {
       }, 400); // v37.78.41 — transição pós-reconhecimento 2× mais rápida (800→400ms)
     }
     return () => clearTimeout(timer);
-  }, [faceProgress, loginSubMode, emergencyMode, bi, isInstMode, isGovMode, profileName]);
+  }, [faceProgress, loginSubMode, emergencyMode, bi, isInstMode, isGovMode, profileName, appMode]);
   // Reavaliação periódica em sessão de cidadão: desbloqueia a correspondência
   // assim que a Área de Administração aprovar o registo E mantém o canal oficial
   // de homologação actualizado (novas mensagens do admin aparecem em ~4s),
