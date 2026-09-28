@@ -61,7 +61,9 @@ import {
   Zap,
   Pencil,
   KeyRound,
-  LayoutGrid
+  LayoutGrid,
+  Maximize2,
+  ZoomIn
 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { supabase } from '../../lib/supabaseClient';
@@ -555,6 +557,8 @@ export function GovContactsContent({
 
   // IA review states
   const [selectedReviewCitizen, setSelectedReviewCitizen] = useState<Citizen | null>(null);
+  const [expandedDoc, setExpandedDoc] = useState<{ title: string; url: string } | null>(null);
+  const [resolvedModalDocs, setResolvedModalDocs] = useState<{ frente: string; verso: string; selfie: string }>({ frente: '', verso: '', selfie: '' });
   const [aiEvaluationState, setAiEvaluationState] = useState<'idle' | 'running' | 'completed'>('idle');
   const [aiMatchScore, setAiMatchScore] = useState<number | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>('');
@@ -593,6 +597,37 @@ export function GovContactsContent({
     facial: true
   });
   const [, setRejectionStep] = useState<'passo1' | 'passo2' | 'passo3' | 'geral'>('geral');
+
+  useEffect(() => {
+    if (!selectedReviewCitizen) {
+      setResolvedModalDocs({ frente: '', verso: '', selfie: '' });
+      return;
+    }
+    let ativo = true;
+    const carregarImagensModal = async () => {
+      const bi = (selectedReviewCitizen.biNumber || '').trim().toUpperCase();
+      
+      const rawFrente = selectedReviewCitizen.urlFrente || (selectedReviewCitizen as any).bi_foto_url || (selectedReviewCitizen as any).bi_frente_url || (selectedReviewCitizen as any).documento_frente_url || (bi ? localStorage.getItem(`cda_user_bi_frente_${bi}`) : '') || '';
+      const rawVerso = selectedReviewCitizen.urlVerso || (selectedReviewCitizen as any).bi_foto_verso_url || (selectedReviewCitizen as any).bi_verso_url || (selectedReviewCitizen as any).documento_verso_url || (bi ? localStorage.getItem(`cda_user_bi_verso_${bi}`) : '') || '';
+      const rawSelfie = selectedReviewCitizen.urlSelfie || selectedReviewCitizen.facePhoto || (selectedReviewCitizen as any).selfie_url || (selectedReviewCitizen as any).foto_url || (bi ? localStorage.getItem(`cda_user_selfie_${bi}`) : '') || '';
+
+      const [frente, verso, selfie] = await Promise.all([
+        resolveStorageUrl(supabase, rawFrente),
+        resolveStorageUrl(supabase, rawVerso),
+        resolveStorageUrl(supabase, rawSelfie),
+      ]);
+
+      if (ativo) {
+        setResolvedModalDocs({
+          frente: frente || rawFrente || '',
+          verso: verso || rawVerso || '',
+          selfie: selfie || rawSelfie || selectedReviewCitizen.facePhoto || '',
+        });
+      }
+    };
+    void carregarImagensModal();
+    return () => { ativo = false; };
+  }, [selectedReviewCitizen]);
 
   const [citizens, setCitizens] = useState<Citizen[]>(() => {
     // No Modo Real, a lista nasce vazia e é preenchida apenas pela consulta
@@ -1075,6 +1110,11 @@ export function GovContactsContent({
       kyc?.ia === 'Revisão Administrativa' ? 'Revisão Administrativa' :
       kyc?.ia === 'Rejeitado' ? 'Rejeitado' : undefined;
 
+    const biClean = String(item.bi_numero || '').trim().toUpperCase();
+    const frenteVal = item.url_frente || item.url_bi_frente || (item as any).bi_foto_url || (item as any).bi_frente_url || (item as any).documento_frente_url || (biClean ? localStorage.getItem(`cda_user_bi_frente_${biClean}`) : '') || '';
+    const versoVal = item.url_verso || item.url_bi_verso || (item as any).bi_foto_verso_url || (item as any).bi_verso_url || (item as any).documento_verso_url || (biClean ? localStorage.getItem(`cda_user_bi_verso_${biClean}`) : '') || '';
+    const selfieVal = item.url_selfie || (item as any).selfie_url || (item as any).foto_url || (biClean ? localStorage.getItem(`cda_user_selfie_${biClean}`) : '') || '';
+
     return {
       id: String(item.id),
       name: item.nome,
@@ -1083,13 +1123,13 @@ export function GovContactsContent({
       // real do profile). Sem dado → «—» (nunca 'Luanda/Belas/Kilamba' fixos).
       province: '—',
       municipio: '—',
-      address: moradasReaisRef.current.get(String(item.bi_numero || '').toUpperCase()) || '—',
+      address: moradasReaisRef.current.get(biClean) || '—',
       contact: item.email,
       status: st,
       biNumber: item.bi_numero,
       email: item.email || undefined,
-      facePhoto: item.url_selfie || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face',
-      urlSelfie: item.url_selfie || '',
+      facePhoto: selfieVal || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face',
+      urlSelfie: selfieVal,
       reason: stripKycMarker(item.observacoes),
       registrationDate: item.criado_em ? new Date(item.criado_em).toLocaleDateString('pt-AO') : undefined,
       verificationScore: kyc?.coh ?? undefined,
@@ -1098,8 +1138,8 @@ export function GovContactsContent({
       imageQuality: kyc?.iq ?? undefined,
       ocrDataMatch: kyc?.ocr ?? undefined,
       iaResult: iaRes,
-      urlFrente: item.url_frente || '',
-      urlVerso: item.url_verso || '',
+      urlFrente: frenteVal,
+      urlVerso: versoVal,
       dbUUID: String(item.id),
       // F29 (v11.1) — detalhe da Pré-Verificação Inteligente para o painel do modal
       pviVer: pvi?.ver ?? undefined,
@@ -1111,21 +1151,30 @@ export function GovContactsContent({
     };
   });
 
-  const mapProfilesToCitizens = (rows: LinhaPerfilAdmin[]): Citizen[] => rows.map((item, index: number) => ({
-    id: item.id || `profile-${index}`,
-    name: item.name,
-    category: 'Cidadão',
-    province: 'Luanda',
-    municipio: 'Belas',
-    address: 'Endereço não detalhado no perfil',
-    contact: item.email || 'sem-email@cidadao.ao',
-    status: 'Aprovado Manualmente',
-    biNumber: item.bi,
-    facePhoto: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face',
-    reason: 'Registo sincronizado a partir da tabela profiles.',
-    verificationScore: 97.5,
-    dbUUID: item.id
-  }));
+  const mapProfilesToCitizens = (rows: LinhaPerfilAdmin[]): Citizen[] => rows.map((item, index: number) => {
+    const biClean = (item.bi || '').trim().toUpperCase();
+    const frenteVal = (biClean ? localStorage.getItem(`cda_user_bi_frente_${biClean}`) : '') || '';
+    const versoVal = (biClean ? localStorage.getItem(`cda_user_bi_verso_${biClean}`) : '') || '';
+    const selfieVal = (biClean ? localStorage.getItem(`cda_user_selfie_${biClean}`) : '') || '';
+    return {
+      id: item.id || `profile-${index}`,
+      name: item.name,
+      category: 'Cidadão',
+      province: 'Luanda',
+      municipio: 'Belas',
+      address: 'Endereço não detalhado no perfil',
+      contact: item.email || 'sem-email@cidadao.ao',
+      status: 'Aprovado Manualmente',
+      biNumber: item.bi,
+      facePhoto: selfieVal || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face',
+      urlSelfie: selfieVal,
+      urlFrente: frenteVal,
+      urlVerso: versoVal,
+      reason: 'Registo sincronizado a partir da tabela profiles.',
+      verificationScore: 97.5,
+      dbUUID: item.id
+    };
+  });
 
   const updateRegistrationRecord = async (recordId: string, payload: Record<string, unknown>) => {
     try {
@@ -1326,38 +1375,27 @@ export function GovContactsContent({
         return;
       }
 
-      if (data && data.length > 0) {
-        // Instituições vivem na página Instituições (secção "Solicitações de Registo") — saem da fila de cidadãos.
-        const citizenRows = (data as LinhaSolicitacaoCidadao[]).filter((item) => {
-          if (item?.observacoes?.includes('[Instituição]')) return false;
-          // Seeds institucionais de demonstração não podem aparecer como cidadãos no modo real.
-          if (!shouldUseMockFallback() && (item?.bi_numero === 'AGT-9921-SR' || item?.observacoes?.includes('Seed demo'))) return false;
-          return true;
-        });
-        const supabaseCitizens: Citizen[] = await resolveCitizenDocUrls(mapRegistrationRowsToCitizens(citizenRows));
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'user');
+      const profileCitizens = profileData && profileData.length > 0 ? mapProfilesToCitizens(profileData as LinhaPerfilAdmin[]) : [];
 
-        setCitizens(prev => {
-          const localFiltered = prev.filter(c => !citizenRows.some((item) => item.bi_numero === c.biNumber) && c.category !== 'Instituição');
-          // A versão da nuvem ganha prioridade, MAS preserva as métricas reais
-          // locais quando o registo na nuvem ainda não as transporta.
-          const merged = supabaseCitizens.map(sc => {
-            const local = prev.find(c => c.biNumber === sc.biNumber);
-            if (!local) return sc;
-            return {
-              ...local,
-              ...sc,
-              coherenceLevel: sc.coherenceLevel ?? local.coherenceLevel,
-              facialMatch: sc.facialMatch ?? local.facialMatch,
-              imageQuality: sc.imageQuality ?? local.imageQuality,
-              ocrDataMatch: sc.ocrDataMatch ?? local.ocrDataMatch,
-              iaResult: sc.iaResult ?? local.iaResult,
-              verificationScore: sc.verificationScore ?? local.verificationScore,
-              phone: sc.phone ?? local.phone,
-            };
-          });
-          return [...merged, ...localFiltered];
-        });
-      }
+      const citizenRows = ((data || []) as LinhaSolicitacaoCidadao[]).filter((item) => {
+        if (item?.observacoes?.includes('[Instituição]')) return false;
+        // Seeds institucionais de demonstração não podem aparecer como cidadãos no modo real.
+        if (!shouldUseMockFallback() && (item?.bi_numero === 'AGT-9921-SR' || item?.observacoes?.includes('Seed demo'))) return false;
+        return true;
+      });
+      const supabaseCitizens: Citizen[] = await resolveCitizenDocUrls(mapRegistrationRowsToCitizens(citizenRows));
+
+      setCitizens(prev => {
+        const registeredBis = new Set(citizenRows.map(r => String(r.bi_numero || '').toUpperCase()));
+        const onlyProfileCitizens = profileCitizens.filter(pc => !registeredBis.has(String(pc.biNumber || '').toUpperCase()));
+        const allCloudCitizens = [...supabaseCitizens, ...onlyProfileCitizens];
+        const localFiltered = prev.filter(c => !allCloudCitizens.some((item) => item.biNumber === c.biNumber) && c.category !== 'Instituição');
+        return [...allCloudCitizens, ...localFiltered];
+      });
     } catch (e) {
       console.error('Error in fetchSupabaseCitizens:', e);
     }
@@ -3976,228 +4014,235 @@ export function GovContactsContent({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                             {/* Painel Esquerdo: Fotocópia do BI Digitalizado (com abas de Frente/Verso ou imagens reais do Supabase) */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="block text-[10.5px] font-black uppercase tracking-wider text-[#0c2340]/60">PAINEL ESQUERDO • FOTOCÓPIA DO BI</span>
+                    {/* Painéis de Avaliação Visual e Biométrica: B.I. Frente, B.I. Verso/Trás e Selfie HD lado a lado */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                       
-                      {/* Abas Frente / Verso */}
-                      <div className="flex bg-slate-100 p-1 rounded-xl gap-1 border border-slate-200">
-                        <button
-                          type="button"
-                          onClick={() => setReviewStepTab(1)}
-                          className={`px-4.5 py-1 text-[9px] font-extrabold uppercase tracking-widest rounded-lg transition-all border-0 cursor-pointer ${
-                            reviewStepTab === 1 
-                              ? 'bg-[#0c2340] text-white shadow-xs' 
-                              : 'text-slate-500 hover:text-slate-900 bg-transparent font-bold'
-                          }`}
-                        >
-                          Frente
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setReviewStepTab(2)}
-                          className={`px-4.5 py-1 text-[9px] font-extrabold uppercase tracking-widest rounded-lg transition-all border-0 cursor-pointer ${
-                            reviewStepTab === 2 
-                              ? 'bg-[#0c2340] text-white shadow-xs' 
-                              : 'text-slate-500 hover:text-slate-900 bg-transparent font-bold'
-                          }`}
-                        >
-                          Verso
-                        </button>
-                      </div>
-                    </div>
-
-                    {reviewStepTab === 1 ? (
-                      selectedReviewCitizen.urlFrente ? (
-                        <div className="h-[240px] relative rounded-[24px] overflow-hidden border border-slate-200 bg-slate-900 shadow-sm flex items-center justify-center select-none">
-                          <img src={selectedReviewCitizen.urlFrente} alt="B.I. Frente" className="max-h-full max-w-full object-contain pointer-events-none" />
-                          <div className="absolute top-2 right-2 bg-blue-950/85 px-2 py-0.5 text-[7px] font-bold text-white rounded-md uppercase tracking-wider shadow-md">Ficheiro Real Supabase</div>
+                      {/* PAINEL 1 • B.I. PARTE FRENTE */}
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10.5px] font-black uppercase tracking-wider text-[#0c2340]/70 flex items-center gap-1.5">
+                            <IdCard size={14} className="text-[#2563eb]" /> Painel 1 • B.I. Parte Frente
+                          </span>
+                          <span className="text-[8px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md uppercase">
+                            Frente Oficial
+                          </span>
                         </div>
-                      ) : selectedReviewCitizen.docsProtegidosSemAcesso ? (
-                        renderProtectedDocNotice('documento (frente)')
-                      ) : (
-                        <div className="bg-white border border-slate-200 rounded-[24px] p-5.5 relative overflow-hidden h-[240px] flex flex-col justify-between shadow-2xs">
-                          {/* Micro-marcas d'água */}
-                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none w-56 h-56 rounded-full border-4 border-indigo-900 flex items-center justify-center font-bold text-center text-xs">
-                            REPÚBLICA DE ANGOLA
-                          </div>
-                          <div className="absolute top-2 right-2 w-16 h-16 bg-gradient-to-br from-yellow-300/10 to-indigo-500/10 rounded-full blur-xl pointer-events-none" />
 
-                          {/* Top Header do Documento */}
-                          <div className="flex items-start justify-between border-b pb-2 border-slate-150">
-                            <div className="flex gap-2.5 items-center">
-                              {/* Bandeira de Angola */}
-                              <div className="w-7 h-4.5 bg-red-650 flex flex-col relative rounded-xs overflow-hidden border border-slate-300 flex-shrink-0">
-                                <div className="h-1/2 bg-red-600" />
-                                <div className="h-1/2 bg-black" />
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[4px] text-yellow-500 font-extrabold">&bull;</div>
-                              </div>
-                              <div>
-                                <span className="text-[8.5px] font-black text-[#0c2340] uppercase tracking-wide block">República de Angola</span>
-                                <span className="text-[6.5px] font-bold text-slate-400 uppercase block">Ministério da Justiça e Direitos Humanos</span>
-                              </div>
+                        {(resolvedModalDocs.frente || selectedReviewCitizen.urlFrente) ? (
+                          <div 
+                            onClick={() => setExpandedDoc({ title: `B.I. Oficial (Frente) — ${selectedReviewCitizen.name}`, url: (resolvedModalDocs.frente || selectedReviewCitizen.urlFrente)! })}
+                            className="h-[250px] relative rounded-[24px] overflow-hidden border border-slate-200 bg-slate-900 shadow-sm flex items-center justify-center select-none group cursor-pointer hover:border-indigo-400 transition-all"
+                            title="Clique para ampliar em alta resolução"
+                          >
+                            <img src={resolvedModalDocs.frente || selectedReviewCitizen.urlFrente} alt="B.I. Frente" className="max-h-full max-w-full object-contain pointer-events-none" />
+                            <div className="absolute top-2.5 right-2.5 bg-blue-950/85 px-2.5 py-1 text-[7.5px] font-black text-white rounded-md uppercase tracking-wider shadow-md backdrop-blur-xs flex items-center gap-1">
+                              <Eye size={10} /> Documento Real
                             </div>
-                            <div className="text-right">
-                              <span className="text-[8px] font-black text-rose-600 bg-rose-50 border border-rose-200 p-0.5 px-2 rounded uppercase font-mono tracking-wider">B.I. Oficial</span>
+                            <div className="absolute bottom-2.5 inset-x-2.5 bg-slate-950/80 backdrop-blur-xs text-white p-2 rounded-xl text-[8.5px] font-bold flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all shadow-md">
+                              <span className="flex items-center gap-1"><ZoomIn size={12} className="text-cyan-400" /> Clique para ampliar em HD</span>
+                              <Maximize2 size={12} className="text-cyan-400" />
                             </div>
                           </div>
+                        ) : selectedReviewCitizen.docsProtegidosSemAcesso ? (
+                          renderProtectedDocNotice('documento (frente)')
+                        ) : (
+                          <div className="bg-white border border-slate-200 rounded-[24px] p-4.5 relative overflow-hidden h-[250px] flex flex-col justify-between shadow-2xs">
+                            {/* Micro-marcas d'água */}
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none w-56 h-56 rounded-full border-4 border-indigo-900 flex items-center justify-center font-bold text-center text-xs">
+                              REPÚBLICA DE ANGOLA
+                            </div>
+                            <div className="absolute top-2 right-2 w-16 h-16 bg-gradient-to-br from-yellow-300/10 to-indigo-500/10 rounded-full blur-xl pointer-events-none" />
 
-                          {/* Dados Centrais do BI */}
-                          <div className="grid grid-cols-3 gap-4 my-auto items-center">
-                            {/* Foto do BI - com filtro impresso cinza */}
-                            <div className="col-span-1 h-[88px] bg-slate-200 rounded-xl overflow-hidden border border-slate-300 relative shadow-3xs flex-shrink-0">
-                              <img 
-                                src={selectedReviewCitizen.facePhoto} 
-                                alt="Rosto BI" 
-                                className="w-full h-full object-cover filter grayscale contrast-125 brightness-95" 
-                                referrerPolicy="no-referrer"
-                              />
-                              <div className="absolute inset-0 bg-indigo-950/10 mix-blend-color" />
+                            {/* Top Header do Documento */}
+                            <div className="flex items-start justify-between border-b pb-1.5 border-slate-150">
+                              <div className="flex gap-2 items-center">
+                                <div className="w-6 h-4 bg-red-650 flex flex-col relative rounded-xs overflow-hidden border border-slate-300 flex-shrink-0">
+                                  <div className="h-1/2 bg-red-600" />
+                                  <div className="h-1/2 bg-black" />
+                                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[4px] text-yellow-500 font-extrabold">&bull;</div>
+                                </div>
+                                <div>
+                                  <span className="text-[8px] font-black text-[#0c2340] uppercase tracking-wide block">República de Angola</span>
+                                  <span className="text-[6px] font-bold text-slate-400 uppercase block">Min. Justiça e Direitos Humanos</span>
+                                </div>
+                              </div>
+                              <span className="text-[7.5px] font-black text-rose-600 bg-rose-50 border border-rose-200 p-0.5 px-1.5 rounded uppercase font-mono">B.I. Frente</span>
                             </div>
 
-                            {/* Dados textuais do civil */}
-                            <div className="col-span-2 space-y-1.5 text-left text-[10px]">
-                              <div>
-                                <span className="text-[7px] text-slate-400 uppercase block font-bold leading-none">Nome Completo:</span>
-                                <span className="font-extrabold text-slate-900 uppercase block text-[11px] tracking-tight">{selectedReviewCitizen.name}</span>
+                            {/* Dados Centrais do BI */}
+                            <div className="grid grid-cols-3 gap-2.5 my-auto items-center">
+                              <div className="col-span-1 h-[80px] bg-slate-200 rounded-xl overflow-hidden border border-slate-300 relative shadow-3xs flex-shrink-0">
+                                <img 
+                                  src={resolvedModalDocs.selfie || selectedReviewCitizen.facePhoto} 
+                                  alt="Rosto BI" 
+                                  className="w-full h-full object-cover filter grayscale contrast-125 brightness-95" 
+                                  referrerPolicy="no-referrer"
+                                />
+                                <div className="absolute inset-0 bg-indigo-950/10 mix-blend-color" />
                               </div>
-                              <div className="grid grid-cols-2 gap-2">
+
+                              <div className="col-span-2 space-y-1 text-left text-[9.5px]">
                                 <div>
-                                  <span className="text-[7px] text-slate-400 uppercase block font-bold leading-none">Nº B.I.:</span>
-                                  <span className="font-black text-[#0c2340] font-mono text-[9px] block">{selectedReviewCitizen.biNumber}</span>
+                                  <span className="text-[6.5px] text-slate-400 uppercase block font-bold leading-none">Nome Completo:</span>
+                                  <span className="font-extrabold text-slate-900 uppercase block text-[10px] tracking-tight truncate">{selectedReviewCitizen.name}</span>
                                 </div>
-                                <div>
-                                  <span className="text-[7px] text-slate-400 uppercase block font-bold leading-none font-sans">Nacionalidade:</span>
-                                  <span className="font-extrabold text-[#0c2340] uppercase block">Angolana</span>
+                                <div className="grid grid-cols-2 gap-1.5">
+                                  <div>
+                                    <span className="text-[6.5px] text-slate-400 uppercase block font-bold leading-none">Nº B.I.:</span>
+                                    <span className="font-black text-[#0c2340] font-mono text-[8.5px] block truncate">{selectedReviewCitizen.biNumber}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[6.5px] text-slate-400 uppercase block font-bold leading-none">Nacionalidade:</span>
+                                    <span className="font-extrabold text-[#0c2340] uppercase block text-[8.5px]">Angolana</span>
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <span className="text-[7px] text-slate-400 uppercase block font-bold leading-none">Província:</span>
-                                  <span className="font-extrabold text-slate-800 block text-[8.5px] uppercase">{selectedReviewCitizen.province || "LUANDA"}</span>
-                                </div>
-                                <div>
-                                  <span className="text-[7px] text-slate-400 uppercase block font-bold leading-none">Natural de:</span>
-                                  <span className="font-extrabold text-slate-800 block text-[8.5px] uppercase">{selectedReviewCitizen.municipio || "MAIANGA"}</span>
+                                <div className="grid grid-cols-2 gap-1.5">
+                                  <div>
+                                    <span className="text-[6.5px] text-slate-400 uppercase block font-bold leading-none">Província:</span>
+                                    <span className="font-extrabold text-slate-800 block text-[8px] uppercase truncate">{selectedReviewCitizen.province || "LUANDA"}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[6.5px] text-slate-400 uppercase block font-bold leading-none">Natural de:</span>
+                                    <span className="font-extrabold text-slate-800 block text-[8px] uppercase truncate">{selectedReviewCitizen.municipio || "MAIANGA"}</span>
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
 
-                          {/* Footer do BI */}
-                          <div className="border-t pt-1.5 border-slate-150 flex items-center justify-between text-[7px] font-mono text-slate-400 leading-none">
-                            <span>EMISSÃO: 12/06/2016</span>
-                            <span>VALIDADE: 12/06/2029</span>
-                            <span className="font-extrabold text-[#0c2340]">ASSINATURA DIGITAL: SIM</span>
-                          </div>
-                        </div>
-                      )
-                    ) : (
-                      selectedReviewCitizen.urlVerso ? (
-                        <div className="h-[240px] relative rounded-[24px] overflow-hidden border border-slate-200 bg-slate-900 shadow-sm flex items-center justify-center select-none">
-                          <img src={selectedReviewCitizen.urlVerso} alt="B.I. Verso" className="max-h-full max-w-full object-contain pointer-events-none" />
-                          <div className="absolute top-2 right-2 bg-blue-950/85 px-2 py-0.5 text-[7px] font-bold text-white rounded-md uppercase tracking-wider shadow-md">Ficheiro Real Supabase</div>
-                        </div>
-                      ) : selectedReviewCitizen.docsProtegidosSemAcesso ? (
-                        renderProtectedDocNotice('documento (verso)')
-                      ) : (
-                        <div className="bg-white border border-slate-200 rounded-[24px] p-5 relative overflow-hidden h-[240px] flex flex-col justify-between shadow-2xs">
-                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none w-56 h-56 rounded-full border-4 border-[#0c2340] flex items-center justify-center font-bold text-center text-xs">
-                            REPÚBLICA DE ANGOLA
-                          </div>
-                          <div className="text-center font-mono space-y-2 mt-4 text-[#0f172a] text-[8px] uppercase font-bold leading-relaxed">
-                            <p className="text-[7.5px] font-extrabold text-slate-700">Assinatura Certificada do Titular</p>
-                            <div className="w-36 h-6 border-b border-dashed border-slate-400 mx-auto opacity-70" />
-                            <p className="mt-4 text-[7.5px] font-extrabold text-slate-700">Impressão Digitalizada Dactiloscópica (Polegar Direito)</p>
-                            <div className="w-10 h-12 bg-slate-100 opacity-80 rounded-md border border-slate-300 mx-auto flex items-center justify-center">
-                              <Fingerprint size={18} className="text-slate-800" />
+                            {/* Footer do BI */}
+                            <div className="border-t pt-1 border-slate-150 flex items-center justify-between text-[6.5px] font-mono text-slate-400 leading-none">
+                              <span>EMISSÃO: 12/06/2016</span>
+                              <span>VALIDADE: 12/06/2029</span>
+                              <span className="font-extrabold text-[#0c2340]">ASSINATURA DIGITAL: SIM</span>
                             </div>
                           </div>
-                          <div className="border-t pt-1.5 border-slate-200 flex items-center justify-between text-[6.5px] font-mono text-slate-500 leading-none">
-                            <span>SERVIÇO DE MIGRAÇÃO E ESTRANGEIROS</span>
-                            <span>CADA-V1</span>
-                          </div>
-                        </div>
-                      )
-                    )}
-
-                    <div className="bg-slate-50 border border-slate-150 rounded-2xl p-3.5 text-[10px] font-extrabold text-slate-800 uppercase tracking-tight flex items-center gap-2.5 shadow-3xs">
-                      <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
-                      <span>Nome Declarado e BI Batem 100% com o Banco do Registo Civil Angolano.</span>
-                    </div>
-                  </div>
-
-                  {/* Painel Direito: Captura de Face Ativa no Auto-Cadastro (HD e AnáliseIA) */}
-                  <div className="space-y-3">
-                    <span className="block text-[10.5px] font-black uppercase tracking-wider text-[#0c2340]/60">Painel Direito &bull; Captura Biométrica (Face)</span>
-                    
-                    <div className="bg-[#0a152e] border border-cyan-950/80 rounded-[24px] p-5 h-[240px] relative overflow-hidden flex flex-col justify-between shadow-2xl text-white">
-                      
-                      {/* Efeitos de Reticulado / Scanning de Câmera */}
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.06)_0,transparent_100%)]" />
-                      
-                      {/* Cantos holográficos da câmera de biometria */}
-                      <div className="absolute top-4 left-4 w-4 h-4 border-t-2 border-l-2 border-cyan-400 rounded-tl-sm pointer-events-none" />
-                      <div className="absolute top-4 right-4 w-4 h-4 border-t-2 border-r-2 border-cyan-400 rounded-tr-sm pointer-events-none" />
-                      <div className="absolute bottom-4 left-4 w-4 h-4 border-b-2 border-l-2 border-cyan-400 rounded-bl-sm pointer-events-none" />
-                      <div className="absolute bottom-4 right-4 w-4 h-4 border-b-2 border-r-2 border-cyan-400 rounded-br-sm pointer-events-none" />
-
-                      {/* Scanner Line animation */}
-                      {aiEvaluationState === 'running' && (
-                        <motion.div 
-                          initial={{ y: 0 }}
-                          animate={{ y: [0, 180, 0] }}
-                          transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
-                          className="absolute left-4 right-4 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-md shadow-cyan-400/50 z-25 pointer-events-none"
-                        />
-                      )}
-
-                      <div className="flex items-center justify-between z-15 relative">
-                        <span className="text-[8px] font-mono font-black text-cyan-200 uppercase tracking-widest bg-cyan-950/70 p-1.5 px-3 rounded-full border border-cyan-500/30">
-                          ● Auto-Foto Biométrica Ativa
-                        </span>
-                        <span className="text-[8px] font-mono text-cyan-400/85 font-black uppercase tracking-wider">FPS: 30 &bull; 1280P</span>
-                      </div>
-
-                      {/* Rosto do Cidadão no Centro com linhas de rastreamento se IA estiver ativa */}
-                      <div className="relative w-24 h-24 mx-auto my-auto rounded-full border-2 border-cyan-400 overflow-hidden shadow-xl shadow-cyan-950/45 z-10 p-0.5 bg-cyan-950/30">
-                        <img 
-                          src={selectedReviewCitizen.urlSelfie || selectedReviewCitizen.facePhoto} 
-                          alt="Face HD" 
-                          className="w-full h-full object-cover rounded-full" 
-                          referrerPolicy="no-referrer"
-                        />
-                        {aiEvaluationState === 'running' && (
-                          <div className="absolute inset-0 bg-cyan-500/10 animate-pulse" />
                         )}
-                        {/* Pontos de foco facial fictícios */}
-                        <div className="absolute top-1/3 left-1/3 w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping pointer-events-none" />
-                        <div className="absolute top-1/3 right-1/3 w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping pointer-events-none" />
-                        <div className="absolute bottom-1/3 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping pointer-events-none" />
                       </div>
 
-                      <div className="text-center z-15 relative mt-1.5">
-                        <span className="text-[9px] font-mono text-emerald-400 uppercase tracking-widest font-black flex items-center justify-center gap-1">
-                          <CheckCircle2 size={11} className="text-emerald-400" />
-                          {aiEvaluationState === 'idle' ? 'Câmera Biométrica Pronta' :
-                           aiEvaluationState === 'running' ? 'Executando Análise de Profundidade...' :
-                           'Verificação Biométrica Concluída'}
-                        </span>
+                      {/* PAINEL 2 • B.I. PARTE TRÁS (VERSO) */}
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10.5px] font-black uppercase tracking-wider text-[#0c2340]/70 flex items-center gap-1.5">
+                            <FileText size={14} className="text-[#2563eb]" /> Painel 2 • B.I. Parte Trás (Verso)
+                          </span>
+                          <span className="text-[8px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md uppercase">
+                            Verso Oficial
+                          </span>
+                        </div>
+
+                        {(resolvedModalDocs.verso || selectedReviewCitizen.urlVerso) ? (
+                          <div 
+                            onClick={() => setExpandedDoc({ title: `B.I. Oficial (Verso) — ${selectedReviewCitizen.name}`, url: (resolvedModalDocs.verso || selectedReviewCitizen.urlVerso)! })}
+                            className="h-[250px] relative rounded-[24px] overflow-hidden border border-slate-200 bg-slate-900 shadow-sm flex items-center justify-center select-none group cursor-pointer hover:border-indigo-400 transition-all"
+                            title="Clique para ampliar em alta resolução"
+                          >
+                            <img src={resolvedModalDocs.verso || selectedReviewCitizen.urlVerso} alt="B.I. Verso" className="max-h-full max-w-full object-contain pointer-events-none" />
+                            <div className="absolute top-2.5 right-2.5 bg-blue-950/85 px-2.5 py-1 text-[7.5px] font-black text-white rounded-md uppercase tracking-wider shadow-md backdrop-blur-xs flex items-center gap-1">
+                              <Eye size={10} /> Documento Real
+                            </div>
+                            <div className="absolute bottom-2.5 inset-x-2.5 bg-slate-950/80 backdrop-blur-xs text-white p-2 rounded-xl text-[8.5px] font-bold flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all shadow-md">
+                              <span className="flex items-center gap-1"><ZoomIn size={12} className="text-cyan-400" /> Clique para ampliar em HD</span>
+                              <Maximize2 size={12} className="text-cyan-400" />
+                            </div>
+                          </div>
+                        ) : selectedReviewCitizen.docsProtegidosSemAcesso ? (
+                          renderProtectedDocNotice('documento (verso)')
+                        ) : (
+                          <div className="bg-white border border-slate-200 rounded-[24px] p-4.5 relative overflow-hidden h-[250px] flex flex-col justify-between shadow-2xs">
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none w-56 h-56 rounded-full border-4 border-[#0c2340] flex items-center justify-center font-bold text-center text-xs">
+                              REPÚBLICA DE ANGOLA
+                            </div>
+                            <div className="text-center font-mono space-y-1.5 mt-2 text-[#0f172a] text-[7.5px] uppercase font-bold leading-relaxed">
+                              <p className="text-[7.5px] font-extrabold text-slate-700">Assinatura Certificada do Titular</p>
+                              <div className="w-32 h-5 border-b border-dashed border-slate-400 mx-auto opacity-70" />
+                              <p className="mt-3 text-[7.5px] font-extrabold text-slate-700">Impressão Digitalizada Dactiloscópica</p>
+                              <div className="w-9 h-11 bg-slate-100 opacity-80 rounded-md border border-slate-300 mx-auto flex items-center justify-center">
+                                <Fingerprint size={16} className="text-slate-800" />
+                              </div>
+                            </div>
+                            <div className="border-t pt-1 border-slate-200 flex items-center justify-between text-[6.5px] font-mono text-slate-500 leading-none">
+                              <span>SERVIÇO DE MIGRAÇÃO E ESTRANGEIROS</span>
+                              <span>CADA-V1</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
+
+                      {/* PAINEL 3 • CAPTURA BIOMÉTRICA (FACE) */}
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10.5px] font-black uppercase tracking-wider text-[#0c2340]/70 flex items-center gap-1.5">
+                            <Fingerprint size={14} className="text-cyan-500" /> Painel 3 • Captura Biométrica (Face)
+                          </span>
+                          <span className="text-[8px] font-mono font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-md uppercase">
+                            Selfie HD &bull; Prova de Vida
+                          </span>
+                        </div>
+
+                        <div 
+                          onClick={() => setExpandedDoc({ title: `Captura Facial Biométrica — ${selectedReviewCitizen.name}`, url: resolvedModalDocs.selfie || selectedReviewCitizen.urlSelfie || selectedReviewCitizen.facePhoto })}
+                          className="bg-[#0a152e] border border-cyan-950/80 rounded-[24px] p-4.5 h-[250px] relative overflow-hidden flex flex-col justify-between shadow-2xl text-white group cursor-pointer hover:border-cyan-400 transition-all"
+                          title="Clique para ampliar em alta resolução"
+                        >
+                          {/* Efeitos de Reticulado / Scanning de Câmera */}
+                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.06)_0,transparent_100%)]" />
+                          
+                          {/* Cantos holográficos da câmera de biometria */}
+                          <div className="absolute top-3.5 left-3.5 w-3.5 h-3.5 border-t-2 border-l-2 border-cyan-400 rounded-tl-sm pointer-events-none" />
+                          <div className="absolute top-3.5 right-3.5 w-3.5 h-3.5 border-t-2 border-r-2 border-cyan-400 rounded-tr-sm pointer-events-none" />
+                          <div className="absolute bottom-3.5 left-3.5 w-3.5 h-3.5 border-b-2 border-l-2 border-cyan-400 rounded-bl-sm pointer-events-none" />
+                          <div className="absolute bottom-3.5 right-3.5 w-3.5 h-3.5 border-b-2 border-r-2 border-cyan-400 rounded-br-sm pointer-events-none" />
+
+                          {/* Scanner Line animation */}
+                          {aiEvaluationState === 'running' && (
+                            <motion.div 
+                              initial={{ y: 0 }}
+                              animate={{ y: [0, 180, 0] }}
+                              transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+                              className="absolute left-4 right-4 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-md shadow-cyan-400/50 z-25 pointer-events-none"
+                            />
+                          )}
+
+                          <div className="flex items-center justify-between z-15 relative">
+                            <span className="text-[7.5px] font-mono font-black text-cyan-200 uppercase tracking-widest bg-cyan-950/70 p-1 px-2.5 rounded-full border border-cyan-500/30">
+                              ● Auto-Foto Ativa
+                            </span>
+                            <span className="text-[7.5px] font-mono text-cyan-400/85 font-black uppercase tracking-wider">1280P HD</span>
+                          </div>
+
+                          {/* Rosto do Cidadão no Centro */}
+                          <div className="relative w-22 h-22 mx-auto my-auto rounded-full border-2 border-cyan-400 overflow-hidden shadow-xl shadow-cyan-950/45 z-10 p-0.5 bg-cyan-950/30">
+                            <img 
+                              src={resolvedModalDocs.selfie || selectedReviewCitizen.urlSelfie || selectedReviewCitizen.facePhoto} 
+                              alt="Face HD" 
+                              className="w-full h-full object-cover rounded-full" 
+                              referrerPolicy="no-referrer"
+                            />
+                            {aiEvaluationState === 'running' && (
+                              <div className="absolute inset-0 bg-cyan-500/10 animate-pulse" />
+                            )}
+                          </div>
+
+                          <div className="text-center z-15 relative">
+                            <span className="text-[8px] font-mono text-emerald-400 uppercase tracking-widest font-black flex items-center justify-center gap-1">
+                              <CheckCircle2 size={10} className="text-emerald-400" />
+                              {aiEvaluationState === 'idle' ? 'Biometria Pronta' :
+                               aiEvaluationState === 'running' ? 'Analisando...' :
+                               'Biometria Concluída'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-950 text-white rounded-2xl p-2.5 px-3 text-[9px] font-extrabold uppercase tracking-tight flex items-center justify-between shadow-3xs">
+                          <div className="flex items-center gap-2">
+                            <Fingerprint size={14} className="text-cyan-400" />
+                            <span className="text-slate-200">Autenticação Facial</span>
+                          </div>
+                          <span className="text-emerald-400 font-black">ATIVA</span>
+                        </div>
+                      </div>
+
                     </div>
-
-                    <div className="bg-slate-950 text-white rounded-2xl p-3.5 px-4.5 text-[10px] font-extrabold uppercase tracking-tight flex items-center justify-between shadow-3xs">
-                      <div className="flex items-center gap-2.5">
-                        <Fingerprint size={16} className="text-cyan-400" />
-                        <span className="text-slate-200">Autenticação Facial Registada no CDA</span>
-                      </div>
-                      <span className="text-emerald-400 font-black">ATIVA</span>
-                    </div>
-                  </div>
-
-                </div>
 
                 {/* Relatório REAL da pré-verificação automática feita no registo (motor local) */}
                 {(selectedReviewCitizen.facialMatch !== undefined || selectedReviewCitizen.coherenceLevel !== undefined || selectedReviewCitizen.ocrDataMatch !== undefined || selectedReviewCitizen.imageQuality !== undefined) && (
@@ -4938,6 +4983,68 @@ export function GovContactsContent({
                 </div>
               </div>
 
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL DE AMPLIAÇÃO / LIGHTBOX EM ALTA RESOLUÇÃO DO DOCUMENTO */}
+      <AnimatePresence>
+        {expandedDoc && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setExpandedDoc(null)}
+              className="fixed inset-0 bg-slate-950/90 backdrop-blur-lg z-[350]"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.94 }}
+              className="fixed inset-4 md:inset-10 bg-slate-900 rounded-[32px] border border-slate-700 shadow-2xl z-[351] flex flex-col overflow-hidden text-white font-sans"
+            >
+              <div className="flex items-center justify-between p-4 md:p-6 border-b border-slate-800 bg-slate-950/60 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-blue-600/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center shrink-0">
+                    <ZoomIn size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm md:text-base font-black uppercase tracking-wider text-white m-0">
+                      {expandedDoc.title}
+                    </h3>
+                    <p className="text-[10px] font-mono text-cyan-400/80 m-0 mt-0.5">
+                      Visualização em Alta Resolução · Auditoria Oficial CDA
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={expandedDoc.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 no-underline border border-slate-700 cursor-pointer"
+                  >
+                    <Maximize2 size={12} /> Abrir Original
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedDoc(null)}
+                    className="w-9 h-9 rounded-full bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-all flex items-center justify-center border-none cursor-pointer"
+                    title="Fechar"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 p-4 md:p-8 flex items-center justify-center overflow-auto bg-slate-950 select-none">
+                <img
+                  src={expandedDoc.url}
+                  alt={expandedDoc.title}
+                  className="max-h-full max-w-full object-contain rounded-xl shadow-2xl pointer-events-auto"
+                />
+              </div>
             </motion.div>
           </>
         )}
