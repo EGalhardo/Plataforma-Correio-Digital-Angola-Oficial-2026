@@ -1265,7 +1265,7 @@ export function GovContactsContent({
           return;
         }
       }
-      setCitizens(prev => prev.filter(c => c.id !== target.id));
+      setCitizens(prev => prev.filter(c => c.id !== target.id && c.biNumber !== target.biNumber));
 
       // ELIMINAÇÃO EM CASCATA: todo o conteúdo da conta é removido junto — estado,
       // mensagens (thread oficial + espelhos na caixa partilhada), credenciais,
@@ -1290,6 +1290,16 @@ export function GovContactsContent({
         // sobreviviam à eliminação e re-hidratavam na conta re-criada.
         try { localStorage.removeItem(`cda_avatar_user_${normalizeHomologationBi(biKey)}`); } catch (e) { /* ignora */ }
         try { localStorage.removeItem(`cda_perfil_dados_user_${normalizeHomologationBi(biKey)}`); } catch (e) { /* ignora */ }
+        try {
+          const savedGov = localStorage.getItem('gov_admin_citizens');
+          if (savedGov) {
+            const list = JSON.parse(savedGov);
+            if (Array.isArray(list)) {
+              const kept = list.filter((c: any) => c.biNumber !== biKey && c.id !== target.id);
+              localStorage.setItem('gov_admin_citizens', JSON.stringify(kept));
+            }
+          }
+        } catch (e) { /* ignora */ }
         try {
           const raw = localStorage.getItem('correio_digital_inbox');
           if (raw) {
@@ -1323,6 +1333,9 @@ export function GovContactsContent({
       }
 
       addAuditLog?.(`Remoção: Cadastro do cidadão "${target.name || target.biNumber || '—'}" (BI: ${target.biNumber || '—'}) e TODO o seu conteúdo (mensagens, validações e ficheiros) eliminados pelo Administrador. O B.I. só volta a ter acesso após NOVO registo, que nasce pendente de nova homologação (F47).`, 'critical');
+      notify('Cadastro do cidadão eliminado com sucesso.', 'success');
+      anunciarRegistosAlterados();
+      void fetchSupabaseCitizens();
       setDeleteConfirmCitizen(null);
     } finally {
       setIsDeletingCitizen(false);
@@ -1393,7 +1406,13 @@ export function GovContactsContent({
         const registeredBis = new Set(citizenRows.map(r => String(r.bi_numero || '').toUpperCase()));
         const onlyProfileCitizens = profileCitizens.filter(pc => !registeredBis.has(String(pc.biNumber || '').toUpperCase()));
         const allCloudCitizens = [...supabaseCitizens, ...onlyProfileCitizens];
-        const localFiltered = prev.filter(c => !allCloudCitizens.some((item) => item.biNumber === c.biNumber) && c.category !== 'Instituição');
+        if (!shouldUseMockFallback()) {
+          return allCloudCitizens;
+        }
+        const localFiltered = prev.filter(c => {
+          if (c.biNumber && localStorage.getItem('cda_revoked_' + normalizeHomologationBi(c.biNumber))) return false;
+          return !allCloudCitizens.some((item) => item.biNumber === c.biNumber) && c.category !== 'Instituição';
+        });
         return [...allCloudCitizens, ...localFiltered];
       });
     } catch (e) {

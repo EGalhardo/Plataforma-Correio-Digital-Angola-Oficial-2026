@@ -4676,7 +4676,10 @@ async function dadosResolverEExecutar(opts: {
             const lista = await lu.json();
             const users = lista?.users || [];
             if (!users.length) break;
-            const alvo = users.find((u: any) => String((u?.user_metadata?.bi || '')).toUpperCase() === biNorm);
+            const alvo = users.find((u: any) =>
+              String((u?.user_metadata?.bi || u?.app_metadata?.bi || '')).toUpperCase() === biNorm ||
+              String(u?.email || '').toLowerCase() === `bi.${biNorm.toLowerCase()}@cidadao.correiodigital.ao`
+            );
             if (alvo) {
               const du = await fetch(`${supaUrlAdm}/auth/v1/admin/users/${alvo.id}`, { method: 'DELETE', headers: hAdm });
               authRemovido = du.ok;

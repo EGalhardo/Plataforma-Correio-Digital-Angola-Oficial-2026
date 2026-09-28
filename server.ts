@@ -1498,30 +1498,37 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
       } catch { /* best-effort */ }
       await apagar('document_requests', `user_bi=eq.${encodeURIComponent(biNorm)}`);
       let authRemovido = false;
-      try {
-        let pagina = 1;
-        while (pagina <= 5) {
-          const lu = await fetch(`${supaUrl}/auth/v1/admin/users?per_page=100&page=${pagina}`, { headers: h });
-          if (!lu.ok) break;
-          const lista = await lu.json();
-          const users = lista?.users || [];
-          if (!users.length) break;
-          const alvo = users.find((u: any) => String((u?.user_metadata?.bi || '')).toUpperCase() === biNorm);
+      const adminPurga = createSupabaseAdminClient();
+      if (adminPurga) {
+        try {
+          const { data: lu } = await adminPurga.auth.admin.listUsers({ perPage: 1000 });
+          const alvo = lu?.users?.find((u: any) =>
+            String(u?.user_metadata?.bi || u?.app_metadata?.bi || '').toUpperCase() === biNorm ||
+            String(u?.email || '').toLowerCase() === `bi.${biNorm.toLowerCase()}@cidadao.correiodigital.ao`
+          );
           if (alvo) {
-            const du = await fetch(`${supaUrl}/auth/v1/admin/users/${alvo.id}`, { method: 'DELETE', headers: h });
-            authRemovido = du.ok;
-            break;
+            await adminPurga.auth.admin.deleteUser(alvo.id);
+            authRemovido = true;
           }
-          pagina++;
-        }
-      } catch { /* best-effort */ }
+        } catch { /* best-effort */ }
+        try {
+          const { data: filesDoc } = await adminPurga.storage.from('documentos_registo').list(biNorm);
+          if (filesDoc && filesDoc.length > 0) {
+            await adminPurga.storage.from('documentos_registo').remove(filesDoc.map((f: any) => `${biNorm}/${f.name}`));
+          }
+        } catch { /* best-effort */ }
+        try {
+          const { data: filesAv } = await adminPurga.storage.from('fotos_perfil').list('avatars');
+          const alvos = (filesAv || []).filter((f: any) => f.name && (f.name.includes(biNorm) || f.name.includes(biNorm.toLowerCase())));
+          if (alvos.length > 0) {
+            await adminPurga.storage.from('fotos_perfil').remove(alvos.map((f: any) => `avatars/${f.name}`));
+          }
+        } catch { /* best-effort */ }
+        try {
+          Object.assign(detalhes, await purgarVestigiosPorChave(adminPurga, biNorm));
+        } catch { /* best-effort */ }
+      }
       detalhes['auth'] = authRemovido ? 1 : 0;
-      // v37.78.10 — PURGA TOTAL: notificações, contactos, pedidos, vídeo-sessões
-      // e anexos do Storage também saem — a conta RE-CRIADA não herda órfãos.
-      try {
-        const adminPurga = createSupabaseAdminClient();
-        if (adminPurga) Object.assign(detalhes, await purgarVestigiosPorChave(adminPurga, biNorm));
-      } catch { /* best-effort */ }
       return res.status(200).json({ ok: true, detalhes });
     } catch (e) {
       console.error('[ADMIN-CIDADAO] Exceção:', e);

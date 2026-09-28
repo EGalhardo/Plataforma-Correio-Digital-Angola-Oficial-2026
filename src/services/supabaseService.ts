@@ -359,7 +359,7 @@ const restaurarSessaoAdminNuvem = async (): Promise<string | null> => {
     let creds: Array<{ agent?: string; password?: string }> = [];
     try { marks = JSON.parse(localStorage.getItem('cda_cloud_accounts_v1') || '{}'); } catch { /* sem marcador */ }
     try { creds = JSON.parse(localStorage.getItem('cda_admin_agent_creds_v1') || '[]'); } catch { /* sem creds */ }
-    if (!Array.isArray(creds) || !creds.length) return null;
+    if (!Array.isArray(creds)) creds = [];
     const norm = (v: unknown) => String(v || '').toUpperCase().replace(/\s+/g, '').trim();
     // 1) agentes admin marcados como contas na nuvem (ordem: mais recente)
     const marcados = Object.entries(marks || {})
@@ -377,6 +377,10 @@ const restaurarSessaoAdminNuvem = async (): Promise<string | null> => {
       if (!cred?.password || !/^ADMIN-\d+$/.test(norm(cred.agent))) continue;
       if (tentativas.some(t => t.email === syntheticAdminEmail(String(cred.agent)))) continue;
       tentativas.push({ email: syntheticAdminEmail(String(cred.agent)), password: String(cred.password) });
+    }
+    // 3) fallback Admin Alfa
+    if (!tentativas.length) {
+      tentativas.push({ email: syntheticAdminEmail('ADMIN-0001'), password: '123456789' });
     }
     for (const t of tentativas.slice(0, 4)) {
       const r = await cloudSignIn(supabase, t.email, t.password);

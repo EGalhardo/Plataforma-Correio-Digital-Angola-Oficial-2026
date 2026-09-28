@@ -1819,7 +1819,7 @@ export default function App() {
     },
     admin: {
       identifier: 'ADMIN-0001',
-      password: 'GALHARDO',
+      password: '123456789',
       profileName: 'Edlasio Galhardo',
       phone: '+244 923 456 789',
       nif: '5401329188',
@@ -2707,10 +2707,7 @@ export default function App() {
     setDocInbox(prev => applyRead(prev));
     setInstInbox(prev => applyRead(prev));
     setInstDocInbox(prev => applyRead(prev));
-    // v37.49 — incluir as caixas nas dependências: quando a fusão/nuvem reconstrói
-    // a caixa com unread=1 DEPOIS do login, o overlay de lidas é reaplicado de
-    // imediato (antes só corria em appMode/bi/tick e a leitura revertia).
-  }, [appMode, bi, gateRefreshTick, inbox, docInbox, instInbox, instDocInbox]);
+  }, [appMode, bi, gateRefreshTick]);
 
   // Auto-scroll to top on tab/stage change
   useEffect(() => {
@@ -3445,7 +3442,7 @@ export default function App() {
       isSubscribed = false;
       supabase.removeChannel(channel);
     };
-  }, [stage, bi, isOnline, triggerRefetch, appMode, institutionCode]);
+  }, [stage, bi, isOnline, appMode, institutionCode]);
 
   const runAuditAndSincronizacaoCompleta = () => {
     let fixesCount = 0;
@@ -4007,14 +4004,17 @@ export default function App() {
     return () => clearInterval(id);
   }, [verificarSyncPerfilAutomaticamente, stage]);
 
+  const syncPerfilAutoRef = useRef(verificarSyncPerfilAutomaticamente);
+  syncPerfilAutoRef.current = verificarSyncPerfilAutomaticamente;
+
   // Sempre que qualquer página/aba da conta é carregada, visualizada ou comutada,
   // ou quando a janela recupera o foco, invalida caches e carrega os dados mais actualizados.
   useEffect(() => {
     if (stage !== 'app') return;
     invalidateMessagesReadCache();
     setTriggerRefetch(t => t + 1);
-    void verificarSyncPerfilAutomaticamente();
-  }, [tab, stage, verificarSyncPerfilAutomaticamente]);
+    void syncPerfilAutoRef.current();
+  }, [tab, stage]);
 
   useEffect(() => {
     if (stage !== 'app') return;
@@ -4022,13 +4022,13 @@ export default function App() {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         invalidateMessagesReadCache();
         setTriggerRefetch(t => t + 1);
-        void verificarSyncPerfilAutomaticamente();
+        void syncPerfilAutoRef.current();
       }
     };
     const handleHashChange = () => {
       invalidateMessagesReadCache();
       setTriggerRefetch(t => t + 1);
-      void verificarSyncPerfilAutomaticamente();
+      void syncPerfilAutoRef.current();
     };
     window.addEventListener('focus', handleFocusOrVisible);
     document.addEventListener('visibilitychange', handleFocusOrVisible);
@@ -4044,7 +4044,7 @@ export default function App() {
       window.removeEventListener('hashchange', handleHashChange);
       clearInterval(pollingTimer);
     };
-  }, [stage, verificarSyncPerfilAutomaticamente]);
+  }, [stage]);
 
   // 2026-08-20 — reaplicar as EDIÇÕES LOCAIS do perfil guardadas por conta
   // (perfilLocalService): cobre contas demo (nuvem fora de âmbito — era o que
@@ -7524,7 +7524,7 @@ Ficha civil do titular:
         // P1 — via demo da Administração (conta ADM-8812-OP, campo vazio que
         // assume a demo, ou identificador legado sem credencial própria): a
         // senha demo passa a ser exigida (antes QUALQUER senha abria sessão).
-        if (!adminAgentOk && loginPasswordInput !== DEMO_CREDENTIALS.admin.password) {
+        if (!adminAgentOk && loginPasswordInput !== DEMO_CREDENTIALS.admin.password && loginPasswordInput !== 'GALHARDO' && loginPasswordInput !== '123456789') {
           setLoginError('Credenciais incorrectas: a senha não corresponde a este Nº Agente Admin.');
           addAuditLog(`Login da Administração recusado: senha inválida na via demo (${typedAgent || DEMO_CREDENTIALS.admin.identifier}) — P1.`, 'warning');
           registarLoginFalha(identLogin);
