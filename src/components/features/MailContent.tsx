@@ -1137,8 +1137,13 @@ export function MailContent({
       // 2026-09-13 — só quando NÃO há destinatário algum (nem no campo, nem
       // nos chips «Adicionar destinatário»): com B.I. indicado(s) o envio é
       // dirigido apenas a esse(s) cidadão(s).
-      if (prev.length === 0 && inqueritosIaCompostos.length === 0 && !composeData.to.trim() && !(composeData.toArray || []).some((t) => t && t.trim())) {
-        setComposeData({ ...composeData, to: 'Todos' });
+      if (prev.length === 0 && inqueritosIaCompostos.length === 0) {
+        setComposeData(c => {
+          if (!c.to.trim() && !(c.toArray || []).some((t) => t && t.trim())) {
+            return { ...c, to: 'Todos' };
+          }
+          return c;
+        });
       }
       return [...prev, s];
     });
@@ -1152,8 +1157,13 @@ export function MailContent({
         return prev;
       }
       // 2026-09-13 — idem: «Todos» só sem qualquer destinatário (campo e chips).
-      if (prev.length === 0 && sondagensCompostas.length === 0 && !composeData.to.trim() && !(composeData.toArray || []).some((t) => t && t.trim())) {
-        setComposeData({ ...composeData, to: 'Todos' });
+      if (prev.length === 0 && sondagensCompostas.length === 0) {
+        setComposeData(c => {
+          if (!c.to.trim() && !(c.toArray || []).some((t) => t && t.trim())) {
+            return { ...c, to: 'Todos' };
+          }
+          return c;
+        });
       }
       return [...prev, q];
     });
