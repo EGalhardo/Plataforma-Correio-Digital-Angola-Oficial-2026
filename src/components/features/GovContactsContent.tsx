@@ -638,18 +638,18 @@ export function GovContactsContent({
         if (Array.isArray(parsed)) {
           parsed.filter((c: any) => c && c.category !== 'Instituição' && c.biNumber).forEach((c: any) => {
             const k = normalizeHomologationBi(c.biNumber);
-            if (k && !localStorage.getItem('cda_revoked_' + k)) {
+            if (k && !localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
               list.push({
                 ...c,
                 status: c.status || 'Pendente de Validação',
-                name: c.name || 'Edlasio Galhardo',
+                name: c.name || 'Cidadão',
                 category: 'Cidadão',
                 province: c.province || 'Luanda',
                 municipio: c.municipio || 'Maianga',
                 address: c.address || 'Luanda, Angola',
-                contact: c.contact || c.email || 'edlasio.galhardo@gmail.com',
+                contact: c.contact || c.email || 'cidadao@cda.gov.ao',
                 biNumber: c.biNumber,
-                email: c.email || `${c.name?.toLowerCase().replace(/\s+/g, '.') || 'edlasio'}@gmail.com`,
+                email: c.email || `${c.name?.toLowerCase().replace(/\s+/g, '.') || 'cidadao'}@cda.gov.ao`,
                 phone: c.phone || c.contact || '+244 923 000 111',
                 registrationDate: c.registrationDate || new Date().toLocaleDateString('pt-AO'),
                 coherenceLevel: c.coherenceLevel ?? 98,
@@ -665,35 +665,6 @@ export function GovContactsContent({
         }
       } catch (e) {
         // Fallback
-      }
-    }
-
-    if (!list.some(c => (c.name || '').toUpperCase().includes('EDLASIO') || normalizeHomologationBi(c.biNumber) === '002399714LA030' || normalizeHomologationBi(c.biNumber) === '009874562LA041')) {
-      if (typeof localStorage === 'undefined' || (!localStorage.getItem('cda_revoked_002399714LA030') && !localStorage.getItem('cda_revoked_009874562LA041'))) {
-        list.unshift({
-          id: 'cda-edlasio-init',
-          name: 'Edlasio Adjamiro Galhardo',
-          category: 'Cidadão',
-          province: 'Luanda',
-          municipio: 'Maianga',
-          address: 'Bairro Alvalade, Rua do Comércio',
-          contact: 'edlasiogalhardo@gmail.com',
-          status: 'Pendente de Validação',
-          biNumber: '002399714LA030',
-          email: 'edlasiogalhardo@gmail.com',
-          phone: '+244 951 520 416',
-          registrationDate: '12/05/2026',
-          coherenceLevel: 98,
-          facialMatch: 97,
-          imageQuality: 95,
-          ocrDataMatch: 100,
-          iaResult: 'Aprovado',
-          iaReport: 'Análise biofísica e OCR sem desconformidade detetada. Registo pronto para homologação.',
-          numDigitalDocs: 2,
-          numCorrespondences: 2,
-          facePhoto: (typeof localStorage !== 'undefined' ? (localStorage.getItem('cda_user_selfie_002399714LA030') || localStorage.getItem('cda_user_selfie_009874562LA041')) : '') || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face',
-          reason: 'Pedido de adesão ao Correio Digital de Angola aguardando homologação formal.'
-        });
       }
     }
     return list;
@@ -982,26 +953,21 @@ export function GovContactsContent({
     if (!target) return;
     setIsDeletingCitizen(true);
     try {
-      // Eliminação em cascata: apaga registo central na nuvem (se disponível)
-      // e garante a remoção imediata e definitiva no estado e armazenamento local.
-      if (target.biNumber) {
-        try {
-          const central = await eliminarCidadaoAdmin(target.biNumber);
-          if (central !== null && !central.ok && central.erro !== 'demo') {
-            console.warn('Eliminação central na nuvem reportou aviso:', central.erro);
-          }
-        } catch (error) {
-          console.warn('Falha ao contactar servidor para eliminação central:', error);
-        }
-      }
-      setCitizens(prev => prev.filter(c => c.id !== target.id && (target.biNumber ? c.biNumber !== target.biNumber : true)));
-
-      // ELIMINAÇÃO EM CASCATA: todo o conteúdo da conta é removido junto — estado,
-      // mensagens (thread oficial + espelhos na caixa partilhada), credenciais,
-      // matrizes biométricas locais e ficheiros do registo no storage central.
       const biKey = target.biNumber || '';
+      const normKey = normalizeHomologationBi(biKey);
+
+      // 1. Marcação imediata de eliminação e revogação local
+      if (normKey) {
+        try { localStorage.setItem('cda_revoked_' + normKey, '1'); } catch (e) { /* ignora */ }
+        try { localStorage.setItem('cda_deleted_' + normKey, '1'); } catch (e) { /* ignora */ }
+      }
+
+      // 2. Atualização imediata do estado da UI (cidadão desaparece na hora)
+      setCitizens(prev => prev.filter(c => c.id !== target.id && (normKey ? normalizeHomologationBi(c.biNumber) !== normKey : true)));
+      setDeleteConfirmCitizen(null);
+
+      // 3. Limpeza do armazenamento local e store
       if (biKey) {
-        try { localStorage.removeItem('cda_revoked_' + normalizeHomologationBi(biKey)); } catch (e) { /* ignora */ }
         try { homologationStore.clearStatus(biKey); } catch (e) { /* ignora */ }
         try { homologationStore.clearThread(biKey); } catch (e) { /* ignora */ }
         try { localStorage.removeItem(`citizen_pass_${biKey}`); } catch (e) { /* ignora */ }
@@ -1009,17 +975,14 @@ export function GovContactsContent({
         ['user', 'institution', 'admin'].forEach((m) => {
           try { localStorage.removeItem(`cda_demo_face_${m}_${biKey}`); } catch (e) { /* ignora */ }
         });
-        // v37.71 — rasto de vidas anteriores: foto de perfil (avatarService) e
-        // dados de perfil editados (perfilLocalService) também são removidos —
-        // sobreviviam à eliminação e re-hidratavam na conta re-criada.
-        try { localStorage.removeItem(`cda_avatar_user_${normalizeHomologationBi(biKey)}`); } catch (e) { /* ignora */ }
-        try { localStorage.removeItem(`cda_perfil_dados_user_${normalizeHomologationBi(biKey)}`); } catch (e) { /* ignora */ }
+        try { localStorage.removeItem(`cda_avatar_user_${normKey}`); } catch (e) { /* ignora */ }
+        try { localStorage.removeItem(`cda_perfil_dados_user_${normKey}`); } catch (e) { /* ignora */ }
         try {
           const savedGov = localStorage.getItem('gov_admin_citizens');
           if (savedGov) {
             const list = JSON.parse(savedGov);
             if (Array.isArray(list)) {
-              const kept = list.filter((c: any) => c.biNumber !== biKey && c.id !== target.id);
+              const kept = list.filter((c: any) => normalizeHomologationBi(c.biNumber) !== normKey && c.id !== target.id);
               localStorage.setItem('gov_admin_citizens', JSON.stringify(kept));
             }
           }
@@ -1054,11 +1017,18 @@ export function GovContactsContent({
         try { await supabase.from('notifications').delete().eq('target_bi', biKey); } catch (e) { /* ignora */ }
       }
 
+      // 4. Eliminação em cascata na base de dados central
+      if (target.biNumber) {
+        try {
+          await eliminarCidadaoAdmin(target.biNumber);
+        } catch (error) {
+          console.warn('Falha ao contactar servidor para eliminação central:', error);
+        }
+      }
+
       addAuditLog?.(`Remoção: Cadastro do cidadão "${target.name || target.biNumber || '—'}" (BI: ${target.biNumber || '—'}) e TODO o seu conteúdo (mensagens, validações e ficheiros) eliminados pelo Administrador. O B.I. só volta a ter acesso após NOVO registo, que nasce pendente de nova homologação (F47).`, 'critical');
       notify('Cadastro do cidadão eliminado com sucesso.', 'success');
       anunciarRegistosAlterados();
-      void fetchSupabaseCitizens();
-      setDeleteConfirmCitizen(null);
     } finally {
       setIsDeletingCitizen(false);
     }
@@ -1114,12 +1084,18 @@ export function GovContactsContent({
         .from('profiles')
         .select('*')
         .eq('role', 'user');
-      const profileCitizens = profileData && profileData.length > 0 ? mapProfilesToCitizens(profileData as LinhaPerfilAdmin[]) : [];
+      const profileCitizens = (profileData && profileData.length > 0 ? mapProfilesToCitizens(profileData as LinhaPerfilAdmin[]) : []).filter(pc => {
+        const biNorm = normalizeHomologationBi(pc.biNumber);
+        if (biNorm && (localStorage.getItem('cda_revoked_' + biNorm) || localStorage.getItem('cda_deleted_' + biNorm))) return false;
+        return true;
+      });
 
       const citizenRows = ((data || []) as LinhaSolicitacaoCidadao[]).filter((item) => {
         if (item?.observacoes?.includes('[Instituição]')) return false;
         // Seeds institucionais de demonstração não podem aparecer como cidadãos no modo real.
         if (!shouldUseMockFallback() && (item?.bi_numero === 'AGT-9921-SR' || item?.observacoes?.includes('Seed demo'))) return false;
+        const biNorm = normalizeHomologationBi(item?.bi_numero);
+        if (biNorm && (localStorage.getItem('cda_revoked_' + biNorm) || localStorage.getItem('cda_deleted_' + biNorm))) return false;
         return true;
       });
       const supabaseCitizens: Citizen[] = await resolveCitizenDocUrls(mapRegistrationRowsToCitizens(citizenRows));
@@ -1132,18 +1108,18 @@ export function GovContactsContent({
           if (Array.isArray(list)) {
             list.filter((c: any) => c && c.category !== 'Instituição' && c.biNumber).forEach((c: any) => {
               const k = normalizeHomologationBi(c.biNumber);
-              if (k && !localStorage.getItem('cda_revoked_' + k)) {
+              if (k && !localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
                 localMap.set(k, {
                   ...c,
                   status: c.status || 'Pendente de Validação',
-                  name: c.name || 'Edlasio Galhardo',
+                  name: c.name || 'Cidadão',
                   category: 'Cidadão',
                   province: c.province || 'Luanda',
                   municipio: c.municipio || 'Maianga',
                   address: c.address || 'Luanda, Angola',
-                  contact: c.contact || c.email || 'edlasio.galhardo@gmail.com',
+                  contact: c.contact || c.email || 'cidadao@cda.gov.ao',
                   biNumber: c.biNumber,
-                  email: c.email || `${c.name?.toLowerCase().replace(/\s+/g, '.') || 'edlasio'}@gmail.com`,
+                  email: c.email || `${c.name?.toLowerCase().replace(/\s+/g, '.') || 'cidadao'}@cda.gov.ao`,
                   phone: c.phone || c.contact || '+244 923 000 111',
                   registrationDate: c.registrationDate || new Date().toLocaleDateString('pt-AO'),
                   coherenceLevel: c.coherenceLevel ?? 98,
@@ -1170,8 +1146,10 @@ export function GovContactsContent({
         supabaseCitizens.forEach(c => {
           if (c.biNumber) {
             const k = normalizeHomologationBi(c.biNumber);
-            cloudBis.add(k);
-            resultList.push(c);
+            if (!localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
+              cloudBis.add(k);
+              resultList.push(c);
+            }
           }
         });
 
@@ -1179,7 +1157,7 @@ export function GovContactsContent({
         profileCitizens.forEach(pc => {
           if (pc.biNumber) {
             const k = normalizeHomologationBi(pc.biNumber);
-            if (!cloudBis.has(k)) {
+            if (!cloudBis.has(k) && !localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
               cloudBis.add(k);
               resultList.push(pc);
             }
@@ -1188,7 +1166,7 @@ export function GovContactsContent({
 
         // Adiciona pedidos de registo locais não presentes na nuvem
         localMap.forEach((localCit, k) => {
-          if (!cloudBis.has(k) && !localStorage.getItem('cda_revoked_' + k)) {
+          if (!cloudBis.has(k) && !localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
             resultList.push(localCit);
           }
         });
@@ -1197,50 +1175,20 @@ export function GovContactsContent({
         prev.forEach(pc => {
           if (pc.biNumber) {
             const k = normalizeHomologationBi(pc.biNumber);
-            if (!cloudBis.has(k) && !localMap.has(k) && !localStorage.getItem('cda_revoked_' + k)) {
+            if (!cloudBis.has(k) && !localMap.has(k) && !localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
               resultList.push(pc);
             }
           }
         });
 
-        // Garante a presença do pedido canónico de Edlasio Galhardo se não houver revogação ativa
-        const hasEdlasio = resultList.some(c => 
-          normalizeHomologationBi(c.biNumber) === '002399714LA030' ||
-          normalizeHomologationBi(c.biNumber) === '009874562LA041' ||
-          (c.name || '').toUpperCase().includes('EDLASIO')
-        );
-
-        if (!hasEdlasio && (!localStorage.getItem('cda_revoked_002399714LA030') && !localStorage.getItem('cda_revoked_009874562LA041'))) {
-          resultList.unshift({
-            id: 'cda-edlasio-canonical',
-            name: 'Edlasio Adjamiro Galhardo',
-            category: 'Cidadão',
-            province: 'Luanda',
-            municipio: 'Maianga',
-            address: 'Bairro Alvalade, Rua do Comércio',
-            contact: 'edlasiogalhardo@gmail.com',
-            status: 'Pendente de Validação',
-            biNumber: '002399714LA030',
-            email: 'edlasiogalhardo@gmail.com',
-            phone: '+244 951 520 416',
-            registrationDate: '12/05/2026',
-            coherenceLevel: 98,
-            facialMatch: 97,
-            imageQuality: 95,
-            ocrDataMatch: 100,
-            iaResult: 'Aprovado',
-            iaReport: 'Análise biofísica e OCR sem desconformidade detetada. Registo pronto para homologação.',
-            numDigitalDocs: 2,
-            numCorrespondences: 2,
-            facePhoto: (typeof localStorage !== 'undefined' ? (localStorage.getItem('cda_user_selfie_002399714LA030') || localStorage.getItem('cda_user_selfie_009874562LA041')) : '') || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face',
-            reason: 'Pedido de adesão ao Correio Digital de Angola aguardando homologação formal.'
-          });
-        }
-
-        return resultList.filter(c => {
-          if (c.biNumber && localStorage.getItem('cda_revoked_' + normalizeHomologationBi(c.biNumber))) return false;
+        const finalFiltered = resultList.filter(c => {
+          if (c.biNumber) {
+            const k = normalizeHomologationBi(c.biNumber);
+            if (localStorage.getItem('cda_revoked_' + k) || localStorage.getItem('cda_deleted_' + k)) return false;
+          }
           return true;
         });
+        return finalFiltered;
       });
     } catch (e) {
       console.error('Error in fetchSupabaseCitizens:', e);
