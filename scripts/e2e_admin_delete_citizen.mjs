@@ -75,7 +75,7 @@ async function main() {
 
   // TESTE 2: CRIAÇÃO, HOMOLOGAÇÃO E ELIMINAÇÃO DEFINITIVA VIA INTERFACE DO ADMIN
   console.log('\n--- [TESTE 2/2] Inserção e Eliminação em Cascata de Cidadão no Painel Admin ---');
-  const testBi = '002399714LA030';
+  const testBi = '008888888LA888';
   const testName = 'Edlasio Adjamiro Galhardo (Auditoria de Eliminação)';
 
   // Inserir registo no Supabase

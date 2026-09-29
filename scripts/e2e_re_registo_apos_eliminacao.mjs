@@ -12,8 +12,8 @@ const BASE_URL = process.env.BASE || 'http://localhost:3000';
 const ADMIN_ID = process.env.QA_ADMIN || 'ADMIN-0001';
 const ADMIN_PASS = process.env.QA_ADMIN_PASS || '123456789';
 
-const TEST_BI = '002399714LA030';
-const TEST_NAME = 'Edlasio Adjamiro Galhardo';
+const TEST_BI = '009999999LA999';
+const TEST_NAME = 'Cidadao Teste Re-Registo';
 const TEST_PASS = '123456789';
 
 let passed = 0;

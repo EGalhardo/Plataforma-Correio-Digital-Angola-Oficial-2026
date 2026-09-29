@@ -27,8 +27,8 @@ async function runTests() {
   console.log('🧪 TESTES: ELIMINAÇÃO TOTAL DE DADOS ÓRFÃOS E RE-REGISTO COM MESMAS CREDENCIAIS');
   console.log('='.repeat(80) + '\n');
 
-  const testBi = '002399714LA030';
-  const testEmail = 'bi.002399714la030@cidadao.correiodigital.ao';
+  const testBi = '009999999LA999';
+  const testEmail = 'bi.009999999la999@cidadao.correiodigital.ao';
   const testInstCode = 'TESTE-LMM-99';
   const testInstEmail = 'contacto@teste-inst.ao';
 

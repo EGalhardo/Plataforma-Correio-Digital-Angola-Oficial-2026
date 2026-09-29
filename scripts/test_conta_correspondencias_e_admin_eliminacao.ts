@@ -27,10 +27,15 @@ assert.equal(thread2.length, 2, 'Não devem ser criadas mensagens duplicadas');
 console.log('✅ TESTE 2 APROVADO: Idempotência garantida (sempre 2 correspondências).');
 
 console.log('\n--- TESTE 3: Eliminação de Contacto / Cidadão ---');
-homologationStore.clearThread(biEdlasio);
-homologationStore.clearStatus(biEdlasio);
-assert.equal(homologationStore.getThread(biEdlasio).length, 0, 'Thread limpa após eliminação');
-assert.equal(homologationStore.getStatus(biEdlasio), null, 'Status limpo após eliminação');
+const dummyBi = '009888777LA111';
+ensureCitizenHomologationChannel(dummyBi, 'Cidadao Dummy Teste', 'active');
+homologationStore.clearThread(dummyBi);
+homologationStore.clearStatus(dummyBi);
+assert.equal(homologationStore.getThread(dummyBi).length, 0, 'Thread limpa após eliminação');
+assert.equal(homologationStore.getStatus(dummyBi), null, 'Status limpo após eliminação');
 console.log('✅ TESTE 3 APROVADO: Eliminação total de dados e correspondências executada.');
+
+// Re-assegura o canal permanente para Edlasio
+ensureCitizenHomologationChannel(biEdlasio, 'Edlasio Adjamiro Galhardo', 'active');
 
 console.log('\nTODOS OS TESTES UNITÁRIOS FORAM CONCLUÍDOS COM 100% DE SUCESSO!');

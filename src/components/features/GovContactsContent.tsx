@@ -668,20 +668,20 @@ export function GovContactsContent({
       }
     }
 
-    if (!list.some(c => (c.name || '').toUpperCase().includes('EDLASIO') || normalizeHomologationBi(c.biNumber) === '009874562LA041')) {
-      if (typeof localStorage === 'undefined' || !localStorage.getItem('cda_revoked_009874562LA041')) {
+    if (!list.some(c => (c.name || '').toUpperCase().includes('EDLASIO') || normalizeHomologationBi(c.biNumber) === '002399714LA030' || normalizeHomologationBi(c.biNumber) === '009874562LA041')) {
+      if (typeof localStorage === 'undefined' || (!localStorage.getItem('cda_revoked_002399714LA030') && !localStorage.getItem('cda_revoked_009874562LA041'))) {
         list.unshift({
           id: 'cda-edlasio-init',
-          name: 'Edlasio Galhardo',
+          name: 'Edlasio Adjamiro Galhardo',
           category: 'Cidadão',
           province: 'Luanda',
           municipio: 'Maianga',
           address: 'Bairro Alvalade, Rua do Comércio',
-          contact: 'edlasio.galhardo@gmail.com',
+          contact: 'edlasiogalhardo@gmail.com',
           status: 'Pendente de Validação',
-          biNumber: '009874562LA041',
-          email: 'edlasio.galhardo@gmail.com',
-          phone: '+244 923 000 111',
+          biNumber: '002399714LA030',
+          email: 'edlasiogalhardo@gmail.com',
+          phone: '+244 951 520 416',
           registrationDate: '12/05/2026',
           coherenceLevel: 98,
           facialMatch: 97,
@@ -691,7 +691,7 @@ export function GovContactsContent({
           iaReport: 'Análise biofísica e OCR sem desconformidade detetada. Registo pronto para homologação.',
           numDigitalDocs: 2,
           numCorrespondences: 2,
-          facePhoto: (typeof localStorage !== 'undefined' ? localStorage.getItem('cda_user_selfie_009874562LA041') : '') || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face',
+          facePhoto: (typeof localStorage !== 'undefined' ? (localStorage.getItem('cda_user_selfie_002399714LA030') || localStorage.getItem('cda_user_selfie_009874562LA041')) : '') || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face',
           reason: 'Pedido de adesão ao Correio Digital de Angola aguardando homologação formal.'
         });
       }
@@ -1205,23 +1205,24 @@ export function GovContactsContent({
 
         // Garante a presença do pedido canónico de Edlasio Galhardo se não houver revogação ativa
         const hasEdlasio = resultList.some(c => 
+          normalizeHomologationBi(c.biNumber) === '002399714LA030' ||
           normalizeHomologationBi(c.biNumber) === '009874562LA041' ||
           (c.name || '').toUpperCase().includes('EDLASIO')
         );
 
-        if (!hasEdlasio && !localStorage.getItem('cda_revoked_009874562LA041')) {
+        if (!hasEdlasio && (!localStorage.getItem('cda_revoked_002399714LA030') && !localStorage.getItem('cda_revoked_009874562LA041'))) {
           resultList.unshift({
             id: 'cda-edlasio-canonical',
-            name: 'Edlasio Galhardo',
+            name: 'Edlasio Adjamiro Galhardo',
             category: 'Cidadão',
             province: 'Luanda',
             municipio: 'Maianga',
             address: 'Bairro Alvalade, Rua do Comércio',
-            contact: 'edlasio.galhardo@gmail.com',
+            contact: 'edlasiogalhardo@gmail.com',
             status: 'Pendente de Validação',
-            biNumber: '009874562LA041',
-            email: 'edlasio.galhardo@gmail.com',
-            phone: '+244 923 000 111',
+            biNumber: '002399714LA030',
+            email: 'edlasiogalhardo@gmail.com',
+            phone: '+244 951 520 416',
             registrationDate: '12/05/2026',
             coherenceLevel: 98,
             facialMatch: 97,
@@ -1231,7 +1232,7 @@ export function GovContactsContent({
             iaReport: 'Análise biofísica e OCR sem desconformidade detetada. Registo pronto para homologação.',
             numDigitalDocs: 2,
             numCorrespondences: 2,
-            facePhoto: (typeof localStorage !== 'undefined' ? localStorage.getItem('cda_user_selfie_009874562LA041') : '') || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face',
+            facePhoto: (typeof localStorage !== 'undefined' ? (localStorage.getItem('cda_user_selfie_002399714LA030') || localStorage.getItem('cda_user_selfie_009874562LA041')) : '') || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face',
             reason: 'Pedido de adesão ao Correio Digital de Angola aguardando homologação formal.'
           });
         }
