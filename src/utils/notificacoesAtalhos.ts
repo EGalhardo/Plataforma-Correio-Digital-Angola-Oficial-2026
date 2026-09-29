@@ -1,5 +1,6 @@
 import type { AppNotification, Message } from '../types';
-import { listarParticipacao } from './listasParticipacao';
+import { listarParticipacao, temInqueritoNormal, temInqueritoIA } from './listasParticipacao';
+import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia } from '../services/denunciaCore';
 // 2026-09-23 (T-v37.79) — 'nova-denuncia': 5.º atalho do Painel («Denuncia»).
 export type AtalhoPainel = 'video-atendimento' | 'inqueritos' | 'ocorrencias' | 'denuncias' | 'nova-denuncia';
 export type ContagensAtalhos = Record<AtalhoPainel, number>;
@@ -10,6 +11,34 @@ export type TipoLista = 'inqueritos' | 'denuncias' | 'nova-denuncia';
 const normalizar = (s: string) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 /** Normalização partilhada (ciclo de vida v37.78.28 usa a mesma regra). */
 export const normalizarTexto = (s: string): string => normalizar(s);
+
+export const isVideoAtendimentoMessage = (m: Message): boolean => {
+  if ((m.details?.actions || []).includes('video-atendimento')) return true;
+  if ((m.details as any)?.type === 'video-session' || (m.details as any)?.type === 'video') return true;
+  const texto = normalizar(`${m.details?.subject || ''} ${m.preview || ''}`);
+  return texto.includes('video-atendimento') || texto.includes('videoatendimento') || texto.includes('videochamada') || texto.includes('videoconferencia');
+};
+
+export const isInqueritoMessage = (m: Message): boolean => {
+  if (temInqueritoNormal(m) || temInqueritoIA(m)) return true;
+  const texto = normalizar(`${m.details?.subject || ''} ${m.preview || ''}`);
+  return texto.includes('inquerito') || texto.includes('sondagem');
+};
+
+export const isOcorrenciaMessage = (m: Message): boolean => {
+  if ((m.details?.actions || []).includes('ocorrencia') || (m.details?.actions || []).includes('ocorrencias')) return true;
+  if ((m.details as any)?.type === 'ocorrencia' || (m.details as any)?.type === 'ocorrencias') return true;
+  const texto = normalizar(`${m.details?.subject || ''} ${m.preview || ''}`);
+  return texto.includes('ocorrencia') || texto.includes('[gps]');
+};
+
+export const isNovaDenunciaMessage = (m: Message): boolean => {
+  return ehAssuntoNovaDenuncia(m.details?.subject || m.preview);
+};
+
+export const isReclamacaoDenunciaMessage = (m: Message): boolean => {
+  return ehAssuntoDenuncia(m.details?.subject || m.preview);
+};
 
 /** Assunto canónico de correspondência (mesma regra do ciclo de vida v37.78.28:
  *  retira o prefixo [ETIQUETA] para ligar «Denúncia — Em análise» à mensagem). */
@@ -85,10 +114,27 @@ export function contarNotificacoesAtalhos(
   notificacoes: AppNotification[], inbox: Message[], institucional: boolean,
   ocorrencias = 0, enviadas: Message[] = [],
 ): ContagensAtalhos {
-  const counts: ContagensAtalhos = {'video-atendimento': 0, inqueritos: 0, ocorrencias, denuncias: 0, 'nova-denuncia': 0};
-  const pools = poolsPorPapel(inbox, enviadas, institucional);
-  const pendentes = new Set<string>();
-  for (const p of pools) if (p.funde && p.m.unread) pendentes.add(`${p.tipo}:mensagem:${p.m.id}`);
+  const isNaoLida = (m: Message) => Boolean(m.unread && m.status !== 'Lida' && m.status !== 'lida');
+  const naoLidas = (inbox || []).filter(isNaoLida);
+
+  const counts: ContagensAtalhos = {
+    'video-atendimento': naoLidas.filter(isVideoAtendimentoMessage).length,
+    'inqueritos': naoLidas.filter(isInqueritoMessage).length,
+    'ocorrencias': naoLidas.filter(isOcorrenciaMessage).length + (institucional ? 0 : (ocorrencias || 0)),
+    'nova-denuncia': naoLidas.filter(isNovaDenunciaMessage).length,
+    'denuncias': naoLidas.filter(isReclamacaoDenunciaMessage).length,
+  };
+
+  // Na Área Institucional, as opções do painel (vídeo-atendimento, inquérito,
+  // ocorrência, denúncia e reclamação) SÓ apresentam badge com base em
+  // correspondências recebidas na caixa de entrada que ainda não foram lidas.
+  if (institucional) {
+    return counts;
+  }
+
+  // Na Área do Cidadão, além das correspondências não lidas na caixa, adiciona
+  // notificações de sistema pendentes que ainda não estejam fundidas.
+  const pools = poolsPorPapel(inbox, enviadas, false);
   const vistos = new Set<number>();
   for (const n of notificacoes) {
     if (n.unread === false || vistos.has(n.id)) continue;
@@ -96,12 +142,10 @@ export function contarNotificacoesAtalhos(
     const tipo = classificarNotificacao(n, pools);
     if (!tipo) continue;
     const associada = associarMensagem(n, pools);
-    // O alerta e a correspondência que o originou representam uma novidade
-    // (só funde em caixa de entrada — recibo de Enviadas nunca esconde avisos).
     if (associada?.tipo === tipo && associada.funde && associada.m.unread) continue;
-    pendentes.add(`${tipo}:notificacao:${n.id}`);
+    counts[tipo]++;
   }
-  for (const key of pendentes) counts[key.split(':')[0] as AtalhoPainel]++;
+
   return counts;
 }
 

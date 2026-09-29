@@ -69,7 +69,7 @@ export function HomeContent({
   const badgeId = useId();
   const [ocorrenciasCount, setOcorrenciasCount] = useState<{owner: string; count: number}>({owner: '', count: 0});
   useEffect(() => {
-    if (!realSession || !notificationOwnerKey) return;
+    if (!realSession || !notificationOwnerKey || isInst) return;
     let active = true, fetching = false;
     const controller = new AbortController();
     const refresh = async () => {
@@ -87,9 +87,10 @@ export function HomeContent({
     window.addEventListener('focus', visible);
     document.addEventListener('visibilitychange', visible);
     return () => {active = false; controller.abort(); window.clearInterval(timer); window.removeEventListener('focus', visible); document.removeEventListener('visibilitychange', visible);};
-  }, [notificationOwnerKey, realSession]);
+  }, [notificationOwnerKey, realSession, isInst]);
+
   const badgeCounts = contarNotificacoesAtalhos(notifications, inbox || [], !!isInst,
-    realSession && ocorrenciasCount.owner === notificationOwnerKey ? ocorrenciasCount.count : 0,
+    !isInst && realSession && ocorrenciasCount.owner === notificationOwnerKey ? ocorrenciasCount.count : 0,
     sentMessages || []);
 
   /**

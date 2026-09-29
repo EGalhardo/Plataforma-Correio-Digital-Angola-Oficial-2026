@@ -624,82 +624,71 @@ export default function App() {
   };
 
   const handleDeleteMessage = (id: number) => {
-    // v37.78.23 — ZERO RASTOS: em contas REAIS «Eliminar» é DEFINITIVO já no
-    // 1.º clique. A caixa real tem a nuvem como fonte única e FILTRA as linhas
-    // 'Arquivada' — o antigo 2.º passo (Eliminar na pasta Arquivadas) ficava
-    // inalcançável e a linha sobrevivia para sempre na base central. Sessões
-    // DEMO mantêm o ciclo histórico (Arquivadas → Eliminar permanente).
     const baseId = id >= 10000 && id < 90000000 ? id - 10000 : id;
     const jaArquivada = deletedMessageIds.includes(id);
-    const definitiva = !isDemoSession || jaArquivada;
     if (!jaArquivada) {
-      setDeletedMessageIds([...deletedMessageIds, id]);
-    }
-    if (definitiva) {
-      if (!hiddenMessageIds.includes(id)) {
-        setHiddenMessageIds([...hiddenMessageIds, id]);
-        if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
-          // v37.78.23 — ZERO RASTOS: a eliminação permanente carimba a cópia
-          // única da mensagem com o marcador ELIM_PERM:<chave> desta conta. A
-          // linha só é PURGADA por completo (histórico + notificações + anexos
-          // do Storage) quando a OUTRA parte também já eliminou a sua cópia —
-          // enquanto a outra parte mantém a mensagem, nada é destruído do lado
-          // dela (estados independentes, regra R2). A decisão lê o estado
-          // FRESCO da nuvem (o espelho local pode estar desactualizado).
-          const normElim = (v?: string) => String(v || '').toUpperCase().replace(/\s+/g, '').replace(/-\d{2}$/, '');
-          const minhaChaveElim = normElim(isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi));
-          void (async () => {
-            const fresca = await lerMensagemParaEliminacao(baseId).catch(() => null);
-            const actionsElim: string[] = fresca && fresca.actions.length
-              ? fresca.actions
-              : (() => {
-                  const fonteElim = [...inbox, ...docInbox, ...instInbox, ...instDocInbox, ...sentMessages, ...docSentMessages]
-                    .find(m => m.id === id || ((m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id) === baseId));
-                  return Array.isArray(fonteElim?.details?.actions) ? (fonteElim!.details!.actions as string[]) : [];
-                })();
-            const partesElim = fresca
-              ? [fresca.senderBi, fresca.recipientBi]
-              : [];
-            const outrasPartesElim = partesElim.map(normElim).filter(k => !!k && k !== minhaChaveElim);
-            const marcadoresElim = actionsElim.filter(a => a.startsWith('ELIM_PERM:')).map(a => normElim(a.slice('ELIM_PERM:'.length)));
-            if (marcadoresElim.some(mk => outrasPartesElim.includes(mk))) {
-              // ambas as partes eliminaram → purga total na base central
-              const rPurga = await eliminarCorrespondenciaTotal(baseId).catch(() => null);
-              addAuditLog(rPurga && rPurga.ok
-                ? `Correspondência ID ${baseId} purgada por completo (linha, histórico, notificações e anexos do Storage) — ambas as partes eliminaram (ZERO RASTOS).`
-                : `Correspondência ID ${baseId}: purga total na nuvem adiada (${(rPurga && rPurga.erro) || 'rede indisponível'}) — a cópia já não é visível; o marcador mantém-se para a próxima tentativa.`,
-                rPurga && rPurga.ok ? 'success' : 'warning');
-            } else {
-              supabaseService.updateMessageState(baseId, {
-                state_indicator: 'EliminadaPermanente',
-                actions: [...actionsElim.filter(a => !a.startsWith('ELIM_PERM:')), `ELIM_PERM:${minhaChaveElim}`],
-              }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
-              supabaseService.insertMessageStateEvent({
-                messageId: baseId,
-                state: 'EliminadaPermanente',
-                responsible: user?.name || 'Utilizador',
-            description: 'Correspondência eliminada permanentemente da vista do utilizador.'
-          }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
-            }
-          })();
-        }
-        notify('Correspondência eliminada com sucesso.', 'success');
+      // 1.º clique: mover para as Eliminadas / Arquivadas
+      setDeletedMessageIds(prev => prev.includes(id) ? prev : [...prev, id]);
+      if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
+        supabaseService.updateMessageState(baseId, { state_indicator: 'Arquivada' }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+        supabaseService.insertMessageStateEvent({
+          messageId: baseId,
+          state: 'Arquivada',
+          responsible: user?.name || 'Utilizador',
+          description: 'Correspondência movida para as eliminadas pelo utilizador.'
+        }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
       }
-    } else if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
-      // sessão DEMO — 1.º passo: arquivar (ciclo histórico intacto)
-      supabaseService.updateMessageState(baseId, { state_indicator: 'Arquivada' }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
-      supabaseService.insertMessageStateEvent({
-        messageId: baseId,
-        state: 'Arquivada',
-        responsible: user?.name || 'Utilizador',
-        description: 'Correspondência movida para as eliminadas pelo utilizador.'
-      }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
-      notify('Correspondência arquivada com sucesso.', 'success');
+      notify('Correspondência movida para as eliminadas.', 'success');
+      return;
+    }
+
+    // 2.º clique (ou dentro da pasta de Eliminadas): Eliminar Permanentemente
+    if (!hiddenMessageIds.includes(id)) {
+      setHiddenMessageIds(prev => prev.includes(id) ? prev : [...prev, id]);
+      if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
+        const normElim = (v?: string) => String(v || '').toUpperCase().replace(/\s+/g, '').replace(/-\d{2}$/, '');
+        const minhaChaveElim = normElim(isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi));
+        void (async () => {
+          const fresca = await lerMensagemParaEliminacao(baseId).catch(() => null);
+          const actionsElim: string[] = fresca && fresca.actions.length
+            ? fresca.actions
+            : (() => {
+                const fonteElim = [...inbox, ...docInbox, ...instInbox, ...instDocInbox, ...sentMessages, ...docSentMessages]
+                  .find(m => m.id === id || ((m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id) === baseId));
+                return Array.isArray(fonteElim?.details?.actions) ? (fonteElim!.details!.actions as string[]) : [];
+              })();
+          const partesElim = fresca
+            ? [fresca.senderBi, fresca.recipientBi]
+            : [];
+          const outrasPartesElim = partesElim.map(normElim).filter(k => !!k && k !== minhaChaveElim);
+          const marcadoresElim = actionsElim.filter(a => a.startsWith('ELIM_PERM:')).map(a => normElim(a.slice('ELIM_PERM:'.length)));
+          if (marcadoresElim.some(mk => outrasPartesElim.includes(mk))) {
+            // ambas as partes eliminaram → purga total na base central
+            const rPurga = await eliminarCorrespondenciaTotal(baseId).catch(() => null);
+            addAuditLog(rPurga && rPurga.ok
+              ? `Correspondência ID ${baseId} purgada por completo (linha, histórico, notificações e anexos do Storage) — ambas as partes eliminaram (ZERO RASTOS).`
+              : `Correspondência ID ${baseId}: purga total na nuvem adiada (${(rPurga && rPurga.erro) || 'rede indisponível'}) — a cópia já não é visível; o marcador mantém-se para a próxima tentativa.`,
+              rPurga && rPurga.ok ? 'success' : 'warning');
+          } else {
+            supabaseService.updateMessageState(baseId, {
+              state_indicator: 'EliminadaPermanente',
+              actions: [...actionsElim.filter(a => !a.startsWith('ELIM_PERM:')), `ELIM_PERM:${minhaChaveElim}`],
+            }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+            supabaseService.insertMessageStateEvent({
+              messageId: baseId,
+              state: 'EliminadaPermanente',
+              responsible: user?.name || 'Utilizador',
+              description: 'Correspondência eliminada permanentemente da vista do utilizador.'
+            }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+          }
+        })();
+      }
+      notify('Correspondência eliminada permanentemente.', 'success');
     }
   };
 
   const handleRestoreMessage = (id: number) => {
-    setDeletedMessageIds(deletedMessageIds.filter(mid => mid !== id));
+    setDeletedMessageIds(prev => prev.filter(mid => mid !== id));
     const baseId = id >= 10000 && id < 90000000 ? id - 10000 : id;
     if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
       supabaseService.updateMessageState(baseId, { state_indicator: 'Ativa' }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
@@ -710,6 +699,7 @@ export default function App() {
         description: 'Correspondência restaurada do arquivo.'
       }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
     }
+    notify('Correspondência restaurada com sucesso.', 'success');
   };
 
   // 2026-08-21 (desempenho/UX) — verdadeiro quando a primeira sincronização
@@ -3110,7 +3100,7 @@ export default function App() {
         const minhaChaveT58 = normElimT58(isInstMode ? normalizeInstCode(effectiveInstCode || institutionCode || bi) : normalizeHomologationBi(bi));
         const foraDaMinhaCaixa = (m: Message): boolean => {
           const st = String(m.details?.state || '');
-          if (st === 'Arquivada') return true;
+          if (st === 'Arquivada') return false;
           if (st !== 'EliminadaPermanente') return false;
           const marcas = (Array.isArray(m.details?.actions) ? (m.details!.actions as string[]) : [])
             .filter(x => typeof x === 'string' && x.startsWith('ELIM_PERM:'))
@@ -3201,6 +3191,17 @@ export default function App() {
               return [...sentDoc, ...onlyLocal];
             });
           }
+        }
+
+        // Hidrata IDs arquivados / eliminados vindos da nuvem
+        const dbArchivedIds = [
+          ...(dbMessages || []),
+          ...(dbSentMessages || []),
+        ]
+          .filter(m => String(m.details?.state || '') === 'Arquivada')
+          .map(m => m.id);
+        if (dbArchivedIds.length > 0) {
+          setDeletedMessageIds(prev => Array.from(new Set([...prev, ...dbArchivedIds])));
         }
 
 
