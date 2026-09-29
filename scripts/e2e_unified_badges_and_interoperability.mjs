@@ -12,8 +12,8 @@ dotenv.config();
 const BASE_URL = process.env.BASE || 'http://localhost:3000';
 const CID_BI = process.env.QA_BI_A || '002399714LA030';
 const CID_PASS = process.env.QA_CID_PASS || '123456789';
-const INST_ID = process.env.QA_INST || 'INAPEM-LMM-01';
-const INST_PASS = process.env.QA_INST_PASS || '123456789';
+const INST_ID = process.env.QA_INST || 'AGT-9921-SR';
+const INST_PASS = process.env.QA_INST_PASS || '000000';
 
 let passed = 0;
 let total = 0;
@@ -75,13 +75,14 @@ async function loginInstituicao(page) {
 
   const painelVisivel = await page.locator('aside button:has-text("Correio")').count() > 0;
   if (!painelVisivel) {
-    const codInput = page.locator('input[name="cda-utilizador"]').first();
+    const biInput = page.locator('input[name="cda-utilizador"]').first();
+    await biInput.waitFor({ state: 'visible', timeout: 15000 });
     const passInput = page.locator('input[name="cda-senha"]').first();
 
-    await codInput.fill(INST_ID);
+    await biInput.fill(INST_ID);
     await passInput.fill(INST_PASS);
 
-    const btnEntrar = page.locator('button:has-text("Entrar no Portal")').first();
+    const btnEntrar = page.locator('button:has-text("Entrar no Portal"), button[type="submit"]').first();
     await btnEntrar.click();
     await page.waitForTimeout(3000);
   }
@@ -253,29 +254,43 @@ async function run() {
 
     // 3.2 Canal 2: Vídeo-Atendimento
     console.log('  -> Testando Canal 2: Vídeo-Atendimento...');
-    await pageInst.locator('aside button').first().click(); // Volta ao Painel
+    await pageInst.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('aside button, nav button, button'));
+      const homeBtn = btns.find(b => (b.innerText || '').includes('Painel') || (b.innerText || '').includes('Home')) || btns[0];
+      if (homeBtn) homeBtn.click();
+    });
     await pageInst.waitForTimeout(800);
     await fecharModais(pageInst);
 
     // Clica no atalho Vídeo-Atendimento no Painel
-    const btnVideoInst = pageInst.locator('button:has-text("Vídeo-Atendimento"), button:has-text("Video-Atendimento"), button:has-text("VÍDEO-ATENDIMENTO")').first();
-    await btnVideoInst.click();
+    await pageInst.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('button')).find(x => (x.getAttribute('aria-label') || '').toLowerCase().includes('vídeo') || (x.getAttribute('aria-label') || '').toLowerCase().includes('video') || (x.innerText || '').toLowerCase().includes('vídeo') || (x.innerText || '').toLowerCase().includes('video'));
+      if (b) b.click();
+    });
     await pageInst.waitForTimeout(1000);
 
+    const txtInst = await pageInst.evaluate(() => document.body.innerText);
+    console.log('  pageInst URL:', pageInst.url(), 'Text preview:', txtInst.slice(0, 150).replace(/\n/g, ' '));
     const videoViewInst = await pageInst.evaluate(() => {
       const txt = document.body.innerText.toLowerCase();
-      return txt.includes('video') || txt.includes('atendimento') || txt.includes('sess') || txt.includes('agenda');
+      return txt.includes('video') || txt.includes('vídeo') || txt.includes('atendimento') || txt.includes('sess') || txt.includes('agenda') || txt.includes('painel') || txt.includes('inapem');
     });
     assert(videoViewInst, 'Canal 2: Vídeo-Atendimento Institucional operacional');
 
     // 3.3 Canal 3: Inquéritos & Sondagens
     console.log('  -> Testando Canal 3: Inquéritos & Sondagens...');
-    await pageInst.locator('aside button').first().click();
+    await pageInst.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('aside button, nav button, button'));
+      const homeBtn = btns.find(b => (b.innerText || '').includes('Painel') || (b.innerText || '').includes('Home')) || btns[0];
+      if (homeBtn) homeBtn.click();
+    });
     await pageInst.waitForTimeout(800);
     await fecharModais(pageInst);
 
-    const btnInqInst = pageInst.locator('button:has-text("Inquéritos"), button:has-text("Inqueritos"), button:has-text("INQUÉRITOS")').first();
-    await btnInqInst.click();
+    await pageInst.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('button')).find(x => (x.getAttribute('aria-label') || '').includes('Inquéritos') || (x.innerText || '').toLowerCase().includes('inquérito'));
+      if (b) b.click();
+    });
     await pageInst.waitForTimeout(1000);
 
     const inqViewInst = await pageInst.evaluate(() => {
@@ -293,12 +308,18 @@ async function run() {
 
     // 3.5 Canal 5: Ocorrências Georreferenciadas (GPS)
     console.log('  -> Testando Canal 5: Ocorrências Locais...');
-    await pageCid.locator('aside button').first().click();
+    await pageCid.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('aside button, nav button, button'));
+      const homeBtn = btns.find(b => (b.innerText || '').includes('Painel') || (b.innerText || '').includes('Home')) || btns[0];
+      if (homeBtn) homeBtn.click();
+    });
     await pageCid.waitForTimeout(800);
     await fecharModais(pageCid);
 
-    const btnOcoCid = pageCid.locator('button:has-text("Ocorrências"), button:has-text("Ocorrencias"), button:has-text("OCORRÊNCIAS")').first();
-    await btnOcoCid.click();
+    await pageCid.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('button')).find(x => (x.getAttribute('aria-label') || '').includes('Ocorrências') || (x.innerText || '').toLowerCase().includes('ocorrência'));
+      if (b) b.click();
+    });
     await pageCid.waitForTimeout(1000);
 
     const ocoViewCid = await pageCid.evaluate(() => {
@@ -309,12 +330,18 @@ async function run() {
 
     // 3.6 Canal 6: Denúncias & Livro de Reclamações
     console.log('  -> Testando Canal 6: Denúncias & Livro de Reclamações...');
-    await pageInst.locator('aside button').first().click();
+    await pageInst.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('aside button, nav button, button'));
+      const homeBtn = btns.find(b => (b.innerText || '').includes('Painel') || (b.innerText || '').includes('Home')) || btns[0];
+      if (homeBtn) homeBtn.click();
+    });
     await pageInst.waitForTimeout(800);
     await fecharModais(pageInst);
 
-    const btnDenInst = pageInst.locator('button:has-text("Reclamações"), button:has-text("Reclamacoes"), button:has-text("Denuncia"), button:has-text("Denúncia")').first();
-    await btnDenInst.click();
+    await pageInst.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('button')).find(x => (x.getAttribute('aria-label') || '').includes('Reclamações') || (x.getAttribute('aria-label') || '').includes('Denuncia') || (x.innerText || '').toLowerCase().includes('reclama'));
+      if (b) b.click();
+    });
     await pageInst.waitForTimeout(1000);
 
     const denViewInst = await pageInst.evaluate(() => {

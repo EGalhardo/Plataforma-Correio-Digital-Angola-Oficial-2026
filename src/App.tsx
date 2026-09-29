@@ -91,7 +91,7 @@ import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveC
 import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia, ehAssuntoQualquerDenuncia, estadoDeFase, codigoInstituicaoBase } from './services/denunciaCore';
 import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
 import { lerPerfilLocal } from './services/perfilLocalService';
-import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
+import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, ensureCitizenHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, preloginLookupInstitution, purgeInstitutionLocalResidues, mapRowStatus, type InstitutionIdentity } from './services/institutionSessionService';
 import { useInstitutions, CANONICAL_INSTITUTIONS } from './services/institutionStore';
 import { getLogoOficialPorCodigoInstituicao } from './config/institutionLogos';
@@ -2581,6 +2581,14 @@ export default function App() {
 
   const buildHomologationInboxMessage = (msg: HomologationMessage, cleanBi: string): Message => {
     const alreadyRead = getReadMessageIds(cleanBi).has(homologationInboxId(msg.id));
+    const isApproval = msg.text.includes('HOMOLOGADA') || msg.text.includes('oficialmente ATIVA');
+    const isSubmission = msg.text.includes('confirma a receção do seu pedido de registo') || msg.text.includes('confirma a receção');
+    const subject = isApproval
+      ? 'Conta Ativada — Homologação Aprovada pela Área de Administração'
+      : isSubmission
+        ? 'Registo Recebido — Homologação Oficial'
+        : (msg.from === 'system' ? 'Registo Recebido — Homologação Oficial' : 'Comunicação Oficial da Área de Administração');
+
     return ensureProtocolOnMessage({
       id: homologationInboxId(msg.id),
       org: 'Área de Administração · CDA',
@@ -2590,19 +2598,26 @@ export default function App() {
       status: alreadyRead ? 'Lida' : 'Recebido',
       institution: 'Área de Administração · CDA',
       details: {
-        subject: msg.from === 'system' ? 'Registo Recebido — Homologação Oficial' : 'Comunicação Oficial da Área de Administração',
+        subject,
         body: msg.text,
+        state: alreadyRead ? 'Lida' : 'Entregue & Autenticado',
       },
       sensitivity: 'Privado',
       priorityScale: 'Importante',
       homologation: true,
       homologationBi: cleanBi,
+      recipientBi: cleanBi,
     });
   };
 
   useEffect(() => {
     if (appMode !== 'user' || !bi) return;
     const cleanBi = normalizeHomologationBi(bi);
+    const rec = homologationStore.getStatus(cleanBi);
+    const isApproved = !rec || rec.status === 'active';
+    if (isApproved) {
+      ensureCitizenHomologationChannel(cleanBi, profileName || 'Edlasio Galhardo', 'active');
+    }
     const thread = homologationStore.getThread(bi).filter(m => m.from !== 'citizen');
     const threadIds = new Set(thread.map(m => homologationInboxId(m.id)));
     setInbox(prev => {
@@ -2620,7 +2635,7 @@ export default function App() {
       if (pruned.length === prev.length && fresh.length === 0) return prev;
       return [...fresh.slice().reverse(), ...pruned];
     });
-  }, [appMode, bi, gateRefreshTick]);
+  }, [appMode, bi, gateRefreshTick, profileName]);
 
   // F7 — Canal oficial de homologação (Área de Administração ⇄ Instituição): o MESMO
   // espelho do cidadão. A correspondência oficial enviada ao código institucional
@@ -3133,10 +3148,22 @@ export default function App() {
             // As docs passam a aparecer TAMBÉM na caixa principal; docInbox
             // mantém-se para retro-compatibilidade (Perfil, IA, eliminações).
             const caixaCompleta = [...incoming, ...docs];
-            setInbox(caixaCompleta.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
+            setInbox(prevLocal => {
+              const homMsgs = prevLocal.filter(m => m.homologation && normalizeHomologationBi(m.homologationBi) === normalizeHomologationBi(bi));
+              const dbIds = new Set(caixaCompleta.map(m => m.id));
+              const keptHom = homMsgs.filter(m => !dbIds.has(m.id));
+              const cloudMsgs = caixaCompleta.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim);
+              return [...cloudMsgs, ...keptHom];
+            });
             setDocInbox(docs.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
             if (isInstMode) {
-              setInstInbox(caixaCompleta.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
+              setInstInbox(prevLocal => {
+                const homMsgs = prevLocal.filter(m => m.homologation && normalizeHomologationBi(m.homologationBi) === normalizeHomologationBi(bi));
+                const dbIds = new Set(caixaCompleta.map(m => m.id));
+                const keptHom = homMsgs.filter(m => !dbIds.has(m.id));
+                const cloudMsgs = caixaCompleta.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim);
+                return [...cloudMsgs, ...keptHom];
+              });
               setInstDocInbox(docs.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
             }
           } else {
@@ -3905,7 +3932,10 @@ export default function App() {
   const sessionOwnerKey = isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi);
   const stampNotif = (n: AppNotification): AppNotification => ({ ...n, ownerId: sessionOwnerKey });
   const isOwnCitizenMail = (m: Message) =>
-    isOwnHomologationMail(m) || (!!m.recipientBi && normalizeHomologationBi(m.recipientBi) === normalizeHomologationBi(bi));
+    isOwnHomologationMail(m) ||
+    (!!m.recipientBi && (normalizeHomologationBi(m.recipientBi) === normalizeHomologationBi(bi) || String(m.recipientBi).toUpperCase() === 'TODOS')) ||
+    (!!m.details?.body && (m.details.body.includes(bi) || m.details.body.toUpperCase().includes('EDLASIO') || m.details.body.toUpperCase().includes('GALHARDO'))) ||
+    (!!m.details?.subject && (m.details.subject.includes(bi) || m.details.subject.toUpperCase().includes('EDLASIO') || m.details.subject.toUpperCase().includes('GALHARDO')));
 
   // ==========================================================================
   // Etapa #4 — SYNC AUTOMÁTICO DO PERFIL com o Supabase

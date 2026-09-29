@@ -39,9 +39,11 @@ const ALWAYS_ACTIVE_IDENTIFIERS = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP
 export const normalizeHomologationBi = (bi?: string): string =>
   (bi || '').toUpperCase().replace(/\s+/g, '').trim();
 
+const memoryStore: Record<string, string> = {};
+
 const readJson = <T,>(key: string, fallback: T): T => {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : memoryStore[key];
     return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
@@ -50,7 +52,11 @@ const readJson = <T,>(key: string, fallback: T): T => {
 
 const writeJson = (key: string, value: unknown): void => {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, JSON.stringify(value));
+    } else {
+      memoryStore[key] = JSON.stringify(value);
+    }
   } catch (e) {
     console.warn('[HomologationStore] Falha ao gravar no armazenamento local:', e);
   }
@@ -209,4 +215,43 @@ export const ensureInstitutionHomologationChannel = (
     'admin',
     `Exmos. Senhores da ${base} (${sig}), a Área de Administração do Correio Digital Angola confirma a receção da vossa solicitação de adesão (Código Institucional: ${code}). O pedido já foi enviado para análise e em menos de 24 horas receberão uma resposta oficial através deste canal. Enquanto o pedido estiver pendente, cada comunicação oficial chega a esta caixa como correspondência não lida — o aviso aparece no badge da foto de perfil e no menu "Mensagens não lidas".`
   );
+};
+
+// ----------------------------------------------------------------------------
+// Canal oficial multi-dispositivo do cidadão: garante a presença integral de
+// todas as correspondências oficiais da conta aberta (1. Confirmação de Registo
+// + 2. Homologação/Ativação Oficial). Total de 2 correspondências canónicas da conta.
+// ----------------------------------------------------------------------------
+export const ensureCitizenHomologationChannel = (
+  biRaw: string,
+  fullName?: string,
+  status: 'pending' | 'correcao' | 'active' | 'rejected' | 'blocked' = 'active',
+): void => {
+  const bi = normalizeHomologationBi(biRaw);
+  if (!bi || ALWAYS_ACTIVE_IDENTIFIERS.includes(bi)) return;
+  if (!homologationStore.getStatus(bi)) {
+    homologationStore.setStatus(bi, status, undefined, fullName);
+  }
+  const thread = homologationStore.getThread(bi);
+  const name = (fullName || '').replace(/\s*\([^)]*\)\s*$/, '').trim() || 'Edlasio Galhardo';
+
+  const hasSubmission = thread.some(m => m.text.includes('confirma a receção do seu pedido de registo') || m.text.includes('confirma a receção'));
+  const hasApproval = thread.some(m => m.text.includes('HOMOLOGADA') || m.text.includes('oficialmente ATIVA'));
+
+  if (!hasSubmission) {
+    homologationStore.addMessage(
+      bi,
+      'admin',
+      `Exmo(a). ${name}, a Área de Administração do Correio Digital de Angola confirma a receção do seu pedido de registo. A sua documentação encontra-se em homologação pelos inspetores de identificação civil nacional, com resposta prevista em menos de 24 horas. Enquanto a sua conta não for ativada, não poderá receber correspondência oficial das instituições (AGT, SME, ENDE, EPAL, entre outras). Este canal é a via oficial exclusiva de comunicação durante o processo.`
+    );
+  }
+
+  const currentStatus = homologationStore.getStatus(bi)?.status || status;
+  if ((currentStatus === 'active' || !homologationStore.getStatus(bi)) && !hasApproval) {
+    homologationStore.addMessage(
+      bi,
+      'admin',
+      `Exmo(a). ${name}, informamos que a sua identidade foi HOMOLOGADA e a sua conta no Correio Digital de Angola está oficialmente ATIVA. A partir deste momento pode receber correspondência oficial de todas as instituições integradas. Bem-vindo à rede nacional de correio digital.`
+    );
+  }
 };

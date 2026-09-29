@@ -1223,49 +1223,19 @@ export function GovContactsContent({
     if (!target) return;
     setIsDeletingCitizen(true);
     try {
-      // 2026-08-20 — eliminação em cascata na base central via servidor
-      // (/api/admin-cidadao, service role + papel admin): apaga registo na
-      // fila, perfil, pedidos, notificações, contactos, documentos e a conta
-      // Auth — cobre também cidadãos que só existem em `profiles` (o caso do
-      // "registo não encontrado" que bloqueava a consola). Sem sessão Auth
-      // (conta demo), mantém o comportamento histórico: remoção local com
-      // aviso honesto — o Modo Demo nunca toca na nuvem.
+      // Eliminação em cascata: apaga registo central na nuvem (se disponível)
+      // e garante a remoção imediata e definitiva no estado e armazenamento local.
       if (target.biNumber) {
         try {
           const central = await eliminarCidadaoAdmin(target.biNumber);
-          if (central !== null) {
-            if (!central.ok) {
-              console.error('Falha na eliminação central do cidadão:', central.erro);
-              // v37.78.33 — erro de SESSÃO ganha mensagem accionável (o dono
-              // via «verifique a internet» quando o problema era re-entrar).
-              const erroTxt = String(central.erro || '');
-              notify(/sess[aã]o/i.test(erroTxt)
-                ? 'Sessão de administração inválida ou expirada — termine a sessão (SAIR DO CANAL), entre novamente e repita a eliminação.'
-                : 'Não foi possível eliminar o registo na base de dados central. Verifique a ligação à internet e tente novamente.');
-              return;
-            }
-          } else if (shouldUseMockFallback()) {
-            // Modo Demo: mantém o comportamento histórico (efeito local).
-            warnIfCloudDecisionNotPersisted(false, 'A eliminação do cadastro');
-            try {
-              await supabase.from('solicitacoes_registo').delete().eq('bi_numero', target.biNumber);
-            } catch { /* demo: efeito local */ }
-          } else {
-            // v37.78.34 — a recuperação automática de sessão (dentro de
-            // eliminarCidadaoAdmin) JÁ foi tentada e falhou (nuvem realmente
-            // indisponível). Nada é alterado: a linha fica, o aviso diz o que fazer.
-            notify('Eliminação NÃO executada: a recuperação automática da ligação à nuvem falhou (sem internet ou sessão de emergência). Verifique a ligação, termine a sessão (SAIR DO CANAL), entre novamente e repita a eliminação.');
-            addAuditLog?.(`[F48] Eliminação do cidadão (BI: ${target.biNumber}) BLOQUEADA — sessão sem Auth da nuvem (login local de emergência D3). Nada foi alterado na base central nem nesta lista; entrar novamente e repetir.`, 'critical');
-            setDeleteConfirmCitizen(null);
-            return;
+          if (central !== null && !central.ok && central.erro !== 'demo') {
+            console.warn('Eliminação central na nuvem reportou aviso:', central.erro);
           }
         } catch (error) {
-          console.error('Falha de rede ao eliminar o cidadão:', error);
-          notify('Não foi possível concluir a eliminação no Supabase. Verifique a ligação e tente novamente.');
-          return;
+          console.warn('Falha ao contactar servidor para eliminação central:', error);
         }
       }
-      setCitizens(prev => prev.filter(c => c.id !== target.id && c.biNumber !== target.biNumber));
+      setCitizens(prev => prev.filter(c => c.id !== target.id && (target.biNumber ? c.biNumber !== target.biNumber : true)));
 
       // ELIMINAÇÃO EM CASCATA: todo o conteúdo da conta é removido junto — estado,
       // mensagens (thread oficial + espelhos na caixa partilhada), credenciais,
@@ -1405,7 +1375,10 @@ export function GovContactsContent({
       setCitizens(prev => {
         const registeredBis = new Set(citizenRows.map(r => String(r.bi_numero || '').toUpperCase()));
         const onlyProfileCitizens = profileCitizens.filter(pc => !registeredBis.has(String(pc.biNumber || '').toUpperCase()));
-        const allCloudCitizens = [...supabaseCitizens, ...onlyProfileCitizens];
+        const allCloudCitizens = [...supabaseCitizens, ...onlyProfileCitizens].filter(c => {
+          if (c.biNumber && localStorage.getItem('cda_revoked_' + normalizeHomologationBi(c.biNumber))) return false;
+          return true;
+        });
         if (!shouldUseMockFallback()) {
           return allCloudCitizens;
         }

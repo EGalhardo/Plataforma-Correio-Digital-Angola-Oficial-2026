@@ -402,7 +402,7 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
 
   if (effectiveAutoApproved) {
     homologationStore.setStatus(newUser.biNumber, 'active', undefined, newUser.name);
-    homologationStore.clearThread(newUser.biNumber);
+    // Preservar a confirmação de receção e adicionar a homologação oficial (total de 2 correspondências da conta)
     notifyAccountApproved(newUser.biNumber, newUser.name);
     hooks.addAuditLog(`[PVIC] Análise IA de ${newUser.name} concluída: APTO — conta ACTIVADA e correspondência de aprovação entregue.`, 'success');
     desfecho = 'aprovado';

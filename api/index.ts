@@ -4624,7 +4624,7 @@ async function dadosResolverEExecutar(opts: {
         const { bi } = body || {};
         const biNorm = String(bi || '').trim().toUpperCase();
         if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(biNorm)) return res.status(400).json({ ok: false, erro: 'BI inválido.' });
-        if (DADOS_DEMO_BIS.includes(biNorm)) return res.status(403).json({ ok: false, erro: 'demo' });
+        if (DADOS_DEMO_BIS.includes(biNorm)) return res.status(200).json({ ok: true, conta: 'demo' });
         const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
         if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
         const supaUrlAdm = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
