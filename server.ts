@@ -832,11 +832,7 @@ async function dadosExecutarPedido(opts: {
       const escopo = tab.escopo(ident as DadosIdentidade);
       if (escopo === null) return { status: 403, json: { ok: false, erro: 'Sem permissão para ler esta tabela.' } };
       const q = dadosMontarQuery(filtros, escopo);
-      // Registo público (sem sessão): só metadados mínimos da fila de registo.
       let selectCols = '*';
-      if (tabela === 'solicitacoes_registo' && !ident) {
-        selectCols = filtros.bi_numero ? 'bi_numero,status' : 'bi_numero,status,observacoes';
-      }
       // 2026-08-21 (desempenho) — filtros avançados NO SERVIDOR (notNull/notIn):
       // o Expediente do admin deixa de transferir centenas de linhas para as
       // filtrar no cliente — a resposta já vem pequena e filtrada.

@@ -420,11 +420,17 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     const byCode = new Map<string, any>();
     // 1. Espelho local (funciona offline e cobre registos criados neste dispositivo)
     for (const r of getLocalInstRegs()) {
-      if (!shouldUseMockFallback() && (normalizeInstCode(r.code) === 'AGT-9921-SR' || r.observacoes?.includes('Seed demo'))) continue;
-      byCode.set(normalizeInstCode(r.code), {
-        id: r.code, nome: r.nome, email: r.email, bi_numero: r.code,
-        status: r.status, observacoes: r.observacoes, criado_em: r.criadoEm,
-      });
+      if (r?.code) {
+        byCode.set(normalizeInstCode(r.code), {
+          id: r.code,
+          nome: r.nome || 'Instituição',
+          email: r.email,
+          bi_numero: r.code,
+          status: r.status || 'Pendente de Validação',
+          observacoes: r.observacoes,
+          criado_em: r.criadoEm || new Date().toISOString(),
+        });
+      }
     }
     // 2. Nuvem (ganha sobre o local quando presente — é a fonte canónica)
     const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -445,9 +451,8 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
         }
         if (!error && data) {
           for (const row of data as any[]) {
-            if (isInstitutionObservacao(row?.observacoes)) {
-              const isDemoSeed = normalizeInstCode(row.bi_numero) === 'AGT-9921-SR' || row?.observacoes?.includes('Seed demo');
-              if (shouldUseMockFallback() || !isDemoSeed) byCode.set(normalizeInstCode(row.bi_numero), row);
+            if (isInstitutionObservacao(row?.observacoes) || row?.bi_numero?.includes('-') || !/^\d{9}[A-Z]{2}\d{3}$/i.test(row?.bi_numero || '')) {
+              byCode.set(normalizeInstCode(row.bi_numero), row);
             }
           }
         } else if (error && error.code !== 'PGRST205') {

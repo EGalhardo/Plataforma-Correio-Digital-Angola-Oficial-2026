@@ -72,51 +72,21 @@ const InstitutionContext = createContext<InstitutionContextType | undefined>(und
 
 export const InstitutionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [institutions, setInstitutions] = useState<Institution[]>(() => {
-    const demoEnabled = shouldUseMockFallback();
-    const saved = localStorage.getItem("correio_digital_institutions");
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem("correio_digital_institutions") : null;
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as Institution[];
-        // 2026-09-03 — MIGRAÇÃO: garantir que todas as instituições têm fullName.
-        // Instituições antigas podem não ter este campo, o que faz com que o nome
-        // desapareça após uma edição. Se fullName estiver vazio, usa name como fallback.
-        const migrated = parsed.map(inst => ({
-          ...inst,
-          fullName: inst.fullName || inst.name || 'Instituição',
-        }));
-        if (!demoEnabled) {
-          // Modo real nunca reutiliza as entidades canónicas de demonstração
-          // guardadas localmente por uma sessão anterior.
-          const demoIds = new Set(CANONICAL_INSTITUTIONS.map(inst => inst.id));
-          const filtered = migrated.filter(inst => !demoIds.has(inst.id));
-          if (JSON.stringify(filtered) !== JSON.stringify(migrated)) {
-            // Guarda a versão migrada no localStorage
-            setTimeout(() => {
-              try {
-                localStorage.setItem("correio_digital_institutions", JSON.stringify(filtered));
-              } catch { /* noop */ }
-            }, 0);
-          }
-          return filtered;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(inst => ({
+            ...inst,
+            fullName: inst.fullName || inst.name || 'Instituição',
+          }));
         }
-        const hasInapem = migrated.some(inst => inst.name === 'INAPEM' || inst.id === 'inst-inapem');
-        if (!hasInapem) {
-          const canonicalInapem = CANONICAL_INSTITUTIONS.find(inst => inst.name === 'INAPEM');
-          if (canonicalInapem) migrated.push(canonicalInapem);
-        }
-        const inapemIndex = migrated.findIndex(inst => inst.name === 'INAPEM' || inst.id === 'inst-inapem');
-        if (inapemIndex > 0) {
-          const [inapem] = migrated.splice(inapemIndex, 1);
-          migrated.unshift(inapem);
-        }
-        // Guarda a versão migrada no localStorage
-        setTimeout(() => localStorage.setItem("correio_digital_institutions", JSON.stringify(migrated)), 0);
-        return migrated;
       } catch (e) {
-        // use default
+        // use canonical default
       }
     }
-    return shouldUseMockFallback() ? CANONICAL_INSTITUTIONS : [];
+    return CANONICAL_INSTITUTIONS;
   });
 
   useEffect(() => {
