@@ -14,8 +14,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const BASE_URL = process.env.BASE || 'http://localhost:3000';
-const CID_BI = process.env.QA_BI_A || '002399714LA030';
-const CID_PASS = process.env.QA_CID_PASS || '123456789';
+const CID_BI = process.env.QA_BI_A || '009874562LA041';
+const CID_PASS = process.env.QA_CID_PASS || '123456';
 const ADMIN_ID = process.env.QA_ADMIN || 'ADMIN-0001';
 const ADMIN_PASS = process.env.QA_ADMIN_PASS || '123456789';
 
@@ -60,12 +60,13 @@ async function loginCidadao(page) {
   const painelVisivel = await page.locator('aside button:has-text("Correio")').count() > 0;
   if (!painelVisivel) {
     const biInput = page.locator('input[name="cda-utilizador"]').first();
+    await biInput.waitFor({ state: 'visible', timeout: 15000 });
     const passInput = page.locator('input[name="cda-senha"]').first();
 
     await biInput.fill(CID_BI);
     await passInput.fill(CID_PASS);
 
-    const btnEntrar = page.locator('button:has-text("Entrar no Portal")').first();
+    const btnEntrar = page.locator('button:has-text("Entrar no Portal"), button[type="submit"]').first();
     await btnEntrar.click();
     await page.waitForTimeout(3000);
   }
@@ -182,6 +183,32 @@ async function run() {
     // ETAPA 3: Eliminação de Contacto / Cidadão na Área Admin
     // -------------------------------------------------------------------------
     console.log('\n👉 [ETAPA 3] Testando Eliminação de Contacto / Cidadão pelo Administrador...');
+
+    // Garante presença de cidadão de teste para validação de eliminação
+    await page.evaluate(async () => {
+      try {
+        await fetch('/api/dados', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tabela: 'solicitacoes_registo',
+            operacao: 'insert',
+            dados: {
+              bi_numero: '005581920NA011',
+              nome: 'Manuel António Domingos',
+              email: 'manuel.domingos@email.ao',
+              status: 'Aprovado',
+              observacoes: 'Registo de teste para validação de eliminação'
+            }
+          })
+        });
+      } catch (e) {}
+    });
+
+    // Recarrega página Cidadãos
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2000);
+    await fecharModais(page);
 
     // Contar total inicial de botões Eliminar
     const contagemInicial = await page.evaluate(() => {

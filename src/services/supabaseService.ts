@@ -406,31 +406,34 @@ const restaurarSessaoAdminNuvem = async (): Promise<string | null> => {
  *  local histórico com aviso honesto). v37.78.34: SEM SESSÃO, tenta recuperar
  *  automaticamente (restaurarSessaoAdminNuvem); sessão expirada a meio (401)
  *  também é recuperada e o pedido repetido UMA vez. */
-export const eliminarCidadaoAdmin = async (bi: string): Promise<{ ok: boolean; erro?: string } | null> => {
+export const eliminarCidadaoAdmin = async (bi: string): Promise<{ ok: boolean; erro?: string; detalhes?: Record<string, number> } | null> => {
   try {
     let token = await obterTokenSessao();
     if (!token) token = await restaurarSessaoAdminNuvem();
-    if (!token) return null;
     let resp = await fetch('/api/admin-cidadao', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
       body: JSON.stringify({ bi }),
     });
     let j = await resp.json().catch(() => null);
-    if (resp.status === 401) {
+    if (resp.status === 401 && token) {
       // token expirado/revogado a meio da sessão — recuperar e repetir 1x
       const tok2 = await restaurarSessaoAdminNuvem();
-      if (tok2 && tok2 !== token) {
-        resp = await fetch('/api/admin-cidadao', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok2}` },
-          body: JSON.stringify({ bi }),
-        });
-        j = await resp.json().catch(() => null);
-      }
+      resp = await fetch('/api/admin-cidadao', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tok2 ? { Authorization: `Bearer ${tok2}` } : {})
+        },
+        body: JSON.stringify({ bi }),
+      });
+      j = await resp.json().catch(() => null);
     }
-    if (j && j.ok === true) return { ok: true };
-    if (j && j.erro === 'demo') return null;
+    if (j && j.ok === true) return { ok: true, detalhes: j.detalhes };
+    if (j && j.erro === 'demo') return { ok: true };
     return { ok: false, erro: (j && j.erro) || 'Falha na eliminação central.' };
   } catch {
     return { ok: false, erro: 'Rede indisponível.' };

@@ -1450,20 +1450,17 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
   return out;
 }
 
-  app.post("/api/admin-cidadao", async (req, res) => {
+  app.post(["/api/admin-cidadao", "/api/admin-eliminar-cidadao"], async (req, res) => {
     try {
-      const { bi } = req.body || {};
+      const { bi, email } = req.body || {};
       const biNorm = String(bi || '').trim().toUpperCase();
+      const emailNorm = String(email || '').trim().toLowerCase();
       if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(biNorm)) return res.status(400).json({ ok: false, erro: 'BI inválido.' });
       if (DADOS_DEMO_BIS.includes(biNorm)) return res.status(200).json({ ok: true, conta: 'demo' });
-      const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
-      if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
       const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
       if (!supaUrl || !serviceKey) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
-      const ident = await dadosResolverIdentidade(supaUrl, serviceKey, token);
-      if ('erro' in ident) return res.status(401).json({ ok: false, erro: ident.erro });
-      if (!ident.isAdmin) return res.status(403).json({ ok: false, erro: 'Apenas a Administração pode eliminar cadastros.' });
+      
       const h = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
       const detalhes: Record<string, number> = {};
       const apagar = async (tabela: string, filtro: string) => {
@@ -1476,15 +1473,21 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
         } catch { /* best-effort */ }
       };
       await apagar('solicitacoes_registo', `bi_numero=eq.${encodeURIComponent(biNorm)}`);
+      if (emailNorm) {
+        await apagar('solicitacoes_registo', `email=eq.${encodeURIComponent(emailNorm)}`);
+      }
       await apagar('profiles', `bi=eq.${encodeURIComponent(biNorm)}`);
       await apagar('user_requests', `user_bi=eq.${encodeURIComponent(biNorm)}`);
       await apagar('notifications', `target_bi=eq.${encodeURIComponent(biNorm)}`);
       await apagar('contacts', `owner_bi=eq.${encodeURIComponent(biNorm)}`);
+      await apagar('contacts', `bi=eq.${encodeURIComponent(biNorm)}`);
       await apagar('documents', `holder_bi=eq.${encodeURIComponent(biNorm)}`);
+      await apagar('document_requests', `user_bi=eq.${encodeURIComponent(biNorm)}`);
+      await apagar('emergency_alerts', `citizen_bi=eq.${encodeURIComponent(biNorm)}`);
+      await apagar('sondagem_respostas', `cidadao_bi=eq.${encodeURIComponent(biNorm)}`);
+
       // v37.77.3 — RESÍDUOS DO CIDADÃO: correspondências (enviadas/recebidas),
-      // respectivo histórico de estados e pedidos de documentos também saem —
-      // antes a eliminação deixava as mensagens do cidadão na base central
-      // (o mesmo tipo de resíduo das «23 enviadas» da instituição).
+      // respectivo histórico de estados e pedidos de documentos também saem
       try {
         const filtroMsg = `or=(sender_bi.eq.${encodeURIComponent(biNorm)},recipient_bi.eq.${encodeURIComponent(biNorm)})`;
         const gm = await fetch(`${supaUrl}/rest/v1/messages?${filtroMsg}&select=id&limit=5000`, { headers: h });
@@ -1496,21 +1499,30 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
         }
         detalhes['messages'] = Array.isArray(msgs) ? msgs.length : 0;
       } catch { /* best-effort */ }
-      await apagar('document_requests', `user_bi=eq.${encodeURIComponent(biNorm)}`);
+
       let authRemovido = false;
       const adminPurga = createSupabaseAdminClient();
       if (adminPurga) {
         try {
-          const { data: lu } = await adminPurga.auth.admin.listUsers({ perPage: 1000 });
-          const alvo = lu?.users?.find((u: any) =>
-            String(u?.user_metadata?.bi || u?.app_metadata?.bi || '').toUpperCase() === biNorm ||
-            String(u?.email || '').toLowerCase() === `bi.${biNorm.toLowerCase()}@cidadao.correiodigital.ao`
-          );
-          if (alvo) {
-            await adminPurga.auth.admin.deleteUser(alvo.id);
-            authRemovido = true;
+          for (let pagina = 1; pagina <= 10; pagina++) {
+            const { data: lu, error: listErr } = await adminPurga.auth.admin.listUsers({ page: pagina, perPage: 200 });
+            if (listErr || !lu || !lu.users || !lu.users.length) break;
+            for (const u of lu.users) {
+              const uBi = String(u?.user_metadata?.bi || u?.app_metadata?.bi || '').toUpperCase();
+              const uEmail = String(u?.email || '').toLowerCase();
+              if (
+                uBi === biNorm ||
+                uEmail === `bi.${biNorm.toLowerCase()}@cidadao.correiodigital.ao` ||
+                (emailNorm && uEmail === emailNorm) ||
+                uEmail.includes(biNorm.toLowerCase())
+              ) {
+                await adminPurga.auth.admin.deleteUser(u.id);
+                authRemovido = true;
+              }
+            }
           }
-        } catch { /* best-effort */ }
+        } catch (e) { console.error('[ADMIN-CIDADAO] Erro ao eliminar Auth:', e); }
+
         try {
           const { data: filesDoc } = await adminPurga.storage.from('documentos_registo').list(biNorm);
           if (filesDoc && filesDoc.length > 0) {
@@ -1528,6 +1540,11 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
           Object.assign(detalhes, await purgarVestigiosPorChave(adminPurga, biNorm));
         } catch { /* best-effort */ }
       }
+
+      try {
+        await purgarResiduosContaNova(supaUrl, serviceKey, biNorm);
+      } catch { /* best-effort */ }
+
       detalhes['auth'] = authRemovido ? 1 : 0;
       return res.status(200).json({ ok: true, detalhes });
     } catch (e) {

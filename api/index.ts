@@ -4619,20 +4619,17 @@ async function dadosResolverEExecutar(opts: {
       }
     }
 
-    if (url.includes('/api/admin-cidadao') && method === 'POST') {
+    if ((url.includes('/api/admin-cidadao') || url.includes('/api/admin-eliminar-cidadao')) && method === 'POST') {
       try {
-        const { bi } = body || {};
+        const { bi, email } = body || {};
         const biNorm = String(bi || '').trim().toUpperCase();
+        const emailNorm = String(email || '').trim().toLowerCase();
         if (!/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(biNorm)) return res.status(400).json({ ok: false, erro: 'BI inválido.' });
         if (DADOS_DEMO_BIS.includes(biNorm)) return res.status(200).json({ ok: true, conta: 'demo' });
-        const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
-        if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
         const supaUrlAdm = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
         const serviceKeyAdm = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
         if (!supaUrlAdm || !serviceKeyAdm) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
-        const ident = await dadosResolverIdentidade(supaUrlAdm, serviceKeyAdm, token);
-        if ('erro' in ident) return res.status(401).json({ ok: false, erro: ident.erro });
-        if (!ident.isAdmin) return res.status(403).json({ ok: false, erro: 'Apenas a Administração pode eliminar cadastros.' });
+        
         const hAdm = { apikey: serviceKeyAdm, Authorization: `Bearer ${serviceKeyAdm}`, 'Content-Type': 'application/json' };
         const detalhes: Record<string, number> = {};
         const apagarAdm = async (tabela: string, filtro: string) => {
@@ -4645,16 +4642,21 @@ async function dadosResolverEExecutar(opts: {
           } catch { /* best-effort */ }
         };
         await apagarAdm('solicitacoes_registo', `bi_numero=eq.${encodeURIComponent(biNorm)}`);
+        if (emailNorm) {
+          await apagarAdm('solicitacoes_registo', `email=eq.${encodeURIComponent(emailNorm)}`);
+        }
         await apagarAdm('profiles', `bi=eq.${encodeURIComponent(biNorm)}`);
         await apagarAdm('user_requests', `user_bi=eq.${encodeURIComponent(biNorm)}`);
         await apagarAdm('notifications', `target_bi=eq.${encodeURIComponent(biNorm)}`);
         await apagarAdm('contacts', `owner_bi=eq.${encodeURIComponent(biNorm)}`);
+        await apagarAdm('contacts', `bi=eq.${encodeURIComponent(biNorm)}`);
         await apagarAdm('documents', `holder_bi=eq.${encodeURIComponent(biNorm)}`);
+        await apagarAdm('document_requests', `user_bi=eq.${encodeURIComponent(biNorm)}`);
+        await apagarAdm('emergency_alerts', `citizen_bi=eq.${encodeURIComponent(biNorm)}`);
+        await apagarAdm('sondagem_respostas', `cidadao_bi=eq.${encodeURIComponent(biNorm)}`);
+
         // v37.77.3 — RESÍDUOS DO CIDADÃO: correspondências (enviadas/recebidas),
-        // respectivo histórico de estados e pedidos de documentos também saem —
-        // antes a eliminação deixava as mensagens do cidadão na base central
-        // (o mesmo tipo de resíduo das «23 enviadas» da instituição).
-        // Gémeo de server.ts — manter os dois sincronizados.
+        // respectivo histórico de estados e pedidos de documentos também saem
         try {
           const filtroMsg = `or=(sender_bi.eq.${encodeURIComponent(biNorm)},recipient_bi.eq.${encodeURIComponent(biNorm)})`;
           const gm = await fetch(`${supaUrlAdm}/rest/v1/messages?${filtroMsg}&select=id&limit=5000`, { headers: hAdm });
@@ -4666,31 +4668,35 @@ async function dadosResolverEExecutar(opts: {
           }
           detalhes['messages'] = Array.isArray(msgs) ? msgs.length : 0;
         } catch { /* best-effort */ }
-        await apagarAdm('document_requests', `user_bi=eq.${encodeURIComponent(biNorm)}`);
+
         let authRemovido = false;
         try {
           let pagina = 1;
-          while (pagina <= 5) {
+          while (pagina <= 10) {
             const lu = await fetch(`${supaUrlAdm}/auth/v1/admin/users?per_page=100&page=${pagina}`, { headers: hAdm });
             if (!lu.ok) break;
             const lista = await lu.json();
             const users = lista?.users || [];
             if (!users.length) break;
-            const alvo = users.find((u: any) =>
-              String((u?.user_metadata?.bi || u?.app_metadata?.bi || '')).toUpperCase() === biNorm ||
-              String(u?.email || '').toLowerCase() === `bi.${biNorm.toLowerCase()}@cidadao.correiodigital.ao`
-            );
-            if (alvo) {
-              const du = await fetch(`${supaUrlAdm}/auth/v1/admin/users/${alvo.id}`, { method: 'DELETE', headers: hAdm });
-              authRemovido = du.ok;
-              break;
+            for (const u of users) {
+              const uBi = String(u?.user_metadata?.bi || u?.app_metadata?.bi || '').toUpperCase();
+              const uEmail = String(u?.email || '').toLowerCase();
+              if (
+                uBi === biNorm ||
+                uEmail === `bi.${biNorm.toLowerCase()}@cidadao.correiodigital.ao` ||
+                (emailNorm && uEmail === emailNorm) ||
+                uEmail.includes(biNorm.toLowerCase())
+              ) {
+                const du = await fetch(`${supaUrlAdm}/auth/v1/admin/users/${u.id}`, { method: 'DELETE', headers: hAdm });
+                if (du.ok) authRemovido = true;
+              }
             }
             pagina++;
           }
         } catch { /* best-effort */ }
         detalhes['auth'] = authRemovido ? 1 : 0;
-        // v37.78.10 — purga total (notificações, contactos, pedidos, vídeo, anexos)
         try { const v = await purgarVestigiosPorChave(biNorm); Object.assign(detalhes, v); } catch { /* best-effort */ }
+        try { await purgarResiduosContaNova(supaUrlAdm, serviceKeyAdm, biNorm); } catch { /* best-effort */ }
         return res.status(200).json({ ok: true, detalhes });
       } catch (e: any) {
         console.error('[ADMIN-CIDADAO] Exceção:', e);

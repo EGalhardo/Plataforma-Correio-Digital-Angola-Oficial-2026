@@ -656,8 +656,12 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         localStorage.setItem('gov_admin_citizens', JSON.stringify(semRepetidos));
         localStorage.setItem(`citizen_pass_${newUser.biNumber}`, password);
       } catch { /* melhor esforço — não trava a confirmação imediata */ }
-      // F47-fix — novo registo submetido: limpa a marca de revogação local.
+      // F47-fix — novo registo submetido: limpa a marca de revogação local e resíduos anteriores.
       try { localStorage.removeItem('cda_revoked_' + biClean.toUpperCase()); } catch { /* ignora */ }
+      try { localStorage.removeItem(`cda_avatar_user_${biClean.toUpperCase()}`); } catch { /* ignora */ }
+      try { localStorage.removeItem(`cda_perfil_dados_user_${biClean.toUpperCase()}`); } catch { /* ignora */ }
+      try { homologationStore.clearStatus(newUser.biNumber); } catch { /* ignora */ }
+      try { homologationStore.clearThread(newUser.biNumber); } catch { /* ignora */ }
 
       // — homologação nasce PENDENTE + correspondência oficial de recepção —
       homologationStore.setStatus(newUser.biNumber, 'pending', undefined, newUser.name);

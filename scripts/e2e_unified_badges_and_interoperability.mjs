@@ -10,8 +10,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const BASE_URL = process.env.BASE || 'http://localhost:3000';
-const CID_BI = process.env.QA_BI_A || '002399714LA030';
-const CID_PASS = process.env.QA_CID_PASS || '123456789';
+const CID_BI = process.env.QA_BI_A || '009874562LA041';
+const CID_PASS = process.env.QA_CID_PASS || '123456';
 const INST_ID = process.env.QA_INST || 'AGT-9921-SR';
 const INST_PASS = process.env.QA_INST_PASS || '000000';
 

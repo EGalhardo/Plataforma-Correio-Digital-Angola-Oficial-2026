@@ -1242,12 +1242,7 @@ export function GovContactsContent({
       // matrizes biométricas locais e ficheiros do registo no storage central.
       const biKey = target.biNumber || '';
       if (biKey) {
-        // F47-fix (2026-08-19): marca de REVOGAÇÃO local — garante que, mesmo que
-        // a linha da fila na nuvem não seja apagada (admin demo sem sessão Auth,
-        // RLS recusa delete), o login deste dispositivo BLOQUEIA o cidadão
-        // eliminado. Persistência real multi-dispositivo exige agente admin
-        // autenticado (ADMIN-0001), cuja escrita na BD funciona.
-        try { localStorage.setItem('cda_revoked_' + normalizeHomologationBi(biKey), '1'); } catch (e) { /* ignora */ }
+        try { localStorage.removeItem('cda_revoked_' + normalizeHomologationBi(biKey)); } catch (e) { /* ignora */ }
         try { homologationStore.clearStatus(biKey); } catch (e) { /* ignora */ }
         try { homologationStore.clearThread(biKey); } catch (e) { /* ignora */ }
         try { localStorage.removeItem(`citizen_pass_${biKey}`); } catch (e) { /* ignora */ }
@@ -1292,11 +1287,9 @@ export function GovContactsContent({
             await supabase.storage.from('documentos_registo').remove(files.map((f: { name: string }) => `${biClean}/${f.name}`));
           }
         } catch (e) { /* ignora — storage sem permissão: eliminação lógica já garantida */ }
-        // F47 — resíduos de nuvem eliminados em cascata (best-effort): perfil e
-        // pedidos/notificações do titular, para que nada re-hidrate a identidade
-        // revogada. A conta Auth NÃO é apagada (sem chave de serviço no cliente):
-        // torna-se inerte — o login passa a ser recusado por inexistência na fila
-        // (accountGateService) e um eventual re-registo nasce PENDENTE.
+        
+        // Eliminação direta em tabelas públicas do Supabase (best-effort)
+        try { await supabase.from('solicitacoes_registo').delete().eq('bi_numero', biKey); } catch (e) { /* ignora */ }
         try { await supabase.from('profiles').delete().eq('bi', biKey); } catch (e) { /* ignora */ }
         try { await supabase.from('user_requests').delete().eq('user_bi', biKey); } catch (e) { /* ignora */ }
         try { await supabase.from('notifications').delete().eq('target_bi', biKey); } catch (e) { /* ignora */ }

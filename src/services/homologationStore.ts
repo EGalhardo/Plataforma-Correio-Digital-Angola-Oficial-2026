@@ -228,7 +228,7 @@ export const ensureCitizenHomologationChannel = (
   status: 'pending' | 'correcao' | 'active' | 'rejected' | 'blocked' = 'active',
 ): void => {
   const bi = normalizeHomologationBi(biRaw);
-  if (!bi || ALWAYS_ACTIVE_IDENTIFIERS.includes(bi)) return;
+  if (!bi) return;
   if (!homologationStore.getStatus(bi)) {
     homologationStore.setStatus(bi, status, undefined, fullName);
   }
