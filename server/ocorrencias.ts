@@ -309,10 +309,26 @@ export async function handleOcorrencias(req: any, res: any) {
         result = { actor: a, instituicoes: await institutions(db) };
         break;
       case "listar": {
+        // Obter IDs de ocorrências eliminadas apenas pelo actor actual (isolamento de conta)
+        let idsExcluidos: string[] = [];
+        try {
+          let qe = db.from("cda_ocorrencias_eventos").select("ocorrencia_id");
+          if (a.papel === "cidadao") {
+            qe = qe.eq("actor_id", a.id).eq("acao", "eliminar_cidadao");
+          } else {
+            qe = qe.eq("actor_instituicao", a.instituicao!).eq("acao", "eliminar_instituicao");
+          }
+          const re = checked<any[]>(await qe) || [];
+          idsExcluidos = re.map((x: any) => String(x.ocorrencia_id)).filter(Boolean);
+        } catch { /* melhor esforço */ }
+
         let q = scoped(
           db.from("cda_ocorrencias").select("*", { count: "exact" }),
           a,
         );
+        if (idsExcluidos.length > 0) {
+          q = q.not("id", "in", `(${idsExcluidos.join(",")})`);
+        }
         if (b.estado) q = q.eq("estado", text(b.estado, 40));
         if (b.categoria) q = q.eq("categoria", text(b.categoria, 80));
         const search = text(b.procura, 100)
@@ -336,6 +352,9 @@ export async function handleOcorrencias(req: any, res: any) {
         // 2026-09-14 — contagens por estado (06 · lista institucional): mesmo
         // âmbito e filtros da lista, excepto o filtro de estado.
         let qc = scoped(db.from("cda_ocorrencias").select("estado"), a);
+        if (idsExcluidos.length > 0) {
+          qc = qc.not("id", "in", `(${idsExcluidos.join(",")})`);
+        }
         if (b.categoria) qc = qc.eq("categoria", text(b.categoria, 80));
         if (number) qc = qc.eq("numero", Number(number[1]));
         else if (search)
@@ -560,73 +579,95 @@ export async function handleOcorrencias(req: any, res: any) {
         break;
       }
       case "eliminar": {
-        // 2026-09-20 — Eliminação definitiva: o cidadão elimina as suas
-        // ocorrências e a instituição as do seu âmbito (a autorização e o
-        // âmbito são os mesmos de todas as outras acções: occurrence()).
-        // Remove primeiro os registos dependentes para não deixar órfãos:
-        // leituras → notificações → eventos → fotografias (+ Storage) e só no
-        // fim a ocorrência. As fotografias temporárias (ocorrencia_id nulo)
-        // não são tocadas.
+        // Eliminação com isolamento por conta (remetente vs destinatário):
+        // Quando um cidadão elimina, remove apenas da sua conta;
+        // quando a instituição elimina, remove apenas da sua conta.
+        // Apenas quando AMBAS as partes tiverem eliminado ocorre a purga definitiva.
         const row = await occurrence(db, a, b.id);
-        const notifs =
+        const acaoElim = a.papel === "cidadao" ? "eliminar_cidadao" : "eliminar_instituicao";
+        
+        // Registar o evento de eliminação específica do actor
+        await db.from("cda_ocorrencias_eventos").insert({
+          ocorrencia_id: row.id,
+          actor_id: a.id,
+          actor_papel: a.papel,
+          actor_nome: a.nome,
+          actor_instituicao: a.instituicao || null,
+          acao: acaoElim,
+          estado_anterior: row.estado,
+          estado_novo: row.estado,
+          descricao: a.papel === "cidadao"
+            ? "Ocorrência eliminada da conta do cidadão."
+            : "Ocorrência eliminada da conta da instituição.",
+        });
+
+        // Verificar se ambas as partes já eliminaram
+        const evs = checked(
+          await db
+            .from("cda_ocorrencias_eventos")
+            .select("acao")
+            .eq("ocorrencia_id", row.id)
+            .in("acao", ["eliminar_cidadao", "eliminar_instituicao"])
+        ) || [];
+        const temCid = evs.some((e: any) => e.acao === "eliminar_cidadao");
+        const temInst = evs.some((e: any) => e.acao === "eliminar_instituicao");
+
+        if (temCid && temInst) {
+          // Ambas as partes eliminaram → Purga total dos registos dependentes e da ocorrência
+          const notifs =
+            checked(
+              await db
+                .from("cda_ocorrencias_notificacoes")
+                .select("id")
+                .eq("ocorrencia_id", row.id),
+            ) || [];
+          if (notifs.length)
+            checked(
+              await db
+                .from("cda_ocorrencias_leituras")
+                .delete()
+                .in(
+                  "notificacao_id",
+                  notifs.map((n: any) => n.id),
+                ),
+            );
           checked(
             await db
               .from("cda_ocorrencias_notificacoes")
-              .select("id")
+              .delete()
               .eq("ocorrencia_id", row.id),
-          ) || [];
-        if (notifs.length)
+          );
+          const fotos =
+            checked(
+              await db
+                .from("cda_ocorrencias_fotos")
+                .select("caminho")
+                .eq("ocorrencia_id", row.id),
+            ) || [];
           checked(
             await db
-              .from("cda_ocorrencias_leituras")
+              .from("cda_ocorrencias_eventos")
               .delete()
-              .in(
-                "notificacao_id",
-                notifs.map((n: any) => n.id),
-              ),
+              .eq("ocorrencia_id", row.id),
           );
-        checked(
-          await db
-            .from("cda_ocorrencias_notificacoes")
-            .delete()
-            .eq("ocorrencia_id", row.id),
-        );
-        const fotos =
           checked(
             await db
               .from("cda_ocorrencias_fotos")
-              .select("caminho")
+              .delete()
               .eq("ocorrencia_id", row.id),
-          ) || [];
-        checked(
-          await db
-            .from("cda_ocorrencias_eventos")
-            .delete()
-            .eq("ocorrencia_id", row.id),
-        );
-        checked(
-          await db
-            .from("cda_ocorrencias_fotos")
-            .delete()
-            .eq("ocorrencia_id", row.id),
-        );
-        if (fotos.length)
-          await db.storage
-            .from(BUCKET)
-            .remove(fotos.map((f: any) => f.caminho));
-        const apagadas = checked(
-          await db
-            .from("cda_ocorrencias")
-            .delete()
-            .eq("id", row.id)
-            .select("id"),
-        );
-        if (!apagadas || !apagadas.length)
-          fail(
-            404,
-            "Ocorrência não encontrada ou já encaminhada para outra instituição.",
           );
-        result = { eliminada: true, numero: row.numero };
+          if (fotos.length)
+            await db.storage
+              .from(BUCKET)
+              .remove(fotos.map((f: any) => f.caminho));
+          checked(
+            await db
+              .from("cda_ocorrencias")
+              .delete()
+              .eq("id", row.id),
+          );
+        }
+        result = { eliminada: true, numero: row.numero, purgado: temCid && temInst };
         break;
       }
       case "actuar": {

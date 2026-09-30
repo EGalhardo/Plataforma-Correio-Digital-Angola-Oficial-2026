@@ -606,14 +606,6 @@ export default function App() {
     return [];
   });
 
-  useEffect(() => {
-    localStorage.setItem('correio_digital_deleted_message_ids', JSON.stringify(deletedMessageIds));
-  }, [deletedMessageIds]);
-
-  useEffect(() => {
-    localStorage.setItem('correio_digital_hidden_message_ids', JSON.stringify(hiddenMessageIds));
-  }, [hiddenMessageIds]);
-
   // v37.31-fix — difusões «TODOS» são linhas PARTILHADAS por todos os
   // cidadãos: arquivar/eliminar na nuvem por UM cidadão escondia a mensagem
   // de TODOS os outros (a caixa filtra state_indicator Arquivada). Nesses
@@ -626,19 +618,35 @@ export default function App() {
   const handleDeleteMessage = (id: number) => {
     const baseId = id >= 10000 && id < 90000000 ? id - 10000 : id;
     const jaArquivada = deletedMessageIds.includes(id);
+    const normElim = (v?: string) => String(v || '').toUpperCase().replace(/\s+/g, '').replace(/-\d{2}$/, '');
+    const minhaChaveElim = normElim(isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi));
+
     if (!jaArquivada) {
-      // 1.º clique: mover para as Eliminadas / Arquivadas
+      // 1.º clique: mover para as Eliminadas / Arquivadas da conta actual
       setDeletedMessageIds(prev => prev.includes(id) ? prev : [...prev, id]);
       if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
-        supabaseService.updateMessageState(baseId, { state_indicator: 'Arquivada' }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
-        supabaseService.insertMessageStateEvent({
-          messageId: baseId,
-          state: 'Arquivada',
-          responsible: user?.name || 'Utilizador',
-          description: 'Correspondência movida para as eliminadas pelo utilizador.'
-        }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+        void (async () => {
+          const fresca = await lerMensagemParaEliminacao(baseId).catch(() => null);
+          const actionsAtuais: string[] = fresca && fresca.actions.length
+            ? fresca.actions
+            : (() => {
+                const fonte = [...inbox, ...docInbox, ...instInbox, ...instDocInbox, ...sentMessages, ...docSentMessages]
+                  .find(m => m.id === id || ((m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id) === baseId));
+                return Array.isArray(fonte?.details?.actions) ? (fonte!.details!.actions as string[]) : [];
+              })();
+          // Preserva a correspondência na outra conta; regista marcador de arquivo da conta actual
+          supabaseService.updateMessageState(baseId, {
+            actions: [...actionsAtuais.filter(a => a !== `ARQ:${minhaChaveElim}`), `ARQ:${minhaChaveElim}`],
+          }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+          supabaseService.insertMessageStateEvent({
+            messageId: baseId,
+            state: 'Arquivada',
+            responsible: user?.name || minhaChaveElim || 'Utilizador',
+            description: `Correspondência movida para as eliminadas na conta de ${minhaChaveElim}.`
+          }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+        })();
       }
-      notify('Correspondência movida para as eliminadas.', 'success');
+      notify('Correspondência movida para as eliminadas na sua conta.', 'success');
       return;
     }
 
@@ -646,8 +654,6 @@ export default function App() {
     if (!hiddenMessageIds.includes(id)) {
       setHiddenMessageIds(prev => prev.includes(id) ? prev : [...prev, id]);
       if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
-        const normElim = (v?: string) => String(v || '').toUpperCase().replace(/\s+/g, '').replace(/-\d{2}$/, '');
-        const minhaChaveElim = normElim(isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi));
         void (async () => {
           const fresca = await lerMensagemParaEliminacao(baseId).catch(() => null);
           const actionsElim: string[] = fresca && fresca.actions.length
@@ -671,33 +677,47 @@ export default function App() {
               rPurga && rPurga.ok ? 'success' : 'warning');
           } else {
             supabaseService.updateMessageState(baseId, {
-              state_indicator: 'EliminadaPermanente',
               actions: [...actionsElim.filter(a => !a.startsWith('ELIM_PERM:')), `ELIM_PERM:${minhaChaveElim}`],
             }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
             supabaseService.insertMessageStateEvent({
               messageId: baseId,
               state: 'EliminadaPermanente',
-              responsible: user?.name || 'Utilizador',
-              description: 'Correspondência eliminada permanentemente da vista do utilizador.'
+              responsible: user?.name || minhaChaveElim || 'Utilizador',
+              description: `Correspondência eliminada permanentemente da conta de ${minhaChaveElim}.`
             }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
           }
         })();
       }
-      notify('Correspondência eliminada permanentemente.', 'success');
+      notify('Correspondência eliminada permanentemente na sua conta.', 'success');
     }
   };
 
   const handleRestoreMessage = (id: number) => {
     setDeletedMessageIds(prev => prev.filter(mid => mid !== id));
     const baseId = id >= 10000 && id < 90000000 ? id - 10000 : id;
+    const normElim = (v?: string) => String(v || '').toUpperCase().replace(/\s+/g, '').replace(/-\d{2}$/, '');
+    const minhaChaveElim = normElim(isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi));
+
     if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
-      supabaseService.updateMessageState(baseId, { state_indicator: 'Ativa' }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
-      supabaseService.insertMessageStateEvent({
-        messageId: baseId,
-        state: 'Restaurada',
-        responsible: user?.name || 'Utilizador',
-        description: 'Correspondência restaurada do arquivo.'
-      }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+      void (async () => {
+        const fresca = await lerMensagemParaEliminacao(baseId).catch(() => null);
+        const actionsAtuais: string[] = fresca && fresca.actions.length
+          ? fresca.actions
+          : (() => {
+              const fonte = [...inbox, ...docInbox, ...instInbox, ...instDocInbox, ...sentMessages, ...docSentMessages]
+                .find(m => m.id === id || ((m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id) === baseId));
+              return Array.isArray(fonte?.details?.actions) ? (fonte!.details!.actions as string[]) : [];
+            })();
+        supabaseService.updateMessageState(baseId, {
+          actions: actionsAtuais.filter(a => a !== `ARQ:${minhaChaveElim}` && a !== `ELIM_PERM:${minhaChaveElim}`),
+        }).catch(() => {});
+        supabaseService.insertMessageStateEvent({
+          messageId: baseId,
+          state: 'Restaurada',
+          responsible: user?.name || minhaChaveElim || 'Utilizador',
+          description: `Correspondência restaurada na conta de ${minhaChaveElim}.`
+        }).catch(() => {});
+      })();
     }
     notify('Correspondência restaurada com sucesso.', 'success');
   };
@@ -3931,6 +3951,42 @@ export default function App() {
   const isDemoSession = isDemoCitizenSession || isDemoInstitutionSession || isDemoAdminSession;
   const sessionOwnerKey = isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi);
   const stampNotif = (n: AppNotification): AppNotification => ({ ...n, ownerId: sessionOwnerKey });
+
+  // Isolamento de eliminação e arquivo por conta activa
+  const activeUserStorageKey = (sessionOwnerKey || (isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi)) || 'anon').toUpperCase();
+
+  useEffect(() => {
+    if (!activeUserStorageKey || activeUserStorageKey === 'ANON') return;
+    const savedDeleted = localStorage.getItem(`cda_deleted_messages_${activeUserStorageKey}`);
+    if (savedDeleted) {
+      try {
+        const parsed = JSON.parse(savedDeleted);
+        if (Array.isArray(parsed)) setDeletedMessageIds(parsed);
+      } catch {}
+    } else {
+      setDeletedMessageIds([]);
+    }
+
+    const savedHidden = localStorage.getItem(`cda_hidden_messages_${activeUserStorageKey}`);
+    if (savedHidden) {
+      try {
+        const parsed = JSON.parse(savedHidden);
+        if (Array.isArray(parsed)) setHiddenMessageIds(parsed);
+      } catch {}
+    } else {
+      setHiddenMessageIds([]);
+    }
+  }, [activeUserStorageKey]);
+
+  useEffect(() => {
+    if (!activeUserStorageKey || activeUserStorageKey === 'ANON') return;
+    localStorage.setItem(`cda_deleted_messages_${activeUserStorageKey}`, JSON.stringify(deletedMessageIds));
+  }, [deletedMessageIds, activeUserStorageKey]);
+
+  useEffect(() => {
+    if (!activeUserStorageKey || activeUserStorageKey === 'ANON') return;
+    localStorage.setItem(`cda_hidden_messages_${activeUserStorageKey}`, JSON.stringify(hiddenMessageIds));
+  }, [hiddenMessageIds, activeUserStorageKey]);
   const isOwnCitizenMail = (m: Message) =>
     isOwnHomologationMail(m) ||
     (!!m.recipientBi && (normalizeHomologationBi(m.recipientBi) === normalizeHomologationBi(bi) || String(m.recipientBi).toUpperCase() === 'TODOS')) ||
