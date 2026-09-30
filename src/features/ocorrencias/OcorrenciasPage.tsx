@@ -738,7 +738,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
     if (!actor) return;
     const timer = setInterval(() => {
       if (document.visibilityState === "visible") void refreshUnread();
-    }, 8000);
+    }, 15000);
     return () => clearInterval(timer);
   }, [actor, refreshUnread]);
   useEffect(() => {

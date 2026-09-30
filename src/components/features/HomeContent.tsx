@@ -81,7 +81,7 @@ export function HomeContent({
       finally { fetching = false; }
     };
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 8000);
+    const timer = window.setInterval(() => void refresh(), 15000);
     const visible = () => void refresh();
     window.addEventListener('focus', visible);
     document.addEventListener('visibilitychange', visible);

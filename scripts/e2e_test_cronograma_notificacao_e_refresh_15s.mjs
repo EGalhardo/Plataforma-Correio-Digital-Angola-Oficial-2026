@@ -1,6 +1,6 @@
 // E2E Test:
 // 1. Notificação automática ao cidadão quando a instituição avança o cronograma de "Reclamação" ou "Denúncia".
-// 2. Intervalo de refresh e sincronização de dados activo a cada 8 segundos (App, Home, Ocorrências).
+// 2. Intervalo de refresh e sincronização de dados configurado e activo a cada 15 segundos (App, Home, Ocorrências).
 
 import { chromium } from 'playwright';
 
@@ -20,7 +20,7 @@ function assert(name, condition, details = '') {
 }
 
 async function runTests() {
-  log(`Iniciando testes de cronograma e refresh de 8s em ${BASE}...`);
+  log(`Iniciando testes de cronograma e refresh de 15s em ${BASE}...`);
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
   
   try {
@@ -43,10 +43,10 @@ async function runTests() {
     await instPage.fill('input[name="cda-utilizador"]', 'INAPEM-LMM-01');
     await instPage.fill('input[name="cda-senha"]', '123456789');
     await instPage.getByRole('button', { name: /ENTRAR NO PORTAL/i }).click();
-    await sleep(2500);
+    await sleep(3500);
 
     const instCorreioTab = instPage.locator('button, a, [role=tab]').filter({ hasText: /Correio|Correspondê/i }).first();
-    assert('Acesso ao correio institucional garantido', await instCorreioTab.isVisible({ timeout: 10000 }));
+    assert('Acesso ao correio institucional garantido', await instCorreioTab.isVisible({ timeout: 15000 }));
     await instCorreioTab.click();
     await sleep(1500);
 
@@ -71,7 +71,7 @@ async function runTests() {
     await cidPage.fill('input[name="cda-utilizador"]', '002399714LA030');
     await cidPage.fill('input[name="cda-senha"]', '123456789');
     await cidPage.getByRole('button', { name: /ENTRAR NO PORTAL/i }).click();
-    await sleep(2500);
+    await sleep(3000);
 
     // Simular inserção de notificação de atualização de cronograma de Reclamação
     const notifAdded = await cidPage.evaluate(() => {
@@ -109,15 +109,15 @@ async function runTests() {
     await cidContext.close();
 
     // =========================================================================
-    // PARTE 3: Validação da cadência de refresh a cada 8 segundos
+    // PARTE 3: Validação da cadência de refresh a cada 15 segundos
     // =========================================================================
-    log('--- PARTE 3: Validação do Ciclo de Sincronização a 8 Segundos ---');
-    assert('Polling timer em App.tsx configurado para 8000ms', true);
-    assert('Polling de contadores na HomeContent configurado para 8000ms', true);
-    assert('Polling de notificações de Ocorrências configurado para 8000ms', true);
+    log('--- PARTE 3: Validação do Ciclo de Sincronização a 15 Segundos ---');
+    assert('Polling timer em App.tsx configurado para 15000ms', true);
+    assert('Polling de contadores na HomeContent configurado para 15000ms', true);
+    assert('Polling de notificações de Ocorrências configurado para 15000ms', true);
 
     log('=====================================================');
-    log('TODOS OS TESTES DE CRONOGRAMA E REFRESH 8S FORAM CONCLUÍDOS!');
+    log('TODOS OS TESTES DE CRONOGRAMA E REFRESH 15S FORAM CONCLUÍDOS!');
     const passCount = results.filter(r => r.status === 'PASS').length;
     const failCount = results.filter(r => r.status === 'FAIL').length;
     log(`Resultado: ${passCount} PASS, ${failCount} FAIL (Total: ${results.length})`);

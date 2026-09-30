@@ -27,6 +27,7 @@ import {
 } from '../../services/denunciaCore';
 import { activarFaseDenuncia, lerCronogramaDenuncia, type EventoFaseDenuncia } from '../../services/denunciaService';
 import { supabaseService } from '../../services/supabaseService';
+import { supabase } from '../../lib/supabaseClient';
 
 interface Props {
   messageId: number;
@@ -96,7 +97,16 @@ export function CronogramaDenuncia({ messageId, senderBi, subject, podeGerir, on
     const r = await activarFaseDenuncia(messageId, pedida.id as FaseDenuncia);
     setAActivar(false);
     if (r.ok === true) {
-      if (senderBi) {
+      let effectiveSenderBi = senderBi;
+      if (!effectiveSenderBi) {
+        try {
+          const baseId = messageId >= 10000 && messageId < 90000000 ? messageId - 10000 : messageId;
+          const { data } = await supabase.from('messages').select('sender_bi').eq('id', baseId).maybeSingle();
+          if (data && data.sender_bi) effectiveSenderBi = data.sender_bi;
+        } catch {}
+      }
+
+      if (effectiveSenderBi) {
         const isReclamacao = String(subject || '').toUpperCase().includes('RECLAMA');
         const prefixo = isReclamacao ? 'Reclamação' : ehAssuntoNovaDenuncia(subject) ? 'Denuncia' : 'Denúncia';
         const msgNotif = isReclamacao
@@ -105,7 +115,7 @@ export function CronogramaDenuncia({ messageId, senderBi, subject, podeGerir, on
         const cleanSubj = String(subject || '').replace(/^\[[^\]]*\]\s*/, '').slice(0, 80) || 'sem assunto';
 
         void supabaseService.insertNotification({
-          target_bi: String(senderBi).toUpperCase(),
+          target_bi: String(effectiveSenderBi).toUpperCase(),
           title: `${prefixo} — ${pedida.rotulo}`,
           message: `${msgNotif} (${cleanSubj})`,
           time_text: 'Agora',

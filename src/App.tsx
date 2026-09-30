@@ -4136,7 +4136,7 @@ export default function App() {
       invalidateMessagesReadCache();
       setTriggerRefetch(t => t + 1);
       void syncPerfilAutoRef.current();
-    }, 8000);
+    }, 15000);
 
     return () => {
       window.removeEventListener('focus', handleFocusOrVisible);
