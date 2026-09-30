@@ -29,6 +29,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { ListaRolavel } from "../../components/ui/ListaRolavel";
+import { generateProtocol, sealProtocolForSend } from "../../utils/protocolGenerator";
+import { supabaseService } from "../../services/supabaseService";
+import type { Message } from "../../types";
 import {
   ocorrenciasApi,
   prepararFotografia,
@@ -1043,6 +1046,78 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
       setSuccess(
         `${protocoloOcorrencia(r.ocorrencia.numero)} submetida. Aguarda confirmação de recepção pela instituição.`,
       );
+
+      // Correspondência oficial anexada + protocolo digital selado
+      // Padrão institucional CDA (igual a Vídeo-Atendimento, Denúncias e Inquéritos)
+      try {
+        const ocorrencia = r.ocorrencia;
+        const numRotulo = protocoloOcorrencia(ocorrencia.numero);
+        const assuntoMsg = `Ocorrência: ${ocorrencia.titulo ? `${ocorrencia.titulo} (${numRotulo})` : numRotulo}`;
+        const destInst = String(ocorrencia.instituicao_codigo || dadosEnvio.instituicao_codigo || '').trim().toUpperCase();
+        const remetenteBi = String(actor?.identificador || '').trim().toUpperCase();
+        const messageId = Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);
+
+        const corpoMsg = [
+          `REGISTO OFICIAL DE OCORRÊNCIA — ${numRotulo}`,
+          `==================================================`,
+          `Identificador / Protocolo: ${numRotulo}`,
+          `Título da Ocorrência: ${ocorrencia.titulo}`,
+          `Categoria: ${ocorrencia.categoria}`,
+          `Estado Inicial: ${ESTADOS_OCORRENCIAS[ocorrencia.estado] || ocorrencia.estado}`,
+          `Data de Registo: ${new Date().toLocaleString('pt-AO')}`,
+          `--------------------------------------------------`,
+          `Localização Geográfica:`,
+          `Província: ${ocorrencia.provincia}`,
+          `Município: ${ocorrencia.municipio}`,
+          ocorrencia.bairro ? `Bairro: ${ocorrencia.bairro}` : '',
+          ocorrencia.rua ? `Rua / Via: ${ocorrencia.rua}` : '',
+          ocorrencia.referencia ? `Ponto de Referência: ${ocorrencia.referencia}` : '',
+          ocorrencia.lat && ocorrencia.lon ? `Coordenadas GPS: ${ocorrencia.lat.toFixed(5)}, ${ocorrencia.lon.toFixed(5)} (precisão ±${ocorrencia.precisao_m || 0}m)` : '',
+          `--------------------------------------------------`,
+          `Descrição Detalhada do Incidente:`,
+          ocorrencia.descricao,
+          `==================================================`,
+          `Esta correspondência foi gerada automaticamente pelo módulo oficial de Ocorrências do Correio Digital de Angola.`,
+          `Para acompanhar, responder ou atualizar o estado, consulte o módulo «Ocorrências» na plataforma.`
+        ].filter(Boolean).join('\n');
+
+        if (destInst && remetenteBi) {
+          const rawProto = generateProtocol(destInst, 'message', messageId, assuntoMsg);
+          const protocol = await sealProtocolForSend(rawProto, remetenteBi, destInst, assuntoMsg, corpoMsg);
+
+          const novaMensagem: Message = {
+            id: messageId,
+            org: destInst,
+            preview: `Ocorrência: ${ocorrencia.titulo || numRotulo}`,
+            date: 'hoje',
+            status: 'Informativo',
+            details: {
+              subject: assuntoMsg,
+              body: corpoMsg,
+              deadline: 'Acompanhamento contínuo',
+              state: 'Entregue & Autenticado',
+              actions: ['Ver detalhes', 'OCORRENCIA', `OCORRENCIA_ID:${ocorrencia.id}`, `OCORRENCIA_NUM:${ocorrencia.numero}`],
+              protocol,
+            },
+            senderKey: remetenteBi,
+            recipientBi: destInst,
+            unread: true,
+          };
+
+          await supabaseService.insertMessage(novaMensagem);
+
+          // Notificação oficial na caixa de notificações da instituição
+          await supabaseService.insertNotification({
+            title: `Nova Ocorrência: ${numRotulo}`,
+            message: `O cidadão ${remetenteBi} submeteu a ocorrência «${ocorrencia.titulo}» (${ocorrencia.categoria}) em ${ocorrencia.municipio}, ${ocorrencia.provincia}.`,
+            type: 'info',
+            targetTab: 'ocorrencias',
+          }, destInst);
+        }
+      } catch (errCorr) {
+        console.warn('[OcorrenciasPage] Aviso ao registar correspondência oficial de ocorrência:', errCorr);
+      }
+
       void openDetail(r.ocorrencia.id);
       void refreshUnread();
     } catch (e) {
@@ -1358,6 +1433,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
         {view === "lista" && !institutional && (
           <button
             type="button"
+            data-testid="btn-registar-ocorrencia"
             onClick={newReport}
             className={`${primary} w-full sm:w-auto`}
           >

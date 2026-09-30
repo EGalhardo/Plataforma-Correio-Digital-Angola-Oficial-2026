@@ -542,6 +542,31 @@ export async function sealProtocolContent(canonical: string): Promise<string | n
   }
 }
 
+export async function sealProtocolForSend(
+  protocol: DigitalProtocol,
+  senderKey: string,
+  recipientKey: string,
+  subject: string,
+  body: string,
+  issuerResponsible: string = 'Sistema CADA',
+): Promise<DigitalProtocol> {
+  const hash = await sealProtocolContent(
+    canonicalProtocolPayload({
+      protocolNumber: protocol.protocolNumber,
+      senderKey,
+      recipientKey,
+      subject,
+      body,
+    }),
+  );
+  return {
+    ...protocol,
+    digitalSignature: hash || 'NAO_SELADO',
+    documentHash: hash || 'NAO_SELADO',
+    issuerResponsible,
+  };
+}
+
 // ============================================================================
 // Q-3 (2026-08-21) — deep-link QR CONSISTENTE com um protocolo já existente.
 // ----------------------------------------------------------------------------

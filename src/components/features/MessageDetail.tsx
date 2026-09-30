@@ -383,6 +383,23 @@ export function MessageDetail({
       details: selectedMessage.details ? { ...selectedMessage.details, state: 'Respondida' } : undefined,
       auditLogs: [...(selectedMessage.auditLogs || []), `${agora.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })} - Inquérito com IA concluído pelo cidadão`],
     });
+
+    const instDestinataria = String(
+      selectedMessage?.senderKey || 
+      selectedMessage?.org || 
+      (selectedMessage as any)?.sender_bi || 
+      (selectedMessage as any)?.senderBi || 
+      ''
+    ).trim().toUpperCase();
+
+    if (instDestinataria) {
+      void supabaseService.insertNotification({
+        title: 'Resposta ao Inquérito IA',
+        message: `O cidadão ${cidadaoBi || 'participante'} respondeu e concluiu o inquérito com IA da correspondência «${selectedMessage?.details?.subject || selectedMessage?.preview}».`,
+        type: 'info',
+        targetTab: 'inqueritos',
+      }, instDestinataria);
+    }
   };
   // Cartões «Iniciar Inquérito» (um por inquérito embutido) — só na área do cidadão.
   const inqIaJsx = cidadaoBi && idsInqIA.length > 0 ? (
@@ -661,6 +678,33 @@ export function MessageDetail({
     setRegistandoSond(false);
     setConfirmaSond(false);
     addAuditLog?.(`Cidadão confirmou respostas a ${idsSondagem.length} sondagem(s) via «Responder ao Documento».`, 'info');
+
+    // Actualizar estado da mensagem para Respondida
+    if (onUpdateMessage && selectedMessage) {
+      onUpdateMessage({
+        ...selectedMessage,
+        details: selectedMessage.details ? { ...selectedMessage.details, state: 'Respondida' } : undefined,
+      });
+    }
+
+    // Emitir notificação para a instituição emissora
+    const instDestinataria = String(
+      selectedMessage?.senderKey || 
+      selectedMessage?.org || 
+      (selectedMessage as any)?.sender_bi || 
+      (selectedMessage as any)?.senderBi || 
+      ''
+    ).trim().toUpperCase();
+
+    if (instDestinataria) {
+      void supabaseService.insertNotification({
+        title: 'Resposta ao Inquérito / Sondagem',
+        message: `O cidadão ${cidadaoBi} respondeu ao inquérito/sondagem da correspondência: «${selectedMessage?.details?.subject || selectedMessage?.preview}».`,
+        type: 'info',
+        targetTab: 'inqueritos',
+      }, instDestinataria);
+    }
+
     setPopupSond({ ok: true, texto: 'Respostas registadas com sucesso. Obrigado pela sua participação.' });
   };
   // v37.5 — fechar o popup de sucesso («Resposta Registada») volta à página
