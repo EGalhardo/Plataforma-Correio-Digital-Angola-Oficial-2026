@@ -306,7 +306,7 @@ async function startServer() {
   // ANÓNIMAS de perfil: 20 pedidos/minuto por IP (anti-enumeração de BIs).
   // Pedidos com sessão válida NÃO são limitados (a app hidrata em lote).
   const PERFIL_RL_JANELA_MS = 60_000;
-  const PERFIL_RL_MAX = 20;
+  const PERFIL_RL_MAX = 120;
   const perfilRL = new Map<string, { n: number; ate: number }>();
   const perfilRateLimitOk = (req: any): boolean => {
     const ip = String((req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'desconhecido');

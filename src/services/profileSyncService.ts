@@ -429,11 +429,12 @@ export const puxarPerfilDaNuvem = async (
   client: SupabaseClient,
   bi: string,
 ): Promise<Record<string, string> | null> => {
-  if (!bi.trim() || !client?.from) return null;
+  const biNorm = String(bi || '').trim().toUpperCase();
+  if (!biNorm || !/^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(biNorm) || !client?.from) return null;
   const { data, error } = await client
     .from('profiles')
     .select(PROFILE_HYDRATION_COLUMNS)
-    .eq('bi', bi.trim())
+    .eq('bi', biNorm)
     .maybeSingle();
   if (!error && data) {
     const campos = profileRowToCitizenFields(data as Record<string, unknown> | null);
@@ -450,7 +451,7 @@ export const puxarPerfilDaNuvem = async (
       const tokP = sessP?.session?.access_token;
       if (tokP) hdrsPerfil = { Authorization: `Bearer ${tokP}` };
     } catch { /* sem sessão → chamada anónima (payload mínimo) */ }
-    const resp = await fetch(`/api/perfil?bi=${encodeURIComponent(bi.trim())}`, hdrsPerfil ? { headers: hdrsPerfil } : undefined);
+    const resp = await fetch(`/api/perfil?bi=${encodeURIComponent(biNorm)}`, hdrsPerfil ? { headers: hdrsPerfil } : undefined);
     const json = await resp.json().catch(() => null);
     if (json && json.ok === true && json.perfil) {
       const campos = profileRowToCitizenFields(json.perfil as Record<string, unknown>);
