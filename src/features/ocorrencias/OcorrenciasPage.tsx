@@ -1091,20 +1091,20 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
             preview: `Ocorrência: ${ocorrencia.titulo || numRotulo}`,
             date: 'hoje',
             status: 'Informativo',
+            protocol,
             details: {
               subject: assuntoMsg,
               body: corpoMsg,
               deadline: 'Acompanhamento contínuo',
               state: 'Entregue & Autenticado',
               actions: ['Ver detalhes', 'OCORRENCIA', `OCORRENCIA_ID:${ocorrencia.id}`, `OCORRENCIA_NUM:${ocorrencia.numero}`],
-              protocol,
             },
             senderKey: remetenteBi,
             recipientBi: destInst,
-            unread: true,
+            unread: 1,
           };
 
-          await supabaseService.insertMessage(novaMensagem);
+          await supabaseService.insertMessage(novaMensagem, destInst);
 
           // Notificação oficial na caixa de notificações da instituição
           await supabaseService.insertNotification({

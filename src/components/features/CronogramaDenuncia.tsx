@@ -21,7 +21,7 @@ import {
   FASES_DENUNCIA,
   definicaoFase,
   proximaFase,
-  ehNovaDenuncia,
+  ehAssuntoNovaDenuncia,
   type DefinicaoFase,
   type FaseDenuncia,
 } from '../../services/denunciaCore';
@@ -98,7 +98,7 @@ export function CronogramaDenuncia({ messageId, senderBi, subject, podeGerir, on
     if (r.ok === true) {
       if (senderBi) {
         const isReclamacao = String(subject || '').toUpperCase().includes('RECLAMA');
-        const prefixo = isReclamacao ? 'Reclamação' : ehNovaDenuncia(subject) ? 'Denuncia' : 'Denúncia';
+        const prefixo = isReclamacao ? 'Reclamação' : ehAssuntoNovaDenuncia(subject) ? 'Denuncia' : 'Denúncia';
         const msgNotif = isReclamacao
           ? (pedida.id === 'encerrada' ? 'O processo da sua reclamação foi encerrado.' : pedida.id === 'respondida' ? 'A instituição respondeu à sua reclamação.' : `A sua reclamação passou para o estado «${pedida.rotulo}».`)
           : (pedida.id === 'encerrada' ? 'O processo da sua denúncia foi encerrado.' : pedida.id === 'respondida' ? 'A instituição respondeu à sua denúncia.' : `A sua denúncia passou para o estado «${pedida.rotulo}».`);

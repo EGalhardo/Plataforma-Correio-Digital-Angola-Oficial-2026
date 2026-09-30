@@ -4823,7 +4823,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         {ehDenunciaActual && (
                           <CronogramaDenuncia
                             messageId={selectedMessage.id}
-                            senderBi={selectedMessage.senderBi || selectedMessage.sender || (selectedMessage as any).sender_bi}
+                            senderBi={selectedMessage.senderKey || (selectedMessage as any).senderBi || selectedMessage.org}
                             subject={selectedMessage.details?.subject || selectedMessage.preview}
                             podeGerir={!cidadaoBi && !!podeGerirDenuncia}
                             onRegistar={(texto) => {

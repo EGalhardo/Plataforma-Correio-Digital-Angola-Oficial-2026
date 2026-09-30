@@ -3452,6 +3452,11 @@ export default function App() {
         invalidateMessagesReadCache(); // N-3 — qq mudança na nuvem fura o micro-cache
         setTriggerRefetch(t => t + 1);
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_state_history' }, () => {
+        console.debug('CADA: Supabase Realtime detectou alteração em histórico de estados/cronograma!');
+        invalidateMessagesReadCache();
+        setTriggerRefetch(t => t + 1);
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => {
         console.debug('CADA: Supabase Realtime detectou alteração em documentos!');
         setTriggerRefetch(t => t + 1);
@@ -4879,7 +4884,7 @@ export default function App() {
     // contactos que já tenham trocado contacto/correspondência com a conta actual.
     if (!override && /^TODOS$/i.test(to)) {
       const codigoDifusao = isInstMode
-        ? (resolveInstitutionCode(effectiveInstCode || institutionCode || bi) || (institutionCode || bi))
+        ? (resolveInstitutionCode(institutionCode || bi) || (institutionCode || bi))
         : normalizeHomologationBi(bi);
 
       let pool: string[] = [];

@@ -2217,17 +2217,19 @@ export const supabaseService = {
   /**
    * Save a system notification to Supabase
    */
-  async insertNotification(notif: LinhaNotificacao, targetBi: string) {
+  async insertNotification(notif: LinhaNotificacao & { target_bi?: string; targetBi?: string; time_text?: string; target_tab?: string }, targetBi?: string) {
     if (!hasValidSupabaseKeys()) return null;
+    const effectiveTargetBi = String(targetBi || notif.target_bi || notif.targetBi || '').toUpperCase().trim();
+    if (!effectiveTargetBi) return null;
     try {
-      await ensureProfileExists(targetBi, undefined, inferProfileRole(targetBi));
+      await ensureProfileExists(effectiveTargetBi, undefined, inferProfileRole(effectiveTargetBi));
       const payload = {
-        target_bi: targetBi,
+        target_bi: effectiveTargetBi,
         title: notif.title,
         message: notif.message,
-        time_text: notif.time || 'Agora',
+        time_text: notif.time || notif.time_text || 'Agora',
         type: notif.type || 'info',
-        target_tab: notif.targetTab || 'home',
+        target_tab: notif.targetTab || notif.target_tab || 'home',
         // read_at fica NULL (não lida) — a tabela de produção não tem 'unread'.
       };
       // v25 (familia do bug de auditoria — provado por sonda REST em 2026-08-05):
