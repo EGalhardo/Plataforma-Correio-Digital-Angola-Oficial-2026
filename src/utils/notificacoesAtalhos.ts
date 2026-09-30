@@ -166,7 +166,7 @@ export function contarNotificacoesAtalhos(
   const counts: ContagensAtalhos = {
     'video-atendimento': naoLidas.filter(isVideoAtendimentoMessage).length,
     'inqueritos': naoLidas.filter(isInqueritoMessage).length,
-    'ocorrencias': naoLidas.filter(isOcorrenciaMessage).length,
+    'ocorrencias': Math.max(ocorrencias, naoLidas.filter(isOcorrenciaMessage).length),
     'nova-denuncia': naoLidas.filter(isNovaDenunciaMessage).length,
     'denuncias': naoLidas.filter(isReclamacaoDenunciaMessage).length,
   };

@@ -2537,6 +2537,7 @@ export function MailContent({
             return (
               <button 
                 key={tab.id}
+                data-testid={`tab-${tab.id}`}
                 onClick={() => setCorrespondenciaTab(tab.id)}
                 className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-[11px] md:text-xs font-black uppercase tracking-tight transition-all border-0 cursor-pointer ${activeStyle}`}
               >

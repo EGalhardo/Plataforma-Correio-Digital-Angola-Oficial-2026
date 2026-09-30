@@ -4932,6 +4932,8 @@ export default function App() {
       date: "hoje",
       status: "Informativo",
       deadlineAt: deadlineAtEnvio,
+      ...(sondagensIdsEnvio?.length ? { sondagem_id: sondagensIdsEnvio[0], sondagem_ids: sondagensIdsEnvio } : {}),
+      ...(inqueritosIaIdsEnvio?.length ? { inquerito_ia_id: inqueritosIaIdsEnvio[0], inquerito_ia_ids: inqueritosIaIdsEnvio } : {}),
       details: {
         subject: effectiveSubject,
         body: body,

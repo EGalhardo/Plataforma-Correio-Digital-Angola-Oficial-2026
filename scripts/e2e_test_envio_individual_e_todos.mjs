@@ -40,11 +40,18 @@ async function runTests() {
 
     // Testar modo Cidadão canónico demo (ou login)
     // Clicar em Entrar ou verificar se já está autenticado
+    const userInput = page.locator('input[name="cda-utilizador"]').first();
+    if (await userInput.isVisible().catch(() => false)) {
+      log('Preenchendo credenciais do Cidadão...');
+      await userInput.fill('002399714LA030');
+      await page.fill('input[name="cda-senha"]', '123456789');
+    }
+
     const loginBtn = page.getByRole('button', { name: /Entrar no Portal/i }).first();
     if (await loginBtn.isVisible().catch(() => false)) {
       log('Realizando login como Cidadão...');
       await loginBtn.click();
-      await sleep(2000);
+      await sleep(2500);
     }
 
     // Navegar para Correio / Correspondência

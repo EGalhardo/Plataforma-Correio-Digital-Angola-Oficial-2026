@@ -309,11 +309,11 @@ export function MessageDetail({
   const { t } = useLanguage();
 
   // ---- v37.4 — respostas às sondagens consolidadas no «Responder ao Documento»
-  const idsSondagem: number[] = (
-    selectedMessage?.sondagem_ids?.length
-      ? (selectedMessage?.sondagem_ids as (number | string)[])
-      : (selectedMessage?.sondagem_id ? [selectedMessage?.sondagem_id] : [])
-  ).map(Number);
+  const idsSondagem: number[] = Array.from(new Set([
+    ...(Array.isArray(selectedMessage?.sondagem_ids) ? selectedMessage.sondagem_ids : []),
+    ...(selectedMessage?.sondagem_id ? [selectedMessage.sondagem_id] : []),
+    ...((selectedMessage as any)?.sondagemId ? [(selectedMessage as any).sondagemId] : []),
+  ])).map(Number).filter(n => Number.isFinite(n) && n > 0);
   const [sondDetalhe, setSondDetalhe] = useState<Record<number, Sondagem>>({});
   const [respSond, setRespSond] = useState<Record<number, { escolhas: string[]; registada: boolean }>>({});
   const [confirmaSond, setConfirmaSond] = useState(false);
@@ -334,11 +334,11 @@ export function MessageDetail({
   const ehInstSondagem = !cidadaoBi && idsSondagem.length > 0;
 
   // ---- 2026-09-10 — Inquérito com IA (cidadão): estado do(s) inquérito(s) embutido(s)
-  const idsInqIA: number[] = (
-    selectedMessage?.inquerito_ia_ids?.length
-      ? (selectedMessage?.inquerito_ia_ids as (number | string)[])
-      : (selectedMessage?.inquerito_ia_id ? [selectedMessage?.inquerito_ia_id] : [])
-  ).map(Number).filter((n) => Number.isFinite(n) && n > 0);
+  const idsInqIA: number[] = Array.from(new Set([
+    ...(Array.isArray(selectedMessage?.inquerito_ia_ids) ? selectedMessage.inquerito_ia_ids : []),
+    ...(selectedMessage?.inquerito_ia_id ? [selectedMessage.inquerito_ia_id] : []),
+    ...((selectedMessage as any)?.inqueritoIaId ? [(selectedMessage as any).inqueritoIaId] : []),
+  ])).map(Number).filter((n) => Number.isFinite(n) && n > 0);
   const [inqIaItens, setInqIaItens] = useState<Record<number, InqueritoIA>>({});
   const [inqIaMinha, setInqIaMinha] = useState<Record<number, RespostaInqueritoIA | null>>({});
   const [inqIaAberto, setInqIaAberto] = useState<InqueritoIA | null>(null);
@@ -488,9 +488,9 @@ export function MessageDetail({
                 disabled={!q}
                 onClick={() => q && setInqIaResultados(q)}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-[11px] font-black uppercase tracking-widest border-0 cursor-pointer shadow active:scale-95 transition-all"
-                id={`btn-resultados-inquerito-ia-${id}`}
+                id={`btn-resultado-inquerito-ia-${id}`}
               >
-                <BarChart3 size={14} /> Ver Resultados
+                <BarChart3 size={14} /> Resultado
               </button>
             </div>
           </div>
@@ -532,33 +532,47 @@ export function MessageDetail({
   };
   const sondInstJsx = ehInstSondagem ? (
     <>
-      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <BarChart3 size={16} className="text-indigo-600 shrink-0" />
+      <div className="rounded-2xl border border-indigo-100 bg-white shadow-sm overflow-hidden mt-6" data-testid="sondagem-cartao-inst">
+        <div className="px-5 py-4 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100 flex items-center gap-2.5">
+          <span className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0"><BarChart3 size={16} /></span>
           <div className="min-w-0">
-            <p className="text-[12px] font-black text-[#0c2340] uppercase tracking-widest m-0">Sondagem</p>
-            <p className="text-[11px] font-semibold text-slate-500 m-0">{idsSondagem.length} enquete(s) anexada(s) a esta correspondência</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-500 m-0">Inquérito / Sondagem · Anexado a esta correspondência</p>
+            <p className="text-sm font-bold text-slate-800 leading-snug m-0">{idsSondagem.length} enquete(s)/inquérito(s) nesta mensagem</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => { void abrirSondagensInstituicao(); }}
-          className="px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer border-none shadow-sm"
-        >
-          Ver Sondagem
-        </button>
+        <div className="px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            {selectedMessage?.details?.state === 'Respondida' ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-black uppercase tracking-wider border border-emerald-100" data-testid="sondagem-inst-respondido">
+                <Check size={13} /> Este cidadão respondeu
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-black uppercase tracking-wider border border-amber-100" data-testid="sondagem-inst-pendente">
+                Ainda sem resposta deste cidadão
+              </span>
+            )}
+            <p className="text-[11px] font-medium text-slate-500 m-0 mt-1.5">
+              Consulte as respostas e o apuramento de votos em tempo real.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => { void abrirSondagensInstituicao(); }}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black uppercase tracking-widest border-0 cursor-pointer shadow active:scale-95 transition-all"
+            id="btn-resultado-sondagem"
+          >
+            <BarChart3 size={14} /> Resultado
+          </button>
+        </div>
       </div>
       <CdaModal
         aberto={sondInstAberta}
         onFechar={() => setSondInstAberta(false)}
         icone={BarChart3}
-        titulo="Sondagem"
+        titulo="Resultados do Inquérito / Sondagem"
         subtitulo="Enquetes desta correspondência"
         maxW="max-w-xl"
       >
-        {/* v37.35 — corpo do popup com rolagem vertical própria: com muitas
-            enquetes anexadas a lista cresce além da caixa (max-h-[95vh] com
-            overflow-hidden) e o fundo ficava cortado sem forma de descer. */}
         <div className="space-y-3 text-left max-h-[62vh] overflow-y-auto overscroll-contain pr-2">
           {sondInstCarregando && (
             <p className="text-[12px] font-semibold text-slate-500 m-0 flex items-center gap-2">
@@ -568,20 +582,39 @@ export function MessageDetail({
           {idsSondagem.map(id => {
             const s = sondInstItens[id];
             const votos = sondInstVotos[id];
+            const totalVotos = votos ? votos.reduce((acc, v) => acc + (v.votos >= 0 ? v.votos : 0), 0) : 0;
             return (
-              <div key={id} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 m-0 mb-1">Pergunta</p>
+              <div key={id} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 m-0">Pergunta</p>
+                  {votos && (
+                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-full px-2 py-0.5">
+                      Total: {totalVotos} resposta(s)
+                    </span>
+                  )}
+                </div>
                 <p className="text-[13px] font-bold text-slate-800 m-0">{s?.pergunta || 'A carregar…'}</p>
                 {s && (
                   <>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-3 mb-1.5 m-0">Opções</p>
-                    <ul className="m-0 pl-4 space-y-1">
-                      {(votos || s.opcoes.map(o => ({ rotulo: o.texto, votos: -1 }))).map((o, i) => (
-                        <li key={i} className="text-[12px] font-semibold text-slate-700">
-                          {o.rotulo}{o.votos >= 0 ? <span className="text-slate-400"> — {o.votos} voto(s)</span> : null}
-                        </li>
-                      ))}
-                    </ul>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-2.5 mb-1.5 m-0">Opções e Votos</p>
+                    <div className="space-y-1.5">
+                      {(votos || s.opcoes.map(o => ({ rotulo: o.texto, votos: -1 }))).map((o, i) => {
+                        const pct = totalVotos > 0 && o.votos > 0 ? Math.round((o.votos / totalVotos) * 100) : 0;
+                        return (
+                          <div key={i} className="rounded-lg bg-white border border-slate-200 p-2.5">
+                            <div className="flex justify-between items-center text-xs font-bold text-slate-800 mb-1">
+                              <span>{o.rotulo}</span>
+                              <span className="text-indigo-600 font-mono">{o.votos >= 0 ? `${o.votos} voto(s) (${pct}%)` : '—'}</span>
+                            </div>
+                            {totalVotos > 0 && (
+                              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                <div className="bg-indigo-600 h-full rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                     <p className="text-[10px] font-semibold text-slate-400 mt-2 m-0">
                       Estado: {s.status} · Âmbito: {s.abrangencia === 'nacional' ? 'Nacional' : s.abrangencia === 'regional' ? 'Regional' : 'Local'}
                     </p>

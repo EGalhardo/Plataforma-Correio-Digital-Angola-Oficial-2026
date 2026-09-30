@@ -67,9 +67,8 @@ export function HomeContent({
   onDoubleClickInstitution}: HomeContentProps) {
   const { t } = useLanguage();
   const badgeId = useId();
-  const [ocorrenciasCount, setOcorrenciasCount] = useState<{owner: string; count: number}>({owner: '', count: 0});
+  const [ocorrenciasCount, setOcorrenciasCount] = useState<number>(0);
   useEffect(() => {
-    if (!realSession || !notificationOwnerKey || isInst) return;
     let active = true, fetching = false;
     const controller = new AbortController();
     const refresh = async () => {
@@ -77,7 +76,7 @@ export function HomeContent({
       fetching = true;
       try {
         const r = await ocorrenciasApi<{total: number}>('notificacoes', {naoLidas: true}, controller.signal);
-        if (active) setOcorrenciasCount({owner: notificationOwnerKey, count: r.total});
+        if (active && typeof r?.total === 'number') setOcorrenciasCount(r.total);
       } catch { /* Não substituir uma contagem conhecida por zero numa falha de rede. */ }
       finally { fetching = false; }
     };
@@ -87,10 +86,10 @@ export function HomeContent({
     window.addEventListener('focus', visible);
     document.addEventListener('visibilitychange', visible);
     return () => {active = false; controller.abort(); window.clearInterval(timer); window.removeEventListener('focus', visible); document.removeEventListener('visibilitychange', visible);};
-  }, [notificationOwnerKey, realSession, isInst]);
+  }, [notificationOwnerKey, isInst]);
 
   const badgeCounts = contarNotificacoesAtalhos(notifications, inbox || [], !!isInst,
-    !isInst && realSession && ocorrenciasCount.owner === notificationOwnerKey ? ocorrenciasCount.count : 0,
+    ocorrenciasCount,
     sentMessages || []);
 
   /**
@@ -233,6 +232,7 @@ export function HomeContent({
         ].map(({ key, label, Icon, action }) => (
           <button
             key={key}
+            data-testid={`atalho-${key}`}
             aria-label={t(label)}
             aria-describedby={badgeCounts[key] > 0 ? `${badgeId}-${key}` : undefined}
             title={badgeCounts[key] > 0 ? `${t(label)} — ${badgeCounts[key]} ${t('notificações não lidas')}` : t(label)}
