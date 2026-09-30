@@ -74,6 +74,9 @@ async function runTests() {
     const eliminadasTitle = page.locator('[data-testid="container-eliminadas"] h3:has-text("Eliminadas")');
     assert('Título "Eliminadas" renderizado com sucesso no container correspondente', await eliminadasTitle.isVisible().catch(() => false));
 
+    const eliminadasCount = page.locator('[data-testid="container-eliminadas"] .text-red-600');
+    assert('Contador da tabela Eliminadas renderizado em vermelho', await eliminadasCount.isVisible().catch(() => false));
+
     const naoLidasContainer = page.locator('[data-testid="container-nao-lidas"]');
     const isNaoLidasVisible = await naoLidasContainer.isVisible().catch(() => false);
     assert('Tabela "Não Lidas" foi substituída e não colide no layout', !isNaoLidasVisible);

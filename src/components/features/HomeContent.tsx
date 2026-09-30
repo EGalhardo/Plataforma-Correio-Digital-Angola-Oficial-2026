@@ -319,10 +319,10 @@ export function HomeContent({
             <section className={`bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-xs flex flex-col group ${isInst ? 'order-2' : ''}`} data-testid="container-eliminadas">
               <div className="flex items-center justify-between mb-3.5 shrink-0 px-1">
                  <div className="flex items-center gap-2">
-                    <Trash2 size={16} className="text-amber-500" />
+                    <Trash2 size={16} className="text-red-500" />
                     <h3 className="text-slate-900 font-bold text-sm md:text-base tracking-tight">{t("Eliminadas")}</h3>
                  </div>
-                 <span className="text-amber-600 font-black text-sm md:text-base">{deletedCount}</span>
+                 <span className="text-red-600 font-black text-sm md:text-base">{deletedCount}</span>
               </div>
               <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
                 {(deletedMessages || []).map(m => (
@@ -331,7 +331,7 @@ export function HomeContent({
                       <span className="font-extrabold text-slate-900 group-hover/item:text-primary transition-colors">{t(m.org)}:</span>
                       <span className="ml-1 text-slate-600 font-medium">{t(m.preview)}</span>
                     </div>
-                    <span className="text-white font-bold shrink-0 text-[10px] bg-amber-600 px-2 py-0.5 rounded-lg font-mono shadow-xs">{t(m.date)}</span>
+                    <span className="text-white font-bold shrink-0 text-[10px] bg-red-600 px-2 py-0.5 rounded-lg font-mono shadow-xs">{t(m.date)}</span>
                   </div>
                 ))}
               </div>
