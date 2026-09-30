@@ -7,7 +7,7 @@ import { useState, useEffect, useId } from 'react';
 import { ocorrenciasApi } from '../../features/ocorrencias/client';
 import { contarNotificacoesAtalhos, type AtalhoPainel } from '../../utils/notificacoesAtalhos';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, Mail, Video, ClipboardList, MapPin, ShieldAlert, Flag } from 'lucide-react';
+import { ShieldCheck, Mail, Video, ClipboardList, MapPin, ShieldAlert, Flag, Trash2 } from 'lucide-react';
 import { HIGHLIGHT_SLIDES, INST_HIGHLIGHT_SLIDES } from '../../constants/data';
 import { Message, LanguageCode, AppNotification } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -26,6 +26,7 @@ interface HomeContentProps {
   notificationsLoading?: boolean;
   inbox: Message[];
   sentMessages: Message[];
+  deletedMessages?: Message[];
   handleSelectMessage: (msg: Message) => void;
   onCreateRequest?: (type: string, priority: 'Alta' | 'Média' | 'Baixa') => void;
   isInst?: boolean;
@@ -56,6 +57,7 @@ export function HomeContent({
   notificationsLoading = false,
   inbox,
   sentMessages,
+  deletedMessages = [],
   handleSelectMessage,
   onCreateRequest,
   isInst,
@@ -107,11 +109,16 @@ export function HomeContent({
   const unreadCount = (inbox || []).filter(m => m.unread).length;
   const readCount = (inbox || []).filter(m => !m.unread).length;
   const sentCount = (sentMessages || []).length;
+  const deletedCount = (deletedMessages || []).length;
 
-  // Regra de layout desktop: quando "Não Lidas" estiver vazia (0) E os restantes
-  // possuírem correspondências (> 0), oculta "Não Lidas" no desktop e expande
+  // Quando "Eliminadas" não está vazia (> 0) e "Não Lidas" está vazia (=== 0),
+  // a tabela "Eliminadas" ocupa o lugar da tabela "Não Lidas".
+  const showEliminadasInPlaceOfUnread = unreadCount === 0 && deletedCount > 0;
+
+  // Regra de layout desktop: quando "Não Lidas" estiver vazia (0) E "Eliminadas" também estiver vazia (0)
+  // E os restantes possuírem correspondências (> 0), oculta "Não Lidas" no desktop e expande
   // os restantes para 50% / 50% da largura útil cada (2 colunas).
-  const shouldHideUnread = unreadCount === 0 && (readCount > 0 || sentCount > 0);
+  const shouldHideUnread = unreadCount === 0 && deletedCount === 0 && (readCount > 0 || sentCount > 0);
 
   return (
     <div className="grid gap-3 md:gap-3.5">
@@ -305,38 +312,61 @@ export function HomeContent({
         </div>
       </section>
 
-      {/* Containers de Correspondências — Layout dinâmico em Desktop (3 colunas ou 2 colunas 50/50 quando Não Lidas estiver vazia) */}
+      {/* Containers de Correspondências — Layout dinâmico em Desktop (3 colunas, ou 2 colunas 50/50 quando Não Lidas e Eliminadas estiverem vazias) */}
       <div className={`grid grid-cols-1 ${shouldHideUnread ? 'md:grid-cols-2 xl:grid-cols-2' : 'md:grid-cols-2 xl:grid-cols-3'} gap-3 md:gap-4`}>
         {!shouldHideUnread && (
-          <section className={`bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-xs flex flex-col group ${isInst ? 'order-2' : ''}`}>
-            <div className="flex items-center justify-between mb-3.5 shrink-0 px-1">
-               <div className="flex items-center gap-2">
-                  <Mail size={16} className="text-red-500" />
-                  <h3 className="text-slate-900 font-bold text-sm md:text-base tracking-tight">{t("Não Lidas")}</h3>
-               </div>
-               <span className="text-red-600 font-black text-sm md:text-base">{unreadCount}</span>
-            </div>
-            <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
-              {unreadCount === 0 ? (
-                <div className="flex flex-col items-center justify-center text-center py-8 text-slate-400">
-                  <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-2 shadow-xs">
-                    <Mail size={16} className="text-slate-300" />
-                  </div>
-                  <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">{t("Sem mensagens novas")}</p>
-                </div>
-              ) : (
-                (inbox || []).filter(m => m.unread).map(m => (
+          showEliminadasInPlaceOfUnread ? (
+            <section className={`bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-xs flex flex-col group ${isInst ? 'order-2' : ''}`} data-testid="container-eliminadas">
+              <div className="flex items-center justify-between mb-3.5 shrink-0 px-1">
+                 <div className="flex items-center gap-2">
+                    <Trash2 size={16} className="text-amber-500" />
+                    <h3 className="text-slate-900 font-bold text-sm md:text-base tracking-tight">{t("Eliminadas")}</h3>
+                 </div>
+                 <span className="text-amber-600 font-black text-sm md:text-base">{deletedCount}</span>
+              </div>
+              <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
+                {(deletedMessages || []).map(m => (
                   <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
                     <div className="min-w-0 flex-1 truncate mr-3">
                       <span className="font-extrabold text-slate-900 group-hover/item:text-primary transition-colors">{t(m.org)}:</span>
                       <span className="ml-1 text-slate-600 font-medium">{t(m.preview)}</span>
                     </div>
-                    <span className="text-white font-bold shrink-0 text-[10px] bg-red-600 px-2 py-0.5 rounded-lg font-mono shadow-xs">{t(m.date)}</span>
+                    <span className="text-white font-bold shrink-0 text-[10px] bg-amber-600 px-2 py-0.5 rounded-lg font-mono shadow-xs">{t(m.date)}</span>
                   </div>
-                ))
-              )}
-            </div>
-          </section>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <section className={`bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-xs flex flex-col group ${isInst ? 'order-2' : ''}`} data-testid="container-nao-lidas">
+              <div className="flex items-center justify-between mb-3.5 shrink-0 px-1">
+                 <div className="flex items-center gap-2">
+                    <Mail size={16} className="text-red-500" />
+                    <h3 className="text-slate-900 font-bold text-sm md:text-base tracking-tight">{t("Não Lidas")}</h3>
+                 </div>
+                 <span className="text-red-600 font-black text-sm md:text-base">{unreadCount}</span>
+              </div>
+              <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
+                {unreadCount === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-center py-8 text-slate-400">
+                    <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-2 shadow-xs">
+                      <Mail size={16} className="text-slate-300" />
+                    </div>
+                    <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">{t("Sem mensagens novas")}</p>
+                  </div>
+                ) : (
+                  (inbox || []).filter(m => m.unread).map(m => (
+                    <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
+                      <div className="min-w-0 flex-1 truncate mr-3">
+                        <span className="font-extrabold text-slate-900 group-hover/item:text-primary transition-colors">{t(m.org)}:</span>
+                        <span className="ml-1 text-slate-600 font-medium">{t(m.preview)}</span>
+                      </div>
+                      <span className="text-white font-bold shrink-0 text-[10px] bg-red-600 px-2 py-0.5 rounded-lg font-mono shadow-xs">{t(m.date)}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          )
         )}
 
         <section className={`bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-xs flex flex-col group ${isInst ? 'order-1' : ''}`}>

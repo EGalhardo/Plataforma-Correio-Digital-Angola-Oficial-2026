@@ -71,6 +71,7 @@ const STATIC_TRANSLATE_MAP: Record<string, Record<LanguageCode, string>> = {
   "Lidas": { pt: "Lidas", um: "Viapua", ki: "Kixilu", kk: "Lulendo", ch: "Ipupolo", ng: "Vihhande", kw: "Eendunge", nh: "Epupolo", fi: "Nzila-Lula" },
   "Enviadas": { pt: "Enviadas", um: "Viatumwa", ki: "Yatuku", kk: "Mia-Tula", ch: "Ahita", ng: "Anona", kw: "Ayehe", nh: "Okutula", fi: "Bitunu" },
   "Arquivadas": { pt: "Eliminadas", um: "Vilundulwi", ki: "Kiambot", kk: "Mamo", ch: "Chichin", ng: "Lelev", kw: "Oshila", nh: "Elau", fi: "Mbote" },
+  "Eliminadas": { pt: "Eliminadas", um: "Vilundulwi", ki: "Kiambot", kk: "Mamo", ch: "Chichin", ng: "Lelev", kw: "Oshila", nh: "Elau", fi: "Mbote" },
   "Lida": { pt: "Lida", um: "Yapua", ki: "Kixilu", kk: "Lulendo", ch: "Ipupolo", ng: "Vihhande", kw: "Eendunge", nh: "Epupolo", fi: "Nzila-Lula" },
   "Não Lida": { pt: "Não Lida", um: "Kavapuyile", ki: "Koki Kixilu", kk: "Kota Lulendo", ch: "Ingila Ipupolo", ng: "Nyingila Vihhande", kw: "Iñila Eendunge", nh: "Okutyila Epupolo", fi: "Kota Nzila-Lula" },
   "Arquivada": { pt: "Eliminada", um: "Yalundululwa", ki: "Kiambot", kk: "Mamo", ch: "Chichin", ng: "Lelev", kw: "Oshila", nh: "Elau", fi: "Mbote" },

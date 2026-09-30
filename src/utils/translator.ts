@@ -616,6 +616,17 @@ export const TRANSLATE_MAP: Record<string, Record<LanguageCode, string>> = {
     nh: "Elau",
     fi: "Mbote"
   },
+  "Eliminadas": {
+    pt: "Eliminadas",
+    um: "Vilundulwi",
+    ki: "Kiambot",
+    kk: "Mamo",
+    ch: "Chichin",
+    ng: "Lelev",
+    kw: "Oshila",
+    nh: "Elau",
+    fi: "Mbote"
+  },
   "Lida": {
     pt: "Lida",
     um: "Yapua",

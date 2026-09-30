@@ -6109,6 +6109,7 @@ Ficha civil do titular:
             realSession={!isDemoSession}
             inbox={currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
             sentMessages={currentSentMessages.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
+            deletedMessages={[...currentInbox, ...currentSentMessages].filter(m => deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
             handleSelectMessage={handleSelectMessage}
             onCreateRequest={handleCreateRequest}
             isInst={isInstMode}
