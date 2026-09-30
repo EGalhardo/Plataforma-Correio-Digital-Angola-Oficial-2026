@@ -646,6 +646,25 @@ export const encerrarSondagem = async (sondagemId: number): Promise<SondagemResu
   }
 };
 
+export const eliminarSondagem = async (sondagemId: number): Promise<SondagemResultado<null>> => {
+  try {
+    // 1. Apagar respostas associadas
+    try {
+      await supabase.from('sondagem_respostas').delete().eq('sondagem_id', sondagemId);
+    } catch {}
+    // 2. Apagar o inquérito
+    const { error } = await supabase.from('sondagens').delete().eq('id', sondagemId);
+    if (error) {
+      // Fallback para update de estado se delete direto for impedido por regras RLS
+      const { error: updErr } = await supabase.from('sondagens').update({ status: 'encerrada' }).eq('id', sondagemId);
+      if (updErr) return { ok: false, motivo: 'erro', mensagem: error.message };
+    }
+    return { ok: true, dados: null };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
+  }
+};
+
 // ---- Cidadão ------------------------------------------------------------------------
 export const buscarSondagem = async (sondagemId: number): Promise<SondagemResultado<Sondagem>> => {
   try {

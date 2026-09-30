@@ -8,19 +8,20 @@ import { ListaRolavel } from '../ui/ListaRolavel';
 // própria.
 // ============================================================================
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, BarChart3, ChevronDown, ChevronUp, Lock, Users, MessagesSquare, Loader2, ClipboardList, Bot, FolderOpen } from 'lucide-react';
+import { Plus, BarChart3, ChevronDown, ChevronUp, Lock, Users, MessagesSquare, Loader2, ClipboardList, Bot, FolderOpen, Trash2 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
+import { CdaConfirmModal } from '../ui/CdaConfirm';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList,
 } from 'recharts';
 import {
-  encerrarSondagem, listarSondagens, resultadosSondagem, sondagensDisponiveis,
+  encerrarSondagem, eliminarSondagem, listarSondagens, resultadosSondagem, sondagensDisponiveis,
   type Sondagem,
 } from '../../services/sondagemService';
 // 2026-09-10 — Inquéritos com IA (PROMPT v3 §4.5): aparecem na mesma lista
 // com badge «IA», contadores e popup «Resultados do Inquérito com IA».
 import {
-  inqueritosIaDisponiveis, listarInqueritosIA, contadoresInqueritoIA,
+  inqueritosIaDisponiveis, listarInqueritosIA, contadoresInqueritoIA, eliminarInqueritoIA,
   type InqueritoIA, type ContadoresInqueritoIA,
 } from '../../services/inqueritoIaService';
 import { InqueritoIaResultados } from './InqueritoIaResultados';
@@ -67,6 +68,10 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
   const [contIA, setContIA] = useState<Record<number, ContadoresInqueritoIA>>({});
   const [resultadosIA, setResultadosIA] = useState<InqueritoIA | null>(null);
   const [aba, setAba] = useState<'normal' | 'ia'>('normal');
+
+  // Eliminação de inquéritos (normal / IA)
+  const [inqueritoParaEliminar, setInqueritoParaEliminar] = useState<{ tipo: 'normal'; item: Sondagem } | { tipo: 'ia'; item: InqueritoIA } | null>(null);
+  const [aEliminar, setAEliminar] = useState(false);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -158,6 +163,42 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
       addAuditLog(`Sondagem «${s.pergunta.slice(0, 60)}» encerrada.`, 'info');
       setLista(prev => prev.map(p => p.id === s.id ? { ...p, status: 'encerrada' } : p));
       setPastaAberta(null);
+    }
+  };
+
+  const confirmarEliminacao = async () => {
+    if (!inqueritoParaEliminar || aEliminar) return;
+    setAEliminar(true);
+    try {
+      if (inqueritoParaEliminar.tipo === 'normal') {
+        const s = inqueritoParaEliminar.item as Sondagem;
+        const r = await eliminarSondagem(s.id);
+        if (r.ok) {
+          addAuditLog(`Inquérito «${s.pergunta.slice(0, 60)}» eliminado com sucesso.`, 'info');
+          setLista(prev => prev.filter(p => p.id !== s.id));
+          setDados(prev => {
+            const next = { ...prev };
+            delete next[s.id];
+            return next;
+          });
+          setInqueritoParaEliminar(null);
+        } else {
+          alert(r.mensagem || 'Não foi possível eliminar o inquérito.');
+        }
+      } else {
+        const q = inqueritoParaEliminar.item as InqueritoIA;
+        const titulo = q.guiao?.objectivo || q.o_que_pretende_saber || 'Inquérito com IA';
+        const r = await eliminarInqueritoIA(q.id);
+        if (r.ok) {
+          addAuditLog(`Inquérito com IA «${titulo.slice(0, 60)}» eliminado com sucesso.`, 'info');
+          setListaIA(prev => prev.filter(p => p.id !== q.id));
+          setInqueritoParaEliminar(null);
+        } else {
+          alert(r.mensagem || 'Não foi possível eliminar o inquérito com IA.');
+        }
+      }
+    } finally {
+      setAEliminar(false);
     }
   };
 
@@ -266,30 +307,44 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
                   const c = contIA[q.id];
                   const tituloQ = q.guiao?.objectivo || q.o_que_pretende_saber;
                   return (
-                    <div key={`ia-${q.id}`} className="rounded-xl border border-slate-200 bg-white overflow-hidden" data-testid="inquerito-ia-linha">
-                      <button
-                        type="button"
-                        onClick={() => setResultadosIA(q)}
-                        className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-transparent border-0 cursor-pointer text-left hover:bg-indigo-50/40 transition-colors"
-                        title="Ver resultados do inquérito com IA"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-[13px] font-bold text-slate-800 truncate m-0">{tituloQ}</p>
-                          <p className="text-[11px] font-medium text-slate-500 mt-1 m-0 flex items-center gap-x-1.5 flex-wrap">
-                            {new Date(q.created_at).toLocaleDateString('pt-PT')} · âmbito {q.abrangencia === 'nacional' ? 'Nacional' : q.abrangencia === 'regional' ? 'Regional' : 'Local'} ·{' '}
-                            <span className={q.status === 'ativo' ? 'text-emerald-600 font-bold' : 'text-slate-500 font-bold'}>{q.status}</span>
-                            <span className="text-slate-300">|</span>
-                            {c ? (
-                              <span className="tabular-nums" data-testid="inquerito-ia-contadores-linha">
-                                <b className="text-slate-700">{c.enviados}</b> enviados · <b className="text-blue-700">{c.iniciados}</b> iniciados · <b className="text-emerald-700">{c.concluidos}</b> concluídos · <b className="text-rose-700">{c.recusados}</b> recusados
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 font-medium">a contar…</span>
-                            )}
-                          </p>
-                        </div>
-                        <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-indigo-600">Resultados</span>
-                      </button>
+                    <div key={`ia-${q.id}`} className="rounded-xl border border-slate-200 bg-white overflow-hidden p-3 hover:bg-indigo-50/20 transition-colors flex items-center justify-between gap-3 flex-wrap" data-testid="inquerito-ia-linha">
+                      <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setResultadosIA(q)}>
+                        <p className="text-[13px] font-bold text-slate-800 truncate m-0">{tituloQ}</p>
+                        <p className="text-[11px] font-medium text-slate-500 mt-1 m-0 flex items-center gap-x-1.5 flex-wrap">
+                          {new Date(q.created_at).toLocaleDateString('pt-PT')} · âmbito {q.abrangencia === 'nacional' ? 'Nacional' : q.abrangencia === 'regional' ? 'Regional' : 'Local'} ·{' '}
+                          <span className={q.status === 'ativo' ? 'text-emerald-600 font-bold' : 'text-slate-500 font-bold'}>{q.status}</span>
+                          <span className="text-slate-300">|</span>
+                          {c ? (
+                            <span className="tabular-nums" data-testid="inquerito-ia-contadores-linha">
+                              <b className="text-slate-700">{c.enviados}</b> enviados · <b className="text-blue-700">{c.iniciados}</b> iniciados · <b className="text-emerald-700">{c.concluidos}</b> concluídos · <b className="text-rose-700">{c.recusados}</b> recusados
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 font-medium">a contar…</span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          data-testid={`btn-eliminar-inquerito-ia-${q.id}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setInqueritoParaEliminar({ tipo: 'ia', item: q });
+                          }}
+                          className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-[10px] font-bold uppercase tracking-wider bg-transparent cursor-pointer flex items-center gap-1 transition-colors"
+                          title="Eliminar este inquérito com IA"
+                        >
+                          <Trash2 size={12} /> Eliminar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setResultadosIA(q)}
+                          className="px-3.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-widest cursor-pointer border-0 transition-colors"
+                          title="Ver resultados do inquérito com IA"
+                        >
+                          Resultados
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -375,15 +430,26 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
                       ) : (
                         <p className="text-[12px] font-medium text-slate-500 py-4">A carregar resultados…</p>
                       )}
-                      {s.status === 'ativa' && (
+                      <div className="flex items-center gap-2 mt-3 flex-wrap">
+                        {s.status === 'ativa' && (
+                          <button
+                            type="button"
+                            onClick={() => encerrar(s)}
+                            className="px-4 py-2 rounded-xl border border-amber-200 text-amber-700 hover:bg-amber-50 text-[10px] font-black uppercase tracking-widest bg-transparent cursor-pointer"
+                          >
+                            Encerrar sondagem
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() => encerrar(s)}
-                          className="mt-3 px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-[10px] font-black uppercase tracking-widest bg-transparent cursor-pointer"
+                          data-testid={`btn-eliminar-sondagem-${s.id}`}
+                          onClick={() => setInqueritoParaEliminar({ tipo: 'normal', item: s })}
+                          className="px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-[10px] font-black uppercase tracking-widest bg-transparent cursor-pointer flex items-center gap-1.5 transition-colors"
+                          title="Eliminar este inquérito"
                         >
-                          Encerrar sondagem
+                          <Trash2 size={13} /> Eliminar inquérito
                         </button>
-                      )}
+                      </div>
                     </div>
                   );
                 })}
@@ -401,8 +467,29 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
           inquerito={resultadosIA}
           addAuditLog={addAuditLog}
           onEncerrado={(id) => setListaIA((prev) => prev.map((p) => (p.id === id ? { ...p, status: 'encerrado' } : p)))}
+          onEliminado={(id) => setListaIA((prev) => prev.filter((p) => p.id !== id))}
         />
       )}
+
+      <CdaConfirmModal
+        aberto={!!inqueritoParaEliminar}
+        titulo="Eliminar Inquérito"
+        subtitulo="Eliminação definitiva"
+        mensagem={
+          inqueritoParaEliminar
+            ? `Tem a certeza que deseja eliminar o inquérito «${
+                inqueritoParaEliminar.tipo === 'normal'
+                  ? (inqueritoParaEliminar.item as Sondagem).pergunta
+                  : ((inqueritoParaEliminar.item as InqueritoIA).guiao?.objectivo || (inqueritoParaEliminar.item as InqueritoIA).o_que_pretende_saber || 'Inquérito com IA')
+              }»? Esta ação removerá o inquérito e todos os dados associados.`
+            : ''
+        }
+        textoConfirmar="Eliminar Inquérito"
+        textoCancelar="Cancelar"
+        perigoso
+        onConfirmar={confirmarEliminacao}
+        onCancelar={() => setInqueritoParaEliminar(null)}
+      />
     </div>
   );
 }

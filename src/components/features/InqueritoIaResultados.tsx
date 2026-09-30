@@ -10,11 +10,11 @@
 // Padrão único de popups do app: CdaModal.
 // ============================================================================
 import { useEffect, useMemo, useState } from 'react';
-import { MessagesSquare, Download, Lock, Loader2, Users, CheckCircle2, XCircle, Send, PlayCircle } from 'lucide-react';
+import { MessagesSquare, Download, Lock, Loader2, Users, CheckCircle2, XCircle, Send, PlayCircle, Trash2 } from 'lucide-react';
 import { CdaModal } from '../ui/CdaModal';
 import { CdaConfirmModal } from '../ui/CdaConfirm';
 import {
-  agregadosInqueritoIA, contadoresInqueritoIA, encerrarInqueritoIA,
+  agregadosInqueritoIA, contadoresInqueritoIA, encerrarInqueritoIA, eliminarInqueritoIA,
   type AgregadoInqueritoIA, type ContadoresInqueritoIA, type InqueritoIA, type CampoGuiaoIA,
 } from '../../services/inqueritoIaService';
 
@@ -24,6 +24,8 @@ interface Props {
   inquerito: InqueritoIA;
   /** Chamado após encerrar com sucesso (a lista actualiza o estado). */
   onEncerrado?: (id: number) => void;
+  /** Chamado após eliminar com sucesso (a lista remove o item). */
+  onEliminado?: (id: number) => void;
   addAuditLog?: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
 }
 
@@ -95,12 +97,14 @@ export const agruparPorCampo = (agr: AgregadoInqueritoIA[], guiao: InqueritoIA['
 
 const csvEscape = (s: string) => /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 
-export function InqueritoIaResultados({ aberto, onFechar, inquerito, onEncerrado, addAuditLog }: Props) {
+export function InqueritoIaResultados({ aberto, onFechar, inquerito, onEncerrado, onEliminado, addAuditLog }: Props) {
   const [agr, setAgr] = useState<AgregadoInqueritoIA[] | null>(null);
   const [cont, setCont] = useState<ContadoresInqueritoIA | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [confirmarEncerrar, setConfirmarEncerrar] = useState(false);
   const [aEncerrar, setAEncerrar] = useState(false);
+  const [confirmarEliminar, setConfirmarEliminar] = useState(false);
+  const [aEliminar, setAEliminar] = useState(false);
   const [status, setStatus] = useState(inquerito.status);
 
   useEffect(() => {
@@ -142,6 +146,16 @@ export function InqueritoIaResultados({ aberto, onFechar, inquerito, onEncerrado
     setStatus('encerrado');
     addAuditLog?.(`Inquérito com IA «${(inquerito.guiao?.objectivo || inquerito.o_que_pretende_saber).slice(0, 60)}» encerrado.`, 'info');
     onEncerrado?.(inquerito.id);
+  };
+
+  const eliminar = async () => {
+    setConfirmarEliminar(false); setAEliminar(true);
+    const r = await eliminarInqueritoIA(inquerito.id);
+    setAEliminar(false);
+    if (!r.ok) { setErro(r.mensagem || 'Não foi possível eliminar o inquérito.'); return; }
+    addAuditLog?.(`Inquérito com IA «${(inquerito.guiao?.objectivo || inquerito.o_que_pretende_saber).slice(0, 60)}» eliminado com sucesso.`, 'info');
+    onEliminado?.(inquerito.id);
+    onFechar();
   };
 
   return (
@@ -234,18 +248,28 @@ export function InqueritoIaResultados({ aberto, onFechar, inquerito, onEncerrado
 
           {/* Rodapé */}
           <div className="flex items-center justify-between gap-3 pt-1 flex-wrap">
-            <div>
+            <div className="flex items-center gap-2 flex-wrap">
               {status === 'ativo' && (
                 <button
                   type="button"
                   onClick={() => setConfirmarEncerrar(true)}
-                  disabled={aEncerrar}
-                  className="px-4 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-[10px] font-black uppercase tracking-widest bg-transparent cursor-pointer disabled:opacity-60"
+                  disabled={aEncerrar || aEliminar}
+                  className="px-4 py-2.5 rounded-xl border border-amber-200 text-amber-700 hover:bg-amber-50 text-[10px] font-black uppercase tracking-widest bg-transparent cursor-pointer disabled:opacity-60"
                   id="btn-encerrar-inquerito-ia"
                 >
                   {aEncerrar ? 'A encerrar…' : 'Encerrar inquérito'}
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => setConfirmarEliminar(true)}
+                disabled={aEliminar || aEncerrar}
+                className="px-4 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-[10px] font-black uppercase tracking-widest bg-transparent cursor-pointer disabled:opacity-60 inline-flex items-center gap-1.5"
+                id="btn-eliminar-inquerito-ia-modal"
+                title="Eliminar este inquérito com IA"
+              >
+                <Trash2 size={13} /> {aEliminar ? 'A eliminar…' : 'Eliminar inquérito'}
+              </button>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -277,6 +301,17 @@ export function InqueritoIaResultados({ aberto, onFechar, inquerito, onEncerrado
         perigoso
         onConfirmar={encerrar}
         onCancelar={() => setConfirmarEncerrar(false)}
+      />
+
+      <CdaConfirmModal
+        aberto={confirmarEliminar}
+        titulo="Eliminar Inquérito"
+        subtitulo="Eliminação definitiva"
+        mensagem={`Tem a certeza que deseja eliminar o inquérito «${(inquerito.guiao?.objectivo || inquerito.o_que_pretende_saber || 'Inquérito com IA').slice(0, 80)}»? Esta ação removerá o inquérito e todos os dados de apuramento associados.`}
+        textoConfirmar="Eliminar Inquérito"
+        perigoso
+        onConfirmar={eliminar}
+        onCancelar={() => setConfirmarEliminar(false)}
       />
     </>
   );

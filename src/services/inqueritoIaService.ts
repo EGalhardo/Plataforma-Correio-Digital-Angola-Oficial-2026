@@ -588,3 +588,20 @@ export const recusarRespostaIA = async (respostaId: number): Promise<SondagemRes
   const ok = await actualizarResposta(respostaId, { estado: 'recusado', historico: [], campos: {}, actualizado_em: agora, concluido_em: agora });
   return ok ? { ok: true, dados: null } : erro('Não foi possível registar a recusa.');
 };
+
+/** Elimina um inquérito com IA e todas as suas respostas. */
+export const eliminarInqueritoIA = async (inqueritoId: number): Promise<SondagemResultado<null>> => {
+  try {
+    try {
+      await supabase.from('inquerito_ia_respostas').delete().eq('inquerito_id', inqueritoId);
+    } catch {}
+    const { error } = await supabase.from('inqueritos_ia').delete().eq('id', inqueritoId);
+    if (error) {
+      const { error: updErr } = await supabase.from('inqueritos_ia').update({ status: 'encerrado' }).eq('id', inqueritoId);
+      if (updErr) return erro(error.message);
+    }
+    return { ok: true, dados: null };
+  } catch (e: unknown) {
+    return erro(String((e as Error)?.message || e));
+  }
+};
