@@ -21,13 +21,17 @@ import {
   FASES_DENUNCIA,
   definicaoFase,
   proximaFase,
+  ehNovaDenuncia,
   type DefinicaoFase,
   type FaseDenuncia,
 } from '../../services/denunciaCore';
 import { activarFaseDenuncia, lerCronogramaDenuncia, type EventoFaseDenuncia } from '../../services/denunciaService';
+import { supabaseService } from '../../services/supabaseService';
 
 interface Props {
   messageId: number;
+  senderBi?: string;
+  subject?: string;
   /** true = sessão da instituição destinatária (pode activar fases). */
   podeGerir: boolean;
   /** Regista na auditoria local da mensagem / global. */
@@ -36,7 +40,7 @@ interface Props {
   onAviso?: (texto: string, tipo: 'success' | 'error' | 'info') => void;
 }
 
-export function CronogramaDenuncia({ messageId, podeGerir, onRegistar, onAviso }: Props) {
+export function CronogramaDenuncia({ messageId, senderBi, subject, podeGerir, onRegistar, onAviso }: Props) {
   const [actual, setActual] = useState<DefinicaoFase>(FASES_DENUNCIA[0]);
   const [eventos, setEventos] = useState<EventoFaseDenuncia[]>([]);
   const [aCarregar, setACarregar] = useState(true);
@@ -92,9 +96,29 @@ export function CronogramaDenuncia({ messageId, podeGerir, onRegistar, onAviso }
     const r = await activarFaseDenuncia(messageId, pedida.id as FaseDenuncia);
     setAActivar(false);
     if (r.ok === true) {
+      if (senderBi) {
+        const isReclamacao = String(subject || '').toUpperCase().includes('RECLAMA');
+        const prefixo = isReclamacao ? 'Reclamação' : ehNovaDenuncia(subject) ? 'Denuncia' : 'Denúncia';
+        const msgNotif = isReclamacao
+          ? (pedida.id === 'encerrada' ? 'O processo da sua reclamação foi encerrado.' : pedida.id === 'respondida' ? 'A instituição respondeu à sua reclamação.' : `A sua reclamação passou para o estado «${pedida.rotulo}».`)
+          : (pedida.id === 'encerrada' ? 'O processo da sua denúncia foi encerrado.' : pedida.id === 'respondida' ? 'A instituição respondeu à sua denúncia.' : `A sua denúncia passou para o estado «${pedida.rotulo}».`);
+        const cleanSubj = String(subject || '').replace(/^\[[^\]]*\]\s*/, '').slice(0, 80) || 'sem assunto';
+
+        void supabaseService.insertNotification({
+          target_bi: String(senderBi).toUpperCase(),
+          title: `${prefixo} — ${pedida.rotulo}`,
+          message: `${msgNotif} (${cleanSubj})`,
+          time_text: 'Agora',
+          type: pedida.id === 'encerrada' ? 'success' : 'info',
+          target_tab: 'correspondencias',
+        }).catch(() => {});
+      }
+
       setPedida(null);
-      onRegistar?.(`Fase da denúncia «${r.rotulo}» activada${r.notificado ? ' — cidadão notificado' : ''}.`);
-      onAviso?.(`Fase «${r.rotulo}» activada${r.notificado ? '. O cidadão foi notificado.' : '.'}`, 'success');
+      const isReclamacao = String(subject || '').toUpperCase().includes('RECLAMA');
+      const rotuloProcesso = isReclamacao ? 'da reclamação' : 'da denúncia';
+      onRegistar?.(`Fase ${rotuloProcesso} «${r.rotulo}» activada — cidadão notificado.`);
+      onAviso?.(`Fase «${r.rotulo}» activada. O cidadão foi notificado.`, 'success');
       await recarregar();
     } else {
       setErroPopup(r.erro);

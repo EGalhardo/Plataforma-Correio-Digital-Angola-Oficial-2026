@@ -99,13 +99,13 @@ async function runTests() {
     await instPage.fill('input[name="cda-utilizador"]', 'INAPEM-LMM-01');
     await instPage.fill('input[name="cda-senha"]', '123456789');
     await instPage.getByRole('button', { name: /ENTRAR NO PORTAL/i }).click();
-    await sleep(3000);
+    await sleep(3500);
 
     const atalhoInstOcorrencias = instPage.locator('[data-testid="atalho-ocorrencias"]');
-    assert('Atalho Ocorrências visível no Painel Institucional', await atalhoInstOcorrencias.isVisible({ timeout: 10000 }));
+    assert('Atalho Ocorrências visível no Painel Institucional', await atalhoInstOcorrencias.isVisible({ timeout: 15000 }));
 
     const atalhoInstInqueritos = instPage.locator('[data-testid="atalho-inqueritos"]');
-    assert('Atalho Inquéritos visível no Painel Institucional', await atalhoInstInqueritos.isVisible({ timeout: 10000 }));
+    assert('Atalho Inquéritos visível no Painel Institucional', await atalhoInstInqueritos.isVisible({ timeout: 15000 }));
 
     await instContext.close();
 

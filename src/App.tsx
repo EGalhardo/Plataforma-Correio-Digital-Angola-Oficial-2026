@@ -3436,7 +3436,15 @@ export default function App() {
 
     loadSupabaseData();
 
-    // Subscribe to all changes in Supabase realtime
+    return () => {
+      isSubscribed = false;
+    };
+  }, [stage, bi, isOnline, appMode, institutionCode, triggerRefetch]);
+
+  // Subscribe to all changes in Supabase realtime
+  useEffect(() => {
+    if (stage !== 'app' || !isOnline || !hasValidSupabaseKeys()) return;
+
     const channel = supabase
       .channel('schema-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
@@ -3487,10 +3495,9 @@ export default function App() {
       .subscribe();
 
     return () => {
-      isSubscribed = false;
       supabase.removeChannel(channel);
     };
-  }, [stage, bi, isOnline, appMode, institutionCode]);
+  }, [stage, isOnline]);
 
   const runAuditAndSincronizacaoCompleta = () => {
     let fixesCount = 0;
@@ -4123,7 +4130,8 @@ export default function App() {
     const pollingTimer = setInterval(() => {
       invalidateMessagesReadCache();
       setTriggerRefetch(t => t + 1);
-    }, 15000);
+      void syncPerfilAutoRef.current();
+    }, 8000);
 
     return () => {
       window.removeEventListener('focus', handleFocusOrVisible);

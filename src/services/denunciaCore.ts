@@ -49,10 +49,11 @@ const NORMALIZAR = (s: string) =>
     .toUpperCase()
     .trim();
 
-/** Uma correspondência é denúncia quando o assunto começa por «[DENÚNCIA]»
- *  (tolerante a acentos/maiúsculas: «[denuncia]» também conta). */
+/** Uma correspondência é denúncia/reclamação quando o assunto começa por «[DENÚNCIA]» ou «[RECLAMAÇÃO]»
+ *  (tolerante a acentos/maiúsculas: «[denuncia]» / «[reclamacao]» também contam). */
 export function ehAssuntoDenuncia(assunto: string | null | undefined): boolean {
-  return NORMALIZAR(assunto || '').startsWith('[DENUNCIA]');
+  const norm = NORMALIZAR(assunto || '');
+  return norm.startsWith('[DENUNCIA]') || norm.startsWith('[RECLAMACAO]');
 }
 
 // ============================================================================

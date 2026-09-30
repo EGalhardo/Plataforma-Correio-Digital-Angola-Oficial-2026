@@ -4376,8 +4376,10 @@ const DENUNCIA_FASES: ReadonlyArray<{ id: DenunciaFase; ordem: number; rotulo: s
   { id: 'encerrada', ordem: 4, rotulo: 'Encerrada', notificacao: 'O processo da sua denúncia foi encerrado.' },
 ];
 const denunciaDefinicaoFase = (id: string) => DENUNCIA_FASES.find((f) => f.id === id) || null;
-const denunciaEhAssuntoDenuncia = (assunto: string | null | undefined) =>
-  String(assunto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim().startsWith('[DENUNCIA]');
+const denunciaEhAssuntoDenuncia = (assunto: string | null | undefined) => {
+  const norm = String(assunto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+  return norm.startsWith('[DENUNCIA]') || norm.startsWith('[RECLAMACAO]');
+};
 // 2026-09-23 (T-v37.79) — nova fila «Denuncia» (marca «[REGISTO DE DENÚNCIA]»):
 // mesma máquina do Livro de Reclamações; grafia sem acento = nova fila nas notificações.
 const denunciaEhAssuntoNovaDenuncia = (assunto: string | null | undefined) =>
@@ -4490,12 +4492,22 @@ async function denunciaActivarFase(opts: {
   // Notificação ao cidadão remetente (melhor esforço — a fase já ficou gravada).
   let notificado = false;
   try {
+    const isReclamacao = String(row.subject || '').toUpperCase().includes('RECLAMA');
+    const prefixoTitulo = ehNovaFila ? 'Denuncia' : isReclamacao ? 'Reclamação' : 'Denúncia';
+    let msgTexto = def.notificacao;
+    if (ehNovaFila) {
+      msgTexto = def.notificacao.replace(/[Dd]enúncia/g, (m) => m === 'Denúncia' ? 'Denuncia' : 'denuncia');
+    } else if (isReclamacao) {
+      msgTexto = def.notificacao.replace(/[Dd]enúncia/g, (m) => m === 'Denúncia' ? 'Reclamação' : 'reclamação');
+    }
+    const cleanSubj = String(row.subject || '').replace(/^\[[^\]]*\]\s*/, '').slice(0, 80) || 'sem assunto';
+
     const rn = await fetch(`${supaUrl}/rest/v1/notifications`, {
       method: 'POST', headers: { ...H, Prefer: 'return=minimal' },
       body: JSON.stringify([{
         target_bi: String(row.sender_bi || '').toUpperCase(),
-        title: ehNovaFila ? `Denuncia — ${def.rotulo}` : `Denúncia — ${def.rotulo}`,
-        message: `${ehNovaFila ? def.notificacao.replace(/[Dd]enúncia/g, (m) => m === 'Denúncia' ? 'Denuncia' : 'denuncia') : def.notificacao} (${String(row.subject || '').replace(/^\[[^\]]*\]\s*/, '').slice(0, 80) || 'sem assunto'})`,
+        title: `${prefixoTitulo} — ${def.rotulo}`,
+        message: `${msgTexto} (${cleanSubj})`,
         time_text: 'Agora', type: def.id === 'encerrada' ? 'success' : 'info', target_tab: 'correspondencias',
       }]),
     });
