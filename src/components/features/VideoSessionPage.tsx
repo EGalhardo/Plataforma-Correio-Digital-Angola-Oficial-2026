@@ -51,6 +51,7 @@ import { generateProtocol } from '../../utils/protocolGenerator';
 import type { Message } from '../../types';
 import { WebRTCVideoCallRoom } from './WebRTCVideoCallRoom';
 import { CdaModal } from '../ui/CdaModal';
+import { getAudioContext, playCallConnectSound, playCallDisconnectSound } from '../../utils/audioEffects';
 
 // 2026-09-02 — FORMATO DE DATA EUROPEU (DD/MM/AAAA): o input HTML type="date"
 // retorna a data no formato ISO 8601 (AAAA-MM-DD), mas em Angola usamos o
@@ -438,6 +439,10 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
   const inProgressCount = sessions.filter(s => s.status === 'em_curso').length;
   
   const handleStartCall = (session: SessaoPagina) => {
+    try {
+      getAudioContext();
+      playCallConnectSound();
+    } catch {}
     setSelectedSession(session);
     setIsInCall(true);
     setCallDuration(0);
@@ -445,8 +450,8 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
     setIsVideoOn(true);
     setIsAudioOn(true);
     // 2026-08-22 — estado persistido (Modo Real via proxy): o outro
-    // participante vê a sessão "Em Curso" e entra na MESMA sala Jitsi —
-    // a chamada é em tempo real (áudio/vídeo WebRTC do meet.jit.si).
+    // participante vê a sessão "Em Curso" e entra na MESMA sala —
+    // a chamada é em tempo real com áudio e vídeo WebRTC nativos.
     if (!String(session.id).startsWith('sessao-') && !String(session.id).startsWith('vs-')) {
       void VideoSessionService.updateSessionStatus(session.id, 'em_curso');
     }
@@ -454,11 +459,12 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
   };
   
   const handleEndCall = () => {
+    try {
+      playCallDisconnectSound();
+    } catch {}
     if (selectedSession) {
       // 2026-08-22 (v2) — SAIR da sala NÃO conclui o agendamento: o registo
-      // permanece na Agenda até eliminação deliberada (o dono reportou que
-      // entrar "só para verificar" + sair fazia o agendamento desaparecer —
-      // o status passava a 'concluida' e a Agenda deixa de o mostrar).
+      // permanece na Agenda até eliminação deliberada.
       VideoSessionService.updateSessionStatus(selectedSession.id, 'agendada');
       addAuditLog?.(`Saiu da sala de vídeo "${selectedSession.subject}" — o agendamento mantém-se na Agenda até ser eliminado deliberadamente.`, 'info');
     }

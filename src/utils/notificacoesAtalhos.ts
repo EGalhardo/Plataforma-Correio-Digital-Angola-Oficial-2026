@@ -1,6 +1,7 @@
 import type { AppNotification, Message } from '../types';
 import { listarParticipacao, temInqueritoNormal, temInqueritoIA } from './listasParticipacao';
 import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia } from '../services/denunciaCore';
+
 // 2026-09-23 (T-v37.79) — 'nova-denuncia': 5.º atalho do Painel («Denuncia»).
 export type AtalhoPainel = 'video-atendimento' | 'inqueritos' | 'ocorrencias' | 'denuncias' | 'nova-denuncia';
 export type ContagensAtalhos = Record<AtalhoPainel, number>;
@@ -13,31 +14,69 @@ const normalizar = (s: string) => String(s || '').normalize('NFD').replace(/[\u0
 export const normalizarTexto = (s: string): string => normalizar(s);
 
 export const isVideoAtendimentoMessage = (m: Message): boolean => {
-  if ((m.details?.actions || []).includes('video-atendimento')) return true;
-  if ((m.details as any)?.type === 'video-session' || (m.details as any)?.type === 'video') return true;
-  const texto = normalizar(`${m.details?.subject || ''} ${m.preview || ''}`);
-  return texto.includes('video-atendimento') || texto.includes('videoatendimento') || texto.includes('videochamada') || texto.includes('videoconferencia');
+  if (!m) return false;
+  if ((m.details?.actions || []).some(a => String(a).toLowerCase().includes('video-atendimento') || String(a).toLowerCase().includes('video'))) return true;
+  if ((m.details as any)?.type === 'video-session' || (m.details as any)?.type === 'video' || (m.details as any)?.type === 'video-atendimento') return true;
+  const texto = normalizar(`${m.details?.subject || ''} ${m.preview || ''} ${m.details?.body || ''}`);
+  return texto.includes('video-atendimento') ||
+         texto.includes('videoatendimento') ||
+         texto.includes('videochamada') ||
+         texto.includes('videoconferencia') ||
+         texto.includes('video atendimento') ||
+         texto.includes('vídeo atendimento') ||
+         texto.includes('video chamada') ||
+         texto.includes('vídeo chamada') ||
+         texto.includes('video-chamada');
 };
 
 export const isInqueritoMessage = (m: Message): boolean => {
+  if (!m) return false;
   if (temInqueritoNormal(m) || temInqueritoIA(m)) return true;
-  const texto = normalizar(`${m.details?.subject || ''} ${m.preview || ''}`);
-  return texto.includes('inquerito') || texto.includes('sondagem');
+  if ((m.details as any)?.type === 'sondagem' || (m.details as any)?.type === 'inquerito' || (m.details as any)?.type === 'inqueritos') return true;
+  if ((m.details?.actions || []).some(a => /sondagem|inquerito/i.test(String(a)))) return true;
+  const texto = normalizar(`${m.details?.subject || ''} ${m.preview || ''} ${m.details?.body || ''}`);
+  return texto.includes('inquerito') ||
+         texto.includes('sondagem') ||
+         texto.includes('questionario') ||
+         texto.includes('pesquisa de satisfacao') ||
+         texto.includes('inquerito de opiniao');
 };
 
 export const isOcorrenciaMessage = (m: Message): boolean => {
-  if ((m.details?.actions || []).includes('ocorrencia') || (m.details?.actions || []).includes('ocorrencias')) return true;
+  if (!m) return false;
+  if ((m.details?.actions || []).some(a => /ocorrencia/i.test(String(a)))) return true;
   if ((m.details as any)?.type === 'ocorrencia' || (m.details as any)?.type === 'ocorrencias') return true;
-  const texto = normalizar(`${m.details?.subject || ''} ${m.preview || ''}`);
-  return texto.includes('ocorrencia') || texto.includes('[gps]');
+  const texto = normalizar(`${m.details?.subject || ''} ${m.preview || ''} ${m.details?.body || ''}`);
+  return texto.includes('ocorrencia') ||
+         texto.includes('[gps]') ||
+         texto.includes('incidente') ||
+         texto.includes('relato de ocorrencia') ||
+         texto.includes('registo de ocorrencia');
 };
 
 export const isNovaDenunciaMessage = (m: Message): boolean => {
-  return ehAssuntoNovaDenuncia(m.details?.subject || m.preview);
+  if (!m) return false;
+  if (ehAssuntoNovaDenuncia(m.details?.subject || m.preview)) return true;
+  if ((m.details as any)?.type === 'nova-denuncia') return true;
+  if ((m.details?.actions || []).some(a => /nova-denuncia/i.test(String(a)))) return true;
+  const texto = normalizar(`${m.details?.subject || ''} ${m.preview || ''} ${m.details?.body || ''}`);
+  return texto.includes('[registo de denuncia]') ||
+         texto.includes('[nova denuncia]') ||
+         texto.includes('denuncia anonima') ||
+         texto.includes('denuncia publica') ||
+         (texto.includes('denuncia') && !texto.includes('reclamacao') && !texto.includes('livro'));
 };
 
 export const isReclamacaoDenunciaMessage = (m: Message): boolean => {
-  return ehAssuntoDenuncia(m.details?.subject || m.preview);
+  if (!m) return false;
+  if (ehAssuntoDenuncia(m.details?.subject || m.preview)) return true;
+  if ((m.details as any)?.type === 'reclamacao' || (m.details as any)?.type === 'denuncias' || (m.details as any)?.type === 'livro-reclamacoes') return true;
+  if ((m.details?.actions || []).some(a => /reclamacao|denuncias/i.test(String(a)))) return true;
+  const texto = normalizar(`${m.details?.subject || ''} ${m.preview || ''} ${m.details?.body || ''}`);
+  return texto.includes('reclamacao') ||
+         texto.includes('livro de reclamacoes') ||
+         texto.includes('[denuncia]') ||
+         texto.includes('queixa');
 };
 
 /** Assunto canónico de correspondência (mesma regra do ciclo de vida v37.78.28:
@@ -109,42 +148,28 @@ export function poolsPorPapel(inbox: Message[], enviadas: Message[], institucion
   return [...inq, ...den, ...nov];
 }
 
-/** Contar novidades recebidas, nunca totais de processos ou mensagens enviadas. */
+/**
+ * Contagem rigorosa de correspondências não lidas para os 5 atalhos do Painel:
+ * Nas opções Video-atendimento, Inquérito, Ocorrências, Denúncia e Reclamação,
+ * o número de notificação "Badge" corresponde exatamente ao número de correspondências não lidas da respectiva opção.
+ */
 export function contarNotificacoesAtalhos(
-  notificacoes: AppNotification[], inbox: Message[], institucional: boolean,
-  ocorrencias = 0, enviadas: Message[] = [],
+  notificacoes: AppNotification[] = [],
+  inbox: Message[] = [],
+  institucional = false,
+  ocorrencias = 0,
+  enviadas: Message[] = [],
 ): ContagensAtalhos {
-  const isNaoLida = (m: Message) => Boolean(m.unread && m.status !== 'Lida' && m.status !== 'lida');
+  const isNaoLida = (m: Message) => Boolean(m && m.unread && m.status !== 'Lida' && m.status !== 'lida');
   const naoLidas = (inbox || []).filter(isNaoLida);
 
   const counts: ContagensAtalhos = {
     'video-atendimento': naoLidas.filter(isVideoAtendimentoMessage).length,
     'inqueritos': naoLidas.filter(isInqueritoMessage).length,
-    'ocorrencias': naoLidas.filter(isOcorrenciaMessage).length + (institucional ? 0 : (ocorrencias || 0)),
+    'ocorrencias': naoLidas.filter(isOcorrenciaMessage).length,
     'nova-denuncia': naoLidas.filter(isNovaDenunciaMessage).length,
     'denuncias': naoLidas.filter(isReclamacaoDenunciaMessage).length,
   };
-
-  // Na Área Institucional, as opções do painel (vídeo-atendimento, inquérito,
-  // ocorrência, denúncia e reclamação) SÓ apresentam badge com base em
-  // correspondências recebidas na caixa de entrada que ainda não foram lidas.
-  if (institucional) {
-    return counts;
-  }
-
-  // Na Área do Cidadão, além das correspondências não lidas na caixa, adiciona
-  // notificações de sistema pendentes que ainda não estejam fundidas.
-  const pools = poolsPorPapel(inbox, enviadas, false);
-  const vistos = new Set<number>();
-  for (const n of notificacoes) {
-    if (n.unread === false || vistos.has(n.id)) continue;
-    vistos.add(n.id);
-    const tipo = classificarNotificacao(n, pools);
-    if (!tipo) continue;
-    const associada = associarMensagem(n, pools);
-    if (associada?.tipo === tipo && associada.funde && associada.m.unread) continue;
-    counts[tipo]++;
-  }
 
   return counts;
 }
@@ -198,18 +223,18 @@ export function ligarNotificacoesSessoes(
     if (tipoPorAlvoTitulo(n) !== 'video-atendimento') continue;
     vistos.add(n.id);
     const texto = String(n.message || '');
-    const citada = /[«"“]([^«"”]+)[»"”]/.exec(texto)?.[1]?.trim();
-    const sessao = sessoes.find(s => {
-      const assunto = normalizar(s.subject || '').trim();
-      if (assunto.length < 3) return false;
-      if (citada && normalizar(citada) === assunto) return true;
-      if (citada && assunto.length >= 5 && (normalizar(citada).includes(assunto) || assunto.includes(normalizar(citada)))) return true;
-      return assunto.length >= 5 && normalizar(texto).includes(assunto);
+    const m = texto.match(/«([^»]+)»/);
+    const citado = m ? normalizar(m[1]) : '';
+    const encontrado = sessoes.find(s => {
+      const sub = normalizar(s.subject || '');
+      if (citado && sub.includes(citado)) return true;
+      if (sub.length >= 5 && normalizar(texto).includes(sub)) return true;
+      return false;
     });
-    if (!sessao) continue;
-    const cur = ligadas.get(sessao.id) || [];
+    if (!encontrado) continue;
+    const cur = ligadas.get(encontrado.id) || [];
     cur.push(n.id);
-    ligadas.set(sessao.id, cur);
+    ligadas.set(encontrado.id, cur);
   }
   return ligadas;
 }

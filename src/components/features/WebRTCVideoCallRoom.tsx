@@ -24,8 +24,18 @@ import {
   ShieldCheck,
   Clock,
   Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import {
+  playCallConnectSound,
+  playCallDisconnectSound,
+  playSpeakerTestTone,
+  playToggleMuteSound,
+  playAttendantWelcomeVoice,
+  stopAttendantVoice,
+  getAudioContext,
+} from '../../utils/audioEffects';
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
@@ -70,6 +80,7 @@ export function WebRTCVideoCallRoom({
   // DOM element refs
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // WebRTC & Stream refs (stable across renders)
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -120,14 +131,8 @@ export function WebRTCVideoCallRoom({
   const [callDuration, setCallDuration] = useState(0);
   const [isCameraLoading, setIsCameraLoading] = useState(true);
   const [scanOffset, setScanOffset] = useState(0);
-  // 2026-09-21 — SOM DO INTERLOCUTOR: o vídeo remoto era silenciado em
-  // DEFINITIVO quando a primeira reprodução falhava (qualquer erro, incluindo o
-  // AbortError transitório «interrupted by a new load request»), pelo que
-  // nenhum dos dois lados ouvia o outro. Agora só se silencia quando a
-  // reprodução é recusada por POLÍTICA (NotAllowedError), e nesse caso o som
-  // fica recuperável: aviso + botão «Ligar som» na barra de controlos e
-  // recuperação automática no primeiro toque/toque na sala.
   const [somBloqueado, setSomBloqueado] = useState(false);
+  const [isSpeakerTesting, setIsSpeakerTesting] = useState(false);
 
   // Laser animation in PiP
   useEffect(() => {
@@ -264,6 +269,10 @@ export function WebRTCVideoCallRoom({
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = stream;
           tentarTocarRemoto();
+        }
+        if (remoteAudioRef.current) {
+          remoteAudioRef.current.srcObject = stream;
+          remoteAudioRef.current.play().catch(() => {});
         }
       };
 
@@ -480,13 +489,31 @@ export function WebRTCVideoCallRoom({
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 1280, min: 640 }, height: { ideal: 720, min: 480 }, facingMode: facingMode },
-          audio: true,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
         });
       } catch {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: facingMode },
-          audio: false,
-        });
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: facingMode },
+            audio: true,
+          });
+        } catch {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: true,
+              audio: true,
+            });
+          } catch {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: facingMode },
+              audio: false,
+            });
+          }
+        }
       }
 
       localStreamRef.current = stream;
@@ -556,7 +583,17 @@ export function WebRTCVideoCallRoom({
 
     console.log('[CDA-WebRTC] Inicializando sala de vídeo:', channelId);
 
-    // 1. Start local camera
+    // 1. Start local camera & Audio feedback
+    try {
+      getAudioContext();
+      playCallConnectSound();
+      playAttendantWelcomeVoice(
+        propsRef.current.currentUserRole === 'institution'
+          ? `Sessão de Vídeo-Atendimento iniciada. Canal oficial com ${propsRef.current.remoteUserName || 'o cidadão'} activo.`
+          : `Bem-vindo ao Vídeo-Atendimento do Correio Digital de Angola. A sua ligação oficial com ${propsRef.current.remoteUserName || 'a instituição'} está activa.`
+      );
+    } catch {}
+
     initLocalMedia().then(() => {
       if (!isMounted) return;
 
@@ -630,6 +667,7 @@ export function WebRTCVideoCallRoom({
 
     return () => {
       isMounted = false;
+      stopAttendantVoice();
       clearInterval(pingInterval);
       clearInterval(pollInterval);
 
@@ -673,11 +711,27 @@ export function WebRTCVideoCallRoom({
   const toggleMicrophone = () => {
     const nextMuted = !localAudioMuted;
     setLocalAudioMuted(nextMuted);
+    playToggleMuteSound(nextMuted);
     if (localStreamRef.current) {
       localStreamRef.current.getAudioTracks().forEach((track) => {
         track.enabled = !nextMuted;
       });
     }
+  };
+
+  // Testar Altifalante / Áudio
+  const handleTestAudio = () => {
+    setIsSpeakerTesting(true);
+    getAudioContext();
+    playSpeakerTestTone();
+    playAttendantWelcomeVoice('Altifalante operacional. O canal de áudio do seu dispositivo está a funcionar perfeitamente.');
+    setTimeout(() => setIsSpeakerTesting(false), 3000);
+  };
+
+  const handleEndCallWithFeedback = () => {
+    playCallDisconnectSound();
+    stopAttendantVoice();
+    onEndCall?.();
   };
 
   // Toggle Video
@@ -992,6 +1046,14 @@ export function WebRTCVideoCallRoom({
           className={`w-full h-full object-cover transition-opacity duration-500 ${hasRemoteStream ? 'opacity-100' : 'opacity-0'}`}
         />
 
+        {/* Dedicated Audio Element for WebRTC audio tracks */}
+        <audio
+          ref={remoteAudioRef}
+          data-testid="remote-audio"
+          autoPlay
+          playsInline
+        />
+
         {/* WAITING SCREEN (Shown ONLY while waiting for the second participant to enter) */}
         {!hasRemoteStream && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 pb-[160px] sm:pb-6 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950 text-center">
@@ -1147,6 +1209,20 @@ export function WebRTCVideoCallRoom({
             <Monitor size={20} />
           </button>
 
+          {/* Testar Áudio / Altifalante */}
+          <button
+            type="button"
+            onClick={handleTestAudio}
+            title="Testar Altifalante / Áudio de Atendimento"
+            className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all border-0 cursor-pointer shadow-md active:scale-95 ${
+              isSpeakerTesting
+                ? 'bg-amber-500 text-slate-950 font-bold animate-bounce'
+                : 'bg-slate-800/90 text-slate-200 hover:bg-slate-700 hover:text-white'
+            }`}
+          >
+            <Volume2 size={20} className={isSpeakerTesting ? 'text-slate-950 animate-pulse' : 'text-slate-200'} />
+          </button>
+
           {/* 2026-09-21 — Ligar som do interlocutor (aparece só quando a
               reprodução automática com som foi recusada pelo navegador) */}
           {somBloqueado && (
@@ -1163,7 +1239,7 @@ export function WebRTCVideoCallRoom({
           {/* Hangup / Leave Call */}
           <button
             type="button"
-            onClick={onEndCall}
+            onClick={handleEndCallWithFeedback}
             title="Desligar Chamada"
             className="h-11 px-5 rounded-2xl bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all border-0 cursor-pointer shadow-lg shadow-red-600/30 active:scale-95 ml-1"
           >
