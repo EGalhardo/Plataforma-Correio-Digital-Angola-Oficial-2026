@@ -4711,7 +4711,12 @@ export default function App() {
     // persistência na nuvem e notificação individuais) e apresenta o resumo.
     // A resposta directa (override) e as sondagens nunca passam por aqui.
     if (!override && (composeData.toArray || []).filter((t) => t && t.trim()).length > 0) {
-      const destinos: string[] = Array.from(new Set((composeData.toArray || []).map((t) => t.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean)));
+      const destinos: string[] = Array.from(new Set(
+        [
+          ...(composeData.toArray || []),
+          ...(composeData.to ? [composeData.to] : [])
+        ].map((t) => t.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean)
+      ));
       if (!composeData.body.trim()) {
         notify('A mensagem está vazia. Escreva o conteúdo antes de enviar.', 'warning');
         return { ok: false, error: 'A mensagem está vazia. Escreva o conteúdo antes de enviar.' };
@@ -4805,33 +4810,50 @@ export default function App() {
       notify('A mensagem está vazia. Escreva o conteúdo antes de enviar.', 'warning');
       return { ok: false, error: 'A mensagem está vazia. Escreva o conteúdo antes de enviar.' };
     }
-    // 2026-09-22 — «TODOS» NO CAMPO DESTINATÁRIO (Nova Mensagem): o campo
-    // comanda SEMPRE a entrega real. Antes, uma difusão manual «Todos» caía
-    // no envio simples e gravava UMA linha partilhada recipient_bi='TODOS',
-    // que a regra v37.31 mostra a TODO o cidadão — incluindo cidadãos que
-    // NUNCA trocaram contacto com a instituição (fuga de alcance). Agora:
-    //  • Instituição → fan-out individual pela MESMA pipeline: uma
-    //    correspondência com protocolo + notificação POR cidadão que já
-    //    trocou contacto com a instituição (RPC v36). Nunca se grava a
-    //    linha partilhada: quem não tem contacto prévio NÃO recebe.
-    //  • Cidadão → bloqueado com aviso honesto (difusão é prerrogativa
-    //    de instituição oficial; resposta directa/override intocada).
+    // 2026-09-30 — «TODOS» NO CAMPO DESTINATÁRIO (Nova Mensagem):
+    // Quando o destinatário for Todos, envia a correspondência para todos os
+    // contactos que já tenham trocado contacto/correspondência com a conta actual.
     if (!override && /^TODOS$/i.test(to)) {
-      if (!isInstMode) {
-        notify('A difusão «Todos» é exclusiva de instituições oficiais. Indique o destinatário concreto da sua correspondência.', 'warning');
-        addAuditLog('BLOQUEIO — cidadão tentou difusão «Todos» na Nova Mensagem (prerrogativa institucional).', 'warning');
-        return { ok: false, blocked: true, error: 'Difusão «Todos» exclusiva de instituições oficiais.' };
+      const codigoDifusao = isInstMode
+        ? (resolveInstitutionCode(effectiveInstCode || institutionCode || bi) || (institutionCode || bi))
+        : normalizeHomologationBi(bi);
+
+      let pool: string[] = [];
+      const cloudPool = await supabaseService.listarCidadaosComContacto(codigoDifusao);
+      if (Array.isArray(cloudPool)) {
+        pool.push(...cloudPool);
       }
-      const codigoDifusao = resolveInstitutionCode(institutionCode || bi) || (institutionCode || bi);
-      const pool = await supabaseService.listarCidadaosComContacto(codigoDifusao);
-      if (pool === null) {
-        notify('Não foi possível consultar os cidadãos com contacto prévio com esta instituição. Nada foi enviado — tente novamente.', 'error');
-        return { ok: false, error: 'Consulta da audiência indisponível.' };
+
+      // Adiciona contactos locais e histórico de correspondências trocadas com esta conta
+      const contactsSet = new Set<string>(pool.map(p => p.trim().toUpperCase()));
+      const minhaChaveNorm = codigoDifusao.toUpperCase().replace(/\s+/g, '');
+      const selfBiNorm = normalizeHomologationBi(bi).toUpperCase().replace(/\s+/g, '');
+
+      for (const c of contacts) {
+        const val = String(c.bi || c.id || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (val && val !== 'TODOS' && val !== minhaChaveNorm && val !== selfBiNorm) {
+          contactsSet.add(val);
+        }
       }
+
+      for (const m of [...inbox, ...sentMessages, ...currentInbox, ...currentSentMessages]) {
+        const s = String(m.senderKey || m.org || '').trim().toUpperCase().replace(/\s+/g, '');
+        const r = String(m.recipientBi || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (s && s !== 'TODOS' && s !== minhaChaveNorm && s !== selfBiNorm && !['SYSTEM', 'CDA', 'ADMIN'].includes(s)) {
+          contactsSet.add(s);
+        }
+        if (r && r !== 'TODOS' && r !== minhaChaveNorm && r !== selfBiNorm && !['SYSTEM', 'CDA', 'ADMIN'].includes(r)) {
+          contactsSet.add(r);
+        }
+      }
+
+      pool = Array.from(contactsSet).filter(x => x && x !== 'TODOS' && x !== minhaChaveNorm && x !== selfBiNorm);
+
       if (pool.length === 0) {
-        notify('Não há cidadãos que tenham trocado contacto com esta instituição. Indique o(s) B.I. no campo Destinatário. Nada foi enviado.', 'warning');
+        notify('Não há contactos que tenham trocado contacto com esta conta. Indique o destinatário no campo Destinatário. Nada foi enviado.', 'warning');
         return { ok: false, error: 'Audiência vazia.' };
       }
+
       let okDif = 0;
       const falhadosDif: string[] = [];
       const protocolosDif: string[] = [];
@@ -4857,11 +4879,11 @@ export default function App() {
       }
       setIsComposing(false);
       setComposeData({ to: '', subject: '', body: '', attachments: [], toArray: [] });
-      addAuditLog(`Difusão «Todos» (${codigoDifusao}): ${okDif}/${pool.length} cidadão(s) com contacto prévio servido(s)${falhadosDif.length ? ` — falharam: ${falhadosDif.join(', ')}` : ''}${protocolosDif.length ? ` — 1.º protocolo: ${protocolosDif[0]}` : ''}.`, okDif === pool.length ? 'info' : 'warning');
+      addAuditLog(`Difusão «Todos» (${codigoDifusao}): ${okDif}/${pool.length} contacto(s) com contacto prévio servido(s)${falhadosDif.length ? ` — falharam: ${falhadosDif.join(', ')}` : ''}${protocolosDif.length ? ` — 1.º protocolo: ${protocolosDif[0]}` : ''}.`, okDif === pool.length ? 'info' : 'warning');
       if (protocoloDif) {
         setSuccessProtocolModal({
           protocolNumber: protocoloDif.protocolNumber,
-          org: `Difusão «Todos»: ${okDif} cidadão(s) com contacto prévio`,
+          org: `Difusão «Todos»: ${okDif} contacto(s) com contacto prévio`,
           subject: (rawSubject || '').trim() || body.trim().replace(/\s+/g, ' ').slice(0, 60).trim() || '(sem assunto)',
           digitalSignature: protocoloDif.digitalSignature,
           documentHash: protocoloDif.documentHash,
@@ -4871,7 +4893,7 @@ export default function App() {
       }
       notify(
         okDif === pool.length
-          ? `Correspondência distribuída a ${okDif} cidadão(s) com contacto prévio com esta instituição.`
+          ? `Correspondência distribuída a ${okDif} contacto(s) com contacto prévio com esta conta.`
           : `Difusão «Todos»: ${okDif}/${pool.length} entregue(s)${falhadosDif.length ? ` — sem entrega para: ${falhadosDif.join(', ')}` : ''}.`,
         okDif === pool.length ? 'success' : 'warning',
       );

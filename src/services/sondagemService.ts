@@ -321,6 +321,32 @@ const notificarDestinatariosSondagem = async (bis: string[], titulo: string, tex
   }
 };
 
+/**
+ * Activa os rascunhos de sondagens para destinatários indicados directamente
+ * (sem difusão ampla por âmbito), para seguirem embutidos na correspondência oficial individual.
+ */
+export const ativarSondagensParaDestinatarios = async (params: {
+  sondagens: Sondagem[];
+  destinatarios: string[];
+}): Promise<SondagemResultado<{ audiencia: number }>> => {
+  try {
+    if (!params.sondagens.length) return { ok: false, motivo: 'validacao', mensagem: 'Sem sondagens para activar.' };
+    const n = new Set(params.destinatarios.map((d) => String(d || '').trim().toUpperCase()).filter(Boolean)).size;
+    if (n === 0) return { ok: false, motivo: 'validacao', mensagem: 'Indique pelo menos um destinatário.' };
+    if (!(await sondagensDisponiveis())) return { ok: false, motivo: 'sem_migracao', mensagem: 'Sondagens aguarda a migração v37 no Supabase.' };
+    const patch = { status: 'ativa', abrangencia: 'local', audiencia_total: n, destinatarios: n };
+    for (const s of params.sondagens) {
+      await supabase
+        .from('sondagens')
+        .update(patch)
+        .eq('id', s.id);
+    }
+    return { ok: true, dados: { audiencia: n } };
+  } catch (e: unknown) {
+    return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
+  }
+};
+
 export const distribuirSondagensCompostas = async (params: {
   codigo: string;
   nomeInstituicao: string;

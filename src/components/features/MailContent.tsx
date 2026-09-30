@@ -61,7 +61,8 @@ import { TipoInqueritoModal, type TipoInquerito } from './TipoInqueritoModal';
 import { CdaConfirmModal } from '../ui/CdaConfirm';
 import { CdaModal } from '../ui/CdaModal';
 import {
-  distribuirSondagensCompostas, removerRascunhoSondagem, registarExpedicaoSondagens, type Sondagem,
+  distribuirSondagensCompostas, removerRascunhoSondagem, registarExpedicaoSondagens,
+  ativarSondagensParaDestinatarios, type Sondagem,
 } from '../../services/sondagemService';
 // 2026-09-10 — Inquérito com IA conversacional (PROMPT v3, Fase 2): bloco no
 // compositor + difusão pelo âmbito, espelhando o pipeline das sondagens.
@@ -320,7 +321,24 @@ export function MailContent({
       const nomeInst = nomeInstituicao?.trim() || instNomeSondagem || bi;
       let audiencia = 0;
       let classificacao = '';
-      if (temSondagens) {
+      const paraTodos = String(composeData.to).trim().toUpperCase() === 'TODOS';
+
+      if (temSondagens && !paraTodos) {
+        const act = await ativarSondagensParaDestinatarios({ sondagens: sondagensCompostas, destinatarios: manuais });
+        if (!act.ok || !act.dados) {
+          setDistribuindoSondagens(false);
+          setAvisoSondagens(
+            act.motivo === 'sem_migracao'
+              ? 'Sondagens disponível em Modo Real (Supabase) — aguarda a migração v37.'
+              : act.mensagem || 'Não foi possível activar a sondagem para o(s) destinatário(s) indicado(s).',
+          );
+          return;
+        }
+        addAuditLog?.(
+          `${sondagensCompostas.length} sondagem(ns) da instituição ${nomeInst} dirigida(s) a ${act.dados.audiencia} destinatário(s) indicado(s) (${manuais.join(', ')}) — ${new Date().toLocaleString('pt-PT')}.`,
+          'success',
+        );
+      } else if (temSondagens) {
         const dist = await distribuirSondagensCompostas({
           codigo: bi,
           nomeInstituicao: nomeInst,
@@ -329,15 +347,11 @@ export function MailContent({
           corpoExtra: composeData.body || '',
           excluirBis: manuais,
         });
-        // v37.78.14 — ANTI-DUPLICAÇÃO: o flag só desce DEPOIS de o ramo TODOS
-        // concluir (popup de sucesso) ou de um erro honesto. Antes, a janela
-        // entre o fim da difusão e o popup permitia um 2.º clique duplicar toda
-        // a distribuição (44 entregas em vez de 22 — visto em produção).
         if (!dist.ok || !dist.dados) {
           setDistribuindoSondagens(false);
           setAvisoSondagens(
             dist.motivo === 'audiencia_vazia'
-              ? 'Não há cidadãos no âmbito desta instituição para receber a sondagem. Nada foi enviado.'
+              ? 'Não há cidadãos que já tenham trocado contacto com esta instituição para receber a sondagem. Indique o(s) B.I. no campo Destinatário. Nada foi enviado.'
               : dist.mensagem || 'Não foi possível distribuir a sondagem. Nada foi enviado.',
           );
           return;
@@ -356,7 +370,6 @@ export function MailContent({
       //  • «Todos» → todos os cidadãos que já trocaram correspondência com
       //    esta instituição (destinatários manuais adicionais, se existirem,
       //    são excluídos da difusão porque recebem a cópia própria).
-      const paraTodos = String(composeData.to).trim().toUpperCase() === 'TODOS';
       if (temInqIA && !paraTodos) {
         const act = await ativarInqueritosIAParaDestinatarios({ inqueritos: inqueritosIaCompostos, destinatarios: manuais });
         if (!act.ok || !act.dados) {
