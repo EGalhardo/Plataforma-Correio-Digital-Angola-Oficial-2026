@@ -98,13 +98,16 @@ export function CronogramaDenuncia({ messageId, senderBi, subject, podeGerir, on
     setAActivar(false);
     if (r.ok === true) {
       let effectiveSenderBi = senderBi;
+      const baseId = messageId >= 10000 && messageId < 90000000 ? messageId - 10000 : messageId;
       if (!effectiveSenderBi) {
         try {
-          const baseId = messageId >= 10000 && messageId < 90000000 ? messageId - 10000 : messageId;
           const { data } = await supabase.from('messages').select('sender_bi').eq('id', baseId).maybeSingle();
           if (data && data.sender_bi) effectiveSenderBi = data.sender_bi;
         } catch {}
       }
+
+      // Marcar correspondência como não lida no Supabase para activar badge de perfil
+      void supabase.from('messages').update({ unread: 1, updated_at: new Date().toISOString() }).eq('id', baseId).then(() => {}, () => {});
 
       if (effectiveSenderBi) {
         const isReclamacao = String(subject || '').toUpperCase().includes('RECLAMA');
@@ -120,7 +123,7 @@ export function CronogramaDenuncia({ messageId, senderBi, subject, podeGerir, on
           message: `${msgNotif} (${cleanSubj})`,
           time_text: 'Agora',
           type: pedida.id === 'encerrada' ? 'success' : 'info',
-          target_tab: 'correspondencias',
+          target_tab: 'mensagem',
         }).catch(() => {});
       }
 

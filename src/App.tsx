@@ -6412,6 +6412,8 @@ Ficha civil do titular:
             notifications={currentNotifications}
             setTab={setTab}
             appMode={appMode}
+            messages={[...currentSentMessages, ...currentInbox]}
+            onOpenMessage={handleSelectMessage}
           />
         );
       case 'inst-qrcode':
@@ -8861,6 +8863,44 @@ Ficha civil do titular:
                 setTab={setTab} 
                 setSelectedDoc={setSelectedDoc} 
                 onClickNotification={(n) => {
+                  const norm = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                  const subjFromMsg = (n.message || '').match(/\(([^)]+)\)/)?.[1] || '';
+                  const cleanSubjFromMsg = norm(subjFromMsg).replace(/^\[[^\]]*\]\s*/, '');
+                  const itemText = norm(`${n.title || ''} ${n.message || ''}`);
+                  const isCronogramaNotif = n.title?.includes('Reclamação') || n.title?.includes('Denúncia') || n.title?.includes('Denuncia') || n.targetTab === 'mensagem';
+
+                  let allCandidates = [ ...currentSentMessages, ...currentInbox ];
+                  try {
+                    const rawInbox = JSON.parse(localStorage.getItem('correio_digital_inbox') || '[]');
+                    const rawSent = JSON.parse(localStorage.getItem('correio_digital_sent') || '[]');
+                    allCandidates = [...allCandidates, ...rawInbox, ...rawSent];
+                  } catch {}
+
+                  const matchingMsg = allCandidates.find(m => {
+                    const subjM = norm(m.details?.subject || (m as any).subject || m.preview || '');
+                    const cleanSubjM = subjM.replace(/^\[[^\]]*\]\s*/, '');
+                    if (cleanSubjFromMsg && cleanSubjM && (cleanSubjM.includes(cleanSubjFromMsg) || cleanSubjFromMsg.includes(cleanSubjM))) return true;
+                    if (subjFromMsg && (subjM.includes(norm(subjFromMsg)) || norm(subjFromMsg).includes(subjM))) return true;
+                    if (cleanSubjM.length >= 4 && itemText.includes(cleanSubjM)) return true;
+                    if (subjM.length >= 4 && itemText.includes(subjM)) return true;
+                    return false;
+                  }) || (isCronogramaNotif ? allCandidates.find(m => {
+                    const subjM = norm(m.details?.subject || (m as any).subject || m.preview || '');
+                    return subjM.startsWith('[reclamacao]') || subjM.startsWith('[denuncia]') || subjM.startsWith('[registo de denuncia]');
+                  }) : null);
+
+                  if (matchingMsg && isCronogramaNotif) {
+                    handleSelectMessage(matchingMsg);
+                    setNotifications((prev) =>
+                      prev.map((item) => item.id === n.id ? { ...item, unread: false } : item)
+                    );
+                    if (!isDemoSession && n.id) {
+                      void supabaseService.markNotificationRead(n.id);
+                    }
+                    setShowNotifications(false);
+                    return;
+                  }
+
                   setActiveNotificationModal(n);
                   setNotifications((prev) =>
                     prev.map((item) => item.id === n.id ? { ...item, unread: false } : item)
@@ -9277,6 +9317,39 @@ Ficha civil do titular:
         notification={activeNotificationModal}
         onClose={() => setActiveNotificationModal(null)}
         onNavigateToTab={(targetTab) => {
+          if (activeNotificationModal) {
+            const norm = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+            const subjFromMsg = (activeNotificationModal.message || '').match(/\(([^)]+)\)/)?.[1] || '';
+            const cleanSubjFromMsg = norm(subjFromMsg).replace(/^\[[^\]]*\]\s*/, '');
+            const itemText = norm(`${activeNotificationModal.title || ''} ${activeNotificationModal.message || ''}`);
+            const isCronogramaNotif = activeNotificationModal.title?.includes('Reclamação') || activeNotificationModal.title?.includes('Denúncia') || activeNotificationModal.title?.includes('Denuncia') || targetTab === 'mensagem';
+
+            let allCandidates = [ ...currentSentMessages, ...currentInbox ];
+            try {
+              const rawInbox = JSON.parse(localStorage.getItem('correio_digital_inbox') || '[]');
+              const rawSent = JSON.parse(localStorage.getItem('correio_digital_sent') || '[]');
+              allCandidates = [...allCandidates, ...rawInbox, ...rawSent];
+            } catch {}
+
+            const matchingMsg = allCandidates.find(m => {
+              const subjM = norm(m.details?.subject || (m as any).subject || m.preview || '');
+              const cleanSubjM = subjM.replace(/^\[[^\]]*\]\s*/, '');
+              if (cleanSubjFromMsg && cleanSubjM && (cleanSubjM.includes(cleanSubjFromMsg) || cleanSubjFromMsg.includes(cleanSubjM))) return true;
+              if (subjFromMsg && (subjM.includes(norm(subjFromMsg)) || norm(subjFromMsg).includes(subjM))) return true;
+              if (cleanSubjM.length >= 4 && itemText.includes(cleanSubjM)) return true;
+              if (subjM.length >= 4 && itemText.includes(subjM)) return true;
+              return false;
+            }) || (isCronogramaNotif ? allCandidates.find(m => {
+              const subjM = norm(m.details?.subject || (m as any).subject || m.preview || '');
+              return subjM.startsWith('[reclamacao]') || subjM.startsWith('[denuncia]') || subjM.startsWith('[registo de denuncia]');
+            }) : null);
+
+            if (matchingMsg && isCronogramaNotif) {
+              handleSelectMessage(matchingMsg);
+              setActiveNotificationModal(null);
+              return;
+            }
+          }
           setTab(targetTab);
           setSelectedDoc(null);
         }}

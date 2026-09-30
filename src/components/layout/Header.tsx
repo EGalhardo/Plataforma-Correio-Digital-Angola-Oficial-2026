@@ -297,6 +297,11 @@ export function Header({
     ? (typeof unreadCorrespondencesCount === 'number' ? unreadCorrespondencesCount : 0)
     : pendingRegistrations.length;
   const [showUnreadMenu, setShowUnreadMenu] = useState(false);
+
+  useEffect(() => {
+    setShowUnreadMenu(false);
+  }, [tab]);
+
   // Cor do indicador Online por estado da conta (só no modo cidadão)
   // O tom por estado da conta aplica-se ao cidadão E à instituição (pendente → vermelho…)
   const onlineTone = (isUserMode || isInstitutionMode) ? citizenOnlineTone : null;

@@ -1143,10 +1143,17 @@ async function denunciaActivarFase(opts: {
         target_bi: String(row.sender_bi || '').toUpperCase(),
         title: `${prefixoTitulo} — ${def.rotulo}`,
         message: `${msgTexto} (${cleanSubj})`,
-        time_text: 'Agora', type: def.id === 'encerrada' ? 'success' : 'info', target_tab: 'correspondencias',
+        time_text: 'Agora', type: def.id === 'encerrada' ? 'success' : 'info', target_tab: 'mensagem',
       }]),
     });
     notificado = rn.ok;
+
+    // Marcação da correspondência como não lida para que o cidadão receba o badge na foto de perfil
+    await fetch(`${supaUrl}/rest/v1/messages?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: { ...H, Prefer: 'return=minimal' },
+      body: JSON.stringify({ unread: 1, updated_at: agora.toISOString() }),
+    });
   } catch { /* melhor esforço */ }
   return { status: 200, json: { ok: true, fase: def.id, rotulo: def.rotulo, em: agora.toISOString(), notificado } };
 }

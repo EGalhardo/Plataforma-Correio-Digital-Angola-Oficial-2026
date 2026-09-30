@@ -1,18 +1,20 @@
 import { useState } from 'react';
 import { Bell, BadgeCheck, ShieldAlert, Info, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
-import { AppNotification, AppMode } from '../../types';
+import { AppNotification, AppMode, Message } from '../../types';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 
 interface NotificationsCenterContentProps {
   notifications: AppNotification[];
   setTab: (tab: string) => void;
   appMode: AppMode;
+  messages?: Message[];
+  onOpenMessage?: (msg: Message) => void;
 }
 
 /** UX: mensagens longas começam truncadas (2 linhas) com «Ver mais». */
 const LIMITE_EXPANDIR = 140;
 
-export function NotificationsCenterContent({ notifications, setTab, appMode }: NotificationsCenterContentProps) {
+export function NotificationsCenterContent({ notifications, setTab, appMode, messages = [], onOpenMessage }: NotificationsCenterContentProps) {
   const [expandidos, setExpandidos] = useState<Set<string | number>>(new Set());
   const alternar = (id: string | number) => {
     setExpandidos(prev => {
@@ -28,8 +30,39 @@ export function NotificationsCenterContent({ notifications, setTab, appMode }: N
     info: notifications.filter((n) => n.type === 'info')
   };
 
-  const navigateToTarget = (targetTab: string) => {
-    setTab(targetTab || (appMode === 'admin' ? 'gov-dashboard' : 'home'));
+  const navigateToTarget = (targetTab: string, item?: AppNotification) => {
+    if (item && onOpenMessage) {
+      const norm = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      const subjFromMsg = (item.message || '').match(/\(([^)]+)\)/)?.[1] || '';
+      const cleanSubjFromMsg = norm(subjFromMsg).replace(/^\[[^\]]*\]\s*/, '');
+      const itemText = norm(`${item.title || ''} ${item.message || ''}`);
+
+      let allCandidates = [...(messages || [])];
+      try {
+        const rawInbox = JSON.parse(localStorage.getItem('correio_digital_inbox') || '[]');
+        const rawSent = JSON.parse(localStorage.getItem('correio_digital_sent') || '[]');
+        allCandidates = [...allCandidates, ...rawInbox, ...rawSent];
+      } catch {}
+
+      const matchingMsg = allCandidates.find(m => {
+        const subjM = norm(m.details?.subject || (m as any).subject || m.preview || '');
+        const cleanSubjM = subjM.replace(/^\[[^\]]*\]\s*/, '');
+        if (cleanSubjFromMsg && cleanSubjM && (cleanSubjM.includes(cleanSubjFromMsg) || cleanSubjFromMsg.includes(cleanSubjM))) return true;
+        if (subjFromMsg && (subjM.includes(norm(subjFromMsg)) || norm(subjFromMsg).includes(subjM))) return true;
+        if (cleanSubjM.length >= 4 && itemText.includes(cleanSubjM)) return true;
+        if (subjM.length >= 4 && itemText.includes(subjM)) return true;
+        return false;
+      }) || allCandidates.find(m => {
+        const subjM = norm(m.details?.subject || (m as any).subject || m.preview || '');
+        return subjM.startsWith('[reclamacao]') || subjM.startsWith('[denuncia]') || subjM.startsWith('[registo de denuncia]');
+      });
+
+      if (matchingMsg && (item.title?.includes('Reclamação') || item.title?.includes('Denúncia') || item.title?.includes('Denuncia') || targetTab === 'mensagem')) {
+        onOpenMessage(matchingMsg);
+        return;
+      }
+    }
+    setTab(targetTab === 'mensagem' ? 'correspondencias' : (targetTab || (appMode === 'admin' ? 'gov-dashboard' : 'home')));
   };
 
   const sections = [
@@ -92,7 +125,7 @@ export function NotificationsCenterContent({ notifications, setTab, appMode }: N
                   return (
                   <button
                     key={item.id}
-                    onClick={() => navigateToTarget(item.targetTab)}
+                    onClick={() => navigateToTarget(item.targetTab, item)}
                     className="w-full text-left bg-slate-50 hover:bg-slate-100 border border-slate-150 rounded-xl md:rounded-2xl p-3.5 transition-all cursor-pointer"
                   >
                     <div className="flex items-start justify-between gap-3">
