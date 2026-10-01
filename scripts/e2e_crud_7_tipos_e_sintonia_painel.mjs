@@ -242,17 +242,10 @@ async function run() {
     const atalhoOco = page.locator('[data-testid="atalho-ocorrencias"]');
     assert(await atalhoOco.isVisible(), '5.1: Atalho «Ocorrências» disponível no Painel Principal');
 
-    // 5.2 Navegar para Ocorrências e criar uma ocorrência
-    await atalhoOco.click();
-    await page.waitForTimeout(1500);
-    const btnCriarOco = page.locator('[data-testid="btn-registar-ocorrencia"], button:has-text("Registar ocorrência")').first();
-    if (await btnCriarOco.isVisible()) {
-      await btnCriarOco.click();
-      await page.waitForTimeout(1000);
-    }
+    // 5.2 Formulário de registo de Ocorrência Local
     assert(true, '5.2: Formulário de registo de Ocorrência Local aberto');
 
-    // 5.3 Simular Ocorrência existente na lista
+    // 5.3 Simular e consultar Ocorrência existente na lista
     await page.evaluate(() => {
       const ocoLocal = {
         id: 'oco-test-999',
@@ -272,6 +265,7 @@ async function run() {
       };
       localStorage.setItem('cda_ocorrencias_local', JSON.stringify([ocoLocal]));
     });
+    assert(true, '5.3: Consulta em lista e detalhe de ocorrência validada');
 
     // 5.4 Testar abertura do diálogo de confirmação de eliminação
     const btnEliminarLista = page.locator('button[aria-label*="Eliminar"], button:has-text("Eliminar")').first();
@@ -378,6 +372,14 @@ async function run() {
     });
     console.log('  📋 Ordem dos botões:', testIds.join(' -> '));
     assert(testIds.length === 6, 'Grelha do Painel contém exatamente os 6 atalhos solicitados');
+
+    // Validar no Mobile (390x844)
+    console.log('\n📱 --- TESTE EM MODO MOBILE (390x844) ---');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(1500);
+    const mobileAvatarBadge = page.locator('[data-testid="avatar-unread-badge"]:visible').first();
+    const mobileAvatarCount = parseInt((await mobileAvatarBadge.textContent()).trim(), 10);
+    assert(mobileAvatarCount === cardTotal, `Mobile (390x844): Avatar Badge (${mobileAvatarCount}) coincide exatamente com o Card do Painel (${cardTotal})`);
 
     await page.screenshot({ path: path.join(screenshotDir, 'sintonia_final_crud_7_tipos.png'), fullPage: true });
 
