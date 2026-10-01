@@ -602,11 +602,6 @@ export function MailContent({
           descricao: 'Envio de correspondência digital oficial padronizada para a caixa do destinatário.' },
         { id: 'comunicado', titulo: 'Comunicado', etiqueta: 'Oficial / Difusão', Icone: Megaphone, tom: 'azul', idDom: 'btn-modal-opcao-comunicado',
           descricao: 'Emissão e publicação de comunicado oficial de órgão do Estado para cidadãos e outras instituições.' },
-        // 2026-09-23 (T-v37.79) — «Denuncia» também para a instituição
-        // (p.ex. comunicação formal a outra instituição; a fase avança do
-        // lado da instituição destinatária, exactamente como no Livro).
-        { id: 'nova-denuncia', titulo: 'Denuncia', etiqueta: 'Formal', Icone: Flag, tom: 'vermelho', idDom: 'btn-modal-opcao-denuncia',
-          descricao: 'Apresentar uma denuncia formal a outra instituição. A mensagem segue marcada como denuncia, com cronograma de tratamento.' },
         { id: 'emergencia', titulo: 'Mensagem de Emergência', etiqueta: 'Prioritário', Icone: ShieldAlert, tom: 'vermelho', idDom: 'btn-modal-opcao-emergencia',
           descricao: 'Alerta de emergência com difusão prioritária para a rede de contactos familiares.' },
       ]
