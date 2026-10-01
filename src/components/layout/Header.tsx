@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mic, Globe, ChevronDown, Check, Sun, Moon, Mail, LogOut, UserPlus, Building2 } from 'lucide-react';
+import { Mic, Globe, ChevronDown, Check, Sun, Moon, Mail, LogOut, UserPlus, Building2, Video, Megaphone, Flag, ClipboardList, AlertCircle } from 'lucide-react';
 import { useSession } from '../../services/sessionStore';
 import { AppNotification, AppMode, LanguageCode, LANGUAGE_OPTIONS, Message, PendingRegistration } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -15,6 +15,7 @@ import logoModoEscuro from '../../assets/images/logomarca_modo_escuro_crop.png';
 import { hasPagePresentation } from '../../services/voicePresentations';
 import { resolveInstitutionCode, isRealInstitutionalCode } from '../../services/supabaseService';
 import { isPlaceholderAvatar, iniciaisDe } from '../../services/avatarService';
+import { isVideoAtendimentoMessage, isComunicadoMessage, isNovaDenunciaMessage, isReclamacaoDenunciaMessage, isInqueritoMessage, isOcorrenciaMessage } from '../../utils/notificacoesAtalhos';
 import type { JSX } from 'react';
 
 interface HeaderProps {
@@ -134,22 +135,39 @@ function UnreadMessagesMenu({
               </button>
             ))
           ) : (
-            messages.map((msg) => (
-              <button
-                key={msg.id}
-                type="button"
-                onClick={() => { onOpenMessage?.(msg); onClose(); }}
-                className="w-full text-left px-4 py-3 hover:bg-blue-50/60 transition-colors cursor-pointer flex items-start gap-2.5"
-              >
-                <span className="mt-1.5 w-2 h-2 rounded-full bg-blue-600 shrink-0" />
-                <span className="flex-1 min-w-0">
-                  <span className="block text-[10px] font-black uppercase tracking-wide text-slate-800 truncate">{msg.org}</span>
-                  <span className="block text-[11px] font-bold text-slate-600 truncate">{msg.details?.subject || msg.preview}</span>
-                  <span className="block text-[9px] font-semibold text-slate-400 mt-0.5">{msg.date}</span>
-                </span>
-                <Mail size={13} className="text-slate-300 shrink-0 mt-1.5" />
-              </button>
-            ))
+            messages.map((msg) => {
+              const normSubj = (msg.details?.subject || msg.preview || '').toLowerCase();
+              const isVideo = isVideoAtendimentoMessage(msg) || (msg as any).targetTab === 'video-atendimento' || normSubj.includes('vídeo') || normSubj.includes('video');
+              const isCom = isComunicadoMessage(msg) || (msg as any).targetTab === 'comunicados' || normSubj.includes('[comunicado');
+              const isDen = isNovaDenunciaMessage(msg) || isReclamacaoDenunciaMessage(msg) || (msg as any).targetTab === 'denuncias' || (msg as any).targetTab === 'nova-denuncia' || normSubj.includes('denúncia') || normSubj.includes('denuncia') || normSubj.includes('reclamação');
+              const isInq = isInqueritoMessage(msg) || (msg as any).targetTab === 'inqueritos' || normSubj.includes('inquérito') || normSubj.includes('inquerito');
+              const isOco = isOcorrenciaMessage(msg) || (msg as any).targetTab === 'ocorrencias' || normSubj.includes('ocorrência') || normSubj.includes('ocorrencia');
+
+              return (
+                <button
+                  key={msg.id}
+                  type="button"
+                  data-testid="menu-item-nao-lido"
+                  onClick={() => { onOpenMessage?.(msg); onClose(); }}
+                  className="w-full text-left px-4 py-3 hover:bg-blue-50/60 transition-colors cursor-pointer flex items-start gap-2.5"
+                >
+                  <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${
+                    isDen ? 'bg-amber-500' : isCom ? 'bg-indigo-600' : isVideo ? 'bg-emerald-500' : 'bg-blue-600'
+                  }`} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[10px] font-black uppercase tracking-wide text-slate-800 truncate">{msg.org}</span>
+                    <span className="block text-[11px] font-bold text-slate-600 truncate">{msg.details?.subject || msg.preview}</span>
+                    <span className="block text-[9px] font-semibold text-slate-400 mt-0.5">{msg.date}</span>
+                  </span>
+                  {isVideo ? <Video size={13} className="text-emerald-500 shrink-0 mt-1.5" />
+                    : isCom ? <Megaphone size={13} className="text-indigo-500 shrink-0 mt-1.5" />
+                    : isDen ? <Flag size={13} className="text-amber-500 shrink-0 mt-1.5" />
+                    : isInq ? <ClipboardList size={13} className="text-purple-500 shrink-0 mt-1.5" />
+                    : isOco ? <AlertCircle size={13} className="text-orange-500 shrink-0 mt-1.5" />
+                    : <Mail size={13} className="text-slate-300 shrink-0 mt-1.5" />}
+                </button>
+              );
+            })
           )}
         </div>
         <div className="p-2.5 bg-slate-50/80 border-t border-slate-100 flex flex-col gap-1.5">

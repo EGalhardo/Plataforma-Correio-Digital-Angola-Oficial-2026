@@ -14,6 +14,23 @@ const normalizar = (s: string) => String(s || '').normalize('NFD').replace(/[\u0
 /** Normalização partilhada (ciclo de vida v37.78.28 usa a mesma regra). */
 export const normalizarTexto = (s: string): string => normalizar(s);
 
+/**
+ * Invariante de Leitura (Exclusão Mútua):
+ * Uma correspondência é considerada Lida quando unread <= 0 ou o status for 'Lida'/'Lido'/'Visualizada'.
+ * Nunca pode coexistir em 'Não Lidas' se for 'Lida'.
+ */
+export function isMensagemLida(m: Message | any): boolean {
+  if (!m) return true;
+  if (!m.unread || m.unread === 0 || m.unread === false) return true;
+  const st = String(m.status || '').toLowerCase().trim();
+  if (st === 'lida' || st === 'lido' || st === 'visualizada' || st === 'visualizado' || st === 'arquivada' || st === 'arquivado') return true;
+  return false;
+}
+
+export function isMensagemNaoLida(m: Message | any): boolean {
+  return !isMensagemLida(m);
+}
+
 export const isVideoAtendimentoMessage = (m: Message): boolean => {
   if (!m) return false;
   if ((m.details?.actions || []).some(a => String(a).toLowerCase().includes('video-atendimento') || String(a).toLowerCase().includes('video'))) return true;
@@ -154,8 +171,6 @@ export function classificarNotificacao(
   const direto = tipoPorAlvoTitulo(n);
   if (direto === 'comunicados') return 'comunicados';
   if (direto === 'denuncias' || direto === 'nova-denuncia') {
-    // A família certa vem 1) da mensagem associada por assunto (fase do
-    // cronograma carrega o assunto na notificação) e 2) do título cru.
     const assoc = associarMensagem(n, pools.filter(({ tipo }) => tipo === 'denuncias' || tipo === 'nova-denuncia'));
     if (assoc) return assoc.tipo;
     return familiaDenunciaPorTituloCru(String(n.title || ''));
@@ -165,18 +180,14 @@ export function classificarNotificacao(
   return undefined;
 }
 
-/** Pools por papel — fonte única usada pelo contador E pelas listas.
- *  Cidadão: inquéritos e comunicados na caixa de ENTRADA, denúncias nas ENVIADAS.
- *  Instituição: inquéritos e comunicados em ambas/entrada, denúncias em ambas. */
+/** Pools por papel — fonte única usada pelo contador E pelas listas. */
 export function poolsPorPapel(inbox: Message[], enviadas: Message[], institucional: boolean): PoolMensagens[] {
   const inq: PoolMensagens[] = (institucional ? [] : listarParticipacao(inbox, 'inqueritos'))
     .map(m => ({ tipo: 'inqueritos' as const, m, funde: true }));
   const den = listarParticipacao(institucional ? inbox : enviadas, 'denuncias')
     .map(m => ({ tipo: 'denuncias' as const, m, funde: institucional }));
-  // 2026-09-23 (T-v37.79) — pool da nova fila «Denuncia» (mesma regra de papel).
   const nov = listarParticipacao(institucional ? inbox : enviadas, 'nova-denuncia')
     .map(m => ({ tipo: 'nova-denuncia' as const, m, funde: institucional }));
-  // 2026-10-01 — pool da fila «Comunicados»
   const com = listarParticipacao(institucional ? [...enviadas, ...inbox] : inbox, 'comunicados')
     .map(m => ({ tipo: 'comunicados' as const, m, funde: true }));
   return [...inq, ...den, ...nov, ...com];
@@ -184,8 +195,6 @@ export function poolsPorPapel(inbox: Message[], enviadas: Message[], institucion
 
 /**
  * Contagem rigorosa de correspondências e notificações não lidas para os 6 atalhos do Painel:
- * Nas opções Video-atendimento, Inquéritos, Comunicados, Ocorrências, Denúncia e Livro de Reclamações,
- * o número de notificação "Badge" corresponde exatamente ao número de atualizações/correspondências não lidas.
  */
 export function contarNotificacoesAtalhos(
   notificacoes: AppNotification[] = [],
@@ -194,9 +203,8 @@ export function contarNotificacoesAtalhos(
   ocorrencias = 0,
   enviadas: Message[] = [],
 ): ContagensAtalhos {
-  const isNaoLida = (m: Message) => Boolean(m && m.unread && m.status !== 'Lida' && m.status !== 'lida');
-  const naoLidas = (inbox || []).filter(isNaoLida);
-  const enviadasNaoLidas = (enviadas || []).filter(isNaoLida);
+  const naoLidas = (inbox || []).filter(isMensagemNaoLida);
+  const enviadasNaoLidas = (enviadas || []).filter(isMensagemNaoLida);
   const notifsNaoLidas = (notificacoes || []).filter(n => n && n.unread !== false);
 
   const baseDenuncias = listarParticipacao(institucional ? inbox : enviadas, 'denuncias');
@@ -243,11 +251,70 @@ export function contarNotificacoesAtalhos(
 }
 
 /**
+ * Lista consolidada de todas as correspondências e notificações não lidas.
+ * Assegura PARIDADE 1:1 rigorosa com o badge da foto de perfil (Avatar) e o seu menu dropdown.
+ */
+export function obterListaCorrespondenciasNaoLidas(
+  inbox: Message[] = [],
+  enviadas: Message[] = [],
+  institucional = false,
+  deletedIds: number[] = [],
+  hiddenIds: number[] = [],
+  notificacoes: AppNotification[] = [],
+  ocorrencias = 0,
+  biKey = '',
+): Message[] {
+  const isExcluded = (m: Message) => !m || deletedIds.includes(m.id) || hiddenIds.includes(m.id);
+  const unreadInbox = (inbox || []).filter(m => !isExcluded(m) && isMensagemNaoLida(m));
+  const unreadSent = !institucional
+    ? (enviadas || []).filter(m => !isExcluded(m) && isMensagemNaoLida(m))
+    : [];
+
+  const baseMsgs = [...unreadInbox, ...unreadSent];
+  const msgIds = new Set(baseMsgs.map(m => m.id));
+  const todosPools = poolsPorPapel(inbox, enviadas, institucional);
+
+  // Notificações genuinamente NÃO lidas que não estão associadas a uma mensagem já não-lida na lista
+  const notifsNaoLidas = (notificacoes || []).filter(n => n && n.unread !== false);
+  const notifsExtras: Message[] = [];
+
+  for (const n of notifsNaoLidas) {
+    if (n.messageId && msgIds.has(n.messageId)) continue;
+    const assoc = associarMensagem(n, todosPools);
+    if (assoc && assoc.m && msgIds.has(assoc.m.id)) continue;
+
+    const notifMsgItem: Message = {
+      id: typeof n.id === 'number' ? n.id : (99000000 + Math.floor(Math.random() * 999999)),
+      org: n.title || 'Notificação Oficial',
+      preview: n.message || n.title || 'Nova atualização',
+      date: n.time || 'Hoje',
+      unread: 1,
+      status: 'Não Lida',
+      recipientBi: biKey,
+      details: {
+        subject: n.title || 'Notificação Oficial',
+        body: n.message || '',
+        category: n.targetTab || 'Notificação',
+        actions: ['Abrir']
+      },
+      ...({
+        isNotificationItem: true,
+        originalNotification: n,
+        targetTab: n.targetTab || 'notificacoes'
+      } as any)
+    };
+    notifsExtras.push(notifMsgItem);
+  }
+
+  return [...baseMsgs, ...notifsExtras];
+}
+
+/**
  * 2026-10-01 — Cálculo Canónico Unificado de Correspondências e Notificações Não Lidas:
  * Garante harmonia e sincronia 100% perfeita entre:
  * 1. Badge do Avatar / Foto de Perfil (Header)
  * 2. Contador do Painel («Novas Mensagens - Não Lidas»)
- * 3. Os 6 Atalhos do Painel Principal
+ * 3. Menu Dropdown da Foto de Perfil (Count(Badge) === Total Itens no Dropdown)
  * 4. Fila e Listagens Temáticas (Inquéritos, Comunicados, Ocorrências, Denúncias, Livro de Reclamações)
  */
 export function calcularTotalCorrespondenciasNaoLidas(
@@ -258,69 +325,24 @@ export function calcularTotalCorrespondenciasNaoLidas(
   ocorrencias = 0,
   deletedIds: number[] = [],
   hiddenIds: number[] = [],
+  biKey = '',
 ): number {
-  const isExcluded = (m: Message) => !m || deletedIds.includes(m.id) || hiddenIds.includes(m.id);
-  const validInbox = (inbox || []).filter(m => !isExcluded(m));
-  const validEnviadas = (enviadas || []).filter(m => !isExcluded(m));
-  const validNotifs = (notificacoes || []).filter(n => n && n.unread !== false);
-
-  const atalhosCounts = contarNotificacoesAtalhos(validNotifs, validInbox, institucional, ocorrencias, validEnviadas);
-  
-  // Total dos 6 atalhos do painel
-  const somaAtalhos = atalhosCounts['video-atendimento'] +
-                      atalhosCounts['inqueritos'] +
-                      atalhosCounts['comunicados'] +
-                      atalhosCounts['ocorrencias'] +
-                      atalhosCounts['nova-denuncia'] +
-                      atalhosCounts['denuncias'];
-
-  // Correspondências gerais na caixa de entrada que não pertencem a nenhum dos 6 atalhos
-  const isClassificadaAtalho = (m: Message) =>
-    isVideoAtendimentoMessage(m) ||
-    isInqueritoMessage(m) ||
-    isComunicadoMessage(m) ||
-    isOcorrenciaMessage(m) ||
-    isNovaDenunciaMessage(m) ||
-    isReclamacaoDenunciaMessage(m);
-
-  const geraisNaoLidas = validInbox.filter(m =>
-    Boolean(m.unread && m.status !== 'Lida' && m.status !== 'lida') && !isClassificadaAtalho(m)
+  return obterListaCorrespondenciasNaoLidas(
+    inbox,
+    enviadas,
+    institucional,
+    deletedIds,
+    hiddenIds,
+    notificacoes,
+    ocorrencias,
+    biKey
   ).length;
-
-  // Notificações gerais órfãs (que não apontam para nenhum dos 6 atalhos)
-  const todosPools = poolsPorPapel(validInbox, validEnviadas, institucional);
-  const notifsGeraisOrfas = validNotifs.filter(n => {
-    const classif = classificarNotificacao(n, todosPools);
-    return !classif && !tipoPorAlvoTitulo(n);
-  }).length;
-
-  return somaAtalhos + geraisNaoLidas + notifsGeraisOrfas;
-}
-
-/**
- * Lista consolidada de todas as mensagens com novidades/não lidas para o menu suspenso do Avatar.
- */
-export function obterListaCorrespondenciasNaoLidas(
-  inbox: Message[] = [],
-  enviadas: Message[] = [],
-  institucional = false,
-  deletedIds: number[] = [],
-  hiddenIds: number[] = [],
-): Message[] {
-  const isExcluded = (m: Message) => !m || deletedIds.includes(m.id) || hiddenIds.includes(m.id);
-  const unreadInbox = (inbox || []).filter(m => !isExcluded(m) && Boolean(m.unread && m.status !== 'Lida' && m.status !== 'lida'));
-  const unreadSent = !institucional
-    ? (enviadas || []).filter(m => !isExcluded(m) && Boolean(m.unread && m.status !== 'Lida' && m.status !== 'lida'))
-    : [];
-  return [...unreadInbox, ...unreadSent];
 }
 
 export interface NovidadeItem { naoLida: boolean; atualizacoes: number }
 export interface NovidadesLista { porMensagem: Map<number, NovidadeItem>; orfas: number }
 
-/** Novidades por item de uma lista (Inquéritos/Denúncias) — soma EXACTA do badge:
- *  cada mensagem não lida (entrada) vale 1; cada aviso não lido ligado vale 1,
- *  excepto fundido na mensagem não lida; avisos sem mensagem são `orfas`. */
+/** Novidades por item de uma lista (Inquéritos/Denúncias) */
 export function novidadesPorMensagem(
   notificacoes: AppNotification[], mensagens: Message[],
   tipoLista: TipoLista, fundeNaoLidas: boolean,
@@ -337,13 +359,13 @@ export function novidadesPorMensagem(
     if (classificarNotificacao(n, contextPools) !== tipoLista) continue;
     const assoc = associarMensagem(n, pools);
     if (!assoc) { orfas++; continue; }
-    if (assoc.funde && assoc.m.unread) continue; // fundida na «Não lida» da mensagem
+    if (assoc.funde && isMensagemNaoLida(assoc.m)) continue;
     const cur = porMensagem.get(assoc.m.id) || { naoLida: false, atualizacoes: 0 };
     cur.atualizacoes++;
     porMensagem.set(assoc.m.id, cur);
   }
   for (const m of mensagens) {
-    if (fundeNaoLidas && m.unread) {
+    if (fundeNaoLidas && isMensagemNaoLida(m)) {
       const cur = porMensagem.get(m.id) || { naoLida: false, atualizacoes: 0 };
       cur.naoLida = true;
       porMensagem.set(m.id, cur);
@@ -354,8 +376,7 @@ export function novidadesPorMensagem(
 
 export interface SessaoVideoLite { id: string; subject?: string | null }
 
-/** Liga avisos de vídeo-atendimento às sessões pelo assunto citado («…»)
- *  com fallback ao assunto normalizado contido na mensagem. */
+/** Liga avisos de vídeo-atendimento às sessões pelo assunto citado */
 export function ligarNotificacoesSessoes(
   notificacoes: AppNotification[], sessoes: SessaoVideoLite[],
 ): Map<string, number[]> {

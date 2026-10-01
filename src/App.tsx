@@ -86,7 +86,7 @@ import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente } from './utils/ordenacaoCronologica';
 import { agruparConversas, conversaDe, resumoDestinatarios } from './utils/conversasThread';
 import { PainelConversa } from './components/features/PainelConversa';
-import { contarNotificacoesAtalhos, assuntoChave, normalizarTexto, calcularTotalCorrespondenciasNaoLidas, obterListaCorrespondenciasNaoLidas } from './utils/notificacoesAtalhos';
+import { contarNotificacoesAtalhos, assuntoChave, normalizarTexto, calcularTotalCorrespondenciasNaoLidas, obterListaCorrespondenciasNaoLidas, isMensagemLida, isMensagemNaoLida } from './utils/notificacoesAtalhos';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao, listarRegistosPendentes, EVENTO_REGISTOS_ALTERADOS } from './services/supabaseService';
 import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia, ehAssuntoQualquerDenuncia, estadoDeFase, codigoInstituicaoBase } from './services/denunciaCore';
 import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
@@ -4275,8 +4275,28 @@ export default function App() {
   }, [bi]);
 
   // Menu da foto de perfil: abrir mensagem não lida → marca como lida e garante
-  // que a página final é SEMPRE o detalhe da mensagem (tab 'mensagem').
+  // que a página final é SEMPRE o detalhe da mensagem (tab 'mensagem') ou a secção temática.
   const handleOpenUnreadMessage = (message: Message) => {
+    if ((message as any).isNotificationItem) {
+      const notif = (message as any).originalNotification as AppNotification;
+      if (notif) {
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, unread: false } : n));
+        try {
+          const rawNotifs = JSON.parse(localStorage.getItem('correio_digital_notifications') || '[]');
+          const updated = rawNotifs.map((n: any) => n.id === notif.id ? { ...n, unread: false } : n);
+          localStorage.setItem('correio_digital_notifications', JSON.stringify(updated));
+          if (sessionOwnerKey) {
+            localStorage.setItem(`cda_notifications_${sessionOwnerKey}`, JSON.stringify(updated));
+          }
+        } catch {}
+        if (isOnline && hasValidSupabaseKeys() && notif.id) {
+          supabaseService.markNotificationRead(notif.id).catch(() => undefined);
+        }
+      }
+      const target = (message as any).targetTab || 'home';
+      setTab(target);
+      return;
+    }
     handleSelectMessage(message);
     setTab('mensagem');
   };
@@ -4395,9 +4415,10 @@ export default function App() {
       isInstMode,
       0,
       deletedMessageIds,
-      hiddenMessageIds
+      hiddenMessageIds,
+      bi || sessionOwnerKey
     );
-  }, [currentInbox, currentSentMessages, currentNotifications, isInstMode, deletedMessageIds, hiddenMessageIds]);
+  }, [currentInbox, currentSentMessages, currentNotifications, isInstMode, deletedMessageIds, hiddenMessageIds, bi, sessionOwnerKey]);
 
   const unreadMessagesList = useMemo(() => {
     return obterListaCorrespondenciasNaoLidas(
@@ -4405,9 +4426,12 @@ export default function App() {
       currentSentMessages,
       isInstMode,
       deletedMessageIds,
-      hiddenMessageIds
+      hiddenMessageIds,
+      currentNotifications,
+      0,
+      bi || sessionOwnerKey
     );
-  }, [currentInbox, currentSentMessages, isInstMode, deletedMessageIds, hiddenMessageIds]);
+  }, [currentInbox, currentSentMessages, currentNotifications, isInstMode, deletedMessageIds, hiddenMessageIds, bi, sessionOwnerKey]);
 
   // F15 — GARANTIA DE CONTEÚDO DEMO (prompt v8): só em contas de demonstração.
   // No arranque da sessão: completa colecções vazias com os seeds canónicos
@@ -4458,9 +4482,9 @@ export default function App() {
       if (correspondenciaTab === "enviadas") {
         base = currentSentMessages.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id));
       } else if (correspondenciaTab === "lidas") {
-        base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && !item.unread);
+        base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemLida(item));
       } else {
-        base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && item.unread);
+        base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemNaoLida(item));
       }
     }
 
@@ -4649,6 +4673,31 @@ export default function App() {
       }
 
       // Sincronização em tempo real de estado "Lida" em todos os arrays da plataforma
+      persistReadMessageId(bi || sessionOwnerKey, baseId, message.id);
+      try {
+        const rawInbox = JSON.parse(localStorage.getItem('correio_digital_inbox') || '[]');
+        const updatedInbox = rawInbox.map((m: any) => {
+          const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
+          if (mBase === baseId || m.id === message.id) {
+            return { ...m, unread: 0, status: 'Lida' };
+          }
+          return m;
+        });
+        localStorage.setItem('correio_digital_inbox', JSON.stringify(updatedInbox));
+
+        const rawSent = JSON.parse(localStorage.getItem('correio_digital_sent') || '[]');
+        const updatedSent = rawSent.map((m: any) => {
+          const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
+          if (mBase === baseId || m.id === message.id) {
+            return { ...m, unread: 0, novidade: false };
+          }
+          return m;
+        });
+        localStorage.setItem('correio_digital_sent', JSON.stringify(updatedSent));
+      } catch (errStorage) {
+        console.warn('[CDA-sync] Falha ao atualizar localStorage após leitura:', errStorage);
+      }
+
       setInbox(prev => prev.map(m => {
         const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
         return mBase === baseId ? { ...m, unread: 0, status: 'Lida' } : m;

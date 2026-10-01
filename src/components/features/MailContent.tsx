@@ -70,6 +70,7 @@ import {
   distribuirInqueritosIA, removerRascunhoInqueritoIA, registarExpedicaoInqueritosIA,
   ativarInqueritosIAParaDestinatarios, type InqueritoIA,
 } from '../../services/inqueritoIaService';
+import { isMensagemLida, isMensagemNaoLida } from '../../utils/notificacoesAtalhos';
 import { Loader2, CheckCircle2, AlertTriangle, Sparkles, CheckCheck, ClipboardCheck, MessagesSquare, Mic } from 'lucide-react';
 // F59 — a pesquisa teatral de 8s com textos governamentais inventados e
 // correspondência em MOCK_CITIZENS/MOCK_USERS foi REMOVIDA: o lookup do
@@ -2505,8 +2506,8 @@ export function MailContent({
       <div className="bg-white border border-slate-300 rounded-[32px] p-2.5 shadow-sm flex flex-col lg:flex-row gap-3">
         <div className="grid grid-cols-2 sm:flex sm:flex-nowrap gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl lg:min-w-[500px] w-full lg:w-auto">
           {[
-            { id: 'lidas', label: 'Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && !m.unread).length },
-            { id: 'naoLidas', label: 'Não Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && m.unread).length },
+            { id: 'lidas', label: 'Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && isMensagemLida(m)).length },
+            { id: 'naoLidas', label: 'Não Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && isMensagemNaoLida(m)).length },
             { id: 'enviadas', label: 'Enviadas', count: contagemEnviadas },
             { id: 'excluidas', label: 'Arquivadas', count: [...inbox, ...sentMessages].filter(m => deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)).length }
           ].map(tab => {
