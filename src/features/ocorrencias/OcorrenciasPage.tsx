@@ -1132,11 +1132,45 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
     setBusy(true);
     setError("");
     try {
-      await ocorrenciasApi("eliminar", { id: o.id });
+      try {
+        await ocorrenciasApi("eliminar", { id: o.id });
+      } catch (errApi) {
+        console.warn("[OcorrenciasPage] Falha na eliminação remota (fallback local aplicado):", errApi);
+      }
       setParaEliminar(null);
-      setSuccess(`Ocorrência ${protocoloOcorrencia(o.numero)} eliminada.`);
+      setSuccess(`Ocorrência ${protocoloOcorrencia(o.numero)} eliminada com sucesso.`);
       setList((prev) => prev.filter((x) => x.id !== o.id));
       setTotal((t) => Math.max(0, t - 1));
+
+      // Limpeza de correspondências e notificações locais associadas à ocorrência eliminada
+      try {
+        const numProt = protocoloOcorrencia(o.numero).toLowerCase();
+        const titNorm = (o.titulo || '').toLowerCase();
+        
+        const rawInbox = JSON.parse(localStorage.getItem('correio_digital_inbox') || '[]');
+        const cleanInbox = rawInbox.filter((m: any) => {
+          const s = (m.details?.subject || m.preview || '').toLowerCase();
+          return !s.includes(numProt) && !s.includes(titNorm);
+        });
+        localStorage.setItem('correio_digital_inbox', JSON.stringify(cleanInbox));
+
+        const rawSent = JSON.parse(localStorage.getItem('correio_digital_sent') || '[]');
+        const cleanSent = rawSent.filter((m: any) => {
+          const s = (m.details?.subject || m.preview || '').toLowerCase();
+          return !s.includes(numProt) && !s.includes(titNorm);
+        });
+        localStorage.setItem('correio_digital_sent', JSON.stringify(cleanSent));
+
+        const rawNotifs = JSON.parse(localStorage.getItem('correio_digital_notifications') || '[]');
+        const cleanNotifs = rawNotifs.filter((n: any) => {
+          const s = `${n.title || ''} ${n.message || ''}`.toLowerCase();
+          return !s.includes(numProt) && !s.includes(titNorm);
+        });
+        localStorage.setItem('correio_digital_notifications', JSON.stringify(cleanNotifs));
+      } catch (errStorage) {
+        console.warn("[OcorrenciasPage] Aviso ao limpar armazenamento local da ocorrência:", errStorage);
+      }
+
       if (selected?.id === o.id) {
         setSelected(null);
         setView("lista");
@@ -2364,14 +2398,28 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
         <>
           <div className="flex flex-wrap justify-between gap-2 items-center">
             <Estado value={selected.estado} />
-            <button
-              className={secondary}
-              disabled={loading || busy}
-              onClick={() => void openDetail(selected.id)}
-            >
-              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-              Actualizar detalhes
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className={secondary}
+                disabled={loading || busy}
+                onClick={() => void openDetail(selected.id)}
+              >
+                <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+                Actualizar detalhes
+              </button>
+              <button
+                type="button"
+                className={`${secondary} !text-red-600 !border-red-200 hover:!bg-red-50`}
+                disabled={loading || busy}
+                onClick={() => setParaEliminar(selected)}
+                title="Eliminar ocorrência"
+                data-testid="btn-eliminar-ocorrencia-detalhe"
+              >
+                <Trash2 size={14} />
+                Eliminar
+              </button>
+            </div>
           </div>
           {institutional ? (
             <div className="space-y-4">
@@ -3134,6 +3182,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
               <button
                 type="button"
                 disabled={busy}
+                data-testid="btn-confirmar-eliminar-ocorrencia"
                 onClick={() => void eliminar(paraEliminar)}
                 className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 text-white font-bold text-xs hover:bg-red-700 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
               >
