@@ -127,6 +127,10 @@ export interface Message {
   inquerito_ia_ids?: number[] | null;
   /** F15 — chave da sessão remetente (caixa "Enviadas" isolada por conta). */
   senderKey?: string;
+  /** BI do cidadão remetente (para denúncias e mensagens enviadas). */
+  senderBi?: string;
+  /** 2026-10-01 — Marca de novidade/actualização de tramitação de cronograma pendente de leitura. */
+  novidade?: boolean;
 }
 
 export interface Document {

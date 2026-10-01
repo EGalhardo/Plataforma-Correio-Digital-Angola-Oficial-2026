@@ -4247,8 +4247,32 @@ export default function App() {
       : isDemoCitizenSession
         ? inbox.filter(m => !m.homologation || isOwnHomologationMail(m))
         : inbox.filter(isOwnCitizenMail));
-  const unreadTotal = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id)).reduce((sum, msg) => sum + (msg.unread || 0), 0), [currentInbox, deletedMessageIds, hiddenMessageIds]);
-  const unreadMessagesList = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id) && !!msg.unread), [currentInbox, deletedMessageIds, hiddenMessageIds]);
+
+  // Listener para actualizações de cronograma em tempo real (instituição -> cidadão)
+  useEffect(() => {
+    const handleCronogramaUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const detail = customEvent.detail;
+      if (!detail) return;
+      const targetBi = String(detail.senderBi || '').toUpperCase();
+      const currentNormBi = String(bi || '').toUpperCase();
+      if (targetBi && targetBi === currentNormBi) {
+        const baseId = detail.messageId;
+        setSentMessages(prev => prev.map(m => {
+          const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
+          if (mBase === baseId) {
+            return { ...m, unread: 1, novidade: true, status: `Fase: ${detail.fase || 'Actualizada'}` };
+          }
+          return m;
+        }));
+        if (detail.notif) {
+          setNotifications(prev => [stampNotif(detail.notif), ...prev.filter(n => n.id !== detail.notif.id)]);
+        }
+      }
+    };
+    window.addEventListener('cda-cronograma-updated', handleCronogramaUpdated);
+    return () => window.removeEventListener('cda-cronograma-updated', handleCronogramaUpdated);
+  }, [bi]);
 
   // Menu da foto de perfil: abrir mensagem não lida → marca como lida e garante
   // que a página final é SEMPRE o detalhe da mensagem (tab 'mensagem').
@@ -4315,12 +4339,7 @@ export default function App() {
     if (!isDemoSession) {
       base = notifications.filter(n => n.ownerId === sessionOwnerKey);
     } else {
-      // F17 — piso de não-lidas também nas notificações (simuladas, só demo)
-      if (notifications.length && !notifications.some(n => n.unread)) {
-        base = [{ ...notifications[0], unread: true }, ...notifications.slice(1)];
-      } else {
-        base = notifications;
-      }
+      base = notifications;
     }
     // 2026-08-22 — a notificação de AGENDAMENTO de video-atendimento só
     // desaparece QUANDO O DIA DO AGENDAMENTO É ULTRAPASSADO (nunca por ter
@@ -4365,6 +4384,31 @@ export default function App() {
   const currentDocSentMessages = useMemo(() =>
     ordenarMensagensPorMaisRecente(isDemoSession ? docSentMessages : docSentMessages.filter(m => !!m.senderKey && m.senderKey === sessionOwnerKey)),
     [docSentMessages, isDemoSession, sessionOwnerKey]);
+
+  // 2026-10-01 — Contagem de não lidas: inclui correspondências de entrada, novidades de tramitação em denúncias/reclamações enviadas e notificações não lidas.
+  const unreadTotal = useMemo(() => {
+    const unreadInboxCount = currentInbox
+      .filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id))
+      .reduce((sum, msg) => sum + (msg.unread || 0), 0);
+
+    const unreadSentCount = !isInstMode
+      ? currentSentMessages.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id) && Boolean(msg.unread && msg.status !== 'Lida' && msg.status !== 'lida')).length
+      : 0;
+
+    const unreadNotifsCount = !isInstMode
+      ? (currentNotifications || []).filter(n => n && n.unread !== false && (n.targetTab === 'denuncias' || n.targetTab === 'nova-denuncia' || /denúncia|denuncia|reclamação/i.test(n.title))).length
+      : 0;
+
+    return unreadInboxCount + unreadSentCount + Math.max(0, unreadNotifsCount - unreadSentCount);
+  }, [currentInbox, currentSentMessages, currentNotifications, isInstMode, deletedMessageIds, hiddenMessageIds]);
+
+  const unreadMessagesList = useMemo(() => {
+    const unreadIn = currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id) && !!msg.unread);
+    const unreadSent = !isInstMode
+      ? currentSentMessages.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id) && !!msg.unread)
+      : [];
+    return [...unreadIn, ...unreadSent];
+  }, [currentInbox, currentSentMessages, isInstMode, deletedMessageIds, hiddenMessageIds]);
 
   // F15 — GARANTIA DE CONTEÚDO DEMO (prompt v8): só em contas de demonstração.
   // No arranque da sessão: completa colecções vazias com os seeds canónicos
@@ -4576,6 +4620,12 @@ export default function App() {
         (origemEfectiva === 'enviadas' && normR2((message as any).recipientBi) !== minhaChaveR2);
 
       if (abertaPeloRemetente) {
+        // 2026-10-01 — limpar novidades e indicador unread na cópia do remetente
+        setSelectedMessage({ ...message, unread: 0, novidade: false });
+        setSentMessages(prev => prev.map(m => {
+          const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
+          return mBase === baseId ? { ...m, unread: 0, novidade: false } : m;
+        }));
         addAuditLog(`Correspondência ID ${baseId} aberta pelo remetente — recibo de leitura do destinatário intocado (REGRA R2).`, 'info');
         setTab('mensagem');
         return;
@@ -4677,7 +4727,7 @@ export default function App() {
     setSelectedMessage(updatedMsg);
     setInbox(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
     setInstInbox(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
-    setSentMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
+    setSentMessages(prev => prev.map(m => m.id === updatedMsg.id ? { ...updatedMsg, unread: m.unread === 0 ? 0 : updatedMsg.unread, novidade: m.novidade === false ? false : updatedMsg.novidade } : m));
     if (isOnline && hasValidSupabaseKeys()) {
       supabaseService.updateMessageState(updatedMsg.id >= 10000 && updatedMsg.id < 90000000 ? updatedMsg.id - 10000 : updatedMsg.id, {
         // REGRA R1 — «unread» nunca passa por edições: só o destinatário a abrir.

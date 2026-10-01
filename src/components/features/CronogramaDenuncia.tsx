@@ -117,14 +117,73 @@ export function CronogramaDenuncia({ messageId, senderBi, subject, podeGerir, on
           : (pedida.id === 'encerrada' ? 'O processo da sua denúncia foi encerrado.' : pedida.id === 'respondida' ? 'A instituição respondeu à sua denúncia.' : `A sua denúncia passou para o estado «${pedida.rotulo}».`);
         const cleanSubj = String(subject || '').replace(/^\[[^\]]*\]\s*/, '').slice(0, 80) || 'sem assunto';
 
-        void supabaseService.insertNotification({
+        const notifPayload = {
           target_bi: String(effectiveSenderBi).toUpperCase(),
           title: `${prefixo} — ${pedida.rotulo}`,
           message: `${msgNotif} (${cleanSubj})`,
           time_text: 'Agora',
-          type: pedida.id === 'encerrada' ? 'success' : 'info',
+          type: (pedida.id === 'encerrada' ? 'success' : 'info') as 'success' | 'info',
           target_tab: 'mensagem',
-        }).catch(() => {});
+        };
+
+        void supabaseService.insertNotification(notifPayload).catch(() => {});
+
+        // Sincronização e persistência local imediata
+        try {
+          const rawNotifs = localStorage.getItem('correio_digital_notifications');
+          const notifsList = rawNotifs ? JSON.parse(rawNotifs) : [];
+          const novaNotif = {
+            id: Date.now(),
+            title: notifPayload.title,
+            message: notifPayload.message,
+            time: 'Agora',
+            type: notifPayload.type,
+            targetTab: isReclamacao ? 'denuncias' : 'nova-denuncia',
+            unread: true,
+            ownerId: String(effectiveSenderBi).toUpperCase()
+          };
+          notifsList.unshift(novaNotif);
+          localStorage.setItem('correio_digital_notifications', JSON.stringify(notifsList));
+
+          const normBiKey = String(effectiveSenderBi).toUpperCase();
+          const userNotifsKey = `cda_notifications_${normBiKey}`;
+          const rawUserNotifs = localStorage.getItem(userNotifsKey);
+          const userNotifsList = rawUserNotifs ? JSON.parse(rawUserNotifs) : [];
+          userNotifsList.unshift(novaNotif);
+          localStorage.setItem(userNotifsKey, JSON.stringify(userNotifsList));
+
+          // Atualizar cópia em correio_digital_sent
+          const rawSent = localStorage.getItem('correio_digital_sent');
+          if (rawSent) {
+            const sentList = JSON.parse(rawSent);
+            const updatedSent = sentList.map((m: any) => {
+              const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
+              if (mBase === baseId) {
+                return { ...m, unread: 1, novidade: true, status: `Fase: ${pedida.rotulo}` };
+              }
+              return m;
+            });
+            localStorage.setItem('correio_digital_sent', JSON.stringify(updatedSent));
+          }
+
+          // Atualizar cópia em correio_digital_messages se existir
+          const rawMsgs = localStorage.getItem('correio_digital_messages');
+          if (rawMsgs) {
+            const msgsList = JSON.parse(rawMsgs);
+            const updatedMsgs = msgsList.map((m: any) => {
+              const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
+              if (mBase === baseId) {
+                return { ...m, unread: 1, novidade: true, status: `Fase: ${pedida.rotulo}` };
+              }
+              return m;
+            });
+            localStorage.setItem('correio_digital_messages', JSON.stringify(updatedMsgs));
+          }
+
+          window.dispatchEvent(new CustomEvent('cda-cronograma-updated', {
+            detail: { messageId: baseId, fase: pedida.id, senderBi: effectiveSenderBi, notif: novaNotif }
+          }));
+        } catch {}
       }
 
       setPedida(null);

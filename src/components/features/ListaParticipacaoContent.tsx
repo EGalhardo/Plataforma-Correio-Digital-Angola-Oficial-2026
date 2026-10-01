@@ -113,7 +113,14 @@ export function ListaParticipacaoContent({tipo, isInst, messages, notifications 
               <span>#{m.id}</span><span>{m.date}</span>
               {inqueritos && <span className="text-indigo-700">{t(temInqueritoIA(m) ? temInqueritoNormal(m) ? 'Normal e com IA' : 'Com IA' : 'Normal')}</span>}
             </div>
-            <h3 className="font-bold text-primary break-words">{m.details?.subject || m.preview || t(titulo)}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-primary break-words">{m.details?.subject || m.preview || t(titulo)}</h3>
+              {nov && (nov.naoLida || nov.atualizacoes > 0) && (
+                <span data-testid={`badge-item-${m.id}`} className="shrink-0 min-w-4 h-4 px-1.5 inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[9px] font-black leading-none shadow-xs animate-pulse">
+                  {nov.atualizacoes > 0 ? nov.atualizacoes : '1'}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-500 break-words">{anonimizar ? t('Remetente: Anónimo') : `${t(inqueritos ? 'Instituição' : 'Destinatário')}: ${m.org || '—'}`}</p>
           </div><ArrowRight size={18} aria-hidden="true" className="shrink-0 text-primary mt-1"/>
         </div>

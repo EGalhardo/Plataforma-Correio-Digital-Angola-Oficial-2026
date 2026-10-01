@@ -90,7 +90,9 @@ export function tipoPorAlvoTitulo(n: AppNotification): TipoDominio | undefined {
   const target = n.targetTab;
   const titulo = normalizar(n.title);
   if (['video-atendimento', 'inst-video'].includes(target)) return 'video-atendimento';
-  if (target === 'denuncias' || /denuncia/.test(titulo)) return 'denuncias';
+  if (target === 'denuncias' || target === 'nova-denuncia' || /denuncia|reclamacao|queixa/.test(titulo)) {
+    return familiaDenunciaPorTituloCru(String(n.title || ''));
+  }
   if (['inqueritos', 'sondagens'].includes(target) || /inquerito|sondagem/.test(titulo)) return 'inqueritos';
   return undefined;
 }
@@ -113,7 +115,10 @@ export function associarMensagem(
  *  «Denuncia» (nova fila, sem acento) usando o TÍTULO CRU (pré-normalização):
  *  a normalização retira acentos e tornaria as duas iguais. */
 function familiaDenunciaPorTituloCru(tituloRaw: string): 'denuncias' | 'nova-denuncia' {
-  return /denúncia/i.test(tituloRaw) ? 'denuncias' : 'nova-denuncia';
+  if (/reclama/i.test(tituloRaw) || /denúncia/i.test(tituloRaw) || /livro/i.test(tituloRaw)) {
+    return 'denuncias';
+  }
+  return 'nova-denuncia';
 }
 
 /** Classificação completa: alvo+título, com fallback «correspondencias»→assunto. */
@@ -121,7 +126,7 @@ export function classificarNotificacao(
   n: AppNotification, pools: PoolMensagens[],
 ): TipoDominio | undefined {
   const direto = tipoPorAlvoTitulo(n);
-  if (direto === 'denuncias') {
+  if (direto === 'denuncias' || direto === 'nova-denuncia') {
     // A família certa vem 1) da mensagem associada por assunto (fase do
     // cronograma carrega o assunto na notificação) e 2) do título cru.
     const assoc = associarMensagem(n, pools.filter(({ tipo }) => tipo === 'denuncias' || tipo === 'nova-denuncia'));
@@ -129,7 +134,7 @@ export function classificarNotificacao(
     return familiaDenunciaPorTituloCru(String(n.title || ''));
   }
   if (direto) return direto;
-  if (n.targetTab === 'correspondencias') return associarMensagem(n, pools)?.tipo;
+  if (n.targetTab === 'correspondencias' || n.targetTab === 'mensagem') return associarMensagem(n, pools)?.tipo;
   return undefined;
 }
 
@@ -149,9 +154,9 @@ export function poolsPorPapel(inbox: Message[], enviadas: Message[], institucion
 }
 
 /**
- * Contagem rigorosa de correspondências não lidas para os 5 atalhos do Painel:
+ * Contagem rigorosa de correspondências e notificações não lidas para os 5 atalhos do Painel:
  * Nas opções Video-atendimento, Inquérito, Ocorrências, Denúncia e Reclamação,
- * o número de notificação "Badge" corresponde exatamente ao número de correspondências não lidas da respectiva opção.
+ * o número de notificação "Badge" corresponde exatamente ao número de atualizações/correspondências não lidas.
  */
 export function contarNotificacoesAtalhos(
   notificacoes: AppNotification[] = [],
@@ -162,13 +167,41 @@ export function contarNotificacoesAtalhos(
 ): ContagensAtalhos {
   const isNaoLida = (m: Message) => Boolean(m && m.unread && m.status !== 'Lida' && m.status !== 'lida');
   const naoLidas = (inbox || []).filter(isNaoLida);
+  const enviadasNaoLidas = (enviadas || []).filter(isNaoLida);
+  const notifsNaoLidas = (notificacoes || []).filter(n => n && n.unread !== false);
+
+  const baseDenuncias = listarParticipacao(institucional ? inbox : enviadas, 'denuncias');
+  const baseNovaDenuncia = listarParticipacao(institucional ? inbox : enviadas, 'nova-denuncia');
+  const baseInqueritos = listarParticipacao(inbox, 'inqueritos');
+  const todosPools = poolsPorPapel(inbox, enviadas, institucional);
+
+  const novidadesDenuncias = novidadesPorMensagem(notifsNaoLidas, baseDenuncias, 'denuncias', institucional, todosPools);
+  const totalNovidadesDenuncias = Array.from(novidadesDenuncias.porMensagem.values())
+    .reduce((acc, cur) => acc + (cur.naoLida ? 1 : 0) + cur.atualizacoes, 0) + novidadesDenuncias.orfas;
+
+  const novidadesNovaDenuncia = novidadesPorMensagem(notifsNaoLidas, baseNovaDenuncia, 'nova-denuncia', institucional, todosPools);
+  const totalNovidadesNovaDenuncia = Array.from(novidadesNovaDenuncia.porMensagem.values())
+    .reduce((acc, cur) => acc + (cur.naoLida ? 1 : 0) + cur.atualizacoes, 0) + novidadesNovaDenuncia.orfas;
+
+  const novidadesInqueritos = novidadesPorMensagem(notifsNaoLidas, baseInqueritos, 'inqueritos', true, todosPools);
+  const totalNovidadesInqueritos = Array.from(novidadesInqueritos.porMensagem.values())
+    .reduce((acc, cur) => acc + (cur.naoLida ? 1 : 0) + cur.atualizacoes, 0) + novidadesInqueritos.orfas;
+
+  const notifsVideo = notifsNaoLidas.filter(n => tipoPorAlvoTitulo(n) === 'video-atendimento').length;
+  const videoMsgs = naoLidas.filter(isVideoAtendimentoMessage).length;
 
   const counts: ContagensAtalhos = {
-    'video-atendimento': naoLidas.filter(isVideoAtendimentoMessage).length,
-    'inqueritos': naoLidas.filter(isInqueritoMessage).length,
+    'video-atendimento': Math.max(videoMsgs, notifsVideo),
+    'inqueritos': Math.max(naoLidas.filter(isInqueritoMessage).length, totalNovidadesInqueritos),
     'ocorrencias': Math.max(ocorrencias, naoLidas.filter(isOcorrenciaMessage).length),
-    'nova-denuncia': naoLidas.filter(isNovaDenunciaMessage).length,
-    'denuncias': naoLidas.filter(isReclamacaoDenunciaMessage).length,
+    'nova-denuncia': Math.max(
+      naoLidas.filter(isNovaDenunciaMessage).length + (!institucional ? enviadasNaoLidas.filter(isNovaDenunciaMessage).length : 0),
+      totalNovidadesNovaDenuncia
+    ),
+    'denuncias': Math.max(
+      naoLidas.filter(isReclamacaoDenunciaMessage).length + (!institucional ? enviadasNaoLidas.filter(isReclamacaoDenunciaMessage).length : 0),
+      totalNovidadesDenuncias
+    ),
   };
 
   return counts;
@@ -183,15 +216,17 @@ export interface NovidadesLista { porMensagem: Map<number, NovidadeItem>; orfas:
 export function novidadesPorMensagem(
   notificacoes: AppNotification[], mensagens: Message[],
   tipoLista: TipoLista, fundeNaoLidas: boolean,
+  poolsContexto?: PoolMensagens[],
 ): NovidadesLista {
   const porMensagem = new Map<number, NovidadeItem>();
   const pools: PoolMensagens[] = mensagens.map(m => ({ tipo: tipoLista, m, funde: fundeNaoLidas }));
+  const contextPools = poolsContexto || pools;
   const vistos = new Set<number>();
   let orfas = 0;
   for (const n of notificacoes) {
     if (n.unread === false || vistos.has(n.id)) continue;
     vistos.add(n.id);
-    if (classificarNotificacao(n, pools) !== tipoLista) continue;
+    if (classificarNotificacao(n, contextPools) !== tipoLista) continue;
     const assoc = associarMensagem(n, pools);
     if (!assoc) { orfas++; continue; }
     if (assoc.funde && assoc.m.unread) continue; // fundida na «Não lida» da mensagem
