@@ -58,7 +58,7 @@ export function ListaParticipacaoContent({tipo, isInst, messages, notifications 
               : novaDenuncia
                 ? "https://i.postimg.cc/Qx88Q30h/Denuncia.jpg"
                 : comunicados
-                  ? "https://i.postimg.cc/Qx88Q30h/Denuncia.jpg"
+                  ? "https://i.postimg.cc/d1c7SGm2/Comunicado.png"
                   : "https://i.postimg.cc/y8j1d36z/ANIESA-2.jpg"
           }
           alt={t(titulo)}

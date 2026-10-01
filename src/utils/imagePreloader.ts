@@ -79,6 +79,7 @@ export function getAdvertisingImageUrls(): string[] {
   urls.add("https://i.postimg.cc/y8j1d36z/ANIESA-2.jpg");
   urls.add("https://i.postimg.cc/4dqQVgDS/Video-Atendimento-(1).png");
   urls.add("https://i.postimg.cc/L4gTRJfp/Inquerito-(1).png");
+  urls.add("https://i.postimg.cc/d1c7SGm2/Comunicado.png");
   urls.add("https://i.postimg.cc/nrmY1WZL/Ocorrencias-locais-(1).png");
 
   // Use optional chaining and type assertions to safe-guard against structure variations

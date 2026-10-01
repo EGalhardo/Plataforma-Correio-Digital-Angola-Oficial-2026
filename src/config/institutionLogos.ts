@@ -46,6 +46,8 @@ export const INSTITUTION_LOGOS: Record<string, string> = {
   'VideoAtendimento': 'https://i.postimg.cc/4dqQVgDS/Video-Atendimento-(1).png',
   'Inquéritos': 'https://i.postimg.cc/L4gTRJfp/Inquerito-(1).png',
   'Inqueritos': 'https://i.postimg.cc/L4gTRJfp/Inquerito-(1).png',
+  'Comunicados': 'https://i.postimg.cc/d1c7SGm2/Comunicado.png',
+  'Comunicado': 'https://i.postimg.cc/d1c7SGm2/Comunicado.png',
   'Ocorrências Locais': 'https://i.postimg.cc/nrmY1WZL/Ocorrencias-locais-(1).png',
   'Ocorrencias Locais': 'https://i.postimg.cc/nrmY1WZL/Ocorrencias-locais-(1).png',
   'Ocorrências': 'https://i.postimg.cc/nrmY1WZL/Ocorrencias-locais-(1).png',

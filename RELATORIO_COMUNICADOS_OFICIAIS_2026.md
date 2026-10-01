@@ -37,7 +37,7 @@ Cada atalho possui:
 
 ### 2.2. Ecrã de Listagem Oficial de «Comunicados» (`ListaParticipacaoContent.tsx`)
 A listagem foi parametrizada para suportar a modalidade `tipo="comunicados"`, apresentando:
-- **Cabeçalho com Navegação:** `BotaoVoltar` para retorno imediato ao Painel Principal e ícone `Megaphone`.
+- **Cabeçalho com Navegação:** `BotaoVoltar` para retorno imediato ao Painel Principal e logomarca oficial: `https://i.postimg.cc/d1c7SGm2/Comunicado.png`.
 - **Textos Institucionais Adaptados ao Perfil:**
   - **Cidadão:** *"Receba Comunicados Oficiais de Órgãos do Estado."*
   - **Instituição:** *"Emita e acompanhe comunicados oficiais dirigidos a cidadãos e instituições."*
