@@ -194,6 +194,7 @@ export interface AppNotification {
   type: 'success' | 'warning' | 'info';
   targetTab: string;
   unread?: boolean;
+  messageId?: number;
   /** F12 — dono da sessão que gerou o evento (sessões reais só vêem os seus). */
   ownerId?: string;
 }

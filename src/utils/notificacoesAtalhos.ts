@@ -121,9 +121,19 @@ export interface PoolMensagens { tipo: TipoLista; m: Message; funde: boolean }
 export function associarMensagem(
   n: AppNotification, pools: PoolMensagens[],
 ): PoolMensagens | undefined {
+  if (n.messageId) {
+    const byId = pools.find(({ m }) => m.id === n.messageId);
+    if (byId) return byId;
+  }
+  const nMsg = normalizar(n.message || '');
+  const nTit = normalizar(n.title || '');
   return pools.find(({ m }) => {
+    if (m.id && n.messageId && m.id === n.messageId) return true;
     const assunto = assuntoChave(m);
-    return assunto.length >= 5 && normalizar(n.message).includes(assunto);
+    if (assunto.length >= 4 && (nMsg.includes(assunto) || nTit.includes(assunto))) return true;
+    const fullSubj = normalizar(m.details?.subject || m.preview || '');
+    if (fullSubj.length >= 4 && (nMsg.includes(fullSubj) || nTit.includes(fullSubj))) return true;
+    return false;
   });
 }
 
@@ -230,6 +240,79 @@ export function contarNotificacoesAtalhos(
   };
 
   return counts;
+}
+
+/**
+ * 2026-10-01 — Cálculo Canónico Unificado de Correspondências e Notificações Não Lidas:
+ * Garante harmonia e sincronia 100% perfeita entre:
+ * 1. Badge do Avatar / Foto de Perfil (Header)
+ * 2. Contador do Painel («Novas Mensagens - Não Lidas»)
+ * 3. Os 6 Atalhos do Painel Principal
+ * 4. Fila e Listagens Temáticas (Inquéritos, Comunicados, Ocorrências, Denúncias, Livro de Reclamações)
+ */
+export function calcularTotalCorrespondenciasNaoLidas(
+  notificacoes: AppNotification[] = [],
+  inbox: Message[] = [],
+  enviadas: Message[] = [],
+  institucional = false,
+  ocorrencias = 0,
+  deletedIds: number[] = [],
+  hiddenIds: number[] = [],
+): number {
+  const isExcluded = (m: Message) => !m || deletedIds.includes(m.id) || hiddenIds.includes(m.id);
+  const validInbox = (inbox || []).filter(m => !isExcluded(m));
+  const validEnviadas = (enviadas || []).filter(m => !isExcluded(m));
+  const validNotifs = (notificacoes || []).filter(n => n && n.unread !== false);
+
+  const atalhosCounts = contarNotificacoesAtalhos(validNotifs, validInbox, institucional, ocorrencias, validEnviadas);
+  
+  // Total dos 6 atalhos do painel
+  const somaAtalhos = atalhosCounts['video-atendimento'] +
+                      atalhosCounts['inqueritos'] +
+                      atalhosCounts['comunicados'] +
+                      atalhosCounts['ocorrencias'] +
+                      atalhosCounts['nova-denuncia'] +
+                      atalhosCounts['denuncias'];
+
+  // Correspondências gerais na caixa de entrada que não pertencem a nenhum dos 6 atalhos
+  const isClassificadaAtalho = (m: Message) =>
+    isVideoAtendimentoMessage(m) ||
+    isInqueritoMessage(m) ||
+    isComunicadoMessage(m) ||
+    isOcorrenciaMessage(m) ||
+    isNovaDenunciaMessage(m) ||
+    isReclamacaoDenunciaMessage(m);
+
+  const geraisNaoLidas = validInbox.filter(m =>
+    Boolean(m.unread && m.status !== 'Lida' && m.status !== 'lida') && !isClassificadaAtalho(m)
+  ).length;
+
+  // Notificações gerais órfãs (que não apontam para nenhum dos 6 atalhos)
+  const todosPools = poolsPorPapel(validInbox, validEnviadas, institucional);
+  const notifsGeraisOrfas = validNotifs.filter(n => {
+    const classif = classificarNotificacao(n, todosPools);
+    return !classif && !tipoPorAlvoTitulo(n);
+  }).length;
+
+  return somaAtalhos + geraisNaoLidas + notifsGeraisOrfas;
+}
+
+/**
+ * Lista consolidada de todas as mensagens com novidades/não lidas para o menu suspenso do Avatar.
+ */
+export function obterListaCorrespondenciasNaoLidas(
+  inbox: Message[] = [],
+  enviadas: Message[] = [],
+  institucional = false,
+  deletedIds: number[] = [],
+  hiddenIds: number[] = [],
+): Message[] {
+  const isExcluded = (m: Message) => !m || deletedIds.includes(m.id) || hiddenIds.includes(m.id);
+  const unreadInbox = (inbox || []).filter(m => !isExcluded(m) && Boolean(m.unread && m.status !== 'Lida' && m.status !== 'lida'));
+  const unreadSent = !institucional
+    ? (enviadas || []).filter(m => !isExcluded(m) && Boolean(m.unread && m.status !== 'Lida' && m.status !== 'lida'))
+    : [];
+  return [...unreadInbox, ...unreadSent];
 }
 
 export interface NovidadeItem { naoLida: boolean; atualizacoes: number }

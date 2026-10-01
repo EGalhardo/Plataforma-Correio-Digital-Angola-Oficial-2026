@@ -216,14 +216,14 @@ export function HomeContent({
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 truncate">{t("Novas Mensagens")}</div>
-            <div className="flex items-baseline gap-1 truncate">
+            <div className="flex items-baseline gap-1 truncate" data-testid="card-unread-messages">
               <AnimatedCounter
                 to={unreadTotal}
                 duration={1200}
                 className="text-sm md:text-lg font-black text-slate-900 leading-tight tracking-tight"
                 triggerOnVisible
               />
-              <span className="text-sm md:text-lg font-black text-slate-900 leading-tight tracking-tight"> {t("Não Lidas")}</span>
+              <span data-testid="unread-total-counter" data-unread-count={unreadTotal} className="text-sm md:text-lg font-black text-slate-900 leading-tight tracking-tight"> {t("Não Lidas")}</span>
             </div>
             <div className="text-[10px] md:text-xs text-primary font-bold mt-1 flex items-center gap-1">{t("Ver Correspondências")} &rarr;</div>
           </div>

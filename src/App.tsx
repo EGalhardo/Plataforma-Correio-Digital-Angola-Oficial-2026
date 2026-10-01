@@ -86,7 +86,7 @@ import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente } from './utils/ordenacaoCronologica';
 import { agruparConversas, conversaDe, resumoDestinatarios } from './utils/conversasThread';
 import { PainelConversa } from './components/features/PainelConversa';
-import { contarNotificacoesAtalhos, assuntoChave, normalizarTexto } from './utils/notificacoesAtalhos';
+import { contarNotificacoesAtalhos, assuntoChave, normalizarTexto, calcularTotalCorrespondenciasNaoLidas, obterListaCorrespondenciasNaoLidas } from './utils/notificacoesAtalhos';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao, listarRegistosPendentes, EVENTO_REGISTOS_ALTERADOS } from './services/supabaseService';
 import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia, ehAssuntoQualquerDenuncia, estadoDeFase, codigoInstituicaoBase } from './services/denunciaCore';
 import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
@@ -4385,29 +4385,28 @@ export default function App() {
     ordenarMensagensPorMaisRecente(isDemoSession ? docSentMessages : docSentMessages.filter(m => !!m.senderKey && m.senderKey === sessionOwnerKey)),
     [docSentMessages, isDemoSession, sessionOwnerKey]);
 
-  // 2026-10-01 — Contagem de não lidas: inclui correspondências de entrada, novidades de tramitação em denúncias/reclamações enviadas e notificações não lidas.
+  // 2026-10-01 — Contagem Canónica e Unificada de Correspondências Não Lidas:
+  // Corresponde exatamente ao total de todo o tipo de correspondência (6 atalhos + correio geral).
   const unreadTotal = useMemo(() => {
-    const unreadInboxCount = currentInbox
-      .filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id))
-      .reduce((sum, msg) => sum + (msg.unread || 0), 0);
-
-    const unreadSentCount = !isInstMode
-      ? currentSentMessages.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id) && Boolean(msg.unread && msg.status !== 'Lida' && msg.status !== 'lida')).length
-      : 0;
-
-    const unreadNotifsCount = !isInstMode
-      ? (currentNotifications || []).filter(n => n && n.unread !== false && (n.targetTab === 'denuncias' || n.targetTab === 'nova-denuncia' || n.targetTab === 'comunicados' || /denúncia|denuncia|reclamação|comunicado/i.test(n.title))).length
-      : 0;
-
-    return unreadInboxCount + unreadSentCount + Math.max(0, unreadNotifsCount - unreadSentCount);
+    return calcularTotalCorrespondenciasNaoLidas(
+      currentNotifications,
+      currentInbox,
+      currentSentMessages,
+      isInstMode,
+      0,
+      deletedMessageIds,
+      hiddenMessageIds
+    );
   }, [currentInbox, currentSentMessages, currentNotifications, isInstMode, deletedMessageIds, hiddenMessageIds]);
 
   const unreadMessagesList = useMemo(() => {
-    const unreadIn = currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id) && !!msg.unread);
-    const unreadSent = !isInstMode
-      ? currentSentMessages.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id) && !!msg.unread)
-      : [];
-    return [...unreadIn, ...unreadSent];
+    return obterListaCorrespondenciasNaoLidas(
+      currentInbox,
+      currentSentMessages,
+      isInstMode,
+      deletedMessageIds,
+      hiddenMessageIds
+    );
   }, [currentInbox, currentSentMessages, isInstMode, deletedMessageIds, hiddenMessageIds]);
 
   // F15 — GARANTIA DE CONTEÚDO DEMO (prompt v8): só em contas de demonstração.
@@ -4441,9 +4440,7 @@ export default function App() {
       setInstInbox(prev => prev.length ? prev : plan.instInbox);
       setInstDocInbox(prev => prev.length ? prev : plan.instDocInbox);
     }
-    setNotifications(prev => prev.length
-      ? (prev.some(n => n.unread) ? prev : [{ ...prev[0], unread: true }, ...prev.slice(1)])
-      : plan.notifications);
+    setNotifications(prev => prev.length ? prev : plan.notifications);
     setDocuments(prev => prev.length ? prev : plan.documents);
     if (area === 'admin') {
       setCorrespondences(prev => prev.length ? prev : plan.correspondences);
@@ -4583,9 +4580,29 @@ export default function App() {
     // continua protegido pela REGRA R2 (só o destinatário o escreve).
     const limparAvisosDaCorrespondencia = () => {
       const assuntoAberto = assuntoChave(message);
-      const corresponde = (n: typeof notifications[number]) =>
-        n.unread !== false && assuntoAberto.length >= 5 && normalizarTexto(n.message || '').includes(assuntoAberto);
-      setNotifications(prev => prev.map(n => (corresponde(n) ? { ...n, unread: false } : n)));
+      const msgSubj = normalizarTexto(message.details?.subject || message.preview || '');
+      const msgIdStr = String(message.id);
+      const corresponde = (n: typeof notifications[number]) => {
+        if (!n || n.unread === false) return false;
+        if (n.messageId && String(n.messageId) === msgIdStr) return true;
+        const nMsg = normalizarTexto(n.message || '');
+        const nTit = normalizarTexto(n.title || '');
+        if (assuntoAberto.length >= 4 && (nMsg.includes(assuntoAberto) || nTit.includes(assuntoAberto))) return true;
+        if (msgSubj.length >= 4 && (nMsg.includes(msgSubj) || nTit.includes(msgSubj))) return true;
+        return false;
+      };
+
+      setNotifications(prev => {
+        const next = prev.map(n => (corresponde(n) ? { ...n, unread: false } : n));
+        try {
+          localStorage.setItem('correio_digital_notifications', JSON.stringify(next));
+          if (sessionOwnerKey) {
+            localStorage.setItem(`cda_notifications_${sessionOwnerKey}`, JSON.stringify(next));
+          }
+        } catch {}
+        return next;
+      });
+
       if (isOnline && hasValidSupabaseKeys()) {
         notifications.filter(corresponde).forEach(n => {
           supabaseService.markNotificationRead(n.id).catch(() => undefined);
