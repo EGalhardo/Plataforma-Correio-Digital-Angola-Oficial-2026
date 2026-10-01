@@ -40,6 +40,8 @@ export interface MessageDetail {
   deadline?: string;
   state?: string;
   actions?: string[];
+  category?: string;
+  type?: string;
   attachments?: (string | { name?: string; size?: string; content?: string; type?: string })[];
   /** v37.77 — difusão (sondagem/emergência): Nº de destinatários do MESMO
    *  lote de envio. Presente apenas na lista «Enviadas» do emissor, onde o

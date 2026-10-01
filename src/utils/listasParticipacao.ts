@@ -1,21 +1,26 @@
 import type { Message } from '../types';
-import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia } from '../services/denunciaCore';
+import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia, ehAssuntoComunicado } from '../services/denunciaCore';
 import { correspondePesquisa } from './pesquisaContactosCorreio';
 
 export const temInqueritoNormal = (m: Message) => Boolean(m.sondagem_id || m.sondagem_ids?.length);
 export const temInqueritoIA = (m: Message) => Boolean(m.inquerito_ia_id || m.inquerito_ia_ids?.length);
 
-// 2026-09-23 (T-v37.79) — «nova-denuncia»: nova fila «Denuncia» do Painel
-// (nova funcionalidade pedida pelo dono). As duas famílias são mutuamente
-// exclusivas por construção: «[REGISTO DE DENÚNCIA]» normalizado nunca
-// começa por «[DENUNCIA]», logo cada fila só recebe os seus itens.
-export function listarParticipacao(messages: Message[], tipo: 'inqueritos' | 'denuncias' | 'nova-denuncia', query = '', anonimizar = false): Message[] {
+// 2026-09-23 (T-v37.79) — «nova-denuncia»: nova fila «Denuncia» do Painel.
+// 2026-10-01 — «comunicados»: nova fila de «Comunicados Oficiais» do Estado.
+export function listarParticipacao(
+  messages: Message[],
+  tipo: 'inqueritos' | 'denuncias' | 'nova-denuncia' | 'comunicados',
+  query = '',
+  anonimizar = false
+): Message[] {
   return messages.filter(m => {
     const pertence = tipo === 'inqueritos'
       ? temInqueritoNormal(m) || temInqueritoIA(m)
       : tipo === 'nova-denuncia'
         ? ehAssuntoNovaDenuncia(m.details?.subject || m.preview)
-        : ehAssuntoDenuncia(m.details?.subject || m.preview);
+        : tipo === 'comunicados'
+          ? (ehAssuntoComunicado(m.details?.subject || m.preview) || (m.details as any)?.type === 'comunicado' || m.details?.category === 'Comunicado Oficial' || m.details?.category === 'Comunicado')
+          : (ehAssuntoDenuncia(m.details?.subject || m.preview) && !ehAssuntoComunicado(m.details?.subject || m.preview));
     return pertence && correspondePesquisa(query, [m.id, m.details?.subject, m.date,
       ...(anonimizar ? [] : [m.org, m.preview])]);
   });

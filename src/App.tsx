@@ -291,7 +291,7 @@ const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
   user: new Set([
     'home', 'correspondencias', 'contatos', 'contactos', 'perfil', 'historico',
     'notificacoes', 'qr-code',
-    'solicitar-documento', 'video-atendimento', 'inqueritos', 'denuncias', 'nova-denuncia', 'ocorrencias',
+    'solicitar-documento', 'video-atendimento', 'inqueritos', 'comunicados', 'denuncias', 'nova-denuncia', 'ocorrencias',
     'directorio-orgaos', // UX: deep link do Directório (render existe, faltava o hash)
     // tabs de detalhe — só via fallback (HASH_TAB_FALLBACKS)
     'mensagem', 'documento', 'instituicao',
@@ -300,7 +300,7 @@ const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
     'home', 'correspondencias', 'gov-contatos', 'contatos', 'contactos',
     'inst-qrcode', 'qr-code', 'inst-ai-assistant', 'perfil',
     'solicitar-documento', 'directorio-orgaos', // UX: deep links em falta
-    'ocorrencias', 'inqueritos', 'denuncias', 'nova-denuncia', 'sondagens', // v36 — lista/resultados de sondagens da instituição
+    'ocorrencias', 'inqueritos', 'comunicados', 'denuncias', 'nova-denuncia', 'sondagens', // v36 — lista/resultados de sondagens da instituição
     'historico', 'notificacoes', 'documentos', 'video-atendimento', 'inst-video',
     'mensagem', 'documento', 'instituicao',
   ]),
@@ -1691,7 +1691,7 @@ export default function App() {
   const paginasMenuKey = paginasMenu ? paginasMenu.join('|') : '';
   // Navegação/tabs que nunca são "páginas" — detalhes e sobreposições
   // (mensagem aberta, documento, notificações, histórico…) ficam livres.
-  const TAB_PAGINAS_LIVRES = new Set(['ocorrencias', 'inqueritos', 'denuncias', 'nova-denuncia', 'mensagem', 'documento', 'notificacoes', 'historico', 'video-atendimento']);
+  const TAB_PAGINAS_LIVRES = new Set(['ocorrencias', 'inqueritos', 'comunicados', 'denuncias', 'nova-denuncia', 'mensagem', 'documento', 'notificacoes', 'historico', 'video-atendimento']);
   void instIdentity; // consumida pela F4 (equipa/perfil)
 
   // 2026-09-11 — SETA DE VOLTAR das subpáginas: pilha das páginas visitadas
@@ -4396,7 +4396,7 @@ export default function App() {
       : 0;
 
     const unreadNotifsCount = !isInstMode
-      ? (currentNotifications || []).filter(n => n && n.unread !== false && (n.targetTab === 'denuncias' || n.targetTab === 'nova-denuncia' || /denúncia|denuncia|reclamação/i.test(n.title))).length
+      ? (currentNotifications || []).filter(n => n && n.unread !== false && (n.targetTab === 'denuncias' || n.targetTab === 'nova-denuncia' || n.targetTab === 'comunicados' || /denúncia|denuncia|reclamação|comunicado/i.test(n.title))).length
       : 0;
 
     return unreadInboxCount + unreadSentCount + Math.max(0, unreadNotifsCount - unreadSentCount);
@@ -6492,6 +6492,18 @@ Ficha civil do titular:
           notifications={currentNotifications}
           messages={currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
           onOpen={m => handleSelectMessage(m, 'recebidas', 'inqueritos')}
+          onBack={() => setTab('home')} />;
+      // 2026-10-01 — «Comunicados»: comunicados oficiais emitidos por órgãos do Estado
+      case 'comunicados':
+        return <ListaParticipacaoContent tipo="comunicados" isInst={isInstMode}
+          notifications={currentNotifications}
+          onCreate={isInstMode ? () => {
+            setComposeData({ to: 'TODOS', subject: '[COMUNICADO OFICIAL] ', body: '', attachments: [], toArray: [] });
+            setIsComposing(true);
+            setTab('correspondencias');
+          } : undefined}
+          messages={(isInstMode ? [...currentSentMessages, ...currentInbox] : currentInbox).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
+          onOpen={m => handleSelectMessage(m, isInstMode ? (currentSentMessages.some(s => s.id === m.id) ? 'enviadas' : 'recebidas') : 'recebidas', 'comunicados')}
           onBack={() => setTab('home')} />;
       case 'denuncias':
         return <ListaParticipacaoContent tipo="denuncias" isInst={isInstMode}

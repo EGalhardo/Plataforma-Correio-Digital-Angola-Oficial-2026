@@ -49,7 +49,7 @@ import {
   ListOrdered,
   Info,
   CalendarClock,
-  Ban, Flag,
+  Ban, Flag, Megaphone,
   ChevronRight
 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
@@ -238,9 +238,9 @@ export function MailContent({
   // Emergência». Clicar numa opção avança de imediato; «Ok» avança com a opção
   // realçada (a primeira, por defeito). A denúncia segue o envio normal com o
   // assunto prefixado — a revisão e o comprovativo mostram a etiqueta.
-  // 2026-09-23 (T-v37.79) — 'nova-denuncia': opção «Denuncia» pedida pelo dono
-  // (fluxo idêntico à Reclamação/Denúncia mas com marca própria no assunto).
-  type ModalidadeEnvio = 'normal' | 'emergencia' | 'denuncia' | 'nova-denuncia';
+  // 2026-09-23 (T-v37.79) — 'nova-denuncia': opção «Denuncia» pedida pelo dono.
+  // 2026-10-01 — 'comunicado': opção «Comunicado Oficial» para emissão institucional.
+  type ModalidadeEnvio = 'normal' | 'emergencia' | 'denuncia' | 'nova-denuncia' | 'comunicado';
   const [modalidadeRealcada, setModalidadeRealcada] = useState<ModalidadeEnvio>('normal');
   // S6-camada-IA — revisao de clareza OPCIONAL (fail-safe: falha da IA nunca
   // bloqueia o envio; o utilizador decide se usa a versão melhorada)
@@ -552,8 +552,10 @@ export function MailContent({
 
   const PREFIXO_DENUNCIA = '[DENÚNCIA]';
   const PREFIXO_NOVA_DENUNCIA = '[REGISTO DE DENÚNCIA]'; // 2026-09-23 (T-v37.79) — marca da nova fila «Denuncia» (mesma do denunciaCore)
+  const PREFIXO_COMUNICADO = '[COMUNICADO OFICIAL]'; // 2026-10-01 — marca da fila «Comunicados»
   const ehDenuncia = (composeData.subject || '').trim().toUpperCase().startsWith(PREFIXO_DENUNCIA);
   const ehNovaDenuncia = (composeData.subject || '').trim().toUpperCase().startsWith(PREFIXO_NOVA_DENUNCIA);
+  const ehComunicado = (composeData.subject || '').trim().toUpperCase().startsWith(PREFIXO_COMUNICADO) || (composeData.subject || '').trim().toUpperCase().startsWith('[COMUNICADO]');
 
   const abrirPopupEnvio = () => {
     setModalidadeRealcada('normal');
@@ -566,6 +568,12 @@ export function MailContent({
       if (onEmergencyBroadcast) onEmergencyBroadcast(); else tentarEnviar();
       return;
     }
+    if (m === 'comunicado' && !ehComunicado) {
+      setComposeData((prev) => ({
+        ...prev,
+        subject: `${PREFIXO_COMUNICADO} ${(prev.subject || '').trim()}`.trim(),
+      }));
+    }
     if (m === 'denuncia' && !ehDenuncia) {
       // O assunto é opcional para o cidadão; o prefixo identifica a modalidade
       // no detalhe, na revisão e no comprovativo sem alterar a base de dados.
@@ -576,7 +584,7 @@ export function MailContent({
     }
     // 2026-09-23 (T-v37.79) — «Denuncia»: prefixo próprio; se a mensagem já
     // trouxer uma das marcas, não duplicar.
-    if (m === 'nova-denuncia' && !ehNovaDenuncia && !ehDenuncia) {
+    if (m === 'nova-denuncia' && !ehNovaDenuncia && !ehDenuncia && !ehComunicado) {
       setComposeData((prev) => ({
         ...prev,
         subject: `${PREFIXO_NOVA_DENUNCIA} ${(prev.subject || '').trim()}`.trim(),
@@ -592,6 +600,8 @@ export function MailContent({
     ? [
         { id: 'normal', titulo: 'Mensagem Normal', etiqueta: 'Oficial', Icone: Mail, tom: 'azul', idDom: 'btn-modal-opcao-normal',
           descricao: 'Envio de correspondência digital oficial padronizada para a caixa do destinatário.' },
+        { id: 'comunicado', titulo: 'Comunicado', etiqueta: 'Oficial / Difusão', Icone: Megaphone, tom: 'azul', idDom: 'btn-modal-opcao-comunicado',
+          descricao: 'Emissão e publicação de comunicado oficial de órgão do Estado para cidadãos e outras instituições.' },
         // 2026-09-23 (T-v37.79) — «Denuncia» também para a instituição
         // (p.ex. comunicação formal a outra instituição; a fase avança do
         // lado da instituição destinatária, exactamente como no Livro).
@@ -1509,6 +1519,8 @@ export function MailContent({
             <label className="text-[11px] md:text-xs font-black text-slate-800 uppercase tracking-wider block">TÍTULO</label>
             <input 
               type="text"
+              id="compose-subject-input"
+              data-testid="compose-subject-input"
               placeholder="Qual o tema da sua mensagem?"
               value={composeData.subject}
               onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })}

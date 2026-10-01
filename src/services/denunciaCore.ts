@@ -147,3 +147,14 @@ export function codigoInstituicaoBase(codigo: string | null | undefined): string
 
 /** Rótulo do remetente visto pela instituição numa denúncia. */
 export const REMETENTE_ANONIMO = 'Cidadão: Anónimo';
+
+// ============================================================================
+// 2026-10-01 — COMUNICADOS OFICIAIS (Órgãos de Soberania e Instituições do Estado)
+// ============================================================================
+export const PREFIXO_COMUNICADO = '[COMUNICADO OFICIAL]';
+
+export function ehAssuntoComunicado(assunto: string | null | undefined): boolean {
+  const norm = NORMALIZAR(assunto || '');
+  return norm.startsWith('[COMUNICADO OFICIAL]') || norm.startsWith('[COMUNICADO]') || norm.includes('COMUNICADO OFICIAL');
+}
+

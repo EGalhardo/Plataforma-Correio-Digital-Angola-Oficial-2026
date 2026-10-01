@@ -1,13 +1,14 @@
 import type { AppNotification, Message } from '../types';
 import { listarParticipacao, temInqueritoNormal, temInqueritoIA } from './listasParticipacao';
-import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia } from '../services/denunciaCore';
+import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia, ehAssuntoComunicado } from '../services/denunciaCore';
 
 // 2026-09-23 (T-v37.79) — 'nova-denuncia': 5.º atalho do Painel («Denuncia»).
-export type AtalhoPainel = 'video-atendimento' | 'inqueritos' | 'ocorrencias' | 'denuncias' | 'nova-denuncia';
+// 2026-10-01 — 'comunicados': 3.º atalho do Painel («Comunicados»).
+export type AtalhoPainel = 'video-atendimento' | 'inqueritos' | 'comunicados' | 'ocorrencias' | 'nova-denuncia' | 'denuncias';
 export type ContagensAtalhos = Record<AtalhoPainel, number>;
 /** Domínios com correspondências/notificações (ocorrências vêm da API própria). */
 export type TipoDominio = Exclude<AtalhoPainel, 'ocorrencias'>;
-export type TipoLista = 'inqueritos' | 'denuncias' | 'nova-denuncia';
+export type TipoLista = 'inqueritos' | 'denuncias' | 'nova-denuncia' | 'comunicados';
 
 const normalizar = (s: string) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 /** Normalização partilhada (ciclo de vida v37.78.28 usa a mesma regra). */
@@ -67,6 +68,20 @@ export const isNovaDenunciaMessage = (m: Message): boolean => {
          (texto.includes('denuncia') && !texto.includes('reclamacao') && !texto.includes('livro'));
 };
 
+export const isComunicadoMessage = (m: Message): boolean => {
+  if (!m) return false;
+  if (ehAssuntoComunicado(m.details?.subject || m.preview)) return true;
+  if ((m.details as any)?.type === 'comunicado' || (m.details as any)?.type === 'comunicados') return true;
+  if (m.details?.category === 'Comunicado Oficial' || m.details?.category === 'Comunicado') return true;
+  if ((m.details?.actions || []).some(a => /comunicado/i.test(String(a)))) return true;
+  const texto = normalizar(`${m.details?.subject || ''} ${m.preview || ''} ${m.details?.body || ''}`);
+  return texto.includes('[comunicado oficial]') ||
+         texto.includes('[comunicado]') ||
+         texto.includes('comunicado oficial') ||
+         texto.includes('comunicado de imprensa') ||
+         texto.includes('comunicado publico');
+};
+
 export const isReclamacaoDenunciaMessage = (m: Message): boolean => {
   if (!m) return false;
   if (ehAssuntoDenuncia(m.details?.subject || m.preview)) return true;
@@ -90,6 +105,7 @@ export function tipoPorAlvoTitulo(n: AppNotification): TipoDominio | undefined {
   const target = n.targetTab;
   const titulo = normalizar(n.title);
   if (['video-atendimento', 'inst-video'].includes(target)) return 'video-atendimento';
+  if (target === 'comunicados' || /comunicado/.test(titulo)) return 'comunicados';
   if (target === 'denuncias' || target === 'nova-denuncia' || /denuncia|reclamacao|queixa/.test(titulo)) {
     return familiaDenunciaPorTituloCru(String(n.title || ''));
   }
@@ -126,6 +142,7 @@ export function classificarNotificacao(
   n: AppNotification, pools: PoolMensagens[],
 ): TipoDominio | undefined {
   const direto = tipoPorAlvoTitulo(n);
+  if (direto === 'comunicados') return 'comunicados';
   if (direto === 'denuncias' || direto === 'nova-denuncia') {
     // A família certa vem 1) da mensagem associada por assunto (fase do
     // cronograma carrega o assunto na notificação) e 2) do título cru.
@@ -139,9 +156,8 @@ export function classificarNotificacao(
 }
 
 /** Pools por papel — fonte única usada pelo contador E pelas listas.
- *  Cidadão: inquéritos na caixa de ENTRADA, denúncias nas ENVIADAS.
- *  Instituição: ambos na caixa de ENTRADA (inquéritos nunca: a caixa recebe
- *  ecos das próprias difusões, não respostas — respostas vivem em Resultados). */
+ *  Cidadão: inquéritos e comunicados na caixa de ENTRADA, denúncias nas ENVIADAS.
+ *  Instituição: inquéritos e comunicados em ambas/entrada, denúncias em ambas. */
 export function poolsPorPapel(inbox: Message[], enviadas: Message[], institucional: boolean): PoolMensagens[] {
   const inq: PoolMensagens[] = (institucional ? [] : listarParticipacao(inbox, 'inqueritos'))
     .map(m => ({ tipo: 'inqueritos' as const, m, funde: true }));
@@ -150,12 +166,15 @@ export function poolsPorPapel(inbox: Message[], enviadas: Message[], institucion
   // 2026-09-23 (T-v37.79) — pool da nova fila «Denuncia» (mesma regra de papel).
   const nov = listarParticipacao(institucional ? inbox : enviadas, 'nova-denuncia')
     .map(m => ({ tipo: 'nova-denuncia' as const, m, funde: institucional }));
-  return [...inq, ...den, ...nov];
+  // 2026-10-01 — pool da fila «Comunicados»
+  const com = listarParticipacao(institucional ? [...enviadas, ...inbox] : inbox, 'comunicados')
+    .map(m => ({ tipo: 'comunicados' as const, m, funde: true }));
+  return [...inq, ...den, ...nov, ...com];
 }
 
 /**
- * Contagem rigorosa de correspondências e notificações não lidas para os 5 atalhos do Painel:
- * Nas opções Video-atendimento, Inquérito, Ocorrências, Denúncia e Reclamação,
+ * Contagem rigorosa de correspondências e notificações não lidas para os 6 atalhos do Painel:
+ * Nas opções Video-atendimento, Inquéritos, Comunicados, Ocorrências, Denúncia e Livro de Reclamações,
  * o número de notificação "Badge" corresponde exatamente ao número de atualizações/correspondências não lidas.
  */
 export function contarNotificacoesAtalhos(
@@ -173,6 +192,7 @@ export function contarNotificacoesAtalhos(
   const baseDenuncias = listarParticipacao(institucional ? inbox : enviadas, 'denuncias');
   const baseNovaDenuncia = listarParticipacao(institucional ? inbox : enviadas, 'nova-denuncia');
   const baseInqueritos = listarParticipacao(inbox, 'inqueritos');
+  const baseComunicados = listarParticipacao(institucional ? [...enviadas, ...inbox] : inbox, 'comunicados');
   const todosPools = poolsPorPapel(inbox, enviadas, institucional);
 
   const novidadesDenuncias = novidadesPorMensagem(notifsNaoLidas, baseDenuncias, 'denuncias', institucional, todosPools);
@@ -187,12 +207,17 @@ export function contarNotificacoesAtalhos(
   const totalNovidadesInqueritos = Array.from(novidadesInqueritos.porMensagem.values())
     .reduce((acc, cur) => acc + (cur.naoLida ? 1 : 0) + cur.atualizacoes, 0) + novidadesInqueritos.orfas;
 
+  const novidadesComunicados = novidadesPorMensagem(notifsNaoLidas, baseComunicados, 'comunicados', true, todosPools);
+  const totalNovidadesComunicados = Array.from(novidadesComunicados.porMensagem.values())
+    .reduce((acc, cur) => acc + (cur.naoLida ? 1 : 0) + cur.atualizacoes, 0) + novidadesComunicados.orfas;
+
   const notifsVideo = notifsNaoLidas.filter(n => tipoPorAlvoTitulo(n) === 'video-atendimento').length;
   const videoMsgs = naoLidas.filter(isVideoAtendimentoMessage).length;
 
   const counts: ContagensAtalhos = {
     'video-atendimento': Math.max(videoMsgs, notifsVideo),
     'inqueritos': Math.max(naoLidas.filter(isInqueritoMessage).length, totalNovidadesInqueritos),
+    'comunicados': Math.max(naoLidas.filter(isComunicadoMessage).length, totalNovidadesComunicados),
     'ocorrencias': Math.max(ocorrencias, naoLidas.filter(isOcorrenciaMessage).length),
     'nova-denuncia': Math.max(
       naoLidas.filter(isNovaDenunciaMessage).length + (!institucional ? enviadasNaoLidas.filter(isNovaDenunciaMessage).length : 0),
