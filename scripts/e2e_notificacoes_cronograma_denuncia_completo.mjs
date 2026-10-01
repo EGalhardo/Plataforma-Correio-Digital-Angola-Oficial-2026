@@ -192,6 +192,7 @@ async function run() {
     await page.waitForTimeout(1500);
 
     const cronogramaSec = page.locator('[data-testid="cronograma-denuncia"]');
+    await cronogramaSec.scrollIntoViewIfNeeded();
     assert(await cronogramaSec.isVisible(), 'Secção do cronograma detalhado visível na mensagem');
 
     console.log('🏠 Regressando ao Painel Principal...');
