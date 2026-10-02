@@ -491,7 +491,7 @@ export function GovDashboard({
               Painel Nacional de Correspondência
             </h1>
             <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mt-2 flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               Correio Digital Angola &bull; Administração Central
             </p>
           </div>
