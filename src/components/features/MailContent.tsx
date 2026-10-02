@@ -2484,7 +2484,7 @@ export function MailContent({
         </div>
         <button 
           onClick={() => setIsComposing(true)}
-          className="bg-primary text-white rounded-2xl px-6 py-3.5 flex items-center justify-center gap-3 shadow-none hover:scale-[1.02] active:scale-95 transition-all text-xs md:text-sm font-black"
+          className="bg-primary text-white rounded-2xl px-6 py-3.5 flex items-center justify-center gap-3 shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all text-xs md:text-sm font-black"
         >
           <Plus size={18} />
           {translateText("Nova Mensagem", currentLanguage)}
@@ -2493,7 +2493,7 @@ export function MailContent({
 
       {isInst && <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar">
         {isInst && (
-          <button onClick={() => setTab('inst-qrcode')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border-2 border-slate-300 dark:border-slate-700 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-none hover:border-slate-400 dark:hover:border-slate-600 transition-all cursor-pointer shrink-0">
+          <button onClick={() => setTab('inst-qrcode')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer shrink-0">
             {translateText("Validação QR", currentLanguage)}
           </button>
         )}
@@ -2503,8 +2503,8 @@ export function MailContent({
           sempre «Enviada» — nunca «Não Lida»/«Lida». O estado de leitura
           pertence apenas à cópia do DESTINATÁRIO (regras R1–R6, v37.78.12). */}
       {/* Filters & Tabs Container */}
-      <div className="bg-white border-2 border-slate-300 dark:border-slate-700 rounded-[32px] p-2.5 shadow-none flex flex-col lg:flex-row gap-3">
-        <div className="grid grid-cols-2 sm:flex sm:flex-nowrap gap-1.5 p-1 bg-white border-2 border-slate-300 dark:border-slate-700 rounded-2xl lg:min-w-[500px] w-full lg:w-auto">
+      <div className="bg-white border border-slate-300 rounded-[32px] p-2.5 shadow-sm flex flex-col lg:flex-row gap-3">
+        <div className="grid grid-cols-2 sm:flex sm:flex-nowrap gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl lg:min-w-[500px] w-full lg:w-auto">
           {[
             { id: 'lidas', label: 'Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && isMensagemLida(m)).length },
             { id: 'naoLidas', label: 'Não Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && isMensagemNaoLida(m)).length },
@@ -2517,16 +2517,16 @@ export function MailContent({
 
             if (isActive) {
               if (tab.id === 'lidas') {
-                activeStyle = 'bg-emerald-600 text-white shadow-none ring-2 ring-emerald-600';
+                activeStyle = 'bg-emerald-600 text-white shadow-md shadow-emerald-200 ring-2 ring-emerald-600';
                 badgeStyle = 'bg-white text-emerald-700';
               } else if (tab.id === 'naoLidas') {
-                activeStyle = 'bg-red-600 text-white shadow-none ring-2 ring-red-600';
+                activeStyle = 'bg-red-600 text-white shadow-md shadow-red-200 ring-2 ring-red-600';
                 badgeStyle = 'bg-white text-red-600';
               } else if (tab.id === 'enviadas') {
-                activeStyle = 'bg-blue-600 text-white shadow-none ring-2 ring-blue-600';
+                activeStyle = 'bg-blue-600 text-white shadow-md shadow-blue-200 ring-2 ring-blue-600';
                 badgeStyle = 'bg-white text-blue-600';
               } else if (tab.id === 'excluidas') {
-                activeStyle = 'bg-rose-600 text-white shadow-none ring-2 ring-rose-600';
+                activeStyle = 'bg-rose-600 text-white shadow-md shadow-rose-200 ring-2 ring-rose-600';
                 badgeStyle = 'bg-white text-rose-600';
               }
             } else {
@@ -2567,14 +2567,14 @@ export function MailContent({
             placeholder={translateText("Pesquisar correspondência oficial...", currentLanguage)}
             value={searchMail}
             onChange={(e) => setSearchMail(e.target.value)}
-            className="w-full bg-white border-2 border-slate-300 dark:border-slate-700 rounded-2xl pl-12 pr-4 py-3 md:py-3.5 text-xs md:text-sm font-bold text-slate-900 focus:ring-4 focus:ring-primary/10 focus:bg-white focus:border-primary/30 transition-all outline-none placeholder:text-slate-500"
+            className="w-full bg-white border border-slate-300 rounded-2xl pl-12 pr-4 py-3 md:py-3.5 text-xs md:text-sm font-bold text-slate-900 focus:ring-4 focus:ring-primary/10 focus:bg-white focus:border-primary/30 transition-all outline-none placeholder:text-slate-500"
           />
         </div>
       </div>
 
       {/* Message List */}
-      <div className="bg-white border-2 border-slate-300 dark:border-slate-700 rounded-2xl md:rounded-[32px] p-4 md:p-8 shadow-none space-y-4 md:space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 md:gap-6 pb-2 md:pb-4 border-b-2 border-slate-300 dark:border-slate-700 text-left">
+      <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[32px] p-4 md:p-8 shadow-xs space-y-4 md:space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 md:gap-6 pb-2 md:pb-4 border-b border-slate-100 text-left">
           <div>
             <h4 className="font-black text-slate-900 text-base md:text-xl uppercase tracking-tight flex items-center gap-2">
               <Mail size={18} className="text-[#0E2B64] shrink-0 md:w-5 md:h-5" />
@@ -2612,7 +2612,7 @@ export function MailContent({
                   <div
                     key={conv.chave}
                     onClick={() => handleSelectMessage(item)}
-                    className="p-4 rounded-2xl bg-white border-2 border-slate-300 dark:border-slate-700 shadow-none hover:border-slate-400 dark:hover:border-slate-600 transition-all cursor-pointer text-left space-y-2.5 active:scale-[0.99]"
+                    className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-primary/30 transition-all cursor-pointer text-left space-y-2.5 active:scale-[0.99]"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -2649,7 +2649,7 @@ export function MailContent({
                       </p>
                     </div>
 
-                    <div className="flex items-center justify-between pt-1 border-t-2 border-slate-200 dark:border-slate-700 text-[9.5px]">
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[9.5px]">
                       <span className="font-bold text-slate-600 truncate max-w-[65%]">
                         {conv.multiplos ? linhaDestinatarios : (isInst ? `Cidadão: ${cleanOrg}` : `Órgão: ${cleanOrg}`)}
                       </span>
@@ -2833,7 +2833,7 @@ export function MailContent({
               </tbody>
             </table>
             {linhasConversa.length > limiteListaCorreio && (
-              <div className="p-3 text-center bg-white border-t-2 border-slate-200 dark:border-slate-700">
+              <div className="p-3 text-center bg-white border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setLimiteListaCorreio(l => l + 200)}
@@ -2846,8 +2846,8 @@ export function MailContent({
             </div>
           </>
         ) : (
-          <div className="bg-slate-50 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-[24px] md:rounded-[32px] p-12 md:p-20 text-center space-y-4">
-            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-none text-slate-400">
+          <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[24px] md:rounded-[32px] p-12 md:p-20 text-center space-y-4">
+            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm text-slate-200">
               <Mail size={32} />
             </div>
             <div>
@@ -2874,7 +2874,7 @@ export function MailContent({
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative bg-white rounded-[32px] p-6 md:p-10 shadow-none border-2 border-slate-300 dark:border-slate-700 max-w-md w-full text-center max-h-[95vh] overflow-y-auto mx-auto space-y-6 z-10"
+              className="relative bg-white rounded-[32px] p-6 md:p-10 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 max-w-md w-full text-center max-h-[95vh] overflow-y-auto mx-auto space-y-6 z-10"
             >
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Trash2 size={32} className="text-red-600" />
@@ -2907,7 +2907,7 @@ export function MailContent({
                     }
                     setMessageToDelete(null);
                   }}
-                  className="py-4 bg-red-600 text-white rounded-2xl font-bold shadow-none hover:bg-red-700 transition-colors cursor-pointer border-0 outline-none"
+                  className="py-4 bg-red-600 text-white rounded-2xl font-bold shadow-lg shadow-red-200 hover:bg-red-700 transition-colors cursor-pointer border-0 outline-none"
                 >
                   {t("Eliminar")}
                 </button>

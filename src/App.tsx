@@ -8950,7 +8950,7 @@ Ficha civil do titular:
         paginasPermitidas={paginasMenu}
       />
 
-      <div className="flex-1 md:bg-white md:rounded-[24px] shadow-none md:border-2 md:border-slate-300 dark:md:border-slate-700 md:overflow-hidden flex flex-col min-h-screen md:min-h-0 relative">
+      <div className="flex-1 md:bg-white md:rounded-[24px] md:shadow-xl md:border-2 md:border-[#E2E8F0] dark:md:border-[#141d31] md:overflow-hidden flex flex-col min-h-screen md:min-h-0 relative">
         <div className={emergencyMode && isGovMode ? 'md:mt-0' : ''}>
           <Header 
             setTab={setTab} 
