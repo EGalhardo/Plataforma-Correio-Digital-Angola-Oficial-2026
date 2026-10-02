@@ -94,7 +94,7 @@ export function MobileNavBar({
     // overrides globais do tema (só bg-white, /70, /80, /90) e o navbar ficava
     // branco no escuro. A classe `cda-mobile-nav` recebe em index.css as
     // MESMAS cores do AppBar mobile (fundo rgb(9,17,36), linha rgb(38,52,85)).
-    <nav className={`cda-mobile-nav md:hidden fixed bottom-0 left-0 right-0 h-16 border-t flex items-center px-2 z-50 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.06)] transition-colors bg-white/95 backdrop-blur-md border-slate-200 ${
+    <nav className={`cda-mobile-nav md:hidden fixed bottom-0 left-0 right-0 h-16 border-t-2 flex items-center px-2 z-50 pb-safe shadow-none transition-colors bg-white/95 backdrop-blur-md border-slate-300 dark:border-slate-700 ${
       isAdminOrInst ? 'overflow-x-auto justify-start gap-1 scrollbar-none snap-x snap-mandatory' : 'justify-around'
     }`}>
       {itensVisiveis.map(({ id, label, icon: Icon }) => {
