@@ -131,8 +131,10 @@ function executarFallbackLocal<T = any>(acao: string, data: Record<string, unkno
 
     case "detalhe": {
       const targetId = String(data.id || '');
-      const oco = savedLocal.find(o => o.id === targetId) || SEED_OCORRENCIAS.find(o => o.id === targetId);
-      if (!oco) throw new OcorrenciaRequestError("Ocorrência não encontrada.", 404);
+      const oco = savedLocal.find(o => o.id === targetId || String(o.numero) === targetId) || SEED_OCORRENCIAS.find(o => o.id === targetId || String(o.numero) === targetId);
+      if (!oco || deletedIds.has(oco.id) || deletedIds.has(String(oco.numero))) {
+        throw new OcorrenciaRequestError("Ocorrência não encontrada.", 404);
+      }
       return {
         ok: true,
         ocorrencia: oco,
@@ -178,8 +180,13 @@ function executarFallbackLocal<T = any>(acao: string, data: Record<string, unkno
     case "eliminar": {
       const idParaEliminar = String(data.id || '');
       deletedIds.add(idParaEliminar);
+      const ocoParaEliminar = savedLocal.find(o => o.id === idParaEliminar || String(o.numero) === idParaEliminar);
+      if (ocoParaEliminar) {
+        deletedIds.add(String(ocoParaEliminar.id));
+        deletedIds.add(String(ocoParaEliminar.numero));
+      }
       localStorage.setItem('cda_ocorrencias_deleted', JSON.stringify(Array.from(deletedIds)));
-      const filtered = savedLocal.filter(o => o.id !== idParaEliminar);
+      const filtered = savedLocal.filter(o => o.id !== idParaEliminar && String(o.numero) !== idParaEliminar);
       localStorage.setItem('cda_ocorrencias_local', JSON.stringify(filtered));
       return { ok: true, eliminada: true } as unknown as T;
     }
@@ -261,7 +268,7 @@ export async function ocorrenciasApi<T = any>(
     });
     const result = await r.json().catch(() => null);
     if (!r.ok || !result?.ok) {
-      if (r.status === 401 || r.status === 404 || r.status >= 500) {
+      if (acao === "eliminar" || r.status === 401 || r.status === 404 || r.status >= 500) {
         return executarFallbackLocal<T>(acao, data);
       }
       throw new OcorrenciaRequestError(
@@ -271,6 +278,9 @@ export async function ocorrenciasApi<T = any>(
     }
     return result as T;
   } catch (e) {
+    if (acao === "eliminar") {
+      return executarFallbackLocal<T>(acao, data);
+    }
     if (e instanceof OcorrenciaRequestError && [400, 403].includes(e.status)) throw e;
     return executarFallbackLocal<T>(acao, data);
   } finally {

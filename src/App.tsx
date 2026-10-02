@@ -4274,6 +4274,27 @@ export default function App() {
     return () => window.removeEventListener('cda-cronograma-updated', handleCronogramaUpdated);
   }, [bi]);
 
+  // 2026-10-02 — Sincronização em tempo real de correspondências emitidas por submódulos (Ocorrências, Denúncias, etc.)
+  useEffect(() => {
+    const handleMsgSent = (e: any) => {
+      const msg = e.detail;
+      if (msg) {
+        const minhaChave = String(bi || sessionOwnerKey || '').toUpperCase().trim();
+        const dest = String(msg.recipientBi || '').toUpperCase().trim();
+        const remet = String(msg.senderKey || '').toUpperCase().trim();
+        if (dest === minhaChave || dest === String(institutionCode || '').toUpperCase().trim()) {
+          setInbox(prev => [msg, ...prev.filter(m => m.id !== msg.id)]);
+          setInstInbox(prev => [msg, ...prev.filter(m => m.id !== msg.id)]);
+        }
+        if (remet === minhaChave) {
+          setSentMessages(prev => [msg, ...prev.filter(m => m.id !== msg.id)]);
+        }
+      }
+    };
+    window.addEventListener('cda:message-sent', handleMsgSent);
+    return () => window.removeEventListener('cda:message-sent', handleMsgSent);
+  }, [bi, institutionCode, sessionOwnerKey]);
+
   // Menu da foto de perfil: abrir mensagem não lida → marca como lida e garante
   // que a página final é SEMPRE o detalhe da mensagem (tab 'mensagem') ou a secção temática.
   const handleOpenUnreadMessage = (message: Message) => {

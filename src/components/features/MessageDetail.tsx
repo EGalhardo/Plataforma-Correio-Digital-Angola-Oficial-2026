@@ -325,6 +325,44 @@ export function MessageDetail({
   const ehDenunciaActual = ehAssuntoQualquerDenuncia(selectedMessage.details?.subject || selectedMessage.preview);
   const [registandoSond, setRegistandoSond] = useState(false);
 
+  // 2026-10-02 — Detecção e navegação direta para o Módulo de Ocorrências Locais
+  const ehOcorrencia = (() => {
+    const subj = (selectedMessage.details?.subject || selectedMessage.preview || '').toLowerCase();
+    const body = (selectedMessage.details?.body || '').toLowerCase();
+    const actions = selectedMessage.details?.actions || [];
+    return (
+      subj.includes('ocorrência') ||
+      subj.includes('ocorrencia') ||
+      body.includes('registo oficial de ocorrência') ||
+      body.includes('registo oficial de ocorrencia') ||
+      actions.some((a: string) => a === 'OCORRENCIA' || a.startsWith('OCORRENCIA_ID:') || a.startsWith('OCORRENCIA_NUM:')) ||
+      !!(selectedMessage as any).ocorrencia_id ||
+      !!(selectedMessage as any).ocorrenciaId
+    );
+  })();
+
+  const ocorrenciaIdAlvo = (() => {
+    if ((selectedMessage as any).ocorrencia_id) return String((selectedMessage as any).ocorrencia_id);
+    if ((selectedMessage as any).ocorrenciaId) return String((selectedMessage as any).ocorrenciaId);
+    const actions = selectedMessage.details?.actions || [];
+    const actId = actions.find((a: string) => a.startsWith('OCORRENCIA_ID:'));
+    if (actId) return actId.replace('OCORRENCIA_ID:', '').trim();
+    const actNum = actions.find((a: string) => a.startsWith('OCORRENCIA_NUM:'));
+    if (actNum) return actNum.replace('OCORRENCIA_NUM:', '').trim();
+    const matchNum = (selectedMessage.details?.subject || selectedMessage.preview || '').match(/(?:OC-|OCORR-\d+-)?(\d{6})/i);
+    if (matchNum) return matchNum[1];
+    return null;
+  })();
+
+  const handleNavegarParaOcorrencia = () => {
+    if (ocorrenciaIdAlvo) {
+      localStorage.setItem('cda_target_ocorrencia', ocorrenciaIdAlvo);
+    }
+    addAuditLogToMessage('Navegou para a página de Ocorrências Locais');
+    addAuditLog?.('Navegou para a página de Ocorrências Locais a partir da correspondência', 'info');
+    setTab('ocorrencias');
+  };
+
   // ---- v37.7 — «Sondagem» contextual da instituição: a opção só existe DENTRO
   // da correspondência seleccionada (a que pertence), nunca solta no Correio.
   const [sondInstAberta, setSondInstAberta] = useState(false);
@@ -4596,6 +4634,38 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               </div>
               <p className="text-slate-700 mb-6 leading-relaxed font-medium text-[11px] md:text-base">{t(selectedMessage.preview)}</p>
 
+              {/* VINCULAÇÃO OFICIAL: OCORRÊNCIA LOCAL */}
+              {ehOcorrencia && (
+                <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-3xl p-5 md:p-6 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-3xs">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                      <MapPin size={22} />
+                    </div>
+                    <div className="min-w-0 text-left">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800">Módulo Oficial de Ocorrências Locais</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      </div>
+                      <h4 className="text-sm md:text-base font-black text-slate-900 truncate mt-0.5">
+                        {selectedMessage.details?.subject || selectedMessage.preview}
+                      </h4>
+                      <p className="text-xs text-slate-600 mt-0.5 font-medium">
+                        Consulte a localização no mapa, histórico de tramitação e gerencie o incidente.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    data-testid="btn-ver-ocorrencia-destaque"
+                    onClick={handleNavegarParaOcorrencia}
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md transition-all shrink-0 hover:scale-[1.02] active:scale-95 cursor-pointer"
+                  >
+                    <MapPin size={14} />
+                    Ver Ocorrência
+                  </button>
+                </div>
+              )}
+
               {/* v37.77 — ANEXOS na vista de página completa: esta variante (a
                   que abre no Correio) NÃO tinha SECÇÃO DE ANEXOS — a imagem
                   anexada pelo remetente nunca aparecia para quem abria a
@@ -4807,19 +4877,32 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         </div>
                       </div>
 
-                      {/* Botão de Ver detalhes Completos + (T53) cronograma da denúncia à direita */}
+                      {/* Botão de Ver detalhes Completos + Ver Ocorrência + (T53) cronograma da denúncia à direita */}
                       <div className="w-full pt-6 border-t border-slate-150 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 mt-6">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveAction('Ver detalhes');
-                            addAuditLogToMessage('Visualizou detalhes completos do documento');
-                          }}
-                          className="text-xs font-black uppercase tracking-wider text-white bg-blue-950 hover:bg-blue-900 px-5 py-3 rounded-full shadow-md flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 font-bold self-start shrink-0"
-                        >
-                          <Eye size={13} className="text-white" />
-                          Ver detalhes Completos
-                        </button>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveAction('Ver detalhes');
+                              addAuditLogToMessage('Visualizou detalhes completos do documento');
+                            }}
+                            className="text-xs font-black uppercase tracking-wider text-white bg-blue-950 hover:bg-blue-900 px-5 py-3 rounded-full shadow-md flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 font-bold self-start shrink-0"
+                          >
+                            <Eye size={13} className="text-white" />
+                            Ver detalhes Completos
+                          </button>
+                          {ehOcorrencia && (
+                            <button
+                              type="button"
+                              data-testid="btn-ver-ocorrencia-mensagem"
+                              onClick={handleNavegarParaOcorrencia}
+                              className="text-xs font-black uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 px-5 py-3 rounded-full shadow-md flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 font-bold self-start shrink-0"
+                            >
+                              <MapPin size={13} className="text-white" />
+                              Ver Ocorrência
+                            </button>
+                          )}
+                        </div>
                         {ehDenunciaActual && (
                           <CronogramaDenuncia
                             messageId={selectedMessage.id}

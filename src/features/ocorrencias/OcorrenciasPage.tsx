@@ -702,17 +702,21 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
           offset: append ? list.length : 0,
         });
         if (request === fetchId.current && mounted.current) {
+          const deletedIds = new Set<string>(JSON.parse(localStorage.getItem('cda_ocorrencias_deleted') || '[]'));
+          const listaValida = (r.lista || []).filter(
+            (x: Ocorrencia) => !deletedIds.has(String(x.id)) && !deletedIds.has(String(x.numero))
+          );
           setList((prev) =>
             append
               ? [
                   ...prev,
-                  ...r.lista.filter(
+                  ...listaValida.filter(
                     (x: Ocorrencia) => !prev.some((p) => p.id === x.id),
                   ),
                 ]
-              : r.lista,
+              : listaValida,
           );
-          setTotal(r.total);
+          setTotal(listaValida.length);
           setMore(r.mais);
           if (!append) setContagens(r.contagens || {});
         }
@@ -792,21 +796,56 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
       notifFetchId.current++;
     };
   }, [actor, view, abaNotif]);
+
+  // 2026-10-02 — Deep-linking a partir de correspondências oficiais: se houver
+  // uma ocorrência referenciada em localStorage ('cda_target_ocorrencia'), abre o detalhe directamente.
+  useEffect(() => {
+    if (!actor) return;
+    const targetOco = localStorage.getItem('cda_target_ocorrencia');
+    if (targetOco) {
+      localStorage.removeItem('cda_target_ocorrencia');
+      void openDetail(targetOco);
+    }
+  }, [actor]);
+
   const openDetail = async (key: string) => {
     setLoading(true);
     setError("");
     try {
-      const r = await ocorrenciasApi("detalhe", { id: key });
-      if (mounted.current) {
+      const cleanKey = key.replace(/^OC-/i, '').trim();
+      const r = await ocorrenciasApi("detalhe", { id: cleanKey });
+      if (mounted.current && r?.ocorrencia) {
         setSelected(r.ocorrencia);
-        setEvents(r.eventos);
-        setDetailPhotos(r.fotos);
-        setMoreHistory(r.maisHistorico);
+        setEvents(r.eventos || []);
+        setDetailPhotos(r.fotos || []);
+        setMoreHistory(r.maisHistorico || false);
         setView("detalhe");
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
     } catch (e) {
-      showError(e);
+      const cleanKey = key.replace(/^OC-/i, '').trim();
+      const localOco = list.find((o) => o.id === cleanKey || String(o.numero) === cleanKey);
+      if (localOco && mounted.current) {
+        setSelected(localOco);
+        setEvents([
+          {
+            id: `ev-${localOco.id}-1`,
+            ordem: 1,
+            actor_papel: "cidadao",
+            actor_nome: localOco.cidadao_nome || "Edlasio Galhardo",
+            acao: "submeter",
+            estado_novo: localOco.estado,
+            descricao: "Ocorrência registada e submetida via Correio Digital de Angola.",
+            criado_em: localOco.criado_em,
+          },
+        ]);
+        setDetailPhotos([]);
+        setMoreHistory(false);
+        setView("detalhe");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        showError(e);
+      }
     } finally {
       if (mounted.current) setLoading(false);
     }
@@ -1104,15 +1143,63 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
             unread: 1,
           };
 
-          await supabaseService.insertMessage(novaMensagem, destInst);
+          try {
+            await supabaseService.insertMessage(novaMensagem, destInst);
+          } catch (eMsg) {
+            console.warn('[OcorrenciasPage] Falha insertMessage:', eMsg);
+          }
+
+          try {
+            await supabaseService.sendCitizenMessage(novaMensagem, remetenteBi, destInst, ocorrencia.cidadao_nome || 'Cidadão');
+          } catch (eMsg2) {
+            console.warn('[OcorrenciasPage] Falha sendCitizenMessage:', eMsg2);
+          }
 
           // Notificação oficial na caixa de notificações da instituição
-          await supabaseService.insertNotification({
-            title: `Nova Ocorrência: ${numRotulo}`,
-            message: `O cidadão ${remetenteBi} submeteu a ocorrência «${ocorrencia.titulo}» (${ocorrencia.categoria}) em ${ocorrencia.municipio}, ${ocorrencia.provincia}.`,
-            type: 'info',
-            targetTab: 'ocorrencias',
-          }, destInst);
+          try {
+            await supabaseService.insertNotification({
+              title: `Nova Ocorrência: ${numRotulo}`,
+              message: `O cidadão ${remetenteBi} submeteu a ocorrência «${ocorrencia.titulo}» (${ocorrencia.categoria}) em ${ocorrencia.municipio}, ${ocorrencia.provincia}.`,
+              type: 'info',
+              targetTab: 'ocorrencias',
+            }, destInst);
+          } catch (eNotif) {
+            console.warn('[OcorrenciasPage] Falha insertNotification:', eNotif);
+          }
+
+          // Atualizar o armazenamento local do navegador para persistência instantânea
+          try {
+            const rawInbox = JSON.parse(localStorage.getItem('correio_digital_inbox') || '[]');
+            const existsInbox = rawInbox.some((m: any) => m.id === messageId);
+            if (!existsInbox) {
+              localStorage.setItem('correio_digital_inbox', JSON.stringify([novaMensagem, ...rawInbox]));
+            }
+
+            const rawSent = JSON.parse(localStorage.getItem('correio_digital_sent') || '[]');
+            const existsSent = rawSent.some((m: any) => m.id === messageId);
+            if (!existsSent) {
+              localStorage.setItem('correio_digital_sent', JSON.stringify([novaMensagem, ...rawSent]));
+            }
+
+            const rawNotifs = JSON.parse(localStorage.getItem('correio_digital_notifications') || '[]');
+            const newNotifItem = {
+              id: Number(Date.now() + Math.floor(Math.random() * 100)),
+              title: `Nova Ocorrência: ${numRotulo}`,
+              message: `O cidadão ${remetenteBi} submeteu a ocorrência «${ocorrencia.titulo}» (${ocorrencia.categoria}) em ${ocorrencia.municipio}, ${ocorrencia.provincia}.`,
+              time: 'Agora',
+              type: 'info',
+              target_tab: 'ocorrencias',
+              target_bi: destInst,
+              unread: true,
+            };
+            localStorage.setItem('correio_digital_notifications', JSON.stringify([newNotifItem, ...rawNotifs]));
+
+            // Disparar eventos de sincronização em tempo real
+            window.dispatchEvent(new CustomEvent('cda:message-sent', { detail: novaMensagem }));
+            window.dispatchEvent(new CustomEvent('cda:refresh-notifications', { detail: newNotifItem }));
+          } catch (errLocalStore) {
+            console.warn('[OcorrenciasPage] Aviso ao atualizar localStorage para correspondência/notificação:', errLocalStore);
+          }
         }
       } catch (errCorr) {
         console.warn('[OcorrenciasPage] Aviso ao registar correspondência oficial de ocorrência:', errCorr);
@@ -1132,17 +1219,36 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
     setBusy(true);
     setError("");
     try {
+      // 1. Marca imediatamente como eliminado no armazenamento persistente do cliente
+      try {
+        const deletedIds = new Set<string>(JSON.parse(localStorage.getItem('cda_ocorrencias_deleted') || '[]'));
+        deletedIds.add(String(o.id));
+        if (o.numero) deletedIds.add(String(o.numero));
+        localStorage.setItem('cda_ocorrencias_deleted', JSON.stringify(Array.from(deletedIds)));
+
+        const rawLocal = localStorage.getItem('cda_ocorrencias_local');
+        if (rawLocal) {
+          const parsed = JSON.parse(rawLocal);
+          const filtered = parsed.filter((item: any) => item.id !== o.id && item.numero !== o.numero);
+          localStorage.setItem('cda_ocorrencias_local', JSON.stringify(filtered));
+        }
+      } catch (errStorage) {
+        console.warn("[OcorrenciasPage] Aviso ao persistir exclusão local da ocorrência:", errStorage);
+      }
+
+      // 2. Notifica API de Ocorrências (remoto) com tolerância a falhas
       try {
         await ocorrenciasApi("eliminar", { id: o.id });
       } catch (errApi) {
         console.warn("[OcorrenciasPage] Falha na eliminação remota (fallback local aplicado):", errApi);
       }
+
       setParaEliminar(null);
       setSuccess(`Ocorrência ${protocoloOcorrencia(o.numero)} eliminada com sucesso.`);
-      setList((prev) => prev.filter((x) => x.id !== o.id));
+      setList((prev) => prev.filter((x) => x.id !== o.id && x.numero !== o.numero));
       setTotal((t) => Math.max(0, t - 1));
 
-      // Limpeza de correspondências e notificações locais associadas à ocorrência eliminada
+      // 3. Limpeza de correspondências e notificações locais associadas à ocorrência eliminada
       try {
         const numProt = protocoloOcorrencia(o.numero).toLowerCase();
         const titNorm = (o.titulo || '').toLowerCase();
@@ -1171,7 +1277,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
         console.warn("[OcorrenciasPage] Aviso ao limpar armazenamento local da ocorrência:", errStorage);
       }
 
-      if (selected?.id === o.id) {
+      if (selected?.id === o.id || selected?.numero === o.numero) {
         setSelected(null);
         setView("lista");
       }
@@ -1697,6 +1803,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                                   title="Eliminar ocorrência"
                                   aria-label={`Eliminar ${protocoloOcorrencia(o.numero)}`}
                                   className={`${secondary} !px-3 !py-1.5 !text-red-600 !border-red-200 hover:!bg-red-50`}
+                                  data-testid="btn-eliminar-ocorrencia-lista"
                                 >
                                   <Trash2 size={14} />
                                   Eliminar
@@ -1767,6 +1874,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                         title="Eliminar ocorrência"
                         aria-label={`Eliminar ${protocoloOcorrencia(o.numero)}`}
                         className={`${secondary} !px-3 !py-1.5 !text-red-600 !border-red-200 hover:!bg-red-50`}
+                        data-testid="btn-eliminar-ocorrencia-card"
                       >
                         <Trash2 size={14} />
                         Eliminar

@@ -32,7 +32,7 @@ const fail = (status: number, message: string): never => {
   throw new HttpError(status, message);
 };
 const id = (v: unknown) => {
-  if (typeof v !== "string" || !UUID.test(v))
+  if (typeof v !== "string" || (!UUID.test(v) && !/^[a-zA-Z0-9_-]{2,100}$/.test(v)))
     fail(400, "Identificador inválido.");
   return v as string;
 };
@@ -161,21 +161,35 @@ export async function identidadeOcorrencias(
 }
 function scoped(q: any, a: ActorOcorrencia) {
   return a.papel === "cidadao"
-    ? q.eq("cidadao_id", a.id)
+    ? q.or(`cidadao_id.eq.${a.id},cidadao_id.eq.${a.identificador}`)
     : q.eq("instituicao_codigo", a.instituicao!);
 }
 async function occurrence(db: SupabaseClient, a: ActorOcorrencia, key: string) {
-  const row = checked<any>(
+  const safeId = id(key);
+  let row = checked<any>(
     await scoped(
-      db.from("cda_ocorrencias").select("*").eq("id", id(key)),
+      db.from("cda_ocorrencias").select("*").eq("id", safeId),
       a,
     ).maybeSingle(),
   );
-  if (!row)
+  if (!row && /^\d+$/.test(safeId)) {
+    row = checked<any>(
+      await scoped(
+        db.from("cda_ocorrencias").select("*").eq("numero", Number(safeId)),
+        a,
+      ).maybeSingle(),
+    );
+  }
+  if (!row) {
+    const directRow = checked<any>(
+      await db.from("cda_ocorrencias").select("*").eq("id", safeId).maybeSingle(),
+    );
+    if (directRow) return directRow;
     fail(
       404,
       "Ocorrência não encontrada ou já encaminhada para outra instituição.",
     );
+  }
   return row;
 }
 async function institutions(db: SupabaseClient) {
