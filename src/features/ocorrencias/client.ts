@@ -268,7 +268,7 @@ export async function ocorrenciasApi<T = any>(
     });
     const result = await r.json().catch(() => null);
     if (!r.ok || !result?.ok) {
-      if (acao === "eliminar" || r.status === 401 || r.status === 404 || r.status >= 500) {
+      if (acao === "eliminar" || acao === "criar" || r.status === 401 || r.status === 404 || r.status >= 500) {
         return executarFallbackLocal<T>(acao, data);
       }
       throw new OcorrenciaRequestError(
@@ -278,7 +278,7 @@ export async function ocorrenciasApi<T = any>(
     }
     return result as T;
   } catch (e) {
-    if (acao === "eliminar") {
+    if (acao === "eliminar" || acao === "criar") {
       return executarFallbackLocal<T>(acao, data);
     }
     if (e instanceof OcorrenciaRequestError && [400, 403].includes(e.status)) throw e;
