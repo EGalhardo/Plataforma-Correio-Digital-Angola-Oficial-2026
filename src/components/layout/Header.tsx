@@ -98,8 +98,8 @@ function UnreadMessagesMenu({
   return (
     <>
       <div className="fixed inset-0 z-[150]" onClick={onClose} />
-      <div className="fixed top-16 md:top-20 right-3 md:right-6 z-[160] w-[min(92vw,340px)] bg-white rounded-2xl shadow-[0_20px_50px_rgba(15,23,42,0.18)] border border-slate-100 overflow-hidden text-left animate-fadeIn">
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+      <div className="fixed top-16 md:top-20 right-3 md:right-6 z-[160] w-[min(92vw,340px)] bg-white rounded-2xl shadow-none border-2 border-slate-300 dark:border-slate-700 overflow-hidden text-left animate-fadeIn">
+        <div className="px-4 py-3 border-b-2 border-slate-300 dark:border-slate-700 flex items-center justify-between bg-slate-50/70">
           <span className="flex flex-col min-w-0">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">{titulo}</span>
             <span data-testid="menu-decomposicao" className="text-[8.5px] font-bold text-slate-400 tracking-wide leading-none mt-0.5">
@@ -108,7 +108,7 @@ function UnreadMessagesMenu({
           </span>
           <span data-testid="menu-contador" className="text-[9px] font-black text-white bg-red-600 rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center leading-none">{unreadCount}</span>
         </div>
-        <div className="max-h-[260px] overflow-y-auto custom-scrollbar divide-y divide-slate-50">
+        <div className="max-h-[260px] overflow-y-auto custom-scrollbar divide-y-2 divide-slate-200 dark:divide-slate-700">
           {unreadCount === 0 ? (
             <div className="px-4 py-6 text-center text-[11px] font-bold text-slate-400">{vazio}</div>
           ) : isAdmin ? (
@@ -170,11 +170,11 @@ function UnreadMessagesMenu({
             })
           )}
         </div>
-        <div className="p-2.5 bg-slate-50/80 border-t border-slate-100 flex flex-col gap-1.5">
+        <div className="p-2.5 bg-slate-50/80 border-t-2 border-slate-300 dark:border-slate-700 flex flex-col gap-1.5">
           <button
             type="button"
             onClick={() => { onClose(); onLogout?.(false); }}
-            className="w-full px-3 py-2.5 rounded-xl bg-[#0E2B64] hover:bg-[#081a3d] text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.98]"
+            className="w-full px-3 py-2.5 rounded-xl bg-[#0E2B64] hover:bg-[#081a3d] text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer shadow-none active:scale-[0.98]"
           >
             <LogOut size={13} className="text-white" />
             <span>{translate("Sair do Canal")}</span>
@@ -230,7 +230,7 @@ function LanguageSelectorDropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-[290px] bg-white rounded-[26px] shadow-[0_20px_50px_rgba(15,23,42,0.12)] border border-slate-100/90 p-3.5 z-[160] overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-[290px] bg-white rounded-[26px] shadow-none border-2 border-slate-300 dark:border-slate-700 p-3.5 z-[160] overflow-hidden">
           <div className="max-h-[360px] overflow-y-auto custom-scrollbar flex flex-col gap-1 pr-[1px]">
             {LANGUAGE_OPTIONS.map((option) => {
               const isSelected = option.code === currentLanguage;
@@ -423,10 +423,7 @@ export function Header({
       {/* Mobile AppBar */}
       <header 
         style={{ top: hasEmergencyBanner ? '32px' : '0' }}
-        className={`md:hidden fixed left-0 right-0 h-14 border-b px-3.5 flex items-center justify-between z-50 transition-all bg-white ${
-        isAdmin ? 'border-slate-100 text-slate-900 shadow-sm' : 
-        isInst ? 'border-red-200 text-slate-900' : 'text-slate-900 border-line/40'
-      }`}>
+        className={`md:hidden fixed left-0 right-0 h-14 border-b-2 border-slate-300 dark:border-slate-700 px-3.5 flex items-center justify-between z-50 transition-all bg-white text-slate-900 shadow-none`}>
         <div className="flex items-center" onClick={() => setTab(isAdmin ? 'gov-dashboard' : 'home')}>
           {/* v37.36 — PARIDADE CLARO/ESCURO: mesma altura (34px), mesmo tecto
               maxWidth 45vw e mesma ancoragem esquerda nos dois temas; a marca
@@ -575,10 +572,7 @@ export function Header({
       {/* Desktop Greeting Header */}
       <div 
         style={{ top: hasEmergencyBanner ? '32px' : '0' }}
-        className={`hidden md:flex px-4 py-3 md:px-8 md:pt-6 md:pb-2 border-b justify-between items-center transition-all sticky z-20 ${
-        isAdmin ? 'bg-white border-slate-100 text-slate-900 shadow-sm' : 
-        'bg-white border-line/5'
-      }`}>
+        className={`hidden md:flex px-4 py-3 md:px-8 md:pt-6 md:pb-2 border-b-2 border-slate-300 dark:border-slate-700 justify-between items-center transition-all sticky z-20 bg-white text-slate-900 shadow-none`}>
         <div className="flex-1">
           <small className={`text-[10px] md:text-sm font-black uppercase tracking-[0.1em] block mb-0.5 ${
             isAdmin ? 'text-slate-600' : 'text-slate-600'

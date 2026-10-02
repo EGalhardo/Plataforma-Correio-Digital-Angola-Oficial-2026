@@ -126,7 +126,7 @@ export function HomeContent({
 
   return (
     <div className="grid gap-3 md:gap-3.5">
-      <section className="relative w-full aspect-square md:aspect-auto md:h-[385px] rounded-2xl md:rounded-[28px] overflow-hidden shadow-xs border border-slate-200/90 bg-slate-900">
+      <section className="relative w-full aspect-square md:aspect-auto md:h-[385px] rounded-2xl md:rounded-[28px] overflow-hidden shadow-none border-2 border-slate-300 dark:border-slate-700 bg-slate-900">
         <AnimatePresence mode="wait">
           <motion.div
             key={`${isInst ? 'gov' : 'user'}-${activeSlide}`}
@@ -175,8 +175,8 @@ export function HomeContent({
 
       {/* Quick Summary / Security Status */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-        <div className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-4 md:p-6 flex items-center gap-3.5 md:gap-5 shadow-xs overflow-hidden relative group">
-          <div className={`w-11 h-11 md:w-14 md:h-14 ${isInst ? 'bg-white border-slate-100' : 'bg-emerald-600 border-emerald-600'} rounded-2xl flex items-center justify-center shadow-xs shrink-0 border`}>
+        <div className="bg-white border-2 border-slate-300 dark:border-slate-700 rounded-2xl md:rounded-[28px] p-4 md:p-6 flex items-center gap-3.5 md:gap-5 shadow-none overflow-hidden relative group">
+          <div className={`w-11 h-11 md:w-14 md:h-14 ${isInst ? 'bg-white border-slate-300 dark:border-slate-700' : 'bg-emerald-600 border-emerald-600'} rounded-2xl flex items-center justify-center shadow-none shrink-0 border-2`}>
             {isInst ? (
               <LazyImage
                 key={`${logoFalhou ? 'fb' : 'ok'}:${instLogoUrl || ''}`}
@@ -209,9 +209,9 @@ export function HomeContent({
         <div 
           role="button"
           onClick={() => setTab('correspondencias')}
-          className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-4 md:p-6 flex items-center gap-3.5 md:gap-5 shadow-xs hover:border-primary/20 transition-all cursor-pointer group relative overflow-hidden text-left"
+          className="bg-white border-2 border-slate-300 dark:border-slate-700 rounded-2xl md:rounded-[28px] p-4 md:p-6 flex items-center gap-3.5 md:gap-5 shadow-none hover:border-slate-400 dark:hover:border-slate-600 transition-all cursor-pointer group relative overflow-hidden text-left"
         >
-          <div className="w-11 h-11 md:w-14 md:h-14 bg-red-600 text-white rounded-2xl flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform border border-red-600">
+          <div className="w-11 h-11 md:w-14 md:h-14 bg-red-600 text-white rounded-2xl flex items-center justify-center shadow-none shrink-0 group-hover:scale-105 transition-transform border-2 border-red-600">
             <Mail size={22} className="md:w-7 md:h-7" />
           </div>
           <div className="min-w-0 flex-1">
@@ -249,11 +249,11 @@ export function HomeContent({
             title={badgeCounts[key] > 0 ? `${t(label)} — ${badgeCounts[key]} ${t('notificações não lidas')}` : t(label)}
             type="button"
             onClick={action}
-            className="min-w-0 min-h-14 px-3 py-3 flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-wide shadow-3xs hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all cursor-pointer"
+            className="min-w-0 min-h-14 px-3 py-3 flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border-2 border-slate-300 dark:border-slate-700 rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-wide shadow-none hover:border-slate-400 dark:hover:border-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all cursor-pointer"
           >
             <Icon size={17} aria-hidden="true" className="text-primary shrink-0" />
             <span className="min-w-0 text-center leading-relaxed break-words">{t(label)}</span>
-            {badgeCounts[key] > 0 && <span id={`${badgeId}-${key}`} data-notification-badge={key} className="shrink-0 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-black tabular-nums leading-none" role="status">
+            {badgeCounts[key] > 0 && <span id={`${badgeId}-${key}`} data-notification-badge={key} className="shrink-0 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-black tabular-nums leading-none shadow-none" role="status">
               <span aria-hidden="true">{badgeCounts[key] > 99 ? '99+' : badgeCounts[key]}</span>
               <span className="sr-only">{badgeCounts[key]} {t('notificações não lidas')}</span>
             </span>}
@@ -261,8 +261,8 @@ export function HomeContent({
         ))}
       </nav>
 
-      <section className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-5 shadow-xs overflow-hidden relative group">
-        <div className="flex flex-row items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-100">
+      <section className="bg-white border-2 border-slate-300 dark:border-slate-700 rounded-2xl md:rounded-[28px] p-4 md:p-5 shadow-none overflow-hidden relative group">
+        <div className="flex flex-row items-center justify-between gap-2 mb-3 pb-2 border-b-2 border-slate-300 dark:border-slate-700">
           <div className="flex items-center gap-2 min-w-0">
              <div className="w-1.5 h-4 md:h-5 bg-primary rounded-full shrink-0" />
              <div className="min-w-0">
@@ -300,13 +300,13 @@ export function HomeContent({
                       onDoubleClickInstitution?.(name);
                     }
                   }}
-                  className="px-4 py-2 rounded-full text-[10px] md:text-xs font-black bg-[#0E2B64] text-white border border-[#0E2B64] whitespace-nowrap hover:bg-[#0c2350] transition-all cursor-pointer shadow-md hover:shadow-lg text-center"
+                  className="px-4 py-2 rounded-full text-[10px] md:text-xs font-black bg-[#0E2B64] text-white border border-[#0E2B64] whitespace-nowrap hover:bg-[#0c2350] transition-all cursor-pointer shadow-none text-center"
                   title={(isInst || !onDoubleClickInstitution) ? t(name) : t("Dê duplo clique para ver detalhes desta instituição")}
                 >
                   {t(name)}
                 </button>
                 {unreadCount > 0 && (
-                  <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-black text-white shadow-md animate-pulse ring-1 ring-white">
+                  <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-black text-white shadow-none animate-pulse ring-1 ring-white">
                     {unreadCount}
                   </span>
                 )}
@@ -319,7 +319,7 @@ export function HomeContent({
       {/* Containers de Correspondências — Layout dinâmico: 2 colunas (mínimo) ou 3 colunas (máximo) em Desktop; coluna única empilhada em Mobile */}
       <div className={`grid grid-cols-1 ${gridDesktopClass} gap-3 md:gap-4`}>
         {/* 1. Container «Lidas» (Sempre visível) */}
-        <section className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-xs flex flex-col group" data-testid="container-lidas">
+        <section className="bg-white border-2 border-slate-300 dark:border-slate-700 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-none flex flex-col group" data-testid="container-lidas">
           <div className="flex items-center justify-between mb-3.5 shrink-0 px-1">
              <div className="flex items-center gap-2">
                 <Mail size={16} className="text-emerald-500" />
@@ -330,19 +330,19 @@ export function HomeContent({
           <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
             {readCount === 0 ? (
               <div className="flex flex-col items-center justify-center text-center py-8 text-slate-400">
-                <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-2 shadow-xs">
+                <div className="w-10 h-10 bg-slate-50 border-2 border-slate-300 dark:border-slate-700 rounded-full flex items-center justify-center mb-2 shadow-none">
                   <Mail size={16} className="text-slate-300" />
                 </div>
                 <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">{t("Sem mensagens lidas")}</p>
               </div>
             ) : (
               (inbox || []).filter(m => !m.unread).map(m => (
-                <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
+                <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b-2 border-slate-200 dark:border-slate-700 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
                   <div className="min-w-0 flex-1 truncate mr-3">
                     <span className="font-extrabold text-slate-800">{t(m.org)}:</span>
                     <span className="ml-1 text-slate-500 font-medium">{t(m.preview)}</span>
                   </div>
-                  <span className="text-white font-bold shrink-0 text-[10px] bg-emerald-600 px-2 py-0.5 rounded-lg font-mono">{t(m.date)}</span>
+                  <span className="text-white font-bold shrink-0 text-[10px] bg-emerald-600 px-2 py-0.5 rounded-lg font-mono shadow-none">{t(m.date)}</span>
                 </div>
               ))
             )}
@@ -350,7 +350,7 @@ export function HomeContent({
         </section>
 
         {/* 2. Container «Não Lidas» (Sempre visível) */}
-        <section className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-xs flex flex-col group" data-testid="container-nao-lidas">
+        <section className="bg-white border-2 border-slate-300 dark:border-slate-700 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-none flex flex-col group" data-testid="container-nao-lidas">
           <div className="flex items-center justify-between mb-3.5 shrink-0 px-1">
              <div className="flex items-center gap-2">
                 <Mail size={16} className="text-red-500" />
@@ -361,19 +361,19 @@ export function HomeContent({
           <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
             {unreadCount === 0 ? (
               <div className="flex flex-col items-center justify-center text-center py-8 text-slate-400">
-                <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-2 shadow-xs">
+                <div className="w-10 h-10 bg-slate-50 border-2 border-slate-300 dark:border-slate-700 rounded-full flex items-center justify-center mb-2 shadow-none">
                   <Mail size={16} className="text-slate-300" />
                 </div>
                 <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">{t("Sem mensagens novas")}</p>
               </div>
             ) : (
               (inbox || []).filter(m => m.unread).map(m => (
-                <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
+                <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b-2 border-slate-200 dark:border-slate-700 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
                   <div className="min-w-0 flex-1 truncate mr-3">
                     <span className="font-extrabold text-slate-900 group-hover/item:text-primary transition-colors">{t(m.org)}:</span>
                     <span className="ml-1 text-slate-600 font-medium">{t(m.preview)}</span>
                   </div>
-                  <span className="text-white font-bold shrink-0 text-[10px] bg-red-600 px-2 py-0.5 rounded-lg font-mono shadow-xs">{t(m.date)}</span>
+                  <span className="text-white font-bold shrink-0 text-[10px] bg-red-600 px-2 py-0.5 rounded-lg font-mono shadow-none">{t(m.date)}</span>
                 </div>
               ))
             )}
@@ -382,7 +382,7 @@ export function HomeContent({
 
         {/* 3. Container «Enviadas» (Visível apenas se sentCount > 0) */}
         {showEnviadas && (
-          <section className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-xs flex flex-col group" data-testid="container-enviadas">
+          <section className="bg-white border-2 border-slate-300 dark:border-slate-700 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-none flex flex-col group" data-testid="container-enviadas">
             <div className="flex items-center justify-between mb-3.5 shrink-0 px-1">
                <div className="flex items-center gap-2">
                   <Mail size={16} className="text-blue-500" />
@@ -392,12 +392,12 @@ export function HomeContent({
             </div>
             <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
               {(sentMessages || []).map(m => (
-                <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
+                <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b-2 border-slate-200 dark:border-slate-700 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
                   <div className="min-w-0 flex-1 truncate mr-3">
                     <span className="font-extrabold text-slate-800">{t(m.org)}:</span>
                     <span className="ml-1 text-slate-500 font-medium">{t(m.preview)}</span>
                   </div>
-                  <span className="text-white font-bold shrink-0 text-[10px] bg-blue-600 px-2 py-0.5 rounded-lg font-mono">{t(m.date)}</span>
+                  <span className="text-white font-bold shrink-0 text-[10px] bg-blue-600 px-2 py-0.5 rounded-lg font-mono shadow-none">{t(m.date)}</span>
                 </div>
               ))}
             </div>
@@ -406,7 +406,7 @@ export function HomeContent({
 
         {/* 4. Container «Eliminadas» (Visível apenas se deletedCount > 0 E sentCount === 0) */}
         {showEliminadas && (
-          <section className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-xs flex flex-col group" data-testid="container-eliminadas">
+          <section className="bg-white border-2 border-slate-300 dark:border-slate-700 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-none flex flex-col group" data-testid="container-eliminadas">
             <div className="flex items-center justify-between mb-3.5 shrink-0 px-1">
                <div className="flex items-center gap-2">
                   <Trash2 size={16} className="text-red-500" />
@@ -416,12 +416,12 @@ export function HomeContent({
             </div>
             <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
               {(deletedMessages || []).map(m => (
-                <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
+                <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b-2 border-slate-200 dark:border-slate-700 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
                   <div className="min-w-0 flex-1 truncate mr-3">
                     <span className="font-extrabold text-slate-900 group-hover/item:text-primary transition-colors">{t(m.org)}:</span>
                     <span className="ml-1 text-slate-600 font-medium">{t(m.preview)}</span>
                   </div>
-                  <span className="text-white font-bold shrink-0 text-[10px] bg-red-600 px-2 py-0.5 rounded-lg font-mono shadow-xs">{t(m.date)}</span>
+                  <span className="text-white font-bold shrink-0 text-[10px] bg-red-600 px-2 py-0.5 rounded-lg font-mono shadow-none">{t(m.date)}</span>
                 </div>
               ))}
             </div>
