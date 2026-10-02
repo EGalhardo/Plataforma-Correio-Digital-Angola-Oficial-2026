@@ -1151,9 +1151,119 @@ export default function App() {
   // ITEM 3: biOverride — login por e-mail real resolve o B.I. da conta Auth e
   // precisa que a hidratação use ESSE B.I. (o state `bi` ainda não actualizou).
   const applyIdentityForLoggedUser = async (biOverride?: string) => {
+    const biBase = typeof biOverride === 'string' ? biOverride : bi;
+
+    // Hidratação Institucional (Paridade total Normal vs Facial)
+    if (appMode === 'institution') {
+      const normalized = (biBase.trim() || DEMO_CREDENTIALS.institution.identifier).toUpperCase();
+      if (biBase.trim().toUpperCase() !== normalized) setBi(normalized);
+
+      if (normalized === DEMO_CREDENTIALS.institution.identifier) {
+        let perfilPersistido: any = null;
+        if (!homologationStore.isExempt(normalized) && hasValidSupabaseKeys()) {
+          try { perfilPersistido = await supabaseService.getProfile(normalized); } catch {}
+        }
+        const locAg = lerPerfilLocal('institution', normalized);
+        const fotoInstLocal = lerAvatarLocal('institution', normalized);
+        const demoName = perfilPersistido?.name || locAg?.name || DEMO_CREDENTIALS.institution.profileName;
+        const demoPhone = perfilPersistido?.phone || locAg?.phone || DEMO_CREDENTIALS.institution.phone;
+        const demoNif = perfilPersistido?.nif || locAg?.nif || DEMO_CREDENTIALS.institution.nif;
+        const demoEmail = perfilPersistido?.email || locAg?.email || 'instituicao@cda.gov.ao';
+        setProfileName(demoName);
+        setPhoneLocal(demoPhone);
+        setNifLocal(demoNif);
+        setPassportLocal('');
+        setUserBirthDate('');
+        setUserFiliation('');
+        setUserMaritalStatus('');
+        setVerificationStatus('Agente AGT Verificado');
+        updateUserFields?.({
+          name: demoName,
+          bi: normalized,
+          phone: demoPhone,
+          nif: demoNif,
+          email: demoEmail,
+          avatarUrl: fotoInstLocal || MOCK_SESSION_USER.avatarUrl,
+          passport: '',
+          birthDate: '',
+          filiation: '',
+          maritalStatus: '',
+        });
+        updateActiveProfileFields?.({
+          institutionName: 'Administração Geral Tributária (AGT)',
+          role: 'Responsável',
+          departmentName: '',
+        });
+        return;
+      }
+
+      try {
+        const res = await resolveInstitutionFaceLogin(normalized, supabase);
+        if (res.outcome !== 'invalid' && res.outcome !== 'deny') {
+          await applyInstitutionSessionIdentity(res);
+          updateActiveProfileFields?.({ institutionName: `${res.name} (${res.code})` });
+          setBi(res.code);
+          setInstIdentity(res.identity || { type: 'responsible' });
+          setInstMustChangePwd(false);
+          setInstGate(res.outcome === 'restricted' ? 'restricted' : 'full');
+        }
+      } catch (e) {
+        console.warn('CADA: falha ao resolver identidade institucional no login:', e);
+      }
+      return;
+    }
+
+    // Hidratação Administrativa (Paridade total Normal vs Facial)
+    if (appMode === 'admin') {
+      const normalized = (biBase.trim() || DEMO_CREDENTIALS.admin.identifier).toUpperCase();
+      if (biBase.trim().toUpperCase() !== normalized) setBi(normalized);
+
+      let dbAg: any = null;
+      try {
+        dbAg = await supabaseService.getProfile(normalized);
+      } catch { /* melhor esforço */ }
+
+      const locAg = lerPerfilLocal('admin', normalized);
+      let fotoAgAuth = '';
+      try {
+        const { data: sessAg } = await supabase.auth.getSession();
+        const emailSessaoAg = String(sessAg?.session?.user?.email || '').toLowerCase();
+        if (emailSessaoAg === syntheticAdminEmail(normalized).toLowerCase()) fotoAgAuth = await lerAvatarAuth();
+      } catch { /* melhor esforço */ }
+      const fotoAg = fotoAgAuth || lerAvatarLocal('admin', normalized);
+
+      const cred = getAdminAgentCred(normalized);
+      const isDemoAdminAccount = normalized === 'ADM-8812-OP';
+      const admName = dbAg?.name || locAg?.name || cred?.name || (isDemoAdminAccount ? DEMO_CREDENTIALS.admin.profileName : 'Edlásio Galhardo');
+      const admPhone = dbAg?.phone || locAg?.phone || (isDemoAdminAccount ? DEMO_CREDENTIALS.admin.phone : '');
+      const admNif = dbAg?.nif || locAg?.nif || (isDemoAdminAccount ? DEMO_CREDENTIALS.admin.nif : '');
+      const admEmail = dbAg?.email || locAg?.email || 'admin@cda.gov.ao';
+
+      setProfileName(admName);
+      setPhoneLocal(admPhone);
+      setNifLocal(admNif);
+      setPassportLocal('');
+      setUserBirthDate('');
+      setUserFiliation('');
+      setUserMaritalStatus('');
+      setVerificationStatus(isDemoAdminAccount || normalized === 'ADMIN-0001' ? 'Administrador Geral / Central' : 'Agente da Administração');
+      updateUserFields?.({
+        name: admName,
+        bi: normalized,
+        phone: admPhone,
+        nif: admNif,
+        email: admEmail,
+        avatarUrl: fotoAg || makeInstNeutralAvatar('AD'),
+        passport: '',
+        birthDate: '',
+        filiation: '',
+        maritalStatus: '',
+      });
+      return;
+    }
+
     if (appMode !== 'user') return;
     // B.I. em branco no login = assume o identificador demo exibido como placeholder.
-    const biBase = typeof biOverride === 'string' ? biOverride : bi;
     const normalized = (biBase.trim() || DEMO_CREDENTIALS.user.identifier).toUpperCase();
     if (biBase.trim().toUpperCase() !== normalized) setBi(normalized);
     if (normalized === DEMO_CREDENTIALS.user.identifier) {
@@ -2358,9 +2468,18 @@ export default function App() {
               return;
             }
           }
-          if (isInstMode && bi.trim().toUpperCase() === DEMO_CREDENTIALS.institution.identifier) {
+          if (isInstMode && (bi.trim().toUpperCase() === DEMO_CREDENTIALS.institution.identifier || bi.trim() === '')) {
+            const instIdent = bi.trim().toUpperCase() || DEMO_CREDENTIALS.institution.identifier;
+            setBi(instIdent);
             setInstGate('full');
             setInstIdentity({ type: 'responsible' });
+            setInstMustChangePwd(false);
+            await applyIdentityForLoggedUser(instIdent);
+          }
+          if (isGovMode) {
+            const admIdent = bi.trim().toUpperCase() || DEMO_CREDENTIALS.admin.identifier;
+            setBi(admIdent);
+            await applyIdentityForLoggedUser(admIdent);
           }
           // F47 — login facial do CIDADÃO com gates IDÊNTICOS ao login por senha
           // (antes não consultava a nuvem: uma conta eliminada voltava a entrar).
