@@ -1009,7 +1009,7 @@ export default function App() {
       // escolhido outra neste dispositivo (2026-08-20: a foto deixa de
       // reverter a cada login; chave por identificador, sem contaminação
       // entre contas).
-      avatarUrl: lerAvatarLocal(mode, preset.identifier) || (mode === 'admin' ? '' : MOCK_SESSION_USER.avatarUrl),
+      avatarUrl: lerAvatarLocal(mode, preset.identifier) || (mode === 'admin' ? '' : (mode === 'institution' ? makeInstNeutralAvatar(preset.identifier) : MOCK_SESSION_USER.avatarUrl)),
     });
   };
 
@@ -1102,6 +1102,9 @@ export default function App() {
         }
       } catch { /* ignora */ }
     }
+    if (!avatar && (perfilPersistido?.avatar_url || perfilPersistido?.avatar)) {
+      avatar = perfilPersistido.avatar_url || perfilPersistido.avatar;
+    }
     if (!avatar) {
       const lav = lerAvatarLocal('institution', avatarKey);
       if (lav) avatar = lav;
@@ -1164,7 +1167,7 @@ export default function App() {
           try { perfilPersistido = await supabaseService.getProfile(normalized); } catch {}
         }
         const locAg = lerPerfilLocal('institution', normalized);
-        const fotoInstLocal = lerAvatarLocal('institution', normalized);
+        const fotoInstLocal = lerAvatarLocal('institution', normalized) || perfilPersistido?.avatar_url || perfilPersistido?.avatar;
         const demoName = perfilPersistido?.name || locAg?.name || DEMO_CREDENTIALS.institution.profileName;
         const demoPhone = perfilPersistido?.phone || locAg?.phone || DEMO_CREDENTIALS.institution.phone;
         const demoNif = perfilPersistido?.nif || locAg?.nif || DEMO_CREDENTIALS.institution.nif;
@@ -1183,7 +1186,7 @@ export default function App() {
           phone: demoPhone,
           nif: demoNif,
           email: demoEmail,
-          avatarUrl: fotoInstLocal || MOCK_SESSION_USER.avatarUrl,
+          avatarUrl: fotoInstLocal || makeInstNeutralAvatar(normalized),
           passport: '',
           birthDate: '',
           filiation: '',
@@ -1230,7 +1233,7 @@ export default function App() {
         const emailSessaoAg = String(sessAg?.session?.user?.email || '').toLowerCase();
         if (emailSessaoAg === syntheticAdminEmail(normalized).toLowerCase()) fotoAgAuth = await lerAvatarAuth();
       } catch { /* melhor esforço */ }
-      const fotoAg = fotoAgAuth || lerAvatarLocal('admin', normalized);
+      const fotoAg = fotoAgAuth || lerAvatarLocal('admin', normalized) || dbAg?.avatar_url || dbAg?.avatar;
 
       const cred = getAdminAgentCred(normalized);
       const isDemoAdminAccount = normalized === 'ADM-8812-OP';
@@ -2479,6 +2482,15 @@ export default function App() {
           if (isGovMode) {
             const admIdent = bi.trim().toUpperCase() || DEMO_CREDENTIALS.admin.identifier;
             setBi(admIdent);
+            const cred = getAdminAgentCred(admIdent);
+            if (cred && isSupabaseConfigured()) {
+              try {
+                const agentEmail = syntheticAdminEmail(admIdent);
+                await cloudSignIn(supabase, agentEmail, cred.password);
+              } catch (eCloudAdm) {
+                console.warn('[AUTH-CLOUD] Falha ao restabelecer sessão cloud admin:', eCloudAdm);
+              }
+            }
             await applyIdentityForLoggedUser(admIdent);
           }
           // F47 — login facial do CIDADÃO com gates IDÊNTICOS ao login por senha
@@ -2561,7 +2573,9 @@ export default function App() {
               }
             }
           }
-          await applyIdentityForLoggedUser();
+          if (!isInstMode && !isGovMode) {
+            await applyIdentityForLoggedUser(bi.trim().toUpperCase() || DEMO_CREDENTIALS.user.identifier);
+          }
           stopLoginFaceCamera();
           if (isGovMode) setTab('gov-dashboard');
           setStage('app');
@@ -4499,7 +4513,13 @@ export default function App() {
     if (!isDemoSession) {
       base = notifications.filter(n => n.ownerId === sessionOwnerKey);
     } else {
-      base = notifications;
+      if (isUserMode) {
+        base = notifications.filter(n => !n.ownerId || n.ownerId === sessionOwnerKey || n.ownerId === DEMO_CREDENTIALS.user.identifier);
+      } else if (isInstMode) {
+        base = notifications.filter(n => n.ownerId === sessionOwnerKey || n.ownerId === DEMO_CREDENTIALS.institution.identifier);
+      } else {
+        base = notifications.filter(n => n.ownerId === sessionOwnerKey || n.ownerId === DEMO_CREDENTIALS.admin.identifier);
+      }
     }
     // 2026-08-22 — a notificação de AGENDAMENTO de video-atendimento só
     // desaparece QUANDO O DIA DO AGENDAMENTO É ULTRAPASSADO (nunca por ter
@@ -4519,7 +4539,7 @@ export default function App() {
       if (n.targetTab !== 'video-atendimento' && n.targetTab !== 'inst-video') return true;
       return !diaUltrapassado(String(n.message || ''));
     });
-  }, [notifications, isDemoSession, sessionOwnerKey]);
+  }, [notifications, isDemoSession, sessionOwnerKey, isUserMode, isInstMode, isGovMode]);
 
   // F12/F13 — Correspondências gov: demo vê o histórico simulado; agentes reais
   // partilham apenas os expedientes efectivamente registados (createdBy);
@@ -7619,21 +7639,15 @@ Ficha civil do titular:
           return;
         }
 
-        // v37.78.40 — reconhecido: assume a identidade e a ÁREA certas (corrige
-        // o caso «registou como Cidadão, tentou entrar na área errada»).
-        if (melhorId && melhorId !== normTyped) {
-          setBi(melhorId);
-          addAuditLog(`Login facial: rosto reconhecido como ${faceModeLabel(melhorMode)} ${melhorId} — identidade assumida automaticamente.`, 'info');
-        }
-        if (melhorMode && melhorMode !== appMode) {
-          setAppMode(melhorMode as typeof appMode);
-          addAuditLog(`Login facial: área corrigida automaticamente para ${faceModeLabel(melhorMode)} (registo facial encontrado noutra área).`, 'info');
-        }
+        // Validação biométrica com paridade estrita na área atual
+        const targetIdent = normTyped || (melhorMode === appMode ? melhorId : '') || (DEMO_CREDENTIALS[appMode]?.identifier || melhorId);
+        setBi(targetIdent);
+        addAuditLog(`Login facial: validação biométrica com sucesso (${faceModeLabel(appMode)} · ${targetIdent})`, 'info');
 
         setFaceCaptureHint('Rosto reconhecido com sucesso no dispositivo.');
         await finalize(100);
         setIsFaceScanning(false);
-        addAuditLog(`DEMO_FACE_LOGIN_SUCCESS: Correspondência facial validada localmente (${faceModeLabel(melhorMode)} · ${melhorId})`, 'success');
+        addAuditLog(`DEMO_FACE_LOGIN_SUCCESS: Correspondência facial validada localmente (${faceModeLabel(appMode)} · ${targetIdent})`, 'success');
         // F31 (v12/D6): a face apenas DESBLOQUEIA a sessão — a biometria nunca sai
         // do dispositivo; se já existir sessão nuvem, fica confirmada (best-effort).
         if (!homologationStore.isExempt((melhorId || bi).trim().toUpperCase()) && isSupabaseConfigured()) {
