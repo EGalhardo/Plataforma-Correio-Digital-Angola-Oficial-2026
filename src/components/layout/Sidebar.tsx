@@ -102,8 +102,9 @@ export function Sidebar({
   const itensVisiveis = currentItems;
 
   return (
-    <aside className={`hidden md:flex p-5 md:w-[250px] md:rounded-[36px] shadow-none transition-all duration-500 shrink-0 md:sticky md:top-5 md:h-[calc(100vh-2.5rem)] flex-col border-2 border-slate-300 dark:border-slate-700 ${
-      appMode === 'admin' ? 'bg-white text-slate-900' : 'bg-white text-slate-900'
+    <aside className={`hidden md:flex p-5 md:w-[250px] md:rounded-[36px] shadow-2xl transition-all duration-500 shrink-0 md:sticky md:top-5 md:h-[calc(100vh-2.5rem)] flex-col border border-slate-200 dark:border-[#141d31] ${
+      appMode === 'admin' ? 'bg-white text-slate-900 shadow-indigo-900/5' : 
+      'bg-white text-slate-900 shadow-slate-200/50'
     }`}>
       <div className="mb-8 px-4">
         {/* v37.78.33 — LOGOMARCA ÚNICA: a mesma imagem nos dois temas (claro e
@@ -168,10 +169,10 @@ export function Sidebar({
         })}
       </nav>
 
-      <div className="mt-auto pt-6 border-t-2 space-y-2 border-slate-300 dark:border-slate-700">
+      <div className="mt-auto pt-6 border-t space-y-2 border-slate-300/80">
         <button
           onClick={() => handleLogout(false)}
-          className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl font-black transition-all bg-[#0E2B64] text-white hover:bg-[#081a3d] border-0 shadow-none cursor-pointer"
+          className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl font-black transition-all bg-[#0E2B64] text-white hover:bg-[#081a3d] border-0 shadow-sm cursor-pointer"
         >
           <LogOut size={20} className="text-white" />
           <span className="text-xs uppercase tracking-widest">{translate("Sair do Canal")}</span>
