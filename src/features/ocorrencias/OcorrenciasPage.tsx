@@ -817,7 +817,22 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
       if (mounted.current && r?.ocorrencia) {
         setSelected(r.ocorrencia);
         setEvents(r.eventos || []);
-        setDetailPhotos(r.fotos || []);
+        let fotosCarregadas = r.fotos || [];
+        if (!fotosCarregadas.length) {
+          try {
+            const rawPh = localStorage.getItem(`cda_ocorrencias_photos_${r.ocorrencia.id}`) || localStorage.getItem(`cda_ocorrencias_photos_${r.ocorrencia.numero}`);
+            if (rawPh) fotosCarregadas = JSON.parse(rawPh);
+          } catch {}
+        }
+        if (!fotosCarregadas.length && r.ocorrencia.capa_url) {
+          fotosCarregadas = [{
+            id: `foto-${r.ocorrencia.id}-capa`,
+            nome: r.ocorrencia.capa_nome || 'fotografia.jpg',
+            url: r.ocorrencia.capa_url,
+            tamanho: 102400
+          }];
+        }
+        setDetailPhotos(fotosCarregadas);
         setMoreHistory(r.maisHistorico || false);
         setView("detalhe");
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -839,7 +854,20 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
             criado_em: localOco.criado_em,
           },
         ]);
-        setDetailPhotos([]);
+        let fotosLocal: any[] = [];
+        try {
+          const rawPh = localStorage.getItem(`cda_ocorrencias_photos_${localOco.id}`) || localStorage.getItem(`cda_ocorrencias_photos_${localOco.numero}`);
+          if (rawPh) fotosLocal = JSON.parse(rawPh);
+        } catch {}
+        if (!fotosLocal.length && localOco.capa_url) {
+          fotosLocal = [{
+            id: `foto-${localOco.id}-capa`,
+            nome: localOco.capa_nome || 'fotografia.jpg',
+            url: localOco.capa_url,
+            tamanho: 102400
+          }];
+        }
+        setDetailPhotos(fotosLocal);
         setMoreHistory(false);
         setView("detalhe");
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1076,6 +1104,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
       const r = await ocorrenciasApi("criar", {
         dados: dadosEnvio,
         fotos: photos.map((p) => p.id),
+        photosList: photos,
         pedido: createRequest.current,
         confirmado: confirmed,
       });

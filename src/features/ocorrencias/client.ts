@@ -39,6 +39,8 @@ const SEED_OCORRENCIAS: Ocorrencia[] = [
     estado: "submetida",
     responsavel: null,
     versao: 1,
+    capa_url: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=800&auto=format&fit=crop&q=80",
+    capa_nome: "av_4_fevereiro_iluminacao.jpg",
     criado_em: new Date(Date.now() - 3600000 * 24).toISOString(),
     actualizado_em: new Date(Date.now() - 3600000 * 24).toISOString(),
     tipo_localizacao: "manual",
@@ -60,11 +62,38 @@ const SEED_OCORRENCIAS: Ocorrencia[] = [
     estado: "em_analise",
     responsavel: "Equipa Técnica EPAL",
     versao: 2,
+    capa_url: "https://images.unsplash.com/photo-1541888946425-d0fbb18086f6?w=800&auto=format&fit=crop&q=80",
+    capa_nome: "rotura_tubagem_kinaxixi.jpg",
     criado_em: new Date(Date.now() - 3600000 * 48).toISOString(),
     actualizado_em: new Date(Date.now() - 3600000 * 12).toISOString(),
     tipo_localizacao: "manual",
   }
 ];
+
+function detectCurrentActor(): { id: string; papel: "cidadao" | "instituicao"; identificador: string; nome: string; instituicao?: string } {
+  let isInst = false;
+  if (typeof window !== 'undefined') {
+    const loc = window.location.pathname + window.location.hash;
+    if (loc.includes('institucional')) {
+      isInst = true;
+    }
+  }
+  if (isInst) {
+    return {
+      id: "inst-agt-001",
+      papel: "instituicao",
+      identificador: "AGT-9921-SR",
+      instituicao: "AGT",
+      nome: "Administração Geral Tributária (AGT)"
+    };
+  }
+  return {
+    id: "009874562LA041",
+    papel: "cidadao",
+    identificador: "009874562LA041",
+    nome: "Edlasio Galhardo"
+  };
+}
 
 function executarFallbackLocal<T = any>(acao: string, data: Record<string, unknown>): T {
   const deletedIds = new Set<string>(JSON.parse(localStorage.getItem('cda_ocorrencias_deleted') || '[]'));
@@ -87,12 +116,7 @@ function executarFallbackLocal<T = any>(acao: string, data: Record<string, unkno
     case "inicio":
       return {
         ok: true,
-        actor: {
-          id: "009874562LA041",
-          papel: "cidadao",
-          identificador: "009874562LA041",
-          nome: "Edlasio Galhardo"
-        },
+        actor: detectCurrentActor(),
         instituicoes: DEFAULT_INSTITUICOES
       } as unknown as T;
 
@@ -135,10 +159,16 @@ function executarFallbackLocal<T = any>(acao: string, data: Record<string, unkno
       if (!oco || deletedIds.has(oco.id) || deletedIds.has(String(oco.numero))) {
         throw new OcorrenciaRequestError("Ocorrência não encontrada.", 404);
       }
-      return {
-        ok: true,
-        ocorrencia: oco,
-        eventos: [
+
+      // Eventos
+      const eventKey = `cda_ocorrencias_events_${oco.id}`;
+      let eventos: any[] = [];
+      try {
+        const rawEv = localStorage.getItem(eventKey);
+        if (rawEv) eventos = JSON.parse(rawEv);
+      } catch {}
+      if (!eventos.length) {
+        eventos = [
           {
             id: `ev-${oco.id}-1`,
             ordem: 1,
@@ -149,8 +179,32 @@ function executarFallbackLocal<T = any>(acao: string, data: Record<string, unkno
             descricao: "Ocorrência registada e submetida via Correio Digital de Angola.",
             criado_em: oco.criado_em
           }
-        ],
-        fotos: []
+        ];
+      }
+
+      // Fotos
+      const photoKey = `cda_ocorrencias_photos_${oco.id}`;
+      let fotos: any[] = [];
+      try {
+        const rawPhotos = localStorage.getItem(photoKey) || localStorage.getItem(`cda_ocorrencias_photos_${oco.numero}`);
+        if (rawPhotos) fotos = JSON.parse(rawPhotos);
+      } catch {}
+
+      if (!fotos.length && oco.capa_url) {
+        fotos = [{
+          id: `foto-${oco.id}-capa`,
+          nome: oco.capa_nome || 'fotografia.jpg',
+          url: oco.capa_url,
+          tamanho: 102400
+        }];
+      }
+
+      return {
+        ok: true,
+        ocorrencia: oco,
+        eventos,
+        fotos,
+        maisHistorico: false
       } as unknown as T;
     }
 
@@ -158,6 +212,10 @@ function executarFallbackLocal<T = any>(acao: string, data: Record<string, unkno
       const d = data.dados as DadosOcorrenciaEnvio;
       const numGerado = Math.floor(100000 + Math.random() * 900000);
       const instRef = DEFAULT_INSTITUICOES.find(i => i.codigo === d.instituicao_codigo);
+      const photosList = Array.isArray(data.photosList) ? data.photosList : (Array.isArray(data.fotosObj) ? data.fotosObj : []);
+      const capaUrl = photosList.length > 0 ? (photosList[0].url || photosList[0].base64 || null) : null;
+      const capaNome = photosList.length > 0 ? (photosList[0].nome || 'fotografia.jpg') : null;
+
       const novaOco: Ocorrencia = {
         ...d,
         id: `oco-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
@@ -166,11 +224,20 @@ function executarFallbackLocal<T = any>(acao: string, data: Record<string, unkno
         instituicao_nome: instRef?.nome || d.instituicao_codigo,
         estado: "submetida",
         responsavel: null,
+        capa_url: capaUrl,
+        capa_nome: capaNome,
         versao: 1,
         criado_em: new Date().toISOString(),
         actualizado_em: new Date().toISOString(),
         tipo_localizacao: d.tipo_localizacao || "manual",
       };
+
+      if (photosList.length > 0) {
+        try {
+          localStorage.setItem(`cda_ocorrencias_photos_${novaOco.id}`, JSON.stringify(photosList));
+          localStorage.setItem(`cda_ocorrencias_photos_${novaOco.numero}`, JSON.stringify(photosList));
+        } catch {}
+      }
 
       const updated = [novaOco, ...savedLocal];
       localStorage.setItem('cda_ocorrencias_local', JSON.stringify(updated));
@@ -194,7 +261,7 @@ function executarFallbackLocal<T = any>(acao: string, data: Record<string, unkno
     case "actuar": {
       const idAlvo = String(data.id || '');
       const operacao = String(data.operacao || '');
-      const oco = savedLocal.find(o => o.id === idAlvo);
+      const oco = savedLocal.find(o => o.id === idAlvo || String(o.numero) === idAlvo);
       if (!oco) throw new OcorrenciaRequestError("Ocorrência não encontrada.", 404);
 
       let novoEstado = oco.estado;
@@ -203,16 +270,61 @@ function executarFallbackLocal<T = any>(acao: string, data: Record<string, unkno
       else if (operacao === 'iniciar_resolucao') novoEstado = 'em_resolucao';
       else if (operacao === 'resolver' || operacao === 'confirmar_resolucao') novoEstado = 'resolvida';
       else if (operacao === 'encerrar') novoEstado = 'encerrada';
+      else if (operacao === 'pedir_esclarecimento') novoEstado = 'aguarda_informacao';
+      else if (operacao === 'solicitar_reabertura') novoEstado = 'reabertura_solicitada';
+      else if (operacao === 'encaminhar') novoEstado = 'encaminhada';
+
+      const dados = (data.dados || {}) as Record<string, string>;
+      let novoResponsavel = oco.responsavel;
+      if (operacao === 'atribuir' && dados.responsavel) {
+        novoResponsavel = dados.responsavel;
+      }
+      let novaInstCodigo = oco.instituicao_codigo;
+      let novaInstNome = oco.instituicao_nome;
+      if (operacao === 'encaminhar' && dados.instituicao_codigo) {
+        novaInstCodigo = dados.instituicao_codigo;
+        const instRef = DEFAULT_INSTITUICOES.find(i => i.codigo === dados.instituicao_codigo);
+        novaInstNome = instRef?.nome || dados.instituicao_codigo;
+      }
 
       const updatedOco: Ocorrencia = {
         ...oco,
         estado: novoEstado,
-        versao: oco.versao + 1,
+        responsavel: novoResponsavel,
+        instituicao_codigo: novaInstCodigo,
+        instituicao_nome: novaInstNome,
+        versao: (oco.versao || 1) + 1,
         actualizado_em: new Date().toISOString(),
       };
 
-      const updatedList = savedLocal.map(o => o.id === idAlvo ? updatedOco : o);
+      const updatedList = savedLocal.map(o => (o.id === idAlvo || String(o.numero) === idAlvo) ? updatedOco : o);
       localStorage.setItem('cda_ocorrencias_local', JSON.stringify(updatedList));
+
+      // Guardar evento no histórico
+      const eventKey = `cda_ocorrencias_events_${oco.id}`;
+      let eventosExistentes: any[] = [];
+      try {
+        const rawEv = localStorage.getItem(eventKey);
+        if (rawEv) eventosExistentes = JSON.parse(rawEv);
+      } catch {}
+      const novoEvento = {
+        id: `ev-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+        ordem: eventosExistentes.length + 1,
+        actor_papel: 'instituicao',
+        actor_nome: dados.responsavel || 'Agente Institucional',
+        acao: operacao,
+        estado_anterior: oco.estado,
+        estado_novo: novoEstado,
+        descricao: dados.descricao || dados.responsavel || 'Actualização de estado da ocorrência.',
+        destino_codigo: dados.instituicao_codigo || undefined,
+        criado_em: new Date().toISOString()
+      };
+      eventosExistentes.unshift(novoEvento);
+      try {
+        localStorage.setItem(eventKey, JSON.stringify(eventosExistentes));
+        localStorage.setItem(`cda_ocorrencias_events_${oco.numero}`, JSON.stringify(eventosExistentes));
+      } catch {}
+
       return { ok: true, ocorrencia: updatedOco } as unknown as T;
     }
 
@@ -226,7 +338,7 @@ function executarFallbackLocal<T = any>(acao: string, data: Record<string, unkno
           id: `foto-${Date.now()}`,
           nome: String(data.nome || 'fotografia.jpg'),
           url: String(data.base64 || ''),
-          tamanho: 1024
+          tamanho: 102400
         }
       } as unknown as T;
 
@@ -268,7 +380,7 @@ export async function ocorrenciasApi<T = any>(
     });
     const result = await r.json().catch(() => null);
     if (!r.ok || !result?.ok) {
-      if (acao === "eliminar" || acao === "criar" || r.status === 401 || r.status === 404 || r.status >= 500) {
+      if (acao === "eliminar" || acao === "criar" || acao === "actuar" || acao === "detalhe" || r.status === 401 || r.status === 404 || r.status >= 500) {
         return executarFallbackLocal<T>(acao, data);
       }
       throw new OcorrenciaRequestError(
@@ -278,7 +390,7 @@ export async function ocorrenciasApi<T = any>(
     }
     return result as T;
   } catch (e) {
-    if (acao === "eliminar" || acao === "criar") {
+    if (acao === "eliminar" || acao === "criar" || acao === "actuar" || acao === "detalhe") {
       return executarFallbackLocal<T>(acao, data);
     }
     if (e instanceof OcorrenciaRequestError && [400, 403].includes(e.status)) throw e;
