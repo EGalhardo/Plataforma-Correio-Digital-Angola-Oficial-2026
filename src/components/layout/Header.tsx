@@ -576,8 +576,8 @@ export function Header({
       <div 
         style={{ top: hasEmergencyBanner ? '32px' : '0' }}
         className={`hidden md:flex px-4 py-3 md:px-8 md:pt-6 md:pb-2 border-b justify-between items-center transition-all sticky z-20 ${
-        isAdmin ? 'bg-white border-slate-100 text-slate-900 shadow-sm' : 
-        'bg-white border-line/5'
+        isAdmin ? 'bg-white border-slate-100 text-slate-900 shadow-none' : 
+        'bg-white border-b border-slate-100 text-slate-900 shadow-none'
       }`}>
         <div className="flex-1">
           <small className={`text-[10px] md:text-sm font-black uppercase tracking-[0.1em] block mb-0.5 ${
