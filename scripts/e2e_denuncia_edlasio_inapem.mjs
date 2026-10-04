@@ -81,11 +81,11 @@ async function run() {
     await pageC.goto(`${BASE}/#/entrar`, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await sleep(2000);
 
-    const biInput = pageC.locator('input[type="text"]:visible, input:not([type]):visible').first();
+    const biInput = pageC.locator('input[name="cda-utilizador"], input[type="text"]:visible, input:not([type]):visible').first();
     await biInput.waitFor({ state: 'visible', timeout: 15000 });
     await biInput.fill(CITIZEN_BI);
 
-    const passInput = pageC.locator('input[type="password"]:visible').first();
+    const passInput = pageC.locator('input[name="cda-senha"], input[type="password"]:visible').first();
     await passInput.fill(CITIZEN_PASS);
 
     const btnEntrar = pageC.getByRole('button', { name: /ENTRAR NO PORTAL|ENTRAR/i });
@@ -249,9 +249,10 @@ async function run() {
     await pageC2.goto(`${BASE}/#/entrar`, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await sleep(2000);
 
-    const biInput2 = pageC2.locator('input[type="text"]:visible, input:not([type]):visible').first();
+    const biInput2 = pageC2.locator('input[name="cda-utilizador"], input[type="text"]:visible, input:not([type]):visible').first();
+    await biInput2.waitFor({ state: 'visible', timeout: 15000 });
     await biInput2.fill(CITIZEN_BI);
-    const passInput2 = pageC2.locator('input[type="password"]:visible').first();
+    const passInput2 = pageC2.locator('input[name="cda-senha"], input[type="password"]:visible').first();
     await passInput2.fill(CITIZEN_PASS);
     await pageC2.getByRole('button', { name: /ENTRAR NO PORTAL|ENTRAR/i }).first().click();
     await sleep(2500);
