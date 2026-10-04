@@ -169,9 +169,13 @@ export async function identidadeOcorrencias(
   };
 }
 function scoped(q: any, a: ActorOcorrencia) {
-  return a.papel === "cidadao"
-    ? q.or(`cidadao_id.eq.${a.id},cidadao_id.eq.${a.identificador}`)
-    : q.eq("instituicao_codigo", a.instituicao!);
+  if (a.papel === "cidadao") {
+    if (UUID.test(a.id)) {
+      return q.or(`cidadao_id.eq.${a.id},cidadao_bi.eq.${a.identificador}`);
+    }
+    return q.eq("cidadao_bi", a.identificador);
+  }
+  return q.eq("instituicao_codigo", a.instituicao!);
 }
 async function occurrence(db: SupabaseClient, a: ActorOcorrencia, key: string) {
   const safeId = id(key);
