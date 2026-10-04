@@ -448,13 +448,13 @@ html.dark .cda-mobile-nav-item:hover:not([data-inativo]) svg {
 html.dark .cda-mobile-nav-item[data-ativo],
 html.dark .cda-mobile-nav-item[data-ativo] span,
 html.dark .cda-mobile-nav-item[data-ativo] svg {
-  color: #9db8ff !important;
+  color: #4F39F6 !important;
 }
 html.dark .cda-mobile-nav-item .text-red-500 {
   color: #f87171 !important;
 }
 html.dark .cda-mobile-nav-indicador {
-  background-color: #9db8ff !important;
+  background-color: #4F39F6 !important;
 }
 
 /* Border Overrides in dark mode (using more visible rgb(38, 52, 85)) */

@@ -122,14 +122,14 @@ export function MobileNavBar({
           }}
           data-ativo={isActive ? 'true' : undefined}
           data-inativo={inativo ? 'true' : undefined}
-          className={`cda-mobile-nav-item flex flex-col items-center justify-center gap-1 transition-all px-2.5 h-full relative shrink-0 ${
+          className={`cda-mobile-nav-item flex flex-col items-center justify-center gap-1 transition-all px-2.5 h-full relative shrink-0 bg-transparent dark:bg-transparent ${
             isAdminOrInst ? 'min-w-[70px] snap-start' : 'flex-1'
-          } ${inativo ? 'opacity-40 cursor-not-allowed text-slate-400 select-none' : isActive ? 'text-[#0E2B64]' : 'text-slate-400 hover:text-slate-600'}`}
+          } ${inativo ? 'opacity-40 cursor-not-allowed text-slate-400 select-none' : isActive ? 'text-[#4F39F6] dark:text-[#4F39F6]' : 'text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300'}`}
         >
           <div className={`transition-all duration-200 ${isActive ? 'scale-105' : 'scale-100'}`}>
-            <Icon size={19} strokeWidth={isActive ? '2.4' : '1.8'} className={inativo ? 'text-slate-400' : ''} />
+            <Icon size={19} strokeWidth={isActive ? '2.4' : '1.8'} className={inativo ? 'text-slate-400' : isActive ? 'text-[#4F39F6] dark:text-[#4F39F6]' : ''} />
           </div>
-          <span className={`text-[10px] font-bold tracking-tight transition-all ${inativo ? 'opacity-50' : isActive ? 'font-extrabold text-[#0E2B64]' : 'text-slate-500'} flex items-center gap-1 whitespace-nowrap justify-center`}>
+          <span className={`text-[10px] font-bold tracking-tight transition-all ${inativo ? 'opacity-50' : isActive ? 'font-extrabold text-[#4F39F6] dark:text-[#4F39F6]' : 'text-slate-500 dark:text-slate-400'} flex items-center gap-1 whitespace-nowrap justify-center`}>
             {translate(label)}
             {inativo && (
               <span className="text-[7px] font-bold text-red-500">
@@ -138,7 +138,7 @@ export function MobileNavBar({
             )}
           </span>
           {isActive && (
-            <motion.div layoutId="activeTab" className="cda-mobile-nav-indicador absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 rounded-b-full bg-[#0E2B64]" />
+            <motion.div layoutId="activeTab" className="cda-mobile-nav-indicador absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 rounded-b-full bg-[#4F39F6]" />
           )}
         </button>
         );

@@ -146,14 +146,16 @@ export function Sidebar({
               if (id !== 'correspondencias' && id !== 'documentos' && id !== 'mensagem') setSelectedMessage(null);
               if (id !== 'documento') setSelectedDoc(null);
             }}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold transition-all ${
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold transition-all bg-transparent ${
               inativo
                 ? 'opacity-60 cursor-not-allowed text-slate-500 select-none'
-                : tab === id ? 'bg-[#EBF3FF] text-[#0E2B64] dark:bg-blue-900/30 dark:text-blue-400' : 'bg-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/40'
+                : tab === id
+                  ? 'text-[#4F39F6] dark:text-[#4F39F6]'
+                  : 'text-slate-700 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/40'
             }`}
           >
-            <Icon size={16} className={inativo ? 'text-slate-500' : tab === id ? 'text-[#0E2B64] dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'} />
-            <span className="text-xs tracking-tight flex items-center gap-1 whitespace-nowrap">
+            <Icon size={16} className={inativo ? 'text-slate-500' : tab === id ? 'text-[#4F39F6] dark:text-[#4F39F6]' : 'text-slate-600 dark:text-slate-400'} />
+            <span className={`text-xs tracking-tight flex items-center gap-1 whitespace-nowrap ${tab === id ? 'text-[#4F39F6] dark:text-[#4F39F6]' : ''}`}>
               {translate(label)}
               {(semPermissao || bloqueado) && (
                 <span className="text-[9px] font-bold text-red-400">
