@@ -581,6 +581,10 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
     "idle" | "carregando" | "sucesso" | "erro"
   >("idle");
   const [gpsErro, setGpsErro] = useState("");
+  const [gpsProgresso, setGpsProgresso] = useState<{
+    amostras: number;
+    precisao: number | null;
+  }>({ amostras: 0, precisao: null });
   // 2026-09-16 — no modo Automático os campos de endereço ficam ocultos: a
   // localidade (província/município/bairro/referência) é derivada das
   // coordenadas GPS (geocodificação reversa + fallback pela província mais
@@ -949,80 +953,153 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
       return;
     }
     setGpsEstado("carregando");
+    setGpsProgresso({ amostras: 0, precisao: null });
 
-    let melhorFix: GeolocationPosition | null = null;
-    let amostragem = 0;
+    const amostrasColetadas: Array<{
+      lat: number;
+      lon: number;
+      accuracy: number;
+      timestamp: number;
+    }> = [];
 
-    const aplicarFix = (pos: GeolocationPosition) => {
-      limparGpsWatch();
-      setGps({
-        lat: pos.coords.latitude,
-        lon: pos.coords.longitude,
-        precisao: pos.coords.accuracy,
-      });
-      setGpsEstado("sucesso");
-      void derivarLocalidadeGps(pos.coords.latitude, pos.coords.longitude);
+    const calcularCentroidePonderado = (amostras: typeof amostrasColetadas) => {
+      if (amostras.length === 0) return null;
+      if (amostras.length === 1) {
+        return {
+          lat: amostras[0].lat,
+          lon: amostras[0].lon,
+          precisao: amostras[0].accuracy,
+        };
+      }
+
+      // Ordenar por precisão (menor raio de incerteza primeiro)
+      const ordenadas = [...amostras].sort((a, b) => a.accuracy - b.accuracy);
+      const melhorPrecisao = ordenadas[0].accuracy;
+
+      // Filtrar amostras com precisão próxima da melhor (eliminar outliers iniciais de triangulação)
+      const limiar = Math.max(melhorPrecisao * 1.5, melhorPrecisao + 2);
+      const amostrasUteis = ordenadas.filter((a) => a.accuracy <= limiar).slice(0, 8);
+
+      // Média ponderada pela variância inversa (1 / accuracy^2) para cancelar ruído
+      let somaPesos = 0;
+      let somaLatPonderada = 0;
+      let somaLonPonderada = 0;
+
+      for (const a of amostrasUteis) {
+        const peso = 1 / Math.max(0.5, a.accuracy * a.accuracy);
+        somaPesos += peso;
+        somaLatPonderada += a.lat * peso;
+        somaLonPonderada += a.lon * peso;
+      }
+
+      return {
+        lat: somaLatPonderada / somaPesos,
+        lon: somaLonPonderada / somaPesos,
+        precisao: melhorPrecisao,
+      };
     };
 
-    // Janela de convergência de alta precisão: aguarda estabilização dos satélites
+    const aplicarFixFinal = (resultado: { lat: number; lon: number; precisao: number }) => {
+      limparGpsWatch();
+      setGps({
+        lat: resultado.lat,
+        lon: resultado.lon,
+        precisao: resultado.precisao,
+      });
+      setGpsEstado("sucesso");
+      void derivarLocalidadeGps(resultado.lat, resultado.lon);
+    };
+
+    // Janela de calibração e convergência por satélites GNSS (4.5 segundos)
     gpsTimerRef.current = setTimeout(() => {
-      if (melhorFix) {
-        aplicarFix(melhorFix);
-      } else {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => aplicarFix(pos),
-          (err) => {
-            setGpsEstado("erro");
-            setGpsErro(
-              err.code === 1
-                ? "Permissão de localização negada no navegador. Para a reativar, abra as definições de site do navegador e permita a localização (no telemóvel, também as definições de privacidade do aparelho) — ou use «Manual»."
-                : err.code === 2
-                  ? "A localização do dispositivo não está disponível de momento (GPS desligado ou sem sinal). Ative a localização no telemóvel/computador e tente novamente — ou use «Manual»."
-                  : "O GPS demorou demasiado a responder. Tente novamente num local aberto — ou use «Manual».",
-            );
-          },
-          { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-        );
+      if (amostrasColetadas.length > 0) {
+        const centroide = calcularCentroidePonderado(amostrasColetadas);
+        if (centroide) {
+          aplicarFixFinal(centroide);
+          return;
+        }
       }
-    }, 3500);
+      // Se não obteve amostras contínuas no watch, faz leitura única direta
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          aplicarFixFinal({
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            precisao: pos.coords.accuracy,
+          });
+        },
+        (err) => {
+          setGpsEstado("erro");
+          setGpsErro(
+            err.code === 1
+              ? "Permissão de localização negada no navegador. Para a reativar, abra as definições de site do navegador e permita a localização — ou use «Manual»."
+              : err.code === 2
+                ? "A localização do dispositivo não está disponível de momento (GPS desligado ou sem sinal). Ative o GPS e tente novamente — ou use «Manual»."
+                : "O GPS demorou a calibrar. Tente novamente num local aberto — ou use «Manual».",
+          );
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+      );
+    }, 4500);
 
     try {
       gpsWatchRef.current = navigator.geolocation.watchPosition(
         (pos) => {
-          amostragem++;
-          if (!melhorFix || pos.coords.accuracy < melhorFix.coords.accuracy) {
-            melhorFix = pos;
-          }
-          // Se obteve precisão sub-3 metros com pelo menos 2 amostras convergidas
-          if (pos.coords.accuracy <= 3 && amostragem >= 2) {
-            aplicarFix(pos);
+          const acc = pos.coords.accuracy;
+          // Ignorar leituras preliminares de baixa precisão (>120m) se já tivermos melhores
+          if (amostrasColetadas.length > 0 && acc > 100) return;
+
+          amostrasColetadas.push({
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            accuracy: acc,
+            timestamp: Date.now(),
+          });
+
+          const minAcc = Math.min(...amostrasColetadas.map((a) => a.accuracy));
+          setGpsProgresso({
+            amostras: amostrasColetadas.length,
+            precisao: minAcc,
+          });
+
+          // Convergência imediata de ultra-precisão (se obteve 3 amostras com precisão <= 2.2m)
+          if (acc <= 2.2 && amostrasColetadas.length >= 3) {
+            const centroide = calcularCentroidePonderado(amostrasColetadas);
+            if (centroide) aplicarFixFinal(centroide);
           }
         },
         (err) => {
-          if (melhorFix) {
-            aplicarFix(melhorFix);
-            return;
+          if (amostrasColetadas.length > 0) {
+            const centroide = calcularCentroidePonderado(amostrasColetadas);
+            if (centroide) {
+              aplicarFixFinal(centroide);
+              return;
+            }
           }
           limparGpsWatch();
           setGpsEstado("erro");
           setGpsErro(
             err.code === 1
-              ? "Permissão de localização negada no navegador. Para a reativar, abra as definições de site do navegador e permita a localização (no telemóvel, também as definições de privacidade do aparelho) — ou use «Manual»."
-              : err.code === 2
-                ? "A localização do dispositivo não está disponível de momento (GPS desligado ou sem sinal). Ative a localização no telemóvel/computador e tente novamente — ou use «Manual»."
-                : "O GPS demorou demasiado a responder. Tente novamente num local aberto — ou use «Manual».",
+              ? "Permissão de localização negada no navegador. Permita o acesso ao GPS nas definições — ou use «Manual»."
+              : "Não foi possível obter sinal GPS com precisão suficiente.",
           );
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     } catch {
       navigator.geolocation.getCurrentPosition(
-        (pos) => aplicarFix(pos),
+        (pos) => {
+          aplicarFixFinal({
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            precisao: pos.coords.accuracy,
+          });
+        },
         (err) => {
           setGpsEstado("erro");
-          setGpsErro("Não foi possível obter sinal GPS com precisão.");
+          setGpsErro("Não foi possível obter sinal GPS de alta precisão.");
         },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
   };
@@ -2098,19 +2175,29 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                     }`}
                   >
                     {gpsEstado === "carregando" ? (
-                      <p className="text-sm font-bold text-slate-600 flex items-center gap-2">
-                        <LocateFixed size={16} className="text-slate-400" />
-                        A obter localização do GPS…
-                      </p>
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                          <Loader2 size={16} className="text-primary animate-spin shrink-0" />
+                          A calibrar satélites GNSS para máxima precisão…
+                        </p>
+                        {gpsProgresso.amostras > 0 ? (
+                          <p className="text-xs text-slate-600 font-mono">
+                            Amostra {gpsProgresso.amostras} · Precisão atual: ±{gpsProgresso.precisao != null ? gpsProgresso.precisao.toFixed(1) : "…"} m
+                          </p>
+                        ) : (
+                          <p className="text-xs text-slate-500">
+                            A aguardar sinal de multi-constelação (GPS / Galileo / GLONASS)…
+                          </p>
+                        )}
+                      </div>
                     ) : gpsEstado === "sucesso" && gps ? (
                       <>
                         <p className="text-sm font-black text-emerald-800 flex items-center gap-2">
                           <CheckCircle size={16} />
-                          Localização obtida
+                          Localização obtida (GPS de alta precisão)
                         </p>
                         <p className="text-xs text-emerald-900 font-mono break-words">
-                          {gps.lat.toFixed(6)}, {gps.lon.toFixed(6)} · ±
-                          {Math.max(1, Math.round(gps.precisao))} m
+                          {gps.lat.toFixed(6)}, {gps.lon.toFixed(6)} · ±{gps.precisao.toFixed(1)} m
                         </p>
                         {localGpsAObter ? (
                           <p className="text-xs text-emerald-900/80 flex items-center gap-2">

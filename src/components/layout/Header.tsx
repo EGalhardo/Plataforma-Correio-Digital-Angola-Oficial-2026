@@ -542,7 +542,7 @@ export function Header({
             {unreadCount > 0 && (
               <div 
                 data-testid="avatar-unread-badge" 
-                className="bg-red-600 text-white font-black text-[9px] min-w-[16px] h-[16px] px-1 flex items-center justify-center rounded-full ring-2 ring-white absolute -top-1 -right-1.5 z-20 shadow-md pointer-events-none leading-none tracking-tighter"
+                className="bg-red-600 text-white font-black text-[7px] min-w-[12px] h-[12px] px-0.5 flex items-center justify-center rounded-full ring-[1.5px] ring-white absolute -top-0.5 -right-0.5 z-20 shadow-xs pointer-events-none leading-none tracking-tighter"
               >
                 {unreadCount > 99 ? '99+' : unreadCount}
               </div>
@@ -718,7 +718,7 @@ export function Header({
             {unreadCount > 0 && (
               <div 
                 data-testid="avatar-unread-badge" 
-                className="bg-red-600 text-white font-black text-[9px] min-w-[16px] h-[16px] px-1 flex items-center justify-center rounded-full ring-2 ring-white absolute -top-1 -right-1 z-20 shadow-md pointer-events-none leading-none tracking-tighter"
+                className="bg-red-600 text-white font-black text-[7px] min-w-[12px] h-[12px] px-0.5 flex items-center justify-center rounded-full ring-[1.5px] ring-white absolute -top-0.5 -right-0.5 z-20 shadow-xs pointer-events-none leading-none tracking-tighter"
               >
                 {unreadCount > 99 ? '99+' : unreadCount}
               </div>
