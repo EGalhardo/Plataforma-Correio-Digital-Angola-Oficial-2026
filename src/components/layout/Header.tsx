@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mic, Globe, ChevronDown, Check, Sun, Moon, Mail, LogOut, UserPlus, Building2, Video, Megaphone, Flag, ClipboardList, AlertCircle } from 'lucide-react';
+import { Mic, Globe, ChevronDown, Check, Sun, Moon, LogOut } from 'lucide-react';
 import { useSession } from '../../services/sessionStore';
 import { AppNotification, AppMode, LanguageCode, LANGUAGE_OPTIONS, Message, PendingRegistration } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -15,7 +15,7 @@ import logoModoEscuro from '../../assets/images/logomarca_modo_escuro_crop.png';
 import { hasPagePresentation } from '../../services/voicePresentations';
 import { resolveInstitutionCode, isRealInstitutionalCode } from '../../services/supabaseService';
 import { isPlaceholderAvatar, iniciaisDe } from '../../services/avatarService';
-import { isVideoAtendimentoMessage, isComunicadoMessage, isNovaDenunciaMessage, isReclamacaoDenunciaMessage, isInqueritoMessage, isOcorrenciaMessage } from '../../utils/notificacoesAtalhos';
+import { isVideoAtendimentoMessage, isComunicadoMessage, isNovaDenunciaMessage, isReclamacaoDenunciaMessage } from '../../utils/notificacoesAtalhos';
 import type { JSX } from 'react';
 
 interface HeaderProps {
@@ -129,9 +129,6 @@ function UnreadMessagesMenu({
                   <span className="block text-[11px] font-bold text-slate-600 truncate">{r.name}</span>
                   <span className="block text-[9px] font-semibold text-slate-400 mt-0.5 font-mono">{r.code} · {r.createdAt}</span>
                 </span>
-                {r.kind === 'instituicao'
-                  ? <Building2 size={13} className="text-slate-300 shrink-0 mt-1.5" />
-                  : <UserPlus size={13} className="text-slate-300 shrink-0 mt-1.5" />}
               </button>
             ))
           ) : (
@@ -140,8 +137,6 @@ function UnreadMessagesMenu({
               const isVideo = isVideoAtendimentoMessage(msg) || (msg as any).targetTab === 'video-atendimento' || normSubj.includes('vídeo') || normSubj.includes('video');
               const isCom = isComunicadoMessage(msg) || (msg as any).targetTab === 'comunicados' || normSubj.includes('[comunicado');
               const isDen = isNovaDenunciaMessage(msg) || isReclamacaoDenunciaMessage(msg) || (msg as any).targetTab === 'denuncias' || (msg as any).targetTab === 'nova-denuncia' || normSubj.includes('denúncia') || normSubj.includes('denuncia') || normSubj.includes('reclamação');
-              const isInq = isInqueritoMessage(msg) || (msg as any).targetTab === 'inqueritos' || normSubj.includes('inquérito') || normSubj.includes('inquerito');
-              const isOco = isOcorrenciaMessage(msg) || (msg as any).targetTab === 'ocorrencias' || normSubj.includes('ocorrência') || normSubj.includes('ocorrencia');
 
               return (
                 <button
@@ -159,12 +154,6 @@ function UnreadMessagesMenu({
                     <span className="block text-[11px] font-bold text-slate-600 truncate">{msg.details?.subject || msg.preview}</span>
                     <span className="block text-[9px] font-semibold text-slate-400 mt-0.5">{msg.date}</span>
                   </span>
-                  {isVideo ? <Video size={13} className="text-emerald-500 shrink-0 mt-1.5" />
-                    : isCom ? <Megaphone size={13} className="text-indigo-500 shrink-0 mt-1.5" />
-                    : isDen ? <Flag size={13} className="text-amber-500 shrink-0 mt-1.5" />
-                    : isInq ? <ClipboardList size={13} className="text-purple-500 shrink-0 mt-1.5" />
-                    : isOco ? <AlertCircle size={13} className="text-orange-500 shrink-0 mt-1.5" />
-                    : <Mail size={13} className="text-slate-300 shrink-0 mt-1.5" />}
                 </button>
               );
             })
