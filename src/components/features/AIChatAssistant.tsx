@@ -981,7 +981,9 @@ export function AIChatAssistant({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
-          isGovMode: isGov,
+          appMode: appMode,
+          isGovMode: isAdmin,
+          isInstMode: isInst,
           currentPage: activeTab,
           pageContext: contextoFinal,
           language: currentLanguage
