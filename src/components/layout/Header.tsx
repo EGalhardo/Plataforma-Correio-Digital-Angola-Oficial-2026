@@ -519,7 +519,7 @@ export function Header({
           
           <div 
             onClick={() => { setShowUnreadMenu(!showUnreadMenu); setShowNotifications(false); }}
-            className="relative flex items-center justify-center cursor-pointer"
+            className="relative flex items-center justify-center cursor-pointer ml-1 mr-1"
             role="button"
             aria-label="Menu de Perfil e Notificações"
           >
@@ -530,12 +530,11 @@ export function Header({
                 priority={true}
                 placeholder="skeleton"
                 style={{
-                  width: '2rem',
-                  height: '2rem',
+                  width: '2.125rem',
+                  height: '2.125rem',
                   borderRadius: '9999px',
                   objectFit: 'cover',
                   border: '0.5px solid #e2e8f0',
-                  marginLeft: '0.25rem',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
                 }}
@@ -546,14 +545,17 @@ export function Header({
               <div
                 title={user?.name || user?.firstName || 'Perfil'}
                 className="flex items-center justify-center bg-blue-600 text-white font-black cursor-pointer select-none ring-1 ring-primary/5 hover:ring-primary/15"
-                style={{ width: '2rem', height: '2rem', borderRadius: '9999px', fontSize: '11px', marginLeft: '0.25rem', border: '0.5px solid #e2e8f0' }}
+                style={{ width: '2.125rem', height: '2.125rem', borderRadius: '9999px', fontSize: '11px', border: '0.5px solid #e2e8f0' }}
               >
                 {iniciaisDe(user?.name || user?.firstName)}
               </div>
             )}
             {unreadCount > 0 && (
-              <div data-testid="avatar-unread-badge" className="bg-red-600 text-white font-black text-[6px] min-w-[10px] h-[10px] px-0.5 flex items-center justify-center rounded-full ring-1 ring-white absolute -top-0.5 -right-0.5 z-10 shadow-sm pointer-events-none leading-none">
-                {unreadCount}
+              <div 
+                data-testid="avatar-unread-badge" 
+                className="bg-red-600 text-white font-black text-[9px] min-w-[16px] h-[16px] px-1 flex items-center justify-center rounded-full ring-2 ring-white absolute -top-1 -right-1.5 z-20 shadow-md pointer-events-none leading-none tracking-tighter"
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
               </div>
             )}
             <UnreadMessagesMenu
@@ -725,8 +727,11 @@ export function Header({
               </div>
             )}
             {unreadCount > 0 && (
-              <div data-testid="avatar-unread-badge" className="bg-red-600 text-white font-black text-[7.5px] min-w-[12px] h-[12px] px-0.5 flex items-center justify-center rounded-full ring-1 ring-white absolute -top-0.5 -right-0.5 z-10 shadow-sm pointer-events-none leading-none">
-                {unreadCount}
+              <div 
+                data-testid="avatar-unread-badge" 
+                className="bg-red-600 text-white font-black text-[9px] min-w-[16px] h-[16px] px-1 flex items-center justify-center rounded-full ring-2 ring-white absolute -top-1 -right-1 z-20 shadow-md pointer-events-none leading-none tracking-tighter"
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
               </div>
             )}
             <UnreadMessagesMenu
