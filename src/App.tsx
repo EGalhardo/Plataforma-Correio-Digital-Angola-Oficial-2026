@@ -2865,17 +2865,18 @@ export default function App() {
       });
       let touched = false;
       const next = list.map(m => {
-        if (!m.unread) return m;
+        if (!m.unread && m.status === 'Lida') return m;
         const pn = m.protocol?.protocolNumber;
         const lida = readIds.has(m.id) || readIds.has(baseOfId(m.id))
           || (!!pn && protLidos.has(pn)) || contLidos.has(conteudoDe(m));
         if (!lida) return m;
         touched = true;
-        return { ...m, unread: 0, status: 'Lida' };
+        return { ...m, unread: 0, status: 'Lida', novidade: false };
       });
       return touched ? next : list;
     };
     setInbox(prev => applyRead(prev));
+    setSentMessages(prev => applyRead(prev));
     setDocInbox(prev => applyRead(prev));
     setInstInbox(prev => applyRead(prev));
     setInstDocInbox(prev => applyRead(prev));
@@ -4777,16 +4778,21 @@ export default function App() {
     // antes ficavam «não lidos» para sempre. O recibo de leitura da MENSAGEM
     // continua protegido pela REGRA R2 (só o destinatário o escreve).
     const limparAvisosDaCorrespondencia = () => {
+      const baseId = message.id >= 10000 && message.id < 90000000 ? message.id - 10000 : message.id;
       const assuntoAberto = assuntoChave(message);
       const msgSubj = normalizarTexto(message.details?.subject || message.preview || '');
       const msgIdStr = String(message.id);
+      const baseIdStr = String(baseId);
       const corresponde = (n: typeof notifications[number]) => {
         if (!n || n.unread === false) return false;
-        if (n.messageId && String(n.messageId) === msgIdStr) return true;
+        if (n.messageId && (String(n.messageId) === msgIdStr || String(n.messageId) === baseIdStr)) return true;
         const nMsg = normalizarTexto(n.message || '');
         const nTit = normalizarTexto(n.title || '');
         if (assuntoAberto.length >= 4 && (nMsg.includes(assuntoAberto) || nTit.includes(assuntoAberto))) return true;
         if (msgSubj.length >= 4 && (nMsg.includes(msgSubj) || nTit.includes(msgSubj))) return true;
+        if (n.targetTab === 'denuncias' || n.targetTab === 'nova-denuncia') {
+          if (assuntoAberto && nMsg.includes(assuntoAberto.slice(0, 15))) return true;
+        }
         return false;
       };
 
@@ -4810,7 +4816,8 @@ export default function App() {
 
     limparAvisosDaCorrespondencia();
     
-    if (message.unread) {
+    const isUnread = isMensagemNaoLida(message) || !!message.unread || message.status === 'Não Lida' || !!message.novidade;
+    if (isUnread) {
       const baseId = message.id >= 10000 && message.id < 90000000 ? message.id - 10000 : message.id;
 
       // REGRA R2 (v37.78.12) — O ESTADO DE LEITURA PERTENCE AO DESTINATÁRIO.
@@ -4835,25 +4842,38 @@ export default function App() {
         (origemEfectiva === 'enviadas' && normR2((message as any).recipientBi) !== minhaChaveR2);
 
       if (abertaPeloRemetente) {
-        // 2026-10-01 — limpar novidades e indicador unread na cópia do remetente
-        setSelectedMessage({ ...message, unread: 0, novidade: false });
+        // 2026-10-08 — ao abrir denúncia / correspondência pelo utilizador, atualiza para 'Lida'
+        persistReadMessageId(bi || sessionOwnerKey, baseId, message.id);
+        setSelectedMessage({ ...message, unread: 0, status: 'Lida', novidade: false });
         setSentMessages(prev => prev.map(m => {
           const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
-          return mBase === baseId ? { ...m, unread: 0, novidade: false } : m;
+          return (mBase === baseId || m.id === message.id) ? { ...m, unread: 0, status: 'Lida', novidade: false } : m;
         }));
-        addAuditLog(`Correspondência ID ${baseId} aberta pelo remetente — recibo de leitura do destinatário intocado (REGRA R2).`, 'info');
+        try {
+          const rawSent = JSON.parse(localStorage.getItem('correio_digital_sent') || '[]');
+          const updatedSent = rawSent.map((m: any) => {
+            const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
+            if (mBase === baseId || m.id === message.id) {
+              return { ...m, unread: 0, status: 'Lida', novidade: false };
+            }
+            return m;
+          });
+          localStorage.setItem('correio_digital_sent', JSON.stringify(updatedSent));
+        } catch {}
+        addAuditLog(`Correspondência ID ${baseId} aberta — estado atualizado para Lida na área do utilizador.`, 'info');
         setTab('mensagem');
         return;
       }
 
       // Sincronização em tempo real de estado "Lida" em todos os arrays da plataforma
       persistReadMessageId(bi || sessionOwnerKey, baseId, message.id);
+      setSelectedMessage(prev => prev ? { ...prev, unread: 0, status: 'Lida', novidade: false } : { ...message, unread: 0, status: 'Lida', novidade: false });
       try {
         const rawInbox = JSON.parse(localStorage.getItem('correio_digital_inbox') || '[]');
         const updatedInbox = rawInbox.map((m: any) => {
           const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
           if (mBase === baseId || m.id === message.id) {
-            return { ...m, unread: 0, status: 'Lida' };
+            return { ...m, unread: 0, status: 'Lida', novidade: false };
           }
           return m;
         });
@@ -4863,7 +4883,7 @@ export default function App() {
         const updatedSent = rawSent.map((m: any) => {
           const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
           if (mBase === baseId || m.id === message.id) {
-            return { ...m, unread: 0, novidade: false };
+            return { ...m, unread: 0, status: 'Lida', novidade: false };
           }
           return m;
         });
@@ -4874,19 +4894,23 @@ export default function App() {
 
       setInbox(prev => prev.map(m => {
         const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
-        return mBase === baseId ? { ...m, unread: 0, status: 'Lida' } : m;
+        return (mBase === baseId || m.id === message.id) ? { ...m, unread: 0, status: 'Lida', novidade: false } : m;
+      }));
+      setSentMessages(prev => prev.map(m => {
+        const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
+        return (mBase === baseId || m.id === message.id) ? { ...m, unread: 0, status: 'Lida', novidade: false } : m;
       }));
       setDocInbox(prev => prev.map(m => {
         const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
-        return mBase === baseId ? { ...m, unread: 0, status: 'Lida' } : m;
+        return (mBase === baseId || m.id === message.id) ? { ...m, unread: 0, status: 'Lida', novidade: false } : m;
       }));
       setInstInbox(prev => prev.map(m => {
         const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
-        return mBase === baseId ? { ...m, unread: 0, status: 'Lida' } : m;
+        return (mBase === baseId || m.id === message.id) ? { ...m, unread: 0, status: 'Lida', novidade: false } : m;
       }));
       setInstDocInbox(prev => prev.map(m => {
         const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
-        return mBase === baseId ? { ...m, unread: 0, status: 'Lida' } : m;
+        return (mBase === baseId || m.id === message.id) ? { ...m, unread: 0, status: 'Lida', novidade: false } : m;
       }));
       
       // Sincronização em tempo real com as correspondências de Governo / Administração

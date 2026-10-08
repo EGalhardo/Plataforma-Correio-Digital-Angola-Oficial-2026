@@ -33,10 +33,8 @@ export function ListaParticipacaoContent({tipo, isInst, messages, notifications 
   }, [messages, tipo, inqueritos, aba]);
   const lista = useMemo(() => listarParticipacao(base, tipo, query, anonimizar), [base, tipo, query, anonimizar]);
   const total = base.length;
-  // Denúncias do cidadão vivem nas ENVIADAS: o «não lido» é recibo do
-  // destinatário — as novidades são os avisos de estado ligados a cada item.
-  // Comunicados na caixa do cidadão e na instituição fundem com o unread da mensagem.
-  const fundeNaoLidas = inqueritos || isInst || comunicados;
+  // Denúncias, Inquéritos, Comunicados e Notificações: fundem estado não lido da mensagem com alertas associados
+  const fundeNaoLidas = true;
   const novidades = useMemo(
     () => novidadesPorMensagem(notifications, listarParticipacao(messages, tipo), tipo, fundeNaoLidas),
     [notifications, messages, tipo, fundeNaoLidas],

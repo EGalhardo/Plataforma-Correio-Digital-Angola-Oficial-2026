@@ -213,11 +213,11 @@ export function contarNotificacoesAtalhos(
   const baseComunicados = listarParticipacao(institucional ? [...enviadas, ...inbox] : inbox, 'comunicados');
   const todosPools = poolsPorPapel(inbox, enviadas, institucional);
 
-  const novidadesDenuncias = novidadesPorMensagem(notifsNaoLidas, baseDenuncias, 'denuncias', institucional, todosPools);
+  const novidadesDenuncias = novidadesPorMensagem(notifsNaoLidas, baseDenuncias, 'denuncias', true, todosPools);
   const totalNovidadesDenuncias = Array.from(novidadesDenuncias.porMensagem.values())
     .reduce((acc, cur) => acc + (cur.naoLida ? 1 : 0) + cur.atualizacoes, 0) + novidadesDenuncias.orfas;
 
-  const novidadesNovaDenuncia = novidadesPorMensagem(notifsNaoLidas, baseNovaDenuncia, 'nova-denuncia', institucional, todosPools);
+  const novidadesNovaDenuncia = novidadesPorMensagem(notifsNaoLidas, baseNovaDenuncia, 'nova-denuncia', true, todosPools);
   const totalNovidadesNovaDenuncia = Array.from(novidadesNovaDenuncia.porMensagem.values())
     .reduce((acc, cur) => acc + (cur.naoLida ? 1 : 0) + cur.atualizacoes, 0) + novidadesNovaDenuncia.orfas;
 
