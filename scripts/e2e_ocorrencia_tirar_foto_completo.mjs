@@ -53,7 +53,7 @@ try {
   await page.getByRole('button', { name: 'Ocorrências Locais' }).first().click();
   await page.waitForTimeout(2000);
 
-  const btnReg = page.getByRole('button', { name: 'Registar ocorrência' }).first();
+  const btnReg = page.locator('button:has-text("Criar Ocorrência"), button:has-text("Registar ocorrência"), [data-testid="btn-criar-ocorrencia"], [data-testid="btn-registar-ocorrencia"]').first();
   if (await btnReg.isVisible().catch(() => false)) {
     await btnReg.click();
     await page.waitForTimeout(1000);
@@ -79,16 +79,16 @@ try {
   await shutterBtn.click();
   await page.waitForTimeout(1000);
 
-  // Botão "Tirar outra fotografia" no review mode
-  const btnRetake = page.locator('button:has-text("Tirar outra fotografia")');
-  reg('1.2 - Botão de repetir foto presente no review', await btnRetake.isVisible());
-  await btnRetake.click();
+  // Testar remoção de foto dentro do modal antes de confirmar
+  const btnRemoveNoModal = page.locator('button[title="Remover esta foto"]').first();
+  reg('1.2 - Botão de eliminar foto capturada presente na barra de miniaturas', await btnRemoveNoModal.isVisible());
+  await btnRemoveNoModal.click();
   await page.waitForTimeout(1000);
 
   // Recapturar e confirmar
   await shutterBtn.click();
   await page.waitForTimeout(1000);
-  await page.locator('button:has-text("Usar esta fotografia")').click();
+  await page.locator('[data-testid="btn-usar-estas-fotos"], button:has-text("Usar esta foto"), button:has-text("Usar esta fotografia")').first().click();
   await page.waitForTimeout(3000);
 
   const foto1 = page.locator('img[alt*="foto_ocorrencia"], img[alt*="fotografia"]');
@@ -147,7 +147,7 @@ try {
   await mPage.getByRole('button', { name: 'Ocorrências Locais' }).first().click();
   await mPage.waitForTimeout(2000);
 
-  const mBtnReg = mPage.getByRole('button', { name: 'Registar ocorrência' }).first();
+  const mBtnReg = mPage.locator('button:has-text("Criar Ocorrência"), button:has-text("Registar ocorrência"), [data-testid="btn-criar-ocorrencia"], [data-testid="btn-registar-ocorrencia"]').first();
   if (await mBtnReg.isVisible().catch(() => false)) {
     await mBtnReg.click();
     await mPage.waitForTimeout(1000);
@@ -167,7 +167,7 @@ try {
   await mShutter.click();
   await mPage.waitForTimeout(1000);
 
-  await mPage.locator('button:has-text("Usar esta fotografia")').click();
+  await mPage.locator('[data-testid="btn-usar-estas-fotos"], button:has-text("Usar esta foto"), button:has-text("Usar esta fotografia")').first().click();
   await mPage.waitForTimeout(3000);
 
   const mFotos = mPage.locator('img[alt*="foto_ocorrencia"], img[alt*="fotografia"]');

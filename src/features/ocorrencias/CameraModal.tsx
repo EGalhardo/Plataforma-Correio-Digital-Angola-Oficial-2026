@@ -12,15 +12,25 @@ import {
   AlertTriangle,
   Loader2,
   SwitchCamera,
-  Sparkles,
+  Trash2,
   Smartphone,
+  Plus,
+  Eye,
 } from "lucide-react";
 import { CdaModal } from "../../components/ui/CdaModal";
+
+export interface CapturedPhotoItem {
+  id: string;
+  dataUrl: string;
+  blob: Blob;
+  nome: string;
+}
 
 export interface CameraModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCapture: (file: File) => Promise<void>;
+  onCaptureMultiple?: (files: File[]) => Promise<void>;
   maxPhotos?: number;
   currentPhotosCount: number;
 }
@@ -29,6 +39,7 @@ export function CameraModal({
   isOpen,
   onClose,
   onCapture,
+  onCaptureMultiple,
   maxPhotos = 5,
   currentPhotosCount,
 }: CameraModalProps) {
@@ -41,12 +52,18 @@ export function CameraModal({
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
+
+  // Lista de fotografias capturadas nesta sessão da câmara
+  const [capturedPhotos, setCapturedPhotos] = useState<CapturedPhotoItem[]>([]);
+  const [previewPhotoId, setPreviewPhotoId] = useState<string | null>(null);
+
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [flash, setFlash] = useState(false);
+
+  const totalPossible = maxPhotos - currentPhotosCount;
+  const canCaptureMore = capturedPhotos.length < totalPossible;
 
   // Parar todas as tracks do stream activo
   const stopStream = () => {
@@ -64,7 +81,7 @@ export function CameraModal({
     setStreamReady(false);
   };
 
-  // Iniciar stream de vídeo com resolução otimizada e gestão de facingMode
+  // Iniciar stream de vídeo
   const startStream = async (
     targetFacing: "environment" | "user",
     deviceId?: string | null
@@ -139,16 +156,16 @@ export function CameraModal({
     }
   };
 
-  // Iniciar câmara quando o modal abre
+  // Iniciar câmara quando o modal abre e resetar estado
   useEffect(() => {
     if (isOpen) {
-      setCapturedImage(null);
-      setCapturedBlob(null);
+      setCapturedPhotos([]);
+      setPreviewPhotoId(null);
       void startStream(facingMode, selectedCameraId);
     } else {
       stopStream();
-      setCapturedImage(null);
-      setCapturedBlob(null);
+      setCapturedPhotos([]);
+      setPreviewPhotoId(null);
       setCameraError(null);
     }
     return () => {
@@ -173,10 +190,10 @@ export function CameraModal({
     }
   };
 
-  // Capturar snapshot do vídeo no canvas
+  // Capturar snapshot do vídeo e adicionar à lista de fotos capturadas
   const captureSnapshot = () => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !canCaptureMore) return;
     setIsCapturing(true);
     setFlash(true);
     setTimeout(() => setFlash(false), 220);
@@ -193,7 +210,7 @@ export function CameraModal({
       return;
     }
 
-    // Se estiver a usar câmara frontal (user), espelhar para corresponder à visualização natural
+    // Se estiver a usar câmara frontal (user), espelhar
     if (facingMode === "user" && !selectedCameraId) {
       ctx.translate(width, 0);
       ctx.scale(-1, 1);
@@ -205,12 +222,16 @@ export function CameraModal({
     canvas.toBlob(
       (blob) => {
         if (blob) {
-          setCapturedBlob(blob);
           const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
-          setCapturedImage(dataUrl);
-          try {
-            video.pause();
-          } catch {}
+          setCapturedPhotos((prev) => {
+            const newPhoto: CapturedPhotoItem = {
+              id: `foto-${Date.now()}-${prev.length + 1}-${Math.random().toString(36).slice(2, 6)}`,
+              dataUrl,
+              blob,
+              nome: `foto_camera_${prev.length + 1}.jpg`,
+            };
+            return [...prev, newPhoto];
+          });
         }
         setIsCapturing(false);
       },
@@ -219,45 +240,41 @@ export function CameraModal({
     );
   };
 
-  // Repetir / Tirar outra fotografia
-  const handleRetake = () => {
-    setCapturedImage(null);
-    setCapturedBlob(null);
-    if (videoRef.current) {
-      try {
-        videoRef.current.play();
-      } catch {}
+  // Remover foto da lista capturada no modal
+  const handleRemoveCapturedPhoto = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setCapturedPhotos((prev) => prev.filter((p) => p.id !== id));
+    if (previewPhotoId === id) {
+      setPreviewPhotoId(null);
     }
   };
 
-  // Confirmar e usar a foto capturada
-  const handleConfirmPhoto = async () => {
-    if (!capturedBlob && !capturedImage) return;
+  // Confirmar e carregar todas as fotos capturadas para a página de ocorrência
+  const handleConfirmAllPhotos = async () => {
+    if (capturedPhotos.length === 0) return;
     setIsSaving(true);
     try {
-      let file: File;
-      if (capturedBlob) {
-        file = new File(
-          [capturedBlob],
-          `foto_ocorrencia_${Date.now()}.jpg`,
+      const files: File[] = capturedPhotos.map((item, index) => {
+        return new File(
+          [item.blob],
+          `foto_ocorrencia_${Date.now()}_${index + 1}.jpg`,
           { type: "image/jpeg" }
         );
+      });
+
+      if (onCaptureMultiple) {
+        await onCaptureMultiple(files);
       } else {
-        const res = await fetch(capturedImage!);
-        const blob = await res.blob();
-        file = new File(
-          [blob],
-          `foto_ocorrencia_${Date.now()}.jpg`,
-          { type: "image/jpeg" }
-        );
+        for (const file of files) {
+          await onCapture(file);
+        }
       }
 
-      await onCapture(file);
-      setCapturedImage(null);
-      setCapturedBlob(null);
+      setCapturedPhotos([]);
+      setPreviewPhotoId(null);
       onClose();
     } catch (err) {
-      console.error("[CameraModal] Erro ao gravar foto capturada:", err);
+      console.error("[CameraModal] Erro ao gravar fotos capturadas:", err);
     } finally {
       setIsSaving(false);
     }
@@ -265,101 +282,117 @@ export function CameraModal({
 
   if (!isOpen) return null;
 
+  const previewItem = capturedPhotos.find((p) => p.id === previewPhotoId);
+
   return (
     <CdaModal
       aberto={isOpen}
       onFechar={onClose}
       icone={Camera}
-      titulo="Tirar Fotografia da Ocorrência"
+      titulo="Tirar Fotografias da Ocorrência"
       subtitulo="Câmara do Dispositivo · CDA Ocorrências"
       maxW="max-w-2xl"
       padding="p-4 sm:p-6"
     >
       <div className="space-y-4">
-        {/* Barra superior de estado / contagem */}
+        {/* Barra superior de contagem e estado */}
         <div className="flex items-center justify-between text-xs sm:text-sm font-bold bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
           <span className="text-slate-600 flex items-center gap-1.5">
             <Camera size={15} className="text-primary shrink-0" />
-            Fotografias anexadas
+            Fotografias ({currentPhotosCount + capturedPhotos.length} / {maxPhotos})
           </span>
-          <span
-            className={`font-black px-2 py-0.5 rounded-full ${
-              currentPhotosCount >= maxPhotos
-                ? "bg-amber-100 text-amber-900 border border-amber-300"
-                : "bg-primary/10 text-primary"
-            }`}
-          >
-            {currentPhotosCount} / {maxPhotos}
-          </span>
+          <div className="flex items-center gap-2">
+            {capturedPhotos.length > 0 && (
+              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <CheckCircle size={12} />
+                {capturedPhotos.length} {capturedPhotos.length === 1 ? "foto pronta" : "fotos prontas"}
+              </span>
+            )}
+            {!canCaptureMore && (
+              <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                Limite atingido
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Viewfinder / Visor da Câmara */}
+        {/* Viewfinder / Visor da Câmara ou Zoom de Pré-visualização */}
         <div className="relative w-full aspect-[4/3] sm:aspect-[16/10] bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-slate-800 shadow-inner">
           {/* Flash Effect */}
           {flash && (
             <div className="absolute inset-0 bg-white z-40 animate-out fade-out duration-200 pointer-events-none" />
           )}
 
-          {/* Stream de Vídeo ao Vivo (sempre montado para reatividade imediata) */}
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className={`w-full h-full object-cover ${
-              facingMode === "user" && !selectedCameraId ? "-scale-x-100" : ""
-            } ${capturedImage || cameraError ? "hidden" : "block"}`}
-          />
-          <canvas ref={canvasRef} className="hidden" />
-
-          {!streamReady && !capturedImage && !cameraError && (
-            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white z-10">
-              <Loader2 size={28} className="animate-spin text-primary" />
-              <p className="text-xs font-bold text-slate-300">
-                A inicializar câmara…
-              </p>
-            </div>
-          )}
-
-          {/* Grelha / Marcadores de enquadramento */}
-          {streamReady && !capturedImage && !cameraError && (
-            <div className="absolute inset-0 pointer-events-none p-4">
-              <div className="w-full h-full border border-white/20 rounded-xl relative">
-                <div className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-white/70" />
-                <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-white/70" />
-                <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-white/70" />
-                <div className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-white/70" />
-              </div>
-            </div>
-          )}
-
-          {/* Botão de Alternar Câmara (se houver mais de 1 câmara ou em mobile) */}
-          {streamReady && !capturedImage && !cameraError && (
-            <div className="absolute top-3 right-3 z-20">
-              <button
-                type="button"
-                onClick={() => void toggleCameraFacing()}
-                className="p-2.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md text-white border border-white/20 shadow-lg transition active:scale-95"
-                title="Alternar câmara (frontal / traseira)"
-              >
-                <SwitchCamera size={18} />
-              </button>
-            </div>
-          )}
-
-          {/* Foto Capturada (Pré-visualização) */}
-          {capturedImage && (
+          {/* Visualizador de Foto em Destaque (quando o utilizador clica numa thumbnail) */}
+          {previewItem ? (
             <div className="relative w-full h-full flex items-center justify-center bg-black z-20">
               <img
-                src={capturedImage}
-                alt="Fotografia capturada"
+                src={previewItem.dataUrl}
+                alt={previewItem.nome}
                 className="w-full h-full object-contain"
               />
-              <div className="absolute top-3 left-3 bg-black/75 backdrop-blur-md text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5">
-                <CheckCircle size={14} />
-                Foto capturada
+              <div className="absolute top-3 left-3 bg-black/75 backdrop-blur-md text-white border border-white/20 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5">
+                <Eye size={14} className="text-primary" />
+                Pré-visualização
               </div>
+              <button
+                type="button"
+                onClick={() => setPreviewPhotoId(null)}
+                className="absolute top-3 right-3 p-2 rounded-full bg-black/70 hover:bg-black/90 text-white border border-white/20 text-xs font-bold flex items-center gap-1"
+                title="Voltar à câmara"
+              >
+                <X size={16} />
+              </button>
             </div>
+          ) : (
+            /* Stream de Vídeo ao Vivo */
+            <>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`w-full h-full object-cover ${
+                  facingMode === "user" && !selectedCameraId ? "-scale-x-100" : ""
+                } ${cameraError ? "hidden" : "block"}`}
+              />
+              <canvas ref={canvasRef} className="hidden" />
+
+              {!streamReady && !cameraError && (
+                <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white z-10">
+                  <Loader2 size={28} className="animate-spin text-primary" />
+                  <p className="text-xs font-bold text-slate-300">
+                    A inicializar câmara…
+                  </p>
+                </div>
+              )}
+
+              {/* Grelha / Marcadores de enquadramento */}
+              {streamReady && !cameraError && (
+                <div className="absolute inset-0 pointer-events-none p-4">
+                  <div className="w-full h-full border border-white/20 rounded-xl relative">
+                    <div className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-white/70" />
+                    <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-white/70" />
+                    <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-white/70" />
+                    <div className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-white/70" />
+                  </div>
+                </div>
+              )}
+
+              {/* Botão de Alternar Câmara */}
+              {streamReady && !cameraError && (
+                <div className="absolute top-3 right-3 z-20">
+                  <button
+                    type="button"
+                    onClick={() => void toggleCameraFacing()}
+                    className="p-2.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md text-white border border-white/20 shadow-lg transition active:scale-95"
+                    title="Alternar câmara (frontal / traseira)"
+                  >
+                    <SwitchCamera size={18} />
+                  </button>
+                </div>
+              )}
+            </>
           )}
 
           {/* Estado de Erro na Câmara */}
@@ -393,22 +426,67 @@ export function CameraModal({
           )}
         </div>
 
-        {/* Input escondido para acionar a câmara nativa do sistema em caso de fallback */}
+        {/* Barra de Fotos Capturadas (Thumbnails Strip) */}
+        {capturedPhotos.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-bold text-slate-600 flex items-center justify-between">
+              <span>Fotos capturadas nesta sessão ({capturedPhotos.length}):</span>
+              <span className="text-[10px] text-slate-400">Clique na miniatura para pré-visualizar</span>
+            </p>
+            <div className="flex gap-2.5 overflow-x-auto pb-1.5 scrollbar-thin">
+              {capturedPhotos.map((photo, idx) => (
+                <div
+                  key={photo.id}
+                  onClick={() => setPreviewPhotoId(photo.id)}
+                  className={`group relative shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 cursor-pointer transition ${
+                    previewPhotoId === photo.id
+                      ? "border-primary ring-2 ring-primary/30"
+                      : "border-slate-300 hover:border-slate-400"
+                  }`}
+                >
+                  <img
+                    src={photo.dataUrl}
+                    alt={`Foto ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[9px] font-mono px-1 rounded">
+                    #{idx + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => handleRemoveCapturedPhoto(photo.id, e)}
+                    className="absolute top-1 right-1 p-1 rounded-full bg-red-600/90 text-white hover:bg-red-700 transition shadow-sm"
+                    title="Remover esta foto"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Input escondido para acionar câmara nativa */}
         <input
           ref={nativeInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp"
           capture="environment"
+          multiple
           className="hidden"
           onChange={async (e) => {
-            const file = e.target.files?.[0];
-            if (file) {
+            const files = Array.from(e.target.files || []);
+            if (files.length > 0) {
               setIsSaving(true);
               try {
-                await onCapture(file);
-                if (currentPhotosCount + 1 >= maxPhotos) {
-                  onClose();
+                if (onCaptureMultiple) {
+                  await onCaptureMultiple(files.slice(0, totalPossible));
+                } else {
+                  for (const file of files.slice(0, totalPossible)) {
+                    await onCapture(file);
+                  }
                 }
+                onClose();
               } finally {
                 setIsSaving(false);
               }
@@ -418,75 +496,56 @@ export function CameraModal({
         />
 
         {/* Barra de Ações Inferior */}
-        <div className="pt-2">
-          {capturedImage ? (
-            /* Ações para a foto capturada: Repetir ou Usar */
-            <div className="flex flex-col sm:flex-row gap-2.5">
-              <button
-                type="button"
-                onClick={handleRetake}
-                disabled={isSaving}
-                className="flex-1 py-3 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-[0.98] disabled:opacity-50"
-              >
-                <RotateCw size={16} />
-                Tirar outra fotografia
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleConfirmPhoto()}
-                disabled={isSaving}
-                className="flex-1 py-3 px-4 rounded-xl bg-primary hover:bg-primary/90 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition active:scale-[0.98] disabled:opacity-50"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    A processar fotografia…
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle size={16} />
-                    Usar esta fotografia
-                  </>
-                )}
-              </button>
-            </div>
-          ) : (
-            /* Botão de Disparo / Shutter */
-            <div className="flex items-center justify-between gap-3">
-              <button
-                type="button"
-                data-testid="btn-fechar-camera-modal"
-                onClick={onClose}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition"
-              >
-                Cancelar
-              </button>
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+            <button
+              type="button"
+              data-testid="btn-fechar-camera-modal"
+              onClick={onClose}
+              disabled={isSaving}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition disabled:opacity-50"
+            >
+              Cancelar
+            </button>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  data-testid="camera-shutter-btn"
-                  onClick={captureSnapshot}
-                  disabled={!streamReady || isCapturing || currentPhotosCount >= maxPhotos}
-                  className="group relative flex items-center justify-center w-14 h-14 rounded-full bg-white border-4 border-primary shadow-xl hover:scale-105 active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                  title="Capturar fotografia"
-                >
-                  <div className="w-10 h-10 rounded-full bg-primary group-hover:bg-primary/90 flex items-center justify-center transition">
-                    <Camera size={20} className="text-white" />
-                  </div>
-                </button>
+            {/* Disparador de Captura */}
+            <button
+              type="button"
+              data-testid="camera-shutter-btn"
+              onClick={captureSnapshot}
+              disabled={!streamReady || isCapturing || !canCaptureMore || isSaving}
+              className="group relative flex items-center justify-center w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-white border-4 border-primary shadow-xl hover:scale-105 active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed mx-auto sm:mx-0"
+              title={canCaptureMore ? "Tirar foto" : "Limite de fotos atingido"}
+            >
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-primary group-hover:bg-primary/90 flex items-center justify-center transition">
+                <Camera size={18} className="text-white sm:w-5 sm:h-5" />
               </div>
+            </button>
+          </div>
 
-              <button
-                type="button"
-                onClick={() => nativeInputRef.current?.click()}
-                className="px-3 py-2 rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-100 font-bold text-[11px] sm:text-xs transition flex items-center gap-1.5"
-                title="Abrir câmara nativa do telemóvel"
-              >
-                <Smartphone size={14} />
-                <span className="hidden sm:inline">Câmara nativa</span>
-              </button>
-            </div>
+          {/* Botão Principal: "Usar estas fotos" */}
+          {capturedPhotos.length > 0 && (
+            <button
+              type="button"
+              data-testid="btn-usar-estas-fotos"
+              onClick={() => void handleConfirmAllPhotos()}
+              disabled={isSaving}
+              className="w-full sm:w-auto flex-1 max-w-sm py-3 px-5 rounded-xl bg-primary hover:bg-primary/90 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition active:scale-[0.98] disabled:opacity-50"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  A carregar fotos para a ocorrência…
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={16} />
+                  {capturedPhotos.length === 1
+                    ? "Usar esta foto"
+                    : `Usar estas fotos (${capturedPhotos.length})`}
+                </>
+              )}
+            </button>
           )}
         </div>
       </div>

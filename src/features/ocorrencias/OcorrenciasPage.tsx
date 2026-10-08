@@ -1177,6 +1177,31 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
       if (mounted.current) setPhotoBusy(false);
     }
   };
+  const handleCaptureMultiplePhotos = async (files: File[]) => {
+    if (!files.length) return;
+    if (photos.length + files.length > 5) {
+      setError("Pode adicionar no máximo cinco fotografias.");
+      return;
+    }
+    setPhotoBusy(true);
+    setError("");
+    try {
+      for (const file of files) {
+        const base64 = await prepararFotografia(file);
+        const r = await ocorrenciasApi("fotografia", {
+          base64,
+          nome: file.name || `foto_ocorrencia_${Date.now()}.jpg`,
+        });
+        if (mounted.current) {
+          setPhotos((prev) => [...prev, { ...r.foto, url: base64 }]);
+        }
+      }
+    } catch (e) {
+      showError(e);
+    } finally {
+      if (mounted.current) setPhotoBusy(false);
+    }
+  };
   const removePhoto = async (key: string) => {
     setPhotoBusy(true);
     try {
@@ -1682,7 +1707,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
         <div className="min-w-0 flex-1">
           <h2 className="font-black text-primary text-xl md:text-2xl">
             {view === "criar"
-              ? "Registar ocorrência"
+              ? "Criar Ocorrência"
               : view === "rever"
                 ? "Rever e enviar"
                 : view === "notificacoes"
@@ -1706,12 +1731,12 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
         {view === "lista" && !institutional && (
           <button
             type="button"
-            data-testid="btn-registar-ocorrencia"
+            data-testid="btn-criar-ocorrencia"
             onClick={newReport}
             className={`${primary} w-full sm:w-auto`}
           >
             <Plus size={17} />
-            Registar ocorrência
+            Criar Ocorrência
           </button>
         )}
       </header>
@@ -1879,7 +1904,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
                   ? "Nenhuma ocorrência corresponde aos filtros."
                   : institutional
                     ? "Ainda não recebeu ocorrências."
-                    : "Ainda não registou ocorrências. Utilize «Registar ocorrência» para começar."}
+                    : "Ainda não registou ocorrências. Utilize «Criar Ocorrência» para começar."}
             </Empty>
           ) : (
             institutional ? (
@@ -3501,6 +3526,7 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
         isOpen={cameraModalOpen}
         onClose={() => setCameraModalOpen(false)}
         onCapture={handleCapturePhoto}
+        onCaptureMultiple={handleCaptureMultiplePhotos}
         maxPhotos={5}
         currentPhotosCount={photos.length}
       />

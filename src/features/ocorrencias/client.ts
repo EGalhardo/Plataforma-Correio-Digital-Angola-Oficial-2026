@@ -335,7 +335,7 @@ function executarFallbackLocal<T = any>(acao: string, data: Record<string, unkno
       return {
         ok: true,
         foto: {
-          id: `foto-${Date.now()}`,
+          id: `foto-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           nome: String(data.nome || 'fotografia.jpg'),
           url: String(data.base64 || ''),
           tamanho: 102400

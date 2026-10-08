@@ -53,15 +53,15 @@ try {
   await page.waitForTimeout(2000);
   reg('2.1 - Navegação para Ocorrências Locais', true);
 
-  // 3. Abrir formulário "Registar ocorrência"
+  // 3. Abrir formulário "Criar Ocorrência"
   console.log('3. Abrir formulário de nova ocorrência...');
-  const btnReg = page.getByRole('button', { name: 'Registar ocorrência' }).first();
+  const btnReg = page.locator('button:has-text("Criar Ocorrência"), button:has-text("Registar ocorrência"), [data-testid="btn-criar-ocorrencia"], [data-testid="btn-registar-ocorrencia"]').first();
   if (await btnReg.isVisible().catch(() => false)) {
     await btnReg.click();
     await page.waitForTimeout(1000);
   }
   await page.getByLabel('Categoria *').waitFor({ state: 'visible', timeout: 15000 });
-  reg('3.1 - Formulário «Registar ocorrência» aberto', true);
+  reg('3.1 - Formulário «Criar Ocorrência» aberto', true);
 
   // 4. Validar botões de Tirar Foto e Carregar Ficheiro
   console.log('4. Validando presença dos botões de câmara e upload...');
@@ -78,7 +78,7 @@ try {
   await btnTirarFoto.click();
   await page.waitForTimeout(2000);
 
-  const modalCamera = page.locator('text=Tirar Fotografia da Ocorrência');
+  const modalCamera = page.locator('text=Tirar Fotografias da Ocorrência');
   const modalAberto = await modalCamera.isVisible();
   reg('5.1 - Modal da câmara aberto com sucesso', modalAberto);
 
@@ -91,9 +91,9 @@ try {
   await shutterBtn.click();
   await page.waitForTimeout(1500);
 
-  const btnUsarFoto = page.locator('button:has-text("Usar esta fotografia")');
+  const btnUsarFoto = page.locator('[data-testid="btn-usar-estas-fotos"], button:has-text("Usar esta foto"), button:has-text("Usar estas fotos")').first();
   await btnUsarFoto.waitFor({ state: 'visible', timeout: 5000 });
-  reg('6.1 - Foto capturada exibida em modo de revisão com botão «Usar esta fotografia»', await btnUsarFoto.isVisible());
+  reg('6.1 - Foto capturada exibida com botão «Usar esta foto»', await btnUsarFoto.isVisible());
 
   // Confirmar e anexar foto
   await btnUsarFoto.click();
