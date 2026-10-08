@@ -514,7 +514,7 @@ export async function handleOcorrencias(req: any, res: any) {
         } catch {
           fail(400, "Não foi possível ler a fotografia. Escolha outra imagem.");
         }
-        // Limpeza de anexos temporários expirados da própria conta, nunca de processos.
+        // Limpeza de anexos temporários expirados ou excedentes da própria conta
         const expired =
           checked(
             await db
@@ -522,22 +522,30 @@ export async function handleOcorrencias(req: any, res: any) {
               .delete()
               .eq("autor_id", a.id)
               .is("ocorrencia_id", null)
-              .lt("criado_em", new Date(Date.now() - 86400000).toISOString())
+              .lt("criado_em", new Date(Date.now() - 3600000).toISOString())
               .select("caminho"),
           ) || [];
         if (expired.length)
           await db.storage.from(BUCKET).remove(expired.map((f) => f.caminho));
+        
         const pending = await db
           .from("cda_ocorrencias_fotos")
-          .select("id", { head: true, count: "exact" })
+          .select("id, caminho, criado_em")
           .eq("autor_id", a.id)
-          .is("ocorrencia_id", null);
-        if (pending.error) throw pending.error;
-        if ((pending.count || 0) >= 10)
-          fail(
-            400,
-            "Tem fotografias temporárias por utilizar. Remova as que não precisa ou aguarde a expiração (24 horas).",
-          );
+          .is("ocorrencia_id", null)
+          .order("criado_em", { ascending: true });
+        if (!pending.error && pending.data && pending.data.length >= 8) {
+          const toRemove = pending.data.slice(0, pending.data.length - 4);
+          if (toRemove.length > 0) {
+            await db
+              .from("cda_ocorrencias_fotos")
+              .delete()
+              .in("id", toRemove.map((f) => f.id));
+            try {
+              await db.storage.from(BUCKET).remove(toRemove.map((f) => f.caminho));
+            } catch {}
+          }
+        }
         const photoId = randomUUID(),
           path = `${a.id}/${photoId}.jpg`;
         const upload = await db.storage

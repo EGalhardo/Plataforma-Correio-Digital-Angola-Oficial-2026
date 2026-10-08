@@ -15,6 +15,8 @@ import {
   Bell,
   RefreshCw,
   Camera,
+  Upload,
+  Image,
   X,
   CheckCircle,
   Building2,
@@ -32,6 +34,7 @@ import { ListaRolavel } from "../../components/ui/ListaRolavel";
 import { generateProtocol, sealProtocolForSend } from "../../utils/protocolGenerator";
 import { supabaseService } from "../../services/supabaseService";
 import type { Message } from "../../types";
+import { CameraModal } from "./CameraModal";
 import {
   ocorrenciasApi,
   prepararFotografia,
@@ -597,6 +600,8 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
     referencia: string;
   } | null>(null);
   const [localGpsAObter, setLocalGpsAObter] = useState(false);
+  const [cameraModalOpen, setCameraModalOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const createRequest = useRef(crypto.randomUUID());
   const [selected, setSelected] = useState<Ocorrencia | null>(null),
     [events, setEvents] = useState<EventoOcorrencia[]>([]),
@@ -1143,6 +1148,28 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
         });
         if (mounted.current)
           setPhotos((prev) => [...prev, { ...r.foto, url: base64 }]);
+      }
+    } catch (e) {
+      showError(e);
+    } finally {
+      if (mounted.current) setPhotoBusy(false);
+    }
+  };
+  const handleCapturePhoto = async (file: File) => {
+    if (photos.length >= 5) {
+      setError("Pode adicionar no máximo cinco fotografias.");
+      return;
+    }
+    setPhotoBusy(true);
+    setError("");
+    try {
+      const base64 = await prepararFotografia(file);
+      const r = await ocorrenciasApi("fotografia", {
+        base64,
+        nome: file.name || `foto_ocorrencia_${Date.now()}.jpg`,
+      });
+      if (mounted.current) {
+        setPhotos((prev) => [...prev, { ...r.foto, url: base64 }]);
       }
     } catch (e) {
       showError(e);
@@ -2329,57 +2356,93 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
             )}
           </div>
           <div className={panel}>
-            <h3 className="font-black text-primary flex items-center gap-2">
-              <Camera size={18} />
-              Fotografias (opcional)
-            </h3>
-            <p className="text-xs text-slate-500">
-              Até 5 fotografias JPEG, PNG ou WebP. São comprimidas para poupar
-              dados e guardadas de forma privada. Evite rostos e documentos
-              pessoais desnecessários.
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {photos.map((p) => (
-                <div
-                  key={p.id}
-                  className="rounded-xl border border-slate-200 overflow-hidden"
-                >
-                  <img
-                    alt={p.nome}
-                    src={p.url}
-                    className="h-28 w-full object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void removePhoto(p.id)}
-                    disabled={photoBusy}
-                    className={`${secondary} w-full !rounded-none`}
-                  >
-                    <X size={14} />
-                    Remover fotografia
-                  </button>
-                </div>
-              ))}
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-black text-primary flex items-center gap-2">
+                <Camera size={18} />
+                Fotografias (opcional)
+              </h3>
+              <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                {photos.length} / 5
+              </span>
             </div>
-            <Field
-              label={
-                photoBusy
-                  ? "A carregar fotografia..."
-                  : `Adicionar fotografias (${photos.length}/5)`
-              }
-            >
+            <p className="text-xs text-slate-500">
+              Até 5 fotografias JPEG, PNG ou WebP. Pode tirar fotos na hora com a câmara ou carregar ficheiros guardados. São comprimidas para poupar dados e guardadas de forma privada.
+            </p>
+            {photos.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {photos.map((p) => (
+                  <div
+                    key={p.id}
+                    className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50 flex flex-col justify-between"
+                  >
+                    <img
+                      alt={p.nome}
+                      src={p.url}
+                      className="h-28 w-full object-cover"
+                    />
+                    <div className="p-1.5 flex flex-col gap-1">
+                      <span className="text-[10px] text-slate-500 truncate block px-1" title={p.nome}>
+                        {p.nome}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void removePhoto(p.id)}
+                        disabled={photoBusy}
+                        className={`${secondary} w-full !text-xs !py-1 text-red-600 hover:text-red-700 hover:bg-red-50`}
+                      >
+                        <X size={13} />
+                        Remover fotografia
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="space-y-2">
               <input
+                ref={fileInputRef}
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 multiple
                 disabled={photoBusy || photos.length >= 5}
-                className={input}
+                className="hidden"
                 onChange={(e) => {
                   void upload(e.target.files);
                   e.target.value = "";
                 }}
               />
-            </Field>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  data-testid="btn-tirar-foto"
+                  onClick={() => setCameraModalOpen(true)}
+                  disabled={photoBusy || photos.length >= 5}
+                  className="py-3 px-4 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
+                >
+                  <Camera size={18} className="text-primary shrink-0" />
+                  Tirar foto com a câmara
+                </button>
+
+                <button
+                  type="button"
+                  data-testid="btn-upload-foto"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={photoBusy || photos.length >= 5}
+                  className="py-3 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
+                >
+                  <Upload size={18} className="text-slate-500 shrink-0" />
+                  Carregar do dispositivo ({photos.length}/5)
+                </button>
+              </div>
+
+              {photoBusy && (
+                <p className="text-xs text-primary font-bold flex items-center gap-1.5 pt-1">
+                  <Loader2 size={14} className="animate-spin shrink-0" />
+                  A processar fotografia…
+                </p>
+              )}
+            </div>
           </div>
           <div className={panel}>
             <h3 className="font-black text-primary flex items-center gap-2">
@@ -3434,6 +3497,13 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
           onSubmit={(d, p) => void perform(d, p)}
         />
       )}
+      <CameraModal
+        isOpen={cameraModalOpen}
+        onClose={() => setCameraModalOpen(false)}
+        onCapture={handleCapturePhoto}
+        maxPhotos={5}
+        currentPhotosCount={photos.length}
+      />
     </section>
   );
 }
