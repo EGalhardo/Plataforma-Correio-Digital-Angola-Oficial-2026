@@ -119,6 +119,28 @@ export interface RealUserRequestRow {
   request_date: string | null;
 }
 
+export interface RealOcorrenciaRow {
+  id: string;
+  numero?: number | null;
+  titulo?: string | null;
+  categoria?: string | null;
+  estado?: string | null;
+  criado_em?: string | null;
+  instituicao_codigo?: string | null;
+  provincia?: string | null;
+  municipio?: string | null;
+}
+
+export interface RealInqueritoRow {
+  id: string | number;
+  titulo?: string | null;
+  status?: string | null;
+  categoria?: string | null;
+  instituicao_code?: string | null;
+  created_at?: string | null;
+  total_respostas?: number;
+}
+
 export interface AdminRealData {
   carregadoEm: number;
   profiles: RealProfileRow[];
@@ -136,6 +158,8 @@ export interface AdminRealData {
   iaTelemetria: RealIaTelemetriaRow[];
   solicitacoes: RealSolicitacaoRow[];
   userRequests: RealUserRequestRow[];
+  ocorrencias: RealOcorrenciaRow[];
+  inqueritos: RealInqueritoRow[];
 }
 
 const CACHE_MS = 60_000;
@@ -210,7 +234,7 @@ export async function carregarDadosReaisAdmin(forcar = false): Promise<AdminReal
     const [
       profilesRaw, auditRaw, auditTotal, mensagensRaw, mensagensTotal,
       videoRaw, docsRaw, protRaw, pagRaw, iaLogsRaw, iaTelRaw,
-      solicitRaw, userReqRaw,
+      solicitRaw, userReqRaw, ocorrenciasRaw, inqueritosRaw,
     ] = await Promise.all([
       ler(supabase.from('profiles').select('bi,name,role,phone,email,nif,morada').limit(500)),
       ler(supabase.from('audit_logs').select('id,action,username,timestamp,action_type').order('id', { ascending: false }).limit(1500)),
@@ -225,7 +249,35 @@ export async function carregarDadosReaisAdmin(forcar = false): Promise<AdminReal
       ler(temSessaoAuth ? supabase.from('ia_telemetria_resumo').select('dia,sigla,canal,total,ok,sessoes,lat_media_ms').order('dia', { ascending: false }).limit(500) : semLeitura),
       ler(supabase.from('solicitacoes_registo').select('id,nome,bi_numero,status,criado_em,observacoes').order('criado_em', { ascending: false }).limit(500)),
       ler(supabase.from('user_requests').select('id,user_bi,user_name,service_type,status,request_date').order('request_date', { ascending: false }).limit(500)),
+      ler(supabase.from('cda_ocorrencias').select('id,numero,titulo,categoria,estado,criado_em,instituicao_codigo,provincia,municipio').order('criado_em', { ascending: false }).limit(500)),
+      ler(supabase.from('inqueritos_ia').select('id,titulo,status,categoria,instituicao_code,created_at').order('created_at', { ascending: false }).limit(500)),
     ]);
+
+    // Fusão resiliente com dados criados localmente na sessão
+    let localOcorrencias: any[] = [];
+    try {
+      const rawLoc = localStorage.getItem('cda_ocorrencias_local');
+      if (rawLoc) localOcorrencias = JSON.parse(rawLoc);
+    } catch {}
+
+    const ocorrenciasIds = new Set((ocorrenciasRaw as any[]).map(o => String(o.id)));
+    const mergedOcorrencias = [
+      ...(ocorrenciasRaw as any[]),
+      ...localOcorrencias.filter(lo => !ocorrenciasIds.has(String(lo.id)))
+    ];
+
+    let localInqueritos: any[] = [];
+    try {
+      const rawInq = localStorage.getItem('cda_inqueritos_ia_local');
+      if (rawInq) localInqueritos = JSON.parse(rawInq);
+    } catch {}
+
+    const inqueritosIds = new Set((inqueritosRaw as any[]).map(i => String(i.id)));
+    const mergedInqueritos = [
+      ...(inqueritosRaw as any[]),
+      ...localInqueritos.filter(li => !inqueritosIds.has(String(li.id)))
+    ];
+
     const profiles = profilesRaw as RealProfileRow[];
     const dados: AdminRealData = {
       carregadoEm: agora,
@@ -244,6 +296,8 @@ export async function carregarDadosReaisAdmin(forcar = false): Promise<AdminReal
       iaTelemetria: iaTelRaw as RealIaTelemetriaRow[],
       solicitacoes: solicitRaw as RealSolicitacaoRow[],
       userRequests: userReqRaw as RealUserRequestRow[],
+      ocorrencias: mergedOcorrencias as RealOcorrenciaRow[],
+      inqueritos: mergedInqueritos as RealInqueritoRow[],
     };
     cache = dados;
     return dados;
