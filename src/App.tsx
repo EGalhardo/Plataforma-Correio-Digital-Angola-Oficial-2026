@@ -5997,23 +5997,8 @@ Serviços ativos: Notificações em tempo real e interconexão garantida.`;
       }
       
       case 'video-atendimento':
-        return (
-          <PainelSuspense>
-            <VideoSessionPage
-              onBack={() => setTab('correspondencias')}
-              onNavigateToMail={() => setTab('correspondencias')}
-              addAuditLog={addAuditLog}
-              notifications={currentNotifications}
-              // 2026-08-22 — contexto do papel: a instituição agenda com o
-              // cidadão; o cidadão vê as sessões agendadas PARA ele.
-              isInst={isInstMode}
-              bi={bi}
-              instCode={institutionCode || bi}
-              instDisplayName={activeProfile?.institutionName || sessionInstBrand.sigla || (isInstMode ? bi : '')}
-              sessionDemo={(isUserMode && isDemoCitizenSession) || (isInstMode && isDemoInstitutionSession)}
-            />
-          </PainelSuspense>
-        );
+        return `Você está na página de Vídeo-Atendimento Oficial.
+Nesta secção pode agendar audiências e consultas públicas por videoconferência com instituições do Estado angolano ou consultar o histórico de sessões.`;
       case 'documentos':
         const docUnreadCount = docInbox.filter(m => m.status === 'Não Lida').length;
         const docMessagesSummary = docInbox.slice(0, 3).map(m => `- Serviço: ${m.sender || m.org}, Assunto: ${m.subject || m.preview}, Status: ${m.status}`).join('\n');
