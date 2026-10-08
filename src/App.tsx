@@ -1828,6 +1828,20 @@ export default function App() {
     }
   }, [tab, stage]);
   const voltarPagina = useCallback(() => {
+    // 2026-10-08 — Atalhos de serviços: sempre que o botão voltar for clicado
+    // nas páginas de Vídeo-atendimento, Inquéritos, Comunicados, Ocorrências,
+    // Denúncias e Reclamações, regressa imediatamente ao Painel principal.
+    const ATALHOS_PARA_PAINEL = new Set(['video-atendimento', 'inqueritos', 'comunicados', 'denuncias', 'nova-denuncia', 'sondagens', 'ocorrencias']);
+    if (ATALHOS_PARA_PAINEL.has(tab)) {
+      aVoltarRef.current = true;
+      setSelectedMessage(null);
+      setSelectedDoc(null);
+      setSelectedInstitution(null);
+      setTab(painelDoModo);
+      window.scrollTo({ top: 0 });
+      return;
+    }
+
     const pilha = pilhaPaginasRef.current;
     let destino: string | undefined;
     while (pilha.length) {
@@ -6494,7 +6508,7 @@ Ficha civil do titular:
         return (
           <PainelSuspense>
             <VideoSessionPage
-              onBack={() => setTab('correspondencias')}
+              onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
               onNavigateToMail={() => setTab('correspondencias')}
               addAuditLog={addAuditLog}
               notifications={currentNotifications}
@@ -6709,16 +6723,16 @@ Ficha civil do titular:
           </PainelSuspense>
         );
       case 'ocorrencias':
-        return <PainelSuspense><OcorrenciasPage onBack={() => setTab('home')} /></PainelSuspense>;
+        return <PainelSuspense><OcorrenciasPage onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')} /></PainelSuspense>;
       case 'inqueritos':
         if (isInstMode) return (
-          <PainelSuspense><SondagensContent title="Inquéritos" codigoInstituicao={bi} mensagensEnviadas={currentSentMessages} addAuditLog={addAuditLog} onBack={() => setTab('home')} onCreate={() => { setIsComposing(true); setTab('correspondencias'); }} novidadesNaoLidas={contarNotificacoesAtalhos(currentNotifications, currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)), true).inqueritos} onVerNotificacoes={() => setTab('notificacoes')} /></PainelSuspense>
+          <PainelSuspense><SondagensContent title="Inquéritos" codigoInstituicao={bi} mensagensEnviadas={currentSentMessages} addAuditLog={addAuditLog} onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')} onCreate={() => { setIsComposing(true); setTab('correspondencias'); }} novidadesNaoLidas={contarNotificacoesAtalhos(currentNotifications, currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)), true).inqueritos} onVerNotificacoes={() => setTab('notificacoes')} /></PainelSuspense>
         );
         return <ListaParticipacaoContent tipo="inqueritos" isInst={false}
           notifications={currentNotifications}
           messages={currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
           onOpen={m => handleSelectMessage(m, 'recebidas', 'inqueritos')}
-          onBack={() => setTab('home')} />;
+          onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')} />;
       // 2026-10-01 — «Comunicados»: comunicados oficiais emitidos por órgãos do Estado
       case 'comunicados':
         return <ListaParticipacaoContent tipo="comunicados" isInst={isInstMode}
@@ -6730,14 +6744,14 @@ Ficha civil do titular:
           } : undefined}
           messages={(isInstMode ? [...currentSentMessages, ...currentInbox] : currentInbox).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
           onOpen={m => handleSelectMessage(m, isInstMode ? (currentSentMessages.some(s => s.id === m.id) ? 'enviadas' : 'recebidas') : 'recebidas', 'comunicados')}
-          onBack={() => setTab('home')} />;
+          onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')} />;
       case 'denuncias':
         return <ListaParticipacaoContent tipo="denuncias" isInst={isInstMode}
           notifications={currentNotifications}
           onCreate={isUserMode ? () => { setIsComposing(true); setTab('correspondencias'); } : undefined}
           messages={(isInstMode ? currentInbox : currentSentMessages).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
           onOpen={m => handleSelectMessage(m, isInstMode ? 'recebidas' : 'enviadas', 'denuncias')}
-          onBack={() => setTab('home')} />;
+          onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')} />;
       // 2026-09-23 (T-v37.79) — «Denuncia»: fila nova pedida pelo dono —
       // mesmo fluxo do Livro de Reclamações (componente partilhado), ferrada
       // pela marca própria «[REGISTO DE DENÚNCIA]» no assunto.
@@ -6747,13 +6761,14 @@ Ficha civil do titular:
           onCreate={isUserMode ? () => { setIsComposing(true); setTab('correspondencias'); } : undefined}
           messages={(isInstMode ? currentInbox : currentSentMessages).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
           onOpen={m => handleSelectMessage(m, isInstMode ? 'recebidas' : 'enviadas', 'nova-denuncia')}
-          onBack={() => setTab('home')} />;
+          onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')} />;
       case 'sondagens': // v36 — lista + resultados (spec §5)
         return (
           <PainelSuspense>
           <SondagensContent
             codigoInstituicao={bi}
             addAuditLog={addAuditLog}
+            onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
           />
           </PainelSuspense>
         );
