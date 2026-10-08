@@ -282,7 +282,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
   return (
     <section className="space-y-4 md:space-y-6 text-slate-950 animate-fade-in font-sans">
       
-      {/* Header row as seen in screenshot 2 */}
+      {/* Cabeçalho do Perfil Institucional */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-3 md:pb-5 mb-1 md:mb-2 gap-3 md:gap-4">
         <div className="flex items-center gap-4">
           <BotaoVoltar />

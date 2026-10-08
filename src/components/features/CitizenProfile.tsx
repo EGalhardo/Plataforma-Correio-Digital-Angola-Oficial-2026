@@ -386,7 +386,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
   return (
     <section className="space-y-4 md:space-y-6 text-slate-950 animate-fade-in font-sans">
       
-      {/* Header row as seen in screenshot 3 */}
+      {/* Cabeçalho do Perfil do Cidadão */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-3 md:pb-5 mb-1 md:mb-2 gap-3 md:gap-4 text-left">
         <div className="flex items-center gap-4">
           <BotaoVoltar />
