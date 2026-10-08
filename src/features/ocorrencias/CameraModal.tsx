@@ -475,7 +475,7 @@ export function CameraModal({
           multiple
           className="hidden"
           onChange={async (e) => {
-            const files = Array.from(e.target.files || []);
+            const files: File[] = e.target.files ? Array.from(e.target.files) : [];
             if (files.length > 0) {
               setIsSaving(true);
               try {
