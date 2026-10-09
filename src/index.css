@@ -779,6 +779,117 @@ html.dark [data-testid="popup-enviar-mensagem"] button[aria-pressed="true"] h4 {
   color: #e2e8f0 !important;
 }
 
+/* ==========================================
+   CDA — Painel de Indicadores Nacionais (Admin): Modo Escuro
+   ========================================== */
+html.dark .cda-indicador-card {
+  background-color: rgb(13, 24, 46) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #f1f5f9 !important;
+}
+
+html.dark .cda-indicador-card.cda-indicador-ativo-ocorrencias {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgb(13, 24, 46)) !important;
+  border-color: rgba(245, 158, 11, 0.45) !important;
+}
+
+html.dark .cda-indicador-card.cda-indicador-ativo-denuncias {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.15), rgb(13, 24, 46)) !important;
+  border-color: rgba(244, 63, 94, 0.45) !important;
+}
+
+html.dark .cda-indicador-card.cda-indicador-ativo-inqueritos {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgb(13, 24, 46)) !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+}
+
+html.dark .cda-indicador-card.cda-indicador-ativo-video {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgb(13, 24, 46)) !important;
+  border-color: rgba(99, 102, 241, 0.45) !important;
+}
+
+/* Badges de topo */
+html.dark .cda-indicador-badge-territorial {
+  background-color: rgba(245, 158, 11, 0.22) !important;
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  color: #fcd34d !important;
+}
+
+html.dark .cda-indicador-badge-integridade {
+  background-color: rgba(244, 63, 94, 0.22) !important;
+  border-color: rgba(244, 63, 94, 0.5) !important;
+  color: #fda4af !important;
+}
+
+html.dark .cda-indicador-badge-participacao {
+  background-color: rgba(16, 185, 129, 0.22) !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+  color: #6ee7b7 !important;
+}
+
+html.dark .cda-indicador-badge-telepresenca {
+  background-color: rgba(99, 102, 241, 0.22) !important;
+  border-color: rgba(99, 102, 241, 0.5) !important;
+  color: #a5b4fc !important;
+}
+
+/* Pílulas internas (Resolvidas, Em Análise, Abertas, etc.) */
+html.dark .cda-pill-resolvidas,
+html.dark .cda-pill-concluidas {
+  background-color: rgba(16, 185, 129, 0.16) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+}
+html.dark .cda-pill-resolvidas span,
+html.dark .cda-pill-concluidas span {
+  color: #6ee7b7 !important;
+}
+
+html.dark .cda-pill-analise,
+html.dark .cda-pill-agendadas {
+  background-color: rgba(59, 130, 246, 0.16) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+}
+html.dark .cda-pill-analise span,
+html.dark .cda-pill-agendadas span {
+  color: #93c5fd !important;
+}
+
+html.dark .cda-pill-abertas {
+  background-color: rgba(245, 158, 11, 0.16) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+html.dark .cda-pill-abertas span {
+  color: #fcd34d !important;
+}
+
+html.dark .cda-pill-triagem,
+html.dark .cda-pill-emcurso {
+  background-color: rgba(244, 63, 94, 0.16) !important;
+  border-color: rgba(244, 63, 94, 0.4) !important;
+}
+html.dark .cda-pill-triagem span,
+html.dark .cda-pill-emcurso span {
+  color: #fda4af !important;
+}
+
+html.dark .cda-pill-votos {
+  background-color: rgba(20, 184, 166, 0.16) !important;
+  border-color: rgba(20, 184, 166, 0.4) !important;
+}
+html.dark .cda-pill-votos span {
+  color: #5eead4 !important;
+}
+
+html.dark .cda-indicador-btn-oco {
+  background-color: rgba(245, 158, 11, 0.2) !important;
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  color: #fde68a !important;
+}
+html.dark .cda-indicador-btn-oco:hover {
+  background-color: rgba(245, 158, 11, 0.35) !important;
+  color: #ffffff !important;
+}
+
 /* ==========================================================================
    2026-09-12 (T55) — Correio: botões de acção em ícone (Abrir · Eliminar ·
    Restaurar) da tabela de correspondência — variante escura harmonizada

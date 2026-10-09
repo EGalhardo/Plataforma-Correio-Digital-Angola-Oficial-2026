@@ -1058,22 +1058,22 @@ export function GovDashboard({
               {/* 4 Cartões Principais de Volume Global */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
                 {/* 1. Ocorrências Territoriais */}
-                <div className={`rounded-2xl p-5 border transition-all text-left flex flex-col justify-between ${
+                <div className={`cda-indicador-card rounded-2xl p-5 border transition-all text-left flex flex-col justify-between ${
                   indicadoresTab === 'ocorrencias' || indicadoresTab === 'todos'
-                    ? 'bg-gradient-to-br from-amber-50/50 via-white to-amber-50/20 dark:from-amber-950/30 dark:via-slate-900 dark:to-amber-950/10 border-amber-200/80 dark:border-amber-700/60 shadow-xs ring-1 ring-amber-300/40 dark:ring-amber-500/20'
-                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-60'
+                    ? 'cda-indicador-ativo-ocorrencias bg-amber-50/40 border-amber-300/80 shadow-xs ring-1 ring-amber-300/40'
+                    : 'bg-white border-slate-200 opacity-90 hover:opacity-100'
                 }`}>
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 dark:border-amber-500/30 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center justify-center shrink-0">
                         <MapPin size={20} className="stroke-[2.2]" />
                       </div>
-                      <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-amber-100/70 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                      <span className="cda-indicador-badge-territorial text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
                         Territorial
                       </span>
                     </div>
 
-                    <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    <div className="text-[11px] font-black text-slate-700 uppercase tracking-wider">
                       Ocorrências Territoriais
                     </div>
 
@@ -1081,43 +1081,43 @@ export function GovDashboard({
                       <AnimatedCounter
                         to={indicadores.ocorrencias.total}
                         duration={1800}
-                        className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white font-mono tracking-tight"
+                        className="text-2xl md:text-3xl font-black text-slate-900 font-mono tracking-tight"
                       />
-                      <span className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
                         registadas
                       </span>
                     </div>
 
                     {/* Breakdown pílulas */}
-                    <div className="grid grid-cols-3 gap-1.5 mt-3 pt-3 border-t border-amber-100/60 dark:border-amber-900/40 text-center">
-                      <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100/80 dark:border-emerald-800/60 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 uppercase block">Resolvidas</span>
-                        <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 font-mono">{indicadores.ocorrencias.resolvidas}</span>
+                    <div className="grid grid-cols-3 gap-1.5 mt-3 pt-3 border-t border-amber-200/60 text-center">
+                      <div className="cda-pill-resolvidas bg-emerald-50 border border-emerald-200 rounded-lg py-1.5 px-1">
+                        <span className="text-[8px] font-black text-emerald-700 uppercase block">Resolvidas</span>
+                        <span className="text-xs font-black text-emerald-900 font-mono">{indicadores.ocorrencias.resolvidas}</span>
                       </div>
-                      <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-100/80 dark:border-blue-800/60 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-blue-600 dark:text-blue-400 uppercase block">Em Análise</span>
-                        <span className="text-xs font-black text-blue-700 dark:text-blue-300 font-mono">{indicadores.ocorrencias.emAnalise}</span>
+                      <div className="cda-pill-analise bg-blue-50 border border-blue-200 rounded-lg py-1.5 px-1">
+                        <span className="text-[8px] font-black text-blue-700 uppercase block">Em Análise</span>
+                        <span className="text-xs font-black text-blue-900 font-mono">{indicadores.ocorrencias.emAnalise}</span>
                       </div>
-                      <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-100/80 dark:border-amber-800/60 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-amber-600 dark:text-amber-400 uppercase block">Abertas</span>
-                        <span className="text-xs font-black text-amber-700 dark:text-amber-300 font-mono">{indicadores.ocorrencias.pendentes}</span>
+                      <div className="cda-pill-abertas bg-amber-50 border border-amber-200 rounded-lg py-1.5 px-1">
+                        <span className="text-[8px] font-black text-amber-700 uppercase block">Abertas</span>
+                        <span className="text-xs font-black text-amber-900 font-mono">{indicadores.ocorrencias.pendentes}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-amber-100/60 dark:border-amber-900/40 space-y-1.5">
+                  <div className="mt-4 pt-3 border-t border-amber-200/60 space-y-1.5">
                     <div className="flex items-center justify-between text-[10px] font-black uppercase">
-                      <span className="text-slate-500 dark:text-slate-400">Taxa de Resolução</span>
-                      <span className="text-amber-700 dark:text-amber-400 font-mono">{indicadores.ocorrencias.taxaResolucao}%</span>
+                      <span className="text-slate-600 font-bold">Taxa de Resolução</span>
+                      <span className="text-amber-700 font-mono font-black">{indicadores.ocorrencias.taxaResolucao}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-amber-100 dark:bg-amber-950/60 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                       <div className="h-full bg-amber-500 rounded-full" style={{ width: `${Math.min(100, Math.max(5, indicadores.ocorrencias.taxaResolucao))}%` }} />
                     </div>
                     {onNavigate && (
                       <button
                         type="button"
                         onClick={() => onNavigate('ocorrencias')}
-                        className="w-full mt-2 text-[9px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 bg-amber-100/50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/50 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 transition-colors cursor-pointer border-0"
+                        className="cda-indicador-btn-oco w-full mt-2 text-[9px] font-black uppercase tracking-wider text-amber-900 hover:text-amber-950 bg-amber-100 hover:bg-amber-200 border border-amber-300 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 transition-colors cursor-pointer"
                       >
                         Aceder Módulo Ocorrências <ArrowUpRight size={11} />
                       </button>
@@ -1126,22 +1126,22 @@ export function GovDashboard({
                 </div>
 
                 {/* 2. Denúncias & Integridade Pública */}
-                <div className={`rounded-2xl p-5 border transition-all text-left flex flex-col justify-between ${
+                <div className={`cda-indicador-card rounded-2xl p-5 border transition-all text-left flex flex-col justify-between ${
                   indicadoresTab === 'denuncias' || indicadoresTab === 'todos'
-                    ? 'bg-gradient-to-br from-rose-50/50 via-white to-rose-50/20 dark:from-rose-950/30 dark:via-slate-900 dark:to-rose-950/10 border-rose-200/80 dark:border-rose-700/60 shadow-xs ring-1 ring-rose-300/40 dark:ring-rose-500/20'
-                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-60'
+                    ? 'cda-indicador-ativo-denuncias bg-rose-50/40 border-rose-300/80 shadow-xs ring-1 ring-rose-300/40'
+                    : 'bg-white border-slate-200 opacity-90 hover:opacity-100'
                 }`}>
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 dark:border-rose-500/30 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20 flex items-center justify-center shrink-0">
                         <ShieldAlert size={20} className="stroke-[2.2]" />
                       </div>
-                      <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-rose-100/70 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                      <span className="cda-indicador-badge-integridade text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-rose-100 text-rose-900 border border-rose-300">
                         Integridade
                       </span>
                     </div>
 
-                    <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    <div className="text-[11px] font-black text-slate-700 uppercase tracking-wider">
                       Denúncias & Reclamações
                     </div>
 
@@ -1149,57 +1149,57 @@ export function GovDashboard({
                       <AnimatedCounter
                         to={indicadores.denuncias.total}
                         duration={1800}
-                        className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white font-mono tracking-tight"
+                        className="text-2xl md:text-3xl font-black text-slate-900 font-mono tracking-tight"
                       />
-                      <span className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
                         processos
                       </span>
                     </div>
 
                     {/* Breakdown pílulas */}
-                    <div className="grid grid-cols-2 gap-1.5 mt-3 pt-3 border-t border-rose-100/60 dark:border-rose-900/40 text-center">
-                      <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100/80 dark:border-emerald-800/60 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 uppercase block">Tratadas/Concluídas</span>
-                        <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 font-mono">{indicadores.denuncias.resolvidas}</span>
+                    <div className="grid grid-cols-2 gap-1.5 mt-3 pt-3 border-t border-rose-200/60 text-center">
+                      <div className="cda-pill-concluidas bg-emerald-50 border border-emerald-200 rounded-lg py-1.5 px-1">
+                        <span className="text-[8px] font-black text-emerald-700 uppercase block">Tratadas/Concluídas</span>
+                        <span className="text-xs font-black text-emerald-900 font-mono">{indicadores.denuncias.resolvidas}</span>
                       </div>
-                      <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-100/80 dark:border-rose-800/60 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-rose-600 dark:text-rose-400 uppercase block">Em Triagem</span>
-                        <span className="text-xs font-black text-rose-700 dark:text-rose-300 font-mono">{indicadores.denuncias.emTriagem}</span>
+                      <div className="cda-pill-triagem bg-rose-50 border border-rose-200 rounded-lg py-1.5 px-1">
+                        <span className="text-[8px] font-black text-rose-700 uppercase block">Em Triagem</span>
+                        <span className="text-xs font-black text-rose-900 font-mono">{indicadores.denuncias.emTriagem}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-rose-100/60 dark:border-rose-900/40 space-y-1.5">
+                  <div className="mt-4 pt-3 border-t border-rose-200/60 space-y-1.5">
                     <div className="flex items-center justify-between text-[10px] font-black uppercase">
-                      <span className="text-slate-500 dark:text-slate-400">Conformidade Legal (IGAE)</span>
-                      <span className="text-rose-700 dark:text-rose-400 font-mono">{indicadores.denuncias.taxaConformidade}%</span>
+                      <span className="text-slate-600 font-bold">Conformidade Legal (IGAE)</span>
+                      <span className="text-rose-700 font-mono font-black">{indicadores.denuncias.taxaConformidade}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-rose-100 dark:bg-rose-950/60 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                       <div className="h-full bg-rose-500 rounded-full" style={{ width: `${Math.min(100, Math.max(5, indicadores.denuncias.taxaConformidade))}%` }} />
                     </div>
-                    <div className="text-[9px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider pt-1 flex items-center gap-1 justify-center">
+                    <div className="text-[9px] font-bold text-rose-700 uppercase tracking-wider pt-1 flex items-center gap-1 justify-center">
                       <ShieldCheck size={11} /> Canal Anónimo Criptografado
                     </div>
                   </div>
                 </div>
 
                 {/* 3. Inquéritos & Sondagens Cívicas */}
-                <div className={`rounded-2xl p-5 border transition-all text-left flex flex-col justify-between ${
+                <div className={`cda-indicador-card rounded-2xl p-5 border transition-all text-left flex flex-col justify-between ${
                   indicadoresTab === 'inqueritos' || indicadoresTab === 'todos'
-                    ? 'bg-gradient-to-br from-emerald-50/50 via-white to-emerald-50/20 dark:from-emerald-950/30 dark:via-slate-900 dark:to-emerald-950/10 border-emerald-200/80 dark:border-emerald-700/60 shadow-xs ring-1 ring-emerald-300/40 dark:ring-emerald-500/20'
-                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-60'
+                    ? 'cda-indicador-ativo-inqueritos bg-emerald-50/40 border-emerald-300/80 shadow-xs ring-1 ring-emerald-300/40'
+                    : 'bg-white border-slate-200 opacity-90 hover:opacity-100'
                 }`}>
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 dark:border-emerald-500/30 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center justify-center shrink-0">
                         <Vote size={20} className="stroke-[2.2]" />
                       </div>
-                      <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-emerald-100/70 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                      <span className="cda-indicador-badge-participacao text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300">
                         Participação
                       </span>
                     </div>
 
-                    <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    <div className="text-[11px] font-black text-slate-700 uppercase tracking-wider">
                       Inquéritos & Sondagens
                     </div>
 
@@ -1207,57 +1207,57 @@ export function GovDashboard({
                       <AnimatedCounter
                         to={indicadores.inqueritos.total}
                         duration={1800}
-                        className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white font-mono tracking-tight"
+                        className="text-2xl md:text-3xl font-black text-slate-900 font-mono tracking-tight"
                       />
-                      <span className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
                         consultas
                       </span>
                     </div>
 
                     {/* Breakdown pílulas */}
-                    <div className="grid grid-cols-2 gap-1.5 mt-3 pt-3 border-t border-emerald-100/60 dark:border-emerald-900/40 text-center">
-                      <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100/80 dark:border-emerald-800/60 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 uppercase block">Ativos / Em Curso</span>
-                        <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 font-mono">{indicadores.inqueritos.ativos}</span>
+                    <div className="grid grid-cols-2 gap-1.5 mt-3 pt-3 border-t border-emerald-200/60 text-center">
+                      <div className="cda-pill-resolvidas bg-emerald-50 border border-emerald-200 rounded-lg py-1.5 px-1">
+                        <span className="text-[8px] font-black text-emerald-700 uppercase block">Ativos / Em Curso</span>
+                        <span className="text-xs font-black text-emerald-900 font-mono">{indicadores.inqueritos.ativos}</span>
                       </div>
-                      <div className="bg-teal-50 dark:bg-teal-950/40 border border-teal-100/80 dark:border-teal-800/60 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-teal-600 dark:text-teal-400 uppercase block">Votos Recolhidos</span>
-                        <span className="text-xs font-black text-teal-700 dark:text-teal-300 font-mono">{indicadores.inqueritos.totalVotos}</span>
+                      <div className="cda-pill-votos bg-teal-50 border border-teal-200 rounded-lg py-1.5 px-1">
+                        <span className="text-[8px] font-black text-teal-700 uppercase block">Votos Recolhidos</span>
+                        <span className="text-xs font-black text-teal-900 font-mono">{indicadores.inqueritos.totalVotos}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-emerald-100/60 dark:border-emerald-900/40 space-y-1.5">
+                  <div className="mt-4 pt-3 border-t border-emerald-200/60 space-y-1.5">
                     <div className="flex items-center justify-between text-[10px] font-black uppercase">
-                      <span className="text-slate-500 dark:text-slate-400">Índice de Adesão Cívica</span>
-                      <span className="text-emerald-700 dark:text-emerald-400 font-mono">{indicadores.inqueritos.taxaAdesao}%</span>
+                      <span className="text-slate-600 font-bold">Índice de Adesão Cívica</span>
+                      <span className="text-emerald-700 font-mono font-black">{indicadores.inqueritos.taxaAdesao}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-emerald-100 dark:bg-emerald-950/60 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                       <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, Math.max(5, indicadores.inqueritos.taxaAdesao))}%` }} />
                     </div>
-                    <div className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider pt-1 flex items-center gap-1 justify-center">
+                    <div className="text-[9px] font-bold text-emerald-700 uppercase tracking-wider pt-1 flex items-center gap-1 justify-center">
                       <Sparkles size={11} /> IA Cívica & Análise Preditiva
                     </div>
                   </div>
                 </div>
 
                 {/* 4. Vídeo-Atendimentos Governamentais */}
-                <div className={`rounded-2xl p-5 border transition-all text-left flex flex-col justify-between ${
+                <div className={`cda-indicador-card rounded-2xl p-5 border transition-all text-left flex flex-col justify-between ${
                   indicadoresTab === 'video' || indicadoresTab === 'todos'
-                    ? 'bg-gradient-to-br from-indigo-50/50 via-white to-indigo-50/20 dark:from-indigo-950/30 dark:via-slate-900 dark:to-indigo-950/10 border-indigo-200/80 dark:border-indigo-700/60 shadow-xs ring-1 ring-indigo-300/40 dark:ring-indigo-500/20'
-                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-60'
+                    ? 'cda-indicador-ativo-video bg-indigo-50/40 border-indigo-300/80 shadow-xs ring-1 ring-indigo-300/40'
+                    : 'bg-white border-slate-200 opacity-90 hover:opacity-100'
                 }`}>
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 dark:border-indigo-500/30 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 flex items-center justify-center shrink-0">
                         <Video size={20} className="stroke-[2.2]" />
                       </div>
-                      <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-indigo-100/70 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                      <span className="cda-indicador-badge-telepresenca text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-indigo-100 text-indigo-900 border border-indigo-300">
                         Telepresença
                       </span>
                     </div>
 
-                    <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    <div className="text-[11px] font-black text-slate-700 uppercase tracking-wider">
                       Vídeo-Atendimentos
                     </div>
 
@@ -1265,42 +1265,42 @@ export function GovDashboard({
                       <AnimatedCounter
                         to={indicadores.video.total}
                         duration={1800}
-                        className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white font-mono tracking-tight"
+                        className="text-2xl md:text-3xl font-black text-slate-900 font-mono tracking-tight"
                       />
-                      <span className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
                         sessões
                       </span>
                     </div>
 
                     {/* Breakdown pílulas */}
-                    <div className="grid grid-cols-3 gap-1.5 mt-3 pt-3 border-t border-indigo-100/60 dark:border-indigo-900/40 text-center">
-                      <div className="bg-purple-50 dark:bg-purple-950/40 border border-purple-100/80 dark:border-purple-800/60 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-purple-600 dark:text-purple-400 uppercase block">Concluídas</span>
-                        <span className="text-xs font-black text-purple-700 dark:text-purple-300 font-mono">{indicadores.video.concluidas}</span>
+                    <div className="grid grid-cols-3 gap-1.5 mt-3 pt-3 border-t border-indigo-200/60 text-center">
+                      <div className="cda-pill-analise bg-purple-50 border border-purple-200 rounded-lg py-1.5 px-1">
+                        <span className="text-[8px] font-black text-purple-700 uppercase block">Concluídas</span>
+                        <span className="text-xs font-black text-purple-900 font-mono">{indicadores.video.concluidas}</span>
                       </div>
-                      <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-100/80 dark:border-rose-800/60 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-rose-600 dark:text-rose-400 uppercase block">Em Curso</span>
-                        <span className="text-xs font-black text-rose-700 dark:text-rose-300 font-mono flex items-center justify-center gap-1">
+                      <div className="cda-pill-emcurso bg-rose-50 border border-rose-200 rounded-lg py-1.5 px-1">
+                        <span className="text-[8px] font-black text-rose-700 uppercase block">Em Curso</span>
+                        <span className="text-xs font-black text-rose-900 font-mono flex items-center justify-center gap-1">
                           {indicadores.video.emCurso > 0 && <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" />}
                           {indicadores.video.emCurso}
                         </span>
                       </div>
-                      <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-100/80 dark:border-blue-800/60 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-blue-600 dark:text-blue-400 uppercase block">Agendadas</span>
-                        <span className="text-xs font-black text-blue-700 dark:text-blue-300 font-mono">{indicadores.video.agendadas}</span>
+                      <div className="cda-pill-agendadas bg-blue-50 border border-blue-200 rounded-lg py-1.5 px-1">
+                        <span className="text-[8px] font-black text-blue-700 uppercase block">Agendadas</span>
+                        <span className="text-xs font-black text-blue-900 font-mono">{indicadores.video.agendadas}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-indigo-100/60 dark:border-indigo-900/40 space-y-1.5">
+                  <div className="mt-4 pt-3 border-t border-indigo-200/60 space-y-1.5">
                     <div className="flex items-center justify-between text-[10px] font-black uppercase">
-                      <span className="text-slate-500 dark:text-slate-400">Taxa de Pontualidade</span>
-                      <span className="text-indigo-700 dark:text-indigo-400 font-mono">{indicadores.video.taxaPontualidade}%</span>
+                      <span className="text-slate-600 font-bold">Taxa de Pontualidade</span>
+                      <span className="text-indigo-700 font-mono font-black">{indicadores.video.taxaPontualidade}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-indigo-100 dark:bg-indigo-950/60 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                       <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(100, Math.max(5, indicadores.video.taxaPontualidade))}%` }} />
                     </div>
-                    <div className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider pt-1 flex items-center gap-1 justify-center">
+                    <div className="text-[9px] font-bold text-indigo-700 uppercase tracking-wider pt-1 flex items-center gap-1 justify-center">
                       <Radio size={11} /> Barramento WebRTC Governamental
                     </div>
                   </div>
