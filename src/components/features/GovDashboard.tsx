@@ -627,19 +627,19 @@ export function GovDashboard({
   return (
     <div
       id="gov-dashboard-wrapper"
-      className="bg-white text-slate-600 font-sans"
+      className="bg-transparent text-slate-600 dark:text-slate-300 font-sans"
     >
       <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-8">
         {/* Top Header Section */}
         <header
           id="gov-header"
-          className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 md:gap-4 mb-4 md:mb-8 pb-3 md:pb-4 border-b border-slate-100"
+          className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 md:gap-4 mb-4 md:mb-8 pb-3 md:pb-4 border-b border-slate-100 dark:border-slate-800"
         >
           <div>
-            <h1 className="text-xl md:text-3xl font-black italic tracking-tighter text-slate-950 uppercase leading-none">
+            <h1 className="text-xl md:text-3xl font-black italic tracking-tighter text-slate-950 dark:text-white uppercase leading-none">
               Painel Nacional de Correspondência
             </h1>
-            <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mt-2 flex items-center gap-2">
+            <p className="text-[10px] md:text-xs font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest mt-2 flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               Correio Digital Angola &bull; Administração Central
             </p>
@@ -648,19 +648,19 @@ export function GovDashboard({
           {/* Symmetrical central monitoring badge — 2026-08-22: bolinha VERDE
               (estado ativo/operacional); antes estava vermelha, a sugerir
               alarme num painel saudável. */}
-          <div className="flex items-center gap-2 bg-slate-100/50 border border-slate-200/50 px-3.5 py-1.5 rounded-full shrink-0">
+          <div className="flex items-center gap-2 bg-slate-100/50 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/60 px-3.5 py-1.5 rounded-full shrink-0">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
             </span>
-            <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 font-mono">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-300 font-mono">
               Monitoramento Ativo
             </span>
           </div>
         </header>
 
         {/* Imagens Publicitárias / Destaques do Governo */}
-        <section className="relative h-[280px] md:h-[385px] rounded-[20px] md:rounded-[24px] overflow-hidden shadow-sm border border-slate-200 bg-gradient-to-br from-[#0E2B64] via-[#14306b] to-[#1e3a8a]">
+        <section className="relative h-[280px] md:h-[385px] rounded-[20px] md:rounded-[24px] overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800 bg-gradient-to-br from-[#0E2B64] via-[#14306b] to-[#1e3a8a]">
           <AnimatePresence mode="wait">
             <motion.div
               key={`gov-destaque-${activeSlide}`}
@@ -701,7 +701,7 @@ export function GovDashboard({
 
         {/* ID Digital & Novas Mensagens Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="bg-white border border-slate-200 rounded-[28px] md:rounded-[32px] p-5 md:p-6 flex items-center gap-4 md:gap-6 relative overflow-hidden text-left font-sans">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[28px] md:rounded-[32px] p-5 md:p-6 flex items-center gap-4 md:gap-6 relative overflow-hidden text-left font-sans">
             {/* v37.49 — novo logotipo oficial do Correio Angola (substitui o
                 escudo verde). Mesmas dimensões/raio para manter o alinhamento;
                 object-cover e cantos redondados => harmonioso em claro e escuro. */}
@@ -709,7 +709,7 @@ export function GovDashboard({
                 escudo verde). v37.77 — object-CONTAIN com respiro interno: o
                 object-cover anterior CORTAVA a logomarca (modo escuro incluído);
                 agora o ícone inteiro fica visível em qualquer fundo. */}
-            <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white border border-slate-200/60 flex items-center justify-center shrink-0 overflow-hidden">
+            <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden">
               <img
                 src="https://i.postimg.cc/zGkDmXSG/Icone-Correio-Angola.jpg"
                 alt="Ícone Correio Angola"
@@ -718,12 +718,12 @@ export function GovDashboard({
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">ID Digital do Admin</div>
-              <div className="text-base md:text-xl font-black text-slate-900 leading-tight italic tracking-tighter">
+              <div className="text-base md:text-xl font-black text-slate-900 dark:text-white leading-tight italic tracking-tighter">
                 Gestor Operativo Verificado
               </div>
               <div className="flex items-center gap-1.5 mt-1">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[9px] md:text-xs font-bold text-slate-700">Acesso Governamental Ativo (100%)</span>
+                <span className="text-[9px] md:text-xs font-bold text-slate-700 dark:text-slate-300">Acesso Governamental Ativo (100%)</span>
               </div>
             </div>
           </div>
@@ -731,32 +731,32 @@ export function GovDashboard({
           <div 
             role="button"
             onClick={() => onNavigate?.('gov-correspondencias')}
-            className="bg-white border border-slate-200 rounded-[28px] md:rounded-[32px] p-5 md:p-6 flex items-center gap-4 md:gap-6 hover:border-red-600/20 transition-all cursor-pointer group relative overflow-hidden text-left font-sans"
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[28px] md:rounded-[32px] p-5 md:p-6 flex items-center gap-4 md:gap-6 hover:border-red-600/30 dark:hover:border-red-500/40 transition-all cursor-pointer group relative overflow-hidden text-left font-sans"
           >
-            <div className="w-12 h-12 md:w-16 md:h-16 bg-red-500/5 text-red-600 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform border border-red-500/10">
+            <div className="w-12 h-12 md:w-16 md:h-16 bg-red-500/5 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform border border-red-500/10 dark:border-red-500/20">
               <Mail size={24} className="md:w-8 md:h-8" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 truncate">Central de Comunicações</div>
-              <div className="text-base md:text-xl font-black text-slate-900 leading-tight italic tracking-tighter">Novas Correspondências</div>
-              <div className="text-[9px] md:text-xs text-red-650 font-black mt-1">Iniciar Novo Expediente &rarr;</div>
+              <div className="text-base md:text-xl font-black text-slate-900 dark:text-white leading-tight italic tracking-tighter">Novas Correspondências</div>
+              <div className="text-[9px] md:text-xs text-red-650 dark:text-red-400 font-black mt-1">Iniciar Novo Expediente &rarr;</div>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar mb-2">
-          <button onClick={() => onNavigate?.('historico')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">Ver Histórico</button>
-          <button onClick={() => onNavigate?.('notificacoes')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">Notificações</button>
-          <button onClick={() => onNavigate?.('gov-docs')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">Emissão Documental</button>
+          <button onClick={() => onNavigate?.('historico')} className="px-3.5 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer">Ver Histórico</button>
+          <button onClick={() => onNavigate?.('notificacoes')} className="px-3.5 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer">Notificações</button>
+          <button onClick={() => onNavigate?.('gov-docs')} className="px-3.5 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer">Emissão Documental</button>
         </div>
 
         {/* Instituições Conectadas Horizontal Panel */}
-        <section className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-5 overflow-hidden relative text-left shadow-xs">
-          <div className="flex flex-col md:flex-row md:items-center justify-between md:relative gap-2 mb-3 pb-2 border-b border-slate-100">
+        <section className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl md:rounded-[28px] p-4 md:p-5 overflow-hidden relative text-left shadow-xs">
+          <div className="flex flex-col md:flex-row md:items-center justify-between md:relative gap-2 mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-2">
                <div className="w-1.5 h-4 md:h-5 bg-red-650 rounded-full" />
                <div className="min-w-0">
-                  <h3 className="text-slate-900 font-bold text-xs md:text-sm leading-none">Instituições Conectadas</h3>
+                  <h3 className="text-slate-900 dark:text-white font-bold text-xs md:text-sm leading-none">Instituições Conectadas</h3>
                </div>
             </div>
             <div className="md:absolute md:left-1/2 md:-translate-x-1/2 text-[10px] font-semibold text-slate-400 text-center mt-1 md:mt-0">
@@ -792,26 +792,26 @@ export function GovDashboard({
         <section className="space-y-6">
           <div className="flex items-center gap-3">
             <div className="w-1.5 h-6 bg-red-650 rounded-full" />
-            <h2 className="text-base md:text-lg font-black italic tracking-tighter text-slate-900 uppercase">
+            <h2 className="text-base md:text-lg font-black italic tracking-tighter text-slate-900 dark:text-white uppercase">
               Resumo Geral
             </h2>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
             {/* Cartão 1 */}
-            <div className="bg-white border border-[#0c2340]/12 rounded-[20px] p-6 flex flex-col justify-between min-h-[145px] text-left hover:border-[#0c2340]/25 transition-all">
+            <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/12 dark:border-slate-800 rounded-[20px] p-6 flex flex-col justify-between min-h-[145px] text-left hover:border-[#0c2340]/25 dark:hover:border-slate-700 transition-all">
               <div className="space-y-1">
                 <AnimatedCounter
                   to={reais ? reais.total : 1248752}
                   duration={2000}
                   suffix=""
-                  className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none font-mono"
+                  className="text-3xl font-black text-slate-955 dark:text-white italic tracking-tighter leading-none font-mono"
                 />
-                <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mt-1">
+                <div className="text-[11px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-none mt-1">
                    Correspondências Enviadas
                 </div>
               </div>
-              <div className={`mt-2 text-[11px] font-bold uppercase tracking-wider ${reais && reais.variacao !== null && reais.variacao < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+              <div className={`mt-2 text-[11px] font-bold uppercase tracking-wider ${reais && reais.variacao !== null && reais.variacao < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                 {reais
                   ? (reais.variacao !== null
                       ? `${reais.variacao >= 0 ? '↑' : '↓'} ${String(Math.abs(reais.variacao)).replace('.', ',')}% vs mês anterior`
@@ -821,60 +821,60 @@ export function GovDashboard({
             </div>
 
             {/* Cartão 2 */}
-            <div className="bg-white border border-[#0c2340]/12 rounded-[20px] p-6 flex flex-col justify-between min-h-[145px] text-left hover:border-[#0c2340]/25 transition-all">
+            <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/12 dark:border-slate-800 rounded-[20px] p-6 flex flex-col justify-between min-h-[145px] text-left hover:border-[#0c2340]/25 dark:hover:border-slate-700 transition-all">
               <div className="space-y-1">
                 <AnimatedCounter
                   to={reais ? reais.lidas : 1000000}
                   duration={2200}
                   suffix=""
-                  className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none font-mono"
+                  className="text-3xl font-black text-slate-955 dark:text-white italic tracking-tighter leading-none font-mono"
                 />
-                <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mt-1">
+                <div className="text-[11px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-none mt-1">
                    Correspondências Entregues{reais ? ' / Lidas' : ''}
                 </div>
               </div>
-              <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-emerald-600">
+              <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                 {reais ? 'lidas pelos destinatários na base central' : '↑ 9,8% vs mês anterior'}
               </div>
             </div>
 
             {/* Cartão 3 */}
-            <div className="bg-white border border-[#0c2340]/12 rounded-[20px] p-6 flex flex-col justify-between min-h-[145px] text-left hover:border-[#0c2340]/25 transition-all">
+            <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/12 dark:border-slate-800 rounded-[20px] p-6 flex flex-col justify-between min-h-[145px] text-left hover:border-[#0c2340]/25 dark:hover:border-slate-700 transition-all">
               <div className="space-y-1">
                 <AnimatedCounter
                   to={reais ? reais.pend : 100}
                   duration={1800}
                   suffix=""
-                  className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none font-mono"
+                  className="text-3xl font-black text-slate-955 dark:text-white italic tracking-tighter leading-none font-mono"
                 />
-                <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mt-1">
+                <div className="text-[11px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-none mt-1">
                    Pendentes
                 </div>
               </div>
-              <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-rose-600">
+              <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
                 {reais ? 'pedidos de serviço em curso na base central' : '↓ 5,3% vs mês anterior'}
               </div>
             </div>
 
             {/* Cartão 4 */}
-            <div className="bg-white border border-[#0c2340]/12 rounded-[20px] p-6 flex flex-col justify-between min-h-[145px] text-left hover:border-[#0c2340]/25 transition-all">
+            <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/12 dark:border-slate-800 rounded-[20px] p-6 flex flex-col justify-between min-h-[145px] text-left hover:border-[#0c2340]/25 dark:hover:border-slate-700 transition-all">
               <div className="space-y-1">
                 {reais && reais.sucesso === null ? (
-                  <span className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none font-mono">—</span>
+                  <span className="text-3xl font-black text-slate-955 dark:text-white italic tracking-tighter leading-none font-mono">—</span>
                 ) : (
                   <AnimatedCounter
                     to={reais ? reais.sucesso ?? 0 : 100}
                     duration={2000}
                     decimals={reais ? 1 : 0}
                     suffix="%"
-                    className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none font-mono"
+                    className="text-3xl font-black text-slate-955 dark:text-white italic tracking-tighter leading-none font-mono"
                   />
                 )}
-                <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mt-1">
+                <div className="text-[11px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-none mt-1">
                    Taxa de Sucesso{reais ? ' (leitura)' : ''}
                 </div>
               </div>
-              <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-emerald-600">
+              <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                 {reais ? 'mensagens lidas / total enviado' : '↑ 7,6% vs mês anterior'}
               </div>
             </div>
@@ -883,12 +883,12 @@ export function GovDashboard({
           {/* NOVOS CONTAINERS DE RESUMO GERAL ADICIONAIS - IGUAL À IMAGEM ANEXADA */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
             {/* Instituições Ativadas */}
-            <div className="bg-white border border-[#0c2340]/12 rounded-[20px] p-6 hover:border-[#0c2340]/25 transition-all flex items-start gap-4">
-              <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0 border border-indigo-100/40 shadow-xs">
+            <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/12 dark:border-slate-800 rounded-[20px] p-6 hover:border-[#0c2340]/25 dark:hover:border-slate-700 transition-all flex items-start gap-4">
+              <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center shrink-0 border border-indigo-100/40 dark:border-indigo-800/60 shadow-xs">
                 <Building2 size={22} className="stroke-[2.2]" />
               </div>
               <div className="flex-1 min-w-0 text-left space-y-1">
-                <div className="text-[11px] md:text-xs font-bold text-slate-500 uppercase tracking-wider truncate">
+                <div className="text-[11px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
                   Instituições Ativadas
                 </div>
                 <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 leading-none mt-1 min-w-0">
@@ -896,25 +896,25 @@ export function GovDashboard({
                     to={reais ? reais.instituicoes : masterInstitutions.filter(i => i.status === 'Ativa').length}
                     duration={1500}
                     suffix=""
-                    className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight italic shrink-0 font-mono"
+                    className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight italic shrink-0 font-mono"
                   />
-                  <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-wider truncate max-w-full">
+                  <span className="text-[9px] md:text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider truncate max-w-full">
                     {reais ? 'contas institucionais reais' : `de ${masterInstitutions.length} integradas`}
                   </span>
                 </div>
-                <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-emerald-600 pt-1">
+                <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 pt-1">
                   {reais ? 'na base central · nuvem' : '↑ 100% operacional'}
                 </div>
               </div>
             </div>
 
             {/* Cidadãos Registados */}
-            <div className="bg-white border border-[#0c2340]/12 rounded-[20px] p-6 hover:border-[#0c2340]/25 transition-all flex items-start gap-4">
-              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0 border border-blue-100/40 shadow-xs">
+            <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/12 dark:border-slate-800 rounded-[20px] p-6 hover:border-[#0c2340]/25 dark:hover:border-slate-700 transition-all flex items-start gap-4">
+              <div className="w-12 h-12 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center shrink-0 border border-blue-100/40 dark:border-blue-800/60 shadow-xs">
                 <Users size={22} className="stroke-[2.2]" />
               </div>
               <div className="flex-1 min-w-0 text-left space-y-1">
-                <div className="text-[11px] md:text-xs font-bold text-slate-500 uppercase tracking-wider truncate">
+                <div className="text-[11px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
                   Cidadãos Registados
                 </div>
                 <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 leading-none mt-1 min-w-0">
@@ -922,50 +922,50 @@ export function GovDashboard({
                     to={reais ? reais.cidadaos : 2300000}
                     duration={2000}
                     suffix=""
-                    className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight italic shrink-0 font-mono"
+                    className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight italic shrink-0 font-mono"
                   />
-                  <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-wider truncate max-w-full">cidadãos</span>
+                  <span className="text-[9px] md:text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider truncate max-w-full">cidadãos</span>
                 </div>
-                <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-emerald-600 pt-1">
+                <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 pt-1">
                   {reais ? 'registados na base central' : '↑ 85.230 este mês'}
                 </div>
               </div>
             </div>
 
             {/* Tempo Médio de Resposta */}
-            <div className="bg-white border border-[#0c2340]/12 rounded-[20px] p-6 hover:border-[#0c2340]/25 transition-all flex items-start gap-4">
-              <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center shrink-0 border border-amber-100/40 shadow-xs">
+            <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/12 dark:border-slate-800 rounded-[20px] p-6 hover:border-[#0c2340]/25 dark:hover:border-slate-700 transition-all flex items-start gap-4">
+              <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center shrink-0 border border-amber-100/40 dark:border-amber-800/60 shadow-xs">
                 <Clock size={22} className="stroke-[2.2]" />
               </div>
               <div className="flex-1 min-w-0 text-left space-y-1">
-                <div className="text-[11px] md:text-xs font-bold text-slate-500 uppercase tracking-wider truncate">
+                <div className="text-[11px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
                   Tempo Médio de Resposta
                 </div>
                 <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 leading-none mt-1">
                   {reais ? (
-                    <span className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight italic shrink-0 font-mono">—</span>
+                    <span className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight italic shrink-0 font-mono">—</span>
                   ) : (
                     <AnimatedCounter
                       to={155}
                       duration={1800}
                       suffix=" min"
-                      className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight italic shrink-0 font-mono"
+                      className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight italic shrink-0 font-mono"
                     />
                   )}
                 </div>
-                <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-[#10b981] pt-1">
+                <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-[#10b981] dark:text-emerald-400 pt-1">
                   {reais ? 'sem medição na base central' : '↓ -18% vs mês anterior'}
                 </div>
               </div>
             </div>
 
             {/* Pendentes */}
-            <div className="bg-white border border-[#0c2340]/12 rounded-[20px] p-6 hover:border-[#0c2340]/25 transition-all flex items-start gap-4 min-w-0">
-              <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center shrink-0 border border-rose-100/40 shadow-xs">
+            <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/12 dark:border-slate-800 rounded-[20px] p-6 hover:border-[#0c2340]/25 dark:hover:border-slate-700 transition-all flex items-start gap-4 min-w-0">
+              <div className="w-12 h-12 bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center shrink-0 border border-rose-100/40 dark:border-rose-800/60 shadow-xs">
                 <Mail size={22} className="stroke-[2.2]" />
               </div>
               <div className="flex-1 min-w-0 text-left space-y-1 min-w-0">
-                <div className="text-[11px] md:text-xs font-bold text-slate-500 uppercase tracking-wider truncate">
+                <div className="text-[11px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
                   Pendentes
                 </div>
                 <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 leading-none mt-1 min-w-0">
@@ -973,11 +973,11 @@ export function GovDashboard({
                     to={reais ? reais.pend : 12540}
                     duration={1600}
                     suffix=""
-                    className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight italic shrink-0 font-mono"
+                    className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight italic shrink-0 font-mono"
                   />
-                  <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-wider truncate max-w-full block">{reais ? 'pedidos de serviço' : 'correspondências'}</span>
+                  <span className="text-[9px] md:text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider truncate max-w-full block">{reais ? 'pedidos de serviço' : 'correspondências'}</span>
                 </div>
-                <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-rose-600 pt-1">
+                <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 pt-1">
                   {reais ? 'pedidos reais em aberto' : '↓ -6,7% vs mês anterior'}
                 </div>
               </div>
@@ -986,23 +986,23 @@ export function GovDashboard({
         </section>
 
         {/* SECÇÃO — PAINEL DE INDICADORES SETORIAIS (VOLUME GLOBAL DE OCORRÊNCIAS, DENÚNCIAS, INQUÉRITOS E VÍDEO-ATENDIMENTOS) */}
-        <section className="bg-white border border-[#0c2340]/15 rounded-[28px] p-6 md:p-8 shadow-xs space-y-6 text-left">
+        <section className="bg-white dark:bg-slate-900 border border-[#0c2340]/15 dark:border-slate-800 rounded-[28px] p-6 md:p-8 shadow-xs space-y-6 text-left">
           {/* Cabeçalho da Secção */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200/60 font-mono">
-                  <Activity size={11} className="text-indigo-600 animate-pulse" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 font-mono">
+                  <Activity size={11} className="text-indigo-600 dark:text-indigo-400 animate-pulse" />
                   Telemetria Setorial Unificada
                 </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">
                   <CheckCircle size={10} /> 4 Módulos Integrados
                 </span>
               </div>
-              <h2 className="text-lg md:text-2xl font-black italic tracking-tighter text-slate-950 uppercase leading-tight">
+              <h2 className="text-lg md:text-2xl font-black italic tracking-tighter text-slate-950 dark:text-white uppercase leading-tight">
                 Painel de Indicadores Nacionais
               </h2>
-              <p className="text-[11px] md:text-xs font-medium text-slate-500 max-w-2xl leading-relaxed">
+              <p className="text-[11px] md:text-xs font-medium text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
                 Volume global e métricas de desempenho consolidadas: Ocorrências Territoriais, Denúncias & Integridade Pública, Consultas & Inquéritos Cívicos, e Sessões de Vídeo-Atendimento Governamental.
               </p>
             </div>
@@ -1011,7 +1011,7 @@ export function GovDashboard({
               <button
                 type="button"
                 onClick={() => setShowIndicadoresPanel(prev => !prev)}
-                className="px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors border-0 cursor-pointer flex items-center gap-1.5"
+                className="px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors border-0 cursor-pointer flex items-center gap-1.5"
               >
                 <Layers size={13} />
                 {showIndicadoresPanel ? 'Recolher Painel' : 'Expandir Painel'}
@@ -1022,11 +1022,11 @@ export function GovDashboard({
           {/* Abas de Navegação / Filtros Setoriais */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
             {[
-              { id: 'todos', label: 'Todos os Indicadores', icon: Layers, count: indicadores.totalVolumeGlobal, color: 'text-slate-800' },
-              { id: 'ocorrencias', label: 'Ocorrências Territoriais', icon: MapPin, count: indicadores.ocorrencias.total, color: 'text-amber-600' },
-              { id: 'denuncias', label: 'Denúncias & Reclamações', icon: ShieldAlert, count: indicadores.denuncias.total, color: 'text-rose-600' },
-              { id: 'inqueritos', label: 'Inquéritos & Sondagens', icon: Vote, count: indicadores.inqueritos.total, color: 'text-emerald-600' },
-              { id: 'video', label: 'Vídeo-Atendimentos', icon: Video, count: indicadores.video.total, color: 'text-indigo-600' },
+              { id: 'todos', label: 'Todos os Indicadores', icon: Layers, count: indicadores.totalVolumeGlobal, color: 'text-slate-800 dark:text-slate-200' },
+              { id: 'ocorrencias', label: 'Ocorrências Territoriais', icon: MapPin, count: indicadores.ocorrencias.total, color: 'text-amber-600 dark:text-amber-400' },
+              { id: 'denuncias', label: 'Denúncias & Reclamações', icon: ShieldAlert, count: indicadores.denuncias.total, color: 'text-rose-600 dark:text-rose-400' },
+              { id: 'inqueritos', label: 'Inquéritos & Sondagens', icon: Vote, count: indicadores.inqueritos.total, color: 'text-emerald-600 dark:text-emerald-400' },
+              { id: 'video', label: 'Vídeo-Atendimentos', icon: Video, count: indicadores.video.total, color: 'text-indigo-600 dark:text-indigo-400' },
             ].map(tab => {
               const IconComp = tab.icon;
               const isSelected = indicadoresTab === tab.id;
@@ -1037,14 +1037,14 @@ export function GovDashboard({
                   onClick={() => setIndicadoresTab(tab.id as any)}
                   className={`px-3.5 py-2 rounded-xl text-[10px] md:text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer border ${
                     isSelected
-                      ? 'bg-[#0c2340] text-white border-[#0c2340] shadow-sm'
-                      : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/70'
+                      ? 'bg-[#0c2340] dark:bg-indigo-900 text-white border-[#0c2340] dark:border-indigo-700 shadow-sm'
+                      : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-300 border-slate-200/70 dark:border-slate-700'
                   }`}
                 >
                   <IconComp size={13} className={isSelected ? 'text-emerald-400' : tab.color} />
                   <span>{tab.label}</span>
                   <span className={`px-1.5 py-0.2 rounded-md text-[9px] font-mono font-bold ${
-                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-700'
+                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-200/80 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
                   }`}>
                     {tab.count}
                   </span>
@@ -1060,20 +1060,20 @@ export function GovDashboard({
                 {/* 1. Ocorrências Territoriais */}
                 <div className={`rounded-2xl p-5 border transition-all text-left flex flex-col justify-between ${
                   indicadoresTab === 'ocorrencias' || indicadoresTab === 'todos'
-                    ? 'bg-gradient-to-br from-amber-50/50 via-white to-amber-50/20 border-amber-200/80 shadow-xs ring-1 ring-amber-300/40'
-                    : 'bg-white border-slate-200 opacity-60'
+                    ? 'bg-gradient-to-br from-amber-50/50 via-white to-amber-50/20 dark:from-amber-950/30 dark:via-slate-900 dark:to-amber-950/10 border-amber-200/80 dark:border-amber-700/60 shadow-xs ring-1 ring-amber-300/40 dark:ring-amber-500/20'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-60'
                 }`}>
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 dark:border-amber-500/30 flex items-center justify-center shrink-0">
                         <MapPin size={20} className="stroke-[2.2]" />
                       </div>
-                      <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-amber-100/70 text-amber-800 border border-amber-200">
+                      <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-amber-100/70 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                         Territorial
                       </span>
                     </div>
 
-                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                       Ocorrências Territoriais
                     </div>
 
@@ -1081,43 +1081,43 @@ export function GovDashboard({
                       <AnimatedCounter
                         to={indicadores.ocorrencias.total}
                         duration={1800}
-                        className="text-2xl md:text-3xl font-black text-slate-900 font-mono tracking-tight"
+                        className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white font-mono tracking-tight"
                       />
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                      <span className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">
                         registadas
                       </span>
                     </div>
 
                     {/* Breakdown pílulas */}
-                    <div className="grid grid-cols-3 gap-1.5 mt-3 pt-3 border-t border-amber-100/60 text-center">
-                      <div className="bg-emerald-50 border border-emerald-100/80 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-emerald-600 uppercase block">Resolvidas</span>
-                        <span className="text-xs font-black text-emerald-700 font-mono">{indicadores.ocorrencias.resolvidas}</span>
+                    <div className="grid grid-cols-3 gap-1.5 mt-3 pt-3 border-t border-amber-100/60 dark:border-amber-900/40 text-center">
+                      <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100/80 dark:border-emerald-800/60 rounded-lg py-1 px-1">
+                        <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 uppercase block">Resolvidas</span>
+                        <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 font-mono">{indicadores.ocorrencias.resolvidas}</span>
                       </div>
-                      <div className="bg-blue-50 border border-blue-100/80 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-blue-600 uppercase block">Em Análise</span>
-                        <span className="text-xs font-black text-blue-700 font-mono">{indicadores.ocorrencias.emAnalise}</span>
+                      <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-100/80 dark:border-blue-800/60 rounded-lg py-1 px-1">
+                        <span className="text-[8px] font-bold text-blue-600 dark:text-blue-400 uppercase block">Em Análise</span>
+                        <span className="text-xs font-black text-blue-700 dark:text-blue-300 font-mono">{indicadores.ocorrencias.emAnalise}</span>
                       </div>
-                      <div className="bg-amber-50 border border-amber-100/80 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-amber-600 uppercase block">Abertas</span>
-                        <span className="text-xs font-black text-amber-700 font-mono">{indicadores.ocorrencias.pendentes}</span>
+                      <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-100/80 dark:border-amber-800/60 rounded-lg py-1 px-1">
+                        <span className="text-[8px] font-bold text-amber-600 dark:text-amber-400 uppercase block">Abertas</span>
+                        <span className="text-xs font-black text-amber-700 dark:text-amber-300 font-mono">{indicadores.ocorrencias.pendentes}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-amber-100/60 space-y-1.5">
+                  <div className="mt-4 pt-3 border-t border-amber-100/60 dark:border-amber-900/40 space-y-1.5">
                     <div className="flex items-center justify-between text-[10px] font-black uppercase">
-                      <span className="text-slate-500">Taxa de Resolução</span>
-                      <span className="text-amber-700 font-mono">{indicadores.ocorrencias.taxaResolucao}%</span>
+                      <span className="text-slate-500 dark:text-slate-400">Taxa de Resolução</span>
+                      <span className="text-amber-700 dark:text-amber-400 font-mono">{indicadores.ocorrencias.taxaResolucao}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-amber-100 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-amber-100 dark:bg-amber-950/60 rounded-full overflow-hidden">
                       <div className="h-full bg-amber-500 rounded-full" style={{ width: `${Math.min(100, Math.max(5, indicadores.ocorrencias.taxaResolucao))}%` }} />
                     </div>
                     {onNavigate && (
                       <button
                         type="button"
                         onClick={() => onNavigate('ocorrencias')}
-                        className="w-full mt-2 text-[9px] font-black uppercase tracking-wider text-amber-700 hover:text-amber-900 bg-amber-100/50 hover:bg-amber-100 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 transition-colors cursor-pointer border-0"
+                        className="w-full mt-2 text-[9px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 bg-amber-100/50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/50 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 transition-colors cursor-pointer border-0"
                       >
                         Aceder Módulo Ocorrências <ArrowUpRight size={11} />
                       </button>
@@ -1128,20 +1128,20 @@ export function GovDashboard({
                 {/* 2. Denúncias & Integridade Pública */}
                 <div className={`rounded-2xl p-5 border transition-all text-left flex flex-col justify-between ${
                   indicadoresTab === 'denuncias' || indicadoresTab === 'todos'
-                    ? 'bg-gradient-to-br from-rose-50/50 via-white to-rose-50/20 border-rose-200/80 shadow-xs ring-1 ring-rose-300/40'
-                    : 'bg-white border-slate-200 opacity-60'
+                    ? 'bg-gradient-to-br from-rose-50/50 via-white to-rose-50/20 dark:from-rose-950/30 dark:via-slate-900 dark:to-rose-950/10 border-rose-200/80 dark:border-rose-700/60 shadow-xs ring-1 ring-rose-300/40 dark:ring-rose-500/20'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-60'
                 }`}>
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 dark:border-rose-500/30 flex items-center justify-center shrink-0">
                         <ShieldAlert size={20} className="stroke-[2.2]" />
                       </div>
-                      <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-rose-100/70 text-rose-800 border border-rose-200">
+                      <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-rose-100/70 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
                         Integridade
                       </span>
                     </div>
 
-                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                       Denúncias & Reclamações
                     </div>
 
@@ -1149,35 +1149,35 @@ export function GovDashboard({
                       <AnimatedCounter
                         to={indicadores.denuncias.total}
                         duration={1800}
-                        className="text-2xl md:text-3xl font-black text-slate-900 font-mono tracking-tight"
+                        className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white font-mono tracking-tight"
                       />
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                      <span className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">
                         processos
                       </span>
                     </div>
 
                     {/* Breakdown pílulas */}
-                    <div className="grid grid-cols-2 gap-1.5 mt-3 pt-3 border-t border-rose-100/60 text-center">
-                      <div className="bg-emerald-50 border border-emerald-100/80 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-emerald-600 uppercase block">Tratadas/Concluídas</span>
-                        <span className="text-xs font-black text-emerald-700 font-mono">{indicadores.denuncias.resolvidas}</span>
+                    <div className="grid grid-cols-2 gap-1.5 mt-3 pt-3 border-t border-rose-100/60 dark:border-rose-900/40 text-center">
+                      <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100/80 dark:border-emerald-800/60 rounded-lg py-1 px-1">
+                        <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 uppercase block">Tratadas/Concluídas</span>
+                        <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 font-mono">{indicadores.denuncias.resolvidas}</span>
                       </div>
-                      <div className="bg-rose-50 border border-rose-100/80 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-rose-600 uppercase block">Em Triagem</span>
-                        <span className="text-xs font-black text-rose-700 font-mono">{indicadores.denuncias.emTriagem}</span>
+                      <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-100/80 dark:border-rose-800/60 rounded-lg py-1 px-1">
+                        <span className="text-[8px] font-bold text-rose-600 dark:text-rose-400 uppercase block">Em Triagem</span>
+                        <span className="text-xs font-black text-rose-700 dark:text-rose-300 font-mono">{indicadores.denuncias.emTriagem}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-rose-100/60 space-y-1.5">
+                  <div className="mt-4 pt-3 border-t border-rose-100/60 dark:border-rose-900/40 space-y-1.5">
                     <div className="flex items-center justify-between text-[10px] font-black uppercase">
-                      <span className="text-slate-500">Conformidade Legal (IGAE)</span>
-                      <span className="text-rose-700 font-mono">{indicadores.denuncias.taxaConformidade}%</span>
+                      <span className="text-slate-500 dark:text-slate-400">Conformidade Legal (IGAE)</span>
+                      <span className="text-rose-700 dark:text-rose-400 font-mono">{indicadores.denuncias.taxaConformidade}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-rose-100 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-rose-100 dark:bg-rose-950/60 rounded-full overflow-hidden">
                       <div className="h-full bg-rose-500 rounded-full" style={{ width: `${Math.min(100, Math.max(5, indicadores.denuncias.taxaConformidade))}%` }} />
                     </div>
-                    <div className="text-[9px] font-bold text-rose-600 uppercase tracking-wider pt-1 flex items-center gap-1 justify-center">
+                    <div className="text-[9px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider pt-1 flex items-center gap-1 justify-center">
                       <ShieldCheck size={11} /> Canal Anónimo Criptografado
                     </div>
                   </div>
@@ -1186,20 +1186,20 @@ export function GovDashboard({
                 {/* 3. Inquéritos & Sondagens Cívicas */}
                 <div className={`rounded-2xl p-5 border transition-all text-left flex flex-col justify-between ${
                   indicadoresTab === 'inqueritos' || indicadoresTab === 'todos'
-                    ? 'bg-gradient-to-br from-emerald-50/50 via-white to-emerald-50/20 border-emerald-200/80 shadow-xs ring-1 ring-emerald-300/40'
-                    : 'bg-white border-slate-200 opacity-60'
+                    ? 'bg-gradient-to-br from-emerald-50/50 via-white to-emerald-50/20 dark:from-emerald-950/30 dark:via-slate-900 dark:to-emerald-950/10 border-emerald-200/80 dark:border-emerald-700/60 shadow-xs ring-1 ring-emerald-300/40 dark:ring-emerald-500/20'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-60'
                 }`}>
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 dark:border-emerald-500/30 flex items-center justify-center shrink-0">
                         <Vote size={20} className="stroke-[2.2]" />
                       </div>
-                      <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-emerald-100/70 text-emerald-800 border border-emerald-200">
+                      <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-emerald-100/70 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                         Participação
                       </span>
                     </div>
 
-                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                       Inquéritos & Sondagens
                     </div>
 
@@ -1207,35 +1207,35 @@ export function GovDashboard({
                       <AnimatedCounter
                         to={indicadores.inqueritos.total}
                         duration={1800}
-                        className="text-2xl md:text-3xl font-black text-slate-900 font-mono tracking-tight"
+                        className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white font-mono tracking-tight"
                       />
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                      <span className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">
                         consultas
                       </span>
                     </div>
 
                     {/* Breakdown pílulas */}
-                    <div className="grid grid-cols-2 gap-1.5 mt-3 pt-3 border-t border-emerald-100/60 text-center">
-                      <div className="bg-emerald-50 border border-emerald-100/80 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-emerald-600 uppercase block">Ativos / Em Curso</span>
-                        <span className="text-xs font-black text-emerald-700 font-mono">{indicadores.inqueritos.ativos}</span>
+                    <div className="grid grid-cols-2 gap-1.5 mt-3 pt-3 border-t border-emerald-100/60 dark:border-emerald-900/40 text-center">
+                      <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100/80 dark:border-emerald-800/60 rounded-lg py-1 px-1">
+                        <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 uppercase block">Ativos / Em Curso</span>
+                        <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 font-mono">{indicadores.inqueritos.ativos}</span>
                       </div>
-                      <div className="bg-teal-50 border border-teal-100/80 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-teal-600 uppercase block">Votos Recolhidos</span>
-                        <span className="text-xs font-black text-teal-700 font-mono">{indicadores.inqueritos.totalVotos}</span>
+                      <div className="bg-teal-50 dark:bg-teal-950/40 border border-teal-100/80 dark:border-teal-800/60 rounded-lg py-1 px-1">
+                        <span className="text-[8px] font-bold text-teal-600 dark:text-teal-400 uppercase block">Votos Recolhidos</span>
+                        <span className="text-xs font-black text-teal-700 dark:text-teal-300 font-mono">{indicadores.inqueritos.totalVotos}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-emerald-100/60 space-y-1.5">
+                  <div className="mt-4 pt-3 border-t border-emerald-100/60 dark:border-emerald-900/40 space-y-1.5">
                     <div className="flex items-center justify-between text-[10px] font-black uppercase">
-                      <span className="text-slate-500">Índice de Adesão Cívica</span>
-                      <span className="text-emerald-700 font-mono">{indicadores.inqueritos.taxaAdesao}%</span>
+                      <span className="text-slate-500 dark:text-slate-400">Índice de Adesão Cívica</span>
+                      <span className="text-emerald-700 dark:text-emerald-400 font-mono">{indicadores.inqueritos.taxaAdesao}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-emerald-100 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-emerald-100 dark:bg-emerald-950/60 rounded-full overflow-hidden">
                       <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, Math.max(5, indicadores.inqueritos.taxaAdesao))}%` }} />
                     </div>
-                    <div className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider pt-1 flex items-center gap-1 justify-center">
+                    <div className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider pt-1 flex items-center gap-1 justify-center">
                       <Sparkles size={11} /> IA Cívica & Análise Preditiva
                     </div>
                   </div>
@@ -1244,20 +1244,20 @@ export function GovDashboard({
                 {/* 4. Vídeo-Atendimentos Governamentais */}
                 <div className={`rounded-2xl p-5 border transition-all text-left flex flex-col justify-between ${
                   indicadoresTab === 'video' || indicadoresTab === 'todos'
-                    ? 'bg-gradient-to-br from-indigo-50/50 via-white to-indigo-50/20 border-indigo-200/80 shadow-xs ring-1 ring-indigo-300/40'
-                    : 'bg-white border-slate-200 opacity-60'
+                    ? 'bg-gradient-to-br from-indigo-50/50 via-white to-indigo-50/20 dark:from-indigo-950/30 dark:via-slate-900 dark:to-indigo-950/10 border-indigo-200/80 dark:border-indigo-700/60 shadow-xs ring-1 ring-indigo-300/40 dark:ring-indigo-500/20'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 opacity-60'
                 }`}>
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 dark:border-indigo-500/30 flex items-center justify-center shrink-0">
                         <Video size={20} className="stroke-[2.2]" />
                       </div>
-                      <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-indigo-100/70 text-indigo-800 border border-indigo-200">
+                      <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-indigo-100/70 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                         Telepresença
                       </span>
                     </div>
 
-                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                       Vídeo-Atendimentos
                     </div>
 
@@ -1265,42 +1265,42 @@ export function GovDashboard({
                       <AnimatedCounter
                         to={indicadores.video.total}
                         duration={1800}
-                        className="text-2xl md:text-3xl font-black text-slate-900 font-mono tracking-tight"
+                        className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white font-mono tracking-tight"
                       />
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                      <span className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">
                         sessões
                       </span>
                     </div>
 
                     {/* Breakdown pílulas */}
-                    <div className="grid grid-cols-3 gap-1.5 mt-3 pt-3 border-t border-indigo-100/60 text-center">
-                      <div className="bg-purple-50 border border-purple-100/80 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-purple-600 uppercase block">Concluídas</span>
-                        <span className="text-xs font-black text-purple-700 font-mono">{indicadores.video.concluidas}</span>
+                    <div className="grid grid-cols-3 gap-1.5 mt-3 pt-3 border-t border-indigo-100/60 dark:border-indigo-900/40 text-center">
+                      <div className="bg-purple-50 dark:bg-purple-950/40 border border-purple-100/80 dark:border-purple-800/60 rounded-lg py-1 px-1">
+                        <span className="text-[8px] font-bold text-purple-600 dark:text-purple-400 uppercase block">Concluídas</span>
+                        <span className="text-xs font-black text-purple-700 dark:text-purple-300 font-mono">{indicadores.video.concluidas}</span>
                       </div>
-                      <div className="bg-rose-50 border border-rose-100/80 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-rose-600 uppercase block">Em Curso</span>
-                        <span className="text-xs font-black text-rose-700 font-mono flex items-center justify-center gap-1">
+                      <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-100/80 dark:border-rose-800/60 rounded-lg py-1 px-1">
+                        <span className="text-[8px] font-bold text-rose-600 dark:text-rose-400 uppercase block">Em Curso</span>
+                        <span className="text-xs font-black text-rose-700 dark:text-rose-300 font-mono flex items-center justify-center gap-1">
                           {indicadores.video.emCurso > 0 && <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" />}
                           {indicadores.video.emCurso}
                         </span>
                       </div>
-                      <div className="bg-blue-50 border border-blue-100/80 rounded-lg py-1 px-1">
-                        <span className="text-[8px] font-bold text-blue-600 uppercase block">Agendadas</span>
-                        <span className="text-xs font-black text-blue-700 font-mono">{indicadores.video.agendadas}</span>
+                      <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-100/80 dark:border-blue-800/60 rounded-lg py-1 px-1">
+                        <span className="text-[8px] font-bold text-blue-600 dark:text-blue-400 uppercase block">Agendadas</span>
+                        <span className="text-xs font-black text-blue-700 dark:text-blue-300 font-mono">{indicadores.video.agendadas}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-indigo-100/60 space-y-1.5">
+                  <div className="mt-4 pt-3 border-t border-indigo-100/60 dark:border-indigo-900/40 space-y-1.5">
                     <div className="flex items-center justify-between text-[10px] font-black uppercase">
-                      <span className="text-slate-500">Taxa de Pontualidade</span>
-                      <span className="text-indigo-700 font-mono">{indicadores.video.taxaPontualidade}%</span>
+                      <span className="text-slate-500 dark:text-slate-400">Taxa de Pontualidade</span>
+                      <span className="text-indigo-700 dark:text-indigo-400 font-mono">{indicadores.video.taxaPontualidade}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-indigo-100 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-indigo-100 dark:bg-indigo-950/60 rounded-full overflow-hidden">
                       <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(100, Math.max(5, indicadores.video.taxaPontualidade))}%` }} />
                     </div>
-                    <div className="text-[9px] font-bold text-indigo-600 uppercase tracking-wider pt-1 flex items-center gap-1 justify-center">
+                    <div className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider pt-1 flex items-center gap-1 justify-center">
                       <Radio size={11} /> Barramento WebRTC Governamental
                     </div>
                   </div>
@@ -1310,15 +1310,15 @@ export function GovDashboard({
               {/* Módulo de Visualização Gráfica e Comparativo Setorial */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
                 {/* Donut Chart de Distribuição de Volume Global (5 colunas) */}
-                <div className="lg:col-span-5 bg-slate-50/70 border border-slate-200 rounded-2xl p-5 md:p-6 flex flex-col justify-between">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                <div className="lg:col-span-5 bg-slate-50/70 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 md:p-6 flex flex-col justify-between">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700/60">
                     <div className="flex items-center gap-2">
-                      <BarChart3 size={15} className="text-indigo-600" />
-                      <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider font-mono">
+                      <BarChart3 size={15} className="text-indigo-600 dark:text-indigo-400" />
+                      <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider font-mono">
                         Distribuição do Volume Global
                       </h3>
                     </div>
-                    <span className="text-[9px] font-mono font-bold bg-white border border-slate-200 px-2 py-0.5 rounded text-slate-600">
+                    <span className="text-[9px] font-mono font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300">
                       Total: {indicadores.totalVolumeGlobal}
                     </span>
                   </div>
@@ -1343,13 +1343,13 @@ export function GovDashboard({
                         </PieChart>
                       </ResponsiveContainer>
                       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <span className="text-[9px] uppercase font-mono tracking-widest text-slate-400 font-bold">
+                        <span className="text-[9px] uppercase font-mono tracking-widest text-slate-400 dark:text-slate-400 font-bold">
                           Global
                         </span>
-                        <span className="text-xl font-black text-slate-900 font-mono tracking-tight leading-none mt-0.5">
+                        <span className="text-xl font-black text-slate-900 dark:text-white font-mono tracking-tight leading-none mt-0.5">
                           <AnimatedCounter to={indicadores.totalVolumeGlobal} duration={1500} />
                         </span>
-                        <span className="text-[8px] uppercase tracking-wider text-slate-400 font-bold mt-0.5">
+                        <span className="text-[8px] uppercase tracking-wider text-slate-400 dark:text-slate-400 font-bold mt-0.5">
                           interações
                         </span>
                       </div>
@@ -1358,36 +1358,36 @@ export function GovDashboard({
                     {/* Legenda de Distribuição com percentagens */}
                     <div className="space-y-2 mt-2">
                       {indicadores.distribuicaoSetorial.map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-xs py-1 px-2 rounded-lg hover:bg-white transition-colors">
+                        <div key={idx} className="flex items-center justify-between text-xs py-1 px-2 rounded-lg hover:bg-white dark:hover:bg-slate-800 transition-colors">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.cor }} />
-                            <span className="font-bold text-slate-700 text-[11px] truncate">{item.name}</span>
+                            <span className="font-bold text-slate-700 dark:text-slate-300 text-[11px] truncate">{item.name}</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0 font-mono">
-                            <span className="font-black text-slate-900 text-xs">{item.valor}</span>
-                            <span className="text-[10px] font-bold text-slate-400">({item.percent}%)</span>
+                            <span className="font-black text-slate-900 dark:text-white text-xs">{item.valor}</span>
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400">({item.percent}%)</span>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-700/60 flex items-center justify-between text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     <span>Ecossistema Correio Digital</span>
-                    <span className="text-emerald-600 font-mono">100% Auditável</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-mono">100% Auditável</span>
                   </div>
                 </div>
 
                 {/* Gráfico de Barras / Evolução Temporal Multi-Setorial (7 colunas) */}
-                <div className="lg:col-span-7 bg-slate-50/70 border border-slate-200 rounded-2xl p-5 md:p-6 flex flex-col justify-between">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                <div className="lg:col-span-7 bg-slate-50/70 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 md:p-6 flex flex-col justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-700/60">
                     <div className="flex items-center gap-2">
-                      <Activity size={15} className="text-indigo-600" />
-                      <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider font-mono">
+                      <Activity size={15} className="text-indigo-600 dark:text-indigo-400" />
+                      <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider font-mono">
                         Evolução Mensal & Tendência de Volume
                       </h3>
                     </div>
-                    <div className="flex items-center gap-3 text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                    <div className="flex items-center gap-3 text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-amber-500" /> Ocorrências</span>
                       <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-rose-500" /> Denúncias</span>
                       <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-emerald-500" /> Inquéritos</span>
@@ -1399,7 +1399,7 @@ export function GovDashboard({
                     <div className="w-full h-[190px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={indicadores.volumePorMes} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94a3b833" />
                           <XAxis dataKey="mes" tickLine={false} axisLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
                           <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} />
                           <Tooltip content={<CustomTooltip />} />
@@ -1412,22 +1412,22 @@ export function GovDashboard({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-slate-200 text-center">
-                    <div className="bg-white p-2 rounded-xl border border-slate-200">
-                      <span className="text-[8px] font-bold text-slate-400 uppercase block">Tempo Ocorrências</span>
-                      <span className="text-[11px] font-black text-amber-700 font-mono">48 horas</span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-slate-200 dark:border-slate-700/60 text-center">
+                    <div className="bg-white dark:bg-slate-800/90 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <span className="text-[8px] font-bold text-slate-400 dark:text-slate-400 uppercase block">Tempo Ocorrências</span>
+                      <span className="text-[11px] font-black text-amber-700 dark:text-amber-400 font-mono">48 horas</span>
                     </div>
-                    <div className="bg-white p-2 rounded-xl border border-slate-200">
-                      <span className="text-[8px] font-bold text-slate-400 uppercase block">SLA Denúncias</span>
-                      <span className="text-[11px] font-black text-rose-700 font-mono">5 dias úteis</span>
+                    <div className="bg-white dark:bg-slate-800/90 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <span className="text-[8px] font-bold text-slate-400 dark:text-slate-400 uppercase block">SLA Denúncias</span>
+                      <span className="text-[11px] font-black text-rose-700 dark:text-rose-400 font-mono">5 dias úteis</span>
                     </div>
-                    <div className="bg-white p-2 rounded-xl border border-slate-200">
-                      <span className="text-[8px] font-bold text-slate-400 uppercase block">Média Respostas</span>
-                      <span className="text-[11px] font-black text-emerald-700 font-mono">152 / inquérito</span>
+                    <div className="bg-white dark:bg-slate-800/90 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <span className="text-[8px] font-bold text-slate-400 dark:text-slate-400 uppercase block">Média Respostas</span>
+                      <span className="text-[11px] font-black text-emerald-700 dark:text-emerald-400 font-mono">152 / inquérito</span>
                     </div>
-                    <div className="bg-white p-2 rounded-xl border border-slate-200">
-                      <span className="text-[8px] font-bold text-slate-400 uppercase block">Duração Vídeo</span>
-                      <span className="text-[11px] font-black text-indigo-700 font-mono">14.2 min</span>
+                    <div className="bg-white dark:bg-slate-800/90 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <span className="text-[8px] font-bold text-slate-400 dark:text-slate-400 uppercase block">Duração Vídeo</span>
+                      <span className="text-[11px] font-black text-indigo-700 dark:text-indigo-400 font-mono">14.2 min</span>
                     </div>
                   </div>
                 </div>
@@ -1435,10 +1435,10 @@ export function GovDashboard({
 
               {/* Detalhe Específico quando uma aba individual está selecionada */}
               {indicadoresTab !== 'todos' && (
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-left animate-fadeIn">
-                  <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
-                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest font-mono flex items-center gap-2">
-                      <FileCheck size={14} className="text-emerald-600" />
+                <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 text-left animate-fadeIn">
+                  <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 dark:border-slate-700/60">
+                    <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest font-mono flex items-center gap-2">
+                      <FileCheck size={14} className="text-emerald-600 dark:text-emerald-400" />
                       Detalhamento Operacional: {
                         indicadoresTab === 'ocorrencias' ? 'Ocorrências Territoriais Comunitárias' :
                         indicadoresTab === 'denuncias' ? 'Integridade Pública & Livro de Reclamações' :
@@ -1446,28 +1446,28 @@ export function GovDashboard({
                         'Vídeo-Atendimentos com Ministérios'
                       }
                     </h4>
-                    <span className="text-[9px] font-mono font-bold bg-white border border-slate-200 px-2 py-0.5 rounded text-indigo-700">
+                    <span className="text-[9px] font-mono font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded text-indigo-700 dark:text-indigo-400">
                       Protocolo CDA-2026
                     </span>
                   </div>
 
                   {indicadoresTab === 'ocorrencias' && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Top Categorias</span>
-                        <p className="font-bold text-slate-800">1. Vias e Pavimentação (38%)</p>
-                        <p className="font-bold text-slate-800">2. Iluminação Pública (29%)</p>
-                        <p className="font-bold text-slate-800">3. Saneamento e Resíduos (21%)</p>
+                      <div className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Top Categorias</span>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">1. Vias e Pavimentação (38%)</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">2. Iluminação Pública (29%)</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">3. Saneamento e Resíduos (21%)</p>
                       </div>
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Principais Províncias</span>
-                        <p className="font-bold text-slate-800">Luanda (184 ocorrências)</p>
-                        <p className="font-bold text-slate-800">Benguela (52 ocorrências)</p>
-                        <p className="font-bold text-slate-800">Huíla (44 ocorrências)</p>
+                      <div className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Principais Províncias</span>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">Luanda (184 ocorrências)</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">Benguela (52 ocorrências)</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">Huíla (44 ocorrências)</p>
                       </div>
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Ação Recomendada</span>
-                        <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                      <div className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Ação Recomendada</span>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
                           Equipas distritais mobilizadas para encerramento de ocorrências pendentes com georreferenciação fotográfica.
                         </p>
                       </div>
@@ -1476,21 +1476,21 @@ export function GovDashboard({
 
                   {indicadoresTab === 'denuncias' && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Canais de Encaminhamento</span>
-                        <p className="font-bold text-slate-800">&bull; IGAE (Inspecção-Geral do Estado)</p>
-                        <p className="font-bold text-slate-800">&bull; ANIESA (Inspecção das Actividades Económicas)</p>
-                        <p className="font-bold text-slate-800">&bull; Ouvidorias Ministeriais</p>
+                      <div className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Canais de Encaminhamento</span>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">&bull; IGAE (Inspecção-Geral do Estado)</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">&bull; ANIESA (Inspecção das Actividades Económicas)</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">&bull; Ouvidorias Ministeriais</p>
                       </div>
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Garantias de Proteção</span>
-                        <p className="font-bold text-slate-800">Anonimato Criptográfico Rigoroso</p>
-                        <p className="font-bold text-slate-800">Hash de Integridade Anti-Adulteração</p>
-                        <p className="font-bold text-slate-800">Prazo Legal de Resposta: 30 dias</p>
+                      <div className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Garantias de Proteção</span>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">Anonimato Criptográfico Rigoroso</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">Hash de Integridade Anti-Adulteração</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">Prazo Legal de Resposta: 30 dias</p>
                       </div>
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Estado da Fila</span>
-                        <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                      <div className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Estado da Fila</span>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
                           98.4% dos processos tratados dentro da janela regulamentar sem quebras de sigilo.
                         </p>
                       </div>
@@ -1499,21 +1499,21 @@ export function GovDashboard({
 
                   {indicadoresTab === 'inqueritos' && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Consultas Públicas Ativas</span>
-                        <p className="font-bold text-slate-800">&bull; Modernização dos Serviços Notariais</p>
-                        <p className="font-bold text-slate-800">&bull; Avaliação do Portal Único do Cidadão</p>
-                        <p className="font-bold text-slate-800">&bull; Mobilidade Urbana e Transportes</p>
+                      <div className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Consultas Públicas Ativas</span>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">&bull; Modernização dos Serviços Notariais</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">&bull; Avaliação do Portal Único do Cidadão</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">&bull; Mobilidade Urbana e Transportes</p>
                       </div>
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Síntese Inteligente (IA)</span>
-                        <p className="font-bold text-slate-800">Agrupamento semântico de comentários</p>
-                        <p className="font-bold text-slate-800">Relatório executivo automatizado</p>
-                        <p className="font-bold text-slate-800">Índice de Sentimento Cívico: 86% Positivo</p>
+                      <div className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Síntese Inteligente (IA)</span>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">Agrupamento semântico de comentários</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">Relatório executivo automatizado</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">Índice de Sentimento Cívico: 86% Positivo</p>
                       </div>
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Impacto nas Políticas</span>
-                        <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                      <div className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Impacto nas Políticas</span>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
                           Resultados consolidados enviados diretamente aos Gabinetes Ministeriais para apoio à decisão legislativa.
                         </p>
                       </div>
@@ -1522,21 +1522,21 @@ export function GovDashboard({
 
                   {indicadoresTab === 'video' && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Organismos com Maior Adesão</span>
-                        <p className="font-bold text-slate-800">&bull; AGT (Atendimento Fiscal Remoto)</p>
-                        <p className="font-bold text-slate-800">&bull; SME (Esclarecimento de Vistos e Passaportes)</p>
-                        <p className="font-bold text-slate-800">&bull; Registo Civil e Notariado</p>
+                      <div className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Organismos com Maior Adesão</span>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">&bull; AGT (Atendimento Fiscal Remoto)</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">&bull; SME (Esclarecimento de Vistos e Passaportes)</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">&bull; Registo Civil e Notariado</p>
                       </div>
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Infraestrutura WebRTC</span>
-                        <p className="font-bold text-slate-800">Gravação de Auditoria Homologada</p>
-                        <p className="font-bold text-slate-800">Latência Média: &lt; 45ms</p>
-                        <p className="font-bold text-slate-800">Resolução Adaptativa Full HD</p>
+                      <div className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Infraestrutura WebRTC</span>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">Gravação de Auditoria Homologada</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">Latência Média: &lt; 45ms</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">Resolução Adaptativa Full HD</p>
                       </div>
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Satisfação do Cidadão</span>
-                        <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                      <div className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Satisfação do Cidadão</span>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
                           96.8% dos cidadãos atendidos avaliaram a telepresença governamental como muito satisfatória ou excelente.
                         </p>
                       </div>
@@ -1550,41 +1550,41 @@ export function GovDashboard({
 
         {/* Anti-Fraud Registry Updates - Exclusive for Operators */}
         {activeRole === 'operador' && (
-          <section className="bg-gradient-to-tr from-white to-slate-50 border border-indigo-100 rounded-[32px] p-6 md:p-8 shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-indigo-100/60 pb-4">
+          <section className="bg-gradient-to-tr from-white to-slate-50 dark:from-slate-900 dark:to-slate-900/90 border border-indigo-100 dark:border-indigo-950/70 rounded-[32px] p-6 md:p-8 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-indigo-100/60 dark:border-indigo-950/60 pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-1.5 h-6 bg-indigo-600 rounded-full" />
+                <div className="w-1.5 h-6 bg-indigo-600 dark:bg-indigo-500 rounded-full" />
                 <div>
-                  <h2 className="text-base md:text-lg font-black italic tracking-tighter text-slate-900 uppercase">
+                  <h2 className="text-base md:text-lg font-black italic tracking-tighter text-slate-900 dark:text-white uppercase">
                     Serviço de Prevenção a Fraudes Cadastrais
                   </h2>
-                  <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider font-mono">
+                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider font-mono">
                     Módulo de Alteração Cadastral Presencial (Operador de Registo Autorizado)
                   </span>
                 </div>
               </div>
-              <div className="px-3 py-1 bg-indigo-50 border border-indigo-200 rounded-full text-indigo-800 text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 self-start sm:self-auto">
+              <div className="px-3 py-1 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 rounded-full text-indigo-800 dark:text-indigo-300 text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 self-start sm:self-auto">
                 <ShieldAlert size={12} /> Exclusivo Operador
               </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6">
               {/* Left Column: Search Citizen */}
-              <div className="space-y-4 bg-white border border-slate-200 p-5 rounded-2xl h-fit">
+              <div className="space-y-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl h-fit">
                 <div className="space-y-1 text-left">
-                  <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest font-mono">Pesquisa na Base Central</h4>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase leading-normal">Insira o Nº de Bilhete de Identidade (BI) do cidadão para carregar a ficha cadastral.</p>
+                  <h4 className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-widest font-mono">Pesquisa na Base Central</h4>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase leading-normal">Insira o Nº de Bilhete de Identidade (BI) do cidadão para carregar a ficha cadastral.</p>
                 </div>
 
                 <div className="space-y-3">
                   <div className="relative">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={14} />
                     <input
                       type="text"
                       placeholder="e.g. 009874562LA041"
                       value={searchBiQuery}
                       onChange={(e) => setSearchBiQuery(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-600 focus:bg-white rounded-xl pl-9 pr-4 py-2.5 text-xs font-bold text-slate-900 outline-none placeholder:text-slate-400 font-mono tracking-widest"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-600 dark:focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs font-bold text-slate-900 dark:text-white outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500 font-mono tracking-widest"
                     />
                   </div>
 
@@ -1592,7 +1592,7 @@ export function GovDashboard({
                     <button
                       type="button"
                       onClick={handleQueryCitizen}
-                      className="flex-1 bg-indigo-600 hover:bg-indigo-800 text-white rounded-xl py-2.5 text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer border-0 shadow-sm"
+                      className="flex-1 bg-indigo-600 hover:bg-indigo-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white rounded-xl py-2.5 text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer border-0 shadow-sm"
                     >
                       Buscar Cidadão
                     </button>
@@ -1601,7 +1601,7 @@ export function GovDashboard({
                       onClick={() => {
                         setSearchBiQuery('009874562LA041');
                       }}
-                      className="px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl py-2.5 text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer border-0"
+                      className="px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl py-2.5 text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer border-0"
                     >
                       Carregar Edlasio
                     </button>
@@ -1609,86 +1609,86 @@ export function GovDashboard({
                 </div>
 
                 {searchedCitizen ? (
-                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1.5 animate-fadeIn text-left">
-                    <div className="flex items-center gap-1.5 text-emerald-700 text-[9px] font-black uppercase tracking-widest font-sans">
+                  <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl space-y-1.5 animate-fadeIn text-left">
+                    <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 text-[9px] font-black uppercase tracking-widest font-sans">
                       <CheckCircle2 size={13} className="text-emerald-500" /> Registro Localizado
                     </div>
-                    <div className="text-[11px] text-slate-800 font-black uppercase leading-snug font-sans">
+                    <div className="text-[11px] text-slate-800 dark:text-white font-black uppercase leading-snug font-sans">
                       {searchedCitizen.name}
                     </div>
-                    <div className="text-[9px] text-slate-500 font-bold font-mono tracking-wider uppercase">
+                    <div className="text-[9px] text-slate-500 dark:text-slate-400 font-bold font-mono tracking-wider uppercase">
                       BI: {searchedCitizen.bi} &bull; Estado: Ativo
                     </div>
                   </div>
                 ) : searchAttempted ? (
-                  <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-1 text-left">
-                    <div className="text-rose-700 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 font-sans">
+                  <div className="p-3.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 rounded-xl space-y-1 text-left">
+                    <div className="text-rose-700 dark:text-rose-400 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 font-sans">
                       <Ban size={13} /> Sem Resultados
                     </div>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase leading-normal">Nenhum cidadão cadastrado online com o BI fornecido.</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase leading-normal">Nenhum cidadão cadastrado online com o BI fornecido.</p>
                   </div>
                 ) : (
-                  <div className="p-6 border border-dashed border-slate-200 rounded-xl text-center text-slate-400">
-                    <History size={18} className="mx-auto text-slate-300 mb-1.5" />
+                  <div className="p-6 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-center text-slate-400 dark:text-slate-500">
+                    <History size={18} className="mx-auto text-slate-300 dark:text-slate-600 mb-1.5" />
                     <span className="text-[9px] font-black uppercase tracking-wider block">Aguardando pesquisa...</span>
                   </div>
                 )}
               </div>
 
               {/* Right Column: Update Profile Values */}
-              <div className="bg-white border border-slate-200 p-5 rounded-2xl flex flex-col justify-between text-left">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl flex flex-col justify-between text-left">
                 <div>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3 mb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
                     <div className="space-y-0.5">
-                      <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest font-mono">Ficha de Identidade Cadastrada</h4>
-                      <p className="text-[9px] text-slate-400 font-black uppercase tracking-wider font-sans">Campos auditáveis sujeitos a alteração estrita</p>
+                      <h4 className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-widest font-mono">Ficha de Identidade Cadastrada</h4>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-400 font-black uppercase tracking-wider font-sans">Campos auditáveis sujeitos a alteração estrita</p>
                     </div>
-                    <span className="text-[9px] text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded font-mono font-bold uppercase self-start sm:self-auto">
+                    <span className="text-[9px] text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-800 px-2 py-0.5 rounded font-mono font-bold uppercase self-start sm:self-auto">
                       Protocolo Ativo: CDA-R2026
                     </span>
                   </div>
 
                   <form onSubmit={handleUpdateRegister} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1 text-left">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Nome Completo</label>
+                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest block">Nome Completo</label>
                       <input
                         type="text"
                         disabled={!searchedCitizen}
                         value={tempProfileName}
                         onChange={(e) => setTempProfileName(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 disabled:opacity-50 rounded-xl px-4 py-2.5 text-xs font-black text-slate-900 outline-none focus:border-indigo-500 focus:bg-white"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-50 rounded-xl px-4 py-2.5 text-xs font-black text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
                       />
                     </div>
 
                     <div className="space-y-1 text-left">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Número de BI</label>
+                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest block">Número de BI</label>
                       <input
                         type="text"
                         disabled={!searchedCitizen}
                         value={tempBiField}
                         onChange={(e) => setTempBiField(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 disabled:opacity-50 rounded-xl px-4 py-2.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white tracking-widest"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-50 rounded-xl px-4 py-2.5 text-xs font-mono font-bold text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 tracking-widest"
                       />
                     </div>
 
                     <div className="space-y-1 text-left">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Data de Nascimento</label>
+                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest block">Data de Nascimento</label>
                       <input
                         type="text"
                         disabled={!searchedCitizen}
                         value={tempBirthField}
                         onChange={(e) => setTempBirthField(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 disabled:opacity-50 rounded-xl px-4 py-2.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white tracking-wider"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-50 rounded-xl px-4 py-2.5 text-xs font-mono font-bold text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 tracking-wider"
                       />
                     </div>
 
                     <div className="space-y-1 text-left col-span-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Estado Civil</label>
+                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest block">Estado Civil</label>
                       <select
                         disabled={!searchedCitizen}
                         value={tempMaritalField}
                         onChange={(e) => setTempMaritalField(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 disabled:opacity-50 rounded-xl px-3 py-2.5 text-xs font-black text-slate-900 outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-50 rounded-xl px-3 py-2.5 text-xs font-black text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 cursor-pointer"
                       >
                         <option value="Solteiro">Solteiro</option>
                         <option value="Casado">Casado</option>
@@ -1698,13 +1698,13 @@ export function GovDashboard({
                     </div>
 
                     <div className="space-y-1 text-left sm:col-span-2">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Filiação (Progenitores)</label>
+                      <label className="text-[9px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest block">Filiação (Progenitores)</label>
                       <input
                         type="text"
                         disabled={!searchedCitizen}
                         value={tempFiliationField}
                         onChange={(e) => setTempFiliationField(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 disabled:opacity-50 rounded-xl px-4 py-2.5 text-xs font-black text-slate-900 outline-none focus:border-indigo-500 focus:bg-white"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-50 rounded-xl px-4 py-2.5 text-xs font-black text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
                       />
                     </div>
 
@@ -1719,14 +1719,14 @@ export function GovDashboard({
                           setTempMaritalField(searchedCitizen?.maritalStatus || '');
                           setTempFiliationField(searchedCitizen?.filiation || '');
                         }}
-                        className="flex-1 bg-white border border-slate-300 text-slate-700 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50 hover:bg-slate-50 transition-all cursor-pointer"
+                        className="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-750 transition-all cursor-pointer"
                       >
                         Descartar
                       </button>
                       <button
                         type="submit"
                         disabled={!searchedCitizen}
-                        className="flex-1 bg-indigo-600 hover:bg-indigo-800 text-white py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50 transition-all cursor-pointer border-0 shadow-md"
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50 transition-all cursor-pointer border-0 shadow-md"
                       >
                         Efetuar Atualização Cadastral
                       </button>
@@ -1743,7 +1743,7 @@ export function GovDashboard({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
-                  className="bg-emerald-50 border border-emerald-300 rounded-[20px] p-5 text-left mt-4 animate-fadeIn"
+                  className="bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 rounded-[20px] p-5 text-left mt-4 animate-fadeIn"
                 >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div className="flex items-start gap-3">
@@ -1751,14 +1751,14 @@ export function GovDashboard({
                         <ShieldCheck size={18} />
                       </div>
                       <div>
-                        <h4 className="font-sans text-[11px] font-black text-emerald-950 uppercase tracking-wider mb-1">
+                        <h4 className="font-sans text-[11px] font-black text-emerald-950 dark:text-emerald-200 uppercase tracking-wider mb-1">
                           Selo Eletrónico de Homologação de Dados Cadastrais
                         </h4>
-                        <p className="text-[11px] text-emerald-900 font-bold leading-normal">
+                        <p className="text-[11px] text-emerald-900 dark:text-emerald-300 font-bold leading-normal">
                           A ficha cadastral foi atualizada com sucesso e enviada ao Registo de Identidade Única do Cidadão. Atualização selada eletronicamente.
                         </p>
-                        <div className="flex flex-wrap gap-x-3 gap-y-1.5 mt-3 text-[9px] font-mono leading-none text-emerald-700 font-black uppercase">
-                          <span>Selo: <strong className="font-black text-emerald-800">{lastUpdatedProtocol.protocolCode}</strong></span>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1.5 mt-3 text-[9px] font-mono leading-none text-emerald-700 dark:text-emerald-400 font-black uppercase">
+                          <span>Selo: <strong className="font-black text-emerald-800 dark:text-emerald-200">{lastUpdatedProtocol.protocolCode}</strong></span>
                           <span>&bull;</span>
                           <span>Assinatura Digital Emissor: AGENTE_OPERADOR_CDA_401</span>
                           <span>&bull;</span>
@@ -1769,7 +1769,7 @@ export function GovDashboard({
                     <button
                       type="button"
                       onClick={() => setLastUpdatedProtocol(null)}
-                      className="ml-auto text-[8px] font-mono uppercase font-black text-rose-600 border border-rose-300 hover:bg-rose-100/50 px-2.5 py-1 rounded-lg shrink-0 cursor-pointer transition-colors"
+                      className="ml-auto text-[8px] font-mono uppercase font-black text-rose-600 dark:text-rose-400 border border-rose-300 dark:border-rose-800 hover:bg-rose-100/50 dark:hover:bg-rose-950/50 px-2.5 py-1 rounded-lg shrink-0 cursor-pointer transition-colors"
                     >
                       Fechar Recibo
                     </button>
@@ -1795,19 +1795,19 @@ export function GovDashboard({
                 initial={{ opacity: 0, scale: 0.96, y: 30 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.96, y: 30 }}
-                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-md bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[601] overflow-hidden flex flex-col border border-slate-100 space-y-6"
+                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-md bg-white dark:bg-slate-900 rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] z-[601] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800 space-y-6"
               >
                 <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
-                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center shrink-0 border border-indigo-100/40 shadow-sm">
+                <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center shrink-0 border border-indigo-100/40 dark:border-indigo-800/40 shadow-sm">
                   <FolderPlus size={26} strokeWidth={2.5} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">Instaurar Novo Expediente</h3>
-                  <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none">Operação Governamental Integrada</p>
+                  <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] dark:text-white italic uppercase tracking-tighter leading-none mb-1">Instaurar Novo Expediente</h3>
+                  <p className="text-[#4f46e5] dark:text-indigo-400 font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none">Operação Governamental Integrada</p>
                 </div>
                 <button
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-none bg-transparent cursor-pointer"
+                  className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full border-none bg-transparent cursor-pointer"
                   type="button"
                   title="Fechar"
                 >
@@ -1817,36 +1817,36 @@ export function GovDashboard({
 
                 <form onSubmit={handleCreateItem} className="p-6 md:p-8 space-y-4 font-sans text-xs">
                   <div className="space-y-1.5 animate-fadeIn">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome do Cidadão Contribuinte *</label>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest">Nome do Cidadão Contribuinte *</label>
                     <input
                       type="text"
                       required
                       value={newCitizenName}
                       onChange={(e) => setNewCitizenName(e.target.value)}
                       placeholder="Manuel de Vasconcelos"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-slate-800 focus:bg-white"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-slate-800 dark:focus:border-slate-600 focus:bg-white dark:focus:bg-slate-800"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">NIF / BI de Identidade *</label>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest">NIF / BI de Identidade *</label>
                     <input
                       type="text"
                       required
                       value={newBiNumber}
                       onChange={(e) => setNewBiNumber(e.target.value)}
                       placeholder="Introduza o número do BI"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-mono font-bold text-slate-800 outline-none focus:border-slate-800 focus:bg-white"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs font-mono font-bold text-slate-800 dark:text-white outline-none focus:border-slate-800 dark:focus:border-slate-600 focus:bg-white dark:focus:bg-slate-800"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo de Documento</label>
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest">Tipo de Documento</label>
                       <select
                         value={newDocType}
                         onChange={(e) => setNewDocType(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-[11px] font-bold outline-none focus:border-slate-800 appearance-none cursor-pointer text-slate-700 focus:bg-white"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-3 text-[11px] font-bold outline-none focus:border-slate-800 dark:focus:border-slate-600 appearance-none cursor-pointer text-slate-700 dark:text-slate-200 focus:bg-white dark:focus:bg-slate-800"
                       >
                         <option value="Certificado de Residência">Certidão de Morada</option>
                         <option value="Bilhete de Identidade">Bilhete Eletrónico</option>
@@ -1857,11 +1857,11 @@ export function GovDashboard({
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">Fila de Trâmite</label>
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest font-mono">Fila de Trâmite</label>
                       <select
                         value={newQueue}
                         onChange={(e) => setNewQueue(e.target.value as 'pendentes' | 'urgentes' | 'criticas' | 'expiradas')}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-[11px] font-bold outline-none focus:border-slate-800 appearance-none cursor-pointer text-slate-700 focus:bg-white"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-3 text-[11px] font-bold outline-none focus:border-slate-800 dark:focus:border-slate-600 appearance-none cursor-pointer text-slate-700 dark:text-slate-200 focus:bg-white dark:focus:bg-slate-800"
                       >
                         <option value="pendentes">Pendentes (Normal)</option>
                         <option value="urgentes">Urgentes</option>
@@ -1872,14 +1872,14 @@ export function GovDashboard({
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Justificação Administrativa *</label>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest">Justificação Administrativa *</label>
                     <textarea
                       required
                       rows={3}
                       value={newDescription}
                       onChange={(e) => setNewDescription(e.target.value)}
                       placeholder="Forneça detalhes que motivam a emissão do presente expediente..."
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-semibold text-slate-800 leading-relaxed outline-none focus:border-slate-800 resize-none focus:bg-white"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-semibold text-slate-800 dark:text-white leading-relaxed outline-none focus:border-slate-800 dark:focus:border-slate-600 resize-none focus:bg-white dark:focus:bg-slate-800"
                     />
                   </div>
 
@@ -1888,13 +1888,13 @@ export function GovDashboard({
                     <button
                       type="button"
                       onClick={() => setIsCreateModalOpen(false)}
-                      className="flex-1 bg-white border border-slate-300 text-slate-700 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all cursor-pointer"
+                      className="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-slate-750 transition-all cursor-pointer"
                     >
                       Anular
                     </button>
                     <button
                       type="submit"
-                      className="flex-1 bg-slate-900 border-0 text-white hover:bg-slate-900 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer shadow-md"
+                      className="flex-1 bg-slate-900 hover:bg-slate-900 dark:bg-indigo-600 dark:hover:bg-indigo-500 border-0 text-white py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer shadow-md"
                     >
                       Instaurar & Emitir
                     </button>
@@ -1910,13 +1910,13 @@ export function GovDashboard({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-1.5 h-6 bg-indigo-650 rounded-full" />
-              <h2 className="text-base md:text-lg font-black italic tracking-tighter text-slate-900 uppercase">
+              <h2 className="text-base md:text-lg font-black italic tracking-tighter text-slate-900 dark:text-white uppercase">
                 Auditoria de Videoatendimento Integrado
               </h2>
             </div>
             <button 
               onClick={loadVideoAuditData} 
-              className="text-[10px] font-black uppercase tracking-widest text-[#0c2340] hover:text-indigo-600 transition-colors cursor-pointer bg-white border border-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-3xs"
+              className="text-[10px] font-black uppercase tracking-widest text-[#0c2340] dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-3xs"
             >
               <RefreshCcw size={10} className={`${isVideoLoading ? 'animate-spin' : 'animate-pulse'}`} />
               Actualizar Barramento
@@ -1925,81 +1925,81 @@ export function GovDashboard({
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* Total */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 text-left shadow-3xs">
-              <span className="text-[10px] font-black text-slate-400 block uppercase tracking-wider">Total de Sessões</span>
-              <span className="text-2xl font-black text-[#0c2340] block tracking-tight mt-1">{videoSessions.length}</span>
-              <span className="text-[9px] font-bold text-slate-500 block uppercase tracking-wide mt-1">Sessões Registadas</span>
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 text-left shadow-3xs">
+              <span className="text-[10px] font-black text-slate-400 dark:text-slate-400 block uppercase tracking-wider">Total de Sessões</span>
+              <span className="text-2xl font-black text-[#0c2340] dark:text-white block tracking-tight mt-1">{videoSessions.length}</span>
+              <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wide mt-1">Sessões Registadas</span>
             </div>
 
             {/* Concluídas */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 text-left shadow-3xs">
-              <span className="text-[10px] font-black text-slate-400 block uppercase tracking-wider">Concluídas</span>
-              <span className="text-2xl font-black text-purple-700 block tracking-tight mt-1">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 text-left shadow-3xs">
+              <span className="text-[10px] font-black text-slate-400 dark:text-slate-400 block uppercase tracking-wider">Concluídas</span>
+              <span className="text-2xl font-black text-purple-700 dark:text-purple-400 block tracking-tight mt-1">
                 {videoSessions.filter(s => s.status === 'concluida').length}
               </span>
-              <span className="text-[9px] font-bold text-slate-500 block uppercase tracking-wide mt-1">Atendimento Concluído</span>
+              <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wide mt-1">Atendimento Concluído</span>
             </div>
 
             {/* Em Curso */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 text-left shadow-3xs">
-              <span className="text-[10px] font-black text-slate-400 block uppercase tracking-wider">Em curso / Ativas</span>
-              <span className="text-2xl font-black text-red-650 block tracking-tight mt-1 flex items-center gap-1.5">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 text-left shadow-3xs">
+              <span className="text-[10px] font-black text-slate-400 dark:text-slate-400 block uppercase tracking-wider">Em curso / Ativas</span>
+              <span className="text-2xl font-black text-red-650 dark:text-red-400 block tracking-tight mt-1 flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping inline-block" />
                 {videoSessions.filter(s => s.status === 'em_curso').length}
               </span>
-              <span className="text-[9px] font-bold text-slate-500 block uppercase tracking-wide mt-1">Ligações Activas</span>
+              <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wide mt-1">Ligações Activas</span>
             </div>
 
             {/* Canceladas */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 text-left shadow-3xs">
-              <span className="text-[10px] font-black text-slate-400 block uppercase tracking-wider">Canceladas</span>
-              <span className="text-2xl font-black text-slate-500 block tracking-tight mt-1">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 text-left shadow-3xs">
+              <span className="text-[10px] font-black text-slate-400 dark:text-slate-400 block uppercase tracking-wider">Canceladas</span>
+              <span className="text-2xl font-black text-slate-500 dark:text-slate-300 block tracking-tight mt-1">
                 {videoSessions.filter(s => s.status === 'cancelada').length}
               </span>
-              <span className="text-[9px] font-bold text-slate-500 block uppercase tracking-wide mt-1">Sessões Inviabilizadas</span>
+              <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wide mt-1">Sessões Inviabilizadas</span>
             </div>
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-[2fr_1.2fr] gap-6 text-left">
             {/* Left Box: Sessions Table / List */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-3xs space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest font-mono flex items-center gap-2">
-                  <Video size={14} className="text-indigo-600 animate-pulse" /> Histórico Geral de Sessões por Instituição
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-3xs space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest font-mono flex items-center gap-2">
+                  <Video size={14} className="text-indigo-600 dark:text-indigo-400 animate-pulse" /> Histórico Geral de Sessões por Instituição
                 </h3>
               </div>
 
               <div className="overflow-x-auto min-w-full">
-                <table className="min-w-full divide-y divide-slate-100">
+                <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800">
                   <thead>
                     <tr>
-                      <th className="px-3 py-2 text-left text-[9px] font-black text-slate-400 uppercase tracking-wider">Protocolo</th>
-                      <th className="px-3 py-2 text-left text-[9px] font-black text-slate-400 uppercase tracking-wider">Assunto</th>
-                      <th className="px-3 py-2 text-left text-[9px] font-black text-slate-400 uppercase tracking-wider">Instituição</th>
-                      <th className="px-3 py-2 text-left text-[9px] font-black text-slate-400 uppercase tracking-wider">Cidadão</th>
-                      <th className="px-3 py-2 text-left text-[9px] font-black text-slate-400 uppercase tracking-wider">Estado</th>
+                      <th className="px-3 py-2 text-left text-[9px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">Protocolo</th>
+                      <th className="px-3 py-2 text-left text-[9px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">Assunto</th>
+                      <th className="px-3 py-2 text-left text-[9px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">Instituição</th>
+                      <th className="px-3 py-2 text-left text-[9px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">Cidadão</th>
+                      <th className="px-3 py-2 text-left text-[9px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">Estado</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs text-left">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs text-left">
                     {videoSessions.length > 0 ? (
                       videoSessions.map((sess) => (
-                        <tr key={sess.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-3 py-2.5 font-mono font-bold text-indigo-800 whitespace-nowrap">{sess.associatedProtocol || 'Geral'}</td>
-                          <td className="px-3 py-2.5 font-semibold text-slate-800">{sess.subject}</td>
-                          <td className="px-3 py-2.5 font-bold text-slate-650 whitespace-nowrap">{sess.hostName}</td>
-                          <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{sess.guestName}</td>
+                        <tr key={sess.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+                          <td className="px-3 py-2.5 font-mono font-bold text-indigo-800 dark:text-indigo-400 whitespace-nowrap">{sess.associatedProtocol || 'Geral'}</td>
+                          <td className="px-3 py-2.5 font-semibold text-slate-800 dark:text-slate-200">{sess.subject}</td>
+                          <td className="px-3 py-2.5 font-bold text-slate-650 dark:text-slate-300 whitespace-nowrap">{sess.hostName}</td>
+                          <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400 whitespace-nowrap">{sess.guestName}</td>
                           <td className="px-3 py-2.5 whitespace-nowrap">
-                            {sess.status === 'agendada' && <span className="bg-blue-50 border border-blue-200 text-blue-700 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded">Agendada</span>}
-                            {sess.status === 'disponivel' && <span className="bg-emerald-50 border border-emerald-300 text-emerald-700 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded animate-pulse">Livre</span>}
-                            {sess.status === 'em_curso' && <span className="bg-red-50 border border-red-300 text-red-700 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 w-fit"><span className="w-1 h-1 rounded-full bg-red-650 animate-ping inline-block" /> Activa</span>}
-                            {sess.status === 'concluida' && <span className="bg-purple-50 border border-purple-300 text-purple-700 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded">Concluída</span>}
-                            {sess.status === 'cancelada' && <span className="bg-slate-100 border border-slate-300 text-slate-500 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded">Cancelada</span>}
+                            {sess.status === 'agendada' && <span className="bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded">Agendada</span>}
+                            {sess.status === 'disponivel' && <span className="bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded animate-pulse">Livre</span>}
+                            {sess.status === 'em_curso' && <span className="bg-red-50 dark:bg-red-950/50 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 w-fit"><span className="w-1 h-1 rounded-full bg-red-650 animate-ping inline-block" /> Activa</span>}
+                            {sess.status === 'concluida' && <span className="bg-purple-50 dark:bg-purple-950/50 border border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded">Concluída</span>}
+                            {sess.status === 'cancelada' && <span className="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded">Cancelada</span>}
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={5} className="text-center py-8 italic text-slate-400">Nenhuma chamada oficial registada no ecossistema.</td>
+                        <td colSpan={5} className="text-center py-8 italic text-slate-400 dark:text-slate-500">Nenhuma chamada oficial registada no ecossistema.</td>
                       </tr>
                     )}
                   </tbody>
@@ -2008,29 +2008,29 @@ export function GovDashboard({
             </div>
 
             {/* Right Box: Audit Log events */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-3xs space-y-4">
-              <div className="pb-3 border-b border-slate-100 text-left">
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest font-mono flex items-center gap-2">
-                  <ShieldCheck size={14} className="text-emerald-650" /> Log de Auditoria do Atendimento
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-3xs space-y-4">
+              <div className="pb-3 border-b border-slate-100 dark:border-slate-800 text-left">
+                <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest font-mono flex items-center gap-2">
+                  <ShieldCheck size={14} className="text-emerald-650 dark:text-emerald-400" /> Log de Auditoria do Atendimento
                 </h3>
               </div>
 
               <div className="max-h-64 overflow-y-auto space-y-3 font-sans text-left">
                 {videoEvents.length > 0 ? (
                   videoEvents.map((evt, idx) => (
-                    <div key={idx} className="text-[11px] leading-relaxed border-b border-slate-50 pb-2 flex items-start gap-2">
-                      <span className="font-mono text-slate-400 font-bold shrink-0">
+                    <div key={idx} className="text-[11px] leading-relaxed border-b border-slate-50 dark:border-slate-800/80 pb-2 flex items-start gap-2">
+                      <span className="font-mono text-slate-400 dark:text-slate-500 font-bold shrink-0">
                         {new Date(evt.timestamp).toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                       <div>
-                        <span className="font-bold text-slate-800">{evt.userName}</span>{' '}
-                        <span className="text-slate-500">({evt.participantBi})</span>:{' '}
-                        <span className="text-slate-600 font-medium italic">{evt.description}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{evt.userName}</span>{' '}
+                        <span className="text-slate-500 dark:text-slate-400">({evt.participantBi})</span>:{' '}
+                        <span className="text-slate-600 dark:text-slate-300 font-medium italic">{evt.description}</span>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs italic text-slate-400 text-center py-6">Sem eventos de transmissão de vídeo registados.</p>
+                  <p className="text-xs italic text-slate-400 dark:text-slate-500 text-center py-6">Sem eventos de transmissão de vídeo registados.</p>
                 )}
               </div>
             </div>
@@ -2042,11 +2042,11 @@ export function GovDashboard({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-1.5 h-6 bg-red-650 rounded-full" />
-              <h2 className="text-base md:text-lg font-black italic tracking-tighter text-slate-900 uppercase">
+              <h2 className="text-base md:text-lg font-black italic tracking-tighter text-slate-900 dark:text-white uppercase">
                 Painel Analítico
               </h2>
             </div>
-            <button onClick={() => setShowAnalytics(prev => !prev)} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-primary transition-colors cursor-pointer bg-transparent border-0">
+            <button onClick={() => setShowAnalytics(prev => !prev)} className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400 hover:text-primary transition-colors cursor-pointer bg-transparent border-0">
               {showAnalytics ? 'Ocultar análise detalhada' : 'Mostrar análise detalhada'}
             </button>
           </div>
@@ -2054,11 +2054,11 @@ export function GovDashboard({
           {showAnalytics && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
             {/* Card Fiscais / Categoria */}
-            <div className="bg-white border border-[#0c2340]/15 rounded-[24px] p-6 shadow-xs flex flex-col justify-between min-h-[420px] text-left">
+            <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/15 dark:border-slate-800 rounded-[24px] p-6 shadow-xs flex flex-col justify-between min-h-[420px] text-left">
               <div>
-                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-slate-100 dark:border-slate-800">
                   <div className="w-1 h-5 bg-red-650 rounded-full" />
-                  <h3 className="text-xs font-black text-slate-950 uppercase tracking-[0.15em] italic">
+                  <h3 className="text-xs font-black text-slate-950 dark:text-white uppercase tracking-[0.15em] italic">
                     Correspondências por Categoria
                   </h3>
                 </div>
@@ -2105,10 +2105,10 @@ export function GovDashboard({
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-[9px] uppercase font-mono tracking-widest text-slate-400 font-bold">
+                      <span className="text-[9px] uppercase font-mono tracking-widest text-slate-400 dark:text-slate-400 font-bold">
                         Fluxo
                       </span>
-                      <span className="text-lg font-black text-slate-955 italic tracking-tighter leading-none mt-0.5">
+                      <span className="text-lg font-black text-slate-955 dark:text-white italic tracking-tighter leading-none mt-0.5">
                         {reais ? (reais.total > 0 ? '100%' : '—') : '100%'}
                       </span>
                     </div>
@@ -2134,18 +2134,18 @@ export function GovDashboard({
                     ).map((cat) => (
                       <div
                         key={cat.name}
-                        className="flex items-center justify-between text-[11px] p-1.5 hover:bg-slate-50 rounded-xl transition-colors border border-transparent"
+                        className="flex items-center justify-between text-[11px] p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors border border-transparent"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <div
                             className="w-2.5 h-2.5 rounded-full shrink-0"
                             style={{ backgroundColor: cat.color }}
                           />
-                          <span className="font-bold text-slate-650 uppercase tracking-wider text-[10px] truncate">
+                          <span className="font-bold text-slate-650 dark:text-slate-300 uppercase tracking-wider text-[10px] truncate">
                             {cat.name}
                           </span>
                         </div>
-                        <span className="font-black text-slate-955 font-mono text-[10px] shrink-0 ml-1">
+                        <span className="font-black text-slate-955 dark:text-white font-mono text-[10px] shrink-0 ml-1">
                           {cat.value}
                         </span>
                       </div>
@@ -2156,25 +2156,25 @@ export function GovDashboard({
               <button
                 type="button"
                 onClick={() => onNavigate?.('gov-correspondencias')}
-                className="w-full bg-[#0c2340] hover:bg-[#091a30] text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl border-0 transition-all shadow-none cursor-pointer mt-5"
+                className="w-full bg-[#0c2340] hover:bg-[#091a30] dark:bg-indigo-900/80 dark:hover:bg-indigo-800 text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl border-0 transition-all shadow-none cursor-pointer mt-5"
               >
                 Análise de Categorias
               </button>
             </div>
 
             {/* Card Província */}
-            <div className="bg-white border border-[#0c2340]/15 rounded-[24px] p-6 shadow-xs flex flex-col justify-between min-h-[420px] text-left">
+            <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/15 dark:border-slate-800 rounded-[24px] p-6 shadow-xs flex flex-col justify-between min-h-[420px] text-left">
               <div>
-                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-slate-100 dark:border-slate-800">
                   <div className="w-1 h-5 bg-red-650 rounded-full" />
-                  <h3 className="text-xs font-black text-slate-955 uppercase tracking-[0.15em] italic">
+                  <h3 className="text-xs font-black text-slate-955 dark:text-white uppercase tracking-[0.15em] italic">
                     Distribuição por Província
                   </h3>
                 </div>
 
                 <div className="flex flex-col gap-4 items-center">
                   {/* Visual Map Representation */}
-                  <div className="w-full h-[260px] bg-white border border-slate-200 rounded-2xl flex items-center justify-center relative overflow-hidden bg-slate-50/50">
+                  <div className="w-full h-[260px] bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl flex items-center justify-center relative overflow-hidden bg-slate-50/50 dark:bg-slate-800/50">
                     <LazyImage
                       src="https://i.postimg.cc/rp2hhzfK/mapa-Angola.jpg"
                       alt="Mapa de Angola Províncias"
@@ -2191,7 +2191,7 @@ export function GovDashboard({
                   </div>
 
                   {/* Província list */}
-                  <div className="w-full max-h-[170px] overflow-y-auto pr-2 space-y-1.5 text-slate-600 scrollbar-thin feedback-scroll">
+                  <div className="w-full max-h-[170px] overflow-y-auto pr-2 space-y-1.5 text-slate-600 dark:text-slate-300 scrollbar-thin feedback-scroll">
                     {(reais
                         ? (reais.provincias.length
                             ? reais.provincias.map((pv, i) => ({
@@ -2223,13 +2223,13 @@ export function GovDashboard({
                     ]).map((prov) => (
                       <div
                         key={prov.name}
-                        className="flex justify-between items-center text-[11px] p-1 border-b border-slate-50"
+                        className="flex justify-between items-center text-[11px] p-1 border-b border-slate-50 dark:border-slate-800"
                       >
-                        <span className="font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                        <span className="font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide flex items-center gap-1.5">
                           <span className={`w-1.5 h-1.5 rounded-full ${prov.color}`} />
                           {prov.name}
                         </span>
-                        <span className="font-mono font-black text-slate-900">
+                        <span className="font-mono font-black text-slate-900 dark:text-white">
                           {prov.count}
                         </span>
                       </div>
@@ -2240,18 +2240,18 @@ export function GovDashboard({
               <button
                 type="button"
                 onClick={() => onNavigate?.('gov-relatorio')}
-                className="w-full bg-[#0c2340] hover:bg-[#091a30] text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl border-0 transition-all shadow-none cursor-pointer mt-5"
+                className="w-full bg-[#0c2340] hover:bg-[#091a30] dark:bg-indigo-900/80 dark:hover:bg-indigo-800 text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl border-0 transition-all shadow-none cursor-pointer mt-5"
               >
                 Análise de Províncias
               </button>
             </div>
 
             {/* Card Notificações Ativa */}
-            <div className="bg-white border border-[#0c2340]/15 rounded-[24px] p-6 shadow-xs flex flex-col justify-between min-h-[420px] text-left">
+            <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/15 dark:border-slate-800 rounded-[24px] p-6 shadow-xs flex flex-col justify-between min-h-[420px] text-left">
               <div>
-                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-slate-100 dark:border-slate-800">
                   <div className="w-1 h-5 bg-red-650 rounded-full" />
-                  <h3 className="text-xs font-black text-slate-955 uppercase tracking-[0.15em] italic">
+                  <h3 className="text-xs font-black text-slate-955 dark:text-white uppercase tracking-[0.15em] italic">
                     Notificações Ativas
                   </h3>
                 </div>
@@ -2267,21 +2267,21 @@ export function GovDashboard({
                   ]).map((notif) => (
                     <div
                       key={notif.name}
-                      className="flex justify-between items-center p-2.5 rounded-xl bg-white border border-slate-900/10 hover:bg-slate-50 hover:border-slate-900/15 transition-colors"
+                      className="flex justify-between items-center p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-900/10 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-900/15 dark:hover:border-slate-600 transition-colors"
                     >
                       <div className="space-y-0.5">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block leading-none">
+                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest block leading-none">
                           Categoria
                         </span>
-                        <span className="text-xs font-black text-slate-900 uppercase tracking-wide">
+                        <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wide">
                           {notif.name}
                         </span>
                       </div>
                       <div className="text-right flex items-center gap-3">
-                        <span className="font-mono font-black text-slate-900">
+                        <span className="font-mono font-black text-slate-900 dark:text-white">
                           {notif.count}
                         </span>
-                        <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-md border text-emerald-600 bg-emerald-50 border-emerald-100 flex items-center gap-0.5 shrink-0">
+                        <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-md border text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 border-emerald-100 dark:border-emerald-800 flex items-center gap-0.5 shrink-0">
                           {notif.trend}
                         </span>
                       </div>
@@ -2293,7 +2293,7 @@ export function GovDashboard({
               <button
                 type="button"
                 onClick={() => onNavigate?.('gov-relatorio')}
-                className="w-full bg-[#0c2340] hover:bg-[#091a30] text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl border-0 transition-all shadow-xs cursor-pointer mt-4"
+                className="w-full bg-[#0c2340] hover:bg-[#091a30] dark:bg-indigo-900/80 dark:hover:bg-indigo-800 text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl border-0 transition-all shadow-xs cursor-pointer mt-4"
               >
                 Ver todas
               </button>
@@ -2307,11 +2307,11 @@ export function GovDashboard({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-1.5 h-6 bg-red-650 rounded-full" />
-              <h2 className="text-base md:text-lg font-black italic tracking-tighter text-slate-900 uppercase">
+              <h2 className="text-base md:text-lg font-black italic tracking-tighter text-slate-900 dark:text-white uppercase">
                 Serviços Inteligentes
               </h2>
             </div>
-            <button onClick={() => setShowSmartServices(prev => !prev)} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-primary transition-colors cursor-pointer bg-transparent border-0">
+            <button onClick={() => setShowSmartServices(prev => !prev)} className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400 hover:text-primary transition-colors cursor-pointer bg-transparent border-0">
               {showSmartServices ? 'Ocultar serviços' : 'Mostrar serviços inteligentes'}
             </button>
           </div>
@@ -2319,17 +2319,17 @@ export function GovDashboard({
           {showSmartServices && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
             {/* Card QR CODE */}
-            <div className="bg-white border border-[#0c2340]/15 rounded-[24px] p-6 shadow-xs min-h-[352px] flex flex-col justify-between text-center">
+            <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/15 dark:border-slate-800 rounded-[24px] p-6 shadow-xs min-h-[352px] flex flex-col justify-between text-center">
               <div className="flex flex-col items-center">
-                <div className="flex items-center justify-center gap-2 mb-6 pb-2 border-b border-slate-100 w-full">
+                <div className="flex items-center justify-center gap-2 mb-6 pb-2 border-b border-slate-100 dark:border-slate-800 w-full">
                   <div className="w-1 h-5 bg-red-650 rounded-full" />
-                  <h3 className="text-xs font-black text-slate-955 uppercase tracking-[0.15em] italic">
+                  <h3 className="text-xs font-black text-slate-955 dark:text-white uppercase tracking-[0.15em] italic">
                     Validações por QR Code
                   </h3>
                 </div>
 
                 {/* QR Code SVG Vector with scanning corner brackets - Centered & Enlarged */}
-                <div className="relative p-4 bg-white rounded-2xl shadow-sm mb-5 shrink-0 flex items-center justify-center">
+                <div className="relative p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm mb-5 shrink-0 flex items-center justify-center">
                   {/* Scanner Brackets */}
                   <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-emerald-500 rounded-tl-sm" />
                   <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-emerald-500 rounded-tr-sm" />
@@ -2345,16 +2345,16 @@ export function GovDashboard({
                 </div>
 
                 <div className="space-y-2 flex flex-col items-center">
-                  <div className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none">
+                  <div className="text-3xl font-black text-slate-955 dark:text-white italic tracking-tighter leading-none">
                     {/* v37.78.32 — QR: PROTOCOLOS selados na base central
                         (verdade da tabela digital_protocols) — antes mostrava
                         o total de MENSAGENS como «validações». */}
                     <AnimatedCounter to={reais ? reais.protocolosQr : 1108732} className="font-mono" />
                   </div>
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                  <div className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-none">
                      Protocolos Selados com QR
                   </div>
-                  <div className="text-[10px] font-black uppercase tracking-wider text-[#10b981] bg-emerald-50 w-fit px-2.5 py-1 rounded-lg border border-emerald-100 flex items-center justify-center gap-1.5">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-[#10b981] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 w-fit px-2.5 py-1 rounded-lg border border-emerald-100 dark:border-emerald-800 flex items-center justify-center gap-1.5">
                     <TrendingUp size={12} /> {reais ? `verificáveis na base central` : '↑ 14,2% vs mês anterior'}
                   </div>
                 </div>
@@ -2363,33 +2363,33 @@ export function GovDashboard({
               <button
                 type="button"
                 onClick={() => onNavigate?.('gov-correspondencias')}
-                className="w-full bg-[#0c2340] hover:bg-[#091a30] text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl border-0 transition-all shadow-xs cursor-pointer mt-6"
+                className="w-full bg-[#0c2340] hover:bg-[#091a30] dark:bg-indigo-900/80 dark:hover:bg-indigo-800 text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl border-0 transition-all shadow-xs cursor-pointer mt-6"
               >
                 Verificar Documento
               </button>
             </div>
 
             {/* Card ASSISTENTE IA */}
-            <div className="bg-white border border-[#0c2340]/15 rounded-[24px] p-6 shadow-xs min-h-[352px] flex flex-col justify-between text-center">
+            <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/15 dark:border-slate-800 rounded-[24px] p-6 shadow-xs min-h-[352px] flex flex-col justify-between text-center">
               <div className="flex flex-col items-center">
-                <div className="flex items-center justify-center gap-2 mb-6 pb-2 border-b border-slate-100 w-full">
+                <div className="flex items-center justify-center gap-2 mb-6 pb-2 border-b border-slate-100 dark:border-slate-800 w-full">
                   <div className="w-1 h-5 bg-red-650 rounded-full" />
-                  <h3 className="text-xs font-black text-slate-955 uppercase tracking-[0.15em] italic">
+                  <h3 className="text-xs font-black text-slate-955 dark:text-white uppercase tracking-[0.15em] italic">
                     Sobre Assistência IA
                   </h3>
                 </div>
 
                 {/* Styled enlarge centered Brain Container */}
-                <div className="w-24 h-24 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mb-5 shrink-0 shadow-sm relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-indigo-100/30 scale-75 rounded-full animate-pulse" />
-                  <Brain size={42} className="text-indigo-600 relative z-10" />
+                <div className="w-24 h-24 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-5 shrink-0 shadow-sm relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-indigo-100/30 dark:bg-indigo-900/30 scale-75 rounded-full animate-pulse" />
+                  <Brain size={42} className="text-indigo-600 dark:text-indigo-400 relative z-10" />
                 </div>
 
                 <div className="space-y-[6px] flex flex-col items-center">
-                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest leading-none">
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest leading-none">
                     Assistência Inteligente
                   </h4>
-                  <p className="text-[10px] text-slate-500 font-extrabold uppercase leading-relaxed text-center max-w-[240px]">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase leading-relaxed text-center max-w-[240px]">
                     O sistema analisa, classifica e sugere ações para otimizar o fluxo de trabalho institucional.
                   </p>
                 </div>
@@ -2400,18 +2400,18 @@ export function GovDashboard({
                 onClick={() => {
                   onNavigate?.('gov-correspondencias');
                 }}
-                className="w-full bg-[#0c2340] hover:bg-[#091a30] text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl border-0 transition-all shadow-xs cursor-pointer mt-6"
+                className="w-full bg-[#0c2340] hover:bg-[#091a30] dark:bg-indigo-900/80 dark:hover:bg-indigo-800 text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl border-0 transition-all shadow-xs cursor-pointer mt-6"
               >
                 Abrir Assistente IA
               </button>
             </div>
 
             {/* Card SEGURANÇA */}
-            <div className="bg-white border border-[#0c2340]/15 rounded-[24px] p-6 shadow-none min-h-[352px] flex flex-col justify-between text-center">
+            <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/15 dark:border-slate-800 rounded-[24px] p-6 shadow-none min-h-[352px] flex flex-col justify-between text-center">
               <div className="flex flex-col items-center">
-                <div className="flex items-center justify-center gap-2 mb-6 pb-2 border-b border-slate-100 w-full">
+                <div className="flex items-center justify-center gap-2 mb-6 pb-2 border-b border-slate-100 dark:border-slate-800 w-full">
                   <div className="w-1 h-5 bg-red-650 rounded-full" />
-                  <h3 className="text-xs font-black text-slate-955 uppercase tracking-[0.15em] italic">
+                  <h3 className="text-xs font-black text-slate-955 dark:text-white uppercase tracking-[0.15em] italic">
                     Login Biometrico
                   </h3>
                 </div>
@@ -2433,35 +2433,35 @@ export function GovDashboard({
                 </div>
 
                 <div className="space-y-2 flex flex-col items-center">
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                  <div className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-none">
                     Autenticações Faciais
                   </div>
-                  <div className="text-3xl font-black text-slate-955 italic tracking-tighter leading-none flex items-center justify-center gap-2">
+                  <div className="text-3xl font-black text-slate-955 dark:text-white italic tracking-tighter leading-none flex items-center justify-center gap-2">
                     {/* v37.78.32 — BIOMETRIA: eventos REAIS de login facial do
                         log de auditoria — antes mostrava a TAXA DE LEITURA de
                         mensagens (5,2%) como «sistema seguro 100%». */}
                     <AnimatedCounter to={reais ? reais.biometricos : 100} className="font-mono" />
-                    <span className="text-xs font-black uppercase text-emerald-600 tracking-wider">
+                    <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">
                       Registo Real
                     </span>
                   </div>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mt-1">
+                  <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none mt-1">
                     Eventos na auditoria da base central
                   </p>
                 </div>
               </div>
 
               <div className="space-y-3 mt-6">
-                <div className="p-3 bg-white border border-slate-300 rounded-2xl flex items-center justify-center gap-2">
+                <div className="p-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl flex items-center justify-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[9px] font-mono uppercase font-black text-slate-700 tracking-wider">
+                  <span className="text-[9px] font-mono uppercase font-black text-slate-700 dark:text-slate-300 tracking-wider">
                     Monitoramento Ativo &bull; CDA-SHIELD
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => onNavigate?.('gov-seguranca')}
-                  className="w-full bg-[#0c2340] hover:bg-[#091a30] text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl border-0 transition-all shadow-none cursor-pointer"
+                  className="w-full bg-[#0c2340] hover:bg-[#091a30] dark:bg-indigo-900/80 dark:hover:bg-indigo-800 text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl border-0 transition-all shadow-none cursor-pointer"
                 >
                   Auditar Segurança
                 </button>
@@ -2476,11 +2476,11 @@ export function GovDashboard({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-1.5 h-6 bg-red-650 rounded-full" />
-              <h2 className="text-base md:text-lg font-black italic tracking-tighter text-slate-900 uppercase">
+              <h2 className="text-base md:text-lg font-black italic tracking-tighter text-slate-900 dark:text-white uppercase">
                 Atividade Recente e Status
               </h2>
             </div>
-            <button onClick={() => setShowRecentActivity(prev => !prev)} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-primary transition-colors cursor-pointer bg-transparent border-0">
+            <button onClick={() => setShowRecentActivity(prev => !prev)} className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400 hover:text-primary transition-colors cursor-pointer bg-transparent border-0">
               {showRecentActivity ? 'Ocultar atividade' : 'Mostrar atividade completa'}
             </button>
           </div>
@@ -2488,11 +2488,11 @@ export function GovDashboard({
           {showRecentActivity && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
             {/* Card Atividade Recente */}
-            <div className="bg-white border border-[#0c2340]/15 rounded-[24px] p-6 md:p-8 shadow-xs flex flex-col justify-between text-left">
+            <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/15 dark:border-slate-800 rounded-[24px] p-6 md:p-8 shadow-xs flex flex-col justify-between text-left">
               <div>
-                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-slate-100 dark:border-slate-800">
                   <div className="w-1 h-5 bg-red-650 rounded-full" />
-                  <h3 className="text-xs font-black text-slate-955 uppercase tracking-[0.15em] italic">
+                  <h3 className="text-xs font-black text-slate-955 dark:text-white uppercase tracking-[0.15em] italic">
                     Atividade Recente
                   </h3>
                 </div>
@@ -2507,14 +2507,14 @@ export function GovDashboard({
                     { desc: "Validação por QR Code realizada", time: "20/05/2025 10:15" },
                     { desc: "Correspondência de Justiça entregue", time: "20/05/2025 10:05" }
                   ]).map((act, index) => (
-                    <div key={index} className="flex justify-between items-center text-[11px] p-2 hover:bg-slate-50 rounded-xl transition-colors">
+                    <div key={index} className="flex justify-between items-center text-[11px] p-2 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-xl transition-colors">
                       <div className="flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        <span className="font-bold text-slate-900 uppercase tracking-wide">
+                        <span className="font-bold text-slate-900 dark:text-slate-200 uppercase tracking-wide">
                           {act.desc}
                         </span>
                       </div>
-                      <span className="font-mono text-slate-400 font-bold shrink-0 ml-2">
+                      <span className="font-mono text-slate-400 dark:text-slate-400 font-bold shrink-0 ml-2">
                         {act.time}
                       </span>
                     </div>
@@ -2525,24 +2525,24 @@ export function GovDashboard({
               <button
                 type="button"
                 onClick={() => onNavigate?.('gov-relatorio')}
-                className="w-full bg-[#0c2340] hover:bg-[#091a30] text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl border-0 transition-all shadow-xs cursor-pointer mt-6"
+                className="w-full bg-[#0c2340] hover:bg-[#091a30] dark:bg-indigo-900/80 dark:hover:bg-indigo-800 text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl border-0 transition-all shadow-xs cursor-pointer mt-6"
               >
                 Ver todas as atividades
               </button>
             </div>
 
             {/* Card Status do Sistema */}
-            <div className="bg-white border border-[#0c2340]/15 rounded-[24px] p-6 md:p-8 shadow-xs flex flex-col justify-between text-left min-h-[350px]">
+            <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/15 dark:border-slate-800 rounded-[24px] p-6 md:p-8 shadow-xs flex flex-col justify-between text-left min-h-[350px]">
               <div>
-                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-slate-100 dark:border-slate-800">
                   <div className="w-1 h-5 bg-red-650 rounded-full" />
-                  <h3 className="text-xs font-black text-slate-955 uppercase tracking-[0.15em] italic">
+                  <h3 className="text-xs font-black text-slate-955 dark:text-white uppercase tracking-[0.15em] italic">
                     Status do Sistema
                   </h3>
                 </div>
 
                 <div className="flex flex-col items-center justify-center gap-5 py-10 text-center">
-                  <div className="w-20 h-20 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center relative shadow-xs shrink-0">
+                  <div className="w-20 h-20 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-800/60 flex items-center justify-center relative shadow-xs shrink-0">
                     <span className="absolute inset-0 rounded-full border border-emerald-400 animate-ping opacity-25" />
                     <CheckCircle2 size={44} className="text-emerald-500" />
                   </div>
@@ -2553,10 +2553,10 @@ export function GovDashboard({
                         reais carregados; sem dados, «Sem Ligação» verídico
                         (antes: «Operacional · todos os serviços ativos»
                         gravado a ferro). */}
-                    <h4 className={`text-[22px] font-black uppercase tracking-widest leading-none ${reais ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    <h4 className={`text-[22px] font-black uppercase tracking-widest leading-none ${reais ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
                       {reais ? 'Operacional' : 'Sem Ligação'}
                     </h4>
-                    <p className="text-xs text-slate-500 font-extrabold uppercase mt-1">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-extrabold uppercase mt-1">
                       {reais ? 'Base central conectada · dados ao vivo' : 'Base central indisponível — modo local'}
                     </p>
                   </div>
@@ -2566,7 +2566,7 @@ export function GovDashboard({
               <button
                 type="button"
                 onClick={() => onNavigate?.('gov-seguranca')}
-                className="w-full bg-[#0c2340] hover:bg-[#091a30] text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl border-0 transition-all shadow-xs cursor-pointer mt-6"
+                className="w-full bg-[#0c2340] hover:bg-[#091a30] dark:bg-indigo-900/80 dark:hover:bg-indigo-800 text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl border-0 transition-all shadow-xs cursor-pointer mt-6"
               >
                 Ver Detalhes
               </button>

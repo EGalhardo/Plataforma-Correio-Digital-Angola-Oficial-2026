@@ -102,7 +102,7 @@ export function Sidebar({
   const itensVisiveis = currentItems;
 
   return (
-    <aside className={`hidden md:flex p-5 md:w-[250px] md:rounded-[32px] shadow-none dark:shadow-2xl transition-all duration-500 shrink-0 md:sticky md:top-5 md:h-[calc(100vh-2.5rem)] flex-col border border-slate-200 dark:border-[#141d31] bg-white text-slate-900`}>
+    <aside className={`hidden md:flex p-5 md:w-[250px] md:rounded-[32px] shadow-none dark:shadow-2xl transition-all duration-500 shrink-0 md:sticky md:top-5 md:h-[calc(100vh-2.5rem)] flex-col border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white`}>
       <div className="mb-8 px-4">
         {/* v37.78.33 — LOGOMARCA ÚNICA: a mesma imagem nos dois temas (claro e
             escuro), a pedido do dono — caixa fixa com rácio preservado
@@ -168,7 +168,7 @@ export function Sidebar({
         })}
       </nav>
 
-      <div className="mt-auto pt-6 border-t space-y-2 border-slate-300/80">
+      <div className="mt-auto pt-6 border-t space-y-2 border-slate-300/80 dark:border-slate-800">
         <button
           onClick={() => handleLogout(false)}
           className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl font-black transition-all bg-[#0E2B64] text-white hover:bg-[#081a3d] border-0 shadow-none dark:shadow-sm cursor-pointer"
