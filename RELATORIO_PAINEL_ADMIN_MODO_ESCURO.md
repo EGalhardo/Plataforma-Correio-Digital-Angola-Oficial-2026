@@ -70,6 +70,15 @@ Executados testes ponta a ponta com Playwright em Chromium Headless:
 
 ---
 
-## 4. Conclusão
+## 4. Confirmação do Deploy em Produção na Vercel
+
+- **URL de Produção:** `https://correio-digital-angola-oficial.vercel.app`
+- **Último Commit em Produção:** `cec302f` (`fix(admin): visibilidade e contraste dos 4 containers de indicadores setoriais no modo escuro`)
+- **Estado do Deployment na Vercel:** `READY` (Ativo e operacional)
+- **Validação E2E em Produção:** 11/11 Aprovados (100% de sucesso direto no domínio oficial da Vercel).
+
+---
+
+## 5. Conclusão
 
 Todas as secções, cartões, tabelas, modais, gráficos e badges do Painel Governamental (`gov-dashboard`) oferecem agora uma experiência visual polida e de alto padrão em modo escuro, mantendo plena conformidade com as diretrizes visuais oficiais do Governo de Angola.
