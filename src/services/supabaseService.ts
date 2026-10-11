@@ -1767,7 +1767,7 @@ export const supabaseService = {
       // mostrava correspondências de outras contas (BD partilhada).
       const target = realCode ? rawLabel.toUpperCase() : legacyTarget;
       const targetParts = target.split('-');
-      const targetParent = targetParts.length > 2 && /^\d+$/.test(targetParts[targetParts.length - 1]) ? targetParts.slice(0, -1).join('-') : target;
+      const targetParent = targetParts.length > 2 ? targetParts.slice(0, -1).join('-') : target;
       const targetSet = new Set([target, targetParent].filter(Boolean));
       const orFilter = Array.from(targetSet).map(t => `recipient_bi.eq.${t}`).join(',');
 
@@ -1930,10 +1930,10 @@ export const supabaseService = {
             const sndKeyNorm = (senderKey || '').toUpperCase().trim();
             const recParts = recKeyNorm.split('-');
             const recSigla = recParts[0];
-            const recParent = recParts.length > 2 && /^\d+$/.test(recParts[recParts.length - 1]) ? recParts.slice(0, -1).join('-') : recKeyNorm;
+            const recParent = recParts.length > 2 ? recParts.slice(0, -1).join('-') : recKeyNorm;
             const sndParts = sndKeyNorm.split('-');
             const sndSigla = sndParts[0];
-            const sndParent = sndParts.length > 2 && /^\d+$/.test(sndParts[sndParts.length - 1]) ? sndParts.slice(0, -1).join('-') : sndKeyNorm;
+            const sndParent = sndParts.length > 2 ? sndParts.slice(0, -1).join('-') : sndKeyNorm;
 
             const recSet = new Set([recKeyNorm, recParent, recSigla].filter(Boolean));
             const sndSet = new Set([sndKeyNorm, sndParent, sndSigla].filter(Boolean));
@@ -2014,10 +2014,10 @@ export const supabaseService = {
         const sndKeyNorm = (senderKey || '').toUpperCase().trim();
         const recParts = recKeyNorm.split('-');
         const recSigla = recParts[0];
-        const recParent = recParts.length > 2 && /^\d+$/.test(recParts[recParts.length - 1]) ? recParts.slice(0, -1).join('-') : recKeyNorm;
+        const recParent = recParts.length > 2 ? recParts.slice(0, -1).join('-') : recKeyNorm;
         const sndParts = sndKeyNorm.split('-');
         const sndSigla = sndParts[0];
-        const sndParent = sndParts.length > 2 && /^\d+$/.test(sndParts[sndParts.length - 1]) ? sndParts.slice(0, -1).join('-') : sndKeyNorm;
+        const sndParent = sndParts.length > 2 ? sndParts.slice(0, -1).join('-') : sndKeyNorm;
         const recSet = new Set([recKeyNorm, recParent, recSigla].filter(Boolean));
         const sndSet = new Set([sndKeyNorm, sndParent, sndSigla].filter(Boolean));
 
@@ -2145,11 +2145,26 @@ export const supabaseService = {
   async markAllNotificationsRead(targetBi: string): Promise<boolean> {
     if (!hasValidSupabaseKeys() || !targetBi) return false;
     try {
+      const rawKey = String(targetBi || '').trim().toUpperCase();
+      const cleanBi = resolveCitizenBi(rawKey).toUpperCase().replace(/\s+/g, '');
+      const parts = rawKey.split('-');
+      const sigla = parts[0];
+      const parent = parts.length > 2 ? parts.slice(0, -1).join('-') : rawKey;
+      const targetSet = Array.from(new Set([rawKey, cleanBi, parent, sigla].filter(Boolean)));
+
       const r = await gravarDados(
-        'notifications', 'update', { target_bi: targetBi },
+        'notifications', 'update', { target_bi: rawKey },
         { read_at: new Date().toISOString() },
         { isNull: ['read_at'] },
-        async () => null,
+        async () => {
+          const { error } = await supabase
+            .from('notifications')
+            .update({ read_at: new Date().toISOString() })
+            .in('target_bi', targetSet)
+            .is('read_at', null);
+          if (error) throw error;
+          return true;
+        },
       );
       return r !== null;
     } catch (e) {
@@ -2178,18 +2193,34 @@ export const supabaseService = {
    * Fetch citizen/system notifications
    */
   async getNotifications(bi: string): Promise<any[] | null> {
-    if (!hasValidSupabaseKeys()) return null;
+    if (!hasValidSupabaseKeys() || !bi) return null;
     try {
+      const rawKey = String(bi || '').trim().toUpperCase();
+      const cleanBi = resolveCitizenBi(rawKey).toUpperCase().replace(/\s+/g, '');
+      const ehBiCidadao = /^\d{9}[A-Z]{2}\d{3}$/i.test(cleanBi);
+      const parts = rawKey.split('-');
+      const sigla = parts[0];
+      const parent = parts.length > 2 ? parts.slice(0, -1).join('-') : rawKey;
+      const targetSet = new Set([
+        rawKey,
+        cleanBi,
+        parent,
+        sigla,
+        ...(ehBiCidadao ? ['TODOS'] : [])
+      ].filter(Boolean));
+      const orFilter = Array.from(targetSet).map(t => `target_bi.eq.${t}`).join(',');
+
       const linhas = await lerLinhasDados<LinhaNotificacaoRow>(
         'notifications',
-        { target_bi: bi },
+        undefined,
         { col: 'id', dir: 'desc' },
         async () => {
           const { data, error } = await supabase
             .from('notifications')
             .select('*')
-            .eq('target_bi', bi)
-            .order('id', { ascending: false });
+            .or(orFilter)
+            .order('id', { ascending: false })
+            .limit(100);
           if (error) throw error;
           return (data || []) as LinhaNotificacaoRow[];
         },
