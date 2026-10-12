@@ -311,9 +311,9 @@ export function InqueritoIaChat({ aberto, onFechar, inquerito, cidadaoBi, onConc
       setAConcluir(false);
       if (!r.ok) { setErro(r.mensagem || 'Não foi possível concluir. Tente novamente.'); return; }
       addAuditLog?.(`Inquérito com IA «${guiao.objectivo}» concluído pelo cidadão (${chavesRecolhidas(campos).length} informação(ões), canal ${canalUsado}).`, 'success');
-      onConcluido?.();
       pararVoz(); if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-      setConfirmacao(true); // ecrã «Participação registada»; ao fechar volta ao detalhe da correspondência
+      onConcluido?.();
+      onFechar();
       return;
     }
     setAConcluir(false);

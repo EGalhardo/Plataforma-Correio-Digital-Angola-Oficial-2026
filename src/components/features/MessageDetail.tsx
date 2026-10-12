@@ -493,7 +493,12 @@ export function MessageDetail({
           onFechar={() => { const id = inqIaAberto.id; setInqIaAberto(null); void recarregarMinhaRespostaIA(id); }}
           inquerito={inqIaAberto}
           cidadaoBi={cidadaoBi}
-          onConcluido={marcarRespondidaIA}
+          onConcluido={() => {
+            marcarRespondidaIA();
+            setInqIaAberto(null);
+            setSelectedMessage(null);
+            setTab('home');
+          }}
           addAuditLog={addAuditLog}
         />
       )}
