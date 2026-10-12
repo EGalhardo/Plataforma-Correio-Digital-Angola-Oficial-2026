@@ -2176,7 +2176,7 @@ export default function App() {
     setLoginError(null);
   }, [loginSubMode, appMode]);
   
-  const [correspondenciaTab, setCorrespondenciaTab] = useState('lidas');
+  const [correspondenciaTab, setCorrespondenciaTab] = useState('todas');
   const [videoSessionCount, setVideoSessionCount] = useState(0);
   const [isComposing, setIsComposing] = useState(false);
   const [composeData, setComposeData] = useState<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[]; inqueritosIaIds?: number[]; dataExpiracao?: string }>({ to: '', subject: '', body: '', attachments: [], toArray: [] });
@@ -4653,14 +4653,15 @@ export default function App() {
     if (correspondenciaTab === "excluidas") {
       const allMsgs = [...currentInbox, ...currentSentMessages];
       base = allMsgs.filter(item => deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id));
+    } else if (correspondenciaTab === "enviadas") {
+      base = currentSentMessages.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id));
+    } else if (correspondenciaTab === "lidas") {
+      base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemLida(item));
+    } else if (correspondenciaTab === "naoLidas") {
+      base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemNaoLida(item));
     } else {
-      if (correspondenciaTab === "enviadas") {
-        base = currentSentMessages.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id));
-      } else if (correspondenciaTab === "lidas") {
-        base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemLida(item));
-      } else {
-        base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemNaoLida(item));
-      }
+      // 'todas' / padrão: TODAS as correspondências recebidas da conta (Lidas + Não Lidas)
+      base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id));
     }
 
     // v37.37 — reordenação final: o separador «Excluídas» concatena recebidas +

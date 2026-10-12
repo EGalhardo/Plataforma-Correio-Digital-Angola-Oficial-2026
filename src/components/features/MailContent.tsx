@@ -670,21 +670,9 @@ export function MailContent({
     () => (isInst ? agruparConversas(baseEnviadasVisiveis).length : baseEnviadasVisiveis.length),
     [isInst, baseEnviadasVisiveis],
   );
-  // v37.78.30 — DEFAULT INTELIGENTE (reporte do dono 2026-08-31): o Correio
-  // abre na tab «Não Lidas» SEMPRE que houver correspondência por ler — era
-  // aqui que a resposta de um cidadão «desaparecia»: a tab inicial era
-  // «Lidas» e o correio NOVO (não lido) ficava invisível até o utilizador
-  // carregar manualmente em «Não Lidas». Sem não-lidas, mantém «Lidas».
-  // Executa UMA vez por visita à página (o utilizador pode trocar livremente).
-  const autoTabAplicada = useRef(false);
-  useEffect(() => {
-    if (autoTabAplicada.current) return;
-    if (correspondenciaTab !== 'lidas') { autoTabAplicada.current = true; return; }
-    const temNaoLidas = inbox.some(m => m.unread && !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id));
-    if (temNaoLidas) setCorrespondenciaTab('naoLidas');
-    autoTabAplicada.current = true;
-  }, [inbox, correspondenciaTab, deletedMessageIds, hiddenMessageIds, setCorrespondenciaTab]);
-
+  // v37.80 — CARREGAMENTO INTEGRAL: O Correio carrega sempre por padrão na
+  // aba «Todas» / lista completa de correspondências da conta (Cidadão e Instituição),
+  // garantindo que nenhuma mensagem anterior é ocultada ao entrar.
   useEffect(() => { setLimiteListaCorreio(LIMITE_LISTA_CORREIO); }, [correspondenciaTab, searchMail]);
   useEffect(() => {
     if (!isInst || !bi) return;
@@ -2506,6 +2494,7 @@ export function MailContent({
       <div className="bg-white border border-slate-300 rounded-[32px] p-2.5 shadow-sm flex flex-col lg:flex-row gap-3">
         <div className="grid grid-cols-2 sm:flex sm:flex-nowrap gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl lg:min-w-[500px] w-full lg:w-auto">
           {[
+            { id: 'todas', label: 'Todas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)).length },
             { id: 'lidas', label: 'Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && isMensagemLida(m)).length },
             { id: 'naoLidas', label: 'Não Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && isMensagemNaoLida(m)).length },
             { id: 'enviadas', label: 'Enviadas', count: contagemEnviadas },
@@ -2516,7 +2505,10 @@ export function MailContent({
             let badgeStyle = '';
 
             if (isActive) {
-              if (tab.id === 'lidas') {
+              if (tab.id === 'todas') {
+                activeStyle = 'bg-[#0E2B64] text-white shadow-md shadow-[#0E2B64]/20 ring-2 ring-[#0E2B64]';
+                badgeStyle = 'bg-white text-[#0E2B64]';
+              } else if (tab.id === 'lidas') {
                 activeStyle = 'bg-emerald-600 text-white shadow-md shadow-emerald-200 ring-2 ring-emerald-600';
                 badgeStyle = 'bg-white text-emerald-700';
               } else if (tab.id === 'naoLidas') {
@@ -2531,7 +2523,9 @@ export function MailContent({
               }
             } else {
               activeStyle = 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50';
-              if (tab.id === 'lidas') {
+              if (tab.id === 'todas') {
+                badgeStyle = 'bg-[#0E2B64] text-white';
+              } else if (tab.id === 'lidas') {
                 badgeStyle = 'bg-emerald-600 text-white';
               } else if (tab.id === 'naoLidas') {
                 badgeStyle = 'bg-red-600 text-white';
