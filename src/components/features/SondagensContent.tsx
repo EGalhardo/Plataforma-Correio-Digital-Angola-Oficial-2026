@@ -41,6 +41,8 @@ interface Props {
   onVerNotificacoes?: () => void;
   /** Enviadas da instituição: ligam cada pergunta à sua correspondência. */
   mensagensEnviadas?: Message[];
+  /** v37.81 — Eliminação em cascata intra-conta: elimina correspondências associadas na conta ativa */
+  onDeleteMessage?: (id: number) => void;
 }
 
 interface Pasta<T> {
@@ -57,7 +59,7 @@ function dataConversa(c: Conversa): string {
   return c.representante.date || '';
 }
 
-export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sondagens', onBack, onCreate, novidadesNaoLidas = 0, onVerNotificacoes, mensagensEnviadas = [] }: Props) {
+export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sondagens', onBack, onCreate, novidadesNaoLidas = 0, onVerNotificacoes, mensagensEnviadas = [], onDeleteMessage }: Props) {
   const [disponivel, setDisponivel] = useState<boolean | null>(null);
   const [lista, setLista] = useState<Sondagem[]>([]);
   const [pastaAberta, setPastaAberta] = useState<string | null>(null);
@@ -181,6 +183,14 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
             delete next[s.id];
             return next;
           });
+          // v37.81 — Eliminação em cascata intra-conta (na conta ativa)
+          if (onDeleteMessage && mensagensEnviadas.length > 0) {
+            const msgsVinculadas = mensagensEnviadas.filter(m =>
+              m.sondagem_id === s.id ||
+              m.sondagem_ids?.includes(s.id)
+            );
+            msgsVinculadas.forEach(m => onDeleteMessage(m.id));
+          }
           setInqueritoParaEliminar(null);
         } else {
           alert(r.mensagem || 'Não foi possível eliminar o inquérito.');
@@ -192,6 +202,14 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
         if (r.ok) {
           addAuditLog(`Inquérito com IA «${titulo.slice(0, 60)}» eliminado com sucesso.`, 'info');
           setListaIA(prev => prev.filter(p => p.id !== q.id));
+          // v37.81 — Eliminação em cascata intra-conta (na conta ativa)
+          if (onDeleteMessage && mensagensEnviadas.length > 0) {
+            const msgsVinculadas = mensagensEnviadas.filter(m =>
+              m.inquerito_ia_id === q.id ||
+              m.inquerito_ia_ids?.includes(q.id)
+            );
+            msgsVinculadas.forEach(m => onDeleteMessage(m.id));
+          }
           setInqueritoParaEliminar(null);
         } else {
           alert(r.mensagem || 'Não foi possível eliminar o inquérito com IA.');
@@ -467,7 +485,16 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
           inquerito={resultadosIA}
           addAuditLog={addAuditLog}
           onEncerrado={(id) => setListaIA((prev) => prev.map((p) => (p.id === id ? { ...p, status: 'encerrado' } : p)))}
-          onEliminado={(id) => setListaIA((prev) => prev.filter((p) => p.id !== id))}
+          onEliminado={(id) => {
+            setListaIA((prev) => prev.filter((p) => p.id !== id));
+            if (onDeleteMessage && mensagensEnviadas.length > 0) {
+              const msgsVinculadas = mensagensEnviadas.filter(m =>
+                m.inquerito_ia_id === id ||
+                m.inquerito_ia_ids?.includes(id)
+              );
+              msgsVinculadas.forEach(m => onDeleteMessage(m.id));
+            }
+          }}
         />
       )}
 

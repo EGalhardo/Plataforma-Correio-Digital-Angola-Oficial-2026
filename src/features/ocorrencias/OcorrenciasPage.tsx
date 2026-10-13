@@ -542,7 +542,13 @@ function ActionDialog({
     document.body,
   );
 }
-export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
+export interface OcorrenciasPageProps {
+  onBack: () => void;
+  messages?: Message[];
+  onDeleteMessage?: (id: number) => void;
+}
+
+export function OcorrenciasPage({ onBack, messages = [], onDeleteMessage }: OcorrenciasPageProps) {
   const [actor, setActor] = useState<ActorOcorrencia | null>(null),
     [institutions, setInstitutions] = useState<InstituicaoOcorrencia[]>([]);
   const [view, setView] = useState<
@@ -1406,7 +1412,31 @@ export function OcorrenciasPage({ onBack }: { onBack: () => void }) {
       setList((prev) => prev.filter((x) => x.id !== o.id && x.numero !== o.numero));
       setTotal((t) => Math.max(0, t - 1));
 
-      // 3. Limpeza de correspondências e notificações locais associadas à ocorrência eliminada
+      // 3. Eliminação em cascata intra-conta das correspondências vinculadas à ocorrência
+      if (onDeleteMessage && messages && messages.length > 0) {
+        const numProt = protocoloOcorrencia(o.numero).toLowerCase();
+        const numRaw = String(o.numero || '').toLowerCase();
+        const titNorm = (o.titulo || '').toLowerCase();
+        const idStr = String(o.id || '');
+
+        const msgsVinculadas = messages.filter((m: Message) => {
+          const s = (m.details?.subject || m.preview || '').toLowerCase();
+          const b = (m.details?.body || '').toLowerCase();
+          const ocId = String((m as any).ocorrencia_id || (m.details as any)?.ocorrencia_id || '');
+          return (
+            (ocId && (ocId === idStr || ocId === numRaw)) ||
+            (numProt && (s.includes(numProt) || b.includes(numProt))) ||
+            (numRaw && (s.includes(numRaw) || b.includes(numRaw))) ||
+            (titNorm && titNorm.length >= 5 && (s.includes(titNorm) || b.includes(titNorm)))
+          );
+        });
+
+        msgsVinculadas.forEach((m: Message) => {
+          onDeleteMessage(m.id);
+        });
+      }
+
+      // 4. Limpeza de correspondências e notificações locais associadas à ocorrência eliminada
       try {
         const numProt = protocoloOcorrencia(o.numero).toLowerCase();
         const titNorm = (o.titulo || '').toLowerCase();

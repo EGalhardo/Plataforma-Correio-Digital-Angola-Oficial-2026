@@ -1,8 +1,9 @@
 import { ListaRolavel } from '../ui/ListaRolavel';
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, ClipboardList, ShieldAlert, Search, ArrowRight, Bot, Flag, Megaphone } from 'lucide-react';
+import { Plus, ClipboardList, ShieldAlert, Search, ArrowRight, Bot, Flag, Megaphone, Trash2 } from 'lucide-react';
 import type { Message, AppNotification } from '../../types';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
+import { CdaConfirmModal } from '../ui/CdaConfirm';
 import { listarParticipacao, temInqueritoIA, temInqueritoNormal, filtrarAbaInquerito, type AbaInquerito } from '../../utils/listasParticipacao';
 import { novidadesPorMensagem } from '../../utils/notificacoesAtalhos';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -15,12 +16,15 @@ interface Props {
   onOpen: (message: Message) => void;
   onBack: () => void;
   onCreate?: () => void;
+  onDeleteMessage?: (id: number) => void;
 }
 
-export function ListaParticipacaoContent({tipo, isInst, messages, notifications = [], onOpen, onBack, onCreate}: Props) {
+export function ListaParticipacaoContent({tipo, isInst, messages, notifications = [], onOpen, onBack, onCreate, onDeleteMessage}: Props) {
   const {t} = useLanguage();
   const [query, setQuery] = useState('');
   const [aba, setAba] = useState<AbaInquerito>('normal');
+  const [itemParaEliminar, setItemParaEliminar] = useState<Message | null>(null);
+
   useEffect(() => { setQuery(''); setAba('normal'); }, [tipo, isInst]);
   const inqueritos = tipo === 'inqueritos';
   const novaDenuncia = tipo === 'nova-denuncia';
@@ -120,27 +124,81 @@ export function ListaParticipacaoContent({tipo, isInst, messages, notifications 
     {lista.length === 0 ? <div className="p-8 text-center rounded-2xl border border-slate-200 bg-white text-slate-500">
       {t(query.trim() ? 'Nenhum resultado para esta procura.' : inqueritos ? (aba === 'ia' ? 'Ainda não recebeu inquéritos com IA.' : 'Ainda não recebeu inquéritos normais.') : novaDenuncia ? (isInst ? 'Ainda não recebeu denuncias.' : 'Ainda não enviou denuncias.') : comunicados ? (isInst ? 'Ainda não emitiu comunicados oficiais.' : 'Ainda não recebeu comunicados oficiais.') : isInst ? 'Ainda não recebeu denúncias.' : 'Ainda não enviou denúncias.')}
     </div> : <ListaRolavel count={lista.length} label={t(titulo)}>
-      {lista.map(m=>{ const nov = novidades.porMensagem.get(m.id);
-        return <button type="button" key={m.id} data-msg-id={m.id} onClick={()=>onOpen(m)} className="w-full min-w-0 text-left bg-white border border-slate-200 rounded-2xl p-4 md:p-5 hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-2">
-            <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-500">
-              <span>#{m.id}</span><span>{m.date}</span>
-              {inqueritos && <span className="text-indigo-700">{t(temInqueritoIA(m) ? temInqueritoNormal(m) ? 'Normal e com IA' : 'Com IA' : 'Normal')}</span>}
+      {lista.map(m => {
+        const nov = novidades.porMensagem.get(m.id);
+        return (
+          <div
+            key={m.id}
+            data-msg-id={m.id}
+            className="group relative w-full min-w-0 bg-white border border-slate-200 rounded-2xl p-4 md:p-5 hover:border-primary/40 focus-within:border-primary/40 transition-colors"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => onOpen(m)}
+                className="flex-1 min-w-0 text-left space-y-2 bg-transparent border-0 p-0 cursor-pointer focus:outline-none"
+              >
+                <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-500">
+                  <span>#{m.id}</span><span>{m.date}</span>
+                  {inqueritos && <span className="text-indigo-700">{t(temInqueritoIA(m) ? temInqueritoNormal(m) ? 'Normal e com IA' : 'Com IA' : 'Normal')}</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-primary break-words">{m.details?.subject || m.preview || t(titulo)}</h3>
+                  {nov && (nov.naoLida || nov.atualizacoes > 0) && (
+                    <span data-testid={`badge-item-${m.id}`} className="shrink-0 min-w-4 h-4 px-1.5 inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[9px] font-black leading-none shadow-xs animate-pulse">
+                      {nov.atualizacoes > 0 ? nov.atualizacoes : '1'}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 break-words">{anonimizar ? t('Remetente: Anónimo') : `${t(inqueritos ? 'Instituição' : comunicados ? (isInst ? 'Destinatários' : 'Emissor') : 'Destinatário')}: ${m.org || '—'}`}</p>
+                <span className="block text-xs font-bold text-primary mt-3">{t(inqueritos ? 'Consultar inquérito' : novaDenuncia ? 'Consultar denuncia' : comunicados ? 'Consultar comunicado' : 'Consultar denúncia')}</span>
+              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {onDeleteMessage && (
+                  <button
+                    type="button"
+                    title={t("Eliminar")}
+                    data-testid={`btn-eliminar-${tipo}-${m.id}`}
+                    data-acao="eliminar"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setItemParaEliminar(m);
+                    }}
+                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer border-0 bg-transparent"
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onOpen(m)}
+                  className="p-2 text-primary hover:bg-slate-50 rounded-xl transition-colors border-0 bg-transparent cursor-pointer"
+                >
+                  <ArrowRight size={18} aria-hidden="true" className="shrink-0 text-primary" />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-bold text-primary break-words">{m.details?.subject || m.preview || t(titulo)}</h3>
-              {nov && (nov.naoLida || nov.atualizacoes > 0) && (
-                <span data-testid={`badge-item-${m.id}`} className="shrink-0 min-w-4 h-4 px-1.5 inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[9px] font-black leading-none shadow-xs animate-pulse">
-                  {nov.atualizacoes > 0 ? nov.atualizacoes : '1'}
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-slate-500 break-words">{anonimizar ? t('Remetente: Anónimo') : `${t(inqueritos ? 'Instituição' : comunicados ? (isInst ? 'Destinatários' : 'Emissor') : 'Destinatário')}: ${m.org || '—'}`}</p>
-          </div><ArrowRight size={18} aria-hidden="true" className="shrink-0 text-primary mt-1"/>
-        </div>
-        <span className="block text-xs font-bold text-primary mt-3">{t(inqueritos ? 'Consultar inquérito' : novaDenuncia ? 'Consultar denuncia' : comunicados ? 'Consultar comunicado' : 'Consultar denúncia')}</span>
-      </button>; })}
+          </div>
+        );
+      })}
     </ListaRolavel>}
+
+    {itemParaEliminar && (
+      <CdaConfirmModal
+        aberto={true}
+        titulo={t(`Eliminar ${titulo}`)}
+        mensagem={t(`Tem a certeza que deseja eliminar esta correspondência de ${titulo.toLowerCase()}? Ela será movida para as Eliminadas da sua conta sem afetar a contraparte.`)}
+        textoConfirmar={t('Eliminar')}
+        textoCancelar={t('Cancelar')}
+        perigoso={true}
+        onConfirmar={() => {
+          if (onDeleteMessage && itemParaEliminar) {
+            onDeleteMessage(itemParaEliminar.id);
+          }
+          setItemParaEliminar(null);
+        }}
+        onCancelar={() => setItemParaEliminar(null)}
+      />
+    )}
   </section>;
 }

@@ -619,7 +619,7 @@ export default function App() {
     const baseId = id >= 10000 && id < 90000000 ? id - 10000 : id;
     const jaArquivada = deletedMessageIds.includes(id);
     const normElim = (v?: string) => String(v || '').toUpperCase().replace(/\s+/g, '').replace(/-\d{2}$/, '');
-    const minhaChaveElim = normElim(isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi));
+    const minhaChaveElim = normElim(isGovMode ? (adminBiNorm || 'ADMIN-0001') : isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi));
 
     if (!jaArquivada) {
       // 1.º clique: mover para as Eliminadas / Arquivadas da conta actual
@@ -696,7 +696,7 @@ export default function App() {
     setDeletedMessageIds(prev => prev.filter(mid => mid !== id));
     const baseId = id >= 10000 && id < 90000000 ? id - 10000 : id;
     const normElim = (v?: string) => String(v || '').toUpperCase().replace(/\s+/g, '').replace(/-\d{2}$/, '');
-    const minhaChaveElim = normElim(isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi));
+    const minhaChaveElim = normElim(isGovMode ? (adminBiNorm || 'ADMIN-0001') : isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi));
 
     if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
       void (async () => {
@@ -4109,11 +4109,15 @@ export default function App() {
   const isDemoCitizenSession = isUserMode && homologationStore.isExempt(bi);
   const isDemoAdminSession = isGovMode && homologationStore.isExempt(bi);
   const isDemoSession = isDemoCitizenSession || isDemoInstitutionSession || isDemoAdminSession;
-  const sessionOwnerKey = isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi);
+  const sessionOwnerKey = isGovMode
+    ? (adminBiNorm || 'ADMIN-0001')
+    : isInstMode
+      ? normalizeInstCode(institutionCode || bi)
+      : normalizeHomologationBi(bi);
   const stampNotif = (n: AppNotification): AppNotification => ({ ...n, ownerId: sessionOwnerKey });
 
   // Isolamento de eliminação e arquivo por conta activa
-  const activeUserStorageKey = (sessionOwnerKey || (isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi)) || 'anon').toUpperCase();
+  const activeUserStorageKey = (sessionOwnerKey || (isGovMode ? (adminBiNorm || 'ADMIN-0001') : isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi)) || 'anon').toUpperCase();
 
   useEffect(() => {
     if (!activeUserStorageKey || activeUserStorageKey === 'ANON') return;
@@ -6733,51 +6737,97 @@ Ficha civil do titular:
           </PainelSuspense>
         );
       case 'ocorrencias':
-        return <PainelSuspense><OcorrenciasPage onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')} /></PainelSuspense>;
-      case 'inqueritos':
-        if (isInstMode) return (
-          <PainelSuspense><SondagensContent title="Inquéritos" codigoInstituicao={bi} mensagensEnviadas={currentSentMessages} addAuditLog={addAuditLog} onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')} onCreate={() => { setIsComposing(true); setTab('correspondencias'); }} novidadesNaoLidas={contarNotificacoesAtalhos(currentNotifications, currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)), true).inqueritos} onVerNotificacoes={() => setTab('notificacoes')} /></PainelSuspense>
+        return (
+          <PainelSuspense>
+            <OcorrenciasPage
+              onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
+              messages={[...currentInbox, ...currentSentMessages]}
+              onDeleteMessage={handleDeleteMessage}
+            />
+          </PainelSuspense>
         );
-        return <ListaParticipacaoContent tipo="inqueritos" isInst={false}
-          notifications={currentNotifications}
-          messages={currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
-          onOpen={m => handleSelectMessage(m, 'recebidas', 'inqueritos')}
-          onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')} />;
+      case 'inqueritos':
+        if (isInstMode || isGovMode) return (
+          <PainelSuspense>
+            <SondagensContent
+              title="Inquéritos"
+              codigoInstituicao={bi}
+              mensagensEnviadas={currentSentMessages}
+              addAuditLog={addAuditLog}
+              onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
+              onCreate={() => { setIsComposing(true); setTab(isGovMode ? 'gov-correspondencias' : 'correspondencias'); }}
+              novidadesNaoLidas={contarNotificacoesAtalhos(currentNotifications, currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)), true).inqueritos}
+              onVerNotificacoes={() => setTab('notificacoes')}
+              onDeleteMessage={handleDeleteMessage}
+            />
+          </PainelSuspense>
+        );
+        return (
+          <ListaParticipacaoContent
+            tipo="inqueritos"
+            isInst={false}
+            notifications={currentNotifications}
+            messages={currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
+            onOpen={m => handleSelectMessage(m, 'recebidas', 'inqueritos')}
+            onDeleteMessage={handleDeleteMessage}
+            onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
+          />
+        );
       // 2026-10-01 — «Comunicados»: comunicados oficiais emitidos por órgãos do Estado
       case 'comunicados':
-        return <ListaParticipacaoContent tipo="comunicados" isInst={isInstMode}
-          notifications={currentNotifications}
-          onCreate={isInstMode ? () => {
-            setComposeData({ to: 'TODOS', subject: '[COMUNICADO OFICIAL] ', body: '', attachments: [], toArray: [] });
-            setIsComposing(true);
-            setTab('correspondencias');
-          } : undefined}
-          messages={(isInstMode ? [...currentSentMessages, ...currentInbox] : currentInbox).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
-          onOpen={m => handleSelectMessage(m, isInstMode ? (currentSentMessages.some(s => s.id === m.id) ? 'enviadas' : 'recebidas') : 'recebidas', 'comunicados')}
-          onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')} />;
+        return (
+          <ListaParticipacaoContent
+            tipo="comunicados"
+            isInst={isInstMode}
+            notifications={currentNotifications}
+            onCreate={isInstMode ? () => {
+              setComposeData({ to: 'TODOS', subject: '[COMUNICADO OFICIAL] ', body: '', attachments: [], toArray: [] });
+              setIsComposing(true);
+              setTab('correspondencias');
+            } : undefined}
+            messages={(isInstMode ? [...currentSentMessages, ...currentInbox] : currentInbox).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
+            onOpen={m => handleSelectMessage(m, isInstMode ? (currentSentMessages.some(s => s.id === m.id) ? 'enviadas' : 'recebidas') : 'recebidas', 'comunicados')}
+            onDeleteMessage={handleDeleteMessage}
+            onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
+          />
+        );
       case 'denuncias':
-        return <ListaParticipacaoContent tipo="denuncias" isInst={isInstMode}
-          notifications={currentNotifications}
-          onCreate={isUserMode ? () => { setIsComposing(true); setTab('correspondencias'); } : undefined}
-          messages={(isInstMode ? currentInbox : currentSentMessages).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
-          onOpen={m => handleSelectMessage(m, isInstMode ? 'recebidas' : 'enviadas', 'denuncias')}
-          onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')} />;
+        return (
+          <ListaParticipacaoContent
+            tipo="denuncias"
+            isInst={isInstMode}
+            notifications={currentNotifications}
+            onCreate={isUserMode ? () => { setIsComposing(true); setTab('correspondencias'); } : undefined}
+            messages={(isInstMode ? currentInbox : currentSentMessages).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
+            onOpen={m => handleSelectMessage(m, isInstMode ? 'recebidas' : 'enviadas', 'denuncias')}
+            onDeleteMessage={handleDeleteMessage}
+            onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
+          />
+        );
       // 2026-09-23 (T-v37.79) — «Denuncia»: fila nova pedida pelo dono —
       // mesmo fluxo do Livro de Reclamações (componente partilhado), ferrada
       // pela marca própria «[REGISTO DE DENÚNCIA]» no assunto.
       case 'nova-denuncia':
-        return <ListaParticipacaoContent tipo="nova-denuncia" isInst={isInstMode}
-          notifications={currentNotifications}
-          onCreate={isUserMode ? () => { setIsComposing(true); setTab('correspondencias'); } : undefined}
-          messages={(isInstMode ? currentInbox : currentSentMessages).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
-          onOpen={m => handleSelectMessage(m, isInstMode ? 'recebidas' : 'enviadas', 'nova-denuncia')}
-          onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')} />;
+        return (
+          <ListaParticipacaoContent
+            tipo="nova-denuncia"
+            isInst={isInstMode}
+            notifications={currentNotifications}
+            onCreate={isUserMode ? () => { setIsComposing(true); setTab('correspondencias'); } : undefined}
+            messages={(isInstMode ? currentInbox : currentSentMessages).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
+            onOpen={m => handleSelectMessage(m, isInstMode ? 'recebidas' : 'enviadas', 'nova-denuncia')}
+            onDeleteMessage={handleDeleteMessage}
+            onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
+          />
+        );
       case 'sondagens': // v36 — lista + resultados (spec §5)
         return (
           <PainelSuspense>
           <SondagensContent
             codigoInstituicao={bi}
             addAuditLog={addAuditLog}
+            mensagensEnviadas={currentSentMessages}
+            onDeleteMessage={handleDeleteMessage}
             onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
           />
           </PainelSuspense>
