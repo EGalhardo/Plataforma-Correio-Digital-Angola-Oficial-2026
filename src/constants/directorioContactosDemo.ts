@@ -63,7 +63,7 @@ export const gerarCodigoInstitucionalSimulado = (sigla: string): string => {
 // Pontos de referência (aproximados) por província — coordenadas das capitais.
 // Usados como âncora; cada órgão recebe um deslocamento determinístico (~±2 km).
 const CAPITAIS: Record<string, { lat: number; lng: number; cidade: string }> = {
-  'Luanda': { lat: -8.8383, lng: 13.2344, cidade: 'Luanda' },
+  'Luanda': { lat: -8.841501148211982, lng: 13.230781932343696, cidade: 'Luanda' },
   'Bengo': { lat: -8.5800, lng: 13.6644, cidade: 'Caxito' },
   'Benguela': { lat: -12.5763, lng: 13.4055, cidade: 'Benguela' },
   'Bié': { lat: -12.3833, lng: 16.9333, cidade: 'Cuito' },
