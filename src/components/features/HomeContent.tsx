@@ -306,7 +306,7 @@ export function HomeContent({
                   {t(name)}
                 </button>
                 {unreadCount > 0 && (
-                  <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-black text-white shadow-none animate-pulse ring-1 ring-white">
+                  <span className="absolute -top-1 -right-1 flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-red-600 text-[9px] font-black text-white shadow-none animate-pulse ring-1 ring-white tabular-nums leading-none">
                     {unreadCount}
                   </span>
                 )}
