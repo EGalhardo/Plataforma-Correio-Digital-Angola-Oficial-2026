@@ -55,6 +55,7 @@ interface HeaderProps {
   citizenOnlineTone?: 'red' | 'green' | 'yellow' | null;
   chatAssistantRecognitionRef?: { current: { stop(): void } | null };
   handleLogout?: (clearAll?: boolean) => void;
+  onToggleVoiceCopilot?: () => void;
 }
 
 function UnreadMessagesMenu({
@@ -287,7 +288,8 @@ export function Header({
   onOpenPendingRegistration,
   citizenOnlineTone = null,
   chatAssistantRecognitionRef,
-  handleLogout
+  handleLogout,
+  onToggleVoiceCopilot
 }: HeaderProps) {
   const { user, activeProfile } = useSession();
   const { t: translate } = useLanguage();
@@ -385,6 +387,10 @@ export function Header({
   };
 
   const handleMicClick = () => {
+    if (onToggleVoiceCopilot) {
+      onToggleVoiceCopilot();
+      return;
+    }
     if (!isChatOpen) {
       setIsChatOpen(true);
       startIaVoice();
@@ -475,20 +481,21 @@ export function Header({
           </button>
 
           <button 
-            disabled={currentLanguage !== 'pt' || !hasPagePresentation(appMode, tab)}
-            onClick={(currentLanguage === 'pt' && hasPagePresentation(appMode, tab)) ? handleMicClick : undefined}
+            type="button"
+            disabled={currentLanguage !== 'pt'}
+            onClick={currentLanguage === 'pt' ? handleMicClick : undefined}
             className={`relative flex items-center justify-center p-2 rounded-full transition-all focus:outline-none ${
-              (currentLanguage !== 'pt' || !hasPagePresentation(appMode, tab)) ? 'opacity-30 cursor-not-allowed' : ''
+              currentLanguage !== 'pt' ? 'opacity-30 cursor-not-allowed' : ''
             } ${
               iaLiveActive ? (isAdmin ? 'bg-red-500/15' : isInst ? 'bg-red-600/10' : 'bg-primary/10') : 'active:bg-slate-50'
             }`}
             title={
               currentLanguage !== 'pt' 
                 ? "Voz indisponível em dialetos regionais" 
-                : !hasPagePresentation(appMode, tab) 
-                  ? "Apresentação de voz indisponível nesta página" 
-                  : "Apresentar esta página por voz"
+                : "Copiloto de Voz e Acessibilidade IA (Alt + V)"
             }
+            aria-label="Ativar Copiloto de Voz e Acessibilidade IA"
+            aria-pressed={iaLiveActive}
           >
             {iaLiveActive && (
               <motion.div
@@ -652,20 +659,21 @@ export function Header({
           </button>
 
           <button 
-            disabled={currentLanguage !== 'pt' || !hasPagePresentation(appMode, tab)}
-            onClick={(currentLanguage === 'pt' && hasPagePresentation(appMode, tab)) ? handleMicClick : undefined}
+            type="button"
+            disabled={currentLanguage !== 'pt'}
+            onClick={currentLanguage === 'pt' ? handleMicClick : undefined}
             className={`relative flex items-center justify-center p-2 rounded-full transition-all focus:outline-none ${
-              (currentLanguage !== 'pt' || !hasPagePresentation(appMode, tab)) ? 'opacity-30 cursor-not-allowed' : ''
+              currentLanguage !== 'pt' ? 'opacity-30 cursor-not-allowed' : ''
             } ${
               iaLiveActive ? (isAdmin ? 'bg-red-500/15' : isInst ? 'bg-red-600/10' : 'bg-primary/10') : 'hover:bg-slate-50 hover:bg-opacity-10'
             }`}
             title={
               currentLanguage !== 'pt' 
                 ? "Voz indisponível em dialetos regionais" 
-                : !hasPagePresentation(appMode, tab) 
-                  ? "Apresentação de voz indisponível nesta página" 
-                  : "Apresentar esta página por voz"
+                : "Copiloto de Voz e Acessibilidade IA (Alt + V)"
             }
+            aria-label="Ativar Copiloto de Voz e Acessibilidade IA"
+            aria-pressed={iaLiveActive}
           >
             {iaLiveActive && (
               <motion.div
