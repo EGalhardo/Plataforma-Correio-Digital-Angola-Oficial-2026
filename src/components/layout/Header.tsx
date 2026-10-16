@@ -55,7 +55,6 @@ interface HeaderProps {
   citizenOnlineTone?: 'red' | 'green' | 'yellow' | null;
   chatAssistantRecognitionRef?: { current: { stop(): void } | null };
   handleLogout?: (clearAll?: boolean) => void;
-  onToggleVoiceCopilot?: () => void;
 }
 
 function UnreadMessagesMenu({
@@ -288,8 +287,7 @@ export function Header({
   onOpenPendingRegistration,
   citizenOnlineTone = null,
   chatAssistantRecognitionRef,
-  handleLogout,
-  onToggleVoiceCopilot
+  handleLogout
 }: HeaderProps) {
   const { user, activeProfile } = useSession();
   const { t: translate } = useLanguage();
@@ -387,10 +385,6 @@ export function Header({
   };
 
   const handleMicClick = () => {
-    if (onToggleVoiceCopilot) {
-      onToggleVoiceCopilot();
-      return;
-    }
     if (!isChatOpen) {
       setIsChatOpen(true);
       startIaVoice();

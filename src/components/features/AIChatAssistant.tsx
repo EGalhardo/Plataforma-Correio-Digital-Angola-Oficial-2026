@@ -130,11 +130,17 @@ const NAV_DESTINOS: DestinoNav[] = [
   { termos: ['perfil', 'minha conta', 'meu perfil', 'dados pessoais', 'biometria'], tab: 'perfil', label: 'Meu Perfil', papeis: ['user', 'institution'] },
   { termos: ['qr code', 'qr', 'codigo qr', 'código qr', 'carteira digital', 'carteira', 'passaporte', 'offline'], tab: 'qr-code', label: 'QR Code', papeis: ['user'] },
   { termos: ['solicitar documento', 'pedir documento', 'solicitacao de documento', 'pedido de documento'], tab: 'solicitar-documento', label: 'Solicitar Documento', papeis: ['user'] },
+  { termos: ['inqueritos', 'inquéritos', 'pesquisas', 'consultas publicas', 'consultas públicas', 'consultas'], tab: 'inqueritos', label: 'Inquéritos', papeis: ['user', 'institution'] },
+  { termos: ['ocorrencias', 'ocorrências', 'problemas do bairro', 'problemas', 'gps'], tab: 'ocorrencias', label: 'Ocorrências Locais', papeis: ['user', 'institution'] },
+  { termos: ['livro de reclamacoes', 'livro de reclamações', 'reclamacoes', 'reclamações', 'reclamacao', 'reclamação'], tab: 'denuncias', label: 'Livro de Reclamações', papeis: ['user', 'institution'] },
+  { termos: ['denuncia', 'denúncia', 'denuncias', 'denúncias', 'nova denuncia', 'nova denúncia'], tab: 'nova-denuncia', label: 'Denúncia', papeis: ['user', 'institution'] },
+  { termos: ['directorio', 'directório', 'orgaos', 'órgãos', 'ministerios', 'ministérios'], tab: 'directorio-orgaos', label: 'Directório de Órgãos', papeis: ['user'] },
 
   // ---- Instituição ----
   { termos: ['equipa', 'colaboradores', 'colaborador', 'trabalhadores', 'trabalhador', 'membros', 'membro', 'operadores', 'operador', 'funcionarios', 'funcionário'], tab: 'gov-contatos', label: 'Equipa', papeis: ['institution'] },
   { termos: ['qr code', 'qr', 'validacao', 'validação', 'validar', 'codigo qr'], tab: 'inst-qrcode', label: 'Validação por QR Code', papeis: ['institution'] },
   { termos: ['ia', 'assistente ia', 'assistente', 'inteligencia artificial', 'inteligência artificial', 'base de conhecimento', 'conhecimento'], tab: 'inst-ai-assistant', label: 'Assistência IA', papeis: ['institution'] },
+  { termos: ['sondagens', 'votacoes', 'votações', 'enquetes'], tab: 'sondagens', label: 'Sondagens', papeis: ['institution'] },
 
   // ---- Admin ----
   { termos: ['dashboard', 'painel principal', 'painel', 'soc', 'governo'], tab: 'gov-dashboard', label: 'Painel Principal SOC', papeis: ['admin'] },
@@ -238,6 +244,8 @@ interface AIChatAssistantProps {
   onAbrirCorrespondencia?: (query: string) => boolean;
   currentLanguage?: LanguageCode;
   recognitionRefOut?: { current: ReconhecimentoVoz | null };
+  theme?: 'light' | 'dark';
+  setTheme?: (theme: 'light' | 'dark') => void;
 }
 
 // Superficie minima da Web Speech API usada neste ficheiro (TS nao traz
@@ -268,7 +276,9 @@ export function AIChatAssistant({
   buscarCorrespondencias,
   onAbrirCorrespondencia,
   currentLanguage = 'pt',
-  recognitionRefOut
+  recognitionRefOut,
+  theme,
+  setTheme
 }: AIChatAssistantProps) {
   const isGov = appMode !== 'user';
   const isAdmin = appMode === 'admin';
@@ -406,9 +416,13 @@ export function AIChatAssistant({
   // Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      }, 50);
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, pendingNavigation]);
 
   // Divide o texto em frases curtas: evita o corte silencioso do Chrome em
   // falas longas (onend nunca dispara) e mantém a prosódia natural.
@@ -849,6 +863,43 @@ export function AIChatAssistant({
     const normalizedText = normTexto(currentInput);
     let targetTab: string | null = null;
     let tabLabel = "";
+
+    // 0) Comandos de Interface e Acessibilidade (Tema, Leitor de Ecrã)
+    if (normalizedText.includes('modo escuro') || normalizedText.includes('tema escuro') || normalizedText.includes('ativar escuro') || normalizedText.includes('mudar para escuro')) {
+      if (setTheme) setTheme('dark');
+      const okMsg = "Modo Escuro ativado com sucesso.";
+      setMessages(prev => [...prev, userMsg, { role: 'assistant', content: okMsg }]);
+      setInput('');
+      if (iaLiveActive) speak(okMsg);
+      return;
+    }
+
+    if (normalizedText.includes('modo claro') || normalizedText.includes('tema claro') || normalizedText.includes('ativar claro') || normalizedText.includes('mudar para claro')) {
+      if (setTheme) setTheme('light');
+      const okMsg = "Modo Claro ativado com sucesso.";
+      setMessages(prev => [...prev, userMsg, { role: 'assistant', content: okMsg }]);
+      setInput('');
+      if (iaLiveActive) speak(okMsg);
+      return;
+    }
+
+    if (normalizedText.includes('mudar tema') || normalizedText.includes('trocar tema') || normalizedText.includes('alternar tema')) {
+      if (setTheme) {
+        const nextTheme = theme === 'dark' ? 'light' : 'dark';
+        setTheme(nextTheme);
+        const okMsg = `Tema alterado para Modo ${nextTheme === 'dark' ? 'Escuro' : 'Claro'}.`;
+        setMessages(prev => [...prev, userMsg, { role: 'assistant', content: okMsg }]);
+        setInput('');
+        if (iaLiveActive) speak(okMsg);
+        return;
+      }
+    }
+
+    if (normalizedText.includes('ler ecra') || normalizedText.includes('ler pagina') || normalizedText.includes('ouvir pagina') || normalizedText.includes('apresentar pagina') || normalizedText.includes('descrever pagina')) {
+      handleSelectPagePresentation(activeTab || 'home');
+      setInput('');
+      return;
+    }
 
     // 1) ABRIR correspondência específica (voz ou texto): "mostra/abre a
     //    mensagem X" (com conteúdo específico) abre o detalhe diretamente.

@@ -44,8 +44,6 @@ import { MobileNavBar } from './components/layout/MobileNavBar';
 import { Header } from './components/layout/Header';
 import { NotificationDropdown } from './components/features/NotificationDropdown';
 import { HomeContent } from './components/features/HomeContent';
-import { VoiceCopilotHUD } from './components/features/VoiceCopilotHUD';
-import { parseVoiceIntent, narrarTexto, getDescricaoPaginaVoz } from './services/voiceCopilotService';
 
 // UI Components
 import { LazyImage } from './components/ui/LazyImage';
@@ -5048,284 +5046,29 @@ export default function App() {
     }
   };
 
-  // =========================================================================
-  // SISTEMA GLOBAL DE COMANDO POR VOZ COM IA (COPILOTO CÍVICO CDA 2026)
-  // =========================================================================
-  const [isVoiceCopilotOpen, setIsVoiceCopilotOpen] = useState(false);
-  const [isVoiceListening, setIsVoiceListening] = useState(false);
-  const [isVoiceSpeaking, setIsVoiceSpeaking] = useState(false);
-  const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
-  const [voiceTranscript, setVoiceTranscript] = useState('');
-  const [lastVoiceFeedback, setLastVoiceFeedback] = useState('');
-  const [lastVoiceAction, setLastVoiceAction] = useState<string | null>(null);
-
-  const voiceRecognitionRef = useRef<any>(null);
-  const cancelVoiceSpeechRef = useRef<(() => void) | null>(null);
-  const silenceVoiceTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const stopVoiceSpeech = useCallback(() => {
-    if (cancelVoiceSpeechRef.current) {
-      cancelVoiceSpeechRef.current();
-      cancelVoiceSpeechRef.current = null;
-    }
-    setIsVoiceSpeaking(false);
-    try { window.speechSynthesis.cancel(); } catch {}
-  }, []);
-
-  const speakVoiceFeedback = useCallback((text: string, onEnd?: () => void) => {
-    stopVoiceSpeech();
-    setIsVoiceSpeaking(true);
-    cancelVoiceSpeechRef.current = narrarTexto(text, () => {
-      setIsVoiceSpeaking(false);
-      cancelVoiceSpeechRef.current = null;
-      if (onEnd) onEnd();
-    });
-  }, [stopVoiceSpeech]);
-
-  const handleExecuteVoiceCommand = useCallback(async (rawText: string) => {
-    if (!rawText || !rawText.trim()) return;
-    const cleanText = rawText.trim();
-    setVoiceTranscript(cleanText);
-    setIsVoiceProcessing(true);
-
-    const intent = parseVoiceIntent(cleanText, appMode);
-
-    if (intent.type === 'navigate' && intent.targetTab) {
-      setTab(intent.targetTab);
-      const feedback = `A navegar para ${intent.label || intent.targetTab}.`;
-      setLastVoiceAction(`Navegação: ${intent.label || intent.targetTab}`);
-      setLastVoiceFeedback(feedback);
-      speakVoiceFeedback(feedback);
-      setIsVoiceProcessing(false);
-      return;
-    }
-
-    if (intent.type === 'action' && intent.action) {
-      switch (intent.action) {
-        case 'theme_dark': {
-          setTheme('dark');
-          const feedback = 'Modo Escuro ativado com sucesso.';
-          setLastVoiceAction('Tema');
-          setLastVoiceFeedback(feedback);
-          speakVoiceFeedback(feedback);
-          break;
-        }
-        case 'theme_light': {
-          setTheme('light');
-          const feedback = 'Modo Claro ativado com sucesso.';
-          setLastVoiceAction('Tema');
-          setLastVoiceFeedback(feedback);
-          speakVoiceFeedback(feedback);
-          break;
-        }
-        case 'theme_toggle': {
-          const next = theme === 'dark' ? 'light' : 'dark';
-          setTheme(next);
-          const feedback = `Tema alterado para Modo ${next === 'dark' ? 'Escuro' : 'Claro'}.`;
-          setLastVoiceAction('Tema');
-          setLastVoiceFeedback(feedback);
-          speakVoiceFeedback(feedback);
-          break;
-        }
-        case 'read_screen': {
-          const presentation = getDescricaoPaginaVoz(appMode, tab);
-          setLastVoiceAction('Leitura de Ecrã');
-          setLastVoiceFeedback('A ler apresentação da página...');
-          speakVoiceFeedback(presentation);
-          break;
-        }
-        case 'compose_mail': {
-          setTab('correspondencias');
-          const feedback = 'A abrir o compositor de correio digital.';
-          setLastVoiceAction('Novo Correio');
-          setLastVoiceFeedback(feedback);
-          speakVoiceFeedback(feedback);
-          break;
-        }
-        case 'increase_font': {
-          document.documentElement.style.fontSize = '110%';
-          const feedback = 'Tamanho da fonte aumentado para melhor acessibilidade.';
-          setLastVoiceAction('Acessibilidade');
-          setLastVoiceFeedback(feedback);
-          speakVoiceFeedback(feedback);
-          break;
-        }
-        case 'decrease_font': {
-          document.documentElement.style.fontSize = '100%';
-          const feedback = 'Tamanho da fonte reposto para o padrão.';
-          setLastVoiceAction('Acessibilidade');
-          setLastVoiceFeedback(feedback);
-          speakVoiceFeedback(feedback);
-          break;
-        }
-        case 'high_contrast': {
-          document.documentElement.classList.toggle('high-contrast');
-          const feedback = 'Modo de alto contraste aplicado.';
-          setLastVoiceAction('Alto Contraste');
-          setLastVoiceFeedback(feedback);
-          speakVoiceFeedback(feedback);
-          break;
-        }
-        case 'help': {
-          const feedback = 'Pode dizer: "Ir para o Correio", "Ativar Modo Escuro", "Ler Ecrã", "Ver Notificações", "Vídeo-Atendimento" ou fazer qualquer pergunta sobre serviços públicos.';
-          setLastVoiceAction('Ajuda');
-          setLastVoiceFeedback(feedback);
-          speakVoiceFeedback(feedback);
-          break;
-        }
-        case 'logout': {
-          const feedback = 'A terminar a sessão com segurança no Correio Digital Angola.';
-          setLastVoiceAction('Terminar Sessão');
-          setLastVoiceFeedback(feedback);
-          speakVoiceFeedback(feedback, () => {
-            handleLogout();
-            setIsVoiceCopilotOpen(false);
-          });
-          break;
-        }
-        case 'close': {
-          setIsVoiceCopilotOpen(false);
-          stopVoiceSpeech();
-          break;
-        }
-      }
-      setIsVoiceProcessing(false);
-      return;
-    }
-
-    // Consulta de IA para perguntas gerais
-    try {
-      setLastVoiceAction('Consulta IA');
-      setLastVoiceFeedback('A consultar a inteligência artificial do CDA...');
-      
-      const response = await fetch('/api/ia', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: cleanText }],
-          language: currentLanguage,
-          appMode: appMode,
-          tab: tab
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const reply = data.message || data.text || 'Processamento concluído.';
-        setLastVoiceFeedback(reply);
-        speakVoiceFeedback(reply);
-      } else {
-        const fallbackReply = `Compreendi a sua pergunta sobre "${cleanText}". Pode consultar as opções no menu lateral ou navegar para a página de Inquéritos e Correio.`;
-        setLastVoiceFeedback(fallbackReply);
-        speakVoiceFeedback(fallbackReply);
-      }
-    } catch {
-      const fallbackReply = `Recebido: "${cleanText}". Pode usar comandos como "Ir para o Correio" ou "Ativar Modo Escuro".`;
-      setLastVoiceFeedback(fallbackReply);
-      speakVoiceFeedback(fallbackReply);
-    } finally {
-      setIsVoiceProcessing(false);
-    }
-  }, [appMode, tab, theme, currentLanguage, speakVoiceFeedback, stopVoiceSpeech, handleLogout]);
-
-  const startVoiceListening = useCallback(() => {
-    if (typeof window === 'undefined') return;
-    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRec) {
-      setLastVoiceFeedback('Reconhecimento de voz não suportado neste navegador.');
-      return;
-    }
-
-    try {
-      if (voiceRecognitionRef.current) {
-        voiceRecognitionRef.current.abort();
-      }
-    } catch {}
-
-    const rec = new SpeechRec();
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = 'pt-PT';
-
-    rec.onstart = () => {
-      setIsVoiceListening(true);
-    };
-
-    rec.onresult = (event: any) => {
-      let finalTranscript = '';
-      let interimTranscript = '';
-
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
-        } else {
-          interimTranscript += event.results[i][0].transcript;
-        }
-      }
-
-      const activeText = finalTranscript || interimTranscript;
-      if (activeText) {
-        setVoiceTranscript(activeText);
-      }
-
-      if (finalTranscript) {
-        if (silenceVoiceTimerRef.current) clearTimeout(silenceVoiceTimerRef.current);
-        silenceVoiceTimerRef.current = setTimeout(() => {
-          handleExecuteVoiceCommand(finalTranscript);
-        }, 500);
-      }
-    };
-
-    rec.onerror = (e: any) => {
-      if (e.error !== 'no-speech' && e.error !== 'aborted') {
-        console.warn('Voice Copilot recognition error:', e.error);
-      }
-    };
-
-    rec.onend = () => {
-      setIsVoiceListening(false);
-    };
-
-    voiceRecognitionRef.current = rec;
-    try {
-      rec.start();
-    } catch {}
-  }, [handleExecuteVoiceCommand]);
-
-  const stopVoiceListening = useCallback(() => {
-    if (voiceRecognitionRef.current) {
-      try {
-        voiceRecognitionRef.current.stop();
-      } catch {}
-    }
-    setIsVoiceListening(false);
-  }, []);
-
-  const handleToggleVoiceCopilot = useCallback(() => {
-    if (isVoiceCopilotOpen) {
-      setIsVoiceCopilotOpen(false);
-      stopVoiceListening();
-      stopVoiceSpeech();
-      setIaLiveActive(false);
-    } else {
-      setIsVoiceCopilotOpen(true);
-      setIaLiveActive(true);
-      startVoiceListening();
-      speakVoiceFeedback('Copiloto de Voz ativo. Como posso ajudar?');
-    }
-  }, [isVoiceCopilotOpen, startVoiceListening, stopVoiceListening, stopVoiceSpeech, speakVoiceFeedback]);
-
-  // Atalho de Teclado Global Alt + V
+  // Atalho de Teclado Global Alt + V para abrir/fechar o Assistente IA com Voz
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.altKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
         e.preventDefault();
-        handleToggleVoiceCopilot();
+        if (!isChatOpen) {
+          setIsChatOpen(true);
+          startIaVoice();
+        } else {
+          stopIaVoice();
+          window.speechSynthesis.cancel();
+          if (chatAssistantRecognitionRef?.current) {
+            try {
+              chatAssistantRecognitionRef.current.stop();
+            } catch (err) {}
+          }
+          setIsChatOpen(false);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleToggleVoiceCopilot]);
+  }, [isChatOpen]);
 
   const handleNavigateToVideoAtendimento = () => {
     // Load video session count before navigating
@@ -9491,7 +9234,6 @@ Ficha civil do titular:
             pendingRegistrations={pendingRegistrations}
             onOpenPendingRegistration={handleOpenPendingRegistration}
             handleLogout={handleLogout}
-            onToggleVoiceCopilot={handleToggleVoiceCopilot}
             citizenOnlineTone={isInstMode ? institutionOnlineTone : citizenOnlineTone}
             chatAssistantRecognitionRef={chatAssistantRecognitionRef} // Repassar ref do reconhecimento de voz
             NotificationDropdown={() => (
@@ -9593,35 +9335,8 @@ Ficha civil do titular:
         buscarCorrespondencias={buscarCorrespondenciasParaIA}
         onAbrirCorrespondencia={abrirCorrespondenciaPorVoz}
         recognitionRefOut={chatAssistantRecognitionRef} // Exportar ref de voz do assistente para o App
-      />
-
-      {/* Sistema Global de Comando por Voz com IA (Copiloto Cívico CDA 2026) */}
-      <VoiceCopilotHUD
-        isOpen={isVoiceCopilotOpen}
-        onClose={() => {
-          setIsVoiceCopilotOpen(false);
-          stopVoiceListening();
-          stopVoiceSpeech();
-          setIaLiveActive(false);
-        }}
-        isListening={isVoiceListening}
-        isSpeaking={isVoiceSpeaking}
-        isProcessing={isVoiceProcessing}
-        transcript={voiceTranscript}
-        lastFeedback={lastVoiceFeedback}
-        lastAction={lastVoiceAction}
-        appMode={appMode}
-        currentTab={tab}
         theme={theme}
-        onToggleListen={() => {
-          if (isVoiceListening) {
-            stopVoiceListening();
-          } else {
-            startVoiceListening();
-          }
-        }}
-        onStopSpeech={stopVoiceSpeech}
-        onExecuteCustomText={handleExecuteVoiceCommand}
+        setTheme={setTheme}
       />
 
       <AddContactModal

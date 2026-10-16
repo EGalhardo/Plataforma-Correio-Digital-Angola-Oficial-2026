@@ -1,7 +1,7 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Suite de Teste E2E e Homologação Completa do Sistema Global de Comando por Voz com IA (Copiloto Cívico CDA 2026)
+ * Suite de Teste E2E e Homologação do Assistente IA com Comando por Voz e Texto Unificado
  */
 
 import { chromium } from 'playwright';
@@ -11,15 +11,29 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const SHOTS_DIR = '/home/user/Plataforma-Correio-Digital-Angola-Oficial-2026/images';
 mkdirSync(SHOTS_DIR, { recursive: true });
 
-async function runVoiceCopilotE2ETest() {
+async function runUnifiedAIChatVoiceTest() {
   console.log('================================================================');
-  console.log('🎙️ INICIANDO SUITE E2E: SISTEMA GLOBAL DE COMANDO POR VOZ COM IA');
+  console.log('🎙️ INICIANDO SUITE E2E: ASSISTENTE IA (VOZ + TEXTO CHATBOT)');
   console.log(`🌐 Alvo: ${BASE_URL}`);
   console.log('================================================================\n');
 
   const browser = await chromium.launch({
     headless: true,
     args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream']
+  });
+
+  const context = await browser.newContext({
+    permissions: ['microphone'],
+    viewport: { width: 1440, height: 900 }
+  });
+
+  const page = await context.newPage();
+
+  const consoleErrors = [];
+  page.on('console', msg => {
+    if (msg.type() === 'error' && !msg.text().includes('favicon') && !msg.text().includes('Failed to load resource')) {
+      consoleErrors.push(msg.text());
+    }
   });
 
   let totalTests = 0;
@@ -35,236 +49,124 @@ async function runVoiceCopilotE2ETest() {
     }
   }
 
-  const consoleErrors = [];
-
   try {
-    // =============================================================
-    // BLOCO 1: ÁREA DO CIDADÃO (Testes Funcionais e de Acessibilidade)
-    // =============================================================
-    console.log('--- BLOCO 1: Área do Cidadão (Comandos de Voz e HUD) ---');
-    const userCtx = await browser.newContext({
-      permissions: ['microphone'],
-      viewport: { width: 1440, height: 900 }
-    });
-    const pageUser = await userCtx.newPage();
-    pageUser.on('console', msg => {
-      if (msg.type() === 'error' && !msg.text().includes('favicon')) {
-        consoleErrors.push(`[Cidadão] ${msg.text()}`);
-      }
-    });
+    // -------------------------------------------------------------
+    // FASE 0: Login na Conta de Cidadão
+    // -------------------------------------------------------------
+    console.log('--- FASE 0: Autenticação de Sessão (Cidadão) ---');
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2000);
 
-    await pageUser.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
-    await pageUser.waitForTimeout(1500);
-
-    const inputId = pageUser.getByPlaceholder(/LA041|AGT-9921-SR|ADM-8812-OP|ADMIN-0001/);
+    const inputId = page.getByPlaceholder(/LA041|AGT-9921-SR|ADM-8812-OP|ADMIN-0001/);
     if (await inputId.isVisible({ timeout: 5000 }).catch(() => false)) {
       await inputId.fill('009874562LA041');
-      await pageUser.getByPlaceholder('••••••••••••').fill('123456');
-      await pageUser.getByRole('button', { name: /Entrar no Portal/ }).click();
-      await pageUser.waitForTimeout(3000);
+      await page.getByPlaceholder('••••••••••••').fill('123456');
+      await page.getByRole('button', { name: /Entrar no Portal/ }).click();
+      await page.waitForTimeout(3000);
     }
 
-    const painelCidadao = await pageUser.getByRole('button', { name: 'Painel', exact: true }).first().isVisible().catch(() => false);
-    assert('Sessão do Cidadão autenticada com sucesso', painelCidadao);
+    const painelVisible = await page.getByRole('button', { name: 'Painel', exact: true }).first().isVisible().catch(() => false);
+    assert('Sessão autenticada e Painel do Cidadão carregado', painelVisible);
 
-    // 1.1 Verificação do Microfone no Cabeçalho
-    const micButton = pageUser.locator('button[aria-label="Ativar Copiloto de Voz e Acessibilidade IA"]:visible').first();
+    // -------------------------------------------------------------
+    // FASE 1: Abertura do Assistente IA via Microfone do Cabeçalho
+    // -------------------------------------------------------------
+    console.log('\n--- FASE 1: Verificação e Abertura do Assistente IA ---');
+    const micButton = page.locator('button[aria-label="Ativar Copiloto de Voz e Acessibilidade IA"]:visible').first();
     const micExists = await micButton.count() > 0;
-    assert('Botão de Microfone presente no cabeçalho do Cidadão', micExists);
-    assert('Botão de Microfone habilitado no Cidadão', micExists && !(await micButton.isDisabled()));
+    assert('Botão de Microfone acessível presente no cabeçalho', micExists);
+    assert('Botão de Microfone habilitado em todas as páginas', micExists && !(await micButton.isDisabled()));
 
-    // 1.2 Ativação via Clique no Microfone
     await micButton.click();
-    await pageUser.waitForTimeout(1000);
+    await page.waitForTimeout(1000);
 
-    const voiceHUD = pageUser.locator('aside[aria-label="Copiloto de Voz e Acessibilidade IA"]');
-    assert('HUD do Copiloto de Voz Cívico visível', await voiceHUD.isVisible());
-    assert('Título oficial do Copiloto Cívico visível', await pageUser.locator('text=Copiloto Cívico IA').isVisible());
+    const chatModal = page.locator('text=Assistente Digital').first();
+    assert('Modal do Assistente Digital aberto com sucesso', await chatModal.isVisible());
 
-    // Capturar screenshot do Copiloto no Painel do Cidadão
-    await pageUser.screenshot({ path: `${SHOTS_DIR}/cda_copiloto_voz_hud_cidadao.png` });
+    const inputChat = page.getByPlaceholder(/Escreva sua mensagem/i);
+    assert('Campo de texto do Chatbot visível para escrita manual', await inputChat.isVisible());
 
-    // 1.3 Teste de Modo Escuro por Voz
-    const btnModoEscuro = voiceHUD.locator('button:has-text("Modo Escuro")').first();
-    if (await btnModoEscuro.isVisible()) {
-      await btnModoEscuro.click();
-      await pageUser.waitForTimeout(1000);
-      const isDark = await pageUser.evaluate(() => document.documentElement.classList.contains('dark') || document.body.classList.contains('dark'));
-      assert('Comando de Voz para Modo Escuro executado', isDark);
-    }
+    // Capturar screenshot do Assistente IA aberto com voz e chat
+    await page.screenshot({ path: `${SHOTS_DIR}/cda_assistente_ia_chat_voz.png` });
 
-    // 1.4 Teste de Leitura de Ecrã por Voz
-    const btnLerEcra = voiceHUD.locator('button:has-text("Ler Ecrã")').first();
-    if (await btnLerEcra.isVisible()) {
-      await btnLerEcra.click();
-      await pageUser.waitForTimeout(1000);
-      const feedbackText = await voiceHUD.textContent();
-      assert('Leitura de Ecrã ativada e narrando página', feedbackText.includes('Leitura de Ecrã') || feedbackText.includes('Painel') || feedbackText.includes('ler') || feedbackText.includes('apresentação'));
-    }
+    // -------------------------------------------------------------
+    // FASE 2: Comando de Navegação e Botões de Confirmação
+    // -------------------------------------------------------------
+    console.log('\n--- FASE 2: Comando de Navegação e Botões de Confirmação ---');
+    await inputChat.fill('mostrar a página do correio');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(1500);
 
-    // 1.5 Teste de Navegação por Voz: Correio
-    const btnAbrirCorreio = voiceHUD.locator('button:has-text("Abrir Correio")').first();
-    if (await btnAbrirCorreio.isVisible()) {
-      await btnAbrirCorreio.click();
-      await pageUser.waitForTimeout(2000);
-      const onMailPage = await pageUser.getByRole('button', { name: /Nova Mensagem/i }).first().isVisible().catch(() => false) ||
-                         await pageUser.getByText(/Caixa de Correio|Correspondências/i).first().isVisible().catch(() => false);
-      assert('Navegação por voz para Caixa de Correio executada', onMailPage);
-    }
+    const confirmText = page.locator('text=Confirma que pretende ir para a página').first();
+    assert('Assistente solicita confirmação de navegação', await confirmText.isVisible());
 
-    // 1.6 Teste de Navegação por Voz: Vídeo-Atendimento
-    const btnVideoAtendimento = voiceHUD.locator('button:has-text("Vídeo-Atendimento")').first();
-    if (await btnVideoAtendimento.isVisible()) {
-      await btnVideoAtendimento.click();
-      await pageUser.waitForTimeout(2000);
-      const onVideoPage = await pageUser.getByText(/Vídeo-Atendimento|Agenda/i).first().isVisible().catch(() => false);
-      assert('Navegação por voz para Vídeo-Atendimento executada', onVideoPage);
-    }
+    const btnConfirmar = page.getByRole('button', { name: /Confirmar/i }).first();
+    const btnCancelar = page.getByRole('button', { name: /Cancelar/i }).first();
+    assert('Botão "Confirmar" visível no chat', await btnConfirmar.isVisible());
+    assert('Botão "Cancelar" visível no chat', await btnCancelar.isVisible());
 
-    // 1.7 Teste de Navegação por Voz: Notificações
-    const btnNotificacoes = voiceHUD.locator('button:has-text("Ver Notificações")').first();
-    if (await btnNotificacoes.isVisible()) {
-      await btnNotificacoes.click();
-      await pageUser.waitForTimeout(2000);
-      const onNotifPage = await pageUser.getByText(/Notificações|Alertas/i).first().isVisible().catch(() => false);
-      assert('Navegação por voz para Notificações executada', onNotifPage);
-    }
+    // Clicar em Confirmar
+    await btnConfirmar.click();
+    await page.waitForTimeout(2000);
 
-    // 1.8 Teste do Atalho Alt + V
-    await pageUser.keyboard.press('Alt+v');
-    await pageUser.waitForTimeout(800);
-    assert('Atalho Alt + V fecha o Copiloto de Voz', !(await voiceHUD.isVisible()));
+    const onMailPage = await page.getByRole('button', { name: /Nova Mensagem/i }).first().isVisible().catch(() => false) ||
+                       await page.getByText(/Caixa de Correio|Correspondências/i).first().isVisible().catch(() => false);
+    assert('Navegação confirmada executada para a Caixa de Correio', onMailPage);
 
-    await pageUser.keyboard.press('Alt+v');
-    await pageUser.waitForTimeout(800);
-    assert('Atalho Alt + V reabre o Copiloto de Voz', await voiceHUD.isVisible());
+    // -------------------------------------------------------------
+    // FASE 3: Comando de Interface por Texto/Voz (Modo Escuro / Claro)
+    // -------------------------------------------------------------
+    console.log('\n--- FASE 3: Comandos de Interface no Chatbot (Modo Escuro / Claro) ---');
+    await inputChat.fill('ativar modo escuro');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(1500);
 
-    // 1.9 Teste de Drawer de Ajuda
-    const helpBtn = voiceHUD.locator('button[aria-label="Ajuda de comandos de voz"]');
-    if (await helpBtn.isVisible()) {
-      await helpBtn.click();
-      await pageUser.waitForTimeout(500);
-      assert('Guia de ajuda de comandos de voz expandido', await pageUser.locator('text=O que pode dizer ao Copiloto').isVisible());
-    }
+    const isDark = await page.evaluate(() => document.documentElement.classList.contains('dark') || document.body.classList.contains('dark'));
+    assert('Comando "ativar modo escuro" aplicado no chatbot', isDark);
 
-    await userCtx.close();
+    await inputChat.fill('ativar modo claro');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(1500);
 
-    // =============================================================
-    // BLOCO 2: ÁREA INSTITUCIONAL (AGT)
-    // =============================================================
-    console.log('\n--- BLOCO 2: Área Institucional (AGT) ---');
-    const instCtx = await browser.newContext({
-      permissions: ['microphone'],
-      viewport: { width: 1440, height: 900 }
-    });
-    const pageInst = await instCtx.newPage();
-    pageInst.on('console', msg => {
-      if (msg.type() === 'error' && !msg.text().includes('favicon')) {
-        consoleErrors.push(`[Inst] ${msg.text()}`);
-      }
-    });
+    const isLight = await page.evaluate(() => !document.documentElement.classList.contains('dark'));
+    assert('Comando "ativar modo claro" aplicado no chatbot', isLight);
 
-    await pageInst.goto(`${BASE_URL}/institucional#/login`, { waitUntil: 'domcontentloaded' });
-    await pageInst.waitForTimeout(1500);
+    // -------------------------------------------------------------
+    // FASE 4: Pergunta de Conhecimento Cívico à IA
+    // -------------------------------------------------------------
+    console.log('\n--- FASE 4: Consulta Cívica ao Assistente IA ---');
+    await inputChat.fill('O que é o Correio Digital de Angola?');
+    await page.keyboard.press('Enter');
+    
+    // Aguardar conclusão da resposta da IA
+    await page.locator('.animate-spin').waitFor({ state: 'detached', timeout: 15000 }).catch(() => null);
+    await page.waitForTimeout(1000);
 
-    const inputInstId = pageInst.getByPlaceholder(/LA041|AGT-9921-SR|ADM-8812-OP|ADMIN-0001/);
-    if (await inputInstId.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await inputInstId.fill('AGT-9921-SR');
-      await pageInst.getByPlaceholder('••••••••••••').fill('000000');
-      await pageInst.getByRole('button', { name: /Entrar no Portal/ }).click();
-      await pageInst.waitForTimeout(3000);
-    }
+    const bubbles = page.locator('.p-3.rounded-2xl.text-sm');
+    const count = await bubbles.count();
+    const lastMsg = count > 0 ? await bubbles.nth(count - 1).textContent() : '';
+    assert('Assistente de IA processou e respondeu à dúvida cívica', lastMsg && lastMsg.length > 10);
 
-    const painelInst = await pageInst.getByRole('button', { name: 'Painel', exact: true }).first().isVisible().catch(() => false);
-    assert('Sessão Institucional autenticada com sucesso', painelInst);
+    // -------------------------------------------------------------
+    // FASE 5: Atalho Global Alt + V
+    // -------------------------------------------------------------
+    console.log('\n--- FASE 5: Atalho Global Alt + V ---');
+    await page.keyboard.press('Alt+v');
+    await page.waitForTimeout(800);
+    assert('Atalho Alt + V fecha o Assistente IA', !(await chatModal.isVisible()));
 
-    const micInst = pageInst.locator('button[aria-label="Ativar Copiloto de Voz e Acessibilidade IA"]:visible').first();
-    assert('Botão de Microfone habilitado no cabeçalho institucional', await micInst.isVisible());
+    await page.keyboard.press('Alt+v');
+    await page.waitForTimeout(800);
+    assert('Atalho Alt + V reabre o Assistente IA', await chatModal.isVisible());
 
-    await micInst.click();
-    await pageInst.waitForTimeout(1000);
-    const voiceHUDInst = pageInst.locator('aside[aria-label="Copiloto de Voz e Acessibilidade IA"]');
-    assert('Copiloto de Voz operacional na Área Institucional', await voiceHUDInst.isVisible());
-
-    // Navegar para Equipa Institucional por Voz
-    const btnEquipa = voiceHUDInst.locator('button:has-text("Gestão de Equipa")').first();
-    if (await btnEquipa.isVisible()) {
-      await btnEquipa.click();
-      await pageInst.waitForTimeout(2000);
-      const onEquipa = await pageInst.getByText(/Equipa|Membro|Colaborador/i).first().isVisible().catch(() => false);
-      assert('Navegação por voz para Gestão de Equipa executada', onEquipa);
-    }
-
-    await instCtx.close();
-
-    // =============================================================
-    // BLOCO 3: ADMINISTRAÇÃO CENTRAL (SOC)
-    // =============================================================
-    console.log('\n--- BLOCO 3: Administração Central (SOC) ---');
-    const adminCtx = await browser.newContext({
-      permissions: ['microphone'],
-      viewport: { width: 1440, height: 900 }
-    });
-    const pageAdmin = await adminCtx.newPage();
-    pageAdmin.on('console', msg => {
-      if (msg.type() === 'error' && !msg.text().includes('favicon')) {
-        consoleErrors.push(`[Admin] ${msg.text()}`);
-      }
-    });
-
-    await pageAdmin.goto(`${BASE_URL}/admin#/login`, { waitUntil: 'domcontentloaded' });
-    await pageAdmin.waitForTimeout(1500);
-
-    const inputAdminId = pageAdmin.getByPlaceholder(/LA041|AGT-9921-SR|ADM-8812-OP|ADMIN-0001/);
-    if (await inputAdminId.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await inputAdminId.fill('ADM-8812-OP');
-      await pageAdmin.getByPlaceholder('••••••••••••').fill('GALHARDO');
-      await pageAdmin.getByRole('button', { name: /Entrar no Portal/ }).click();
-      await pageAdmin.waitForTimeout(3000);
-    }
-
-    const painelAdmin = await pageAdmin.getByText(/SOC|Painel Nacional|Administração/i).first().isVisible().catch(() => false);
-    assert('Sessão da Administração Central autenticada com sucesso', painelAdmin);
-
-    const micAdmin = pageAdmin.locator('button[aria-label="Ativar Copiloto de Voz e Acessibilidade IA"]:visible').first();
-    assert('Botão de Microfone habilitado no cabeçalho Admin', await micAdmin.isVisible());
-
-    await micAdmin.click();
-    await pageAdmin.waitForTimeout(1000);
-    const voiceHUDAdmin = pageAdmin.locator('aside[aria-label="Copiloto de Voz e Acessibilidade IA"]');
-    assert('Copiloto de Voz operacional na Administração Central', await voiceHUDAdmin.isVisible());
-
-    // Navegar para Interoperabilidade por Voz
-    const btnInterop = voiceHUDAdmin.locator('button:has-text("Interoperabilidade")').first();
-    if (await btnInterop.isVisible()) {
-      await btnInterop.click();
-      await pageAdmin.waitForTimeout(2000);
-      const onInterop = await pageAdmin.getByText(/Interoperabilidade|Instituições|Solicitações/i).first().isVisible().catch(() => false);
-      assert('Navegação por voz para Interoperabilidade executada', onInterop);
-    }
-
-    await adminCtx.close();
-
-    // =============================================================
-    // BLOCO 4: Telemetria e Zero Erros de Consola
-    // =============================================================
-    console.log('\n--- BLOCO 4: Telemetria de Erros de Consola ---');
-    const criticalJsErrors = consoleErrors.filter(e => 
-      !e.includes('Failed to load resource') && 
-      !e.includes('net::ERR') && 
-      !e.includes('favicon') && 
-      !e.includes('404') && 
-      !e.includes('401') && 
-      !e.includes('400') &&
-      !e.includes('speechRecognition')
-    );
-    if (criticalJsErrors.length > 0) {
-      console.log('Detected critical JS errors:', criticalJsErrors);
-    }
-    assert('Zero erros críticos de JavaScript na consola em todas as 3 áreas', criticalJsErrors.length === 0);
+    // -------------------------------------------------------------
+    // FASE 6: Telemetria de Erros de Consola
+    // -------------------------------------------------------------
+    console.log('\n--- FASE 6: Telemetria de Erros de Consola ---');
+    assert('Zero erros críticos de JavaScript na consola', consoleErrors.length === 0);
 
   } catch (error) {
-    console.error('❌ Erro durante a execução da suite E2E de Voz:', error);
+    console.error('❌ Erro durante o teste E2E do Assistente IA:', error);
   } finally {
     await browser.close();
   }
@@ -280,4 +182,4 @@ async function runVoiceCopilotE2ETest() {
   }
 }
 
-runVoiceCopilotE2ETest();
+runUnifiedAIChatVoiceTest();
