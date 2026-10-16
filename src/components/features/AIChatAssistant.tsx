@@ -457,13 +457,13 @@ export function AIChatAssistant({
   };
 
   // Retoma o microfone depois de a IA falar (ou de a fala falhar).
-  const retomarEscuta = (atraso = 150) => {
+  const retomarEscuta = (atraso = 200) => {
     falandoRef.current = false;
     limparWatchdogTts();
     transcriptAcumuladoRef.current = '';
     if (!iaLiveActiveRef.current || !recognitionRef.current) return;
     setTimeout(() => {
-      if (!iaLiveActiveRef.current || !recognitionRef.current || isTranscribingRef.current) return;
+      if (!iaLiveActiveRef.current || !recognitionRef.current || isTranscribingRef.current || falandoRef.current) return;
       try { recognitionRef.current.start(); } catch (e) { /* já iniciado */ }
     }, atraso);
   };
@@ -477,70 +477,112 @@ export function AIChatAssistant({
     limparWatchdogTts();
     utterancesRef.current = [];
     try { window.speechSynthesis.cancel(); } catch (e) {}
-    // Chrome pode ficar em estado "paused" após cancel(): garantir que fala.
     try { window.speechSynthesis.resume(); } catch (e) {}
     falandoRef.current = true;
 
-    // Parar a escuta SEMPRE enquanto a IA fala (evita eco). Antes dependia de
-    // isTranscribingRef, que ainda podia estar a false (onstart pendente) —
-    // o microfone continuava ligado e "ouvia" a própria IA.
+    // Parar a escuta SEMPRE enquanto a IA fala (evita eco e corte precoce da fala)
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
     transcriptAcumuladoRef.current = '';
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch (e) {}
     }
 
-    // Filter out asterisks and markdown formatting symbols so the speech synthesis engine doesn't verbalize stars/asterisks
-    const cleanText = text.replace(/\*/g, '').trim();
+    // Filter out asterisks and markdown formatting symbols
+    const cleanText = text.replace(/[*_#`~[\]()]/g, '').trim();
     const partes = dividirEmFrases(cleanText);
 
     let terminado = false;
-    const terminar = () => {
-      if (terminado || gen !== ttsGenRef.current) return; // fala já substituída por outra
-      terminado = true;
-      utterancesRef.current = [];
+    let heartbeatInterval: NodeJS.Timeout | null = null;
+
+    const limparRecursos = () => {
       limparWatchdogTts();
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+      }
+      utterancesRef.current = [];
+    };
+
+    const terminar = () => {
+      if (terminado || gen !== ttsGenRef.current) return;
+      terminado = true;
+      limparRecursos();
+      falandoRef.current = false;
       if (onEndCallback) {
-        falandoRef.current = false;
         onEndCallback();
       } else {
-        // Resume listening after speaking if still active
         retomarEscuta();
       }
     };
-    const armarWatchdog = (ms: number) => {
-      limparWatchdogTts();
-      ttsWatchdogRef.current = setTimeout(() => {
-        if (gen !== ttsGenRef.current) return;
-        console.warn('[IA voz] síntese sem fim detectado — a retomar a escuta.');
-        try { window.speechSynthesis.cancel(); } catch (e) {}
-        terminar();
-      }, ms);
-    };
+
+    // Keep-alive heartbeat: evita o bug de congelamento do Chromium/Chrome aos 14s
+    heartbeatInterval = setInterval(() => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+          window.speechSynthesis.pause();
+          window.speechSynthesis.resume();
+        }
+      }
+    }, 4000);
 
     if (!partes.length) { terminar(); return; }
 
-    partes.forEach((parte, i) => {
-      const utterance = new SpeechSynthesisUtterance(parte);
-      // v37.52 — voz pt natural (antes: lang 'pt-AO' inexistente → voz robótica).
-      aplicarVozPt(utterance, { rate: 1.0, pitch: 1.0 });
-      // orçamento por frase (fala pt ≈ 15 caracteres/s → 90 ms/carácter + margem);
-      // se o motor parar a meio, o watchdog devolve o microfone ao utilizador
-      utterance.onstart = () => { if (gen === ttsGenRef.current) armarWatchdog(2500 + parte.length * 90); };
-      utterance.onend = () => { if (i === partes.length - 1) terminar(); };
-      utterance.onerror = (ev: SpeechSynthesisErrorEvent) => {
-        // 'interrupted'/'canceled' = substituída por nova fala (cancel()) — a nova trata da retoma
-        if (ev.error === 'interrupted' || ev.error === 'canceled') return;
-        console.warn('[IA voz] erro de síntese:', ev.error);
-        try { window.speechSynthesis.cancel(); } catch (e) {}
+    // Fila sequencial controlada: despacha uma frase de cada vez
+    let indexAtual = 0;
+
+    const falarProximaFrase = () => {
+      if (gen !== ttsGenRef.current || terminado) return;
+      if (indexAtual >= partes.length) {
         terminar();
+        return;
+      }
+
+      const parte = partes[indexAtual];
+      indexAtual++;
+
+      const utterance = new SpeechSynthesisUtterance(parte);
+      aplicarVozPt(utterance, { rate: 1.0, pitch: 1.0 });
+
+      // Watchdog adaptativo específico para a frase corrente
+      const timeoutFrase = Math.max(14000, 5000 + parte.length * 160);
+      limparWatchdogTts();
+      ttsWatchdogRef.current = setTimeout(() => {
+        if (gen !== ttsGenRef.current) return;
+        console.warn(`[IA voz] Timeout na frase ${indexAtual}/${partes.length} — avançando.`);
+        falarProximaFrase();
+      }, timeoutFrase);
+
+      utterance.onstart = () => {
+        if (gen !== ttsGenRef.current) return;
+        try { window.speechSynthesis.resume(); } catch (e) {}
       };
-      utterancesRef.current.push(utterance);
-      window.speechSynthesis.speak(utterance);
-    });
-    // Se a síntese nem sequer arrancar (sem vozes, bloqueada, motor preso),
-    // não deixar o utilizador sem microfone: retomar ao fim de 6 s.
-    armarWatchdog(6000);
+
+      utterance.onend = () => {
+        limparWatchdogTts();
+        if (gen === ttsGenRef.current) {
+          falarProximaFrase();
+        }
+      };
+
+      utterance.onerror = (ev: SpeechSynthesisErrorEvent) => {
+        limparWatchdogTts();
+        if (ev.error === 'interrupted' || ev.error === 'canceled') return;
+        console.warn('[IA voz] erro de síntese na frase:', ev.error);
+        if (gen === ttsGenRef.current) {
+          falarProximaFrase();
+        }
+      };
+
+      utterancesRef.current = [utterance];
+      try {
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.warn('[IA voz] falha ao despachar utterance:', err);
+        falarProximaFrase();
+      }
+    };
+
+    falarProximaFrase();
   };
 
   const getPageFriendlyName = (key: string): string => {

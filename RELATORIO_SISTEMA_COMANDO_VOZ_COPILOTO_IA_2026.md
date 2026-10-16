@@ -78,6 +78,16 @@ Desta forma, os utilizadores têm acesso a uma interface integrada de conversaç
 
 ---
 
-## 4. Evidência Visual
+## 4. Otimização e Resiliência da Síntese de Voz (TTS)
+
+Para garantir uma experiência auditiva fluida e contínua sem quebras ou cortes a meio de respostas longas, foram implementadas as seguintes proteções arquiteturais no motor de síntese:
+1. **Despacho Sequencial Frase-a-Frase:** As respostas são tokenizadas em sentenças e despachadas uma a uma, evitando o cancelamento acidental por timers concorrentes.
+2. **Watchdog Adaptativo por Sentença:** Cada frase possui uma margem de tempo proporcional ao seu tamanho (`Math.max(14000, 5000 + length * 160)`), prevenindo bloqueios caso o browser atrase a reprodução.
+3. **Heartbeat Keep-Alive Anti-Freeze do Chromium:** Pulso periódico de `pause()` / `resume()` a cada 4 segundos, contornando a limitação nativa do Chromium que pausa áudio aos 14 segundos.
+4. **Isolamento de Microfone e Eco:** Desativação estrita do microfone durante todo o ciclo de fala, impedindo auto-interrupções por eco.
+
+---
+
+## 5. Evidência Visual
 
 A captura fotográfica real da interface unificada do Assistente Digital com suporte a voz e chat encontra-se gravada em `images/cda_assistente_ia_chat_voz.png`.
