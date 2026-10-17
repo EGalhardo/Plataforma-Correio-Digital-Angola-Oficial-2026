@@ -8528,6 +8528,22 @@ Ficha civil do titular:
                           name="cda-utilizador"
                           autoComplete="off"
                           onChange={(e) => { loginInteragidoRef.current = true; setBi(e.target.value.toUpperCase()); }}
+                          onPaste={(e) => {
+                            loginInteragidoRef.current = true;
+                            const text = e.clipboardData?.getData('text') || '';
+                            if (text.includes('\n') || text.includes('Senha') || text.includes('Palavra-passe') || text.includes('Password') || text.includes('B.I.')) {
+                              const biMatch = text.match(/(?:B\.?I\.?|NIF|Código|Número|Acesso)?[:\s\t]*([0-9]{9}[A-Za-z]{2}[0-9]{3}|[A-Za-z0-9-]{6,20})/i);
+                              const passMatch = text.match(/(?:Senha|Palavra-passe|Password|Pass)[:\s\t]*([^\r\n]+)/i);
+                              if (biMatch && biMatch[1]) {
+                                e.preventDefault();
+                                setBi(biMatch[1].trim().toUpperCase());
+                                if (passMatch && passMatch[1]) {
+                                  setLoginPasswordInput(passMatch[1].trim());
+                                  addAuditLog?.('Credenciais completas (B.I. + Senha) coladas no formulário de login.', 'info');
+                                }
+                              }
+                            }
+                          }}
                           placeholder={isInstMode ? "AGT-9921-SR" : isGovMode ? "ADMIN-0001" : "009874562LA041"}
                           maxLength={isInstMode ? 20 : 14}
                         />
@@ -8550,6 +8566,17 @@ Ficha civil do titular:
                           autoComplete="new-password"
                           value={loginPasswordInput}
                           onChange={(e) => { loginInteragidoRef.current = true; setLoginPasswordInput(e.target.value); }}
+                          onPaste={(e) => {
+                            loginInteragidoRef.current = true;
+                            const text = e.clipboardData?.getData('text') || '';
+                            if (text.includes('\n') || text.includes('Senha') || text.includes('Palavra-passe')) {
+                              const passMatch = text.match(/(?:Senha|Palavra-passe|Password|Pass)[:\s\t]*([^\r\n]+)/i);
+                              if (passMatch && passMatch[1]) {
+                                e.preventDefault();
+                                setLoginPasswordInput(passMatch[1].trim());
+                              }
+                            }
+                          }}
                         />
                         <button
                           type="button"
@@ -8876,7 +8903,16 @@ Ficha civil do titular:
                     <PainelSuspense>
                     <RegisterStepper
                       onCancel={() => setLoginSubMode('normal')}
-                      onSuccess={() => setLoginSubMode('normal')}
+                      onSuccess={(creds) => {
+                        if (creds?.bi) {
+                          setBi(creds.bi);
+                        }
+                        if (creds?.password) {
+                          setLoginPasswordInput(creds.password);
+                        }
+                        loginInteragidoRef.current = true;
+                        setLoginSubMode('normal');
+                      }}
                       addAuditLog={addAuditLog}
                       appMode={appMode}
                     />

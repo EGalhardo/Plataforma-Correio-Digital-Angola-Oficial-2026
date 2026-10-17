@@ -126,8 +126,8 @@ async function runE2ETest() {
     }
 
     // Aguardar conclusão da biometria
-    const bioDone = page.locator('text=BIOMETRIA CONCLUÍDA').first();
-    await bioDone.waitFor({ state: 'visible', timeout: 10000 });
+    const bioDone = page.locator('p:has-text("BIOMETRIA REGISTADA"), p:has-text("BIOMETRIA CONCLUÍDA")').first();
+    await bioDone.waitFor({ state: 'visible', timeout: 15000 });
     console.log('  ✅ [PASS] Captura facial biométrica de 3 ângulos concluída com sucesso');
 
     // Submeter registo

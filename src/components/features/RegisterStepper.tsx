@@ -17,8 +17,13 @@ import {
   Fingerprint,
   Sparkles,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  Copy,
+  CheckCheck,
+  KeyRound,
+  ExternalLink
 } from 'lucide-react';
+import { notify } from '../../lib/notify';
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore, notifyRegistrationSubmitted, notifyAccountApproved } from '../../services/homologationStore';
 import { registoPublicoProxy } from '../../services/supabaseService';
@@ -81,7 +86,7 @@ const blobToPviDataUrl = (blob: Blob, maxSide = 1024, quality = 0.8): Promise<st
 
 interface RegisterStepperProps {
   onCancel: () => void;
-  onSuccess: () => void;
+  onSuccess: (credentials?: { bi: string; password?: string }) => void;
   addAuditLog: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
   appMode?: 'user' | 'institution' | 'admin';
 }
@@ -109,6 +114,50 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   const [aprovadoPopup, setAprovadoPopup] = useState(false);
   // v37.29 — popup com Nº de acesso + senha ao concluir a inscrição
   const [credPopup, setCredPopup] = useState(false);
+  const [copiedBi, setCopiedBi] = useState(false);
+  const [copiedPassword, setCopiedPassword] = useState(false);
+  const [copiedAll, setCopiedAll] = useState(false);
+  const [showCredPassword, setShowCredPassword] = useState(true);
+
+  const copyToClipboard = async (text: string, type: 'bi' | 'password' | 'all') => {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+
+      if (type === 'bi') {
+        setCopiedBi(true);
+        setTimeout(() => setCopiedBi(false), 2500);
+        notify('Nº do B.I. copiado para a área de transferência!', 'success');
+      } else if (type === 'password') {
+        setCopiedPassword(true);
+        setTimeout(() => setCopiedPassword(false), 2500);
+        notify('Senha copiada para a área de transferência!', 'success');
+      } else {
+        setCopiedAll(true);
+        setTimeout(() => setCopiedAll(false), 2500);
+        notify('Credenciais completas (B.I. + Senha) copiadas!', 'success');
+      }
+    } catch (e) {
+      console.warn('Erro ao copiar credenciais:', e);
+    }
+  };
+
+  const handleGoToLoginWithCreds = () => {
+    void copyToClipboard(`B.I. de Acesso: ${biNumber.toUpperCase()}\nPalavra-passe: ${password}`, 'all');
+    setCredPopup(false);
+    onSuccess({ bi: biNumber.toUpperCase(), password });
+  };
   // v37.78.17 — REGRAS UX (processamento em segundo plano): estado vivo da
   // análise do registo, visível no ecrã de sucesso e nos popups.
   const [analiseEstado, setAnaliseEstado] = useState<'em_analise' | 'aprovado' | 'correcoes'>('em_analise');
@@ -433,12 +482,11 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
     };
   }, [step, appMode]);
 
-  // Pré-verificação automática (Fase 1): dispara quando a captura facial termina
+  // Pré-verificação automática (Fase 1): corre em segundo plano sem bloquear o utilizador
   useEffect(() => {
     if (!captureFinished || !savedFacePhoto || verificationStartedRef.current) return;
     verificationStartedRef.current = true;
-    setIsVerifying(true);
-    addAuditLog('Pré-verificação automática dos documentos iniciada (motor local)', 'info');
+    addAuditLog('Pré-verificação dos documentos a decorrer em segundo plano', 'info');
     runRegistrationVerification({
       frontImageDataUrl: frentePreview,
       selfieDataUrl: savedFacePhoto,
@@ -451,9 +499,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         addAuditLog(`Pré-verificação com análises indisponíveis: ${report.errors.join('; ')}`, 'warning');
       }
     }).catch(err => {
-      console.error('Falha global na pré-verificação:', err);
-    }).finally(() => {
-      setIsVerifying(false);
+      console.warn('Pré-verificação em segundo plano:', err);
     });
   }, [captureFinished, savedFacePhoto, frentePreview, biNumber, name, addAuditLog]);
 
@@ -1455,25 +1501,13 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
               {/* Success Bio validation Alert Box */}
               {captureFinished && (
-                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-2.5 flex gap-2 text-left max-w-md mx-auto">
-                  <ShieldCheck size={14} className="text-emerald-500 shrink-0 mt-0.5" />
+                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 flex gap-2.5 text-left max-w-md mx-auto shadow-3xs">
+                  <ShieldCheck size={16} className="text-emerald-500 shrink-0 mt-0.5" />
                   <div className="space-y-1">
-                    <p className="text-[10.5px] font-black text-emerald-900 uppercase tracking-tight">BIOMETRIA CONCLUÍDA</p>
+                    <p className="text-[11px] font-black text-emerald-900 uppercase tracking-tight">BIOMETRIA REGISTADA COM SUCESSO</p>
                     <p className="text-[10px] text-[#065f46] leading-relaxed font-semibold">
-                      Os seus padrões biométricos foram validados e vinculados de forma criptografada à sua identidade civil.
+                      Os seus padrões biométricos faciais foram vinculados de forma criptografada à sua identidade. Pode submeter o registo de imediato.
                     </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Motor local de pré-verificação: corre em SILÊNCIO para o cidadão.
-                  O relatório técnico (concordância facial, OCR, coerência global) é
-                  enviado APENAS para a fila de homologação da Área de Administração. */}
-              {isVerifying && (
-                <div className="bg-white border border-blue-100 rounded-xl p-3 max-w-md mx-auto text-left shadow-3xs">
-                  <div className="flex items-center gap-2 py-1 text-[10.5px] font-bold text-blue-600">
-                    <Loader2 size={13} className="animate-spin" />
-                    A validar a integridade dos documentos submetidos…
                   </div>
                 </div>
               )}
@@ -1483,7 +1517,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 {isSubmitting && (
                   <div className="flex items-center justify-center gap-1.5 py-0.5 text-[10px] font-bold text-blue-600 animate-pulse">
                     <Loader2 size={13} className="animate-spin" />
-                    {submitMessage}
+                    {submitMessage || 'A processar o registo em segundo plano…'}
                   </div>
                 )}
                 {submitError && !isSubmitting && (
@@ -1497,21 +1531,29 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     type="button"
                     disabled={isScanning || isSubmitting}
                     onClick={() => setStep(2)}
-                    className="flex-1 py-2 border border-slate-200 hover:bg-slate-50 text-slate-800 font-extrabold text-[#0f172a] text-[11.5px] uppercase tracking-widest rounded-xl transition-all cursor-pointer bg-white flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    className="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-800 font-extrabold text-[#0f172a] text-[11.5px] uppercase tracking-widest rounded-xl transition-all cursor-pointer bg-white flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
                     <ArrowLeft size={13} /> VOLTAR
                   </button>
                   <button
                     type="button"
-                    disabled={!captureFinished || isScanning || isSubmitting || isVerifying}
+                    disabled={!captureFinished || isScanning || isSubmitting}
                     onClick={handleFinalSubmit}
-                    className={`flex-1 py-2 text-[11.5px] font-black uppercase tracking-widest rounded-xl transition-all border-0 shadow-md flex items-center justify-center gap-1.5 ${
-                      captureFinished && !isScanning && !isSubmitting && !isVerifying
-                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white cursor-pointer shadow-blue-500/20' 
+                    className={`flex-1 py-2.5 text-[11.5px] font-black uppercase tracking-widest rounded-xl transition-all border-0 shadow-md flex items-center justify-center gap-1.5 ${
+                      captureFinished && !isScanning && !isSubmitting
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white cursor-pointer shadow-blue-500/20 active:scale-[0.98]' 
                         : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 shadow-none'
                     }`}
                   >
-                    {isVerifying ? 'A ANALISAR...' : isSubmitting ? 'A ENVIAR...' : 'FINALIZAR SUBMISSÃO'} <Check size={13} />
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin" /> A ENVIAR...
+                      </>
+                    ) : (
+                      <>
+                        FINALIZAR SUBMISSÃO <Check size={13} />
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -1579,13 +1621,75 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                   )}
                 </div>
               )}
-              <div className="bg-blue-50 border border-blue-100/60 rounded-xl p-3 text-left flex gap-2.5 items-center">
-                <span className="text-[11px] font-black text-blue-800 select-none font-sans font-extrabold uppercase">
-                  {appMode === 'institution' ? 'NIF da Instituição:' : 'B.I. de Acesso:'}
-                </span>
-                <span className="text-[12.5px] font-mono font-black text-slate-800 uppercase tracking-widest bg-white border border-blue-100 px-3 py-1 rounded-lg">
-                  {biNumber}
-                </span>
+
+              {/* Caixa de Credenciais Completas no Ecrã de Sucesso */}
+              <div className="rounded-2xl border border-blue-200 bg-gradient-to-b from-blue-50/90 to-indigo-50/50 p-4 sm:p-5 space-y-3.5 shadow-sm text-left">
+                <div className="flex items-center justify-between pb-2 border-b border-blue-200/60">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
+                    <KeyRound size={14} className="text-blue-600" /> Credenciais de Acesso Oficial
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(`B.I. de Acesso: ${biNumber.toUpperCase()}\nPalavra-passe: ${password}`, 'all')}
+                    className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer border-none shadow-xs"
+                    title="Copiar B.I. e Senha para a área de transferência"
+                  >
+                    {copiedAll ? <CheckCheck size={12} className="text-emerald-300" /> : <Copy size={12} />}
+                    {copiedAll ? 'Copiado!' : 'Copiar Tudo'}
+                  </button>
+                </div>
+
+                {/* Campo 1: Nº do B.I. / NIF */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    {appMode === 'institution' ? 'NIF / Código Institucional' : 'Nº do Bilhete de Identidade (B.I.)'}
+                  </span>
+                  <div className="flex items-center justify-between gap-2 bg-white border border-blue-200 rounded-xl p-2.5 px-3.5 shadow-xs">
+                    <span className="font-mono font-black text-slate-900 text-sm md:text-base tracking-wider select-all break-all">
+                      {biNumber.toUpperCase()}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(biNumber.toUpperCase(), 'bi')}
+                      className="p-1.5 px-2.5 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
+                      title="Copiar Nº do B.I."
+                    >
+                      {copiedBi ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                      <span>{copiedBi ? 'Copiado' : 'Copiar'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Campo 2: Palavra-passe / Senha */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                      Palavra-passe de Acesso
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowCredPassword(!showCredPassword)}
+                      className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-transparent border-none cursor-pointer"
+                    >
+                      {showCredPassword ? <EyeOff size={12} /> : <Eye size={12} />}
+                      <span>{showCredPassword ? 'Ocultar' : 'Revelar'}</span>
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 bg-white border border-blue-200 rounded-xl p-2.5 px-3.5 shadow-xs">
+                    <span className="font-mono font-black text-slate-900 text-sm md:text-base tracking-wider select-all break-all">
+                      {showCredPassword ? password : '•'.repeat(Math.min(password.length || 8, 16))}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(password, 'password')}
+                      className="p-1.5 px-2.5 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
+                      title="Copiar Palavra-passe"
+                    >
+                      {copiedPassword ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                      <span>{copiedPassword ? 'Copiada' : 'Copiar'}</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {pviAutoApproved && (
@@ -1597,10 +1701,11 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
               <button
                 type="button"
-                onClick={onSuccess}
+                onClick={handleGoToLoginWithCreds}
                 className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-black text-[12px] uppercase tracking-widest transition-all cursor-pointer border-0 shadow-xl shadow-blue-500/15 flex items-center justify-center gap-2"
               >
-                Voltar ao Login e Acesso Seguro
+                <Copy size={14} />
+                Copiar e Aceder ao Login Seguro
               </button>
             </motion.div>
           )}
@@ -1634,37 +1739,106 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         tomIcone="bg-blue-50 text-blue-600 border-blue-100"
         maxW="max-w-md"
       >
-        <div className="text-left space-y-3">
+        <div className="text-left space-y-3.5">
           <p className="text-sm font-semibold text-slate-700 m-0 leading-relaxed">
-            O seu registo foi recebido com sucesso e está a ser analisado pelo sistema. Use estes dados para iniciar sessão no portal:
+            O seu registo foi recebido com sucesso e a análise decorre em segundo plano. Utilize estes dados para aceder ao portal:
           </p>
-          <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-[10px] font-black uppercase tracking-widest text-blue-800 shrink-0">Nº de Acesso</span>
-              <span className="font-mono font-black text-slate-900 text-[13px] bg-white border border-blue-100 rounded-lg px-3 py-1.5 truncate">{biNumber}</span>
+
+          {/* Caixa de Credenciais Completas no Popup */}
+          <div className="rounded-2xl border border-blue-200 bg-gradient-to-b from-blue-50/90 to-indigo-50/50 p-4 space-y-3 shadow-xs">
+            <div className="flex items-center justify-between pb-1.5 border-b border-blue-200/60">
+              <span className="text-[10.5px] font-black uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
+                <KeyRound size={13} className="text-blue-600" /> Credenciais de Acesso
+              </span>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(`B.I. de Acesso: ${biNumber.toUpperCase()}\nPalavra-passe: ${password}`, 'all')}
+                className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[9.5px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer border-none shadow-xs"
+                title="Copiar B.I. e Senha para a área de transferência"
+              >
+                {copiedAll ? <CheckCheck size={11} className="text-emerald-300" /> : <Copy size={11} />}
+                {copiedAll ? 'Copiado!' : 'Copiar Tudo'}
+              </button>
             </div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-[10px] font-black uppercase tracking-widest text-blue-800 shrink-0">Senha</span>
-              <span className="font-mono font-black text-slate-900 text-[13px] bg-white border border-blue-100 rounded-lg px-3 py-1.5 break-all text-right">{password}</span>
+
+            {/* Nº de Acesso */}
+            <div className="space-y-1">
+              <span className="text-[9.5px] font-black uppercase tracking-widest text-slate-500">
+                {appMode === 'institution' ? 'NIF / Código Institucional' : 'Nº do Bilhete de Identidade (B.I.)'}
+              </span>
+              <div className="flex items-center justify-between gap-2 bg-white border border-blue-200 rounded-xl p-2 px-3 shadow-2xs">
+                <span className="font-mono font-black text-slate-900 text-sm tracking-wider select-all break-all">
+                  {biNumber.toUpperCase()}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(biNumber.toUpperCase(), 'bi')}
+                  className="p-1 px-2 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[9.5px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
+                  title="Copiar Nº do B.I."
+                >
+                  {copiedBi ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                  <span>{copiedBi ? 'Copiado' : 'Copiar'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Senha */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[9.5px] font-black uppercase tracking-widest text-slate-500">
+                  Palavra-passe de Acesso
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowCredPassword(!showCredPassword)}
+                  className="text-[9.5px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-transparent border-none cursor-pointer"
+                >
+                  {showCredPassword ? <EyeOff size={11} /> : <Eye size={11} />}
+                  <span>{showCredPassword ? 'Ocultar' : 'Revelar'}</span>
+                </button>
+              </div>
+              <div className="flex items-center justify-between gap-2 bg-white border border-blue-200 rounded-xl p-2 px-3 shadow-2xs">
+                <span className="font-mono font-black text-slate-900 text-sm tracking-wider select-all break-all">
+                  {showCredPassword ? password : '•'.repeat(Math.min(password.length || 8, 16))}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(password, 'password')}
+                  className="p-1 px-2 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[9.5px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
+                  title="Copiar Palavra-passe"
+                >
+                  {copiedPassword ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                  <span>{copiedPassword ? 'Copiada' : 'Copiar'}</span>
+                </button>
+              </div>
             </div>
           </div>
-          <p className="text-[10.5px] font-semibold text-slate-500 m-0">
-            Por segurança, memorize ou guarde estes dados num local seguro — a senha não volta a ser mostrada.
+
+          <p className="text-[10px] font-semibold text-slate-500 m-0">
+            Por segurança, memorize ou guarde estes dados num local seguro.
           </p>
           <p className="text-[10.5px] font-semibold text-blue-700 m-0 leading-relaxed">
-            Pode entrar na aplicação já agora: a análise decorre em segundo plano e o resultado será notificado nesta mesma conta.
+            Pode entrar na aplicação agora: a análise decorre em segundo plano e o resultado será notificado nesta mesma conta.
           </p>
         </div>
-        <div className="flex justify-end pt-2">
+        <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
           <button
             type="button"
             onClick={() => {
               setCredPopup(false);
               if (aprovadoPendente) { setAprovadoPendente(false); setAprovadoPopup(true); }
             }}
-            className="px-6 py-3 rounded-full font-black text-xs uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer border-none shadow-md shadow-blue-200"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer border-none"
           >
-            Entendi
+            Fechar
+          </button>
+          <button
+            type="button"
+            onClick={handleGoToLoginWithCreds}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all cursor-pointer border-none shadow-md shadow-blue-500/20 flex items-center justify-center gap-2"
+          >
+            <Copy size={13} />
+            Copiar e Ir para o Login
           </button>
         </div>
       </CdaModal>
