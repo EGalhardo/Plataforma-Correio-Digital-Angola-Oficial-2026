@@ -396,9 +396,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
     const startCamera = async () => {
       if (step !== 3) return;
-      // v37.8 — cidadão: a etapa facial foi REMOVIDA do registo (validação só
-      // por comparação de dados do B.I.); a câmara é exclusiva do fluxo institucional.
-      if (appMode !== 'institution') return;
       setIsSimulatedCamera(false);
       setFaceCaptureHint('Posicione o rosto no centro da moldura.');
 
@@ -423,7 +420,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       }
     };
 
-    if (step === 3 && appMode === 'institution') {
+    if (step === 3) {
       startCamera();
     } else {
       stopFaceCamera();
@@ -655,6 +652,15 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         });
         localStorage.setItem('gov_admin_citizens', JSON.stringify(semRepetidos));
         localStorage.setItem(`citizen_pass_${newUser.biNumber}`, password);
+        if (savedFacePhoto) {
+          localStorage.setItem(`cda_user_selfie_${biClean.toUpperCase()}`, savedFacePhoto);
+        }
+        if (frentePreview) {
+          localStorage.setItem(`cda_user_bi_frente_${biClean.toUpperCase()}`, frentePreview);
+        }
+        if (versoPreview) {
+          localStorage.setItem(`cda_user_bi_verso_${biClean.toUpperCase()}`, versoPreview);
+        }
       } catch { /* melhor esforço — não trava a confirmação imediata */ }
       // F47-fix — novo registo submetido: limpa a marca de revogação local e resíduos anteriores.
       try { localStorage.removeItem('cda_revoked_' + biClean.toUpperCase()); } catch { /* ignora */ }
@@ -1244,95 +1250,36 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               exit={{ opacity: 0, scale: 0.98 }}
               className="space-y-2.5"
             >
-              {appMode !== 'institution' ? (
-                <>
-                  {/* v37.8 — Registo do cidadão SEM biometria facial: a IA apenas
-                      compara os dados do formulário com os dados extraídos do B.I. */}
-                  <div className="text-center">
-                    <h1 className="text-[#0f172a] text-xl font-extrabold tracking-tight mb-0.5 leading-tight">
-                      Validação Automática por IA
-                    </h1>
-                    <p className="text-[11px] text-slate-500 font-semibold m-0">
-                      A IA compara os dados introduzidos com os dados extraídos do Bilhete de Identidade.
-                      Não é realizado reconhecimento facial nesta etapa.
-                    </p>
-                  </div>
-
-                  <div className="bg-white border border-slate-200 rounded-2xl p-4 max-w-md mx-auto text-left shadow-sm space-y-2">
-                    {[
-                      ['Nome completo', name],
-                      ['Número do BI', biNumber],
-                      ['Data de nascimento', dataNascimento ? new Date(dataNascimento + 'T00:00:00').toLocaleDateString('pt-PT') : '—'],
-                      ['Sexo', sexo === 'M' ? 'Masculino' : sexo === 'F' ? 'Feminino' : '—'],
-                      ['Frente do B.I.', frenteSuccess ? 'Carregada ✓' : 'Em falta'],
-                      ['Verso do B.I.', versoSuccess ? 'Carregado ✓' : 'Em falta'],
-                    ].map(([k, v]) => (
-                      <div key={k} className="flex items-center justify-between gap-3">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{k}</span>
-                        <span className="text-[12px] font-bold text-slate-800 text-right truncate max-w-[220px]">{v}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {reprovacaoInfo && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 max-w-md mx-auto text-left">
-                      <p className="text-[11px] font-black text-amber-800 uppercase tracking-widest m-0 mb-1 flex items-center gap-1.5">
-                        <AlertTriangle size={13} /> Dados não correspondem
-                      </p>
-                      <p className="text-[11.5px] font-semibold text-amber-800 m-0 leading-relaxed">
-                        {reprovacaoInfo.motivo || 'Existem dados que precisam de ser corrigidos ou verificados.'}
-                      </p>
-                      {reprovacaoInfo.alertas.length > 0 && (
-                        <p className="text-[10px] font-semibold text-amber-700 mt-1.5 m-0">
-                          Alertas: {reprovacaoInfo.alertas.join(', ')}
-                        </p>
-                      )}
-                      <p className="text-[10.5px] font-semibold text-amber-700 mt-1.5 m-0">
-                        Corrija os dados na etapa anterior e repita a validação.
-                      </p>
-                    </div>
-                  )}
-
-                  {isSubmitting && (
-                    <div className="flex items-center justify-center gap-1.5 py-0.5 text-[10px] font-bold text-blue-600 animate-pulse">
-                      <Loader2 size={13} className="animate-spin" />
-                      {submitMessage}
-                    </div>
-                  )}
-                  {submitError && !isSubmitting && (
-                    <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 text-[10.5px] font-bold text-red-700 text-left max-w-md mx-auto">
-                      <AlertTriangle size={14} className="shrink-0 mt-px text-red-500" />
-                      <span>{submitError}</span>
-                    </div>
-                  )}
-
-                  <div className="flex gap-3 w-full max-w-md mx-auto pt-1">
-                    <button
-                      type="button"
-                      disabled={isSubmitting}
-                      onClick={() => setStep(2)}
-                      className="flex-1 py-2 border border-slate-200 hover:bg-slate-50 text-slate-800 font-extrabold text-[#0f172a] text-[11.5px] uppercase tracking-widest rounded-xl transition-all cursor-pointer bg-white flex items-center justify-center gap-1.5 disabled:opacity-50"
-                    >
-                      <ArrowLeft size={13} /> VOLTAR
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isSubmitting}
-                      onClick={handleFinalSubmit}
-                      className="flex-1 py-2 text-[11.5px] font-black uppercase tracking-widest rounded-xl transition-all border-0 shadow-md flex items-center justify-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white cursor-pointer shadow-blue-500/20 disabled:opacity-60"
-                    >
-                      {isSubmitting ? 'A VALIDAR...' : 'VALIDAR COM IA E CONCLUIR'} <Check size={13} />
-                    </button>
-                  </div>
-                </>
-              ) : (
-              <>
               {/* Centered titles */}
               <div className="text-center">
                 <h1 className="text-[#0f172a] text-xl font-extrabold tracking-tight mb-0.5 leading-tight">
-                  {appMode === 'institution' ? 'Biometria Facial do Representante' : 'Assinatura de Biometria Facial'}
+                  {appMode === 'institution' ? 'Biometria Facial do Representante' : 'Registo e Biometria Facial'}
                 </h1>
+                <p className="text-[11px] text-slate-500 font-semibold m-0">
+                  {appMode === 'institution'
+                    ? 'Posicione o rosto do representante institucional na moldura para validação biométrica.'
+                    : 'Posicione o seu rosto na moldura para captura biométrica e prova de vida via IA.'}
+                </p>
               </div>
+
+              {reprovacaoInfo && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 max-w-md mx-auto text-left">
+                  <p className="text-[11px] font-black text-amber-800 uppercase tracking-widest m-0 mb-1 flex items-center gap-1.5">
+                    <AlertTriangle size={13} /> Dados não correspondem
+                  </p>
+                  <p className="text-[11.5px] font-semibold text-amber-800 m-0 leading-relaxed">
+                    {reprovacaoInfo.motivo || 'Existem dados que precisam de ser corrigidos ou verificados.'}
+                  </p>
+                  {reprovacaoInfo.alertas.length > 0 && (
+                    <p className="text-[10px] font-semibold text-amber-700 mt-1.5 m-0">
+                      Alertas: {reprovacaoInfo.alertas.join(', ')}
+                    </p>
+                  )}
+                  <p className="text-[10.5px] font-semibold text-amber-700 mt-1.5 m-0">
+                    Corrija os dados na etapa anterior e repita a validação.
+                  </p>
+                </div>
+              )}
 
               {/* Círculo interativo de Captura Biométrica (mesma configuração do Login Facial) */}
               <div className="relative flex justify-center py-1 mb-1.5">
@@ -1450,7 +1397,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                   <Check size={10.5} className="font-extrabold" />
                   <span>
                     {captureFinished
-                      ? 'Cadastro biométrico robusto concluído! 3/3 faces fundidas criptograficamente.'
+                      ? 'Cadastro biométrico robusto concluído! Face vinculada à identidade civil.'
                       : isScanning
                         ? `A processar: ${scanProgress}%`
                         : tempFaceCaptures.length === 0
@@ -1558,8 +1505,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 </div>
               </div>
 
-              </>
-              )}
             </motion.div>
           )}
 

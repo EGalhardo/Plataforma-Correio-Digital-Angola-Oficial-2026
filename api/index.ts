@@ -2882,7 +2882,7 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
     }
 
     // 5. Endpoint /api/verificar-cadastro (F27 — Prompt v11.1 · Portas 2 e 3)
-    // Pré-Verificação Inteligente das imagens do documento com IA de visão (Groq).
+    // Pré-Verificação Inteligente das imagens do documento e biometria facial com IA de visão.
     // REGRA DE OURO: qualquer erro/timeout/resposta inválida => {"veredicto":"REVISAO"}
     // — o cadastro permanece PENDENTE exactamente como hoje (nunca aprovação por falha).
     // Não persiste imagens nem dados sensíveis; logs apenas com metadados.
@@ -2893,12 +2893,13 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
       const pviStartedAt = Date.now();
       const PVI_MODEL = 'gemini-3.6-flash';
 
-      const { biNumber, nome, tipo, urls, dataNascimento, sexo } = body || {};
+      const { biNumber, nome, tipo, urls, selfie, dataNascimento, sexo } = body || {};
       const pviBi = typeof biNumber === 'string' ? biNumber.trim().toUpperCase() : '';
       const pviNome = typeof nome === 'string' ? nome.trim() : '';
       const pviTipo = tipo === 'instituicao' ? 'instituicao' : 'cidadao';
       const pviFrente = typeof urls?.frente === 'string' ? urls.frente : '';
       const pviVerso = typeof urls?.verso === 'string' ? urls.verso : '';
+      const pviSelfie = typeof urls?.selfie === 'string' ? urls.selfie : (typeof selfie === 'string' ? selfie : '');
       const pviNascimento = typeof dataNascimento === 'string' ? dataNascimento.trim() : '';
       const pviSexo = typeof sexo === 'string' ? sexo.trim() : '';
       // Só aceitamos URLs públicas do Storage do projecto ou data-URL de imagem (anti-SSRF)
@@ -2910,8 +2911,6 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
       if (!pviBi || !pviNome || !pviUrlOk(pviFrente) || !pviUrlOk(pviVerso)) {
         return pviEmit(pviResponder, 'REVISAO', ['dados_insuficientes'], 'Dados insuficientes para a pré-verificação (identificação ou imagens em falta). O cadastro segue para homologação manual.');
       }
-      // 2026-08-15 — provedor de visão é o GEMINI (a chave é verificada dentro do try).
-      // A disponibilidade do serviço é validada no próprio fluxo; falha => REVISAO.
 
       const pviDocDesc = pviTipo === 'instituicao'
         ? 'os documentos institucionais da adesão (ex.: Registo Comercial / Diário da República e Comprovativo de NIF / Alvará)'
@@ -2920,56 +2919,76 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
         ? `- Os documentos devem parecer oficiais e plausíveis (cabeçalho institucional, selos/carimbos ou composição tipográfica consistente), completos e legíveis.\n- Não existe um layout único — avalia-se a plausibilidade documental e a coerência do número declarado (NIF/registo) com o texto do documento.`
         : `- MODELO OFICIAL DO B.I. ANGOLANO. FRENTE: fundo claro com padrão guilhoché/elementos gráficos de segurança, o Brasão da República no topo, os dizeres "REPÚBLICA DE ANGOLA" e "BILHETE DE IDENTIDADE", a fotografia a cores do titular, o nome completo, a filiação, o número do bilhete e a área da assinatura.\n- VERSO: impressão digital do titular, zona MRZ (linhas de leitura óptica, quando presente), naturalidade, data de nascimento, sexo, altura, estado civil e as datas de emissão e de validade.\n- Se o layout não corresponder de forma reconhecível a este modelo oficial, o veredicto é REVISAO.`;
 
-      const pviSystemPrompt = `Você é o motor de triagem documental do Correio Digital Angola (pré-verificação inteligente de novos cadastros).
-Analise as DUAS imagens anexadas — a primeira é a FRENTE e a segunda é o VERSO de ${pviDocDesc} — e compare-as com os dados declarados no formulário.
-NOTA ARQUITETURAL (v37.72): a etapa de comparação facial do utilizador foi ELIMINADA da validação — não existe qualquer verificação biométrica facial neste fluxo. A tua responsabilidade é exclusivamente a TRIAGEM DOCUMENTAL: qualidade, integridade, layout e coerência OCR.
+      const temSelfie = !!(pviSelfie && pviUrlOk(pviSelfie));
+
+      const pviSystemPrompt = `Você é o motor de triagem documental e validação biométrica do Correio Digital Angola (pré-verificação inteligente de novos cadastros).
+Analise as imagens anexadas:
+- A 1.ª imagem é a FRENTE de ${pviDocDesc}.
+- A 2.ª imagem é o VERSO de ${pviDocDesc}.${temSelfie ? '\n- A 3.ª imagem é a CAPTURA BIOMÉTRICA FACIAL (SELFIE EM TEMPO REAL) do cidadão requerente.' : ''}
+Compare as imagens com os dados declarados no formulário.
+
 AVALIE RIGOROSAMENTE:
-1. QUALIDADE DA IMAGEM (frente e verso): nitidez, resolução, iluminação, enquadramento, inclinação, reflexos, cortes e compressão excessiva. Se a qualidade não permitir análise confiável, NÃO assumir que os dados estão errados — o veredicto é REVISAO.
-2. INTEGRIDADE DO DOCUMENTO: indícios de edição digital, montagem, recortes, fotografia ou texto adulterados, screenshot ou fotografia de ecrã, ou documento aparentemente gerado por IA. A análise é heurística — perante suspeita razoável, REVISAO. Não declarar um documento falso apenas por baixa qualidade.
+1. QUALIDADE DA IMAGEM (frente, verso e captura facial): nitidez, resolução, iluminação, enquadramento, inclinação, reflexos, cortes e compressão excessiva. Se a qualidade não permitir análise confiável, o veredicto é REVISAO.
+2. INTEGRIDADE DO DOCUMENTO: indícios de edição digital, montagem, recortes, fotografia ou texto adulterados, screenshot ou fotografia de ecrã, ou documento aparentemente gerado por IA. A análise é heurística — perante suspeita razoável, REVISAO.
 3. LAYOUT:
 ${pviLayoutRules}
-4. COERÊNCIA OCR: leia o texto visível nas imagens e compare com os dados declarados (nome, número do documento e, quando visíveis, data de nascimento/sexo/filiação). Considere apenas diferenças de formatação (espaços, hífens, maiúsculas) como equivalentes. Qualquer divergência real de nome ou número => REVISAO.
+4. COERÊNCIA OCR: leia o texto visível nas imagens e compare com os dados declarados (nome, número do documento e, quando visíveis, data de nascimento/sexo/filiação). Considere apenas diferenças de formatação (espaços, hífens, maiúsculas) como equivalentes. Qualquer divergência real de nome, número ou data => REVISAO.
 5. CONSISTÊNCIA FRENTE/VERSO: nome, número do documento, dados pessoais e fotografia devem pertencer ao mesmo documento, sem contradições evidentes.
-6. FOTOGRAFIA DO TITULAR: confirmar que existe, visível e nítida (elemento obrigatório do documento). Se ilegível ou ausente => REVISAO.
+6. FOTOGRAFIA DO TITULAR NO B.I.: confirmar que existe, visível e nítida.${temSelfie ? '\n7. COMPARAÇÃO BIOMÉTRICA FACIAL: compare a fisionomia facial entre a fotografia impressa na FRENTE do B.I. (imagem 1) e a CAPTURA FACIAL EM TEMPO REAL (imagem 3). Considere variações normais de iluminação, idade ligeira, penteado ou expressão. Se houver manifesta divergência de pessoa, ou rosto ilegível/ausente => REVISAO com alerta "rosto_divergente". Se houver correspondência e coerência total => APTO.' : ''}
+
 REGRAS ABSOLUTAS:
 - "APTO" apenas quando TUDO estiver legível, coerente e sem qualquer indício de problema. Qualquer dúvida, imagem ilegível ou elemento obrigatório ausente => SEMPRE "REVISAO".
 - Nunca invente dados que não consegue ler: se não consegue ler, "REVISAO".
-- Com "APTO" o array "alertas" fica obrigatoriamente vazio; com "REVISAO" liste os motivos em snake_case (ex.: imagem_desfocada, imagem_cortada, documento_ilegivel, layout_suspeito, possivel_screenshot, possivel_ia, nome_divergente, bi_divergente, documento_divergente, data_divergente, frente_verso_inconsistentes, foto_bi_ilegivel, fraude_suspeita).
+- Com "APTO" o array "alertas" fica obrigatoriamente vazio; com "REVISAO" liste os motivos em snake_case (ex.: imagem_desfocada, imagem_cortada, documento_ilegivel, layout_suspeito, possivel_screenshot, possivel_ia, nome_divergente, bi_divergente, documento_divergente, data_divergente, sexo_divergente, frente_verso_inconsistentes, foto_bi_ilegivel, rosto_divergente, fraude_suspeita).
 - "fraude_suspeita" é reservado a evidência CLARA e comprovada de adulteração ou montagem evidente (nunca apenas por dúvida ou baixa qualidade — isso é REVISAO simples com os alertas de qualidade).
 - Responda APENAS com um objecto JSON válido, sem markdown nem texto adicional: {"veredicto":"APTO"|"REVISAO","alertas":["..."],"motivo":"frase curta em português de Angola, sem dados pessoais desnecessários"}.
 Esta análise é apenas uma triagem de plausibilidade — NÃO certifica identidades, NÃO atesta autenticidade oficial e NÃO substitui a homologação administrativa.`;
 
       const pviUserPrompt = `Tipo de cadastro: ${pviTipo === 'instituicao' ? 'INSTITUIÇÃO (documentos de adesão)' : 'CIDADÃO (Bilhete de Identidade)'}
 Dados declarados no formulário: Nome: "${pviNome}" | Nº do documento: "${pviBi}"${pviNascimento ? ` | Data de nascimento: "${pviNascimento}"` : ''}${pviSexo ? ` | Sexo: "${pviSexo}"` : ''}
-A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS com o JSON pedido.`;
+A 1.ª imagem é a FRENTE, a 2.ª é o VERSO${temSelfie ? ', e a 3.ª é a CAPTURA FACIAL' : ''}. Analise e responda APENAS com o JSON pedido.`;
 
       try {
         const PVI_TIMEOUT_MS = 30000;
-        // 2026-08-15 — provedor de visão GEMINI (gemini-2.5-flash): a conta
-        // Groq em uso não tem modelos de visão. Imagens redimensionadas com
-        // sharp (max 1024px, q80) para não estourar a quota de tokens.
         const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
         if (!geminiKey) throw new Error('GEMINI_KEY_AUSENTE');
-        const [imgFResp, imgVResp] = await Promise.all([
-          fetch(pviFrente, { signal: AbortSignal.timeout(15000) }),
-          fetch(pviVerso, { signal: AbortSignal.timeout(15000) }),
-        ]);
-        if (!imgFResp.ok || !imgVResp.ok) throw new Error('IMG_INACESSIVEL ' + imgFResp.status + '/' + imgVResp.status);
+
+        const fetchOrDecodeToBuffer = async (urlOrDataUrl: string): Promise<Buffer> => {
+          if (urlOrDataUrl.startsWith('data:')) {
+            const base64Data = urlOrDataUrl.split(';base64,').pop() || '';
+            return Buffer.from(base64Data, 'base64');
+          }
+          const resp = await fetch(urlOrDataUrl, { signal: AbortSignal.timeout(15000) });
+          if (!resp.ok) throw new Error('IMG_INACESSIVEL ' + resp.status);
+          return Buffer.from(await resp.arrayBuffer());
+        };
+
         const sharpMod = await import('sharp');
-        const [imgFBuf, imgVBuf] = await Promise.all([
-          sharpMod.default(Buffer.from(await imgFResp.arrayBuffer())).resize({ width: 1024, withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer(),
-          sharpMod.default(Buffer.from(await imgVResp.arrayBuffer())).resize({ width: 1024, withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer(),
+        const [imgFRaw, imgVRaw, imgSRaw] = await Promise.all([
+          fetchOrDecodeToBuffer(pviFrente),
+          fetchOrDecodeToBuffer(pviVerso),
+          temSelfie ? fetchOrDecodeToBuffer(pviSelfie).catch(() => null) : Promise.resolve(null),
         ]);
-        // v37.72 — CADEIA DE MODELOS com fallback (desempenho + resiliência):
-        // 1.ª tentativa — gemini-3.1-flash-lite SEM "thinking" (thinkingBudget 0):
-        //   ~3-4 s por análise com o serviço saudável. A configuração ANTERIOR
-        //   deste endpoint (maxOutputTokens 1024, SEM limite de thinking) deixava
-        //   o modelo raciocinar sem teto — 9-30 s por validação em produção.
-        // 2.ª tentativa — gemini-3.6-flash com thinking limitado (budget 128 e
-        //   512 tokens de saída: com 256 o thinking consumia o orçamento e a
-        //   resposta chegava TRUNCADA — verificado em benchmark real).
-        // Falha/erro/resposta inválida => tenta a seguinte; esgotadas ambas =>
-        // REVISAO (regra de ouro: nunca aprovar por erro técnico).
+
+        const [imgFBuf, imgVBuf, imgSBuf] = await Promise.all([
+          sharpMod.default(imgFRaw).resize({ width: 1024, withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer(),
+          sharpMod.default(imgVRaw).resize({ width: 1024, withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer(),
+          imgSRaw ? sharpMod.default(imgSRaw).resize({ width: 1024, withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer() : Promise.resolve(null),
+        ]);
+
+        const b64F = imgFBuf.toString('base64');
+        const b64V = imgVBuf.toString('base64');
+        const b64S = imgSBuf ? imgSBuf.toString('base64') : null;
+
+        const contentParts: Array<Record<string, unknown>> = [
+          { text: pviUserPrompt },
+          { inline_data: { mime_type: 'image/jpeg', data: b64F } },
+          { inline_data: { mime_type: 'image/jpeg', data: b64V } },
+        ];
+        if (b64S) {
+          contentParts.push({ inline_data: { mime_type: 'image/jpeg', data: b64S } });
+        }
+
         const PVI_ATTEMPTS: Array<{ modelo: string; config: Record<string, unknown>; timeoutMs: number }> = [
           // 1.ª — lite sem thinking: ~3-4 s com o serviço saudável
           { modelo: 'gemini-3.1-flash-lite', config: { temperature: 0, maxOutputTokens: 256, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }, timeoutMs: 12000 },
@@ -2989,11 +3008,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  contents: [{ parts: [
-                    { text: pviUserPrompt },
-                    { inline_data: { mime_type: 'image/jpeg', data: imgFBuf.toString('base64') } },
-                    { inline_data: { mime_type: 'image/jpeg', data: imgVBuf.toString('base64') } },
-                  ] }],
+                  contents: [{ parts: contentParts }],
                   systemInstruction: { parts: [{ text: pviSystemPrompt }] },
                   generationConfig: tentativa.config,
                 }),

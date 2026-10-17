@@ -222,12 +222,13 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
           if (!uploadsOk) {
             hooks.addAuditLog('[PVIC] Imagens do B.I. não chegaram ao Storage — a Pré-Verificação prossegue com as imagens locais e a aprovação automática fica suprimida (homologação manual).', 'warning');
           }
-          hooks.setSubmitMessage?.('Pré-Verificação Inteligente (IA): a analisar as imagens do documento...');
+          hooks.setSubmitMessage?.('Pré-Verificação Inteligente (IA): a analisar as imagens do documento e biometria facial...');
           return await requestPviVerification({
             biNumber: newUser.biNumber,
             nome: newUser.name,
             tipo: appMode === 'institution' ? 'instituicao' : 'cidadao',
-            urls: { frente: frenteParaPvi, verso: versoParaPvi },
+            urls: { frente: frenteParaPvi, verso: versoParaPvi, selfie: job.payload.savedFacePhoto || urlSelfie || undefined },
+            selfie: job.payload.savedFacePhoto || urlSelfie || undefined,
             ...(appMode !== 'institution' ? { dataNascimento: job.payload.dataNascimento, sexo: job.payload.sexo } : {}),
           });
         }
@@ -247,14 +248,14 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
       pviAutoApproved = pviVerdict.veredicto === 'APTO' && (appMode === 'institution' ? pviLocalEngineOk : true);
       hooks.addAuditLog(
         pviAutoApproved
-          ? `[PVIC] Cadastro de ${newUser.name} APROVADO AUTOMATICAMENTE pela Pré-Verificação Inteligente (veredicto APTO — modelo ${pviVerdict.modelo}, ${pviVerdict.duracaoMs}ms).`
+          ? `[PVIC] Cadastro de ${newUser.name} APROVADO AUTOMATICAMENTE pela Pré-Verificação Inteligente (veredicto APTO com correspondência facial e documental — modelo ${pviVerdict.modelo}, ${pviVerdict.duracaoMs}ms).`
           : `[PVIC] Cadastro de ${newUser.name} enviado para homologação manual — veredicto ${pviVerdict.veredicto}${pviVerdict.alertas.length ? ` · alertas: ${pviVerdict.alertas.join(', ')}` : ''}${pviVerdict.motivo ? ` · ${pviVerdict.motivo}` : ''}`,
         pviAutoApproved ? 'success' : 'warning'
       );
 
-      // Porta de divergências REAIS (nome/nº/data/sexo/documento) — falhas
+      // Porta de divergências REAIS (nome/nº/data/sexo/documento/rosto) — falhas
       // técnicas (falha_tecnica, ia_indisponivel, sem_imagens_nuvem…) seguem F28.
-      const ALERTAS_DIVERGENCIA = ['nome_divergente', 'bi_divergente', 'data_divergente', 'sexo_divergente', 'documento_divergente', 'frente_verso_inconsistentes'];
+      const ALERTAS_DIVERGENCIA = ['nome_divergente', 'bi_divergente', 'data_divergente', 'sexo_divergente', 'documento_divergente', 'frente_verso_inconsistentes', 'rosto_divergente', 'foto_bi_ilegivel'];
       const haDivergenciaReal = (pviVerdict.alertas || []).some((a: string) => ALERTAS_DIVERGENCIA.includes(a));
       if (appMode !== 'institution' && pviVerdict.veredicto !== 'APTO' && haDivergenciaReal) {
         // v37.78.17 — SEM bloquear: o resultado chega por correspondência
@@ -262,7 +263,7 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
         homologationStore.addMessage(
           newUser.biNumber,
           'admin',
-          `Exmo(a). ${newUser.name}, a análise automática do seu registo foi concluída, mas foram identificados dados que necessitam de correcção. Motivo: "${pviVerdict.motivo || 'divergência entre o formulário e o documento apresentado'}". Por favor regresse ao registo, corrija os dados e repita a validação.`,
+          `Exmo(a). ${newUser.name}, a análise automática do seu registo foi concluída, mas foram identificados dados que necessitam de correcção. Motivo: "${pviVerdict.motivo || 'divergência entre o formulário, o documento e a biometria facial'}". Por favor regresse ao registo, corrija os dados e repita a validação.`,
         );
         actualizarCidadaoLocal(newUser.biNumber, { status: 'Pendente', analiseEstado: 'correcoes', pviMotivo: pviVerdict.motivo, pviAlertas: pviVerdict.alertas });
         hooks.addAuditLog(`[PVIC] Divergências no registo de ${newUser.name} — correcções necessárias; cidadão informado por correspondência oficial.`, 'warning');
@@ -274,7 +275,7 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
       }
       if (appMode !== 'institution') {
         newUser.verificationScore = 100;
-        newUser.reason = 'Registo aprovado automaticamente: dados do formulário conferidos com os dados extraídos do B.I. pela IA (sem biometria facial).';
+        newUser.reason = 'Registo com biometria facial e conferência documental analisado por IA de visão.';
       }
 
       // F47 — CONTA ELIMINADA ⇒ NUNCA auto-aprovar. Na RETOMA o
