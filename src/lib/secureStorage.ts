@@ -131,21 +131,21 @@ export const resolveStorageUrl = async (
   try {
     const { data: sessao } = await supabase.auth.getSession();
     const token = sessao?.session?.access_token;
-    if (token) {
-      const r = await fetch('/api/url-assinada', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ref: s }),
-      });
-      const j = await r.json().catch(() => null);
-      if (j && j.ok && j.url) {
-        // 2026-09-13 — defesa em profundidade: se o servidor devolver o
-        // caminho relativo do Storage («/object/sign/…»), completa-o com a
-        // base do projecto (senão o browser resolvia-o contra o domínio da app).
-        const urlServidor = absolutizarUrlStorage(supabase, String(j.url));
-        signedCache.set(key, { url: urlServidor, expiresAt: Date.now() + ttlSeconds * 1000 });
-        return urlServidor;
-      }
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const r = await fetch('/api/url-assinada', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ ref: s }),
+    });
+    const j = await r.json().catch(() => null);
+    if (j && j.ok && j.url) {
+      // 2026-09-13 — defesa em profundidade: se o servidor devolver o
+      // caminho relativo do Storage («/object/sign/…»), completa-o com a
+      // base do projecto (senão o browser resolvia-o contra o domínio da app).
+      const urlServidor = absolutizarUrlStorage(supabase, String(j.url));
+      signedCache.set(key, { url: urlServidor, expiresAt: Date.now() + ttlSeconds * 1000 });
+      return urlServidor;
     }
   } catch { /* melhor esforço */ }
 

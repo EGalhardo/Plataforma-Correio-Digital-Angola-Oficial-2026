@@ -215,10 +215,12 @@ async function runPerformanceMasterSuite() {
     ];
 
     for (const r of routesCid) {
-      const t0 = performance.now();
-      await pageCid.evaluate((h) => { window.location.hash = `#/${h}`; }, r.hash);
-      await pageCid.waitForTimeout(150);
-      const switchMs = Math.round(performance.now() - t0);
+      const switchMs = await pageCid.evaluate(async (h) => {
+        const t0 = performance.now();
+        window.location.hash = `#/${h}`;
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        return Math.round(performance.now() - t0);
+      }, r.hash);
       const dom = await pageCid.evaluate(() => document.querySelectorAll('*').length);
       report.routeLatencies.cidadao.push({ route: r.name, hash: r.hash, latencyMs: switchMs, domNodes: dom });
       assert('Rotas Cidadão', `Transição de Rota: ${r.name} < 500ms`, switchMs < 500, `${switchMs}ms (DOM: ${dom})`);
@@ -242,7 +244,7 @@ async function runPerformanceMasterSuite() {
     
     const t0AuthInst = Date.now();
     await pageInst.locator('button:has-text("Entrar no Portal"), button:has-text("ENTRAR NO PORTAL")').first().click();
-    await pageInst.waitForTimeout(2500);
+    await pageInst.waitForSelector('nav, header, [data-testid="unread-total-counter"]', { timeout: 15000 });
     const authLatencyInst = Date.now() - t0AuthInst;
     assert('Autenticação Instituição', 'Latência de Login Institucional < 4000ms', authLatencyInst < 4000, `Latência: ${authLatencyInst}ms`);
 
@@ -265,10 +267,12 @@ async function runPerformanceMasterSuite() {
     ];
 
     for (const r of routesInst) {
-      const t0 = performance.now();
-      await pageInst.evaluate((h) => { window.location.hash = `#/${h}`; }, r.hash);
-      await pageInst.waitForTimeout(150);
-      const switchMs = Math.round(performance.now() - t0);
+      const switchMs = await pageInst.evaluate(async (h) => {
+        const t0 = performance.now();
+        window.location.hash = `#/${h}`;
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        return Math.round(performance.now() - t0);
+      }, r.hash);
       const dom = await pageInst.evaluate(() => document.querySelectorAll('*').length);
       report.routeLatencies.instituicao.push({ route: r.name, hash: r.hash, latencyMs: switchMs, domNodes: dom });
       assert('Rotas Instituição', `Transição Institucional: ${r.name} < 500ms`, switchMs < 500, `${switchMs}ms (DOM: ${dom})`);
@@ -292,7 +296,7 @@ async function runPerformanceMasterSuite() {
     
     const t0AuthAdmin = Date.now();
     await pageAdmin.locator('button:has-text("Entrar no Portal"), button:has-text("ENTRAR NO PORTAL")').first().click();
-    await pageAdmin.waitForTimeout(2500);
+    await pageAdmin.waitForSelector('nav, header, [data-testid="unread-total-counter"]', { timeout: 15000 });
     const authLatencyAdmin = Date.now() - t0AuthAdmin;
     assert('Autenticação Admin', 'Latência de Login Administração Central < 4000ms', authLatencyAdmin < 4000, `Latência: ${authLatencyAdmin}ms`);
 
@@ -311,10 +315,12 @@ async function runPerformanceMasterSuite() {
     ];
 
     for (const r of routesAdmin) {
-      const t0 = performance.now();
-      await pageAdmin.evaluate((h) => { window.location.hash = `#/${h}`; }, r.hash);
-      await pageAdmin.waitForTimeout(150);
-      const switchMs = Math.round(performance.now() - t0);
+      const switchMs = await pageAdmin.evaluate(async (h) => {
+        const t0 = performance.now();
+        window.location.hash = `#/${h}`;
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        return Math.round(performance.now() - t0);
+      }, r.hash);
       const dom = await pageAdmin.evaluate(() => document.querySelectorAll('*').length);
       report.routeLatencies.admin.push({ route: r.name, hash: r.hash, latencyMs: switchMs, domNodes: dom });
       assert('Rotas Admin', `Transição Admin: ${r.name} < 500ms`, switchMs < 500, `${switchMs}ms (DOM: ${dom})`);

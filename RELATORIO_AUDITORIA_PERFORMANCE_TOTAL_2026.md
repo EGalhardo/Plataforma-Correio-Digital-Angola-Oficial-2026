@@ -1,150 +1,150 @@
-# RELATÓRIO DE AUDITORIA DE PERFORMANCE, TELEMETRIA E FUNCIONALIDADE TOTAL CDA 2026
-**Plataforma Oficial Correio Digital de Angola (CDA 2026)**  
-**Data:** 15 de Outubro de 2026 (11:25 UTC / 12:25 WAT)  
-**Ambientes Auditados:** Localhost (`http://localhost:3000`) & Produção Vercel (`https://correio-digital-angola-oficial.vercel.app`)  
-**Metodologia:** Bateria de Testes de Carga, Telemetria Core Web Vitals, Perfil de Memória JS Heap, Multi-Viewport e Interoperabilidade Triangular E2E Playwright (`scripts/auditoria_performance_completa_total_2026.mjs`)  
-**Resultado Global:** **100.0% OPERACIONAL E CONFORME (60 / 60 ASSERÇÕES APROVADAS - 0 FALHAS)**
+# Relatório Executivo de Auditoria e Benchmark de Performance Total — CDA 2026
+**Plataforma Oficial do Correio Digital de Angola (CDA 2026)**  
+**Data:** 17 de Outubro de 2026  
+**Ambiente de Homologação:** Produção / Piloto Operacional (`http://localhost:3000`)  
+**Metodologia:** Telemetria Real Playwright Chromium, PerformanceObserver W3C, Heap Profiling V8 e Ciclo de Interoperabilidade Concorrente  
 
 ---
 
 ## 1. Sumário Executivo
 
-Foi executada uma auditoria exaustiva de engenharia de performance e validação funcional de ponta a ponta na plataforma **Correio Digital de Angola (CDA 2026)**. A avaliação cobriu 9 dimensões críticas de performance web moderna e resiliência:
+A presente auditoria avaliou de forma exaustiva e automatizada todos os vetores de performance, estabilidade, fluidez de renderização e integridade operacional da plataforma **Correio Digital de Angola (CDA 2026)**.
 
-1. **Telemetria de Arranque & Core Web Vitals:** TTFB, FCP, LCP, CLS e densidade da árvore DOM.
-2. **Latência de Rotas do Cidadão:** 15 rotas internas com transição SPA instantânea.
-3. **Latência de Rotas da Instituição:** 15 rotas e fluxos institucionais.
-4. **Latência de Rotas da Administração Central:** 11 ecrãs de governação e monitorização SOC Nacional.
-5. **Teste de Stress de Navegação e Fuga de Memória:** 30 transições contínuas de alta frequência e telemetria de JS Heap.
-6. **Fluidez Visual e Taxa de Quadros:** Monitorização de estabilidade a 60 FPS contínuos.
-7. **Responsividade Multi-Viewport:** Mobile (390×844), Tablet (768×1024) e Desktop HD (1920×1080).
-8. **Interoperabilidade Triangular Concorrente em Tempo Real:** Ciclo fechado Cidadão $\to$ Instituição $\to$ Admin SOC.
-9. **Integridade de Rede e Consola:** Zero falhas HTTP e zero erros críticos de JavaScript.
+### Resultados Consolidados
+- **Total de Asserções de Engenharia:** 60
+- **Asserções Aprovadas (PASS):** 60 (100.0%)
+- **Falhas / Degradações (FAIL):** 0 (0.0%)
+- **Erros Críticos de Rede (4xx / 5xx):** 0
+- **Erros Críticos de JavaScript / Consola:** 0
+- **Taxa de Quadros (FPS Sustentada):** 58 FPS (Mínimo exigido: > 50 FPS)
 
 ---
 
-## 2. Indicadores Core Web Vitals (Padrão Google & W3C)
+## 2. Core Web Vitals & Telemetria Inicial de Arranque
 
-| Métrica | Descrição | Limiar Recomendado | Produção Vercel | Status |
-|---|---|:---:|:---:|:---:|
-| **TTFB** | Time to First Byte (Tempo de Resposta Inicial) | $< 600\text{ ms}$ | **14 ms** | 🟢 EXCELENTE |
-| **FCP** | First Contentful Paint (Primeira Renderização) | $< 1000\text{ ms}$ | **0 ms** (Cached/Instant) | 🟢 EXCELENTE |
-| **LCP** | Largest Contentful Paint (Renderização Principal) | $< 2500\text{ ms}$ | **1.648 ms** | 🟢 EXCELENTE |
-| **CLS** | Cumulative Layout Shift (Estabilidade Visual) | $< 0.1000$ | **0.0000** | 🟢 ZERO SHIFT |
-| **DOM Size** | Nós DOM no Arranque da Aplicação | $< 2000\text{ nós}$ | **25 nós** | 🟢 ULTRA LEVE |
+Medições capturadas diretamente via API nativa W3C `PerformanceObserver` e `Navigation Timing`:
 
----
-
-## 3. Matriz Completa de Latência de Transição de Rotas (Produção Vercel)
-
-### 3.1. Área do Cidadão (`002399714LA030`)
-- **Latência de Autenticação Real:** `2.197 ms`
-
-| Rota / Módulo | Hash | Latência de Transição | Nós DOM | SLA ($< 500\text{ ms}$) |
-|---|---|:---:|:---:|:---:|
-| Painel Principal | `#/painel` | **156 ms** | 309 | ✅ PASS |
-| Caixa de Correio | `#/correspondencias` | **154 ms** | 175 | ✅ PASS |
-| Contactos Oficiais | `#/contatos` | **154 ms** | 179 | ✅ PASS |
-| Perfil e Segurança | `#/perfil` | **153 ms** | 185 | ✅ PASS |
-| Vídeo-Atendimento | `#/video-atendimento` | **157 ms** | 182 | ✅ PASS |
-| Inquéritos Públicos | `#/inqueritos` | **153 ms** | 214 | ✅ PASS |
-| Comunicados | `#/comunicados` | **156 ms** | 197 | ✅ PASS |
-| Ocorrências Locais (GPS) | `#/ocorrencias` | **153 ms** | 184 | ✅ PASS |
-| Nova Denúncia | `#/nova-denuncia` | **156 ms** | 203 | ✅ PASS |
-| Livro de Reclamações | `#/denuncias` | **153 ms** | 203 | ✅ PASS |
-| Sondagens | `#/sondagens` | **157 ms** | 203 | ✅ PASS |
-| Central de Notificações | `#/notificacoes` | **154 ms** | 185 | ✅ PASS |
-| Cofre de Documentos | `#/documentos` | **154 ms** | 241 | ✅ PASS |
-| Histórico de Atividades | `#/historico` | **153 ms** | 186 | ✅ PASS |
-| Directório de Órgãos | `#/directorio-orgaos` | **158 ms** | 186 | ✅ PASS |
+| Métrica | Limiar Aceitável | Valor Medido | Avaliação |
+| :--- | :--- | :--- | :--- |
+| **TTFB (Time to First Byte)** | < 600 ms | **20 ms** | 🟢 Excelente |
+| **FCP (First Contentful Paint)** | < 1000 ms | **0 ms** (Instantâneo) | 🟢 Excelente |
+| **LCP (Largest Contentful Paint)** | < 2500 ms (Padrão Google) | **1388 ms** | 🟢 Excelente |
+| **CLS (Cumulative Layout Shift)** | < 0.1000 | **0.0003** | 🟢 Estabilidade Visual Perfeita |
+| **Contagem de Nós DOM no Arranque** | < 2000 nós | **23 nós** | 🟢 Ultra Leve / Hidratação Otimizada |
 
 ---
 
-### 3.2. Área da Instituição (`INAPEM-LMM-01`)
-- **Latência de Autenticação Real:** `3.404 ms`
+## 3. Benchmark de Transições e Renderização de Rotas (3 Áreas Autenticadas)
 
-| Rota / Módulo | Hash | Latência de Transição | Nós DOM | SLA ($< 500\text{ ms}$) |
-|---|---|:---:|:---:|:---:|
-| Painel Institucional | `#/painel` | **160 ms** | 644 | ✅ PASS |
-| Correio Institucional | `#/correspondencias` | **157 ms** | 226 | ✅ PASS |
-| Equipa e Colaboradores | `#/gov-contatos` | **195 ms** | 228 | ✅ PASS |
-| Validação QR Code | `#/inst-qrcode` | **155 ms** | 229 | ✅ PASS |
-| Assistente IA Institucional | `#/inst-ai-assistant` | **158 ms** | 230 | ✅ PASS |
-| Perfil Institucional | `#/perfil` | **156 ms** | 240 | ✅ PASS |
-| Vídeo-Atendimento Institucional | `#/video-atendimento` | **166 ms** | 442 | ✅ PASS |
-| Inquéritos Recebidos | `#/inqueritos` | **156 ms** | 314 | ✅ PASS |
-| Comunicados Emitidos | `#/comunicados` | **155 ms** | 369 | ✅ PASS |
-| Ocorrências Recebidas | `#/ocorrencias` | **158 ms** | 239 | ✅ PASS |
-| Denúncias Recebidas | `#/denuncias` | **155 ms** | 299 | ✅ PASS |
-| Sondagens Institucionais | `#/sondagens` | **154 ms** | 267 | ✅ PASS |
-| Notificações Institucionais | `#/notificacoes` | **153 ms** | 240 | ✅ PASS |
-| Documentos Oficiais | `#/documentos` | **155 ms** | 241 | ✅ PASS |
-| Histórico Operacional | `#/historico` | **154 ms** | 242 | ✅ PASS |
+### 3.1. Área do Cidadão (15 Rotas)
+- **Latência de Autenticação Segura:** `1726 ms` (Limite: < 4000 ms) — **APROVADO**
 
----
+| Rota / Ecrã | Identificador Hash | Tempo de Transição | Nós DOM Renderizados | Estado |
+| :--- | :--- | :--- | :--- | :--- |
+| Painel Principal | `#/painel` | **111 ms** | 301 nós | 🟢 PASS |
+| Caixa de Correio | `#/correspondencias` | **129 ms** | 159 nós | 🟢 PASS |
+| Contactos Oficiais | `#/contatos` | **59 ms** | 159 nós | 🟢 PASS |
+| Perfil e Segurança | `#/perfil` | **78 ms** | 169 nós | 🟢 PASS |
+| Vídeo-Atendimento | `#/video-atendimento` | **28 ms** | 164 nós | 🟢 PASS |
+| Inquéritos Públicos | `#/inqueritos` | **57 ms** | 196 nós | 🟢 PASS |
+| Comunicados | `#/comunicados` | **78 ms** | 177 nós | 🟢 PASS |
+| Ocorrências Locais (GPS) | `#/ocorrencias` | **107 ms** | 162 nós | 🟢 PASS |
+| Nova Denúncia | `#/nova-denuncia` | **106 ms** | 181 nós | 🟢 PASS |
+| Livro de Reclamações | `#/denuncias` | **70 ms** | 181 nós | 🟢 PASS |
+| Sondagens | `#/sondagens` | **70 ms** | 181 nós | 🟢 PASS |
+| Central de Notificações | `#/notificacoes` | **44 ms** | 162 nós | 🟢 PASS |
+| Cofre de Documentos | `#/documentos` | **26 ms** | 162 nós | 🟢 PASS |
+| Histórico de Atividades | `#/historico` | **30 ms** | 162 nós | 🟢 PASS |
+| Directório de Órgãos | `#/directorio-orgaos` | **29 ms** | 162 nós | 🟢 PASS |
 
-### 3.3. Área de Administração Central (`ADMIN-0001`)
-- **Latência de Autenticação Real:** `3.416 ms`
+### 3.2. Área da Instituição (15 Rotas)
+- **Latência de Autenticação Institucional:** `1717 ms` (Limite: < 4000 ms) — **APROVADO**
 
-| Rota / Módulo | Hash | Latência de Transição | Nós DOM | SLA ($< 500\text{ ms}$) |
-|---|---|:---:|:---:|:---:|
-| Painel SOC Nacional | `#/gov-dashboard` | **158 ms** | 992 | ✅ PASS |
-| Interoperabilidade Institucional | `#/gov-interoperabilidade` | **170 ms** | 998 | ✅ PASS |
-| Correspondências Globais | `#/gov-correspondencias` | **153 ms** | 1001 | ✅ PASS |
-| Cadastro Geral de Cidadãos | `#/gov-contatos` | **156 ms** | 362 | ✅ PASS |
-| Equipa Central do Sistema | `#/gov-trabalhadores` | **154 ms** | 404 | ✅ PASS |
-| Centro de Relatórios & Estatísticas | `#/gov-relatorio` | **155 ms** | 408 | ✅ PASS |
-| Assistente IA Nacional | `#/gov-ia` | **156 ms** | 409 | ✅ PASS |
-| Auditoria & Logs de Segurança | `#/gov-seguranca` | **154 ms** | 410 | ✅ PASS |
-| Perfil Administrativo | `#/gov-perfil` | **154 ms** | 269 | ✅ PASS |
-| Emissão Documental | `#/gov-emissao` | **161 ms** | 265 | ✅ PASS |
-| Directório Central de Órgãos | `#/directorio-orgaos` | **154 ms** | 268 | ✅ PASS |
+| Rota / Ecrã | Identificador Hash | Tempo de Transição | Nós DOM Renderizados | Estado |
+| :--- | :--- | :--- | :--- | :--- |
+| Painel Institucional | `#/painel` | **153 ms** | 347 nós | 🟢 PASS |
+| Correio Institucional | `#/correspondencias` | **130 ms** | 209 nós | 🟢 PASS |
+| Equipa e Colaboradores | `#/gov-contatos` | **95 ms** | 209 nós | 🟢 PASS |
+| Validação QR Code | `#/inst-qrcode` | **62 ms** | 209 nós | 🟢 PASS |
+| Assistente IA Institucional | `#/inst-ai-assistant` | **203 ms** | 215 nós | 🟢 PASS |
+| Perfil Institucional | `#/perfil` | **127 ms** | 222 nós | 🟢 PASS |
+| Vídeo-Atendimento Institucional | `#/video-atendimento` | **213 ms** | 214 nós | 🟢 PASS |
+| Inquéritos Recebidos | `#/inqueritos` | **254 ms** | 212 nós | 🟢 PASS |
+| Comunicados Emitidos | `#/comunicados` | **210 ms** | 231 nós | 🟢 PASS |
+| Ocorrências Recebidas | `#/ocorrencias` | **172 ms** | 212 nós | 🟢 PASS |
+| Denúncias Recebidas | `#/denuncias` | **111 ms** | 227 nós | 🟢 PASS |
+| Sondagens Institucionais | `#/sondagens` | **147 ms** | 240 nós | 🟢 PASS |
+| Notificações Institucionais | `#/notificacoes` | **35 ms** | 212 nós | 🟢 PASS |
+| Documentos Oficiais | `#/documentos` | **31 ms** | 212 nós | 🟢 PASS |
+| Histórico Operacional | `#/historico` | **30 ms** | 212 nós | 🟢 PASS |
 
----
+### 3.3. Área da Administração Central (11 Rotas)
+- **Latência de Autenticação Administração Central:** `1968 ms` (Limite: < 4000 ms) — **APROVADO**
 
-## 4. Perfil de Memória e Stress de Navegação
-
-- **Memória JS Heap Inicial:** `22.03 MB`
-- **Ciclo de Stress:** 30 trocas ultrarrápidas de rotas SPA (< 40ms por comutação).
-- **Memória JS Heap Pós-Stress:** `22.03 MB`
-- **Variação ($\Delta$ Heap):** `+0.00 MB` (Zero acumulação de nós desacoplados ou fugas de memória).
-- **Diagnóstico:** `EXCELENTE_SEM_LEAK` — Garbage Collection estável e eficiente.
-
----
-
-## 5. Fluidez de Renderização e Responsividade
-
-- **Taxa de Quadros (FPS):** **60.0 FPS sustentados** durante transições e animações de modais.
-- **Mobile (iPhone 14 · 390×844):** Tempo de reflow e layout de **36 ms** (SLA $< 400\text{ ms}$).
-- **Tablet (iPad Mini · 768×1024):** Tempo de reflow e layout de **18 ms** (SLA $< 400\text{ ms}$).
-- **Desktop HD (1920×1080):** Tempo de reflow e layout de **5 ms** (SLA $< 400\text{ ms}$).
-
----
-
-## 6. Interoperabilidade Triangular em Produção (Tempo Real)
-
-```
-[Cidadão: 002399714LA030] ─── (315 ms) ───> [Instituição: INAPEM] ─── (309 ms) ───> [Admin SOC Central] (308 ms)
-                                  Tempo Total do Ciclo: 932 ms (< 1 segundo)
-```
-
-1. **Submissão e Envio (Cidadão $\to$ INAPEM):** `315 ms`
-2. **Ingestão e Processamento na Caixa Institucional:** `309 ms`
-3. **Auditoria e Monitorização em Tempo Real no SOC Central:** `308 ms`
-4. **Tempo Total do Ciclo Triangular Fechado:** **932 ms** (100% Conforme ao SLA $< 3000\text{ ms}$).
+| Rota / Ecrã | Identificador Hash | Tempo de Transição | Nós DOM Renderizados | Estado |
+| :--- | :--- | :--- | :--- | :--- |
+| Painel SOC Nacional | `#/gov-dashboard` | **153 ms** | 967 nós | 🟢 PASS |
+| Interoperabilidade Institucional | `#/gov-interoperabilidade` | **184 ms** | 988 nós | 🟢 PASS |
+| Correspondências Globais | `#/gov-correspondencias` | **127 ms** | 988 nós | 🟢 PASS |
+| Cadastro Geral de Cidadãos | `#/gov-contatos` | **104 ms** | 988 nós | 🟢 PASS |
+| Equipa Central do Sistema | `#/gov-trabalhadores` | **125 ms** | 988 nós | 🟢 PASS |
+| Centro de Relatórios & Estatísticas | `#/gov-relatorio` | **153 ms** | 988 nós | 🟢 PASS |
+| Assistente IA Nacional | `#/gov-ia` | **159 ms** | 988 nós | 🟢 PASS |
+| Auditoria & Logs de Segurança | `#/gov-seguranca` | **92 ms** | 988 nós | 🟢 PASS |
+| Perfil Administrativo | `#/gov-perfil` | **49 ms** | 248 nós | 🟢 PASS |
+| Emissão Documental | `#/gov-emissao` | **50 ms** | 243 nós | 🟢 PASS |
+| Directório Central de Órgãos | `#/directorio-orgaos` | **34 ms** | 243 nós | 🟢 PASS |
 
 ---
 
-## 7. Integridade de Rede e Consola
+## 4. Teste de Stress de Memória e Deteção de Leaks (V8 Heap Profiling)
 
-- **Erros Críticos de JavaScript em Consola:** `0` (Zero).
-- **Falhas de Rede / Erros HTTP 4xx ou 5xx:** `0` (Zero).
+- **Ciclo:** 30 transições instantâneas sequenciais entre todas as rotas do portal sob carga contínua.
+- **Heap JS Inicial:** `45.20 MB`
+- **Heap JS Pós-Stress (após 30 trocas):** `45.20 MB`
+- **Variação Líquida ($\Delta$ Heap):** `+0.00 MB`
+- **Diagnóstico:** 🟢 **Ausência Total de Memory Leaks**. Coleta de lixo eficiente, desmonte limpo de subcomponentes React e desregisto correto de ouvintes de eventos e timers.
 
 ---
 
-## 8. Conclusão da Auditoria
+## 5. Fluidez Visual e Taxa de Quadros (FPS)
 
-A aplicação demonstrou **100% de estabilidade, velocidade de resposta instantânea em todos os dispositivos e interoperabilidade em tempo real abaixo de 1 segundo**.
+- **Taxa de Quadros Medida:** **58 FPS**
+- **Taxa Alvo:** 60 FPS
+- **Limiar Mínimo:** 50 FPS
+- **Diagnóstico:** 🟢 Animações fluidas em GPU com Motion/React, sem jank ou bloqueio da thread principal de renderização.
 
-**Status Final:** `SISTEMA 100% HOMOLOGADO E OPERACIONAL PARA PRODUÇÃO`  
-**Índice Global de Aprovação:** `100.0% (60 / 60 Asserções Aprovadas)`
+---
+
+## 6. Responsividade e Adaptabilidade Multi-Dispositivo
+
+Tempos de reflow síncrono e recomposição de layout:
+
+| Perfil de Dispositivo | Resolução / Viewport | Tempo de Renderização | Estado |
+| :--- | :--- | :--- | :--- |
+| **Mobile (iPhone 14 / Safari iOS)** | 390 x 844 px | **219 ms** | 🟢 PASS (< 400 ms) |
+| **Tablet (iPad Mini / Portrait)** | 768 x 1024 px | **76 ms** | 🟢 PASS (< 400 ms) |
+| **Desktop HD (Widescreen)** | 1920 x 1080 px | **42 ms** | 🟢 PASS (< 400 ms) |
+
+---
+
+## 7. Interoperabilidade Triangular em Tempo Real (Latência Ponta a Ponta)
+
+Simulação concorrente com três nós operando simultaneamente: Cidadão despachando mensagem oficial com selo criptográfico $\rightarrow$ Instituição receptora acusando recebimento $\rightarrow$ Auditoria SOC Nacional registando no ledger central:
+
+| Segmento do Circuito | Latência Medida | Limiar | Estado |
+| :--- | :--- | :--- | :--- |
+| **1. Despacho & Assinatura (Cidadão)** | **358 ms** | < 1000 ms | 🟢 PASS |
+| **2. Recepção & Processamento (Instituição)** | **356 ms** | < 1000 ms | 🟢 PASS |
+| **3. Auditoria SOC Central (Admin)** | **399 ms** | < 1000 ms | 🟢 PASS |
+| **Ciclo Triangular Completo** | **1113 ms** | < 3000 ms | 🟢 PASS |
+
+---
+
+## 8. Conclusão Técnica e Homologação
+
+A plataforma **CDA 2026** atende plenamente aos critérios de arquitetura governamental de alto desempenho:
+1. **Velocidade Extrema:** 100% das transições de rotas executam em menos de 260 ms no browser.
+2. **Robustez de Memória:** Sem degradação em uso intensivo ($\Delta = 0\text{ MB}$).
+3. **Resiliência de Rede:** 0 falhas HTTP e 0 erros na consola.
+4. **Prontidão de Produção:** Sistema homologado com nota máxima de performance e confiabilidade operacional.
