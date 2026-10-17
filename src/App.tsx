@@ -2938,6 +2938,62 @@ export default function App() {
     localStorage.setItem('correio_digital_notifications', JSON.stringify(notifications));
   }, [notifications]);
 
+  // Sincronização multi-aba e interoperabilidade em tempo real entre Cidadão, Instituição e Admin
+  useEffect(() => {
+    const handleStorageSync = (e: StorageEvent) => {
+      if (!e.key || e.key === 'correio_digital_inbox') {
+        try {
+          const saved = localStorage.getItem('correio_digital_inbox');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) setInbox(parsed);
+          }
+        } catch {}
+      }
+      if (!e.key || e.key === 'correio_digital_inst_inbox') {
+        try {
+          const saved = localStorage.getItem('correio_digital_inst_inbox');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) setInstInbox(parsed);
+          }
+        } catch {}
+      }
+      if (!e.key || e.key === 'correio_digital_sent') {
+        try {
+          const saved = localStorage.getItem('correio_digital_sent');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) setSentMessages(parsed);
+          }
+        } catch {}
+      }
+      if (!e.key || e.key === 'documentos_digital_inbox') {
+        try {
+          const saved = localStorage.getItem('documentos_digital_inbox');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) setDocInbox(parsed);
+          }
+        } catch {}
+      }
+      if (!e.key || e.key === 'documentos_digital_inst_inbox') {
+        try {
+          const saved = localStorage.getItem('documentos_digital_inst_inbox');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) setInstDocInbox(parsed);
+          }
+        } catch {}
+      }
+    };
+
+    window.addEventListener('storage', handleStorageSync);
+    return () => {
+      window.removeEventListener('storage', handleStorageSync);
+    };
+  }, []);
+
   // Network Offline Observer with Simulated Controls and Auto-Sync
   useEffect(() => {
     const updateOnlineStatus = () => {
@@ -5372,7 +5428,36 @@ export default function App() {
       protocol: protocol
     };
 
-    setSentMessages(prev => [{ ...newMessage, senderKey: isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi) }, ...prev]);
+    const mySenderKey = isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi);
+    setSentMessages(prev => [{ ...newMessage, senderKey: mySenderKey }, ...prev]);
+
+    // INTEROPERABILIDADE TOTAL EM TEMPO REAL: entrega instantânea na caixa do destinatário
+    const incomingForRecipient: Message = {
+      ...newMessage,
+      org: isInstMode ? (user.name || institutionCode || 'Instituição') : (user.name || profileName || 'Cidadão'),
+      senderKey: mySenderKey,
+      recipientBi: resolveCitizenBi(to) || to,
+      recipientInst: isRealInstitutionalCode(to) || !/^\d{9}[A-Za-z]{2}\d{3}$/.test(to) ? normalizeInstCode(to) : undefined,
+      unread: 1,
+      status: 'Informativo',
+    };
+
+    if (isRealInstitutionalCode(to) || !/^\d{9}[A-Za-z]{2}\d{3}$/.test(to)) {
+      setInstInbox(prev => [incomingForRecipient, ...prev.filter(m => m.id !== messageId)]);
+      try {
+        const saved = localStorage.getItem('correio_digital_inst_inbox');
+        const list = saved ? JSON.parse(saved) : [];
+        localStorage.setItem('correio_digital_inst_inbox', JSON.stringify([incomingForRecipient, ...list.filter((m: any) => m.id !== messageId)]));
+      } catch {}
+    } else {
+      setInbox(prev => [incomingForRecipient, ...prev.filter(m => m.id !== messageId)]);
+      try {
+        const saved = localStorage.getItem('correio_digital_inbox');
+        const list = saved ? JSON.parse(saved) : [];
+        localStorage.setItem('correio_digital_inbox', JSON.stringify([incomingForRecipient, ...list.filter((m: any) => m.id !== messageId)]));
+      } catch {}
+    }
+
     // Resposta directa do Detalhe da Correspondência NÃO mexe no compositor.
     if (!override) {
       setIsComposing(false);
