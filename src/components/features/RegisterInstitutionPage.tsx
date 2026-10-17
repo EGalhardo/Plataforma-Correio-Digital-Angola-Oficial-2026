@@ -14,7 +14,7 @@ import {
   CheckCircle, CheckCircle2, Loader2, ArrowLeft, Copy, Check, Landmark
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import { registoPublicoProxy } from '../../services/supabaseService';
+import { registoPublicoProxy, anunciarRegistosAlterados } from '../../services/supabaseService';
 import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticInstitutionAgentEmail } from '../../services/cloudAuthService';
 import { purgeInstitutionLocalResidues } from '../../services/institutionSessionService';
 import { homologationStore } from '../../services/homologationStore';
@@ -276,6 +276,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
         `Exmos. Senhores da ${fullName.trim()} (${s.toUpperCase()}), a Área de Administração do Correio Digital Angola confirma a receção da vossa solicitação de adesão (Código Institucional: ${code}). O pedido já foi enviado para análise e em menos de 24 horas receberão uma resposta oficial através deste canal. Enquanto o pedido estiver pendente, cada comunicação oficial chega a esta caixa como correspondência não lida — o aviso aparece no badge da foto de perfil e no menu "Mensagens não lidas".`
       );
       addAuditLog(`Adesão institucional de ${fullName.trim()} (${code}) submetida — pendente de aprovação da Área de Administração.`, 'success');
+      anunciarRegistosAlterados();
 
       setGeneratedCode(code);
       setGeneratedAgent(agentNumber);
@@ -336,9 +337,11 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
         if (r === 'ok') {
           setSyncEstado('ok');
           addAuditLog(`[NUVEM-BG] Adesão de ${fullName.trim()} (${code}) entregue à fila da Administração.`, 'success');
+          anunciarRegistosAlterados();
         } else if (r === 'duplicado') {
           setSyncEstado('ok');
           addAuditLog(`[NUVEM-BG] Adesão de ${code} já constava da fila central (código único) — mantida Pendente para homologação.`, 'warning');
+          anunciarRegistosAlterados();
         } else {
           setSyncEstado('falhou');
           homologationStore.addMessage(

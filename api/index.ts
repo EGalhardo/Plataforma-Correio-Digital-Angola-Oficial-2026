@@ -5025,6 +5025,7 @@ async function dadosResolverEExecutar(opts: {
               });
               if (delResp.ok) contas += 1;
             }
+            if (data.users.length < 200) break;
           }
         } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar contas Auth:', e); }
         

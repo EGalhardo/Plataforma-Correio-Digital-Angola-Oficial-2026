@@ -2522,6 +2522,7 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
             const { error: delErr } = await admin.auth.admin.deleteUser(u.id);
             if (!delErr) contas += 1;
           }
+          if (lista.users.length < 200) break;
         }
       } catch (e) { console.error('[ADMIN-ELIMINAR] Erro ao eliminar contas Auth:', e); }
       

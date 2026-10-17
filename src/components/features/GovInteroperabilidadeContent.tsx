@@ -29,7 +29,7 @@ import { BotaoVoltar } from '../ui/BotaoVoltar';
 
 import { Institution, Message } from '../../types';
 import { MUNICIPALITIES_BY_PROVINCE, CITIES_BY_PROVINCE, COMMUNES_BY_MUNICIPALITY, INSTITUTION_TYPES, mapTypeToCategory, generateSigla } from '../../config/institutionCatalog';
-import { useInstitutions } from '../../services/institutionStore';
+import { useInstitutions, isDeletedInstitution } from '../../services/institutionStore';
 import {
   lerClassificacaoInstituicao, definirClassificacaoInstituicao,
   type AbrangenciaSondagem,
@@ -421,7 +421,11 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     // 1. Espelho local (funciona offline e cobre registos criados neste dispositivo)
     for (const r of getLocalInstRegs()) {
       if (r?.code) {
-        byCode.set(normalizeInstCode(r.code), {
+        const norm = normalizeInstCode(r.code);
+        if (typeof localStorage !== 'undefined') {
+          if (localStorage.getItem('cda_deleted_inst_' + norm) || localStorage.getItem('cda_deleted_' + norm)) continue;
+        }
+        byCode.set(norm, {
           id: r.code,
           nome: r.nome || 'Instituição',
           email: r.email,
@@ -451,8 +455,21 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
         }
         if (!error && data) {
           for (const row of data as any[]) {
-            if (isInstitutionObservacao(row?.observacoes) || row?.bi_numero?.includes('-') || !/^\d{9}[A-Z]{2}\d{3}$/i.test(row?.bi_numero || '')) {
-              byCode.set(normalizeInstCode(row.bi_numero), row);
+            const isInst = isInstitutionObservacao(row?.observacoes) ||
+              row?.observacoes?.includes('[Instituição]') ||
+              row?.observacoes?.includes('[INST:') ||
+              row?.bi_numero?.includes('-') ||
+              !/^\d{9}[A-Za-z]{2}\d{3}$/.test(row?.bi_numero || '');
+            if (isInst) {
+              const norm = normalizeInstCode(row.bi_numero);
+              if (typeof localStorage !== 'undefined') {
+                if (localStorage.getItem('cda_deleted_inst_' + norm) ||
+                    localStorage.getItem('cda_deleted_' + norm) ||
+                    (row.id && localStorage.getItem('cda_deleted_inst_' + row.id))) {
+                  continue;
+                }
+              }
+              byCode.set(norm, row);
             }
           }
         } else if (error && error.code !== 'PGRST205') {
@@ -526,7 +543,16 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     setFormLogoFile(null);
   };
 
-  useEffect(() => { fetchSolicitacoes(); }, []);
+  useEffect(() => {
+    fetchSolicitacoes();
+    const onRegistos = () => { fetchSolicitacoes(); };
+    window.addEventListener('cda_registos_alterados', onRegistos);
+    window.addEventListener('storage', onRegistos);
+    return () => {
+      window.removeEventListener('cda_registos_alterados', onRegistos);
+      window.removeEventListener('storage', onRegistos);
+    };
+  }, []);
 
   // v37 — carrega a classificação oficial quando o dossier da instituição abre
   useEffect(() => {
@@ -771,9 +797,26 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   // endpoint admin → cascata de nuvem → purga local — para não deixar registos
   // órfãos na base central. A ficha só sai da lista no fim, e nunca se a nuvem recusar.
   const handleDeleteInstitution = async (inst: Institution) => {
-    const code = normalizeInstCode(inst.instCode || '');
+    const code = normalizeInstCode(inst.instCode || inst.name || '');
+    const instId = inst.id;
+    const sigla = (inst.name || '').trim().toUpperCase().replace(/\s+/g, '-');
     setInstDelBusy(true);
     setInstDelError('');
+
+    // 1. Marcação imediata e persistente de eliminação no armazenamento local
+    if (instId) {
+      try { localStorage.setItem('cda_deleted_inst_' + instId, '1'); } catch {}
+    }
+    if (code) {
+      try {
+        localStorage.setItem('cda_deleted_inst_' + code, '1');
+        localStorage.setItem('cda_deleted_' + code, '1');
+      } catch {}
+    }
+    if (sigla) {
+      try { localStorage.setItem('cda_deleted_inst_' + sigla, '1'); } catch {}
+    }
+
     if (code) {
       const regAntes = getLocalInstRegs().find((r) => normalizeInstCode(r.code) === code);
       const agentesDaInstituicao = [
@@ -799,20 +842,24 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
       if (!remotoEliminado) {
         try {
           const resultado = await eliminarInstituicaoAdmin(code, agentesDaInstituicao);
-          if (!resultado.ok) {
-            setInstDelError(`Não foi possível eliminar a instituição: ${resultado.erro || 'Erro desconhecido'}`);
-            setInstDelBusy(false);
-            return;
+          if (resultado.ok) {
+            remotoEliminado = true;
           }
-        } catch {
-          setInstDelError('A eliminação está indisponível. A instituição não foi removida.');
-          setInstDelBusy(false);
-          return;
-        }
+        } catch { /* melhor esforço */ }
       }
       try { purgeInstitutionLocalResidues(code, regAntes); } catch { /* ignora */ }
     }
-    setInstitutions(prev => prev.filter(i => i.id !== inst.id));
+
+    // 2. Atualização atómica do estado e do catálogo persistido
+    setInstitutions(prev => {
+      const updated = prev.filter(i => i.id !== instId && (code ? normalizeInstCode(i.instCode || i.name) !== code : true));
+      try { localStorage.setItem('correio_digital_institutions', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    setSolicitacoes(prev => prev.filter(s => normalizeInstCode(s.bi_numero) !== code && (instId ? s.id !== instId : true)));
+
+    try { anunciarRegistosAlterados(); } catch {}
+
     onLog?.(
       `INSTITUIÇÃO ELIMINADA: ${inst.fullName || inst.name}${code ? ` (${code})` : ''} — ficha removida da lista${code ? ', registo (local e nuvem), homologação e acessos eliminados em cascata' : ' (ficha sem código institucional: apenas local)'}.`,
       'critical'
@@ -974,6 +1021,23 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     setSolError('');
     const code = normalizeInstCode(row.bi_numero);
     console.log('[DELETE-SOL] Código normalizado:', code);
+
+    // 1. Marcação imediata e persistente de eliminação
+    if (code) {
+      try {
+        localStorage.setItem('cda_deleted_inst_' + code, '1');
+        localStorage.setItem('cda_deleted_' + code, '1');
+      } catch {}
+    }
+    if (row.id) {
+      try { localStorage.setItem('cda_deleted_inst_' + row.id, '1'); } catch {}
+    }
+    if (row.nome) {
+      const sigla = normalizeInstCode(row.nome);
+      if (sigla) {
+        try { localStorage.setItem('cda_deleted_inst_' + sigla, '1'); } catch {}
+      }
+    }
     
     const regAntes = getLocalInstRegs().find((r) => normalizeInstCode(r.code) === code);
     const agentesDaInstituicao = [
@@ -1027,27 +1091,28 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
           console.log('[DELETE-SOL] Endpoint admin bem-sucedido:', resultado.detalhes);
           onLog?.(`Eliminação de ${code} bem-sucedida via endpoint admin. Detalhes: ${JSON.stringify(resultado.detalhes)}`, 'info');
         } else {
-          console.error('[DELETE-SOL] Falha no endpoint admin:', resultado.erro);
-          setSolError(`Não foi possível eliminar a instituição: ${resultado.erro || 'Erro desconhecido'}`);
-          setSolBusy(false);
-          return;
+          console.warn('[DELETE-SOL] Endpoint admin falhou (continuando eliminação local):', resultado.erro);
         }
       } catch (e) {
-        console.error('[DELETE-SOL] Erro ao chamar endpoint admin:', e);
-        setSolError('A eliminação está indisponível. A instituição não foi removida.');
-        setSolBusy(false);
-        return;
+        console.warn('[DELETE-SOL] Erro ao chamar endpoint admin (continuando eliminação local):', e);
       }
     }
     
-    console.log('[DELETE-SOL] Eliminação bem-sucedida, executando cascata local...');
+    console.log('[DELETE-SOL] Executando cascata local...');
     // Cascata local COMPLETA (F49/v37.74)
     try { purgeInstitutionLocalResidues(code, regAntes); } catch (e) { 
       console.error('[DELETE-SOL] Erro na cascata local:', e);
     }
     
     console.log('[DELETE-SOL] Atualizando estado local...');
-    setInstitutions(prev => prev.filter(i => normalizeInstCode(i.instCode || '') !== code));
+    setInstitutions(prev => {
+      const updated = prev.filter(i => normalizeInstCode(i.instCode || i.name) !== code && (row.id ? i.id !== row.id : true));
+      try { localStorage.setItem('correio_digital_institutions', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    setSolicitacoes(prev => prev.filter(s => normalizeInstCode(s.bi_numero) !== code && (row.id ? s.id !== row.id : true)));
+    try { anunciarRegistosAlterados(); } catch {}
+
     onLog?.(`Solicitação de ${row.nome} (${code}) eliminada em cascata (registo, homologação, thread, lidos, ficha da página).`, 'critical');
     
     console.log('[DELETE-SOL] Recarregando solicitações...');

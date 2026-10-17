@@ -110,6 +110,8 @@ export const purgeInstitutionLocalResidues = (
 ): void => {
   const code = normalizeInstCode(codeRaw);
   if (!code) return;
+  try { localStorage.setItem(`cda_deleted_inst_${code}`, '1'); } catch { /* ignora */ }
+  try { localStorage.setItem(`cda_deleted_${code}`, '1'); } catch { /* ignora */ }
   // v37.74 — autossuficiente: sem o parâmetro `reg` (ex.: purga no
   // RE-REGISTO da adesão), lê o espelho local ANTES de o remover — os
   // Nº de agente da equipa (-02, -03, …) só são conhecidos a partir dele.

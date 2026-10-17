@@ -92,7 +92,15 @@ export const parseInstPack = (obs?: string | null): InstitutionRegPack | null =>
 const readRegs = (): LocalInstitutionRegistration[] => {
   try {
     const raw = localStorage.getItem(LOCAL_REGS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const list: LocalInstitutionRegistration[] = raw ? JSON.parse(raw) : [];
+    return list.filter(r => {
+      if (!r?.code) return false;
+      const key = normalizeInstCode(r.code);
+      if (typeof localStorage !== 'undefined') {
+        if (localStorage.getItem('cda_deleted_inst_' + key) || localStorage.getItem('cda_deleted_' + key)) return false;
+      }
+      return true;
+    });
   } catch { return []; }
 };
 

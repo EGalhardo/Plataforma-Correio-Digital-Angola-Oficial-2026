@@ -58,6 +58,17 @@ export const groupInstitutionsByProvince = (list: Institution[]) => {
   }, {} as Record<string, Institution[]>);
 };
 
+export const isDeletedInstitution = (inst: Institution | { id?: string; instCode?: string; name?: string }): boolean => {
+  if (!inst) return true;
+  if (typeof localStorage === 'undefined') return false;
+  if (inst.id && localStorage.getItem('cda_deleted_inst_' + inst.id)) return true;
+  const code = (inst.instCode || '').trim().toUpperCase();
+  if (code && (localStorage.getItem('cda_deleted_inst_' + code) || localStorage.getItem('cda_deleted_' + code))) return true;
+  const nameKey = (inst.name || '').trim().toUpperCase().replace(/\s+/g, '-');
+  if (nameKey && (localStorage.getItem('cda_deleted_inst_' + nameKey) || localStorage.getItem('cda_deleted_' + nameKey))) return true;
+  return false;
+};
+
 // Institutional Applet State Context
 interface InstitutionContextType {
   institutions: Institution[];
@@ -73,11 +84,11 @@ const InstitutionContext = createContext<InstitutionContextType | undefined>(und
 export const InstitutionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [institutions, setInstitutions] = useState<Institution[]>(() => {
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem("correio_digital_institutions") : null;
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved) as Institution[];
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map(inst => ({
+        if (Array.isArray(parsed)) {
+          return parsed.filter(inst => !isDeletedInstitution(inst)).map(inst => ({
             ...inst,
             fullName: inst.fullName || inst.name || 'Instituição',
           }));
@@ -86,12 +97,35 @@ export const InstitutionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         // use canonical default
       }
     }
-    return CANONICAL_INSTITUTIONS;
+    return CANONICAL_INSTITUTIONS.filter(inst => !isDeletedInstitution(inst));
   });
 
   useEffect(() => {
     localStorage.setItem("correio_digital_institutions", JSON.stringify(institutions));
   }, [institutions]);
+
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent | CustomEvent) => {
+      const saved = localStorage.getItem("correio_digital_institutions");
+      if (saved !== null) {
+        try {
+          const parsed = JSON.parse(saved) as Institution[];
+          if (Array.isArray(parsed)) {
+            setInstitutions(parsed.filter(inst => !isDeletedInstitution(inst)));
+            return;
+          }
+        } catch { /* ignora */ }
+      }
+      setInstitutions(prev => prev.filter(inst => !isDeletedInstitution(inst)));
+    };
+
+    window.addEventListener('storage', handleStorage as EventListener);
+    window.addEventListener('cda_registos_alterados', handleStorage as EventListener);
+    return () => {
+      window.removeEventListener('storage', handleStorage as EventListener);
+      window.removeEventListener('cda_registos_alterados', handleStorage as EventListener);
+    };
+  }, []);
 
   const addInstitution = (newFields: Omit<Institution, 'id' | 'totalCorrespondence' | 'totalAgents' | 'lastActivity' | 'responseRate' | 'registrationDate' | 'aiUsageRate' | 'performanceScore'>) => {
     const id = `inst-${newFields.name.toLowerCase()}-${Math.floor(Math.random() * 900) + 100}`;

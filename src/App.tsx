@@ -93,7 +93,7 @@ import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
 import { lerPerfilLocal } from './services/perfilLocalService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, ensureCitizenHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, preloginLookupInstitution, purgeInstitutionLocalResidues, mapRowStatus, type InstitutionIdentity } from './services/institutionSessionService';
-import { useInstitutions, CANONICAL_INSTITUTIONS } from './services/institutionStore';
+import { useInstitutions, CANONICAL_INSTITUTIONS, isDeletedInstitution } from './services/institutionStore';
 import { getLogoOficialPorCodigoInstituicao } from './config/institutionLogos';
 import { getLocalInstReg, normalizeInstCode, parseInstPack, normalizarNomeInstituicao, updateInstMemberProfile } from './services/institutionRegistrationStore';
 import { getLoginBloqueio, registarLoginFalha, limparLoginFalhas } from './services/loginSecurityService';
@@ -6547,8 +6547,8 @@ Ficha civil do titular:
         // v37.18 — em sessão de demonstração o catálogo canónico alimenta a
         // «Lista de Instituições»; em modo real vale o catálogo partilhado.
         const instituicoesFicha = isDemoCitizenSession
-          ? [...CANONICAL_INSTITUTIONS, ...catalogoInstituicoes.filter(i => !CANONICAL_INSTITUTIONS.some(c => c.id === i.id))]
-          : catalogoInstituicoes;
+          ? [...CANONICAL_INSTITUTIONS.filter(i => !isDeletedInstitution(i)), ...catalogoInstituicoes.filter(i => !CANONICAL_INSTITUTIONS.some(c => c.id === i.id) && !isDeletedInstitution(i))]
+          : catalogoInstituicoes.filter(i => !isDeletedInstitution(i));
         if (!selectedInstitution) {
           return (
             <div className="bg-white border border-slate-200 rounded-3xl p-8 max-w-xl mx-auto my-12 text-center shadow-sm">

@@ -33,6 +33,7 @@ import { purgeCitizenLocalResidues } from '../../services/accountGateService';
 import { gravarJob, correrRegistoBg, EVENTO_DESFECHO_BG, type RegistoBgJob } from '../../services/registoBgService';
 import { runRegistrationVerification, prewarmVerificationEngine, type RegistrationVerificationReport } from '../../services/verificationEngine';
 import { normalizarNome, normalizarTitulo, corrigirDominioEmail } from '../../services/textNormalizeService';
+import { saveLocalInstReg } from '../../services/institutionRegistrationStore';
 
 const base64ToBlob = (base64Str: string): Blob => {
   try {
@@ -693,16 +694,29 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
       // — gravação LOCAL instantânea (D3): a conta existe desde JÁ para login —
       try {
-        const saved = localStorage.getItem('gov_admin_citizens');
-        const currentCitizens: any[] = saved ? JSON.parse(saved) : [];
-        // re-submissão após correcções substitui a entrada anterior do mesmo B.I.
-        const semRepetidos = currentCitizens.filter((c) => String(c.biNumber || '').toUpperCase() !== newUser.biNumber.toUpperCase());
-        semRepetidos.unshift({
-          ...newUser,
-          status: newUser.status || 'Pendente',
-          analiseEstado: 'em_analise',
-        });
-        localStorage.setItem('gov_admin_citizens', JSON.stringify(semRepetidos));
+        if (appMode === 'institution' || newUser.category === 'Instituição') {
+          saveLocalInstReg({
+            code: newUser.biNumber,
+            nome: newUser.name,
+            email: newUser.contact,
+            password: password,
+            status: 'Pendente',
+            observacoes: newUser.reason,
+            criadoEm: new Date().toISOString(),
+            agentNumber: `${newUser.biNumber}-01`,
+          });
+        } else {
+          const saved = localStorage.getItem('gov_admin_citizens');
+          const currentCitizens: any[] = saved ? JSON.parse(saved) : [];
+          // re-submissão após correcções substitui a entrada anterior do mesmo B.I.
+          const semRepetidos = currentCitizens.filter((c) => String(c.biNumber || '').toUpperCase() !== newUser.biNumber.toUpperCase());
+          semRepetidos.unshift({
+            ...newUser,
+            status: newUser.status || 'Pendente',
+            analiseEstado: 'em_analise',
+          });
+          localStorage.setItem('gov_admin_citizens', JSON.stringify(semRepetidos));
+        }
         localStorage.setItem(`citizen_pass_${newUser.biNumber}`, password);
         if (savedFacePhoto) {
           localStorage.setItem(`cda_user_selfie_${biClean.toUpperCase()}`, savedFacePhoto);

@@ -73,7 +73,7 @@ import { registoPublicoProxy, anunciarRegistosAlterados, EVENTO_REGISTOS_ALTERAD
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { limparPendenciaPerfil } from '../../services/profileSyncService';
 import { limparLoginFalhas } from '../../services/loginSecurityService';
-import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, updateInstMemberProfile, buildAgentNumber, splitAgentNumber } from '../../services/institutionRegistrationStore';
+import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, updateInstMemberProfile, buildAgentNumber, splitAgentNumber, isInstitutionObservacao } from '../../services/institutionRegistrationStore';
 import { addAdminAgent, updateAdminAgentPassword, updateAdminAgentPermissions, removeAdminAgentByWorker, nextAdminAgentNumber, getAdminAgentCreds, ADMIN_ALFA_AGENT } from '../../services/adminAgentStore';
 import { useSession } from '../../services/sessionStore';
 
@@ -720,7 +720,7 @@ export function GovContactsContent({
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          parsed.filter((c: any) => c && c.category !== 'Instituição' && c.biNumber).forEach((c: any) => {
+          parsed.filter((c: any) => c && c.category !== 'Instituição' && !c.observacoes?.includes('[Instituição]') && !c.observacoes?.includes('[INST:') && c.biNumber && !c.biNumber.includes('-') && /^\d{9}[A-Za-z]{2}\d{3}$/.test(c.biNumber)).forEach((c: any) => {
             const k = normalizeHomologationBi(c.biNumber);
             if (k && !localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
               list.push({
@@ -981,7 +981,9 @@ export function GovContactsContent({
     };
   });
 
-  const mapProfilesToCitizens = (rows: LinhaPerfilAdmin[]): Citizen[] => rows.map((item, index: number) => {
+  const mapProfilesToCitizens = (rows: LinhaPerfilAdmin[]): Citizen[] => (rows || [])
+    .filter(item => item?.bi && !item.bi.includes('-') && /^\d{9}[A-Za-z]{2}\d{3}$/.test(item.bi))
+    .map((item, index: number) => {
     const biClean = (item.bi || '').trim().toUpperCase();
     const frenteVal = (biClean ? localStorage.getItem(`cda_user_bi_frente_${biClean}`) : '') || '';
     const versoVal = (biClean ? localStorage.getItem(`cda_user_bi_verso_${biClean}`) : '') || '';
@@ -1185,13 +1187,16 @@ export function GovContactsContent({
         .select('*')
         .eq('role', 'user');
       const profileCitizens = (profileData && profileData.length > 0 ? mapProfilesToCitizens(profileData as LinhaPerfilAdmin[]) : []).filter(pc => {
+        if (!pc.biNumber || pc.biNumber.includes('-') || !/^\d{9}[A-Za-z]{2}\d{3}$/.test(pc.biNumber)) return false;
         const biNorm = normalizeHomologationBi(pc.biNumber);
         if (biNorm && (localStorage.getItem('cda_revoked_' + biNorm) || localStorage.getItem('cda_deleted_' + biNorm))) return false;
         return true;
       });
 
       const citizenRows = ((data || []) as LinhaSolicitacaoCidadao[]).filter((item) => {
-        if (item?.observacoes?.includes('[Instituição]')) return false;
+        if (isInstitutionObservacao(item?.observacoes)) return false;
+        if (item?.observacoes?.includes('[Instituição]') || item?.observacoes?.includes('[INST:')) return false;
+        if (!item?.bi_numero || item.bi_numero.includes('-') || !/^\d{9}[A-Za-z]{2}\d{3}$/.test(item.bi_numero)) return false;
         // Seeds institucionais de demonstração não podem aparecer como cidadãos no modo real.
         if (!shouldUseMockFallback() && (item?.bi_numero === 'AGT-9921-SR' || item?.observacoes?.includes('Seed demo'))) return false;
         const biNorm = normalizeHomologationBi(item?.bi_numero);
@@ -1206,7 +1211,7 @@ export function GovContactsContent({
         if (saved) {
           const list = JSON.parse(saved);
           if (Array.isArray(list)) {
-            list.filter((c: any) => c && c.category !== 'Instituição' && c.biNumber).forEach((c: any) => {
+            list.filter((c: any) => c && c.category !== 'Instituição' && !c.observacoes?.includes('[Instituição]') && !c.observacoes?.includes('[INST:') && c.biNumber && !c.biNumber.includes('-') && /^\d{9}[A-Za-z]{2}\d{3}$/.test(c.biNumber)).forEach((c: any) => {
               const k = normalizeHomologationBi(c.biNumber);
               if (k && !localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
                 localMap.set(k, {
