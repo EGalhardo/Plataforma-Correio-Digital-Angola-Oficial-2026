@@ -145,6 +145,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   const [, setScanStateText] = useState('Pronto para Captura');
   const [captureFinished, setCaptureFinished] = useState(false);
   const [savedFacePhoto, setSavedFacePhoto] = useState<string>('');
+  const [savedFacePhotos, setSavedFacePhotos] = useState<string[]>([]);
 
   // Pré-verificação real dos documentos (Fase 1 — motor local no browser)
   const [verificationReport, setVerificationReport] = useState<RegistrationVerificationReport | null>(null);
@@ -509,6 +510,8 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       avgSignature.push(Math.round(sum / 3));
     }
 
+    const allPhotos = nextCaptures.map(c => c.imageDataUrl);
+
     const storagePayload = {
       identifier: biNumber.toUpperCase(),
       profileMode: appMode,
@@ -517,12 +520,14 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       imageDataUrl: captured.imageDataUrl,
       signature: avgSignature,
       signatures: nextCaptures.map(c => c.signature),
+      facePhotos: allPhotos,
     };
 
     localStorage.setItem(getDemoFaceStorageKey(), JSON.stringify(storagePayload));
 
     setTempFaceCaptures([]);
     setSavedFacePhoto(captured.imageDataUrl);
+    setSavedFacePhotos(allPhotos);
     setCaptureFinished(true);
     setScanStateText('Mapeamento Facial Concluído!');
     setFaceCaptureHint('Cadastro biométrico robusto concluído! 3/3 faces fundidas criptograficamente.');
@@ -581,6 +586,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       // (parecia dado de outra pessoa); agora o perfil mostra fundo azul com
       // a inicial do nome até o cidadão carregar a sua própria foto.
       facePhoto: savedFacePhoto || '',
+      facePhotos: savedFacePhotos.length > 0 ? savedFacePhotos : (savedFacePhoto ? [savedFacePhoto] : []),
       verificationScore: verificationReport ? verificationReport.coherenceScore : parseFloat((94 + Math.random() * 5).toFixed(1)),
       // Métricas reais da pré-verificação local (a fila do Admin usa estes valores quando presentes)
       facialMatch: verificationReport?.face.similarity ?? undefined,
@@ -654,6 +660,11 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         localStorage.setItem(`citizen_pass_${newUser.biNumber}`, password);
         if (savedFacePhoto) {
           localStorage.setItem(`cda_user_selfie_${biClean.toUpperCase()}`, savedFacePhoto);
+        }
+        if (savedFacePhotos.length > 0) {
+          localStorage.setItem(`cda_user_selfies_${biClean.toUpperCase()}`, JSON.stringify(savedFacePhotos));
+        } else if (savedFacePhoto) {
+          localStorage.setItem(`cda_user_selfies_${biClean.toUpperCase()}`, JSON.stringify([savedFacePhoto]));
         }
         if (frentePreview) {
           localStorage.setItem(`cda_user_bi_frente_${biClean.toUpperCase()}`, frentePreview);

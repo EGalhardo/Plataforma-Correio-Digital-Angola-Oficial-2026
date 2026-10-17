@@ -63,7 +63,9 @@ import {
   KeyRound,
   LayoutGrid,
   Maximize2,
-  ZoomIn
+  ZoomIn,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { supabase } from '../../lib/supabaseClient';
@@ -557,8 +559,16 @@ export function GovContactsContent({
 
   // IA review states
   const [selectedReviewCitizen, setSelectedReviewCitizen] = useState<Citizen | null>(null);
-  const [expandedDoc, setExpandedDoc] = useState<{ title: string; url: string } | null>(null);
+  const [expandedDoc, setExpandedDoc] = useState<{
+    title: string;
+    url: string;
+    images?: string[];
+    currentIndex?: number;
+    stepNames?: string[];
+  } | null>(null);
   const [resolvedModalDocs, setResolvedModalDocs] = useState<{ frente: string; verso: string; selfie: string }>({ frente: '', verso: '', selfie: '' });
+  const [modalFacePhotos, setModalFacePhotos] = useState<string[]>([]);
+  const [selfieGalleryIndex, setSelfieGalleryIndex] = useState<number>(0);
   const [aiEvaluationState, setAiEvaluationState] = useState<'idle' | 'running' | 'completed'>('idle');
   const [aiMatchScore, setAiMatchScore] = useState<number | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>('');
@@ -601,6 +611,8 @@ export function GovContactsContent({
   useEffect(() => {
     if (!selectedReviewCitizen) {
       setResolvedModalDocs({ frente: '', verso: '', selfie: '' });
+      setModalFacePhotos([]);
+      setSelfieGalleryIndex(0);
       return;
     }
     let ativo = true;
@@ -611,23 +623,94 @@ export function GovContactsContent({
       const rawVerso = selectedReviewCitizen.urlVerso || (selectedReviewCitizen as any).bi_foto_verso_url || (selectedReviewCitizen as any).bi_verso_url || (selectedReviewCitizen as any).documento_verso_url || (bi ? localStorage.getItem(`cda_user_bi_verso_${bi}`) : '') || '';
       const rawSelfie = selectedReviewCitizen.urlSelfie || selectedReviewCitizen.facePhoto || (selectedReviewCitizen as any).selfie_url || (selectedReviewCitizen as any).foto_url || (bi ? localStorage.getItem(`cda_user_selfie_${bi}`) : '') || '';
 
-      const [frente, verso, selfie] = await Promise.all([
+      // Tenta obter as múltiplas fotos de biometria facial
+      let rawFacePhotos: string[] = [];
+      if (Array.isArray(selectedReviewCitizen.facePhotos) && selectedReviewCitizen.facePhotos.length > 0) {
+        rawFacePhotos = selectedReviewCitizen.facePhotos;
+      } else if (bi) {
+        try {
+          const rawList = localStorage.getItem(`cda_user_selfies_${bi}`);
+          if (rawList) {
+            const parsed = JSON.parse(rawList);
+            if (Array.isArray(parsed) && parsed.length > 0) rawFacePhotos = parsed;
+          }
+        } catch (e) {}
+        if (rawFacePhotos.length === 0) {
+          try {
+            const rawDemo = localStorage.getItem(`cda_demo_face_user_${bi}`) || localStorage.getItem(`cda_demo_face_institution_${bi}`);
+            if (rawDemo) {
+              const parsed = JSON.parse(rawDemo);
+              if (Array.isArray(parsed.facePhotos) && parsed.facePhotos.length > 0) rawFacePhotos = parsed.facePhotos;
+            }
+          } catch (e) {}
+        }
+      }
+      if (rawFacePhotos.length === 0 && (rawSelfie || selectedReviewCitizen.facePhoto)) {
+        rawFacePhotos = [rawSelfie || selectedReviewCitizen.facePhoto].filter(Boolean);
+      }
+
+      const [frente, verso, selfie, ...resolvedList] = await Promise.all([
         resolveStorageUrl(supabase, rawFrente),
         resolveStorageUrl(supabase, rawVerso),
         resolveStorageUrl(supabase, rawSelfie),
+        ...rawFacePhotos.map(p => resolveStorageUrl(supabase, p))
       ]);
+
+      const finalList = (resolvedList.length > 0 ? resolvedList : [selfie || rawSelfie]).filter(Boolean) as string[];
 
       if (ativo) {
         setResolvedModalDocs({
           frente: frente || rawFrente || '',
           verso: verso || rawVerso || '',
-          selfie: selfie || rawSelfie || selectedReviewCitizen.facePhoto || '',
+          selfie: finalList[0] || selfie || rawSelfie || selectedReviewCitizen.facePhoto || '',
         });
+        setModalFacePhotos(finalList.length > 0 ? finalList : [selfie || rawSelfie || selectedReviewCitizen.facePhoto].filter(Boolean) as string[]);
+        setSelfieGalleryIndex(0);
       }
     };
     void carregarImagensModal();
     return () => { ativo = false; };
   }, [selectedReviewCitizen]);
+
+  // Suporte a teclas de atalho (Setas Esquerda / Direita e Esc) no visualizador em tela cheia
+  useEffect(() => {
+    if (!expandedDoc || !expandedDoc.images || expandedDoc.images.length <= 1) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setExpandedDoc((curr) => {
+          if (!curr || !curr.images || curr.images.length <= 1) return curr;
+          const nextIdx = (curr.currentIndex ?? 0) > 0 ? (curr.currentIndex ?? 0) - 1 : curr.images.length - 1;
+          setSelfieGalleryIndex(nextIdx);
+          return {
+            ...curr,
+            currentIndex: nextIdx,
+            url: curr.images[nextIdx],
+            title: curr.title.replace(/Foto \d+ de \d+/, `Foto ${nextIdx + 1} de ${curr.images.length}`)
+          };
+        });
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setExpandedDoc((curr) => {
+          if (!curr || !curr.images || curr.images.length <= 1) return curr;
+          const nextIdx = (curr.currentIndex ?? 0) < curr.images.length - 1 ? (curr.currentIndex ?? 0) + 1 : 0;
+          setSelfieGalleryIndex(nextIdx);
+          return {
+            ...curr,
+            currentIndex: nextIdx,
+            url: curr.images[nextIdx],
+            title: curr.title.replace(/Foto \d+ de \d+/, `Foto ${nextIdx + 1} de ${curr.images.length}`)
+          };
+        });
+      } else if (e.key === 'Escape') {
+        setExpandedDoc(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [expandedDoc]);
 
   const [citizens, setCitizens] = useState<Citizen[]>(() => {
     const list: Citizen[] = [];
@@ -3966,15 +4049,26 @@ export function GovContactsContent({
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between">
                           <span className="text-[10.5px] font-black uppercase tracking-wider text-[#0c2340]/70 flex items-center gap-1.5">
-                            <Fingerprint size={14} className="text-cyan-500" /> Painel 3 • Captura Biométrica (Face)
+                            <Fingerprint size={14} className="text-cyan-500" /> Painel 3 • Captura Facial ({modalFacePhotos.length > 1 ? `${selfieGalleryIndex + 1}/${modalFacePhotos.length}` : 'HD'})
                           </span>
                           <span className="text-[8px] font-mono font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-md uppercase">
-                            Selfie HD &bull; Prova de Vida
+                            {modalFacePhotos.length > 1
+                              ? `Foto ${selfieGalleryIndex + 1}/${modalFacePhotos.length} · ${selfieGalleryIndex === 0 ? 'Frente' : selfieGalleryIndex === 1 ? 'Perfil' : 'Expressão'}`
+                              : 'Selfie HD • Prova de Vida'}
                           </span>
                         </div>
 
                         <div 
-                          onClick={() => setExpandedDoc({ title: `Captura Facial Biométrica — ${selectedReviewCitizen.name}`, url: resolvedModalDocs.selfie || selectedReviewCitizen.urlSelfie || selectedReviewCitizen.facePhoto })}
+                          onClick={() => {
+                            const curPhoto = modalFacePhotos[selfieGalleryIndex] || resolvedModalDocs.selfie || selectedReviewCitizen.urlSelfie || selectedReviewCitizen.facePhoto;
+                            setExpandedDoc({ 
+                              title: `Captura Facial Biométrica (${modalFacePhotos.length > 1 ? `Foto ${selfieGalleryIndex + 1} de ${modalFacePhotos.length}` : 'Selfie'}) — ${selectedReviewCitizen.name}`, 
+                              url: curPhoto,
+                              images: modalFacePhotos.length > 0 ? modalFacePhotos : [curPhoto],
+                              currentIndex: selfieGalleryIndex,
+                              stepNames: ['1. Foto Frontal', '2. Perfil Esquerdo', '3. Expressão Natural']
+                            });
+                          }}
                           className="bg-[#0a152e] border border-cyan-950/80 rounded-[24px] p-4.5 h-[250px] relative overflow-hidden flex flex-col justify-between shadow-2xl text-white group cursor-pointer hover:border-cyan-400 transition-all"
                           title="Clique para ampliar em alta resolução"
                         >
@@ -3986,6 +4080,34 @@ export function GovContactsContent({
                           <div className="absolute top-3.5 right-3.5 w-3.5 h-3.5 border-t-2 border-r-2 border-cyan-400 rounded-tr-sm pointer-events-none" />
                           <div className="absolute bottom-3.5 left-3.5 w-3.5 h-3.5 border-b-2 border-l-2 border-cyan-400 rounded-bl-sm pointer-events-none" />
                           <div className="absolute bottom-3.5 right-3.5 w-3.5 h-3.5 border-b-2 border-r-2 border-cyan-400 rounded-br-sm pointer-events-none" />
+
+                          {/* Botões de navegação esquerda/direita entre fotos no Painel 3 */}
+                          {modalFacePhotos.length > 1 && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelfieGalleryIndex((prev) => (prev > 0 ? prev - 1 : modalFacePhotos.length - 1));
+                                }}
+                                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-slate-900/80 hover:bg-cyan-500 hover:text-slate-950 text-white flex items-center justify-center border border-cyan-500/40 shadow-lg cursor-pointer z-30 transition-all opacity-80 group-hover:opacity-100"
+                                title="Foto anterior"
+                              >
+                                <ChevronLeft size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelfieGalleryIndex((prev) => (prev < modalFacePhotos.length - 1 ? prev + 1 : 0));
+                                }}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-slate-900/80 hover:bg-cyan-500 hover:text-slate-950 text-white flex items-center justify-center border border-cyan-500/40 shadow-lg cursor-pointer z-30 transition-all opacity-80 group-hover:opacity-100"
+                                title="Próxima foto"
+                              >
+                                <ChevronRight size={15} />
+                              </button>
+                            </>
+                          )}
 
                           {/* Scanner Line animation */}
                           {aiEvaluationState === 'running' && (
@@ -3999,7 +4121,7 @@ export function GovContactsContent({
 
                           <div className="flex items-center justify-between z-15 relative">
                             <span className="text-[7.5px] font-mono font-black text-cyan-200 uppercase tracking-widest bg-cyan-950/70 p-1 px-2.5 rounded-full border border-cyan-500/30">
-                              ● Auto-Foto Ativa
+                              ● {modalFacePhotos.length > 1 ? `Foto ${selfieGalleryIndex + 1} de ${modalFacePhotos.length}` : 'Auto-Foto Ativa'}
                             </span>
                             <span className="text-[7.5px] font-mono text-cyan-400/85 font-black uppercase tracking-wider">1280P HD</span>
                           </div>
@@ -4007,7 +4129,7 @@ export function GovContactsContent({
                           {/* Rosto do Cidadão no Centro */}
                           <div className="relative w-22 h-22 mx-auto my-auto rounded-full border-2 border-cyan-400 overflow-hidden shadow-xl shadow-cyan-950/45 z-10 p-0.5 bg-cyan-950/30">
                             <img 
-                              src={resolvedModalDocs.selfie || selectedReviewCitizen.urlSelfie || selectedReviewCitizen.facePhoto} 
+                              src={modalFacePhotos[selfieGalleryIndex] || resolvedModalDocs.selfie || selectedReviewCitizen.urlSelfie || selectedReviewCitizen.facePhoto} 
                               alt="Face HD" 
                               className="w-full h-full object-cover rounded-full" 
                               referrerPolicy="no-referrer"
@@ -4020,7 +4142,7 @@ export function GovContactsContent({
                           <div className="text-center z-15 relative">
                             <span className="text-[8px] font-mono text-emerald-400 uppercase tracking-widest font-black flex items-center justify-center gap-1">
                               <CheckCircle2 size={10} className="text-emerald-400" />
-                              {aiEvaluationState === 'idle' ? 'Biometria Pronta' :
+                              {aiEvaluationState === 'idle' ? (modalFacePhotos.length > 1 ? `Captura ${selfieGalleryIndex + 1}/3 Pronta` : 'Biometria Pronta') :
                                aiEvaluationState === 'running' ? 'Analisando...' :
                                'Biometria Concluída'}
                             </span>
@@ -4809,7 +4931,7 @@ export function GovContactsContent({
                       {expandedDoc.title}
                     </h3>
                     <p className="text-[10px] font-mono text-cyan-400/80 m-0 mt-0.5">
-                      Visualização em Alta Resolução · Auditoria Oficial CDA
+                      Visualização em Alta Resolução · Auditoria Oficial CDA {expandedDoc.images && expandedDoc.images.length > 1 ? `· Foto ${(expandedDoc.currentIndex ?? 0) + 1} de ${expandedDoc.images.length}` : ''}
                     </p>
                   </div>
                 </div>
@@ -4832,12 +4954,87 @@ export function GovContactsContent({
                   </button>
                 </div>
               </div>
-              <div className="flex-1 p-4 md:p-8 flex items-center justify-center overflow-auto bg-slate-950 select-none">
+
+              <div className="flex-1 p-4 md:p-8 flex items-center justify-center overflow-hidden bg-slate-950 select-none relative group/lightbox">
+                {expandedDoc.images && expandedDoc.images.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const nextIdx = (expandedDoc.currentIndex ?? 0) > 0 ? (expandedDoc.currentIndex ?? 0) - 1 : expandedDoc.images!.length - 1;
+                        const nextUrl = expandedDoc.images![nextIdx];
+                        setExpandedDoc({
+                          ...expandedDoc,
+                          currentIndex: nextIdx,
+                          url: nextUrl,
+                          title: expandedDoc.title.replace(/Foto \d+ de \d+/, `Foto ${nextIdx + 1} de ${expandedDoc.images!.length}`)
+                        });
+                        setSelfieGalleryIndex(nextIdx);
+                      }}
+                      className="absolute left-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-slate-900/90 hover:bg-cyan-500 hover:text-slate-950 text-white flex items-center justify-center border border-cyan-500/40 shadow-2xl cursor-pointer z-30 transition-all opacity-85 hover:opacity-100"
+                      title="Foto anterior (Seta Esquerda)"
+                    >
+                      <ChevronLeft size={24} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const nextIdx = (expandedDoc.currentIndex ?? 0) < expandedDoc.images!.length - 1 ? (expandedDoc.currentIndex ?? 0) + 1 : 0;
+                        const nextUrl = expandedDoc.images![nextIdx];
+                        setExpandedDoc({
+                          ...expandedDoc,
+                          currentIndex: nextIdx,
+                          url: nextUrl,
+                          title: expandedDoc.title.replace(/Foto \d+ de \d+/, `Foto ${nextIdx + 1} de ${expandedDoc.images!.length}`)
+                        });
+                        setSelfieGalleryIndex(nextIdx);
+                      }}
+                      className="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-slate-900/90 hover:bg-cyan-500 hover:text-slate-950 text-white flex items-center justify-center border border-cyan-500/40 shadow-2xl cursor-pointer z-30 transition-all opacity-85 hover:opacity-100"
+                      title="Próxima foto (Seta Direita)"
+                    >
+                      <ChevronRight size={24} />
+                    </button>
+                  </>
+                )}
+
                 <img
                   src={expandedDoc.url}
                   alt={expandedDoc.title}
-                  className="max-h-full max-w-full object-contain rounded-xl shadow-2xl pointer-events-auto"
+                  className="max-h-full max-w-full object-contain rounded-xl shadow-2xl pointer-events-auto transition-all duration-300"
                 />
+
+                {/* Miniaturas no rodapé do Lightbox quando houver múltiplas fotos */}
+                {expandedDoc.images && expandedDoc.images.length > 1 && (
+                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md p-2 px-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 z-30 shadow-2xl">
+                    {expandedDoc.images.map((img, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedDoc({
+                            ...expandedDoc,
+                            currentIndex: i,
+                            url: img,
+                            title: expandedDoc.title.replace(/Foto \d+ de \d+/, `Foto ${i + 1} de ${expandedDoc.images!.length}`)
+                          });
+                          setSelfieGalleryIndex(i);
+                        }}
+                        className={`w-12 h-12 rounded-xl overflow-hidden border-2 transition-all p-0.5 cursor-pointer ${
+                          (expandedDoc.currentIndex ?? 0) === i
+                            ? 'border-cyan-400 scale-105 shadow-md shadow-cyan-500/40 bg-cyan-950'
+                            : 'border-slate-700 opacity-60 hover:opacity-100 hover:border-slate-500 bg-slate-800'
+                        }`}
+                        title={`Ir para foto ${i + 1} (${i === 0 ? 'Frente' : i === 1 ? 'Perfil Esquerdo' : 'Expressão'})`}
+                      >
+                        <img src={img} alt={`Miniatura ${i + 1}`} className="w-full h-full object-cover rounded-lg" />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </motion.div>
           </>

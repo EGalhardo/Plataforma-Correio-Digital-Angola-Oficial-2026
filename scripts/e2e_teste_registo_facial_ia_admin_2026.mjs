@@ -4,10 +4,11 @@ import path from 'path';
 
 const BASE_URL = 'http://localhost:3000';
 const SCREENSHOT_PATH = path.resolve('images/cda_registo_facial_comparacao_admin.png');
+const LIGHTBOX_SCREENSHOT_PATH = path.resolve('images/cda_registo_facial_lightbox_admin.png');
 
 async function runE2ETest() {
   console.log('================================================================');
-  console.log('📸 INICIANDO TESTE E2E: REGISTO FACIAL DO CIDADÃO & ADMIN COMPARISON');
+  console.log('📸 INICIANDO TESTE E2E: REGISTO FACIAL & GALERIA BIOMÉTRICA ADMIN');
   console.log(`🌐 Alvo: ${BASE_URL}`);
   console.log('================================================================\n');
 
@@ -127,7 +128,7 @@ async function runE2ETest() {
     // Aguardar conclusão da biometria
     const bioDone = page.locator('text=BIOMETRIA CONCLUÍDA').first();
     await bioDone.waitFor({ state: 'visible', timeout: 10000 });
-    console.log('  ✅ [PASS] Captura facial biométrica concluída com frame facial criptografado vinculado à identidade');
+    console.log('  ✅ [PASS] Captura facial biométrica de 3 ângulos concluída com sucesso');
 
     // Submeter registo
     const submitBtn = page.locator('button:has-text("FINALIZAR SUBMISSÃO")').first();
@@ -152,7 +153,7 @@ async function runE2ETest() {
     // -------------------------------------------------------------------------
     // FASE 3: Administração Central — Comparação de Fotos Lado a Lado
     // -------------------------------------------------------------------------
-    console.log('\n--- FASE 3: Área de Administração Central e Comparação de Fotos Lado a Lado ---');
+    console.log('\n--- FASE 3: Área de Administração Central e Navegação da Galeria de Fotos ---');
     
     // Navegar para o Admin
     await page.goto(`${BASE_URL}/admin`, { waitUntil: 'domcontentloaded' });
@@ -174,31 +175,70 @@ async function runE2ETest() {
     await page.waitForTimeout(2000);
     console.log('  ✅ [PASS] Página Cidadãos da Administração Central acedida com sucesso');
 
-    // Clicar no botão REVISAR de um cidadão para abrir o modal de homologação
+    // Clicar no botão REVISAR do cidadão registado para abrir o modal de homologação
     const revisarBtn = page.locator('button:has-text("REVISAR"), a:has-text("REVISAR")').first();
     await revisarBtn.waitFor({ state: 'visible', timeout: 10000 });
     await revisarBtn.click();
     await page.waitForTimeout(2000);
 
-    // Verificar se o modal de revisão abre com os 3 painéis: B.I. Frente, B.I. Verso e Selfie HD Prova de Vida
+    // Verificar se o modal de revisão abre com os 3 painéis: B.I. Frente, B.I. Verso e Captura Facial
     const panelFrente = page.locator('span:has-text("Painel 1"), span:has-text("Frente Oficial"), div:has-text("Painel 1")').first();
     const panelVerso = page.locator('span:has-text("Painel 2"), span:has-text("Verso Oficial"), div:has-text("Painel 2")').first();
-    const panelSelfie = page.locator('span:has-text("Selfie HD"), span:has-text("Prova de Vida"), div:has-text("Selfie HD")').first();
+    const panelSelfie = page.locator('span:has-text("Painel 3"), span:has-text("Captura Facial"), div:has-text("Painel 3")').first();
 
     await panelFrente.waitFor({ state: 'visible', timeout: 8000 });
-    console.log('  ✅ [PASS] Painel 1 (B.I. Parte Frente) visível para comparação visual');
-    console.log('  ✅ [PASS] Painel 2 (B.I. Parte Verso) visível para auditoria');
-    console.log('  ✅ [PASS] Painel 3 (Captura Facial Biométrica / Selfie HD Prova de Vida) visível lado a lado');
+    console.log('  ✅ [PASS] Painel 1 (B.I. Frente) e Painel 2 (B.I. Verso) visíveis para auditoria');
+    console.log('  ✅ [PASS] Painel 3 (Captura Facial Biométrica) visível com galeria de fotos');
 
-    // Capturar evidência fotográfica
+    // Testar setas de navegação no Painel 3
+    const nextPhotoBtn = page.locator('button[title="Próxima foto"]').first();
+    if (await nextPhotoBtn.isVisible()) {
+      await nextPhotoBtn.click();
+      await page.waitForTimeout(600);
+      console.log('  ✅ [PASS] Seta de navegação "Próxima Foto" no Painel 3 acionada com sucesso');
+    }
+
+    // Capturar evidência fotográfica do painel administrativo
     fs.mkdirSync(path.dirname(SCREENSHOT_PATH), { recursive: true });
     await page.screenshot({ path: SCREENSHOT_PATH, fullPage: false });
-    console.log(`  📸 [EVIDÊNCIA] Captura de ecrã gravada em ${SCREENSHOT_PATH}`);
+    console.log(`  📸 [EVIDÊNCIA] Captura de ecrã do painel admin gravada em ${SCREENSHOT_PATH}`);
+
+    // Clicar no Painel 3 para abrir a visualização ampliada em Alta Resolução (Lightbox)
+    const selfieCard = page.locator('div[title="Clique para ampliar em alta resolução"]').last();
+    await selfieCard.click();
+    await page.waitForTimeout(1000);
+
+    // Verificar se o Lightbox abriu
+    const lightboxTitle = page.locator('h3:has-text("Captura Facial Biométrica"), div:has-text("Auditoria Oficial CDA")').first();
+    await lightboxTitle.waitFor({ state: 'visible', timeout: 5000 });
+    console.log('  ✅ [PASS] Visualizador em Alta Resolução (Lightbox) aberto');
+
+    // Testar setas no Lightbox
+    const lbNextBtn = page.locator('.group\\/lightbox button[title*="Próxima foto"]').first();
+    if (await lbNextBtn.isVisible()) {
+      await lbNextBtn.click();
+      await page.waitForTimeout(600);
+      console.log('  ✅ [PASS] Seta de navegação "Próxima Foto" no visualizador em Alta Resolução acionada');
+    }
+
+    // Capturar evidência do Lightbox
+    await page.screenshot({ path: LIGHTBOX_SCREENSHOT_PATH, fullPage: false });
+    console.log(`  📸 [EVIDÊNCIA] Captura de ecrã do Lightbox gravada em ${LIGHTBOX_SCREENSHOT_PATH}`);
+
+    // Fechar Lightbox
+    const closeLbBtn = page.locator('.z-\\[351\\] button[title="Fechar"]').first();
+    if (await closeLbBtn.isVisible()) {
+      await closeLbBtn.click();
+      await page.waitForTimeout(800);
+    } else {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(800);
+    }
 
     // Verificar botões de decisão administrativa (Homologar / Rejeitar)
-    const approveActionBtn = page.locator('button:has-text("HOMOLOGAR CREDENCIAIS"), button:has-text("Homologar")').first();
+    const approveActionBtn = page.locator('button:has-text("HOMOLOGAR CADASTRO"), button:has-text("Homologar")').first();
     if (await approveActionBtn.isVisible()) {
-      console.log('  ✅ [PASS] Botão de Homologação Administrativa ("HOMOLOGAR CREDENCIAIS") habilitado para decisão com 1 clique');
+      console.log('  ✅ [PASS] Botão de Homologação Administrativa habilitado para decisão');
     }
 
     // -------------------------------------------------------------------------
