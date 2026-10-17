@@ -19,7 +19,7 @@
 // nunca quebra o registo), porta de divergências REAIS ⇒ correcções.
 // ============================================================================
 import { supabase } from '../lib/supabaseClient';
-import { registoPublicoProxy } from './supabaseService';
+import { registoPublicoProxy, anunciarRegistosAlterados } from './supabaseService';
 import { homologationStore, notifyAccountApproved } from './homologationStore';
 import { requestPviVerification, buildPvicMarker, type PviVerdict } from './preVerificationService';
 import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticCitizenEmail } from './cloudAuthService';
@@ -416,6 +416,7 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
     hooks.setAnaliseEstado?.('aprovado');
     hooks.pedirPopupAprovado?.();
   }
+  anunciarRegistosAlterados();
 
   // EMAIL DE BOAS-VINDAS (best-effort — nunca bloqueia)
   try {

@@ -69,7 +69,7 @@ import {
 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { supabase } from '../../lib/supabaseClient';
-import { registoPublicoProxy, anunciarRegistosAlterados, eliminarCidadaoAdmin, eliminarAgente, permissoesAgente, alterarSenhaAgente, enviarMensagemAdministrativa, equipaMembroCloud } from '../../services/supabaseService';
+import { registoPublicoProxy, anunciarRegistosAlterados, EVENTO_REGISTOS_ALTERADOS, eliminarCidadaoAdmin, eliminarAgente, permissoesAgente, alterarSenhaAgente, enviarMensagemAdministrativa, equipaMembroCloud } from '../../services/supabaseService';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { limparPendenciaPerfil } from '../../services/profileSyncService';
 import { limparLoginFalhas } from '../../services/loginSecurityService';
@@ -555,6 +555,7 @@ export function GovContactsContent({
   const [filterProvince, setFilterProvince] = useState<string>('Todas');
   const [filterMunicipio, setFilterMunicipio] = useState<string>('Todos');
   const [filterStatus, setFilterStatus] = useState<string>('Todas');
+  const [citizenSearch, setCitizenSearch] = useState<string>('');
 
 
   // IA review states
@@ -724,7 +725,7 @@ export function GovContactsContent({
             if (k && !localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
               list.push({
                 ...c,
-                status: c.status || 'Pendente de Validação',
+                status: c.status === 'Pendente' ? 'Pendente de Validação' : (c.status || 'Pendente de Validação'),
                 name: c.name || 'Cidadão',
                 category: 'Cidadão',
                 province: c.province || 'Luanda',
@@ -753,8 +754,24 @@ export function GovContactsContent({
     return list;
   });
 
+  // Sincronização segura: preserva novos cadastros no localStorage sem sobrescrever cegamente
   React.useEffect(() => {
-    localStorage.setItem('gov_admin_citizens', JSON.stringify(citizens));
+    if (citizens.length === 0) return;
+    try {
+      const saved = localStorage.getItem('gov_admin_citizens');
+      const currentList: any[] = saved ? JSON.parse(saved) : [];
+      const map = new Map<string, any>();
+      currentList.forEach(c => {
+        if (c && c.biNumber) map.set(normalizeHomologationBi(c.biNumber), c);
+      });
+      citizens.forEach(c => {
+        if (c && c.biNumber) {
+          const k = normalizeHomologationBi(c.biNumber);
+          map.set(k, { ...map.get(k), ...c });
+        }
+      });
+      localStorage.setItem('gov_admin_citizens', JSON.stringify(Array.from(map.values())));
+    } catch (e) {}
   }, [citizens]);
 
   // MODO REAL — dados da base central: moradas reais dos cidadãos (join por BI)
@@ -1223,55 +1240,59 @@ export function GovContactsContent({
 
       setCitizens(prev => {
         const cloudBis = new Set<string>();
-        const resultList: Citizen[] = [];
+        const mergedMap = new Map<string, Citizen>();
 
-        // Adiciona cadastros da nuvem vindos de solicitacoes_registo
+        // 1. Cadastros locais (prioridade de metadados e fotos capturadas na sessão)
+        localMap.forEach((localCit, k) => {
+          if (!localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
+            mergedMap.set(k, localCit);
+          }
+        });
+
+        // 2. Cadastros de solicitacoes_registo da nuvem
         supabaseCitizens.forEach(c => {
           if (c.biNumber) {
             const k = normalizeHomologationBi(c.biNumber);
             if (!localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
               cloudBis.add(k);
-              resultList.push(c);
+              const existing = mergedMap.get(k);
+              if (existing) {
+                mergedMap.set(k, {
+                  ...c,
+                  ...existing,
+                  facePhoto: existing.facePhoto || c.facePhoto,
+                  status: existing.status || c.status,
+                });
+              } else {
+                mergedMap.set(k, c);
+              }
             }
           }
         });
 
-        // Adiciona cadastros de profiles que ainda não estão em solicitacoes_registo
+        // 3. Cadastros de profiles da nuvem
         profileCitizens.forEach(pc => {
           if (pc.biNumber) {
             const k = normalizeHomologationBi(pc.biNumber);
-            if (!cloudBis.has(k) && !localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
-              cloudBis.add(k);
-              resultList.push(pc);
+            if (!localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
+              if (!mergedMap.has(k)) {
+                mergedMap.set(k, pc);
+              }
             }
           }
         });
 
-        // Adiciona pedidos de registo locais não presentes na nuvem
-        localMap.forEach((localCit, k) => {
-          if (!cloudBis.has(k) && !localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
-            resultList.push(localCit);
-          }
-        });
-
-        // Preserva cadastros já presentes no estado local não revogados
+        // 4. Preserva elementos anteriores que ainda não estejam revogados
         prev.forEach(pc => {
           if (pc.biNumber) {
             const k = normalizeHomologationBi(pc.biNumber);
-            if (!cloudBis.has(k) && !localMap.has(k) && !localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
-              resultList.push(pc);
+            if (!mergedMap.has(k) && !localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
+              mergedMap.set(k, pc);
             }
           }
         });
 
-        const finalFiltered = resultList.filter(c => {
-          if (c.biNumber) {
-            const k = normalizeHomologationBi(c.biNumber);
-            if (localStorage.getItem('cda_revoked_' + k) || localStorage.getItem('cda_deleted_' + k)) return false;
-          }
-          return true;
-        });
-        return finalFiltered;
+        return Array.from(mergedMap.values());
       });
     } catch (e) {
       console.error('Error in fetchSupabaseCitizens:', e);
@@ -1299,22 +1320,55 @@ export function GovContactsContent({
         refrescarTudo();
       }
     };
+    const handleRegistosAlterados = () => {
+      refrescarTudo();
+    };
+    const handleStorage = (e: StorageEvent) => {
+      if (!e.key || e.key === 'gov_admin_citizens' || e.key.startsWith('cda_')) {
+        refrescarTudo();
+      }
+    };
     window.addEventListener('focus', handleFocus);
+    window.addEventListener(EVENTO_REGISTOS_ALTERADOS, handleRegistosAlterados);
+    window.addEventListener('storage', handleStorage);
     document.addEventListener('visibilitychange', handleFocus);
-    const timer = setInterval(refrescarTudo, 15000);
+    const timer = setInterval(refrescarTudo, 10000);
     return () => {
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener(EVENTO_REGISTOS_ALTERADOS, handleRegistosAlterados);
+      window.removeEventListener('storage', handleStorage);
       document.removeEventListener('visibilitychange', handleFocus);
       clearInterval(timer);
     };
   }, [refrescarTudo]);
 
   const filteredCitizens = useMemo(() => {
+    const q = citizenSearch.trim().toLowerCase();
     const filtrados = citizens.filter((citizen) => {
       const matchProvince = filterProvince === 'Todas' || citizen.province === filterProvince;
       const matchMunicipio = filterMunicipio === 'Todos' || citizen.municipio === filterMunicipio;
-      const matchStatus = filterStatus === 'Todas' || citizen.status === filterStatus;
-      return matchProvince && matchMunicipio && matchStatus;
+      
+      const st = String(citizen.status || '').toLowerCase();
+      let matchStatus = filterStatus === 'Todas';
+      if (!matchStatus) {
+        if (filterStatus === 'Pendente de Validação') {
+          matchStatus = st.includes('pendente') || st.includes('análise') || st.includes('analise');
+        } else if (filterStatus === 'Em Análise pela IA') {
+          matchStatus = st.includes('análise') || st.includes('analise') || st.includes('ia');
+        } else {
+          matchStatus = citizen.status === filterStatus;
+        }
+      }
+
+      const matchQuery = !q || (
+        (citizen.name || '').toLowerCase().includes(q) ||
+        (citizen.biNumber || '').toLowerCase().includes(q) ||
+        (citizen.email || '').toLowerCase().includes(q) ||
+        (citizen.contact || '').toLowerCase().includes(q) ||
+        (citizen.phone || '').toLowerCase().includes(q)
+      );
+
+      return matchProvince && matchMunicipio && matchStatus && matchQuery;
     });
 
     // FASE 1 (2026-08-15) — FILA DE HOMOLOGAÇÃO ASSISTIDA:
@@ -3267,6 +3321,28 @@ export function GovContactsContent({
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+              {/* Barra de Pesquisa de Cidadão */}
+              <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-2xl border border-slate-100 min-w-[220px]">
+                <Search size={14} className="text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  value={citizenSearch}
+                  onChange={(e) => setCitizenSearch(e.target.value)}
+                  placeholder="Pesquisar B.I., Nome, E-mail..."
+                  className="bg-transparent border-0 outline-none text-xs text-slate-800 placeholder-slate-400 font-semibold w-full"
+                />
+                {citizenSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setCitizenSearch('')}
+                    className="text-slate-400 hover:text-slate-600 transition-colors text-sm font-bold px-1"
+                    title="Limpar pesquisa"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
               {/* Select Provincia */}
               <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
                 <MapPin size={14} className="text-slate-400" />

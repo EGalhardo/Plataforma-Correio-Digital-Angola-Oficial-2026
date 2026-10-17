@@ -26,7 +26,7 @@ import {
 import { notify } from '../../lib/notify';
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore, notifyRegistrationSubmitted, notifyAccountApproved } from '../../services/homologationStore';
-import { registoPublicoProxy } from '../../services/supabaseService';
+import { registoPublicoProxy, anunciarRegistosAlterados } from '../../services/supabaseService';
 import { CdaModal } from '../ui/CdaModal';
 import { isSupabaseConfigured, cloudSignOutBestEffort } from '../../services/cloudAuthService';
 import { purgeCitizenLocalResidues } from '../../services/accountGateService';
@@ -729,6 +729,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       // — homologação nasce PENDENTE + correspondência oficial de recepção —
       homologationStore.setStatus(newUser.biNumber, 'pending', undefined, newUser.name);
       notifyRegistrationSubmitted(newUser.biNumber, newUser.name);
+      anunciarRegistosAlterados();
       addAuditLog(`Processo de Adesão de ${newUser.name} submetido ao SME — validação IA em segundo plano.`, 'info');
 
       // — confirmação IMEDIATA ao cidadão; o utilizador NÃO espera pela análise —
