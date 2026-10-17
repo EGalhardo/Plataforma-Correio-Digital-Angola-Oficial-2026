@@ -235,6 +235,15 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
       // homologação antigo) que era re-hidratado no login da adesão re-criada.
       // Purga ANTES de gravar o novo registo — a nova adesão parte de zero.
       try { purgeInstitutionLocalResidues(code); } catch { /* melhor esforço */ }
+      try {
+        localStorage.removeItem(`cda_deleted_inst_${code}`);
+        localStorage.removeItem(`cda_deleted_${code}`);
+        if (s) localStorage.removeItem(`cda_deleted_inst_${s.toUpperCase().replace(/\s+/g, '-')}`);
+        if (agentNumber) {
+          localStorage.removeItem(`cda_deleted_inst_${agentNumber}`);
+          localStorage.removeItem(`cda_deleted_${agentNumber}`);
+        }
+      } catch { /* ignora */ }
 
       const pack: InstitutionRegPack = {
         v: 1,

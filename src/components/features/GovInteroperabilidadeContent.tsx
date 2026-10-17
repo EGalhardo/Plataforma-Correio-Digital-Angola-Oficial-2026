@@ -452,6 +452,11 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
           data = (viaProxy.linhas || []) as any[];
         } else {
           console.warn('[INSTREG] leitura da fila via servidor falhou:', viaProxy.erro);
+          const d = await supabase
+            .from('solicitacoes_registo')
+            .select('*')
+            .order('criado_em', { ascending: false });
+          data = (d.data as any[] | null); error = d.error;
         }
         if (!error && data) {
           for (const row of data as any[]) {

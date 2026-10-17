@@ -1156,7 +1156,11 @@ export function GovContactsContent({
         data = (viaProxy.linhas || []) as any[];
       } else {
         console.warn('[REGISTOS] leitura via servidor falhou:', viaProxy.erro);
-        return;
+        const direct = await supabase
+          .from('solicitacoes_registo')
+          .select('*')
+          .order('criado_em', { ascending: false });
+        data = direct.data as any[] | null; error = direct.error;
       }
 
       if (error) {
@@ -1335,12 +1339,16 @@ export function GovContactsContent({
     };
     window.addEventListener('focus', handleFocus);
     window.addEventListener(EVENTO_REGISTOS_ALTERADOS, handleRegistosAlterados);
+    window.addEventListener('cda_registos_alterados', handleRegistosAlterados);
+    window.addEventListener('cda:registos-alterados', handleRegistosAlterados);
     window.addEventListener('storage', handleStorage);
     document.addEventListener('visibilitychange', handleFocus);
     const timer = setInterval(refrescarTudo, 10000);
     return () => {
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener(EVENTO_REGISTOS_ALTERADOS, handleRegistosAlterados);
+      window.removeEventListener('cda_registos_alterados', handleRegistosAlterados);
+      window.removeEventListener('cda:registos-alterados', handleRegistosAlterados);
       window.removeEventListener('storage', handleStorage);
       document.removeEventListener('visibilitychange', handleFocus);
       clearInterval(timer);

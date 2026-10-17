@@ -931,7 +931,12 @@ export const listarRegistosPendentes = async (): Promise<PendingRegistration[] |
  *  (aprovar/rejeitar/…) — o App recarrega de imediato os registos pendentes. */
 export const EVENTO_REGISTOS_ALTERADOS = 'cda:registos-alterados';
 export const anunciarRegistosAlterados = (): void => {
-  try { window.dispatchEvent(new Event(EVENTO_REGISTOS_ALTERADOS)); } catch { /* SSR/teste */ }
+  try {
+    window.dispatchEvent(new Event('cda:registos-alterados'));
+    window.dispatchEvent(new Event('cda_registos_alterados'));
+    window.dispatchEvent(new CustomEvent('cda_registos_alterados'));
+    window.dispatchEvent(new CustomEvent('cda:registos-alterados'));
+  } catch { /* SSR/teste */ }
 };
 
 export const supabaseService = {
