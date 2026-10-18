@@ -973,6 +973,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? 'Ocultar senha' : 'Ver senha'}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 bg-transparent border-none cursor-pointer flex items-center justify-center transition-all"
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}

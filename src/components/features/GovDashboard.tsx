@@ -690,6 +690,7 @@ export function GovDashboard({
               <button
                 key={i}
                 type="button"
+                aria-label={`Ir para destaque ${i + 1}`}
                 onClick={() => setActiveSlide(i)}
                 className={`h-1.5 rounded-full transition-all duration-300 border-0 outline-none cursor-pointer ${
                   activeSlide % GOV_HIGHLIGHT_SLIDES.length === i ? 'w-5 bg-white' : 'w-1.5 bg-white/40'

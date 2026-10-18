@@ -1215,8 +1215,10 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Modelo Padrão</label>
+                  <label htmlFor="select-gov-ai-model" className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Modelo Padrão</label>
                   <select
+                    id="select-gov-ai-model"
+                    aria-label="Modelo Padrão de IA"
                     value={mainModel}
                     onChange={(e) => setMainModel(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs text-slate-800 outline-none cursor-pointer"
@@ -1285,8 +1287,8 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Categoria</label>
-                <select className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs text-slate-800 outline-none cursor-pointer">
+                <label htmlFor="select-kb-category" className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Categoria</label>
+                <select id="select-kb-category" aria-label="Categoria da Base de Conhecimento" className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs text-slate-800 outline-none cursor-pointer">
                   <option>FAQ</option>
                   <option>Procedimentos e Portarias</option>
                   <option>Leis e Regulamentos</option>

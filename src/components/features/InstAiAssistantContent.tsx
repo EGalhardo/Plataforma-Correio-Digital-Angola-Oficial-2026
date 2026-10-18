@@ -894,8 +894,10 @@ Contexto adicional:
                   {/* Modelo e Temperatura inline */}
                   <div className="grid grid-cols-2 gap-3 min-w-0">
                     <div className="space-y-1.5 min-w-0">
-                      <label className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-wider pl-0.5 block truncate">Modelo IA</label>
+                      <label htmlFor="select-inst-ai-model" className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-wider pl-0.5 block truncate">Modelo IA</label>
                       <select
+                        id="select-inst-ai-model"
+                        aria-label="Selecionar Modelo de Inteligência Artificial"
                         value={model}
                         onChange={(e) => setModel(e.target.value)}
                         className="w-full bg-[#f8fafc]/40 border border-slate-200 rounded-xl px-3 py-2.5 text-xs md:text-sm font-medium text-slate-800 outline-none cursor-pointer truncate"

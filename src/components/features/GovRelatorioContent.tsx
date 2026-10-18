@@ -855,6 +855,7 @@ export function GovRelatorioContent({
               <div className="flex items-center gap-2 bg-white border border-slate-300 p-2 rounded-xl shadow-2xs">
                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest pl-1">Escopo:</span>
                 <select
+                  aria-label="Escopo de Comparação de Período"
                   value={comparisonPreset}
                   onChange={(e) => { 
                     playInteractionSound('click'); 

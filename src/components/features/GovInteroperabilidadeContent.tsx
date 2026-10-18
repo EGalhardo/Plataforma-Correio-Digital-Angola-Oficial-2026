@@ -1577,9 +1577,11 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {/* Search Dropdown replacing input */}
           <div className="space-y-1.5 col-span-1 md:col-span-2">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Localizar Instituição (Sigla/Nome)</label>
+            <label htmlFor="filter-inst-search" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Localizar Instituição (Sigla/Nome)</label>
             <div className="relative">
               <select
+                id="filter-inst-search"
+                aria-label="Localizar Instituição (Sigla/Nome)"
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[11px] font-bold text-slate-800 outline-none focus:border-slate-900 cursor-pointer appearance-none"
@@ -1597,8 +1599,10 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
           {/* Province */}
           <div className="space-y-1.5">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Província</label>
+            <label htmlFor="filter-inst-province" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Província</label>
             <select
+              id="filter-inst-province"
+              aria-label="Filtrar por Província"
               value={filterProvince}
               onChange={(e) => {
                 setFilterProvince(e.target.value);
@@ -1615,8 +1619,10 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
           {/* Municipio */}
           <div className="space-y-1.5">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Município</label>
+            <label htmlFor="filter-inst-municipio" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Município</label>
             <select
+              id="filter-inst-municipio"
+              aria-label="Filtrar por Município"
               value={filterMunicipio}
               onChange={(e) => { setFilterMunicipio(e.target.value); setCurrentPage(1); }}
               className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-900 cursor-pointer"
@@ -1630,8 +1636,10 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
           {/* Category */}
           <div className="space-y-1.5">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Categoria</label>
+            <label htmlFor="filter-inst-category" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Categoria</label>
             <select
+              id="filter-inst-category"
+              aria-label="Filtrar por Categoria"
               value={filterCategory}
               onChange={(e) => { setFilterCategory(e.target.value); setCurrentPage(1); }}
               className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-900 cursor-pointer"

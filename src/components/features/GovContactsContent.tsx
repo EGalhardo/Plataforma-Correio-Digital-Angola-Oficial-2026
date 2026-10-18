@@ -3360,6 +3360,7 @@ export function GovContactsContent({
               <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
                 <MapPin size={14} className="text-slate-400" />
                 <select
+                  aria-label="Filtrar Cidadãos por Província"
                   value={filterProvince}
                   onChange={(e) => {
                     setFilterProvince(e.target.value);
@@ -3378,6 +3379,7 @@ export function GovContactsContent({
               <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
                 <MapPin size={14} className="text-slate-400" />
                 <select
+                  aria-label="Filtrar Cidadãos por Município"
                   value={filterMunicipio}
                   onChange={(e) => setFilterMunicipio(e.target.value)}
                   className="bg-transparent border-0 outline-none text-xs text-slate-700 font-bold pr-6 cursor-pointer"
@@ -3394,6 +3396,7 @@ export function GovContactsContent({
                 <Filter size={13} className="text-indigo-600 font-bold" />
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mr-0.5">Triagem IA:</span>
                 <select
+                  aria-label="Filtrar por Triagem de Inteligência Artificial"
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
                   className={`bg-transparent border-0 outline-none text-xs font-black uppercase cursor-pointer pr-4 transition-colors ${

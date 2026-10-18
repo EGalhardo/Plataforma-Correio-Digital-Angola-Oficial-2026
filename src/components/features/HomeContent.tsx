@@ -164,6 +164,8 @@ export function HomeContent({
           {slides.map((_, i) => (
             <button
               key={i}
+              type="button"
+              aria-label={`Ir para destaque ${i + 1}`}
               onClick={() => setActiveSlide(i % slides.length)}
               className={`h-1 rounded-full transition-all duration-500 ${
                 activeSlide % slides.length === i ? 'w-6 bg-white' : 'w-1.5 bg-white/30'
