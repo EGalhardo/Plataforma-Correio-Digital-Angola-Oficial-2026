@@ -3170,17 +3170,17 @@ export default function App() {
               const hyd: { name?: string; email?: string; phone?: string; nif?: string; passport?: string; address?: string; filiation?: string; maritalStatus?: string; birthDate?: string } = {};
               const locProf = isGovMode ? lerPerfilLocal('admin', bi) : isInstMode ? lerPerfilLocal('institution', bi) : lerPerfilLocal('user', bi);
 
-              if (locProf?.name) hyd.name = locProf.name;
-              else if (typeof dbProfile.name === 'string' && dbProfile.name.trim()) hyd.name = dbProfile.name.trim();
+              if (typeof dbProfile.name === 'string' && dbProfile.name.trim()) hyd.name = dbProfile.name.trim();
+              else if (locProf?.name) hyd.name = locProf.name;
 
-              if (locProf?.email) hyd.email = locProf.email;
-              else if (typeof dbProfile.email === 'string' && dbProfile.email.trim()) hyd.email = dbProfile.email.trim();
+              if (typeof dbProfile.email === 'string' && dbProfile.email.trim()) hyd.email = dbProfile.email.trim();
+              else if (locProf?.email) hyd.email = locProf.email;
 
-              if (locProf?.phone) hyd.phone = locProf.phone;
-              else if (typeof dbProfile.phone === 'string' && dbProfile.phone.trim()) hyd.phone = dbProfile.phone.trim();
+              if (typeof dbProfile.phone === 'string' && dbProfile.phone.trim()) hyd.phone = dbProfile.phone.trim();
+              else if (locProf?.phone) hyd.phone = locProf.phone;
 
-              if (locProf?.nif) hyd.nif = locProf.nif;
-              else if (typeof dbProfile.nif === 'string' && dbProfile.nif.trim()) hyd.nif = dbProfile.nif.trim();
+              if (typeof dbProfile.nif === 'string' && dbProfile.nif.trim()) hyd.nif = dbProfile.nif.trim();
+              else if (locProf?.nif) hyd.nif = locProf.nif;
 
               if (typeof dbProfile.passport === 'string' && dbProfile.passport.trim()) hyd.passport = dbProfile.passport.trim();
               if (typeof (dbProfile as any).morada === 'string' && (dbProfile as any).morada.trim()) hyd.address = (dbProfile as any).morada.trim();
@@ -3297,10 +3297,10 @@ export default function App() {
             }).catch(err => console.warn('CADA: Erro ao restaurar perfil canónico (conflito de chave mitigado):', err.message || err));
           } else {
             const locProf = isGovMode ? lerPerfilLocal('admin', bi) : isInstMode ? lerPerfilLocal('institution', bi) : lerPerfilLocal('user', bi);
-            const effectiveName = locProf?.name || dbProfile.name;
-            const effectivePhone = locProf?.phone || dbProfile.phone;
-            const effectiveNif = locProf?.nif || dbProfile.nif;
-            const effectiveEmail = locProf?.email || dbProfile.email;
+            const effectiveName = (typeof dbProfile.name === 'string' && dbProfile.name.trim()) ? dbProfile.name.trim() : locProf?.name;
+            const effectivePhone = (typeof dbProfile.phone === 'string' && dbProfile.phone.trim()) ? dbProfile.phone.trim() : locProf?.phone;
+            const effectiveNif = (typeof dbProfile.nif === 'string' && dbProfile.nif.trim()) ? dbProfile.nif.trim() : locProf?.nif;
+            const effectiveEmail = (typeof dbProfile.email === 'string' && dbProfile.email.trim()) ? dbProfile.email.trim() : locProf?.email;
 
             if (effectiveName) setProfileName(effectiveName);
             if (effectivePhone) setPhone(effectivePhone);
