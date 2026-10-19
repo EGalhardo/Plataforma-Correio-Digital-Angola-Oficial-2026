@@ -4207,11 +4207,22 @@ export default function App() {
     if (!activeUserStorageKey || activeUserStorageKey === 'ANON') return;
     localStorage.setItem(`cda_hidden_messages_${activeUserStorageKey}`, JSON.stringify(hiddenMessageIds));
   }, [hiddenMessageIds, activeUserStorageKey]);
-  const isOwnCitizenMail = (m: Message) =>
-    isOwnHomologationMail(m) ||
-    (!!m.recipientBi && (normalizeHomologationBi(m.recipientBi) === normalizeHomologationBi(bi) || String(m.recipientBi).toUpperCase() === 'TODOS')) ||
-    (!!m.details?.body && (m.details.body.includes(bi) || m.details.body.toUpperCase().includes('EDLASIO') || m.details.body.toUpperCase().includes('GALHARDO'))) ||
-    (!!m.details?.subject && (m.details.subject.includes(bi) || m.details.subject.toUpperCase().includes('EDLASIO') || m.details.subject.toUpperCase().includes('GALHARDO')));
+  const isOwnCitizenMail = (m: Message) => {
+    const cleanBi = normalizeHomologationBi(bi || '');
+    const mRecBi = normalizeHomologationBi(m.recipientBi || '');
+    const norm = (v?: string) => String(v || '').toUpperCase().trim();
+    const myName = norm(profileName || user?.name || '');
+    const bodyText = norm(m.details?.body || '');
+    const subjText = norm(m.details?.subject || '');
+
+    return (
+      isOwnHomologationMail(m) ||
+      (!!m.recipientBi && (mRecBi === cleanBi || norm(m.recipientBi) === 'TODOS')) ||
+      (!!cleanBi && (bodyText.includes(cleanBi) || subjText.includes(cleanBi))) ||
+      (!!myName && myName.length > 2 && (bodyText.includes(myName) || subjText.includes(myName))) ||
+      (isDemoCitizenSession && (bodyText.includes('EDLASIO') || bodyText.includes('GALHARDO') || subjText.includes('EDLASIO') || subjText.includes('GALHARDO')))
+    );
+  };
 
   // ==========================================================================
   // Etapa #4 — SYNC AUTOMÁTICO DO PERFIL com o Supabase
