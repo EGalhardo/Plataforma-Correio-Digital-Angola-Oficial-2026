@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
+import { resolveTrustedAuthIdentity } from './adminIdentity';
 
 dotenv.config();
 
@@ -2433,7 +2434,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
         const sess = await sessResp.json().catch(() => null);
         const userSess = sess && (sess.user || sess);
-        const roleCaller = String(((userSess && userSess.user_metadata) || {}).role || '').toLowerCase();
+        const roleCaller = resolveTrustedAuthIdentity(userSess).role;
         if (roleCaller !== 'admin') return res.status(403).json({ ok: false, erro: 'Apenas a Administração elimina adesões institucionais.' });
 
         const chaves = new Set<string>([codeNorm, `${codeNorm}-01`]);
@@ -2561,10 +2562,11 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
         const sess = await sessResp.json().catch(() => null);
         const user = sess && (sess.user || sess);
-        const meta = (user && user.user_metadata) || {};
-        const roleCaller = String(meta.role || '').toLowerCase();
-        const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
-        const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+        const authIdentity = resolveTrustedAuthIdentity(user);
+        const meta = authIdentity.metadata;
+        const roleCaller = authIdentity.role;
+        const agentCaller = authIdentity.agent;
+        const instCaller = authIdentity.institution;
         // v37.75 — a protecção de ALVO demo passou para AFTER a autenticação:
         // linhas `profiles` de identificadores demo deixadas na base central
         // (ex.: ADM-8812-OP) são lixo eliminável pelo ADMIN REAL autenticado;
@@ -2661,10 +2663,11 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
         const sess = await sessResp.json().catch(() => null);
         const user = sess && (sess.user || sess);
-        const meta = (user && user.user_metadata) || {};
-        const roleCaller = String(meta.role || '').toLowerCase();
-        const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
-        const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+        const authIdentity = resolveTrustedAuthIdentity(user);
+        const meta = authIdentity.metadata;
+        const roleCaller = authIdentity.role;
+        const agentCaller = authIdentity.agent;
+        const instCaller = authIdentity.institution;
         const ehAdminAlvo = /^ADMIN-\d+$/.test(agenteNorm);
         let autorizado = false;
         let dominio = '';
@@ -2743,10 +2746,11 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
         const sess = await sessResp.json().catch(() => null);
         const user = sess && (sess.user || sess);
-        const meta = (user && user.user_metadata) || {};
-        const roleCaller = String(meta.role || '').toLowerCase();
-        const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
-        const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+        const authIdentity = resolveTrustedAuthIdentity(user);
+        const meta = authIdentity.metadata;
+        const roleCaller = authIdentity.role;
+        const agentCaller = authIdentity.agent;
+        const instCaller = authIdentity.institution;
         const ehResponsavelInst = roleCaller === 'instituicao' && !!instCaller && agentCaller === `${instCaller}-01`;
         const ehAlfa = roleCaller === 'admin' && agentCaller === 'ADMIN-0001';
         const PAGINAS_INST = ['home', 'correspondencias', 'inst-qrcode', 'inst-ai-assistant', 'perfil'];
@@ -2837,10 +2841,11 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
         const sess = await sessResp.json().catch(() => null);
         const user = sess && (sess.user || sess);
-        const meta = (user && user.user_metadata) || {};
-        const roleCaller = String(meta.role || '').toLowerCase();
-        const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
-        const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+        const authIdentity = resolveTrustedAuthIdentity(user);
+        const meta = authIdentity.metadata;
+        const roleCaller = authIdentity.role;
+        const agentCaller = authIdentity.agent;
+        const instCaller = authIdentity.institution;
         const ehResponsavelInst = roleCaller === 'instituicao' && !!instCaller && agentCaller === `${instCaller}-01`;
         const ehAlfa = roleCaller === 'admin' && agentCaller === 'ADMIN-0001';
         const h = { apikey: serviceKeyPerfil, Authorization: `Bearer ${serviceKeyPerfil}` };
@@ -3153,7 +3158,8 @@ async function dadosResolverIdentidadeRaw(supaUrl: string, serviceKey: string, t
     });
     if (!r.ok) return { erro: 'Sessão inválida ou expirada. Inicie sessão novamente.' };
     const u = await r.json();
-    const meta: any = { ...(u.app_metadata || {}), ...(u.user_metadata || {}) };
+    const identidade = resolveTrustedAuthIdentity(u);
+    const meta: any = identidade.metadata;
     let bi = String(meta.bi || '').trim().toUpperCase();
     if (!bi && u.email) {
       try {
@@ -3164,7 +3170,7 @@ async function dadosResolverIdentidadeRaw(supaUrl: string, serviceKey: string, t
         bi = (rows && rows[0] && rows[0].bi) ? String(rows[0].bi).toUpperCase() : '';
       } catch { /* melhor esforço */ }
     }
-    const role = String(meta.role || '').toLowerCase();
+    const role = identidade.role;
     // 2026-08-21 — contas institucionais/admin não têm `bi` no metadata: usar
     // o código institucional / nº de agente como chave de identidade, senão o
     // escopo de titularidade ficava vazio e o proxy devolvia TODAS as linhas
@@ -3604,8 +3610,8 @@ async function dadosResolverEExecutar(opts: {
         if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
         const sess = await sessResp.json().catch(() => null);
         const user = sess && (sess.user || sess);
-        const meta = (user && user.user_metadata) || {};
-        if (String(meta.role || '').toLowerCase() !== 'admin' || String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '') !== 'ADMIN-0001') {
+        const authIdentity = resolveTrustedAuthIdentity(user);
+        if (authIdentity.role !== 'admin' || authIdentity.agent !== 'ADMIN-0001') {
           return res.status(403).json({ ok: false, erro: 'Apenas o Admin Alfa executa a limpeza de órfãos.' });
         }
         const H = { apikey: serviceKeyPerfil, Authorization: `Bearer ${serviceKeyPerfil}` };

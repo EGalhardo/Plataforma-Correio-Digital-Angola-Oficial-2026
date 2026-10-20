@@ -10,6 +10,7 @@ import dotenv from "dotenv";
 import Groq from "groq-sdk";
 import { AVISO_IA, construirPrompts, juntarFontesKb, montarContextoKb, protegerTraducaoLinguaNacional, rowParaFonteKb, selecionarInstituicaoKb, validarPedido } from "./src/services/aiDocumentoCore";
 import { KB_REGISTO } from "./api/kb/registoKb";
+import { resolveTrustedAuthIdentity } from "./api/adminIdentity";
 import type { FonteKb, FonteKbDinamicaRow } from "./src/services/aiDocumentoCore";
 import { directorioParaContextoIA } from "./src/constants/directorioInstitucionalAngola";
 import { MUNICIPALITIES_BY_PROVINCE, CITIES_BY_PROVINCE, COMMUNES_BY_MUNICIPALITY } from "./src/config/institutionCatalog";
@@ -609,7 +610,8 @@ async function dadosResolverIdentidadeRaw(supaUrl: string, serviceKey: string, t
     });
     if (!r.ok) return { erro: 'Sessão inválida ou expirada. Inicie sessão novamente.' };
     const u = await r.json();
-    const meta: any = { ...(u.app_metadata || {}), ...(u.user_metadata || {}) };
+    const identidade = resolveTrustedAuthIdentity(u);
+    const meta: any = identidade.metadata;
     let bi = String(meta.bi || '').trim().toUpperCase();
     if (!bi && u.email) {
       try {
@@ -620,7 +622,7 @@ async function dadosResolverIdentidadeRaw(supaUrl: string, serviceKey: string, t
         bi = (rows && rows[0] && rows[0].bi) ? String(rows[0].bi).toUpperCase() : '';
       } catch { /* melhor esforço */ }
     }
-    const role = String(meta.role || '').toLowerCase();
+    const role = identidade.role;
     // 2026-08-21 — contas institucionais/admin não têm `bi` no metadata: usar
     // o código institucional / nº de agente como chave de identidade, senão o
     // escopo de titularidade ficava vazio e o proxy devolvia TODAS as linhas
@@ -1205,10 +1207,8 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: sess, error: sessErr } = await admin.auth.getUser(token);
       if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
-      const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
-      const roleCaller = String(meta.role || '').toLowerCase();
-      const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
-      if (roleCaller !== 'admin' || agentCaller !== 'ADMIN-0001') {
+      const authIdentity = resolveTrustedAuthIdentity(sess.user);
+      if (authIdentity.role !== 'admin' || authIdentity.agent !== 'ADMIN-0001') {
         return res.status(403).json({ ok: false, erro: 'Apenas o Admin Alfa executa a limpeza de órfãos.' });
       }
       const { data: profs } = await admin.from('profiles').select('bi').limit(3000);
@@ -1285,8 +1285,9 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: sess, error: sessErr } = await admin.auth.getUser(token);
       if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
-      const meta = ((sess.user.user_metadata || {}) as Record<string, unknown>);
-      const role = String(meta.role || '').toLowerCase();
+      const authIdentity = resolveTrustedAuthIdentity(sess.user);
+      const meta = authIdentity.metadata;
+      const role = authIdentity.role;
       const minhaSigla = normChaveElim(role === 'instituicao' ? (meta.instituicao || '') : role === 'admin' ? (meta.agent || '') : (meta.bi || ''));
       if (role !== 'admin' && (!minhaSigla || !sigla || minhaSigla !== sigla)) {
         return res.status(403).json({ ok: false, erro: 'Sem autorização sobre este ficheiro.' });
@@ -1311,8 +1312,9 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: sess, error: sessErr } = await admin.auth.getUser(token);
       if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
-      const meta = ((sess.user.user_metadata || {}) as Record<string, unknown>);
-      const role = String(meta.role || '').toLowerCase();
+      const authIdentity = resolveTrustedAuthIdentity(sess.user);
+      const meta = authIdentity.metadata;
+      const role = authIdentity.role;
       const minhaChave = normChaveElim(
         role === 'instituicao' ? (meta.instituicao || '') :
         role === 'admin' ? (meta.agent || '') :
@@ -1365,7 +1367,7 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: sess, error: sessErr } = await admin.auth.getUser(token);
       if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
-      const roleCaller = String(((sess.user.user_metadata || {}) as Record<string, unknown>).role || '').toLowerCase();
+      const roleCaller = resolveTrustedAuthIdentity(sess.user).role;
       if (roleCaller !== 'admin') return res.status(403).json({ ok: false, erro: 'Apenas a Administração elimina adesões institucionais.' });
 
       // Chaves válidas: o código, o responsável (-01) e agentes -NN do PRÓPRIO código.
@@ -1511,10 +1513,11 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: sess, error: sessErr } = await admin.auth.getUser(token);
       if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
-      const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
-      const roleCaller = String(meta.role || '').toLowerCase();
-      const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
-      const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+      const authIdentity = resolveTrustedAuthIdentity(sess.user);
+      const meta = authIdentity.metadata;
+      const roleCaller = authIdentity.role;
+      const agentCaller = authIdentity.agent;
+      const instCaller = authIdentity.institution;
 
       // v37.75 — a protecção de ALVO demo (DADOS_DEMO_BIS) passou para AFTER a
       // autenticação: linhas `profiles` de identificadores demo que ficaram na
@@ -1614,10 +1617,11 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: sess, error: sessErr } = await admin.auth.getUser(token);
       if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
-      const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
-      const roleCaller = String(meta.role || '').toLowerCase();
-      const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
-      const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+      const authIdentity = resolveTrustedAuthIdentity(sess.user);
+      const meta = authIdentity.metadata;
+      const roleCaller = authIdentity.role;
+      const agentCaller = authIdentity.agent;
+      const instCaller = authIdentity.institution;
 
       const ehAdminAlvo = /^ADMIN-\d+$/.test(agenteNorm);
       let autorizado = false;
@@ -1686,10 +1690,11 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: sess, error: sessErr } = await admin.auth.getUser(token);
       if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
-      const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
-      const roleCaller = String(meta.role || '').toLowerCase();
-      const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
-      const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+      const authIdentity = resolveTrustedAuthIdentity(sess.user);
+      const meta = authIdentity.metadata;
+      const roleCaller = authIdentity.role;
+      const agentCaller = authIdentity.agent;
+      const instCaller = authIdentity.institution;
 
       const ehResponsavelInst = roleCaller === 'instituicao' && !!instCaller && agentCaller === `${instCaller}-01`;
       const ehAlfa = roleCaller === 'admin' && agentCaller === 'ADMIN-0001';
@@ -1770,10 +1775,11 @@ async function purgarVestigiosPorChave(admin: any, chave: string): Promise<Recor
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: sess, error: sessErr } = await admin.auth.getUser(token);
       if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
-      const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
-      const roleCaller = String(meta.role || '').toLowerCase();
-      const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
-      const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
+      const authIdentity = resolveTrustedAuthIdentity(sess.user);
+      const meta = authIdentity.metadata;
+      const roleCaller = authIdentity.role;
+      const agentCaller = authIdentity.agent;
+      const instCaller = authIdentity.institution;
       const ehResponsavelInst = roleCaller === 'instituicao' && !!instCaller && agentCaller === `${instCaller}-01`;
       const ehAlfa = roleCaller === 'admin' && agentCaller === 'ADMIN-0001';
 

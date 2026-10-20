@@ -154,6 +154,8 @@ export interface CloudSignInResult {
   message?: string;
   /** user_metadata do Auth (ex.: nome guardado no provisionamento) */
   metadata?: Record<string, any>;
+  /** app_metadata definido no servidor; obrigatório para conceder acesso Admin. */
+  appMetadata?: Record<string, any>;
 }
 
 export type CloudProvisionOutcome =
@@ -189,7 +191,11 @@ export const cloudSignIn = async (
       // Sessão ausente com credenciais válidas => confirmação de e-mail activa no painel
       return { outcome: 'invalid', message: 'Sessão não criada (confirmação de e-mail activa?).' };
     }
-    return { outcome: 'ok', metadata: (data.user?.user_metadata as Record<string, any>) || {} };
+    return {
+      outcome: 'ok',
+      metadata: (data.user?.user_metadata as Record<string, any>) || {},
+      appMetadata: (data.user?.app_metadata as Record<string, any>) || {},
+    };
   } catch (e) {
     const kind = classifyAuthError(e);
     return { outcome: kind === 'unavailable' ? 'unavailable' : 'error', message: (e as Error)?.message || String(e) };
