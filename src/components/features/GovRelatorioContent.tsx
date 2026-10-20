@@ -735,12 +735,12 @@ export function GovRelatorioContent({
                 <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 mt-1">Logs de auditoria</div>
               </div>
               <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 text-center">
-                <div className="text-2xl font-black text-rose-600">{criticos}</div>
-                <div className="text-[9px] font-black uppercase tracking-widest text-rose-500 mt-1">Críticos</div>
+                <div className="text-2xl font-black text-rose-700">{criticos}</div>
+                <div className="text-[9px] font-black uppercase tracking-widest text-rose-700 mt-1">Críticos</div>
               </div>
               <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
-                <div className="text-2xl font-black text-amber-600">{warnings}</div>
-                <div className="text-[9px] font-black uppercase tracking-widest text-amber-500 mt-1">Avisos</div>
+                <div className="text-2xl font-black text-amber-700">{warnings}</div>
+                <div className="text-[9px] font-black uppercase tracking-widest text-amber-700 mt-1">Avisos</div>
               </div>
             </div>
           </div>
@@ -755,7 +755,7 @@ export function GovRelatorioContent({
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="fixed top-6 right-6 z-[999999] bg-[#00A859] text-white px-5 py-4 rounded-2xl shadow-2xl flex items-center gap-3 font-sans font-bold text-xs uppercase tracking-wider border border-[#00C267] print:hidden"
+            className="fixed top-6 right-6 z-[999999] bg-[#007A45] text-white px-5 py-4 rounded-2xl shadow-2xl flex items-center gap-3 font-sans font-bold text-xs uppercase tracking-wider border border-[#00C267] print:hidden"
           >
             <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center animate-pulse">
               <Check size={14} className="stroke-[3]" />
@@ -802,7 +802,7 @@ export function GovRelatorioContent({
                 setShowToast(true);
                 setTimeout(() => setShowToast(false), 3000);
               }}
-              className="flex items-center justify-center gap-2 px-6 py-3.5 bg-[#00A859] hover:bg-[#00c267] text-white rounded-[16px] text-xs font-black uppercase tracking-wider transition-all duration-200 hover:shadow-lg active:scale-95 cursor-pointer border-0 shadow-sm"
+              className="flex items-center justify-center gap-2 px-6 py-3.5 bg-[#007A45] hover:bg-[#00985C] text-white rounded-[16px] text-xs font-black uppercase tracking-wider transition-all duration-200 hover:shadow-lg active:scale-95 cursor-pointer border-0 shadow-sm"
             >
               <FileCheck size={16} className="stroke-[2.5]" />
               <span>Memória Descritiva</span>
@@ -879,6 +879,7 @@ export function GovRelatorioContent({
             <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-xl px-3 py-2 text-[11px] text-slate-800 font-mono font-bold shadow-2xs">
               <input 
                 type="date" 
+                aria-label="Data de Início do Intervalo Customizado"
                 value={customStartDate} 
                 onChange={(e) => {
                   setCustomStartDate(e.target.value);
@@ -892,6 +893,7 @@ export function GovRelatorioContent({
               <span className="text-slate-400 font-sans font-bold">até</span>
               <input 
                 type="date" 
+                aria-label="Data de Fim do Intervalo Customizado"
                 value={customEndDate} 
                 onChange={(e) => {
                   setCustomEndDate(e.target.value);
@@ -1206,7 +1208,7 @@ export function GovRelatorioContent({
                         ) : activeTab === 'audit_security' ? (
                           resolvedAuditLogs.map((l) => (
                             <tr key={l.id} className="hover:bg-slate-50/50 transition-colors">
-                              <td className="py-3 px-4 font-mono font-bold text-rose-600">{l.id}</td>
+                              <td className="py-3 px-4 font-mono font-bold text-rose-700">{l.id}</td>
                               <td className="py-3 px-4 font-semibold max-w-xs truncate" title={l.action}>{l.action}</td>
                               <td className="py-3 px-4 font-medium text-slate-600">{l.user}</td>
                               <td className="py-3 px-4 font-mono text-[10px] text-slate-400">{(l.timestamp && l.timestamp.includes('T')) ? fmtDataCurta(l.timestamp) : l.timestamp}</td>
@@ -1245,7 +1247,7 @@ export function GovRelatorioContent({
                               <td className="py-3 px-4">
                                 <div className="flex items-center gap-2">
                                   <div className="w-16 bg-slate-100 h-1.5 rounded-full overflow-hidden block">
-                                    <div className="bg-[#00A859] h-full" style={{ width: '88%' }} />
+                                    <div className="bg-[#007A45] h-full" style={{ width: '88%' }} />
                                   </div>
                                   <span className="font-mono text-[10px] font-bold">88.2%</span>
                                 </div>
@@ -1258,7 +1260,7 @@ export function GovRelatorioContent({
                               <td className="py-3 px-4">
                                 <div className="flex items-center gap-2">
                                   <div className="w-16 bg-slate-100 h-1.5 rounded-full overflow-hidden block">
-                                    <div className="bg-[#00A859] h-full" style={{ width: '74%' }} />
+                                    <div className="bg-[#007A45] h-full" style={{ width: '74%' }} />
                                   </div>
                                   <span className="font-mono text-[10px] font-bold">74.1%</span>
                                 </div>
@@ -1271,7 +1273,7 @@ export function GovRelatorioContent({
                               <td className="py-3 px-4">
                                 <div className="flex items-center gap-2">
                                   <div className="w-16 bg-slate-100 h-1.5 rounded-full overflow-hidden block">
-                                    <div className="bg-[#00A859] h-full" style={{ width: '69%' }} />
+                                    <div className="bg-[#007A45] h-full" style={{ width: '69%' }} />
                                   </div>
                                   <span className="font-mono text-[10px] font-bold">69.5%</span>
                                 </div>
@@ -1304,7 +1306,7 @@ export function GovRelatorioContent({
                               <td className="py-3 px-4 font-mono">182 atendimentos</td>
                               <td className="py-3 px-4">
                                 <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-extrabold font-sans">
-                                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
+                                  <span className="w-2 h-2 rounded-full bg-emerald-700 animate-ping inline-block" />
                                   Excelente (99.2%)
                                 </span>
                               </td>
@@ -1345,14 +1347,14 @@ export function GovRelatorioContent({
                           <>
                             <tr className="hover:bg-slate-50/50 transition-colors">
                               <td className="py-3 px-4 font-semibold">Triagem de Correspondências dactiloscópicas</td>
-                              <td className="py-3 px-4 font-mono font-bold text-emerald-600">910 decisões/dia</td>
+                              <td className="py-3 px-4 font-mono font-bold text-emerald-700">910 decisões/dia</td>
                               <td className="py-3 px-4 font-mono font-bold text-slate-650">88% deferido auto</td>
                               <td className="py-3 px-4 font-mono text-[11px] text-indigo-600">0.023 seg/média</td>
                               <td className="py-3 px-4 font-mono text-[11px] text-slate-400">197.231.42.15</td>
                             </tr>
                             <tr className="hover:bg-slate-50/50 transition-colors">
                               <td className="py-3 px-4 font-semibold">Comparações Faciais de Identidade Digital</td>
-                              <td className="py-3 px-4 font-mono font-bold text-emerald-600">1.853 decisões/dia</td>
+                              <td className="py-3 px-4 font-mono font-bold text-emerald-700">1.853 decisões/dia</td>
                               <td className="py-3 px-4 font-mono font-bold text-slate-650">99.1% precisão</td>
                               <td className="py-3 px-4 font-mono text-[11px] text-indigo-600">0.051 seg/média</td>
                               <td className="py-3 px-4 font-mono text-[11px] text-slate-400">197.231.40.89</td>
@@ -1502,8 +1504,9 @@ export function GovRelatorioContent({
                 <span className="font-extrabold text-[10px] uppercase tracking-wider text-indigo-700 block">Campos Editáveis do Cabeçalho Oficiail:</span>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="grid gap-1">
-                    <label className="text-[9px] font-black text-slate-500 uppercase">Título do Relatorio:</label>
+                    <label htmlFor="relatorio-exec-title" className="text-[9px] font-black text-slate-500 uppercase">Título do Relatorio:</label>
                     <input 
+                      id="relatorio-exec-title"
                       type="text" 
                       value={executiveTitle}
                       onChange={(e) => setExecutiveTitle(e.target.value)}
@@ -1511,8 +1514,9 @@ export function GovRelatorioContent({
                     />
                   </div>
                   <div className="grid gap-1">
-                    <label className="text-[9px] font-black text-slate-500 uppercase">Direção / Departamento:</label>
+                    <label htmlFor="relatorio-exec-dept" className="text-[9px] font-black text-slate-500 uppercase">Direção / Departamento:</label>
                     <input 
+                      id="relatorio-exec-dept"
                       type="text" 
                       value={executiveDepartment}
                       onChange={(e) => setExecutiveDepartment(e.target.value)}
@@ -1530,7 +1534,7 @@ export function GovRelatorioContent({
                 {/* Official coat decoration */}
                 <div className="text-center space-y-2 border-b-2 border-slate-900 pb-5 mb-6">
                   {/* Stylized arms of republic (Vector) */}
-                  <div className="mx-auto w-12 h-12 border-2 border-amber-500 rounded-full flex items-center justify-center font-black text-amber-600 bg-amber-50 text-[10px] font-serif select-none select-all shadow-inner">
+                  <div className="mx-auto w-12 h-12 border-2 border-amber-500 rounded-full flex items-center justify-center font-black text-amber-700 bg-amber-50 text-[10px] font-serif select-none select-all shadow-inner">
                     CDA
                   </div>
                   <h4 className="font-sans font-black text-sm tracking-widest text-[#0c2340] uppercase m-0 leading-tight">

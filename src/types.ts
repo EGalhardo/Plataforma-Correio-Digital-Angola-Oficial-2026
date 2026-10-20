@@ -246,7 +246,7 @@ export const SENSITIVITY_LEVELS: Record<'Público' | 'Privado' | 'Sensível' | '
     textColor: 'text-emerald-700',
     borderColor: 'border-emerald-200',
     badgeBg: 'bg-emerald-50/50',
-    dotColor: 'bg-emerald-500',
+    dotColor: 'bg-emerald-700',
     accessRules: 'Acesso público sem restrições regulamentares. Qualquer cidadão autenticado pode visualizar.',
     encryption: 'Segurança de Infraestrutura em canal TLS 1.3 padrão.',
     sessionTimeout: 'Sem limite de tempo por inatividade.',

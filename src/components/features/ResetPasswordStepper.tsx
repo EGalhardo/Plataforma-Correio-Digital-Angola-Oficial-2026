@@ -296,8 +296,8 @@ export function ResetPasswordStepper({ onCancel, onSuccess, addAuditLog, appMode
                     {password && (
                       <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${
                         pwdStrength === 'Fraca' ? 'bg-red-50 text-red-600' :
-                        pwdStrength === 'Média' ? 'bg-amber-50 text-amber-600' :
-                        'bg-emerald-50 text-emerald-600'
+                        pwdStrength === 'Média' ? 'bg-amber-50 text-amber-700' :
+                        'bg-emerald-50 text-emerald-700'
                       }`}>
                         {pwdStrength}
                       </span>
@@ -398,7 +398,7 @@ export function ResetPasswordStepper({ onCancel, onSuccess, addAuditLog, appMode
               animate={{ opacity: 1, scale: 1 }}
               className="text-center space-y-4 max-w-lg mx-auto"
             >
-              <div className="mx-auto w-14 h-14 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center shadow-md border border-emerald-100 animate-scaleUp">
+              <div className="mx-auto w-14 h-14 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center justify-center shadow-md border border-emerald-100 animate-scaleUp">
                 <ShieldCheck size={28} />
               </div>
               <div className="space-y-2">

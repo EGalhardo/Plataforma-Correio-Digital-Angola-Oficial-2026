@@ -426,7 +426,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
   const getStatusConfig = (status: string) => {
     // Variantes dark incluídas (corrige visibilidade da lista no modo escuro).
     switch (status) {
-      case 'disponivel': return { color: 'bg-emerald-500', text: 'Disponível', bg: 'bg-emerald-50', border: 'border-emerald-200', bgDark: 'dark:bg-emerald-900/40', borderDark: 'dark:border-emerald-700', semClass: 'cda-st-disponivel' };
+      case 'disponivel': return { color: 'bg-emerald-700', text: 'Disponível', bg: 'bg-emerald-50', border: 'border-emerald-200', bgDark: 'dark:bg-emerald-900/40', borderDark: 'dark:border-emerald-700', semClass: 'cda-st-disponivel' };
       case 'agendada': return { color: 'bg-blue-500', text: 'Agendada', bg: 'bg-blue-50', border: 'border-blue-200', bgDark: 'dark:bg-blue-900/40', borderDark: 'dark:border-blue-700', semClass: 'cda-st-agendada' };
       case 'em_curso': return { color: 'bg-red-500 animate-pulse', text: 'Em Curso', bg: 'bg-red-50', border: 'border-red-200', bgDark: 'dark:bg-red-900/40', borderDark: 'dark:border-red-700', semClass: 'cda-st-em_curso' };
       case 'concluida': return { color: 'bg-slate-400', text: 'Concluída', bg: 'bg-slate-50', border: 'border-slate-200', bgDark: 'dark:bg-slate-800', borderDark: 'dark:border-slate-700' };
@@ -501,7 +501,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl dark:bg-emerald-900/40 dark:border-emerald-700">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <div className="w-2 h-2 rounded-full bg-emerald-700 animate-pulse" />
             <span className="text-[10px] font-black text-emerald-700 uppercase dark:text-emerald-300">{availableCount} Agendados</span>
           </div>
           {inProgressCount > 0 && (
@@ -643,7 +643,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setSessaoAEliminar(session); }}
                                   title="Eliminar da minha agenda"
-                                  className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-[10px] font-black uppercase rounded-lg transition-all cursor-pointer"
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-black uppercase rounded-lg transition-all cursor-pointer"
                                 >
                                   <Trash2 size={12} />
                                   Eliminar
@@ -710,7 +710,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                   <div className="space-y-4">
                     <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl dark:bg-slate-800 dark:border-slate-700">
                       <h5 className="text-sm font-black text-slate-800 mb-2 flex items-center gap-2 dark:text-slate-100">
-                        <CheckCircle size={16} className="text-emerald-500" />Como usar o VideoAtendimento
+                        <CheckCircle size={16} className="text-emerald-700" />Como usar o VideoAtendimento
                       </h5>
                       <ul className="text-[11px] text-slate-600 space-y-2 dark:text-slate-300">
                         <li>1. Selecione um atendimento disponível na aba "Agenda"</li>
@@ -771,7 +771,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                               <PhoneOff size={18} /><span className="text-[11px] font-black uppercase">Terminar</span>
                             </button>
                           ) : (
-                            <button onClick={() => handleStartCall(selectedSession)} className="h-10 px-5 rounded-full flex items-center justify-center bg-emerald-500 text-white hover:bg-emerald-600 transition-all gap-2 border-0 cursor-pointer shadow-md">
+                            <button onClick={() => handleStartCall(selectedSession)} className="h-10 px-5 rounded-full flex items-center justify-center bg-emerald-700 text-white hover:bg-emerald-700 transition-all gap-2 border-0 cursor-pointer shadow-md">
                               <Play size={18} /><span className="text-[11px] font-black uppercase">Entrar</span>
                             </button>
                           )}
@@ -810,7 +810,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                   <span className="text-[10px] font-black text-slate-600 uppercase tracking-wider flex items-center gap-2">
                     <Video size={12} className="text-primary" />VideoAtendimento
                   </span>
-                  {isInCall && <span className="text-[10px] font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg">{formatDuration(callDuration)}</span>}
+                  {isInCall && <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg">{formatDuration(callDuration)}</span>}
                 </div>
                 
                 {/* WebRTC Video Call Room visível na coluna direita para Desktops */}
@@ -851,7 +851,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                       <PhoneOff size={18} /><span className="text-[10px] font-black uppercase">Sair</span>
                     </button>
                   ) : (
-                    <button onClick={() => { setActiveTab('video'); handleStartCall(selectedSession); }} className="h-10 px-5 rounded-full flex items-center justify-center bg-emerald-500 text-white hover:bg-emerald-600 transition-all gap-2 border-0 cursor-pointer shadow-md">
+                    <button onClick={() => { setActiveTab('video'); handleStartCall(selectedSession); }} className="h-10 px-5 rounded-full flex items-center justify-center bg-emerald-700 text-white hover:bg-emerald-700 transition-all gap-2 border-0 cursor-pointer shadow-md">
                       <Play size={18} /><span className="text-[10px] font-black uppercase">Entrar</span>
                     </button>
                   )}

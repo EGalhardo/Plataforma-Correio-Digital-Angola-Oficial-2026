@@ -273,7 +273,7 @@ export function AddContactModal({
 
               {/* Estágio de Autorização Section */}
               <div hidden={institutional} className="space-y-4">
-                <div className="flex items-center gap-2 text-[#10b981] font-bold uppercase tracking-wider text-xs">
+                <div className="flex items-center gap-2 text-emerald-700 font-bold uppercase tracking-wider text-xs">
                   <CheckCircle size={16} />
                   <span>Estágio de Autorização</span>
                 </div>
@@ -282,7 +282,7 @@ export function AddContactModal({
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Permissão de Acesso *</label>
                   <div className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-2 text-slate-800">
-                      <CheckCircle size={16} className="text-[#10b981]" />
+                      <CheckCircle size={16} className="text-emerald-700" />
                       <span className="text-xs font-bold">Autorizado</span>
                     </div>
                     <ChevronDown size={14} className="text-slate-400" />
@@ -291,7 +291,7 @@ export function AddContactModal({
 
                 {/* Info block */}
                 <div className="bg-[#f0fdf4] border border-emerald-100 p-4 rounded-2xl flex gap-3 items-start select-none">
-                  <Info size={18} className="text-[#10b981] shrink-0 mt-0.5" />
+                  <Info size={18} className="text-emerald-700 shrink-0 mt-0.5" />
                   <p className="text-slate-700 text-[10.5px] font-medium leading-relaxed">
                     Utilizadores autorizados poderão aceder aos dados de contacto em situações previstas no protocolo institucional de segurança e emergência.
                   </p>

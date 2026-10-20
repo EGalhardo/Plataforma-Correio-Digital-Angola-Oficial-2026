@@ -271,7 +271,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
 
       {disponivel === false && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 flex items-center gap-3" data-testid="selo-sondagens-migracao">
-          <Lock size={16} className="text-amber-600 shrink-0" />
+          <Lock size={16} className="text-amber-700 shrink-0" />
           <p className="text-[12px] font-semibold text-amber-800">
             Funcionalidade disponível em Modo Real (Supabase) — aguarda a aplicação da migração <code>v36_sondagens.sql</code> no SQL Editor do Supabase.
           </p>
@@ -330,7 +330,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
                         <p className="text-[13px] font-bold text-slate-800 truncate m-0">{tituloQ}</p>
                         <p className="text-[11px] font-medium text-slate-500 mt-1 m-0 flex items-center gap-x-1.5 flex-wrap">
                           {new Date(q.created_at).toLocaleDateString('pt-PT')} · âmbito {q.abrangencia === 'nacional' ? 'Nacional' : q.abrangencia === 'regional' ? 'Regional' : 'Local'} ·{' '}
-                          <span className={q.status === 'ativo' ? 'text-emerald-600 font-bold' : 'text-slate-500 font-bold'}>{q.status}</span>
+                          <span className={q.status === 'ativo' ? 'text-emerald-700 font-bold' : 'text-slate-500 font-bold'}>{q.status}</span>
                           <span className="text-slate-300">|</span>
                           {c ? (
                             <span className="tabular-nums" data-testid="inquerito-ia-contadores-linha">
@@ -396,7 +396,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
                     <>{dataConversa(p.conversa)} · {p.itens.length} {p.itens.length === 1 ? 'pergunta' : 'perguntas'} · {p.conversa.total} {p.conversa.total === 1 ? 'destinatário' : 'destinatários'}</>
                   ) : (
                     <>{new Date(p.itens[0].created_at).toLocaleDateString('pt-PT')} · âmbito {p.itens[0].abrangencia === 'nacional' ? 'Nacional' : p.itens[0].abrangencia === 'regional' ? 'Regional' : 'Local'} · {p.itens[0].destinatarios ?? p.itens[0].audiencia_total} destinatários ·{' '}
-                    <span className={p.itens[0].status === 'ativa' ? 'text-emerald-600 font-bold' : 'text-slate-500 font-bold'}>{p.itens[0].status}</span></>
+                    <span className={p.itens[0].status === 'ativa' ? 'text-emerald-700 font-bold' : 'text-slate-500 font-bold'}>{p.itens[0].status}</span></>
                   )}
                 </p>
               </div>

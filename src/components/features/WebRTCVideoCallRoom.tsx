@@ -1002,7 +1002,7 @@ export function WebRTCVideoCallRoom({
         {/* 2026-09-09: em espera o canto superior esquerdo fica limpo (o estado
             «Aguardar Participante» é mostrado no centro do ecrã grande) */}
         {hasRemoteStream ? (
-          <div className="flex items-center gap-1.5 bg-slate-950/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-emerald-500/30">
+          <div className="flex items-center gap-1.5 bg-slate-950/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-emerald-700/30">
             <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]" />
             <span className="text-emerald-300 text-[10px] font-black uppercase tracking-wider">
               EM DIRETO
@@ -1143,7 +1143,7 @@ export function WebRTCVideoCallRoom({
         
         {/* Left: Remote Participant Info (Positioned outside the video stream) */}
         <div className="flex items-center gap-2 min-w-0 max-w-[180px] md:max-w-[280px]">
-          <span className={`w-2 h-2 rounded-full shrink-0 ${hasRemoteStream ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-amber-500'}`} />
+          <span className={`w-2 h-2 rounded-full shrink-0 ${hasRemoteStream ? 'bg-emerald-700 shadow-[0_0_8px_#10b981]' : 'bg-amber-500'}`} />
           <div className="min-w-0">
             <span className="text-white text-xs font-black truncate block leading-tight">
               {remoteParticipant || remoteUserName || 'Interlocutor Oficial'}
@@ -1230,7 +1230,7 @@ export function WebRTCVideoCallRoom({
               type="button"
               onClick={ligarSomRemoto}
               title="Ligar som do interlocutor"
-              className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all border-0 cursor-pointer shadow-md active:scale-95 bg-emerald-500/90 text-white hover:bg-emerald-600 shadow-emerald-500/30 animate-pulse"
+              className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all border-0 cursor-pointer shadow-md active:scale-95 bg-emerald-700/90 text-white hover:bg-emerald-700 shadow-emerald-500/30 animate-pulse"
             >
               <Volume2 size={20} />
             </button>

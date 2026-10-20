@@ -178,7 +178,7 @@ export function ActivityCenterContent({
             <div className="space-y-2.5 text-[11px]">
               <div className="flex justify-between items-center bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-100">
                 <span className="font-bold text-slate-700">Correspondências pendentes</span>
-                <span className="font-black text-amber-600">{messages.filter((item) => item.unread).length}</span>
+                <span className="font-black text-amber-700">{messages.filter((item) => item.unread).length}</span>
               </div>
               <div className="flex justify-between items-center bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-100">
                 <span className="font-bold text-slate-700">Solicitações em aberto</span>
@@ -186,7 +186,7 @@ export function ActivityCenterContent({
               </div>
               <div className="flex justify-between items-center bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-100">
                 <span className="font-bold text-slate-700">Eventos auditáveis</span>
-                <span className="font-black text-emerald-600">{auditLogs.length}</span>
+                <span className="font-black text-emerald-700">{auditLogs.length}</span>
               </div>
             </div>
           </div>

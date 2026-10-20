@@ -3419,7 +3419,7 @@ export function OcorrenciasPage({ onBack, messages = [], onDeleteMessage }: Ocor
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex gap-3 items-start">
-              <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={20} />
+              <AlertTriangle className="text-amber-700 shrink-0 mt-0.5" size={20} />
               <div className="space-y-1 min-w-0">
                 <h3 className="font-black text-primary">Eliminar ocorrência</h3>
                 <p className="text-sm text-slate-600">

@@ -952,8 +952,8 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     {password && (
                       <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${
                         pwdStrength === 'Fraca' ? 'bg-red-50 text-red-600' :
-                        pwdStrength === 'Média' ? 'bg-amber-50 text-amber-600' :
-                        'bg-emerald-50 text-emerald-600'
+                        pwdStrength === 'Média' ? 'bg-amber-50 text-amber-700' :
+                        'bg-emerald-50 text-emerald-700'
                       }`}>
                         {pwdStrength}
                       </span>
@@ -994,7 +994,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     confirmPassword && !passwordsMatch
                       ? 'border-red-400 focus-within:border-red-500 focus-within:ring-red-200'
                       : passwordsMatch
-                        ? 'border-emerald-400 focus-within:border-emerald-500 focus-within:ring-emerald-200'
+                        ? 'border-emerald-400 focus-within:border-emerald-700 focus-within:ring-emerald-200'
                         : 'border-slate-200 focus-within:border-[#0c2340] focus-within:ring-[#0c2340]'
                   }`}>
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${passwordsMatch ? 'bg-emerald-50 text-emerald-700' : 'bg-[#f0f4f9] text-[#1e3a8a]'}`}>
@@ -1019,7 +1019,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     </span>
                   )}
                   {passwordsMatch && (
-                    <span className="text-[10px] text-emerald-600 font-extrabold uppercase tracking-tight flex items-center gap-1 mt-0.5 pl-2" role="status">
+                    <span className="text-[10px] text-emerald-700 font-extrabold uppercase tracking-tight flex items-center gap-1 mt-0.5 pl-2" role="status">
                       <Check size={12} aria-hidden="true" /> As senhas coincidem.
                     </span>
                   )}
@@ -1171,7 +1171,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     </span>
                     <label className={`group relative border-2 border-dashed rounded-[16px] p-2.5 text-center flex flex-col items-center justify-center min-h-[108px] cursor-pointer transition-all duration-300 select-none ${
                       frenteSuccess 
-                        ? 'border-emerald-500 bg-emerald-50/10' 
+                        ? 'border-emerald-700 bg-emerald-50/10' 
                         : isUploadingFrente 
                         ? 'border-[#2563eb] bg-blue-50/15 animate-pulse' 
                         : 'border-[#bfdbfe] bg-white hover:bg-[#eff6ff]/30 hover:border-[#2563eb]'
@@ -1198,8 +1198,8 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                             </div>
                           ) : (
                             <div className="flex flex-col items-center gap-0.5">
-                              <CheckCircle2 size={18} className="text-emerald-500" />
-                              <span className="text-[10.5px] font-black text-emerald-600 uppercase tracking-wider">Leitura Completa</span>
+                              <CheckCircle2 size={18} className="text-emerald-700" />
+                              <span className="text-[10.5px] font-black text-emerald-700 uppercase tracking-wider">Leitura Completa</span>
                             </div>
                           )}
                           <span className="text-[10px] font-black text-emerald-700 mt-0.5 uppercase tracking-tight">Ficheiro Carregado</span>
@@ -1228,7 +1228,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     </span>
                     <label className={`group relative border-2 border-dashed rounded-[16px] p-2.5 text-center flex flex-col items-center justify-center min-h-[108px] cursor-pointer transition-all duration-300 select-none ${
                       versoSuccess 
-                        ? 'border-emerald-500 bg-emerald-50/10' 
+                        ? 'border-emerald-700 bg-emerald-50/10' 
                         : isUploadingVerso 
                         ? 'border-[#2563eb] bg-blue-50/15 animate-pulse' 
                         : 'border-[#bfdbfe] bg-white hover:bg-[#eff6ff]/30 hover:border-[#2563eb]'
@@ -1255,8 +1255,8 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                             </div>
                           ) : (
                             <div className="flex flex-col items-center gap-0.5">
-                              <CheckCircle2 size={18} className="text-emerald-500" />
-                              <span className="text-[10.5px] font-black text-emerald-600 uppercase tracking-wider">Leitura Completa</span>
+                              <CheckCircle2 size={18} className="text-emerald-700" />
+                              <span className="text-[10.5px] font-black text-emerald-700 uppercase tracking-wider">Leitura Completa</span>
                             </div>
                           )}
                           <span className="text-[10px] font-black text-emerald-700 mt-0.5 uppercase tracking-tight">Ficheiro Carregado</span>
@@ -1464,7 +1464,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               <div className="text-center space-y-1">
                 <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
                   captureFinished 
-                    ? 'bg-emerald-50 border-emerald-100 text-emerald-600' 
+                    ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
                     : isScanning 
                     ? 'bg-blue-50 border-blue-100 text-blue-600 animate-pulse' 
                     : 'bg-slate-50 border-slate-200 text-slate-500'
@@ -1520,7 +1520,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               {/* Success Bio validation Alert Box */}
               {captureFinished && (
                 <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 flex gap-2.5 text-left max-w-md mx-auto shadow-3xs">
-                  <ShieldCheck size={16} className="text-emerald-500 shrink-0 mt-0.5" />
+                  <ShieldCheck size={16} className="text-emerald-700 shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <p className="text-[11px] font-black text-emerald-900 uppercase tracking-tight">BIOMETRIA REGISTADA COM SUCESSO</p>
                     <p className="text-[10px] text-[#065f46] leading-relaxed font-semibold">
@@ -1586,7 +1586,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               animate={{ opacity: 1, scale: 1 }}
               className="text-center space-y-4 max-w-lg mx-auto"
             >
-              <div className="mx-auto w-14 h-14 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center shadow-md border border-emerald-100 animate-scaleUp">
+              <div className="mx-auto w-14 h-14 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center justify-center shadow-md border border-emerald-100 animate-scaleUp">
                 <ShieldCheck size={28} />
               </div>
 
@@ -1672,7 +1672,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                       className="p-1.5 px-2.5 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
                       title="Copiar Nº do B.I."
                     >
-                      {copiedBi ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                      {copiedBi ? <Check size={12} className="text-emerald-700" /> : <Copy size={12} />}
                       <span>{copiedBi ? 'Copiado' : 'Copiar'}</span>
                     </button>
                   </div>
@@ -1703,7 +1703,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                       className="p-1.5 px-2.5 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
                       title="Copiar Palavra-passe"
                     >
-                      {copiedPassword ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                      {copiedPassword ? <Check size={12} className="text-emerald-700" /> : <Copy size={12} />}
                       <span>{copiedPassword ? 'Copiada' : 'Copiar'}</span>
                     </button>
                   </div>
@@ -1712,7 +1712,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
               {pviAutoApproved && (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 flex items-center justify-center gap-2 animate-fadeIn">
-                  <Sparkles size={13} className="text-emerald-600" />
+                  <Sparkles size={13} className="text-emerald-700" />
                   <span className="text-[10.5px] font-black text-emerald-700 uppercase tracking-widest">Aprovado automaticamente por Pré-Verificação Inteligente (IA)</span>
                 </div>
               )}
@@ -1794,7 +1794,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                   className="p-1 px-2 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[9.5px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
                   title="Copiar Nº do B.I."
                 >
-                  {copiedBi ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                  {copiedBi ? <Check size={11} className="text-emerald-700" /> : <Copy size={11} />}
                   <span>{copiedBi ? 'Copiado' : 'Copiar'}</span>
                 </button>
               </div>
@@ -1825,7 +1825,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                   className="p-1 px-2 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[9.5px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
                   title="Copiar Palavra-passe"
                 >
-                  {copiedPassword ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                  {copiedPassword ? <Check size={11} className="text-emerald-700" /> : <Copy size={11} />}
                   <span>{copiedPassword ? 'Copiada' : 'Copiar'}</span>
                 </button>
               </div>
@@ -1868,7 +1868,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         icone={CheckCircle2}
         titulo="Aprovado"
         subtitulo="Registo validado automaticamente"
-        tomIcone="bg-emerald-50 text-emerald-600 border-emerald-100"
+        tomIcone="bg-emerald-50 text-emerald-700 border-emerald-100"
         maxW="max-w-md"
       >
         <p className="text-sm font-semibold text-slate-700 text-left m-0">Seu cadastro foi aprovado.</p>

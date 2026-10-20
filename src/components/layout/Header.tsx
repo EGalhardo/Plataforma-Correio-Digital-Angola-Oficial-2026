@@ -147,7 +147,7 @@ function UnreadMessagesMenu({
                   className="w-full text-left px-4 py-3 hover:bg-blue-50/60 transition-colors cursor-pointer flex items-start gap-2.5"
                 >
                   <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${
-                    isDen ? 'bg-amber-500' : isCom ? 'bg-indigo-600' : isVideo ? 'bg-emerald-500' : 'bg-blue-600'
+                    isDen ? 'bg-amber-500' : isCom ? 'bg-indigo-600' : isVideo ? 'bg-emerald-700' : 'bg-blue-600'
                   }`} />
                   <span className="flex-1 min-w-0">
                     <span className="block text-[10px] font-black uppercase tracking-wide text-slate-800 truncate">{msg.org}</span>
@@ -314,7 +314,7 @@ export function Header({
   const onlineTone = (isUserMode || isInstitutionMode) ? citizenOnlineTone : null;
   const onlineDot = onlineTone === 'red' ? 'bg-red-500' : onlineTone === 'yellow' ? 'bg-amber-400' : 'bg-[#00dd82]';
   const onlinePing2 = onlineTone === 'red' ? 'bg-red-500/30' : onlineTone === 'yellow' ? 'bg-amber-400/30' : 'bg-[#00dd82]/30';
-  const onlinePillText = onlineTone === 'red' ? 'bg-transparent text-red-600' : onlineTone === 'yellow' ? 'bg-transparent text-amber-600' : 'bg-transparent text-[#00925d]';
+  const onlinePillText = onlineTone === 'red' ? 'bg-transparent text-red-600' : onlineTone === 'yellow' ? 'bg-transparent text-amber-700' : 'bg-transparent text-[#007a4d]';
   const isGov = appMode !== 'user';
   const isAdmin = appMode === 'admin';
   const isInst = appMode === 'institution';

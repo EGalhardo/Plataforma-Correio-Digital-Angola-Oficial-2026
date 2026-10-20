@@ -407,7 +407,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
           )}
 
           <div className="flex items-center gap-2 px-4 py-2 bg-white border border-emerald-100 rounded-full text-emerald-700 font-extrabold text-[11px] uppercase tracking-wider">
-            <CheckCircle2 size={14} className="text-emerald-600 fill-emerald-100" />
+            <CheckCircle2 size={14} className="text-emerald-700 fill-emerald-100" />
             <span>Conta verificada e activa</span>
           </div>
         </div>
@@ -429,9 +429,9 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
             }`}
           >
             {feedback.type === 'success' ? (
-              <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+              <CheckCircle2 size={16} className="text-emerald-700 shrink-0 mt-0.5" />
             ) : (
-              <AlertTriangle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+              <AlertTriangle size={16} className="text-rose-700 shrink-0 mt-0.5" />
             )}
             <div className="flex-1 space-y-1 pr-6">
               <p className="font-extrabold leading-none">{feedback.text}</p>
@@ -509,7 +509,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
 
             <h3 className="text-xl font-black text-slate-950 tracking-tight mb-1 uppercase">{profileName}</h3>
             <div className="inline-flex items-center gap-1 px-3 py-1 bg-white text-emerald-700 rounded-full text-[9px] font-black uppercase tracking-wider mb-6 border border-emerald-100">
-              <ShieldCheck size={11} className="text-emerald-600" />
+              <ShieldCheck size={11} className="text-emerald-700" />
               CIDADÃO VERIFICADO
             </div>
 
@@ -569,7 +569,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                   <>
                     <button 
                       onClick={handleSaveDirectEdit}
-                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-sm cursor-pointer border-0"
+                      className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-sm cursor-pointer border-0"
                     >
                       <Check size={14} />
                       Guardar
@@ -699,7 +699,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
           <div className="bg-white border border-slate-200 rounded-[32px] p-6 text-left shadow-sm flex flex-col h-full">
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Actividade Recente</h4>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 bg-emerald-500 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-emerald-700 bg-emerald-700 animate-pulse" />
             </div>
 
             <div className="space-y-3">
@@ -713,7 +713,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
               ]).map((act, idx) => (
                 <div key={idx} className="flex gap-3 items-start text-xs border-b border-slate-50 pb-3 last:border-0 last:pb-0">
                   <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${
-                    act.type === 'success' ? 'bg-emerald-500' :
+                    act.type === 'success' ? 'bg-emerald-700' :
                     act.type === 'warn' ? 'bg-amber-500' : 'bg-blue-500'
                   }`} />
                   <div className="flex-1">
@@ -798,7 +798,7 @@ export const CitizenProfile: React.FC<CitizenProfileProps> = ({
                         <p className="text-xs font-extrabold text-slate-800">{contact.name}</p>
                         <p className="text-[10px] text-slate-400 font-medium">{contact.relation}</p>
                       </div>
-                      <div className="w-8 h-8 rounded-full bg-white text-emerald-600 flex items-center justify-center border border-emerald-100">
+                      <div className="w-8 h-8 rounded-full bg-white text-emerald-700 flex items-center justify-center border border-emerald-100">
                         <Smartphone size={14} />
                       </div>
                     </div>

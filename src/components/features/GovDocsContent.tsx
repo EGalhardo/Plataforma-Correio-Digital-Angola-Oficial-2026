@@ -102,7 +102,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
             className="fixed bottom-20 md:bottom-32 left-1/2 -translate-x-1/2 z-[300] bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/10 backdrop-blur-xl"
           >
-            <ShieldCheck size={18} className="text-emerald-500" />
+            <ShieldCheck size={18} className="text-emerald-700" />
             <span className="text-[11px] font-black uppercase tracking-widest">{actionFeedback.message}</span>
           </motion.div>
         )}
@@ -189,7 +189,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
         <div className="bg-white border border-slate-200 rounded-[32px] p-6 shadow-xs flex items-center justify-between gap-4">
           <div className="space-y-1">
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Taxa de Validação</span>
-            <div className="text-2xl font-black text-emerald-600 italic font-mono">{validationRate}%</div>
+            <div className="text-2xl font-black text-emerald-700 italic font-mono">{validationRate}%</div>
             <p className="text-[9.5px] text-slate-400 font-medium leading-relaxed">Validação instantânea por inteligência artificial.</p>
           </div>
           <div className="w-14 h-14 relative shrink-0">
@@ -199,7 +199,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
                 strokeDasharray="144.5" strokeDashoffset={144.5 * (1 - validationRate / 100)}
               />
             </svg>
-            <div className="absolute inset-0 flex items-center justify-center text-[9px] font-mono font-black text-emerald-600">
+            <div className="absolute inset-0 flex items-center justify-center text-[9px] font-mono font-black text-emerald-700">
               {Math.round(validationRate)}%
             </div>
           </div>
@@ -209,7 +209,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
         <div className="bg-white border border-slate-200 rounded-[32px] p-6 shadow-xs flex items-center justify-between gap-4">
           <div className="space-y-1">
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Taxa de Rejeição</span>
-            <div className="text-2xl font-black text-rose-600 italic font-mono">{rejectionRate}%</div>
+            <div className="text-2xl font-black text-rose-700 italic font-mono">{rejectionRate}%</div>
             <p className="text-[9.5px] text-slate-400 font-medium leading-relaxed">Indeferidos por falhas documentais ou BI inválido.</p>
           </div>
           <div className="w-14 h-14 relative shrink-0">
@@ -219,7 +219,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
                 strokeDasharray="144.5" strokeDashoffset={144.5 * (1 - rejectionRate / 100)}
               />
             </svg>
-            <div className="absolute inset-0 flex items-center justify-center text-[9px] font-mono font-black text-rose-600">
+            <div className="absolute inset-0 flex items-center justify-center text-[9px] font-mono font-black text-rose-700">
               {Math.round(rejectionRate)}%
             </div>
           </div>
@@ -257,7 +257,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
               <div className="flex items-center gap-4">
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border shadow-xs ${
                   item.status === 'Pendente' ? 'bg-orange-50 text-orange-500 border-orange-100' : 
-                  item.status === 'Aprovado' ? 'bg-emerald-50 text-emerald-500 border-emerald-100' : 
+                  item.status === 'Aprovado' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
                   'bg-red-50 text-red-500 border-red-100'
                 }`}>
                   <FileText size={22} className={item.status === 'Pendente' ? 'animate-pulse' : ''} />
@@ -267,7 +267,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
                     <h3 className="font-black text-slate-950 text-base md:text-lg italic tracking-tight uppercase leading-none font-sans">{item.docType}</h3>
                     <span className={`text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider border ${
                       item.status === 'Pendente' ? 'bg-orange-50 text-orange-600 border-orange-100' : 
-                      item.status === 'Aprovado' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                      item.status === 'Aprovado' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
                       'bg-red-50 text-red-600 border-red-100'
                     }`}>
                       {item.status === 'Aprovado' ? 'Emitido' : item.status}
@@ -305,7 +305,7 @@ export function GovDocsContent({ documents, requests, onUpdateStatus, setTab }: 
                 </div>
               ) : (
                 <div className="flex items-center gap-3 text-[9.5px] font-mono font-black uppercase text-slate-400 italic tracking-wider bg-white px-4 py-2.5 rounded-xl border border-slate-200 border-dashed">
-                  Documento Sincronizado <ShieldCheck size={14} className="text-emerald-500 ml-1.5" />
+                  Documento Sincronizado <ShieldCheck size={14} className="text-emerald-700 ml-1.5" />
                 </div>
               )}
             </div>

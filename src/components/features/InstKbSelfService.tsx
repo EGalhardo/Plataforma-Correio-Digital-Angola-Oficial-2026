@@ -481,7 +481,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
                 <button
                   type="button"
                   onClick={() => { setKbFicheiro(null); setFicheiroUrl(''); setAvisoFicheiro(null); }}
-                  className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer shrink-0"
+                  className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-rose-700 transition-colors cursor-pointer shrink-0"
                   title="Remover ficheiro"
                 >
                   <X size={13} />
@@ -551,7 +551,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
                       confiança {Math.round(assistSugestoes.confiancaTipo * 100)}%
                     </span>
                     {assistAplicado.includes('tipo') && (
-                      <CheckCircle2 size={12} className="text-emerald-600" />
+                      <CheckCircle2 size={12} className="text-emerald-700" />
                     )}
                   </p>
                   {!tipoEditadoManual.current && (
@@ -581,7 +581,7 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
                   <p className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-slate-400 m-0">Título sugerido</p>
                   <p className="font-bold text-slate-700 m-0 mt-0.5 flex items-center gap-1.5 flex-wrap">
                     “{assistSugestoes.tituloSugerido}”
-                    {assistAplicado.includes('título') && <CheckCircle2 size={12} className="text-emerald-600" />}
+                    {assistAplicado.includes('título') && <CheckCircle2 size={12} className="text-emerald-700" />}
                   </p>
                   {!tituloEditadoManual.current && (
                     <button

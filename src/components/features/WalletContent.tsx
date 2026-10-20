@@ -250,7 +250,7 @@ export function WalletContent({
                   <div>
                     <h4 className="text-white text-xl md:text-2xl font-black italic tracking-tighter uppercase mb-2">{doc.name}</h4>
                     <div className="flex items-center gap-2">
-                       <div className="px-3 py-1 bg-emerald-500/20 backdrop-blur-md text-emerald-400 text-[9px] font-black rounded-lg border border-emerald-500/20 uppercase tracking-[0.2em] flex items-center gap-1.5 shadow-xl">
+                       <div className="px-3 py-1 bg-emerald-700/20 backdrop-blur-md text-emerald-400 text-[9px] font-black rounded-lg border border-emerald-700/20 uppercase tracking-[0.2em] flex items-center gap-1.5 shadow-xl">
                          <ShieldCheck size={10} /> Validado
                        </div>
                        <span className="text-white/60 text-[10px] font-bold uppercase tracking-widest">{doc.validity}</span>
@@ -317,7 +317,7 @@ export function WalletContent({
               >
                 <div className="flex items-center gap-5">
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border shadow-sm ${
-                    req.status === 'Aprovado' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                    req.status === 'Aprovado' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
                     req.status === 'Rejeitado' ? 'bg-red-50 text-red-600 border-red-100' :
                     'bg-slate-50 text-slate-400 border-slate-100'
                   }`}>
@@ -338,7 +338,7 @@ export function WalletContent({
 
                 <div className="flex items-center gap-4">
                   <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
-                    req.status === 'Aprovado' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                    req.status === 'Aprovado' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
                     req.status === 'Rejeitado' ? 'bg-red-50 text-red-600 border-red-100' :
                     'bg-orange-50 text-orange-600 border-orange-100'
                   }`}>

@@ -351,7 +351,7 @@ export function GovPerfilContent({
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-full text-emerald-700 font-extrabold text-[11px] uppercase tracking-wider">
-            <CheckCircle2 size={14} className="text-emerald-600 fill-emerald-100" />
+            <CheckCircle2 size={14} className="text-emerald-700 fill-emerald-100" />
             <span>Conta verificada e activa</span>
           </div>
         </div>
@@ -392,7 +392,7 @@ export function GovPerfilContent({
                   disabled={isUploadingPhoto}
                 />
               </label>
-              <div className="absolute -bottom-1 -right-1 text-white p-1.5 rounded-xl border border-slate-200 bg-emerald-500">
+              <div className="absolute -bottom-1 -right-1 text-white p-1.5 rounded-xl border border-slate-200 bg-emerald-700">
                 <BadgeCheck size={16} />
               </div>
             </div>
@@ -442,7 +442,7 @@ export function GovPerfilContent({
                     <button
                       type="button"
                       onClick={handleSaveAdminEdit}
-                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 shadow-sm cursor-pointer border-0"
+                      className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 shadow-sm cursor-pointer border-0"
                     >
                       <Check size={14} />
                       <span>Gravar</span>
@@ -493,7 +493,7 @@ export function GovPerfilContent({
                 <span className="text-xs font-bold text-slate-800 block mb-1 font-mono">
                   {user?.email || `${((profileName || 'Utilizador').toLowerCase().replace(/\s+/g, '.'))}@mindis.gov.ao`}
                 </span>
-                <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 rounded-lg px-2 py-0.5 border border-emerald-100 italic block w-fit">
+                <span className="text-[9px] text-emerald-700 font-bold bg-emerald-50 rounded-lg px-2 py-0.5 border border-emerald-100 italic block w-fit">
                   Sincronizado e seguro
                 </span>
               </div>
@@ -660,7 +660,7 @@ export function GovPerfilContent({
                     exit={{ opacity: 0 }}
                     className="text-[11px] text-emerald-700 font-extrabold bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 flex items-center gap-1.5"
                   >
-                    <Check size={14} className="text-emerald-600" />
+                    <Check size={14} className="text-emerald-700" />
                     <span>{passwordSuccessMsg || 'Palavra-passe alterada com sucesso!'}</span>
                   </motion.div>
                 )}
@@ -712,7 +712,7 @@ export function GovPerfilContent({
                       <span className={`w-2 h-2 rounded-full shrink-0 ${
                         log.type === 'critical' ? 'bg-red-500 animate-pulse' :
                         log.type === 'warning' ? 'bg-amber-500' :
-                        log.type === 'success' ? 'bg-emerald-500' : 'bg-blue-500'
+                        log.type === 'success' ? 'bg-emerald-700' : 'bg-blue-500'
                       }`} />
                       <span className="font-bold text-slate-800 uppercase">{log.action}</span>
                     </div>

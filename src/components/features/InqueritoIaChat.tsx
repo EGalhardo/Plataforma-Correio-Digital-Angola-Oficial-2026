@@ -405,7 +405,7 @@ export function InqueritoIaChat({ aberto, onFechar, inquerito, cidadaoBi, onConc
     >
       {confirmacao ? (
         <div className="flex flex-col items-center text-center py-6 px-2" data-testid="inquerito-ia-confirmacao">
-          <span className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 border border-emerald-100">
+          <span className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center mb-4 border border-emerald-100">
             <CheckCircle2 size={32} />
           </span>
           <h4 className="text-lg font-black text-slate-800 m-0">Participação registada</h4>
@@ -430,7 +430,7 @@ export function InqueritoIaChat({ aberto, onFechar, inquerito, cidadaoBi, onConc
             <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
               <span>{fase === 'fim' ? 'Inquérito terminado' : `Pergunta ${Math.max(1, nPerguntas)} de ~${guiao.maxPerguntas}`}</span>
               <span className="flex items-center gap-2">
-                {modoGuiado && <span className="inline-flex items-center gap-1 text-amber-600 normal-case tracking-normal font-bold"><AlertTriangle size={11} /> Modo simplificado</span>}
+                {modoGuiado && <span className="inline-flex items-center gap-1 text-amber-700 normal-case tracking-normal font-bold"><AlertTriangle size={11} /> Modo simplificado</span>}
                 {podeLer && (
                   <button
                     type="button"
@@ -457,7 +457,7 @@ export function InqueritoIaChat({ aberto, onFechar, inquerito, cidadaoBi, onConc
             <p className="m-0 flex items-center gap-2 text-sm font-medium text-slate-500"><Loader2 size={15} className="animate-spin" /> A preparar o inquérito…</p>
           )}
           {fase === 'indisponivel' && (
-            <p className="m-0 text-sm font-semibold text-rose-600">{erro || 'Inquérito indisponível.'}</p>
+            <p className="m-0 text-sm font-semibold text-rose-700">{erro || 'Inquérito indisponível.'}</p>
           )}
           {historico.map((t, i) => (
             <div key={i} className={`flex ${t.de === 'ia' ? 'justify-start' : 'justify-end'}`}>

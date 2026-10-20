@@ -43,6 +43,10 @@ function assert(category, name, condition, details = '') {
 
 async function runAxeScan(page, pageName, area) {
   try {
+    // 2026-10-20 — assentar animações de entrada (framer-motion/opacity) antes
+    // de medir: com esperas curtas o axe amostrava cores a meio do fade e
+    // reportava falsos positivos de contraste (texto lavado ≠ cor final).
+    await page.waitForTimeout(2500);
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
       .analyze();

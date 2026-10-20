@@ -154,7 +154,7 @@ export function ContactsContent({
       {/* F55 — banner persistente da regra dos 2 contactos de emergência */}
       {emergencyStatus && !emergencyStatus.complete && (
         <div className="bg-amber-50 border border-amber-200 rounded-[24px] p-4 md:p-5 flex items-start gap-3 shadow-sm" id="emergency-contacts-banner">
-          <ShieldAlert size={22} className="text-amber-600 shrink-0 mt-0.5" />
+          <ShieldAlert size={22} className="text-amber-700 shrink-0 mt-0.5" />
           <div>
             <p className="text-amber-800 font-black text-sm uppercase tracking-wide">
               Perfil Incompleto — faltam contactos de emergência
@@ -305,7 +305,7 @@ export function ContactsContent({
 
                     <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-[10px]">
                       <span className="font-mono font-bold text-slate-700">BI: {contact.bi}</span>
-                      <span className={`font-black uppercase tracking-wider ${contact.status === 'Confirmado' ? 'text-emerald-600' : 'text-orange-700'}`}>
+                      <span className={`font-black uppercase tracking-wider ${contact.status === 'Confirmado' ? 'text-emerald-700' : 'text-orange-700'}`}>
                         {contact.status}
                       </span>
                     </div>
@@ -396,7 +396,7 @@ export function ContactsContent({
                       <td className="py-5 px-6">
                         <span className={`inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider ${
                           contact.status === 'Confirmado' 
-                            ? 'text-emerald-600' 
+                            ? 'text-emerald-700' 
                             : 'text-orange-700'
                         }`}>
                           {contact.status}
@@ -676,7 +676,7 @@ export function ContactsContent({
 
                 {/* Estágio de Autorização Section */}
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-[#10b981] font-bold uppercase tracking-wider text-xs">
+                  <div className="flex items-center gap-2 text-emerald-700 font-bold uppercase tracking-wider text-xs">
                     <CheckCircle size={16} />
                     <span>Estágio de Autorização</span>
                   </div>
@@ -685,7 +685,7 @@ export function ContactsContent({
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Permissão de Acesso *</label>
                     <div className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 flex items-center justify-between">
                       <div className="flex items-center gap-2 text-slate-800">
-                        <CheckCircle size={16} className="text-[#10b981]" />
+                        <CheckCircle size={16} className="text-emerald-700" />
                         <span className="text-xs font-bold">Autorizado</span>
                       </div>
                       <ChevronDown size={14} className="text-slate-400" />
@@ -694,7 +694,7 @@ export function ContactsContent({
 
                   {/* Info block */}
                   <div className="bg-[#f0fdf4] border border-emerald-100 p-4 rounded-2xl flex gap-3 items-start select-none">
-                    <Info size={18} className="text-[#10b981] shrink-0 mt-0.5" />
+                    <Info size={18} className="text-emerald-700 shrink-0 mt-0.5" />
                     <p className="text-slate-700 text-[10.5px] font-medium leading-relaxed">
                       Utilizadores autorizados poderão aceder aos dados de contacto em situações previstas no protocolo institucional de segurança e emergência.
                     </p>

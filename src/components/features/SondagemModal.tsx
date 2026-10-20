@@ -400,7 +400,7 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
               role="switch"
               aria-checked={permitirVarias}
               onClick={() => setPermitirVarias(v => !v)}
-              className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer border-0 ${permitirVarias ? 'bg-emerald-500' : 'bg-slate-300'}`}
+              className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer border-0 ${permitirVarias ? 'bg-emerald-700' : 'bg-slate-300'}`}
             >
               <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${permitirVarias ? 'left-[22px]' : 'left-0.5'}`} />
             </button>
@@ -459,7 +459,7 @@ export function SondagemModal({ aberto, onFechar, codigoInstituicao, nomeInstitu
         onFechar={() => setAlerta(null)}
         icone={AlertTriangle}
         titulo={modoIA ? 'Inquérito com IA' : 'Sondagem'}
-        tomIcone="bg-amber-50 text-amber-600 border-amber-100"
+        tomIcone="bg-amber-50 text-amber-700 border-amber-100"
         maxW="max-w-md"
       >
         <p className="text-sm font-semibold text-slate-700 text-left">{alerta}</p>

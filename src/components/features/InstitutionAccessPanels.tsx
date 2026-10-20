@@ -160,7 +160,7 @@ export function InstitutionAccessPanel({ code, identity, onAudit }: PanelProps) 
           </div>
         </div>
         {pwdMsg && (
-          <p className={`text-[10px] font-bold mt-3 flex items-center gap-1.5 ${pwdMsg.kind === 'ok' ? 'text-emerald-600' : 'text-red-600'}`}>
+          <p className={`text-[10px] font-bold mt-3 flex items-center gap-1.5 ${pwdMsg.kind === 'ok' ? 'text-emerald-700' : 'text-red-600'}`}>
             {pwdMsg.kind === 'ok' ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />} {pwdMsg.text}
           </p>
         )}
@@ -203,7 +203,7 @@ export function InstitutionAccessPanel({ code, identity, onAudit }: PanelProps) 
                 <UploadCloud size={13} /> {reg.logoDataUrl ? 'Substituir Logótipo' : 'Carregar Logótipo'}
               </button>
               {logoMsg && (
-                <p className={`text-[10px] font-bold mt-2 flex items-center gap-1.5 ${logoMsg.kind === 'ok' ? 'text-emerald-600' : 'text-red-600'}`}>
+                <p className={`text-[10px] font-bold mt-2 flex items-center gap-1.5 ${logoMsg.kind === 'ok' ? 'text-emerald-700' : 'text-red-600'}`}>
                   {logoMsg.kind === 'ok' ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />} {logoMsg.text}
                 </p>
               )}
@@ -299,7 +299,7 @@ export function InstitutionForcedPasswordChange({ code, memberId, memberName, on
             </div>
           </div>
           {msg && (
-            <p className={`text-[10px] font-bold flex items-center gap-1.5 ${msg.kind === 'ok' ? 'text-emerald-600' : 'text-red-600'}`}>
+            <p className={`text-[10px] font-bold flex items-center gap-1.5 ${msg.kind === 'ok' ? 'text-emerald-700' : 'text-red-600'}`}>
               {msg.kind === 'ok' ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />} {msg.text}
             </p>
           )}

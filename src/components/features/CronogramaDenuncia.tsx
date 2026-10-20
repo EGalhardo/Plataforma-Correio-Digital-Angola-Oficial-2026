@@ -227,7 +227,7 @@ export function CronogramaDenuncia({ messageId, senderBi, subject, podeGerir, on
           const corPonto = activa
             ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-600/30'
             : concluida
-              ? 'bg-emerald-500 border-emerald-500 text-white'
+              ? 'bg-emerald-700 border-emerald-700 text-white'
               : clicavel
                 ? 'bg-white border-blue-400 text-blue-600 border-dashed hover:bg-blue-50'
                 : 'bg-white border-slate-300 text-slate-400';
@@ -301,7 +301,7 @@ export function CronogramaDenuncia({ messageId, senderBi, subject, podeGerir, on
               O avanço é definitivo (não é possível recuar) e o cidadão será notificado. A identidade do cidadão permanece protegida.
             </p>
             {erroPopup && (
-              <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2 m-0" role="alert">{erroPopup}</p>
+              <p className="text-xs font-bold text-rose-700 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2 m-0" role="alert">{erroPopup}</p>
             )}
             <div className="grid grid-cols-2 gap-3 pt-1">
               <button

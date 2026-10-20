@@ -450,7 +450,7 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             className={`fixed top-4 right-4 z-50 rounded-2xl p-4 shadow-xl text-white flex items-center gap-3 border transition-all duration-300 ${
-              toastType === 'success' ? 'bg-emerald-600 border-emerald-500' :
+              toastType === 'success' ? 'bg-emerald-700 border-emerald-700' :
               toastType === 'warning' ? 'bg-amber-600 border-amber-500' :
               toastType === 'error' ? 'bg-red-600 border-red-500' :
               'bg-blue-600 border-blue-500'
@@ -529,7 +529,7 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
             <div className="flex items-center gap-2 bg-white border border-slate-300 rounded-[16px] p-1 shadow-xs">
               <button 
                 onClick={() => { playSound('click'); setIsAssistantActive(true); triggerToast('Serviço de IA Nacional Activado na rede.', 'success'); }}
-                className={`px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border-0 cursor-pointer ${isAssistantActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-transparent text-slate-500 hover:text-slate-800'}`}
+                className={`px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border-0 cursor-pointer ${isAssistantActive ? 'bg-emerald-700 text-white shadow-xs' : 'bg-transparent text-slate-500 hover:text-slate-800'}`}
               >
                 Ativo / Em Operação
               </button>
@@ -546,7 +546,7 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
             <div className="flex items-center gap-3">
               <span className="text-[10px] font-bold text-slate-400">Canal de Ingressos:</span>
               <div className="flex items-center gap-1.5">
-                <span className={`w-2 h-2 rounded-full ${aiStats.groqConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                <span className={`w-2 h-2 rounded-full ${aiStats.groqConfigured ? 'bg-emerald-700 animate-pulse' : 'bg-amber-500'}`} />
                 <span className={`px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-wider border ${
                   aiStats.groqConfigured 
                     ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
@@ -558,7 +558,7 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
             </div>
 
             <div className="flex items-center gap-1.5">
-              <Server size={14} className={aiStats.geminiConfigured ? 'text-emerald-500' : 'text-slate-300'} />
+              <Server size={14} className={aiStats.geminiConfigured ? 'text-emerald-700' : 'text-slate-300'} />
               <span className={`px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-wider border ${
                 aiStats.geminiConfigured
                   ? 'bg-blue-50 border-blue-200 text-blue-700'
@@ -592,7 +592,7 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
           <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Estado do Sistema</span>
           <span className="text-[11px] font-semibold text-slate-500 block mt-0.5">Operacional</span>
           <div className="flex items-center gap-2 mt-2">
-            <span className={`w-2.5 h-2.5 rounded-full ${isAssistantActive ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500'}`} />
+            <span className={`w-2.5 h-2.5 rounded-full ${isAssistantActive ? 'bg-emerald-700 animate-pulse' : 'bg-orange-500'}`} />
             <span className={`text-base font-black uppercase tracking-wide ${isAssistantActive ? 'text-emerald-700' : 'text-orange-600'}`}>
               {isAssistantActive ? 'Activo' : 'Pausado'}
             </span>
@@ -601,7 +601,7 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
 
         <div className="bg-white border border-slate-200 p-4.5 rounded-[20px] shadow-3xs text-left relative overflow-hidden">
           <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Instituições c/ IA</span>
-          <span className="text-[11px] font-semibold text-emerald-600 block mt-0.5">Activas</span>
+          <span className="text-[11px] font-semibold text-emerald-700 block mt-0.5">Activas</span>
           <span className="text-2xl md:text-3xl font-black text-[#0a2342] block mt-1 tracking-tight">
             <AnimatedCounter to={activeInstituions} className="font-mono" />
             <span className="text-slate-400 font-medium font-sans">/{institutions.length}</span>
@@ -626,7 +626,7 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
 
         <div className="bg-white border border-slate-200 p-4.5 rounded-[20px] shadow-3xs text-left relative overflow-hidden">
           <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Taxa de Resolução</span>
-          <span className="text-[11px] font-semibold text-emerald-600 block mt-0.5">Global</span>
+          <span className="text-[11px] font-semibold text-emerald-700 block mt-0.5">Global</span>
           <span className="text-2xl md:text-3xl font-black text-emerald-700 block mt-1 tracking-tight">
             {aiStats.totalConversations === 0 ? <span className="font-mono text-slate-400">—</span> : <AnimatedCounter to={aiStats.resolutionRate} suffix="%" className="font-mono" />}
           </span>
@@ -685,7 +685,7 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
 
           {/* Step 4 */}
           <div className="flex items-center gap-4 bg-white border border-slate-200/60 p-4 rounded-2xl relative shadow-3xs">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold shrink-0">
               <Zap size={22} />
             </div>
             <div className="text-left">
@@ -723,7 +723,7 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Integração Federada</span>
                 <h2 className="text-sm font-black text-[#0c2340] uppercase tracking-wide">Instituições com IA</h2>
               </div>
-              <span className="text-[11px] font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+              <span className="text-[11px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
                 {activeInstituions} activas
               </span>
             </div>
@@ -762,10 +762,11 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
                       <span className="text-[8px] font-bold text-slate-400 block tracking-widest uppercase">Indexados</span>
                     </div>
                     <button
+                      aria-label={`Alternar estado de IA para a instituição ${inst.name}`}
                       onClick={() => toggleInstitutionAI()}
                       className={`p-1 rounded-lg transition-all cursor-pointer border-0 ${
                         inst.aiEnabled 
-                          ? 'text-emerald-600 hover:bg-emerald-50' 
+                          ? 'text-emerald-700 hover:bg-emerald-50' 
                           : 'text-slate-300 hover:bg-slate-100'
                       }`}
                     >
@@ -834,13 +835,13 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
                     <div>
                       <span className="text-xs font-mono font-black text-indigo-700 block">{kb.docsCount.toLocaleString('pt-AO')}</span>
                       <span className={`text-[8px] font-bold block tracking-widest uppercase ${
-                        kb.status === 'synced' ? 'text-emerald-600' : kb.status === 'syncing' ? 'text-amber-600' : 'text-red-500'
+                        kb.status === 'synced' ? 'text-emerald-700' : kb.status === 'syncing' ? 'text-amber-700' : 'text-red-500'
                       }`}>
                         {kb.status === 'synced' ? 'Sincronizado' : kb.status === 'syncing' ? 'A sincronizar' : 'Erro'}
                       </span>
                     </div>
                     {kb.status === 'synced' && (
-                      <CheckCircle size={14} className="text-emerald-500" />
+                      <CheckCircle size={14} className="text-emerald-700" />
                     )}
                   </div>
                 </div>
@@ -849,10 +850,10 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
               {/* Sync Status Block */}
               <div className="p-3.5 bg-emerald-50/50 border border-emerald-200 rounded-2xl flex items-center justify-between text-left">
                 <div className="flex items-center gap-2.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-700 animate-ping shrink-0" />
                   <div>
                     <span className="text-[10px] font-black text-emerald-800 block">Leitura da Base de Conhecimento em tempo real</span>
-                    <span className="text-[9px] text-emerald-600 font-medium block">{syncedBases}/{knowledgeBases.length} bases sincronizadas • Groq + Supabase</span>
+                    <span className="text-[9px] text-emerald-700 font-medium block">{syncedBases}/{knowledgeBases.length} bases sincronizadas • Groq + Supabase</span>
                   </div>
                 </div>
                 <button
@@ -992,7 +993,7 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
                   <div className="text-right shrink-0">
                     <span className="text-xs font-mono font-black text-slate-700 block">{modelItem.cost}</span>
                     <span className="text-[9px] text-slate-400 font-mono block">⏱ {modelItem.responseTime}</span>
-                    <span className="text-[9px] text-emerald-600 font-black block">{modelItem.quota}</span>
+                    <span className="text-[9px] text-emerald-700 font-black block">{modelItem.quota}</span>
                   </div>
                 </div>
               ))}
@@ -1141,7 +1142,7 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-[#F8FAFC] border border-slate-200 p-5 rounded-[24px] text-left">
         
         <div className="flex items-start gap-3 bg-white p-4 rounded-xl shadow-3xs border border-slate-150">
-          <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-lg shrink-0">
+          <div className="p-2.5 bg-emerald-50 text-emerald-700 rounded-lg shrink-0">
             <ShieldCheck size={20} />
           </div>
           <div>
@@ -1239,16 +1240,16 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
                 <h4 className="text-[11px] font-black text-indigo-900 uppercase tracking-wider mb-2">Motor IA Configurado</h4>
                 <div className="grid grid-cols-2 gap-2 text-[10px]">
                   <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-indigo-100">
-                    <span className={`w-2 h-2 rounded-full ${aiStats.groqConfigured ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                    <span className={`w-2 h-2 rounded-full ${aiStats.groqConfigured ? 'bg-emerald-700' : 'bg-red-500'}`} />
                     <span className="font-bold text-slate-700">Groq API:</span>
                     <span className={`font-black ${aiStats.groqConfigured ? 'text-emerald-700' : 'text-red-600'}`}>
                       {aiStats.groqConfigured ? 'Configurada' : 'Não configurada'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-indigo-100">
-                    <span className={`w-2 h-2 rounded-full ${aiStats.geminiConfigured ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                    <span className={`w-2 h-2 rounded-full ${aiStats.geminiConfigured ? 'bg-emerald-700' : 'bg-amber-500'}`} />
                     <span className="font-bold text-slate-700">Gemini Live:</span>
-                    <span className={`font-black ${aiStats.geminiConfigured ? 'text-emerald-700' : 'text-amber-600'}`}>
+                    <span className={`font-black ${aiStats.geminiConfigured ? 'text-emerald-700' : 'text-amber-700'}`}>
                       {aiStats.geminiConfigured ? 'Configurado' : 'Fallback'}
                     </span>
                   </div>
@@ -1354,7 +1355,7 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
                       onClick={() => selectActiveModel(m.id, m.name)}
                       className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider cursor-pointer border-0 transition-colors shrink-0 ${
                         m.isDefault 
-                          ? 'bg-emerald-600 text-white' 
+                          ? 'bg-emerald-700 text-white' 
                           : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
                       }`}
                     >
@@ -1365,7 +1366,7 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
               </div>
 
               <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 text-amber-900 text-[10px] sm:text-[11px] font-semibold leading-relaxed text-left flex items-start gap-2">
-                <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                <AlertTriangle size={16} className="text-amber-700 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-extrabold uppercase tracking-wide block">Taxas e Regulação de Tokens</span>
                   <span>O modelo Llama 3.1 8B Instant é o mais económico e rápido, ideal para operações do dia-a-dia. Llama 3.3 70B oferece melhor qualidade para questões complexas. Gemini Live é usado para interação por voz em tempo real.</span>
@@ -1389,14 +1390,14 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold relative shrink-0">
                   <Bot size={20} />
-                  <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full absolute -top-0.5 -right-0.5 border-2 border-white animate-pulse" />
+                  <span className="w-2.5 h-2.5 bg-emerald-700 rounded-full absolute -top-0.5 -right-0.5 border-2 border-white animate-pulse" />
                 </div>
                 <div className="text-left font-sans">
                   <span className="text-xs font-black text-[#0c2340] block uppercase tracking-wide">Testar Assistente IA Nacional</span>
                   <span className="text-[10px] text-slate-400 font-bold block">Canal Federado • Modelo: {mainModel} • Groq API</span>
                 </div>
               </div>
-              <button onClick={() => { playSound('click'); setIsTestModalOpen(false); }} className="p-1 px-2 text-slate-400 hover:text-slate-600 cursor-pointer bg-slate-50 rounded-full border-0 text-sm font-black">
+              <button aria-label="Fechar modal de teste da IA" onClick={() => { playSound('click'); setIsTestModalOpen(false); }} className="p-1 px-2 text-slate-400 hover:text-slate-600 cursor-pointer bg-slate-50 rounded-full border-0 text-sm font-black">
                 ✕
               </button>
             </div>

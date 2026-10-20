@@ -8902,8 +8902,8 @@ Ficha civil do titular:
                   {/* Verification Status Banner */}
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5 justify-center">
-                      <CheckCircle size={15} className={faceProgress === 100 ? "text-emerald-500" : isFaceScanning ? "text-blue-500 animate-spin" : "text-emerald-500"} />
-                      <span className="text-emerald-600 font-extrabold uppercase tracking-widest text-[9.5px] font-sans">
+                      <CheckCircle size={15} className={faceProgress === 100 ? "text-emerald-700" : isFaceScanning ? "text-blue-500 animate-spin" : "text-emerald-700"} />
+                      <span className="text-emerald-700 font-extrabold uppercase tracking-widest text-[9.5px] font-sans">
                         {faceProgress === 100
                           ? t("Face local validada")
                           : isFaceScanning
@@ -8927,7 +8927,7 @@ Ficha civil do titular:
                       <p className="text-[10px] text-red-600 font-bold">{t(faceCaptureError)}</p>
                     )}
                     {webcamPermissionDenied && (
-                      <p className="text-[10px] text-amber-600 font-bold">{t("A câmara está bloqueada. Autorize o acesso para usar o login facial demo.")}</p>
+                      <p className="text-[10px] text-amber-700 font-bold">{t("A câmara está bloqueada. Autorize o acesso para usar o login facial demo.")}</p>
                     )}
                   </div>
 
@@ -9239,7 +9239,7 @@ Ficha civil do titular:
             exit={{ opacity: 0, y: -16 }}
             className="fixed top-4 left-1/2 -translate-x-1/2 z-[2100] w-[min(94vw,560px)] bg-white border border-amber-200 shadow-2xl rounded-2xl p-4 flex items-start gap-3"
           >
-            <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-700 shrink-0">
               <QrCode size={18} />
             </div>
             <div className="flex-1 min-w-0 text-left">
@@ -9512,18 +9512,18 @@ Ficha civil do titular:
               className="bg-slate-900 border border-amber-500/30 text-white rounded-2xl p-4 shadow-2xl max-w-sm pointer-events-auto"
             >
               <div className="flex items-start gap-3">
-                <div className="p-2 bg-amber-500/15 text-amber-500 rounded-xl">
+                <div className="p-2 bg-amber-500/15 text-amber-700 rounded-xl">
                   {activeFallback.channel === 'SMS' ? <Mail size={18} /> : activeFallback.channel === 'USSD' ? <Signal size={18} /> : <Smartphone size={18} />}
                 </div>
                 <div className="flex-1 min-w-0 font-sans">
-                  <span className="font-extrabold text-[10px] uppercase tracking-widest text-amber-500 block">Canal Alternativo Acionado ({activeFallback.channel})</span>
+                  <span className="font-extrabold text-[10px] uppercase tracking-widest text-amber-700 block">Canal Alternativo Acionado ({activeFallback.channel})</span>
                   <p className="text-xs text-slate-200 mt-1 leading-relaxed font-semibold">{activeFallback.message}</p>
                   <div className="mt-2.5 flex items-center justify-between border-t border-slate-800 pt-2 text-[10px] text-slate-400 font-mono">
                     <span>Protocolo: {activeFallback.protocol}</span>
                     <button
                       type="button"
                       onClick={() => setActiveFallback(null)}
-                      className="text-amber-500 hover:underline font-bold uppercase tracking-wider cursor-pointer"
+                      className="text-amber-700 hover:underline font-bold uppercase tracking-wider cursor-pointer"
                     >
                       Dispensar
                     </button>
@@ -9599,7 +9599,7 @@ Ficha civil do titular:
                         setOfflineQueue([]);
                         addAuditLog('Fila de ações offline limpa manualmente', 'warning');
                       }}
-                      className="text-[9px] font-bold text-rose-600 hover:underline uppercase tracking-wide cursor-pointer"
+                      className="text-[9px] font-bold text-rose-700 hover:underline uppercase tracking-wide cursor-pointer"
                     >
                       Limpar
                     </button>
@@ -9682,7 +9682,7 @@ Ficha civil do titular:
               className="bg-white rounded-[32px] border border-slate-100 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] w-full max-w-[400px] max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden text-left mx-auto my-auto relative z-10"
             >
               <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
-                <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100/40 flex items-center justify-center shrink-0 shadow-sm">
+                <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100/40 flex items-center justify-center shrink-0 shadow-sm">
                   <Check size={26} className="stroke-[3]" />
                 </div>
                 <div className="relative z-10 font-sans leading-tight flex-1 min-w-0">
@@ -9709,7 +9709,7 @@ Ficha civil do titular:
                 <div className="w-full h-[3px] bg-gradient-to-r from-amber-500 via-amber-400 to-black rounded-full"></div>
 
                 <div className="flex items-center justify-center gap-1.5">
-                  <Shield size={12} className="text-amber-500 shrink-0" />
+                  <Shield size={12} className="text-amber-700 shrink-0" />
                   <span className="text-[9px] font-black text-[#0f172a] uppercase tracking-wider">
                     AGÊNCIA DE ANGOLA - MINISTÉRIO CMN
                   </span>

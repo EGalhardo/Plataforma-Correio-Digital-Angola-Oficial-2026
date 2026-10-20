@@ -178,7 +178,7 @@ export function GovEmissaoContent({
         <motion.div 
           initial={{ scale: 0, rotate: -45 }}
           animate={{ scale: 1, rotate: 0 }}
-          className="w-32 h-32 bg-emerald-50 text-emerald-600 rounded-[40px] flex items-center justify-center mb-8 border border-emerald-100 shadow-xl shadow-emerald-900/5"
+          className="w-32 h-32 bg-emerald-50 text-emerald-700 rounded-[40px] flex items-center justify-center mb-8 border border-emerald-100 shadow-xl shadow-emerald-900/5"
         >
           <CheckCircle2 size={64} />
         </motion.div>
@@ -259,7 +259,7 @@ export function GovEmissaoContent({
 
                   if (isActive) {
                     if (t.id === 'lidas') {
-                      activeStyle = 'bg-emerald-600 text-white shadow-md shadow-emerald-200 ring-2 ring-emerald-600';
+                      activeStyle = 'bg-emerald-700 text-white shadow-md shadow-emerald-200 ring-2 ring-emerald-600';
                       badgeStyle = 'bg-white text-emerald-700';
                     } else if (t.id === 'naoLidas') {
                       activeStyle = 'bg-red-600 text-white shadow-md shadow-red-200 ring-2 ring-red-600';
@@ -503,8 +503,8 @@ export function GovEmissaoContent({
                       <div>
                         <div className="text-sm font-black text-slate-900 truncate max-w-[240px] italic">{selectedFile.name}</div>
                         <div className="flex items-center gap-2 mt-1">
-                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                           <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Documento Pré-Validado</div>
+                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-700 animate-pulse" />
+                           <div className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Documento Pré-Validado</div>
                         </div>
                       </div>
                     </div>

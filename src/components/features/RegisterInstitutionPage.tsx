@@ -418,7 +418,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
         animate={{ opacity: 1, scale: 1 }}
         className="flex-1 flex flex-col items-center justify-center text-center space-y-5 py-6"
       >
-        <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+        <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
           <CheckCircle2 size={30} />
         </div>
         <div>
@@ -462,7 +462,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
             onClick={handleCopy}
             className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-[#2563eb] hover:text-[#0E2B64] bg-transparent border-none cursor-pointer transition-colors"
           >
-            {copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+            {copied ? <Check size={13} className="text-emerald-700" /> : <Copy size={13} />}
             {copied ? 'Copiado!' : 'Copiar Código'}
           </button>
           {generatedAgent && (
@@ -777,7 +777,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
               {fieldErrors.senha
                 ? <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.senha}</p>
                 : senha && (
-                  <p className={`text-[9.5px] font-bold ml-1 ${senha.length >= 8 && /\d/.test(senha) && /[a-zA-Z]/.test(senha) ? 'text-emerald-600' : senha.length >= 6 ? 'text-amber-600' : 'text-red-500'}`}>
+                  <p className={`text-[9.5px] font-bold ml-1 ${senha.length >= 8 && /\d/.test(senha) && /[a-zA-Z]/.test(senha) ? 'text-emerald-700' : senha.length >= 6 ? 'text-amber-700' : 'text-red-500'}`}>
                     Força: {senha.length >= 8 && /\d/.test(senha) && /[a-zA-Z]/.test(senha) ? 'Forte' : senha.length >= 6 ? 'Média' : 'Fraca'}
                   </p>
                 )}
@@ -796,7 +796,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
                 />
               </div>
               {confirmar && senha === confirmar && !fieldErrors.confirmar && (
-                <p className="text-[9.5px] text-emerald-600 font-bold ml-1 flex items-center gap-1"><Check size={10} /> As senhas coincidem</p>
+                <p className="text-[9.5px] text-emerald-700 font-bold ml-1 flex items-center gap-1"><Check size={10} /> As senhas coincidem</p>
               )}
               {fieldErrors.confirmar && <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.confirmar}</p>}
             </div>

@@ -914,9 +914,9 @@ export function GovContactsContent({
   // caía na maqueta simulada do B.I. e parecia que "a imagem não ficou gravada".
   const renderProtectedDocNotice = (lado: string) => (
     <div className="h-[240px] rounded-[24px] border border-amber-200 bg-amber-50/80 flex flex-col items-center justify-center gap-2.5 p-6 text-center shadow-2xs">
-      <Lock size={26} className="text-amber-600" />
+      <Lock size={26} className="text-amber-700" />
       <p className="text-[11px] font-black uppercase tracking-wide text-amber-700">Documento guardado no Storage privado</p>
-      <p className="text-[11px] leading-relaxed font-semibold text-amber-600">
+      <p className="text-[11px] leading-relaxed font-semibold text-amber-700">
         A foto do {lado} foi enviada com sucesso no registo e está SEGURA na nuvem —
         mas esta consola entrou sem sessão de agente real (ADMIN-NNNN), e a política
         de privacidade (v15) só liberta a visualização a administradores autenticados.
@@ -2412,6 +2412,7 @@ export function GovContactsContent({
                       <td className="py-4 px-5 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2">
                           <button
+                            aria-label={`Alternar estado do membro ${w.name}`}
                             onClick={() => {
                               const nextStatus = w.status === 'Ativo' ? 'Desativado' : 'Ativo';
                               setWorkers(prev => prev.map(worker => {
@@ -2433,7 +2434,7 @@ export function GovContactsContent({
                               addAuditLog?.(`[EQUIPA] Acesso dactiloscópico de ${w.name} alterado para ${nextStatus}.`, nextStatus === 'Ativo' ? 'success' : 'warning');
                             }}
                             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none focus:outline-none ${
-                              w.status === 'Ativo' ? 'bg-emerald-600' : w.status === 'Em activação' ? 'bg-amber-400 animate-pulse' : 'bg-slate-300'
+                              w.status === 'Ativo' ? 'bg-emerald-700' : w.status === 'Em activação' ? 'bg-amber-400 animate-pulse' : 'bg-slate-300'
                             }`}
                             type="button"
                           >
@@ -2447,7 +2448,7 @@ export function GovContactsContent({
                             w.status === 'Ativo' 
                               ? 'text-emerald-700' 
                               : w.status === 'Em activação'
-                                ? 'text-amber-600'
+                                ? 'text-amber-700'
                                 : 'text-slate-400'
                           }`}>
                             {w.status === 'Ativo' ? 'Ativo' : w.status === 'Em activação' ? 'Em activação' : w.status === 'Suspenso' ? 'Suspenso' : 'Inativo'}
@@ -2462,6 +2463,7 @@ export function GovContactsContent({
                       <td className="py-4 px-5 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2">
                           <button
+                            aria-label={`Ver ficha e permissões de ${w.name}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedWorkerId(w.id);
@@ -2489,7 +2491,7 @@ export function GovContactsContent({
                               handleDeleteWorker(w.id, w.name);
                             }}
                             title={isPlatformAdmin ? "Eliminar definitivamente este agente (conta, acesso e dados)" : "Eliminar definitivamente este colaborador (conta, acesso e dados)"}
-                            className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 px-2.5 py-1.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                            className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 hover:border-rose-600 px-2.5 py-1.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer"
                           >
                             <Trash2 size={13} />
                             Eliminar
@@ -2709,7 +2711,7 @@ export function GovContactsContent({
 
                       {/* ESTADO DO UTILIZADOR */}
                       <div className="space-y-4">
-                        <div className="flex items-center gap-2 text-emerald-500">
+                        <div className="flex items-center gap-2 text-emerald-700">
                           <CheckCircle2 size={15} className="stroke-[2.5]" />
                           <span className="font-extrabold text-[11px] uppercase tracking-widest">Estágio de Autorização</span>
                         </div>
@@ -2719,14 +2721,14 @@ export function GovContactsContent({
                           <div className="grid gap-1.5 md:col-span-5">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 min-h-[20px] flex items-end pb-1">Estado de Acesso *</label>
                             <div className="relative">
-                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 pointer-events-none">
+                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-700 pointer-events-none">
                                 <CheckCircle2 size={16} />
                               </span>
                               <select
                                 required
                                 value={newWorkerStatus}
                                 onChange={(e) => setNewWorkerStatus(e.target.value as 'Ativo' | 'Desativado' | 'Suspenso' | 'Férias' | 'Pendente')}
-                                className="w-full bg-white border-2 border-slate-100 focus:border-emerald-500/30 rounded-[20px] pl-11 pr-10 py-3.5 text-xs text-slate-800 font-bold outline-none transition-all appearance-none cursor-pointer"
+                                className="w-full bg-white border-2 border-slate-100 focus:border-emerald-700/30 rounded-[20px] pl-11 pr-10 py-3.5 text-xs text-slate-800 font-bold outline-none transition-all appearance-none cursor-pointer"
                               >
                                 <option value="Ativo">Ativo (Permitido)</option>
                                 <option value="Desativado">Desativado (Bloqueado)</option>
@@ -2742,7 +2744,7 @@ export function GovContactsContent({
 
                           {/* GREEN MESSAGE NOTICE BOX */}
                           <div className="md:col-span-7 bg-[#f0fdf4] border border-[#10b981]/15 rounded-[20px] p-4 flex gap-3 text-left">
-                            <Info size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+                            <Info size={18} className="text-emerald-700 shrink-0 mt-0.5" />
                             <p className="text-xs text-[#065f46] leading-relaxed font-bold m-0 select-none">
                               {isPlatformAdmin ? "Novos membros registados pela página Registo nascem 'Pendente de Análise'. Membros 'Desativados' ou 'Suspensos' terão o acesso à Administração revogado preventivamente." : "Utilizadores com estado 'Desativado' ou 'Suspenso' verão o seu acesso dactiloscópico e barramento postal revogado preventivamente."}
                             </p>
@@ -2844,7 +2846,7 @@ export function GovContactsContent({
                                 {pag.label}
                               </span>
                               {pag.obrigatoria && (
-                                <span className="ml-auto text-[8px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                <span className="ml-auto text-[8px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded">
                                   Obrigatória
                                 </span>
                               )}
@@ -3038,7 +3040,7 @@ export function GovContactsContent({
                           <>
                             <div className="border-t border-dashed border-slate-150" />
                             <div className="space-y-3">
-                              <div className="flex items-center gap-2 text-amber-500">
+                              <div className="flex items-center gap-2 text-amber-700">
                                 <Lock size={15} className="stroke-[2.5]" />
                                 <span className="font-extrabold text-[11px] uppercase tracking-widest">Senha de Acesso</span>
                               </div>
@@ -3080,7 +3082,7 @@ export function GovContactsContent({
                           <button
                             type="button"
                             onClick={() => { handleDeleteWorker(selectedWorker.id, selectedWorker.name); }}
-                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-5 py-3 rounded-[18px] font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2"
+                            className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-5 py-3 rounded-[18px] font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2"
                           >
                             <Trash2 size={13} /> Eliminar Definitivamente
                           </button>
@@ -3307,13 +3309,13 @@ export function GovContactsContent({
           <div className="text-left px-3">
             <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Usuários Aprovados</div>
             <div className="text-lg font-black text-slate-800">
-              {citizens.filter(c => c.status === 'Aprovado').length}/{citizens.length} <span className="text-emerald-500 text-xs font-bold">OK</span>
+              {citizens.filter(c => c.status === 'Aprovado').length}/{citizens.length} <span className="text-emerald-700 text-xs font-bold">OK</span>
             </div>
           </div>
           <div className="w-px h-8 bg-slate-200" />
           <div className="text-left px-3">
             <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Tráfego de Conexão</div>
-            <div className="text-lg font-black text-emerald-600">{dadosReais ? <span title="Sem medição de tráfego na base central">—</span> : '99.9%'} <span className="text-[9px] font-semibold text-slate-400 font-mono">{dadosReais ? 'SEM MEDIÇÃO' : 'DISP'}</span></div>
+            <div className="text-lg font-black text-emerald-700">{dadosReais ? <span title="Sem medição de tráfego na base central">—</span> : '99.9%'} <span className="text-[9px] font-semibold text-slate-400 font-mono">{dadosReais ? 'SEM MEDIÇÃO' : 'DISP'}</span></div>
           </div>
         </div>
       </div>
@@ -3402,22 +3404,22 @@ export function GovContactsContent({
                   className={`bg-transparent border-0 outline-none text-xs font-black uppercase cursor-pointer pr-4 transition-colors ${
                     filterStatus === 'Pendente de Validação' ? 'text-orange-500 font-bold' :
                     filterStatus === 'Em Análise pela IA' ? 'text-purple-500 font-bold' :
-                    filterStatus === 'Em Revisão Administrativa' ? 'text-amber-500 font-bold' :
-                    filterStatus === 'Aprovado Automaticamente' ? 'text-emerald-500 font-bold' :
+                    filterStatus === 'Em Revisão Administrativa' ? 'text-amber-700 font-bold' :
+                    filterStatus === 'Aprovado Automaticamente' ? 'text-emerald-700 font-bold' :
                     filterStatus === 'Aprovado Manualmente' ? 'text-teal-500 font-bold' :
-                    filterStatus === 'Rejeitado' ? 'text-rose-500 font-bold' :
+                    filterStatus === 'Rejeitado' ? 'text-rose-700 font-bold' :
                     filterStatus === 'Bloqueado' ? 'text-slate-500 font-bold' :
-                    filterStatus === 'Ativo' ? 'text-emerald-600 font-bold' :
+                    filterStatus === 'Ativo' ? 'text-emerald-700 font-bold' :
                     'text-indigo-600 font-bold'
                   }`}
                 >
                   <option value="Todas" className="text-slate-800 font-sans font-semibold">Todas Tríades</option>
                   <option value="Pendente de Validação" className="text-orange-500 font-sans font-semibold">Pendente de Validação</option>
                   <option value="Em Análise pela IA" className="text-purple-500 font-sans font-semibold">Em Análise pela IA</option>
-                  <option value="Em Revisão Administrativa" className="text-amber-500 font-sans font-semibold">Em Revisão Administrativa</option>
-                  <option value="Aprovado Automaticamente" className="text-emerald-500 font-sans font-semibold">Aprovado Automaticamente</option>
+                  <option value="Em Revisão Administrativa" className="text-amber-700 font-sans font-semibold">Em Revisão Administrativa</option>
+                  <option value="Aprovado Automaticamente" className="text-emerald-700 font-sans font-semibold">Aprovado Automaticamente</option>
                   <option value="Aprovado Manualmente" className="text-teal-500 font-sans font-semibold">Aprovado Manualmente</option>
-                  <option value="Rejeitado" className="text-rose-500 font-sans font-semibold">Rejeitados</option>
+                  <option value="Rejeitado" className="text-rose-700 font-sans font-semibold">Rejeitados</option>
                   <option value="Bloqueado" className="text-slate-400 font-sans font-semibold">Bloqueados</option>
                   <option value="Ativo" className="text-emerald-650 font-sans font-semibold">Ativos</option>
                 </select>
@@ -3521,7 +3523,7 @@ export function GovContactsContent({
                         campanhaTipo === t
                           ? t === 'critical' ? 'bg-rose-600 text-white border-rose-600'
                             : t === 'warning' ? 'bg-amber-500 text-white border-amber-500'
-                            : t === 'success' ? 'bg-emerald-600 text-white border-emerald-600'
+                            : t === 'success' ? 'bg-emerald-700 text-white border-emerald-600'
                             : 'bg-indigo-600 text-white border-indigo-600'
                           : 'bg-white text-slate-500 border-slate-200'
                       }`}
@@ -3587,7 +3589,7 @@ export function GovContactsContent({
                 <h5 className="font-extrabold text-slate-950 text-sm uppercase">Nenhum Usuário Corresponde</h5>
                 <p className="text-xs text-slate-400 leading-normal max-w-sm mx-auto">
                   De momento, não existem dados para exibir com o estado de validação <strong className={`font-black ${
-                    filterStatus.toLowerCase().includes('aprovado') || filterStatus === 'Ativo' ? 'text-emerald-600' :
+                    filterStatus.toLowerCase().includes('aprovado') || filterStatus === 'Ativo' ? 'text-emerald-700' :
                     filterStatus.toLowerCase().includes('pendente') || filterStatus.toLowerCase().includes('análise') || filterStatus.toLowerCase().includes('revisão') ? 'text-orange-500' :
                     'text-red-700 font-bold'
                   }`}>{filterStatus.toUpperCase()}</strong> nas províncias/municípios selecionados.
@@ -3658,7 +3660,7 @@ export function GovContactsContent({
                               )}
                             </div>
                             {citizen.reason && (citizen.status === 'Rejeitado' || citizen.status === 'Bloqueado') && (
-                              <p className="text-[9.5px] text-rose-600 line-clamp-1 italic mt-1 font-semibold" title={citizen.reason}>
+                              <p className="text-[9.5px] text-rose-700 line-clamp-1 italic mt-1 font-semibold" title={citizen.reason}>
                                 Observação: {citizen.reason}
                               </p>
                             )}
@@ -3689,14 +3691,14 @@ export function GovContactsContent({
                       <td className="py-3 px-3 text-center font-mono font-black">
                         {citizen.facialMatch !== undefined ? (
                           <div className="flex flex-col items-center justify-center">
-                            <span className={citizen.facialMatch >= 90 ? 'text-emerald-600' : citizen.facialMatch >= 70 ? 'text-amber-500' : 'text-rose-600'}>
+                            <span className={citizen.facialMatch >= 90 ? 'text-emerald-700' : citizen.facialMatch >= 70 ? 'text-amber-700' : 'text-rose-700'}>
                               {citizen.facialMatch}%
                             </span>
                             <span className="text-[8px] font-sans text-slate-500 uppercase font-black uppercase tracking-widest mt-0.5">coerência: {citizen.coherenceLevel}%</span>
                           </div>
                         ) : citizen.verificationScore !== undefined ? (
                           <div className="flex flex-col items-center justify-center">
-                            <span className="text-emerald-600">{citizen.verificationScore}%</span>
+                            <span className="text-emerald-700">{citizen.verificationScore}%</span>
                             <span className="text-[8px] font-sans text-slate-400 tracking-wider">OK</span>
                           </div>
                         ) : (
@@ -4035,7 +4037,7 @@ export function GovContactsContent({
                                   <span className="text-[6px] font-bold text-slate-400 uppercase block">Min. Justiça e Direitos Humanos</span>
                                 </div>
                               </div>
-                              <span className="text-[7.5px] font-black text-rose-600 bg-rose-50 border border-rose-200 p-0.5 px-1.5 rounded uppercase font-mono">B.I. Frente</span>
+                              <span className="text-[7.5px] font-black text-rose-700 bg-rose-50 border border-rose-200 p-0.5 px-1.5 rounded uppercase font-mono">B.I. Frente</span>
                             </div>
 
                             {/* Dados Centrais do BI */}
@@ -4261,21 +4263,21 @@ export function GovContactsContent({
                       </span>
                       {selectedReviewCitizen.iaResult && (
                         <span className={`text-[8.5px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full border ${
-                          selectedReviewCitizen.iaResult === 'Aprovado' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                          selectedReviewCitizen.iaResult === 'Revisão Administrativa' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-red-50 text-red-500 border-red-200'
+                          selectedReviewCitizen.iaResult === 'Aprovado' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                          selectedReviewCitizen.iaResult === 'Revisão Administrativa' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-500 border-red-200'
                         }`}>Motor local: {selectedReviewCitizen.iaResult}</span>
                       )}
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
                       <div className="bg-slate-50 border border-slate-150 rounded-xl p-2.5 text-center">
                         <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider">Corresp. Facial</span>
-                        <span className={`text-sm font-black font-mono ${selectedReviewCitizen.facialMatch !== undefined ? (selectedReviewCitizen.facialMatch >= 70 ? 'text-emerald-600' : selectedReviewCitizen.facialMatch >= 45 ? 'text-amber-500' : 'text-rose-600') : 'text-slate-400'}`}>
+                        <span className={`text-sm font-black font-mono ${selectedReviewCitizen.facialMatch !== undefined ? (selectedReviewCitizen.facialMatch >= 70 ? 'text-emerald-700' : selectedReviewCitizen.facialMatch >= 45 ? 'text-amber-700' : 'text-rose-700') : 'text-slate-400'}`}>
                           {selectedReviewCitizen.facialMatch !== undefined ? `${selectedReviewCitizen.facialMatch}%` : '—'}
                         </span>
                       </div>
                       <div className="bg-slate-50 border border-slate-150 rounded-xl p-2.5 text-center">
                         <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider">Leitura OCR</span>
-                        <span className={`text-sm font-black font-mono ${selectedReviewCitizen.ocrDataMatch !== undefined ? (selectedReviewCitizen.ocrDataMatch >= 70 ? 'text-emerald-600' : selectedReviewCitizen.ocrDataMatch >= 45 ? 'text-amber-500' : 'text-rose-600') : 'text-slate-400'}`}>
+                        <span className={`text-sm font-black font-mono ${selectedReviewCitizen.ocrDataMatch !== undefined ? (selectedReviewCitizen.ocrDataMatch >= 70 ? 'text-emerald-700' : selectedReviewCitizen.ocrDataMatch >= 45 ? 'text-amber-700' : 'text-rose-700') : 'text-slate-400'}`}>
                           {selectedReviewCitizen.ocrDataMatch !== undefined ? `${selectedReviewCitizen.ocrDataMatch}%` : '—'}
                         </span>
                       </div>
@@ -4356,7 +4358,7 @@ export function GovContactsContent({
 
                   {aiEvaluationState === 'completed' && aiMatchScore && (
                     <div className="space-y-3 animate-zoomIn">
-                      <div className="flex items-center justify-center gap-2 text-emerald-600">
+                      <div className="flex items-center justify-center gap-2 text-emerald-700">
                         <CheckCircle2 size={24} />
                         <span className="text-sm font-black uppercase tracking-tight font-mono">Batimento de IA Concluído</span>
                       </div>
@@ -4364,7 +4366,7 @@ export function GovContactsContent({
                       {/* Placar de Correspondência */}
                       <div className="flex flex-col items-center justify-center">
                         <div className="bg-emerald-50 border border-emerald-100 p-3.5 px-8 rounded-2xl block text-center">
-                          <span className="text-[9px] text-emerald-600 font-extrabold uppercase tracking-widest block leading-none mb-1">SCORE DE CORRESPONDÊNCIA FACIAL</span>
+                          <span className="text-[9px] text-emerald-700 font-extrabold uppercase tracking-widest block leading-none mb-1">SCORE DE CORRESPONDÊNCIA FACIAL</span>
                           <span className="text-3xl font-black text-emerald-700 font-mono italic leading-none">{aiMatchScore}%</span>
                         </div>
                       </div>
@@ -4423,7 +4425,7 @@ export function GovContactsContent({
 
                     {selectedReviewCitizen.pviVer === 'APTO' && (
                       <div className="inline-flex items-center gap-1.5 bg-emerald-100/70 border border-emerald-200 rounded-full px-3 py-1">
-                        <Zap size={10} className="text-emerald-600 fill-emerald-300" />
+                        <Zap size={10} className="text-emerald-700 fill-emerald-300" />
                         <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700">Aprovado automaticamente por Pré-Verificação Inteligente (IA)</span>
                       </div>
                     )}
@@ -4441,7 +4443,7 @@ export function GovContactsContent({
                           ))}
                         </div>
                       ) : (
-                        <span className="text-[9.5px] font-bold text-emerald-600 uppercase tracking-widest">Sem alertas</span>
+                        <span className="text-[9.5px] font-bold text-emerald-700 uppercase tracking-widest">Sem alertas</span>
                       )}
                     </div>
 
@@ -4938,7 +4940,7 @@ export function GovContactsContent({
                           addAuditLog?.(`Auditoria: Cadastro do cidadão "${selectedReviewCitizen.name}" homologado e ativado biometricamente pelo agente Admin.`, 'success');
                           setSelectedReviewCitizen(null);
                         }}
-                        className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer font-bold block shadow-lg shadow-emerald-600/10 w-full sm:w-auto text-center border-0 font-sans"
+                        className="px-6 py-3 bg-emerald-700 hover:bg-emerald-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer font-bold block shadow-lg shadow-emerald-600/10 w-full sm:w-auto text-center border-0 font-sans"
                       >
                         Homologar Cadastro
                       </button>
@@ -5155,9 +5157,9 @@ export function GovContactsContent({
               <div className="h-1.5 w-full bg-gradient-to-r from-rose-400 via-rose-600 to-rose-400" />
               <div className="px-6 md:px-9 pt-7 pb-1 text-center">
                 <div className="mx-auto w-20 h-20 rounded-full bg-rose-50 border border-rose-100 shadow-[0_0_36px_rgba(244,63,94,0.20)] flex items-center justify-center mb-4">
-                  <AlertTriangle size={32} className="text-rose-600" strokeWidth={2.2} />
+                  <AlertTriangle size={32} className="text-rose-700" strokeWidth={2.2} />
                 </div>
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-600 m-0">Acção irreversível · Requer confirmação</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-700 m-0">Acção irreversível · Requer confirmação</p>
                 <h3 className="text-xl md:text-2xl font-black text-[#0c2340] italic uppercase tracking-tighter mt-1.5 leading-tight m-0">Eliminar Cadastro do Cidadão</h3>
               </div>
               <div className="px-6 md:px-9 pb-7 pt-5 space-y-4">
@@ -5172,12 +5174,12 @@ export function GovContactsContent({
                     <p className="text-[13px] font-black text-slate-900 m-0 truncate">{deleteConfirmCitizen.name}</p>
                     {deleteConfirmCitizen.biNumber ? <p className="text-[10.5px] font-mono font-bold text-slate-500 m-0 mt-0.5">BI: {deleteConfirmCitizen.biNumber}</p> : null}
                   </div>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-rose-600 bg-rose-50 border border-rose-100 rounded-full px-2.5 py-1 shrink-0">Alvo</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-rose-700 bg-rose-50 border border-rose-100 rounded-full px-2.5 py-1 shrink-0">Alvo</span>
                 </div>
                 <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-start gap-3">
-                  <AlertTriangle size={17} className="text-rose-500 shrink-0 mt-0.5" />
+                  <AlertTriangle size={17} className="text-rose-700 shrink-0 mt-0.5" />
                   <p className="text-[11px] leading-relaxed text-slate-600 font-semibold m-0">
-                    Esta acção remove o registo da <span className="font-black text-slate-900">base de dados central</span> e desta consola, incluindo os dados de validação associados. <span className="font-black text-rose-600">Não pode ser anulada.</span>
+                    Esta acção remove o registo da <span className="font-black text-slate-900">base de dados central</span> e desta consola, incluindo os dados de validação associados. <span className="font-black text-rose-700">Não pode ser anulada.</span>
                   </p>
                 </div>
                 <div className="flex flex-col-reverse sm:flex-row gap-2.5 pt-1">

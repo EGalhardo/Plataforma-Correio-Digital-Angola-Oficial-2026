@@ -296,7 +296,7 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
             {STEPS.map((s, i) => (
               <div key={s} className="flex items-center gap-1.5">
                 <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black border transition-all ${
-                  i < step ? 'bg-emerald-500 border-emerald-500 text-white'
+                  i < step ? 'bg-emerald-700 border-emerald-700 text-white'
                   : i === step ? 'bg-blue-600 border-blue-600 text-white animate-pulse'
                   : 'bg-white border-slate-300 text-slate-400'}`}>
                   {i < step ? '✓' : i + 1}
@@ -342,7 +342,7 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
             <button
               type="button"
               onClick={() => setPedirRemocaoFacial(true)}
-              className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2"
+              className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2"
             >
               <Trash2 size={13} /> Remover registo facial
             </button>

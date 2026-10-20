@@ -178,7 +178,7 @@ export function HomeContent({
       {/* Quick Summary / Security Status */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
         <div className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-4 md:p-6 flex items-center gap-3.5 md:gap-5 shadow-none overflow-hidden relative group">
-          <div className={`w-11 h-11 md:w-14 md:h-14 ${isInst ? 'bg-white border-slate-100' : 'bg-emerald-600 border-emerald-600'} rounded-2xl flex items-center justify-center shadow-none shrink-0 border`}>
+          <div className={`w-11 h-11 md:w-14 md:h-14 ${isInst ? 'bg-white border-slate-100' : 'bg-emerald-700 border-emerald-600'} rounded-2xl flex items-center justify-center shadow-none shrink-0 border`}>
             {isInst ? (
               <LazyImage
                 key={`${logoFalhou ? 'fb' : 'ok'}:${instLogoUrl || ''}`}
@@ -202,7 +202,7 @@ export function HomeContent({
               {isInst ? t('Agente {sigla} Verificado').replace('{sigla}', instSigla || 'AGT') : t('Cidadão Verificado')}
             </div>
             <div className="flex items-center gap-1.5 mt-1">
-              <div className={`w-2 h-2 rounded-full ${isInst && instVerified === false ? 'bg-red-600' : 'bg-emerald-500'} animate-pulse shrink-0`} />
+              <div className={`w-2 h-2 rounded-full ${isInst && instVerified === false ? 'bg-red-600' : 'bg-emerald-700'} animate-pulse shrink-0`} />
               <span className="text-[10px] md:text-xs font-semibold text-slate-600">{t("Protocolo Ativado 100%")}</span>
             </div>
           </div>
@@ -324,10 +324,10 @@ export function HomeContent({
         <section className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-none flex flex-col group" data-testid="container-lidas">
           <div className="flex items-center justify-between mb-3.5 shrink-0 px-1">
              <div className="flex items-center gap-2">
-                <Mail size={16} className="text-emerald-500" />
+                <Mail size={16} className="text-emerald-700" />
                 <h3 className="text-slate-900 font-bold text-sm md:text-base tracking-tight">{t("Lidas")}</h3>
              </div>
-             <span className="text-emerald-600 font-black text-sm md:text-base">{readCount}</span>
+             <span className="text-emerald-700 font-black text-sm md:text-base">{readCount}</span>
           </div>
           <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
             {readCount === 0 ? (

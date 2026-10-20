@@ -98,14 +98,14 @@ import { SondagemResponderCard } from './SondagemResponderCard';
 const ANEXOS_TIPOS_ACEITES = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif', '.txt', '.csv', '.xls', '.xlsx', '.ppt', '.pptx', '.zip'];
 
 const STATE_STYLING: Record<string, { bg: string; text: string; border: string; bgDot: string; textIcon: string }> = {
-  'Enviada': { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', bgDot: 'bg-emerald-200', textIcon: 'text-emerald-600' },
+  'Enviada': { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', bgDot: 'bg-emerald-200', textIcon: 'text-emerald-700' },
   'Recebida': { bg: 'bg-slate-50', text: 'text-slate-800', border: 'border-slate-200', bgDot: 'bg-slate-150', textIcon: 'text-slate-600' },
   'Entregue': { bg: 'bg-blue-50', text: 'text-blue-800', border: 'border-blue-100', bgDot: 'bg-blue-100/60', textIcon: 'text-blue-600' },
   'Visualizada': { bg: 'bg-teal-50', text: 'text-teal-800', border: 'border-teal-100', bgDot: 'bg-teal-100/60', textIcon: 'text-teal-600' },
   'Confirmada': { bg: 'bg-indigo-50', text: 'text-indigo-800', border: 'border-indigo-100', bgDot: 'bg-indigo-100/60', textIcon: 'text-indigo-600' },
   'Respondida': { bg: 'bg-purple-50', text: 'text-purple-800', border: 'border-purple-100', bgDot: 'bg-purple-100/60', textIcon: 'text-purple-600' },
-  'Em análise': { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-100', bgDot: 'bg-amber-200', textIcon: 'text-amber-600' },
-  'Aprovada': { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-100', bgDot: 'bg-emerald-100/65', textIcon: 'text-emerald-600' },
+  'Em análise': { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-100', bgDot: 'bg-amber-200', textIcon: 'text-amber-700' },
+  'Aprovada': { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-100', bgDot: 'bg-emerald-100/65', textIcon: 'text-emerald-700' },
   'Rejeitada': { bg: 'bg-red-50', text: 'text-red-800', border: 'border-red-100', bgDot: 'bg-red-100/60', textIcon: 'text-red-650' },
   'Contestada': { bg: 'bg-rose-50', text: 'text-rose-800', border: 'border-rose-100', bgDot: 'bg-rose-100/60', textIcon: 'text-rose-650' },
   'Expirada': { bg: 'bg-zinc-50', text: 'text-zinc-800', border: 'border-zinc-200', bgDot: 'bg-zinc-150', textIcon: 'text-zinc-600' },
@@ -174,8 +174,8 @@ const CATEGORY_STYLING: Record<string, {
     text: 'text-emerald-800',
     border: 'border-emerald-200',
     badge: 'bg-emerald-100/70 text-emerald-900',
-    circleBg: 'bg-emerald-600 text-white',
-    circleBorder: 'border-emerald-500 ring-emerald-100',
+    circleBg: 'bg-emerald-700 text-white',
+    circleBorder: 'border-emerald-700 ring-emerald-100',
   },
   'Declaração': {
     bg: 'bg-teal-50 border-teal-200 text-teal-800',
@@ -538,7 +538,7 @@ export function MessageDetail({
                   )
                 )}
                 <p className="text-[11px] font-medium text-slate-500 m-0 mt-1.5 tabular-nums">
-                  {q && <span className={q.status === 'ativo' ? 'text-emerald-600 font-bold' : 'text-slate-500 font-bold'}>{q.status}</span>}
+                  {q && <span className={q.status === 'ativo' ? 'text-emerald-700 font-bold' : 'text-slate-500 font-bold'}>{q.status}</span>}
                   {c && <> · <b className="text-slate-700">{c.enviados}</b> enviados · <b className="text-blue-700">{c.iniciados}</b> iniciados · <b className="text-emerald-700">{c.concluidos}</b> concluídos · <b className="text-rose-700">{c.recusados}</b> recusados</>}
                 </p>
                 <p className="text-[10px] font-medium text-slate-400 m-0 mt-1 flex items-center gap-1"><Lock size={10} /> As respostas são anónimas — só os resultados agregados podem ser consultados.</p>
@@ -809,7 +809,7 @@ export function MessageDetail({
                         ))}
                       </div>
                     ) : (
-                      <p className="text-[11px] font-semibold text-rose-600 mt-1.5 m-0 flex items-center gap-1.5"><AlertTriangle size={12} className="shrink-0" /> Sem escolha — seleccione uma opção na sondagem.</p>
+                      <p className="text-[11px] font-semibold text-rose-700 mt-1.5 m-0 flex items-center gap-1.5"><AlertTriangle size={12} className="shrink-0" /> Sem escolha — seleccione uma opção na sondagem.</p>
                     )}
                   </div>
                 </div>
@@ -843,7 +843,7 @@ export function MessageDetail({
         icone={popupSond?.ok ? CheckCircle2 : AlertTriangle}
         titulo={popupSond?.ok ? 'Resposta Registada' : 'Sondagem'}
         subtitulo={popupSond?.ok ? 'Participação confirmada' : 'Registo não concluído'}
-        tomIcone={popupSond?.ok ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}
+        tomIcone={popupSond?.ok ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}
         maxW="max-w-md"
       >
         {/* v37.77 — sucesso celebrado: selo animado + painel tonalizado centrado */}
@@ -861,7 +861,7 @@ export function MessageDetail({
           <p className="text-sm font-semibold text-slate-700 m-0 leading-relaxed">{popupSond?.texto}</p>
           {popupSond?.ok && (
             <div className="flex items-center justify-center gap-1.5 mt-3">
-              {['bg-emerald-300', 'bg-teal-400', 'bg-emerald-500', 'bg-teal-400', 'bg-emerald-300'].map((c, i) => (
+              {['bg-emerald-300', 'bg-teal-400', 'bg-emerald-700', 'bg-teal-400', 'bg-emerald-300'].map((c, i) => (
                 <span key={i} className={`w-1.5 h-1.5 rounded-full ${c} animate-bounce`} style={{ animationDelay: `${i * 90}ms` }} />
               ))}
             </div>
@@ -881,7 +881,7 @@ export function MessageDetail({
         icone={avisoDenuncia?.tipo === 'success' ? CheckCircle2 : AlertTriangle}
         titulo={avisoDenuncia?.tipo === 'success' ? 'Fase Activada' : 'Cronograma da Denúncia'}
         subtitulo={avisoDenuncia?.tipo === 'success' ? 'Cronograma actualizado' : 'Acção não permitida'}
-        tomIcone={avisoDenuncia?.tipo === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}
+        tomIcone={avisoDenuncia?.tipo === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}
         maxW="max-w-md"
       >
         <div className={`rounded-2xl border p-5 text-center ${avisoDenuncia?.tipo === 'success' ? 'bg-gradient-to-b from-emerald-50/80 to-white border-emerald-100' : 'bg-amber-50/70 border-amber-100'}`} data-testid="aviso-denuncia">
@@ -2661,10 +2661,10 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               data-testid="completo-data-expiracao"
               title={expiracao.descricao || undefined}
             >
-              <CalendarClock size={14} className={expiracao.definida ? (expiracao.expirada ? 'text-rose-600' : 'text-[#e05252]') : 'text-slate-400'} />
+              <CalendarClock size={14} className={expiracao.definida ? (expiracao.expirada ? 'text-rose-700' : 'text-red-600') : 'text-slate-400'} />
               <div className="leading-none">
                 <span className="text-[8px] font-black text-slate-400 block uppercase tracking-wider">Data de Expiração</span>
-                <span className={`text-xs font-bold font-mono mt-0.5 block ${expiracao.definida ? (expiracao.expirada ? 'text-rose-700' : 'text-[#e05252]') : 'text-slate-500'}`}>
+                <span className={`text-xs font-bold font-mono mt-0.5 block ${expiracao.definida ? (expiracao.expirada ? 'text-rose-700' : 'text-red-600') : 'text-slate-500'}`}>
                   {expiracao.rotulo}
                   {expiracao.definida && expiracao.descricao && (
                     <span className="ml-1.5 font-sans font-semibold text-[9px] uppercase tracking-wider opacity-80">· {expiracao.descricao}</span>
@@ -2836,12 +2836,12 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                 className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 space-y-4"
               >
                 <div className="flex items-center gap-2.5 text-emerald-800">
-                  <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-emerald-700 text-white flex items-center justify-center">
                     <Check size={16} strokeWidth={3} />
                   </div>
                   <div>
                     <h5 className="font-extrabold text-sm uppercase tracking-wide leading-none">Resposta Enviada com Sucesso</h5>
-                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest font-mono">Registo Criptográfico Selado</span>
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest font-mono">Registo Criptográfico Selado</span>
                   </div>
                 </div>
 
@@ -2862,7 +2862,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                       <div className="space-y-1 bg-slate-50 border border-slate-150 p-2.5 rounded-lg">
                         {detailReplySuccess.files.map((file, fIdx) => (
                           <div key={fIdx} className="flex items-center gap-2 text-[10.5px] font-mono text-slate-600 leading-none">
-                            <span className="text-emerald-500 font-extrabold text-xs">✓</span>
+                            <span className="text-emerald-700 font-extrabold text-xs">✓</span>
                             <span className="font-semibold truncate max-w-[200px] md:max-w-xs">{file.name}</span>
                             <span className="text-slate-400 text-[9.5px]">({file.size})</span>
                           </div>
@@ -4039,7 +4039,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               className="space-y-6 text-left"
             >
               <div className="flex flex-col items-center text-center p-6 bg-emerald-50 border border-emerald-200 rounded-3xl relative overflow-hidden">
-                <div className="w-14 h-14 rounded-full bg-emerald-500 text-white flex items-center justify-center mb-4 shadow-lg shadow-emerald-250 animate-bounce">
+                <div className="w-14 h-14 rounded-full bg-emerald-700 text-white flex items-center justify-center mb-4 shadow-lg shadow-emerald-250 animate-bounce">
                   <Check size={26} strokeWidth={3} />
                 </div>
                 <h3 className="text-emerald-900 font-black text-sm uppercase tracking-wider leading-none">Trâmite Registado</h3>
@@ -4357,7 +4357,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                     <div className="mt-6 p-4 bg-amber-50/50 border border-amber-200/60 rounded-2xl flex flex-col gap-3 text-xs text-slate-700 text-left">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <span className="text-[10px] uppercase font-black tracking-widest text-slate-650 flex items-center gap-1">
-                          <AlertTriangle size={13} className="text-amber-600" /> Prioridade & Prazos Oficiais ({prioConfig.priority})
+                          <AlertTriangle size={13} className="text-amber-700" /> Prioridade & Prazos Oficiais ({prioConfig.priority})
                         </span>
                         {deadlineSecondsLeft !== null && (
                           <span className="font-mono text-[10px] font-black text-rose-650 animate-pulse bg-white border border-rose-100 px-2 py-0.5 rounded-md shadow-3xs uppercase">
@@ -4385,14 +4385,14 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                     {/* SEÇÃO DOCUMENTO VERIFICADO */}
                     <div className="pt-5 border-t border-slate-200 space-y-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-200">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-700 text-white flex items-center justify-center shadow-md shadow-emerald-200">
                           <ShieldCheck size={18} />
                         </div>
                         <div>
                           <h4 className="text-xs font-black uppercase tracking-[0.05em] text-slate-900 leading-none">Documento Registado</h4>
                           <p className="text-[10px] text-emerald-800 font-medium mt-0.5">Registo de integridade com hash SHA-256</p>
                         </div>
-                        <span className="ml-auto bg-emerald-500 text-white font-mono text-[8px] font-black px-2 py-0.5 rounded uppercase leading-none tracking-wider font-bold">
+                        <span className="ml-auto bg-emerald-700 text-white font-mono text-[8px] font-black px-2 py-0.5 rounded uppercase leading-none tracking-wider font-bold">
                           REGISTADO
                         </span>
                       </div>
@@ -4624,10 +4624,10 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                   <div className="w-[1px] h-5 bg-slate-200 hidden sm:block" />
                   {/* 2026-09-11 (T45) — Data de Expiração definida pelo remetente */}
                   <div className="flex items-center gap-2 min-w-0" data-testid="detalhe-data-expiracao" title={expiracao.descricao || undefined}>
-                    <CalendarClock size={13} className={`${expiracao.definida ? (expiracao.expirada ? 'text-rose-600' : 'text-[#e05252]') : 'text-slate-400'} shrink-0`} />
+                    <CalendarClock size={13} className={`${expiracao.definida ? (expiracao.expirada ? 'text-rose-700' : 'text-red-600') : 'text-slate-400'} shrink-0`} />
                     <div>
                       <span className="text-[8px] font-black text-slate-400 block uppercase tracking-wider font-display leading-none">Data de Expiração</span>
-                      <span className={`text-xs font-bold font-mono mt-0.5 block leading-none ${expiracao.definida ? (expiracao.expirada ? 'text-rose-700' : 'text-[#e05252]') : 'text-slate-500'}`}>
+                      <span className={`text-xs font-bold font-mono mt-0.5 block leading-none ${expiracao.definida ? (expiracao.expirada ? 'text-rose-700' : 'text-red-600') : 'text-slate-500'}`}>
                         {expiracao.rotulo}
                         {expiracao.definida && expiracao.descricao && (
                           <span className="ml-1.5 font-sans font-semibold text-[9px] uppercase tracking-wider opacity-80">· {expiracao.descricao}</span>
@@ -4643,13 +4643,13 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               {ehOcorrencia && (
                 <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-3xl p-5 md:p-6 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-3xs">
                   <div className="flex items-center gap-3.5 min-w-0">
-                    <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                    <div className="w-11 h-11 rounded-2xl bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-sm">
                       <MapPin size={22} />
                     </div>
                     <div className="min-w-0 text-left">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800">Módulo Oficial de Ocorrências Locais</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-700 animate-pulse" />
                       </div>
                       <h4 className="text-sm md:text-base font-black text-slate-900 truncate mt-0.5">
                         {selectedMessage.details?.subject || selectedMessage.preview}
@@ -4826,10 +4826,10 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                             </div>
                             <div>
                               <small className="text-slate-500 text-[9px] md:text-xs font-black uppercase tracking-[0.15em] block leading-none mb-1">{t("Data de Expiração")}</small>
-                              <div className={`text-xs md:text-sm font-bold flex flex-wrap items-center gap-1.5 ${expiracao.definida ? (expiracao.expirada ? 'text-rose-700' : 'text-[#e05252]') : 'text-primary'}`}>
+                              <div className={`text-xs md:text-sm font-bold flex flex-wrap items-center gap-1.5 ${expiracao.definida ? (expiracao.expirada ? 'text-rose-700' : 'text-red-600') : 'text-primary'}`}>
                                 <span>{expiracao.rotulo}</span>
                                 {expiracao.definida && expiracao.descricao && (
-                                  <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-mono font-bold uppercase tracking-wider ${expiracao.expirada ? 'bg-rose-100 text-rose-700' : 'bg-red-50 text-[#e05252]'}`}>
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-mono font-bold uppercase tracking-wider ${expiracao.expirada ? 'bg-rose-100 text-rose-700' : 'bg-red-50 text-red-600'}`}>
                                     {expiracao.descricao}
                                   </span>
                                 )}
@@ -4901,7 +4901,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                               type="button"
                               data-testid="btn-ver-ocorrencia-mensagem"
                               onClick={handleNavegarParaOcorrencia}
-                              className="text-xs font-black uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 px-5 py-3 rounded-full shadow-md flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 font-bold self-start shrink-0"
+                              className="text-xs font-black uppercase tracking-wider text-white bg-emerald-700 hover:bg-emerald-700 px-5 py-3 rounded-full shadow-md flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 font-bold self-start shrink-0"
                             >
                               <MapPin size={13} className="text-white" />
                               Ver Ocorrência
@@ -5088,11 +5088,11 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                     {/* v27 — resultado REAL da validação na nuvem (nunca inventado) */}
                     {registoQR === 'encontrado' && (
                       <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                        <div className="w-8 h-8 rounded-full bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-md">
                           <Check size={16} strokeWidth={3} />
                         </div>
                         <div>
-                          <span className="bg-emerald-600 text-white text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase leading-none inline-block">
+                          <span className="bg-emerald-700 text-white text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase leading-none inline-block">
                             REGISTO OFICIAL CONFIRMADO
                           </span>
                           <h4 className="font-black text-slate-900 text-xs mt-1 leading-snug">Este número existe no registo da plataforma</h4>
@@ -5293,7 +5293,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
 
                   {/* Top Emblem and Title */}
                   <div className="text-center border-b border-slate-100 pb-5 mb-5">
-                    <div className="w-14 h-14 mx-auto mb-2 flex items-center justify-center rounded-full bg-amber-50 border border-amber-200 text-amber-600 shadow-sm font-bold text-sm tracking-widest font-sans">
+                    <div className="w-14 h-14 mx-auto mb-2 flex items-center justify-center rounded-full bg-amber-50 border border-amber-200 text-amber-700 shadow-sm font-bold text-sm tracking-widest font-sans">
                       CDA
                     </div>
                     <h4 className="font-extrabold text-[11px] uppercase tracking-widest text-slate-400 font-mono">
@@ -5379,7 +5379,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
 
                             {/* Stylish Map Pin Label */}
                             <div className="absolute bg-slate-950/95 border border-amber-500/40 px-2.5 py-1.5 rounded-xl shadow-2xl flex flex-col text-left max-w-[170px]" style={{ top: '24%', left: '26%' }}>
-                              <span className="text-[7.5px] font-extrabold text-amber-500 uppercase tracking-widest leading-none">Hospital Emissor</span>
+                              <span className="text-[7.5px] font-extrabold text-amber-700 uppercase tracking-widest leading-none">Hospital Emissor</span>
                               <span className="text-[9.5px] font-black text-white leading-tight mt-0.5">Hospital Geral Luanda</span>
                               <span className="text-[8px] font-mono text-slate-400 leading-none mt-0.5">8.8383° S | 13.2658° E</span>
                             </div>
@@ -5507,7 +5507,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           </div>
                           <div className="flex justify-between py-1">
                             <span>Estado de Envio:</span>
-                            <span className="text-emerald-600 font-bold">SUCESSO (ENTREGUE)</span>
+                            <span className="text-emerald-700 font-bold">SUCESSO (ENTREGUE)</span>
                           </div>
                           <div className="flex justify-between py-1">
                             <span>Tipo de Atendimento:</span>
@@ -5597,12 +5597,12 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                   {/* Certificate Seal */}
                   <div className="mt-6 pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-sm">
+                      <div className="w-8 h-8 rounded-full bg-emerald-700 text-white flex items-center justify-center shadow-sm">
                         <Check size={15} strokeWidth={3} />
                       </div>
                       <div className="text-left">
                         <p className="font-bold text-[#0c2340] uppercase tracking-wide text-[10px] leading-tight">Assinatura Digital Válida</p>
-                        <span className="text-[9px] font-mono text-emerald-600 font-bold uppercase tracking-wider block">ICP-Angola Credenciado</span>
+                        <span className="text-[9px] font-mono text-emerald-700 font-bold uppercase tracking-wider block">ICP-Angola Credenciado</span>
                       </div>
                     </div>
                     <div className="text-right font-mono text-[9px] text-slate-400">

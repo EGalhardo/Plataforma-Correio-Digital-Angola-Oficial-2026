@@ -152,7 +152,7 @@ export function GovernmentAIPanel({
         </div>
 
         <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0 bg-white border border-slate-200 rounded-full px-3 py-1 text-[9px] font-black uppercase text-slate-600 tracking-wider shadow-xs">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping inline-block shrink-0" />
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-700 animate-ping inline-block shrink-0" />
           Núcleo de IA Activo
         </div>
       </div>

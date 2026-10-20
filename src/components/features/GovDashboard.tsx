@@ -640,7 +640,7 @@ export function GovDashboard({
               Painel Nacional de Correspondência
             </h1>
             <p className="text-[10px] md:text-xs font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest mt-2 flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-700 animate-pulse" />
               Correio Digital Angola &bull; Administração Central
             </p>
           </div>
@@ -651,7 +651,7 @@ export function GovDashboard({
           <div className="flex items-center gap-2 bg-slate-100/50 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/60 px-3.5 py-1.5 rounded-full shrink-0">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-700"></span>
             </span>
             <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-300 font-mono">
               Monitoramento Ativo
@@ -723,7 +723,7 @@ export function GovDashboard({
                 Gestor Operativo Verificado
               </div>
               <div className="flex items-center gap-1.5 mt-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-700 animate-pulse" />
                 <span className="text-[9px] md:text-xs font-bold text-slate-700 dark:text-slate-300">Acesso Governamental Ativo (100%)</span>
               </div>
             </div>
@@ -812,7 +812,7 @@ export function GovDashboard({
                    Correspondências Enviadas
                 </div>
               </div>
-              <div className={`mt-2 text-[11px] font-bold uppercase tracking-wider ${reais && reais.variacao !== null && reais.variacao < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+              <div className={`mt-2 text-[11px] font-bold uppercase tracking-wider ${reais && reais.variacao !== null && reais.variacao < 0 ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
                 {reais
                   ? (reais.variacao !== null
                       ? `${reais.variacao >= 0 ? '↑' : '↓'} ${String(Math.abs(reais.variacao)).replace('.', ',')}% vs mês anterior`
@@ -834,7 +834,7 @@ export function GovDashboard({
                    Correspondências Entregues{reais ? ' / Lidas' : ''}
                 </div>
               </div>
-              <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
                 {reais ? 'lidas pelos destinatários na base central' : '↑ 9,8% vs mês anterior'}
               </div>
             </div>
@@ -852,7 +852,7 @@ export function GovDashboard({
                    Pendentes
                 </div>
               </div>
-              <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+              <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">
                 {reais ? 'pedidos de serviço em curso na base central' : '↓ 5,3% vs mês anterior'}
               </div>
             </div>
@@ -875,7 +875,7 @@ export function GovDashboard({
                    Taxa de Sucesso{reais ? ' (leitura)' : ''}
                 </div>
               </div>
-              <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
                 {reais ? 'mensagens lidas / total enviado' : '↑ 7,6% vs mês anterior'}
               </div>
             </div>
@@ -903,7 +903,7 @@ export function GovDashboard({
                     {reais ? 'contas institucionais reais' : `de ${masterInstitutions.length} integradas`}
                   </span>
                 </div>
-                <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 pt-1">
+                <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 pt-1">
                   {reais ? 'na base central · nuvem' : '↑ 100% operacional'}
                 </div>
               </div>
@@ -927,7 +927,7 @@ export function GovDashboard({
                   />
                   <span className="text-[9px] md:text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider truncate max-w-full">cidadãos</span>
                 </div>
-                <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 pt-1">
+                <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 pt-1">
                   {reais ? 'registados na base central' : '↑ 85.230 este mês'}
                 </div>
               </div>
@@ -935,7 +935,7 @@ export function GovDashboard({
 
             {/* Tempo Médio de Resposta */}
             <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/12 dark:border-slate-800 rounded-[20px] p-6 hover:border-[#0c2340]/25 dark:hover:border-slate-700 transition-all flex items-start gap-4">
-              <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center shrink-0 border border-amber-100/40 dark:border-amber-800/60 shadow-xs">
+              <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 rounded-2xl flex items-center justify-center shrink-0 border border-amber-100/40 dark:border-amber-800/60 shadow-xs">
                 <Clock size={22} className="stroke-[2.2]" />
               </div>
               <div className="flex-1 min-w-0 text-left space-y-1">
@@ -954,7 +954,7 @@ export function GovDashboard({
                     />
                   )}
                 </div>
-                <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-[#10b981] dark:text-emerald-400 pt-1">
+                <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 pt-1">
                   {reais ? 'sem medição na base central' : '↓ -18% vs mês anterior'}
                 </div>
               </div>
@@ -962,7 +962,7 @@ export function GovDashboard({
 
             {/* Pendentes */}
             <div className="bg-white dark:bg-slate-900 border border-[#0c2340]/12 dark:border-slate-800 rounded-[20px] p-6 hover:border-[#0c2340]/25 dark:hover:border-slate-700 transition-all flex items-start gap-4 min-w-0">
-              <div className="w-12 h-12 bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center shrink-0 border border-rose-100/40 dark:border-rose-800/60 shadow-xs">
+              <div className="w-12 h-12 bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400 rounded-2xl flex items-center justify-center shrink-0 border border-rose-100/40 dark:border-rose-800/60 shadow-xs">
                 <Mail size={22} className="stroke-[2.2]" />
               </div>
               <div className="flex-1 min-w-0 text-left space-y-1 min-w-0">
@@ -978,7 +978,7 @@ export function GovDashboard({
                   />
                   <span className="text-[9px] md:text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider truncate max-w-full block">{reais ? 'pedidos de serviço' : 'correspondências'}</span>
                 </div>
-                <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 pt-1">
+                <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400 pt-1">
                   {reais ? 'pedidos reais em aberto' : '↓ -6,7% vs mês anterior'}
                 </div>
               </div>
@@ -1024,9 +1024,9 @@ export function GovDashboard({
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
             {[
               { id: 'todos', label: 'Todos os Indicadores', icon: Layers, count: indicadores.totalVolumeGlobal, color: 'text-slate-800 dark:text-slate-200' },
-              { id: 'ocorrencias', label: 'Ocorrências Territoriais', icon: MapPin, count: indicadores.ocorrencias.total, color: 'text-amber-600 dark:text-amber-400' },
-              { id: 'denuncias', label: 'Denúncias & Reclamações', icon: ShieldAlert, count: indicadores.denuncias.total, color: 'text-rose-600 dark:text-rose-400' },
-              { id: 'inqueritos', label: 'Inquéritos & Sondagens', icon: Vote, count: indicadores.inqueritos.total, color: 'text-emerald-600 dark:text-emerald-400' },
+              { id: 'ocorrencias', label: 'Ocorrências Territoriais', icon: MapPin, count: indicadores.ocorrencias.total, color: 'text-amber-700 dark:text-amber-400' },
+              { id: 'denuncias', label: 'Denúncias & Reclamações', icon: ShieldAlert, count: indicadores.denuncias.total, color: 'text-rose-700 dark:text-rose-400' },
+              { id: 'inqueritos', label: 'Inquéritos & Sondagens', icon: Vote, count: indicadores.inqueritos.total, color: 'text-emerald-700 dark:text-emerald-400' },
               { id: 'video', label: 'Vídeo-Atendimentos', icon: Video, count: indicadores.video.total, color: 'text-indigo-600 dark:text-indigo-400' },
             ].map(tab => {
               const IconComp = tab.icon;
@@ -1066,7 +1066,7 @@ export function GovDashboard({
                 }`}>
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-700 border border-amber-500/20 flex items-center justify-center shrink-0">
                         <MapPin size={20} className="stroke-[2.2]" />
                       </div>
                       <span className="cda-indicador-badge-territorial text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
@@ -1134,7 +1134,7 @@ export function GovDashboard({
                 }`}>
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-700 border border-rose-500/20 flex items-center justify-center shrink-0">
                         <ShieldAlert size={20} className="stroke-[2.2]" />
                       </div>
                       <span className="cda-indicador-badge-integridade text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-rose-100 text-rose-900 border border-rose-300">
@@ -1192,7 +1192,7 @@ export function GovDashboard({
                 }`}>
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-700/10 text-emerald-700 border border-emerald-700/20 flex items-center justify-center shrink-0">
                         <Vote size={20} className="stroke-[2.2]" />
                       </div>
                       <span className="cda-indicador-badge-participacao text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300">
@@ -1234,7 +1234,7 @@ export function GovDashboard({
                       <span className="text-emerald-700 font-mono font-black">{indicadores.inqueritos.taxaAdesao}%</span>
                     </div>
                     <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, Math.max(5, indicadores.inqueritos.taxaAdesao))}%` }} />
+                      <div className="h-full bg-emerald-700 rounded-full" style={{ width: `${Math.min(100, Math.max(5, indicadores.inqueritos.taxaAdesao))}%` }} />
                     </div>
                     <div className="text-[9px] font-bold text-emerald-700 uppercase tracking-wider pt-1 flex items-center gap-1 justify-center">
                       <Sparkles size={11} /> IA Cívica & Análise Preditiva
@@ -1375,7 +1375,7 @@ export function GovDashboard({
 
                   <div className="pt-3 border-t border-slate-200 dark:border-slate-700/60 flex items-center justify-between text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     <span>Ecossistema Correio Digital</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-mono">100% Auditável</span>
+                    <span className="text-emerald-700 dark:text-emerald-400 font-mono">100% Auditável</span>
                   </div>
                 </div>
 
@@ -1391,7 +1391,7 @@ export function GovDashboard({
                     <div className="flex items-center gap-3 text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-amber-500" /> Ocorrências</span>
                       <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-rose-500" /> Denúncias</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-emerald-500" /> Inquéritos</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-emerald-700" /> Inquéritos</span>
                       <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-indigo-500" /> Vídeo</span>
                     </div>
                   </div>
@@ -1439,7 +1439,7 @@ export function GovDashboard({
                 <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 text-left animate-fadeIn">
                   <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 dark:border-slate-700/60">
                     <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest font-mono flex items-center gap-2">
-                      <FileCheck size={14} className="text-emerald-600 dark:text-emerald-400" />
+                      <FileCheck size={14} className="text-emerald-700 dark:text-emerald-400" />
                       Detalhamento Operacional: {
                         indicadoresTab === 'ocorrencias' ? 'Ocorrências Territoriais Comunitárias' :
                         indicadoresTab === 'denuncias' ? 'Integridade Pública & Livro de Reclamações' :
@@ -1612,7 +1612,7 @@ export function GovDashboard({
                 {searchedCitizen ? (
                   <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl space-y-1.5 animate-fadeIn text-left">
                     <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 text-[9px] font-black uppercase tracking-widest font-sans">
-                      <CheckCircle2 size={13} className="text-emerald-500" /> Registro Localizado
+                      <CheckCircle2 size={13} className="text-emerald-700" /> Registro Localizado
                     </div>
                     <div className="text-[11px] text-slate-800 dark:text-white font-black uppercase leading-snug font-sans">
                       {searchedCitizen.name}
@@ -1748,7 +1748,7 @@ export function GovDashboard({
                 >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div className="flex items-start gap-3">
-                      <div className="p-2 bg-emerald-600 text-white rounded-xl shadow-xs shrink-0 mt-0.5">
+                      <div className="p-2 bg-emerald-700 text-white rounded-xl shadow-xs shrink-0 mt-0.5">
                         <ShieldCheck size={18} />
                       </div>
                       <div>
@@ -1770,7 +1770,7 @@ export function GovDashboard({
                     <button
                       type="button"
                       onClick={() => setLastUpdatedProtocol(null)}
-                      className="ml-auto text-[8px] font-mono uppercase font-black text-rose-600 dark:text-rose-400 border border-rose-300 dark:border-rose-800 hover:bg-rose-100/50 dark:hover:bg-rose-950/50 px-2.5 py-1 rounded-lg shrink-0 cursor-pointer transition-colors"
+                      className="ml-auto text-[8px] font-mono uppercase font-black text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800 hover:bg-rose-100/50 dark:hover:bg-rose-950/50 px-2.5 py-1 rounded-lg shrink-0 cursor-pointer transition-colors"
                     >
                       Fechar Recibo
                     </button>
@@ -2198,7 +2198,7 @@ export function GovDashboard({
                             ? reais.provincias.map((pv, i) => ({
                                 name: pv.nome,
                                 count: String(pv.v),
-                                color: ['bg-blue-600','bg-purple-600','bg-amber-600','bg-rose-600','bg-teal-600','bg-emerald-600','bg-indigo-600','bg-orange-600','bg-pink-600','bg-cyan-600','bg-lime-600','bg-violet-600','bg-fuchsia-600','bg-sky-600'][i % 14],
+                                color: ['bg-blue-600','bg-purple-600','bg-amber-600','bg-rose-600','bg-teal-600','bg-emerald-700','bg-indigo-600','bg-orange-600','bg-pink-600','bg-cyan-600','bg-lime-600','bg-violet-600','bg-fuchsia-600','bg-sky-600'][i % 14],
                               }))
                             : [{ name: "Sem dados territoriais na base central", count: "—", color: "bg-slate-400" }])
                         : [
@@ -2207,7 +2207,7 @@ export function GovDashboard({
                       { name: "Huíla", count: "98.234", color: "bg-amber-600" },
                       { name: "Huambo", count: "89.120", color: "bg-rose-600" },
                       { name: "Cabinda", count: "78.432", color: "bg-teal-600" },
-                      { name: "Namibe", count: "62.540", color: "bg-emerald-600" },
+                      { name: "Namibe", count: "62.540", color: "bg-emerald-700" },
                       { name: "Cuanza Sul", count: "55.320", color: "bg-indigo-600" },
                       { name: "Uíge", count: "48.120", color: "bg-orange-600" },
                       { name: "Malanje", count: "42.980", color: "bg-pink-600" },
@@ -2216,7 +2216,7 @@ export function GovDashboard({
                       { name: "Moxico", count: "32.650", color: "bg-violet-600" },
                       { name: "Lunda Norte", count: "29.740", color: "bg-fuchsia-600" },
                       { name: "Lunda Sul", count: "25.180", color: "bg-sky-600" },
-                      { name: "Cunene", count: "21.900", color: "bg-emerald-500" },
+                      { name: "Cunene", count: "21.900", color: "bg-emerald-700" },
                       { name: "Cuanza Norte", count: "19.850", color: "bg-amber-500" },
                       { name: "Cuando", count: "8.600", color: "bg-red-500" },
                       { name: "Cubango", count: "5.720", color: "bg-orange-500" },
@@ -2282,7 +2282,7 @@ export function GovDashboard({
                         <span className="font-mono font-black text-slate-900 dark:text-white">
                           {notif.count}
                         </span>
-                        <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-md border text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 border-emerald-100 dark:border-emerald-800 flex items-center gap-0.5 shrink-0">
+                        <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-md border text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 border-emerald-100 dark:border-emerald-800 flex items-center gap-0.5 shrink-0">
                           {notif.trend}
                         </span>
                       </div>
@@ -2332,10 +2332,10 @@ export function GovDashboard({
                 {/* QR Code SVG Vector with scanning corner brackets - Centered & Enlarged */}
                 <div className="relative p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm mb-5 shrink-0 flex items-center justify-center">
                   {/* Scanner Brackets */}
-                  <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-emerald-500 rounded-tl-sm" />
-                  <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-emerald-500 rounded-tr-sm" />
-                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-emerald-500 rounded-bl-sm" />
-                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-emerald-500 rounded-br-sm" />
+                  <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-emerald-700 rounded-tl-sm" />
+                  <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-emerald-700 rounded-tr-sm" />
+                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-emerald-700 rounded-bl-sm" />
+                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-emerald-700 rounded-br-sm" />
 
                   <img 
                     src="https://i.postimg.cc/7PWwyst7/QR-Code.jpg" 
@@ -2355,7 +2355,7 @@ export function GovDashboard({
                   <div className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-none">
                      Protocolos Selados com QR
                   </div>
-                  <div className="text-[10px] font-black uppercase tracking-wider text-[#10b981] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 w-fit px-2.5 py-1 rounded-lg border border-emerald-100 dark:border-emerald-800 flex items-center justify-center gap-1.5">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 w-fit px-2.5 py-1 rounded-lg border border-emerald-100 dark:border-emerald-800 flex items-center justify-center gap-1.5">
                     <TrendingUp size={12} /> {reais ? `verificáveis na base central` : '↑ 14,2% vs mês anterior'}
                   </div>
                 </div>
@@ -2442,7 +2442,7 @@ export function GovDashboard({
                         log de auditoria — antes mostrava a TAXA DE LEITURA de
                         mensagens (5,2%) como «sistema seguro 100%». */}
                     <AnimatedCounter to={reais ? reais.biometricos : 100} className="font-mono" />
-                    <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">
+                    <span className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-400 tracking-wider">
                       Registo Real
                     </span>
                   </div>
@@ -2454,7 +2454,7 @@ export function GovDashboard({
 
               <div className="space-y-3 mt-6">
                 <div className="p-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl flex items-center justify-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-700 animate-pulse" />
                   <span className="text-[9px] font-mono uppercase font-black text-slate-700 dark:text-slate-300 tracking-wider">
                     Monitoramento Ativo &bull; CDA-SHIELD
                   </span>
@@ -2510,7 +2510,7 @@ export function GovDashboard({
                   ]).map((act, index) => (
                     <div key={index} className="flex justify-between items-center text-[11px] p-2 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-xl transition-colors">
                       <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-700" />
                         <span className="font-bold text-slate-900 dark:text-slate-200 uppercase tracking-wide">
                           {act.desc}
                         </span>
@@ -2545,7 +2545,7 @@ export function GovDashboard({
                 <div className="flex flex-col items-center justify-center gap-5 py-10 text-center">
                   <div className="w-20 h-20 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-800/60 flex items-center justify-center relative shadow-xs shrink-0">
                     <span className="absolute inset-0 rounded-full border border-emerald-400 animate-ping opacity-25" />
-                    <CheckCircle2 size={44} className="text-emerald-500" />
+                    <CheckCircle2 size={44} className="text-emerald-700" />
                   </div>
                   
                   <div className="space-y-1.5">
@@ -2554,7 +2554,7 @@ export function GovDashboard({
                         reais carregados; sem dados, «Sem Ligação» verídico
                         (antes: «Operacional · todos os serviços ativos»
                         gravado a ferro). */}
-                    <h4 className={`text-[22px] font-black uppercase tracking-widest leading-none ${reais ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                    <h4 className={`text-[22px] font-black uppercase tracking-widest leading-none ${reais ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}`}>
                       {reais ? 'Operacional' : 'Sem Ligação'}
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 font-extrabold uppercase mt-1">

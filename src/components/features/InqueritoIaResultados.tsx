@@ -176,8 +176,8 @@ export function InqueritoIaResultados({ aberto, onFechar, inquerito, onEncerrado
             <p className="text-[11px] font-medium text-slate-500 m-0 mt-1.5">
               {new Date(inquerito.created_at).toLocaleDateString('pt-PT')} · âmbito {inquerito.abrangencia === 'nacional' ? 'Nacional' : inquerito.abrangencia === 'regional' ? 'Regional' : 'Local'}
               {' · '}{inquerito.guiao?.campos?.length || 0} informações · até {inquerito.guiao?.maxPerguntas} perguntas
-              {' · '}<span className={status === 'ativo' ? 'text-emerald-600 font-bold' : 'text-slate-500 font-bold'}>{status}</span>
-              {inquerito.guiao_origem === 'template' && <span className="ml-1 text-amber-600 font-bold">· guião simplificado</span>}
+              {' · '}<span className={status === 'ativo' ? 'text-emerald-700 font-bold' : 'text-slate-500 font-bold'}>{status}</span>
+              {inquerito.guiao_origem === 'template' && <span className="ml-1 text-amber-700 font-bold">· guião simplificado</span>}
             </p>
           </div>
 
@@ -244,7 +244,7 @@ export function InqueritoIaResultados({ aberto, onFechar, inquerito, onEncerrado
             <Lock size={11} /> Resultados agregados de {concluidos} participação(ões) concluída(s). As respostas individuais são anónimas e nunca são apresentadas.
           </p>
 
-          {erro && grupos.length > 0 && <p className="text-[11px] font-semibold text-rose-600 m-0">{erro}</p>}
+          {erro && grupos.length > 0 && <p className="text-[11px] font-semibold text-rose-700 m-0">{erro}</p>}
 
           {/* Rodapé */}
           <div className="flex items-center justify-between gap-3 pt-1 flex-wrap">

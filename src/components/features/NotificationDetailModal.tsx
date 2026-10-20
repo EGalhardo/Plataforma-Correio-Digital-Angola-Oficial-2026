@@ -38,7 +38,7 @@ export function NotificationDetailModal({
     switch (notification.type) {
       case 'success':
         return {
-          icon: <BadgeCheck size={28} className="text-emerald-600 animate-pulse" />,
+          icon: <BadgeCheck size={28} className="text-emerald-700 animate-pulse" />,
           bg: 'bg-emerald-50 border-emerald-200',
           titleColor: 'text-[#0E2B64]',
           badgeText: t('Sucesso'),
@@ -46,7 +46,7 @@ export function NotificationDetailModal({
         };
       case 'warning':
         return {
-          icon: <ShieldAlert size={28} className="text-amber-600 animate-pulse" />,
+          icon: <ShieldAlert size={28} className="text-amber-700 animate-pulse" />,
           bg: 'bg-amber-50 border-amber-200',
           titleColor: 'text-[#0E2B64]',
           badgeText: t('Alerta'),

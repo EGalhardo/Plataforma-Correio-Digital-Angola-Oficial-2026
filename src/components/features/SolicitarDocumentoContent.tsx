@@ -587,7 +587,7 @@ export function SolicitarDocumentoContent({
               >
                 <div className="flex items-center gap-1.5">
                   {isCompleted ? (
-                    <div className="w-3.5 h-3.5 bg-emerald-500 text-white rounded-full flex items-center justify-center text-[8px] font-extrabold">
+                    <div className="w-3.5 h-3.5 bg-emerald-700 text-white rounded-full flex items-center justify-center text-[8px] font-extrabold">
                       ✓
                     </div>
                   ) : (
@@ -716,7 +716,7 @@ export function SolicitarDocumentoContent({
 
                 {autoFillCampos.length > 0 && (
                   <div className="flex items-start gap-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 p-3" data-testid="autofill-applied-banner">
-                    <CheckCircle2 size={15} className="text-emerald-600 shrink-0 mt-0.5" />
+                    <CheckCircle2 size={15} className="text-emerald-700 shrink-0 mt-0.5" />
                     <p className="text-[10.5px] text-emerald-800 font-bold leading-relaxed">
                       Preenchido automaticamente a partir do seu perfil: {autoFillCampos.join(' · ')}.
                       Pode corrigir qualquer campo antes de avançar.
@@ -923,7 +923,7 @@ export function SolicitarDocumentoContent({
                           <button
                             type="button"
                             onClick={() => handleDeleteFile(file.id, file.name)}
-                            className="bg-transparent hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded-lg p-2 transition-all border-0 cursor-pointer"
+                            className="bg-transparent hover:bg-rose-50 text-slate-500 hover:text-rose-700 rounded-lg p-2 transition-all border-0 cursor-pointer"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -991,7 +991,7 @@ export function SolicitarDocumentoContent({
                   {!validationSuccess ? (
                     <ShieldCheck className="text-indigo-600" size={20} />
                   ) : (
-                    <CheckCircle2 className="text-emerald-600" size={20} />
+                    <CheckCircle2 className="text-emerald-700" size={20} />
                   )}
                 </div>
 
@@ -1001,7 +1001,7 @@ export function SolicitarDocumentoContent({
                     {/* Ring background */}
                     <div className="absolute inset-0 border-4 border-slate-200 rounded-full" />
                     {/* Active ring indicator */}
-                    <div className={`absolute inset-0 border-4 border-t-indigo-600 border-r-indigo-600 border-b-indigo-400 rounded-full ${!validationSuccess ? 'animate-spin' : 'border-emerald-500'}`} />
+                    <div className={`absolute inset-0 border-4 border-t-indigo-600 border-r-indigo-600 border-b-indigo-400 rounded-full ${!validationSuccess ? 'animate-spin' : 'border-emerald-700'}`} />
                     
                     <div className="text-slate-800 font-mono font-black text-lg">
                       {validationSuccess ? '100%' : `${validationStage * 25}%`}
@@ -1119,7 +1119,7 @@ export function SolicitarDocumentoContent({
                   {isDocExempt ? (
                     <div className="bg-amber-50/60 border border-amber-200 p-6 rounded-[24px] space-y-4 text-left">
                       <div className="flex gap-3">
-                        <ShieldCheck className="text-amber-600 shrink-0 mt-0.5 animate-pulse" size={22} />
+                        <ShieldCheck className="text-amber-700 shrink-0 mt-0.5 animate-pulse" size={22} />
                         <div>
                           <h5 className="font-extrabold text-amber-900 uppercase text-xs">Custo Isento ao Cidadão</h5>
                           <p className="text-[10px] text-amber-700 leading-relaxed uppercase font-black mt-1">
@@ -1164,7 +1164,7 @@ export function SolicitarDocumentoContent({
                         </div>
                       ) : (
                         <div className="bg-emerald-50/70 border border-emerald-200 p-4 rounded-xl flex items-center gap-2.5 text-emerald-800 text-[10.5px] font-black uppercase">
-                          <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                          <CheckCircle2 size={16} className="text-emerald-700 shrink-0" />
                           <span>Isenção Validada e Registada no Sistema Notarial Integrado. Pronto para Emissão.</span>
                         </div>
                       )}
@@ -1233,7 +1233,7 @@ export function SolicitarDocumentoContent({
                                     type="button"
                                     onClick={() => handleSimulatePayment('EXPRESS')}
                                     disabled={paymentPhone.length < 9}
-                                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] tracking-wider uppercase rounded-xl border-0 cursor-pointer transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                                    className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-700 text-white font-black text-[10px] tracking-wider uppercase rounded-xl border-0 cursor-pointer transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
                                   >
                                     Autorizar e Pagar
                                   </button>
@@ -1279,7 +1279,7 @@ export function SolicitarDocumentoContent({
                             {paymentOption === 'UNITEL_MONEY' && (
                               <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="bg-slate-50 border border-slate-150 p-5 rounded-[24px] space-y-4 text-left">
                                 <div className="space-y-1">
-                                  <span className="font-extrabold text-sm text-amber-600 block flex items-center gap-1">
+                                  <span className="font-extrabold text-sm text-amber-700 block flex items-center gap-1">
                                     Unitel Money <span className="bg-amber-100 text-amber-800 text-[8px] px-1.5 py-0.5 rounded-full">Oficial</span>
                                   </span>
                                   <p className="text-[9.5px] text-slate-500 leading-tight block uppercase font-bold">
@@ -1416,12 +1416,12 @@ export function SolicitarDocumentoContent({
                       className="bg-emerald-50/20 border border-emerald-200/60 rounded-[28px] p-6 space-y-6 relative overflow-hidden text-left"
                     >
                       {/* Decorative elements */}
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-bl-full pointer-events-none" />
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-700/5 rounded-bl-full pointer-events-none" />
 
                       {/* Receipt Header */}
                       <div className="flex justify-between items-start border-b border-emerald-100 pb-3">
                         <div className="space-y-0.5">
-                          <span className="text-[8px] font-black uppercase text-emerald-600 tracking-wider">Recibo Oficial de Quitação Eletrónica</span>
+                          <span className="text-[8px] font-black uppercase text-emerald-700 tracking-wider">Recibo Oficial de Quitação Eletrónica</span>
                           <h5 className="font-black text-xs text-slate-800 uppercase leading-none">Ministério das Finanças de Angola</h5>
                         </div>
                         <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 text-[8.5px] font-black rounded uppercase">
@@ -1531,25 +1531,25 @@ export function SolicitarDocumentoContent({
                 {/* Timeline review visualization */}
                 <div className="space-y-5 relative pl-6 border-l border-slate-200">
                   <div className="relative">
-                    <div className="absolute -left-[30px] top-1 w-4 h-4 bg-emerald-500 rounded-full border-4 border-white flex items-center justify-center" />
+                    <div className="absolute -left-[30px] top-1 w-4 h-4 bg-emerald-700 rounded-full border-4 border-white flex items-center justify-center" />
                     <div className="font-sans block text-left">
-                      <span className="text-[10px] font-black uppercase text-emerald-600 block">Fase 1: Entrada & Buffer</span>
+                      <span className="text-[10px] font-black uppercase text-emerald-700 block">Fase 1: Entrada & Buffer</span>
                       <p className="text-xs font-semibold text-slate-800 uppercase mt-0.5">Dossier civil constituído comuploads autenticados</p>
                     </div>
                   </div>
 
                   <div className="relative">
-                    <div className="absolute -left-[30px] top-1 w-4 h-4 bg-emerald-500 rounded-full border-4 border-white flex items-center justify-center" />
+                    <div className="absolute -left-[30px] top-1 w-4 h-4 bg-emerald-700 rounded-full border-4 border-white flex items-center justify-center" />
                     <div className="font-sans block text-left">
-                      <span className="text-[10px] font-black uppercase text-emerald-600 block">Fase 2: Consistência Fiscal</span>
+                      <span className="text-[10px] font-black uppercase text-emerald-700 block">Fase 2: Consistência Fiscal</span>
                       <p className="text-xs font-semibold text-slate-800 uppercase mt-0.5">NIF e verificação cambial DUC validadas no ERP das Finanças</p>
                     </div>
                   </div>
 
                   <div className="relative">
-                    <div className="absolute -left-[30px] top-1 w-4 h-4 bg-emerald-500 rounded-full border-4 border-white flex items-center justify-center" />
+                    <div className="absolute -left-[30px] top-1 w-4 h-4 bg-emerald-700 rounded-full border-4 border-white flex items-center justify-center" />
                     <div className="font-sans block text-left">
-                      <span className="text-[10px] font-black uppercase text-emerald-600 block">Fase 3: Parecer Técnico</span>
+                      <span className="text-[10px] font-black uppercase text-emerald-700 block">Fase 3: Parecer Técnico</span>
                       <p className="text-xs font-semibold text-slate-800 uppercase mt-0.5">Emissão automática recomendada e carimbos qualificados ativados</p>
                     </div>
                   </div>
@@ -1644,7 +1644,7 @@ export function SolicitarDocumentoContent({
                     </div>
 
                     <div className="text-right">
-                      <span className="px-3 py-1 bg-emerald-500/20 backdrop-blur-md text-emerald-400 text-[9px] font-black rounded-lg border border-emerald-500/20 uppercase tracking-[0.15em] flex items-center gap-1.5 shadow-xl inline-block">
+                      <span className="px-3 py-1 bg-emerald-700/20 backdrop-blur-md text-emerald-400 text-[9px] font-black rounded-lg border border-emerald-700/20 uppercase tracking-[0.15em] flex items-center gap-1.5 shadow-xl inline-block">
                         ✓ ASSINADO
                       </span>
                       <span className="text-white/40 text-[9px] font-mono font-black block mt-2 tracking-widest leading-none">REF: {createdDoc.code}</span>

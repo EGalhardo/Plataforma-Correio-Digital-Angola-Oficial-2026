@@ -1209,7 +1209,7 @@ export function MailContent({
       onFechar={() => setAvisoSondagens(null)}
       icone={AlertTriangle}
       titulo="Sondagens"
-      tomIcone="bg-amber-50 text-amber-600 border-amber-100"
+      tomIcone="bg-amber-50 text-amber-700 border-amber-100"
       maxW="max-w-md"
     >
       <p className="text-sm font-semibold text-slate-700 text-left m-0">{avisoSondagens}</p>
@@ -1231,7 +1231,7 @@ export function MailContent({
       icone={CheckCircle2}
       titulo="Correspondência Enviada"
       subtitulo="Expedição registada"
-      tomIcone="bg-emerald-50 text-emerald-600 border-emerald-100"
+      tomIcone="bg-emerald-50 text-emerald-700 border-emerald-100"
       maxW="max-w-md"
     >
       <p className="text-sm font-semibold text-slate-700 text-left m-0">{sucessoSondagens}</p>
@@ -1432,7 +1432,7 @@ export function MailContent({
                     className="overflow-hidden"
                   >
                     <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-start gap-3" id="recipient-verified-card">
-                      <CheckCircle2 className="text-emerald-600 shrink-0 mt-0.5" size={18} />
+                      <CheckCircle2 className="text-emerald-700 shrink-0 mt-0.5" size={18} />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-emerald-800 font-bold m-0">
                           {recipientLookup.citizen.name} — BI {recipientLookup.citizen.bi}
@@ -1451,7 +1451,7 @@ export function MailContent({
                     className="overflow-hidden"
                   >
                     <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-start gap-3" id="recipient-not-found">
-                      <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
+                      <AlertTriangle className="text-amber-700 shrink-0 mt-0.5" size={18} />
                       <div>
                         <span className="text-xs font-black text-amber-950 block">Cidadão ainda não registado na plataforma.</span>
                         <span className="text-[11px] text-amber-800 font-medium block mt-0.5">
@@ -1471,7 +1471,7 @@ export function MailContent({
                     className="overflow-hidden"
                   >
                     <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-center gap-3">
-                      <AlertTriangle className="text-rose-600 shrink-0" size={16} />
+                      <AlertTriangle className="text-rose-700 shrink-0" size={16} />
                       <span className="text-xs font-bold text-rose-900">
                         Não foi possível consultar o BI (Erro real: {recipientLookup.errorCode || 'DESCONHECIDO'}).
                       </span>
@@ -1491,9 +1491,9 @@ export function MailContent({
                     : 'bg-slate-50 border-slate-200 text-slate-600'
               }`}>
                 {instRegistry.status === 'checking' && (<><Loader2 className="animate-spin shrink-0 mt-0.5 text-blue-600" size={16} /><span>A verificar o código no registo institucional…</span></>)}
-                {instRegistry.status === 'registada' && (<><CheckCircle2 className="shrink-0 mt-0.5 text-emerald-600" size={16} /><span>Instituição registada na plataforma — entrega garantida ao código {instRegistry.code}.</span></>)}
-                {instRegistry.status === 'nao_registada' && (<><AlertTriangle className="shrink-0 mt-0.5 text-amber-600" size={16} /><span>Código não registado na plataforma. Confirme o código da instituição destinatária.</span></>)}
-                {instRegistry.status === 'erro' && (<><AlertTriangle className="shrink-0 mt-0.5 text-rose-600" size={16} /><span>Verificação do registo indisponível de momento.</span></>)}
+                {instRegistry.status === 'registada' && (<><CheckCircle2 className="shrink-0 mt-0.5 text-emerald-700" size={16} /><span>Instituição registada na plataforma — entrega garantida ao código {instRegistry.code}.</span></>)}
+                {instRegistry.status === 'nao_registada' && (<><AlertTriangle className="shrink-0 mt-0.5 text-amber-700" size={16} /><span>Código não registado na plataforma. Confirme o código da instituição destinatária.</span></>)}
+                {instRegistry.status === 'erro' && (<><AlertTriangle className="shrink-0 mt-0.5 text-rose-700" size={16} /><span>Verificação do registo indisponível de momento.</span></>)}
               </div>
             )}
           </div>
@@ -1862,7 +1862,7 @@ export function MailContent({
                       type="button"
                       onClick={() => setSondagemARemover(s)}
                       title="Remover inquérito da mensagem"
-                      className="absolute -top-2 -right-2 z-10 w-7 h-7 rounded-full bg-white shadow border border-slate-200 text-slate-400 hover:text-rose-500 transition-colors flex items-center justify-center cursor-pointer"
+                      className="absolute -top-2 -right-2 z-10 w-7 h-7 rounded-full bg-white shadow border border-slate-200 text-slate-400 hover:text-rose-700 transition-colors flex items-center justify-center cursor-pointer"
                     >
                       <Trash2 size={13} />
                     </button>
@@ -1913,7 +1913,7 @@ export function MailContent({
                       type="button"
                       onClick={() => setInqueritoIaARemover(q)}
                       title="Remover inquérito da mensagem"
-                      className="absolute -top-2 -right-2 z-10 w-7 h-7 rounded-full bg-white shadow border border-slate-200 text-slate-400 hover:text-rose-500 transition-colors flex items-center justify-center cursor-pointer"
+                      className="absolute -top-2 -right-2 z-10 w-7 h-7 rounded-full bg-white shadow border border-slate-200 text-slate-400 hover:text-rose-700 transition-colors flex items-center justify-center cursor-pointer"
                     >
                       <Trash2 size={13} />
                     </button>
@@ -1995,7 +1995,7 @@ export function MailContent({
 
             {uploadError && (
               <div className="flex items-start gap-3 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-bold mt-3 animate-fadeIn">
-                <AlertTriangle size={18} className="text-rose-600 shrink-0 mt-0.5" />
+                <AlertTriangle size={18} className="text-rose-700 shrink-0 mt-0.5" />
                 <div>
                   {/* 2026-09-22 (auditoria BUG-002) — o título passa a dizer o motivo
                       real: um ficheiro pode ser recusado por TIPO (não só por tamanho).
@@ -2283,7 +2283,7 @@ export function MailContent({
                 {!isInst && (
                   <div className="flex gap-3 text-sm" data-testid="rever-modalidade">
                     <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Modalidade</span>
-                    <span className={`font-bold min-w-0 ${ehDenuncia ? 'text-rose-600' : 'text-slate-800'}`}>
+                    <span className={`font-bold min-w-0 ${ehDenuncia ? 'text-rose-700' : 'text-slate-800'}`}>
                       {ehDenuncia ? 'Reclamação' : 'Mensagem Normal'}
                     </span>
                   </div>
@@ -2309,7 +2309,7 @@ export function MailContent({
                 {/* 2026-09-11 — Data de Expiração escolhida no compositor. */}
                 <div className="flex gap-3 text-sm" data-testid="rever-data-expiracao">
                   <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Expira em</span>
-                  <span className={`font-bold break-words min-w-0 ${composeData.dataExpiracao ? 'text-rose-600' : 'text-slate-800'}`}>
+                  <span className={`font-bold break-words min-w-0 ${composeData.dataExpiracao ? 'text-rose-700' : 'text-slate-800'}`}>
                     {composeData.dataExpiracao ? formatarDataExpiracao(composeData.dataExpiracao) : 'Sem prazo'}
                   </span>
                 </div>
@@ -2509,7 +2509,7 @@ export function MailContent({
                 activeStyle = 'bg-[#0E2B64] text-white shadow-md shadow-[#0E2B64]/20 ring-2 ring-[#0E2B64]';
                 badgeStyle = 'bg-white text-[#0E2B64]';
               } else if (tab.id === 'lidas') {
-                activeStyle = 'bg-emerald-600 text-white shadow-md shadow-emerald-200 ring-2 ring-emerald-600';
+                activeStyle = 'bg-emerald-700 text-white shadow-md shadow-emerald-200 ring-2 ring-emerald-600';
                 badgeStyle = 'bg-white text-emerald-700';
               } else if (tab.id === 'naoLidas') {
                 activeStyle = 'bg-red-600 text-white shadow-md shadow-red-200 ring-2 ring-red-600';
@@ -2519,14 +2519,14 @@ export function MailContent({
                 badgeStyle = 'bg-white text-blue-600';
               } else if (tab.id === 'excluidas') {
                 activeStyle = 'bg-rose-600 text-white shadow-md shadow-rose-200 ring-2 ring-rose-600';
-                badgeStyle = 'bg-white text-rose-600';
+                badgeStyle = 'bg-white text-rose-700';
               }
             } else {
               activeStyle = 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50';
               if (tab.id === 'todas') {
                 badgeStyle = 'bg-[#0E2B64] text-white';
               } else if (tab.id === 'lidas') {
-                badgeStyle = 'bg-emerald-600 text-white';
+                badgeStyle = 'bg-emerald-700 text-white';
               } else if (tab.id === 'naoLidas') {
                 badgeStyle = 'bg-red-600 text-white';
               } else if (tab.id === 'enviadas') {
@@ -2615,7 +2615,7 @@ export function MailContent({
                             ? 'bg-blue-600 text-white'
                             : item.unread 
                             ? 'bg-red-600 text-white' 
-                            : 'bg-emerald-600 text-white'
+                            : 'bg-emerald-700 text-white'
                         }`}>
                           {t(ehCopiaEnviadaRemetente(item) ? 'Enviada' : (item.unread ? 'Não Lida' : 'Lida'))}
                         </span>
@@ -2686,7 +2686,7 @@ export function MailContent({
                                 ? 'bg-blue-600 text-white border border-blue-600'
                                 : item.unread 
                                 ? 'bg-red-600 text-white border border-red-600' 
-                                : 'bg-emerald-600 text-white border border-emerald-600'
+                                : 'bg-emerald-700 text-white border border-emerald-600'
                             }`}>
                               {t(ehCopiaEnviadaRemetente(item) ? 'Enviada' : (item.unread ? 'Não Lida' : 'Lida'))}
                             </span>
@@ -2727,7 +2727,7 @@ export function MailContent({
                           <div className="font-extrabold text-[#1e293b] text-xs md:text-sm tracking-tight break-words">
                             {t(item.details?.subject || item.preview)}
                           </div>
-                          <div className="text-[9px] text-[#94a3b8] font-black tracking-widest leading-none">
+                          <div className="text-[9px] text-slate-600 font-black tracking-widest leading-none">
                             {isInst ? t('Requerimento Fiscal') : t(item.protocol?.category || 'Notificação Digital')}
                           </div>
                         </div>
@@ -2743,7 +2743,7 @@ export function MailContent({
                       {/* Data de Expiração Column */}
                       <td className="py-5 px-5">
                         <div className="flex items-center">
-                          <span className="inline-flex items-center gap-1.5 text-[#e05252] text-[9px] font-semibold tracking-wider font-sans">
+                          <span className="inline-flex items-center gap-1.5 text-red-600 text-[9px] font-semibold tracking-wider font-sans">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#f87171] animate-pulse shrink-0" />
                             EXPIRA: {item.details?.deadline || item.protocol?.deadlineDate || '—'}
                           </span>
@@ -2762,7 +2762,7 @@ export function MailContent({
                       <td className="py-5 px-5 text-center">
                         <span className={`text-[9px] font-black uppercase tracking-widest leading-none inline-block ${
                           isUrgente
-                            ? 'text-[#e05252]'
+                            ? 'text-red-600'
                             : 'text-indigo-600'
                         }`}>
                           {isUrgente ? 'Urgente' : 'Normal'}
@@ -2792,7 +2792,7 @@ export function MailContent({
                                 title={t('Restaurar')}
                                 aria-label="Restaurar"
                                 data-acao="restaurar"
-                                className="w-8 h-8 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all cursor-pointer shadow-xs active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+                                className="w-8 h-8 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-700 hover:text-white hover:border-emerald-600 transition-all cursor-pointer shadow-xs active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
                               >
                                 <RotateCcw size={14} />
                               </button>
@@ -2802,7 +2802,7 @@ export function MailContent({
                                 title={t('Eliminar permanentemente')}
                                 aria-label="Eliminar permanentemente"
                                 data-acao="eliminar"
-                                className="w-8 h-8 rounded-full flex items-center justify-center bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all cursor-pointer shadow-xs active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
+                                className="w-8 h-8 rounded-full flex items-center justify-center bg-rose-50 text-rose-700 border border-rose-100 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all cursor-pointer shadow-xs active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
                               >
                                 <Trash2 size={14} />
                               </button>
@@ -2814,7 +2814,7 @@ export function MailContent({
                               title={t('Eliminar')}
                               aria-label="Eliminar"
                               data-acao="eliminar"
-                              className="w-8 h-8 rounded-full flex items-center justify-center bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all cursor-pointer shadow-xs active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
+                              className="w-8 h-8 rounded-full flex items-center justify-center bg-rose-50 text-rose-700 border border-rose-100 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all cursor-pointer shadow-xs active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
                             >
                               <Trash2 size={14} />
                             </button>

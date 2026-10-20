@@ -51,7 +51,7 @@ export function DeleteContactModal({
             className="relative bg-white rounded-[32px] p-6 md:p-10 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 max-w-sm w-full text-center max-h-[95vh] overflow-y-auto mx-auto space-y-6 z-10"
           >
             <div className="flex items-center gap-4 text-left relative shrink-0">
-              <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center shrink-0 border border-rose-100/40 shadow-sm">
+              <div className="w-16 h-16 bg-rose-50 text-rose-700 rounded-full flex items-center justify-center shrink-0 border border-rose-100/40 shadow-sm">
                 <Trash2 size={26} strokeWidth={2.5} />
               </div>
               <div className="flex-1 min-w-0">

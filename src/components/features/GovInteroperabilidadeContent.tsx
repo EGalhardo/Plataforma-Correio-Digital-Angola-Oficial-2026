@@ -1244,7 +1244,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
             className={`px-5 py-3 font-black text-[10px] uppercase tracking-widest rounded-xl shadow-md transition-all shrink-0 cursor-pointer flex items-center gap-2 border leading-none font-sans ${
               showTestPanel 
                 ? 'bg-rose-50 hover:bg-rose-100/75 border-rose-200 text-rose-700' 
-                : 'bg-emerald-500 hover:bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/15'
+                : 'bg-emerald-700 hover:bg-emerald-700 border-emerald-700 text-white shadow-lg shadow-emerald-500/15'
             }`}
           >
             <Activity size={12} className={showTestPanel ? "" : "text-white"} />
@@ -1330,7 +1330,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                            step.status === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                            step.status === 'success' ? 'bg-emerald-700/10 text-emerald-400 border border-emerald-700/20' :
                             step.status === 'running' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' :
                             step.status === 'failed' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
                             'bg-slate-800 text-slate-600 border border-slate-800'
@@ -1364,7 +1364,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                             </span>
                           )}
                           {step.status === 'success' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full font-mono text-[7.5px] font-black uppercase">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-700/10 text-emerald-400 rounded-full font-mono text-[7.5px] font-black uppercase">
                               &bull; Gravado
                             </span>
                           )}
@@ -1391,7 +1391,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                     <span className="text-slate-500 italic">Consola de depuração síncrona inativa...</span>
                   ) : (
                     testLog.map((logLine, idx) => (
-                      <div key={idx} className="leading-relaxed border-l border-emerald-500/30 pl-2">
+                      <div key={idx} className="leading-relaxed border-l border-emerald-700/30 pl-2">
                         {logLine}
                       </div>
                     ))
@@ -1403,7 +1403,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                   <motion.div
                     initial={{ scale: 0.95, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 rounded-2xl p-3 flex items-start gap-2"
+                    className="bg-emerald-700/10 border border-emerald-700/20 text-emerald-300 rounded-2xl p-3 flex items-start gap-2"
                   >
                     <CheckCircle className="text-emerald-400 shrink-0 mt-0.5" size={14} />
                     <div>
@@ -1437,14 +1437,14 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
         {/* Volume de Correspondência Estatal */}
         <div className="bg-white border border-slate-200 rounded-[24px] p-5 flex items-center gap-4 shadow-xs select-none">
-          <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 shrink-0">
+          <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-700 shrink-0">
             <Mail size={24} className="stroke-[2.5]" />
           </div>
           <div>
             <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block leading-none">Volume de Correio</span>
             <div className="flex items-baseline gap-1.5 mt-1">
               <span className="text-xl font-black text-slate-800 font-mono leading-none">{metrics.totalCorr.toLocaleString()}</span>
-              <span className="text-[9.5px] text-emerald-600 font-extrabold">{dadosReais ? 'nuvem' : '+12.4%'}</span>
+              <span className="text-[9.5px] text-emerald-700 font-extrabold">{dadosReais ? 'nuvem' : '+12.4%'}</span>
             </div>
             <p className="text-[9.5px] text-slate-500 mt-1 leading-normal font-sans">Transações efetuadas</p>
           </div>
@@ -1467,14 +1467,14 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
         {/* Desempenho Geral do Ecossistema */}
         <div className="bg-white border border-slate-200 rounded-[24px] p-5 flex items-center gap-4 shadow-xs select-none">
-          <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 shrink-0">
+          <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-700 shrink-0">
             <CheckCircle size={24} className="stroke-[2.5]" />
           </div>
           <div>
             <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block leading-none">Desempenho Geral</span>
             <div className="flex items-baseline gap-1.5 mt-1">
               <span className="text-xl font-black text-slate-800 font-mono leading-none">{metrics.avgPerformance}%</span>
-              <span className="text-[9.5px] text-amber-600 font-extrabold">SLA</span>
+              <span className="text-[9.5px] text-amber-700 font-extrabold">SLA</span>
             </div>
             <p className="text-[9.5px] text-slate-500 mt-1 leading-normal font-sans">Taxa de resolução média</p>
           </div>
@@ -1748,7 +1748,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
                           : 'bg-rose-50 border-rose-100 text-rose-700'
                       }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${inst.status === 'Ativa' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                        <span className={`w-1.5 h-1.5 rounded-full ${inst.status === 'Ativa' ? 'bg-emerald-700 animate-pulse' : 'bg-rose-500'}`} />
                         {inst.status === 'Ativa' ? 'Ativa' : 'Suspensa'}
                       </span>
                     </td>
@@ -1774,8 +1774,8 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           onClick={() => toggleStatus(inst)}
                           className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                             inst.status === 'Ativa'
-                              ? 'bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100/40'
-                              : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100/40'
+                              ? 'bg-rose-50 border-rose-100 text-rose-700 hover:bg-rose-100/40'
+                              : 'bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100/40'
                           }`}
                           title={inst.status === 'Ativa' ? 'Suspender Instituição' : 'Ativar Instituição'}
                         >
@@ -1783,7 +1783,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                         </button>
                         <button
                           onClick={() => { setInstDelError(''); setInstToDelete(inst); }}
-                          className="p-1.5 rounded-lg border bg-white border-slate-200 text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-all cursor-pointer"
+                          className="p-1.5 rounded-lg border bg-white border-slate-200 text-rose-700 hover:bg-rose-50 hover:border-rose-200 transition-all cursor-pointer"
                           title="Eliminar Instituição"
                         >
                           <Trash2 size={11} className="stroke-[2.5]" />
@@ -2221,8 +2221,8 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                         }}
                       />
                       {formLogoFile && (
-                        <div className="absolute inset-0 bg-white/95 rounded-[20px] flex items-center justify-center p-4 gap-2 border border-emerald-500">
-                          <CheckCircle size={18} className="text-emerald-500 shrink-0" />
+                        <div className="absolute inset-0 bg-white/95 rounded-[20px] flex items-center justify-center p-4 gap-2 border border-emerald-700">
+                          <CheckCircle size={18} className="text-emerald-700 shrink-0" />
                           <div className="text-left overflow-hidden">
                             <p className="text-xs font-bold text-slate-800 truncate m-0 max-w-[180px]">{formLogoFile.name}</p>
                             <p className="text-[10px] text-slate-400 m-0">{(formLogoFile.size / 1024).toFixed(1)} KB</p>
@@ -2376,7 +2376,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           const diverg = ['bi_divergente','nome_divergente','documento_divergente','data_divergente','frente_verso_inconsistentes'].some(a => pvi.al.includes(a));
                           if (pvi.ver === 'APTO') {
                             return (
-                              <p className="text-[8.5px] font-black uppercase tracking-widest text-emerald-600">
+                              <p className="text-[8.5px] font-black uppercase tracking-widest text-emerald-700">
                                 Sugestão assistida: pode aprovar — a IA não detetou divergências.
                               </p>
                             );
@@ -2463,12 +2463,12 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                       />
                       {solError && <p className="text-[9.5px] text-red-600 font-bold">{solError}</p>}
                       <div className="flex flex-wrap items-center gap-2">
-                        <button type="button" disabled={solBusy} onClick={() => handleApproveSolicitacao(row)} className="flex-1 min-w-[130px] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white py-2.5 rounded-xl text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"><CheckCircle size={12} /> Aprovar</button>
+                        <button type="button" disabled={solBusy} onClick={() => handleApproveSolicitacao(row)} className="flex-1 min-w-[130px] bg-emerald-700 hover:bg-emerald-700 disabled:opacity-60 text-white py-2.5 rounded-xl text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"><CheckCircle size={12} /> Aprovar</button>
                         <button type="button" disabled={solBusy} onClick={() => handleRequestCorrections(row)} className="flex-1 min-w-[130px] bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white py-2.5 rounded-xl text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"><Clock size={12} /> Solicitar Correções</button>
                         <button type="button" disabled={solBusy} onClick={() => handleRejectSolicitacao(row)} className="flex-1 min-w-[130px] bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white py-2.5 rounded-xl text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"><X size={12} /> Rejeitar</button>
                       </div>
                       <div className="text-center">
-                        <button type="button" disabled={solBusy} onClick={() => setSolToDelete(row)} className="text-[8.5px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-600 transition-colors cursor-pointer bg-transparent border-none underline underline-offset-4">Eliminar solicitação (cascata)</button>
+                        <button type="button" disabled={solBusy} onClick={() => setSolToDelete(row)} className="text-[8.5px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-700 transition-colors cursor-pointer bg-transparent border-none underline underline-offset-4">Eliminar solicitação (cascata)</button>
                       </div>
                     </div>
                   )}
@@ -2523,11 +2523,11 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                 <div className="px-7 md:px-9 pt-9 pb-6">
                   {/* Ícone central circular */}
                   <div className="mx-auto w-20 h-20 rounded-full bg-rose-50 border border-rose-100 shadow-[0_0_36px_rgba(244,63,94,0.18)] flex items-center justify-center mb-5">
-                    <Trash2 size={34} className="text-rose-600" strokeWidth={2.2} />
+                    <Trash2 size={34} className="text-rose-700" strokeWidth={2.2} />
                   </div>
 
                   {/* Título + nome + barra de destaque */}
-                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-600 mb-2">
+                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-700 mb-2">
                     Eliminar Solicitação — {code}
                   </div>
                   <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight">{row.nome}</h3>
@@ -2535,9 +2535,9 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                   {/* Caixa de aviso */}
                   <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-3.5 text-left mb-5">
-                    <AlertTriangle size={30} className="text-rose-500 shrink-0" strokeWidth={2.2} />
+                    <AlertTriangle size={30} className="text-rose-700 shrink-0" strokeWidth={2.2} />
                     <p className="text-[11px] leading-snug text-slate-600 font-medium">
-                      <span className="font-black text-slate-900">Esta acção é <span className="text-rose-600">definitiva e irreversível</span>.</span><br />
+                      <span className="font-black text-slate-900">Esta acção é <span className="text-rose-700">definitiva e irreversível</span>.</span><br />
                       Serão removidos: o registo (local e nuvem), o estado de homologação, o canal oficial de mensagens e as leituras associadas{solState(row.status) === 'ativa' ? ', bem como a ficha da instituição nesta página' : ''}.
                     </p>
                   </div>
@@ -2554,7 +2554,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                   {/* Linha de confirmação com "?" */}
                   <div className="flex items-center gap-3 text-left mb-2 px-1">
-                    <span className="w-9 h-9 rounded-full bg-rose-50 border border-rose-100 text-rose-600 font-black text-[15px] flex items-center justify-center shrink-0 select-none">?</span>
+                    <span className="w-9 h-9 rounded-full bg-rose-50 border border-rose-100 text-rose-700 font-black text-[15px] flex items-center justify-center shrink-0 select-none">?</span>
                     <div>
                       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-800 leading-snug">Confirma a eliminação desta solicitação?</p>
                       <p className="text-[10.5px] font-medium text-slate-500 mt-0.5">Esta acção não poderá ser desfeita.</p>
@@ -2624,19 +2624,19 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                 <div className="px-7 md:px-9 pt-9 pb-6">
                   <div className="mx-auto w-20 h-20 rounded-full bg-rose-50 border border-rose-100 shadow-[0_0_36px_rgba(244,63,94,0.18)] flex items-center justify-center mb-5">
-                    <Trash2 size={34} className="text-rose-600" strokeWidth={2.2} />
+                    <Trash2 size={34} className="text-rose-700" strokeWidth={2.2} />
                   </div>
 
-                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-600 mb-2">
+                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-700 mb-2">
                     Eliminar Instituição{code ? ` — ${code}` : ''}
                   </div>
                   <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight">{inst.fullName || inst.name}</h3>
                   <span className="block mx-auto mt-2.5 mb-6 h-[3px] w-14 rounded-full bg-rose-600" />
 
                   <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-3.5 text-left mb-5">
-                    <AlertTriangle size={30} className="text-rose-500 shrink-0" strokeWidth={2.2} />
+                    <AlertTriangle size={30} className="text-rose-700 shrink-0" strokeWidth={2.2} />
                     <p className="text-[11px] leading-snug text-slate-600 font-medium">
-                      <span className="font-black text-slate-900">Esta acção é <span className="text-rose-600">definitiva e irreversível</span>.</span><br />
+                      <span className="font-black text-slate-900">Esta acção é <span className="text-rose-700">definitiva e irreversível</span>.</span><br />
                       {code
                         ? 'Serão removidos: a ficha desta lista, o registo (local e nuvem), o estado de homologação, o canal oficial de mensagens e as leituras associadas, bem como os acessos dos agentes.'
                         : 'Será removida apenas a ficha local desta lista (esta entidade não tem código institucional associado na base central).'}
@@ -2653,7 +2653,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                   )}
 
                   <div className="flex items-center gap-3 text-left mb-2 px-1">
-                    <span className="w-9 h-9 rounded-full bg-rose-50 border border-rose-100 text-rose-600 font-black text-[15px] flex items-center justify-center shrink-0 select-none">?</span>
+                    <span className="w-9 h-9 rounded-full bg-rose-50 border border-rose-100 text-rose-700 font-black text-[15px] flex items-center justify-center shrink-0 select-none">?</span>
                     <div>
                       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-800 leading-snug">Confirma a eliminação desta instituição?</p>
                       <p className="text-[10.5px] font-medium text-slate-500 mt-0.5">Esta acção não poderá ser desfeita.</p>
@@ -2780,7 +2780,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           <div className="text-right">
                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">STATUS DO ECOSSISTEMA</span>
                             <span className={`inline-flex items-center gap-1 mt-1 font-mono font-black text-[9px] uppercase leading-none ${selectedInstHistory.status === 'Ativa' ? 'text-emerald-700' : 'text-rose-700'}`}>
-                              <span className={`w-1 h-1 rounded-full ${selectedInstHistory.status === 'Ativa' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                              <span className={`w-1 h-1 rounded-full ${selectedInstHistory.status === 'Ativa' ? 'bg-emerald-700 animate-pulse' : 'bg-rose-500'}`} />
                               {selectedInstHistory.status === 'Ativa' ? 'Ativa' : 'Suspensa'}
                             </span>
                           </div>
@@ -2802,7 +2802,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                         </div>
                         <div className="space-y-1 text-right">
                           <span className="text-[8.5px] font-black text-slate-500 uppercase tracking-widest block leading-none">SLA DESEMPENHO</span>
-                          <span className="text-base text-emerald-600 font-mono font-black block leading-none">{selectedInstHistory.performanceScore || selectedInstHistory.responseRate || '95%'}</span>
+                          <span className="text-base text-emerald-700 font-mono font-black block leading-none">{selectedInstHistory.performanceScore || selectedInstHistory.responseRate || '95%'}</span>
                         </div>
                       </div>
 
@@ -2825,7 +2825,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                         {/* Manual progress block */}
                         <div>
                           <div className="flex justify-between text-[10px] font-extrabold mb-1">
-                            <span className="text-amber-600 uppercase tracking-wide">Tratamento Manual</span>
+                            <span className="text-amber-700 uppercase tracking-wide">Tratamento Manual</span>
                             <span className="font-mono text-slate-800">{manualUsageVal.toFixed(0)}%</span>
                           </div>
                           <div className="h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">

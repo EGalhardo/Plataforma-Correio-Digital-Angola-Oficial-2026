@@ -563,7 +563,7 @@ Contexto adicional:
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             className={`fixed top-20 right-5 z-[200] max-w-sm px-4 py-3.5 rounded-2xl shadow-none flex items-center gap-3 border text-xs md:text-sm font-bold leading-tight ${
               toast.type === 'success' 
-                ? 'bg-emerald-600 border-emerald-500 text-white' 
+                ? 'bg-emerald-700 border-emerald-700 text-white' 
                 : toast.type === 'warning'
                 ? 'bg-amber-500 border-amber-600 text-white'
                 : toast.type === 'error'
@@ -607,7 +607,7 @@ Contexto adicional:
             {aiStatus === 'loading' ? (
               <Loader2 size={12} className="animate-spin" />
             ) : aiStatus === 'connected' ? (
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-emerald-700 animate-pulse" />
             ) : (
               <span className="w-2 h-2 rounded-full bg-red-500" />
             )}
@@ -679,7 +679,7 @@ Contexto adicional:
                         />
                         <button 
                           onClick={handleSaveGeneralConfig}
-                          className="p-1 text-emerald-600 hover:bg-emerald-50 rounded border-none bg-transparent cursor-pointer font-bold text-xs"
+                          className="p-1 text-emerald-700 hover:bg-emerald-50 rounded border-none bg-transparent cursor-pointer font-bold text-xs"
                         >
                           OK
                         </button>
@@ -753,12 +753,12 @@ Contexto adicional:
                 </div>
 
                 <div className="flex items-center gap-3 py-2.5 last:pb-0 min-w-0">
-                  <div className="text-emerald-600 bg-emerald-50 w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
+                  <div className="text-emerald-700 bg-emerald-50 w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
                     <ShieldCheck size={13} className="stroke-[2.5]" />
                   </div>
                   <span className="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider leading-none min-w-[70px] shrink-0">Estado</span>
                   <span className="font-bold text-xs inline-flex items-center gap-1.5">
-                    <span className={`w-2 h-2 rounded-full ${aiStatus === 'connected' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                    <span className={`w-2 h-2 rounded-full ${aiStatus === 'connected' ? 'bg-emerald-700' : 'bg-slate-300'}`} />
                     <span className={aiStatus === 'connected' ? 'text-emerald-700' : 'text-slate-500'}>
                       {aiStatus === 'connected' ? 'Online' : 'Offline'}
                     </span>
@@ -823,7 +823,7 @@ Contexto adicional:
               {/* Additional Real Stats Row */}
               <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-100">
                 <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl min-w-0 overflow-hidden">
-                  <Zap size={13} className="text-emerald-600 shrink-0" />
+                  <Zap size={13} className="text-emerald-700 shrink-0" />
                   <div className="min-w-0">
                     <span className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase block truncate">Activos Hoje</span>
                     <span className="text-xs md:text-sm font-black text-slate-800 truncate">{aiStats.activeToday}</span>
@@ -1001,7 +1001,7 @@ Contexto adicional:
               <div className="flex items-center gap-2">
                 {aiStatus === 'connected' && (
                   <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold uppercase rounded-full">
-                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                    <span className="w-1.5 h-1.5 bg-emerald-700 rounded-full animate-pulse" />
                     GROQ LIVE
                   </span>
                 )}
@@ -1151,7 +1151,7 @@ Contexto adicional:
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-700">{log.canal === 'preview_instituicao' ? 'Preview (cidadão)' : 'Chat Teste'}</span>
                       <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full ${
-                        log.respostaOk ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                        log.respostaOk ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
                       }`}>{log.respostaOk ? 'Respondida' : 'Falhou'}</span>
                     </div>
                     <span className="text-[11px] text-slate-400 block mt-0.5">{log.promptPreview || '(sem pré-visualização)'}</span>
