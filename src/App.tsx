@@ -8973,7 +8973,18 @@ Ficha civil do titular:
                   {appMode === 'institution' ? (
                     <RegisterInstitutionPage
                       onCancel={() => setLoginSubMode('normal')}
-                      onSuccess={() => setLoginSubMode('normal')}
+                      // 2026-10-20 — «Copiar e Ir para o Login»: credenciais da
+                      // adesão pré-preenchem o login institucional (igual ao cidadão).
+                      onSuccess={(creds) => {
+                        if (creds?.bi) {
+                          setBi(creds.bi);
+                        }
+                        if (creds?.password) {
+                          setLoginPasswordInput(creds.password);
+                        }
+                        loginInteragidoRef.current = true;
+                        setLoginSubMode('normal');
+                      }}
                       addAuditLog={addAuditLog}
                     />
                   ) : appMode === 'admin' ? (
