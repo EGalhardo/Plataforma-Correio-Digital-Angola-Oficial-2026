@@ -15,7 +15,6 @@ import {
   Shield,
   FileText,
   Fingerprint,
-  Sparkles,
   Loader2,
   AlertTriangle,
   Copy,
@@ -25,7 +24,7 @@ import {
 } from 'lucide-react';
 import { notify } from '../../lib/notify';
 import { supabase } from '../../lib/supabaseClient';
-import { homologationStore, notifyRegistrationSubmitted, notifyAccountApproved } from '../../services/homologationStore';
+import { homologationStore, notifyRegistrationSubmitted } from '../../services/homologationStore';
 import { registoPublicoProxy, anunciarRegistosAlterados } from '../../services/supabaseService';
 import { CdaModal } from '../ui/CdaModal';
 import { isSupabaseConfigured, cloudSignOutBestEffort } from '../../services/cloudAuthService';
@@ -112,7 +111,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   const [dataNascimento, setDataNascimento] = useState('');
   const [sexo, setSexo] = useState('');
   // v37.8 — resultado da validação automática por IA
-  const [aprovadoPopup, setAprovadoPopup] = useState(false);
   // v37.29 — popup com Nº de acesso + senha ao concluir a inscrição
   const [credPopup, setCredPopup] = useState(false);
   const [copiedBi, setCopiedBi] = useState(false);
@@ -161,24 +159,21 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   };
   // v37.78.17 — REGRAS UX (processamento em segundo plano): estado vivo da
   // análise do registo, visível no ecrã de sucesso e nos popups.
-  const [analiseEstado, setAnaliseEstado] = useState<'em_analise' | 'aprovado' | 'correcoes'>('em_analise');
+  const [analiseEstado, setAnaliseEstado] = useState<'em_analise' | 'aguarda_admin' | 'correcoes'>('em_analise');
   const mountedRef = useRef(true);
-  const credPopupRef = useRef(false);
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-  useEffect(() => { credPopupRef.current = credPopup; }, [credPopup]);
   // v37.78.17 — desfecho do processamento em segundo plano (inclui RETOMA
   // após reload: o registoBgService emite o evento ao concluir a análise).
   useEffect(() => {
     const aoDesfechoBg = (ev: Event) => {
       const d = (ev as CustomEvent).detail || {};
       if (String(d.bi || '').toUpperCase().replace(/\s+/g, '') !== String(biNumber || '').toUpperCase().replace(/\s+/g, '')) return;
-      if (d.tipo === 'aprovado') setAnaliseEstado('aprovado');
+      if (d.tipo === 'aguarda_admin') setAnaliseEstado('aguarda_admin');
       else if (d.tipo === 'correcoes') setAnaliseEstado('correcoes');
     };
     window.addEventListener(EVENTO_DESFECHO_BG, aoDesfechoBg as EventListener);
     return () => window.removeEventListener(EVENTO_DESFECHO_BG, aoDesfechoBg as EventListener);
   }, [biNumber]);
-  const [aprovadoPendente, setAprovadoPendente] = useState(false);
   const [reprovacaoInfo, setReprovacaoInfo] = useState<{ motivo: string; alertas: string[] } | null>(null);
   const [documentFrente, setDocumentFrente] = useState<File | null>(null);
   const [documentVerso, setDocumentVerso] = useState<File | null>(null);
@@ -199,8 +194,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
   // Pré-verificação real dos documentos (Fase 1 — motor local no browser)
   const [verificationReport, setVerificationReport] = useState<RegistrationVerificationReport | null>(null);
-  // F28 (v11.1): selo «Aprovado automaticamente por Pré-Verificação Inteligente (IA)» no ecrã de sucesso
-  const [pviAutoApproved, setPviAutoApproved] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const verificationStartedRef = useRef(false);
 
@@ -225,14 +218,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
     if (isSupabaseConfigured()) void cloudSignOutBestEffort(supabase);
     // eslint-disable-next-line react-hooks/devDependencies
   }, []);
-
-  // v37.8 — após o popup «Aprovado», a página de registo fecha automaticamente
-  // e o cidadão é redireccionado para o Login (6 s, ou já ao clicar «Entendi»).
-  useEffect(() => {
-    if (!aprovadoPopup) return;
-    const timer = setTimeout(() => onSuccess(), 6000);
-    return () => clearTimeout(timer);
-  }, [aprovadoPopup, onSuccess]);
 
   // Calculate Password Strength in real time
   useEffect(() => {
@@ -793,8 +778,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         setSubmitMessage,
         setAnaliseEstado: (e) => { if (mountedRef.current) setAnaliseEstado(e); },
         setReprovacaoInfo: (i) => { if (mountedRef.current) setReprovacaoInfo(i); },
-        setPviAutoApproved,
-        pedirPopupAprovado: () => { if (mountedRef.current && !credPopupRef.current) setAprovadoPendente(true); },
       });
   };
 
@@ -1601,31 +1584,27 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                       : 'O seu processo de registo foi enviado com sucesso para a fila de homologação.'}
                   </p>
                   <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                    {pviAutoApproved
-                      ? (appMode === 'institution'
-                        ? 'A adesão foi APROVADA AUTOMATICAMENTE pela Pré-Verificação Inteligente (IA) — a área institucional fica activa de imediato, sem espera pela homologação manual.'
-                        : 'A sua conta foi APROVADA AUTOMATICAMENTE pela Pré-Verificação Inteligente (IA) e está activa de imediato — já pode iniciar sessão com o seu B.I.')
-                      : (appMode === 'institution'
-                        ? 'O pedido está sob revisão da nossa equipa administrativa e técnica. Em menos de 24h enviaremos para o e-mail institucional os resultados.'
-                        : 'O seu processo está sob revisão dos inspectores de identificação civil nacional usando inteligência artificial. Em menos de 24h enviaremos para o seu Email os resultados.')}
+                    {appMode === 'institution'
+                      ? 'A IA verifica os dados e documentos submetidos; a decisão final de adesão será tomada pela equipa administrativa.'
+                      : 'A IA verifica os dados e documentos submetidos; a decisão final de homologação será tomada pelos inspectores de identificação civil nacional.'}
                   </p>
                 </div>
               </div>
 
               {/* v37.78.17 — estado vivo da análise em segundo plano (REGRAS UX) */}
               {appMode !== 'institution' && (
-                <div className={`rounded-xl border p-3 flex items-center gap-2.5 text-left ${analiseEstado === 'aprovado' ? 'bg-emerald-50 border-emerald-200' : analiseEstado === 'correcoes' ? 'bg-amber-50 border-amber-200' : 'bg-indigo-50 border-indigo-100'}`}>
-                  <span className="text-base leading-none select-none">{analiseEstado === 'aprovado' ? '✅' : analiseEstado === 'correcoes' ? '⚠️' : '⏳'}</span>
+                <div className={`rounded-xl border p-3 flex items-center gap-2.5 text-left ${analiseEstado === 'aguarda_admin' ? 'bg-amber-50 border-amber-200' : analiseEstado === 'correcoes' ? 'bg-amber-50 border-amber-200' : 'bg-indigo-50 border-indigo-100'}`}>
+                  <span className="text-base leading-none select-none">{analiseEstado === 'aguarda_admin' ? '🕒' : analiseEstado === 'correcoes' ? '⚠️' : '⏳'}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10.5px] font-black uppercase tracking-widest m-0" style={{ color: analiseEstado === 'aprovado' ? '#047857' : analiseEstado === 'correcoes' ? '#b45309' : '#4338ca' }}>
-                      {analiseEstado === 'aprovado' ? 'Registo aprovado' : analiseEstado === 'correcoes' ? 'Correcções necessárias' : 'Análise em curso'}
+                    <p className="text-[10.5px] font-black uppercase tracking-widest m-0" style={{ color: analiseEstado === 'correcoes' || analiseEstado === 'aguarda_admin' ? '#b45309' : '#4338ca' }}>
+                      {analiseEstado === 'aguarda_admin' ? 'Aguarda homologação administrativa' : analiseEstado === 'correcoes' ? 'Correcções necessárias' : 'Análise em curso'}
                     </p>
                     <p className="text-[10.5px] text-slate-600 font-semibold m-0 mt-0.5 leading-relaxed">
-                      {analiseEstado === 'aprovado'
-                        ? 'A análise do seu registo terminou com aprovação. A conta está activa e todos os serviços ficam disponíveis.'
+                      {analiseEstado === 'aguarda_admin'
+                        ? 'A verificação dos dados terminou. A conta continuará pendente até decisão de um administrador.'
                         : analiseEstado === 'correcoes'
                           ? 'A análise terminou com dados a corrigir. Regresse ao registo, corrija os dados e repita a validação.'
-                          : 'O sistema está a analisar os seus documentos em segundo plano — pode continuar a usar a aplicação; o resultado chega por notificação.'}
+                          : 'O sistema está a analisar os seus documentos em segundo plano; a decisão final será administrativa.'}
                     </p>
                   </div>
                   {analiseEstado === 'correcoes' && (
@@ -1710,12 +1689,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 </div>
               </div>
 
-              {pviAutoApproved && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 flex items-center justify-center gap-2 animate-fadeIn">
-                  <Sparkles size={13} className="text-emerald-700" />
-                  <span className="text-[10.5px] font-black text-emerald-700 uppercase tracking-widest">Aprovado automaticamente por Pré-Verificação Inteligente (IA)</span>
-                </div>
-              )}
 
               <button
                 type="button"
@@ -1747,10 +1720,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       {/* v37.29 — popup de credenciais ao concluir a inscrição */}
       <CdaModal
         aberto={credPopup}
-        onFechar={() => {
-          setCredPopup(false);
-          if (aprovadoPendente) { setAprovadoPendente(false); setAprovadoPopup(true); }
-        }}
+        onFechar={() => setCredPopup(false)}
         icone={Lock}
         titulo="Registo Concluído"
         subtitulo="Dados de acesso · SME"
@@ -1836,16 +1806,13 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
             Por segurança, memorize ou guarde estes dados num local seguro.
           </p>
           <p className="text-[10.5px] font-semibold text-blue-700 m-0 leading-relaxed">
-            Pode entrar na aplicação agora: a análise decorre em segundo plano e o resultado será notificado nesta mesma conta.
+            O registo foi recebido. A verificação dos dados decorre em segundo plano; a conta só será activada após a homologação administrativa.
           </p>
         </div>
         <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
           <button
             type="button"
-            onClick={() => {
-              setCredPopup(false);
-              if (aprovadoPendente) { setAprovadoPendente(false); setAprovadoPopup(true); }
-            }}
+            onClick={() => setCredPopup(false)}
             className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer border-none"
           >
             Fechar
@@ -1861,27 +1828,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         </div>
       </CdaModal>
 
-      {/* v37.8 — popup de aprovação automática do registo do cidadão */}
-      <CdaModal
-        aberto={aprovadoPopup}
-        onFechar={() => { setAprovadoPopup(false); onSuccess(); }}
-        icone={CheckCircle2}
-        titulo="Aprovado"
-        subtitulo="Registo validado automaticamente"
-        tomIcone="bg-emerald-50 text-emerald-700 border-emerald-100"
-        maxW="max-w-md"
-      >
-        <p className="text-sm font-semibold text-slate-700 text-left m-0">Seu cadastro foi aprovado.</p>
-        <div className="flex justify-end pt-2">
-          <button
-            type="button"
-            onClick={() => { setAprovadoPopup(false); onSuccess(); }}
-            className="px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer border-none shadow-sm"
-          >
-            Entendi
-          </button>
-        </div>
-      </CdaModal>
       <datalist id="cda-dominios-email">
         <option value="@gmail.com" />
         <option value="@yahoo.com" />

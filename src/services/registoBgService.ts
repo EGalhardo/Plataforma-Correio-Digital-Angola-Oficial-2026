@@ -20,13 +20,13 @@
 // ============================================================================
 import { supabase } from '../lib/supabaseClient';
 import { registoPublicoProxy, anunciarRegistosAlterados } from './supabaseService';
-import { homologationStore, notifyAccountApproved } from './homologationStore';
+import { homologationStore } from './homologationStore';
 import { requestPviVerification, buildPvicMarker, type PviVerdict } from './preVerificationService';
 import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticCitizenEmail } from './cloudAuthService';
 import { buildStorageRef } from '../lib/secureStorage';
 
-export type AnaliseEstado = 'em_analise' | 'aprovado' | 'correcoes';
-export type DesfechoBg = 'aprovado' | 'correcoes' | 'pendente';
+export type AnaliseEstado = 'em_analise' | 'aguarda_admin' | 'correcoes';
+export type DesfechoBg = 'aguarda_admin' | 'correcoes' | 'pendente';
 
 export interface RegistoBgPayload {
   newUser: any;
@@ -63,8 +63,6 @@ export interface BgHooks {
   setSubmitError?: (m: string) => void;
   setAnaliseEstado?: (e: AnaliseEstado) => void;
   setReprovacaoInfo?: (info: { motivo?: string; alertas?: string[] } | null) => void;
-  setPviAutoApproved?: (v: boolean) => void;
-  pedirPopupAprovado?: () => void;
 }
 
 // ------------------------------ base64 ↔ blob ------------------------------
@@ -140,10 +138,8 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
   let urlVerso = '';
   let urlSelfie = '';
   let pviVerdict: PviVerdict | null = null;
-  let pviAutoApproved = false;
   let cloudPreExisting = false;
   let provOutcome: string | null = job.provOutcome ?? null;
-  let effectiveAutoApproved = false;
   let desfecho: DesfechoBg = 'pendente';
   let insertFalhouRede = false;
 
@@ -243,14 +239,9 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
 
       await Promise.all([uploadsPromise.catch(() => null), pviPromise]);
       pviVerdict = await pviPromise;
-      const uploadCompleto = !!(urlFrente && urlVerso);
-      const pviLocalEngineOk = job.payload.verificationReport != null && job.payload.verificationReport.iaResult === 'Aprovado';
-      pviAutoApproved = pviVerdict.veredicto === 'APTO' && (appMode === 'institution' ? pviLocalEngineOk : true);
       hooks.addAuditLog(
-        pviAutoApproved
-          ? `[PVIC] Cadastro de ${newUser.name} APROVADO AUTOMATICAMENTE pela Pré-Verificação Inteligente (veredicto APTO com correspondência facial e documental — modelo ${pviVerdict.modelo}, ${pviVerdict.duracaoMs}ms).`
-          : `[PVIC] Cadastro de ${newUser.name} enviado para homologação manual — veredicto ${pviVerdict.veredicto}${pviVerdict.alertas.length ? ` · alertas: ${pviVerdict.alertas.join(', ')}` : ''}${pviVerdict.motivo ? ` · ${pviVerdict.motivo}` : ''}`,
-        pviAutoApproved ? 'success' : 'warning'
+        `[PVIC] Pré-verificação de ${newUser.name} concluída — decisão final reservada à homologação manual; veredicto ${pviVerdict.veredicto}${pviVerdict.alertas.length ? ` · alertas: ${pviVerdict.alertas.join(', ')}` : ''}${pviVerdict.motivo ? ` · ${pviVerdict.motivo}` : ''}`,
+        pviVerdict.veredicto === 'APTO' ? 'info' : 'warning'
       );
 
       // Porta de divergências REAIS (nome/nº/data/sexo/documento/rosto) — falhas
@@ -299,7 +290,6 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
         }
       }
       cloudPreExisting = provOutcome === 'linked_existing' || provOutcome === 'conflict';
-      effectiveAutoApproved = pviAutoApproved && !cloudPreExisting && uploadCompleto;
       if (cloudPreExisting) {
         hooks.addAuditLog(`[F47] Re-registo do B.I. ${newUser.biNumber}: credencial de nuvem PRÉ-EXISTENTE (conta anterior eliminada pela Administração) — aprovação automática por PVI SUPRIMIDA; a conta fica PENDENTE de nova homologação.`, 'warning');
       }
@@ -313,12 +303,11 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
         url_frente: urlFrente || null,
         url_verso: urlVerso || null,
         url_selfie: urlSelfie || null,
-        status: effectiveAutoApproved ? 'Aprovado' : 'Pendente',
+        status: 'Pendente',
         observacoes: newUser.reason + (job.payload.verificationReport
           ? ` [KYC:${JSON.stringify({ v: 1, fm: job.payload.verificationReport.face.similarity, iq: job.payload.verificationReport.quality.score, ocr: job.payload.verificationReport.ocr.score, coh: job.payload.verificationReport.coherenceScore, ia: job.payload.verificationReport.iaResult })}]`
           : '')
           + (pviVerdict ? ` ${buildPvicMarker(pviVerdict)}` : '')
-          + (effectiveAutoApproved ? ' | Aprovado automaticamente por Pré-Verificação Inteligente (IA).' : '')
           + (cloudPreExisting ? ' | Re-registo após eliminação da conta anterior — aprovação automática suprimida (F47): aguarda nova decisão da Administração.' : '')
       };
       let insertErr: any = null;
@@ -377,7 +366,7 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
     // v37.78.17-fix — chaves com undefined NÃO entram no patch (não podem
     // apagar valores já gravados pela confirmação imediata, p.ex. status).
     const patchDesfecho: Record<string, unknown> = {
-      status: effectiveAutoApproved ? 'Aprovado Automaticamente' : undefined,
+      status: undefined,
       pviVer: pviVerdict?.veredicto,
       pviAlertas: pviVerdict?.alertas,
       pviMotivo: pviVerdict?.motivo,
@@ -385,7 +374,7 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
       pviModelo: pviVerdict?.modelo,
       pviTs: pviVerdict ? new Date().toISOString() : undefined,
       facePhoto: urlSelfie || undefined,
-      analiseEstado: effectiveAutoApproved ? 'aprovado' : 'em_analise',
+      analiseEstado: 'aguarda_admin',
     };
     Object.keys(patchDesfecho).forEach((k) => { if (patchDesfecho[k] === undefined) delete patchDesfecho[k]; });
     actualizarCidadaoLocal(newUser.biNumber, patchDesfecho);
@@ -401,21 +390,10 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
     }
   }
 
-  if (effectiveAutoApproved) {
-    homologationStore.setStatus(newUser.biNumber, 'active', undefined, newUser.name);
-    // Preservar a confirmação de receção e adicionar a homologação oficial (total de 2 correspondências da conta)
-    notifyAccountApproved(newUser.biNumber, newUser.name);
-    hooks.addAuditLog(`[PVIC] Análise IA de ${newUser.name} concluída: APTO — conta ACTIVADA e correspondência de aprovação entregue.`, 'success');
-    desfecho = 'aprovado';
-  } else {
-    hooks.addAuditLog(`[PVIC] Análise de ${newUser.name} concluída sem aprovação automática — conta mantida PENDENTE para homologação da Administração.`, 'warning');
-    desfecho = 'pendente';
-  }
-  hooks.setPviAutoApproved?.(effectiveAutoApproved);
-  if (effectiveAutoApproved) {
-    hooks.setAnaliseEstado?.('aprovado');
-    hooks.pedirPopupAprovado?.();
-  }
+  homologationStore.setStatus(newUser.biNumber, 'pending', undefined, newUser.name);
+  hooks.addAuditLog(`[PVIC] Pré-verificação concluída para ${newUser.name}; registo mantido PENDENTE até decisão manual da Administração.`, 'warning');
+  desfecho = 'aguarda_admin';
+  hooks.setAnaliseEstado?.('aguarda_admin');
   anunciarRegistosAlterados();
 
   // EMAIL DE BOAS-VINDAS (best-effort — nunca bloqueia)
