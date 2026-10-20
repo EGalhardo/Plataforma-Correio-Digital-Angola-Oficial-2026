@@ -1,4 +1,3 @@
-import { CONTACTO_INSTITUCIONAL } from '../utils/pesquisaContactosCorreio';
 /**
  * F55 — Contactos de Emergência + Mensagem de Emergência (Área do Cidadão)
  *
@@ -163,14 +162,13 @@ export function validateContactForm(
   const phone = (form.phone || '').trim();
   const whatsapp = (form.whatsapp || '').trim();
 
-  const institutional = relation === CONTACTO_INSTITUCIONAL;
-  if (!name) errors.push(institutional ? 'O nome da instituição é obrigatório.' : 'O nome completo é obrigatório.');
-  if (!bi) errors.push(institutional ? 'O NIF ou código institucional é obrigatório.' : 'O número do BI do contacto é obrigatório.');
+  if (!name) errors.push('O nome completo é obrigatório.');
+  if (!bi) errors.push('O número do BI do contacto é obrigatório.');
   if (!relation) errors.push('O grau de parentesco ou relação é obrigatório.');
 
   if (!phone) {
-    errors.push(institutional ? 'O telefone da instituição é obrigatório.' : 'O número de telefone é obrigatório para contactos de emergência.');
-  } else if (!(institutional ? /^(?:244)?[29]\d{8}$/.test(phone.replace(/\D/g, '')) : isValidAoPhone(phone))) {
+    errors.push('O número de telefone é obrigatório para contactos de emergência.');
+  } else if (!isValidAoPhone(phone)) {
     errors.push('Telefone inválido — use o formato angolano: +244 9XX XXX XXX.');
   }
 

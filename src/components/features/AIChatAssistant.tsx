@@ -123,24 +123,21 @@ const NAV_DESTINOS: DestinoNav[] = [
   { termos: ['historico', 'histórico', 'atividades', 'atividade', 'linha do tempo'], tab: 'historico', label: 'Histórico de Atividades', papeis: ['user', 'institution', 'admin'] },
   { termos: ['notificacoes', 'notificações', 'notificacao', 'notificação', 'alerta', 'alertas', 'central de alertas'], tab: 'notificacoes', label: 'Central de Notificações', papeis: ['user', 'institution', 'admin'] },
   { termos: ['video atendimento', 'videoatendimento', 'vídeo atendimento', 'videochamada', 'vídeo chamada', 'chamada', 'conferencia', 'conferência'], tab: 'video-atendimento', label: 'Video Atendimento', papeis: ['user', 'institution', 'admin'] },
-  { termos: ['documentos', 'documento', 'certidoes', 'certidões', 'certidao', 'certidão', 'arquivo'], tab: 'documentos', label: 'Documentos', papeis: ['institution'] },
+  { termos: ['documentos', 'documento', 'certidoes', 'certidões', 'certidao', 'certidão', 'arquivo'], tab: 'documentos', label: 'Documentos', papeis: ['user', 'institution'] },
 
   // ---- Cidadão / comum ----
   { termos: ['contactos', 'contacto', 'contatos', 'contato', 'vizinhos', 'vizinho', 'emergencia', 'emergência', 'parentes', 'circulo de confiança', 'círculo de confiança', 'confianca', 'confiança'], tab: 'contactos', label: 'Contactos', papeis: ['user'] },
   { termos: ['perfil', 'minha conta', 'meu perfil', 'dados pessoais', 'biometria'], tab: 'perfil', label: 'Meu Perfil', papeis: ['user', 'institution'] },
+  { termos: ['pagamentos', 'pagamento', 'taxas', 'taxa', 'cobranca', 'cobrança', 'emolumentos', 'emolumento'], tab: 'pagamentos', label: 'Pagamentos', papeis: ['user'] },
+  { termos: ['pasta digital', 'minha pasta', 'processos digitais', 'dossier'], tab: 'pasta-digital', label: 'Pasta Digital', papeis: ['user'] },
   { termos: ['qr code', 'qr', 'codigo qr', 'código qr', 'carteira digital', 'carteira', 'passaporte', 'offline'], tab: 'qr-code', label: 'QR Code', papeis: ['user'] },
   { termos: ['solicitar documento', 'pedir documento', 'solicitacao de documento', 'pedido de documento'], tab: 'solicitar-documento', label: 'Solicitar Documento', papeis: ['user'] },
-  { termos: ['inqueritos', 'inquéritos', 'pesquisas', 'consultas publicas', 'consultas públicas', 'consultas'], tab: 'inqueritos', label: 'Inquéritos', papeis: ['user', 'institution'] },
-  { termos: ['ocorrencias', 'ocorrências', 'problemas do bairro', 'problemas', 'gps'], tab: 'ocorrencias', label: 'Ocorrências Locais', papeis: ['user', 'institution'] },
-  { termos: ['livro de reclamacoes', 'livro de reclamações', 'reclamacoes', 'reclamações', 'reclamacao', 'reclamação'], tab: 'denuncias', label: 'Livro de Reclamações', papeis: ['user', 'institution'] },
-  { termos: ['denuncia', 'denúncia', 'denuncias', 'denúncias', 'nova denuncia', 'nova denúncia'], tab: 'nova-denuncia', label: 'Denúncia', papeis: ['user', 'institution'] },
-  { termos: ['directorio', 'directório', 'orgaos', 'órgãos', 'ministerios', 'ministérios'], tab: 'directorio-orgaos', label: 'Directório de Órgãos', papeis: ['user'] },
 
   // ---- Instituição ----
   { termos: ['equipa', 'colaboradores', 'colaborador', 'trabalhadores', 'trabalhador', 'membros', 'membro', 'operadores', 'operador', 'funcionarios', 'funcionário'], tab: 'gov-contatos', label: 'Equipa', papeis: ['institution'] },
+  { termos: ['pagamentos', 'pagamento', 'cobrancas', 'cobrança', 'cobrancas', 'taxas', 'emolumentos'], tab: 'inst-pagamentos', label: 'Pagamentos e Cobranças', papeis: ['institution'] },
   { termos: ['qr code', 'qr', 'validacao', 'validação', 'validar', 'codigo qr'], tab: 'inst-qrcode', label: 'Validação por QR Code', papeis: ['institution'] },
   { termos: ['ia', 'assistente ia', 'assistente', 'inteligencia artificial', 'inteligência artificial', 'base de conhecimento', 'conhecimento'], tab: 'inst-ai-assistant', label: 'Assistência IA', papeis: ['institution'] },
-  { termos: ['sondagens', 'votacoes', 'votações', 'enquetes'], tab: 'sondagens', label: 'Sondagens', papeis: ['institution'] },
 
   // ---- Admin ----
   { termos: ['dashboard', 'painel principal', 'painel', 'soc', 'governo'], tab: 'gov-dashboard', label: 'Painel Principal SOC', papeis: ['admin'] },
@@ -156,66 +153,50 @@ const NAV_DESTINOS: DestinoNav[] = [
   { termos: ['perfil', 'minha conta', 'perfil admin'], tab: 'gov-perfil', label: 'Perfil Admin', papeis: ['admin'] },
 ];
 
-// 2026-09-18 — nomes alinhados com as páginas que existem hoje e com as
-// apresentações de voz (services/voicePresentations.ts): removidas Pagamentos,
-// Pasta Digital e «Documentos» do cidadão; acrescentadas as páginas novas.
 const PAGE_FRIENDLY_NAMES: Record<AppMode, Record<string, string>> = {
   user: {
-    home: "Painel",
-    correspondencias: "Correio",
-    contatos: "Contactos",
-    contactos: "Contactos",
-    perfil: "Perfil",
-    "qr-code": "QR Code e Carteira Digital",
-    "solicitar-documento": "Solicitar Documento",
-    historico: "Histórico",
-    notificacoes: "Centro de Notificações",
-    "video-atendimento": "Vídeo-Atendimento",
-    inqueritos: "Inquéritos",
-    ocorrencias: "Ocorrências Locais",
-    denuncias: "Livro de Reclamações",
-    "nova-denuncia": "Denuncia",
-    "directorio-orgaos": "Directório de Órgãos"
+    home: "Painel Principal",
+    correspondencias: "Correio Digital",
+    documentos: "Documentos e Certificados",
+    "pasta-digital": "Pasta Digital",
+    "qr-code": "QR Code e Carteira",
+    historico: "Histórico de Atividades",
+    notificacoes: "Central de Notificações",
+    contactos: "Círculo de Confiança",
+    contatos: "Círculo de Confiança",
+    pagamentos: "Pagamentos e Emolumentos",
+    perfil: "Meu Perfil",
+    "video-atendimento": "Video Atendimento"
   },
   institution: {
-    home: "Painel",
+    home: "Painel Principal",
     correspondencias: "Correio Institucional",
+    documentos: "Gestão de Documentos",
     "gov-contatos": "Equipa",
     "inst-qrcode": "Validação por QR Code",
     "inst-ai-assistant": "Assistência IA",
+    "inst-pagamentos": "Pagamentos e Cobranças",
     perfil: "Perfil Institucional",
-    documentos: "Expedientes e Arquivos",
-    "qr-code": "Emissão Documental",
-    historico: "Histórico",
-    notificacoes: "Centro de Notificações",
-    "video-atendimento": "Vídeo-Atendimento",
-    inqueritos: "Inquéritos",
-    sondagens: "Sondagens",
-    ocorrencias: "Ocorrências Recebidas",
-    denuncias: "Livro de Reclamações",
-    "nova-denuncia": "Denuncia"
+    "video-atendimento": "Video Atendimento"
   },
   admin: {
-    "gov-dashboard": "Painel Nacional",
-    "gov-interoperabilidade": "Instituições",
+    "gov-dashboard": "Painel Principal SOC",
+    "gov-interoperabilidade": "Interoperabilidade",
     "gov-correspondencias": "Correspondências",
     "gov-contatos": "Cidadãos",
     "gov-trabalhadores": "Equipa",
-    "gov-emissao": "Emissão (Correio Oficial)",
-    "gov-docs": "Emissão Documental",
-    "gov-documentos": "Emissão Documental",
+    "gov-emissao": "Emissão de Documentos",
+    "gov-docs": "Arquivo de Documentos",
+    "gov-documentos": "Arquivo de Documentos",
     "gov-relatorio": "Relatórios",
-    "gov-ia": "IA Nacional",
-    "gov-seguranca": "Auditoria e Segurança",
-    "gov-perfil": "Perfil do Administrador",
-    historico: "Histórico Operacional",
-    notificacoes: "Centro de Notificações",
-    "video-atendimento": "Vídeo-Atendimento"
+    "gov-ia": "IA (Nacional)",
+    "gov-seguranca": "Auditoria de Segurança",
+    "gov-perfil": "Perfil Admin",
+    historico: "Histórico Geral",
+    notificacoes: "Central de Notificações",
+    "video-atendimento": "Video Atendimento"
   }
 };
-
-/** Chaves que são meros aliases de outra página já listada (evita botões duplicados). */
-const ALIASES_APRESENTACAO: ReadonlySet<string> = new Set(['contactos', 'gov-documentos']);
 
 interface PendingNavigation {
   targetTab: string;
@@ -244,8 +225,6 @@ interface AIChatAssistantProps {
   onAbrirCorrespondencia?: (query: string) => boolean;
   currentLanguage?: LanguageCode;
   recognitionRefOut?: { current: ReconhecimentoVoz | null };
-  theme?: 'light' | 'dark';
-  setTheme?: (theme: 'light' | 'dark') => void;
 }
 
 // Superficie minima da Web Speech API usada neste ficheiro (TS nao traz
@@ -276,9 +255,7 @@ export function AIChatAssistant({
   buscarCorrespondencias,
   onAbrirCorrespondencia,
   currentLanguage = 'pt',
-  recognitionRefOut,
-  theme,
-  setTheme
+  recognitionRefOut
 }: AIChatAssistantProps) {
   const isGov = appMode !== 'user';
   const isAdmin = appMode === 'admin';
@@ -416,13 +393,9 @@ export function AIChatAssistant({
   // Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
-      setTimeout(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-      }, 50);
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isLoading, pendingNavigation]);
+  }, [messages, isLoading]);
 
   // Divide o texto em frases curtas: evita o corte silencioso do Chrome em
   // falas longas (onend nunca dispara) e mantém a prosódia natural.
@@ -457,13 +430,13 @@ export function AIChatAssistant({
   };
 
   // Retoma o microfone depois de a IA falar (ou de a fala falhar).
-  const retomarEscuta = (atraso = 200) => {
+  const retomarEscuta = (atraso = 150) => {
     falandoRef.current = false;
     limparWatchdogTts();
     transcriptAcumuladoRef.current = '';
     if (!iaLiveActiveRef.current || !recognitionRef.current) return;
     setTimeout(() => {
-      if (!iaLiveActiveRef.current || !recognitionRef.current || isTranscribingRef.current || falandoRef.current) return;
+      if (!iaLiveActiveRef.current || !recognitionRef.current || isTranscribingRef.current) return;
       try { recognitionRef.current.start(); } catch (e) { /* já iniciado */ }
     }, atraso);
   };
@@ -477,112 +450,70 @@ export function AIChatAssistant({
     limparWatchdogTts();
     utterancesRef.current = [];
     try { window.speechSynthesis.cancel(); } catch (e) {}
+    // Chrome pode ficar em estado "paused" após cancel(): garantir que fala.
     try { window.speechSynthesis.resume(); } catch (e) {}
     falandoRef.current = true;
 
-    // Parar a escuta SEMPRE enquanto a IA fala (evita eco e corte precoce da fala)
+    // Parar a escuta SEMPRE enquanto a IA fala (evita eco). Antes dependia de
+    // isTranscribingRef, que ainda podia estar a false (onstart pendente) —
+    // o microfone continuava ligado e "ouvia" a própria IA.
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
     transcriptAcumuladoRef.current = '';
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch (e) {}
     }
 
-    // Filter out asterisks and markdown formatting symbols
-    const cleanText = text.replace(/[*_#`~[\]()]/g, '').trim();
+    // Filter out asterisks and markdown formatting symbols so the speech synthesis engine doesn't verbalize stars/asterisks
+    const cleanText = text.replace(/\*/g, '').trim();
     const partes = dividirEmFrases(cleanText);
 
     let terminado = false;
-    let heartbeatInterval: NodeJS.Timeout | null = null;
-
-    const limparRecursos = () => {
-      limparWatchdogTts();
-      if (heartbeatInterval) {
-        clearInterval(heartbeatInterval);
-        heartbeatInterval = null;
-      }
-      utterancesRef.current = [];
-    };
-
     const terminar = () => {
-      if (terminado || gen !== ttsGenRef.current) return;
+      if (terminado || gen !== ttsGenRef.current) return; // fala já substituída por outra
       terminado = true;
-      limparRecursos();
-      falandoRef.current = false;
+      utterancesRef.current = [];
+      limparWatchdogTts();
       if (onEndCallback) {
+        falandoRef.current = false;
         onEndCallback();
       } else {
+        // Resume listening after speaking if still active
         retomarEscuta();
       }
     };
-
-    // Keep-alive heartbeat: evita o bug de congelamento do Chromium/Chrome aos 14s
-    heartbeatInterval = setInterval(() => {
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
-          window.speechSynthesis.pause();
-          window.speechSynthesis.resume();
-        }
-      }
-    }, 4000);
-
-    if (!partes.length) { terminar(); return; }
-
-    // Fila sequencial controlada: despacha uma frase de cada vez
-    let indexAtual = 0;
-
-    const falarProximaFrase = () => {
-      if (gen !== ttsGenRef.current || terminado) return;
-      if (indexAtual >= partes.length) {
-        terminar();
-        return;
-      }
-
-      const parte = partes[indexAtual];
-      indexAtual++;
-
-      const utterance = new SpeechSynthesisUtterance(parte);
-      aplicarVozPt(utterance, { rate: 1.0, pitch: 1.0 });
-
-      // Watchdog adaptativo específico para a frase corrente
-      const timeoutFrase = Math.max(14000, 5000 + parte.length * 160);
+    const armarWatchdog = (ms: number) => {
       limparWatchdogTts();
       ttsWatchdogRef.current = setTimeout(() => {
         if (gen !== ttsGenRef.current) return;
-        console.warn(`[IA voz] Timeout na frase ${indexAtual}/${partes.length} — avançando.`);
-        falarProximaFrase();
-      }, timeoutFrase);
-
-      utterance.onstart = () => {
-        if (gen !== ttsGenRef.current) return;
-        try { window.speechSynthesis.resume(); } catch (e) {}
-      };
-
-      utterance.onend = () => {
-        limparWatchdogTts();
-        if (gen === ttsGenRef.current) {
-          falarProximaFrase();
-        }
-      };
-
-      utterance.onerror = (ev: SpeechSynthesisErrorEvent) => {
-        limparWatchdogTts();
-        if (ev.error === 'interrupted' || ev.error === 'canceled') return;
-        console.warn('[IA voz] erro de síntese na frase:', ev.error);
-        if (gen === ttsGenRef.current) {
-          falarProximaFrase();
-        }
-      };
-
-      utterancesRef.current = [utterance];
-      try {
-        window.speechSynthesis.speak(utterance);
-      } catch (err) {
-        console.warn('[IA voz] falha ao despachar utterance:', err);
-        falarProximaFrase();
-      }
+        console.warn('[IA voz] síntese sem fim detectado — a retomar a escuta.');
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+        terminar();
+      }, ms);
     };
 
-    falarProximaFrase();
+    if (!partes.length) { terminar(); return; }
+
+    partes.forEach((parte, i) => {
+      const utterance = new SpeechSynthesisUtterance(parte);
+      // v37.52 — voz pt natural (antes: lang 'pt-AO' inexistente → voz robótica).
+      aplicarVozPt(utterance, { rate: 1.0, pitch: 1.0 });
+      // orçamento por frase (fala pt ≈ 15 caracteres/s → 90 ms/carácter + margem);
+      // se o motor parar a meio, o watchdog devolve o microfone ao utilizador
+      utterance.onstart = () => { if (gen === ttsGenRef.current) armarWatchdog(2500 + parte.length * 90); };
+      utterance.onend = () => { if (i === partes.length - 1) terminar(); };
+      utterance.onerror = (ev: SpeechSynthesisErrorEvent) => {
+        // 'interrupted'/'canceled' = substituída por nova fala (cancel()) — a nova trata da retoma
+        if (ev.error === 'interrupted' || ev.error === 'canceled') return;
+        console.warn('[IA voz] erro de síntese:', ev.error);
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+        terminar();
+      };
+      utterancesRef.current.push(utterance);
+      window.speechSynthesis.speak(utterance);
+    });
+    // Se a síntese nem sequer arrancar (sem vozes, bloqueada, motor preso),
+    // não deixar o utilizador sem microfone: retomar ao fim de 6 s.
+    armarWatchdog(6000);
   };
 
   const getPageFriendlyName = (key: string): string => {
@@ -906,43 +837,6 @@ export function AIChatAssistant({
     let targetTab: string | null = null;
     let tabLabel = "";
 
-    // 0) Comandos de Interface e Acessibilidade (Tema, Leitor de Ecrã)
-    if (normalizedText.includes('modo escuro') || normalizedText.includes('tema escuro') || normalizedText.includes('ativar escuro') || normalizedText.includes('mudar para escuro')) {
-      if (setTheme) setTheme('dark');
-      const okMsg = "Modo Escuro ativado com sucesso.";
-      setMessages(prev => [...prev, userMsg, { role: 'assistant', content: okMsg }]);
-      setInput('');
-      if (iaLiveActive) speak(okMsg);
-      return;
-    }
-
-    if (normalizedText.includes('modo claro') || normalizedText.includes('tema claro') || normalizedText.includes('ativar claro') || normalizedText.includes('mudar para claro')) {
-      if (setTheme) setTheme('light');
-      const okMsg = "Modo Claro ativado com sucesso.";
-      setMessages(prev => [...prev, userMsg, { role: 'assistant', content: okMsg }]);
-      setInput('');
-      if (iaLiveActive) speak(okMsg);
-      return;
-    }
-
-    if (normalizedText.includes('mudar tema') || normalizedText.includes('trocar tema') || normalizedText.includes('alternar tema')) {
-      if (setTheme) {
-        const nextTheme = theme === 'dark' ? 'light' : 'dark';
-        setTheme(nextTheme);
-        const okMsg = `Tema alterado para Modo ${nextTheme === 'dark' ? 'Escuro' : 'Claro'}.`;
-        setMessages(prev => [...prev, userMsg, { role: 'assistant', content: okMsg }]);
-        setInput('');
-        if (iaLiveActive) speak(okMsg);
-        return;
-      }
-    }
-
-    if (normalizedText.includes('ler ecra') || normalizedText.includes('ler pagina') || normalizedText.includes('ouvir pagina') || normalizedText.includes('apresentar pagina') || normalizedText.includes('descrever pagina')) {
-      handleSelectPagePresentation(activeTab || 'home');
-      setInput('');
-      return;
-    }
-
     // 1) ABRIR correspondência específica (voz ou texto): "mostra/abre a
     //    mensagem X" (com conteúdo específico) abre o detalhe diretamente.
     //    SÓ abre quando há um VERBO DE COMANDO explícito (mostra/abre/vê).
@@ -1074,9 +968,7 @@ export function AIChatAssistant({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
-          appMode: appMode,
-          isGovMode: isAdmin,
-          isInstMode: isInst,
+          isGovMode: isGov,
           currentPage: activeTab,
           pageContext: contextoFinal,
           language: currentLanguage
@@ -1267,7 +1159,7 @@ export function AIChatAssistant({
             {Object.keys(PAGE_PRESENTATIONS[appMode] || {})
               .filter(pageKey => {
                 const isFriendlyNamePage = PAGE_FRIENDLY_NAMES[appMode] && (pageKey in PAGE_FRIENDLY_NAMES[appMode]);
-                return isFriendlyNamePage && pageKey !== activeTab && !ALIASES_APRESENTACAO.has(pageKey);
+                return isFriendlyNamePage && pageKey !== activeTab;
               }).length > 0 && (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
@@ -1281,8 +1173,7 @@ export function AIChatAssistant({
                   {Object.keys(PAGE_PRESENTATIONS[appMode] || {})
                     .filter(pageKey => {
                       const isFriendlyNamePage = PAGE_FRIENDLY_NAMES[appMode] && (pageKey in PAGE_FRIENDLY_NAMES[appMode]);
-                      // aliases da mesma página (contactos/contatos, gov-documentos/gov-docs) só uma vez na lista
-                      return isFriendlyNamePage && pageKey !== activeTab && !ALIASES_APRESENTACAO.has(pageKey);
+                      return isFriendlyNamePage && pageKey !== activeTab;
                     })
                     .map(pageKey => {
                       const label = getPageFriendlyName(pageKey);

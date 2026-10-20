@@ -264,7 +264,7 @@ export function InstitutionEmergencyBroadcast({
                         disabled={state.done || sendingIdx !== null}
                         className={`shrink-0 py-2.5 px-4 rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-2 transition-all ${
                           state.done
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
+                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default'
                             : sendingIdx !== null
                               ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                               : 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-200 active:scale-95 cursor-pointer'
@@ -303,7 +303,7 @@ export function InstitutionEmergencyBroadcast({
                         <a
                           href={state.waLink}
                           target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border bg-emerald-700 text-white border-emerald-600 hover:bg-emerald-700 cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 cursor-pointer"
                         >
                           Abrir WhatsApp
                         </a>

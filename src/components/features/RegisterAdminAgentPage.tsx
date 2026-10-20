@@ -32,6 +32,7 @@ import {
   addAdminAgent,
   ADMIN_ALFA_AGENT,
   hasActiveAdminAlfa,
+  isAdminAgentPasswordTaken,
   setAdminAlfa,
   resetAdminAlfaLocal,
 } from '../../services/adminAgentStore';
@@ -165,6 +166,10 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
       setError('As palavras-passe não coincidem. Confirme a senha antes de concluir o registo.');
       return;
     }
+    if (isAdminAgentPasswordTaken(password)) {
+      setError('Esta palavra-passe já está a ser usada por outro agente da Administração. Como a palavra-passe identifica a pessoa no login, escolha outra.');
+      return;
+    }
 
     // v10.1 — Admin Alfa: Nº forçado ADMIN-0001, "Ativo" desde o primeiro instante, acesso total.
     const agent = ADMIN_ALFA_AGENT;
@@ -232,7 +237,7 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
         animate={{ opacity: 1, scale: 1 }}
         className="flex-1 flex flex-col items-center justify-center text-center space-y-5 py-6"
       >
-        <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shadow-sm">
+        <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-sm">
           <CheckCircle2 size={30} />
         </div>
         <div>
@@ -265,7 +270,7 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
           onClick={handleCopy}
           className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-[#4f46e5] hover:text-[#0E2B64] bg-transparent border-none cursor-pointer transition-colors"
         >
-          {copied ? <Check size={13} className="text-emerald-700" /> : <Copy size={13} />}
+          {copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
           {copied ? 'Nº Agente Copiado!' : 'Copiar Nº Agente'}
         </button>
 
@@ -349,7 +354,7 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
 
           {/* Secção 3 — Estágio de Autorização */}
           <Section n="3" icon={<ShieldCheck size={15} className="stroke-[2.5]" />} tint="#d97706" tintSoft="text-[#b45309]" title="Estágio de Autorização">
-            <Field label="Estado de Acesso *" icon={<CheckCircle2 size={16} className="text-emerald-700" />}>
+            <Field label="Estado de Acesso *" icon={<CheckCircle2 size={16} className="text-emerald-500" />}>
               <select
                 disabled
                 value="Ativo"
@@ -357,10 +362,10 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
               >
                 <option value="Ativo">Ativo</option>
               </select>
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-700 pointer-events-none"><Lock size={13} /></span>
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-500 pointer-events-none"><Lock size={13} /></span>
             </Field>
             <div className="bg-[#f0fdf4] border border-[#10b981]/15 rounded-xl p-4 flex gap-2.5 text-left">
-              <Info size={16} className="text-emerald-700 shrink-0 mt-0.5" />
+              <Info size={16} className="text-emerald-600 shrink-0 mt-0.5" />
               <p className="text-[10.5px] text-[#065f46] leading-relaxed font-bold m-0 select-none">
                 O Administrador Geral tem acesso total imediato — não requer homologação. Os restantes membros (ADMIN-0002, ADMIN-0003, …) são adicionados por si na página Equipa; 'Desativados' ou 'Suspensos' terão o acesso à Administração revogado preventivamente.
               </p>
@@ -395,7 +400,7 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
                 placeholder="Repita a palavra-passe definida"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className={`${passwordCls} ${confirmPassword && password !== confirmPassword ? 'border-red-400 focus:border-red-500' : confirmPassword && password === confirmPassword ? 'border-emerald-400 focus:border-emerald-700' : ''}`}
+                className={`${passwordCls} ${confirmPassword && password !== confirmPassword ? 'border-red-400 focus:border-red-500' : confirmPassword && password === confirmPassword ? 'border-emerald-400 focus:border-emerald-500' : ''}`}
               />
               <button
                 type="button"
@@ -407,13 +412,13 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
               </button>
             </Field>
             {confirmPassword && password !== confirmPassword && <p className="text-[10px] text-red-600 font-bold px-1 m-0">As palavras-passe não coincidem. Verifique e tente novamente.</p>}
-            {confirmPassword && password === confirmPassword && <p className="text-[10px] text-emerald-700 font-bold px-1 m-0 flex items-center gap-1"><Check size={12} /> As palavras-passe coincidem.</p>}
+            {confirmPassword && password === confirmPassword && <p className="text-[10px] text-emerald-600 font-bold px-1 m-0 flex items-center gap-1"><Check size={12} /> As palavras-passe coincidem.</p>}
             <div className="flex items-center justify-between gap-3 px-1">
               <p className="text-[9px] text-slate-400 font-bold leading-snug m-0 select-none">
                 Login: <strong>Nº Agente Admin + esta palavra-passe</strong>. Não pode repetir outra credencial activa; fica guardada apenas neste dispositivo.
               </p>
               {password.length >= 8 && (
-                <span className="shrink-0 inline-flex items-center gap-1 text-emerald-700 text-[9px] font-black uppercase tracking-widest">
+                <span className="shrink-0 inline-flex items-center gap-1 text-emerald-600 text-[9px] font-black uppercase tracking-widest">
                   <Check size={11} className="stroke-[3]" /> Mín. 8
                 </span>
               )}

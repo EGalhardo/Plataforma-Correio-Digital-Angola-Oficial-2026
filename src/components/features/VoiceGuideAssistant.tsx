@@ -289,7 +289,7 @@ export function VoiceGuideAssistant({
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white relative shadow-md shadow-blue-500/20">
             <Radio size={16} className={isSpeaking ? 'animate-pulse' : ''} />
             {isListening && (
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-700 rounded-full ring-2 ring-slate-900 animate-ping" />
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-slate-900 animate-ping" />
             )}
           </div>
           <div>
@@ -347,7 +347,7 @@ export function VoiceGuideAssistant({
             <span className="text-[10px] font-black uppercase ml-3 tracking-widest text-blue-400 font-mono">A Falar...</span>
           </div>
         ) : isListening ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-emerald-700/10 border border-emerald-700/20 w-full justify-center">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 w-full justify-center">
             <Mic size={14} className="text-emerald-400 animate-pulse" />
             <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 font-mono animate-pulse">A escutar a sua voz...</span>
           </div>
@@ -463,7 +463,7 @@ export function VoiceGuideAssistant({
         )}
 
         {currentStep === 'opened_form' && (
-          <div className="col-span-2 bg-emerald-700/15 border border-emerald-700/20 text-emerald-400 font-bold p-2.5 rounded-xl text-[10.5px] text-center">
+          <div className="col-span-2 bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 font-bold p-2.5 rounded-xl text-[10.5px] text-center">
             Formulário aberto com sucesso!
           </div>
         )}

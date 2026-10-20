@@ -794,7 +794,7 @@ return (
 
                       {captureSuccess ? (
                         <div className="flex flex-col items-center justify-center text-emerald-400 gap-1.5 z-10 bg-slate-950/80 w-full h-full p-4">
-                          <BadgeCheck size={36} className="text-emerald-700" />
+                          <BadgeCheck size={36} className="text-emerald-500" />
                           <span className="text-xs uppercase font-black tracking-widest text-[#10B981]">Biometria Gravada</span>
                           <span className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">Selfie de Identificação Selada</span>
                         </div>
@@ -856,8 +856,8 @@ return (
                     )}
 
                     {captureSuccess && (
-                      <div className="p-3 bg-white border border-emerald-100 rounded-xl inline-flex items-center gap-2 max-w-md text-left">
-                        <CheckCircle2 size={16} className="text-emerald-700 shrink-0" />
+                      <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl inline-flex items-center gap-2 max-w-md text-left">
+                        <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
                         <span className="text-emerald-800 text-[10.5px] font-bold">
                           Assinatura biométrica facial certificada e vinculada à sua ID do SME nacional.
                         </span>
@@ -902,14 +902,14 @@ return (
                             onChange={(e) => setTemp2FA(e.target.checked)}
                             className="sr-only peer" 
                           />
-                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-700"></div>
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                         </label>
                       </div>
                     </div>
 
                     <div className="pt-4 border-t border-slate-100 flex flex-col items-center">
-                      <div className="bg-white border border-emerald-100 p-4.5 rounded-2xl w-full text-center space-y-2">
-                        <Award className="text-emerald-700 mx-auto" size={28} />
+                      <div className="bg-emerald-50 border border-emerald-100 p-4.5 rounded-2xl w-full text-center space-y-2">
+                        <Award className="text-emerald-600 mx-auto" size={28} />
                         <h4 className="text-slate-800 font-black text-sm uppercase tracking-wide">Pronto Para Selagem de Identidade</h4>
                         <p className="text-slate-500 text-xs">
                           Ao concluir, a sua conta assumirá o estatuto de <strong>Totalmente Verificado</strong> na infraestrutura de Angola.
@@ -1059,8 +1059,8 @@ return (
                       <div className="text-[11px] text-red-650 font-black bg-red-50 border border-red-200 rounded-xl px-3 py-2">{passwordError}</div>
                     )}
                     {passwordSuccess && (
-                      <div className="text-[11px] text-emerald-700 font-extrabold bg-white border border-emerald-200 rounded-xl px-3 py-2 flex items-center gap-1.5">
-                        <Check size={13} className="text-emerald-700" />
+                      <div className="text-[11px] text-emerald-700 font-extrabold bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 flex items-center gap-1.5">
+                        <Check size={13} className="text-emerald-600" />
                         {passwordSuccessMsg || 'Palavra-passe alterada com sucesso!'}
                       </div>
                     )}
@@ -1134,7 +1134,7 @@ return (
                         onChange={(e) => setTemp2FA(e.target.checked)}
                         className="sr-only peer" 
                       />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-700"></div>
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                     </label>
                   </div>
 
@@ -1160,7 +1160,7 @@ return (
                         onChange={(e) => setTempFacial(e.target.checked)}
                         className="sr-only peer" 
                       />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-700"></div>
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                     </label>
                   </div>
                 </div>
@@ -1737,7 +1737,7 @@ return (
                               <button
                                 type="button"
                                 onClick={() => setSessaoRevogar(session)}
-                                className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-rose-700 bg-white border border-rose-100 rounded-lg hover:bg-rose-50 cursor-pointer"
+                                className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-rose-600 bg-white border border-rose-100 rounded-lg hover:bg-rose-50 cursor-pointer"
                               >
                                 Revogar
                               </button>
@@ -1810,7 +1810,7 @@ return (
 
                             <div className="flex items-center gap-2 font-sans select-none">
                               {dev.authorized ? (
-                                <span className="text-[9px] bg-white text-emerald-700 font-extrabold uppercase px-2 py-0.5 rounded-full border border-emerald-100">
+                                <span className="text-[9px] bg-emerald-50 text-emerald-600 font-extrabold uppercase px-2 py-0.5 rounded-full border border-emerald-100">
                                   Confiável
                                 </span>
                               ) : (
@@ -1819,7 +1819,7 @@ return (
                                   onClick={() => {
                                     setConnectedDevices((prev) => prev.map((d) => d.id === dev.id ? { ...d, authorized: true, date: 'Autorizado agora' } : d));
                                   }}
-                                  className="text-[9px] bg-amber-50 hover:bg-amber-100 text-amber-700 font-extrabold uppercase px-2 py-1 rounded-lg border border-amber-100 cursor-pointer"
+                                  className="text-[9px] bg-amber-50 hover:bg-amber-100 text-amber-600 font-extrabold uppercase px-2 py-1 rounded-lg border border-amber-100 cursor-pointer"
                                 >
                                   Autorizar PIN
                                 </button>
@@ -1828,7 +1828,7 @@ return (
                               <button
                                 type="button"
                                 onClick={() => setDispositivoRemover({ id: dev.id, name: dev.name })}
-                                className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-rose-700 rounded-lg cursor-pointer"
+                                className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-rose-500 rounded-lg cursor-pointer"
                               >
                                 <X size={14} />
                               </button>
@@ -1859,7 +1859,7 @@ return (
                     <div className="bg-slate-900 text-white rounded-2xl p-4 md:p-5 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center border border-slate-800 shadow-lg select-none">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <div className={`w-2.5 h-2.5 rounded-full ${hasValidSupabaseKeys() ? 'bg-emerald-700 animate-pulse' : 'bg-amber-500'}`} />
+                          <div className={`w-2.5 h-2.5 rounded-full ${hasValidSupabaseKeys() ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
                           <span className="text-[10px] font-black uppercase tracking-widest font-mono text-slate-300">
                             {hasValidSupabaseKeys() ? 'Estado: Chaves Detectadas' : 'Estado: Chaves Ausentes'}
                           </span>
@@ -1900,7 +1900,7 @@ return (
 
                     {supabaseErrorMsg && (
                       <div className="p-3.5 bg-amber-50 text-amber-900 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs font-medium font-sans">
-                        <AlertTriangle size={15} className="text-amber-700 shrink-0 mt-0.5" />
+                        <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
                         <div className="space-y-1">
                           <p className="font-bold">Aviso de Configuração:</p>
                           <p className="text-slate-600 text-[11px] leading-relaxed">{supabaseErrorMsg}</p>
@@ -1914,8 +1914,8 @@ return (
                     )}
 
                     {supabaseSuccessMsg && (
-                      <div className="p-3.5 bg-white text-emerald-900 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs font-medium font-sans">
-                        <CheckCircle2 size={15} className="text-emerald-700 shrink-0 mt-0.5" />
+                      <div className="p-3.5 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs font-medium font-sans">
+                        <CheckCircle2 size={15} className="text-emerald-600 shrink-0 mt-0.5" />
                         <div className="space-y-1.5 flex-1 p-0.5">
                           <p className="font-bold text-emerald-900">{supabaseSuccessMsg}</p>
                           <p className="text-slate-600 text-[11px]">Sincronização bidireccional activa nos bastidores do portal nacional de Angola!</p>

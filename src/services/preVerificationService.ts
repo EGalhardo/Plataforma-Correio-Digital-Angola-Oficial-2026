@@ -29,8 +29,7 @@ export interface PviRequest {
   biNumber: string;
   nome: string;
   tipo: 'cidadao' | 'instituicao';
-  urls: { frente: string; verso: string; selfie?: string };
-  selfie?: string;
+  urls: { frente: string; verso: string };
   dataNascimento?: string;
   sexo?: string;
 }

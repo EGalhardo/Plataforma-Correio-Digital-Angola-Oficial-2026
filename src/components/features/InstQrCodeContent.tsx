@@ -24,9 +24,9 @@ import {
   Key,
   FileCheck,
   Keyboard,
+  ArrowLeft,
   Loader2
 } from 'lucide-react';
-import { BotaoVoltar } from '../ui/BotaoVoltar';
 // QRCode loaded dynamically
 import { Html5Qrcode } from 'html5-qrcode';
 import { Document, Message } from '../../types';
@@ -65,7 +65,6 @@ interface ScanHistoryItem {
 }
 
 export function InstQrCodeContent({ documents, messages, onSelectMessage, addAuditLog, setTab }: InstQrCodeContentProps) {
-  void setTab; // 2026-09-11 — navegação de regresso passou para <BotaoVoltar /> (VoltarContext)
   // Main Top Mode: 'reader' | 'generator' | 'history'
   const [activeMainTab, setActiveMainTab] = useState<'reader' | 'generator' | 'history'>('reader');
 
@@ -1354,14 +1353,13 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
       {/* 1. BRANDING HEADER (Top rounded white card) */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-sm animate-fade-in" id="qr-branding-header">
         <div className="flex items-center gap-4">
-          <BotaoVoltar />
           <div className="w-[52px] h-[52px] rounded-full bg-[#0E2B64] flex items-center justify-center shadow-md shadow-[#0E2B64]/15 shrink-0">
             <QrCode className="w-[24px] h-[24px] text-white" strokeWidth={2.5} />
           </div>
           <div>
             <h1 className="text-slate-800 font-extrabold text-base md:text-lg lg:text-xl leading-tight">QR Mail Reader</h1>
             <p className="text-[#0E2B64] text-[12px] font-bold flex items-center gap-1.5 mt-0.5">
-              <svg className="w-3 h-3 text-amber-700 fill-amber-500" viewBox="0 0 24 24">
+              <svg className="w-3 h-3 text-amber-500 fill-amber-500" viewBox="0 0 24 24">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
               </svg>
               Leitor &amp; Gerador de Correspondência
@@ -1369,6 +1367,15 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
           </div>
         </div>
         <div className="flex items-center gap-3 self-start sm:self-auto">
+          {setTab && (
+            <button
+              onClick={() => setTab('home')}
+              className="bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl px-4 py-2 border border-slate-200 text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2 shadow-xs active:scale-95"
+            >
+              <ArrowLeft size={14} strokeWidth={2.5} />
+              Voltar ao Painel
+            </button>
+          )}
           <span className="bg-slate-100 border border-slate-200 text-[#0E2B64] rounded-full px-4 py-1.5 text-xs font-bold" id="scan-count-badge">
             {historyData.length} escaneados
           </span>
@@ -1423,7 +1430,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
                 <div className="flex items-center gap-3">
                   <span className="relative flex h-2.5 w-2.5 shrink-0">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-700"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                   </span>
                   <p className="text-slate-650 text-xs font-semibold">
                     Pronto para leitura: Aponte a webcam, carregue ficheiros ou use o Leitor USB profissional.
@@ -1456,7 +1463,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
             {validationState === 'valid' && (
               <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-xl p-3.5 flex items-center justify-between gap-3 animate-fade-in" id="hud-status-valid">
                 <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 bg-emerald-700 rounded-full flex items-center justify-center shadow-sm shrink-0">
+                  <div className="w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm shrink-0">
                     <ShieldCheck className="w-4 h-4 text-white" />
                   </div>
                   <div>
@@ -1483,7 +1490,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
                 </div>
                 <button 
                   onClick={() => { setValidationState('idle'); setValidatedItem(null); }}
-                  className="text-rose-700 hover:text-rose-800 font-black text-[10px] uppercase tracking-wider"
+                  className="text-rose-600 hover:text-rose-800 font-black text-[10px] uppercase tracking-wider"
                 >
                   Tentar Outro
                 </button>
@@ -1669,7 +1676,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
                       type="button"
                       id="btn-stop-camera"
                       onClick={(e) => { e.stopPropagation(); stopCamera(); }}
-                      className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 py-3 px-8 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-xs"
+                      className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-3 px-8 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-xs"
                     >
                       <span className="w-2 h-2 bg-rose-600 rounded-full animate-ping"></span>
                       Parar Captação
@@ -1851,7 +1858,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-100 pb-5">
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white ${
-                    validationState === 'valid' ? 'bg-emerald-700' :
+                    validationState === 'valid' ? 'bg-emerald-600' :
                     validationState === 'revoked' ? 'bg-red-700' : 'bg-amber-600'
                   }`}>
                     {validationState === 'valid' ? <ShieldCheck className="w-5.5 h-5.5 text-white" /> : <ShieldAlert className="w-5.5 h-5.5 text-white" />}
@@ -1958,7 +1965,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
                         addAuditLog(`Gerar guia física para protocolo: ${validatedItem.protocolNumber}`, 'success');
                       }
                     }}
-                    className="flex-1 bg-emerald-700 hover:bg-emerald-700 text-white font-extrabold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md shadow-emerald-500/10 cursor-pointer text-center"
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md shadow-emerald-500/10 cursor-pointer text-center"
                   >
                     Registar Receção Inter-Órgãos
                   </button>
@@ -1994,7 +2001,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
             </div>
             
             <div className="bg-white border border-slate-150 rounded-xl p-4 flex items-start gap-3 shadow-xs">
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-700 shrink-0 mt-0.5">
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 mt-0.5">
                 <ShieldCheck className="w-4.5 h-4.5" />
               </div>
               <div>
@@ -2007,7 +2014,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
             
             <div className="bg-white border border-slate-150 rounded-xl p-4 flex items-start gap-3 shadow-xs">
               <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0 mt-0.5">
-                <svg className="w-4.5 h-4.5 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="w-4.5 h-4.5 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                 </svg>
               </div>
@@ -2361,7 +2368,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
           {generatedQrCodeUrl && (
             <div className="bg-white border border-[#0E2B64]/30 rounded-2xl p-6 shadow-sm border-dashed text-center space-y-4" id="qr-result-container">
               <p className="text-[#0E2B64] font-bold text-sm text-left flex items-center gap-1.5">
-                <Check className="w-5 h-5 text-emerald-700" /> QR Code Gerado com Sucesso!
+                <Check className="w-5 h-5 text-emerald-600" /> QR Code Gerado com Sucesso!
               </p>
 
               <div className="bg-white rounded-xl p-4 border border-[#0E2B64]/20 flex items-center justify-center max-w-[200px] mx-auto">

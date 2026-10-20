@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
+  ArrowLeft,
   Mail,
   Send,
   FileText,
@@ -20,7 +21,6 @@ import {
   ChevronDown,
   Building
 } from 'lucide-react';
-import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { Message, Institution } from '../../types';
 import { InstitutionLogo } from '../ui/InstitutionLogo';
 import {
@@ -478,7 +478,13 @@ export function InstitutionDetail({
     <div className="space-y-4">
       {/* Back to Panel Header */}
       <div className="flex items-center justify-between bg-white border border-slate-200/80 rounded-[20px] p-3 shadow-sm">
-        <BotaoVoltar onClick={onBack} />
+        <button
+          onClick={onBack}
+          className="flex items-center justify-center w-8 h-8 text-slate-800 hover:text-primary hover:bg-slate-50 transition-colors rounded-xl border border-slate-100 shadow-sm cursor-pointer"
+          title="Voltar ao Painel"
+        >
+          <ArrowLeft size={14} />
+        </button>
         <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase italic">
           Interconexão Automática
         </span>
@@ -601,7 +607,7 @@ export function InstitutionDetail({
               </div>
               <div className="text-[9px] font-black text-white uppercase tracking-wider">Facturas</div>
             </div>
-            <div className="bg-emerald-700 border border-emerald-700 rounded-2xl p-3 md:px-5 md:py-4 flex flex-col items-center justify-center text-center shadow-sm min-w-[70px] md:min-w-[90px] text-white">
+            <div className="bg-emerald-600 border border-emerald-500 rounded-2xl p-3 md:px-5 md:py-4 flex flex-col items-center justify-center text-center shadow-sm min-w-[70px] md:min-w-[90px] text-white">
               <FileText className="text-white mb-1" size={16} />
               <div className="text-sm md:text-lg font-black text-white">
                 {incomingDocs.length}
@@ -629,7 +635,7 @@ export function InstitutionDetail({
             {selectedListInst && (
               <>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 border border-red-100 text-[10px] font-black text-red-600 uppercase">📩 Não Lidas: {incomingMessages.filter(m => m.unread === 1).length}</span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100 text-[10px] font-black text-emerald-700 uppercase">✓ Lidas: {incomingMessages.filter(m => m.unread !== 1).length}</span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100 text-[10px] font-black text-emerald-600 uppercase">✓ Lidas: {incomingMessages.filter(m => m.unread !== 1).length}</span>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-100 text-[10px] font-black text-blue-600 uppercase">↑ Enviadas: {outgoingMessages.length}</span>
               </>
             )}
@@ -747,12 +753,12 @@ export function InstitutionDetail({
             <section className="bg-white border border-slate-200/80 rounded-[24px] md:rounded-[32px] p-5 md:p-6 shadow-sm flex flex-col min-h-[350px] h-auto pb-6">
               <div className="flex items-center justify-between mb-4 shrink-0">
                 <div className="flex items-center gap-2">
-                  <Mail className="text-emerald-700" size={16} />
+                  <Mail className="text-emerald-600" size={16} />
                   <h3 className="text-slate-900 font-black text-sm italic tracking-tighter uppercase">
                     Lidas
                   </h3>
                 </div>
-                <span className="text-sm font-black text-emerald-700">
+                <span className="text-sm font-black text-emerald-600">
                   {instReadCount}
                 </span>
               </div>
@@ -779,7 +785,7 @@ export function InstitutionDetail({
                           {msg.preview}
                         </span>
                       </div>
-                      <span className="text-[9px] font-black text-white bg-emerald-700 px-2.5 py-0.5 rounded-full select-none whitespace-nowrap shadow-sm uppercase">
+                      <span className="text-[9px] font-black text-white bg-emerald-600 px-2.5 py-0.5 rounded-full select-none whitespace-nowrap shadow-sm uppercase">
                         {msg.date}
                       </span>
                     </div>
@@ -846,7 +852,7 @@ export function InstitutionDetail({
                 Facturas, Taxas e Documentos
               </h3>
             </div>
-            <span className="text-[9px] font-black text-white bg-emerald-700 border border-emerald-700 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+            <span className="text-[9px] font-black text-white bg-emerald-600 border border-emerald-500 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
               Finanças & Estado
             </span>
           </div>
@@ -891,7 +897,7 @@ export function InstitutionDetail({
                           </span>
                           <span className={`inline-block mt-1 text-[8px] font-black uppercase px-2 py-0.2 rounded-md ${
                             inv.status === 'Pago' 
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
                               : 'bg-red-50 text-red-600 border border-red-100 animate-pulse'
                           }`}>
                             {inv.status}
@@ -945,12 +951,12 @@ export function InstitutionDetail({
                       className="border border-slate-200 hover:border-slate-400 bg-white hover:bg-slate-50/85 transition-all flex items-center justify-between cursor-pointer p-3.5 rounded-2xl"
                     >
                       <div className="min-w-0 flex-1 truncate mr-2">
-                        <span className="text-[9px] font-black uppercase text-emerald-700 block mb-0.5">TÍTULO OFICIAL DISPONÍVEL</span>
+                        <span className="text-[9px] font-black uppercase text-emerald-600 block mb-0.5">TÍTULO OFICIAL DISPONÍVEL</span>
                         <span className="text-xs font-bold text-slate-800 block truncate">
                           {doc.preview}
                         </span>
                       </div>
-                      <span className="text-[9px] font-mono font-bold text-white bg-emerald-700 border border-emerald-700 rounded-lg px-2 py-0.5 shadow-sm">
+                      <span className="text-[9px] font-mono font-bold text-white bg-emerald-600 border border-emerald-500 rounded-lg px-2 py-0.5 shadow-sm">
                         {doc.date}
                       </span>
                     </div>
@@ -1013,7 +1019,7 @@ export function InstitutionDetail({
             <div className="flex-1 p-6 md:p-8 bg-white overflow-y-auto space-y-4 custom-scrollbar">
               {downloadSuccess && (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 font-bold flex items-center gap-2 animate-bounce">
-                  <span className="w-5 h-5 bg-emerald-700 text-white flex items-center justify-center rounded-full text-[10px]">✓</span>
+                  <span className="w-5 h-5 bg-emerald-500 text-white flex items-center justify-center rounded-full text-[10px]">✓</span>
                   O Ficheiro original {previewType === 'invoice' ? 'GUIA_PAGAMENTO' : 'CERTIDÃO_DIGITAL'}.pdf foi simulado e baixado no seu dispositivo com sucesso!
                 </div>
               )}
@@ -1108,7 +1114,7 @@ export function InstitutionDetail({
                       </div>
                       <div className="flex items-start text-[11px] md:text-xs py-0.5">
                         <div className="w-[140px] text-right font-black text-slate-400 pr-5 uppercase tracking-tight select-none">Estado</div>
-                        <div className="flex-1 text-left font-black text-emerald-700 uppercase">Sucesso</div>
+                        <div className="flex-1 text-left font-black text-emerald-600 uppercase">Sucesso</div>
                       </div>
                       <div className="flex items-start text-[11px] md:text-xs py-0.5">
                         <div className="w-[140px] text-right font-black text-slate-400 pr-5 uppercase tracking-tight select-none">Canal</div>
@@ -1199,7 +1205,7 @@ export function InstitutionDetail({
                     </div>
 
                     <div className="flex items-center gap-2.5 bg-emerald-50/50 border border-emerald-100 rounded-xl p-3">
-                      <span className="text-emerald-700 shrink-0 font-bold">✓</span>
+                      <span className="text-emerald-600 shrink-0 font-bold">✓</span>
                       <p className="text-[10px] text-emerald-800 font-semibold leading-normal">
                         Selo Digital Activo • Isento de qualquer autenticação física complementar ou taxas administrativas cartoriais.
                       </p>
@@ -1233,7 +1239,7 @@ export function InstitutionDetail({
                 }}
                 className="flex items-center gap-2 px-4 py-2 text-xs font-black text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition-all shadow-xs cursor-pointer"
               >
-                {copiedKey ? <Check size={14} className="text-emerald-700" /> : <Copy size={14} />}
+                {copiedKey ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
                 {copiedKey ? 'Chave Copiada!' : 'Copiar Hash'}
               </button>
 
@@ -1254,7 +1260,7 @@ export function InstitutionDetail({
                     setPreviewType(null);
                     setDownloadSuccess(false);
                   }}
-                  className="px-6 py-2.5 bg-[#007A45] hover:bg-[#00924e] text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-md cursor-pointer border-0 outline-none"
+                  className="px-6 py-2.5 bg-[#00A859] hover:bg-[#00924e] text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-md cursor-pointer border-0 outline-none"
                 >
                   Fechar
                 </button>

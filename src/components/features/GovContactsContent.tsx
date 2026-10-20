@@ -61,20 +61,15 @@ import {
   Zap,
   Pencil,
   KeyRound,
-  LayoutGrid,
-  Maximize2,
-  ZoomIn,
-  ChevronLeft,
-  ChevronRight
+  LayoutGrid
 } from 'lucide-react';
-import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { supabase } from '../../lib/supabaseClient';
-import { registoPublicoProxy, anunciarRegistosAlterados, EVENTO_REGISTOS_ALTERADOS, eliminarCidadaoAdmin, eliminarAgente, permissoesAgente, alterarSenhaAgente, enviarMensagemAdministrativa, equipaMembroCloud } from '../../services/supabaseService';
+import { registoPublicoProxy, eliminarCidadaoAdmin, eliminarAgente, permissoesAgente, alterarSenhaAgente, enviarMensagemAdministrativa, equipaMembroCloud } from '../../services/supabaseService';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { limparPendenciaPerfil } from '../../services/profileSyncService';
 import { limparLoginFalhas } from '../../services/loginSecurityService';
-import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, updateInstMemberProfile, buildAgentNumber, splitAgentNumber, isInstitutionObservacao } from '../../services/institutionRegistrationStore';
-import { addAdminAgent, updateAdminAgentPassword, updateAdminAgentPermissions, removeAdminAgentByWorker, nextAdminAgentNumber, getAdminAgentCreds, ADMIN_ALFA_AGENT } from '../../services/adminAgentStore';
+import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, updateInstMemberProfile, isInstPasswordTaken, buildAgentNumber, splitAgentNumber } from '../../services/institutionRegistrationStore';
+import { addAdminAgent, updateAdminAgentPassword, updateAdminAgentPermissions, removeAdminAgentByWorker, isAdminAgentPasswordTaken, nextAdminAgentNumber, getAdminAgentCreds, ADMIN_ALFA_AGENT } from '../../services/adminAgentStore';
 import { useSession } from '../../services/sessionStore';
 
 interface AuditLog {
@@ -555,21 +550,10 @@ export function GovContactsContent({
   const [filterProvince, setFilterProvince] = useState<string>('Todas');
   const [filterMunicipio, setFilterMunicipio] = useState<string>('Todos');
   const [filterStatus, setFilterStatus] = useState<string>('Todas');
-  const [citizenSearch, setCitizenSearch] = useState<string>('');
 
 
   // IA review states
   const [selectedReviewCitizen, setSelectedReviewCitizen] = useState<Citizen | null>(null);
-  const [expandedDoc, setExpandedDoc] = useState<{
-    title: string;
-    url: string;
-    images?: string[];
-    currentIndex?: number;
-    stepNames?: string[];
-  } | null>(null);
-  const [resolvedModalDocs, setResolvedModalDocs] = useState<{ frente: string; verso: string; selfie: string }>({ frente: '', verso: '', selfie: '' });
-  const [modalFacePhotos, setModalFacePhotos] = useState<string[]>([]);
-  const [selfieGalleryIndex, setSelfieGalleryIndex] = useState<number>(0);
   const [aiEvaluationState, setAiEvaluationState] = useState<'idle' | 'running' | 'completed'>('idle');
   const [aiMatchScore, setAiMatchScore] = useState<number | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>('');
@@ -609,169 +593,319 @@ export function GovContactsContent({
   });
   const [, setRejectionStep] = useState<'passo1' | 'passo2' | 'passo3' | 'geral'>('geral');
 
-  useEffect(() => {
-    if (!selectedReviewCitizen) {
-      setResolvedModalDocs({ frente: '', verso: '', selfie: '' });
-      setModalFacePhotos([]);
-      setSelfieGalleryIndex(0);
-      return;
-    }
-    let ativo = true;
-    const carregarImagensModal = async () => {
-      const bi = (selectedReviewCitizen.biNumber || '').trim().toUpperCase();
-      
-      const rawFrente = selectedReviewCitizen.urlFrente || (selectedReviewCitizen as any).bi_foto_url || (selectedReviewCitizen as any).bi_frente_url || (selectedReviewCitizen as any).documento_frente_url || (bi ? localStorage.getItem(`cda_user_bi_frente_${bi}`) : '') || '';
-      const rawVerso = selectedReviewCitizen.urlVerso || (selectedReviewCitizen as any).bi_foto_verso_url || (selectedReviewCitizen as any).bi_verso_url || (selectedReviewCitizen as any).documento_verso_url || (bi ? localStorage.getItem(`cda_user_bi_verso_${bi}`) : '') || '';
-      const rawSelfie = selectedReviewCitizen.urlSelfie || selectedReviewCitizen.facePhoto || (selectedReviewCitizen as any).selfie_url || (selectedReviewCitizen as any).foto_url || (bi ? localStorage.getItem(`cda_user_selfie_${bi}`) : '') || '';
-
-      // Tenta obter as múltiplas fotos de biometria facial
-      let rawFacePhotos: string[] = [];
-      if (Array.isArray(selectedReviewCitizen.facePhotos) && selectedReviewCitizen.facePhotos.length > 0) {
-        rawFacePhotos = selectedReviewCitizen.facePhotos;
-      } else if (bi) {
-        try {
-          const rawList = localStorage.getItem(`cda_user_selfies_${bi}`);
-          if (rawList) {
-            const parsed = JSON.parse(rawList);
-            if (Array.isArray(parsed) && parsed.length > 0) rawFacePhotos = parsed;
-          }
-        } catch (e) {}
-        if (rawFacePhotos.length === 0) {
-          try {
-            const rawDemo = localStorage.getItem(`cda_demo_face_user_${bi}`) || localStorage.getItem(`cda_demo_face_institution_${bi}`);
-            if (rawDemo) {
-              const parsed = JSON.parse(rawDemo);
-              if (Array.isArray(parsed.facePhotos) && parsed.facePhotos.length > 0) rawFacePhotos = parsed.facePhotos;
-            }
-          } catch (e) {}
-        }
-      }
-      if (rawFacePhotos.length === 0 && (rawSelfie || selectedReviewCitizen.facePhoto)) {
-        rawFacePhotos = [rawSelfie || selectedReviewCitizen.facePhoto].filter(Boolean);
-      }
-
-      const [frente, verso, selfie, ...resolvedList] = await Promise.all([
-        resolveStorageUrl(supabase, rawFrente),
-        resolveStorageUrl(supabase, rawVerso),
-        resolveStorageUrl(supabase, rawSelfie),
-        ...rawFacePhotos.map(p => resolveStorageUrl(supabase, p))
-      ]);
-
-      const finalList = (resolvedList.length > 0 ? resolvedList : [selfie || rawSelfie]).filter(Boolean) as string[];
-
-      if (ativo) {
-        setResolvedModalDocs({
-          frente: frente || rawFrente || '',
-          verso: verso || rawVerso || '',
-          selfie: finalList[0] || selfie || rawSelfie || selectedReviewCitizen.facePhoto || '',
-        });
-        setModalFacePhotos(finalList.length > 0 ? finalList : [selfie || rawSelfie || selectedReviewCitizen.facePhoto].filter(Boolean) as string[]);
-        setSelfieGalleryIndex(0);
-      }
-    };
-    void carregarImagensModal();
-    return () => { ativo = false; };
-  }, [selectedReviewCitizen]);
-
-  // Suporte a teclas de atalho (Setas Esquerda / Direita e Esc) no visualizador em tela cheia
-  useEffect(() => {
-    if (!expandedDoc || !expandedDoc.images || expandedDoc.images.length <= 1) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        setExpandedDoc((curr) => {
-          if (!curr || !curr.images || curr.images.length <= 1) return curr;
-          const nextIdx = (curr.currentIndex ?? 0) > 0 ? (curr.currentIndex ?? 0) - 1 : curr.images.length - 1;
-          setSelfieGalleryIndex(nextIdx);
-          return {
-            ...curr,
-            currentIndex: nextIdx,
-            url: curr.images[nextIdx],
-            title: curr.title.replace(/Foto \d+ de \d+/, `Foto ${nextIdx + 1} de ${curr.images.length}`)
-          };
-        });
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        setExpandedDoc((curr) => {
-          if (!curr || !curr.images || curr.images.length <= 1) return curr;
-          const nextIdx = (curr.currentIndex ?? 0) < curr.images.length - 1 ? (curr.currentIndex ?? 0) + 1 : 0;
-          setSelfieGalleryIndex(nextIdx);
-          return {
-            ...curr,
-            currentIndex: nextIdx,
-            url: curr.images[nextIdx],
-            title: curr.title.replace(/Foto \d+ de \d+/, `Foto ${nextIdx + 1} de ${curr.images.length}`)
-          };
-        });
-      } else if (e.key === 'Escape') {
-        setExpandedDoc(null);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [expandedDoc]);
-
   const [citizens, setCitizens] = useState<Citizen[]>(() => {
-    const list: Citizen[] = [];
-    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('gov_admin_citizens') : null;
+    // No Modo Real, a lista nasce vazia e é preenchida apenas pela consulta
+    // Supabase abaixo; nunca reutiliza cidadãos sintéticos de localStorage.
+    if (!shouldUseMockFallback()) return [];
+    const saved = localStorage.getItem('gov_admin_citizens');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          parsed.filter((c: any) => c && c.category !== 'Instituição' && !c.observacoes?.includes('[Instituição]') && !c.observacoes?.includes('[INST:') && c.biNumber && !c.biNumber.includes('-') && /^\d{9}[A-Za-z]{2}\d{3}$/.test(c.biNumber)).forEach((c: any) => {
-            const k = normalizeHomologationBi(c.biNumber);
-            if (k && !localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
-              list.push({
-                ...c,
-                status: c.status === 'Pendente' ? 'Pendente de Validação' : (c.status || 'Pendente de Validação'),
-                name: c.name || 'Cidadão',
-                category: 'Cidadão',
-                province: c.province || 'Luanda',
-                municipio: c.municipio || 'Maianga',
-                address: c.address || 'Luanda, Angola',
-                contact: c.contact || c.email || 'cidadao@cda.gov.ao',
-                biNumber: c.biNumber,
-                email: c.email || `${c.name?.toLowerCase().replace(/\s+/g, '.') || 'cidadao'}@cda.gov.ao`,
-                phone: c.phone || c.contact || '+244 923 000 111',
-                registrationDate: c.registrationDate || new Date().toLocaleDateString('pt-AO'),
-                coherenceLevel: c.coherenceLevel ?? 98,
-                facialMatch: c.facialMatch ?? 97,
-                imageQuality: c.imageQuality ?? 95,
-                ocrDataMatch: c.ocrDataMatch ?? 100,
-                iaResult: c.iaResult || 'Aprovado',
-                iaReport: c.iaReport || 'Análise biofísica e OCR sem desconformidade detetada.',
-                facePhoto: c.facePhoto || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face'
-              });
-            }
-          });
-        }
+        const validStatuses = [
+          'Pendente de Validação',
+          'Em Análise pela IA',
+          'Em Revisão Administrativa',
+          'Aprovado Automaticamente',
+          'Aprovado Manualmente',
+          'Rejeitado',
+          'Bloqueado',
+          'Ativo'
+        ];
+        // Instituições deixam de figurar nesta fila — passaram para a página Instituições.
+        return parsed.filter((c: Partial<Citizen> & { contact?: string }) => c.category !== 'Instituição').map((c) => {
+          let st = c.status;
+          if (st === 'Aprovado' || st === 'Ativo') st = 'Ativo';
+          if (st === 'Pendente' || st === 'Pendente de Validação') st = 'Pendente de Validação';
+          if (st === 'Não Aprovado' || st === 'Rejeitado') st = 'Rejeitado';
+          if (!validStatuses.includes(st)) {
+            st = 'Pendente de Validação';
+          }
+          return {
+            ...c,
+            status: st,
+            email: c.email || `${c.name.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
+            phone: c.phone || c.contact || '+244 923 000 111',
+            registrationDate: c.registrationDate || '12/05/2026',
+            lastAccess: c.lastAccess || '12/06/2026',
+            coherenceLevel: c.coherenceLevel !== undefined ? c.coherenceLevel : (st === 'Ativo' || st === 'Aprovado Automaticamente' ? 98 : st === 'Em Revisão Administrativa' ? 82 : 45),
+            facialMatch: c.facialMatch || (st === 'Ativo' || st === 'Aprovado Automaticamente' ? 97 : st === 'Em Revisão Administrativa' ? 80 : 35),
+            imageQuality: c.imageQuality || (st === 'Ativo' || st === 'Aprovado Automaticamente' ? 95 : 85),
+            ocrDataMatch: c.ocrDataMatch || (st === 'Ativo' || st === 'Aprovado Automaticamente' ? 100 : 75),
+            iaResult: c.iaResult || (st === 'Ativo' || st === 'Aprovado Automaticamente' ? 'Aprovado' : st === 'Em Revisão Administrativa' ? 'Revisão Administrativa' : 'Rejeitado'),
+            iaReport: c.iaReport || (st === 'Ativo' || st === 'Aprovado Automaticamente' ? 'Análise biofísica e OCR sem desconformidade detetada.' : 'Divergência rítmica facial.'),
+            numDigitalDocs: c.numDigitalDocs || Math.floor(Math.random() * 8) + 1,
+            numCorrespondences: c.numCorrespondences || Math.floor(Math.random() * 5),
+            facePhotos: c.facePhotos || [
+              c.facePhoto || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face',
+              'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=250&h=250&fit=crop&crop=face',
+              'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=250&h=250&fit=crop&crop=face',
+              'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=250&h=250&fit=crop&crop=face',
+              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face'
+            ],
+            activityHistory: c.activityHistory || [
+              { action: 'Acesso à QR Code', timestamp: '12/06/2026 10:15', ip: '197.231.42.15' },
+              { action: 'Despacho de Correspondência Recebida', timestamp: '10/06/2026 14:22', ip: '197.231.42.15' }
+            ],
+            biNumber: c.biNumber || c.bi || `00${Math.floor(100000 + Math.random() * 900000)}LA041`,
+            facePhoto: c.facePhoto || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face'
+          };
+        });
       } catch (e) {
         // Fallback
       }
     }
-    return list;
+    return [
+      { 
+        id: 'u1', 
+        name: 'João Pedro Manuel', 
+        category: 'Trabalhador', 
+        province: 'Luanda', 
+        municipio: 'Maianga', 
+        address: 'Bairro Alvalade, Rua do Comércio', 
+        contact: '+244 923 881 202', 
+        status: 'Aprovado Automaticamente',
+        biNumber: '00098876666666LA045',
+        email: 'joao.pedro@gov.ao',
+        phone: '+244 923 881 202',
+        registrationDate: '10/05/2026',
+        lastAccess: '11/06/2026',
+        coherenceLevel: 99,
+        facialMatch: 98,
+        imageQuality: 95,
+        ocrDataMatch: 100,
+        iaResult: 'Aprovado',
+        iaReport: 'OCR confere 100% com o Registo Civil. Verificação facial positiva de 98% de correspondência biométrica. Qualidade das imagens de 95% para processamento.',
+        numDigitalDocs: 4,
+        numCorrespondences: 3,
+        facePhotos: [
+          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=250&h=250&fit=crop&crop=face'
+        ],
+        activityHistory: [
+          { action: 'Acesso à QR Code', timestamp: '11/06/2026 14:15', ip: '197.231.42.15' },
+          { action: 'Despacho de Correspondência Recebida', timestamp: '09/06/2026 11:22', ip: '197.231.42.15' },
+          { action: 'Assinatura Eletrónica de Certidão', timestamp: '05/06/2026 09:10', ip: '197.231.42.15' }
+        ],
+        facePhoto: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face'
+      },
+      { 
+        id: 'u2', 
+        name: 'Kiara de Sousa', 
+        category: 'Estudante', 
+        province: 'Luanda', 
+        municipio: 'Kilamba Kiaxi', 
+        address: 'Centralidade do Kilamba, Bloco C', 
+        contact: '+244 912 884 551', 
+        status: 'Ativo',
+        biNumber: '005432109LA098',
+        email: 'kiara.sousa@univ.ao',
+        phone: '+244 912 884 551',
+        registrationDate: '01/06/2026',
+        lastAccess: '12/06/2026',
+        coherenceLevel: 94,
+        facialMatch: 92,
+        imageQuality: 91,
+        ocrDataMatch: 100,
+        iaResult: 'Aprovado',
+        iaReport: 'Homologação biométrica processada com sucesso. OCR sem desconformidade detetada.',
+        numDigitalDocs: 2,
+        numCorrespondences: 1,
+        facePhotos: [
+          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=250&h=250&fit=crop&crop=face'
+        ],
+        activityHistory: [
+          { action: 'Acesso à QR Code', timestamp: '12/06/2026 08:31', ip: '197.88.10.150' },
+          { action: 'Consulta de Carta de Condução', timestamp: '10/06/2026 16:45', ip: '197.88.10.150' }
+        ],
+        facePhoto: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=250&h=250&fit=crop&crop=face'
+      },
+      { 
+        id: 'u3', 
+        name: 'Manuel Bernardo', 
+        category: 'Aposentado', 
+        province: 'Benguela', 
+        municipio: 'Lobito', 
+        address: 'Bairro Comercial, Rua 2', 
+        contact: '+244 931 772 101', 
+        status: 'Pendente de Validação',
+        biNumber: '008765432BE022',
+        email: 'manuel.bernardo@clube.ao',
+        phone: '+244 931 772 101',
+        registrationDate: '11/06/2026',
+        lastAccess: 'Pendente',
+        coherenceLevel: 88,
+        facialMatch: 86,
+        imageQuality: 90,
+        ocrDataMatch: 90,
+        iaResult: 'Revisão Administrativa',
+        iaReport: 'Documento original com desgaste físico visível. Recomenda-se batimento visual humano complementar.',
+        numDigitalDocs: 0,
+        numCorrespondences: 0,
+        facePhotos: [
+          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face'
+        ],
+        activityHistory: [
+          { action: 'Submissão de Registo Integrado', timestamp: '11/06/2026 11:20', ip: '41.197.80.12' }
+        ],
+        facePhoto: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=250&h=250&fit=crop&crop=face'
+      },
+      { 
+        id: 'u4', 
+        name: 'Sara Ferreira', 
+        category: 'Empresária', 
+        province: 'Benguela', 
+        municipio: 'Benguela', 
+        address: 'Zona Hospitalar, Benguela Sede', 
+        contact: '+244 915 220 384', 
+        status: 'Ativo',
+        biNumber: '001234567BE055',
+        email: 'sara.ferreira@empresa.ao',
+        phone: '+244 915 220 384',
+        registrationDate: '15/05/2026',
+        lastAccess: '12/06/2026',
+        coherenceLevel: 99,
+        facialMatch: 99,
+        imageQuality: 98,
+        ocrDataMatch: 100,
+        iaResult: 'Aprovado',
+        iaReport: 'Excelente nitidez na captura. Assinatura digital gerada sem erros operacionais.',
+        numDigitalDocs: 6,
+        numCorrespondences: 4,
+        facePhotos: [
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=250&h=250&fit=crop&crop=face'
+        ],
+        activityHistory: [
+          { action: 'Acesso à QR Code', timestamp: '12/06/2026 10:44', ip: '197.220.14.77' },
+          { action: 'Consulta de Título de Propriedade', timestamp: '12/06/2026 10:41', ip: '197.220.14.77' },
+          { action: 'Apresentação de BI Eletrónico', timestamp: '11/06/2026 19:20', ip: '197.220.14.77' }
+        ],
+        facePhoto: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face'
+      },
+      { 
+        id: 'u5', 
+        name: 'António Lopes', 
+        category: 'Funcionário Público', 
+        province: 'Huíla', 
+        municipio: 'Lubango', 
+        address: 'Avenida Agostinho Neto, Centro', 
+        contact: '+244 923 112 044', 
+        status: 'Em Revisão Administrativa',
+        biNumber: '002345678HU066',
+        email: 'antonio.lopes@gov.ao',
+        phone: '+244 923 112 044',
+        registrationDate: '08/06/2026',
+        lastAccess: 'Pendente',
+        coherenceLevel: 75,
+        facialMatch: 72,
+        imageQuality: 88,
+        ocrDataMatch: 80,
+        iaResult: 'Revisão Administrativa',
+        iaReport: 'Coerência limítrofe detetada de 75%. Divergência parcial na grafia do sobrenome entre formulário (António Lopes) e BI (António de Oliveira Lopes). Requer conferência humana.',
+        numDigitalDocs: 0,
+        numCorrespondences: 1,
+        facePhotos: [
+          'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=250&h=250&fit=crop&crop=face'
+        ],
+        activityHistory: [
+          { action: 'Submissão de Registo Integrado', timestamp: '08/06/2026 09:30', ip: '41.197.88.22' }
+        ],
+        facePhoto: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=250&h=250&fit=crop&crop=face'
+      },
+      { 
+        id: 'u6', 
+        name: 'Maria Antónia', 
+        category: 'Estudante', 
+        province: 'Huambo', 
+        municipio: 'Huambo', 
+        address: 'Centro do Huambo', 
+        contact: '+244 928 600 001', 
+        status: 'Rejeitado',
+        biNumber: '004567890HA011',
+        email: 'maria.antonia@estudante.ao',
+        phone: '+244 928 600 001',
+        registrationDate: '10/06/2026',
+        lastAccess: 'Rejeitado',
+        coherenceLevel: 45,
+        facialMatch: 35,
+        imageQuality: 82,
+        ocrDataMatch: 60,
+        iaResult: 'Rejeitado',
+        iaReport: 'Divergência biométrica: a foto registada na selfie não condiz com as características antropométricas da foto presente no Bilhete de Identidade principal (Match Facial de apenas 35%).',
+        numDigitalDocs: 0,
+        numCorrespondences: 0,
+        facePhotos: [
+          'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face'
+        ],
+        activityHistory: [
+          { action: 'Submissão de Registo Integrado', timestamp: '10/06/2026 16:15', ip: '41.197.55.99' }
+        ],
+        facePhoto: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=250&h=250&fit=crop&crop=face',
+        reason: 'Divergência biométrica: a foto registada na selfie não condiz com as características antropométricas da foto presente no Bilhete de Identidade.'
+      },
+      { 
+        id: 'u7', 
+        name: 'José Kalunga', 
+        category: 'Trabalhador', 
+        province: 'Cabinda', 
+        municipio: 'Cabinda', 
+        address: 'Rua do Porto de Cabinda', 
+        contact: '+244 923 100 007', 
+        status: 'Bloqueado',
+        biNumber: '003456789CA077',
+        email: 'jose.kalunga@porto.ao',
+        phone: '+244 923 100 007',
+        registrationDate: '20/05/2026',
+        lastAccess: '10/06/2026',
+        coherenceLevel: 98,
+        facialMatch: 97,
+        imageQuality: 96,
+        ocrDataMatch: 100,
+        iaResult: 'Aprovado',
+        iaReport: 'Integridade de conta verificada. Conta bloqueada temporariamente administrativa por solicitação do utilizador devido a extravio do terminal físico móvel.',
+        numDigitalDocs: 3,
+        numCorrespondences: 2,
+        facePhotos: [
+          'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=250&h=250&fit=crop&crop=face',
+          'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=250&h=250&fit=crop&crop=face'
+        ],
+        activityHistory: [
+          { action: 'Bloqueio de Segurança Autorizado', timestamp: '10/06/2026 12:45', ip: 'Admin_Consola' },
+          { action: 'Acesso à QR Code', timestamp: '09/06/2026 18:22', ip: '197.231.42.15' }
+        ],
+        facePhoto: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=250&h=250&fit=crop&crop=face',
+        reason: 'Conta bloqueada administrativamente por solicitação do utilizador.'
+      }
+    ];
   });
 
-  // Sincronização segura: preserva novos cadastros no localStorage sem sobrescrever cegamente
   React.useEffect(() => {
-    if (citizens.length === 0) return;
-    try {
-      const saved = localStorage.getItem('gov_admin_citizens');
-      const currentList: any[] = saved ? JSON.parse(saved) : [];
-      const map = new Map<string, any>();
-      currentList.forEach(c => {
-        if (c && c.biNumber) map.set(normalizeHomologationBi(c.biNumber), c);
-      });
-      citizens.forEach(c => {
-        if (c && c.biNumber) {
-          const k = normalizeHomologationBi(c.biNumber);
-          map.set(k, { ...map.get(k), ...c });
-        }
-      });
-      localStorage.setItem('gov_admin_citizens', JSON.stringify(Array.from(map.values())));
-    } catch (e) {}
+    localStorage.setItem('gov_admin_citizens', JSON.stringify(citizens));
   }, [citizens]);
 
   // MODO REAL — dados da base central: moradas reais dos cidadãos (join por BI)
@@ -914,9 +1048,9 @@ export function GovContactsContent({
   // caía na maqueta simulada do B.I. e parecia que "a imagem não ficou gravada".
   const renderProtectedDocNotice = (lado: string) => (
     <div className="h-[240px] rounded-[24px] border border-amber-200 bg-amber-50/80 flex flex-col items-center justify-center gap-2.5 p-6 text-center shadow-2xs">
-      <Lock size={26} className="text-amber-700" />
+      <Lock size={26} className="text-amber-600" />
       <p className="text-[11px] font-black uppercase tracking-wide text-amber-700">Documento guardado no Storage privado</p>
-      <p className="text-[11px] leading-relaxed font-semibold text-amber-700">
+      <p className="text-[11px] leading-relaxed font-semibold text-amber-600">
         A foto do {lado} foi enviada com sucesso no registo e está SEGURA na nuvem —
         mas esta consola entrou sem sessão de agente real (ADMIN-NNNN), e a política
         de privacidade (v15) só liberta a visualização a administradores autenticados.
@@ -940,11 +1074,6 @@ export function GovContactsContent({
       kyc?.ia === 'Revisão Administrativa' ? 'Revisão Administrativa' :
       kyc?.ia === 'Rejeitado' ? 'Rejeitado' : undefined;
 
-    const biClean = String(item.bi_numero || '').trim().toUpperCase();
-    const frenteVal = item.url_frente || item.url_bi_frente || (item as any).bi_foto_url || (item as any).bi_frente_url || (item as any).documento_frente_url || (biClean ? localStorage.getItem(`cda_user_bi_frente_${biClean}`) : '') || '';
-    const versoVal = item.url_verso || item.url_bi_verso || (item as any).bi_foto_verso_url || (item as any).bi_verso_url || (item as any).documento_verso_url || (biClean ? localStorage.getItem(`cda_user_bi_verso_${biClean}`) : '') || '';
-    const selfieVal = item.url_selfie || (item as any).selfie_url || (item as any).foto_url || (biClean ? localStorage.getItem(`cda_user_selfie_${biClean}`) : '') || '';
-
     return {
       id: String(item.id),
       name: item.nome,
@@ -953,13 +1082,13 @@ export function GovContactsContent({
       // real do profile). Sem dado → «—» (nunca 'Luanda/Belas/Kilamba' fixos).
       province: '—',
       municipio: '—',
-      address: moradasReaisRef.current.get(biClean) || '—',
+      address: moradasReaisRef.current.get(String(item.bi_numero || '').toUpperCase()) || '—',
       contact: item.email,
       status: st,
       biNumber: item.bi_numero,
       email: item.email || undefined,
-      facePhoto: selfieVal || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face',
-      urlSelfie: selfieVal,
+      facePhoto: item.url_selfie || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face',
+      urlSelfie: item.url_selfie || '',
       reason: stripKycMarker(item.observacoes),
       registrationDate: item.criado_em ? new Date(item.criado_em).toLocaleDateString('pt-AO') : undefined,
       verificationScore: kyc?.coh ?? undefined,
@@ -968,8 +1097,8 @@ export function GovContactsContent({
       imageQuality: kyc?.iq ?? undefined,
       ocrDataMatch: kyc?.ocr ?? undefined,
       iaResult: iaRes,
-      urlFrente: frenteVal,
-      urlVerso: versoVal,
+      urlFrente: item.url_frente || '',
+      urlVerso: item.url_verso || '',
       dbUUID: String(item.id),
       // F29 (v11.1) — detalhe da Pré-Verificação Inteligente para o painel do modal
       pviVer: pvi?.ver ?? undefined,
@@ -981,32 +1110,21 @@ export function GovContactsContent({
     };
   });
 
-  const mapProfilesToCitizens = (rows: LinhaPerfilAdmin[]): Citizen[] => (rows || [])
-    .filter(item => item?.bi && !item.bi.includes('-') && /^\d{9}[A-Za-z]{2}\d{3}$/.test(item.bi))
-    .map((item, index: number) => {
-    const biClean = (item.bi || '').trim().toUpperCase();
-    const frenteVal = (biClean ? localStorage.getItem(`cda_user_bi_frente_${biClean}`) : '') || '';
-    const versoVal = (biClean ? localStorage.getItem(`cda_user_bi_verso_${biClean}`) : '') || '';
-    const selfieVal = (biClean ? localStorage.getItem(`cda_user_selfie_${biClean}`) : '') || '';
-    return {
-      id: item.id || `profile-${index}`,
-      name: item.name,
-      category: 'Cidadão',
-      province: 'Luanda',
-      municipio: 'Belas',
-      address: 'Endereço não detalhado no perfil',
-      contact: item.email || 'sem-email@cidadao.ao',
-      status: 'Aprovado Manualmente',
-      biNumber: item.bi,
-      facePhoto: selfieVal || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face',
-      urlSelfie: selfieVal,
-      urlFrente: frenteVal,
-      urlVerso: versoVal,
-      reason: 'Registo sincronizado a partir da tabela profiles.',
-      verificationScore: 97.5,
-      dbUUID: item.id
-    };
-  });
+  const mapProfilesToCitizens = (rows: LinhaPerfilAdmin[]): Citizen[] => rows.map((item, index: number) => ({
+    id: item.id || `profile-${index}`,
+    name: item.name,
+    category: 'Cidadão',
+    province: 'Luanda',
+    municipio: 'Belas',
+    address: 'Endereço não detalhado no perfil',
+    contact: item.email || 'sem-email@cidadao.ao',
+    status: 'Aprovado Manualmente',
+    biNumber: item.bi,
+    facePhoto: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop&crop=face',
+    reason: 'Registo sincronizado a partir da tabela profiles.',
+    verificationScore: 97.5,
+    dbUUID: item.id
+  }));
 
   const updateRegistrationRecord = async (recordId: string, payload: Record<string, unknown>) => {
     try {
@@ -1014,7 +1132,7 @@ export function GovContactsContent({
       // sem sessão (demo) mantém-se o caminho directo de sempre.
       const viaProxy = await registoPublicoProxy('update', { id: recordId }, payload);
       if (viaProxy !== null) {
-        if (viaProxy.ok) { anunciarRegistosAlterados(); return true; }
+        if (viaProxy.ok) return true;
         console.warn('[REGISTOS] atualização via servidor falhou:', viaProxy.erro);
         return false;
       }
@@ -1030,7 +1148,6 @@ export function GovContactsContent({
         console.error(error);
         return false;
       }
-      anunciarRegistosAlterados();
       return true;
     } catch (err) {
       console.error(err);
@@ -1055,21 +1172,61 @@ export function GovContactsContent({
     if (!target) return;
     setIsDeletingCitizen(true);
     try {
-      const biKey = target.biNumber || '';
-      const normKey = normalizeHomologationBi(biKey);
-
-      // 1. Marcação imediata de eliminação e revogação local
-      if (normKey) {
-        try { localStorage.setItem('cda_revoked_' + normKey, '1'); } catch (e) { /* ignora */ }
-        try { localStorage.setItem('cda_deleted_' + normKey, '1'); } catch (e) { /* ignora */ }
+      // 2026-08-20 — eliminação em cascata na base central via servidor
+      // (/api/admin-cidadao, service role + papel admin): apaga registo na
+      // fila, perfil, pedidos, notificações, contactos, documentos e a conta
+      // Auth — cobre também cidadãos que só existem em `profiles` (o caso do
+      // "registo não encontrado" que bloqueava a consola). Sem sessão Auth
+      // (conta demo), mantém o comportamento histórico: remoção local com
+      // aviso honesto — o Modo Demo nunca toca na nuvem.
+      if (target.biNumber) {
+        try {
+          const central = await eliminarCidadaoAdmin(target.biNumber);
+          if (central !== null) {
+            if (!central.ok) {
+              console.error('Falha na eliminação central do cidadão:', central.erro);
+              // v37.78.33 — erro de SESSÃO ganha mensagem accionável (o dono
+              // via «verifique a internet» quando o problema era re-entrar).
+              const erroTxt = String(central.erro || '');
+              notify(/sess[aã]o/i.test(erroTxt)
+                ? 'Sessão de administração inválida ou expirada — termine a sessão (SAIR DO CANAL), entre novamente e repita a eliminação.'
+                : 'Não foi possível eliminar o registo na base de dados central. Verifique a ligação à internet e tente novamente.');
+              return;
+            }
+          } else if (shouldUseMockFallback()) {
+            // Modo Demo: mantém o comportamento histórico (efeito local).
+            warnIfCloudDecisionNotPersisted(false, 'A eliminação do cadastro');
+            try {
+              await supabase.from('solicitacoes_registo').delete().eq('bi_numero', target.biNumber);
+            } catch { /* demo: efeito local */ }
+          } else {
+            // v37.78.34 — a recuperação automática de sessão (dentro de
+            // eliminarCidadaoAdmin) JÁ foi tentada e falhou (nuvem realmente
+            // indisponível). Nada é alterado: a linha fica, o aviso diz o que fazer.
+            notify('Eliminação NÃO executada: a recuperação automática da ligação à nuvem falhou (sem internet ou sessão de emergência). Verifique a ligação, termine a sessão (SAIR DO CANAL), entre novamente e repita a eliminação.');
+            addAuditLog?.(`[F48] Eliminação do cidadão (BI: ${target.biNumber}) BLOQUEADA — sessão sem Auth da nuvem (login local de emergência D3). Nada foi alterado na base central nem nesta lista; entrar novamente e repetir.`, 'critical');
+            setDeleteConfirmCitizen(null);
+            return;
+          }
+        } catch (error) {
+          console.error('Falha de rede ao eliminar o cidadão:', error);
+          notify('Não foi possível concluir a eliminação no Supabase. Verifique a ligação e tente novamente.');
+          return;
+        }
       }
+      setCitizens(prev => prev.filter(c => c.id !== target.id));
 
-      // 2. Atualização imediata do estado da UI (cidadão desaparece na hora)
-      setCitizens(prev => prev.filter(c => c.id !== target.id && (normKey ? normalizeHomologationBi(c.biNumber) !== normKey : true)));
-      setDeleteConfirmCitizen(null);
-
-      // 3. Limpeza do armazenamento local e store
+      // ELIMINAÇÃO EM CASCATA: todo o conteúdo da conta é removido junto — estado,
+      // mensagens (thread oficial + espelhos na caixa partilhada), credenciais,
+      // matrizes biométricas locais e ficheiros do registo no storage central.
+      const biKey = target.biNumber || '';
       if (biKey) {
+        // F47-fix (2026-08-19): marca de REVOGAÇÃO local — garante que, mesmo que
+        // a linha da fila na nuvem não seja apagada (admin demo sem sessão Auth,
+        // RLS recusa delete), o login deste dispositivo BLOQUEIA o cidadão
+        // eliminado. Persistência real multi-dispositivo exige agente admin
+        // autenticado (ADMIN-0001), cuja escrita na BD funciona.
+        try { localStorage.setItem('cda_revoked_' + normalizeHomologationBi(biKey), '1'); } catch (e) { /* ignora */ }
         try { homologationStore.clearStatus(biKey); } catch (e) { /* ignora */ }
         try { homologationStore.clearThread(biKey); } catch (e) { /* ignora */ }
         try { localStorage.removeItem(`citizen_pass_${biKey}`); } catch (e) { /* ignora */ }
@@ -1077,18 +1234,11 @@ export function GovContactsContent({
         ['user', 'institution', 'admin'].forEach((m) => {
           try { localStorage.removeItem(`cda_demo_face_${m}_${biKey}`); } catch (e) { /* ignora */ }
         });
-        try { localStorage.removeItem(`cda_avatar_user_${normKey}`); } catch (e) { /* ignora */ }
-        try { localStorage.removeItem(`cda_perfil_dados_user_${normKey}`); } catch (e) { /* ignora */ }
-        try {
-          const savedGov = localStorage.getItem('gov_admin_citizens');
-          if (savedGov) {
-            const list = JSON.parse(savedGov);
-            if (Array.isArray(list)) {
-              const kept = list.filter((c: any) => normalizeHomologationBi(c.biNumber) !== normKey && c.id !== target.id);
-              localStorage.setItem('gov_admin_citizens', JSON.stringify(kept));
-            }
-          }
-        } catch (e) { /* ignora */ }
+        // v37.71 — rasto de vidas anteriores: foto de perfil (avatarService) e
+        // dados de perfil editados (perfilLocalService) também são removidos —
+        // sobreviviam à eliminação e re-hidratavam na conta re-criada.
+        try { localStorage.removeItem(`cda_avatar_user_${normalizeHomologationBi(biKey)}`); } catch (e) { /* ignora */ }
+        try { localStorage.removeItem(`cda_perfil_dados_user_${normalizeHomologationBi(biKey)}`); } catch (e) { /* ignora */ }
         try {
           const raw = localStorage.getItem('correio_digital_inbox');
           if (raw) {
@@ -1111,26 +1261,18 @@ export function GovContactsContent({
             await supabase.storage.from('documentos_registo').remove(files.map((f: { name: string }) => `${biClean}/${f.name}`));
           }
         } catch (e) { /* ignora — storage sem permissão: eliminação lógica já garantida */ }
-        
-        // Eliminação direta em tabelas públicas do Supabase (best-effort)
-        try { await supabase.from('solicitacoes_registo').delete().eq('bi_numero', biKey); } catch (e) { /* ignora */ }
+        // F47 — resíduos de nuvem eliminados em cascata (best-effort): perfil e
+        // pedidos/notificações do titular, para que nada re-hidrate a identidade
+        // revogada. A conta Auth NÃO é apagada (sem chave de serviço no cliente):
+        // torna-se inerte — o login passa a ser recusado por inexistência na fila
+        // (accountGateService) e um eventual re-registo nasce PENDENTE.
         try { await supabase.from('profiles').delete().eq('bi', biKey); } catch (e) { /* ignora */ }
         try { await supabase.from('user_requests').delete().eq('user_bi', biKey); } catch (e) { /* ignora */ }
         try { await supabase.from('notifications').delete().eq('target_bi', biKey); } catch (e) { /* ignora */ }
       }
 
-      // 4. Eliminação em cascata na base de dados central
-      if (target.biNumber) {
-        try {
-          await eliminarCidadaoAdmin(target.biNumber);
-        } catch (error) {
-          console.warn('Falha ao contactar servidor para eliminação central:', error);
-        }
-      }
-
       addAuditLog?.(`Remoção: Cadastro do cidadão "${target.name || target.biNumber || '—'}" (BI: ${target.biNumber || '—'}) e TODO o seu conteúdo (mensagens, validações e ficheiros) eliminados pelo Administrador. O B.I. só volta a ter acesso após NOVO registo, que nasce pendente de nova homologação (F47).`, 'critical');
-      notify('Cadastro do cidadão eliminado com sucesso.', 'success');
-      anunciarRegistosAlterados();
+      setDeleteConfirmCitizen(null);
     } finally {
       setIsDeletingCitizen(false);
     }
@@ -1156,11 +1298,7 @@ export function GovContactsContent({
         data = (viaProxy.linhas || []) as any[];
       } else {
         console.warn('[REGISTOS] leitura via servidor falhou:', viaProxy.erro);
-        const direct = await supabase
-          .from('solicitacoes_registo')
-          .select('*')
-          .order('criado_em', { ascending: false });
-        data = direct.data as any[] | null; error = direct.error;
+        return;
       }
 
       if (error) {
@@ -1186,123 +1324,38 @@ export function GovContactsContent({
         return;
       }
 
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'user');
-      const profileCitizens = (profileData && profileData.length > 0 ? mapProfilesToCitizens(profileData as LinhaPerfilAdmin[]) : []).filter(pc => {
-        if (!pc.biNumber || pc.biNumber.includes('-') || !/^\d{9}[A-Za-z]{2}\d{3}$/.test(pc.biNumber)) return false;
-        const biNorm = normalizeHomologationBi(pc.biNumber);
-        if (biNorm && (localStorage.getItem('cda_revoked_' + biNorm) || localStorage.getItem('cda_deleted_' + biNorm))) return false;
-        return true;
-      });
+      if (data && data.length > 0) {
+        // Instituições vivem na página Instituições (secção "Solicitações de Registo") — saem da fila de cidadãos.
+        const citizenRows = (data as LinhaSolicitacaoCidadao[]).filter((item) => {
+          if (item?.observacoes?.includes('[Instituição]')) return false;
+          // Seeds institucionais de demonstração não podem aparecer como cidadãos no modo real.
+          if (!shouldUseMockFallback() && (item?.bi_numero === 'AGT-9921-SR' || item?.observacoes?.includes('Seed demo'))) return false;
+          return true;
+        });
+        const supabaseCitizens: Citizen[] = await resolveCitizenDocUrls(mapRegistrationRowsToCitizens(citizenRows));
 
-      const citizenRows = ((data || []) as LinhaSolicitacaoCidadao[]).filter((item) => {
-        if (isInstitutionObservacao(item?.observacoes)) return false;
-        if (item?.observacoes?.includes('[Instituição]') || item?.observacoes?.includes('[INST:')) return false;
-        if (!item?.bi_numero || item.bi_numero.includes('-') || !/^\d{9}[A-Za-z]{2}\d{3}$/.test(item.bi_numero)) return false;
-        // Seeds institucionais de demonstração não podem aparecer como cidadãos no modo real.
-        if (!shouldUseMockFallback() && (item?.bi_numero === 'AGT-9921-SR' || item?.observacoes?.includes('Seed demo'))) return false;
-        const biNorm = normalizeHomologationBi(item?.bi_numero);
-        if (biNorm && (localStorage.getItem('cda_revoked_' + biNorm) || localStorage.getItem('cda_deleted_' + biNorm))) return false;
-        return true;
-      });
-      const supabaseCitizens: Citizen[] = await resolveCitizenDocUrls(mapRegistrationRowsToCitizens(citizenRows));
-
-      const localMap = new Map<string, Citizen>();
-      try {
-        const saved = localStorage.getItem('gov_admin_citizens');
-        if (saved) {
-          const list = JSON.parse(saved);
-          if (Array.isArray(list)) {
-            list.filter((c: any) => c && c.category !== 'Instituição' && !c.observacoes?.includes('[Instituição]') && !c.observacoes?.includes('[INST:') && c.biNumber && !c.biNumber.includes('-') && /^\d{9}[A-Za-z]{2}\d{3}$/.test(c.biNumber)).forEach((c: any) => {
-              const k = normalizeHomologationBi(c.biNumber);
-              if (k && !localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
-                localMap.set(k, {
-                  ...c,
-                  status: c.status || 'Pendente de Validação',
-                  name: c.name || 'Cidadão',
-                  category: 'Cidadão',
-                  province: c.province || 'Luanda',
-                  municipio: c.municipio || 'Maianga',
-                  address: c.address || 'Luanda, Angola',
-                  contact: c.contact || c.email || 'cidadao@cda.gov.ao',
-                  biNumber: c.biNumber,
-                  email: c.email || `${c.name?.toLowerCase().replace(/\s+/g, '.') || 'cidadao'}@cda.gov.ao`,
-                  phone: c.phone || c.contact || '+244 923 000 111',
-                  registrationDate: c.registrationDate || new Date().toLocaleDateString('pt-AO'),
-                  coherenceLevel: c.coherenceLevel ?? 98,
-                  facialMatch: c.facialMatch ?? 97,
-                  imageQuality: c.imageQuality ?? 95,
-                  ocrDataMatch: c.ocrDataMatch ?? 100,
-                  iaResult: c.iaResult || 'Aprovado',
-                  iaReport: c.iaReport || 'Análise biofísica e OCR sem desconformidade detetada.',
-                  facePhoto: c.facePhoto || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=250&h=250&fit=crop&crop=face'
-                });
-              }
-            });
-          }
-        }
-      } catch (e) {
-        // Fallback
+        setCitizens(prev => {
+          const localFiltered = prev.filter(c => !citizenRows.some((item) => item.bi_numero === c.biNumber) && c.category !== 'Instituição');
+          // A versão da nuvem ganha prioridade, MAS preserva as métricas reais
+          // locais quando o registo na nuvem ainda não as transporta.
+          const merged = supabaseCitizens.map(sc => {
+            const local = prev.find(c => c.biNumber === sc.biNumber);
+            if (!local) return sc;
+            return {
+              ...local,
+              ...sc,
+              coherenceLevel: sc.coherenceLevel ?? local.coherenceLevel,
+              facialMatch: sc.facialMatch ?? local.facialMatch,
+              imageQuality: sc.imageQuality ?? local.imageQuality,
+              ocrDataMatch: sc.ocrDataMatch ?? local.ocrDataMatch,
+              iaResult: sc.iaResult ?? local.iaResult,
+              verificationScore: sc.verificationScore ?? local.verificationScore,
+              phone: sc.phone ?? local.phone,
+            };
+          });
+          return [...merged, ...localFiltered];
+        });
       }
-
-      setCitizens(prev => {
-        const cloudBis = new Set<string>();
-        const mergedMap = new Map<string, Citizen>();
-
-        // 1. Cadastros locais (prioridade de metadados e fotos capturadas na sessão)
-        localMap.forEach((localCit, k) => {
-          if (!localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
-            mergedMap.set(k, localCit);
-          }
-        });
-
-        // 2. Cadastros de solicitacoes_registo da nuvem
-        supabaseCitizens.forEach(c => {
-          if (c.biNumber) {
-            const k = normalizeHomologationBi(c.biNumber);
-            if (!localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
-              cloudBis.add(k);
-              const existing = mergedMap.get(k);
-              if (existing) {
-                mergedMap.set(k, {
-                  ...c,
-                  ...existing,
-                  facePhoto: existing.facePhoto || c.facePhoto,
-                  status: existing.status || c.status,
-                });
-              } else {
-                mergedMap.set(k, c);
-              }
-            }
-          }
-        });
-
-        // 3. Cadastros de profiles da nuvem
-        profileCitizens.forEach(pc => {
-          if (pc.biNumber) {
-            const k = normalizeHomologationBi(pc.biNumber);
-            if (!localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
-              if (!mergedMap.has(k)) {
-                mergedMap.set(k, pc);
-              }
-            }
-          }
-        });
-
-        // 4. Preserva elementos anteriores que ainda não estejam revogados
-        prev.forEach(pc => {
-          if (pc.biNumber) {
-            const k = normalizeHomologationBi(pc.biNumber);
-            if (!mergedMap.has(k) && !localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
-              mergedMap.set(k, pc);
-            }
-          }
-        });
-
-        return Array.from(mergedMap.values());
-      });
     } catch (e) {
       console.error('Error in fetchSupabaseCitizens:', e);
     }
@@ -1329,59 +1382,22 @@ export function GovContactsContent({
         refrescarTudo();
       }
     };
-    const handleRegistosAlterados = () => {
-      refrescarTudo();
-    };
-    const handleStorage = (e: StorageEvent) => {
-      if (!e.key || e.key === 'gov_admin_citizens' || e.key.startsWith('cda_')) {
-        refrescarTudo();
-      }
-    };
     window.addEventListener('focus', handleFocus);
-    window.addEventListener(EVENTO_REGISTOS_ALTERADOS, handleRegistosAlterados);
-    window.addEventListener('cda_registos_alterados', handleRegistosAlterados);
-    window.addEventListener('cda:registos-alterados', handleRegistosAlterados);
-    window.addEventListener('storage', handleStorage);
     document.addEventListener('visibilitychange', handleFocus);
-    const timer = setInterval(refrescarTudo, 10000);
+    const timer = setInterval(refrescarTudo, 15000);
     return () => {
       window.removeEventListener('focus', handleFocus);
-      window.removeEventListener(EVENTO_REGISTOS_ALTERADOS, handleRegistosAlterados);
-      window.removeEventListener('cda_registos_alterados', handleRegistosAlterados);
-      window.removeEventListener('cda:registos-alterados', handleRegistosAlterados);
-      window.removeEventListener('storage', handleStorage);
       document.removeEventListener('visibilitychange', handleFocus);
       clearInterval(timer);
     };
   }, [refrescarTudo]);
 
   const filteredCitizens = useMemo(() => {
-    const q = citizenSearch.trim().toLowerCase();
     const filtrados = citizens.filter((citizen) => {
       const matchProvince = filterProvince === 'Todas' || citizen.province === filterProvince;
       const matchMunicipio = filterMunicipio === 'Todos' || citizen.municipio === filterMunicipio;
-      
-      const st = String(citizen.status || '').toLowerCase();
-      let matchStatus = filterStatus === 'Todas';
-      if (!matchStatus) {
-        if (filterStatus === 'Pendente de Validação') {
-          matchStatus = st.includes('pendente') || st.includes('análise') || st.includes('analise');
-        } else if (filterStatus === 'Em Análise pela IA') {
-          matchStatus = st.includes('análise') || st.includes('analise') || st.includes('ia');
-        } else {
-          matchStatus = citizen.status === filterStatus;
-        }
-      }
-
-      const matchQuery = !q || (
-        (citizen.name || '').toLowerCase().includes(q) ||
-        (citizen.biNumber || '').toLowerCase().includes(q) ||
-        (citizen.email || '').toLowerCase().includes(q) ||
-        (citizen.contact || '').toLowerCase().includes(q) ||
-        (citizen.phone || '').toLowerCase().includes(q)
-      );
-
-      return matchProvince && matchMunicipio && matchStatus && matchQuery;
+      const matchStatus = filterStatus === 'Todas' || citizen.status === filterStatus;
+      return matchProvince && matchMunicipio && matchStatus;
     });
 
     // FASE 1 (2026-08-15) — FILA DE HOMOLOGAÇÃO ASSISTIDA:
@@ -1636,8 +1652,17 @@ export function GovContactsContent({
         notify('A Confirmação da Senha não coincide com a Senha introduzida. Verifique os dois campos.');
         return;
       }
-      // 2026-09-13 — senhas repetidas permitidas: a identidade é o Nº Agente,
-      // nunca a senha; não se verifica nem se revela reutilização.
+      if (instReg && isInstPasswordTaken(regCode, newWorkerPassword, isEditingWorker ? (editingWorkerId || undefined) : undefined)) {
+        notify('Esta senha já está a ser usada por outra credencial desta instituição. Como a senha identifica a pessoa no login, escolha outra.');
+        return;
+      }
+      if (adminCredsOn) {
+        const editingAgentNum = isEditingWorker ? workers.find(w => w.id === editingWorkerId)?.agentId : undefined;
+        if (isAdminAgentPasswordTaken(newWorkerPassword, editingAgentNum)) {
+          notify('Esta palavra-passe já está a ser usada por outro agente da Administração. Como a palavra-passe identifica a pessoa no login, escolha outra.');
+          return;
+        }
+      }
     }
 
     if (isEditingWorker && editingWorkerId) {
@@ -2027,6 +2052,10 @@ export function GovContactsContent({
     const instRegD = (appMode === 'institution' && regCodeD) ? getLocalInstReg(regCodeD) : undefined;
     if (instRegD) {
       if (workerDrawerPwd.length < 8) { notify('A nova senha deve ter pelo menos 8 caracteres.'); return; }
+      if (isInstPasswordTaken(regCodeD, workerDrawerPwd, selectedWorker.id)) {
+        notify('Esta senha já está a ser usada por outra credencial desta instituição. Escolha outra.');
+        return;
+      }
       updateInstMemberPassword(regCodeD, selectedWorker.id, workerDrawerPwd, true);
       // 2026-08-22 — nuvem sincronizada na reposição (antes só local)
       {
@@ -2048,6 +2077,10 @@ export function GovContactsContent({
       const agentNum = selectedWorker.agentId || '';
       if (!/^Admin-\d+$/i.test(agentNum)) { notify('Este elemento não tem um Nº Agente Admin (ADMIN-NNNN) — a palavra-passe do login Admin só se aplica a agentes com esse formato.'); return; }
       if (workerDrawerPwd.length < 8) { notify('A nova palavra-passe deve ter pelo menos 8 caracteres.'); return; }
+      if (isAdminAgentPasswordTaken(workerDrawerPwd, agentNum)) {
+        notify('Esta palavra-passe já está a ser usada por outro agente da Administração. Escolha outra.');
+        return;
+      }
       updateAdminAgentPassword(agentNum, workerDrawerPwd);
       // 2026-08-22 — nuvem sincronizada na reposição (antes só local)
       if (isCloudBound(agentNum) && isSupabaseConfigured()) {
@@ -2185,11 +2218,6 @@ export function GovContactsContent({
     }
 
     setWorkers(prev => prev.filter(w => w.id !== id));
-    // AUDIT-FIX(F5): a tabela renderiza `equipaCombinada` = workers + membros
-    // da base central. Sem remover também de `membrosCloudInst`, o colaborador
-    // eliminado continuava visível (contador a 0 mas linha presente).
-    setMembrosCloudInst(prev => prev.filter(m =>
-      m.id !== id && (m.agentId || '').toUpperCase().replace(/\s+/g, '') !== agente));
     // v37.68 — persistir a remoção no ESPELHO localStorage da Equipa: sem isto,
     // no refresh a lista é relida de `correio_digital_admin_workers` (admin) ou
     // `correio_digital_workers_<inst>` (instituição) e o colaborador eliminado
@@ -2264,7 +2292,6 @@ export function GovContactsContent({
         <div className="mb-4 md:mb-8 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <BotaoVoltar />
               <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white">
                 <Users size={16} />
               </div>
@@ -2412,7 +2439,6 @@ export function GovContactsContent({
                       <td className="py-4 px-5 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2">
                           <button
-                            aria-label={`Alternar estado do membro ${w.name}`}
                             onClick={() => {
                               const nextStatus = w.status === 'Ativo' ? 'Desativado' : 'Ativo';
                               setWorkers(prev => prev.map(worker => {
@@ -2434,7 +2460,7 @@ export function GovContactsContent({
                               addAuditLog?.(`[EQUIPA] Acesso dactiloscópico de ${w.name} alterado para ${nextStatus}.`, nextStatus === 'Ativo' ? 'success' : 'warning');
                             }}
                             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none focus:outline-none ${
-                              w.status === 'Ativo' ? 'bg-emerald-700' : w.status === 'Em activação' ? 'bg-amber-400 animate-pulse' : 'bg-slate-300'
+                              w.status === 'Ativo' ? 'bg-emerald-600' : w.status === 'Em activação' ? 'bg-amber-400 animate-pulse' : 'bg-slate-300'
                             }`}
                             type="button"
                           >
@@ -2448,7 +2474,7 @@ export function GovContactsContent({
                             w.status === 'Ativo' 
                               ? 'text-emerald-700' 
                               : w.status === 'Em activação'
-                                ? 'text-amber-700'
+                                ? 'text-amber-600'
                                 : 'text-slate-400'
                           }`}>
                             {w.status === 'Ativo' ? 'Ativo' : w.status === 'Em activação' ? 'Em activação' : w.status === 'Suspenso' ? 'Suspenso' : 'Inativo'}
@@ -2463,7 +2489,6 @@ export function GovContactsContent({
                       <td className="py-4 px-5 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2">
                           <button
-                            aria-label={`Ver ficha e permissões de ${w.name}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedWorkerId(w.id);
@@ -2491,7 +2516,7 @@ export function GovContactsContent({
                               handleDeleteWorker(w.id, w.name);
                             }}
                             title={isPlatformAdmin ? "Eliminar definitivamente este agente (conta, acesso e dados)" : "Eliminar definitivamente este colaborador (conta, acesso e dados)"}
-                            className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 hover:border-rose-600 px-2.5 py-1.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                            className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 px-2.5 py-1.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer"
                           >
                             <Trash2 size={13} />
                             Eliminar
@@ -2711,7 +2736,7 @@ export function GovContactsContent({
 
                       {/* ESTADO DO UTILIZADOR */}
                       <div className="space-y-4">
-                        <div className="flex items-center gap-2 text-emerald-700">
+                        <div className="flex items-center gap-2 text-emerald-500">
                           <CheckCircle2 size={15} className="stroke-[2.5]" />
                           <span className="font-extrabold text-[11px] uppercase tracking-widest">Estágio de Autorização</span>
                         </div>
@@ -2721,14 +2746,14 @@ export function GovContactsContent({
                           <div className="grid gap-1.5 md:col-span-5">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 min-h-[20px] flex items-end pb-1">Estado de Acesso *</label>
                             <div className="relative">
-                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-700 pointer-events-none">
+                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 pointer-events-none">
                                 <CheckCircle2 size={16} />
                               </span>
                               <select
                                 required
                                 value={newWorkerStatus}
                                 onChange={(e) => setNewWorkerStatus(e.target.value as 'Ativo' | 'Desativado' | 'Suspenso' | 'Férias' | 'Pendente')}
-                                className="w-full bg-white border-2 border-slate-100 focus:border-emerald-700/30 rounded-[20px] pl-11 pr-10 py-3.5 text-xs text-slate-800 font-bold outline-none transition-all appearance-none cursor-pointer"
+                                className="w-full bg-white border-2 border-slate-100 focus:border-emerald-500/30 rounded-[20px] pl-11 pr-10 py-3.5 text-xs text-slate-800 font-bold outline-none transition-all appearance-none cursor-pointer"
                               >
                                 <option value="Ativo">Ativo (Permitido)</option>
                                 <option value="Desativado">Desativado (Bloqueado)</option>
@@ -2744,7 +2769,7 @@ export function GovContactsContent({
 
                           {/* GREEN MESSAGE NOTICE BOX */}
                           <div className="md:col-span-7 bg-[#f0fdf4] border border-[#10b981]/15 rounded-[20px] p-4 flex gap-3 text-left">
-                            <Info size={18} className="text-emerald-700 shrink-0 mt-0.5" />
+                            <Info size={18} className="text-emerald-600 shrink-0 mt-0.5" />
                             <p className="text-xs text-[#065f46] leading-relaxed font-bold m-0 select-none">
                               {isPlatformAdmin ? "Novos membros registados pela página Registo nascem 'Pendente de Análise'. Membros 'Desativados' ou 'Suspensos' terão o acesso à Administração revogado preventivamente." : "Utilizadores com estado 'Desativado' ou 'Suspenso' verão o seu acesso dactiloscópico e barramento postal revogado preventivamente."}
                             </p>
@@ -2800,7 +2825,7 @@ export function GovContactsContent({
                           </div>
                         </div>
                         <p className="text-[9px] text-slate-400 font-bold leading-snug m-0 mr-1 select-none">
-                          {isPlatformAdmin ? (<>O membro entra com <strong>Nº Agente Admin + esta palavra-passe</strong> no login da Administração.</>) : (<>O colaborador entra com <strong>Nº Agente Institucional (CÓDIGO-NN) + esta senha</strong>.</>)} A senha ficará guardada apenas neste dispositivo.
+                          {isPlatformAdmin ? (<>O membro entra com <strong>Nº Agente Admin + esta palavra-passe</strong> no login da Administração.</>) : (<>O colaborador entra com <strong>Código da instituição + esta senha</strong>.</>)} A senha identifica a pessoa — não pode repetir outra credencial activa e ficará guardada apenas neste dispositivo.
                         </p>
                       </>
                     )}
@@ -2846,7 +2871,7 @@ export function GovContactsContent({
                                 {pag.label}
                               </span>
                               {pag.obrigatoria && (
-                                <span className="ml-auto text-[8px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                <span className="ml-auto text-[8px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded">
                                   Obrigatória
                                 </span>
                               )}
@@ -3040,7 +3065,7 @@ export function GovContactsContent({
                           <>
                             <div className="border-t border-dashed border-slate-150" />
                             <div className="space-y-3">
-                              <div className="flex items-center gap-2 text-amber-700">
+                              <div className="flex items-center gap-2 text-amber-500">
                                 <Lock size={15} className="stroke-[2.5]" />
                                 <span className="font-extrabold text-[11px] uppercase tracking-widest">Senha de Acesso</span>
                               </div>
@@ -3082,7 +3107,7 @@ export function GovContactsContent({
                           <button
                             type="button"
                             onClick={() => { handleDeleteWorker(selectedWorker.id, selectedWorker.name); }}
-                            className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-5 py-3 rounded-[18px] font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2"
+                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-5 py-3 rounded-[18px] font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2"
                           >
                             <Trash2 size={13} /> Eliminar Definitivamente
                           </button>
@@ -3291,7 +3316,6 @@ export function GovContactsContent({
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 mb-4 md:mb-10 text-left animate-fadeIn">
         <div className="flex items-center gap-4">
-          <BotaoVoltar />
           <div className="w-14 h-14 bg-indigo-600 rounded-[20px] flex items-center justify-center text-white shadow-2xl shadow-indigo-200 border-2 border-indigo-500">
             <Users size={28} />
           </div>
@@ -3309,13 +3333,13 @@ export function GovContactsContent({
           <div className="text-left px-3">
             <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Usuários Aprovados</div>
             <div className="text-lg font-black text-slate-800">
-              {citizens.filter(c => c.status === 'Aprovado').length}/{citizens.length} <span className="text-emerald-700 text-xs font-bold">OK</span>
+              {citizens.filter(c => c.status === 'Aprovado').length}/{citizens.length} <span className="text-emerald-500 text-xs font-bold">OK</span>
             </div>
           </div>
           <div className="w-px h-8 bg-slate-200" />
           <div className="text-left px-3">
             <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Tráfego de Conexão</div>
-            <div className="text-lg font-black text-emerald-700">{dadosReais ? <span title="Sem medição de tráfego na base central">—</span> : '99.9%'} <span className="text-[9px] font-semibold text-slate-400 font-mono">{dadosReais ? 'SEM MEDIÇÃO' : 'DISP'}</span></div>
+            <div className="text-lg font-black text-emerald-600">{dadosReais ? <span title="Sem medição de tráfego na base central">—</span> : '99.9%'} <span className="text-[9px] font-semibold text-slate-400 font-mono">{dadosReais ? 'SEM MEDIÇÃO' : 'DISP'}</span></div>
           </div>
         </div>
       </div>
@@ -3336,33 +3360,10 @@ export function GovContactsContent({
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              {/* Barra de Pesquisa de Cidadão */}
-              <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-2xl border border-slate-100 min-w-[220px]">
-                <Search size={14} className="text-slate-400 shrink-0" />
-                <input
-                  type="text"
-                  value={citizenSearch}
-                  onChange={(e) => setCitizenSearch(e.target.value)}
-                  placeholder="Pesquisar B.I., Nome, E-mail..."
-                  className="bg-transparent border-0 outline-none text-xs text-slate-800 placeholder-slate-400 font-semibold w-full"
-                />
-                {citizenSearch && (
-                  <button
-                    type="button"
-                    onClick={() => setCitizenSearch('')}
-                    className="text-slate-400 hover:text-slate-600 transition-colors text-sm font-bold px-1"
-                    title="Limpar pesquisa"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-
               {/* Select Provincia */}
               <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
                 <MapPin size={14} className="text-slate-400" />
                 <select
-                  aria-label="Filtrar Cidadãos por Província"
                   value={filterProvince}
                   onChange={(e) => {
                     setFilterProvince(e.target.value);
@@ -3381,7 +3382,6 @@ export function GovContactsContent({
               <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
                 <MapPin size={14} className="text-slate-400" />
                 <select
-                  aria-label="Filtrar Cidadãos por Município"
                   value={filterMunicipio}
                   onChange={(e) => setFilterMunicipio(e.target.value)}
                   className="bg-transparent border-0 outline-none text-xs text-slate-700 font-bold pr-6 cursor-pointer"
@@ -3398,28 +3398,27 @@ export function GovContactsContent({
                 <Filter size={13} className="text-indigo-600 font-bold" />
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mr-0.5">Triagem IA:</span>
                 <select
-                  aria-label="Filtrar por Triagem de Inteligência Artificial"
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
                   className={`bg-transparent border-0 outline-none text-xs font-black uppercase cursor-pointer pr-4 transition-colors ${
                     filterStatus === 'Pendente de Validação' ? 'text-orange-500 font-bold' :
                     filterStatus === 'Em Análise pela IA' ? 'text-purple-500 font-bold' :
-                    filterStatus === 'Em Revisão Administrativa' ? 'text-amber-700 font-bold' :
-                    filterStatus === 'Aprovado Automaticamente' ? 'text-emerald-700 font-bold' :
+                    filterStatus === 'Em Revisão Administrativa' ? 'text-amber-500 font-bold' :
+                    filterStatus === 'Aprovado Automaticamente' ? 'text-emerald-500 font-bold' :
                     filterStatus === 'Aprovado Manualmente' ? 'text-teal-500 font-bold' :
-                    filterStatus === 'Rejeitado' ? 'text-rose-700 font-bold' :
+                    filterStatus === 'Rejeitado' ? 'text-rose-500 font-bold' :
                     filterStatus === 'Bloqueado' ? 'text-slate-500 font-bold' :
-                    filterStatus === 'Ativo' ? 'text-emerald-700 font-bold' :
+                    filterStatus === 'Ativo' ? 'text-emerald-600 font-bold' :
                     'text-indigo-600 font-bold'
                   }`}
                 >
                   <option value="Todas" className="text-slate-800 font-sans font-semibold">Todas Tríades</option>
                   <option value="Pendente de Validação" className="text-orange-500 font-sans font-semibold">Pendente de Validação</option>
                   <option value="Em Análise pela IA" className="text-purple-500 font-sans font-semibold">Em Análise pela IA</option>
-                  <option value="Em Revisão Administrativa" className="text-amber-700 font-sans font-semibold">Em Revisão Administrativa</option>
-                  <option value="Aprovado Automaticamente" className="text-emerald-700 font-sans font-semibold">Aprovado Automaticamente</option>
+                  <option value="Em Revisão Administrativa" className="text-amber-500 font-sans font-semibold">Em Revisão Administrativa</option>
+                  <option value="Aprovado Automaticamente" className="text-emerald-500 font-sans font-semibold">Aprovado Automaticamente</option>
                   <option value="Aprovado Manualmente" className="text-teal-500 font-sans font-semibold">Aprovado Manualmente</option>
-                  <option value="Rejeitado" className="text-rose-700 font-sans font-semibold">Rejeitados</option>
+                  <option value="Rejeitado" className="text-rose-500 font-sans font-semibold">Rejeitados</option>
                   <option value="Bloqueado" className="text-slate-400 font-sans font-semibold">Bloqueados</option>
                   <option value="Ativo" className="text-emerald-650 font-sans font-semibold">Ativos</option>
                 </select>
@@ -3523,7 +3522,7 @@ export function GovContactsContent({
                         campanhaTipo === t
                           ? t === 'critical' ? 'bg-rose-600 text-white border-rose-600'
                             : t === 'warning' ? 'bg-amber-500 text-white border-amber-500'
-                            : t === 'success' ? 'bg-emerald-700 text-white border-emerald-600'
+                            : t === 'success' ? 'bg-emerald-600 text-white border-emerald-600'
                             : 'bg-indigo-600 text-white border-indigo-600'
                           : 'bg-white text-slate-500 border-slate-200'
                       }`}
@@ -3589,7 +3588,7 @@ export function GovContactsContent({
                 <h5 className="font-extrabold text-slate-950 text-sm uppercase">Nenhum Usuário Corresponde</h5>
                 <p className="text-xs text-slate-400 leading-normal max-w-sm mx-auto">
                   De momento, não existem dados para exibir com o estado de validação <strong className={`font-black ${
-                    filterStatus.toLowerCase().includes('aprovado') || filterStatus === 'Ativo' ? 'text-emerald-700' :
+                    filterStatus.toLowerCase().includes('aprovado') || filterStatus === 'Ativo' ? 'text-emerald-600' :
                     filterStatus.toLowerCase().includes('pendente') || filterStatus.toLowerCase().includes('análise') || filterStatus.toLowerCase().includes('revisão') ? 'text-orange-500' :
                     'text-red-700 font-bold'
                   }`}>{filterStatus.toUpperCase()}</strong> nas províncias/municípios selecionados.
@@ -3660,7 +3659,7 @@ export function GovContactsContent({
                               )}
                             </div>
                             {citizen.reason && (citizen.status === 'Rejeitado' || citizen.status === 'Bloqueado') && (
-                              <p className="text-[9.5px] text-rose-700 line-clamp-1 italic mt-1 font-semibold" title={citizen.reason}>
+                              <p className="text-[9.5px] text-rose-600 line-clamp-1 italic mt-1 font-semibold" title={citizen.reason}>
                                 Observação: {citizen.reason}
                               </p>
                             )}
@@ -3691,14 +3690,14 @@ export function GovContactsContent({
                       <td className="py-3 px-3 text-center font-mono font-black">
                         {citizen.facialMatch !== undefined ? (
                           <div className="flex flex-col items-center justify-center">
-                            <span className={citizen.facialMatch >= 90 ? 'text-emerald-700' : citizen.facialMatch >= 70 ? 'text-amber-700' : 'text-rose-700'}>
+                            <span className={citizen.facialMatch >= 90 ? 'text-emerald-600' : citizen.facialMatch >= 70 ? 'text-amber-500' : 'text-rose-600'}>
                               {citizen.facialMatch}%
                             </span>
                             <span className="text-[8px] font-sans text-slate-500 uppercase font-black uppercase tracking-widest mt-0.5">coerência: {citizen.coherenceLevel}%</span>
                           </div>
                         ) : citizen.verificationScore !== undefined ? (
                           <div className="flex flex-col items-center justify-center">
-                            <span className="text-emerald-700">{citizen.verificationScore}%</span>
+                            <span className="text-emerald-600">{citizen.verificationScore}%</span>
                             <span className="text-[8px] font-sans text-slate-400 tracking-wider">OK</span>
                           </div>
                         ) : (
@@ -3985,274 +3984,228 @@ export function GovContactsContent({
                       </div>
                     </div>
 
-                    {/* Painéis de Avaliação Visual e Biométrica: B.I. Frente, B.I. Verso/Trás e Selfie HD lado a lado */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                             {/* Painel Esquerdo: Fotocópia do BI Digitalizado (com abas de Frente/Verso ou imagens reais do Supabase) */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="block text-[10.5px] font-black uppercase tracking-wider text-[#0c2340]/60">PAINEL ESQUERDO • FOTOCÓPIA DO BI</span>
                       
-                      {/* PAINEL 1 • B.I. PARTE FRENTE */}
-                      <div className="space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10.5px] font-black uppercase tracking-wider text-[#0c2340]/70 flex items-center gap-1.5">
-                            <IdCard size={14} className="text-[#2563eb]" /> Painel 1 • B.I. Parte Frente
-                          </span>
-                          <span className="text-[8px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md uppercase">
-                            Frente Oficial
-                          </span>
-                        </div>
-
-                        {(resolvedModalDocs.frente || selectedReviewCitizen.urlFrente) ? (
-                          <div 
-                            onClick={() => setExpandedDoc({ title: `B.I. Oficial (Frente) — ${selectedReviewCitizen.name}`, url: (resolvedModalDocs.frente || selectedReviewCitizen.urlFrente)! })}
-                            className="h-[250px] relative rounded-[24px] overflow-hidden border border-slate-200 bg-slate-900 shadow-sm flex items-center justify-center select-none group cursor-pointer hover:border-indigo-400 transition-all"
-                            title="Clique para ampliar em alta resolução"
-                          >
-                            <img src={resolvedModalDocs.frente || selectedReviewCitizen.urlFrente} alt="B.I. Frente" className="max-h-full max-w-full object-contain pointer-events-none" />
-                            <div className="absolute top-2.5 right-2.5 bg-blue-950/85 px-2.5 py-1 text-[7.5px] font-black text-white rounded-md uppercase tracking-wider shadow-md backdrop-blur-xs flex items-center gap-1">
-                              <Eye size={10} /> Documento Real
-                            </div>
-                            <div className="absolute bottom-2.5 inset-x-2.5 bg-slate-950/80 backdrop-blur-xs text-white p-2 rounded-xl text-[8.5px] font-bold flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all shadow-md">
-                              <span className="flex items-center gap-1"><ZoomIn size={12} className="text-cyan-400" /> Clique para ampliar em HD</span>
-                              <Maximize2 size={12} className="text-cyan-400" />
-                            </div>
-                          </div>
-                        ) : selectedReviewCitizen.docsProtegidosSemAcesso ? (
-                          renderProtectedDocNotice('documento (frente)')
-                        ) : (
-                          <div className="bg-white border border-slate-200 rounded-[24px] p-4.5 relative overflow-hidden h-[250px] flex flex-col justify-between shadow-2xs">
-                            {/* Micro-marcas d'água */}
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none w-56 h-56 rounded-full border-4 border-indigo-900 flex items-center justify-center font-bold text-center text-xs">
-                              REPÚBLICA DE ANGOLA
-                            </div>
-                            <div className="absolute top-2 right-2 w-16 h-16 bg-gradient-to-br from-yellow-300/10 to-indigo-500/10 rounded-full blur-xl pointer-events-none" />
-
-                            {/* Top Header do Documento */}
-                            <div className="flex items-start justify-between border-b pb-1.5 border-slate-150">
-                              <div className="flex gap-2 items-center">
-                                <div className="w-6 h-4 bg-red-650 flex flex-col relative rounded-xs overflow-hidden border border-slate-300 flex-shrink-0">
-                                  <div className="h-1/2 bg-red-600" />
-                                  <div className="h-1/2 bg-black" />
-                                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[4px] text-yellow-500 font-extrabold">&bull;</div>
-                                </div>
-                                <div>
-                                  <span className="text-[8px] font-black text-[#0c2340] uppercase tracking-wide block">República de Angola</span>
-                                  <span className="text-[6px] font-bold text-slate-400 uppercase block">Min. Justiça e Direitos Humanos</span>
-                                </div>
-                              </div>
-                              <span className="text-[7.5px] font-black text-rose-700 bg-rose-50 border border-rose-200 p-0.5 px-1.5 rounded uppercase font-mono">B.I. Frente</span>
-                            </div>
-
-                            {/* Dados Centrais do BI */}
-                            <div className="grid grid-cols-3 gap-2.5 my-auto items-center">
-                              <div className="col-span-1 h-[80px] bg-slate-200 rounded-xl overflow-hidden border border-slate-300 relative shadow-3xs flex-shrink-0">
-                                <img 
-                                  src={resolvedModalDocs.selfie || selectedReviewCitizen.facePhoto} 
-                                  alt="Rosto BI" 
-                                  className="w-full h-full object-cover filter grayscale contrast-125 brightness-95" 
-                                  referrerPolicy="no-referrer"
-                                />
-                                <div className="absolute inset-0 bg-indigo-950/10 mix-blend-color" />
-                              </div>
-
-                              <div className="col-span-2 space-y-1 text-left text-[9.5px]">
-                                <div>
-                                  <span className="text-[6.5px] text-slate-400 uppercase block font-bold leading-none">Nome Completo:</span>
-                                  <span className="font-extrabold text-slate-900 uppercase block text-[10px] tracking-tight truncate">{selectedReviewCitizen.name}</span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-1.5">
-                                  <div>
-                                    <span className="text-[6.5px] text-slate-400 uppercase block font-bold leading-none">Nº B.I.:</span>
-                                    <span className="font-black text-[#0c2340] font-mono text-[8.5px] block truncate">{selectedReviewCitizen.biNumber}</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-[6.5px] text-slate-400 uppercase block font-bold leading-none">Nacionalidade:</span>
-                                    <span className="font-extrabold text-[#0c2340] uppercase block text-[8.5px]">Angolana</span>
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-1.5">
-                                  <div>
-                                    <span className="text-[6.5px] text-slate-400 uppercase block font-bold leading-none">Província:</span>
-                                    <span className="font-extrabold text-slate-800 block text-[8px] uppercase truncate">{selectedReviewCitizen.province || "LUANDA"}</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-[6.5px] text-slate-400 uppercase block font-bold leading-none">Natural de:</span>
-                                    <span className="font-extrabold text-slate-800 block text-[8px] uppercase truncate">{selectedReviewCitizen.municipio || "MAIANGA"}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Footer do BI */}
-                            <div className="border-t pt-1 border-slate-150 flex items-center justify-between text-[6.5px] font-mono text-slate-400 leading-none">
-                              <span>EMISSÃO: 12/06/2016</span>
-                              <span>VALIDADE: 12/06/2029</span>
-                              <span className="font-extrabold text-[#0c2340]">ASSINATURA DIGITAL: SIM</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* PAINEL 2 • B.I. PARTE TRÁS (VERSO) */}
-                      <div className="space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10.5px] font-black uppercase tracking-wider text-[#0c2340]/70 flex items-center gap-1.5">
-                            <FileText size={14} className="text-[#2563eb]" /> Painel 2 • B.I. Parte Trás (Verso)
-                          </span>
-                          <span className="text-[8px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md uppercase">
-                            Verso Oficial
-                          </span>
-                        </div>
-
-                        {(resolvedModalDocs.verso || selectedReviewCitizen.urlVerso) ? (
-                          <div 
-                            onClick={() => setExpandedDoc({ title: `B.I. Oficial (Verso) — ${selectedReviewCitizen.name}`, url: (resolvedModalDocs.verso || selectedReviewCitizen.urlVerso)! })}
-                            className="h-[250px] relative rounded-[24px] overflow-hidden border border-slate-200 bg-slate-900 shadow-sm flex items-center justify-center select-none group cursor-pointer hover:border-indigo-400 transition-all"
-                            title="Clique para ampliar em alta resolução"
-                          >
-                            <img src={resolvedModalDocs.verso || selectedReviewCitizen.urlVerso} alt="B.I. Verso" className="max-h-full max-w-full object-contain pointer-events-none" />
-                            <div className="absolute top-2.5 right-2.5 bg-blue-950/85 px-2.5 py-1 text-[7.5px] font-black text-white rounded-md uppercase tracking-wider shadow-md backdrop-blur-xs flex items-center gap-1">
-                              <Eye size={10} /> Documento Real
-                            </div>
-                            <div className="absolute bottom-2.5 inset-x-2.5 bg-slate-950/80 backdrop-blur-xs text-white p-2 rounded-xl text-[8.5px] font-bold flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all shadow-md">
-                              <span className="flex items-center gap-1"><ZoomIn size={12} className="text-cyan-400" /> Clique para ampliar em HD</span>
-                              <Maximize2 size={12} className="text-cyan-400" />
-                            </div>
-                          </div>
-                        ) : selectedReviewCitizen.docsProtegidosSemAcesso ? (
-                          renderProtectedDocNotice('documento (verso)')
-                        ) : (
-                          <div className="bg-white border border-slate-200 rounded-[24px] p-4.5 relative overflow-hidden h-[250px] flex flex-col justify-between shadow-2xs">
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none w-56 h-56 rounded-full border-4 border-[#0c2340] flex items-center justify-center font-bold text-center text-xs">
-                              REPÚBLICA DE ANGOLA
-                            </div>
-                            <div className="text-center font-mono space-y-1.5 mt-2 text-[#0f172a] text-[7.5px] uppercase font-bold leading-relaxed">
-                              <p className="text-[7.5px] font-extrabold text-slate-700">Assinatura Certificada do Titular</p>
-                              <div className="w-32 h-5 border-b border-dashed border-slate-400 mx-auto opacity-70" />
-                              <p className="mt-3 text-[7.5px] font-extrabold text-slate-700">Impressão Digitalizada Dactiloscópica</p>
-                              <div className="w-9 h-11 bg-slate-100 opacity-80 rounded-md border border-slate-300 mx-auto flex items-center justify-center">
-                                <Fingerprint size={16} className="text-slate-800" />
-                              </div>
-                            </div>
-                            <div className="border-t pt-1 border-slate-200 flex items-center justify-between text-[6.5px] font-mono text-slate-500 leading-none">
-                              <span>SERVIÇO DE MIGRAÇÃO E ESTRANGEIROS</span>
-                              <span>CADA-V1</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* PAINEL 3 • CAPTURA BIOMÉTRICA (FACE) */}
-                      <div className="space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10.5px] font-black uppercase tracking-wider text-[#0c2340]/70 flex items-center gap-1.5">
-                            <Fingerprint size={14} className="text-cyan-500" /> Painel 3 • Captura Facial ({modalFacePhotos.length > 1 ? `${selfieGalleryIndex + 1}/${modalFacePhotos.length}` : 'HD'})
-                          </span>
-                          <span className="text-[8px] font-mono font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-md uppercase">
-                            {modalFacePhotos.length > 1
-                              ? `Foto ${selfieGalleryIndex + 1}/${modalFacePhotos.length} · ${selfieGalleryIndex === 0 ? 'Frente' : selfieGalleryIndex === 1 ? 'Perfil' : 'Expressão'}`
-                              : 'Selfie HD • Prova de Vida'}
-                          </span>
-                        </div>
-
-                        <div 
-                          onClick={() => {
-                            const curPhoto = modalFacePhotos[selfieGalleryIndex] || resolvedModalDocs.selfie || selectedReviewCitizen.urlSelfie || selectedReviewCitizen.facePhoto;
-                            setExpandedDoc({ 
-                              title: `Captura Facial Biométrica (${modalFacePhotos.length > 1 ? `Foto ${selfieGalleryIndex + 1} de ${modalFacePhotos.length}` : 'Selfie'}) — ${selectedReviewCitizen.name}`, 
-                              url: curPhoto,
-                              images: modalFacePhotos.length > 0 ? modalFacePhotos : [curPhoto],
-                              currentIndex: selfieGalleryIndex,
-                              stepNames: ['1. Foto Frontal', '2. Perfil Esquerdo', '3. Expressão Natural']
-                            });
-                          }}
-                          className="bg-[#0a152e] border border-cyan-950/80 rounded-[24px] p-4.5 h-[250px] relative overflow-hidden flex flex-col justify-between shadow-2xl text-white group cursor-pointer hover:border-cyan-400 transition-all"
-                          title="Clique para ampliar em alta resolução"
+                      {/* Abas Frente / Verso */}
+                      <div className="flex bg-slate-100 p-1 rounded-xl gap-1 border border-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => setReviewStepTab(1)}
+                          className={`px-4.5 py-1 text-[9px] font-extrabold uppercase tracking-widest rounded-lg transition-all border-0 cursor-pointer ${
+                            reviewStepTab === 1 
+                              ? 'bg-[#0c2340] text-white shadow-xs' 
+                              : 'text-slate-500 hover:text-slate-900 bg-transparent font-bold'
+                          }`}
                         >
-                          {/* Efeitos de Reticulado / Scanning de Câmera */}
-                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.06)_0,transparent_100%)]" />
-                          
-                          {/* Cantos holográficos da câmera de biometria */}
-                          <div className="absolute top-3.5 left-3.5 w-3.5 h-3.5 border-t-2 border-l-2 border-cyan-400 rounded-tl-sm pointer-events-none" />
-                          <div className="absolute top-3.5 right-3.5 w-3.5 h-3.5 border-t-2 border-r-2 border-cyan-400 rounded-tr-sm pointer-events-none" />
-                          <div className="absolute bottom-3.5 left-3.5 w-3.5 h-3.5 border-b-2 border-l-2 border-cyan-400 rounded-bl-sm pointer-events-none" />
-                          <div className="absolute bottom-3.5 right-3.5 w-3.5 h-3.5 border-b-2 border-r-2 border-cyan-400 rounded-br-sm pointer-events-none" />
+                          Frente
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReviewStepTab(2)}
+                          className={`px-4.5 py-1 text-[9px] font-extrabold uppercase tracking-widest rounded-lg transition-all border-0 cursor-pointer ${
+                            reviewStepTab === 2 
+                              ? 'bg-[#0c2340] text-white shadow-xs' 
+                              : 'text-slate-500 hover:text-slate-900 bg-transparent font-bold'
+                          }`}
+                        >
+                          Verso
+                        </button>
+                      </div>
+                    </div>
 
-                          {/* Botões de navegação esquerda/direita entre fotos no Painel 3 */}
-                          {modalFacePhotos.length > 1 && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelfieGalleryIndex((prev) => (prev > 0 ? prev - 1 : modalFacePhotos.length - 1));
-                                }}
-                                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-slate-900/80 hover:bg-cyan-500 hover:text-slate-950 text-white flex items-center justify-center border border-cyan-500/40 shadow-lg cursor-pointer z-30 transition-all opacity-80 group-hover:opacity-100"
-                                title="Foto anterior"
-                              >
-                                <ChevronLeft size={15} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelfieGalleryIndex((prev) => (prev < modalFacePhotos.length - 1 ? prev + 1 : 0));
-                                }}
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-slate-900/80 hover:bg-cyan-500 hover:text-slate-950 text-white flex items-center justify-center border border-cyan-500/40 shadow-lg cursor-pointer z-30 transition-all opacity-80 group-hover:opacity-100"
-                                title="Próxima foto"
-                              >
-                                <ChevronRight size={15} />
-                              </button>
-                            </>
-                          )}
+                    {reviewStepTab === 1 ? (
+                      selectedReviewCitizen.urlFrente ? (
+                        <div className="h-[240px] relative rounded-[24px] overflow-hidden border border-slate-200 bg-slate-900 shadow-sm flex items-center justify-center select-none">
+                          <img src={selectedReviewCitizen.urlFrente} alt="B.I. Frente" className="max-h-full max-w-full object-contain pointer-events-none" />
+                          <div className="absolute top-2 right-2 bg-blue-950/85 px-2 py-0.5 text-[7px] font-bold text-white rounded-md uppercase tracking-wider shadow-md">Ficheiro Real Supabase</div>
+                        </div>
+                      ) : selectedReviewCitizen.docsProtegidosSemAcesso ? (
+                        renderProtectedDocNotice('documento (frente)')
+                      ) : (
+                        <div className="bg-white border border-slate-200 rounded-[24px] p-5.5 relative overflow-hidden h-[240px] flex flex-col justify-between shadow-2xs">
+                          {/* Micro-marcas d'água */}
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none w-56 h-56 rounded-full border-4 border-indigo-900 flex items-center justify-center font-bold text-center text-xs">
+                            REPÚBLICA DE ANGOLA
+                          </div>
+                          <div className="absolute top-2 right-2 w-16 h-16 bg-gradient-to-br from-yellow-300/10 to-indigo-500/10 rounded-full blur-xl pointer-events-none" />
 
-                          {/* Scanner Line animation */}
-                          {aiEvaluationState === 'running' && (
-                            <motion.div 
-                              initial={{ y: 0 }}
-                              animate={{ y: [0, 180, 0] }}
-                              transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
-                              className="absolute left-4 right-4 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-md shadow-cyan-400/50 z-25 pointer-events-none"
-                            />
-                          )}
-
-                          <div className="flex items-center justify-between z-15 relative">
-                            <span className="text-[7.5px] font-mono font-black text-cyan-200 uppercase tracking-widest bg-cyan-950/70 p-1 px-2.5 rounded-full border border-cyan-500/30">
-                              ● {modalFacePhotos.length > 1 ? `Foto ${selfieGalleryIndex + 1} de ${modalFacePhotos.length}` : 'Auto-Foto Ativa'}
-                            </span>
-                            <span className="text-[7.5px] font-mono text-cyan-400/85 font-black uppercase tracking-wider">1280P HD</span>
+                          {/* Top Header do Documento */}
+                          <div className="flex items-start justify-between border-b pb-2 border-slate-150">
+                            <div className="flex gap-2.5 items-center">
+                              {/* Bandeira de Angola */}
+                              <div className="w-7 h-4.5 bg-red-650 flex flex-col relative rounded-xs overflow-hidden border border-slate-300 flex-shrink-0">
+                                <div className="h-1/2 bg-red-600" />
+                                <div className="h-1/2 bg-black" />
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[4px] text-yellow-500 font-extrabold">&bull;</div>
+                              </div>
+                              <div>
+                                <span className="text-[8.5px] font-black text-[#0c2340] uppercase tracking-wide block">República de Angola</span>
+                                <span className="text-[6.5px] font-bold text-slate-400 uppercase block">Ministério da Justiça e Direitos Humanos</span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[8px] font-black text-rose-600 bg-rose-50 border border-rose-200 p-0.5 px-2 rounded uppercase font-mono tracking-wider">B.I. Oficial</span>
+                            </div>
                           </div>
 
-                          {/* Rosto do Cidadão no Centro */}
-                          <div className="relative w-22 h-22 mx-auto my-auto rounded-full border-2 border-cyan-400 overflow-hidden shadow-xl shadow-cyan-950/45 z-10 p-0.5 bg-cyan-950/30">
-                            <img 
-                              src={modalFacePhotos[selfieGalleryIndex] || resolvedModalDocs.selfie || selectedReviewCitizen.urlSelfie || selectedReviewCitizen.facePhoto} 
-                              alt="Face HD" 
-                              className="w-full h-full object-cover rounded-full" 
-                              referrerPolicy="no-referrer"
-                            />
-                            {aiEvaluationState === 'running' && (
-                              <div className="absolute inset-0 bg-cyan-500/10 animate-pulse" />
-                            )}
+                          {/* Dados Centrais do BI */}
+                          <div className="grid grid-cols-3 gap-4 my-auto items-center">
+                            {/* Foto do BI - com filtro impresso cinza */}
+                            <div className="col-span-1 h-[88px] bg-slate-200 rounded-xl overflow-hidden border border-slate-300 relative shadow-3xs flex-shrink-0">
+                              <img 
+                                src={selectedReviewCitizen.facePhoto} 
+                                alt="Rosto BI" 
+                                className="w-full h-full object-cover filter grayscale contrast-125 brightness-95" 
+                                referrerPolicy="no-referrer"
+                              />
+                              <div className="absolute inset-0 bg-indigo-950/10 mix-blend-color" />
+                            </div>
+
+                            {/* Dados textuais do civil */}
+                            <div className="col-span-2 space-y-1.5 text-left text-[10px]">
+                              <div>
+                                <span className="text-[7px] text-slate-400 uppercase block font-bold leading-none">Nome Completo:</span>
+                                <span className="font-extrabold text-slate-900 uppercase block text-[11px] tracking-tight">{selectedReviewCitizen.name}</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <span className="text-[7px] text-slate-400 uppercase block font-bold leading-none">Nº B.I.:</span>
+                                  <span className="font-black text-[#0c2340] font-mono text-[9px] block">{selectedReviewCitizen.biNumber}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[7px] text-slate-400 uppercase block font-bold leading-none font-sans">Nacionalidade:</span>
+                                  <span className="font-extrabold text-[#0c2340] uppercase block">Angolana</span>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <span className="text-[7px] text-slate-400 uppercase block font-bold leading-none">Província:</span>
+                                  <span className="font-extrabold text-slate-800 block text-[8.5px] uppercase">{selectedReviewCitizen.province || "LUANDA"}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[7px] text-slate-400 uppercase block font-bold leading-none">Natural de:</span>
+                                  <span className="font-extrabold text-slate-800 block text-[8.5px] uppercase">{selectedReviewCitizen.municipio || "MAIANGA"}</span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
 
-                          <div className="text-center z-15 relative">
-                            <span className="text-[8px] font-mono text-emerald-400 uppercase tracking-widest font-black flex items-center justify-center gap-1">
-                              <CheckCircle2 size={10} className="text-emerald-400" />
-                              {aiEvaluationState === 'idle' ? (modalFacePhotos.length > 1 ? `Captura ${selfieGalleryIndex + 1}/3 Pronta` : 'Biometria Pronta') :
-                               aiEvaluationState === 'running' ? 'Analisando...' :
-                               'Biometria Concluída'}
-                            </span>
+                          {/* Footer do BI */}
+                          <div className="border-t pt-1.5 border-slate-150 flex items-center justify-between text-[7px] font-mono text-slate-400 leading-none">
+                            <span>EMISSÃO: 12/06/2016</span>
+                            <span>VALIDADE: 12/06/2029</span>
+                            <span className="font-extrabold text-[#0c2340]">ASSINATURA DIGITAL: SIM</span>
                           </div>
                         </div>
-
-                        <div className="bg-slate-950 text-white rounded-2xl p-2.5 px-3 text-[9px] font-extrabold uppercase tracking-tight flex items-center justify-between shadow-3xs">
-                          <div className="flex items-center gap-2">
-                            <Fingerprint size={14} className="text-cyan-400" />
-                            <span className="text-slate-200">Autenticação Facial</span>
-                          </div>
-                          <span className="text-emerald-400 font-black">ATIVA</span>
+                      )
+                    ) : (
+                      selectedReviewCitizen.urlVerso ? (
+                        <div className="h-[240px] relative rounded-[24px] overflow-hidden border border-slate-200 bg-slate-900 shadow-sm flex items-center justify-center select-none">
+                          <img src={selectedReviewCitizen.urlVerso} alt="B.I. Verso" className="max-h-full max-w-full object-contain pointer-events-none" />
+                          <div className="absolute top-2 right-2 bg-blue-950/85 px-2 py-0.5 text-[7px] font-bold text-white rounded-md uppercase tracking-wider shadow-md">Ficheiro Real Supabase</div>
                         </div>
+                      ) : selectedReviewCitizen.docsProtegidosSemAcesso ? (
+                        renderProtectedDocNotice('documento (verso)')
+                      ) : (
+                        <div className="bg-white border border-slate-200 rounded-[24px] p-5 relative overflow-hidden h-[240px] flex flex-col justify-between shadow-2xs">
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none w-56 h-56 rounded-full border-4 border-[#0c2340] flex items-center justify-center font-bold text-center text-xs">
+                            REPÚBLICA DE ANGOLA
+                          </div>
+                          <div className="text-center font-mono space-y-2 mt-4 text-[#0f172a] text-[8px] uppercase font-bold leading-relaxed">
+                            <p className="text-[7.5px] font-extrabold text-slate-700">Assinatura Certificada do Titular</p>
+                            <div className="w-36 h-6 border-b border-dashed border-slate-400 mx-auto opacity-70" />
+                            <p className="mt-4 text-[7.5px] font-extrabold text-slate-700">Impressão Digitalizada Dactiloscópica (Polegar Direito)</p>
+                            <div className="w-10 h-12 bg-slate-100 opacity-80 rounded-md border border-slate-300 mx-auto flex items-center justify-center">
+                              <Fingerprint size={18} className="text-slate-800" />
+                            </div>
+                          </div>
+                          <div className="border-t pt-1.5 border-slate-200 flex items-center justify-between text-[6.5px] font-mono text-slate-500 leading-none">
+                            <span>SERVIÇO DE MIGRAÇÃO E ESTRANGEIROS</span>
+                            <span>CADA-V1</span>
+                          </div>
+                        </div>
+                      )
+                    )}
+
+                    <div className="bg-slate-50 border border-slate-150 rounded-2xl p-3.5 text-[10px] font-extrabold text-slate-800 uppercase tracking-tight flex items-center gap-2.5 shadow-3xs">
+                      <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
+                      <span>Nome Declarado e BI Batem 100% com o Banco do Registo Civil Angolano.</span>
+                    </div>
+                  </div>
+
+                  {/* Painel Direito: Captura de Face Ativa no Auto-Cadastro (HD e AnáliseIA) */}
+                  <div className="space-y-3">
+                    <span className="block text-[10.5px] font-black uppercase tracking-wider text-[#0c2340]/60">Painel Direito &bull; Captura Biométrica (Face)</span>
+                    
+                    <div className="bg-[#0a152e] border border-cyan-950/80 rounded-[24px] p-5 h-[240px] relative overflow-hidden flex flex-col justify-between shadow-2xl text-white">
+                      
+                      {/* Efeitos de Reticulado / Scanning de Câmera */}
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.06)_0,transparent_100%)]" />
+                      
+                      {/* Cantos holográficos da câmera de biometria */}
+                      <div className="absolute top-4 left-4 w-4 h-4 border-t-2 border-l-2 border-cyan-400 rounded-tl-sm pointer-events-none" />
+                      <div className="absolute top-4 right-4 w-4 h-4 border-t-2 border-r-2 border-cyan-400 rounded-tr-sm pointer-events-none" />
+                      <div className="absolute bottom-4 left-4 w-4 h-4 border-b-2 border-l-2 border-cyan-400 rounded-bl-sm pointer-events-none" />
+                      <div className="absolute bottom-4 right-4 w-4 h-4 border-b-2 border-r-2 border-cyan-400 rounded-br-sm pointer-events-none" />
+
+                      {/* Scanner Line animation */}
+                      {aiEvaluationState === 'running' && (
+                        <motion.div 
+                          initial={{ y: 0 }}
+                          animate={{ y: [0, 180, 0] }}
+                          transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+                          className="absolute left-4 right-4 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-md shadow-cyan-400/50 z-25 pointer-events-none"
+                        />
+                      )}
+
+                      <div className="flex items-center justify-between z-15 relative">
+                        <span className="text-[8px] font-mono font-black text-cyan-200 uppercase tracking-widest bg-cyan-950/70 p-1.5 px-3 rounded-full border border-cyan-500/30">
+                          ● Auto-Foto Biométrica Ativa
+                        </span>
+                        <span className="text-[8px] font-mono text-cyan-400/85 font-black uppercase tracking-wider">FPS: 30 &bull; 1280P</span>
                       </div>
 
+                      {/* Rosto do Cidadão no Centro com linhas de rastreamento se IA estiver ativa */}
+                      <div className="relative w-24 h-24 mx-auto my-auto rounded-full border-2 border-cyan-400 overflow-hidden shadow-xl shadow-cyan-950/45 z-10 p-0.5 bg-cyan-950/30">
+                        <img 
+                          src={selectedReviewCitizen.urlSelfie || selectedReviewCitizen.facePhoto} 
+                          alt="Face HD" 
+                          className="w-full h-full object-cover rounded-full" 
+                          referrerPolicy="no-referrer"
+                        />
+                        {aiEvaluationState === 'running' && (
+                          <div className="absolute inset-0 bg-cyan-500/10 animate-pulse" />
+                        )}
+                        {/* Pontos de foco facial fictícios */}
+                        <div className="absolute top-1/3 left-1/3 w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping pointer-events-none" />
+                        <div className="absolute top-1/3 right-1/3 w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping pointer-events-none" />
+                        <div className="absolute bottom-1/3 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping pointer-events-none" />
+                      </div>
+
+                      <div className="text-center z-15 relative mt-1.5">
+                        <span className="text-[9px] font-mono text-emerald-400 uppercase tracking-widest font-black flex items-center justify-center gap-1">
+                          <CheckCircle2 size={11} className="text-emerald-400" />
+                          {aiEvaluationState === 'idle' ? 'Câmera Biométrica Pronta' :
+                           aiEvaluationState === 'running' ? 'Executando Análise de Profundidade...' :
+                           'Verificação Biométrica Concluída'}
+                        </span>
+                      </div>
                     </div>
+
+                    <div className="bg-slate-950 text-white rounded-2xl p-3.5 px-4.5 text-[10px] font-extrabold uppercase tracking-tight flex items-center justify-between shadow-3xs">
+                      <div className="flex items-center gap-2.5">
+                        <Fingerprint size={16} className="text-cyan-400" />
+                        <span className="text-slate-200">Autenticação Facial Registada no CDA</span>
+                      </div>
+                      <span className="text-emerald-400 font-black">ATIVA</span>
+                    </div>
+                  </div>
+
+                </div>
 
                 {/* Relatório REAL da pré-verificação automática feita no registo (motor local) */}
                 {(selectedReviewCitizen.facialMatch !== undefined || selectedReviewCitizen.coherenceLevel !== undefined || selectedReviewCitizen.ocrDataMatch !== undefined || selectedReviewCitizen.imageQuality !== undefined) && (
@@ -4263,21 +4216,21 @@ export function GovContactsContent({
                       </span>
                       {selectedReviewCitizen.iaResult && (
                         <span className={`text-[8.5px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full border ${
-                          selectedReviewCitizen.iaResult === 'Aprovado' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                          selectedReviewCitizen.iaResult === 'Revisão Administrativa' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-500 border-red-200'
+                          selectedReviewCitizen.iaResult === 'Aprovado' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                          selectedReviewCitizen.iaResult === 'Revisão Administrativa' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-red-50 text-red-500 border-red-200'
                         }`}>Motor local: {selectedReviewCitizen.iaResult}</span>
                       )}
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
                       <div className="bg-slate-50 border border-slate-150 rounded-xl p-2.5 text-center">
                         <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider">Corresp. Facial</span>
-                        <span className={`text-sm font-black font-mono ${selectedReviewCitizen.facialMatch !== undefined ? (selectedReviewCitizen.facialMatch >= 70 ? 'text-emerald-700' : selectedReviewCitizen.facialMatch >= 45 ? 'text-amber-700' : 'text-rose-700') : 'text-slate-400'}`}>
+                        <span className={`text-sm font-black font-mono ${selectedReviewCitizen.facialMatch !== undefined ? (selectedReviewCitizen.facialMatch >= 70 ? 'text-emerald-600' : selectedReviewCitizen.facialMatch >= 45 ? 'text-amber-500' : 'text-rose-600') : 'text-slate-400'}`}>
                           {selectedReviewCitizen.facialMatch !== undefined ? `${selectedReviewCitizen.facialMatch}%` : '—'}
                         </span>
                       </div>
                       <div className="bg-slate-50 border border-slate-150 rounded-xl p-2.5 text-center">
                         <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider">Leitura OCR</span>
-                        <span className={`text-sm font-black font-mono ${selectedReviewCitizen.ocrDataMatch !== undefined ? (selectedReviewCitizen.ocrDataMatch >= 70 ? 'text-emerald-700' : selectedReviewCitizen.ocrDataMatch >= 45 ? 'text-amber-700' : 'text-rose-700') : 'text-slate-400'}`}>
+                        <span className={`text-sm font-black font-mono ${selectedReviewCitizen.ocrDataMatch !== undefined ? (selectedReviewCitizen.ocrDataMatch >= 70 ? 'text-emerald-600' : selectedReviewCitizen.ocrDataMatch >= 45 ? 'text-amber-500' : 'text-rose-600') : 'text-slate-400'}`}>
                           {selectedReviewCitizen.ocrDataMatch !== undefined ? `${selectedReviewCitizen.ocrDataMatch}%` : '—'}
                         </span>
                       </div>
@@ -4331,7 +4284,7 @@ export function GovContactsContent({
                         }}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest px-8 py-3.5 rounded-2xl cursor-pointer border-0 shadow-lg shadow-indigo-600/15 font-bold transition-all hover:scale-103"
                       >
-                        <Scan size={14} className="inline mr-2" /> Executar Batimento por IA
+                        <Scan size={14} className="inline mr-2 animate-spin-slow" /> Executar Batimento por IA
                       </button>
                     </div>
                   )}
@@ -4358,7 +4311,7 @@ export function GovContactsContent({
 
                   {aiEvaluationState === 'completed' && aiMatchScore && (
                     <div className="space-y-3 animate-zoomIn">
-                      <div className="flex items-center justify-center gap-2 text-emerald-700">
+                      <div className="flex items-center justify-center gap-2 text-emerald-600">
                         <CheckCircle2 size={24} />
                         <span className="text-sm font-black uppercase tracking-tight font-mono">Batimento de IA Concluído</span>
                       </div>
@@ -4366,7 +4319,7 @@ export function GovContactsContent({
                       {/* Placar de Correspondência */}
                       <div className="flex flex-col items-center justify-center">
                         <div className="bg-emerald-50 border border-emerald-100 p-3.5 px-8 rounded-2xl block text-center">
-                          <span className="text-[9px] text-emerald-700 font-extrabold uppercase tracking-widest block leading-none mb-1">SCORE DE CORRESPONDÊNCIA FACIAL</span>
+                          <span className="text-[9px] text-emerald-600 font-extrabold uppercase tracking-widest block leading-none mb-1">SCORE DE CORRESPONDÊNCIA FACIAL</span>
                           <span className="text-3xl font-black text-emerald-700 font-mono italic leading-none">{aiMatchScore}%</span>
                         </div>
                       </div>
@@ -4425,7 +4378,7 @@ export function GovContactsContent({
 
                     {selectedReviewCitizen.pviVer === 'APTO' && (
                       <div className="inline-flex items-center gap-1.5 bg-emerald-100/70 border border-emerald-200 rounded-full px-3 py-1">
-                        <Zap size={10} className="text-emerald-700 fill-emerald-300" />
+                        <Zap size={10} className="text-emerald-600 fill-emerald-300" />
                         <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700">Aprovado automaticamente por Pré-Verificação Inteligente (IA)</span>
                       </div>
                     )}
@@ -4443,7 +4396,7 @@ export function GovContactsContent({
                           ))}
                         </div>
                       ) : (
-                        <span className="text-[9.5px] font-bold text-emerald-700 uppercase tracking-widest">Sem alertas</span>
+                        <span className="text-[9.5px] font-bold text-emerald-600 uppercase tracking-widest">Sem alertas</span>
                       )}
                     </div>
 
@@ -4921,26 +4874,22 @@ export function GovContactsContent({
 
                           // HOMOLOGAÇÃO: aprovação ativa a conta + correspondência oficial automática ao cidadão
                           homologationStore.setStatus(selectedReviewCitizen.biNumber || '', 'active', undefined, selectedReviewCitizen.name);
-                          // 2026-09-13 — a correspondência «Conta Ativada» é gravada na
-                          // NUVEM (fonte canónica: chega à caixa do cidadão em qualquer
-                          // dispositivo, não lida → badge). O canal local de homologação
-                          // só entra como recurso quando a nuvem recusa/está indisponível
-                          // — nunca os dois (evita a mensagem em duplicado no mesmo
-                          // dispositivo).
-                          const nuvemAtivacao = await enviarMensagemAdministrativa(
+                          notifyAccountApproved(selectedReviewCitizen.biNumber || '', selectedReviewCitizen.name);
+                          // 2026-08-21 — em modo real a mensagem de aprovação é
+                          // PERSISTIDA na nuvem (protocolo selado): aparece na
+                          // página "Correspondências" do admin e na caixa do
+                          // cidadão em qualquer dispositivo. Demo mantém só o
+                          // canal local (o serviço devolve null sem sessão).
+                          void enviarMensagemAdministrativa(
                             selectedReviewCitizen.biNumber || '',
                             'Conta Ativada — Homologação Aprovada pela Área de Administração',
                             `Exmo(a). ${selectedReviewCitizen.name || 'Cidadão(ã)'}, informamos que a sua identidade foi HOMOLOGADA e a sua conta no Correio Digital de Angola está oficialmente ATIVA. A partir deste momento pode receber correspondência oficial de todas as instituições integradas. Bem-vindo à rede nacional de correio digital.`
                           );
-                          if (!nuvemAtivacao?.ok) {
-                            notifyAccountApproved(selectedReviewCitizen.biNumber || '', selectedReviewCitizen.name);
-                            addAuditLog?.(`[F48] Correspondência «Conta Ativada» de ${selectedReviewCitizen.biNumber} NÃO gravada na base central (sem sessão Auth de administração ou nuvem indisponível) — ficou apenas no canal local deste dispositivo.`, 'warning');
-                          }
 
                           addAuditLog?.(`Auditoria: Cadastro do cidadão "${selectedReviewCitizen.name}" homologado e ativado biometricamente pelo agente Admin.`, 'success');
                           setSelectedReviewCitizen(null);
                         }}
-                        className="px-6 py-3 bg-emerald-700 hover:bg-emerald-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer font-bold block shadow-lg shadow-emerald-600/10 w-full sm:w-auto text-center border-0 font-sans"
+                        className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer font-bold block shadow-lg shadow-emerald-600/10 w-full sm:w-auto text-center border-0 font-sans"
                       >
                         Homologar Cadastro
                       </button>
@@ -4998,143 +4947,6 @@ export function GovContactsContent({
         )}
       </AnimatePresence>
 
-      {/* MODAL DE AMPLIAÇÃO / LIGHTBOX EM ALTA RESOLUÇÃO DO DOCUMENTO */}
-      <AnimatePresence>
-        {expandedDoc && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setExpandedDoc(null)}
-              className="fixed inset-0 bg-slate-950/90 backdrop-blur-lg z-[350]"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.94 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.94 }}
-              className="fixed inset-4 md:inset-10 bg-slate-900 rounded-[32px] border border-slate-700 shadow-2xl z-[351] flex flex-col overflow-hidden text-white font-sans"
-            >
-              <div className="flex items-center justify-between p-4 md:p-6 border-b border-slate-800 bg-slate-950/60 shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-blue-600/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center shrink-0">
-                    <ZoomIn size={18} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm md:text-base font-black uppercase tracking-wider text-white m-0">
-                      {expandedDoc.title}
-                    </h3>
-                    <p className="text-[10px] font-mono text-cyan-400/80 m-0 mt-0.5">
-                      Visualização em Alta Resolução · Auditoria Oficial CDA {expandedDoc.images && expandedDoc.images.length > 1 ? `· Foto ${(expandedDoc.currentIndex ?? 0) + 1} de ${expandedDoc.images.length}` : ''}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <a
-                    href={expandedDoc.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-2 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 no-underline border border-slate-700 cursor-pointer"
-                  >
-                    <Maximize2 size={12} /> Abrir Original
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => setExpandedDoc(null)}
-                    className="w-9 h-9 rounded-full bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-all flex items-center justify-center border-none cursor-pointer"
-                    title="Fechar"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex-1 p-4 md:p-8 flex items-center justify-center overflow-hidden bg-slate-950 select-none relative group/lightbox">
-                {expandedDoc.images && expandedDoc.images.length > 1 && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const nextIdx = (expandedDoc.currentIndex ?? 0) > 0 ? (expandedDoc.currentIndex ?? 0) - 1 : expandedDoc.images!.length - 1;
-                        const nextUrl = expandedDoc.images![nextIdx];
-                        setExpandedDoc({
-                          ...expandedDoc,
-                          currentIndex: nextIdx,
-                          url: nextUrl,
-                          title: expandedDoc.title.replace(/Foto \d+ de \d+/, `Foto ${nextIdx + 1} de ${expandedDoc.images!.length}`)
-                        });
-                        setSelfieGalleryIndex(nextIdx);
-                      }}
-                      className="absolute left-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-slate-900/90 hover:bg-cyan-500 hover:text-slate-950 text-white flex items-center justify-center border border-cyan-500/40 shadow-2xl cursor-pointer z-30 transition-all opacity-85 hover:opacity-100"
-                      title="Foto anterior (Seta Esquerda)"
-                    >
-                      <ChevronLeft size={24} />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const nextIdx = (expandedDoc.currentIndex ?? 0) < expandedDoc.images!.length - 1 ? (expandedDoc.currentIndex ?? 0) + 1 : 0;
-                        const nextUrl = expandedDoc.images![nextIdx];
-                        setExpandedDoc({
-                          ...expandedDoc,
-                          currentIndex: nextIdx,
-                          url: nextUrl,
-                          title: expandedDoc.title.replace(/Foto \d+ de \d+/, `Foto ${nextIdx + 1} de ${expandedDoc.images!.length}`)
-                        });
-                        setSelfieGalleryIndex(nextIdx);
-                      }}
-                      className="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-slate-900/90 hover:bg-cyan-500 hover:text-slate-950 text-white flex items-center justify-center border border-cyan-500/40 shadow-2xl cursor-pointer z-30 transition-all opacity-85 hover:opacity-100"
-                      title="Próxima foto (Seta Direita)"
-                    >
-                      <ChevronRight size={24} />
-                    </button>
-                  </>
-                )}
-
-                <img
-                  src={expandedDoc.url}
-                  alt={expandedDoc.title}
-                  className="max-h-full max-w-full object-contain rounded-xl shadow-2xl pointer-events-auto transition-all duration-300"
-                />
-
-                {/* Miniaturas no rodapé do Lightbox quando houver múltiplas fotos */}
-                {expandedDoc.images && expandedDoc.images.length > 1 && (
-                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md p-2 px-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 z-30 shadow-2xl">
-                    {expandedDoc.images.map((img, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setExpandedDoc({
-                            ...expandedDoc,
-                            currentIndex: i,
-                            url: img,
-                            title: expandedDoc.title.replace(/Foto \d+ de \d+/, `Foto ${i + 1} de ${expandedDoc.images!.length}`)
-                          });
-                          setSelfieGalleryIndex(i);
-                        }}
-                        className={`w-12 h-12 rounded-xl overflow-hidden border-2 transition-all p-0.5 cursor-pointer ${
-                          (expandedDoc.currentIndex ?? 0) === i
-                            ? 'border-cyan-400 scale-105 shadow-md shadow-cyan-500/40 bg-cyan-950'
-                            : 'border-slate-700 opacity-60 hover:opacity-100 hover:border-slate-500 bg-slate-800'
-                        }`}
-                        title={`Ir para foto ${i + 1} (${i === 0 ? 'Frente' : i === 1 ? 'Perfil Esquerdo' : 'Expressão'})`}
-                      >
-                        <img src={img} alt={`Miniatura ${i + 1}`} className="w-full h-full object-cover rounded-lg" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
       {/* POPUP DE CONFIRMAÇÃO DE ELIMINAÇÃO DE CADASTRO */}
       <AnimatePresence>
         {deleteConfirmCitizen && (
@@ -5157,9 +4969,9 @@ export function GovContactsContent({
               <div className="h-1.5 w-full bg-gradient-to-r from-rose-400 via-rose-600 to-rose-400" />
               <div className="px-6 md:px-9 pt-7 pb-1 text-center">
                 <div className="mx-auto w-20 h-20 rounded-full bg-rose-50 border border-rose-100 shadow-[0_0_36px_rgba(244,63,94,0.20)] flex items-center justify-center mb-4">
-                  <AlertTriangle size={32} className="text-rose-700" strokeWidth={2.2} />
+                  <AlertTriangle size={32} className="text-rose-600" strokeWidth={2.2} />
                 </div>
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-700 m-0">Acção irreversível · Requer confirmação</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-600 m-0">Acção irreversível · Requer confirmação</p>
                 <h3 className="text-xl md:text-2xl font-black text-[#0c2340] italic uppercase tracking-tighter mt-1.5 leading-tight m-0">Eliminar Cadastro do Cidadão</h3>
               </div>
               <div className="px-6 md:px-9 pb-7 pt-5 space-y-4">
@@ -5174,12 +4986,12 @@ export function GovContactsContent({
                     <p className="text-[13px] font-black text-slate-900 m-0 truncate">{deleteConfirmCitizen.name}</p>
                     {deleteConfirmCitizen.biNumber ? <p className="text-[10.5px] font-mono font-bold text-slate-500 m-0 mt-0.5">BI: {deleteConfirmCitizen.biNumber}</p> : null}
                   </div>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-rose-700 bg-rose-50 border border-rose-100 rounded-full px-2.5 py-1 shrink-0">Alvo</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-rose-600 bg-rose-50 border border-rose-100 rounded-full px-2.5 py-1 shrink-0">Alvo</span>
                 </div>
                 <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-start gap-3">
-                  <AlertTriangle size={17} className="text-rose-700 shrink-0 mt-0.5" />
+                  <AlertTriangle size={17} className="text-rose-500 shrink-0 mt-0.5" />
                   <p className="text-[11px] leading-relaxed text-slate-600 font-semibold m-0">
-                    Esta acção remove o registo da <span className="font-black text-slate-900">base de dados central</span> e desta consola, incluindo os dados de validação associados. <span className="font-black text-rose-700">Não pode ser anulada.</span>
+                    Esta acção remove o registo da <span className="font-black text-slate-900">base de dados central</span> e desta consola, incluindo os dados de validação associados. <span className="font-black text-rose-600">Não pode ser anulada.</span>
                   </p>
                 </div>
                 <div className="flex flex-col-reverse sm:flex-row gap-2.5 pt-1">

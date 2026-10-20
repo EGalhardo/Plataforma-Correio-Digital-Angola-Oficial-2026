@@ -5,9 +5,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mic, Globe, ChevronDown, Check, Sun, Moon, LogOut } from 'lucide-react';
+import { Mic, Globe, ChevronDown, Check, Sun, Moon, Mail, Bell, LogOut } from 'lucide-react';
 import { useSession } from '../../services/sessionStore';
-import { AppNotification, AppMode, LanguageCode, LANGUAGE_OPTIONS, Message, PendingRegistration } from '../../types';
+import { AppNotification, AppMode, LanguageCode, LANGUAGE_OPTIONS, Message } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
 import { LazyImage } from '../ui/LazyImage';
 import logoModoClaro from '../../assets/images/logomarca_modo_claro_crop.png';
@@ -15,7 +15,6 @@ import logoModoEscuro from '../../assets/images/logomarca_modo_escuro_crop.png';
 import { hasPagePresentation } from '../../services/voicePresentations';
 import { resolveInstitutionCode, isRealInstitutionalCode } from '../../services/supabaseService';
 import { isPlaceholderAvatar, iniciaisDe } from '../../services/avatarService';
-import { isVideoAtendimentoMessage, isComunicadoMessage, isNovaDenunciaMessage, isReclamacaoDenunciaMessage } from '../../utils/notificacoesAtalhos';
 import type { JSX } from 'react';
 
 interface HeaderProps {
@@ -23,8 +22,7 @@ interface HeaderProps {
   iaLiveActive: boolean;
   startIaVoice: () => void;
   stopIaVoice: () => void;
-  /** Mantido por compatibilidade (o Centro de Notificações lê-as do App). */
-  notifications?: AppNotification[];
+  notifications: AppNotification[];
   showNotifications: boolean;
   setShowNotifications: (show: boolean) => void;
   userProfilePhoto?: string;
@@ -46,11 +44,6 @@ interface HeaderProps {
   unreadMessages?: Message[];
   /** Abre uma mensagem não lida (marca-a como lida e navega para Correspondências). */
   onOpenUnreadMessage?: (message: Message) => void;
-  /** 2026-09-13 — Admin: registos (cidadãos/instituições) ainda não homologados.
-   *  São o ÚNICO conteúdo do menu da foto e do indicador na Administração. */
-  pendingRegistrations?: PendingRegistration[];
-  /** Abre a página de homologação do registo pendente (Cidadãos / Interoperabilidade). */
-  onOpenPendingRegistration?: (r: PendingRegistration) => void;
   /** Tom do indicador Online por estado da conta do cidadão (null = tom padrão verde). */
   citizenOnlineTone?: 'red' | 'green' | 'yellow' | null;
   chatAssistantRecognitionRef?: { current: { stop(): void } | null };
@@ -61,36 +54,24 @@ function UnreadMessagesMenu({
   open,
   onClose,
   messages,
-  pendingRegistrations = [],
-  isAdmin = false,
+  notifications = [],
   onOpenMessage,
-  onOpenPendingRegistration,
+  onShowNotifications,
   onLogout,
   translate
 }: {
   open: boolean;
   onClose: () => void;
   messages: Message[];
-  pendingRegistrations?: PendingRegistration[];
-  isAdmin?: boolean;
+  notifications?: AppNotification[];
   onOpenMessage?: (message: Message) => void;
-  onOpenPendingRegistration?: (r: PendingRegistration) => void;
+  onShowNotifications: () => void;
   onLogout?: (clearAll?: boolean) => void;
   translate: (key: string) => string;
 }) {
   if (!open) return null;
 
-  // 2026-09-13 — o menu da foto mostra APENAS o que o indicador conta:
-  //  • cidadão/instituição → correspondências NÃO LIDAS (= «Não Lidas» do Painel);
-  //  • administração → registos de cidadãos/instituições AINDA NÃO APROVADOS.
-  // Notificações gerais deixaram de ser listadas aqui (continuam no Centro de
-  // Notificações). O contador do cabeçalho é o MESMO número do badge.
-  const unreadCount = isAdmin ? pendingRegistrations.length : messages.length;
-  const titulo = isAdmin ? translate("Registos por Homologar") : translate("Correspondências Não Lidas");
-  const subtitulo = isAdmin
-    ? `${pendingRegistrations.length} ${translate("registos pendentes")}`
-    : `${messages.length} ${translate("não lidas")}`;
-  const vazio = isAdmin ? translate("Sem registos pendentes de homologação.") : translate("Sem correspondências por ler.");
+  const unreadCount = messages.length + notifications.filter(n => n.unread !== false).length;
 
   // Estrutura idêntica ao dropdown de Notificações (padrão comprovado da app):
   // backdrop fixo fecha ao clicar fora + painel fixo independente do z-index e
@@ -100,66 +81,53 @@ function UnreadMessagesMenu({
       <div className="fixed inset-0 z-[150]" onClick={onClose} />
       <div className="fixed top-16 md:top-20 right-3 md:right-6 z-[160] w-[min(92vw,340px)] bg-white rounded-2xl shadow-[0_20px_50px_rgba(15,23,42,0.18)] border border-slate-100 overflow-hidden text-left animate-fadeIn">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-          <span className="flex flex-col min-w-0">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">{titulo}</span>
-            <span data-testid="menu-decomposicao" className="text-[8.5px] font-bold text-slate-400 tracking-wide leading-none mt-0.5">
-              {subtitulo}
-            </span>
-          </span>
-          <span data-testid="menu-contador" className="text-[9px] font-black text-white bg-red-600 rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center leading-none">{unreadCount}</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">{translate("Mensagens e Notificações")}</span>
+          <span className="text-[9px] font-black text-white bg-red-600 rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center leading-none">{unreadCount}</span>
         </div>
         <div className="max-h-[260px] overflow-y-auto custom-scrollbar divide-y divide-slate-50">
-          {unreadCount === 0 ? (
-            <div className="px-4 py-6 text-center text-[11px] font-bold text-slate-400">{vazio}</div>
-          ) : isAdmin ? (
-            pendingRegistrations.map((r) => (
-              <button
-                key={`${r.kind}:${r.id}`}
-                type="button"
-                data-testid="menu-registo-pendente"
-                data-kind={r.kind}
-                onClick={() => { onOpenPendingRegistration?.(r); onClose(); }}
-                className="w-full text-left px-4 py-3 hover:bg-blue-50/60 transition-colors cursor-pointer flex items-start gap-2.5"
-              >
-                <span className="mt-1.5 w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                <span className="flex-1 min-w-0">
-                  <span className="block text-[10px] font-black uppercase tracking-wide text-slate-800 truncate">
-                    {r.kind === 'instituicao' ? translate("Registo de Instituição") : translate("Registo de Cidadão")}
-                  </span>
-                  <span className="block text-[11px] font-bold text-slate-600 truncate">{r.name}</span>
-                  <span className="block text-[9px] font-semibold text-slate-400 mt-0.5 font-mono">{r.code} · {r.createdAt}</span>
-                </span>
-              </button>
-            ))
+          {messages.length === 0 && notifications.length === 0 ? (
+            <div className="px-4 py-6 text-center text-[11px] font-bold text-slate-400">{translate("Sem mensagens ou notificações pendentes.")}</div>
           ) : (
-            messages.map((msg) => {
-              const normSubj = (msg.details?.subject || msg.preview || '').toLowerCase();
-              const isVideo = isVideoAtendimentoMessage(msg) || (msg as any).targetTab === 'video-atendimento' || normSubj.includes('vídeo') || normSubj.includes('video');
-              const isCom = isComunicadoMessage(msg) || (msg as any).targetTab === 'comunicados' || normSubj.includes('[comunicado');
-              const isDen = isNovaDenunciaMessage(msg) || isReclamacaoDenunciaMessage(msg) || (msg as any).targetTab === 'denuncias' || (msg as any).targetTab === 'nova-denuncia' || normSubj.includes('denúncia') || normSubj.includes('denuncia') || normSubj.includes('reclamação');
-
-              return (
+            <>
+              {messages.map((msg) => (
                 <button
                   key={msg.id}
                   type="button"
-                  data-testid="menu-item-nao-lido"
                   onClick={() => { onOpenMessage?.(msg); onClose(); }}
                   className="w-full text-left px-4 py-3 hover:bg-blue-50/60 transition-colors cursor-pointer flex items-start gap-2.5"
                 >
-                  <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${
-                    isDen ? 'bg-amber-500' : isCom ? 'bg-indigo-600' : isVideo ? 'bg-emerald-700' : 'bg-blue-600'
-                  }`} />
+                  <span className="mt-1.5 w-2 h-2 rounded-full bg-blue-600 shrink-0" />
                   <span className="flex-1 min-w-0">
                     <span className="block text-[10px] font-black uppercase tracking-wide text-slate-800 truncate">{msg.org}</span>
                     <span className="block text-[11px] font-bold text-slate-600 truncate">{msg.details?.subject || msg.preview}</span>
                     <span className="block text-[9px] font-semibold text-slate-400 mt-0.5">{msg.date}</span>
                   </span>
+                  <Mail size={13} className="text-slate-300 shrink-0 mt-1.5" />
                 </button>
-              );
-            })
+              ))}
+              {notifications.slice(0, 3).map((n) => (
+                <div
+                  key={n.id}
+                  className="px-4 py-2.5 hover:bg-slate-50/80 transition-colors flex items-start gap-2.5"
+                >
+                  <Bell size={13} className="text-[#2563eb] shrink-0 mt-1" />
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-[10.5px] font-bold text-slate-700 truncate">{n.title}</span>
+                    <span className="block text-[9.5px] text-slate-500 truncate">{n.message}</span>
+                  </div>
+                </div>
+              ))}
+            </>
           )}
         </div>
         <div className="p-2.5 bg-slate-50/80 border-t border-slate-100 flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={() => { onClose(); onShowNotifications(); }}
+            className="w-full px-3 py-2 rounded-xl bg-white hover:bg-slate-100 transition-colors text-[9.5px] font-black uppercase tracking-widest text-slate-600 flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200/80 shadow-2xs"
+          >
+            <Bell size={11} className="text-[#2563eb]" /> {translate("Ver Notificações")}
+          </button>
           <button
             type="button"
             onClick={() => { onClose(); onLogout?.(false); }}
@@ -266,6 +234,7 @@ export function Header({
   iaLiveActive, 
   startIaVoice, 
   stopIaVoice, 
+  notifications, 
   setShowNotifications,
   NotificationDropdown,
   isChatOpen,
@@ -283,8 +252,6 @@ export function Header({
   unreadCorrespondencesCount,
   unreadMessages = [],
   onOpenUnreadMessage,
-  pendingRegistrations = [],
-  onOpenPendingRegistration,
   citizenOnlineTone = null,
   chatAssistantRecognitionRef,
   handleLogout
@@ -293,28 +260,16 @@ export function Header({
   const { t: translate } = useLanguage();
   const isUserMode = appMode === 'user';
   const isInstitutionMode = appMode === 'institution';
-  // 2026-09-12 (T58b) — no cidadão e na instituição o badge da foto é
-  // EXACTAMENTE o número de correspondências «Não Lidas» do Painel (fonte única:
-  // unreadTotal em App.tsx). As notificações por ler são listadas no menu e no
-  // Centro de Notificações, mas não entram no indicador (T56 revertido a pedido).
-  // 2026-09-13 — na Administração o badge = registos (cidadãos/instituições)
-  // AINDA NÃO APROVADOS; desaparece quando o último é decidido. As notificações
-  // gerais não entram no indicador em nenhuma área.
-  const unreadCount = (isUserMode || isInstitutionMode)
-    ? (typeof unreadCorrespondencesCount === 'number' ? unreadCorrespondencesCount : 0)
-    : pendingRegistrations.length;
+  const unreadCount = (isUserMode || isInstitutionMode) && typeof unreadCorrespondencesCount === 'number'
+    ? unreadCorrespondencesCount
+    : notifications.filter(n => n.unread !== false).length;
   const [showUnreadMenu, setShowUnreadMenu] = useState(false);
-
-  useEffect(() => {
-    setShowUnreadMenu(false);
-  }, [tab]);
-
   // Cor do indicador Online por estado da conta (só no modo cidadão)
   // O tom por estado da conta aplica-se ao cidadão E à instituição (pendente → vermelho…)
   const onlineTone = (isUserMode || isInstitutionMode) ? citizenOnlineTone : null;
   const onlineDot = onlineTone === 'red' ? 'bg-red-500' : onlineTone === 'yellow' ? 'bg-amber-400' : 'bg-[#00dd82]';
   const onlinePing2 = onlineTone === 'red' ? 'bg-red-500/30' : onlineTone === 'yellow' ? 'bg-amber-400/30' : 'bg-[#00dd82]/30';
-  const onlinePillText = onlineTone === 'red' ? 'bg-transparent text-red-600' : onlineTone === 'yellow' ? 'bg-transparent text-amber-700' : 'bg-transparent text-[#007a4d]';
+  const onlinePillText = onlineTone === 'red' ? 'bg-transparent text-red-600' : onlineTone === 'yellow' ? 'bg-transparent text-amber-600' : 'bg-transparent text-[#00925d]';
   const isGov = appMode !== 'user';
   const isAdmin = appMode === 'admin';
   const isInst = appMode === 'institution';
@@ -365,6 +320,7 @@ export function Header({
       case 'correspondencias': return 'Correio Digital';
       case 'documentos': return 'Documentos e Tramitações';
       case 'qr-code': return 'QR Code';
+      case 'pasta-digital': return 'Pasta Digital';
       case 'historico': return 'Meu Histórico';
       case 'notificacoes': return 'Centro de Notificações';
       case 'solicitar-documento': return 'Solicitar Documento';
@@ -475,21 +431,20 @@ export function Header({
           </button>
 
           <button 
-            type="button"
-            disabled={currentLanguage !== 'pt'}
-            onClick={currentLanguage === 'pt' ? handleMicClick : undefined}
+            disabled={currentLanguage !== 'pt' || !hasPagePresentation(appMode, tab)}
+            onClick={(currentLanguage === 'pt' && hasPagePresentation(appMode, tab)) ? handleMicClick : undefined}
             className={`relative flex items-center justify-center p-2 rounded-full transition-all focus:outline-none ${
-              currentLanguage !== 'pt' ? 'opacity-30 cursor-not-allowed' : ''
+              (currentLanguage !== 'pt' || !hasPagePresentation(appMode, tab)) ? 'opacity-30 cursor-not-allowed' : ''
             } ${
               iaLiveActive ? (isAdmin ? 'bg-red-500/15' : isInst ? 'bg-red-600/10' : 'bg-primary/10') : 'active:bg-slate-50'
             }`}
             title={
               currentLanguage !== 'pt' 
                 ? "Voz indisponível em dialetos regionais" 
-                : "Copiloto de Voz e Acessibilidade IA (Alt + V)"
+                : !hasPagePresentation(appMode, tab) 
+                  ? "Apresentação de voz indisponível nesta página" 
+                  : "Apresentar esta página por voz"
             }
-            aria-label="Ativar Copiloto de Voz e Acessibilidade IA"
-            aria-pressed={iaLiveActive}
           >
             {iaLiveActive && (
               <motion.div
@@ -509,7 +464,7 @@ export function Header({
           
           <div 
             onClick={() => { setShowUnreadMenu(!showUnreadMenu); setShowNotifications(false); }}
-            className="relative flex items-center justify-center cursor-pointer ml-1 mr-2 mt-0.5"
+            className="relative flex items-center justify-center cursor-pointer"
             role="button"
             aria-label="Menu de Perfil e Notificações"
           >
@@ -520,11 +475,12 @@ export function Header({
                 priority={true}
                 placeholder="skeleton"
                 style={{
-                  width: '2.125rem',
-                  height: '2.125rem',
+                  width: '2rem',
+                  height: '2rem',
                   borderRadius: '9999px',
                   objectFit: 'cover',
                   border: '0.5px solid #e2e8f0',
+                  marginLeft: '0.25rem',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
                 }}
@@ -535,27 +491,23 @@ export function Header({
               <div
                 title={user?.name || user?.firstName || 'Perfil'}
                 className="flex items-center justify-center bg-blue-600 text-white font-black cursor-pointer select-none ring-1 ring-primary/5 hover:ring-primary/15"
-                style={{ width: '2.125rem', height: '2.125rem', borderRadius: '9999px', fontSize: '11px', border: '0.5px solid #e2e8f0' }}
+                style={{ width: '2rem', height: '2rem', borderRadius: '9999px', fontSize: '11px', marginLeft: '0.25rem', border: '0.5px solid #e2e8f0' }}
               >
                 {iniciaisDe(user?.name || user?.firstName)}
               </div>
             )}
             {unreadCount > 0 && (
-              <div 
-                data-testid="avatar-unread-badge" 
-                className="bg-red-600 text-white font-black text-[8px] min-w-[15px] h-[15px] px-1 flex items-center justify-center rounded-full ring-[1.5px] ring-white absolute -top-1 -right-1 z-20 shadow-xs pointer-events-none leading-none tracking-tight tabular-nums"
-              >
-                {unreadCount > 99 ? '99+' : unreadCount}
+              <div className="bg-red-600 text-white font-black text-[6px] min-w-[10px] h-[10px] px-0.5 flex items-center justify-center rounded-full ring-1 ring-white absolute -top-0.5 -right-0.5 z-10 shadow-sm pointer-events-none leading-none">
+                {unreadCount}
               </div>
             )}
             <UnreadMessagesMenu
               open={showUnreadMenu}
               onClose={() => setShowUnreadMenu(false)}
               messages={unreadMessages}
-              pendingRegistrations={pendingRegistrations}
-              isAdmin={isAdmin}
+              notifications={notifications}
               onOpenMessage={onOpenUnreadMessage}
-              onOpenPendingRegistration={onOpenPendingRegistration}
+              onShowNotifications={() => setShowNotifications(true)}
               onLogout={handleLogout}
               translate={translate}
             />
@@ -568,8 +520,8 @@ export function Header({
       <div 
         style={{ top: hasEmergencyBanner ? '32px' : '0' }}
         className={`hidden md:flex px-4 py-3 md:px-8 md:pt-6 md:pb-2 border-b justify-between items-center transition-all sticky z-20 ${
-        isAdmin ? 'bg-white border-slate-100 text-slate-900 shadow-none' : 
-        'bg-white border-b border-slate-100 text-slate-900 shadow-none'
+        isAdmin ? 'bg-white border-slate-100 text-slate-900 shadow-sm' : 
+        'bg-white border-line/5'
       }`}>
         <div className="flex-1">
           <small className={`text-[10px] md:text-sm font-black uppercase tracking-[0.1em] block mb-0.5 ${
@@ -653,21 +605,20 @@ export function Header({
           </button>
 
           <button 
-            type="button"
-            disabled={currentLanguage !== 'pt'}
-            onClick={currentLanguage === 'pt' ? handleMicClick : undefined}
+            disabled={currentLanguage !== 'pt' || !hasPagePresentation(appMode, tab)}
+            onClick={(currentLanguage === 'pt' && hasPagePresentation(appMode, tab)) ? handleMicClick : undefined}
             className={`relative flex items-center justify-center p-2 rounded-full transition-all focus:outline-none ${
-              currentLanguage !== 'pt' ? 'opacity-30 cursor-not-allowed' : ''
+              (currentLanguage !== 'pt' || !hasPagePresentation(appMode, tab)) ? 'opacity-30 cursor-not-allowed' : ''
             } ${
               iaLiveActive ? (isAdmin ? 'bg-red-500/15' : isInst ? 'bg-red-600/10' : 'bg-primary/10') : 'hover:bg-slate-50 hover:bg-opacity-10'
             }`}
             title={
               currentLanguage !== 'pt' 
                 ? "Voz indisponível em dialetos regionais" 
-                : "Copiloto de Voz e Acessibilidade IA (Alt + V)"
+                : !hasPagePresentation(appMode, tab) 
+                  ? "Apresentação de voz indisponível nesta página" 
+                  : "Apresentar esta página por voz"
             }
-            aria-label="Ativar Copiloto de Voz e Acessibilidade IA"
-            aria-pressed={iaLiveActive}
           >
             {iaLiveActive && (
               <motion.div
@@ -687,7 +638,7 @@ export function Header({
           
           <div 
             onClick={() => { setShowUnreadMenu(!showUnreadMenu); setShowNotifications(false); }}
-            className="relative flex items-center cursor-pointer mr-1.5 mt-0.5"
+            className="relative flex items-center cursor-pointer"
             role="button"
             aria-label="Menu de Perfil e Notificações"
           >
@@ -718,21 +669,17 @@ export function Header({
               </div>
             )}
             {unreadCount > 0 && (
-              <div 
-                data-testid="avatar-unread-badge" 
-                className="bg-red-600 text-white font-black text-[8.5px] min-w-[16px] h-[16px] px-1 flex items-center justify-center rounded-full ring-[1.5px] ring-white absolute -top-1 -right-1 z-20 shadow-xs pointer-events-none leading-none tracking-tight tabular-nums"
-              >
-                {unreadCount > 99 ? '99+' : unreadCount}
+              <div className="bg-red-600 text-white font-black text-[7.5px] min-w-[12px] h-[12px] px-0.5 flex items-center justify-center rounded-full ring-1 ring-white absolute -top-0.5 -right-0.5 z-10 shadow-sm pointer-events-none leading-none">
+                {unreadCount}
               </div>
             )}
             <UnreadMessagesMenu
               open={showUnreadMenu}
               onClose={() => setShowUnreadMenu(false)}
               messages={unreadMessages}
-              pendingRegistrations={pendingRegistrations}
-              isAdmin={isAdmin}
+              notifications={notifications}
               onOpenMessage={onOpenUnreadMessage}
-              onOpenPendingRegistration={onOpenPendingRegistration}
+              onShowNotifications={() => setShowNotifications(true)}
               onLogout={handleLogout}
               translate={translate}
             />

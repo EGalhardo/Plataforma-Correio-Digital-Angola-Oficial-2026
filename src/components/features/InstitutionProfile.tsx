@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   X,
 } from "lucide-react";
-import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { motion, AnimatePresence } from "motion/react";
 import { useSession } from "../../services/sessionStore";
 import { supabaseService, hasValidSupabaseKeys, removerFicheiroStoragePorUrl } from "../../services/supabaseService";
@@ -282,18 +281,15 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
   return (
     <section className="space-y-4 md:space-y-6 text-slate-950 animate-fade-in font-sans">
       
-      {/* Cabeçalho do Perfil Institucional */}
+      {/* Header row as seen in screenshot 2 */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-3 md:pb-5 mb-1 md:mb-2 gap-3 md:gap-4">
-        <div className="flex items-center gap-4">
-          <BotaoVoltar />
-          <div>
+        <div>
           <span className="text-xs uppercase font-bold tracking-widest text-slate-400">Minha Conta</span>
           <h1 className="text-2xl md:text-3xl font-black text-slate-950 tracking-tight">Perfil do Utilizador</h1>
           <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">Gerencie suas informações pessoais e preferências de acesso</p>
-          </div>
         </div>
         <div className="flex items-center gap-2 px-4 py-2 bg-[#f0f4ff] border border-blue-200 rounded-full text-blue-700 font-extrabold text-[11px] uppercase tracking-wider">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-700 bg-emerald-700 animate-pulse" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 bg-emerald-500 animate-pulse" />
           <span>Online & Autenticado</span>
         </div>
       </div>
@@ -314,9 +310,9 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
             }`}
           >
             {feedback.type === 'success' ? (
-              <CheckCircle2 size={16} className="text-emerald-700 shrink-0 mt-0.5" />
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
             ) : (
-              <AlertTriangle size={16} className="text-rose-700 shrink-0 mt-0.5" />
+              <AlertTriangle size={16} className="text-rose-600 shrink-0 mt-0.5" />
             )}
             <div className="flex-1 space-y-1 pr-6">
               <p className="font-extrabold leading-none">{feedback.text}</p>
@@ -462,7 +458,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
                     <button
                       type="button"
                       onClick={handleSaveInstEdit}
-                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1 shadow-sm cursor-pointer border-0"
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1 shadow-sm cursor-pointer border-0"
                     >
                       <Check size={14} />
                       Gravar
@@ -576,7 +572,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
                 <div className="space-y-2 text-[11px]">
                   <div className="flex justify-between py-1 border-b border-slate-50">
                     <span className="text-slate-500 font-medium">Autenticação 2FA</span>
-                    <span className="font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 border border-emerald-100 rounded-md">Ativo</span>
+                    <span className="font-extrabold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 border border-emerald-100 rounded-md">Ativo</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-50">
                     <span className="text-slate-500 font-medium">Dispositivos Ligados</span>
@@ -652,7 +648,7 @@ export const InstitutionProfile: React.FC<InstitutionProfileProps> = ({
                   </div>
                   <div className="flex justify-between pb-1 border-b border-slate-50">
                     <span className="text-slate-500 font-medium">Notificações</span>
-                    <span className="font-extrabold text-emerald-700">Ativas</span>
+                    <span className="font-extrabold text-emerald-600">Ativas</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500 font-medium">Tema</span>

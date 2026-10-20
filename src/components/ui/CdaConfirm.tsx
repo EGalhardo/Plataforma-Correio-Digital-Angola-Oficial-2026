@@ -40,7 +40,7 @@ export function CdaConfirmModal({
       titulo={titulo}
       subtitulo={subtitulo}
       maxW="max-w-xl"
-      tomIcone={perigoso ? 'bg-rose-50 text-rose-700 border-rose-100/60' : 'bg-amber-50 text-amber-700 border-amber-100/60'}
+      tomIcone={perigoso ? 'bg-rose-50 text-rose-600 border-rose-100/60' : 'bg-amber-50 text-amber-600 border-amber-100/60'}
       padding="p-6 md:p-8"
     >
       <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line m-0">{mensagem}</p>

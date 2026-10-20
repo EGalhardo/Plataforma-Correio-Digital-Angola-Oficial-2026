@@ -181,46 +181,36 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Sync active profiles changes with localStorage
   useEffect(() => {
-    try {
-      localStorage.setItem("gov_active_profiles", JSON.stringify(activeProfiles));
-    } catch { /* noop */ }
+    localStorage.setItem("gov_active_profiles", JSON.stringify(activeProfiles));
   }, [activeProfiles]);
 
   // Sync state changes with localStorage and sync with legacy names to keep existing app logic fully compatible
   useEffect(() => {
-    try {
-      localStorage.setItem("correio_digital_session_user", JSON.stringify(user));
-      
-      // Sync to legacy standard variables so components that read from localStorage don't break
-      localStorage.setItem("correio_digital_profile_name", user.name);
-      localStorage.setItem("correio_digital_bi", user.bi);
-      localStorage.setItem("correio_digital_phone", user.phone);
-      localStorage.setItem("correio_digital_nif", user.nif);
-      localStorage.setItem("correio_digital_passport", user.passport);
-      localStorage.setItem("correio_digital_birth_date", user.birthDate);
-      localStorage.setItem("correio_digital_filiation", user.filiation);
-      localStorage.setItem("correio_digital_marital_status", user.maritalStatus);
-      localStorage.setItem("correio_digital_verification_status", user.verificationLevel);
-    } catch { /* noop */ }
+    localStorage.setItem("correio_digital_session_user", JSON.stringify(user));
+    
+    // Sync to legacy standard variables so components that read from localStorage don't break
+    localStorage.setItem("correio_digital_profile_name", user.name);
+    localStorage.setItem("correio_digital_bi", user.bi);
+    localStorage.setItem("correio_digital_phone", user.phone);
+    localStorage.setItem("correio_digital_nif", user.nif);
+    localStorage.setItem("correio_digital_passport", user.passport);
+    localStorage.setItem("correio_digital_birth_date", user.birthDate);
+    localStorage.setItem("correio_digital_filiation", user.filiation);
+    localStorage.setItem("correio_digital_marital_status", user.maritalStatus);
+    localStorage.setItem("correio_digital_verification_status", user.verificationLevel);
   }, [user]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem("gov_app_mode", appMode);
-    } catch { /* noop */ }
+    localStorage.setItem("gov_app_mode", appMode);
   }, [appMode]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem("gov_emergency_mode", String(isEmergencyActive));
-    } catch { /* noop */ }
+    localStorage.setItem("gov_emergency_mode", String(isEmergencyActive));
   }, [isEmergencyActive]);
 
   const setAppMode = (mode: AppMode) => {
     setAppModeState(mode);
-    try {
-      localStorage.setItem("gov_app_mode", mode);
-    } catch { /* noop */ }
+    localStorage.setItem("gov_app_mode", mode);
     setUser(prev => sanitizeSessionUser(prev));
     const prefix = getModePathPrefix(mode);
     if (typeof window !== 'undefined') {
@@ -269,9 +259,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updatedProfile.institutionName = currentModeProfile.institutionName;
       }
       const newProfiles = { ...prev, [appMode]: updatedProfile };
-      try {
-        localStorage.setItem("gov_active_profiles", JSON.stringify(newProfiles));
-      } catch { /* noop */ }
+      localStorage.setItem("gov_active_profiles", JSON.stringify(newProfiles));
       return newProfiles;
     });
   };
@@ -291,9 +279,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ...prev,
         [appMode]: updated
       };
-      try {
-        localStorage.setItem("gov_active_profiles", JSON.stringify(newProfiles));
-      } catch { /* noop */ }
+      localStorage.setItem("gov_active_profiles", JSON.stringify(newProfiles));
       return newProfiles;
     });
   };

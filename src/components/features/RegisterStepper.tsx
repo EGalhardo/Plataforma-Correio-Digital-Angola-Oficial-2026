@@ -15,24 +15,19 @@ import {
   Shield,
   FileText,
   Fingerprint,
+  Sparkles,
   Loader2,
-  AlertTriangle,
-  Copy,
-  CheckCheck,
-  KeyRound,
-  ExternalLink
+  AlertTriangle
 } from 'lucide-react';
-import { notify } from '../../lib/notify';
 import { supabase } from '../../lib/supabaseClient';
-import { homologationStore, notifyRegistrationSubmitted } from '../../services/homologationStore';
-import { registoPublicoProxy, anunciarRegistosAlterados } from '../../services/supabaseService';
+import { homologationStore, notifyRegistrationSubmitted, notifyAccountApproved } from '../../services/homologationStore';
+import { registoPublicoProxy } from '../../services/supabaseService';
 import { CdaModal } from '../ui/CdaModal';
 import { isSupabaseConfigured, cloudSignOutBestEffort } from '../../services/cloudAuthService';
 import { purgeCitizenLocalResidues } from '../../services/accountGateService';
 import { gravarJob, correrRegistoBg, EVENTO_DESFECHO_BG, type RegistoBgJob } from '../../services/registoBgService';
 import { runRegistrationVerification, prewarmVerificationEngine, type RegistrationVerificationReport } from '../../services/verificationEngine';
 import { normalizarNome, normalizarTitulo, corrigirDominioEmail } from '../../services/textNormalizeService';
-import { saveLocalInstReg } from '../../services/institutionRegistrationStore';
 
 const base64ToBlob = (base64Str: string): Blob => {
   try {
@@ -86,7 +81,7 @@ const blobToPviDataUrl = (blob: Blob, maxSide = 1024, quality = 0.8): Promise<st
 
 interface RegisterStepperProps {
   onCancel: () => void;
-  onSuccess: (credentials?: { bi: string; password?: string }) => void;
+  onSuccess: () => void;
   addAuditLog: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
   appMode?: 'user' | 'institution' | 'admin';
 }
@@ -111,69 +106,29 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   const [dataNascimento, setDataNascimento] = useState('');
   const [sexo, setSexo] = useState('');
   // v37.8 — resultado da validação automática por IA
+  const [aprovadoPopup, setAprovadoPopup] = useState(false);
   // v37.29 — popup com Nº de acesso + senha ao concluir a inscrição
   const [credPopup, setCredPopup] = useState(false);
-  const [copiedBi, setCopiedBi] = useState(false);
-  const [copiedPassword, setCopiedPassword] = useState(false);
-  const [copiedAll, setCopiedAll] = useState(false);
-  const [showCredPassword, setShowCredPassword] = useState(true);
-
-  const copyToClipboard = async (text: string, type: 'bi' | 'password' | 'all') => {
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.opacity = '0';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-      }
-
-      if (type === 'bi') {
-        setCopiedBi(true);
-        setTimeout(() => setCopiedBi(false), 2500);
-        notify('Nº do B.I. copiado para a área de transferência!', 'success');
-      } else if (type === 'password') {
-        setCopiedPassword(true);
-        setTimeout(() => setCopiedPassword(false), 2500);
-        notify('Senha copiada para a área de transferência!', 'success');
-      } else {
-        setCopiedAll(true);
-        setTimeout(() => setCopiedAll(false), 2500);
-        notify('Credenciais completas (B.I. + Senha) copiadas!', 'success');
-      }
-    } catch (e) {
-      console.warn('Erro ao copiar credenciais:', e);
-    }
-  };
-
-  const handleGoToLoginWithCreds = () => {
-    void copyToClipboard(`B.I. de Acesso: ${biNumber.toUpperCase()}\nPalavra-passe: ${password}`, 'all');
-    setCredPopup(false);
-    onSuccess({ bi: biNumber.toUpperCase(), password });
-  };
   // v37.78.17 — REGRAS UX (processamento em segundo plano): estado vivo da
   // análise do registo, visível no ecrã de sucesso e nos popups.
-  const [analiseEstado, setAnaliseEstado] = useState<'em_analise' | 'aguarda_admin' | 'correcoes'>('em_analise');
+  const [analiseEstado, setAnaliseEstado] = useState<'em_analise' | 'aprovado' | 'correcoes'>('em_analise');
   const mountedRef = useRef(true);
+  const credPopupRef = useRef(false);
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+  useEffect(() => { credPopupRef.current = credPopup; }, [credPopup]);
   // v37.78.17 — desfecho do processamento em segundo plano (inclui RETOMA
   // após reload: o registoBgService emite o evento ao concluir a análise).
   useEffect(() => {
     const aoDesfechoBg = (ev: Event) => {
       const d = (ev as CustomEvent).detail || {};
       if (String(d.bi || '').toUpperCase().replace(/\s+/g, '') !== String(biNumber || '').toUpperCase().replace(/\s+/g, '')) return;
-      if (d.tipo === 'aguarda_admin') setAnaliseEstado('aguarda_admin');
+      if (d.tipo === 'aprovado') setAnaliseEstado('aprovado');
       else if (d.tipo === 'correcoes') setAnaliseEstado('correcoes');
     };
     window.addEventListener(EVENTO_DESFECHO_BG, aoDesfechoBg as EventListener);
     return () => window.removeEventListener(EVENTO_DESFECHO_BG, aoDesfechoBg as EventListener);
   }, [biNumber]);
+  const [aprovadoPendente, setAprovadoPendente] = useState(false);
   const [reprovacaoInfo, setReprovacaoInfo] = useState<{ motivo: string; alertas: string[] } | null>(null);
   const [documentFrente, setDocumentFrente] = useState<File | null>(null);
   const [documentVerso, setDocumentVerso] = useState<File | null>(null);
@@ -190,10 +145,11 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
   const [, setScanStateText] = useState('Pronto para Captura');
   const [captureFinished, setCaptureFinished] = useState(false);
   const [savedFacePhoto, setSavedFacePhoto] = useState<string>('');
-  const [savedFacePhotos, setSavedFacePhotos] = useState<string[]>([]);
 
   // Pré-verificação real dos documentos (Fase 1 — motor local no browser)
   const [verificationReport, setVerificationReport] = useState<RegistrationVerificationReport | null>(null);
+  // F28 (v11.1): selo «Aprovado automaticamente por Pré-Verificação Inteligente (IA)» no ecrã de sucesso
+  const [pviAutoApproved, setPviAutoApproved] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const verificationStartedRef = useRef(false);
 
@@ -218,6 +174,14 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
     if (isSupabaseConfigured()) void cloudSignOutBestEffort(supabase);
     // eslint-disable-next-line react-hooks/devDependencies
   }, []);
+
+  // v37.8 — após o popup «Aprovado», a página de registo fecha automaticamente
+  // e o cidadão é redireccionado para o Login (6 s, ou já ao clicar «Entendi»).
+  useEffect(() => {
+    if (!aprovadoPopup) return;
+    const timer = setTimeout(() => onSuccess(), 6000);
+    return () => clearTimeout(timer);
+  }, [aprovadoPopup, onSuccess]);
 
   // Calculate Password Strength in real time
   useEffect(() => {
@@ -432,6 +396,9 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
     const startCamera = async () => {
       if (step !== 3) return;
+      // v37.8 — cidadão: a etapa facial foi REMOVIDA do registo (validação só
+      // por comparação de dados do B.I.); a câmara é exclusiva do fluxo institucional.
+      if (appMode !== 'institution') return;
       setIsSimulatedCamera(false);
       setFaceCaptureHint('Posicione o rosto no centro da moldura.');
 
@@ -456,7 +423,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       }
     };
 
-    if (step === 3) {
+    if (step === 3 && appMode === 'institution') {
       startCamera();
     } else {
       stopFaceCamera();
@@ -468,11 +435,12 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
     };
   }, [step, appMode]);
 
-  // Pré-verificação automática (Fase 1): corre em segundo plano sem bloquear o utilizador
+  // Pré-verificação automática (Fase 1): dispara quando a captura facial termina
   useEffect(() => {
     if (!captureFinished || !savedFacePhoto || verificationStartedRef.current) return;
     verificationStartedRef.current = true;
-    addAuditLog('Pré-verificação dos documentos a decorrer em segundo plano', 'info');
+    setIsVerifying(true);
+    addAuditLog('Pré-verificação automática dos documentos iniciada (motor local)', 'info');
     runRegistrationVerification({
       frontImageDataUrl: frentePreview,
       selfieDataUrl: savedFacePhoto,
@@ -485,7 +453,9 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         addAuditLog(`Pré-verificação com análises indisponíveis: ${report.errors.join('; ')}`, 'warning');
       }
     }).catch(err => {
-      console.warn('Pré-verificação em segundo plano:', err);
+      console.error('Falha global na pré-verificação:', err);
+    }).finally(() => {
+      setIsVerifying(false);
     });
   }, [captureFinished, savedFacePhoto, frentePreview, biNumber, name, addAuditLog]);
 
@@ -542,8 +512,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       avgSignature.push(Math.round(sum / 3));
     }
 
-    const allPhotos = nextCaptures.map(c => c.imageDataUrl);
-
     const storagePayload = {
       identifier: biNumber.toUpperCase(),
       profileMode: appMode,
@@ -552,14 +520,12 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       imageDataUrl: captured.imageDataUrl,
       signature: avgSignature,
       signatures: nextCaptures.map(c => c.signature),
-      facePhotos: allPhotos,
     };
 
     localStorage.setItem(getDemoFaceStorageKey(), JSON.stringify(storagePayload));
 
     setTempFaceCaptures([]);
     setSavedFacePhoto(captured.imageDataUrl);
-    setSavedFacePhotos(allPhotos);
     setCaptureFinished(true);
     setScanStateText('Mapeamento Facial Concluído!');
     setFaceCaptureHint('Cadastro biométrico robusto concluído! 3/3 faces fundidas criptograficamente.');
@@ -618,7 +584,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       // (parecia dado de outra pessoa); agora o perfil mostra fundo azul com
       // a inicial do nome até o cidadão carregar a sua própria foto.
       facePhoto: savedFacePhoto || '',
-      facePhotos: savedFacePhotos.length > 0 ? savedFacePhotos : (savedFacePhoto ? [savedFacePhoto] : []),
       verificationScore: verificationReport ? verificationReport.coherenceScore : parseFloat((94 + Math.random() * 5).toFixed(1)),
       // Métricas reais da pré-verificação local (a fila do Admin usa estes valores quando presentes)
       facialMatch: verificationReport?.face.similarity ?? undefined,
@@ -679,58 +644,24 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
       // — gravação LOCAL instantânea (D3): a conta existe desde JÁ para login —
       try {
-        if (appMode === 'institution' || newUser.category === 'Instituição') {
-          saveLocalInstReg({
-            code: newUser.biNumber,
-            nome: newUser.name,
-            email: newUser.contact,
-            password: password,
-            status: 'Pendente',
-            observacoes: newUser.reason,
-            criadoEm: new Date().toISOString(),
-            agentNumber: `${newUser.biNumber}-01`,
-          });
-        } else {
-          const saved = localStorage.getItem('gov_admin_citizens');
-          const currentCitizens: any[] = saved ? JSON.parse(saved) : [];
-          // re-submissão após correcções substitui a entrada anterior do mesmo B.I.
-          const semRepetidos = currentCitizens.filter((c) => String(c.biNumber || '').toUpperCase() !== newUser.biNumber.toUpperCase());
-          semRepetidos.unshift({
-            ...newUser,
-            status: newUser.status || 'Pendente',
-            analiseEstado: 'em_analise',
-          });
-          localStorage.setItem('gov_admin_citizens', JSON.stringify(semRepetidos));
-        }
+        const saved = localStorage.getItem('gov_admin_citizens');
+        const currentCitizens: any[] = saved ? JSON.parse(saved) : [];
+        // re-submissão após correcções substitui a entrada anterior do mesmo B.I.
+        const semRepetidos = currentCitizens.filter((c) => String(c.biNumber || '').toUpperCase() !== newUser.biNumber.toUpperCase());
+        semRepetidos.unshift({
+          ...newUser,
+          status: newUser.status || 'Pendente',
+          analiseEstado: 'em_analise',
+        });
+        localStorage.setItem('gov_admin_citizens', JSON.stringify(semRepetidos));
         localStorage.setItem(`citizen_pass_${newUser.biNumber}`, password);
-        if (savedFacePhoto) {
-          localStorage.setItem(`cda_user_selfie_${biClean.toUpperCase()}`, savedFacePhoto);
-        }
-        if (savedFacePhotos.length > 0) {
-          localStorage.setItem(`cda_user_selfies_${biClean.toUpperCase()}`, JSON.stringify(savedFacePhotos));
-        } else if (savedFacePhoto) {
-          localStorage.setItem(`cda_user_selfies_${biClean.toUpperCase()}`, JSON.stringify([savedFacePhoto]));
-        }
-        if (frentePreview) {
-          localStorage.setItem(`cda_user_bi_frente_${biClean.toUpperCase()}`, frentePreview);
-        }
-        if (versoPreview) {
-          localStorage.setItem(`cda_user_bi_verso_${biClean.toUpperCase()}`, versoPreview);
-        }
       } catch { /* melhor esforço — não trava a confirmação imediata */ }
-      // F47-fix — novo registo submetido: limpa a marca de revogação local e resíduos anteriores.
+      // F47-fix — novo registo submetido: limpa a marca de revogação local.
       try { localStorage.removeItem('cda_revoked_' + biClean.toUpperCase()); } catch { /* ignora */ }
-      try { localStorage.removeItem('cda_deleted_' + biClean.toUpperCase()); } catch { /* ignora */ }
-      try { localStorage.removeItem('cda_deleted_inst_' + biClean.toUpperCase()); } catch { /* ignora */ }
-      try { localStorage.removeItem(`cda_avatar_user_${biClean.toUpperCase()}`); } catch { /* ignora */ }
-      try { localStorage.removeItem(`cda_perfil_dados_user_${biClean.toUpperCase()}`); } catch { /* ignora */ }
-      try { homologationStore.clearStatus(newUser.biNumber); } catch { /* ignora */ }
-      try { homologationStore.clearThread(newUser.biNumber); } catch { /* ignora */ }
 
       // — homologação nasce PENDENTE + correspondência oficial de recepção —
       homologationStore.setStatus(newUser.biNumber, 'pending', undefined, newUser.name);
       notifyRegistrationSubmitted(newUser.biNumber, newUser.name);
-      anunciarRegistosAlterados();
       addAuditLog(`Processo de Adesão de ${newUser.name} submetido ao SME — validação IA em segundo plano.`, 'info');
 
       // — confirmação IMEDIATA ao cidadão; o utilizador NÃO espera pela análise —
@@ -778,11 +709,13 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
         setSubmitMessage,
         setAnaliseEstado: (e) => { if (mountedRef.current) setAnaliseEstado(e); },
         setReprovacaoInfo: (i) => { if (mountedRef.current) setReprovacaoInfo(i); },
+        setPviAutoApproved,
+        pedirPopupAprovado: () => { if (mountedRef.current && !credPopupRef.current) setAprovadoPendente(true); },
       });
   };
 
   return (
-    <div className="w-full flex flex-col justify-between min-h-[396px] flex-1 font-sans">
+    <div className="w-full flex flex-col justify-between min-h-[440px] flex-1 font-sans">
       {/* Dynamic High-Fidelity Stepper Indicator */}
       {step !== 'success' && step !== 1 && (
         <div className="relative flex items-center justify-between w-full max-w-lg mx-auto mb-4 select-none px-4">
@@ -855,7 +788,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.28 }}
-              className="space-y-3"
+              className="space-y-4"
             >
               {/* Centered User Avatar exactly like the Login image */}
               <div className="text-center space-y-1.5">
@@ -874,7 +807,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               </div>
 
               {/* Form Input fields */}
-              <div className="space-y-3 pt-0 max-w-lg mx-auto">
+              <div className="space-y-3.5 pt-0 max-w-lg mx-auto">
                 {/* Nome Completo */}
                 <div className="grid gap-1 text-left">
                   <span className="text-[10.5px] text-slate-500 font-extrabold tracking-wider uppercase">
@@ -935,8 +868,8 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     {password && (
                       <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${
                         pwdStrength === 'Fraca' ? 'bg-red-50 text-red-600' :
-                        pwdStrength === 'Média' ? 'bg-amber-50 text-amber-700' :
-                        'bg-emerald-50 text-emerald-700'
+                        pwdStrength === 'Média' ? 'bg-amber-50 text-amber-600' :
+                        'bg-emerald-50 text-emerald-600'
                       }`}>
                         {pwdStrength}
                       </span>
@@ -956,7 +889,6 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      aria-label={showPassword ? 'Ocultar senha' : 'Ver senha'}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 bg-transparent border-none cursor-pointer flex items-center justify-center transition-all"
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -977,7 +909,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     confirmPassword && !passwordsMatch
                       ? 'border-red-400 focus-within:border-red-500 focus-within:ring-red-200'
                       : passwordsMatch
-                        ? 'border-emerald-400 focus-within:border-emerald-700 focus-within:ring-emerald-200'
+                        ? 'border-emerald-400 focus-within:border-emerald-500 focus-within:ring-emerald-200'
                         : 'border-slate-200 focus-within:border-[#0c2340] focus-within:ring-[#0c2340]'
                   }`}>
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${passwordsMatch ? 'bg-emerald-50 text-emerald-700' : 'bg-[#f0f4f9] text-[#1e3a8a]'}`}>
@@ -1002,14 +934,14 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     </span>
                   )}
                   {passwordsMatch && (
-                    <span className="text-[10px] text-emerald-700 font-extrabold uppercase tracking-tight flex items-center gap-1 mt-0.5 pl-2" role="status">
+                    <span className="text-[10px] text-emerald-600 font-extrabold uppercase tracking-tight flex items-center gap-1 mt-0.5 pl-2" role="status">
                       <Check size={12} aria-hidden="true" /> As senhas coincidem.
                     </span>
                   )}
                 </div>
 
                 {/* Password requirements banner matching image 1 perfectly */}
-                <div className="bg-[#f0f4f9] rounded-xl p-2.5 flex items-center gap-3 shadow-2xs border border-slate-100">
+                <div className="bg-[#f0f4f9] rounded-xl p-3 flex items-center gap-3 shadow-2xs border border-slate-100">
                   <ShieldCheck size={18} className="text-[#2563eb] shrink-0" />
                   <span className="text-slate-700 text-[10.5px] font-bold leading-normal font-sans">
                     A senha deve ter pelo menos 8 caracteres, incluindo letras e números.
@@ -1018,7 +950,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               </div>
 
               {/* Horizontal Separator Line */}
-              <div className="border-t border-slate-100/80 my-1 max-w-lg mx-auto" />
+              <div className="border-t border-slate-100/80 my-2 max-w-lg mx-auto" />
 
               {/* Actions Footer */}
               <div className="flex flex-col gap-2.5 max-w-lg mx-auto w-full pt-0">
@@ -1154,7 +1086,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     </span>
                     <label className={`group relative border-2 border-dashed rounded-[16px] p-2.5 text-center flex flex-col items-center justify-center min-h-[108px] cursor-pointer transition-all duration-300 select-none ${
                       frenteSuccess 
-                        ? 'border-emerald-700 bg-emerald-50/10' 
+                        ? 'border-emerald-500 bg-emerald-50/10' 
                         : isUploadingFrente 
                         ? 'border-[#2563eb] bg-blue-50/15 animate-pulse' 
                         : 'border-[#bfdbfe] bg-white hover:bg-[#eff6ff]/30 hover:border-[#2563eb]'
@@ -1181,8 +1113,8 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                             </div>
                           ) : (
                             <div className="flex flex-col items-center gap-0.5">
-                              <CheckCircle2 size={18} className="text-emerald-700" />
-                              <span className="text-[10.5px] font-black text-emerald-700 uppercase tracking-wider">Leitura Completa</span>
+                              <CheckCircle2 size={18} className="text-emerald-500" />
+                              <span className="text-[10.5px] font-black text-emerald-600 uppercase tracking-wider">Leitura Completa</span>
                             </div>
                           )}
                           <span className="text-[10px] font-black text-emerald-700 mt-0.5 uppercase tracking-tight">Ficheiro Carregado</span>
@@ -1211,7 +1143,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     </span>
                     <label className={`group relative border-2 border-dashed rounded-[16px] p-2.5 text-center flex flex-col items-center justify-center min-h-[108px] cursor-pointer transition-all duration-300 select-none ${
                       versoSuccess 
-                        ? 'border-emerald-700 bg-emerald-50/10' 
+                        ? 'border-emerald-500 bg-emerald-50/10' 
                         : isUploadingVerso 
                         ? 'border-[#2563eb] bg-blue-50/15 animate-pulse' 
                         : 'border-[#bfdbfe] bg-white hover:bg-[#eff6ff]/30 hover:border-[#2563eb]'
@@ -1238,8 +1170,8 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                             </div>
                           ) : (
                             <div className="flex flex-col items-center gap-0.5">
-                              <CheckCircle2 size={18} className="text-emerald-700" />
-                              <span className="text-[10.5px] font-black text-emerald-700 uppercase tracking-wider">Leitura Completa</span>
+                              <CheckCircle2 size={18} className="text-emerald-500" />
+                              <span className="text-[10.5px] font-black text-emerald-600 uppercase tracking-wider">Leitura Completa</span>
                             </div>
                           )}
                           <span className="text-[10px] font-black text-emerald-700 mt-0.5 uppercase tracking-tight">Ficheiro Carregado</span>
@@ -1308,36 +1240,95 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               exit={{ opacity: 0, scale: 0.98 }}
               className="space-y-2.5"
             >
+              {appMode !== 'institution' ? (
+                <>
+                  {/* v37.8 — Registo do cidadão SEM biometria facial: a IA apenas
+                      compara os dados do formulário com os dados extraídos do B.I. */}
+                  <div className="text-center">
+                    <h1 className="text-[#0f172a] text-xl font-extrabold tracking-tight mb-0.5 leading-tight">
+                      Validação Automática por IA
+                    </h1>
+                    <p className="text-[11px] text-slate-500 font-semibold m-0">
+                      A IA compara os dados introduzidos com os dados extraídos do Bilhete de Identidade.
+                      Não é realizado reconhecimento facial nesta etapa.
+                    </p>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 max-w-md mx-auto text-left shadow-sm space-y-2">
+                    {[
+                      ['Nome completo', name],
+                      ['Número do BI', biNumber],
+                      ['Data de nascimento', dataNascimento ? new Date(dataNascimento + 'T00:00:00').toLocaleDateString('pt-PT') : '—'],
+                      ['Sexo', sexo === 'M' ? 'Masculino' : sexo === 'F' ? 'Feminino' : '—'],
+                      ['Frente do B.I.', frenteSuccess ? 'Carregada ✓' : 'Em falta'],
+                      ['Verso do B.I.', versoSuccess ? 'Carregado ✓' : 'Em falta'],
+                    ].map(([k, v]) => (
+                      <div key={k} className="flex items-center justify-between gap-3">
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{k}</span>
+                        <span className="text-[12px] font-bold text-slate-800 text-right truncate max-w-[220px]">{v}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {reprovacaoInfo && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 max-w-md mx-auto text-left">
+                      <p className="text-[11px] font-black text-amber-800 uppercase tracking-widest m-0 mb-1 flex items-center gap-1.5">
+                        <AlertTriangle size={13} /> Dados não correspondem
+                      </p>
+                      <p className="text-[11.5px] font-semibold text-amber-800 m-0 leading-relaxed">
+                        {reprovacaoInfo.motivo || 'Existem dados que precisam de ser corrigidos ou verificados.'}
+                      </p>
+                      {reprovacaoInfo.alertas.length > 0 && (
+                        <p className="text-[10px] font-semibold text-amber-700 mt-1.5 m-0">
+                          Alertas: {reprovacaoInfo.alertas.join(', ')}
+                        </p>
+                      )}
+                      <p className="text-[10.5px] font-semibold text-amber-700 mt-1.5 m-0">
+                        Corrija os dados na etapa anterior e repita a validação.
+                      </p>
+                    </div>
+                  )}
+
+                  {isSubmitting && (
+                    <div className="flex items-center justify-center gap-1.5 py-0.5 text-[10px] font-bold text-blue-600 animate-pulse">
+                      <Loader2 size={13} className="animate-spin" />
+                      {submitMessage}
+                    </div>
+                  )}
+                  {submitError && !isSubmitting && (
+                    <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 text-[10.5px] font-bold text-red-700 text-left max-w-md mx-auto">
+                      <AlertTriangle size={14} className="shrink-0 mt-px text-red-500" />
+                      <span>{submitError}</span>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 w-full max-w-md mx-auto pt-1">
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => setStep(2)}
+                      className="flex-1 py-2 border border-slate-200 hover:bg-slate-50 text-slate-800 font-extrabold text-[#0f172a] text-[11.5px] uppercase tracking-widest rounded-xl transition-all cursor-pointer bg-white flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      <ArrowLeft size={13} /> VOLTAR
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={handleFinalSubmit}
+                      className="flex-1 py-2 text-[11.5px] font-black uppercase tracking-widest rounded-xl transition-all border-0 shadow-md flex items-center justify-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white cursor-pointer shadow-blue-500/20 disabled:opacity-60"
+                    >
+                      {isSubmitting ? 'A VALIDAR...' : 'VALIDAR COM IA E CONCLUIR'} <Check size={13} />
+                    </button>
+                  </div>
+                </>
+              ) : (
+              <>
               {/* Centered titles */}
               <div className="text-center">
                 <h1 className="text-[#0f172a] text-xl font-extrabold tracking-tight mb-0.5 leading-tight">
-                  {appMode === 'institution' ? 'Biometria Facial do Representante' : 'Registo e Biometria Facial'}
+                  {appMode === 'institution' ? 'Biometria Facial do Representante' : 'Assinatura de Biometria Facial'}
                 </h1>
-                <p className="text-[11px] text-slate-500 font-semibold m-0">
-                  {appMode === 'institution'
-                    ? 'Posicione o rosto do representante institucional na moldura para validação biométrica.'
-                    : 'Posicione o seu rosto na moldura para captura biométrica e prova de vida via IA.'}
-                </p>
               </div>
-
-              {reprovacaoInfo && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 max-w-md mx-auto text-left">
-                  <p className="text-[11px] font-black text-amber-800 uppercase tracking-widest m-0 mb-1 flex items-center gap-1.5">
-                    <AlertTriangle size={13} /> Dados não correspondem
-                  </p>
-                  <p className="text-[11.5px] font-semibold text-amber-800 m-0 leading-relaxed">
-                    {reprovacaoInfo.motivo || 'Existem dados que precisam de ser corrigidos ou verificados.'}
-                  </p>
-                  {reprovacaoInfo.alertas.length > 0 && (
-                    <p className="text-[10px] font-semibold text-amber-700 mt-1.5 m-0">
-                      Alertas: {reprovacaoInfo.alertas.join(', ')}
-                    </p>
-                  )}
-                  <p className="text-[10.5px] font-semibold text-amber-700 mt-1.5 m-0">
-                    Corrija os dados na etapa anterior e repita a validação.
-                  </p>
-                </div>
-              )}
 
               {/* Círculo interativo de Captura Biométrica (mesma configuração do Login Facial) */}
               <div className="relative flex justify-center py-1 mb-1.5">
@@ -1447,7 +1438,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               <div className="text-center space-y-1">
                 <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
                   captureFinished 
-                    ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
+                    ? 'bg-emerald-50 border-emerald-100 text-emerald-600' 
                     : isScanning 
                     ? 'bg-blue-50 border-blue-100 text-blue-600 animate-pulse' 
                     : 'bg-slate-50 border-slate-200 text-slate-500'
@@ -1455,7 +1446,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                   <Check size={10.5} className="font-extrabold" />
                   <span>
                     {captureFinished
-                      ? 'Cadastro biométrico robusto concluído! Face vinculada à identidade civil.'
+                      ? 'Cadastro biométrico robusto concluído! 3/3 faces fundidas criptograficamente.'
                       : isScanning
                         ? `A processar: ${scanProgress}%`
                         : tempFaceCaptures.length === 0
@@ -1502,13 +1493,25 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
 
               {/* Success Bio validation Alert Box */}
               {captureFinished && (
-                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 flex gap-2.5 text-left max-w-md mx-auto shadow-3xs">
-                  <ShieldCheck size={16} className="text-emerald-700 shrink-0 mt-0.5" />
+                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-2.5 flex gap-2 text-left max-w-md mx-auto">
+                  <ShieldCheck size={14} className="text-emerald-500 shrink-0 mt-0.5" />
                   <div className="space-y-1">
-                    <p className="text-[11px] font-black text-emerald-900 uppercase tracking-tight">BIOMETRIA REGISTADA COM SUCESSO</p>
+                    <p className="text-[10.5px] font-black text-emerald-900 uppercase tracking-tight">BIOMETRIA CONCLUÍDA</p>
                     <p className="text-[10px] text-[#065f46] leading-relaxed font-semibold">
-                      Os seus padrões biométricos faciais foram vinculados de forma criptografada à sua identidade. Pode submeter o registo de imediato.
+                      Os seus padrões biométricos foram validados e vinculados de forma criptografada à sua identidade civil.
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Motor local de pré-verificação: corre em SILÊNCIO para o cidadão.
+                  O relatório técnico (concordância facial, OCR, coerência global) é
+                  enviado APENAS para a fila de homologação da Área de Administração. */}
+              {isVerifying && (
+                <div className="bg-white border border-blue-100 rounded-xl p-3 max-w-md mx-auto text-left shadow-3xs">
+                  <div className="flex items-center gap-2 py-1 text-[10.5px] font-bold text-blue-600">
+                    <Loader2 size={13} className="animate-spin" />
+                    A validar a integridade dos documentos submetidos…
                   </div>
                 </div>
               )}
@@ -1518,7 +1521,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                 {isSubmitting && (
                   <div className="flex items-center justify-center gap-1.5 py-0.5 text-[10px] font-bold text-blue-600 animate-pulse">
                     <Loader2 size={13} className="animate-spin" />
-                    {submitMessage || 'A processar o registo em segundo plano…'}
+                    {submitMessage}
                   </div>
                 )}
                 {submitError && !isSubmitting && (
@@ -1532,33 +1535,27 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                     type="button"
                     disabled={isScanning || isSubmitting}
                     onClick={() => setStep(2)}
-                    className="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-800 font-extrabold text-[#0f172a] text-[11.5px] uppercase tracking-widest rounded-xl transition-all cursor-pointer bg-white flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    className="flex-1 py-2 border border-slate-200 hover:bg-slate-50 text-slate-800 font-extrabold text-[#0f172a] text-[11.5px] uppercase tracking-widest rounded-xl transition-all cursor-pointer bg-white flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
                     <ArrowLeft size={13} /> VOLTAR
                   </button>
                   <button
                     type="button"
-                    disabled={!captureFinished || isScanning || isSubmitting}
+                    disabled={!captureFinished || isScanning || isSubmitting || isVerifying}
                     onClick={handleFinalSubmit}
-                    className={`flex-1 py-2.5 text-[11.5px] font-black uppercase tracking-widest rounded-xl transition-all border-0 shadow-md flex items-center justify-center gap-1.5 ${
-                      captureFinished && !isScanning && !isSubmitting
-                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white cursor-pointer shadow-blue-500/20 active:scale-[0.98]' 
+                    className={`flex-1 py-2 text-[11.5px] font-black uppercase tracking-widest rounded-xl transition-all border-0 shadow-md flex items-center justify-center gap-1.5 ${
+                      captureFinished && !isScanning && !isSubmitting && !isVerifying
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white cursor-pointer shadow-blue-500/20' 
                         : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 shadow-none'
                     }`}
                   >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 size={13} className="animate-spin" /> A ENVIAR...
-                      </>
-                    ) : (
-                      <>
-                        FINALIZAR SUBMISSÃO <Check size={13} />
-                      </>
-                    )}
+                    {isVerifying ? 'A ANALISAR...' : isSubmitting ? 'A ENVIAR...' : 'FINALIZAR SUBMISSÃO'} <Check size={13} />
                   </button>
                 </div>
               </div>
 
+              </>
+              )}
             </motion.div>
           )}
 
@@ -1569,7 +1566,7 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
               animate={{ opacity: 1, scale: 1 }}
               className="text-center space-y-4 max-w-lg mx-auto"
             >
-              <div className="mx-auto w-14 h-14 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center justify-center shadow-md border border-emerald-100 animate-scaleUp">
+              <div className="mx-auto w-14 h-14 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center shadow-md border border-emerald-100 animate-scaleUp">
                 <ShieldCheck size={28} />
               </div>
 
@@ -1584,27 +1581,31 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                       : 'O seu processo de registo foi enviado com sucesso para a fila de homologação.'}
                   </p>
                   <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                    {appMode === 'institution'
-                      ? 'A IA verifica os dados e documentos submetidos; a decisão final de adesão será tomada pela equipa administrativa.'
-                      : 'A IA verifica os dados e documentos submetidos; a decisão final de homologação será tomada pelos inspectores de identificação civil nacional.'}
+                    {pviAutoApproved
+                      ? (appMode === 'institution'
+                        ? 'A adesão foi APROVADA AUTOMATICAMENTE pela Pré-Verificação Inteligente (IA) — a área institucional fica activa de imediato, sem espera pela homologação manual.'
+                        : 'A sua conta foi APROVADA AUTOMATICAMENTE pela Pré-Verificação Inteligente (IA) e está activa de imediato — já pode iniciar sessão com o seu B.I.')
+                      : (appMode === 'institution'
+                        ? 'O pedido está sob revisão da nossa equipa administrativa e técnica. Em menos de 24h enviaremos para o e-mail institucional os resultados.'
+                        : 'O seu processo está sob revisão dos inspectores de identificação civil nacional usando inteligência artificial. Em menos de 24h enviaremos para o seu Email os resultados.')}
                   </p>
                 </div>
               </div>
 
               {/* v37.78.17 — estado vivo da análise em segundo plano (REGRAS UX) */}
               {appMode !== 'institution' && (
-                <div className={`rounded-xl border p-3 flex items-center gap-2.5 text-left ${analiseEstado === 'aguarda_admin' ? 'bg-amber-50 border-amber-200' : analiseEstado === 'correcoes' ? 'bg-amber-50 border-amber-200' : 'bg-indigo-50 border-indigo-100'}`}>
-                  <span className="text-base leading-none select-none">{analiseEstado === 'aguarda_admin' ? '🕒' : analiseEstado === 'correcoes' ? '⚠️' : '⏳'}</span>
+                <div className={`rounded-xl border p-3 flex items-center gap-2.5 text-left ${analiseEstado === 'aprovado' ? 'bg-emerald-50 border-emerald-200' : analiseEstado === 'correcoes' ? 'bg-amber-50 border-amber-200' : 'bg-indigo-50 border-indigo-100'}`}>
+                  <span className="text-base leading-none select-none">{analiseEstado === 'aprovado' ? '✅' : analiseEstado === 'correcoes' ? '⚠️' : '⏳'}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10.5px] font-black uppercase tracking-widest m-0" style={{ color: analiseEstado === 'correcoes' || analiseEstado === 'aguarda_admin' ? '#b45309' : '#4338ca' }}>
-                      {analiseEstado === 'aguarda_admin' ? 'Aguarda homologação administrativa' : analiseEstado === 'correcoes' ? 'Correcções necessárias' : 'Análise em curso'}
+                    <p className="text-[10.5px] font-black uppercase tracking-widest m-0" style={{ color: analiseEstado === 'aprovado' ? '#047857' : analiseEstado === 'correcoes' ? '#b45309' : '#4338ca' }}>
+                      {analiseEstado === 'aprovado' ? 'Registo aprovado' : analiseEstado === 'correcoes' ? 'Correcções necessárias' : 'Análise em curso'}
                     </p>
                     <p className="text-[10.5px] text-slate-600 font-semibold m-0 mt-0.5 leading-relaxed">
-                      {analiseEstado === 'aguarda_admin'
-                        ? 'A verificação dos dados terminou. A conta continuará pendente até decisão de um administrador.'
+                      {analiseEstado === 'aprovado'
+                        ? 'A análise do seu registo terminou com aprovação. A conta está activa e todos os serviços ficam disponíveis.'
                         : analiseEstado === 'correcoes'
                           ? 'A análise terminou com dados a corrigir. Regresse ao registo, corrija os dados e repita a validação.'
-                          : 'O sistema está a analisar os seus documentos em segundo plano; a decisão final será administrativa.'}
+                          : 'O sistema está a analisar os seus documentos em segundo plano — pode continuar a usar a aplicação; o resultado chega por notificação.'}
                     </p>
                   </div>
                   {analiseEstado === 'correcoes' && (
@@ -1618,85 +1619,28 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
                   )}
                 </div>
               )}
-
-              {/* Caixa de Credenciais Completas no Ecrã de Sucesso */}
-              <div className="rounded-2xl border border-blue-200 bg-gradient-to-b from-blue-50/90 to-indigo-50/50 p-4 sm:p-5 space-y-3.5 shadow-sm text-left">
-                <div className="flex items-center justify-between pb-2 border-b border-blue-200/60">
-                  <span className="text-[11px] font-black uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
-                    <KeyRound size={14} className="text-blue-600" /> Credenciais de Acesso Oficial
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(`B.I. de Acesso: ${biNumber.toUpperCase()}\nPalavra-passe: ${password}`, 'all')}
-                    className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer border-none shadow-xs"
-                    title="Copiar B.I. e Senha para a área de transferência"
-                  >
-                    {copiedAll ? <CheckCheck size={12} className="text-emerald-300" /> : <Copy size={12} />}
-                    {copiedAll ? 'Copiado!' : 'Copiar Tudo'}
-                  </button>
-                </div>
-
-                {/* Campo 1: Nº do B.I. / NIF */}
-                <div className="space-y-1">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                    {appMode === 'institution' ? 'NIF / Código Institucional' : 'Nº do Bilhete de Identidade (B.I.)'}
-                  </span>
-                  <div className="flex items-center justify-between gap-2 bg-white border border-blue-200 rounded-xl p-2.5 px-3.5 shadow-xs">
-                    <span className="font-mono font-black text-slate-900 text-sm md:text-base tracking-wider select-all break-all">
-                      {biNumber.toUpperCase()}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(biNumber.toUpperCase(), 'bi')}
-                      className="p-1.5 px-2.5 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
-                      title="Copiar Nº do B.I."
-                    >
-                      {copiedBi ? <Check size={12} className="text-emerald-700" /> : <Copy size={12} />}
-                      <span>{copiedBi ? 'Copiado' : 'Copiar'}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Campo 2: Palavra-passe / Senha */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                      Palavra-passe de Acesso
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowCredPassword(!showCredPassword)}
-                      className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-transparent border-none cursor-pointer"
-                    >
-                      {showCredPassword ? <EyeOff size={12} /> : <Eye size={12} />}
-                      <span>{showCredPassword ? 'Ocultar' : 'Revelar'}</span>
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between gap-2 bg-white border border-blue-200 rounded-xl p-2.5 px-3.5 shadow-xs">
-                    <span className="font-mono font-black text-slate-900 text-sm md:text-base tracking-wider select-all break-all">
-                      {showCredPassword ? password : '•'.repeat(Math.min(password.length || 8, 16))}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(password, 'password')}
-                      className="p-1.5 px-2.5 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
-                      title="Copiar Palavra-passe"
-                    >
-                      {copiedPassword ? <Check size={12} className="text-emerald-700" /> : <Copy size={12} />}
-                      <span>{copiedPassword ? 'Copiada' : 'Copiar'}</span>
-                    </button>
-                  </div>
-                </div>
+              <div className="bg-blue-50 border border-blue-100/60 rounded-xl p-3 text-left flex gap-2.5 items-center">
+                <span className="text-[11px] font-black text-blue-800 select-none font-sans font-extrabold uppercase">
+                  {appMode === 'institution' ? 'NIF da Instituição:' : 'B.I. de Acesso:'}
+                </span>
+                <span className="text-[12.5px] font-mono font-black text-slate-800 uppercase tracking-widest bg-white border border-blue-100 px-3 py-1 rounded-lg">
+                  {biNumber}
+                </span>
               </div>
 
+              {pviAutoApproved && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 flex items-center justify-center gap-2 animate-fadeIn">
+                  <Sparkles size={13} className="text-emerald-600" />
+                  <span className="text-[10.5px] font-black text-emerald-700 uppercase tracking-widest">Aprovado automaticamente por Pré-Verificação Inteligente (IA)</span>
+                </div>
+              )}
 
               <button
                 type="button"
-                onClick={handleGoToLoginWithCreds}
+                onClick={onSuccess}
                 className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-black text-[12px] uppercase tracking-widest transition-all cursor-pointer border-0 shadow-xl shadow-blue-500/15 flex items-center justify-center gap-2"
               >
-                <Copy size={14} />
-                Copiar e Aceder ao Login Seguro
+                Voltar ao Login e Acesso Seguro
               </button>
             </motion.div>
           )}
@@ -1720,114 +1664,72 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       {/* v37.29 — popup de credenciais ao concluir a inscrição */}
       <CdaModal
         aberto={credPopup}
-        onFechar={() => setCredPopup(false)}
+        onFechar={() => {
+          setCredPopup(false);
+          if (aprovadoPendente) { setAprovadoPendente(false); setAprovadoPopup(true); }
+        }}
         icone={Lock}
         titulo="Registo Concluído"
         subtitulo="Dados de acesso · SME"
         tomIcone="bg-blue-50 text-blue-600 border-blue-100"
         maxW="max-w-md"
       >
-        <div className="text-left space-y-3.5">
+        <div className="text-left space-y-3">
           <p className="text-sm font-semibold text-slate-700 m-0 leading-relaxed">
-            O seu registo foi recebido com sucesso e a análise decorre em segundo plano. Utilize estes dados para aceder ao portal:
+            O seu registo foi recebido com sucesso e está a ser analisado pelo sistema. Use estes dados para iniciar sessão no portal:
           </p>
-
-          {/* Caixa de Credenciais Completas no Popup */}
-          <div className="rounded-2xl border border-blue-200 bg-gradient-to-b from-blue-50/90 to-indigo-50/50 p-4 space-y-3 shadow-xs">
-            <div className="flex items-center justify-between pb-1.5 border-b border-blue-200/60">
-              <span className="text-[10.5px] font-black uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
-                <KeyRound size={13} className="text-blue-600" /> Credenciais de Acesso
-              </span>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(`B.I. de Acesso: ${biNumber.toUpperCase()}\nPalavra-passe: ${password}`, 'all')}
-                className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[9.5px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer border-none shadow-xs"
-                title="Copiar B.I. e Senha para a área de transferência"
-              >
-                {copiedAll ? <CheckCheck size={11} className="text-emerald-300" /> : <Copy size={11} />}
-                {copiedAll ? 'Copiado!' : 'Copiar Tudo'}
-              </button>
+          <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-800 shrink-0">Nº de Acesso</span>
+              <span className="font-mono font-black text-slate-900 text-[13px] bg-white border border-blue-100 rounded-lg px-3 py-1.5 truncate">{biNumber}</span>
             </div>
-
-            {/* Nº de Acesso */}
-            <div className="space-y-1">
-              <span className="text-[9.5px] font-black uppercase tracking-widest text-slate-500">
-                {appMode === 'institution' ? 'NIF / Código Institucional' : 'Nº do Bilhete de Identidade (B.I.)'}
-              </span>
-              <div className="flex items-center justify-between gap-2 bg-white border border-blue-200 rounded-xl p-2 px-3 shadow-2xs">
-                <span className="font-mono font-black text-slate-900 text-sm tracking-wider select-all break-all">
-                  {biNumber.toUpperCase()}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(biNumber.toUpperCase(), 'bi')}
-                  className="p-1 px-2 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[9.5px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
-                  title="Copiar Nº do B.I."
-                >
-                  {copiedBi ? <Check size={11} className="text-emerald-700" /> : <Copy size={11} />}
-                  <span>{copiedBi ? 'Copiado' : 'Copiar'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Senha */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[9.5px] font-black uppercase tracking-widest text-slate-500">
-                  Palavra-passe de Acesso
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowCredPassword(!showCredPassword)}
-                  className="text-[9.5px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-transparent border-none cursor-pointer"
-                >
-                  {showCredPassword ? <EyeOff size={11} /> : <Eye size={11} />}
-                  <span>{showCredPassword ? 'Ocultar' : 'Revelar'}</span>
-                </button>
-              </div>
-              <div className="flex items-center justify-between gap-2 bg-white border border-blue-200 rounded-xl p-2 px-3 shadow-2xs">
-                <span className="font-mono font-black text-slate-900 text-sm tracking-wider select-all break-all">
-                  {showCredPassword ? password : '•'.repeat(Math.min(password.length || 8, 16))}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(password, 'password')}
-                  className="p-1 px-2 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[9.5px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
-                  title="Copiar Palavra-passe"
-                >
-                  {copiedPassword ? <Check size={11} className="text-emerald-700" /> : <Copy size={11} />}
-                  <span>{copiedPassword ? 'Copiada' : 'Copiar'}</span>
-                </button>
-              </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-800 shrink-0">Senha</span>
+              <span className="font-mono font-black text-slate-900 text-[13px] bg-white border border-blue-100 rounded-lg px-3 py-1.5 break-all text-right">{password}</span>
             </div>
           </div>
-
-          <p className="text-[10px] font-semibold text-slate-500 m-0">
-            Por segurança, memorize ou guarde estes dados num local seguro.
+          <p className="text-[10.5px] font-semibold text-slate-500 m-0">
+            Por segurança, memorize ou guarde estes dados num local seguro — a senha não volta a ser mostrada.
           </p>
           <p className="text-[10.5px] font-semibold text-blue-700 m-0 leading-relaxed">
-            O registo foi recebido. A verificação dos dados decorre em segundo plano; a conta só será activada após a homologação administrativa.
+            Pode entrar na aplicação já agora: a análise decorre em segundo plano e o resultado será notificado nesta mesma conta.
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+        <div className="flex justify-end pt-2">
           <button
             type="button"
-            onClick={() => setCredPopup(false)}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer border-none"
+            onClick={() => {
+              setCredPopup(false);
+              if (aprovadoPendente) { setAprovadoPendente(false); setAprovadoPopup(true); }
+            }}
+            className="px-6 py-3 rounded-full font-black text-xs uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer border-none shadow-md shadow-blue-200"
           >
-            Fechar
-          </button>
-          <button
-            type="button"
-            onClick={handleGoToLoginWithCreds}
-            className="w-full sm:w-auto px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all cursor-pointer border-none shadow-md shadow-blue-500/20 flex items-center justify-center gap-2"
-          >
-            <Copy size={13} />
-            Copiar e Ir para o Login
+            Entendi
           </button>
         </div>
       </CdaModal>
 
+      {/* v37.8 — popup de aprovação automática do registo do cidadão */}
+      <CdaModal
+        aberto={aprovadoPopup}
+        onFechar={() => { setAprovadoPopup(false); onSuccess(); }}
+        icone={CheckCircle2}
+        titulo="Aprovado"
+        subtitulo="Registo validado automaticamente"
+        tomIcone="bg-emerald-50 text-emerald-600 border-emerald-100"
+        maxW="max-w-md"
+      >
+        <p className="text-sm font-semibold text-slate-700 text-left m-0">Seu cadastro foi aprovado.</p>
+        <div className="flex justify-end pt-2">
+          <button
+            type="button"
+            onClick={() => { setAprovadoPopup(false); onSuccess(); }}
+            className="px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer border-none shadow-sm"
+          >
+            Entendi
+          </button>
+        </div>
+      </CdaModal>
       <datalist id="cda-dominios-email">
         <option value="@gmail.com" />
         <option value="@yahoo.com" />

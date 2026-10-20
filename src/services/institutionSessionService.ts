@@ -110,8 +110,6 @@ export const purgeInstitutionLocalResidues = (
 ): void => {
   const code = normalizeInstCode(codeRaw);
   if (!code) return;
-  try { localStorage.setItem(`cda_deleted_inst_${code}`, '1'); } catch { /* ignora */ }
-  try { localStorage.setItem(`cda_deleted_${code}`, '1'); } catch { /* ignora */ }
   // v37.74 — autossuficiente: sem o parâmetro `reg` (ex.: purga no
   // RE-REGISTO da adesão), lê o espelho local ANTES de o remover — os
   // Nº de agente da equipa (-02, -03, …) só são conhecidos a partir dele.
@@ -429,16 +427,17 @@ export const resolveInstitutionLogin = async (
       };
     }
   } else {
-    // Via legada (código sem NN): 2026-09-13 — senhas repetidas passaram a ser
-    // permitidas, pelo que a senha JÁ NÃO identifica a pessoa. Sem Nº Agente,
-    // só o RESPONSÁVEL pode entrar; colaboradores usam o Nº completo (CÓDIGO-NN).
+    // Via legada (código sem NN): a senha identifica a pessoa — comportamento F3 mantido
     if (respPasswordOk) {
       identity = { type: 'responsible', agentNumber: reg?.agentNumber || (parseInstPack(row?.observacoes || reg?.observacoes || '')?.agentNumber) };
+    } else if (reg) {
+      const member = (reg.members || []).find(m => m.password === password && password.length > 0);
+      if (member) identity = { type: 'member', memberId: member.id, memberName: member.name, mustChangePassword: !!member.mustChangePassword, agentNumber: member.agentNumber, paginasPermitidas: member.paginasPermitidas };
     }
     if (!identity) {
       return {
         outcome: 'invalid', code, name,
-        message: 'Credenciais incorrectas. Entre com o seu Nº Agente Institucional completo (ex.: CÓDIGO-01) e a respectiva senha.'
+        message: 'Credenciais incorrectas: a senha não corresponde a nenhuma credencial activa desta instituição.'
       };
     }
   }

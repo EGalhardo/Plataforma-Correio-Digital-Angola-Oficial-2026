@@ -20,7 +20,6 @@ import {
   Fingerprint,
   TrendingUp
 } from 'lucide-react';
-import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -264,7 +263,6 @@ export function GovSegurancaContent({
       {/* Title Header Section */}
       <div className="mb-12">
         <div className="flex items-center gap-3 mb-2">
-          <BotaoVoltar />
           <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white">
             <ShieldCheck size={16} />
           </div>
@@ -295,7 +293,7 @@ export function GovSegurancaContent({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase ${
-                emergencyMode ? 'bg-red-200 text-red-800 animate-pulse' : 'bg-white/10 text-slate-200'
+                emergencyMode ? 'bg-red-200 text-red-800 animate-pulse' : 'bg-slate-900/10 text-slate-700'
               }`}>
                 PROTOCOL SOC-AN-2026
               </span>
@@ -379,7 +377,7 @@ export function GovSegurancaContent({
                 <div>
                   <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">{dadosReais ? 'Contas com Biometria na Base' : 'Modelos Faciais Registados'}</p>
                   <h3 className="text-2xl font-black mt-2 text-slate-800">{dadosReais ? totalContas.toLocaleString('pt-AO') : '15,240'}</h3>
-                  <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-0.5 mt-1">
+                  <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5 mt-1">
                     <CheckCircle2 size={11} /> {dadosReais ? `${contasAtivas} activas agora` : '+12.4% este mês'}
                   </span>
                 </div>
@@ -411,7 +409,7 @@ export function GovSegurancaContent({
                 <div>
                   <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">{dadosReais ? 'Contas Bloqueadas / Suspensas' : 'Fraudes de Spoofing Bloqueadas'}</p>
                   <h3 className="text-2xl font-black mt-2 text-red-700">{dadosReais ? contasBloqueadas : '48'}</h3>
-                  <span className="text-[10px] font-bold text-red-600 flex items-center gap-0.5 mt-1">
+                  <span className="text-[10px] font-bold text-red-600 flex items-center gap-0.5 mt-1 animate-pulse">
                     <AlertTriangle size={11} /> {dadosReais ? 'revistar na gestão de contas' : '2 tentativas hoje'}
                   </span>
                 </div>
@@ -427,7 +425,7 @@ export function GovSegurancaContent({
                 <div>
                   <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Limiar de Validade Face ID</p>
                   <h3 className="text-2xl font-black mt-2 text-slate-800">{matchingThreshold}%</h3>
-                  <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-0.5 mt-1">
+                  <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5 mt-1">
                     Liveness Enforcement: Ativo
                   </span>
                 </div>
@@ -454,7 +452,7 @@ export function GovSegurancaContent({
               </div>
               <div className="text-right">
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block font-sans">Média Semanal de Sucesso</span>
-                <span className="text-xl font-bold tracking-tight text-emerald-700">{dadosReais && graficoReal && graficoReal.length > 0 ? `${Math.min(100, Math.round((graficoReal.reduce((sr, g) => sr + g.sucesso, 0) / Math.max(1, graficoReal.reduce((sr, g) => sr + g.sucesso + g.falhas, 0))) * 1000) / 10)}%` : (dadosReais ? '—' : '99.1%')}</span>
+                <span className="text-xl font-bold tracking-tight text-emerald-600">{dadosReais && graficoReal && graficoReal.length > 0 ? `${Math.min(100, Math.round((graficoReal.reduce((sr, g) => sr + g.sucesso, 0) / Math.max(1, graficoReal.reduce((sr, g) => sr + g.sucesso + g.falhas, 0))) * 1000) / 10)}%` : (dadosReais ? '—' : '99.1%')}</span>
               </div>
             </div>
 
@@ -563,7 +561,7 @@ export function GovSegurancaContent({
                           <div className="flex items-center gap-3">
                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                               user.status === 'Bloqueado' 
-                                ? 'bg-rose-50 text-rose-700 border border-rose-100' 
+                                ? 'bg-rose-50 text-rose-600 border border-rose-100' 
                                 : 'bg-indigo-50 text-indigo-800 border border-indigo-100'
                             }`}>
                               <UserSquare size={16} />
@@ -595,7 +593,7 @@ export function GovSegurancaContent({
                         <td className="py-4 px-5 font-bold text-slate-500">
                           {user.registeredAt}
                         </td>
-                        <td className="py-4 px-5 font-mono font-black text-emerald-700">
+                        <td className="py-4 px-5 font-mono font-black text-emerald-600">
                           {user.confidenceRate > 0 ? `${user.confidenceRate}%` : '\u2014'}
                         </td>
                         <td className="py-4 px-5 text-slate-500 font-bold">
@@ -607,7 +605,7 @@ export function GovSegurancaContent({
                             user.status === 'Pendente' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-rose-50 text-rose-700 border-rose-100'
                           }`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${
-                              user.status === 'Ativo' ? 'bg-emerald-700 animate-pulse' :
+                              user.status === 'Ativo' ? 'bg-emerald-500 animate-pulse' :
                               user.status === 'Pendente' ? 'bg-amber-500' : 'bg-rose-500'
                             }`} />
                             {user.status}
@@ -642,7 +640,7 @@ export function GovSegurancaContent({
                                     e.stopPropagation();
                                     handleStatusChange(user.id, 'Bloqueado');
                                   }}
-                                  className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-slate-200 rounded-lg cursor-pointer transition-colors"
+                                  className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-slate-200 rounded-lg cursor-pointer transition-colors"
                                   title="Bloquear Acesso por Face ID"
                                 >
                                   <Trash2 size={12} />
@@ -742,7 +740,7 @@ export function GovSegurancaContent({
                             'bg-blue-50 text-blue-700 border-blue-100'
                           }`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${
-                              l.type === 'critical' ? 'bg-rose-500' : l.type === 'warning' ? 'bg-amber-500' : l.type === 'success' ? 'bg-emerald-700' : 'bg-blue-500'
+                              l.type === 'critical' ? 'bg-rose-500' : l.type === 'warning' ? 'bg-amber-500' : l.type === 'success' ? 'bg-emerald-500' : 'bg-blue-500'
                             }`} />
                             {l.type === 'critical' ? 'Crítico' : l.type === 'warning' ? 'Aviso' : l.type === 'success' ? 'Sucesso' : 'Info'}
                           </span>
@@ -842,7 +840,7 @@ export function GovSegurancaContent({
               <p className="text-[11px] text-slate-500 leading-relaxed mb-4 font-medium">
                 Selecione qualquer utilizador na lista ("Modelos de Utilizadores" tab) e depois execute o diagnóstico na consola abaixo.
                 {dadosReais && (
-                  <span className="block mt-1.5 text-amber-700 font-bold">
+                  <span className="block mt-1.5 text-amber-600 font-bold">
                     Nota: resultado desta consola é uma SIMULAÇÃO técnica — a verificação biométrica oficial ocorre no Login Facial.
                   </span>
                 )}

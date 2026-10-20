@@ -35,10 +35,8 @@ import {
   Smartphone,
   Check,
   Copy,
-  Printer,
-  FileText
+  Printer
 } from 'lucide-react';
-import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { Message, LanguageCode } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
 
@@ -399,7 +397,14 @@ export function DocumentsContent({
         className="space-y-4 md:space-y-6 w-full"
       >
         <div className="flex items-center gap-4 mb-2">
-          <BotaoVoltar onClick={() => setIsComposing(false)} titulo="Voltar aos Documentos" />
+          <button 
+            onClick={() => setIsComposing(false)}
+            className="flex items-center justify-center w-10 h-10 bg-white border-2 border-[#d1dbe5] rounded-full text-[#384e6e] hover:bg-slate-50 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95 shrink-0"
+            aria-label="Voltar"
+            title="Voltar aos Documentos"
+          >
+            <ArrowLeft size={16} className="text-[#384e6e]" />
+          </button>
           <div>
             <h3 className="text-base md:text-xl font-black text-primary leading-none">Novo Documento Oficial</h3>
             <p className="text-[9px] md:text-[10px] text-slate-700 font-black uppercase tracking-widest mt-1">Submissão Oficial Homologada</p>
@@ -576,7 +581,14 @@ export function DocumentsContent({
 
         {/* Action Header / Top Bar (non-printable) */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 no-print bg-slate-50 border border-slate-200/80 p-4 rounded-[24px]">
-          <BotaoVoltar onClick={() => setSelectedInvoiceForDetail(null)} titulo="Voltar às Facturas" />
+          <button 
+            type="button"
+            onClick={() => setSelectedInvoiceForDetail(null)}
+            className="flex items-center justify-center w-10 h-10 bg-white border border-[#d1dbe5] rounded-full text-[#384e6e] hover:bg-slate-50 transition-all shadow-sm cursor-pointer hover:scale-105 active:scale-95 shrink-0"
+            title="Voltar às Facturas"
+          >
+            <ArrowLeft size={16} />
+          </button>
 
           <div className="flex items-center gap-2">
             {isPendente && (
@@ -587,7 +599,7 @@ export function DocumentsContent({
                   setShowPaySuccess(false);
                   setPayMethod('express');
                 }}
-                className="bg-emerald-700 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-full font-black text-xs flex items-center gap-2 shadow-md shadow-emerald-600/10 hover:scale-105 active:scale-95 transition-all cursor-pointer uppercase tracking-wider"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-full font-black text-xs flex items-center gap-2 shadow-md shadow-emerald-600/10 hover:scale-105 active:scale-95 transition-all cursor-pointer uppercase tracking-wider"
               >
                 <Coins size={15} />
                 Liquidar Fatura Agora
@@ -743,8 +755,8 @@ export function DocumentsContent({
               {/* Estado */}
               <div className="flex flex-row items-center">
                 <div className="w-28 sm:w-36 text-slate-500 font-sans font-bold uppercase text-[10px] text-right pr-4">Estado:</div>
-                <div className={`flex-1 font-sans font-black uppercase text-[11px] flex items-center gap-1.5 ${isPendente ? 'text-amber-700' : 'text-emerald-700'}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${isPendente ? 'bg-amber-500 animate-pulse' : 'bg-emerald-700'} shrink-0`} />
+                <div className={`flex-1 font-sans font-black uppercase text-[11px] flex items-center gap-1.5 ${isPendente ? 'text-amber-600' : 'text-emerald-600'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isPendente ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'} shrink-0`} />
                   {isPendente ? 'REQUERIMENTO PENDENTE' : 'LIQUIDADA COM SUCESSO'}
                 </div>
               </div>
@@ -815,7 +827,6 @@ export function DocumentsContent({
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
         <div className="flex items-center gap-4">
-          <BotaoVoltar />
           <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
             {isInst ? <Folder size={20} className="md:w-6 md:h-6" /> : <Receipt size={20} className="md:w-6 md:h-6" />}
           </div>
@@ -908,7 +919,7 @@ export function DocumentsContent({
           {/* Wallet Balance Widget for User mode when viewing invoices */}
           {!isInst && (
             <div className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 flex items-center gap-2.5 self-start lg:self-center">
-              <div className="w-7 h-7 bg-emerald-50 text-emerald-700 rounded-lg flex items-center justify-center shrink-0">
+              <div className="w-7 h-7 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center shrink-0">
                 <Coins size={15} />
               </div>
               <div>
@@ -920,50 +931,8 @@ export function DocumentsContent({
         </div>
 
         {!isInst ? (
-          // --- USER INVOICES + RECEIVED OFFICIAL DOCUMENTS ---
-          <>
-            {/* AUDIT-FIX(F2): o cidadão nunca via os documentos oficiais
-                submetidos pelas instituições (finalFilteredDocs era calculado
-                mas só renderizado no ramo da instituição). Secção própria
-                acima das facturas; clique abre o detalhe (mensagem). */}
-            {finalFilteredDocs.length > 0 && (
-              <div className="space-y-3 pb-2">
-                <h5 className="font-black text-slate-900 text-xs md:text-sm uppercase tracking-tight flex items-center gap-2">
-                  <FileText size={16} className="text-[#0E2B64] shrink-0" />
-                  Documentos oficiais recebidos ({finalFilteredDocs.length})
-                </h5>
-                <div className="space-y-2.5">
-                  {finalFilteredDocs.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() => handleSelectMessage(item)}
-                      className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-primary/30 transition-all cursor-pointer text-left space-y-1.5 active:scale-[0.99]"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shrink-0 ${
-                            item.unread
-                              ? 'bg-red-600 text-white border border-red-600'
-                              : 'bg-slate-100 text-slate-500 border border-slate-200'
-                          }`}>
-                            {item.unread ? 'Não Lido' : 'Consultado'}
-                          </span>
-                          <span className="text-[9px] font-bold text-slate-400 font-mono shrink-0">DOC: #{item.id}</span>
-                        </div>
-                        <span className="text-[9px] font-mono text-slate-400 font-bold shrink-0">{item.date}</span>
-                      </div>
-                      <div className="font-black text-slate-900 text-xs md:text-sm leading-snug break-words">
-                        {item.details?.subject || item.preview}
-                      </div>
-                      <div className="text-[10px] md:text-[11px] text-slate-500 font-semibold truncate">
-                        {item.org}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {filteredInvoicesForSelectedInst.length > 0 ? (
+          // --- USER INVOICES ---
+          filteredInvoicesForSelectedInst.length > 0 ? (
             <>
               {/* Mobile View: Invoice Cards */}
               <div className="block md:hidden space-y-3">
@@ -1114,7 +1083,7 @@ export function DocumentsContent({
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
                               : 'bg-amber-50 text-amber-700 border border-amber-100'
                           }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${!isPendente ? 'bg-emerald-700' : 'bg-amber-500 animate-pulse'} shrink-0`} />
+                            <span className={`w-1.5 h-1.5 rounded-full ${!isPendente ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'} shrink-0`} />
                             {item.status}
                           </span>
                         </td>
@@ -1162,8 +1131,6 @@ export function DocumentsContent({
             </div>
             </>
           ) : (
-            <>
-            {finalFilteredDocs.length === 0 ? (
             <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[24px] md:rounded-[32px] p-12 md:p-20 text-center space-y-4">
               <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm text-slate-400 border border-slate-200">
                 <Receipt size={32} />
@@ -1175,12 +1142,8 @@ export function DocumentsContent({
                 </p>
               </div>
             </div>
-            ) : null}
-            </>
-          )}
-          </>
           )
-        : (
+        ) : (
           // --- ORIGINAL DOCUMENTS TABLE ---
           finalFilteredDocs.length > 0 ? (
             <>
@@ -1308,7 +1271,7 @@ export function DocumentsContent({
                             <div className="font-extrabold text-[#1e293b] text-xs md:text-sm tracking-tight">
                               {translate(item.details?.subject || item.preview.substring(0, 30))}
                             </div>
-                            <div className="text-[9px] text-slate-600 font-black uppercase tracking-widest leading-none">
+                            <div className="text-[9px] text-[#94a3b8] font-black uppercase tracking-widest leading-none">
                               {isInst ? translate('REQUERIMENTO DE CERTIDÃO') : translate(item.protocol?.category || 'PROVA DE VIDA DIGITAL')}
                             </div>
                           </div>
@@ -1324,7 +1287,7 @@ export function DocumentsContent({
                         {/* Data de Expiração Column */}
                         <td className="py-5 px-5">
                           <div className="flex items-center">
-                            <span className="inline-flex items-center gap-1.5 text-red-600 text-[9px] font-semibold tracking-wider font-sans">
+                            <span className="inline-flex items-center gap-1.5 text-[#e05252] text-[9px] font-semibold tracking-wider font-sans">
                               <span className="w-1.5 h-1.5 rounded-full bg-[#f87171] animate-pulse shrink-0" />
                               {translate('EXPIRA')}: {translate(item.details?.deadline || item.protocol?.deadlineDate || 'UNLIMITED')}
                             </span>
@@ -1343,7 +1306,7 @@ export function DocumentsContent({
                         <td className="py-5 px-5 text-center">
                           <span className={`text-[9px] font-black uppercase tracking-widest leading-none inline-block ${
                             isUrgente
-                              ? 'text-red-600'
+                              ? 'text-[#e05252]'
                               : 'text-indigo-600'
                           }`}>
                             {translate(item.sensitivity || (isUrgente ? 'Restrito' : 'Público'))}
@@ -1428,7 +1391,7 @@ export function DocumentsContent({
                     </div>
                     <div className="text-right">
                       <div className="text-[10px] font-bold text-slate-500 uppercase">Vencimento</div>
-                      <div className="text-xs font-black text-rose-700 mt-0.5 font-mono">{activePayingInvoice.deadline}</div>
+                      <div className="text-xs font-black text-rose-600 mt-0.5 font-mono">{activePayingInvoice.deadline}</div>
                     </div>
                   </div>
 
@@ -1456,7 +1419,7 @@ export function DocumentsContent({
                         disabled={isPayingActive}
                         className={`p-3.5 rounded-2xl border flex flex-col items-center gap-1.5 transition-all text-center cursor-pointer ${
                           payMethod === 'carteira' 
-                            ? 'bg-emerald-50 border-emerald-700 text-emerald-800 font-black shadow-sm' 
+                            ? 'bg-emerald-50 border-emerald-500 text-emerald-800 font-black shadow-sm' 
                             : 'bg-white border-slate-200 text-slate-500 font-bold hover:bg-slate-50'
                         }`}
                       >
@@ -1558,7 +1521,7 @@ export function DocumentsContent({
                         >
                           {copiedInvoiceId === activePayingInvoice.id ? (
                             <>
-                              <Check size={14} className="text-emerald-700" /> Copiado!
+                              <Check size={14} className="text-emerald-600" /> Copiado!
                             </>
                           ) : (
                             <>
@@ -1599,7 +1562,7 @@ export function DocumentsContent({
               ) : (
                 // Success screen
                 <div className="p-6 md:p-8 text-center space-y-6">
-                  <div className="w-20 h-20 bg-emerald-50 rounded-full border border-emerald-100 flex items-center justify-center mx-auto text-emerald-700">
+                  <div className="w-20 h-20 bg-emerald-50 rounded-full border border-emerald-100 flex items-center justify-center mx-auto text-emerald-600">
                     <CheckCircle2 size={42} />
                   </div>
                   <div>
@@ -1681,7 +1644,7 @@ export function DocumentsContent({
                 >
                   ✕
                 </button>
-                <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center mx-auto text-emerald-700 mb-2 border border-emerald-100">
+                <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center mx-auto text-emerald-600 mb-2 border border-emerald-100">
                   <ShieldCheck size={24} />
                 </div>
                 <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">República de Angola</div>
@@ -1731,7 +1694,7 @@ export function DocumentsContent({
 
               {/* Security Watermark Check */}
               <div className="bg-slate-50/50 rounded-2xl p-3 flex gap-2.5 items-start border border-slate-150">
-                <ShieldCheck size={16} className="text-emerald-700 shrink-0 mt-0.5" />
+                <ShieldCheck size={16} className="text-emerald-600 shrink-0 mt-0.5" />
                 <p className="text-[10px] text-slate-500 font-semibold leading-relaxed">
                   Este comprovativo digital constitui prova idêntica à emissão física presencial, possuindo validade probatória legal permanente perante qualquer serviço da Administração do Estado Angolano.
                 </p>

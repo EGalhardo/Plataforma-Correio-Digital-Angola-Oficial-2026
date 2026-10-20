@@ -25,24 +25,23 @@ import {
   Landmark,
   RefreshCw
 } from 'lucide-react';
-import { BotaoVoltar } from '../ui/BotaoVoltar';
 
 import { Institution, Message } from '../../types';
 import { MUNICIPALITIES_BY_PROVINCE, CITIES_BY_PROVINCE, COMMUNES_BY_MUNICIPALITY, INSTITUTION_TYPES, mapTypeToCategory, generateSigla } from '../../config/institutionCatalog';
-import { useInstitutions, isDeletedInstitution } from '../../services/institutionStore';
+import { useInstitutions } from '../../services/institutionStore';
 import {
   lerClassificacaoInstituicao, definirClassificacaoInstituicao,
   type AbrangenciaSondagem,
 } from '../../services/sondagemService';
 import { useSession } from '../../services/sessionStore';
 import { supabaseService } from '../../services/supabaseService';
-import { registoPublicoProxy, anunciarRegistosAlterados, enviarMensagemAdministrativa, eliminarInstituicaoCloud, aprovarInstituicaoAdmin, eliminarInstituicaoAdmin } from '../../services/supabaseService';
+import { registoPublicoProxy, enviarMensagemAdministrativa, eliminarInstituicaoCloud, aprovarInstituicaoAdmin, eliminarInstituicaoAdmin } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore } from '../../services/homologationStore';
 // 2026-08-23 — MODO REAL: métricas da base central (nunca simuladas). Sem
 // medição real o cartão mostra «—» em vez de percentagens decorativas.
 import { carregarDadosReaisAdmin, type AdminRealData } from '../../services/adminRealDataService';
-import { parseInstPack, isInstitutionObservacao, normalizeInstCode, getLocalInstRegs, updateLocalInstReg, buildInstObservacoes } from '../../services/institutionRegistrationStore';
+import { parseInstPack, isInstitutionObservacao, normalizeInstCode, getLocalInstRegs, updateLocalInstReg } from '../../services/institutionRegistrationStore';
 import { purgeInstitutionLocalResidues } from '../../services/institutionSessionService';
 import { parsePvicFromObservacoes } from '../../services/preVerificationService';
 import { shouldUseMockFallback } from '../../config/runtime';
@@ -399,14 +398,9 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   const [solReason, setSolReason] = useState('');
   const [solError, setSolError] = useState('');
   const [solBusy, setSolBusy] = useState(false);
-  const [createBusy, setCreateBusy] = useState(false);
-  const [createError, setCreateError] = useState('');
   const [adminSolInput, setAdminSolInput] = useState('');
   const [solThreadTick, setSolThreadTick] = useState(0);
   const [solToDelete, setSolToDelete] = useState<any | null>(null);   // F8 — popup de confirmação de eliminação
-  const [instToDelete, setInstToDelete] = useState<Institution | null>(null); // 2026-09-19 — eliminação na lista de instituições
-  const [instDelBusy, setInstDelBusy] = useState(false);
-  const [instDelError, setInstDelError] = useState('');
 
   const solState = (status?: string): 'pendente' | 'ativa' | 'rejeitada' | 'correcao' => {
     if (status === 'Aprovado') return 'ativa';
@@ -420,21 +414,11 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     const byCode = new Map<string, any>();
     // 1. Espelho local (funciona offline e cobre registos criados neste dispositivo)
     for (const r of getLocalInstRegs()) {
-      if (r?.code) {
-        const norm = normalizeInstCode(r.code);
-        if (typeof localStorage !== 'undefined') {
-          if (localStorage.getItem('cda_deleted_inst_' + norm) || localStorage.getItem('cda_deleted_' + norm)) continue;
-        }
-        byCode.set(norm, {
-          id: r.code,
-          nome: r.nome || 'Instituição',
-          email: r.email,
-          bi_numero: r.code,
-          status: r.status || 'Pendente de Validação',
-          observacoes: r.observacoes,
-          criado_em: r.criadoEm || new Date().toISOString(),
-        });
-      }
+      if (!shouldUseMockFallback() && (normalizeInstCode(r.code) === 'AGT-9921-SR' || r.observacoes?.includes('Seed demo'))) continue;
+      byCode.set(normalizeInstCode(r.code), {
+        id: r.code, nome: r.nome, email: r.email, bi_numero: r.code,
+        status: r.status, observacoes: r.observacoes, criado_em: r.criadoEm,
+      });
     }
     // 2. Nuvem (ganha sobre o local quando presente — é a fonte canónica)
     const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -452,29 +436,12 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
           data = (viaProxy.linhas || []) as any[];
         } else {
           console.warn('[INSTREG] leitura da fila via servidor falhou:', viaProxy.erro);
-          const d = await supabase
-            .from('solicitacoes_registo')
-            .select('*')
-            .order('criado_em', { ascending: false });
-          data = (d.data as any[] | null); error = d.error;
         }
         if (!error && data) {
           for (const row of data as any[]) {
-            const isInst = isInstitutionObservacao(row?.observacoes) ||
-              row?.observacoes?.includes('[Instituição]') ||
-              row?.observacoes?.includes('[INST:') ||
-              row?.bi_numero?.includes('-') ||
-              !/^\d{9}[A-Za-z]{2}\d{3}$/.test(row?.bi_numero || '');
-            if (isInst) {
-              const norm = normalizeInstCode(row.bi_numero);
-              if (typeof localStorage !== 'undefined') {
-                if (localStorage.getItem('cda_deleted_inst_' + norm) ||
-                    localStorage.getItem('cda_deleted_' + norm) ||
-                    (row.id && localStorage.getItem('cda_deleted_inst_' + row.id))) {
-                  continue;
-                }
-              }
-              byCode.set(norm, row);
+            if (isInstitutionObservacao(row?.observacoes)) {
+              const isDemoSeed = normalizeInstCode(row.bi_numero) === 'AGT-9921-SR' || row?.observacoes?.includes('Seed demo');
+              if (shouldUseMockFallback() || !isDemoSeed) byCode.set(normalizeInstCode(row.bi_numero), row);
             }
           }
         } else if (error && error.code !== 'PGRST205') {
@@ -523,7 +490,6 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     setFormInstCode('');
     setFormStatusLocal('Ativa');
     setFormLogoFile(null);
-    setCreateError('');
     setIsCreateModalOpen(true);
   };
 
@@ -548,16 +514,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     setFormLogoFile(null);
   };
 
-  useEffect(() => {
-    fetchSolicitacoes();
-    const onRegistos = () => { fetchSolicitacoes(); };
-    window.addEventListener('cda_registos_alterados', onRegistos);
-    window.addEventListener('storage', onRegistos);
-    return () => {
-      window.removeEventListener('cda_registos_alterados', onRegistos);
-      window.removeEventListener('storage', onRegistos);
-    };
-  }, []);
+  useEffect(() => { fetchSolicitacoes(); }, []);
 
   // v37 — carrega a classificação oficial quando o dossier da instituição abre
   useEffect(() => {
@@ -600,142 +557,42 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   }, [autoSyncAtivo]);
 
   // Save new institution
-  // Registo directo pela Administração: segue o caminho canónico (linha
-  // Aprovada em solicitacoes_registo + homologação + mensagem oficial na nuvem)
-  // em vez de criar apenas uma ficha local com métricas inventadas.
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (createBusy) return;
-    const nome = formFullName.trim();
-    if (!nome) { setCreateError('Indique o nome completo da instituição.'); return; }
-    const email = formContactEmail.trim();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setCreateError('Indique um email de contacto válido — é para aí que seguem os acessos e avisos.');
-      return;
-    }
-    const computedSigla = (formName || generateSigla(nome)).toUpperCase();
-    const code = normalizeInstCode(formInstCode || `${computedSigla}-001`);
-    if (!/^[A-Z0-9-]{3,}$/.test(code)) {
-      setCreateError('Código institucional inválido (use letras, números e hífens, ex.: INAPEM-LLMM).');
-      return;
-    }
-    const dupFila = solicitacoes.some((r: any) => normalizeInstCode(r.bi_numero) === code);
-    const dupFicha = institutions.some(i => normalizeInstCode(i.instCode || '') === code);
-    if (dupFila || dupFicha) {
-      setCreateError(`O código ${code} já existe na plataforma — use outro código ou edite a ficha existente.`);
-      return;
-    }
-    setCreateBusy(true);
-    setCreateError('');
-    // 2026-09-19 — CONTA NOVA NASCE LIMPA: o código pode ter tido uma vida
-    // anterior neste dispositivo (eliminar → re-criar): purgar os vestígios
-    // locais ANTES de gravar a ficha nova. Os vestígios da nuvem são limpos
-    // pelo servidor no momento em que o registo novo é gravado.
-    try { purgeInstitutionLocalResidues(code); } catch { /* melhor esforço */ }
-    const observacoes = buildInstObservacoes({
-      v: 1,
-      sigla: computedSigla,
-      nomeCompleto: nome,
-      tipo: formTypeInst,
-      provincia: formProvince,
-      cidade: formCidade,
-      municipio: formMunicipio,
-      comuna: formComuna,
-      endereco: formAddress || 'Sede do Órgão',
-      emailContacto: email,
-      emailAcesso: email,
-      telefone: formContactPhone,
-      responsavel: formResponsibleName,
-      cargo: formResponsibleRole,
-      agentNumber: `${code}-01`,
-    }, `Registo directo pela Área de Administração (${code}).`);
-    // 1. Linha canónica na base central, já Aprovada
-    let cloudOk = false;
-    let cloudErro = '';
-    const payload = {
-      nome,
-      email,
-      bi_numero: code,
-      url_frente: null,
-      url_verso: null,
-      url_selfie: null,
-      status: 'Aprovado',
-      observacoes,
-    };
-    try {
-      const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
-      if (ready) {
-        const viaProxy = await registoPublicoProxy('insert', undefined, payload);
-        if (viaProxy === null) {
-          const { error } = await supabase.from('solicitacoes_registo').insert([payload]);
-          if (!error) cloudOk = true;
-          else cloudErro = error.code === '23505' ? 'duplicado' : (error.message || 'insert');
-        } else if (viaProxy.ok) {
-          cloudOk = true;
-        } else {
-          cloudErro = viaProxy.erro || 'proxy';
-        }
-      } else {
-        cloudErro = 'sem-nuvem';
-      }
-    } catch (err: any) {
-      cloudErro = err?.message || 'rede';
-    }
-    if (cloudErro === 'duplicado' || /duplicate|23505/i.test(cloudErro)) {
-      setCreateBusy(false);
-      setCreateError(`O código ${code} já existe na base central — use outro código.`);
-      return;
-    }
-    // 2. Homologação (activa, ou bloqueada se registada como Inativa)
-    if (formStatusLocal === 'Ativa') homologationStore.setStatus(code, 'active', undefined, nome);
-    else homologationStore.setStatus(code, 'blocked', 'Registada como Inativa pela Administração.', nome);
-    // 3. Ficha local com os dados reais do formulário (zeros honestos, sem aleatórios)
+    if (!formFullName) return;
+
+    const computedSigla = formName || generateSigla(formFullName);
+    const assignedCategory = mapTypeToCategory(formTypeInst);
+
     const newInst: Institution = {
-      id: `inst-${computedSigla.toLowerCase()}-${Date.now() % 100000}`,
+      id: `inst-${computedSigla.toLowerCase()}-${Math.floor(Math.random() * 900) + 100}`,
       name: computedSigla,
-      fullName: nome,
-      category: mapTypeToCategory(formTypeInst),
+      fullName: formFullName,
+      category: assignedCategory,
       province: formProvince,
       municipio: formMunicipio,
       status: formStatusLocal,
       totalCorrespondence: 0,
-      totalAgents: 1,
-      lastActivity: 'Registada agora',
-      responseRate: '100%',
+      totalAgents: Math.floor(Math.random() * 35) + 10,
+      lastActivity: "Criado agora",
+      responseRate: "100%",
       typeInst: formTypeInst,
       cidade: formCidade,
       comuna: formComuna,
-      address: formAddress || 'Sede do Órgão',
+      address: formAddress || "Sede do Orgão",
       registrationDate: new Date().toLocaleDateString('pt-PT'),
-      aiUsageRate: '0%',
-      performanceScore: '100%',
-      contactEmail: email,
-      contactPhone: formContactPhone,
-      responsibleName: formResponsibleName,
-      responsibleRole: formResponsibleRole,
-      instCode: code,
+      aiUsageRate: "85%",
+      performanceScore: "95.2%",
+      contactEmail: formContactEmail || `geral@${computedSigla.toLowerCase()}.gov.ao`,
+      contactPhone: formContactPhone || "+244 923 000 000",
+      responsibleName: formResponsibleName || "Dr. António Fernando",
+      responsibleRole: formResponsibleRole || "Director Geral",
+      instCode: formInstCode || `${computedSigla.toUpperCase()}-001`,
     };
-    setInstitutions(prev => [newInst, ...prev]);
-    // 4. Mensagem oficial de aprovação na nuvem (mesmo texto do fluxo oficial)
-    if (formStatusLocal === 'Ativa') {
-      const textoAprovacao = `Exmos. Senhores da ${nome} (${code}), informamos que a vossa adesão ao Correio Digital Angola foi APROVADA pela Área de Administração e a conta da instituição encontra-se oficialmente ATIVA. Todas as funcionalidades da área institucional ficam disponíveis de imediato. Bem-vindos à rede nacional de correio digital.`;
-      const nuvem = await enviarMensagemAdministrativa(code, 'Adesão Aprovada — Conta Institucional Ativada pela Área de Administração', textoAprovacao);
-      if (nuvem?.ok) {
-        if (onLog) onLog(`INSTITUIÇÃO REGISTADA: ${nome} (${code}) — linha Aprovada na base central e correspondência oficial de aprovação gravada.`, 'success');
-      } else {
-        homologationStore.addMessage(code, 'admin', textoAprovacao);
-        if (onLog) onLog(`INSTITUIÇÃO REGISTADA: ${nome} (${code}) — ATENÇÃO: a correspondência de aprovação NÃO foi gravada na base central (sem sessão Auth de administração ou nuvem indisponível); ficou apenas no canal local deste dispositivo.`, 'warning');
-      }
-    } else if (onLog) {
-      onLog(`INSTITUIÇÃO REGISTADA: ${nome} (${code}) como Inativa — sem homologação activa até ser activada.`, 'warning');
-    }
-    if (!cloudOk && onLog) {
-      onLog(`INSTITUIÇÃO ${code}: a linha NÃO foi gravada na base central (${cloudErro || 'nuvem indisponível'}) — ficou apenas a ficha local deste dispositivo; volte a registar quando houver ligação.`, 'warning');
-    }
-    anunciarRegistosAlterados();
-    await fetchSolicitacoes();
-    setCreateBusy(false);
+
+    setInstitutions([newInst, ...institutions]);
     setIsCreateModalOpen(false);
+    if (onLog) onLog(`INSTITUIÇÃO CRIADA: ${newInst.name} (${newInst.fullName})`, 'success');
   };
 
   // Save changes to institution
@@ -797,82 +654,6 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     if (onLog) onLog(`INSTITUIÇÃO ${newStatus === 'Ativa' ? 'ACTIVADA' : 'SUSPENSA'}: ${inst.name}`, newStatus === 'Ativa' ? 'success' : 'warning');
   };
 
-  // 2026-09-19 — ELIMINAR INSTITUIÇÃO na lista da página (pedido do proprietário).
-  // Reutiliza a cadeia já existente na eliminação de solicitações — RPC admin →
-  // endpoint admin → cascata de nuvem → purga local — para não deixar registos
-  // órfãos na base central. A ficha só sai da lista no fim, e nunca se a nuvem recusar.
-  const handleDeleteInstitution = async (inst: Institution) => {
-    const code = normalizeInstCode(inst.instCode || inst.name || '');
-    const instId = inst.id;
-    const sigla = (inst.name || '').trim().toUpperCase().replace(/\s+/g, '-');
-    setInstDelBusy(true);
-    setInstDelError('');
-
-    // 1. Marcação imediata e persistente de eliminação no armazenamento local
-    if (instId) {
-      try { localStorage.setItem('cda_deleted_inst_' + instId, '1'); } catch {}
-    }
-    if (code) {
-      try {
-        localStorage.setItem('cda_deleted_inst_' + code, '1');
-        localStorage.setItem('cda_deleted_' + code, '1');
-      } catch {}
-    }
-    if (sigla) {
-      try { localStorage.setItem('cda_deleted_inst_' + sigla, '1'); } catch {}
-    }
-
-    if (code) {
-      const regAntes = getLocalInstRegs().find((r) => normalizeInstCode(r.code) === code);
-      const agentesDaInstituicao = [
-        code,
-        `${code}-01`,
-        regAntes?.agentNumber || '',
-        ...((regAntes?.members || []).map((m) => m.agentNumber || '')),
-      ].filter(Boolean);
-      let remotoEliminado = false;
-      const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
-      if (ready) {
-        try {
-          const { data, error } = await supabase.rpc('cda_admin_alfa_eliminar_registo', { p_identificador: code });
-          if (!error && data?.ok) {
-            remotoEliminado = true;
-            try {
-              const resCloud = await eliminarInstituicaoCloud(code, agentesDaInstituicao);
-              if (!resCloud.ok) onLog?.(`Eliminação de ${code}: limpeza de nuvem (contas Auth/avatares) indisponível (${resCloud.erro}).`, 'warning');
-            } catch { /* ignora */ }
-          }
-        } catch { /* cai no endpoint admin */ }
-      }
-      if (!remotoEliminado) {
-        try {
-          const resultado = await eliminarInstituicaoAdmin(code, agentesDaInstituicao);
-          if (resultado.ok) {
-            remotoEliminado = true;
-          }
-        } catch { /* melhor esforço */ }
-      }
-      try { purgeInstitutionLocalResidues(code, regAntes); } catch { /* ignora */ }
-    }
-
-    // 2. Atualização atómica do estado e do catálogo persistido
-    setInstitutions(prev => {
-      const updated = prev.filter(i => i.id !== instId && (code ? normalizeInstCode(i.instCode || i.name) !== code : true));
-      try { localStorage.setItem('correio_digital_institutions', JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-    setSolicitacoes(prev => prev.filter(s => normalizeInstCode(s.bi_numero) !== code && (instId ? s.id !== instId : true)));
-
-    try { anunciarRegistosAlterados(); } catch {}
-
-    onLog?.(
-      `INSTITUIÇÃO ELIMINADA: ${inst.fullName || inst.name}${code ? ` (${code})` : ''} — ficha removida da lista${code ? ', registo (local e nuvem), homologação e acessos eliminados em cascata' : ' (ficha sem código institucional: apenas local)'}.`,
-      'critical'
-    );
-    setInstDelBusy(false);
-    setInstToDelete(null);
-  };
-
   // Toggle status from inside detail dossier
   const handleToggleInsideDossier = () => {
     if (!selectedInstHistory) return;
@@ -899,9 +680,6 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   // ---- Acções das Solicitações de Registo (modelo do cidadão) ----
   const persistSolicitationStatus = async (row: LinhaSolicitacao, status: string) => {
     updateLocalInstReg(row.bi_numero, { status });
-    try { await persistSolicitationStatusNuvem(row, status); } finally { anunciarRegistosAlterados(); }
-  };
-  const persistSolicitationStatusNuvem = async (row: LinhaSolicitacao, status: string) => {
     const ready = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
     if (!ready) return;
     // 2026-09-02 — CORRECÇÃO CRÍTICA: O filtro deve usar bi_numero (código institucional)
@@ -968,19 +746,16 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
       };
       return [newInst, ...prev];
     });
-    // 2026-09-13 — A correspondência «Adesão Aprovada» é gravada na NUVEM
-    // (fonte canónica: chega à caixa da instituição em QUALQUER dispositivo,
-    // não lida → badge). O canal local de homologação (só neste dispositivo)
-    // fica como recurso quando a nuvem recusa/está indisponível — nunca os
-    // dois ao mesmo tempo (era essa a duplicação corrigida em 2026-09-02).
-    const textoAprovacao = `Exmos. Senhores da ${row.nome} (${code}), informamos que a vossa adesão ao Correio Digital Angola foi APROVADA pela Área de Administração e a conta da instituição encontra-se oficialmente ATIVA. Todas as funcionalidades da área institucional ficam disponíveis de imediato. Bem-vindos à rede nacional de correio digital.`;
-    const nuvem = await enviarMensagemAdministrativa(code, 'Adesão Aprovada — Conta Institucional Ativada pela Área de Administração', textoAprovacao);
-    if (nuvem?.ok) {
-      onLog?.(`Instituição APROVADA: ${row.nome} (${code}) — conta activa, ficha criada na página Instituições e correspondência oficial de aprovação gravada na base central.`, 'success');
-    } else {
-      homologationStore.addMessage(code, 'admin', textoAprovacao);
-      onLog?.(`Instituição APROVADA: ${row.nome} (${code}) — ATENÇÃO: a correspondência de aprovação NÃO foi gravada na base central (sem sessão Auth de administração ou nuvem indisponível); ficou apenas no canal local deste dispositivo.`, 'warning');
-    }
+    homologationStore.addMessage(
+      code, 'admin',
+      `Exmos. Senhores da ${row.nome} (${code}), informamos que a vossa adesão ao Correio Digital Angola foi APROVADA pela Área de Administração e a conta da instituição encontra-se oficialmente ATIVA. Todas as funcionalidades da área institucional ficam disponíveis de imediato. Bem-vindos à rede nacional de correio digital.`
+    );
+    // 2026-09-02 — CORRECÇÃO: Removida a chamada a enviarMensagemAdministrativa()
+    // porque criava duplicação — a mensagem já foi adicionada ao canal de homologação
+    // (homologationStore.addMessage acima), que é o canal oficial para comunicações
+    // sobre o estado da conta. Enviar para a caixa de correio também fazia o
+    // utilizador ver a mesma mensagem duas vezes.
+    onLog?.(`Instituição APROVADA: ${row.nome} (${code}) — conta activa e ficha criada na página Instituições.`, 'success');
     await fetchSolicitacoes();
     setSelectedSolicitacao(null);
     setSolBusy(false);
@@ -1026,23 +801,6 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     setSolError('');
     const code = normalizeInstCode(row.bi_numero);
     console.log('[DELETE-SOL] Código normalizado:', code);
-
-    // 1. Marcação imediata e persistente de eliminação
-    if (code) {
-      try {
-        localStorage.setItem('cda_deleted_inst_' + code, '1');
-        localStorage.setItem('cda_deleted_' + code, '1');
-      } catch {}
-    }
-    if (row.id) {
-      try { localStorage.setItem('cda_deleted_inst_' + row.id, '1'); } catch {}
-    }
-    if (row.nome) {
-      const sigla = normalizeInstCode(row.nome);
-      if (sigla) {
-        try { localStorage.setItem('cda_deleted_inst_' + sigla, '1'); } catch {}
-      }
-    }
     
     const regAntes = getLocalInstRegs().find((r) => normalizeInstCode(r.code) === code);
     const agentesDaInstituicao = [
@@ -1096,28 +854,27 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
           console.log('[DELETE-SOL] Endpoint admin bem-sucedido:', resultado.detalhes);
           onLog?.(`Eliminação de ${code} bem-sucedida via endpoint admin. Detalhes: ${JSON.stringify(resultado.detalhes)}`, 'info');
         } else {
-          console.warn('[DELETE-SOL] Endpoint admin falhou (continuando eliminação local):', resultado.erro);
+          console.error('[DELETE-SOL] Falha no endpoint admin:', resultado.erro);
+          setSolError(`Não foi possível eliminar a instituição: ${resultado.erro || 'Erro desconhecido'}`);
+          setSolBusy(false);
+          return;
         }
       } catch (e) {
-        console.warn('[DELETE-SOL] Erro ao chamar endpoint admin (continuando eliminação local):', e);
+        console.error('[DELETE-SOL] Erro ao chamar endpoint admin:', e);
+        setSolError('A eliminação está indisponível. A instituição não foi removida.');
+        setSolBusy(false);
+        return;
       }
     }
     
-    console.log('[DELETE-SOL] Executando cascata local...');
+    console.log('[DELETE-SOL] Eliminação bem-sucedida, executando cascata local...');
     // Cascata local COMPLETA (F49/v37.74)
     try { purgeInstitutionLocalResidues(code, regAntes); } catch (e) { 
       console.error('[DELETE-SOL] Erro na cascata local:', e);
     }
     
     console.log('[DELETE-SOL] Atualizando estado local...');
-    setInstitutions(prev => {
-      const updated = prev.filter(i => normalizeInstCode(i.instCode || i.name) !== code && (row.id ? i.id !== row.id : true));
-      try { localStorage.setItem('correio_digital_institutions', JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-    setSolicitacoes(prev => prev.filter(s => normalizeInstCode(s.bi_numero) !== code && (row.id ? s.id !== row.id : true)));
-    try { anunciarRegistosAlterados(); } catch {}
-
+    setInstitutions(prev => prev.filter(i => normalizeInstCode(i.instCode || '') !== code));
     onLog?.(`Solicitação de ${row.nome} (${code}) eliminada em cascata (registo, homologação, thread, lidos, ficha da página).`, 'critical');
     
     console.log('[DELETE-SOL] Recarregando solicitações...');
@@ -1225,8 +982,6 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     <div className="pb-6 md:pb-16 font-sans text-xs">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 py-3 md:py-6 border-b border-slate-100 mb-4 md:mb-8 font-sans">
-        <div className="flex items-center gap-4">
-        <BotaoVoltar />
         <div>
           <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter italic uppercase leading-none font-sans">
             Gestão Institucional
@@ -1236,7 +991,6 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
             Cadastro Administrativo Nacional &bull; Províncias e Ministérios Integrados
           </div>
         </div>
-        </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <button
@@ -1244,10 +998,10 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
             className={`px-5 py-3 font-black text-[10px] uppercase tracking-widest rounded-xl shadow-md transition-all shrink-0 cursor-pointer flex items-center gap-2 border leading-none font-sans ${
               showTestPanel 
                 ? 'bg-rose-50 hover:bg-rose-100/75 border-rose-200 text-rose-700' 
-                : 'bg-emerald-700 hover:bg-emerald-700 border-emerald-700 text-white shadow-lg shadow-emerald-500/15'
+                : 'bg-emerald-500 hover:bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/15'
             }`}
           >
-            <Activity size={12} className={showTestPanel ? "" : "text-white"} />
+            <Activity size={12} className={isRunningTests ? "animate-spin text-white" : ""} />
             {showTestPanel ? 'Fechar Painel de Testes' : 'Abrir Painel de Testes'}
           </button>
 
@@ -1330,7 +1084,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                            step.status === 'success' ? 'bg-emerald-700/10 text-emerald-400 border border-emerald-700/20' :
+                            step.status === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
                             step.status === 'running' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' :
                             step.status === 'failed' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
                             'bg-slate-800 text-slate-600 border border-slate-800'
@@ -1364,7 +1118,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                             </span>
                           )}
                           {step.status === 'success' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-700/10 text-emerald-400 rounded-full font-mono text-[7.5px] font-black uppercase">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full font-mono text-[7.5px] font-black uppercase">
                               &bull; Gravado
                             </span>
                           )}
@@ -1391,7 +1145,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                     <span className="text-slate-500 italic">Consola de depuração síncrona inativa...</span>
                   ) : (
                     testLog.map((logLine, idx) => (
-                      <div key={idx} className="leading-relaxed border-l border-emerald-700/30 pl-2">
+                      <div key={idx} className="leading-relaxed border-l border-emerald-500/30 pl-2">
                         {logLine}
                       </div>
                     ))
@@ -1403,7 +1157,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                   <motion.div
                     initial={{ scale: 0.95, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="bg-emerald-700/10 border border-emerald-700/20 text-emerald-300 rounded-2xl p-3 flex items-start gap-2"
+                    className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 rounded-2xl p-3 flex items-start gap-2"
                   >
                     <CheckCircle className="text-emerald-400 shrink-0 mt-0.5" size={14} />
                     <div>
@@ -1437,14 +1191,14 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
         {/* Volume de Correspondência Estatal */}
         <div className="bg-white border border-slate-200 rounded-[24px] p-5 flex items-center gap-4 shadow-xs select-none">
-          <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-700 shrink-0">
+          <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 shrink-0">
             <Mail size={24} className="stroke-[2.5]" />
           </div>
           <div>
             <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block leading-none">Volume de Correio</span>
             <div className="flex items-baseline gap-1.5 mt-1">
               <span className="text-xl font-black text-slate-800 font-mono leading-none">{metrics.totalCorr.toLocaleString()}</span>
-              <span className="text-[9.5px] text-emerald-700 font-extrabold">{dadosReais ? 'nuvem' : '+12.4%'}</span>
+              <span className="text-[9.5px] text-emerald-600 font-extrabold">{dadosReais ? 'nuvem' : '+12.4%'}</span>
             </div>
             <p className="text-[9.5px] text-slate-500 mt-1 leading-normal font-sans">Transações efetuadas</p>
           </div>
@@ -1467,14 +1221,14 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
         {/* Desempenho Geral do Ecossistema */}
         <div className="bg-white border border-slate-200 rounded-[24px] p-5 flex items-center gap-4 shadow-xs select-none">
-          <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-700 shrink-0">
+          <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 shrink-0">
             <CheckCircle size={24} className="stroke-[2.5]" />
           </div>
           <div>
             <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block leading-none">Desempenho Geral</span>
             <div className="flex items-baseline gap-1.5 mt-1">
               <span className="text-xl font-black text-slate-800 font-mono leading-none">{metrics.avgPerformance}%</span>
-              <span className="text-[9.5px] text-amber-700 font-extrabold">SLA</span>
+              <span className="text-[9.5px] text-amber-600 font-extrabold">SLA</span>
             </div>
             <p className="text-[9.5px] text-slate-500 mt-1 leading-normal font-sans">Taxa de resolução média</p>
           </div>
@@ -1577,11 +1331,9 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {/* Search Dropdown replacing input */}
           <div className="space-y-1.5 col-span-1 md:col-span-2">
-            <label htmlFor="filter-inst-search" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Localizar Instituição (Sigla/Nome)</label>
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Localizar Instituição (Sigla/Nome)</label>
             <div className="relative">
               <select
-                id="filter-inst-search"
-                aria-label="Localizar Instituição (Sigla/Nome)"
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[11px] font-bold text-slate-800 outline-none focus:border-slate-900 cursor-pointer appearance-none"
@@ -1599,10 +1351,8 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
           {/* Province */}
           <div className="space-y-1.5">
-            <label htmlFor="filter-inst-province" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Província</label>
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Província</label>
             <select
-              id="filter-inst-province"
-              aria-label="Filtrar por Província"
               value={filterProvince}
               onChange={(e) => {
                 setFilterProvince(e.target.value);
@@ -1619,10 +1369,8 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
           {/* Municipio */}
           <div className="space-y-1.5">
-            <label htmlFor="filter-inst-municipio" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Município</label>
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Município</label>
             <select
-              id="filter-inst-municipio"
-              aria-label="Filtrar por Município"
               value={filterMunicipio}
               onChange={(e) => { setFilterMunicipio(e.target.value); setCurrentPage(1); }}
               className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-900 cursor-pointer"
@@ -1636,10 +1384,8 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
           {/* Category */}
           <div className="space-y-1.5">
-            <label htmlFor="filter-inst-category" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Categoria</label>
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Categoria</label>
             <select
-              id="filter-inst-category"
-              aria-label="Filtrar por Categoria"
               value={filterCategory}
               onChange={(e) => { setFilterCategory(e.target.value); setCurrentPage(1); }}
               className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-900 cursor-pointer"
@@ -1690,7 +1436,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                   <th className="py-4 px-4 text-center">Correspondência</th>
                   <th className="py-4 px-4 text-center">Utilização da IA</th>
                   <th className="py-4 px-4 text-center">Estado</th>
-                  <th className="py-4 px-4 text-center rounded-r-[20px] w-[250px]">Ações</th>
+                  <th className="py-4 px-4 text-center rounded-r-[20px] w-[210px]">Ações</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-100">
@@ -1748,7 +1494,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
                           : 'bg-rose-50 border-rose-100 text-rose-700'
                       }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${inst.status === 'Ativa' ? 'bg-emerald-700 animate-pulse' : 'bg-rose-500'}`} />
+                        <span className={`w-1.5 h-1.5 rounded-full ${inst.status === 'Ativa' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
                         {inst.status === 'Ativa' ? 'Ativa' : 'Suspensa'}
                       </span>
                     </td>
@@ -1774,19 +1520,12 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           onClick={() => toggleStatus(inst)}
                           className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                             inst.status === 'Ativa'
-                              ? 'bg-rose-50 border-rose-100 text-rose-700 hover:bg-rose-100/40'
-                              : 'bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100/40'
+                              ? 'bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100/40'
+                              : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100/40'
                           }`}
                           title={inst.status === 'Ativa' ? 'Suspender Instituição' : 'Ativar Instituição'}
                         >
                           <Power size={11} className="stroke-[2.5]" />
-                        </button>
-                        <button
-                          onClick={() => { setInstDelError(''); setInstToDelete(inst); }}
-                          className="p-1.5 rounded-lg border bg-white border-slate-200 text-rose-700 hover:bg-rose-50 hover:border-rose-200 transition-all cursor-pointer"
-                          title="Eliminar Instituição"
-                        >
-                          <Trash2 size={11} className="stroke-[2.5]" />
                         </button>
                       </div>
                     </td>
@@ -2221,8 +1960,8 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                         }}
                       />
                       {formLogoFile && (
-                        <div className="absolute inset-0 bg-white/95 rounded-[20px] flex items-center justify-center p-4 gap-2 border border-emerald-700">
-                          <CheckCircle size={18} className="text-emerald-700 shrink-0" />
+                        <div className="absolute inset-0 bg-white/95 rounded-[20px] flex items-center justify-center p-4 gap-2 border border-emerald-500">
+                          <CheckCircle size={18} className="text-emerald-500 shrink-0" />
                           <div className="text-left overflow-hidden">
                             <p className="text-xs font-bold text-slate-800 truncate m-0 max-w-[180px]">{formLogoFile.name}</p>
                             <p className="text-[10px] text-slate-400 m-0">{(formLogoFile.size / 1024).toFixed(1)} KB</p>
@@ -2242,18 +1981,12 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                 <div className="border-t border-dashed border-slate-150 pt-2" />
 
-                {createError && !editingInstitution && (
-                  <p role="alert" className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
-                    {createError}
-                  </p>
-                )}
                 {/* Actions Row */}
                 <div className="pt-2 shrink-0 flex items-center justify-between gap-4">
                   <button
                     type="button"
-                    disabled={createBusy}
                     onClick={() => { setIsCreateModalOpen(false); setEditingInstitution(null); }}
-                    className="px-6 py-3.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-[20px] font-extrabold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                    className="px-6 py-3.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-[20px] font-extrabold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all cursor-pointer"
                   >
                     <X size={15} />
                     Cancelar
@@ -2261,11 +1994,10 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                   <button
                     type="submit"
-                    disabled={createBusy && !editingInstitution}
-                    className="flex-1 bg-[#4f46e5] hover:bg-[#4338ca] text-white py-3.5 rounded-[20px] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#4f46e5]/15 flex items-center justify-center gap-2.5 transition-all duration-300 cursor-pointer active:scale-98 font-sans border-0 disabled:opacity-60"
+                    className="flex-1 bg-[#4f46e5] hover:bg-[#4338ca] text-white py-3.5 rounded-[20px] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#4f46e5]/15 flex items-center justify-center gap-2.5 transition-all duration-300 cursor-pointer active:scale-98 font-sans border-0"
                   >
                     <CheckCircle size={15} className="stroke-[3]" />
-                    {editingInstitution ? 'Guardar Instituição' : (createBusy ? 'A registar…' : 'Criar Instituição')}
+                    {editingInstitution ? 'Guardar Instituição' : 'Criar Instituição'}
                   </button>
                 </div>
               </form>
@@ -2376,7 +2108,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           const diverg = ['bi_divergente','nome_divergente','documento_divergente','data_divergente','frente_verso_inconsistentes'].some(a => pvi.al.includes(a));
                           if (pvi.ver === 'APTO') {
                             return (
-                              <p className="text-[8.5px] font-black uppercase tracking-widest text-emerald-700">
+                              <p className="text-[8.5px] font-black uppercase tracking-widest text-emerald-600">
                                 Sugestão assistida: pode aprovar — a IA não detetou divergências.
                               </p>
                             );
@@ -2463,12 +2195,12 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                       />
                       {solError && <p className="text-[9.5px] text-red-600 font-bold">{solError}</p>}
                       <div className="flex flex-wrap items-center gap-2">
-                        <button type="button" disabled={solBusy} onClick={() => handleApproveSolicitacao(row)} className="flex-1 min-w-[130px] bg-emerald-700 hover:bg-emerald-700 disabled:opacity-60 text-white py-2.5 rounded-xl text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"><CheckCircle size={12} /> Aprovar</button>
+                        <button type="button" disabled={solBusy} onClick={() => handleApproveSolicitacao(row)} className="flex-1 min-w-[130px] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white py-2.5 rounded-xl text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"><CheckCircle size={12} /> Aprovar</button>
                         <button type="button" disabled={solBusy} onClick={() => handleRequestCorrections(row)} className="flex-1 min-w-[130px] bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white py-2.5 rounded-xl text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"><Clock size={12} /> Solicitar Correções</button>
                         <button type="button" disabled={solBusy} onClick={() => handleRejectSolicitacao(row)} className="flex-1 min-w-[130px] bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white py-2.5 rounded-xl text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"><X size={12} /> Rejeitar</button>
                       </div>
                       <div className="text-center">
-                        <button type="button" disabled={solBusy} onClick={() => setSolToDelete(row)} className="text-[8.5px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-700 transition-colors cursor-pointer bg-transparent border-none underline underline-offset-4">Eliminar solicitação (cascata)</button>
+                        <button type="button" disabled={solBusy} onClick={() => setSolToDelete(row)} className="text-[8.5px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-600 transition-colors cursor-pointer bg-transparent border-none underline underline-offset-4">Eliminar solicitação (cascata)</button>
                       </div>
                     </div>
                   )}
@@ -2523,11 +2255,11 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                 <div className="px-7 md:px-9 pt-9 pb-6">
                   {/* Ícone central circular */}
                   <div className="mx-auto w-20 h-20 rounded-full bg-rose-50 border border-rose-100 shadow-[0_0_36px_rgba(244,63,94,0.18)] flex items-center justify-center mb-5">
-                    <Trash2 size={34} className="text-rose-700" strokeWidth={2.2} />
+                    <Trash2 size={34} className="text-rose-600" strokeWidth={2.2} />
                   </div>
 
                   {/* Título + nome + barra de destaque */}
-                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-700 mb-2">
+                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-600 mb-2">
                     Eliminar Solicitação — {code}
                   </div>
                   <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight">{row.nome}</h3>
@@ -2535,9 +2267,9 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                   {/* Caixa de aviso */}
                   <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-3.5 text-left mb-5">
-                    <AlertTriangle size={30} className="text-rose-700 shrink-0" strokeWidth={2.2} />
+                    <AlertTriangle size={30} className="text-rose-500 shrink-0" strokeWidth={2.2} />
                     <p className="text-[11px] leading-snug text-slate-600 font-medium">
-                      <span className="font-black text-slate-900">Esta acção é <span className="text-rose-700">definitiva e irreversível</span>.</span><br />
+                      <span className="font-black text-slate-900">Esta acção é <span className="text-rose-600">definitiva e irreversível</span>.</span><br />
                       Serão removidos: o registo (local e nuvem), o estado de homologação, o canal oficial de mensagens e as leituras associadas{solState(row.status) === 'ativa' ? ', bem como a ficha da instituição nesta página' : ''}.
                     </p>
                   </div>
@@ -2554,7 +2286,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
 
                   {/* Linha de confirmação com "?" */}
                   <div className="flex items-center gap-3 text-left mb-2 px-1">
-                    <span className="w-9 h-9 rounded-full bg-rose-50 border border-rose-100 text-rose-700 font-black text-[15px] flex items-center justify-center shrink-0 select-none">?</span>
+                    <span className="w-9 h-9 rounded-full bg-rose-50 border border-rose-100 text-rose-600 font-black text-[15px] flex items-center justify-center shrink-0 select-none">?</span>
                     <div>
                       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-800 leading-snug">Confirma a eliminação desta solicitação?</p>
                       <p className="text-[10.5px] font-medium text-slate-500 mt-0.5">Esta acção não poderá ser desfeita.</p>
@@ -2579,104 +2311,6 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                     className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white rounded-full py-3 text-[10px] font-black uppercase tracking-[0.12em] whitespace-nowrap transition-all cursor-pointer border-none shadow-md shadow-rose-200 flex items-center justify-center gap-2 active:scale-95"
                   >
                     <Trash2 size={14} /> {solBusy ? 'A eliminar…' : 'Eliminar Definitivamente'}
-                  </button>
-                </div>
-                </motion.div>
-              </motion.div>
-            </>
-          );
-        })()}
-      </AnimatePresence>
-      , document.body)}
-
-      {/* ===== MODAL DE CONFIRMAÇÃO — Eliminar Instituição da lista (2026-09-19) ===== */}
-      {createPortal(
-      <AnimatePresence>
-        {instToDelete && (() => {
-          const inst = instToDelete;
-          const code = normalizeInstCode(inst.instCode || '');
-          return (
-            <>
-              <motion.div
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                onClick={() => { if (!instDelBusy) setInstToDelete(null); }}
-                className="fixed inset-0 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4"
-                style={{ zIndex: 99998 }}
-              >
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.94 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.94 }}
-                  className="w-[92%] max-w-[480px] bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.25)] border border-slate-100 overflow-hidden text-center relative"
-                  style={{ zIndex: 99999 }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                <div className="h-1.5 w-full bg-gradient-to-r from-rose-400 via-rose-600 to-rose-400" />
-                <button
-                  type="button"
-                  disabled={instDelBusy}
-                  onClick={() => setInstToDelete(null)}
-                  className="absolute top-4 right-4 w-7 h-7 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer flex items-center justify-center disabled:opacity-60"
-                  title="Fechar"
-                >
-                  <X size={13} />
-                </button>
-
-                <div className="px-7 md:px-9 pt-9 pb-6">
-                  <div className="mx-auto w-20 h-20 rounded-full bg-rose-50 border border-rose-100 shadow-[0_0_36px_rgba(244,63,94,0.18)] flex items-center justify-center mb-5">
-                    <Trash2 size={34} className="text-rose-700" strokeWidth={2.2} />
-                  </div>
-
-                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-700 mb-2">
-                    Eliminar Instituição{code ? ` — ${code}` : ''}
-                  </div>
-                  <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight">{inst.fullName || inst.name}</h3>
-                  <span className="block mx-auto mt-2.5 mb-6 h-[3px] w-14 rounded-full bg-rose-600" />
-
-                  <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-3.5 text-left mb-5">
-                    <AlertTriangle size={30} className="text-rose-700 shrink-0" strokeWidth={2.2} />
-                    <p className="text-[11px] leading-snug text-slate-600 font-medium">
-                      <span className="font-black text-slate-900">Esta acção é <span className="text-rose-700">definitiva e irreversível</span>.</span><br />
-                      {code
-                        ? 'Serão removidos: a ficha desta lista, o registo (local e nuvem), o estado de homologação, o canal oficial de mensagens e as leituras associadas, bem como os acessos dos agentes.'
-                        : 'Será removida apenas a ficha local desta lista (esta entidade não tem código institucional associado na base central).'}
-                    </p>
-                  </div>
-
-                  {instDelError && (
-                    <div className="bg-red-50 border border-red-200 rounded-2xl p-3 mb-4 text-left">
-                      <p className="text-[11px] text-red-700 font-medium flex items-center gap-2">
-                        <AlertTriangle size={16} className="text-red-500 shrink-0" />
-                        {instDelError}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-3 text-left mb-2 px-1">
-                    <span className="w-9 h-9 rounded-full bg-rose-50 border border-rose-100 text-rose-700 font-black text-[15px] flex items-center justify-center shrink-0 select-none">?</span>
-                    <div>
-                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-800 leading-snug">Confirma a eliminação desta instituição?</p>
-                      <p className="text-[10.5px] font-medium text-slate-500 mt-0.5">Esta acção não poderá ser desfeita.</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t border-slate-100 px-7 md:px-9 py-5 flex items-center gap-3">
-                  <button
-                    type="button"
-                    disabled={instDelBusy}
-                    onClick={() => setInstToDelete(null)}
-                    className="flex-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-700 rounded-full py-3 text-[10px] font-black uppercase tracking-[0.12em] whitespace-nowrap transition-colors cursor-pointer border-none flex items-center justify-center gap-2"
-                  >
-                    <X size={14} /> Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={instDelBusy}
-                    onClick={() => { void handleDeleteInstitution(inst); }}
-                    className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white rounded-full py-3 text-[10px] font-black uppercase tracking-[0.12em] whitespace-nowrap transition-all cursor-pointer border-none shadow-md shadow-rose-200 flex items-center justify-center gap-2 active:scale-95"
-                  >
-                    <Trash2 size={14} /> {instDelBusy ? 'A eliminar…' : 'Eliminar Definitivamente'}
                   </button>
                 </div>
                 </motion.div>
@@ -2780,7 +2414,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                           <div className="text-right">
                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none">STATUS DO ECOSSISTEMA</span>
                             <span className={`inline-flex items-center gap-1 mt-1 font-mono font-black text-[9px] uppercase leading-none ${selectedInstHistory.status === 'Ativa' ? 'text-emerald-700' : 'text-rose-700'}`}>
-                              <span className={`w-1 h-1 rounded-full ${selectedInstHistory.status === 'Ativa' ? 'bg-emerald-700 animate-pulse' : 'bg-rose-500'}`} />
+                              <span className={`w-1 h-1 rounded-full ${selectedInstHistory.status === 'Ativa' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
                               {selectedInstHistory.status === 'Ativa' ? 'Ativa' : 'Suspensa'}
                             </span>
                           </div>
@@ -2802,7 +2436,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                         </div>
                         <div className="space-y-1 text-right">
                           <span className="text-[8.5px] font-black text-slate-500 uppercase tracking-widest block leading-none">SLA DESEMPENHO</span>
-                          <span className="text-base text-emerald-700 font-mono font-black block leading-none">{selectedInstHistory.performanceScore || selectedInstHistory.responseRate || '95%'}</span>
+                          <span className="text-base text-emerald-600 font-mono font-black block leading-none">{selectedInstHistory.performanceScore || selectedInstHistory.responseRate || '95%'}</span>
                         </div>
                       </div>
 
@@ -2825,7 +2459,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                         {/* Manual progress block */}
                         <div>
                           <div className="flex justify-between text-[10px] font-extrabold mb-1">
-                            <span className="text-amber-700 uppercase tracking-wide">Tratamento Manual</span>
+                            <span className="text-amber-600 uppercase tracking-wide">Tratamento Manual</span>
                             <span className="font-mono text-slate-800">{manualUsageVal.toFixed(0)}%</span>
                           </div>
                           <div className="h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">

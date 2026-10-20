@@ -75,12 +75,6 @@ export function getAdvertisingImageUrls(): string[] {
   urls.add("https://i.postimg.cc/Rq5TKbdk/Correio-Digital-Angola.png");
   urls.add("https://i.postimg.cc/Y92CFNC5/Foto-de-Perfil-(1).png");
   urls.add("https://i.postimg.cc/4x1mS4hQ/AGT.jpg");
-  urls.add("https://i.postimg.cc/Qx88Q30h/Denuncia.jpg");
-  urls.add("https://i.postimg.cc/y8j1d36z/ANIESA-2.jpg");
-  urls.add("https://i.postimg.cc/4dqQVgDS/Video-Atendimento-(1).png");
-  urls.add("https://i.postimg.cc/L4gTRJfp/Inquerito-(1).png");
-  urls.add("https://i.postimg.cc/d1c7SGm2/Comunicado.png");
-  urls.add("https://i.postimg.cc/nrmY1WZL/Ocorrencias-locais-(1).png");
 
   // Use optional chaining and type assertions to safe-guard against structure variations
   const addUrl = (url: unknown) => {
@@ -237,9 +231,9 @@ export async function startImagePreloading(): Promise<void> {
         try {
           await preloadSingleImage(url, isWebpSupported);
           currentStats.progress.loaded += 1;
-        } catch (err: any) {
+        } catch (err) {
           currentStats.progress.failed += 1;
-          const msg = err instanceof Error ? err.message : String(err || 'Erro desconhecido ao carregar imagem');
+          const msg = err.message || Error(err).message;
           currentStats.errors.push(msg);
           console.error(`[ImagePreloader] Internal error preloading ${url}: ${msg}`);
         } finally {

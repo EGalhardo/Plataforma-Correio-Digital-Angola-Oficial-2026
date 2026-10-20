@@ -1,4 +1,3 @@
-import { isContactoInstitucional } from '../../utils/pesquisaContactosCorreio';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -6,8 +5,7 @@ import { isContactoInstitucional } from '../../utils/pesquisaContactosCorreio';
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, Plus, Search, ShieldCheck, ShieldAlert, Trash2, Info, Edit, User, CreditCard, CheckCircle, X, Check, Bell, Phone, ChevronDown, Mail, UserRound, Landmark } from 'lucide-react';
-import { BotaoVoltar } from '../ui/BotaoVoltar';
+import { Users, Plus, Search, ShieldCheck, ShieldAlert, Trash2, Info, Edit, User, CreditCard, CheckCircle, X, Check, Bell, Phone, ChevronDown, Mail, Siren, Landmark } from 'lucide-react';
 import { DirectorioOrgaosContent } from './DirectorioOrgaosContent';
 import { Contact } from '../../types';
 import { notify } from '../../lib/notify';
@@ -19,7 +17,6 @@ import {
 } from '../../services/emergencyContactsService';
 
 interface ContactsContentProps {
-  onAddContact?: (institutional: boolean) => void;
   contacts: Contact[];
   filteredContacts: Contact[];
   searchContact: string;
@@ -31,13 +28,10 @@ interface ContactsContentProps {
   emergencyStatus?: EmergencyProfileState;
   /** F55 — edição REAL do contacto completo; devolve erros de validação (vazio = gravado). */
   onUpdateContact?: (contact: Contact) => string[];
-  /** T41 — «Enviar Mensagem» na ficha de um órgão do Directório (demonstração). */
-  onEnviarMensagemOrgao?: (destino: { codigo: string; nome: string; sigla: string }) => void;
 }
 
 export function ContactsContent({
   contacts,
-  onAddContact,
   filteredContacts,
   searchContact,
   setSearchContact,
@@ -46,13 +40,9 @@ export function ContactsContent({
   onUpdateContactType,
   emergencyStatus,
   onUpdateContact,
-  onEnviarMensagemOrgao,
 }: ContactsContentProps) {
   const [selectedClassification, setSelectedClassification] = useState<'Todos' | 'Emergência' | 'Normal'>('Todos');
-  // 2026-09-09 — separadores da área central. 2026-09-11 — renomeados para o
-  // MESMO eixo (quem é o contacto): «Contactos Pessoais» (círculo de confiança;
-  // a emergência é um atributo/filtro dentro) | «Contactos Institucionais».
-  // As chaves internas mantêm-se por compatibilidade (ids/testes).
+  // 2026-09-09 — separadores da área central: Contactos de Emergências | Contactos de Instituições
   const [separador, setSeparador] = useState<'emergencias' | 'instituicoes'>('emergencias');
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [editErrors, setEditErrors] = useState<string[]>([]);
@@ -123,7 +113,6 @@ export function ContactsContent({
   };
 
   const finalContacts = filteredContacts.filter(contact => {
-    if (isContactoInstitucional(contact)) return false;
     if (selectedClassification === 'Todos') return true;
     const type = contact.type || 'Normal';
     return type === selectedClassification;
@@ -132,7 +121,6 @@ export function ContactsContent({
     <section className="space-y-4 md:space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
         <div className="flex items-center gap-4">
-          <BotaoVoltar />
           <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
             <Users size={24} />
           </div>
@@ -142,7 +130,7 @@ export function ContactsContent({
         </div>
         <div className="flex gap-2">
           <button 
-            onClick={() => onAddContact ? onAddContact(separador === 'instituicoes') : setIsAddingContact(true)}
+            onClick={() => setIsAddingContact(true)}
             className="bg-primary text-white rounded-2xl px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-center gap-2.5 md:gap-3 shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all text-xs md:text-sm font-black"
           >
             <Plus size={18} className="md:w-5 md:h-5" />
@@ -154,7 +142,7 @@ export function ContactsContent({
       {/* F55 — banner persistente da regra dos 2 contactos de emergência */}
       {emergencyStatus && !emergencyStatus.complete && (
         <div className="bg-amber-50 border border-amber-200 rounded-[24px] p-4 md:p-5 flex items-start gap-3 shadow-sm" id="emergency-contacts-banner">
-          <ShieldAlert size={22} className="text-amber-700 shrink-0 mt-0.5" />
+          <ShieldAlert size={22} className="text-amber-600 shrink-0 mt-0.5" />
           <div>
             <p className="text-amber-800 font-black text-sm uppercase tracking-wide">
               Perfil Incompleto — faltam contactos de emergência
@@ -175,7 +163,7 @@ export function ContactsContent({
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
           <input 
             type="text"
-            placeholder={separador === 'instituicoes' ? "Procurar por Contactos institucionais" : "Procurar por Contactos Pessoais"}
+            placeholder="Pesquisar no círculo de confiança..."
             value={searchContact}
             onChange={(e) => setSearchContact(e.target.value)}
             className="w-full bg-white border border-slate-200 rounded-2xl pl-12 pr-4 py-3 md:py-3.5 text-xs md:text-sm font-bold text-slate-900 focus:ring-4 focus:ring-primary/5 focus:bg-white focus:border-primary/20 transition-all outline-none placeholder:text-slate-500"
@@ -187,12 +175,11 @@ export function ContactsContent({
         </div>
       </div>
 
-      {/* Separadores: Contactos Pessoais | Contactos Institucionais */}
-      {/* 2026-09-11 — tabbar 20% mais compacto (texto, ícones, espaçamentos e linha activa reduzidos proporcionalmente) */}
-      <div role="tablist" aria-label="Tipo de contactos" className="flex items-end gap-1.5 md:gap-5 border-b border-slate-200 overflow-x-auto custom-scrollbar-h">
+      {/* Separadores: Contactos de Emergências | Contactos de Instituições */}
+      <div role="tablist" aria-label="Tipo de contactos" className="flex items-end gap-2 md:gap-6 border-b border-slate-200 overflow-x-auto custom-scrollbar-h">
         {([
-          { chave: 'emergencias', rotulo: 'Contactos Pessoais', Icone: UserRound },
-          { chave: 'instituicoes', rotulo: 'Contactos Institucionais', Icone: Landmark },
+          { chave: 'emergencias', rotulo: 'Contactos de Emergências', Icone: Siren },
+          { chave: 'instituicoes', rotulo: 'Contactos de Instituições', Icone: Landmark },
         ] as const).map(({ chave, rotulo, Icone }) => {
           const activo = separador === chave;
           return (
@@ -201,13 +188,13 @@ export function ContactsContent({
               type="button"
               role="tab"
               aria-selected={activo}
-              onClick={() => { setSeparador(chave); setSearchContact(''); }}
-              className={`relative flex items-center gap-2.5 px-3 md:px-6 py-2.5 md:py-3 -mb-px whitespace-nowrap text-[0.7rem] md:text-[0.9rem] font-black transition-colors bg-transparent border-0 border-b-2 cursor-pointer ${
+              onClick={() => setSeparador(chave)}
+              className={`relative flex items-center gap-3 px-4 md:px-8 py-3 md:py-4 -mb-px whitespace-nowrap text-sm md:text-lg font-black transition-colors bg-transparent border-0 border-b-[3px] cursor-pointer ${
                 activo ? 'text-primary border-primary' : 'text-slate-400 border-transparent hover:text-slate-600'
               }`}
               id={`tab-contactos-${chave}`}
             >
-              <Icone size={18} className="md:w-[1.4rem] md:h-[1.4rem] shrink-0" strokeWidth={activo ? 2.2 : 1.8} />
+              <Icone size={22} className="md:w-7 md:h-7 shrink-0" strokeWidth={activo ? 2.2 : 1.8} />
               {rotulo}
             </button>
           );
@@ -216,19 +203,7 @@ export function ContactsContent({
 
       {separador === 'instituicoes' && (
         <div role="tabpanel" aria-labelledby="tab-contactos-instituicoes" className="bg-white border border-slate-200 rounded-2xl md:rounded-[32px] p-4 md:p-8 shadow-xs">
-          {filteredContacts.filter(isContactoInstitucional).length > 0 && (
-            <div className="space-y-3" aria-label="Instituições adicionadas">
-              <h4 className="font-bold text-primary">Instituições adicionadas</h4>
-              {filteredContacts.filter(isContactoInstitucional).map(contact => (
-                <article key={contact.id} className="p-4 border border-slate-200 rounded-2xl bg-white">
-                  <h5 className="font-bold text-primary">{contact.name}</h5>
-                  <p className="text-sm text-slate-600">NIF / Código: {contact.bi}</p>
-                  <p className="text-sm text-slate-600">{contact.phone} · {contact.email}</p>
-                </article>
-              ))}
-            </div>
-          )}
-          <DirectorioOrgaosContent searchQuery={searchContact} onEnviarMensagem={onEnviarMensagemOrgao} />
+          <DirectorioOrgaosContent />
         </div>
       )}
 
@@ -236,13 +211,13 @@ export function ContactsContent({
       <div role="tabpanel" aria-labelledby="tab-contactos-emergencias" className="bg-white border border-slate-200 rounded-2xl md:rounded-[32px] p-4 md:p-8 shadow-xs space-y-4 md:space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 md:gap-6 text-left">
           <div className="flex items-center gap-3 md:gap-4">
-            <UserRound size={40} className="text-primary shrink-0 md:w-12 md:h-12" strokeWidth={1.8} />
+            <Siren size={40} className="text-primary shrink-0 md:w-12 md:h-12" strokeWidth={1.8} />
             <div>
               <h4 className="font-black text-primary text-base md:text-xl uppercase tracking-tight">
-                Contactos Pessoais
+                Contactos de Emergência
               </h4>
               <p className="text-xs text-slate-500 font-medium normal-case mt-0.5">
-                Pessoas do seu círculo de confiança (família e próximos). Marque como «Emergência» quem deve ser avisado em situações críticas.
+                Lista de contactos de emergência para situações críticas e urgentes.
               </p>
             </div>
           </div>
@@ -305,7 +280,7 @@ export function ContactsContent({
 
                     <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-[10px]">
                       <span className="font-mono font-bold text-slate-700">BI: {contact.bi}</span>
-                      <span className={`font-black uppercase tracking-wider ${contact.status === 'Confirmado' ? 'text-emerald-700' : 'text-orange-700'}`}>
+                      <span className={`font-black uppercase tracking-wider ${contact.status === 'Confirmado' ? 'text-emerald-600' : 'text-orange-700'}`}>
                         {contact.status}
                       </span>
                     </div>
@@ -396,7 +371,7 @@ export function ContactsContent({
                       <td className="py-5 px-6">
                         <span className={`inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider ${
                           contact.status === 'Confirmado' 
-                            ? 'text-emerald-700' 
+                            ? 'text-emerald-600' 
                             : 'text-orange-700'
                         }`}>
                           {contact.status}
@@ -676,7 +651,7 @@ export function ContactsContent({
 
                 {/* Estágio de Autorização Section */}
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-emerald-700 font-bold uppercase tracking-wider text-xs">
+                  <div className="flex items-center gap-2 text-[#10b981] font-bold uppercase tracking-wider text-xs">
                     <CheckCircle size={16} />
                     <span>Estágio de Autorização</span>
                   </div>
@@ -685,7 +660,7 @@ export function ContactsContent({
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Permissão de Acesso *</label>
                     <div className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 flex items-center justify-between">
                       <div className="flex items-center gap-2 text-slate-800">
-                        <CheckCircle size={16} className="text-emerald-700" />
+                        <CheckCircle size={16} className="text-[#10b981]" />
                         <span className="text-xs font-bold">Autorizado</span>
                       </div>
                       <ChevronDown size={14} className="text-slate-400" />
@@ -694,7 +669,7 @@ export function ContactsContent({
 
                   {/* Info block */}
                   <div className="bg-[#f0fdf4] border border-emerald-100 p-4 rounded-2xl flex gap-3 items-start select-none">
-                    <Info size={18} className="text-emerald-700 shrink-0 mt-0.5" />
+                    <Info size={18} className="text-[#10b981] shrink-0 mt-0.5" />
                     <p className="text-slate-700 text-[10.5px] font-medium leading-relaxed">
                       Utilizadores autorizados poderão aceder aos dados de contacto em situações previstas no protocolo institucional de segurança e emergência.
                     </p>

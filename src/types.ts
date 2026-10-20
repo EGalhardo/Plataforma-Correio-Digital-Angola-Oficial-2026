@@ -40,8 +40,6 @@ export interface MessageDetail {
   deadline?: string;
   state?: string;
   actions?: string[];
-  category?: string;
-  type?: string;
   attachments?: (string | { name?: string; size?: string; content?: string; type?: string })[];
   /** v37.77 — difusão (sondagem/emergência): Nº de destinatários do MESMO
    *  lote de envio. Presente apenas na lista «Enviadas» do emissor, onde o
@@ -61,16 +59,10 @@ export interface ReplySendPayload {
   /** v37.78.3 — ids das sondagens embutidas na composição (expedição múltipla
    *  com sondagem: cada cópia do destinatário leva o cartão de resposta). */
   sondagensIds?: number[];
-  /** 2026-09-10 — ids dos Inquéritos com IA (conversacionais) embutidos na
-   *  composição (mesmo mecanismo das sondagens: messages.inquerito_ia_ids). */
-  inqueritosIaIds?: number[];
   /** v37.78.8 — EXPEDIÇÃO MÚLTIPLA: suprime o comprovativo individual deste
    *  envio; o resumo do LOTE abre UMA única vez no fim (1 confirmação para
    *  N destinatários, nunca N popups empilhados). */
   silencioso?: boolean;
-  /** 2026-09-11 — Data de Expiração da correspondência (YYYY-MM-DD do
-   *  selector; vazio = sem prazo). Expedição múltipla: cada cópia leva a mesma. */
-  dataExpiracao?: string;
 }
 
 export interface ReplySendResult {
@@ -107,10 +99,6 @@ export interface Message {
   sensitivity?: 'Público' | 'Privado' | 'Sensível' | 'Restrito' | 'Ultra Restrito';
   priorityScale?: 'Normal' | 'Importante' | 'Urgente' | 'Crítico';
   deadlineHoursRemaining?: number;
-  /** 2026-09-11 — Data de Expiração escolhida no compositor (ISO 8601, fim do
-   *  dia local). Espelho de messages.deadline_at; details.deadline guarda o
-   *  rótulo humano (DD/MM/YYYY ou «Sem prazo»). */
-  deadlineAt?: string | null;
   /** Canal oficial de homologação (Área de Administração ⇄ Cidadão) — visível mesmo com conta pendente de ativação. */
   homologation?: boolean;
   /** BI do cidadão a quem a mensagem de homologação se destina. */
@@ -123,16 +111,8 @@ export interface Message {
   sondagem_id?: number | null;
   /** v37 — múltiplas sondagens embutidas na mesma mensagem (retrocompatível). */
   sondagem_ids?: number[] | null;
-  /** 2026-09-10 (v38) — Inquérito com IA conversacional ligado à difusão; nullable. */
-  inquerito_ia_id?: number | null;
-  /** 2026-09-10 (v38) — múltiplos inquéritos IA embutidos (espelho de sondagem_ids). */
-  inquerito_ia_ids?: number[] | null;
   /** F15 — chave da sessão remetente (caixa "Enviadas" isolada por conta). */
   senderKey?: string;
-  /** BI do cidadão remetente (para denúncias e mensagens enviadas). */
-  senderBi?: string;
-  /** 2026-10-01 — Marca de novidade/actualização de tramitação de cronograma pendente de leitura. */
-  novidade?: boolean;
 }
 
 export interface Document {
@@ -174,18 +154,6 @@ export interface Slide {
   action: string;
 }
 
-/** 2026-09-13 — registo (cidadão ou instituição) ainda não homologado pela
- *  Administração: alimenta o menu da foto de perfil e o indicador do admin. */
-export interface PendingRegistration {
-  id: string;
-  /** B.I. do cidadão ou código institucional (bi_numero). */
-  code: string;
-  name: string;
-  kind: 'cidadao' | 'instituicao';
-  status: string;
-  createdAt: string;
-}
-
 export interface AppNotification {
   id: number;
   title: string;
@@ -194,7 +162,6 @@ export interface AppNotification {
   type: 'success' | 'warning' | 'info';
   targetTab: string;
   unread?: boolean;
-  messageId?: number;
   /** F12 — dono da sessão que gerou o evento (sessões reais só vêem os seus). */
   ownerId?: string;
 }
@@ -246,7 +213,7 @@ export const SENSITIVITY_LEVELS: Record<'Público' | 'Privado' | 'Sensível' | '
     textColor: 'text-emerald-700',
     borderColor: 'border-emerald-200',
     badgeBg: 'bg-emerald-50/50',
-    dotColor: 'bg-emerald-700',
+    dotColor: 'bg-emerald-500',
     accessRules: 'Acesso público sem restrições regulamentares. Qualquer cidadão autenticado pode visualizar.',
     encryption: 'Segurança de Infraestrutura em canal TLS 1.3 padrão.',
     sessionTimeout: 'Sem limite de tempo por inatividade.',

@@ -11,13 +11,10 @@ import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Building2, MapPin, Mail, Phone, User, Briefcase, Lock, Shield,
-  CheckCircle, CheckCircle2, Loader2, ArrowLeft, Copy, Check, Landmark,
-  KeyRound, CheckCheck, Eye, EyeOff
+  CheckCircle, CheckCircle2, Loader2, ArrowLeft, Copy, Check, Landmark
 } from 'lucide-react';
-import { CdaModal } from '../ui/CdaModal';
-import { notify } from '../../lib/notify';
 import { supabase } from '../../lib/supabaseClient';
-import { registoPublicoProxy, anunciarRegistosAlterados } from '../../services/supabaseService';
+import { registoPublicoProxy } from '../../services/supabaseService';
 import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticInstitutionAgentEmail } from '../../services/cloudAuthService';
 import { purgeInstitutionLocalResidues } from '../../services/institutionSessionService';
 import { homologationStore } from '../../services/homologationStore';
@@ -36,9 +33,7 @@ import { normalizarNome, normalizarTitulo, normalizarTexto, corrigirDominioEmail
 
 interface RegisterInstitutionPageProps {
   onCancel: () => void;
-  /** 2026-10-20 — credenciais opcionais: quando presentes, o login institucional
-   *  é pré-preenchido (equivalente ao fluxo do cidadão «Copiar e Ir para o Login»). */
-  onSuccess: (credentials?: { bi: string; password?: string }) => void;
+  onSuccess: () => void;
   addAuditLog: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
 }
 
@@ -76,14 +71,6 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
   const [generatedCode, setGeneratedCode] = useState('');
   const [generatedAgent, setGeneratedAgent] = useState('');
   const [copied, setCopied] = useState(false);
-  // 2026-10-20 — caixa de credenciais completa + popup ao concluir o registo
-  // (mesma funcionalidade do registo do cidadão: copiar tudo / copiar e ir para
-  // o login com pré-preenchimento automático dos campos).
-  const [copiedAgent, setCopiedAgent] = useState(false);
-  const [copiedPassword, setCopiedPassword] = useState(false);
-  const [copiedAll, setCopiedAll] = useState(false);
-  const [showCredPassword, setShowCredPassword] = useState(true);
-  const [credPopup, setCredPopup] = useState(false);
   // v37.78.18 — REGRAS UX: estado da sincronização em segundo plano com a fila
   // da Administração (o ecrã de sucesso aparece IMEDIATAMENTE com o Código).
   const [syncEstado, setSyncEstado] = useState<'a_enviar' | 'ok' | 'falhou'>('a_enviar');
@@ -248,15 +235,6 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
       // homologação antigo) que era re-hidratado no login da adesão re-criada.
       // Purga ANTES de gravar o novo registo — a nova adesão parte de zero.
       try { purgeInstitutionLocalResidues(code); } catch { /* melhor esforço */ }
-      try {
-        localStorage.removeItem(`cda_deleted_inst_${code}`);
-        localStorage.removeItem(`cda_deleted_${code}`);
-        if (s) localStorage.removeItem(`cda_deleted_inst_${s.toUpperCase().replace(/\s+/g, '-')}`);
-        if (agentNumber) {
-          localStorage.removeItem(`cda_deleted_inst_${agentNumber}`);
-          localStorage.removeItem(`cda_deleted_${agentNumber}`);
-        }
-      } catch { /* ignora */ }
 
       const pack: InstitutionRegPack = {
         v: 1,
@@ -298,12 +276,9 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
         `Exmos. Senhores da ${fullName.trim()} (${s.toUpperCase()}), a Área de Administração do Correio Digital Angola confirma a receção da vossa solicitação de adesão (Código Institucional: ${code}). O pedido já foi enviado para análise e em menos de 24 horas receberão uma resposta oficial através deste canal. Enquanto o pedido estiver pendente, cada comunicação oficial chega a esta caixa como correspondência não lida — o aviso aparece no badge da foto de perfil e no menu "Mensagens não lidas".`
       );
       addAuditLog(`Adesão institucional de ${fullName.trim()} (${code}) submetida — pendente de aprovação da Área de Administração.`, 'success');
-      anunciarRegistosAlterados();
 
       setGeneratedCode(code);
       setGeneratedAgent(agentNumber);
-      // 2026-10-20 — popup imediato com as credenciais (espelha o cidadão).
-      setCredPopup(true);
       addAuditLog(`Código Institucional gerado: ${code} · Nº Agente do responsável: ${agentNumber}`, 'info');
       setSyncEstado('a_enviar');
 
@@ -361,11 +336,9 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
         if (r === 'ok') {
           setSyncEstado('ok');
           addAuditLog(`[NUVEM-BG] Adesão de ${fullName.trim()} (${code}) entregue à fila da Administração.`, 'success');
-          anunciarRegistosAlterados();
         } else if (r === 'duplicado') {
           setSyncEstado('ok');
           addAuditLog(`[NUVEM-BG] Adesão de ${code} já constava da fila central (código único) — mantida Pendente para homologação.`, 'warning');
-          anunciarRegistosAlterados();
         } else {
           setSyncEstado('falhou');
           homologationStore.addMessage(
@@ -415,70 +388,25 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
     }
   };
 
-  // 2026-10-20 — cópia de credenciais (espelha o registo do cidadão): código,
-  // nº de agente, palavra-passe ou tudo de uma vez.
-  const copyToClipboard = async (text: string, type: 'code' | 'agent' | 'password' | 'all') => {
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.opacity = '0';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-      }
-      if (type === 'code') {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
-        notify('Código Institucional copiado para a área de transferência!', 'success');
-      } else if (type === 'agent') {
-        setCopiedAgent(true);
-        setTimeout(() => setCopiedAgent(false), 2500);
-        notify('Nº do Agente copiado para a área de transferência!', 'success');
-      } else if (type === 'password') {
-        setCopiedPassword(true);
-        setTimeout(() => setCopiedPassword(false), 2500);
-        notify('Senha copiada para a área de transferência!', 'success');
-      } else {
-        setCopiedAll(true);
-        setTimeout(() => setCopiedAll(false), 2500);
-        notify('Credenciais completas (Código + Agente + Senha) copiadas!', 'success');
-      }
-    } catch (e) {
-      console.warn('Erro ao copiar credenciais:', e);
-    }
-  };
-
-  const textoCredenciais = () =>
-    `Código Institucional: ${generatedCode}${generatedAgent ? `\nNº de Agente: ${generatedAgent}` : ''}\nPalavra-passe: ${senha}`;
-
-  // 2026-10-20 — «Copiar e Ir para o Login»: copia tudo e pré-preenche o login
-  // institucional (mesma experiência do cidadão).
-  const handleGoToLoginWithCreds = () => {
-    void copyToClipboard(textoCredenciais(), 'all');
-    setCredPopup(false);
-    onSuccess({ bi: (generatedAgent || generatedCode).toUpperCase(), password: senha });
-  };
-
   const handleCopy = async () => {
-    await copyToClipboard(generatedCode, 'code');
+    try {
+      await navigator.clipboard.writeText(generatedCode);
+    } catch {
+      // fallback manual: seleccionar texto
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
   };
 
   // ---------- Ecrã de sucesso ----------
   if (generatedCode) {
     return (
-      <>
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         className="flex-1 flex flex-col items-center justify-center text-center space-y-5 py-6"
       >
-        <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
+        <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
           <CheckCircle2 size={30} />
         </div>
         <div>
@@ -514,235 +442,33 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
             </div>
           )}
         </div>
-        {/* 2026-10-20 — Caixa de Credenciais Completas (mesma do registo do cidadão) */}
-        <div className="w-full max-w-sm rounded-2xl border border-blue-200 bg-gradient-to-b from-blue-50/90 to-indigo-50/50 p-4 sm:p-5 space-y-3.5 shadow-sm text-left">
-          <div className="flex items-center justify-between pb-2 border-b border-blue-200/60">
-            <span className="text-[11px] font-black uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
-              <KeyRound size={14} className="text-blue-600" /> Credenciais de Acesso Oficial
-            </span>
-            <button
-              type="button"
-              onClick={() => copyToClipboard(textoCredenciais(), 'all')}
-              className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer border-none shadow-xs"
-              title="Copiar Código, Nº de Agente e Palavra-passe para a área de transferência"
-            >
-              {copiedAll ? <CheckCheck size={12} className="text-emerald-300" /> : <Copy size={12} />}
-              {copiedAll ? 'Copiado!' : 'Copiar Tudo'}
-            </button>
-          </div>
-
-          {/* Campo 1: Código Institucional */}
-          <div className="space-y-1">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Código Institucional</span>
-            <div className="flex items-center justify-between gap-2 bg-white border border-blue-200 rounded-xl p-2.5 px-3.5 shadow-xs">
-              <span className="font-mono font-black text-slate-900 text-sm md:text-base tracking-wider select-all break-all">
-                {generatedCode}
-              </span>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(generatedCode, 'code')}
-                className="p-1.5 px-2.5 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
-                title="Copiar Código Institucional"
-              >
-                {copied ? <Check size={12} className="text-emerald-700" /> : <Copy size={12} />}
-                <span>{copied ? 'Copiado' : 'Copiar'}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Campo 2: Nº de Agente do Responsável */}
+        <div className="w-full max-w-sm bg-slate-50 border-2 border-dashed border-[#2563eb]/30 rounded-3xl p-5 space-y-1.5">
+          <span className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block">Código Institucional</span>
+          <span className="font-mono font-black text-2xl text-[#0E2B64] tracking-widest block">{generatedCode}</span>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-[#2563eb] hover:text-[#0E2B64] bg-transparent border-none cursor-pointer transition-colors"
+          >
+            {copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+            {copied ? 'Copiado!' : 'Copiar Código'}
+          </button>
           {generatedAgent && (
-            <div className="space-y-1">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nº de Agente do Responsável</span>
-              <div className="flex items-center justify-between gap-2 bg-white border border-blue-200 rounded-xl p-2.5 px-3.5 shadow-xs">
-                <span className="font-mono font-black text-slate-900 text-sm md:text-base tracking-wider select-all break-all">
-                  {generatedAgent}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(generatedAgent, 'agent')}
-                  className="p-1.5 px-2.5 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
-                  title="Copiar Nº de Agente"
-                >
-                  {copiedAgent ? <Check size={12} className="text-emerald-700" /> : <Copy size={12} />}
-                  <span>{copiedAgent ? 'Copiado' : 'Copiar'}</span>
-                </button>
-              </div>
+            <div className="pt-2 mt-1 border-t border-dashed border-slate-200">
+              <span className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block">Nº Agente Institucional do Responsável</span>
+              <span className="font-mono font-black text-lg text-[#0E2B64] tracking-widest block">{generatedAgent}</span>
             </div>
           )}
-
-          {/* Campo 3: Palavra-passe */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Palavra-passe de Acesso</span>
-              <button
-                type="button"
-                onClick={() => setShowCredPassword(!showCredPassword)}
-                className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-transparent border-none cursor-pointer"
-              >
-                {showCredPassword ? <EyeOff size={12} /> : <Eye size={12} />}
-                <span>{showCredPassword ? 'Ocultar' : 'Revelar'}</span>
-              </button>
-            </div>
-            <div className="flex items-center justify-between gap-2 bg-white border border-blue-200 rounded-xl p-2.5 px-3.5 shadow-xs">
-              <span className="font-mono font-black text-slate-900 text-sm md:text-base tracking-wider select-all break-all">
-                {showCredPassword ? senha : '•'.repeat(Math.min(senha.length || 8, 16))}
-              </span>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(senha, 'password')}
-                className="p-1.5 px-2.5 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
-                title="Copiar Palavra-passe"
-              >
-                {copiedPassword ? <Check size={12} className="text-emerald-700" /> : <Copy size={12} />}
-                <span>{copiedPassword ? 'Copiada' : 'Copiar'}</span>
-              </button>
-            </div>
-          </div>
-
           <p className="text-[9.5px] text-slate-400 mt-1 leading-snug">Guarde ambos: o <strong>Código</strong> identifica a instituição; o <strong>Nº Agente</strong> identifica a pessoa no login (responsável = -01; a equipa recebe -02, -03…).</p>
         </div>
-
         <button
           type="button"
-          onClick={handleGoToLoginWithCreds}
-          className="w-full max-w-sm py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-black text-[12px] uppercase tracking-widest transition-all cursor-pointer border-0 shadow-xl shadow-blue-500/15 flex items-center justify-center gap-2"
-        >
-          <Copy size={14} />
-          Copiar e Aceder ao Login Seguro
-        </button>
-        <button
-          type="button"
-          onClick={() => onSuccess()}
+          onClick={onSuccess}
           className="bg-[#0E2B64] hover:bg-[#081a3d] text-white rounded-xl px-8 py-3 font-black text-[11px] uppercase tracking-wider transition-all cursor-pointer border-none shadow-lg shadow-[#0E2B64]/15"
         >
           Voltar ao Login
         </button>
       </motion.div>
-
-      {/* 2026-10-20 — popup de credenciais ao concluir a adesão (espelha o cidadão) */}
-      <CdaModal
-        aberto={credPopup}
-        onFechar={() => setCredPopup(false)}
-        icone={Lock}
-        titulo="Adesão Concluída"
-        subtitulo="Dados de acesso · SME"
-        tomIcone="bg-blue-50 text-blue-600 border-blue-100"
-        maxW="max-w-md"
-      >
-        <div className="text-left space-y-3.5">
-          <p className="text-sm font-semibold text-slate-700 m-0 leading-relaxed">
-            O seu pedido de adesão foi recebido com sucesso e a análise decorre em segundo plano. Utilize estes dados para aceder ao portal institucional:
-          </p>
-
-          <div className="rounded-2xl border border-blue-200 bg-gradient-to-b from-blue-50/90 to-indigo-50/50 p-4 space-y-3 shadow-xs">
-            <div className="flex items-center justify-between pb-1.5 border-b border-blue-200/60">
-              <span className="text-[10.5px] font-black uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
-                <KeyRound size={13} className="text-blue-600" /> Credenciais de Acesso
-              </span>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(textoCredenciais(), 'all')}
-                className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[9.5px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer border-none shadow-xs"
-                title="Copiar Código, Nº de Agente e Palavra-passe para a área de transferência"
-              >
-                {copiedAll ? <CheckCheck size={11} className="text-emerald-300" /> : <Copy size={11} />}
-                {copiedAll ? 'Copiado!' : 'Copiar Tudo'}
-              </button>
-            </div>
-
-            {/* Código Institucional */}
-            <div className="space-y-1">
-              <span className="text-[9.5px] font-black uppercase tracking-widest text-slate-500">Código Institucional</span>
-              <div className="flex items-center justify-between gap-2 bg-white border border-blue-200 rounded-xl p-2 px-3 shadow-2xs">
-                <span className="font-mono font-black text-slate-900 text-sm tracking-wider select-all break-all">{generatedCode}</span>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(generatedCode, 'code')}
-                  className="p-1 px-2 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[9.5px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
-                  title="Copiar Código Institucional"
-                >
-                  {copied ? <Check size={11} className="text-emerald-700" /> : <Copy size={11} />}
-                  <span>{copied ? 'Copiado' : 'Copiar'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Nº de Agente */}
-            {generatedAgent && (
-              <div className="space-y-1">
-                <span className="text-[9.5px] font-black uppercase tracking-widest text-slate-500">Nº de Agente do Responsável</span>
-                <div className="flex items-center justify-between gap-2 bg-white border border-blue-200 rounded-xl p-2 px-3 shadow-2xs">
-                  <span className="font-mono font-black text-slate-900 text-sm tracking-wider select-all break-all">{generatedAgent}</span>
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(generatedAgent, 'agent')}
-                    className="p-1 px-2 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[9.5px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
-                    title="Copiar Nº de Agente"
-                  >
-                    {copiedAgent ? <Check size={11} className="text-emerald-700" /> : <Copy size={11} />}
-                    <span>{copiedAgent ? 'Copiado' : 'Copiar'}</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Senha */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[9.5px] font-black uppercase tracking-widest text-slate-500">Palavra-passe de Acesso</span>
-                <button
-                  type="button"
-                  onClick={() => setShowCredPassword(!showCredPassword)}
-                  className="text-[9.5px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-transparent border-none cursor-pointer"
-                >
-                  {showCredPassword ? <EyeOff size={11} /> : <Eye size={11} />}
-                  <span>{showCredPassword ? 'Ocultar' : 'Revelar'}</span>
-                </button>
-              </div>
-              <div className="flex items-center justify-between gap-2 bg-white border border-blue-200 rounded-xl p-2 px-3 shadow-2xs">
-                <span className="font-mono font-black text-slate-900 text-sm tracking-wider select-all break-all">
-                  {showCredPassword ? senha : '•'.repeat(Math.min(senha.length || 8, 16))}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(senha, 'password')}
-                  className="p-1 px-2 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 text-[9.5px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border border-slate-200 shrink-0"
-                  title="Copiar Palavra-passe"
-                >
-                  {copiedPassword ? <Check size={11} className="text-emerald-700" /> : <Copy size={11} />}
-                  <span>{copiedPassword ? 'Copiada' : 'Copiar'}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <p className="text-[10px] font-semibold text-slate-500 m-0">
-            Por segurança, memorize ou guarde estes dados num local seguro.
-          </p>
-          <p className="text-[10.5px] font-semibold text-blue-700 m-0 leading-relaxed">
-            Pode entrar na área institucional agora: a análise decorre em segundo plano e o resultado será notificado nesta mesma conta.
-          </p>
-        </div>
-        <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={() => setCredPopup(false)}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer border-none"
-          >
-            Fechar
-          </button>
-          <button
-            type="button"
-            onClick={handleGoToLoginWithCreds}
-            className="w-full sm:w-auto px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all cursor-pointer border-none shadow-md shadow-blue-500/20 flex items-center justify-center gap-2"
-          >
-            <Copy size={13} />
-            Copiar e Ir para o Login
-          </button>
-        </div>
-      </CdaModal>
-      </>
     );
   }
 
@@ -1039,7 +765,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
               {fieldErrors.senha
                 ? <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.senha}</p>
                 : senha && (
-                  <p className={`text-[9.5px] font-bold ml-1 ${senha.length >= 8 && /\d/.test(senha) && /[a-zA-Z]/.test(senha) ? 'text-emerald-700' : senha.length >= 6 ? 'text-amber-700' : 'text-red-500'}`}>
+                  <p className={`text-[9.5px] font-bold ml-1 ${senha.length >= 8 && /\d/.test(senha) && /[a-zA-Z]/.test(senha) ? 'text-emerald-600' : senha.length >= 6 ? 'text-amber-600' : 'text-red-500'}`}>
                     Força: {senha.length >= 8 && /\d/.test(senha) && /[a-zA-Z]/.test(senha) ? 'Forte' : senha.length >= 6 ? 'Média' : 'Fraca'}
                   </p>
                 )}
@@ -1058,7 +784,7 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
                 />
               </div>
               {confirmar && senha === confirmar && !fieldErrors.confirmar && (
-                <p className="text-[9.5px] text-emerald-700 font-bold ml-1 flex items-center gap-1"><Check size={10} /> As senhas coincidem</p>
+                <p className="text-[9.5px] text-emerald-600 font-bold ml-1 flex items-center gap-1"><Check size={10} /> As senhas coincidem</p>
               )}
               {fieldErrors.confirmar && <p className="text-[9.5px] text-red-500 font-bold ml-1">{fieldErrors.confirmar}</p>}
             </div>

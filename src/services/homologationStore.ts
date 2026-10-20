@@ -31,19 +31,14 @@ const THREADS_KEY = 'cda_homologation_threads_v1';
 
 // Identidades demo canónicas do piloto — NUNCA passam por homologação,
 // para não quebrar o fluxo de demonstração já existente.
-// 2026-09-13 (T61) — ADMIN-0001 (Admin Alfa) deixou de ser tratado como demo:
-// é uma conta REAL com sessão Supabase Auth (perfil, signOut e correspondência
-// oficial seguem a via da nuvem, como qualquer agente ADMIN-NNNN).
-const ALWAYS_ACTIVE_IDENTIFIERS = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP'];
+const ALWAYS_ACTIVE_IDENTIFIERS = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP', 'ADMIN-0001'];
 
 export const normalizeHomologationBi = (bi?: string): string =>
   (bi || '').toUpperCase().replace(/\s+/g, '').trim();
 
-const memoryStore: Record<string, string> = {};
-
 const readJson = <T,>(key: string, fallback: T): T => {
   try {
-    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : memoryStore[key];
+    const raw = localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
@@ -52,62 +47,13 @@ const readJson = <T,>(key: string, fallback: T): T => {
 
 const writeJson = (key: string, value: unknown): void => {
   try {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(key, JSON.stringify(value));
-    } else {
-      memoryStore[key] = JSON.stringify(value);
-    }
+    localStorage.setItem(key, JSON.stringify(value));
   } catch (e) {
     console.warn('[HomologationStore] Falha ao gravar no armazenamento local:', e);
   }
 };
 
 const nowStamp = (): string => new Date().toLocaleString('pt-AO');
-
-// 2026-10-19 — CLASSIFICAÇÃO CANÓNICA das correspondências da homologação.
-// A conta canónica tem EXACTAMENTE 2 correspondências: 1. Confirmação de
-// Registo + 2. Homologação/Ativação Oficial.
-const ehMensagemDeSubmissao = (texto: string): boolean =>
-  texto.includes('confirma a receção do seu pedido de registo') || texto.includes('confirma a receção');
-const ehMensagemDeAprovacao = (texto: string): boolean =>
-  texto.includes('HOMOLOGADA') || texto.includes('oficialmente ATIVA');
-
-/**
- * 2026-10-19 — NORMALIZAÇÃO ANTI-REPETIÇÃO (relato do dono: «correspondências
- * a repetir»): a mesma ativação pode ser detectada por VIAS INDEPENDENTES
- * (aprovação automática da IA/PVI, aprovação manual do Admin e a sonda F48 em
- * sessão aberta) e cada via acrescentava a SUA cópia à thread local — a conta
- * ficava com 2-3 cópias da «Conta Ativada». Esta função colapsa a thread no
- * estado canónico (no máx. 1 submissão + 1 aprovação, mantendo a PRIMEIRA de
- * cada — as restantes mensagens avulsas, ex.: rejeição/desbloqueio, seguem).
- * É chamada pelos garantes do canal (ensure*) para auto-sanear contas já
- * poluídas no dispositivo.
- */
-export const normalizarThreadHomologacao = (bi: string): void => {
-  const key = normalizeHomologationBi(bi);
-  if (!key) return;
-  const all = readJson<Record<string, HomologationMessage[]>>(THREADS_KEY, {});
-  const thread = all[key];
-  if (!thread || thread.length === 0) return;
-  let viuSubmissao = false;
-  let viuAprovacao = false;
-  const limpa = thread.filter((m) => {
-    if (ehMensagemDeAprovacao(m.text)) {
-      if (viuAprovacao) return false;
-      viuAprovacao = true;
-      return true;
-    }
-    if (ehMensagemDeSubmissao(m.text)) {
-      if (viuSubmissao) return false;
-      viuSubmissao = true;
-      return true;
-    }
-    return true;
-  });
-  if (limpa.length === thread.length) return;
-  all[key] = limpa;
-  writeJson(THREADS_KEY, all);
-};
 
 export const homologationStore = {
   /** Identidades demo já nascem ativas e nunca são gated. */
@@ -169,12 +115,6 @@ export const homologationStore = {
     const key = normalizeHomologationBi(bi);
     if (!key || !text.trim()) return null;
     const all = readJson<Record<string, HomologationMessage[]>>(THREADS_KEY, {});
-    // 2026-10-19 — ANTI-REPETIÇÃO: nunca criar uma 2.ª cópia de uma
-    // correspondência com o MESMO texto (garante o invariante «uma
-    // correspondência = uma entrada» em todas as vias de escrita).
-    const texto = text.trim();
-    const existente = (all[key] || []).find((m) => m.text === texto);
-    if (existente) return existente;
     const msg: HomologationMessage = {
       id: `hom_${Date.now()}_${Math.floor(Math.random() * 100000)}`,
       from,
@@ -205,14 +145,6 @@ export const notifyRegistrationSubmitted = (bi: string, name?: string): void => 
 };
 
 export const notifyAccountApproved = (bi: string, name?: string): void => {
-  // 2026-10-19 — IDEMPOTENTE (relato do dono: «correspondências a repetir»): a
-  // ativação é detetada por VIAS INDEPENDENTES — aprovação automática da IA/PVI
-  // (registoBgService), aprovação manual do Admin (GovContactsContent) e a
-  // sonda F48 da sessão aberta (App). Antes, cada via chamava esta função e
-  // acrescentava a SUA cópia da «Conta Ativada» à thread local (o dono contou
-  // 2 cópias repetidas na conta). Se a aprovação JÁ existe na thread, não é
-  // acrescentada outra — total canónico preservado (2 correspondências).
-  if (homologationStore.getThread(bi).some((m) => ehMensagemDeAprovacao(m.text))) return;
   homologationStore.addMessage(
     bi,
     'admin',
@@ -249,12 +181,8 @@ export const notifyAccountUnblocked = (bi: string, name?: string): void => {
 // F14 — Canal oficial multi-dispositivo da instituição: a thread de homologação
 // é local ao dispositivo; um login noutro dispositivo deixava a conta real SEM
 // a correspondência oficial da Área de Administração. Se a thread estiver
-// vazia, reconstrói-a a partir do registo (confirmação de recepção).
-// Nunca sobrescreve o que existe.
-// 2026-09-13 (T62) — a mensagem local de APROVAÇÃO deixou de ser reconstruída:
-// desde T61 a correspondência «Adesão Aprovada — Conta Institucional Ativada»
-// é gravada na NUVEM pela consola do Admin e chega a todos os dispositivos;
-// a cópia local aparecia como duplicado na caixa da instituição.
+// vazia, reconstrói-a a partir do registo (confirmação de recepção; + mensagem
+// de aprovação quando a conta já está activa). Nunca sobrescreve o que existe.
 // ----------------------------------------------------------------------------
 export const ensureInstitutionHomologationChannel = (
   codeRaw: string,
@@ -263,8 +191,6 @@ export const ensureInstitutionHomologationChannel = (
 ): void => {
   const code = (codeRaw || '').trim().toUpperCase();
   if (!code || ALWAYS_ACTIVE_IDENTIFIERS.includes(code)) return; // apenas contas reais
-  // 2026-10-19 — auto-saneamento ANTI-REPETIÇÃO antes de reconstruir.
-  normalizarThreadHomologacao(code);
   if (!homologationStore.getStatus(code)) {
     homologationStore.setStatus(code, status, undefined, fullName);
   }
@@ -276,47 +202,11 @@ export const ensureInstitutionHomologationChannel = (
     'admin',
     `Exmos. Senhores da ${base} (${sig}), a Área de Administração do Correio Digital Angola confirma a receção da vossa solicitação de adesão (Código Institucional: ${code}). O pedido já foi enviado para análise e em menos de 24 horas receberão uma resposta oficial através deste canal. Enquanto o pedido estiver pendente, cada comunicação oficial chega a esta caixa como correspondência não lida — o aviso aparece no badge da foto de perfil e no menu "Mensagens não lidas".`
   );
-};
-
-// ----------------------------------------------------------------------------
-// Canal oficial multi-dispositivo do cidadão: garante a presença integral de
-// todas as correspondências oficiais da conta aberta (1. Confirmação de Registo
-// + 2. Homologação/Ativação Oficial). Total de 2 correspondências canónicas da conta.
-// ----------------------------------------------------------------------------
-export const ensureCitizenHomologationChannel = (
-  biRaw: string,
-  fullName?: string,
-  status: 'pending' | 'correcao' | 'active' | 'rejected' | 'blocked' = 'active',
-): void => {
-  const bi = normalizeHomologationBi(biRaw);
-  if (!bi) return;
-  // 2026-10-19 — auto-saneamento ANTI-REPETIÇÃO: colapsa cópias duplicadas
-  // deixadas pelas vias independentes (IA/PVI + Admin + sonda F48) antes de
-  // avaliar o que falta reconstruir — total canónico exacto (2 correspondências).
-  normalizarThreadHomologacao(bi);
-  if (!homologationStore.getStatus(bi)) {
-    homologationStore.setStatus(bi, status, undefined, fullName);
-  }
-  const thread = homologationStore.getThread(bi);
-  const name = (fullName || '').replace(/\s*\([^)]*\)\s*$/, '').trim() || 'Edlasio Galhardo';
-
-  const hasSubmission = thread.some(m => m.text.includes('confirma a receção do seu pedido de registo') || m.text.includes('confirma a receção'));
-  const hasApproval = thread.some(m => m.text.includes('HOMOLOGADA') || m.text.includes('oficialmente ATIVA'));
-
-  if (!hasSubmission) {
+  if (status === 'active') {
     homologationStore.addMessage(
-      bi,
+      code,
       'admin',
-      `Exmo(a). ${name}, a Área de Administração do Correio Digital de Angola confirma a receção do seu pedido de registo. A sua documentação encontra-se em homologação pelos inspetores de identificação civil nacional, com resposta prevista em menos de 24 horas. Enquanto a sua conta não for ativada, não poderá receber correspondência oficial das instituições (AGT, SME, ENDE, EPAL, entre outras). Este canal é a via oficial exclusiva de comunicação durante o processo.`
-    );
-  }
-
-  const currentStatus = homologationStore.getStatus(bi)?.status || status;
-  if ((currentStatus === 'active' || !homologationStore.getStatus(bi)) && !hasApproval) {
-    homologationStore.addMessage(
-      bi,
-      'admin',
-      `Exmo(a). ${name}, informamos que a sua identidade foi HOMOLOGADA e a sua conta no Correio Digital de Angola está oficialmente ATIVA. A partir deste momento pode receber correspondência oficial de todas as instituições integradas. Bem-vindo à rede nacional de correio digital.`
+      `Exmos. Senhores da ${base} (${code}), informamos que a vossa adesão ao Correio Digital Angola foi APROVADA pela Área de Administração e a conta da instituição encontra-se oficialmente ATIVA. Todas as funcionalidades da área institucional ficam disponíveis de imediato. Bem-vindos à rede nacional de correio digital.`
     );
   }
 };

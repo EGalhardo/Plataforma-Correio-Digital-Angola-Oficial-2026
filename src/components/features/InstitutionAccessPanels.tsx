@@ -14,7 +14,7 @@ import { Lock, CheckCircle2, AlertTriangle, UploadCloud, ShieldCheck, Landmark, 
 import { useLanguage } from '../../hooks/useLanguage';
 import type { InstitutionIdentity } from '../../services/institutionSessionService';
 import {
-  getLocalInstReg, setInstResponsiblePassword,
+  getLocalInstReg, isInstPasswordTaken, setInstResponsiblePassword,
   updateInstMemberPassword, setInstLogo
 } from '../../services/institutionRegistrationStore';
 import { alterarSenhaAgente } from '../../services/supabaseService';
@@ -79,6 +79,11 @@ export function InstitutionAccessPanel({ code, identity, onAudit }: PanelProps) 
     }
     if (newPwd === actual) {
       setPwdMsg({ kind: 'err', text: 'A nova palavra-passe não pode ser igual à actual.' });
+      return;
+    }
+    // Anti-duplicação: a senha identifica a pessoa — sem repetições dentro da instituição
+    if (isInstPasswordTaken(code, newPwd, member?.id)) {
+      setPwdMsg({ kind: 'err', text: 'Esta palavra-passe já está em uso por outra credencial desta instituição. Escolha outra.' });
       return;
     }
     if (newPwd !== confirmPwd) {
@@ -160,7 +165,7 @@ export function InstitutionAccessPanel({ code, identity, onAudit }: PanelProps) 
           </div>
         </div>
         {pwdMsg && (
-          <p className={`text-[10px] font-bold mt-3 flex items-center gap-1.5 ${pwdMsg.kind === 'ok' ? 'text-emerald-700' : 'text-red-600'}`}>
+          <p className={`text-[10px] font-bold mt-3 flex items-center gap-1.5 ${pwdMsg.kind === 'ok' ? 'text-emerald-600' : 'text-red-600'}`}>
             {pwdMsg.kind === 'ok' ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />} {pwdMsg.text}
           </p>
         )}
@@ -203,7 +208,7 @@ export function InstitutionAccessPanel({ code, identity, onAudit }: PanelProps) 
                 <UploadCloud size={13} /> {reg.logoDataUrl ? 'Substituir Logótipo' : 'Carregar Logótipo'}
               </button>
               {logoMsg && (
-                <p className={`text-[10px] font-bold mt-2 flex items-center gap-1.5 ${logoMsg.kind === 'ok' ? 'text-emerald-700' : 'text-red-600'}`}>
+                <p className={`text-[10px] font-bold mt-2 flex items-center gap-1.5 ${logoMsg.kind === 'ok' ? 'text-emerald-600' : 'text-red-600'}`}>
                   {logoMsg.kind === 'ok' ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />} {logoMsg.text}
                 </p>
               )}
@@ -248,6 +253,10 @@ export function InstitutionForcedPasswordChange({ code, memberId, memberName, on
     }
     if (newPwd === currentPwd) {
       setMsg({ kind: 'err', text: 'A nova palavra-passe deve ser diferente da palavra-passe inicial.' });
+      return;
+    }
+    if (isInstPasswordTaken(code, newPwd, member.id)) {
+      setMsg({ kind: 'err', text: 'Esta palavra-passe já está em uso por outra credencial desta instituição. Escolha outra.' });
       return;
     }
     if (newPwd !== confirmPwd) {
@@ -299,7 +308,7 @@ export function InstitutionForcedPasswordChange({ code, memberId, memberName, on
             </div>
           </div>
           {msg && (
-            <p className={`text-[10px] font-bold flex items-center gap-1.5 ${msg.kind === 'ok' ? 'text-emerald-700' : 'text-red-600'}`}>
+            <p className={`text-[10px] font-bold flex items-center gap-1.5 ${msg.kind === 'ok' ? 'text-emerald-600' : 'text-red-600'}`}>
               {msg.kind === 'ok' ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />} {msg.text}
             </p>
           )}

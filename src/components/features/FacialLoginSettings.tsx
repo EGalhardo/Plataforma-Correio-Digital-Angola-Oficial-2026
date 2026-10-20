@@ -102,33 +102,22 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
       let imageDataUrl: string | undefined;
       if (!cameraError && videoRef.current) {
         const video = videoRef.current;
-        // 2026-09-22 (mobile) — «No modo mobile o login facial não está funcional».
-        // Numa câmara de telemóvel a stream fica ligada ANTES de existirem imagens:
-        // capturar nesse instante gravava uma moldura preta (assinatura sem relação
-        // com o rosto) e a conta passava a falhar o login facial para sempre. Agora
-        // espera-se (até 1,2 s) pelo 1.º fotograma; sem fotogramas, cai no registo
-        // simulado — que o login facial sabe reconhecer (mesma assinatura sintética).
-        for (let espera = 0; espera < 1200 && !(video.videoWidth > 0); espera += 150) {
-          await new Promise(r => setTimeout(r, 150));
-        }
-        if (video.videoWidth > 0 && video.videoHeight > 0) {
-          const canvas = canvasRef.current || document.createElement('canvas');
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            signature = await computeFaceSignatureAsync(canvas);
-            // v37.78.40 — a foto guardada é uma MINIATURA (máx. 320px, JPEG
-            // leve): câmaras reais a 720p/1080p geravam fotos grandes que podiam
-            // encher a cota do localStorage e fazer a gravação falhar.
-            const thumb = document.createElement('canvas');
-            const esc = Math.min(1, 320 / Math.max(canvas.width, canvas.height));
-            thumb.width = Math.max(1, Math.round(canvas.width * esc));
-            thumb.height = Math.max(1, Math.round(canvas.height * esc));
-            thumb.getContext('2d')?.drawImage(canvas, 0, 0, thumb.width, thumb.height);
-            imageDataUrl = thumb.toDataURL('image/jpeg', 0.72);
-          }
+        const canvas = canvasRef.current || document.createElement('canvas');
+        canvas.width = video.videoWidth || 320;
+        canvas.height = video.videoHeight || 240;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          signature = await computeFaceSignatureAsync(canvas);
+          // v37.78.40 — a foto guardada é uma MINIATURA (máx. 320px, JPEG
+          // leve): câmaras reais a 720p/1080p geravam fotos grandes que podiam
+          // encher a cota do localStorage e fazer a gravação falhar.
+          const thumb = document.createElement('canvas');
+          const esc = Math.min(1, 320 / Math.max(canvas.width, canvas.height));
+          thumb.width = Math.max(1, Math.round(canvas.width * esc));
+          thumb.height = Math.max(1, Math.round(canvas.height * esc));
+          thumb.getContext('2d')?.drawImage(canvas, 0, 0, thumb.width, thumb.height);
+          imageDataUrl = thumb.toDataURL('image/jpeg', 0.72);
         }
       }
       if (!signature.length) {
@@ -296,7 +285,7 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
             {STEPS.map((s, i) => (
               <div key={s} className="flex items-center gap-1.5">
                 <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black border transition-all ${
-                  i < step ? 'bg-emerald-700 border-emerald-700 text-white'
+                  i < step ? 'bg-emerald-500 border-emerald-500 text-white'
                   : i === step ? 'bg-blue-600 border-blue-600 text-white animate-pulse'
                   : 'bg-white border-slate-300 text-slate-400'}`}>
                   {i < step ? '✓' : i + 1}
@@ -324,7 +313,7 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
               className="bg-[#0E2B64] hover:bg-[#081a3d] text-white px-6 py-2.5 rounded-xl font-black text-[9.5px] uppercase tracking-widest transition-all cursor-pointer border-none flex items-center gap-2 disabled:opacity-60"
             >
               {isProcessingCapture
-                ? 'A registar…'
+                ? <><Loader2 size={13} className="animate-spin" /> A registar…</>
                 : <><Camera size={13} /> Capturar {step + 1}/3</>}
             </button>
           </div>
@@ -342,7 +331,7 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
             <button
               type="button"
               onClick={() => setPedirRemocaoFacial(true)}
-              className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2"
+              className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2"
             >
               <Trash2 size={13} /> Remover registo facial
             </button>

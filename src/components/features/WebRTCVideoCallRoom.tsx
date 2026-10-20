@@ -23,19 +23,8 @@ import {
   Monitor,
   ShieldCheck,
   Clock,
-  Volume2,
-  VolumeX,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import {
-  playCallConnectSound,
-  playCallDisconnectSound,
-  playSpeakerTestTone,
-  playToggleMuteSound,
-  playAttendantWelcomeVoice,
-  stopAttendantVoice,
-  getAudioContext,
-} from '../../utils/audioEffects';
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
@@ -55,19 +44,11 @@ export interface WebRTCVideoCallRoomProps {
   isVideoOn?: boolean;
   isAudioOn?: boolean;
   isScreenSharing?: boolean;
-  /** Avisa a página sempre que a partilha de ecrã começa/pára (a página tem
-   *  botões próprios de partilha nas barras de controlo). */
-  onScreenShareChange?: (sharing: boolean) => void;
   onEndCall?: () => void;
   currentUserRole?: 'institution' | 'citizen' | 'admin';
   currentUserName?: string;
   remoteUserName?: string;
 }
-
-const primeiroNomeExibicao = (nome?: string): string => {
-  const limpo = String(nome || '').trim();
-  return limpo ? limpo.split(/\s+/)[0] : '';
-};
 
 export function WebRTCVideoCallRoom({
   roomName,
@@ -76,7 +57,6 @@ export function WebRTCVideoCallRoom({
   isVideoOn = true,
   isAudioOn = true,
   isScreenSharing = false,
-  onScreenShareChange,
   onEndCall,
   currentUserRole = 'citizen',
   currentUserName = 'Cidadão CDA',
@@ -85,29 +65,12 @@ export function WebRTCVideoCallRoom({
   // DOM element refs
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
-  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // WebRTC & Stream refs (stable across renders)
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  // 2026-09-21 — PARTILHA DE ECRÃ: guardar a stream do ecrã para poder parar a
-  // captura SEMPRE (botão, paragem pelo navegador, desligar a chamada e sair da
-  // página). Antes não havia referência nenhuma: o navegador continuava a
-  // partilhar o ecrã depois de sair da chamada e já não havia botão para parar.
-  const screenStreamRef = useRef<MediaStream | null>(null);
-  // 2026-09-22 (partilha como TOGGLE a 100%) — duas marcas de corrida:
-  // `iniciarEmCursoRef` impede um 2.º getDisplayMedia enquanto o 1.º picker
-  // ainda está aberto (clique rápido no botão, ou botão da página + botão da
-  // sala em sequência): sem isto apareciam DOIS pedidos de partilha ao
-  // utilizador. `pararPedidoRef` regista um pedido de PARAR feito enquanto o
-  // picker estava aberto: se o utilizador pediu para parar, a captura que
-  // resolve depois é abortada de imediato — nunca fica partilha a correr com
-  // o botão em estado «desligado» (era o «pisca» da partilha).
-  const iniciarEmCursoRef = useRef(false);
-  const pararPedidoRef = useRef(false);
   const candidateQueue = useRef<RTCIceCandidateInit[]>([]);
-  const seenSignalIds = useRef<Set<string>>(new Set());
   const isNegotiating = useRef(false);
 
   // Signaling & Identity refs
@@ -136,10 +99,7 @@ export function WebRTCVideoCallRoom({
   const [isSharingScreen, setIsSharingScreen] = useState(isScreenSharing);
   const [callDuration, setCallDuration] = useState(0);
   const [isCameraLoading, setIsCameraLoading] = useState(true);
-  const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanOffset, setScanOffset] = useState(0);
-  const [somBloqueado, setSomBloqueado] = useState(false);
-  const [isSpeakerTesting, setIsSpeakerTesting] = useState(false);
 
   // Laser animation in PiP
   useEffect(() => {
@@ -183,7 +143,6 @@ export function WebRTCVideoCallRoom({
     const cleanRoom = currentRoom.replace(/[^a-zA-Z0-9\-_]/g, '');
     const message = {
       ...payload,
-      signalId: `${myPeerId.current}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       sender: myPeerId.current,
       room: cleanRoom,
       timestamp: Date.now(),
@@ -217,34 +176,6 @@ export function WebRTCVideoCallRoom({
     } catch {}
   }, []);
 
-  /** Reproduz o vídeo do interlocutor COM som; só silencia (para o vídeo não
-   *  ficar preto) se a política do navegador recusar a reprodução. */
-  const tentarTocarRemoto = useCallback((tentativa = 0) => {
-    const v = remoteVideoRef.current;
-    if (!v) return;
-    v.muted = false;
-    v.play().then(() => setSomBloqueado(false)).catch((e: any) => {
-      const recusaDePolitica = e && e.name === 'NotAllowedError';
-      if (!recusaDePolitica && tentativa < 3) {
-        // interrupção transitória (AbortError): repetir sem silenciar
-        setTimeout(() => tentarTocarRemoto(tentativa + 1), 250);
-        return;
-      }
-      v.muted = true;
-      setSomBloqueado(true);
-      v.play().catch(() => {});
-    });
-  }, []);
-
-  /** Liga o som do interlocutor (botão «Ligar som» / primeiro toque na sala). */
-  const ligarSomRemoto = useCallback(() => {
-    const v = remoteVideoRef.current;
-    if (!v) return;
-    setSomBloqueado(false);
-    v.muted = false;
-    v.play().catch(() => setSomBloqueado(true));
-  }, []);
-
   // Create or retrieve PeerConnection
   const getOrCreatePeerConnection = useCallback((targetPeerId?: string) => {
     let pc = peerConnectionRef.current;
@@ -276,11 +207,12 @@ export function WebRTCVideoCallRoom({
 
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = stream;
-          tentarTocarRemoto();
-        }
-        if (remoteAudioRef.current) {
-          remoteAudioRef.current.srcObject = stream;
-          remoteAudioRef.current.play().catch(() => {});
+          remoteVideoRef.current.play().catch(() => {
+            if (remoteVideoRef.current) {
+              remoteVideoRef.current.muted = true;
+              remoteVideoRef.current.play().catch(() => {});
+            }
+          });
         }
       };
 
@@ -320,13 +252,6 @@ export function WebRTCVideoCallRoom({
       const senders = pc.getSenders();
       localStreamRef.current.getTracks().forEach((track) => {
         const hasTrack = senders.some((s) => s.track && s.track.id === track.id);
-        // 2026-09-22 — NUNCA adicionar um SEGUNDO sender de vídeo: durante a
-        // partilha de ecrã o sender de vídeo já existe (com a faixa do ecrã) e
-        // esta verificação, por comparar o id da faixa da câmara, acrescentava a
-        // câmara como sender extra — o outro lado passava a receber duas faixas
-        // de vídeo e podia ver a errada.
-        const jaTemVideo = senders.some((s) => s.track && s.track.kind === 'video');
-        if (jaTemVideo && track.kind === 'video') return;
         if (!hasTrack) {
           try {
             pc!.addTrack(track, localStreamRef.current!);
@@ -348,17 +273,6 @@ export function WebRTCVideoCallRoom({
     if (!msg || msg.sender === myPeerId.current || msg.room !== cleanRoom) return;
     if (msg.timestamp && msg.timestamp < joinedAt.current - 2000) return;
 
-    // O mesmo sinal chega por API, Supabase e BroadcastChannel. Deduplicar por
-    // ID evita processar duas vezes o mesmo SDP/candidato e corromper a
-    // negociação (createAnswer em estado stable, vídeo sem frames).
-    const signalKey = String(msg.signalId || `${msg.sender}:${msg.type}:${msg.timestamp}:${msg.target || ''}`);
-    if (seenSignalIds.current.has(signalKey)) return;
-    seenSignalIds.current.add(signalKey);
-    if (seenSignalIds.current.size > 512) {
-      const oldest = seenSignalIds.current.values().next().value;
-      if (oldest) seenSignalIds.current.delete(oldest);
-    }
-
     // Deterministic Perfect Negotiation: polite peer yields when both initiate
     const isPolite = myPeerId.current < msg.sender;
 
@@ -372,10 +286,7 @@ export function WebRTCVideoCallRoom({
       // The impolite peer creates the offer
       if (!isPolite) {
         const pc = getOrCreatePeerConnection(msg.sender);
-        // Heartbeat join continua a cada 3 s para descobrir participantes, mas
-        // só a primeira entrada deve criar a oferta inicial. Reofertar em cada
-        // heartbeat causava uma tempestade de SDP e ecrãs remotos pretos.
-        if (isNegotiating.current || pc.signalingState !== 'stable' || pc.localDescription || pc.remoteDescription) return;
+        if (isNegotiating.current) return;
         isNegotiating.current = true;
 
         try {
@@ -407,8 +318,11 @@ export function WebRTCVideoCallRoom({
 
       const pc = getOrCreatePeerConnection(msg.sender);
       
-      // Signals duplicados são filtrados por signalId no início. Ofertas novas
-      // e únicas podem ser renegociação legítima (por exemplo, câmara recuperada).
+      // If already connected and stable, ignore redundant offers
+      if (pc.signalingState === 'stable' && pc.currentRemoteDescription && !isPolite) {
+        return;
+      }
+
       const readyForOffer = !isNegotiating.current && (pc.signalingState === 'stable' || isPolite);
       const offerCollision = !readyForOffer;
 
@@ -484,17 +398,8 @@ export function WebRTCVideoCallRoom({
       console.log('[CDA-WebRTC] Participante remoto saiu da chamada.');
       setHasRemoteStream(false);
       setConnectionState('waiting');
-      remoteStreamRef.current = null;
-      candidateQueue.current = [];
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = null;
-      }
-      if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = null;
-      }
-      if (peerConnectionRef.current) {
-        try { peerConnectionRef.current.close(); } catch {}
-        peerConnectionRef.current = null;
       }
     }
   }, [getOrCreatePeerConnection, sendSignal]);
@@ -506,7 +411,6 @@ export function WebRTCVideoCallRoom({
   // Initialize Local Media Stream
   const initLocalMedia = useCallback(async () => {
     setIsCameraLoading(true);
-    setCameraError(null);
 
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((t) => t.stop());
@@ -514,39 +418,17 @@ export function WebRTCVideoCallRoom({
     }
 
     try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error('Este navegador não disponibiliza acesso à câmara. Abra a plataforma num navegador actualizado e numa ligação segura (HTTPS).');
-      }
-
-      const audioConstraints: MediaTrackConstraints = {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      };
-      const attempts: MediaStreamConstraints[] = [
-        {
-          video: { width: { ideal: 1280, min: 640 }, height: { ideal: 720, min: 480 }, facingMode },
-          audio: audioConstraints,
-        },
-        { video: { facingMode }, audio: true },
-        { video: true, audio: true },
-        { video: { facingMode }, audio: false },
-        { video: true, audio: false },
-      ];
-      let stream: MediaStream | null = null;
-      let lastError: unknown;
-      for (const constraints of attempts) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia(constraints);
-          break;
-        } catch (error) {
-          lastError = error;
-        }
-      }
-      if (!stream) throw lastError || new Error('Não foi possível iniciar a câmara.');
-      if (stream.getVideoTracks().length === 0) {
-        stream.getTracks().forEach((track) => track.stop());
-        throw new Error('O navegador não disponibilizou uma faixa de vídeo. Verifique a câmara e as permissões do dispositivo.');
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280, min: 640 }, height: { ideal: 720, min: 480 }, facingMode: facingMode },
+          audio: true,
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facingMode },
+          audio: false,
+        });
       }
 
       localStreamRef.current = stream;
@@ -558,57 +440,25 @@ export function WebRTCVideoCallRoom({
 
       // If peer connection exists, add new tracks
       if (peerConnectionRef.current) {
-        const pc = peerConnectionRef.current;
-        const senders = pc.getSenders();
+        const senders = peerConnectionRef.current.getSenders();
         stream.getTracks().forEach((track) => {
           const hasTrack = senders.some((s) => s.track && s.track.id === track.id);
           if (!hasTrack) {
             try {
-              pc.addTrack(track, stream!);
+              peerConnectionRef.current!.addTrack(track, stream);
             } catch {}
           }
         });
-
-        // Se a câmara foi recuperada depois de a sala já negociar sem vídeo,
-        // renegociar a ligação para o interlocutor receber a nova faixa.
-        if (pc.remoteDescription && pc.signalingState === 'stable' && !isNegotiating.current) {
-          isNegotiating.current = true;
-          try {
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            const offerPayload = typeof offer.toJSON === 'function' ? offer.toJSON() : { type: offer.type, sdp: offer.sdp };
-            sendSignal({
-              type: 'offer',
-              offer: offerPayload,
-              name: propsRef.current.currentUserName,
-              role: propsRef.current.currentUserRole,
-            });
-          } catch (offerError) {
-            console.warn('[CDA-WebRTC] Não foi possível renegociar a câmara:', offerError);
-          } finally {
-            isNegotiating.current = false;
-          }
-        }
       }
 
       setIsCameraLoading(false);
       return stream;
     } catch (err: any) {
-      const nomeErro = String(err?.name || '');
-      const mensagemErro = String(err?.message || '');
-      const aviso = nomeErro === 'NotAllowedError' || nomeErro === 'PermissionDeniedError'
-        ? 'Permita o acesso à câmara nas definições do navegador e tente novamente.'
-        : nomeErro === 'NotFoundError' || nomeErro === 'DevicesNotFoundError'
-          ? 'Não foi encontrada uma câmara neste dispositivo.'
-          : nomeErro === 'NotReadableError' || nomeErro === 'TrackStartError'
-            ? 'A câmara está a ser usada por outra aplicação. Feche-a e tente novamente.'
-            : mensagemErro || 'Não foi possível iniciar a câmara. Verifique as permissões do dispositivo.';
       console.warn('[CDA-WebRTC] Falha ao aceder à câmara:', err);
-      setCameraError(aviso);
       setIsCameraLoading(false);
       return null;
     }
-  }, [facingMode, sendSignal]);
+  }, [facingMode]);
 
   // Sync streams to video DOM tags
   useEffect(() => {
@@ -616,18 +466,14 @@ export function WebRTCVideoCallRoom({
       if (remoteVideoRef.current.srcObject !== remoteStreamRef.current) {
         remoteVideoRef.current.srcObject = remoteStreamRef.current;
       }
-      tentarTocarRemoto();
+      remoteVideoRef.current.play().catch(() => {
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.muted = true;
+          remoteVideoRef.current.play().catch(() => {});
+        }
+      });
     }
-  }, [hasRemoteStream, connectionState, tentarTocarRemoto]);
-
-  // Som bloqueado nunca fica preso: o primeiro toque/toque na sala volta a
-  // ligar o áudio do interlocutor (o vídeo continua a tocar, sem som, até lá).
-  useEffect(() => {
-    if (!somBloqueado) return;
-    const recuperar = () => ligarSomRemoto();
-    document.addEventListener('pointerdown', recuperar, { once: true });
-    return () => document.removeEventListener('pointerdown', recuperar);
-  }, [somBloqueado, ligarSomRemoto]);
+  }, [hasRemoteStream, connectionState]);
 
   useEffect(() => {
     if (localStreamRef.current && localVideoRef.current) {
@@ -643,30 +489,12 @@ export function WebRTCVideoCallRoom({
     if (!isActive) return;
 
     let isMounted = true;
-    // A marca temporal pertence à chamada, não à montagem da página: ignorar sinais antigos na mesma sala.
-    joinedAt.current = Date.now();
-    seenSignalIds.current.clear();
-    candidateQueue.current = [];
-    isNegotiating.current = false;
-    remoteStreamRef.current = null;
-    setHasRemoteStream(false);
-    setConnectionState('waiting');
     const cleanRoomName = roomName.replace(/[^a-zA-Z0-9\-_]/g, '');
     const channelId = `cda-video-room-${cleanRoomName}`;
 
     console.log('[CDA-WebRTC] Inicializando sala de vídeo:', channelId);
 
-    // 1. Start local camera & Audio feedback
-    try {
-      getAudioContext();
-      playCallConnectSound();
-      playAttendantWelcomeVoice(
-        propsRef.current.currentUserRole === 'institution'
-          ? `Sessão de Vídeo-Atendimento iniciada. Canal oficial com ${propsRef.current.remoteUserName || 'o cidadão'} activo.`
-          : `Bem-vindo ao Vídeo-Atendimento do Correio Digital de Angola. A sua ligação oficial com ${propsRef.current.remoteUserName || 'a instituição'} está activa.`
-      );
-    } catch {}
-
+    // 1. Start local camera
     initLocalMedia().then(() => {
       if (!isMounted) return;
 
@@ -740,7 +568,6 @@ export function WebRTCVideoCallRoom({
 
     return () => {
       isMounted = false;
-      stopAttendantVoice();
       clearInterval(pingInterval);
       clearInterval(pollInterval);
 
@@ -780,31 +607,16 @@ export function WebRTCVideoCallRoom({
       }
     };
   }, [isActive, roomName, initLocalMedia, sendSignal]);
+
   // Toggle Microphone
   const toggleMicrophone = () => {
     const nextMuted = !localAudioMuted;
     setLocalAudioMuted(nextMuted);
-    playToggleMuteSound(nextMuted);
     if (localStreamRef.current) {
       localStreamRef.current.getAudioTracks().forEach((track) => {
         track.enabled = !nextMuted;
       });
     }
-  };
-
-  // Testar Altifalante / Áudio
-  const handleTestAudio = () => {
-    setIsSpeakerTesting(true);
-    getAudioContext();
-    playSpeakerTestTone();
-    playAttendantWelcomeVoice('Altifalante operacional. O canal de áudio do seu dispositivo está a funcionar perfeitamente.');
-    setTimeout(() => setIsSpeakerTesting(false), 3000);
-  };
-
-  const handleEndCallWithFeedback = () => {
-    playCallDisconnectSound();
-    stopAttendantVoice();
-    onEndCall?.();
   };
 
   // Toggle Video
@@ -855,195 +667,39 @@ export function WebRTCVideoCallRoom({
     }
   };
 
-  // Screen Sharing — PARAR: pára MESMO a captura do ecrã e devolve a câmara à
-  // faixa de vídeo que estava a ser enviada, sem re-abrir a câmara.
-  const pararPartilhaDeEcra = useCallback(async () => {
-    // Pedido de paragem SEMPRE registado primeiro: se houver um picker de
-    // partilha aberto neste instante, a captura que resolver a seguir aborta.
-    pararPedidoRef.current = true;
-    const display = screenStreamRef.current;
-    screenStreamRef.current = null;
-
-    // 1) Parar a captura (faz desaparecer a barra «a partilhar» do navegador)
-    if (display) {
-      display.getTracks().forEach((t) => { t.onended = null; t.stop(); });
-    }
-
-    // 2) O vídeo local volta a mostrar a câmara. Ao contrário da versão anterior,
-    //    NÃO se exige que a referência ainda seja a stream do ecrã: o <video>
-    //    pode ter sido recriado (ligar/desligar câmara, re-render) e nesse caso
-    //    a pré-visualização ficava presa no último fotograma do ecrã.
-    const v = localVideoRef.current;
-    const camara = localStreamRef.current?.getVideoTracks()[0];
-    if (v && localStreamRef.current) {
-      if (v.srcObject !== localStreamRef.current) v.srcObject = localStreamRef.current;
-      await v.play().catch(() => {});
-    }
-
-    // 3) Devolver a câmara ao sender de vídeo (sem novo getUserMedia)
-    const pc = peerConnectionRef.current;
-    const devolverCamaraAoSender = async () => {
-      const track = localStreamRef.current?.getVideoTracks()[0];
-      if (!track || track.readyState !== 'live') return;
-      // 2026-09-22 — trocar TODOS os senders de vídeo: em algumas sessões a
-      // ligação fica com mais do que um sender (a câmara foi adicionada quando
-      // o ecrã já estava a ser enviado) e trocar só o primeiro deixava o outro
-      // lado a receber o que não devia.
-      for (const sender of pc?.getSenders() || []) {
-        if (sender.track && sender.track.kind === 'video') {
-          try { await sender.replaceTrack(track); } catch { /* sender já mudou */ }
-        }
-      }
-    };
-    await devolverCamaraAoSender();
-
-    setIsSharingScreen(false);
-    onScreenShareChange?.(false);
-
-    // 4) Verificação final (é isto que garante «voltar a filmar-me»): se a câmara
-    //    não está viva ou o sender ficou sem faixa, recuperar a câmara e voltar a
-    //    ligá-la ao sender. Nunca fica sem câmara depois de parar a partilha.
-    const camaraViva = !!localStreamRef.current?.getVideoTracks().some((t) => t.readyState === 'live');
-    const senderSemFaixa = !!pc && !pc.getSenders().some((s) => s.track && s.track.kind === 'video');
-    if (!camaraViva || senderSemFaixa) {
+  // Screen Sharing
+  const toggleScreenShare = async () => {
+    if (!isSharingScreen) {
       try {
-        await initLocalMedia();
-        await devolverCamaraAoSender();
-      } catch { /* fica sem vídeo local até novo toque */ }
-      return;
-    }
+        const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const screenTrack = displayStream.getVideoTracks()[0];
 
-    // 5) Última rede de segurança: se passado um instante o <video> local continuar
-    //    sem imagens (0×0) com a câmara ligada, recuperar a câmara de raiz.
-    const camaraEstavaLigada = !localVideoMuted;
-    window.setTimeout(() => {
-      const vv = localVideoRef.current;
-      const viva = localStreamRef.current?.getVideoTracks().some((t) => t.readyState === 'live');
-      if (camaraEstavaLigada && vv && vv.srcObject && vv.videoWidth === 0 && !viva) {
-        void initLocalMedia();
-      }
-    }, 900);
-  }, [initLocalMedia, onScreenShareChange, localVideoMuted]);
+        screenTrack.onended = () => {
+          setIsSharingScreen(false);
+          initLocalMedia();
+        };
 
-  // Screen Sharing — INICIAR: captura o ecrã e substitui a faixa de vídeo enviada.
-  const iniciarPartilhaDeEcra = useCallback(async () => {
-    // Um picker de cada vez: já a partilhar OU já a pedir → ignorar.
-    if (screenStreamRef.current || iniciarEmCursoRef.current) return;
-    iniciarEmCursoRef.current = true;
-    pararPedidoRef.current = false;
-    try {
-      const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-      // O utilizador pediu PARAR enquanto o picker estava aberto (toggle rápido,
-      // ou barra da página): abortar a captura que acabou de chegar.
-      if (pararPedidoRef.current) {
-        displayStream.getTracks().forEach((t) => { t.onended = null; t.stop(); });
-        return;
-      }
-      const screenTrack = displayStream.getVideoTracks()[0];
-      if (!screenTrack) {
-        // Partilha sem faixa de vídeo (ex.: só áudio) — não deixar estado preso.
-        displayStream.getTracks().forEach((t) => { t.onended = null; t.stop(); });
-        return;
-      }
-
-      screenStreamRef.current = displayStream;
-
-      // Paragem pelo próprio navegador («Parar partilha») → restaurar a câmara.
-      screenTrack.onended = () => { void pararPartilhaDeEcra(); };
-
-      const pc = peerConnectionRef.current;
-      if (pc) {
-        // Todos os senders de vídeo passam a enviar o ecrã (ver nota acima).
-        for (const sender of pc.getSenders()) {
-          if (sender.track && sender.track.kind === 'video') {
-            try { await sender.replaceTrack(screenTrack); } catch { /* sem sender ainda */ }
+        if (peerConnectionRef.current) {
+          const senders = peerConnectionRef.current.getSenders();
+          const videoSender = senders.find((s) => s.track && s.track.kind === 'video');
+          if (videoSender) {
+            await videoSender.replaceTrack(screenTrack);
           }
         }
+
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = displayStream;
+        }
+
+        setIsSharingScreen(true);
+      } catch (err) {
+        console.warn('[CDA-WebRTC] Partilha de ecrã cancelada:', err);
       }
-
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = displayStream;
-        await localVideoRef.current.play().catch(() => {});
-      }
-
-      setIsSharingScreen(true);
-      onScreenShareChange?.(true);
-    } catch (err) {
-      console.warn('[CDA-WebRTC] Partilha de ecrã cancelada:', err);
-      setIsSharingScreen(false);
-      onScreenShareChange?.(false);
-    } finally {
-      iniciarEmCursoRef.current = false;
-    }
-  }, [onScreenShareChange, pararPartilhaDeEcra]);
-
-  const toggleScreenShare = async () => {
-    if (!isSharingScreen && !screenStreamRef.current) {
-      await iniciarPartilhaDeEcra();
     } else {
-      await pararPartilhaDeEcra();
+      setIsSharingScreen(false);
+      await initLocalMedia();
     }
   };
-
-  // 2026-09-21 — PARTILHA DE ECRÃ: os botões de partilha das barras de controlo
-  // da PÁGINA só mudavam a prop `isScreenSharing` e a sala ignorava-a — ficava
-  // «em partilha» sem captura nenhuma e o botão «Parar Partilha» re-abria a
-  // câmara. Agora a prop comanda a captura real (e a sala avisa a página).
-  const partilhaPropAnteriorRef = useRef(isScreenSharing);
-  useEffect(() => {
-    if (!isActive) { partilhaPropAnteriorRef.current = isScreenSharing; return; }
-    if (partilhaPropAnteriorRef.current === isScreenSharing) {
-      // A prop diz «a partilhar» mas não há captura nenhuma (o botão de partilha
-      // da página foi tocado FORA da chamada) → corrigir o estado em vez de
-      // mostrar «Parar Partilha» sem partilha (que re-abria a câmara ao parar).
-      if (isScreenSharing && !screenStreamRef.current) onScreenShareChange?.(false);
-      return;
-    }
-    partilhaPropAnteriorRef.current = isScreenSharing;
-    if (isScreenSharing) void iniciarPartilhaDeEcra();
-    else void pararPartilhaDeEcra();
-  }, [isScreenSharing, isActive, iniciarPartilhaDeEcra, pararPartilhaDeEcra]);
-
-  // 2026-09-21 — VIGILÂNCIA DA CAPTURA: nem todos os navegadores/percursos
-  // disparam o evento «ended» quando a captura do ecrã termina (barra do
-  // navegador, ecrã fechado, sistema). Sem aviso, a app ficava presa em «Parar
-  // Partilha de Ecrã» com a imagem do ecrã congelada e a câmara não voltava.
-  // Aqui verifica-se a cada 1 s enquanto se partilha: se a faixa morreu, a
-  // partilha termina e a câmara volta sozinha.
-  useEffect(() => {
-    if (!isSharingScreen) return;
-    const vigilancia = window.setInterval(() => {
-      const captura = screenStreamRef.current;
-      if (!captura) return;
-      const faixa = captura.getVideoTracks()[0];
-      if (!faixa || faixa.readyState !== 'live') void pararPartilhaDeEcra();
-    }, 1000);
-    return () => window.clearInterval(vigilancia);
-  }, [isSharingScreen, pararPartilhaDeEcra]);
-
-  // 2026-09-21 — GARANTIA DE RETORNO À CÂMARA: sempre que a partilha termina (por
-  // qualquer via: botão, barra do navegador, desligar/sair), a pré-visualização
-  // local («EU») tem de estar a mostrar a câmara — mesmo que o elemento <video>
-  // tenha sido recriado durante a partilha.
-  useEffect(() => {
-    if (isSharingScreen || !isActive) return;
-    const v = localVideoRef.current;
-    if (v && localStreamRef.current && v.srcObject !== localStreamRef.current) {
-      v.srcObject = localStreamRef.current;
-      void v.play().catch(() => {});
-    }
-  }, [isSharingScreen, isActive, isCameraLoading, localVideoMuted]);
-
-  // 2026-09-21 — Paragem garantida ao sair: desligar a chamada, sair da sala ou
-  // navegar para outro ecrã com partilha activa deixava a captura de ecrã viva
-  // (o navegador continuava a partilhar, sem botão para parar).
-  useEffect(() => () => {
-    if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach((t) => { t.onended = null; t.stop(); });
-      screenStreamRef.current = null;
-    }
-  }, []);
-
 
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -1075,7 +731,7 @@ export function WebRTCVideoCallRoom({
         {/* 2026-09-09: em espera o canto superior esquerdo fica limpo (o estado
             «Aguardar Participante» é mostrado no centro do ecrã grande) */}
         {hasRemoteStream ? (
-          <div className="flex items-center gap-1.5 bg-slate-950/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-emerald-700/30">
+          <div className="flex items-center gap-1.5 bg-slate-950/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-emerald-500/30">
             <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]" />
             <span className="text-emerald-300 text-[10px] font-black uppercase tracking-wider">
               EM DIRETO
@@ -1097,18 +753,8 @@ export function WebRTCVideoCallRoom({
         </div>
       </div>
 
-      {/* 2026-09-21 — Aviso de som bloqueado pelo navegador (recuperável) */}
-      {somBloqueado && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
-          <div className="bg-amber-500/90 text-slate-950 font-black text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
-            <Volume2 size={12} />
-            Toque para ouvir o interlocutor
-          </div>
-        </div>
-      )}
-
       {/* 2. MAIN LARGE SCREEN (REMOTE PARTICIPANT - 100% CLEAN VIDEO) */}
-      <div className="relative w-full aspect-video min-h-[200px] md:min-h-[480px] bg-slate-950 flex items-center justify-center overflow-hidden">
+      <div className="relative w-full aspect-video min-h-[320px] md:min-h-[480px] bg-slate-950 flex items-center justify-center overflow-hidden">
         
         {/* Remote Video Stream Tag (Rendered with 100% clean unobstructed view) */}
         <video
@@ -1117,14 +763,6 @@ export function WebRTCVideoCallRoom({
           autoPlay
           playsInline
           className={`w-full h-full object-cover transition-opacity duration-500 ${hasRemoteStream ? 'opacity-100' : 'opacity-0'}`}
-        />
-
-        {/* Dedicated Audio Element for WebRTC audio tracks */}
-        <audio
-          ref={remoteAudioRef}
-          data-testid="remote-audio"
-          autoPlay
-          playsInline
         />
 
         {/* WAITING SCREEN (Shown ONLY while waiting for the second participant to enter) */}
@@ -1179,17 +817,6 @@ export function WebRTCVideoCallRoom({
                 <RefreshCw size={14} className="text-indigo-400 animate-spin" />
                 <span className="text-[8px] text-slate-400 font-bold uppercase">A ligar...</span>
               </div>
-            ) : cameraError ? (
-              <div className="flex flex-col items-center justify-center gap-1.5 text-center p-2" role="alert" data-testid="camera-error">
-                <Camera size={16} className="text-amber-400" />
-                <span className="text-[8px] leading-tight text-amber-200 font-semibold">{cameraError}</span>
-                <button
-                  type="button"
-                  onClick={() => { void initLocalMedia(); }}
-                  className="mt-1 rounded-lg bg-indigo-600 px-2 py-1 text-[8px] font-bold text-white"
-                  aria-label="Tentar ligar a câmara novamente"
-                >Tentar novamente</button>
-              </div>
             ) : localVideoMuted ? (
               <div className="flex flex-col items-center justify-center gap-1 text-center p-2">
                 <VideoOff size={16} className="text-slate-500" />
@@ -1227,10 +854,10 @@ export function WebRTCVideoCallRoom({
         
         {/* Left: Remote Participant Info (Positioned outside the video stream) */}
         <div className="flex items-center gap-2 min-w-0 max-w-[180px] md:max-w-[280px]">
-          <span className={`w-2 h-2 rounded-full shrink-0 ${hasRemoteStream ? 'bg-emerald-700 shadow-[0_0_8px_#10b981]' : 'bg-amber-500'}`} />
+          <span className={`w-2 h-2 rounded-full shrink-0 ${hasRemoteStream ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-amber-500'}`} />
           <div className="min-w-0">
             <span className="text-white text-xs font-black truncate block leading-tight">
-              {primeiroNomeExibicao(remoteParticipant || remoteUserName) || 'Interlocutor'}
+              {remoteParticipant || remoteUserName || 'Interlocutor Oficial'}
             </span>
             <span className="text-[9px] text-slate-400 truncate block">
               {subject || 'Videoatendimento'}
@@ -1283,7 +910,7 @@ export function WebRTCVideoCallRoom({
           <button
             type="button"
             onClick={toggleScreenShare}
-            title={isSharingScreen ? 'Parar Partilha de Tela' : 'Partilha de Tela'}
+            title={isSharingScreen ? 'Parar Partilha de Ecrã' : 'Partilhar Ecrã'}
             className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all border-0 cursor-pointer shadow-md active:scale-95 ${
               isSharingScreen
                 ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-600/30'
@@ -1293,37 +920,10 @@ export function WebRTCVideoCallRoom({
             <Monitor size={20} />
           </button>
 
-          {/* Testar Áudio / Altifalante */}
-          <button
-            type="button"
-            onClick={handleTestAudio}
-            title="Testar Altifalante / Áudio de Atendimento"
-            className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all border-0 cursor-pointer shadow-md active:scale-95 ${
-              isSpeakerTesting
-                ? 'bg-amber-500 text-slate-950 font-bold animate-bounce'
-                : 'bg-slate-800/90 text-slate-200 hover:bg-slate-700 hover:text-white'
-            }`}
-          >
-            <Volume2 size={20} className={isSpeakerTesting ? 'text-slate-950 animate-pulse' : 'text-slate-200'} />
-          </button>
-
-          {/* 2026-09-21 — Ligar som do interlocutor (aparece só quando a
-              reprodução automática com som foi recusada pelo navegador) */}
-          {somBloqueado && (
-            <button
-              type="button"
-              onClick={ligarSomRemoto}
-              title="Ligar som do interlocutor"
-              className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all border-0 cursor-pointer shadow-md active:scale-95 bg-emerald-700/90 text-white hover:bg-emerald-700 shadow-emerald-500/30 animate-pulse"
-            >
-              <Volume2 size={20} />
-            </button>
-          )}
-
           {/* Hangup / Leave Call */}
           <button
             type="button"
-            onClick={handleEndCallWithFeedback}
+            onClick={onEndCall}
             title="Desligar Chamada"
             className="h-11 px-5 rounded-2xl bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all border-0 cursor-pointer shadow-lg shadow-red-600/30 active:scale-95 ml-1"
           >

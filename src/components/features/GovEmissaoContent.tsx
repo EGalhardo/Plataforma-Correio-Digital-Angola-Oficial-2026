@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, ShieldCheck, FileText, Send, User, CheckCircle2, Clock, Upload, X, Paperclip, ArrowRight, Search, Plus } from 'lucide-react';
-import { BotaoVoltar } from '../ui/BotaoVoltar';
+import { Mail, ShieldCheck, FileText, Send, User, ArrowLeft, CheckCircle2, Clock, Upload, X, Paperclip, ArrowRight, Search, Plus } from 'lucide-react';
 import { Document, AppNotification, UserRequest } from '../../types';
 
 interface GovEmissaoContentProps {
@@ -178,7 +177,7 @@ export function GovEmissaoContent({
         <motion.div 
           initial={{ scale: 0, rotate: -45 }}
           animate={{ scale: 1, rotate: 0 }}
-          className="w-32 h-32 bg-emerald-50 text-emerald-700 rounded-[40px] flex items-center justify-center mb-8 border border-emerald-100 shadow-xl shadow-emerald-900/5"
+          className="w-32 h-32 bg-emerald-50 text-emerald-600 rounded-[40px] flex items-center justify-center mb-8 border border-emerald-100 shadow-xl shadow-emerald-900/5"
         >
           <CheckCircle2 size={64} />
         </motion.div>
@@ -216,12 +215,17 @@ export function GovEmissaoContent({
 
        {showForm ? (
          <div className="flex items-center justify-between mb-4">
-            <BotaoVoltar onClick={() => setShowForm(false)} titulo="Voltar ao Correio" />
+            <button 
+              onClick={() => setShowForm(false)}
+              className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-950 transition-colors border-0 cursor-pointer shrink-0"
+              title="Voltar ao Correio"
+            >
+              <ArrowLeft size={16} />
+            </button>
          </div>
        ) : (
          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <BotaoVoltar />
               <div className="w-10 h-10 md:w-12 md:h-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 border border-red-100">
                 <Mail size={20} className="md:w-6 md:h-6" />
               </div>
@@ -259,7 +263,7 @@ export function GovEmissaoContent({
 
                   if (isActive) {
                     if (t.id === 'lidas') {
-                      activeStyle = 'bg-emerald-700 text-white shadow-md shadow-emerald-200 ring-2 ring-emerald-600';
+                      activeStyle = 'bg-emerald-600 text-white shadow-md shadow-emerald-200 ring-2 ring-emerald-600';
                       badgeStyle = 'bg-white text-emerald-700';
                     } else if (t.id === 'naoLidas') {
                       activeStyle = 'bg-red-600 text-white shadow-md shadow-red-200 ring-2 ring-red-600';
@@ -503,8 +507,8 @@ export function GovEmissaoContent({
                       <div>
                         <div className="text-sm font-black text-slate-900 truncate max-w-[240px] italic">{selectedFile.name}</div>
                         <div className="flex items-center gap-2 mt-1">
-                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-700 animate-pulse" />
-                           <div className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Documento Pré-Validado</div>
+                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                           <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Documento Pré-Validado</div>
                         </div>
                       </div>
                     </div>

@@ -22,10 +22,10 @@ import {
   ShieldCheck,
   Cpu,
   Share2,
+  ArrowLeft,
   Loader2,
   Trash2
 } from 'lucide-react';
-import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { CdaConfirmModal } from '../ui/CdaConfirm';
 import { Correspondence } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -323,7 +323,13 @@ export function GovCorrespondenciasContent({
       <div className="pb-6 md:pb-16 font-sans animate-fadeIn">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 py-3 md:py-6 border-b border-slate-100 mb-4 md:mb-8">
           <div className="flex items-center gap-4">
-            <BotaoVoltar onClick={() => setShowVideoPage(false)} />
+            <button
+              onClick={() => setShowVideoPage(false)}
+              className="w-10 h-10 md:w-12 md:h-12 bg-slate-150 hover:bg-slate-200 text-slate-700 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-300 cursor-pointer"
+              title="Voltar"
+            >
+              <ArrowLeft size={18} className="md:w-5 md:h-5" />
+            </button>
             <div>
               <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter italic uppercase leading-none font-sans flex items-center gap-2">
                 Video Atendimento
@@ -347,8 +353,6 @@ export function GovCorrespondenciasContent({
       
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 py-3 md:py-6 border-b border-slate-100 mb-4 md:mb-8">
-        <div className="flex items-center gap-4">
-        <BotaoVoltar />
         <div>
           <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter italic uppercase leading-none font-sans flex items-center gap-2">
             Correspondências Digitais
@@ -357,10 +361,9 @@ export function GovCorrespondenciasContent({
             Centro nacional de controlo e supervisão das comunicações digitais. Monitorização nacional e auditoria sistemática de tráfego administrativo seguro.
           </p>
           <div className="text-slate-400 font-mono text-[8.5px] uppercase tracking-widest mt-2.5 flex items-center gap-2 select-none">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-700 animate-ping inline-block" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping inline-block" />
             VIGILÂNCIA DE COMUNICAÇÕES &bull; ASSINATURAS RECONHECIDAS
           </div>
-        </div>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -381,7 +384,7 @@ export function GovCorrespondenciasContent({
           onClick={() => setShowVideoPage(true)} 
           className="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-full px-3.5 py-2 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer text-[10px] font-black uppercase tracking-wider whitespace-nowrap shrink-0 shadow-3xs"
         >
-          <span className="w-2 h-2 rounded-full bg-emerald-700 animate-pulse shrink-0" />
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           Video Atendimento
         </button>
         <button onClick={() => onNavigate?.('gov-docs')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">Emissão Documental</button>
@@ -407,12 +410,12 @@ export function GovCorrespondenciasContent({
 
         {/* Action Pending Metric Card */}
         <div id="stat_analise" className="bg-white border border-slate-200 rounded-[24px] p-5 flex items-center gap-4 shadow-3xs">
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-700 shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
             <Clock size={18} className="stroke-[2.5]" />
           </div>
           <div>
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block leading-none">EM TRATAMENTO / ANÁLISE</span>
-            <span className="text-xl font-mono font-black text-amber-700 block mt-1 leading-none">{stats.analytical + stats.received}</span>
+            <span className="text-xl font-mono font-black text-amber-600 block mt-1 leading-none">{stats.analytical + stats.received}</span>
             <span className="text-[10px] text-slate-500 font-bold block mt-1.5 leading-none">Aguardando Despacho Final</span>
           </div>
         </div>
@@ -519,10 +522,8 @@ export function GovCorrespondenciasContent({
           </div>
 
           <div className="space-y-1 col-span-1">
-            <label htmlFor="filter-cat-materia" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Categoria de Matéria</label>
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Categoria de Matéria</label>
             <select
-              id="filter-cat-materia"
-              aria-label="Categoria de Matéria"
               value={searchCategory}
               onChange={(e) => setSearchCategory(e.target.value)}
               className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-800 cursor-pointer"
@@ -542,10 +543,8 @@ export function GovCorrespondenciasContent({
             className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-100"
           >
             <div className="space-y-1.5">
-              <label htmlFor="filter-prov-origem" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Província de Origem</label>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Província de Origem</label>
               <select
-                id="filter-prov-origem"
-                aria-label="Província de Origem"
                 value={searchOrigin}
                 onChange={(e) => setSearchOrigin(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-800 focus:bg-white cursor-pointer"
@@ -557,10 +556,8 @@ export function GovCorrespondenciasContent({
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="filter-prov-destino" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Província de Destino</label>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Província de Destino</label>
               <select
-                id="filter-prov-destino"
-                aria-label="Província de Destino"
                 value={searchDestination}
                 onChange={(e) => setSearchDestination(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-800 focus:bg-white cursor-pointer"
@@ -572,10 +569,8 @@ export function GovCorrespondenciasContent({
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="filter-prio-sla" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Prioridade SLA</label>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Prioridade SLA</label>
               <select
-                id="filter-prio-sla"
-                aria-label="Prioridade SLA"
                 value={searchPriority}
                 onChange={(e) => setSearchPriority(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-800 focus:bg-white cursor-pointer"
@@ -778,7 +773,7 @@ export function GovCorrespondenciasContent({
                     <td className="py-4.5 px-5 text-center">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[8.5px] font-black uppercase border tracking-wider select-none ${getStatusColorStyles(item.status)}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${
-                          item.status === 'Respondida' || item.status === 'Recebida' ? 'bg-emerald-700' :
+                          item.status === 'Respondida' || item.status === 'Recebida' ? 'bg-emerald-500' :
                           item.status === 'Em Análise' ? 'bg-amber-500 animate-pulse' :
                           item.status === 'Enviada' ? 'bg-blue-500' :
                           item.status === 'Arquivada' ? 'bg-slate-400' : 'bg-rose-500'
@@ -804,7 +799,7 @@ export function GovCorrespondenciasContent({
                           <button
                             onClick={() => setCorEliminavel(item)}
                             disabled={eliminandoCor}
-                            className="py-1.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-100 rounded-xl text-[9px] font-black uppercase tracking-widest transition-colors cursor-pointer inline-flex items-center gap-1 disabled:opacity-50"
+                            className="py-1.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 rounded-xl text-[9px] font-black uppercase tracking-widest transition-colors cursor-pointer inline-flex items-center gap-1 disabled:opacity-50"
                             title="Eliminar correspondência (definitivo na base central)"
                           >
                             {eliminandoCor && corEliminavel?.id === item.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Eliminar
@@ -979,7 +974,7 @@ export function GovCorrespondenciasContent({
                 {/* Cryptographic Integrity seals (Auditoria de Mensagens) */}
                 <div className="p-3 bg-indigo-50/10 border border-indigo-100/50 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[9px] font-mono text-slate-400">
                   <div className="flex items-center gap-2">
-                    <ShieldCheck size={14} className="text-emerald-700 shrink-0" />
+                    <ShieldCheck size={14} className="text-emerald-600 shrink-0" />
                     <span>Selo Verificado: <strong className="text-slate-700">SHA256:8f9cb7...25ea</strong></span>
                   </div>
                   <div className="text-indigo-650 font-bold uppercase tracking-wider">
@@ -1118,7 +1113,7 @@ export function GovCorrespondenciasContent({
                     <button
                       onClick={() => setCorEliminavel(selectedLetter)}
                       disabled={eliminandoCor}
-                      className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-100 rounded-xl text-[9px] font-black uppercase tracking-wider cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
+                      className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 rounded-xl text-[9px] font-black uppercase tracking-wider cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
                       title="Eliminar correspondência (definitivo na base central)"
                     >
                       {eliminandoCor ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Eliminar Correspondência

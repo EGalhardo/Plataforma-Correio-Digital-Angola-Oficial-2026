@@ -103,7 +103,7 @@ export function SondagemResponderCard({ sondagemId, cidadaoBi, escolhas, onEscol
         </p>
 
         {registada && !fechada && (
-          <span className="inline-flex items-center gap-1.5 text-emerald-700 text-[11px] font-bold">
+          <span className="inline-flex items-center gap-1.5 text-emerald-600 text-[11px] font-bold">
             <CheckCircle2 size={14} /> Resposta registada ✔
           </span>
         )}

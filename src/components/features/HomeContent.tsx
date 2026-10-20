@@ -3,13 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useId } from 'react';
-import { ocorrenciasApi } from '../../features/ocorrencias/client';
-import { contarNotificacoesAtalhos, type AtalhoPainel } from '../../utils/notificacoesAtalhos';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, Mail, Video, ClipboardList, MapPin, ShieldAlert, Flag, Trash2, Megaphone } from 'lucide-react';
+import { ShieldCheck, Mail } from 'lucide-react';
 import { HIGHLIGHT_SLIDES, INST_HIGHLIGHT_SLIDES } from '../../constants/data';
-import { Message, LanguageCode, AppNotification } from '../../types';
+import { Message, LanguageCode } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
 import { LazyImage } from '../ui/LazyImage';
 import { AnimatedCounter } from '../ui/AnimatedCounter';
@@ -20,13 +18,8 @@ interface HomeContentProps {
   isMobile: boolean;
   setTab: (tab: string) => void;
   unreadTotal: number;
-  notifications?: AppNotification[];
-  notificationOwnerKey?: string;
-  realSession?: boolean;
-  notificationsLoading?: boolean;
   inbox: Message[];
   sentMessages: Message[];
-  deletedMessages?: Message[];
   handleSelectMessage: (msg: Message) => void;
   onCreateRequest?: (type: string, priority: 'Alta' | 'Média' | 'Baixa') => void;
   isInst?: boolean;
@@ -51,13 +44,8 @@ export function HomeContent({
   isMobile,
   setTab,
   unreadTotal,
-  notifications = [],
-  notificationOwnerKey = "",
-  realSession = false,
-  notificationsLoading = false,
   inbox,
   sentMessages,
-  deletedMessages = [],
   handleSelectMessage,
   onCreateRequest,
   isInst,
@@ -68,32 +56,6 @@ export function HomeContent({
   instVerified,
   onDoubleClickInstitution}: HomeContentProps) {
   const { t } = useLanguage();
-  const badgeId = useId();
-  const [ocorrenciasCount, setOcorrenciasCount] = useState<number>(0);
-  useEffect(() => {
-    let active = true, fetching = false;
-    const controller = new AbortController();
-    const refresh = async () => {
-      if (!active || fetching || document.visibilityState === 'hidden') return;
-      fetching = true;
-      try {
-        const r = await ocorrenciasApi<{total: number}>('notificacoes', {naoLidas: true}, controller.signal);
-        if (active && typeof r?.total === 'number') setOcorrenciasCount(r.total);
-      } catch { /* Não substituir uma contagem conhecida por zero numa falha de rede. */ }
-      finally { fetching = false; }
-    };
-    void refresh();
-    const timer = window.setInterval(() => void refresh(), 15000);
-    const visible = () => void refresh();
-    window.addEventListener('focus', visible);
-    document.addEventListener('visibilitychange', visible);
-    return () => {active = false; controller.abort(); window.clearInterval(timer); window.removeEventListener('focus', visible); document.removeEventListener('visibilitychange', visible);};
-  }, [notificationOwnerKey, isInst]);
-
-  const badgeCounts = contarNotificacoesAtalhos(notifications, inbox || [], !!isInst,
-    ocorrenciasCount,
-    sentMessages || []);
-
   /**
    * v37.39 — se a logomarca oficial falhar (URL removida/fora do ar), cai no
    * avatar neutro com a sigla em vez do bloco genérico "Imagem não disponível".
@@ -109,24 +71,15 @@ export function HomeContent({
   const unreadCount = (inbox || []).filter(m => m.unread).length;
   const readCount = (inbox || []).filter(m => !m.unread).length;
   const sentCount = (sentMessages || []).length;
-  const deletedCount = (deletedMessages || []).length;
 
-  // Regras de visibilidade dos containers (Esquerda para a Direita):
-  // 1. «Lidas»: Sempre visível (obrigatório, mesmo com 0 correspondências)
-  // 2. «Não Lidas»: Sempre visível (obrigatório, mesmo com 0 correspondências)
-  // 3. «Enviadas»: Visível apenas quando tiver correspondência (sentCount > 0)
-  // 4. «Eliminadas»: Visível apenas se contiver correspondência (deletedCount > 0) E se «Enviadas» estiver vazia (sentCount === 0)
-  const showEnviadas = sentCount > 0;
-  const showEliminadas = sentCount === 0 && deletedCount > 0;
-
-  // Regras de Layout e Responsividade:
-  // Desktop: no máximo 3 containers juntos (Lidas + Não Lidas + [Enviadas OU Eliminadas]), no mínimo 2 containers (Lidas + Não Lidas)
-  const totalVisibleContainers = 2 + (showEnviadas || showEliminadas ? 1 : 0);
-  const gridDesktopClass = totalVisibleContainers === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-2';
+  // Regra de layout desktop: quando "Não Lidas" estiver vazia (0) E os restantes
+  // possuírem correspondências (> 0), oculta "Não Lidas" no desktop e expande
+  // os restantes para 50% / 50% da largura útil cada (2 colunas).
+  const shouldHideUnread = unreadCount === 0 && (readCount > 0 || sentCount > 0);
 
   return (
     <div className="grid gap-3 md:gap-3.5">
-      <section className="relative w-full aspect-square md:aspect-auto md:h-[385px] rounded-2xl md:rounded-[28px] overflow-hidden shadow-none border border-slate-200 bg-slate-900">
+      <section className="relative w-full aspect-square md:aspect-auto md:h-[385px] rounded-2xl md:rounded-[28px] overflow-hidden shadow-xs border border-slate-200/90 bg-slate-900">
         <AnimatePresence mode="wait">
           <motion.div
             key={`${isInst ? 'gov' : 'user'}-${activeSlide}`}
@@ -164,8 +117,6 @@ export function HomeContent({
           {slides.map((_, i) => (
             <button
               key={i}
-              type="button"
-              aria-label={`Ir para destaque ${i + 1}`}
               onClick={() => setActiveSlide(i % slides.length)}
               className={`h-1 rounded-full transition-all duration-500 ${
                 activeSlide % slides.length === i ? 'w-6 bg-white' : 'w-1.5 bg-white/30'
@@ -177,8 +128,8 @@ export function HomeContent({
 
       {/* Quick Summary / Security Status */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-        <div className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-4 md:p-6 flex items-center gap-3.5 md:gap-5 shadow-none overflow-hidden relative group">
-          <div className={`w-11 h-11 md:w-14 md:h-14 ${isInst ? 'bg-white border-slate-100' : 'bg-emerald-700 border-emerald-600'} rounded-2xl flex items-center justify-center shadow-none shrink-0 border`}>
+        <div className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-4 md:p-6 flex items-center gap-3.5 md:gap-5 shadow-xs overflow-hidden relative group">
+          <div className={`w-11 h-11 md:w-14 md:h-14 ${isInst ? 'bg-white border-slate-100' : 'bg-emerald-600 border-emerald-600'} rounded-2xl flex items-center justify-center shadow-xs shrink-0 border`}>
             {isInst ? (
               <LazyImage
                 key={`${logoFalhou ? 'fb' : 'ok'}:${instLogoUrl || ''}`}
@@ -202,7 +153,7 @@ export function HomeContent({
               {isInst ? t('Agente {sigla} Verificado').replace('{sigla}', instSigla || 'AGT') : t('Cidadão Verificado')}
             </div>
             <div className="flex items-center gap-1.5 mt-1">
-              <div className={`w-2 h-2 rounded-full ${isInst && instVerified === false ? 'bg-red-600' : 'bg-emerald-700'} animate-pulse shrink-0`} />
+              <div className={`w-2 h-2 rounded-full ${isInst && instVerified === false ? 'bg-red-600' : 'bg-emerald-500'} animate-pulse shrink-0`} />
               <span className="text-[10px] md:text-xs font-semibold text-slate-600">{t("Protocolo Ativado 100%")}</span>
             </div>
           </div>
@@ -211,59 +162,42 @@ export function HomeContent({
         <div 
           role="button"
           onClick={() => setTab('correspondencias')}
-          className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-4 md:p-6 flex items-center gap-3.5 md:gap-5 shadow-none hover:border-primary/20 transition-all cursor-pointer group relative overflow-hidden text-left"
+          className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-4 md:p-6 flex items-center gap-3.5 md:gap-5 shadow-xs hover:border-primary/20 transition-all cursor-pointer group relative overflow-hidden text-left"
         >
-          <div className="w-11 h-11 md:w-14 md:h-14 bg-red-600 text-white rounded-2xl flex items-center justify-center shadow-none shrink-0 group-hover:scale-105 transition-transform border border-red-600">
+          <div className="w-11 h-11 md:w-14 md:h-14 bg-red-600 text-white rounded-2xl flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform border border-red-600">
             <Mail size={22} className="md:w-7 md:h-7" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 truncate">{t("Novas Mensagens")}</div>
-            <div className="flex items-baseline gap-1 truncate" data-testid="card-unread-messages">
+            <div className="flex items-baseline gap-1 truncate">
               <AnimatedCounter
                 to={unreadTotal}
                 duration={1200}
                 className="text-sm md:text-lg font-black text-slate-900 leading-tight tracking-tight"
                 triggerOnVisible
               />
-              <span data-testid="unread-total-counter" data-unread-count={unreadTotal} className="text-sm md:text-lg font-black text-slate-900 leading-tight tracking-tight"> {t("Não Lidas")}</span>
+              <span className="text-sm md:text-lg font-black text-slate-900 leading-tight tracking-tight"> {t("Não Lidas")}</span>
             </div>
             <div className="text-[10px] md:text-xs text-primary font-bold mt-1 flex items-center gap-1">{t("Ver Correspondências")} &rarr;</div>
           </div>
         </div>
       </div>
 
-      {/* 2026-10-01 — 6 atalhos do Painel: «Vídeo-Atendimento», «Inquéritos», «Comunicados», «Ocorrências», «Denuncia» e «Livro de Reclamações».
-           A grelha passa a 6 colunas em «xl» para manter os seis na mesma linha. */}
-      <nav aria-busy={notificationsLoading} aria-label={t('Atalhos do Painel')} className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 auto-rows-fr gap-2 py-1 px-0.5">
-        {[
-          { key: 'video-atendimento' as AtalhoPainel, label: 'Vídeo-Atendimento', Icon: Video, action: () => setTab('video-atendimento') },
-          { key: 'inqueritos' as AtalhoPainel, label: 'Inquéritos', Icon: ClipboardList, action: () => setTab('inqueritos') },
-          { key: 'comunicados' as AtalhoPainel, label: 'Comunicados', Icon: Megaphone, action: () => setTab('comunicados') },
-          { key: 'ocorrencias' as AtalhoPainel, label: isInst ? 'Ocorrências recebidas' : 'Ocorrências Locais', Icon: MapPin, action: () => setTab('ocorrencias') },
-          { key: 'nova-denuncia' as AtalhoPainel, label: 'Denuncia', Icon: Flag, action: () => setTab('nova-denuncia') },
-          { key: 'denuncias' as AtalhoPainel, label: 'Livro de Reclamações', Icon: ShieldAlert, action: () => setTab('denuncias') },
-        ].map(({ key, label, Icon, action }) => (
-          <button
-            key={key}
-            data-testid={`atalho-${key}`}
-            aria-label={t(label)}
-            aria-describedby={badgeCounts[key] > 0 ? `${badgeId}-${key}` : undefined}
-            title={badgeCounts[key] > 0 ? `${t(label)} — ${badgeCounts[key]} ${t('notificações não lidas')}` : t(label)}
-            type="button"
-            onClick={action}
-            className="min-w-0 min-h-14 px-3 py-3 flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-wide shadow-none hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all cursor-pointer"
-          >
-            <Icon size={17} aria-hidden="true" className="text-primary shrink-0" />
-            <span className="min-w-0 text-center leading-relaxed break-words">{t(label)}</span>
-            {badgeCounts[key] > 0 && <span id={`${badgeId}-${key}`} data-notification-badge={key} className="shrink-0 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-black tabular-nums leading-none" role="status">
-              <span aria-hidden="true">{badgeCounts[key] > 99 ? '99+' : badgeCounts[key]}</span>
-              <span className="sr-only">{badgeCounts[key]} {t('notificações não lidas')}</span>
-            </span>}
-          </button>
-        ))}
-      </nav>
+      <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar">
+        <button onClick={() => setTab('historico')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Ver Histórico")}</button>
+        <button onClick={() => setTab('notificacoes')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Notificações")}</button>
+        <button onClick={() => setTab('directorio-orgaos')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Directório de Órgãos")}</button>
+        {isInst ? (
+          <button onClick={() => setTab('inst-pagamentos')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Pagamentos")}</button>
+        ) : (
+          <button onClick={() => setTab('pagamentos')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Pagamentos")}</button>
+        )}
+        {isInst && (
+          <button onClick={() => setTab('inst-qrcode')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{t("Validação QR")}</button>
+        )}
+      </div>
 
-      <section className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-4 md:p-5 shadow-none overflow-hidden relative group">
+      <section className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-5 shadow-xs overflow-hidden relative group">
         <div className="flex flex-row items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-100">
           <div className="flex items-center gap-2 min-w-0">
              <div className="w-1.5 h-4 md:h-5 bg-primary rounded-full shrink-0" />
@@ -302,13 +236,13 @@ export function HomeContent({
                       onDoubleClickInstitution?.(name);
                     }
                   }}
-                  className="px-4 py-2 rounded-full text-[10px] md:text-xs font-black bg-[#0E2B64] text-white border border-[#0E2B64] whitespace-nowrap hover:bg-[#0c2350] transition-all cursor-pointer shadow-none text-center"
+                  className="px-4 py-2 rounded-full text-[10px] md:text-xs font-black bg-[#0E2B64] text-white border border-[#0E2B64] whitespace-nowrap hover:bg-[#0c2350] transition-all cursor-pointer shadow-md hover:shadow-lg text-center"
                   title={(isInst || !onDoubleClickInstitution) ? t(name) : t("Dê duplo clique para ver detalhes desta instituição")}
                 >
                   {t(name)}
                 </button>
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-red-600 text-[9px] font-black text-white shadow-none animate-pulse ring-1 ring-white tabular-nums leading-none">
+                  <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-black text-white shadow-md animate-pulse ring-1 ring-white">
                     {unreadCount}
                   </span>
                 )}
@@ -318,117 +252,81 @@ export function HomeContent({
         </div>
       </section>
 
-      {/* Containers de Correspondências — Layout dinâmico: 2 colunas (mínimo) ou 3 colunas (máximo) em Desktop; coluna única empilhada em Mobile */}
-      <div className={`grid grid-cols-1 ${gridDesktopClass} gap-3 md:gap-4`}>
-        {/* 1. Container «Lidas» (Sempre visível) */}
-        <section className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-none flex flex-col group" data-testid="container-lidas">
+      {/* Containers de Correspondências — Layout dinâmico em Desktop (3 colunas ou 2 colunas 50/50 quando Não Lidas estiver vazia) */}
+      <div className={`grid grid-cols-1 ${shouldHideUnread ? 'md:grid-cols-2 xl:grid-cols-2' : 'md:grid-cols-2 xl:grid-cols-3'} gap-3 md:gap-4`}>
+        {!shouldHideUnread && (
+          <section className={`bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-xs flex flex-col group ${isInst ? 'order-2' : ''}`}>
+            <div className="flex items-center justify-between mb-3.5 shrink-0 px-1">
+               <div className="flex items-center gap-2">
+                  <Mail size={16} className="text-red-500" />
+                  <h3 className="text-slate-900 font-bold text-sm md:text-base tracking-tight">{t("Não Lidas")}</h3>
+               </div>
+               <span className="text-red-600 font-black text-sm md:text-base">{unreadCount}</span>
+            </div>
+            <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
+              {unreadCount === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center py-8 text-slate-400">
+                  <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mb-2 shadow-xs">
+                    <Mail size={16} className="text-slate-300" />
+                  </div>
+                  <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">{t("Sem mensagens novas")}</p>
+                </div>
+              ) : (
+                (inbox || []).filter(m => m.unread).map(m => (
+                  <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
+                    <div className="min-w-0 flex-1 truncate mr-3">
+                      <span className="font-extrabold text-slate-900 group-hover/item:text-primary transition-colors">{t(m.org)}:</span>
+                      <span className="ml-1 text-slate-600 font-medium">{t(m.preview)}</span>
+                    </div>
+                    <span className="text-white font-bold shrink-0 text-[10px] bg-red-600 px-2 py-0.5 rounded-lg font-mono shadow-xs">{t(m.date)}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
+
+        <section className={`bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-xs flex flex-col group ${isInst ? 'order-1' : ''}`}>
           <div className="flex items-center justify-between mb-3.5 shrink-0 px-1">
              <div className="flex items-center gap-2">
-                <Mail size={16} className="text-emerald-700" />
+                <Mail size={16} className="text-emerald-500" />
                 <h3 className="text-slate-900 font-bold text-sm md:text-base tracking-tight">{t("Lidas")}</h3>
              </div>
-             <span className="text-emerald-700 font-black text-sm md:text-base">{readCount}</span>
+             <span className="text-emerald-600 font-black text-sm md:text-base">{readCount}</span>
           </div>
           <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
-            {readCount === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center py-8 text-slate-400">
-                <div className="w-14 h-14 bg-white border border-[#0E2B64]/30 rounded-full flex items-center justify-center mb-3 shadow-none">
-                  <Mail size={22} className="text-[#0E2B64]" />
+            {(inbox || []).filter(m => !m.unread).map(m => (
+              <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
+                <div className="min-w-0 flex-1 truncate mr-3">
+                  <span className="font-extrabold text-slate-800">{t(m.org)}:</span>
+                  <span className="ml-1 text-slate-500 font-medium">{t(m.preview)}</span>
                 </div>
-                <p className="text-xs font-black uppercase text-[#0E2B64] tracking-wider">{t("SEM MENSAGENS LIDAS")}</p>
+                <span className="text-white font-bold shrink-0 text-[10px] bg-emerald-600 px-2 py-0.5 rounded-lg font-mono">{t(m.date)}</span>
               </div>
-            ) : (
-              (inbox || []).filter(m => !m.unread).map(m => (
-                <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
-                  <div className="min-w-0 flex-1 truncate mr-3">
-                    <span className="font-extrabold text-slate-800">{t(m.org)}:</span>
-                    <span className="ml-1 text-slate-500 font-medium">{t(m.preview)}</span>
-                  </div>
-                  <span className="text-white font-bold shrink-0 text-[10px] bg-[#059669] px-2.5 py-0.5 rounded-lg font-mono">{t(m.date)}</span>
-                </div>
-              ))
-            )}
+            ))}
           </div>
         </section>
 
-        {/* 2. Container «Não Lidas» (Sempre visível) */}
-        <section className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-none flex flex-col group" data-testid="container-nao-lidas">
+        <section className={`bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-xs flex flex-col group ${shouldHideUnread ? 'col-span-1' : 'md:col-span-2 xl:col-span-1'} ${isInst ? 'order-3' : ''}`}>
           <div className="flex items-center justify-between mb-3.5 shrink-0 px-1">
              <div className="flex items-center gap-2">
-                <Mail size={16} className="text-red-500" />
-                <h3 className="text-slate-900 font-bold text-sm md:text-base tracking-tight">{t("Não Lidas")}</h3>
+                <Mail size={16} className="text-blue-500" />
+                <h3 className="text-slate-900 font-bold text-sm md:text-base tracking-tight">{t("Enviadas")}</h3>
              </div>
-             <span className="text-red-600 font-black text-sm md:text-base">{unreadCount}</span>
+             <span className="text-blue-600 font-black text-sm md:text-base">{sentCount}</span>
           </div>
           <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
-            {unreadCount === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center py-8 text-slate-400">
-                <div className="w-14 h-14 bg-white border border-[#0E2B64]/30 rounded-full flex items-center justify-center mb-3 shadow-none">
-                  <Mail size={22} className="text-[#0E2B64]" />
+            {(sentMessages || []).map(m => (
+              <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
+                <div className="min-w-0 flex-1 truncate mr-3">
+                  <span className="font-extrabold text-slate-800">{t(m.org)}:</span>
+                  <span className="ml-1 text-slate-500 font-medium">{t(m.preview)}</span>
                 </div>
-                <p className="text-xs font-black uppercase text-[#0E2B64] tracking-wider">{t("SEM MENSAGENS NOVAS")}</p>
+                <span className="text-white font-bold shrink-0 text-[10px] bg-blue-600 px-2 py-0.5 rounded-lg font-mono">{t(m.date)}</span>
               </div>
-            ) : (
-              (inbox || []).filter(m => m.unread).map(m => (
-                <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
-                  <div className="min-w-0 flex-1 truncate mr-3">
-                    <span className="font-extrabold text-slate-900 group-hover/item:text-primary transition-colors">{t(m.org)}:</span>
-                    <span className="ml-1 text-slate-600 font-medium">{t(m.preview)}</span>
-                  </div>
-                  <span className="text-white font-bold shrink-0 text-[10px] bg-red-600 px-2.5 py-0.5 rounded-lg font-mono">{t(m.date)}</span>
-                </div>
-              ))
-            )}
+            ))}
           </div>
         </section>
-
-        {/* 3. Container «Enviadas» (Visível apenas se sentCount > 0) */}
-        {showEnviadas && (
-          <section className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-none flex flex-col group" data-testid="container-enviadas">
-            <div className="flex items-center justify-between mb-3.5 shrink-0 px-1">
-               <div className="flex items-center gap-2">
-                  <Mail size={16} className="text-blue-500" />
-                  <h3 className="text-slate-900 font-bold text-sm md:text-base tracking-tight">{t("Enviadas")}</h3>
-               </div>
-               <span className="text-blue-600 font-black text-sm md:text-base">{sentCount}</span>
-            </div>
-            <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
-              {(sentMessages || []).map(m => (
-                <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
-                  <div className="min-w-0 flex-1 truncate mr-3">
-                    <span className="font-extrabold text-slate-800">{t(m.org)}:</span>
-                    <span className="ml-1 text-slate-500 font-medium">{t(m.preview)}</span>
-                  </div>
-                  <span className="text-white font-bold shrink-0 text-[10px] bg-[#2563eb] px-2.5 py-0.5 rounded-lg font-mono">{t(m.date)}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* 4. Container «Eliminadas» (Visível apenas se deletedCount > 0 E sentCount === 0) */}
-        {showEliminadas && (
-          <section className="bg-white border border-slate-200 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-none flex flex-col group" data-testid="container-eliminadas">
-            <div className="flex items-center justify-between mb-3.5 shrink-0 px-1">
-               <div className="flex items-center gap-2">
-                  <Trash2 size={16} className="text-red-500" />
-                  <h3 className="text-slate-900 font-bold text-sm md:text-base tracking-tight">{t("Eliminadas")}</h3>
-               </div>
-               <span className="text-red-600 font-black text-sm md:text-base">{deletedCount}</span>
-            </div>
-            <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
-              {(deletedMessages || []).map(m => (
-                <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
-                  <div className="min-w-0 flex-1 truncate mr-3">
-                    <span className="font-extrabold text-slate-900 group-hover/item:text-primary transition-colors">{t(m.org)}:</span>
-                    <span className="ml-1 text-slate-600 font-medium">{t(m.preview)}</span>
-                  </div>
-                  <span className="text-white font-bold shrink-0 text-[10px] bg-red-600 px-2.5 py-0.5 rounded-lg font-mono">{t(m.date)}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
       </div>
     </div>
   );
