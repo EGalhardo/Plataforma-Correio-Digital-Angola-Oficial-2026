@@ -2746,6 +2746,25 @@ export default function App() {
     return 90000000 + (h % 8999999);
   };
 
+  // 2026-10-19 — CHAVE DE IDENTIDADE DA CORRESPONDÊNCIA (anti-repetição):
+  // a mesma correspondência oficial pode existir em DUAS fontes — a linha da
+  // NUVEM (fonte canónica) e a cópia LOCAL do canal de homologação. A regra F48
+  // documentada é «nunca os dois»; a chave por assunto canónico permite
+  // detetar o par e mostrar apenas a versão da nuvem.
+  const chaveAssuntoMensagem = (m: Message): string =>
+    String(m.details?.subject || '').trim().toLowerCase();
+
+  // 2026-10-19 — «NUNCA OS DOIS» (regra F48 documentada em enviarMensagemAdministrativa):
+  // a mesma correspondência oficial pode existir na NUVEM (fonte canónica) e na
+  // thread LOCAL de homologação (cópias criadas por vias independentes: IA/PVI,
+  // aprovação manual do Admin e sonda F48). A cópia local só aparece quando a
+  // nuvem NÃO tem a correspondência (recurso/offline) — nunca em duplicado.
+  const jaNaNuvem = (m: Message, fonte: Message[]): boolean => {
+    const chave = chaveAssuntoMensagem(m);
+    if (!chave) return false;
+    return (fonte || []).some((o) => !o.homologation && chaveAssuntoMensagem(o) === chave);
+  };
+
   const buildHomologationInboxMessage = (msg: HomologationMessage, cleanBi: string): Message => {
     const alreadyRead = getReadMessageIds(cleanBi).has(homologationInboxId(msg.id));
     const isApproval = msg.text.includes('HOMOLOGADA') || msg.text.includes('oficialmente ATIVA');
@@ -2795,12 +2814,19 @@ export default function App() {
         normalizeHomologationBi(m.homologationBi) !== cleanBi ||
         threadIds.has(m.id)
       );
-      const existing = new Set(pruned.map(m => m.id));
+      // 2026-10-19 — «NUNCA OS DOIS» (relato do dono: correspondências a
+      // repetir): a cópia LOCAL do canal de homologação de uma correspondência
+      // que a NUVEM já entregou sai da caixa — a nuvem é a fonte canónica e a
+      // local é apenas o recurso offline. Sem esta regra a «Conta Ativada»
+      // aparecia em duplicado (cópia local + linha da nuvem) e o contador de
+      // não-lidas contava-a 2× (4 aparentes em vez de 2 reais).
+      const semDuplicados = pruned.filter(m => !m.homologation || !jaNaNuvem(m, pruned));
+      const existing = new Set(semDuplicados.map(m => m.id));
       const fresh = thread
         .map(msg => buildHomologationInboxMessage(msg, cleanBi))
-        .filter(m => !existing.has(m.id));
-      if (pruned.length === prev.length && fresh.length === 0) return prev;
-      return [...fresh.slice().reverse(), ...pruned];
+        .filter(m => !existing.has(m.id) && !jaNaNuvem(m, semDuplicados));
+      if (semDuplicados.length === prev.length && fresh.length === 0) return prev;
+      return [...fresh.slice().reverse(), ...semDuplicados];
     });
   }, [appMode, bi, gateRefreshTick, profileName]);
 
@@ -2823,12 +2849,15 @@ export default function App() {
         normalizeHomologationBi(m.homologationBi) !== cleanBi ||
         threadIds.has(m.id)
       );
-      const existing = new Set(pruned.map(m => m.id));
+      // 2026-10-19 — «NUNCA OS DOIS» (anti-repetição, espelho do cidadão): a
+      // cópia LOCAL cede sempre que a NUVEM já tem a mesma correspondência.
+      const semDuplicados = pruned.filter(m => !m.homologation || !jaNaNuvem(m, pruned));
+      const existing = new Set(semDuplicados.map(m => m.id));
       const fresh = thread
         .map(msg => buildHomologationInboxMessage(msg, cleanBi))
-        .filter(m => !existing.has(m.id));
-      if (pruned.length === prev.length && fresh.length === 0) return prev;
-      return [...fresh.slice().reverse(), ...pruned];
+        .filter(m => !existing.has(m.id) && !jaNaNuvem(m, semDuplicados));
+      if (semDuplicados.length === prev.length && fresh.length === 0) return prev;
+      return [...fresh.slice().reverse(), ...semDuplicados];
     });
   }, [appMode, bi, gateRefreshTick]);
 
@@ -3375,7 +3404,14 @@ export default function App() {
             setInbox(prevLocal => {
               const homMsgs = prevLocal.filter(m => m.homologation && normalizeHomologationBi(m.homologationBi) === normalizeHomologationBi(bi));
               const dbIds = new Set(caixaCompleta.map(m => m.id));
-              const keptHom = homMsgs.filter(m => !dbIds.has(m.id));
+              // 2026-10-19 — ANTI-REPETIÇÃO (relato do dono: 2 correspondências
+              // a repetir na conta): as cópias locais da homologação têm IDs de
+              // hash (90000000+) que NUNCA colidem com os IDs da nuvem — o filtro
+              // só por id mantinha a «Conta Ativada» local E a da nuvem, e a
+              // mesma correspondência aparecia 2× na caixa. A regra «nunca os
+              // dois» (F48) descarta a cópia local quando a nuvem já tem a mesma
+              // correspondência (mesmo assunto canónico).
+              const keptHom = homMsgs.filter(m => !dbIds.has(m.id) && !jaNaNuvem(m, caixaCompleta));
               const cloudMsgs = caixaCompleta.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim);
               return [...cloudMsgs, ...keptHom];
             });
@@ -3384,7 +3420,9 @@ export default function App() {
               setInstInbox(prevLocal => {
                 const homMsgs = prevLocal.filter(m => m.homologation && normalizeHomologationBi(m.homologationBi) === normalizeHomologationBi(bi));
                 const dbIds = new Set(caixaCompleta.map(m => m.id));
-                const keptHom = homMsgs.filter(m => !dbIds.has(m.id));
+                // 2026-10-19 — ANTI-REPETIÇÃO («nunca os dois»): cópia local da
+                // homologação descartada quando a nuvem já tem a correspondência.
+                const keptHom = homMsgs.filter(m => !dbIds.has(m.id) && !jaNaNuvem(m, caixaCompleta));
                 const cloudMsgs = caixaCompleta.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim);
                 return [...cloudMsgs, ...keptHom];
               });

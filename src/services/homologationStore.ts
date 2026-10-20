@@ -64,6 +64,51 @@ const writeJson = (key: string, value: unknown): void => {
 
 const nowStamp = (): string => new Date().toLocaleString('pt-AO');
 
+// 2026-10-19 — CLASSIFICAÇÃO CANÓNICA das correspondências da homologação.
+// A conta canónica tem EXACTAMENTE 2 correspondências: 1. Confirmação de
+// Registo + 2. Homologação/Ativação Oficial.
+const ehMensagemDeSubmissao = (texto: string): boolean =>
+  texto.includes('confirma a receção do seu pedido de registo') || texto.includes('confirma a receção');
+const ehMensagemDeAprovacao = (texto: string): boolean =>
+  texto.includes('HOMOLOGADA') || texto.includes('oficialmente ATIVA');
+
+/**
+ * 2026-10-19 — NORMALIZAÇÃO ANTI-REPETIÇÃO (relato do dono: «correspondências
+ * a repetir»): a mesma ativação pode ser detectada por VIAS INDEPENDENTES
+ * (aprovação automática da IA/PVI, aprovação manual do Admin e a sonda F48 em
+ * sessão aberta) e cada via acrescentava a SUA cópia à thread local — a conta
+ * ficava com 2-3 cópias da «Conta Ativada». Esta função colapsa a thread no
+ * estado canónico (no máx. 1 submissão + 1 aprovação, mantendo a PRIMEIRA de
+ * cada — as restantes mensagens avulsas, ex.: rejeição/desbloqueio, seguem).
+ * É chamada pelos garantes do canal (ensure*) para auto-sanear contas já
+ * poluídas no dispositivo.
+ */
+export const normalizarThreadHomologacao = (bi: string): void => {
+  const key = normalizeHomologationBi(bi);
+  if (!key) return;
+  const all = readJson<Record<string, HomologationMessage[]>>(THREADS_KEY, {});
+  const thread = all[key];
+  if (!thread || thread.length === 0) return;
+  let viuSubmissao = false;
+  let viuAprovacao = false;
+  const limpa = thread.filter((m) => {
+    if (ehMensagemDeAprovacao(m.text)) {
+      if (viuAprovacao) return false;
+      viuAprovacao = true;
+      return true;
+    }
+    if (ehMensagemDeSubmissao(m.text)) {
+      if (viuSubmissao) return false;
+      viuSubmissao = true;
+      return true;
+    }
+    return true;
+  });
+  if (limpa.length === thread.length) return;
+  all[key] = limpa;
+  writeJson(THREADS_KEY, all);
+};
+
 export const homologationStore = {
   /** Identidades demo já nascem ativas e nunca são gated. */
   isExempt: (bi?: string): boolean =>
@@ -124,6 +169,12 @@ export const homologationStore = {
     const key = normalizeHomologationBi(bi);
     if (!key || !text.trim()) return null;
     const all = readJson<Record<string, HomologationMessage[]>>(THREADS_KEY, {});
+    // 2026-10-19 — ANTI-REPETIÇÃO: nunca criar uma 2.ª cópia de uma
+    // correspondência com o MESMO texto (garante o invariante «uma
+    // correspondência = uma entrada» em todas as vias de escrita).
+    const texto = text.trim();
+    const existente = (all[key] || []).find((m) => m.text === texto);
+    if (existente) return existente;
     const msg: HomologationMessage = {
       id: `hom_${Date.now()}_${Math.floor(Math.random() * 100000)}`,
       from,
@@ -154,6 +205,14 @@ export const notifyRegistrationSubmitted = (bi: string, name?: string): void => 
 };
 
 export const notifyAccountApproved = (bi: string, name?: string): void => {
+  // 2026-10-19 — IDEMPOTENTE (relato do dono: «correspondências a repetir»): a
+  // ativação é detetada por VIAS INDEPENDENTES — aprovação automática da IA/PVI
+  // (registoBgService), aprovação manual do Admin (GovContactsContent) e a
+  // sonda F48 da sessão aberta (App). Antes, cada via chamava esta função e
+  // acrescentava a SUA cópia da «Conta Ativada» à thread local (o dono contou
+  // 2 cópias repetidas na conta). Se a aprovação JÁ existe na thread, não é
+  // acrescentada outra — total canónico preservado (2 correspondências).
+  if (homologationStore.getThread(bi).some((m) => ehMensagemDeAprovacao(m.text))) return;
   homologationStore.addMessage(
     bi,
     'admin',
@@ -204,6 +263,8 @@ export const ensureInstitutionHomologationChannel = (
 ): void => {
   const code = (codeRaw || '').trim().toUpperCase();
   if (!code || ALWAYS_ACTIVE_IDENTIFIERS.includes(code)) return; // apenas contas reais
+  // 2026-10-19 — auto-saneamento ANTI-REPETIÇÃO antes de reconstruir.
+  normalizarThreadHomologacao(code);
   if (!homologationStore.getStatus(code)) {
     homologationStore.setStatus(code, status, undefined, fullName);
   }
@@ -229,6 +290,10 @@ export const ensureCitizenHomologationChannel = (
 ): void => {
   const bi = normalizeHomologationBi(biRaw);
   if (!bi) return;
+  // 2026-10-19 — auto-saneamento ANTI-REPETIÇÃO: colapsa cópias duplicadas
+  // deixadas pelas vias independentes (IA/PVI + Admin + sonda F48) antes de
+  // avaliar o que falta reconstruir — total canónico exacto (2 correspondências).
+  normalizarThreadHomologacao(bi);
   if (!homologationStore.getStatus(bi)) {
     homologationStore.setStatus(bi, status, undefined, fullName);
   }

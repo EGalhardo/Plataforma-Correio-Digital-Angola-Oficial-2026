@@ -795,6 +795,19 @@ export const enviarMensagemAdministrativa = async (
 let dadosTokenCache: string | null = null;
 let dadosTokenCacheTs = 0;
 
+// 2026-10-19 — CAUSA-RAIZ da «Conta Ativada» duplicada em Enviadas (relato do
+// dono): o cache de token (60 s) sobrevivia à TROCA DE SESSÃO. Sequência real:
+// 1) registo do cidadão (token do cidadão em cache) → 2) login do Admin e
+// aprovação noutro separador/minutos depois → 3) enviarMensagemAdministrativa
+// reutilizava o token ANTIGO do cidadão → o proxy /api/dados identificava o
+// remetente como o próprio cidadão e gravava sender_bi = BI do cidadão (em vez
+// de 'CDA') — a linha aparecia como RECEBIDA e ENVIADA e o contador contava 2×.
+// Qualquer evento de autenticação invalida o cache na hora.
+supabase.auth.onAuthStateChange(() => {
+  dadosTokenCache = null;
+  dadosTokenCacheTs = 0;
+});
+
 const obterTokenSessao = async (): Promise<string | null> => {
   try {
     const agora = Date.now();
@@ -2048,7 +2061,14 @@ export const supabaseService = {
             }
             return false;
           }),
-          sent: mapped.filter((_, i) => sndSet.has(norm(rows[i].sender_bi))),
+          // 2026-10-19 — UMA CORRESPONDÊNCIA = UMA ENTRADA (relato do dono: a
+          // «Conta Ativada» aparecia em «Não Lidas» E em «Enviadas», inflando o
+          // contador para 4): a linha administrativa foi gravada com sender_bi =
+          // BI do PRÓPRIO cidadão (o Admin escreveu com o token antigo do cidadão
+          // em cache) e o filtro de enviadas contava-a como enviada por ele.
+          // Mensagens endereçadas a MIM (remetente == destinatário == eu) são
+          // apenas RECEBIDAS — nunca também enviadas.
+          sent: mapped.filter((_, i) => sndSet.has(norm(rows[i].sender_bi)) && !recSet.has(norm(rows[i].recipient_bi))),
         };
       } catch (e) {
         console.error('Supabase getOwnMailbox error:', e);
