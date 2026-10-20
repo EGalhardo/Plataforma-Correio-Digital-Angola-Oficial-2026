@@ -725,6 +725,9 @@ export default function App() {
   // 2026-08-21 (desempenho/UX) — verdadeiro quando a primeira sincronização
   // com a nuvem terminou (usado para o estado de carregamento das páginas).
   const [cloudSyncedOnce, setCloudSyncedOnce] = useState(false);
+  // A caixa apresentada tem de pertencer à sessão activa; estado global de uma
+  // sessão anterior fica oculto até a leitura desta conta terminar com sucesso.
+  const [mailboxSyncedOwnerKey, setMailboxSyncedOwnerKey] = useState('');
 
   const [contacts, setContacts] = useState<Contact[]>(() => {
     if (shouldUseLocalBootstrap()) {
@@ -3386,8 +3389,8 @@ export default function App() {
         if (dbMessages !== null && isSubscribed) {
           // F12 — marca de titularidade: o cidadão/instituição REAL só vê o que
           // foi efectivamente endereçado à sua chave (query da nuvem já filtra).
-          const incoming = dbMessages.filter(m => !isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage).map(m => ({ ...m, recipientBi: bi, recipientInst: isInstMode ? (effectiveInstCode || bi) : m.recipientInst }));
-          const docs = dbMessages.filter(m => isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage).map(m => ({ ...m, recipientBi: bi, recipientInst: isInstMode ? (effectiveInstCode || bi) : m.recipientInst }));
+          const incoming = dbMessages.filter(m => !isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage);
+          const docs = dbMessages.filter(m => isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage);
           
           // 2026-08-20 — Modo Real: a nuvem é a fonte ÚNICA (sem fusão com
           // estado local/mock). Eliminadas/arquivadas ficam fora da caixa em
@@ -3401,7 +3404,7 @@ export default function App() {
             // As docs passam a aparecer TAMBÉM na caixa principal; docInbox
             // mantém-se para retro-compatibilidade (Perfil, IA, eliminações).
             const caixaCompleta = [...incoming, ...docs];
-            setInbox(prevLocal => {
+            if (!isInstMode) setInbox(prevLocal => {
               const homMsgs = prevLocal.filter(m => m.homologation && normalizeHomologationBi(m.homologationBi) === normalizeHomologationBi(bi));
               const dbIds = new Set(caixaCompleta.map(m => m.id));
               // 2026-10-19 — ANTI-REPETIÇÃO (relato do dono: 2 correspondências
@@ -3415,19 +3418,7 @@ export default function App() {
               const cloudMsgs = caixaCompleta.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim);
               return [...cloudMsgs, ...keptHom];
             });
-            setDocInbox(docs.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
-            if (isInstMode) {
-              setInstInbox(prevLocal => {
-                const homMsgs = prevLocal.filter(m => m.homologation && normalizeHomologationBi(m.homologationBi) === normalizeHomologationBi(bi));
-                const dbIds = new Set(caixaCompleta.map(m => m.id));
-                // 2026-10-19 — ANTI-REPETIÇÃO («nunca os dois»): cópia local da
-                // homologação descartada quando a nuvem já tem a correspondência.
-                const keptHom = homMsgs.filter(m => !dbIds.has(m.id) && !jaNaNuvem(m, caixaCompleta));
-                const cloudMsgs = caixaCompleta.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim);
-                return [...cloudMsgs, ...keptHom];
-              });
-              setInstDocInbox(docs.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
-            }
+            if (!isInstMode) setDocInbox(docs.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
           } else {
             setInbox(prevLocal => {
               const dbIds = new Set(incoming.map(m => m.id));
@@ -3527,7 +3518,13 @@ export default function App() {
             const legacyIds = new Set(mailbox.legacyIds);
             
             if (!isDemoSession) {
-              setInstInbox(instNormal.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
+              const cloudInst = instNormal.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim);
+              setInstInbox(prev => {
+                const localHom = prev.filter(m => isOwnHomologationMail(m));
+                const cloudIds = new Set(cloudInst.map(m => m.id));
+                const keptHom = localHom.filter(m => !cloudIds.has(m.id) && !jaNaNuvem(m, cloudInst));
+                return [...cloudInst, ...keptHom];
+              });
               setInstDocInbox(instDoc.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
             } else {
               setInstInbox(prevLocal => {
@@ -3668,6 +3665,9 @@ export default function App() {
           }
         }
 
+        if (!isDemoSession && ((isInstMode && dbInstMailbox !== null) || (!isInstMode && mailbox !== null))) {
+          setMailboxSyncedOwnerKey(sessionOwnerKey);
+        }
         console.debug('CADA: Sincronização e carregamento do Supabase efectuados com sucesso!');
         setCloudSyncedOnce(true);
       } catch (err) {
@@ -4481,7 +4481,8 @@ export default function App() {
   // aqui, no seletor central, para que TODAS as áreas que consomem a caixa
   // (Correio, Documentos, Centro de Actividade, detalhe da instituição)
   // apresentem a mesma ordem.
-  const currentInbox = ordenarMensagensPorMaisRecente(isInstMode
+  const mailboxReadyForOwner = isDemoSession || mailboxSyncedOwnerKey === sessionOwnerKey;
+  const currentInbox = ordenarMensagensPorMaisRecente(!mailboxReadyForOwner ? [] : isInstMode
     ? (isDemoInstitutionSession
         ? instInbox.filter(m => !m.homologation || isOwnHomologationMail(m))
         : instInbox.filter(m => (isOwnHomologationMail(m) || isInstitutionAddressedMail(m))
@@ -4597,7 +4598,7 @@ export default function App() {
 
   // F11 — Documentos da instituição real seguem o MESMO escopo do Correio:
   // apenas o canal oficial da própria instituição + o que lhe foi endereçado.
-  const currentDocInbox = ordenarMensagensPorMaisRecente(isInstMode
+  const currentDocInbox = ordenarMensagensPorMaisRecente(!mailboxReadyForOwner ? [] : isInstMode
     ? (isDemoInstitutionSession
         ? instDocInbox
         : instDocInbox.filter(m => isOwnHomologationMail(m) || isInstitutionAddressedMail(m)))
