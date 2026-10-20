@@ -3170,17 +3170,17 @@ export default function App() {
               const hyd: { name?: string; email?: string; phone?: string; nif?: string; passport?: string; address?: string; filiation?: string; maritalStatus?: string; birthDate?: string } = {};
               const locProf = isGovMode ? lerPerfilLocal('admin', bi) : isInstMode ? lerPerfilLocal('institution', bi) : lerPerfilLocal('user', bi);
 
-              if (typeof dbProfile.name === 'string' && dbProfile.name.trim()) hyd.name = dbProfile.name.trim();
-              else if (locProf?.name) hyd.name = locProf.name;
+              if (locProf?.name) hyd.name = locProf.name;
+              else if (typeof dbProfile.name === 'string' && dbProfile.name.trim()) hyd.name = dbProfile.name.trim();
 
-              if (typeof dbProfile.email === 'string' && dbProfile.email.trim()) hyd.email = dbProfile.email.trim();
-              else if (locProf?.email) hyd.email = locProf.email;
+              if (locProf?.email) hyd.email = locProf.email;
+              else if (typeof dbProfile.email === 'string' && dbProfile.email.trim()) hyd.email = dbProfile.email.trim();
 
-              if (typeof dbProfile.phone === 'string' && dbProfile.phone.trim()) hyd.phone = dbProfile.phone.trim();
-              else if (locProf?.phone) hyd.phone = locProf.phone;
+              if (locProf?.phone) hyd.phone = locProf.phone;
+              else if (typeof dbProfile.phone === 'string' && dbProfile.phone.trim()) hyd.phone = dbProfile.phone.trim();
 
-              if (typeof dbProfile.nif === 'string' && dbProfile.nif.trim()) hyd.nif = dbProfile.nif.trim();
-              else if (locProf?.nif) hyd.nif = locProf.nif;
+              if (locProf?.nif) hyd.nif = locProf.nif;
+              else if (typeof dbProfile.nif === 'string' && dbProfile.nif.trim()) hyd.nif = dbProfile.nif.trim();
 
               if (typeof dbProfile.passport === 'string' && dbProfile.passport.trim()) hyd.passport = dbProfile.passport.trim();
               if (typeof (dbProfile as any).morada === 'string' && (dbProfile as any).morada.trim()) hyd.address = (dbProfile as any).morada.trim();
@@ -3297,10 +3297,10 @@ export default function App() {
             }).catch(err => console.warn('CADA: Erro ao restaurar perfil canónico (conflito de chave mitigado):', err.message || err));
           } else {
             const locProf = isGovMode ? lerPerfilLocal('admin', bi) : isInstMode ? lerPerfilLocal('institution', bi) : lerPerfilLocal('user', bi);
-            const effectiveName = (typeof dbProfile.name === 'string' && dbProfile.name.trim()) ? dbProfile.name.trim() : locProf?.name;
-            const effectivePhone = (typeof dbProfile.phone === 'string' && dbProfile.phone.trim()) ? dbProfile.phone.trim() : locProf?.phone;
-            const effectiveNif = (typeof dbProfile.nif === 'string' && dbProfile.nif.trim()) ? dbProfile.nif.trim() : locProf?.nif;
-            const effectiveEmail = (typeof dbProfile.email === 'string' && dbProfile.email.trim()) ? dbProfile.email.trim() : locProf?.email;
+            const effectiveName = locProf?.name || dbProfile.name;
+            const effectivePhone = locProf?.phone || dbProfile.phone;
+            const effectiveNif = locProf?.nif || dbProfile.nif;
+            const effectiveEmail = locProf?.email || dbProfile.email;
 
             if (effectiveName) setProfileName(effectiveName);
             if (effectivePhone) setPhone(effectivePhone);
@@ -4207,22 +4207,11 @@ export default function App() {
     if (!activeUserStorageKey || activeUserStorageKey === 'ANON') return;
     localStorage.setItem(`cda_hidden_messages_${activeUserStorageKey}`, JSON.stringify(hiddenMessageIds));
   }, [hiddenMessageIds, activeUserStorageKey]);
-  const isOwnCitizenMail = (m: Message) => {
-    const cleanBi = normalizeHomologationBi(bi || '');
-    const mRecBi = normalizeHomologationBi(m.recipientBi || '');
-    const norm = (v?: string) => String(v || '').toUpperCase().trim();
-    const myName = norm(profileName || user?.name || '');
-    const bodyText = norm(m.details?.body || '');
-    const subjText = norm(m.details?.subject || '');
-
-    return (
-      isOwnHomologationMail(m) ||
-      (!!m.recipientBi && (mRecBi === cleanBi || norm(m.recipientBi) === 'TODOS')) ||
-      (!!cleanBi && (bodyText.includes(cleanBi) || subjText.includes(cleanBi))) ||
-      (!!myName && myName.length > 2 && (bodyText.includes(myName) || subjText.includes(myName))) ||
-      (isDemoCitizenSession && (bodyText.includes('EDLASIO') || bodyText.includes('GALHARDO') || subjText.includes('EDLASIO') || subjText.includes('GALHARDO')))
-    );
-  };
+  const isOwnCitizenMail = (m: Message) =>
+    isOwnHomologationMail(m) ||
+    (!!m.recipientBi && (normalizeHomologationBi(m.recipientBi) === normalizeHomologationBi(bi) || String(m.recipientBi).toUpperCase() === 'TODOS')) ||
+    (!!m.details?.body && (m.details.body.includes(bi) || m.details.body.toUpperCase().includes('EDLASIO') || m.details.body.toUpperCase().includes('GALHARDO'))) ||
+    (!!m.details?.subject && (m.details.subject.includes(bi) || m.details.subject.toUpperCase().includes('EDLASIO') || m.details.subject.toUpperCase().includes('GALHARDO')));
 
   // ==========================================================================
   // Etapa #4 — SYNC AUTOMÁTICO DO PERFIL com o Supabase

@@ -136,27 +136,13 @@ async function testFluxoRegistoAdmin() {
     const cap3 = page.locator('button:has-text("REGISTAR CAPTURA (3/3")').first();
     await cap3.waitFor({ state: 'visible', timeout: 10000 });
     await cap3.click();
-    await page.waitForTimeout(2000);
-
-    // Aguardar conclusão da biometria
-    const bioDone = page.locator('p:has-text("BIOMETRIA REGISTADA"), p:has-text("BIOMETRIA CONCLUÍDA")').first();
-    await bioDone.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(2500);
 
     // Finalizar Submissão
     const submitCidBtn = page.locator('button:has-text("FINALIZAR SUBMISSÃO")').first();
     await submitCidBtn.waitFor({ state: 'visible', timeout: 10000 });
     await submitCidBtn.click();
-
-    const accessPopup = page.locator('h3:has-text("DOCUMENTAÇÃO ENVIADA"), h3:has-text("REGISTO CONCLUÍDO")').first();
-    await accessPopup.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(2000);
-
-    // Fechar popup se visível
-    const entendiBtn = page.locator('button:has-text("ENTENDI"), button:has-text("Entendi")').first();
-    if (await entendiBtn.isVisible().catch(() => false)) {
-      await entendiBtn.click();
-      await page.waitForTimeout(1000);
-    }
+    await page.waitForTimeout(3000);
 
     const pageText = await page.locator('body').innerText();
     console.log('  → Texto no ecrã pós-submissão:', pageText.slice(0, 300).replace(/\n+/g, ' '));

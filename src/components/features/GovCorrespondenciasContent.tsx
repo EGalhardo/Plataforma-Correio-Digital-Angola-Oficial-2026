@@ -519,10 +519,8 @@ export function GovCorrespondenciasContent({
           </div>
 
           <div className="space-y-1 col-span-1">
-            <label htmlFor="filter-cat-materia" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Categoria de Matéria</label>
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Categoria de Matéria</label>
             <select
-              id="filter-cat-materia"
-              aria-label="Categoria de Matéria"
               value={searchCategory}
               onChange={(e) => setSearchCategory(e.target.value)}
               className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-800 cursor-pointer"
@@ -542,10 +540,8 @@ export function GovCorrespondenciasContent({
             className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-100"
           >
             <div className="space-y-1.5">
-              <label htmlFor="filter-prov-origem" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Província de Origem</label>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Província de Origem</label>
               <select
-                id="filter-prov-origem"
-                aria-label="Província de Origem"
                 value={searchOrigin}
                 onChange={(e) => setSearchOrigin(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-800 focus:bg-white cursor-pointer"
@@ -557,10 +553,8 @@ export function GovCorrespondenciasContent({
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="filter-prov-destino" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Província de Destino</label>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Província de Destino</label>
               <select
-                id="filter-prov-destino"
-                aria-label="Província de Destino"
                 value={searchDestination}
                 onChange={(e) => setSearchDestination(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-800 focus:bg-white cursor-pointer"
@@ -572,10 +566,8 @@ export function GovCorrespondenciasContent({
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="filter-prio-sla" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Prioridade SLA</label>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Prioridade SLA</label>
               <select
-                id="filter-prio-sla"
-                aria-label="Prioridade SLA"
                 value={searchPriority}
                 onChange={(e) => setSearchPriority(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-800 focus:bg-white cursor-pointer"

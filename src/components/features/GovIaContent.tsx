@@ -762,7 +762,6 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
                       <span className="text-[8px] font-bold text-slate-400 block tracking-widest uppercase">Indexados</span>
                     </div>
                     <button
-                      aria-label={`Alternar estado de IA para a instituição ${inst.name}`}
                       onClick={() => toggleInstitutionAI()}
                       className={`p-1 rounded-lg transition-all cursor-pointer border-0 ${
                         inst.aiEnabled 
@@ -1397,7 +1396,7 @@ export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
                   <span className="text-[10px] text-slate-400 font-bold block">Canal Federado • Modelo: {mainModel} • Groq API</span>
                 </div>
               </div>
-              <button aria-label="Fechar modal de teste da IA" onClick={() => { playSound('click'); setIsTestModalOpen(false); }} className="p-1 px-2 text-slate-400 hover:text-slate-600 cursor-pointer bg-slate-50 rounded-full border-0 text-sm font-black">
+              <button onClick={() => { playSound('click'); setIsTestModalOpen(false); }} className="p-1 px-2 text-slate-400 hover:text-slate-600 cursor-pointer bg-slate-50 rounded-full border-0 text-sm font-black">
                 ✕
               </button>
             </div>

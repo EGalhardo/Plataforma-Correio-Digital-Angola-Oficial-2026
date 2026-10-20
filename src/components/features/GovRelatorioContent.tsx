@@ -879,7 +879,6 @@ export function GovRelatorioContent({
             <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-xl px-3 py-2 text-[11px] text-slate-800 font-mono font-bold shadow-2xs">
               <input 
                 type="date" 
-                aria-label="Data de Início do Intervalo Customizado"
                 value={customStartDate} 
                 onChange={(e) => {
                   setCustomStartDate(e.target.value);
@@ -893,7 +892,6 @@ export function GovRelatorioContent({
               <span className="text-slate-400 font-sans font-bold">até</span>
               <input 
                 type="date" 
-                aria-label="Data de Fim do Intervalo Customizado"
                 value={customEndDate} 
                 onChange={(e) => {
                   setCustomEndDate(e.target.value);
@@ -1504,9 +1502,8 @@ export function GovRelatorioContent({
                 <span className="font-extrabold text-[10px] uppercase tracking-wider text-indigo-700 block">Campos Editáveis do Cabeçalho Oficiail:</span>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="grid gap-1">
-                    <label htmlFor="relatorio-exec-title" className="text-[9px] font-black text-slate-500 uppercase">Título do Relatorio:</label>
+                    <label className="text-[9px] font-black text-slate-500 uppercase">Título do Relatorio:</label>
                     <input 
-                      id="relatorio-exec-title"
                       type="text" 
                       value={executiveTitle}
                       onChange={(e) => setExecutiveTitle(e.target.value)}
@@ -1514,9 +1511,8 @@ export function GovRelatorioContent({
                     />
                   </div>
                   <div className="grid gap-1">
-                    <label htmlFor="relatorio-exec-dept" className="text-[9px] font-black text-slate-500 uppercase">Direção / Departamento:</label>
+                    <label className="text-[9px] font-black text-slate-500 uppercase">Direção / Departamento:</label>
                     <input 
-                      id="relatorio-exec-dept"
                       type="text" 
                       value={executiveDepartment}
                       onChange={(e) => setExecutiveDepartment(e.target.value)}

@@ -2412,7 +2412,6 @@ export function GovContactsContent({
                       <td className="py-4 px-5 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2">
                           <button
-                            aria-label={`Alternar estado do membro ${w.name}`}
                             onClick={() => {
                               const nextStatus = w.status === 'Ativo' ? 'Desativado' : 'Ativo';
                               setWorkers(prev => prev.map(worker => {
@@ -2463,7 +2462,6 @@ export function GovContactsContent({
                       <td className="py-4 px-5 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2">
                           <button
-                            aria-label={`Ver ficha e permissões de ${w.name}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedWorkerId(w.id);
