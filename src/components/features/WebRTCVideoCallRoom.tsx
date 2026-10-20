@@ -64,6 +64,11 @@ export interface WebRTCVideoCallRoomProps {
   remoteUserName?: string;
 }
 
+const primeiroNomeExibicao = (nome?: string): string => {
+  const limpo = String(nome || '').trim();
+  return limpo ? limpo.split(/\s+/)[0] : '';
+};
+
 export function WebRTCVideoCallRoom({
   roomName,
   subject,
@@ -102,6 +107,7 @@ export function WebRTCVideoCallRoom({
   const iniciarEmCursoRef = useRef(false);
   const pararPedidoRef = useRef(false);
   const candidateQueue = useRef<RTCIceCandidateInit[]>([]);
+  const seenSignalIds = useRef<Set<string>>(new Set());
   const isNegotiating = useRef(false);
 
   // Signaling & Identity refs
@@ -130,6 +136,7 @@ export function WebRTCVideoCallRoom({
   const [isSharingScreen, setIsSharingScreen] = useState(isScreenSharing);
   const [callDuration, setCallDuration] = useState(0);
   const [isCameraLoading, setIsCameraLoading] = useState(true);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanOffset, setScanOffset] = useState(0);
   const [somBloqueado, setSomBloqueado] = useState(false);
   const [isSpeakerTesting, setIsSpeakerTesting] = useState(false);
@@ -176,6 +183,7 @@ export function WebRTCVideoCallRoom({
     const cleanRoom = currentRoom.replace(/[^a-zA-Z0-9\-_]/g, '');
     const message = {
       ...payload,
+      signalId: `${myPeerId.current}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       sender: myPeerId.current,
       room: cleanRoom,
       timestamp: Date.now(),
@@ -340,6 +348,17 @@ export function WebRTCVideoCallRoom({
     if (!msg || msg.sender === myPeerId.current || msg.room !== cleanRoom) return;
     if (msg.timestamp && msg.timestamp < joinedAt.current - 2000) return;
 
+    // O mesmo sinal chega por API, Supabase e BroadcastChannel. Deduplicar por
+    // ID evita processar duas vezes o mesmo SDP/candidato e corromper a
+    // negociação (createAnswer em estado stable, vídeo sem frames).
+    const signalKey = String(msg.signalId || `${msg.sender}:${msg.type}:${msg.timestamp}:${msg.target || ''}`);
+    if (seenSignalIds.current.has(signalKey)) return;
+    seenSignalIds.current.add(signalKey);
+    if (seenSignalIds.current.size > 512) {
+      const oldest = seenSignalIds.current.values().next().value;
+      if (oldest) seenSignalIds.current.delete(oldest);
+    }
+
     // Deterministic Perfect Negotiation: polite peer yields when both initiate
     const isPolite = myPeerId.current < msg.sender;
 
@@ -353,7 +372,10 @@ export function WebRTCVideoCallRoom({
       // The impolite peer creates the offer
       if (!isPolite) {
         const pc = getOrCreatePeerConnection(msg.sender);
-        if (isNegotiating.current) return;
+        // Heartbeat join continua a cada 3 s para descobrir participantes, mas
+        // só a primeira entrada deve criar a oferta inicial. Reofertar em cada
+        // heartbeat causava uma tempestade de SDP e ecrãs remotos pretos.
+        if (isNegotiating.current || pc.signalingState !== 'stable' || pc.localDescription || pc.remoteDescription) return;
         isNegotiating.current = true;
 
         try {
@@ -385,11 +407,8 @@ export function WebRTCVideoCallRoom({
 
       const pc = getOrCreatePeerConnection(msg.sender);
       
-      // If already connected and stable, ignore redundant offers
-      if (pc.signalingState === 'stable' && pc.currentRemoteDescription && !isPolite) {
-        return;
-      }
-
+      // Signals duplicados são filtrados por signalId no início. Ofertas novas
+      // e únicas podem ser renegociação legítima (por exemplo, câmara recuperada).
       const readyForOffer = !isNegotiating.current && (pc.signalingState === 'stable' || isPolite);
       const offerCollision = !readyForOffer;
 
@@ -465,8 +484,17 @@ export function WebRTCVideoCallRoom({
       console.log('[CDA-WebRTC] Participante remoto saiu da chamada.');
       setHasRemoteStream(false);
       setConnectionState('waiting');
+      remoteStreamRef.current = null;
+      candidateQueue.current = [];
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = null;
+      }
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = null;
+      }
+      if (peerConnectionRef.current) {
+        try { peerConnectionRef.current.close(); } catch {}
+        peerConnectionRef.current = null;
       }
     }
   }, [getOrCreatePeerConnection, sendSignal]);
@@ -478,6 +506,7 @@ export function WebRTCVideoCallRoom({
   // Initialize Local Media Stream
   const initLocalMedia = useCallback(async () => {
     setIsCameraLoading(true);
+    setCameraError(null);
 
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((t) => t.stop());
@@ -485,35 +514,39 @@ export function WebRTCVideoCallRoom({
     }
 
     try {
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280, min: 640 }, height: { ideal: 720, min: 480 }, facingMode: facingMode },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
-      } catch {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Este navegador não disponibiliza acesso à câmara. Abra a plataforma num navegador actualizado e numa ligação segura (HTTPS).');
+      }
+
+      const audioConstraints: MediaTrackConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      };
+      const attempts: MediaStreamConstraints[] = [
+        {
+          video: { width: { ideal: 1280, min: 640 }, height: { ideal: 720, min: 480 }, facingMode },
+          audio: audioConstraints,
+        },
+        { video: { facingMode }, audio: true },
+        { video: true, audio: true },
+        { video: { facingMode }, audio: false },
+        { video: true, audio: false },
+      ];
+      let stream: MediaStream | null = null;
+      let lastError: unknown;
+      for (const constraints of attempts) {
         try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: facingMode },
-            audio: true,
-          });
-        } catch {
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({
-              video: true,
-              audio: true,
-            });
-          } catch {
-            stream = await navigator.mediaDevices.getUserMedia({
-              video: { facingMode: facingMode },
-              audio: false,
-            });
-          }
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+          break;
+        } catch (error) {
+          lastError = error;
         }
+      }
+      if (!stream) throw lastError || new Error('Não foi possível iniciar a câmara.');
+      if (stream.getVideoTracks().length === 0) {
+        stream.getTracks().forEach((track) => track.stop());
+        throw new Error('O navegador não disponibilizou uma faixa de vídeo. Verifique a câmara e as permissões do dispositivo.');
       }
 
       localStreamRef.current = stream;
@@ -525,25 +558,57 @@ export function WebRTCVideoCallRoom({
 
       // If peer connection exists, add new tracks
       if (peerConnectionRef.current) {
-        const senders = peerConnectionRef.current.getSenders();
+        const pc = peerConnectionRef.current;
+        const senders = pc.getSenders();
         stream.getTracks().forEach((track) => {
           const hasTrack = senders.some((s) => s.track && s.track.id === track.id);
           if (!hasTrack) {
             try {
-              peerConnectionRef.current!.addTrack(track, stream);
+              pc.addTrack(track, stream!);
             } catch {}
           }
         });
+
+        // Se a câmara foi recuperada depois de a sala já negociar sem vídeo,
+        // renegociar a ligação para o interlocutor receber a nova faixa.
+        if (pc.remoteDescription && pc.signalingState === 'stable' && !isNegotiating.current) {
+          isNegotiating.current = true;
+          try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            const offerPayload = typeof offer.toJSON === 'function' ? offer.toJSON() : { type: offer.type, sdp: offer.sdp };
+            sendSignal({
+              type: 'offer',
+              offer: offerPayload,
+              name: propsRef.current.currentUserName,
+              role: propsRef.current.currentUserRole,
+            });
+          } catch (offerError) {
+            console.warn('[CDA-WebRTC] Não foi possível renegociar a câmara:', offerError);
+          } finally {
+            isNegotiating.current = false;
+          }
+        }
       }
 
       setIsCameraLoading(false);
       return stream;
     } catch (err: any) {
+      const nomeErro = String(err?.name || '');
+      const mensagemErro = String(err?.message || '');
+      const aviso = nomeErro === 'NotAllowedError' || nomeErro === 'PermissionDeniedError'
+        ? 'Permita o acesso à câmara nas definições do navegador e tente novamente.'
+        : nomeErro === 'NotFoundError' || nomeErro === 'DevicesNotFoundError'
+          ? 'Não foi encontrada uma câmara neste dispositivo.'
+          : nomeErro === 'NotReadableError' || nomeErro === 'TrackStartError'
+            ? 'A câmara está a ser usada por outra aplicação. Feche-a e tente novamente.'
+            : mensagemErro || 'Não foi possível iniciar a câmara. Verifique as permissões do dispositivo.';
       console.warn('[CDA-WebRTC] Falha ao aceder à câmara:', err);
+      setCameraError(aviso);
       setIsCameraLoading(false);
       return null;
     }
-  }, [facingMode]);
+  }, [facingMode, sendSignal]);
 
   // Sync streams to video DOM tags
   useEffect(() => {
@@ -578,6 +643,14 @@ export function WebRTCVideoCallRoom({
     if (!isActive) return;
 
     let isMounted = true;
+    // A marca temporal pertence à chamada, não à montagem da página: ignorar sinais antigos na mesma sala.
+    joinedAt.current = Date.now();
+    seenSignalIds.current.clear();
+    candidateQueue.current = [];
+    isNegotiating.current = false;
+    remoteStreamRef.current = null;
+    setHasRemoteStream(false);
+    setConnectionState('waiting');
     const cleanRoomName = roomName.replace(/[^a-zA-Z0-9\-_]/g, '');
     const channelId = `cda-video-room-${cleanRoomName}`;
 
@@ -1106,6 +1179,17 @@ export function WebRTCVideoCallRoom({
                 <RefreshCw size={14} className="text-indigo-400 animate-spin" />
                 <span className="text-[8px] text-slate-400 font-bold uppercase">A ligar...</span>
               </div>
+            ) : cameraError ? (
+              <div className="flex flex-col items-center justify-center gap-1.5 text-center p-2" role="alert" data-testid="camera-error">
+                <Camera size={16} className="text-amber-400" />
+                <span className="text-[8px] leading-tight text-amber-200 font-semibold">{cameraError}</span>
+                <button
+                  type="button"
+                  onClick={() => { void initLocalMedia(); }}
+                  className="mt-1 rounded-lg bg-indigo-600 px-2 py-1 text-[8px] font-bold text-white"
+                  aria-label="Tentar ligar a câmara novamente"
+                >Tentar novamente</button>
+              </div>
             ) : localVideoMuted ? (
               <div className="flex flex-col items-center justify-center gap-1 text-center p-2">
                 <VideoOff size={16} className="text-slate-500" />
@@ -1146,7 +1230,7 @@ export function WebRTCVideoCallRoom({
           <span className={`w-2 h-2 rounded-full shrink-0 ${hasRemoteStream ? 'bg-emerald-700 shadow-[0_0_8px_#10b981]' : 'bg-amber-500'}`} />
           <div className="min-w-0">
             <span className="text-white text-xs font-black truncate block leading-tight">
-              {remoteParticipant || remoteUserName || 'Interlocutor Oficial'}
+              {primeiroNomeExibicao(remoteParticipant || remoteUserName) || 'Interlocutor'}
             </span>
             <span className="text-[9px] text-slate-400 truncate block">
               {subject || 'Videoatendimento'}
