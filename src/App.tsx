@@ -402,6 +402,9 @@ export default function App() {
   const [triggerRefetch, setTriggerRefetch] = useState(0);
   // T55 — ids de notificações já vistos nesta sessão (null = ainda sem 1.ª leitura).
   const notifIdsVistosRef = useRef<Set<number> | null>(null);
+  // Último pedido criado pela Home/IA: um duplo clique ou um segundo envio do mesmo tipo
+  // em menos de 15 s não cria outro pedido nem outra notificação «Solicitação Enviada».
+  const ultimoPedidoRef = useRef<{ type: string; at: number } | null>(null);
   // Tick para forçar re-render quando a conta é ativada no ecrã de homologação
   const [gateRefreshTick, setGateRefreshTick] = useState(0);
   const [tab, setTab] = useState(() => {
@@ -5949,6 +5952,10 @@ export default function App() {
   };
 
   const handleCreateRequest = (type: string, priority: 'Alta' | 'Média' | 'Baixa' = 'Média') => {
+    const agoraPedido = Date.now();
+    const anterior = ultimoPedidoRef.current;
+    if (anterior && anterior.type === type && agoraPedido - anterior.at < 15000) return;
+    ultimoPedidoRef.current = { type, at: agoraPedido };
     const newReq: UserRequest = {
       id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
       user: user?.name || profileName || 'Cidadão', // v37.31-fix — o titular real da sessão (antes: nome pessoal hardcoded = fuga entre contas)
