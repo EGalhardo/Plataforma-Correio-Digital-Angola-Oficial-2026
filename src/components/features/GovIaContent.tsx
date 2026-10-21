@@ -32,6 +32,7 @@ import {
   Cpu as CpuIcon,
   X
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { supabase } from '../../lib/supabaseClient';
 // 2026-08-23 — MODO REAL: telemetria da IA vem do log real (ia_conversas_log).
@@ -41,6 +42,7 @@ import { isInstitutionObservacao } from '../../services/institutionRegistrationS
 
 interface GovIaContentProps {
   onLog?: (action: string, type: 'info' | 'success' | 'warning' | 'critical') => void;
+  onNavigate?: (tab: string) => void;
 }
 
 interface AIProvider {
@@ -97,7 +99,7 @@ interface GovAiStats {
   totalDocs: number;
 }
 
-export function GovIaContent({ onLog }: GovIaContentProps) {
+export function GovIaContent({ onLog, onNavigate }: GovIaContentProps) {
   // Toast notification state
   const [showToast, setShowToast] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
@@ -473,6 +475,7 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           
           <div className="flex items-start gap-4">
+            <BotaoVoltar />
             <div className="p-3 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-2xl shadow-md shrink-0">
               <Bot size={32} className={aiStats.groqConfigured ? 'animate-pulse' : 'opacity-50'} />
             </div>
@@ -924,7 +927,10 @@ export function GovIaContent({ onLog }: GovIaContentProps) {
           </div>
 
           <button
-            onClick={() => triggerToast('A redirecionar para relatórios consolidados...', 'info')}
+            onClick={() => {
+              if (onNavigate) onNavigate('gov-relatorio');
+              else triggerToast('A redirecionar para relatórios consolidados...', 'info');
+            }}
             className="w-full mt-4 py-3 bg-[#0E2B64] hover:bg-[#0C2454] text-white rounded-[16px] text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 border border-[#0E2B64] shadow-xs"
           >
             <BarChart2 size={14} className="text-white" />

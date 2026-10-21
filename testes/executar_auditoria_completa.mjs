@@ -200,7 +200,7 @@ async function run() {
     ["/#/pasta-digital", "Pasta Digital", "div"],
     ["/#/historico", "Histórico Operacional", "div"],
     ["/#/notificacoes", "Centro de Notificações", "div"],
-    ["/#/contatos", "Contactos de Emergência", "button"],
+    ["/#/contatos", "Contactos Pessoais", "button"],
     ["/#/directorio-orgaos", "Directório de Órgãos", "div"],
     ["/#/solicitar-documento", "Solicitar Documento", "div"],
     ["/#/video-atendimento", "Videoatendimento", "div"],

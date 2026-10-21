@@ -32,7 +32,6 @@ import {
   addAdminAgent,
   ADMIN_ALFA_AGENT,
   hasActiveAdminAlfa,
-  isAdminAgentPasswordTaken,
   setAdminAlfa,
   resetAdminAlfaLocal,
 } from '../../services/adminAgentStore';
@@ -62,7 +61,6 @@ interface AdminWorker {
 }
 
 const WORKERS_KEY = 'correio_digital_admin_workers';
-const ADMIN_ALFA_REGISTRATION_ENABLED = false;
 
 // ---------- v10.1 — Conteúdo fixo do Admin Alfa (elemento mais alto da hierarquia) ----------
 /** D1 — Perfil Funcional fixo do Alfa (readOnly, sem edição). */
@@ -144,18 +142,6 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
   const [createdAgent, setCreatedAgent] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // O auto-registo público de privilégios Admin está desactivado em todos os ambientes.
-  // O Admin Alfa tem de ser provisionado por um operador autorizado no Auth.
-  if (!ADMIN_ALFA_REGISTRATION_ENABLED) {
-    return (
-      <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
-        <h3 className="font-black text-amber-950">Registo Admin Alfa desactivado</h3>
-        <p className="mt-2 text-sm text-amber-900">A criação de contas de Administração requer provisionamento central autorizado.</p>
-        <button type="button" onClick={onCancel} className="mt-4 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Voltar ao login</button>
-      </div>
-    );
-  }
-
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setError('');
@@ -177,10 +163,6 @@ export function RegisterAdminAgentPage({ onCancel, onSuccess, addAuditLog }: Reg
     }
     if (password !== confirmPassword) {
       setError('As palavras-passe não coincidem. Confirme a senha antes de concluir o registo.');
-      return;
-    }
-    if (isAdminAgentPasswordTaken(password)) {
-      setError('Esta palavra-passe já está a ser usada por outro agente da Administração. Como a palavra-passe identifica a pessoa no login, escolha outra.');
       return;
     }
 

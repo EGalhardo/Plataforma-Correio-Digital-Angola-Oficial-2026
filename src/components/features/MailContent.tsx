@@ -3,13 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
   ArrowLeft,
   Send,
   Mail,
+  Eye,
+  RotateCcw,
   Plus,
   Search,
 
@@ -45,9 +47,13 @@ import {
   User,
   Building2,
   ListOrdered,
-  Info
+  Info,
+  CalendarClock,
+  Ban, Flag, Megaphone,
+  ChevronRight
 } from 'lucide-react';
-import { Message, LanguageCode } from '../../types';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
+import { Message, LanguageCode, ReplySendPayload } from '../../types';
 import { translateText } from '../../utils/translator';
 import { useLanguage } from '../../hooks/useLanguage';
 import { SondagemModal } from './SondagemModal';
@@ -55,9 +61,17 @@ import { TipoInqueritoModal, type TipoInquerito } from './TipoInqueritoModal';
 import { CdaConfirmModal } from '../ui/CdaConfirm';
 import { CdaModal } from '../ui/CdaModal';
 import {
-  distribuirSondagensCompostas, removerRascunhoSondagem, registarExpedicaoSondagens, type Sondagem,
+  distribuirSondagensCompostas, removerRascunhoSondagem, registarExpedicaoSondagens,
+  ativarSondagensParaDestinatarios, type Sondagem,
 } from '../../services/sondagemService';
-import { Video, Loader2, CheckCircle2, AlertTriangle, Sparkles, CheckCheck, ClipboardCheck } from 'lucide-react';
+// 2026-09-10 — Inquérito com IA conversacional (PROMPT v3, Fase 2): bloco no
+// compositor + difusão pelo âmbito, espelhando o pipeline das sondagens.
+import {
+  distribuirInqueritosIA, removerRascunhoInqueritoIA, registarExpedicaoInqueritosIA,
+  ativarInqueritosIAParaDestinatarios, type InqueritoIA,
+} from '../../services/inqueritoIaService';
+import { isMensagemLida, isMensagemNaoLida } from '../../utils/notificacoesAtalhos';
+import { Loader2, CheckCircle2, AlertTriangle, Sparkles, CheckCheck, ClipboardCheck, MessagesSquare, Mic } from 'lucide-react';
 // F59 — a pesquisa teatral de 8s com textos governamentais inventados e
 // correspondência em MOCK_CITIZENS/MOCK_USERS foi REMOVIDA: o lookup do
 // destinatário é REAL (RPC auditada) e chega por props do App.
@@ -67,11 +81,19 @@ import { supabaseService, isRealInstitutionalCode, invalidateMessagesReadCache }
 import { notify } from '../../lib/notify';
 import { traduzirErro } from '../../lib/erroAmigavel';
 import { validarEnvio } from '../../services/validacaoEnvio';
+import { hojeISO, formatarDataExpiracao } from '../../utils/dataExpiracao';
+import { agruparConversas, conversaUnica, resumoDestinatarios } from '../../utils/conversasThread';
 import { assistenteDocumento } from '../../services/aiDocumentoService';
 import { MARCADOR_CLAREZA_SUGESTAO } from '../../services/aiDocumentoCore';
 import type { ResultadoValidacaoEnvio } from '../../services/validacaoEnvio';
 import { buildStorageRef } from '../../lib/secureStorage';
 
+// 2026-09-22 (auditoria BUG-002) — TIPOS DE ANEXO: fonte única da lista já publicada
+// no campo de anexos. Antes a lista existia SÓ no atributo `accept` (sugestão do
+// sistema operativo): um ficheiro de outro tipo (ex.: .exe) era aceite em silêncio.
+// Agora a mesma lista valida o ficheiro de verdade — o que ainda a usa no `accept`.
+const ANEXOS_TIPOS_ACEITES = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif', '.txt', '.csv', '.xls', '.xlsx', '.ppt', '.pptx', '.zip'];
+const anexoTemTipoAceite = (f: File) => ANEXOS_TIPOS_ACEITES.includes(`.${(f.name.split('.').pop() || '').toLowerCase()}`);
 
 const getOrgBadgeStyles = (org: string) => {
   const o = org.toUpperCase();
@@ -96,9 +118,11 @@ const getOrgBadgeStyles = (org: string) => {
 interface MailContentProps {
   isComposing: boolean;
   setIsComposing: (composing: boolean) => void;
-  composeData: { to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[] };
-  setComposeData: React.Dispatch<React.SetStateAction<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[] }>>;
-  handleSendMessage: () => void | Promise<unknown>;
+  composeData: { to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[]; inqueritosIaIds?: number[]; dataExpiracao?: string };
+  setComposeData: React.Dispatch<React.SetStateAction<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[]; inqueritosIaIds?: number[]; dataExpiracao?: string }>>;
+  /** 2026-09-11 — aceita um payload opcional (mesma pipeline do App) para a
+   *  expedição «Todos» servir também o(s) destinatário(s) manual(is). */
+  handleSendMessage: (override?: ReplySendPayload) => void | Promise<unknown>;
   unreadTotal: number;
   correspondenciaTab: string;
   setCorrespondenciaTab: (tab: string) => void;
@@ -112,6 +136,10 @@ interface MailContentProps {
   handleSelectMessage: (msg: Message) => void;
   setTab: (tab: string) => void;
   bi: string;
+  /** 2026-09-11 — nome OFICIAL da instituição com sessão (activeProfile), sem
+   *  o sufixo «(CÓDIGO)». É o nome que a IA usa nos inquéritos e o remetente
+   *  nas sondagens. Sem ele cai-se em profiles.name → código. */
+  nomeInstituicao?: string;
   isInst?: boolean;
   onDeleteMessage?: (id: number) => void;
   onRestoreMessage?: (id: number) => void;
@@ -162,13 +190,12 @@ export function MailContent({
   handleSelectMessage,
   setTab,
   bi,
+  nomeInstituicao,
   isInst,
   onDeleteMessage,
   onRestoreMessage,
   deletedMessageIds = [],
   hiddenMessageIds = [],
-  onNavigateToVideoAtendimento,
-  videoSessionCount = 0,
   recipientLookup,
   onRecipientLookup,
   onEmergencyBroadcast,
@@ -200,12 +227,22 @@ export function MailContent({
         subject: composeData.subject || '',
         body: composeData.body || '',
         attachments: composeData.attachments || [],
+        dataExpiracao: composeData.dataExpiracao || '',
         gravadoEm: Date.now(),
       }));
     } catch { /* quota/modo privado — melhor esforço, nunca bloqueia */ }
   };
   const [avisosConfirmados, setAvisosConfirmados] = useState(false);
   const [showTipoEnvioModal, setShowTipoEnvioModal] = useState(false);
+  // 2026-09-12 — popup «Enviar Mensagem» comum às duas áreas. Cidadão: «Mensagem
+  // Normal» / «Denunciar»; Instituição: «Mensagem Normal» / «Mensagem de
+  // Emergência». Clicar numa opção avança de imediato; «Ok» avança com a opção
+  // realçada (a primeira, por defeito). A denúncia segue o envio normal com o
+  // assunto prefixado — a revisão e o comprovativo mostram a etiqueta.
+  // 2026-09-23 (T-v37.79) — 'nova-denuncia': opção «Denuncia» pedida pelo dono.
+  // 2026-10-01 — 'comunicado': opção «Comunicado Oficial» para emissão institucional.
+  type ModalidadeEnvio = 'normal' | 'emergencia' | 'denuncia' | 'nova-denuncia' | 'comunicado';
+  const [modalidadeRealcada, setModalidadeRealcada] = useState<ModalidadeEnvio>('normal');
   // S6-camada-IA — revisao de clareza OPCIONAL (fail-safe: falha da IA nunca
   // bloqueia o envio; o utilizador decide se usa a versão melhorada)
   type EstadoClareza =
@@ -228,7 +265,7 @@ export function MailContent({
     setValidacao(null);
     setAvisosConfirmados(false);
     setClareza(null);
-  }, [composeData.to, composeData.subject, composeData.body, composeData.attachments]);
+  }, [composeData.to, composeData.subject, composeData.body, composeData.attachments, composeData.dataExpiracao]);
 
   // S6-camada-IA — chama o assistente com a acao rever_clareza. Erro/serviço
   // indisponível vira aviso âmbar honesto; NUNCA interfere com tentarEnviar.
@@ -252,9 +289,12 @@ export function MailContent({
   const tentarEnviar = async () => {
     if (enviando || distribuindoSondagens) return; // v37.62 — anti-duplicação
     const v = validarEnvio(composeData);
-    // v37 — com sondagens na composição o corpo pode ir vazio (a distribuição
-    // trata do conteúdo); retira apenas o bloqueio de corpo vazio.
-    if (isInst && sondagensCompostas.length > 0) {
+    const temSondagens = isInst && sondagensCompostas.length > 0;
+    const temInqIA = isInst && inqueritosIaCompostos.length > 0;
+    const temBlocos = temSondagens || temInqIA;
+    // v37 — com sondagens/inquéritos na composição o corpo pode ir vazio (a
+    // distribuição trata do conteúdo); retira apenas o bloqueio de corpo vazio.
+    if (temBlocos) {
       v.bloqueios = v.bloqueios.filter((b) => b !== 'Escreve o conteúdo da mensagem antes de enviar.');
     }
     setValidacao(v);
@@ -266,7 +306,9 @@ export function MailContent({
     // v37 §1.5 — com sondagens na composição: ativa rascunhos e distribui por
     // âmbito (1 mensagem por cidadão, todas as sondagens embutidas) ANTES do
     // envio normal. Falha na distribuição ⇒ envio abortado com aviso honesto.
-    if (isInst && sondagensCompostas.length > 0) {
+    // 2026-09-10 — os Inquéritos com IA seguem o MESMO pipeline (difusão própria,
+    // 1 mensagem por cidadão com o cartão de conversa embutido).
+    if (temBlocos) {
       setDistribuindoSondagens(true);
       // v37.78.3 — destinatários MANUAIS da composição (to + toArray): excluídos
       // da difusão por âmbito porque recebem a própria correspondência oficial
@@ -277,77 +319,203 @@ export function MailContent({
           .map((t) => String(t || '').trim().toUpperCase().replace(/\s+/g, ''))
           .filter((t) => t && t !== 'TODOS'),
       ));
-      const dist = await distribuirSondagensCompostas({
-        codigo: bi,
-        nomeInstituicao: instNomeSondagem || bi,
-        sondagens: sondagensCompostas,
-        assuntoBase: composeData.subject || '',
-        corpoExtra: composeData.body || '',
-        excluirBis: manuais,
-      });
-      // v37.78.14 — ANTI-DUPLICAÇÃO: o flag só desce DEPOIS de o ramo TODOS
-      // concluir (popup de sucesso) ou de um erro honesto. Antes, a janela
-      // entre o fim da difusão e o popup permitia um 2.º clique duplicar toda
-      // a distribuição (44 entregas em vez de 22 — visto em produção).
-      if (!dist.ok || !dist.dados) {
-        setDistribuindoSondagens(false);
-        setAvisoSondagens(
-          dist.motivo === 'audiencia_vazia'
-            ? 'Não há cidadãos no âmbito desta instituição para receber a sondagem. Nada foi enviado.'
-            : dist.mensagem || 'Não foi possível distribuir a sondagem. Nada foi enviado.',
+      const nomeInst = nomeInstituicao?.trim() || instNomeSondagem || bi;
+      let audiencia = 0;
+      let classificacao = '';
+      const paraTodos = String(composeData.to).trim().toUpperCase() === 'TODOS';
+
+      if (temSondagens && !paraTodos) {
+        const act = await ativarSondagensParaDestinatarios({ sondagens: sondagensCompostas, destinatarios: manuais });
+        if (!act.ok || !act.dados) {
+          setDistribuindoSondagens(false);
+          setAvisoSondagens(
+            act.motivo === 'sem_migracao'
+              ? 'Sondagens disponível em Modo Real (Supabase) — aguarda a migração v37.'
+              : act.mensagem || 'Não foi possível activar a sondagem para o(s) destinatário(s) indicado(s).',
+          );
+          return;
+        }
+        addAuditLog?.(
+          `${sondagensCompostas.length} sondagem(ns) da instituição ${nomeInst} dirigida(s) a ${act.dados.audiencia} destinatário(s) indicado(s) (${manuais.join(', ')}) — ${new Date().toLocaleString('pt-PT')}.`,
+          'success',
         );
-        return;
+      } else if (temSondagens) {
+        const dist = await distribuirSondagensCompostas({
+          codigo: bi,
+          nomeInstituicao: nomeInst,
+          sondagens: sondagensCompostas,
+          assuntoBase: composeData.subject || '',
+          corpoExtra: composeData.body || '',
+          excluirBis: manuais,
+        });
+        if (!dist.ok || !dist.dados) {
+          setDistribuindoSondagens(false);
+          setAvisoSondagens(
+            dist.motivo === 'audiencia_vazia'
+              ? 'Não há cidadãos que já tenham trocado contacto com esta instituição para receber a sondagem. Indique o(s) B.I. no campo Destinatário. Nada foi enviado.'
+              : dist.mensagem || 'Não foi possível distribuir a sondagem. Nada foi enviado.',
+          );
+          return;
+        }
+        audiencia = dist.dados.audiencia; classificacao = dist.dados.classificacao;
+        addAuditLog?.(
+          `${sondagensCompostas.length} sondagem(ns) da instituição ${nomeInst} distribuída(s) a ${dist.dados.audiencia} cidadão(s)${manuais.length ? ` (destinatário(s) manual(is) ${manuais.join(', ')} recebe(m) a correspondência oficial com a(s) sondagem(ns) embutida(s))` : ''} — âmbito ${dist.dados.classificacao}, ${new Date().toLocaleString('pt-PT')}.`,
+          'success',
+        );
       }
-      addAuditLog?.(
-        `${sondagensCompostas.length} sondagem(ns) da instituição ${instNomeSondagem || bi} distribuída(s) a ${dist.dados.audiencia} cidadão(s)${manuais.length ? ` (destinatário(s) manual(is) ${manuais.join(', ')} recebe(m) a correspondência oficial com a(s) sondagem(ns) embutida(s))` : ''} — âmbito ${dist.dados.classificacao}, ${new Date().toLocaleString('pt-PT')}.`,
-        'success',
-      );
+      // 2026-09-13 — INQUÉRITO COM IA: o campo Destinatário decide a audiência.
+      //  • 1 ou mais B.I. indicados (sem «Todos») → o inquérito segue APENAS
+      //    para esses cidadãos, embutido na correspondência oficial de cada um
+      //    (nenhuma difusão por âmbito — antes, quando o destinatário manual
+      //    esgotava o âmbito, a difusão ficava vazia e o envio abortava).
+      //  • «Todos» → todos os cidadãos que já trocaram correspondência com
+      //    esta instituição (destinatários manuais adicionais, se existirem,
+      //    são excluídos da difusão porque recebem a cópia própria).
+      if (temInqIA && !paraTodos) {
+        const act = await ativarInqueritosIAParaDestinatarios({ inqueritos: inqueritosIaCompostos, destinatarios: manuais });
+        if (!act.ok || !act.dados) {
+          setDistribuindoSondagens(false);
+          if (temSondagens) setSondagensCompostas([]);
+          setAvisoSondagens(
+            act.motivo === 'sem_migracao'
+              ? 'Inquérito com IA disponível em Modo Real (Supabase) — aguarda a migração v38.'
+              : act.mensagem || 'Não foi possível activar o inquérito com IA para o(s) destinatário(s) indicado(s).',
+          );
+          return;
+        }
+        addAuditLog?.(
+          `${inqueritosIaCompostos.length} inquérito(s) com IA da instituição ${nomeInst} dirigido(s) a ${act.dados.audiencia} destinatário(s) indicado(s) (${manuais.join(', ')}) — ${new Date().toLocaleString('pt-PT')}.`,
+          'success',
+        );
+      } else if (temInqIA) {
+        const distIA = await distribuirInqueritosIA({
+          codigo: bi,
+          nomeInstituicao: nomeInst,
+          inqueritos: inqueritosIaCompostos,
+          assuntoBase: composeData.subject || '',
+          corpoExtra: composeData.body || '',
+          excluirBis: manuais,
+        });
+        if (!distIA.ok || !distIA.dados) {
+          setDistribuindoSondagens(false);
+          if (temSondagens) setSondagensCompostas([]); // já distribuídas — não repetir num 2.º clique
+          setAvisoSondagens(
+            distIA.motivo === 'audiencia_vazia'
+              ? 'Não há cidadãos que já tenham trocado correspondência com esta instituição para receber o inquérito. Indique o(s) B.I. no campo Destinatário. Nada foi enviado.'
+              : distIA.motivo === 'sem_migracao'
+                ? 'Inquérito com IA disponível em Modo Real (Supabase) — aguarda a migração v38.'
+                : `${temSondagens ? 'A(s) sondagem(ns) foi(ram) distribuída(s), mas ' : ''}${distIA.mensagem || 'não foi possível distribuir o inquérito com IA.'}`,
+          );
+          return;
+        }
+        audiencia = Math.max(audiencia, distIA.dados.audiencia); classificacao = classificacao || distIA.dados.classificacao;
+        addAuditLog?.(
+          `${inqueritosIaCompostos.length} inquérito(s) com IA da instituição ${nomeInst} distribuído(s) a ${distIA.dados.audiencia} cidadão(s)${manuais.length ? ` (destinatário(s) manual(is) ${manuais.join(', ')} recebe(m) a correspondência oficial com o cartão de conversa embutido)` : ''} — âmbito ${distIA.dados.classificacao}, ${new Date().toLocaleString('pt-PT')}.`,
+          'success',
+        );
+      }
+      const corpoPadrao = temInqIA && !temSondagens
+        ? `${nomeInst} convida-o(a) a participar num breve inquérito conduzido por um assistente inteligente, por texto ou voz. A participação é anónima e demora poucos minutos. Abra a mensagem e toque em «Iniciar Inquérito».`
+        : temInqIA
+          ? `${nomeInst} convida-o(a) a participar na(s) sondagem(ns) e no inquérito oficial incluídos nesta mensagem. Abra a mensagem, toque em «Ver detalhes Completos», responda à(s) sondagem(ns) e toque em «Iniciar Inquérito».`
+          : `${nomeInst} convida-o(a) a participar na(s) sondagem(ns) oficial(is) incluída(s) nesta mensagem. Abra a mensagem, toque em «Ver detalhes Completos», escolha a sua opção e confirme com «Responder».`;
       // Destinatário «Todos» (v37): a difusão pelo âmbito oficial já entregou —
       // regista-se a expedição única (visível em «Enviadas») e confirma-se ao
       // utilizador com popup de sucesso.
       if (String(composeData.to).trim().toUpperCase() === 'TODOS') {
         const assuntoFinal = composeData.subject?.trim()
-          || `Sondagem${sondagensCompostas.length > 1 ? 's' : ''}: ${sondagensCompostas[0]?.pergunta || ''}`;
-        const corpoFinal = composeData.body?.trim()
-          || `${instNomeSondagem || bi} convida-o(a) a participar na(s) sondagem(ns) oficial(is) incluída(s) nesta mensagem. Abra a mensagem, toque em «Ver detalhes Completos», escolha a sua opção e confirme com «Responder».`;
-        await registarExpedicaoSondagens({
-          codigo: bi,
-          nomeInstituicao: instNomeSondagem || bi,
-          assunto: assuntoFinal,
-          corpo: corpoFinal,
-          sondagemIds: sondagensCompostas.map(s => s.id),
-        });
+          || (temSondagens
+            ? `Sondagem${sondagensCompostas.length > 1 ? 's' : ''}: ${sondagensCompostas[0]?.pergunta || ''}`
+            : `Inquérito: ${inqueritosIaCompostos[0]?.guiao?.objectivo || inqueritosIaCompostos[0]?.o_que_pretende_saber || ''}`);
+        const corpoFinal = composeData.body?.trim() || corpoPadrao;
+        if (temSondagens) {
+          await registarExpedicaoSondagens({
+            codigo: bi, nomeInstituicao: nomeInst, assunto: assuntoFinal, corpo: corpoFinal,
+            sondagemIds: sondagensCompostas.map(s => s.id),
+          });
+        }
+        if (temInqIA) {
+          await registarExpedicaoInqueritosIA({
+            codigo: bi, nomeInstituicao: nomeInst, assunto: assuntoFinal, corpo: corpoFinal,
+            inqueritoIds: inqueritosIaCompostos.map(q => q.id),
+          });
+        }
+        // 2026-09-11 — DESTINATÁRIO(S) MANUAL(IS) com «Todos»: foram excluídos
+        // da difusão por âmbito (excluirBis) e este ramo terminava aqui sem os
+        // servir — o cidadão indicado à mão nunca recebia a correspondência
+        // nem a notificação (visto em produção: «Inquerito Inteligente»).
+        // Cada um recebe agora a correspondência oficial própria, com o(s)
+        // cartão(ões) embutido(s), protocolo e notificação, pela MESMA pipeline
+        // do App (override silencioso: sem comprovativo individual).
+        const idsSondTodos = sondagensCompostas.map((s) => s.id);
+        const idsInqTodos = inqueritosIaCompostos.map((q) => q.id);
+        const manuaisFalhados: string[] = [];
+        if (manuais.length) {
+          const resultados = await Promise.all(manuais.map(async (dest) => {
+            try {
+              const r = await handleSendMessageRef.current({
+                to: dest,
+                subject: assuntoFinal,
+                body: corpoFinal,
+                // O compositor guarda os anexos já serializados (strings JSON);
+                // a pipeline do App normaliza ambos os formatos.
+                attachments: (composeData.attachments || []) as unknown as ReplySendPayload['attachments'],
+                ...(idsSondTodos.length ? { sondagensIds: idsSondTodos } : {}),
+                ...(idsInqTodos.length ? { inqueritosIaIds: idsInqTodos } : {}),
+                silencioso: true,
+              }) as { ok?: boolean } | undefined;
+              return { dest, ok: !!r && r.ok === true };
+            } catch {
+              return { dest, ok: false };
+            }
+          }));
+          for (const r of resultados) if (!r.ok) manuaisFalhados.push(r.dest);
+          const servidos = manuais.filter((m) => !manuaisFalhados.includes(m));
+          addAuditLog?.(
+            `Expedição «Todos» — destinatário(s) manual(is) servido(s) com a correspondência oficial: ${servidos.length ? servidos.join(', ') : 'nenhum'}${manuaisFalhados.length ? ` — falhou para: ${manuaisFalhados.join(', ')}` : ''}.`,
+            manuaisFalhados.length ? 'warning' : 'success',
+          );
+        }
         invalidateMessagesReadCache();
         // v37.5 — a linha «TODOS» tem de aparecer de imediato nas «Enviadas»:
         // fura o micro-cache e força o refetch das caixas sem esperar o Realtime.
         onRefreshMail?.();
         setSondagensCompostas([]);
-        setComposeData({ ...composeData, to: '', subject: '', body: '' });
+        setInqueritosIaCompostos([]);
+        setComposeData({ ...composeData, to: '', toArray: [], subject: '', body: '', sondagensIds: undefined, inqueritosIaIds: undefined, dataExpiracao: '' });
         setAvisosConfirmados(false);
         setValidacao({ bloqueios: [], avisos: [] });
+        const servidosManuais = manuais.filter((m) => !manuaisFalhados.includes(m));
         setSucessoSondagens(
-          `Correspondência enviada com sucesso: ${dist.dados.audiencia} cidadão(s) no âmbito ${dist.dados.classificacao}. O registo da expedição está na lista «Enviadas».`,
+          `Correspondência enviada com sucesso: ${audiencia} cidadão(s) no âmbito ${classificacao}`
+          + (servidosManuais.length ? ` e ${servidosManuais.length} destinatário(s) directo(s) (${servidosManuais.join(', ')})` : '')
+          + `. O registo da expedição está na lista «Enviadas».`
+          + (manuaisFalhados.length ? ` Atenção: não foi possível entregar ao(s) destinatário(s) ${manuaisFalhados.join(', ')} — envie-lhe(s) a correspondência individualmente.` : ''),
         );
         setDistribuindoSondagens(false);
         return;
       }
       setDistribuindoSondagens(false);
+      const idsSondagens = sondagensCompostas.map((s) => s.id);
+      const idsInqIA = inqueritosIaCompostos.map((q) => q.id);
       setSondagensCompostas([]);
+      setInqueritosIaCompostos([]);
       // v37.78.3 — as sondagens seguem EMBUTIDAS na correspondência oficial do
       //(s) destinatário(s) manual(is) (messages.sondagem_ids → cartão de
       // resposta no detalhe). Actualização por updater: segura contra o estado
       // stale do closure (updateBodyText acima também escreve no composeData).
       if (manuais.length) {
-        const idsParaEmbutir = sondagensCompostas.map((s) => s.id);
-        setComposeData((prev) => ({ ...prev, sondagensIds: idsParaEmbutir }));
+        setComposeData((prev) => ({
+          ...prev,
+          ...(idsSondagens.length ? { sondagensIds: idsSondagens } : {}),
+          ...(idsInqIA.length ? { inqueritosIaIds: idsInqIA } : {}),
+        }));
       }
       // Sem texto próprio, o corpo descreve as sondagens embutidas (pipeline
       // de envio exige corpo não vazio). O envio segue no tick seguinte para
       // o estado do corpo propagar (v37.78.3: pelo ref, para ler o estado NOVO).
       if (!composeData.body.trim()) {
-        updateBodyText(
-          `${instNomeSondagem || bi} convida-o(a) a participar na(s) sondagem(ns) oficial(is) incluída(s) nesta mensagem. Abra a mensagem, toque em «Ver detalhes Completos», escolha a sua opção e confirme com «Responder».`,
-        );
+        updateBodyText(corpoPadrao);
         setTimeout(() => handleSendMessageRef.current(), 150);
         return;
       }
@@ -383,6 +551,72 @@ export function MailContent({
       .finally(() => setEnviando(false));
   };
 
+  const PREFIXO_DENUNCIA = '[DENÚNCIA]';
+  const PREFIXO_NOVA_DENUNCIA = '[REGISTO DE DENÚNCIA]'; // 2026-09-23 (T-v37.79) — marca da nova fila «Denuncia» (mesma do denunciaCore)
+  const PREFIXO_COMUNICADO = '[COMUNICADO OFICIAL]'; // 2026-10-01 — marca da fila «Comunicados»
+  const ehDenuncia = (composeData.subject || '').trim().toUpperCase().startsWith(PREFIXO_DENUNCIA);
+  const ehNovaDenuncia = (composeData.subject || '').trim().toUpperCase().startsWith(PREFIXO_NOVA_DENUNCIA);
+  const ehComunicado = (composeData.subject || '').trim().toUpperCase().startsWith(PREFIXO_COMUNICADO) || (composeData.subject || '').trim().toUpperCase().startsWith('[COMUNICADO]');
+
+  const abrirPopupEnvio = () => {
+    setModalidadeRealcada('normal');
+    setShowTipoEnvioModal(true);
+  };
+
+  const escolherModalidadeEnvio = (m: ModalidadeEnvio) => {
+    setShowTipoEnvioModal(false);
+    if (m === 'emergencia') {
+      if (onEmergencyBroadcast) onEmergencyBroadcast(); else tentarEnviar();
+      return;
+    }
+    if (m === 'comunicado' && !ehComunicado) {
+      setComposeData((prev) => ({
+        ...prev,
+        subject: `${PREFIXO_COMUNICADO} ${(prev.subject || '').trim()}`.trim(),
+      }));
+    }
+    if (m === 'denuncia' && !ehDenuncia) {
+      // O assunto é opcional para o cidadão; o prefixo identifica a modalidade
+      // no detalhe, na revisão e no comprovativo sem alterar a base de dados.
+      setComposeData((prev) => ({
+        ...prev,
+        subject: `${PREFIXO_DENUNCIA} ${(prev.subject || '').trim()}`.trim(),
+      }));
+    }
+    // 2026-09-23 (T-v37.79) — «Denuncia»: prefixo próprio; se a mensagem já
+    // trouxer uma das marcas, não duplicar.
+    if (m === 'nova-denuncia' && !ehNovaDenuncia && !ehDenuncia && !ehComunicado) {
+      setComposeData((prev) => ({
+        ...prev,
+        subject: `${PREFIXO_NOVA_DENUNCIA} ${(prev.subject || '').trim()}`.trim(),
+      }));
+    }
+    tentarEnviar();
+  };
+
+  const opcoesEnvio: Array<{
+    id: ModalidadeEnvio; titulo: string; descricao: string; etiqueta?: string;
+    Icone: typeof Mail; tom: 'azul' | 'vermelho' | 'cinza'; idDom: string;
+  }> = isInst
+    ? [
+        { id: 'normal', titulo: 'Mensagem Normal', etiqueta: 'Oficial', Icone: Mail, tom: 'azul', idDom: 'btn-modal-opcao-normal',
+          descricao: 'Envio de correspondência digital oficial padronizada para a caixa do destinatário.' },
+        { id: 'comunicado', titulo: 'Comunicado', etiqueta: 'Oficial / Difusão', Icone: Megaphone, tom: 'azul', idDom: 'btn-modal-opcao-comunicado',
+          descricao: 'Emissão e publicação de comunicado oficial de órgão do Estado para cidadãos e outras instituições.' },
+        { id: 'emergencia', titulo: 'Mensagem de Emergência', etiqueta: 'Prioritário', Icone: ShieldAlert, tom: 'vermelho', idDom: 'btn-modal-opcao-emergencia',
+          descricao: 'Alerta de emergência com difusão prioritária para a rede de contactos familiares.' },
+      ]
+    : [
+        { id: 'normal', titulo: 'Mensagem Normal', etiqueta: 'Oficial', Icone: Mail, tom: 'azul', idDom: 'btn-modal-opcao-normal',
+          descricao: 'Envio de correspondência digital oficial padronizada para a caixa do destinatário.' },
+        { id: 'denuncia', titulo: 'Reclamação', Icone: Ban, tom: 'cinza', idDom: 'btn-modal-opcao-denunciar',
+          descricao: 'Comunicar uma irregularidade, mau atendimento ou conduta suspeita. A mensagem segue marcada como reclamação.' },
+        // 2026-09-23 (T-v37.79) — opção «Denuncia» pedida pelo dono no popup
+        // «Enviar Mensagem» (identificação própria no assunto via prefixo).
+        { id: 'nova-denuncia', titulo: 'Denuncia', etiqueta: 'Formal', Icone: Flag, tom: 'vermelho', idDom: 'btn-modal-opcao-denuncia',
+          descricao: 'Apresentar uma denuncia formal. A mensagem segue marcada como denuncia, com cronograma de tratamento.' },
+      ];
+
   const [editorBold, setEditorBold] = useState(false);
   const [editorItalic, setEditorItalic] = useState(false);
   const [editorUnderline, setEditorUnderline] = useState(false);
@@ -402,6 +636,9 @@ export function MailContent({
   // v37 — sondagens inseridas como blocos na área de conteúdo da composição
   const [sondagensCompostas, setSondagensCompostas] = useState<Sondagem[]>([]);
   const [sondagemARemover, setSondagemARemover] = useState<Sondagem | null>(null);
+  // 2026-09-10 — Inquéritos com IA (conversacionais) inseridos como blocos
+  const [inqueritosIaCompostos, setInqueritosIaCompostos] = useState<InqueritoIA[]>([]);
+  const [inqueritoIaARemover, setInqueritoIaARemover] = useState<InqueritoIA | null>(null);
   const [distribuindoSondagens, setDistribuindoSondagens] = useState(false);
   // v37.62 — anti-duplicação + loading no envio normal do compositor.
   const [enviando, setEnviando] = useState(false);
@@ -411,21 +648,31 @@ export function MailContent({
   // e oferece «Mostrar mais», evitando custo de render em caixas volumosas.
   const LIMITE_LISTA_CORREIO = 100;
   const [limiteListaCorreio, setLimiteListaCorreio] = useState(LIMITE_LISTA_CORREIO);
-  // v37.78.30 — DEFAULT INTELIGENTE (reporte do dono 2026-08-31): o Correio
-  // abre na tab «Não Lidas» SEMPRE que houver correspondência por ler — era
-  // aqui que a resposta de um cidadão «desaparecia»: a tab inicial era
-  // «Lidas» e o correio NOVO (não lido) ficava invisível até o utilizador
-  // carregar manualmente em «Não Lidas». Sem não-lidas, mantém «Lidas».
-  // Executa UMA vez por visita à página (o utilizador pode trocar livremente).
-  const autoTabAplicada = useRef(false);
-  useEffect(() => {
-    if (autoTabAplicada.current) return;
-    if (correspondenciaTab !== 'lidas') { autoTabAplicada.current = true; return; }
-    const temNaoLidas = inbox.some(m => m.unread && !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id));
-    if (temNaoLidas) setCorrespondenciaTab('naoLidas');
-    autoTabAplicada.current = true;
-  }, [inbox, correspondenciaTab, deletedMessageIds, hiddenMessageIds, setCorrespondenciaTab]);
 
+  // Conversas estilo Gmail (só «Enviadas» da instituição): N cópias do mesmo
+  // envio = 1 linha. tamanhosConversa usa a caixa COMPLETA para o selo manter
+  // o total real mesmo com pesquisa activa.
+  const agruparEnviadas = !!isInst && correspondenciaTab === 'enviadas';
+  const baseEnviadasVisiveis = useMemo(
+    () => (sentMessages || []).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)),
+    [sentMessages, deletedMessageIds, hiddenMessageIds],
+  );
+  const tamanhosConversa = useMemo(() => {
+    const mapa = new Map<string, number>();
+    if (agruparEnviadas) for (const c of agruparConversas(baseEnviadasVisiveis)) mapa.set(c.chave, c.total);
+    return mapa;
+  }, [agruparEnviadas, baseEnviadasVisiveis]);
+  const linhasConversa = useMemo(
+    () => (agruparEnviadas ? agruparConversas(filteredMessages) : filteredMessages.map(conversaUnica)),
+    [agruparEnviadas, filteredMessages],
+  );
+  const contagemEnviadas = useMemo(
+    () => (isInst ? agruparConversas(baseEnviadasVisiveis).length : baseEnviadasVisiveis.length),
+    [isInst, baseEnviadasVisiveis],
+  );
+  // v37.80 — CARREGAMENTO INTEGRAL: O Correio carrega sempre por padrão na
+  // aba «Todas» / lista completa de correspondências da conta (Cidadão e Instituição),
+  // garantindo que nenhuma mensagem anterior é ocultada ao entrar.
   useEffect(() => { setLimiteListaCorreio(LIMITE_LISTA_CORREIO); }, [correspondenciaTab, searchMail]);
   useEffect(() => {
     if (!isInst || !bi) return;
@@ -463,6 +710,10 @@ export function MailContent({
   const normalizedDestBi = composeData.to.trim().toUpperCase();
   const lookupVisible =
     !!isInst &&
+    // 2026-09-22 — destinatário «Todos» (difusão pelo âmbito de contactos
+    // prévios): não é um B.I. — o cartão «cidadão não registado» seria
+    // enganador; o envio de texto simples segue pela pipeline de difusão.
+    normalizedDestBi !== 'TODOS' &&
     !!recipientLookup &&
     recipientLookup.status !== 'idle' &&
     recipientLookup.lookedUpBi === normalizedDestBi;
@@ -476,7 +727,7 @@ export function MailContent({
 
   const [editingAttachmentIdx, setEditingAttachmentIdx] = useState<number | null>(null);
   const [editingAttachmentContent, setEditingAttachmentContent] = useState<string>('');
-  const [messageToDelete, setMessageToDelete] = useState<{ id: number; isPermanent: boolean } | null>(null);
+  const [messageToDelete, setMessageToDelete] = useState<{ id: number; ids?: number[]; isPermanent: boolean } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgressMessage, setUploadProgressMessage] = useState('');
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -569,6 +820,7 @@ export function MailContent({
           body: r.body || '',
           attachments: Array.isArray(r.attachments) ? r.attachments : [],
           toArray: Array.isArray(r.toArray) ? r.toArray : [],
+          dataExpiracao: typeof r.dataExpiracao === 'string' ? r.dataExpiracao : '',
         } as any);
         notify('Rascunho recuperado automaticamente — o seu texto anterior foi preservado.', 'info');
       }
@@ -673,12 +925,25 @@ export function MailContent({
       // v37.78.10 — guarda de tamanho: > 10 MB recusado com aviso claro.
       const dentroLimite = Array.from(files).filter((f: File) => f.size <= 10 * 1024 * 1024) as File[];
       const foraLimite = Array.from(files).filter((f: File) => f.size > 10 * 1024 * 1024) as File[];
+      // 2026-09-22 (auditoria BUG-002) — guarda de TIPO: ficheiros fora da lista
+      // aceite são recusados com aviso, em vez de anexados em silêncio. Os dois
+      // avisos (tamanho e tipo) são mostrados em conjunto, sem bloquear os
+      // ficheiros válidos que vierem na mesma escolha.
+      const tipoRecusado = dentroLimite.filter((f: File) => !anexoTemTipoAceite(f));
+      const tipoAceite = dentroLimite.filter((f: File) => anexoTemTipoAceite(f));
+      const avisosAnexo: string[] = [];
       if (foraLimite.length) {
-        setUploadError(
+        avisosAnexo.push(
           `${foraLimite.map(f => `«${f.name}» (${(f.size / (1024 * 1024)).toFixed(1)} MB)`).join(', ')} excede${foraLimite.length === 1 ? '' : 'm'} o limite de 10 MB por ficheiro. Compacte (zip) ou reduza antes de anexar.`
         );
       }
-      if (!dentroLimite.length) { setIsUploading(false); return; }
+      if (tipoRecusado.length) {
+        avisosAnexo.push(
+          `${tipoRecusado.map(f => `«${f.name}»`).join(', ')} — tipo de ficheiro não permitido nos anexos. Formatos aceites: ${ANEXOS_TIPOS_ACEITES.join(', ')}.`
+        );
+      }
+      if (avisosAnexo.length) setUploadError(avisosAnexo.join(' '));
+      if (!tipoAceite.length) { setIsUploading(false); return; }
 
       // v37.78.29 — ANEXO OTIMISTA (reporte do dono 2026-08-31: «demora muito
       // para anexar»): os chips aparecem JÁ (metadados locais) e o upload
@@ -687,7 +952,7 @@ export function MailContent({
       // aparecia DEPOIS do upload completo; em rede móvel, MB significavam
       // muitos segundos «a anexar». O envio continua bloqueado enquanto há
       // uploads em trânsito (§13) — nenhum ficheiro se perde.
-      const pendentes = dentroLimite.map((file) => ({
+      const pendentes = tipoAceite.map((file) => ({
         file,
         pendId: `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
       }));
@@ -871,15 +1136,43 @@ export function MailContent({
   // v37 — blocos de sondagem na área de conteúdo da composição
   const adicionarSondagemBloco = (s: Sondagem) => {
     setSondagensCompostas(prev => {
-      if (prev.length >= 5) {
+      if (prev.length + inqueritosIaCompostos.length >= 5) {
         setAvisoSondagens('Limite de 5 sondagens por mensagem atingido.');
         return prev;
       }
-      // v37 — destinatário automático «Todos» (difusão pelo âmbito oficial)
-      if (prev.length === 0 && !composeData.to.trim()) {
-        setComposeData({ ...composeData, to: 'Todos' });
+      // v37 — destinatário automático «Todos» (difusão pelo âmbito oficial).
+      // 2026-09-13 — só quando NÃO há destinatário algum (nem no campo, nem
+      // nos chips «Adicionar destinatário»): com B.I. indicado(s) o envio é
+      // dirigido apenas a esse(s) cidadão(s).
+      if (prev.length === 0 && inqueritosIaCompostos.length === 0) {
+        setComposeData(c => {
+          if (!c.to.trim() && !(c.toArray || []).some((t) => t && t.trim())) {
+            return { ...c, to: 'Todos' };
+          }
+          return c;
+        });
       }
       return [...prev, s];
+    });
+  };
+
+  // 2026-09-10 — bloco «Inquérito com IA» na área de conteúdo da composição
+  const adicionarInqueritoIaBloco = (q: InqueritoIA) => {
+    setInqueritosIaCompostos(prev => {
+      if (prev.length + sondagensCompostas.length >= 5) {
+        setAvisoSondagens('Limite de 5 inquéritos por mensagem atingido.');
+        return prev;
+      }
+      // 2026-09-13 — idem: «Todos» só sem qualquer destinatário (campo e chips).
+      if (prev.length === 0 && sondagensCompostas.length === 0) {
+        setComposeData(c => {
+          if (!c.to.trim() && !(c.toArray || []).some((t) => t && t.trim())) {
+            return { ...c, to: 'Todos' };
+          }
+          return c;
+        });
+      }
+      return [...prev, q];
     });
   };
 
@@ -899,10 +1192,11 @@ export function MailContent({
         aberto={showSondagemModal}
         onFechar={() => setShowSondagemModal(false)}
         codigoInstituicao={bi}
-        nomeInstituicao={instNomeSondagem || bi}
+        nomeInstituicao={nomeInstituicao?.trim() || instNomeSondagem || bi}
         criadaPor={bi}
         addAuditLog={(a, t) => addAuditLog?.(a, t)}
         onCriarBloco={adicionarSondagemBloco}
+        onCriarBlocoIA={adicionarInqueritoIaBloco}
         modo={tipoInquerito}
       />
     </>
@@ -962,6 +1256,16 @@ export function MailContent({
       >
         {/* Header matched 1:1 to uploaded reference */}
         <div className="flex items-center gap-3.5 mb-2">
+          <BotaoVoltar
+            titulo="Voltar ao Correio"
+            onClick={() => {
+              if (composeData.body?.trim() || composeData.subject?.trim() || (composeData.attachments && composeData.attachments.length > 0)) {
+                setConfirmarDescarteRascunho(true);
+              } else {
+                setIsComposing(false);
+              }
+            }}
+          />
           <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-md shadow-blue-600/20 shrink-0">
             <Mail size={22} className="text-white" strokeWidth={2.2} />
           </div>
@@ -1040,7 +1344,9 @@ export function MailContent({
                 />
                 <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
                   {lookupVisible && recipientLookup?.status === 'busy' ? (
-                    <Loader2 className="animate-spin text-blue-600" size={18} />
+                    <span className="p-1 text-blue-500" title="A consultar...">
+                      <Search size={18} className="animate-pulse" />
+                    </span>
                   ) : (
                     <button
                       type="button"
@@ -1197,6 +1503,8 @@ export function MailContent({
             <label className="text-[11px] md:text-xs font-black text-slate-800 uppercase tracking-wider block">TÍTULO</label>
             <input 
               type="text"
+              id="compose-subject-input"
+              data-testid="compose-subject-input"
               placeholder="Qual o tema da sua mensagem?"
               value={composeData.subject}
               onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })}
@@ -1429,6 +1737,39 @@ export function MailContent({
                   </label>
                 </div>
               </div>
+
+              {/* 2026-09-11 — Data de Expiração: mesma linha do «Anexar», encostada
+                  à direita (justify-between do toolbar). Vazio = sem prazo; a data
+                  segue para messages.deadline_at e para o rótulo «EXPIRA:». */}
+              <label
+                className="ml-auto flex items-center gap-1.5 h-7 pl-2 pr-1.5 rounded-lg border bg-blue-600 border-blue-600 text-white hover:bg-blue-700 transition-all cursor-pointer select-none"
+                title="Data de Expiração da correspondência (opcional)"
+                data-testid="compositor-data-expiracao"
+              >
+                <CalendarClock size={14} className="shrink-0" />
+                <span className="text-[10px] font-black uppercase tracking-wider whitespace-nowrap">Data de Expiração</span>
+                <input
+                  id="input-data-expiracao"
+                  type="date"
+                  aria-label="Data de Expiração"
+                  min={hojeISO()}
+                  value={composeData.dataExpiracao || ''}
+                  onChange={(e) => setComposeData({ ...composeData, dataExpiracao: e.target.value })}
+                  style={{ colorScheme: 'dark' }}
+                  className="h-5 bg-transparent border-0 outline-none text-[11px] font-bold font-mono text-white cursor-pointer w-[9.5rem]"
+                />
+                {composeData.dataExpiracao && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); setComposeData({ ...composeData, dataExpiracao: '' }); }}
+                    title={`Remover data de expiração (${formatarDataExpiracao(composeData.dataExpiracao)})`}
+                    aria-label="Remover data de expiração"
+                    className="p-0.5 rounded-md text-white/90 hover:bg-white/20 transition-all"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </label>
             </div>
 
             <textarea 
@@ -1558,6 +1899,72 @@ export function MailContent({
               </div>
             )}
 
+            {/* 2026-09-10 — Inquéritos com IA inseridos como blocos na área de conteúdo */}
+            {isInst && inqueritosIaCompostos.length > 0 && (
+              <div className="space-y-3 mt-4" data-testid="inqueritos-ia-compostos">
+                {sondagensCompostas.length === 0 && (
+                  <p className="text-[10px] font-black uppercase tracking-wider text-blue-600 m-0">
+                    Inquéritos incluídos nesta mensagem ({inqueritosIaCompostos.length}/5)
+                  </p>
+                )}
+                {inqueritosIaCompostos.map((q) => (
+                  <div key={q.id} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setInqueritoIaARemover(q)}
+                      title="Remover inquérito da mensagem"
+                      className="absolute -top-2 -right-2 z-10 w-7 h-7 rounded-full bg-white shadow border border-slate-200 text-slate-400 hover:text-rose-500 transition-colors flex items-center justify-center cursor-pointer"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                    <div className="rounded-xl bg-[#d9fdd3] shadow-xs overflow-hidden text-left border border-emerald-200/60">
+                      <div className="px-4 pt-3 pb-2">
+                        <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-[#546565] m-0">
+                          <MessagesSquare size={12} /> Inquérito com IA
+                        </p>
+                        <p className="text-sm font-bold text-[#111b21] mt-1.5 m-0 leading-snug">{q.guiao?.objectivo || q.o_que_pretende_saber}</p>
+                        <p className="text-xs text-[#111b21]/80 font-medium mt-2 m-0 leading-snug">«{q.guiao?.saudacao}»</p>
+                        <p className="flex items-center gap-1.5 text-xs text-[#546565] font-semibold mt-2 m-0 flex-wrap">
+                          <CheckCheck size={13} className="text-[#53bdeb] shrink-0" />
+                          {q.guiao?.campos?.length || 0} informação(ões) · até {q.guiao?.maxPerguntas || 0} perguntas
+                          {q.canal === 'ambos' && <span className="inline-flex items-center gap-1 ml-1"><Mic size={11} /> texto ou voz</span>}
+                          {q.canal === 'texto' && <span className="ml-1">· só texto</span>}
+                        </p>
+                        <p className="flex items-center justify-end gap-1 text-[10px] text-[#667781] mt-2 m-0">
+                          {new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
+                          <CheckCheck size={13} className="text-[#53bdeb]" />
+                        </p>
+                      </div>
+                      <div className="bg-[#cfF8c6]/60 border-t border-[#111b21]/5 py-1.5 text-center text-xs font-semibold text-[#546565]">
+                        Iniciar Inquérito
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Confirmação de remoção de inquérito com IA */}
+            {inqueritoIaARemover && (
+              <CdaConfirmModal
+                aberto
+                titulo="Remover Inquérito"
+                mensagem={`Remover o inquérito com IA «${inqueritoIaARemover.guiao?.objectivo || inqueritoIaARemover.o_que_pretende_saber}» desta mensagem? O rascunho será eliminado.`}
+                textoConfirmar="Remover"
+                perigoso
+                onConfirmar={async () => {
+                  const alvo = inqueritoIaARemover;
+                  setInqueritoIaARemover(null);
+                  setInqueritosIaCompostos(prev => prev.filter(x => x.id !== alvo.id));
+                  if (inqueritosIaCompostos.length <= 1 && sondagensCompostas.length === 0 && composeData.to.trim().toUpperCase() === 'TODOS') {
+                    setComposeData({ ...composeData, to: '' });
+                  }
+                  await removerRascunhoInqueritoIA(alvo.id);
+                }}
+                onCancelar={() => setInqueritoIaARemover(null)}
+              />
+            )}
+
             {/* Confirmação de remoção de sondagem */}
             {sondagemARemover && (
               <CdaConfirmModal
@@ -1570,7 +1977,7 @@ export function MailContent({
                   const alvo = sondagemARemover;
                   setSondagemARemover(null);
                   setSondagensCompostas(prev => prev.filter(x => x.id !== alvo.id));
-                  if (sondagensCompostas.length <= 1 && composeData.to.trim().toUpperCase() === 'TODOS') {
+                  if (sondagensCompostas.length <= 1 && inqueritosIaCompostos.length === 0 && composeData.to.trim().toUpperCase() === 'TODOS') {
                     setComposeData({ ...composeData, to: '' });
                   }
                   await removerRascunhoSondagem(alvo.id);
@@ -1590,7 +1997,16 @@ export function MailContent({
               <div className="flex items-start gap-3 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-bold mt-3 animate-fadeIn">
                 <AlertTriangle size={18} className="text-rose-600 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-black block uppercase tracking-wider mb-0.5 text-rose-950">Limite de Anexos Excedido</span>
+                  {/* 2026-09-22 (auditoria BUG-002) — o título passa a dizer o motivo
+                      real: um ficheiro pode ser recusado por TIPO (não só por tamanho).
+                      Mesmo elemento e estilo; só o texto acompanha o caso. */}
+                  <span className="font-black block uppercase tracking-wider mb-0.5 text-rose-950">
+                    {!/tipo de ficheiro não permitido/i.test(uploadError)
+                      ? 'Limite de Anexos Excedido'
+                      : /excede o limite/i.test(uploadError)
+                        ? 'Anexos Recusados'
+                        : 'Anexo Recusado'}
+                  </span>
                   <span className="text-rose-700 leading-relaxed font-semibold">{uploadError}</span>
                 </div>
               </div>
@@ -1624,7 +2040,7 @@ export function MailContent({
             {clareza && (
               <div className="rounded-xl border border-purple-200 bg-purple-50/70 p-3 text-xs font-bold text-purple-900 space-y-2 mt-3">
                 {clareza.estado === 'a_carregar' && (
-                  <p className="flex items-center gap-2"><Loader2 size={14} className="animate-spin text-purple-600" /> A IA está a rever a clareza do texto…</p>
+                  <p className="flex items-center gap-2"><Sparkles size={14} className="text-purple-600 animate-pulse" /> A IA está a rever a clareza do texto…</p>
                 )}
                 {clareza.estado === 'erro' && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-amber-900">
@@ -1671,16 +2087,18 @@ export function MailContent({
               <button
                 type="button"
                 onClick={() => {
-                  if (isInst) {
-                    setShowTipoEnvioModal(true);
-                  } else {
+                  // Após confirmar avisos («Enviar mesmo assim») a modalidade já
+                  // foi escolhida — segue directo, sem repetir o popup.
+                  if (!isInst && avisosConfirmados && validacao && validacao.avisos.length > 0) {
                     tentarEnviar();
+                  } else {
+                    abrirPopupEnvio();
                   }
                 }}
                 disabled={
                   !(composeData.to || (composeData.toArray || []).length > 0) ||
                   (isInst && !composeData.subject) ||
-                  (!composeData.body && !(isInst && sondagensCompostas.length > 0)) ||
+                  (!composeData.body && !(isInst && (sondagensCompostas.length > 0 || inqueritosIaCompostos.length > 0))) ||
                   distribuindoSondagens ||
                   enviando ||
                   ((!isInst || instRecipientType === 'instituicao') && !!instRegistry && instRegistry.code === composeData.to.trim().toUpperCase() && instRegistry.status === 'nao_registada')
@@ -1714,7 +2132,7 @@ export function MailContent({
                 <button
                   type="button"
                   onClick={() => {
-                    if (sondagensCompostas.length >= 5) {
+                    if (sondagensCompostas.length + inqueritosIaCompostos.length >= 5) {
                       setAvisoSondagens('Limite de 5 inquéritos por mensagem atingido.');
                       return;
                     }
@@ -1746,80 +2164,74 @@ export function MailContent({
           </div>
         </div>
 
-        {/* Modal de Escolha do Tipo de Envio (Área Institucional) */}
+        {/* Popup «Enviar Mensagem» — modalidade de envio (Cidadão e Instituição) */}
         {showTipoEnvioModal && (
           <CdaModal
             aberto
             onFechar={() => setShowTipoEnvioModal(false)}
             icone={Mail}
             titulo="Enviar Mensagem"
-            subtitulo="Selecione a modalidade de envio desta correspondência oficial"
-            maxW="max-w-md"
-            padding="p-6"
+            subtitulo="Selecione a modalidade de envio"
+            maxW="max-w-xl"
+            padding="p-5 md:p-6"
           >
-            <div className="space-y-4 text-left">
+            <div className="space-y-4 text-left" data-testid="popup-enviar-mensagem">
               <div className="space-y-3">
-                {/* Opção 1: Mensagem Normal */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowTipoEnvioModal(false);
-                    tentarEnviar();
-                  }}
-                  className="w-full bg-white hover:bg-blue-50/60 border-2 border-slate-200 hover:border-blue-500 rounded-2xl p-4 transition-all flex items-start gap-3.5 text-left group cursor-pointer active:scale-98 shadow-xs"
-                  id="btn-modal-opcao-normal"
-                >
-                  <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center shrink-0 transition-colors">
-                    <Mail size={20} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-sm text-slate-900 group-hover:text-blue-700 m-0">Mensagem Normal</h4>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">Oficial</span>
-                    </div>
-                    <p className="text-xs text-slate-500 font-medium mt-1 m-0 leading-relaxed">
-                      Envio de correspondência digital oficial padronizada para a caixa do destinatário.
-                    </p>
-                  </div>
-                </button>
-
-                {/* Opção 2: Mensagem de Emergência */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowTipoEnvioModal(false);
-                    if (onEmergencyBroadcast) {
-                      onEmergencyBroadcast();
-                    } else {
-                      tentarEnviar();
-                    }
-                  }}
-                  className="w-full bg-white hover:bg-red-50/60 border-2 border-slate-200 hover:border-red-500 rounded-2xl p-4 transition-all flex items-start gap-3.5 text-left group cursor-pointer active:scale-98 shadow-xs"
-                  id="btn-modal-opcao-emergencia"
-                >
-                  <div className="w-11 h-11 rounded-xl bg-red-50 text-red-600 group-hover:bg-red-600 group-hover:text-white flex items-center justify-center shrink-0 transition-colors">
-                    <ShieldAlert size={20} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-sm text-slate-900 group-hover:text-red-700 m-0">Mensagem de Emergência</h4>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-50 px-2 py-0.5 rounded-md">Prioritário</span>
-                    </div>
-                    <p className="text-xs text-slate-500 font-medium mt-1 m-0 leading-relaxed">
-                      Alerta de emergência com difusão prioritária para a rede de contactos familiares.
-                    </p>
-                  </div>
-                </button>
+                {opcoesEnvio.map((op) => {
+                  const activa = modalidadeRealcada === op.id;
+                  const icone = op.tom === 'azul'
+                    ? 'bg-blue-50 text-blue-600'
+                    : op.tom === 'vermelho' ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-600';
+                  const etiqueta = op.tom === 'vermelho' ? 'text-red-600 bg-red-50' : 'text-blue-600 bg-blue-50';
+                  return (
+                    <button
+                      key={op.id}
+                      type="button"
+                      onClick={() => escolherModalidadeEnvio(op.id)}
+                      onMouseEnter={() => setModalidadeRealcada(op.id)}
+                      onFocus={() => setModalidadeRealcada(op.id)}
+                      aria-pressed={activa}
+                      className={`w-full rounded-2xl p-4 flex items-center gap-4 text-left cursor-pointer transition-all active:scale-[0.99] border-2 ${
+                        activa ? 'border-blue-500 bg-blue-50/60 shadow-xs' : 'border-slate-200 bg-white hover:border-blue-300'
+                      }`}
+                      id={op.idDom}
+                    >
+                      <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 ${icone}`}>
+                        <op.Icone size={24} strokeWidth={2.25} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start sm:items-center justify-between gap-2 flex-col sm:flex-row">
+                          <h4 className="font-bold text-sm md:text-base text-slate-900 m-0 leading-snug">{op.titulo}</h4>
+                          {op.etiqueta && (
+                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shrink-0 ${etiqueta}`}>
+                              {op.etiqueta}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 font-medium mt-1 m-0 leading-relaxed">{op.descricao}</p>
+                      </div>
+                      <ChevronRight size={20} className={`shrink-0 ${activa ? 'text-blue-600' : 'text-slate-400'}`} />
+                    </button>
+                  );
+                })}
               </div>
 
-              <div className="flex justify-end pt-2">
+              <div className="grid grid-cols-2 gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowTipoEnvioModal(false)}
-                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                  className="w-full px-5 py-3 rounded-xl font-bold text-sm text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer border-none"
                   id="btn-fechar-modal-tipo-envio"
                 >
                   Fechar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => escolherModalidadeEnvio(modalidadeRealcada)}
+                  className="w-full px-5 py-3 rounded-xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-colors cursor-pointer border-none"
+                  id="btn-ok-modal-tipo-envio"
+                >
+                  Ok
                 </button>
               </div>
             </div>
@@ -1839,6 +2251,8 @@ export function MailContent({
               limparRascunhoLocal();
               for (const s of sondagensCompostas) { await removerRascunhoSondagem(s.id); }
               setSondagensCompostas([]);
+              for (const q of inqueritosIaCompostos) { await removerRascunhoInqueritoIA(q.id); }
+              setInqueritosIaCompostos([]);
               setIsComposing(false);
             }}
             onCancelar={() => setConfirmarDescarteRascunho(false)}
@@ -1866,6 +2280,14 @@ export function MailContent({
                       : composeData.to || '—'}
                   </span>
                 </div>
+                {!isInst && (
+                  <div className="flex gap-3 text-sm" data-testid="rever-modalidade">
+                    <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Modalidade</span>
+                    <span className={`font-bold min-w-0 ${ehDenuncia ? 'text-rose-600' : 'text-slate-800'}`}>
+                      {ehDenuncia ? 'Reclamação' : 'Mensagem Normal'}
+                    </span>
+                  </div>
+                )}
                 <div className="flex gap-3 text-sm">
                   <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Assunto</span>
                   <span className="font-bold text-slate-800 break-words min-w-0">{composeData.subject?.trim() || '(sem assunto)'}</span>
@@ -1882,6 +2304,13 @@ export function MailContent({
                             {(composeData.attachments || []).length > 4 ? ' …' : ''}
                           </span>
                         </>}
+                  </span>
+                </div>
+                {/* 2026-09-11 — Data de Expiração escolhida no compositor. */}
+                <div className="flex gap-3 text-sm" data-testid="rever-data-expiracao">
+                  <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Expira em</span>
+                  <span className={`font-bold break-words min-w-0 ${composeData.dataExpiracao ? 'text-rose-600' : 'text-slate-800'}`}>
+                    {composeData.dataExpiracao ? formatarDataExpiracao(composeData.dataExpiracao) : 'Sem prazo'}
                   </span>
                 </div>
               </div>
@@ -2032,6 +2461,7 @@ export function MailContent({
     <section className="space-y-4 md:space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
         <div className="flex items-center gap-4">
+          <BotaoVoltar />
           <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
             <Mail size={20} className="md:w-6 md:h-6" />
           </div>
@@ -2049,25 +2479,13 @@ export function MailContent({
         </button>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar">
-        <button 
-          onClick={onNavigateToVideoAtendimento}
-          className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
-        >
-          <Video size={13} className="shrink-0" />
-          <span>VideoAtendimento</span>
-          {videoSessionCount > 0 && (
-            <span className="bg-red-500 text-white text-[8.5px] font-black px-1.5 py-0.5 rounded-full animate-pulse ml-0.5 leading-none">
-              {videoSessionCount}
-            </span>
-          )}
-        </button>
+      {isInst && <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar">
         {isInst && (
           <button onClick={() => setTab('inst-qrcode')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer shrink-0">
             {translateText("Validação QR", currentLanguage)}
           </button>
         )}
-      </div>
+      </div>}
 
       {/* REGRA DE ESTADO DAS ENVIADAS (v37.78.16): a cópia do remetente é
           sempre «Enviada» — nunca «Não Lida»/«Lida». O estado de leitura
@@ -2076,9 +2494,10 @@ export function MailContent({
       <div className="bg-white border border-slate-300 rounded-[32px] p-2.5 shadow-sm flex flex-col lg:flex-row gap-3">
         <div className="grid grid-cols-2 sm:flex sm:flex-nowrap gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl lg:min-w-[500px] w-full lg:w-auto">
           {[
-            { id: 'lidas', label: 'Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && !m.unread).length },
-            { id: 'naoLidas', label: 'Não Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && m.unread).length },
-            { id: 'enviadas', label: 'Enviadas', count: sentMessages.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)).length },
+            { id: 'todas', label: 'Todas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)).length },
+            { id: 'lidas', label: 'Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && isMensagemLida(m)).length },
+            { id: 'naoLidas', label: 'Não Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && isMensagemNaoLida(m)).length },
+            { id: 'enviadas', label: 'Enviadas', count: contagemEnviadas },
             { id: 'excluidas', label: 'Arquivadas', count: [...inbox, ...sentMessages].filter(m => deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)).length }
           ].map(tab => {
             const isActive = correspondenciaTab === tab.id;
@@ -2086,7 +2505,10 @@ export function MailContent({
             let badgeStyle = '';
 
             if (isActive) {
-              if (tab.id === 'lidas') {
+              if (tab.id === 'todas') {
+                activeStyle = 'bg-[#0E2B64] text-white shadow-md shadow-[#0E2B64]/20 ring-2 ring-[#0E2B64]';
+                badgeStyle = 'bg-white text-[#0E2B64]';
+              } else if (tab.id === 'lidas') {
                 activeStyle = 'bg-emerald-600 text-white shadow-md shadow-emerald-200 ring-2 ring-emerald-600';
                 badgeStyle = 'bg-white text-emerald-700';
               } else if (tab.id === 'naoLidas') {
@@ -2101,7 +2523,9 @@ export function MailContent({
               }
             } else {
               activeStyle = 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50';
-              if (tab.id === 'lidas') {
+              if (tab.id === 'todas') {
+                badgeStyle = 'bg-[#0E2B64] text-white';
+              } else if (tab.id === 'lidas') {
                 badgeStyle = 'bg-emerald-600 text-white';
               } else if (tab.id === 'naoLidas') {
                 badgeStyle = 'bg-red-600 text-white';
@@ -2115,6 +2539,7 @@ export function MailContent({
             return (
               <button 
                 key={tab.id}
+                data-testid={`tab-${tab.id}`}
                 onClick={() => setCorrespondenciaTab(tab.id)}
                 className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-[11px] md:text-xs font-black uppercase tracking-tight transition-all border-0 cursor-pointer ${activeStyle}`}
               >
@@ -2155,12 +2580,15 @@ export function MailContent({
           </div>
         </div>
 
-        {filteredMessages.length > 0 ? (
+        {linhasConversa.length > 0 ? (
           <>
             {/* Mobile View: Clean responsive cards */}
             <div className="block md:hidden space-y-3">
-              {filteredMessages.slice(0, limiteListaCorreio).map((item) => {
+              {linhasConversa.slice(0, limiteListaCorreio).map((conv) => {
+                const item = conv.representante;
+                const totalConversa = tamanhosConversa.get(conv.chave) ?? conv.total;
                 const isUrgente = item.status === 'Urgente' || item.priorityScale === 'Crítico' || item.priorityScale === 'Urgente';
+                const linhaDestinatarios = `${totalConversa} destinatários: ${resumoDestinatarios(conv, 3)}`;
                 const cleanOrg = t(isInst 
                   ? item.org
                       .replace(/^Cidadão:\s*Cidadão:\s*/i, '')
@@ -2176,7 +2604,7 @@ export function MailContent({
                 );
                 return (
                   <div
-                    key={item.id}
+                    key={conv.chave}
                     onClick={() => handleSelectMessage(item)}
                     className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-primary/30 transition-all cursor-pointer text-left space-y-2.5 active:scale-[0.99]"
                   >
@@ -2194,8 +2622,13 @@ export function MailContent({
                         <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${getOrgBadgeStyles(item.org)}`}>
                           {t((item.org || '').toUpperCase().startsWith('SOC - ') ? 'SOC' : item.org)}
                         </span>
-                        {item.unread && !ehCopiaEnviadaRemetente(item) && (
+                        {!!item.unread && !ehCopiaEnviadaRemetente(item) && (
                           <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                        )}
+                        {conv.multiplos && (
+                          <span className="text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-violet-600 text-white" title={`${totalConversa} destinatários receberam esta correspondência`}>
+                            {totalConversa} {t('destinatários')}
+                          </span>
                         )}
                       </div>
                       <span className="text-[9px] font-mono text-slate-400 font-bold shrink-0">{t(item.date)}</span>
@@ -2212,7 +2645,7 @@ export function MailContent({
 
                     <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[9.5px]">
                       <span className="font-bold text-slate-600 truncate max-w-[65%]">
-                        {isInst ? `Cidadão: ${cleanOrg}` : `Órgão: ${cleanOrg}`}
+                        {conv.multiplos ? linhaDestinatarios : (isInst ? `Cidadão: ${cleanOrg}` : `Órgão: ${cleanOrg}`)}
                       </span>
                       <span className="text-primary font-black uppercase tracking-wider flex items-center gap-1">
                         Ver Detalhes &rarr;
@@ -2225,7 +2658,7 @@ export function MailContent({
 
             {/* Desktop View: Full 7-column Table */}
             <div className="hidden md:block overflow-auto rounded-[24px] bg-slate-50/20 custom-scrollbar max-h-[500px]">
-            <table className="mobile-data-table w-full text-left border-collapse min-w-[900px]">
+            <table className="mobile-data-table w-full text-left border-collapse min-w-0">
               <thead className="sticky top-0 z-10 bg-primary">
                 <tr className="bg-primary text-white text-[10px] font-black uppercase tracking-widest">
                   <th className="py-4 px-5 rounded-l-2xl">{isInst ? t("Cidadão / Requerente") : t("Órgão Emissor")}</th>
@@ -2238,10 +2671,12 @@ export function MailContent({
                 </tr>
               </thead>
               <tbody className="bg-white">
-                {filteredMessages.slice(0, limiteListaCorreio).map((item) => {
+                {linhasConversa.slice(0, limiteListaCorreio).map((conv) => {
+                  const item = conv.representante;
+                  const totalConversa = tamanhosConversa.get(conv.chave) ?? conv.total;
                   const isUrgente = item.status === 'Urgente' || item.priorityScale === 'Crítico' || item.priorityScale === 'Urgente';
                   return (
-                    <tr key={item.id} className="text-xs text-[#334155] hover:bg-slate-50/60 transition-colors">
+                    <tr key={conv.chave} className="text-xs text-[#334155] hover:bg-slate-50/60 transition-colors">
                       {/* Cidadão / Órgão Emissor Column */}
                       <td className="py-5 px-5">
                         <div className="space-y-1.5">
@@ -2259,17 +2694,17 @@ export function MailContent({
                               {t((item.org || '').toUpperCase().startsWith('SOC - ') ? 'SOC' : item.org)}
                             </span>
                             <span className="text-[9px] font-bold text-slate-400 font-mono">ID: #{item.id}</span>
-                            {(item as any).broadcastRecipients ? (
-                              <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-violet-600 text-white border border-violet-600" title="Uma difusão enviada para vários destinatários — cada um recebeu a sua cópia">
-                                {t('Difusão')} · {(item as any).broadcastRecipients} {t('destinatários')}
+                            {conv.multiplos ? (
+                              <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-violet-600 text-white border border-violet-600" title="Uma conversa enviada para vários destinatários — cada um recebeu a sua cópia; abrir mostra a lista">
+                                {t('Conversa')} · {totalConversa} {t('destinatários')}
                               </span>
                             ) : null}
-                            {item.unread && !ehCopiaEnviadaRemetente(item) && (
+                            {!!item.unread && !ehCopiaEnviadaRemetente(item) && (
                               <span className="w-1.5 h-1.5 rounded-full bg-[#f87171] inline-block animate-pulse shrink-0" />
                             )}
                           </div>
-                          <div className="font-black italic text-slate-900 text-[11px] md:text-sm tracking-tight leading-none">
-                            {t(isInst 
+                          <div className="font-black italic text-slate-900 text-[11px] md:text-sm tracking-tight leading-none break-words" title={conv.multiplos ? conv.destinatarios.join(', ') : undefined}>
+                            {conv.multiplos ? resumoDestinatarios(conv, 99) : t(isInst 
                               ? item.org
                                   .replace(/^Cidadão:\s*Cidadão:\s*/i, '')
                                   .replace(/^CIDADÃO:\s*CIDADÃO:\s*/i, '')
@@ -2289,8 +2724,8 @@ export function MailContent({
                       {/* Assunto Tema Column */}
                       <td className="py-5 px-5">
                         <div className="space-y-1 text-left">
-                          <div className="font-extrabold text-[#1e293b] text-xs md:text-sm tracking-tight">
-                            {t(item.details?.subject || item.preview.substring(0, 30))}
+                          <div className="font-extrabold text-[#1e293b] text-xs md:text-sm tracking-tight break-words">
+                            {t(item.details?.subject || item.preview)}
                           </div>
                           <div className="text-[9px] text-[#94a3b8] font-black tracking-widest leading-none">
                             {isInst ? t('Requerimento Fiscal') : t(item.protocol?.category || 'Notificação Digital')}
@@ -2300,7 +2735,7 @@ export function MailContent({
 
                       {/* Conteúdo / Detalhe Column */}
                       <td className="py-5 px-5">
-                        <div className="text-[#64748b] text-[11px] font-medium max-w-[280px] break-words whitespace-normal leading-relaxed" title={t(item.preview)}>
+                        <div className="text-[#64748b] text-[11px] font-medium w-full break-words whitespace-normal leading-relaxed" title={t(item.preview)}>
                           {t(item.preview)}
                         </div>
                       </td>
@@ -2334,41 +2769,54 @@ export function MailContent({
                         </span>
                       </td>
 
-                      {/* Ações Column */}
+                      {/* Ações Column — 2026-09-12 (T55): ícones circulares
+                          (Abrir/Analisar · Eliminar · Restaurar) com tooltip e
+                          aria-label; alinhados ao centro da célula. */}
                       <td className="py-5 px-5 text-center">
-                        <div className="flex items-center justify-center gap-3">
+                        <div className="flex items-center justify-center gap-2" data-testid="acoes-linha">
                           <button
                             type="button"
                             onClick={() => handleSelectMessage(item)}
-                            className="text-[9.5px] font-black uppercase text-indigo-650 hover:text-indigo-900 transition-colors tracking-widest hover:underline cursor-pointer bg-transparent border-0 outline-none"
+                            title={isInst ? t('Analisar') : t('Abrir')}
+                            aria-label={isInst ? 'Analisar' : 'Abrir'}
+                            data-acao="abrir"
+                            className="w-8 h-8 rounded-full flex items-center justify-center bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all cursor-pointer shadow-xs active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
                           >
-                            {isInst ? 'ANALISAR' : 'ABRIR'}
+                            <Eye size={14} />
                           </button>
                           {correspondenciaTab === 'excluidas' ? (
-                            <div className="flex items-center justify-center gap-1.5">
+                            <>
                               <button
                                 type="button"
                                 onClick={() => onRestoreMessage && onRestoreMessage(item.id)}
-                                className="text-[9.5px] font-black uppercase text-emerald-600 hover:text-emerald-700 transition-colors tracking-widest hover:underline cursor-pointer bg-transparent border-0 outline-none"
+                                title={t('Restaurar')}
+                                aria-label="Restaurar"
+                                data-acao="restaurar"
+                                className="w-8 h-8 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all cursor-pointer shadow-xs active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
                               >
-                                Restaurar
+                                <RotateCcw size={14} />
                               </button>
-                              <span className="text-slate-400">|</span>
                               <button
                                 type="button"
-                                onClick={() => setMessageToDelete({ id: item.id, isPermanent: true })}
-                                className="text-[9.5px] font-black uppercase text-rose-600 hover:text-rose-800 transition-colors tracking-widest hover:underline cursor-pointer bg-transparent border-0 outline-none"
+                                onClick={() => setMessageToDelete({ id: item.id, ids: conv.multiplos ? conv.copias.map(c => c.id) : undefined, isPermanent: true })}
+                                title={t('Eliminar permanentemente')}
+                                aria-label="Eliminar permanentemente"
+                                data-acao="eliminar"
+                                className="w-8 h-8 rounded-full flex items-center justify-center bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all cursor-pointer shadow-xs active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
                               >
-                                Eliminar
+                                <Trash2 size={14} />
                               </button>
-                            </div>
+                            </>
                           ) : (
                             <button
                               type="button"
-                              onClick={() => setMessageToDelete({ id: item.id, isPermanent: false })}
-                              className="text-[9.5px] font-black uppercase text-rose-600 hover:text-rose-800 transition-colors tracking-widest hover:underline cursor-pointer bg-transparent border-0 outline-none"
+                              onClick={() => setMessageToDelete({ id: item.id, ids: conv.multiplos ? conv.copias.map(c => c.id) : undefined, isPermanent: false })}
+                              title={t('Eliminar')}
+                              aria-label="Eliminar"
+                              data-acao="eliminar"
+                              className="w-8 h-8 rounded-full flex items-center justify-center bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all cursor-pointer shadow-xs active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
                             >
-                              Eliminar
+                              <Trash2 size={14} />
                             </button>
                           )}
                         </div>
@@ -2378,14 +2826,14 @@ export function MailContent({
                 })}
               </tbody>
             </table>
-            {filteredMessages.length > limiteListaCorreio && (
+            {linhasConversa.length > limiteListaCorreio && (
               <div className="p-3 text-center bg-white border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setLimiteListaCorreio(l => l + 200)}
                   className="px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-wider text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors cursor-pointer border-none"
                 >
-                  Mostrar mais ({filteredMessages.length - limiteListaCorreio} linha(s) restante(s))
+                  Mostrar mais ({linhasConversa.length - limiteListaCorreio} linha(s) restante(s))
                 </button>
               </div>
             )}
@@ -2426,12 +2874,16 @@ export function MailContent({
                 <Trash2 size={32} className="text-red-600" />
               </div>
               <h3 className="text-xl font-black text-primary mb-3">
-                {messageToDelete.isPermanent ? t("Eliminar Permanentemente?") : t("Eliminar Correspondência?")}
+                {messageToDelete.ids && messageToDelete.ids.length > 1
+                  ? (messageToDelete.isPermanent ? t("Eliminar Conversa Permanentemente?") : t("Eliminar Conversa?"))
+                  : (messageToDelete.isPermanent ? t("Eliminar Permanentemente?") : t("Eliminar Correspondência?"))}
               </h3>
               <p className="text-slate-600 text-sm leading-relaxed mb-8">
-                {messageToDelete.isPermanent 
-                  ? t("Deseja eliminar permanentemente esta correspondência oficial? Ela não será mais visível no seu portal, mas continuará registada no sistema do Estado.")
-                  : t("Tem a certeza que deseja eliminar esta correspondência oficial? A cópia da outra parte só é removida quando ela também eliminar.")}
+                {messageToDelete.ids && messageToDelete.ids.length > 1
+                  ? t(`Esta conversa foi enviada a ${messageToDelete.ids.length} destinatários — todas as ${messageToDelete.ids.length} cópias serão eliminadas da sua caixa. Deseja continuar?`)
+                  : (messageToDelete.isPermanent 
+                    ? t("Deseja eliminar permanentemente esta correspondência oficial? Ela não será mais visível no seu portal, mas continuará registada no sistema do Estado.")
+                    : t("Tem a certeza que deseja eliminar esta correspondência oficial? A cópia da outra parte só é removida quando ela também eliminar."))}
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <button 
@@ -2445,7 +2897,7 @@ export function MailContent({
                   type="button"
                   onClick={() => {
                     if (onDeleteMessage) {
-                      onDeleteMessage(messageToDelete.id);
+                      for (const id of (messageToDelete.ids && messageToDelete.ids.length > 1 ? messageToDelete.ids : [messageToDelete.id])) onDeleteMessage(id);
                     }
                     setMessageToDelete(null);
                   }}

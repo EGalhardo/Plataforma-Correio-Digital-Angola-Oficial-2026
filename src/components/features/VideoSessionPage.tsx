@@ -1,3 +1,4 @@
+import { ListaRolavel } from '../ui/ListaRolavel';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -27,7 +28,6 @@ import {
   CameraOff,
   Mic,
   MicOff,
-  ArrowLeft,
   History,
   Shield,
   VideoOff,
@@ -38,6 +38,9 @@ import {
   AlertTriangle,
   Trash2
 } from 'lucide-react';
+import type { AppNotification } from '../../types';
+import { ligarNotificacoesSessoes, tipoPorAlvoTitulo } from '../../utils/notificacoesAtalhos';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { useLanguage } from '../../hooks/useLanguage';
 import { notify } from '../../lib/notify';
 import { useSession } from '../../services/sessionStore';
@@ -48,6 +51,7 @@ import { generateProtocol } from '../../utils/protocolGenerator';
 import type { Message } from '../../types';
 import { WebRTCVideoCallRoom } from './WebRTCVideoCallRoom';
 import { CdaModal } from '../ui/CdaModal';
+import { getAudioContext, playCallConnectSound, playCallDisconnectSound } from '../../utils/audioEffects';
 
 // 2026-09-02 — FORMATO DE DATA EUROPEU (DD/MM/AAAA): o input HTML type="date"
 // retorna a data no formato ISO 8601 (AAAA-MM-DD), mas em Angola usamos o
@@ -74,6 +78,8 @@ interface VideoSessionPageProps {
   instCode?: string;
   instDisplayName?: string;
   sessionDemo?: boolean;
+  /** Avisos da sessão (mesma fonte do badge do atalho) para assinalar sessões. */
+  notifications?: AppNotification[];
 }
 
 // mockSessions com atendimentos disponíveis e 1 sessão de demonstração sempre activa
@@ -121,15 +127,25 @@ const mockSessions = [
   }
 ];
 
-export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '', instCode = '', instDisplayName = '', sessionDemo = false }: VideoSessionPageProps) {
+export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '', instCode = '', instDisplayName = '', sessionDemo = false, notifications = [] }: VideoSessionPageProps) {
   const { t } = useLanguage();
   const { user, activeProfile } = useSession();
+  // Avisos não lidos de vídeo (mesma classificação do badge do atalho).
+  const avisosVideo = useMemo(
+    () => notifications.filter(n => n.unread !== false && tipoPorAlvoTitulo(n) === 'video-atendimento'),
+    [notifications],
+  );
   
   const currentDisplayName = isInst 
     ? (instDisplayName || activeProfile?.institutionName || (user?.name ? `${user.name} (INAPEM)` : 'Agente Institucional'))
     : (user?.name || activeProfile?.name || 'Cidadão');
 
   const [sessions, setSessions] = useState<any[]>([]);
+  // Sessões assinaladas com os avisos que lhes dizem respeito (soma = badge).
+  const avisosPorSessao = useMemo(
+    () => ligarNotificacoesSessoes(avisosVideo, (sessions || []).map(s => ({ id: String(s.id), subject: s.subject }))),
+    [avisosVideo, sessions],
+  );
 
   // ==========================================================================
   // 2026-08-22 — AGENDAMENTO pela INSTITUIÇÃO (qualquer cidadão registado)
@@ -343,6 +359,19 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isInCall, setIsInCall] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+
+  // 2026-09-22 («Partilha de tela» como toggle) — o botão de partilha da barra
+  // da página só age DENTRO de chamada: antes, tocá-lo no estado de espera
+  // apenas acendia o botão (bg-primary) sem captura nenhuma — um estado
+  // fantasma que confundia. Em chamada, o clique alterna a partilha real
+  // (a sala executa iniciar/parar e devolve a câmara ao parar).
+  const handleTogglePartilhaBarra = () => {
+    if (!isInCall) return;
+    setIsScreenSharing(!isScreenSharing);
+  };
+  const tituloPartilhaBarra = isInCall
+    ? (isScreenSharing ? 'Parar Partilha de Tela' : 'Partilha de Tela')
+    : 'Partilha de Tela (disponível durante a chamada)';
   
   const [isLargeScreen, setIsLargeScreen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true);
 
@@ -410,6 +439,10 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
   const inProgressCount = sessions.filter(s => s.status === 'em_curso').length;
   
   const handleStartCall = (session: SessaoPagina) => {
+    try {
+      getAudioContext();
+      playCallConnectSound();
+    } catch {}
     setSelectedSession(session);
     setIsInCall(true);
     setCallDuration(0);
@@ -417,8 +450,8 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
     setIsVideoOn(true);
     setIsAudioOn(true);
     // 2026-08-22 — estado persistido (Modo Real via proxy): o outro
-    // participante vê a sessão "Em Curso" e entra na MESMA sala Jitsi —
-    // a chamada é em tempo real (áudio/vídeo WebRTC do meet.jit.si).
+    // participante vê a sessão "Em Curso" e entra na MESMA sala —
+    // a chamada é em tempo real com áudio e vídeo WebRTC nativos.
     if (!String(session.id).startsWith('sessao-') && !String(session.id).startsWith('vs-')) {
       void VideoSessionService.updateSessionStatus(session.id, 'em_curso');
     }
@@ -426,11 +459,12 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
   };
   
   const handleEndCall = () => {
+    try {
+      playCallDisconnectSound();
+    } catch {}
     if (selectedSession) {
       // 2026-08-22 (v2) — SAIR da sala NÃO conclui o agendamento: o registo
-      // permanece na Agenda até eliminação deliberada (o dono reportou que
-      // entrar "só para verificar" + sair fazia o agendamento desaparecer —
-      // o status passava a 'concluida' e a Agenda deixa de o mostrar).
+      // permanece na Agenda até eliminação deliberada.
       VideoSessionService.updateSessionStatus(selectedSession.id, 'agendada');
       addAuditLog?.(`Saiu da sala de vídeo "${selectedSession.subject}" — o agendamento mantém-se na Agenda até ser eliminado deliberadamente.`, 'info');
     }
@@ -445,17 +479,22 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <button onClick={onBack} className="w-10 h-10 md:w-12 md:h-12 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700">
-            <ArrowLeft size={18} className="md:w-5 md:h-5" />
-          </button>
+          <BotaoVoltar onClick={onBack} />
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
-              <Video size={24} />
-            </div>
+            <span className="p-2 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+              <img
+                src="https://i.postimg.cc/4dqQVgDS/Video-Atendimento-(1).png"
+                alt="Video-Atendimento"
+                loading="lazy"
+                className="h-[72px] w-[72px] md:h-[88px] md:w-[88px] object-contain rounded-xl"
+              />
+            </span>
             <div>
               <h3 className="text-lg md:text-2xl font-black text-primary leading-tight">{t("VideoAtendimento")}</h3>
-              <p className="text-[10px] md:text-sm text-slate-600 font-black uppercase tracking-widest">
-                {availableCount + inProgressCount} atendimentos disponíveis
+              <p className="text-xs md:text-sm text-slate-500 font-medium">
+                {t(isInst
+                  ? "Atenda cidadãos à distância, de forma simples e organizada."
+                  : "Fale com as instituições à distância, de forma simples e cómoda.")}
               </p>
             </div>
           </div>
@@ -484,9 +523,9 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
         </div>
       </div>
 
-      <div className={`grid grid-cols-1 ${activeTab === 'video' && selectedSession ? '' : 'lg:grid-cols-3'} gap-6`}>
+      <div className={`grid grid-cols-1 ${selectedSession && activeTab !== 'video' ? 'lg:grid-cols-3' : ''} gap-6`}>
         {/* Left Column */}
-        <div className={`${activeTab === 'video' && selectedSession ? 'w-full' : 'lg:col-span-2'} space-y-4`}>
+        <div className={`${selectedSession && activeTab !== 'video' ? 'lg:col-span-2' : 'w-full'} space-y-4`}>
           {/* Tabs */}
           <div className="bg-white border border-slate-200 rounded-2xl p-1.5 flex gap-1 dark:bg-slate-900 dark:border-slate-700">
             {[
@@ -525,6 +564,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                 isVideoOn={isVideoOn}
                 isAudioOn={isAudioOn}
                 isScreenSharing={isScreenSharing}
+                    onScreenShareChange={setIsScreenSharing}
                 currentUserRole={isInst ? 'institution' : 'citizen'}
                 currentUserName={currentDisplayName}
                 remoteUserName={isInst ? (selectedSession.guestName || 'Cidadão') : (selectedSession.hostName || 'Agente Institucional')}
@@ -544,6 +584,11 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
               {activeTab === 'ajuda' && 'Guias e Tutorial'}
               {activeTab === 'video' && 'VideoAtendimento Oficial em Tempo Real'}
             </h4>
+            {avisosVideo.length > 0 && (activeTab === 'agenda' || activeTab === 'historico') && (
+              <p data-avisos-video={avisosVideo.length} className="text-[11px] font-bold text-red-600 mb-3" aria-live="polite">
+                {avisosVideo.length} {t(avisosVideo.length === 1 ? 'aviso não lido' : 'avisos não lidos')} — {t('sessões assinaladas abaixo')}
+              </p>
+            )}
             
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
@@ -554,7 +599,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                 {/* Agenda — container "Atendimentos Disponíveis" com acabamento premium no modo escuro
                     (fundo #091124 + cards glassmorphism; modo claro inalterado — ver index.css html.dark .cda-video-agenda*) */}
                 {activeTab === 'agenda' && (
-                  <div className="space-y-3 cda-video-agenda">
+                  <ListaRolavel count={sessions.filter(s => s.status === 'disponivel' || s.status === 'agendada' || s.status === 'em_curso').length} label="Atendimentos disponíveis" className="cda-video-agenda">
                     {sessions
                       .filter(s => s.status === 'disponivel' || s.status === 'agendada' || s.status === 'em_curso')
                       .map(session => {
@@ -572,6 +617,11 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                                 <div className="flex items-center gap-2 mb-1">
                                   <span className={`w-2 h-2 rounded-full ${statusConfig.color}`} />
                                   <span className={`text-[10px] font-black uppercase text-slate-500 cda-video-agenda-label ${statusConfig.semClass}`}>{statusConfig.text}</span>
+                                  {!!avisosPorSessao.get(String(session.id))?.length && (
+                                    <span data-sessao-aviso={session.id} className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wide">
+                                      {avisosPorSessao.get(String(session.id))!.length} {t(avisosPorSessao.get(String(session.id))!.length === 1 ? 'aviso' : 'avisos')}
+                                    </span>
+                                  )}
                                 </div>
                                 <h5 className="text-sm font-black text-slate-800 mb-1 cda-video-agenda-title">{session.subject}</h5>
                                 <div className="flex items-center gap-3 text-[10px] text-slate-500 cda-video-agenda-meta">
@@ -616,11 +666,11 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                         </p>
                       </div>
                     )}
-                  </div>
+                  </ListaRolavel>
                 )}
 
                 {/* Histórico */}
-                {activeTab === 'historico' && sessions
+                {activeTab === 'historico' && <ListaRolavel count={sessions.filter(s => s.status === 'concluida' || s.status === 'cancelada').length} label="Histórico de sessões">{sessions
                   .filter(s => s.status === 'concluida' || s.status === 'cancelada')
                   .map(session => {
                     const statusConfig = getStatusConfig(session.status);
@@ -628,7 +678,13 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                       <div key={session.id} className={`p-4 border ${statusConfig.border} ${statusConfig.bg} ${statusConfig.borderDark} ${statusConfig.bgDark} rounded-2xl opacity-75`}>
                         <div className="flex items-center justify-between">
                           <div>
-                            <span className="text-[10px] font-black uppercase text-slate-500 mb-1 block dark:text-slate-400">{statusConfig.text}</span>
+                            <span className="text-[10px] font-black uppercase text-slate-500 mb-1 block dark:text-slate-400">{statusConfig.text}
+                              {!!avisosPorSessao.get(String(session.id))?.length && (
+                                <span data-sessao-aviso={session.id} className="ml-2 px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wide">
+                                  {avisosPorSessao.get(String(session.id))!.length} {t(avisosPorSessao.get(String(session.id))!.length === 1 ? 'aviso' : 'avisos')}
+                                </span>
+                              )}
+                            </span>
                             <h5 className="text-xs font-black text-slate-700 dark:text-slate-200">{session.subject}</h5>
                             <p className="text-[9px] text-slate-500 mt-0.5 dark:text-slate-400">{session.date} - {session.time}</p>
                           </div>
@@ -636,7 +692,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                         </div>
                       </div>
                     );
-                  })}
+                  })}</ListaRolavel>}
 
                 {/* Calendário */}
                 {activeTab === 'calendario' && (
@@ -707,7 +763,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                           <button onClick={() => setIsVideoOn(!isVideoOn)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isVideoOn ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600' : 'bg-red-500 text-white'}`}>
                             {isVideoOn ? <Camera size={18} /> : <CameraOff size={18} />}
                           </button>
-                          <button onClick={() => setIsScreenSharing(!isScreenSharing)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isScreenSharing ? 'bg-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600'}`}>
+                          <button onClick={handleTogglePartilhaBarra} title={tituloPartilhaBarra} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isScreenSharing ? 'bg-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600'}`}>
                             <Monitor size={18} />
                           </button>
                           {isInCall ? (
@@ -766,6 +822,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                     isVideoOn={isVideoOn}
                     isAudioOn={isAudioOn}
                     isScreenSharing={isScreenSharing}
+                    onScreenShareChange={setIsScreenSharing}
                     currentUserRole={isInst ? 'institution' : 'citizen'}
                     currentUserName={currentDisplayName}
                     remoteUserName={isInst ? (selectedSession.guestName || 'Cidadão') : (selectedSession.hostName || 'Agente Institucional')}
@@ -786,7 +843,7 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                   <button onClick={() => setIsVideoOn(!isVideoOn)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isVideoOn ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-red-500 text-white'}`}>
                     {isVideoOn ? <Camera size={18} /> : <CameraOff size={18} />}
                   </button>
-                  <button onClick={() => setIsScreenSharing(!isScreenSharing)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isScreenSharing ? 'bg-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                  <button onClick={handleTogglePartilhaBarra} title={tituloPartilhaBarra} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-0 cursor-pointer ${isScreenSharing ? 'bg-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
                     <Monitor size={18} />
                   </button>
                   {isInCall ? (
@@ -813,7 +870,10 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
                 </div>
               </motion.div>
             ) : (
-              <div className="bg-white border border-slate-200 rounded-[24px] p-5 shadow-sm">
+              // 2026-09-15 — em desktop (lg+) o placeholder do lado direito deixa de
+              // ser exibido: a área esquerda ocupa a largura útil (harmonia do layout).
+              // No telemóvel continua a apresentar-se abaixo do conteúdo (comportamento inalterado).
+              <div className="bg-white border border-slate-200 rounded-[24px] p-5 shadow-sm lg:hidden">
                 <div className="text-center py-8">
                   <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Video size={28} className="text-indigo-600" />
@@ -834,13 +894,13 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
           B.I. real — nada de nomes inventados).
           ========================================================================== */}
       {showAgendar && isInst && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-[9999] flex items-start justify-center p-4 overflow-y-auto overscroll-contain" role="dialog" aria-modal="true">
           {/* 2026-08-22 — fundo PRETO translúcido (preto cinzento) com blur;
               o popup fica SEMPRE por cima (portal no <body>, acima de todo o
               layout da aplicação). */}
           <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" onClick={() => setShowAgendar(false)} />
 
-          <div className="relative w-full max-w-[520px] bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 overflow-hidden animate-fadeIn">
+          <div className="relative w-full max-w-[520px] bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] border border-slate-100 overflow-hidden my-auto animate-fadeIn">
             {/* Cabeçalho do popup */}
             <div className="flex items-center gap-4 text-left relative shrink-0 p-6 md:p-10 pb-0">
               <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center shrink-0 border border-indigo-100/40 shadow-sm">

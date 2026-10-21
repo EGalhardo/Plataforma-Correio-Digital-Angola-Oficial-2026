@@ -103,12 +103,10 @@ export const nextAdminAgentNumber = (existing: string[]): string => {
   return `ADMIN-${String(max + 1).padStart(4, '0')}`;
 };
 
-/** A senha identifica a pessoa — sem repetições dentro da área Admin. */
-export const isAdminAgentPasswordTaken = (password: string, excludeAgent?: string): boolean => {
-  if (!password) return false;
-  const ex = normalizeAgentNumber(excludeAgent);
-  return readCreds().some(c => normalizeAgentNumber(c.agent) !== ex && c.password === password);
-};
+/** 2026-09-13 — SENHAS REPETIDAS PERMITIDAS (decisão do dono): a identidade
+ *  do agente é o Nº (ADMIN-NNNN), nunca a senha. Mantida por compatibilidade de
+ *  API — devolve sempre false (nunca se revela que uma senha «já existe»). */
+export const isAdminAgentPasswordTaken = (_password: string, _excludeAgent?: string): boolean => false;
 
 export const addAdminAgent = (cred: AdminAgentCred): void => {
   const creds = readCreds().filter(c => normalizeAgentNumber(c.agent) !== normalizeAgentNumber(cred.agent));

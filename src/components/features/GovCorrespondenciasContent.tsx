@@ -22,10 +22,10 @@ import {
   ShieldCheck,
   Cpu,
   Share2,
-  ArrowLeft,
   Loader2,
   Trash2
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { CdaConfirmModal } from '../ui/CdaConfirm';
 import { Correspondence } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -323,13 +323,7 @@ export function GovCorrespondenciasContent({
       <div className="pb-6 md:pb-16 font-sans animate-fadeIn">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 py-3 md:py-6 border-b border-slate-100 mb-4 md:mb-8">
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => setShowVideoPage(false)}
-              className="w-10 h-10 md:w-12 md:h-12 bg-slate-150 hover:bg-slate-200 text-slate-700 rounded-2xl flex items-center justify-center transition-all active:scale-95 border border-slate-300 cursor-pointer"
-              title="Voltar"
-            >
-              <ArrowLeft size={18} className="md:w-5 md:h-5" />
-            </button>
+            <BotaoVoltar onClick={() => setShowVideoPage(false)} />
             <div>
               <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter italic uppercase leading-none font-sans flex items-center gap-2">
                 Video Atendimento
@@ -353,6 +347,8 @@ export function GovCorrespondenciasContent({
       
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 py-3 md:py-6 border-b border-slate-100 mb-4 md:mb-8">
+        <div className="flex items-center gap-4">
+        <BotaoVoltar />
         <div>
           <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter italic uppercase leading-none font-sans flex items-center gap-2">
             Correspondências Digitais
@@ -364,6 +360,7 @@ export function GovCorrespondenciasContent({
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping inline-block" />
             VIGILÂNCIA DE COMUNICAÇÕES &bull; ASSINATURAS RECONHECIDAS
           </div>
+        </div>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-3">

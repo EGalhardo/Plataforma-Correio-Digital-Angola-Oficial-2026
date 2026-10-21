@@ -6,14 +6,16 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { CdaModal } from '../ui/CdaModal';
+import { CronogramaDenuncia } from './CronogramaDenuncia';
+import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia, ehAssuntoQualquerDenuncia, faseDeEstado, definicaoFase } from '../../services/denunciaCore';
 import { notify } from '../../lib/notify';
 import { responderSondagem, buscarSondagem, resultadosSondagem, type Sondagem } from '../../services/sondagemService';
 import { isStorageRef, resolveStorageUrl, buildStorageRef } from '../../lib/secureStorage';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
-  ArrowLeft,
   Calendar,
+  CalendarClock,
   Clock,
   MapPin,
   Check,
@@ -71,9 +73,17 @@ import {
   Sparkles,
   Loader2,
   Video,
-  BarChart3
+  BarChart3,
+  MessagesSquare
 } from 'lucide-react';
-import { Message, SENSITIVITY_LEVELS, PRIORITY_CONFIGS, ReplySendPayload, ReplySendResult } from '../../types';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
+import { estadoExpiracao } from '../../utils/dataExpiracao';
+import { Message, CorrespondenceStateEvent, SENSITIVITY_LEVELS, PRIORITY_CONFIGS, ReplySendPayload, ReplySendResult } from '../../types';
+// 2026-09-10 — Inquérito com IA conversacional (PROMPT v3 §4.2): botão
+// «Iniciar Inquérito» na correspondência do cidadão + chat em popup.
+import { InqueritoIaChat } from './InqueritoIaChat';
+import { InqueritoIaResultados } from './InqueritoIaResultados';
+import { buscarInqueritoIA, minhaRespostaInqueritoIA, contadoresInqueritoIA, type InqueritoIA, type RespostaInqueritoIA, type ContadoresInqueritoIA } from '../../services/inqueritoIaService';
 import { generateProtocol, generateTimelineEvents, getCategoryMetadata, canonicalProtocolPayload, sealProtocolContent, buildQrCodeDeepLink } from '../../utils/protocolGenerator';
 import { supabaseService, resolveInstitutionCode } from '../../services/supabaseService';
 import { VideoSessionPanel } from './VideoSessionPanel';
@@ -81,6 +91,11 @@ import { useLanguage } from '../../hooks/useLanguage';
 import { QrCodeImage } from '../ui/QrCodeImage';
 import { AssistenteDocumento } from './AssistenteDocumento';
 import { SondagemResponderCard } from './SondagemResponderCard';
+
+// 2026-09-22 (auditoria BUG-002) — TIPOS DE ANEXO: mesma fonte única usada no
+// compositor institucional (MailContent). A lista já existia SÓ no atributo
+// `accept` do campo de anexos; passa a ser também a validação de verdade.
+const ANEXOS_TIPOS_ACEITES = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif', '.txt', '.csv', '.xls', '.xlsx', '.ppt', '.pptx', '.zip'];
 
 const STATE_STYLING: Record<string, { bg: string; text: string; border: string; bgDot: string; textIcon: string }> = {
   'Enviada': { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', bgDot: 'bg-emerald-200', textIcon: 'text-emerald-600' },
@@ -270,6 +285,9 @@ interface MessageDetailProps {
   cidadaoBi?: string;
   /** v36 — auditoria global (usada pelo cartão de sondagem). */
   addAuditLog?: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
+  /** 2026-09-12 (T53) — cronograma da denúncia: true quando a sessão é o
+   *  RESPONSÁVEL da plataforma da instituição destinatária (pode activar fases). */
+  podeGerirDenuncia?: boolean;
 }
 
 export function MessageDetail({
@@ -286,20 +304,64 @@ export function MessageDetail({
   backTab,
   cidadaoBi,
   addAuditLog,
+  podeGerirDenuncia,
 }: MessageDetailProps) {
   const { t } = useLanguage();
 
   // ---- v37.4 — respostas às sondagens consolidadas no «Responder ao Documento»
-  const idsSondagem: number[] = (
-    selectedMessage?.sondagem_ids?.length
-      ? (selectedMessage?.sondagem_ids as (number | string)[])
-      : (selectedMessage?.sondagem_id ? [selectedMessage?.sondagem_id] : [])
-  ).map(Number);
+  const idsSondagem: number[] = Array.from(new Set([
+    ...(Array.isArray(selectedMessage?.sondagem_ids) ? selectedMessage.sondagem_ids : []),
+    ...(selectedMessage?.sondagem_id ? [selectedMessage.sondagem_id] : []),
+    ...((selectedMessage as any)?.sondagemId ? [(selectedMessage as any).sondagemId] : []),
+  ])).map(Number).filter(n => Number.isFinite(n) && n > 0);
   const [sondDetalhe, setSondDetalhe] = useState<Record<number, Sondagem>>({});
   const [respSond, setRespSond] = useState<Record<number, { escolhas: string[]; registada: boolean }>>({});
   const [confirmaSond, setConfirmaSond] = useState(false);
   const [popupSond, setPopupSond] = useState<{ ok: boolean; texto: string } | null>(null);
+  // 2026-09-12 (T53) — avisos do cronograma da denúncia (regra/permissão/sucesso).
+  const [avisoDenuncia, setAvisoDenuncia] = useState<{ texto: string; tipo: 'success' | 'error' | 'info' } | null>(null);
+  // 2026-09-23 (T-v37.79) — «Denuncia» (marca «[REGISTO DE DENÚNCIA]») partilha
+  // o cronograma do Livro de Reclamações: a máquina de fases é a mesma.
+  const ehDenunciaActual = ehAssuntoQualquerDenuncia(selectedMessage.details?.subject || selectedMessage.preview);
   const [registandoSond, setRegistandoSond] = useState(false);
+
+  // 2026-10-02 — Detecção e navegação direta para o Módulo de Ocorrências Locais
+  const ehOcorrencia = (() => {
+    const subj = (selectedMessage.details?.subject || selectedMessage.preview || '').toLowerCase();
+    const body = (selectedMessage.details?.body || '').toLowerCase();
+    const actions = selectedMessage.details?.actions || [];
+    return (
+      subj.includes('ocorrência') ||
+      subj.includes('ocorrencia') ||
+      body.includes('registo oficial de ocorrência') ||
+      body.includes('registo oficial de ocorrencia') ||
+      actions.some((a: string) => a === 'OCORRENCIA' || a.startsWith('OCORRENCIA_ID:') || a.startsWith('OCORRENCIA_NUM:')) ||
+      !!(selectedMessage as any).ocorrencia_id ||
+      !!(selectedMessage as any).ocorrenciaId
+    );
+  })();
+
+  const ocorrenciaIdAlvo = (() => {
+    if ((selectedMessage as any).ocorrencia_id) return String((selectedMessage as any).ocorrencia_id);
+    if ((selectedMessage as any).ocorrenciaId) return String((selectedMessage as any).ocorrenciaId);
+    const actions = selectedMessage.details?.actions || [];
+    const actId = actions.find((a: string) => a.startsWith('OCORRENCIA_ID:'));
+    if (actId) return actId.replace('OCORRENCIA_ID:', '').trim();
+    const actNum = actions.find((a: string) => a.startsWith('OCORRENCIA_NUM:'));
+    if (actNum) return actNum.replace('OCORRENCIA_NUM:', '').trim();
+    const matchNum = (selectedMessage.details?.subject || selectedMessage.preview || '').match(/(?:OC-|OCORR-\d+-)?(\d{6})/i);
+    if (matchNum) return matchNum[1];
+    return null;
+  })();
+
+  const handleNavegarParaOcorrencia = () => {
+    if (ocorrenciaIdAlvo) {
+      localStorage.setItem('cda_target_ocorrencia', ocorrenciaIdAlvo);
+    }
+    addAuditLogToMessage('Navegou para a página de Ocorrências Locais');
+    addAuditLog?.('Navegou para a página de Ocorrências Locais a partir da correspondência', 'info');
+    setTab('ocorrencias');
+  };
 
   // ---- v37.7 — «Sondagem» contextual da instituição: a opção só existe DENTRO
   // da correspondência seleccionada (a que pertence), nunca solta no Correio.
@@ -308,6 +370,204 @@ export function MessageDetail({
   const [sondInstVotos, setSondInstVotos] = useState<Record<number, { rotulo: string; votos: number }[]>>({});
   const [sondInstCarregando, setSondInstCarregando] = useState(false);
   const ehInstSondagem = !cidadaoBi && idsSondagem.length > 0;
+
+  // ---- 2026-09-10 — Inquérito com IA (cidadão): estado do(s) inquérito(s) embutido(s)
+  const idsInqIA: number[] = Array.from(new Set([
+    ...(Array.isArray(selectedMessage?.inquerito_ia_ids) ? selectedMessage.inquerito_ia_ids : []),
+    ...(selectedMessage?.inquerito_ia_id ? [selectedMessage.inquerito_ia_id] : []),
+    ...((selectedMessage as any)?.inqueritoIaId ? [(selectedMessage as any).inqueritoIaId] : []),
+  ])).map(Number).filter((n) => Number.isFinite(n) && n > 0);
+  const [inqIaItens, setInqIaItens] = useState<Record<number, InqueritoIA>>({});
+  const [inqIaMinha, setInqIaMinha] = useState<Record<number, RespostaInqueritoIA | null>>({});
+  const [inqIaAberto, setInqIaAberto] = useState<InqueritoIA | null>(null);
+  // 2026-09-11 — vista da INSTITUIÇÃO: container com estado + «Ver Resultados»
+  const [inqIaContadores, setInqIaContadores] = useState<Record<number, ContadoresInqueritoIA>>({});
+  const [inqIaResultados, setInqIaResultados] = useState<InqueritoIA | null>(null);
+  useEffect(() => {
+    if (idsInqIA.length === 0) return;
+    let vivo = true;
+    (async () => {
+      for (const id of idsInqIA) {
+        const r = await buscarInqueritoIA(id);
+        if (!vivo) return;
+        if (r.ok && r.dados) {
+          setInqIaItens((p) => ({ ...p, [id]: r.dados as InqueritoIA }));
+          if (cidadaoBi) {
+            const m = await minhaRespostaInqueritoIA(id, cidadaoBi);
+            if (!vivo) return;
+            setInqIaMinha((p) => ({ ...p, [id]: m.ok ? (m.dados ?? null) : null }));
+          } else {
+            const c = await contadoresInqueritoIA(r.dados as InqueritoIA);
+            if (!vivo) return;
+            setInqIaContadores((p) => ({ ...p, [id]: c }));
+          }
+        }
+      }
+    })();
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cidadaoBi, selectedMessage?.id]);
+  const recarregarMinhaRespostaIA = async (id: number) => {
+    if (!cidadaoBi) return;
+    const m = await minhaRespostaInqueritoIA(id, cidadaoBi);
+    setInqIaMinha((p) => ({ ...p, [id]: m.ok ? (m.dados ?? null) : null }));
+  };
+  const marcarRespondidaIA = () => {
+    if (!selectedMessage || !onUpdateMessage) return;
+    if (selectedMessage.details?.state === 'Respondida') return;
+    const agora = new Date();
+    onUpdateMessage({
+      ...selectedMessage,
+      details: selectedMessage.details ? { ...selectedMessage.details, state: 'Respondida' } : undefined,
+      auditLogs: [...(selectedMessage.auditLogs || []), `${agora.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })} - Inquérito com IA concluído pelo cidadão`],
+    });
+
+    const instDestinataria = String(
+      selectedMessage?.senderKey || 
+      selectedMessage?.org || 
+      (selectedMessage as any)?.sender_bi || 
+      (selectedMessage as any)?.senderBi || 
+      ''
+    ).trim().toUpperCase();
+
+    if (instDestinataria) {
+      void supabaseService.insertNotification({
+        title: 'Resposta ao Inquérito IA',
+        message: `O cidadão ${cidadaoBi || 'participante'} respondeu e concluiu o inquérito com IA da correspondência «${selectedMessage?.details?.subject || selectedMessage?.preview}».`,
+        type: 'info',
+        targetTab: 'inqueritos',
+      }, instDestinataria);
+    }
+  };
+  // Cartões «Iniciar Inquérito» (um por inquérito embutido) — só na área do cidadão.
+  const inqIaJsx = cidadaoBi && idsInqIA.length > 0 ? (
+    <div className="mt-8 space-y-3" data-testid="inquerito-ia-cartoes">
+      {idsInqIA.map((id) => {
+        const q = inqIaItens[id];
+        const minha = inqIaMinha[id];
+        if (!q) return null;
+        const encerrado = q.status === 'encerrado';
+        const concluido = minha?.estado === 'concluido';
+        const emCurso = minha?.estado === 'em_curso' && (minha.historico?.length || 0) > 0;
+        const dataConc = concluido && minha?.concluido_em ? new Date(minha.concluido_em).toLocaleDateString('pt-PT') : null;
+        return (
+          <div key={`inq-ia-${id}`} className="rounded-2xl border border-indigo-100 bg-white shadow-sm overflow-hidden" data-testid="inquerito-ia-cartao">
+            <div className="px-5 py-4 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100 flex items-center gap-2.5">
+              <span className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0"><MessagesSquare size={16} /></span>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-500 m-0">Inquérito com IA · {q.instituicao_nome}</p>
+                <p className="text-sm font-bold text-slate-800 leading-snug m-0">{q.guiao?.objectivo || q.o_que_pretende_saber}</p>
+              </div>
+            </div>
+            <div className="px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-[11px] font-medium text-slate-500 m-0">
+                {encerrado
+                  ? 'Este inquérito já foi encerrado pela instituição.'
+                  : concluido
+                    ? 'Obrigado — a sua participação foi registada.'
+                    : `Uma conversa breve${q.canal === 'texto' ? ' por texto' : ' por texto ou voz'}, anónima, com até ${q.guiao?.maxPerguntas || 10} perguntas.`}
+              </p>
+              {concluido ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-black uppercase tracking-wider border border-emerald-100" data-testid="inquerito-ia-respondido">
+                  <Check size={13} /> Respondido{dataConc ? ` em ${dataConc}` : ''}
+                </span>
+              ) : encerrado ? (
+                <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-slate-100 text-slate-500 text-[11px] font-black uppercase tracking-wider">Inquérito encerrado</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setInqIaAberto(q)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black uppercase tracking-widest border-0 cursor-pointer shadow active:scale-95 transition-all"
+                  id={`btn-iniciar-inquerito-ia-${id}`}
+                >
+                  <MessagesSquare size={14} /> {emCurso ? 'Retomar Inquérito' : 'Iniciar Inquérito'}
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+      {inqIaAberto && cidadaoBi && (
+        <InqueritoIaChat
+          aberto
+          onFechar={() => { const id = inqIaAberto.id; setInqIaAberto(null); void recarregarMinhaRespostaIA(id); }}
+          inquerito={inqIaAberto}
+          cidadaoBi={cidadaoBi}
+          onConcluido={() => {
+            marcarRespondidaIA();
+            setInqIaAberto(null);
+            setSelectedMessage(null);
+            setTab('home');
+          }}
+          addAuditLog={addAuditLog}
+        />
+      )}
+    </div>
+  ) : null;
+
+  // Container «Inquérito com IA» na correspondência ENVIADA (instituição):
+  // estado desta correspondência (o cidadão respondeu? — pelo state_indicator,
+  // nunca pelo conteúdo), contadores globais e «Ver Resultados» (agregados).
+  const inqIaInstJsx = !cidadaoBi && idsInqIA.length > 0 ? (
+    <div className="mt-6 space-y-3" data-testid="inquerito-ia-cartoes-inst">
+      {idsInqIA.map((id) => {
+        const q = inqIaItens[id];
+        const c = inqIaContadores[id];
+        const respondida = selectedMessage?.details?.state === 'Respondida';
+        const ehDifusao = /^todos$/i.test(String(selectedMessage?.recipientBi || (selectedMessage as any)?.recipient_bi || ''));
+        return (
+          <div key={`inq-ia-inst-${id}`} className="rounded-2xl border border-indigo-100 bg-white shadow-sm overflow-hidden" data-testid="inquerito-ia-cartao-inst">
+            <div className="px-5 py-4 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100 flex items-center gap-2.5">
+              <span className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0"><MessagesSquare size={16} /></span>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-500 m-0">Inquérito com IA · anexado a esta correspondência</p>
+                <p className="text-sm font-bold text-slate-800 leading-snug m-0">{q ? (q.guiao?.objectivo || q.o_que_pretende_saber) : 'A carregar…'}</p>
+              </div>
+            </div>
+            <div className="px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
+              <div className="min-w-0">
+                {!ehDifusao && (
+                  respondida ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-black uppercase tracking-wider border border-emerald-100" data-testid="inquerito-ia-inst-respondido">
+                      <Check size={13} /> Este cidadão respondeu
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-black uppercase tracking-wider border border-amber-100" data-testid="inquerito-ia-inst-pendente">
+                      Ainda sem resposta deste cidadão
+                    </span>
+                  )
+                )}
+                <p className="text-[11px] font-medium text-slate-500 m-0 mt-1.5 tabular-nums">
+                  {q && <span className={q.status === 'ativo' ? 'text-emerald-600 font-bold' : 'text-slate-500 font-bold'}>{q.status}</span>}
+                  {c && <> · <b className="text-slate-700">{c.enviados}</b> enviados · <b className="text-blue-700">{c.iniciados}</b> iniciados · <b className="text-emerald-700">{c.concluidos}</b> concluídos · <b className="text-rose-700">{c.recusados}</b> recusados</>}
+                </p>
+                <p className="text-[10px] font-medium text-slate-400 m-0 mt-1 flex items-center gap-1"><Lock size={10} /> As respostas são anónimas — só os resultados agregados podem ser consultados.</p>
+              </div>
+              <button
+                type="button"
+                disabled={!q}
+                onClick={() => q && setInqIaResultados(q)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-[11px] font-black uppercase tracking-widest border-0 cursor-pointer shadow active:scale-95 transition-all"
+                id={`btn-resultado-inquerito-ia-${id}`}
+              >
+                <BarChart3 size={14} /> Resultado
+              </button>
+            </div>
+          </div>
+        );
+      })}
+      {inqIaResultados && (
+        <InqueritoIaResultados
+          aberto
+          onFechar={() => setInqIaResultados(null)}
+          inquerito={inqIaResultados}
+          addAuditLog={addAuditLog}
+          onEncerrado={(id) => setInqIaItens((p) => (p[id] ? { ...p, [id]: { ...p[id], status: 'encerrado' } } : p))}
+        />
+      )}
+    </div>
+  ) : null;
+
   const abrirSondagensInstituicao = async () => {
     setSondInstAberta(true);
     if (idsSondagem.every(id => sondInstItens[id] && sondInstVotos[id])) return;
@@ -332,33 +592,47 @@ export function MessageDetail({
   };
   const sondInstJsx = ehInstSondagem ? (
     <>
-      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <BarChart3 size={16} className="text-indigo-600 shrink-0" />
+      <div className="rounded-2xl border border-indigo-100 bg-white shadow-sm overflow-hidden mt-6" data-testid="sondagem-cartao-inst">
+        <div className="px-5 py-4 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100 flex items-center gap-2.5">
+          <span className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0"><BarChart3 size={16} /></span>
           <div className="min-w-0">
-            <p className="text-[12px] font-black text-[#0c2340] uppercase tracking-widest m-0">Sondagem</p>
-            <p className="text-[11px] font-semibold text-slate-500 m-0">{idsSondagem.length} enquete(s) anexada(s) a esta correspondência</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-500 m-0">Inquérito / Sondagem · Anexado a esta correspondência</p>
+            <p className="text-sm font-bold text-slate-800 leading-snug m-0">{idsSondagem.length} enquete(s)/inquérito(s) nesta mensagem</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => { void abrirSondagensInstituicao(); }}
-          className="px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer border-none shadow-sm"
-        >
-          Ver Sondagem
-        </button>
+        <div className="px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            {selectedMessage?.details?.state === 'Respondida' ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-black uppercase tracking-wider border border-emerald-100" data-testid="sondagem-inst-respondido">
+                <Check size={13} /> Este cidadão respondeu
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-black uppercase tracking-wider border border-amber-100" data-testid="sondagem-inst-pendente">
+                Ainda sem resposta deste cidadão
+              </span>
+            )}
+            <p className="text-[11px] font-medium text-slate-500 m-0 mt-1.5">
+              Consulte as respostas e o apuramento de votos em tempo real.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => { void abrirSondagensInstituicao(); }}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black uppercase tracking-widest border-0 cursor-pointer shadow active:scale-95 transition-all"
+            id="btn-resultado-sondagem"
+          >
+            <BarChart3 size={14} /> Resultado
+          </button>
+        </div>
       </div>
       <CdaModal
         aberto={sondInstAberta}
         onFechar={() => setSondInstAberta(false)}
         icone={BarChart3}
-        titulo="Sondagem"
+        titulo="Resultados do Inquérito / Sondagem"
         subtitulo="Enquetes desta correspondência"
         maxW="max-w-xl"
       >
-        {/* v37.35 — corpo do popup com rolagem vertical própria: com muitas
-            enquetes anexadas a lista cresce além da caixa (max-h-[95vh] com
-            overflow-hidden) e o fundo ficava cortado sem forma de descer. */}
         <div className="space-y-3 text-left max-h-[62vh] overflow-y-auto overscroll-contain pr-2">
           {sondInstCarregando && (
             <p className="text-[12px] font-semibold text-slate-500 m-0 flex items-center gap-2">
@@ -368,20 +642,39 @@ export function MessageDetail({
           {idsSondagem.map(id => {
             const s = sondInstItens[id];
             const votos = sondInstVotos[id];
+            const totalVotos = votos ? votos.reduce((acc, v) => acc + (v.votos >= 0 ? v.votos : 0), 0) : 0;
             return (
-              <div key={id} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 m-0 mb-1">Pergunta</p>
+              <div key={id} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 m-0">Pergunta</p>
+                  {votos && (
+                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-full px-2 py-0.5">
+                      Total: {totalVotos} resposta(s)
+                    </span>
+                  )}
+                </div>
                 <p className="text-[13px] font-bold text-slate-800 m-0">{s?.pergunta || 'A carregar…'}</p>
                 {s && (
                   <>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-3 mb-1.5 m-0">Opções</p>
-                    <ul className="m-0 pl-4 space-y-1">
-                      {(votos || s.opcoes.map(o => ({ rotulo: o.texto, votos: -1 }))).map((o, i) => (
-                        <li key={i} className="text-[12px] font-semibold text-slate-700">
-                          {o.rotulo}{o.votos >= 0 ? <span className="text-slate-400"> — {o.votos} voto(s)</span> : null}
-                        </li>
-                      ))}
-                    </ul>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-2.5 mb-1.5 m-0">Opções e Votos</p>
+                    <div className="space-y-1.5">
+                      {(votos || s.opcoes.map(o => ({ rotulo: o.texto, votos: -1 }))).map((o, i) => {
+                        const pct = totalVotos > 0 && o.votos > 0 ? Math.round((o.votos / totalVotos) * 100) : 0;
+                        return (
+                          <div key={i} className="rounded-lg bg-white border border-slate-200 p-2.5">
+                            <div className="flex justify-between items-center text-xs font-bold text-slate-800 mb-1">
+                              <span>{o.rotulo}</span>
+                              <span className="text-indigo-600 font-mono">{o.votos >= 0 ? `${o.votos} voto(s) (${pct}%)` : '—'}</span>
+                            </div>
+                            {totalVotos > 0 && (
+                              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                <div className="bg-indigo-600 h-full rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                     <p className="text-[10px] font-semibold text-slate-400 mt-2 m-0">
                       Estado: {s.status} · Âmbito: {s.abrangencia === 'nacional' ? 'Nacional' : s.abrangencia === 'regional' ? 'Regional' : 'Local'}
                     </p>
@@ -428,6 +721,33 @@ export function MessageDetail({
     setRegistandoSond(false);
     setConfirmaSond(false);
     addAuditLog?.(`Cidadão confirmou respostas a ${idsSondagem.length} sondagem(s) via «Responder ao Documento».`, 'info');
+
+    // Actualizar estado da mensagem para Respondida
+    if (onUpdateMessage && selectedMessage) {
+      onUpdateMessage({
+        ...selectedMessage,
+        details: selectedMessage.details ? { ...selectedMessage.details, state: 'Respondida' } : undefined,
+      });
+    }
+
+    // Emitir notificação para a instituição emissora
+    const instDestinataria = String(
+      selectedMessage?.senderKey || 
+      selectedMessage?.org || 
+      (selectedMessage as any)?.sender_bi || 
+      (selectedMessage as any)?.senderBi || 
+      ''
+    ).trim().toUpperCase();
+
+    if (instDestinataria) {
+      void supabaseService.insertNotification({
+        title: 'Resposta ao Inquérito / Sondagem',
+        message: `O cidadão ${cidadaoBi} respondeu ao inquérito/sondagem da correspondência: «${selectedMessage?.details?.subject || selectedMessage?.preview}».`,
+        type: 'info',
+        targetTab: 'inqueritos',
+      }, instDestinataria);
+    }
+
     setPopupSond({ ok: true, texto: 'Respostas registadas com sucesso. Obrigado pela sua participação.' });
   };
   // v37.5 — fechar o popup de sucesso («Resposta Registada») volta à página
@@ -555,6 +875,22 @@ export function MessageDetail({
           {popupSond?.ok ? 'Concluir' : 'Fechar'}
         </button>
       </CdaModal>
+      <CdaModal
+        aberto={!!avisoDenuncia}
+        onFechar={() => setAvisoDenuncia(null)}
+        icone={avisoDenuncia?.tipo === 'success' ? CheckCircle2 : AlertTriangle}
+        titulo={avisoDenuncia?.tipo === 'success' ? 'Fase Activada' : 'Cronograma da Denúncia'}
+        subtitulo={avisoDenuncia?.tipo === 'success' ? 'Cronograma actualizado' : 'Acção não permitida'}
+        tomIcone={avisoDenuncia?.tipo === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}
+        maxW="max-w-md"
+      >
+        <div className={`rounded-2xl border p-5 text-center ${avisoDenuncia?.tipo === 'success' ? 'bg-gradient-to-b from-emerald-50/80 to-white border-emerald-100' : 'bg-amber-50/70 border-amber-100'}`} data-testid="aviso-denuncia">
+          <p className="text-sm font-semibold text-slate-700 m-0 leading-relaxed">{avisoDenuncia?.texto}</p>
+        </div>
+        <div className="flex justify-center pt-1">
+          <button type="button" onClick={() => setAvisoDenuncia(null)} className="px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer border-none shadow-sm" id="btn-aviso-denuncia-fechar">Fechar</button>
+        </div>
+      </CdaModal>
     </>
   );
   const messageDate = selectedMessage.date && selectedMessage.date.includes('/')
@@ -662,6 +998,9 @@ export function MessageDetail({
     return 'Rua Deolinda Rodrigues, n-227, Benfica, Luanda';
   };
   const messageLocality = getMessageLocality(selectedMessage);
+  // 2026-09-11 (T45) — Data de Expiração escolhida pelo remetente no compositor
+  // (messages.deadline_at; fallback ao rótulo DD/MM/YYYY de details.deadline).
+  const expiracao = estadoExpiracao(selectedMessage.deadlineAt, selectedMessage.details?.deadline);
 
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [showLocationPage, setShowLocationPage] = useState(false);
@@ -1285,8 +1624,17 @@ depende de integração futura com a infra-estrutura de chaves nacional.
     if (!files) return;
     const isFileExist = (name: string) => inlineAttachedFiles.some(f => f.name === name);
     const reads: Promise<{ name: string; size: string; content?: string; type?: string }>[] = [];
+    // 2026-09-22 (auditoria BUG-002) — guarda de TIPO, igual à do compositor
+    // institucional: a lista vive no atributo `accept` do próprio campo; um
+    // ficheiro de outro tipo deixa de ser anexado em silêncio e passa a ser
+    // recusado com aviso no ecrã (o mesmo bloco de erro já existente).
+    const tipoRecusado: string[] = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      if (!ANEXOS_TIPOS_ACEITES.includes(`.${(file.name.split('.').pop() || '').toLowerCase()}`)) {
+        tipoRecusado.push(`«${file.name}»`);
+        continue;
+      }
       if (isFileExist(file.name)) continue;
       const sz = file.size;
       const sizeStr = sz < 1024 ? `${sz} B` : sz < 1024 * 1024 ? `${(sz / 1024).toFixed(1)} KB` : `${(sz / (1024 * 1024)).toFixed(1)} MB`;
@@ -1318,6 +1666,9 @@ depende de integração futura com a infra-estrutura de chaves nacional.
         } else localFallback();
       }));
     }
+    setDetailReplyError(tipoRecusado.length
+      ? `${tipoRecusado.join(', ')} — tipo de ficheiro não permitido nos anexos. Formatos aceites: ${ANEXOS_TIPOS_ACEITES.join(', ')}.`
+      : null);
     Promise.all(reads).then(newFiles => {
       if (newFiles.length) setInlineAttachedFiles(prev => [...prev, ...newFiles]);
     });
@@ -2101,6 +2452,10 @@ depende de integração futura com a infra-estrutura de chaves nacional.
   if (showLocationPage) {
     const currentQuery = mapQuery || messageLocality;
     const isSatellite = mapType === 'satellite';
+    // 2026-09-18 — o pino é o marcador nativo do Google Maps (o embed com `q=`
+    // desenha-o no local e este acompanha o mapa ao arrastar/zoom). O antigo
+    // pino sobreposto (PinoMapa) ficava fixo no centro do contentor e, ao
+    // puxar o mapa para o lado, não acompanhava o local — removido desta vista.
     const embedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(currentQuery)}&t=${isSatellite ? 'k' : ''}&z=16&ie=UTF8&iwloc=&output=embed`;
     const openInNewTabUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(currentQuery)}`;
     const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(currentQuery)}`;
@@ -2119,13 +2474,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
         {/* Header with Back Arrow and Title */}
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => setShowLocationPage(false)}
-              className="text-[#384e6e] hover:text-slate-900 hover:bg-slate-100/60 p-2.5 rounded-full transition-all cursor-pointer flex items-center justify-center border border-slate-200 shadow-3xs bg-white"
-              title="Voltar ao Detalhe" aria-label="Voltar ao Detalhe"
-            >
-              <ArrowLeft size={24} />
-            </button>
+            <BotaoVoltar onClick={() => setShowLocationPage(false)} titulo="Voltar ao Detalhe" />
             <div>
               <span className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest leading-none block mb-1">
                 {t("Tramitação de Correspondência")}
@@ -2297,20 +2646,32 @@ depende de integração futura com a infra-estrutura de chaves nacional.
         className="space-y-6 pt-2 pb-6 text-left"
       >
         <div className="flex items-center">
-          <button 
-            type="button"
-            onClick={() => setActiveAction(null)}
-            className="text-[#384e6e] hover:text-slate-900 hover:bg-slate-100/60 p-2 rounded-full transition-all cursor-pointer flex items-center justify-center border-0 outline-none"
-            title="Voltar" aria-label="Voltar"
-          >
-            <ArrowLeft size={24} />
-          </button>
+          <BotaoVoltar onClick={() => setActiveAction(null)} />
         </div>
 
         <div className="bg-white p-8 md:p-11 rounded-[24px] border border-slate-300 shadow-[0_8px_30px_rgb(0,0,0,0.03)] selection:bg-indigo-100 select-text">
-          <div className="flex items-center gap-3 mb-8 text-[#0c2340]">
-            <FileText size={24} className="text-[#0c2340]" />
-            <span className="font-sans font-extrabold text-[#0c2340] text-base md:text-lg">Conteúdo do Documento</span>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-8 text-[#0c2340]">
+            <div className="flex items-center gap-3">
+              <FileText size={24} className="text-[#0c2340]" />
+              <span className="font-sans font-extrabold text-[#0c2340] text-base md:text-lg">Conteúdo do Documento</span>
+            </div>
+            {/* 2026-09-11 (T45) — Data de Expiração também na vista completa */}
+            <div
+              className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 ${expiracao.definida ? (expiracao.expirada ? 'bg-rose-50 border-rose-200' : 'bg-red-50/70 border-red-200') : 'bg-slate-50 border-slate-200'}`}
+              data-testid="completo-data-expiracao"
+              title={expiracao.descricao || undefined}
+            >
+              <CalendarClock size={14} className={expiracao.definida ? (expiracao.expirada ? 'text-rose-600' : 'text-[#e05252]') : 'text-slate-400'} />
+              <div className="leading-none">
+                <span className="text-[8px] font-black text-slate-400 block uppercase tracking-wider">Data de Expiração</span>
+                <span className={`text-xs font-bold font-mono mt-0.5 block ${expiracao.definida ? (expiracao.expirada ? 'text-rose-700' : 'text-[#e05252]') : 'text-slate-500'}`}>
+                  {expiracao.rotulo}
+                  {expiracao.definida && expiracao.descricao && (
+                    <span className="ml-1.5 font-sans font-semibold text-[9px] uppercase tracking-wider opacity-80">· {expiracao.descricao}</span>
+                  )}
+                </span>
+              </div>
+            </div>
           </div>
           {selectedMessage.details?.body && selectedMessage.details.body.trim().length > 0 ? (
             <div className="space-y-6 text-slate-700 text-sm md:text-[15px] leading-relaxed tracking-wide font-sans">
@@ -2368,6 +2729,10 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               </React.Fragment>
             ))
           ) : null}
+
+          {/* 2026-09-10 — Inquérito com IA: cartão «Iniciar Inquérito» (cidadão) */}
+          {inqIaJsx}
+          {inqIaInstJsx}
 
           {/* v37.7 — Sondagem contextual (instituição): só dentro da correspondência */}
           {sondInstJsx}
@@ -2939,16 +3304,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
       className="space-y-4"
     >
       <div className="flex items-center justify-between gap-3">
-        <button 
-          onClick={() => {
-            setTab(backTab || 'correspondencias');
-            setSelectedMessage(null);
-          }}
-          className="text-[#384e6e] hover:text-slate-900 hover:bg-slate-100/60 p-2 rounded-full transition-all cursor-pointer flex items-center justify-center border-0 outline-none"
-          title="Voltar ao Correio" aria-label="Voltar ao Correio"
-        >
-          <ArrowLeft size={24} />
-        </button>
+        <BotaoVoltar />
         
         <div className="flex items-center gap-2">
           {isDeleted ? (
@@ -3072,43 +3428,9 @@ depende de integração futura com a infra-estrutura de chaves nacional.
         </div>
       )}
 
-      {/* Q-2 — QR de localização: todas as correspondências têm QR para abrir
-          directamente na plataforma (deep-link) e validar na nuvem. */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-center gap-4 print:hidden">
-        <div
-          onClick={triggerVerification}
-          className="flex flex-col items-center shrink-0 border border-emerald-200 bg-emerald-50/40 p-2 rounded-xl shadow-sm cursor-pointer hover:bg-emerald-50 hover:border-emerald-300 active:scale-95 transition-all group"
-          title="Digitalize para localizar esta correspondência na plataforma" aria-label="Digitalize para localizar esta correspondência na plataforma"
-        >
-          <QrCodeImage
-            value={storedProtocol?.qr_code_url || protocol.qrCodeUrl}
-            size={92}
-            className="w-[92px] h-[92px] object-contain transition-transform group-hover:scale-105"
-          />
-          <span className="text-[7.5px] font-mono text-emerald-700 uppercase mt-1.5 tracking-wider font-black flex items-center gap-1 leading-none">
-            <QrCode size={8} /> VALIDAR QR
-          </span>
-        </div>
-        <div className="flex-1 min-w-0 text-left space-y-1.5">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">QR Code de Localização</span>
-          <p className="text-xs font-bold text-slate-700 leading-relaxed">
-            Digitalize com o telemóvel para abrir esta correspondência directamente na plataforma.
-          </p>
-          <p className="font-mono text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1 inline-block">
-            {protocol.protocolNumber}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={copiarLinkQr}
-          className="shrink-0 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-extrabold text-[10px] uppercase tracking-wide transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-          title="Copiar ligação da correspondência" aria-label="Copiar ligação da correspondência"
-        >
-          <QrCode size={13} />
-          {qrLinkCopiado ? 'Copiado ✓' : 'Copiar ligação'}
-        </button>
-      </div>
-
+      {/* 2026-09-12 — o cartão superior «QR Code de Localização» foi removido:
+          a página passa a ter UM único QR (o cartão «QR Code de Localização»
+          da grelha do protocolo, mais abaixo), que absorveu «Copiar ligação». */}
       <section className={`border border-line rounded-2xl p-5 bg-white shadow-sm relative overflow-hidden select-none print:hidden ${sensConfig.screenshotProtection ? 'selection:bg-transparent' : ''}`}>
         <AnimatePresence mode="wait">
           {activeOfficialAction ? (
@@ -3121,16 +3443,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
             >
               {/* Header */}
               <div className="flex items-center gap-3 pb-4 border-b border-slate-150">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveOfficialAction(null);
-                  }}
-                  className="flex items-center justify-center w-10 h-10 bg-white border-2 border-[#d1dbe5] rounded-full text-[#384e6e] hover:bg-slate-50 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
-                  title="Voltar" aria-label="Voltar"
-                >
-                  <ArrowLeft size={16} className="text-[#384e6e]" />
-                </button>
+                <BotaoVoltar onClick={() => setActiveOfficialAction(null)} />
                 <div className="text-left">
                   <h4 className="font-extrabold text-[#111A2E] text-sm md:text-base flex items-center gap-1.5 uppercase tracking-wide">
                      Trâmite Oficial: {activeOfficialAction}
@@ -3793,13 +4106,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
               className="space-y-6"
             >
               <div className="flex items-center gap-3 pb-4 border-b border-line">
-                <button 
-                  onClick={() => setActiveAction(null)}
-                  className="flex items-center justify-center w-10 h-10 bg-white border-2 border-[#d1dbe5] rounded-full text-[#384e6e] hover:bg-slate-50 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
-                  title="Voltar" aria-label="Voltar"
-                >
-                  <ArrowLeft size={16} className="text-[#384e6e]" />
-                </button>
+                <BotaoVoltar onClick={() => setActiveAction(null)} />
                 <div>
                   <h4 className="font-bold text-primary">{activeAction}</h4>
                   <p className="text-sm text-slate-600 uppercase tracking-wider">{selectedMessage.org}</p>
@@ -3869,6 +4176,10 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         </React.Fragment>
                       ))
                     ) : null}
+
+                    {/* 2026-09-10 — Inquérito com IA: cartão «Iniciar Inquérito» (cidadão) */}
+                    {inqIaJsx}
+                    {inqIaInstJsx}
 
                     {/* v37.7 — Sondagem contextual (instituição): só dentro da correspondência */}
                     {sondInstJsx}
@@ -4148,7 +4459,10 @@ depende de integração futura com a infra-estrutura de chaves nacional.
 
                       <div className="space-y-6">
                         {(selectedMessage.stateHistory || generateTimelineEvents(selectedMessage, protocol)).map((evt, idx) => {
-                          const config = STATE_STYLING[evt.state] || {
+                          // 2026-09-12 (T53) — eventos «DENUNCIA:<fase>» ganham rótulo legível.
+                          const faseDen = faseDeEstado(evt.state);
+                          const rotuloEstado = faseDen ? `Denúncia · ${definicaoFase(faseDen)?.rotulo || faseDen}` : evt.state;
+                          const config = STATE_STYLING[evt.state] || (faseDen ? STATE_STYLING['Entregue'] : undefined) || {
                             bg: 'bg-slate-50',
                             text: 'text-slate-800',
                             border: 'border-slate-200',
@@ -4166,7 +4480,7 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                               <div className="flex flex-wrap items-center gap-2">
                                 {/* State chip */}
                                 <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border leading-none tracking-tight uppercase ${config.bg} ${config.text} ${config.border}`}>
-                                  {evt.state}
+                                  {rotuloEstado}
                                 </span>
 
                                 {/* Timestamp */}
@@ -4307,9 +4621,55 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                       <span className="text-xs font-bold text-slate-900 mt-0.5 block md:max-w-md leading-relaxed underline decoration-dotted decoration-indigo-500/40 group-hover:text-indigo-700">{messageLocality}</span>
                     </div>
                   </div>
+                  <div className="w-[1px] h-5 bg-slate-200 hidden sm:block" />
+                  {/* 2026-09-11 (T45) — Data de Expiração definida pelo remetente */}
+                  <div className="flex items-center gap-2 min-w-0" data-testid="detalhe-data-expiracao" title={expiracao.descricao || undefined}>
+                    <CalendarClock size={13} className={`${expiracao.definida ? (expiracao.expirada ? 'text-rose-600' : 'text-[#e05252]') : 'text-slate-400'} shrink-0`} />
+                    <div>
+                      <span className="text-[8px] font-black text-slate-400 block uppercase tracking-wider font-display leading-none">Data de Expiração</span>
+                      <span className={`text-xs font-bold font-mono mt-0.5 block leading-none ${expiracao.definida ? (expiracao.expirada ? 'text-rose-700' : 'text-[#e05252]') : 'text-slate-500'}`}>
+                        {expiracao.rotulo}
+                        {expiracao.definida && expiracao.descricao && (
+                          <span className="ml-1.5 font-sans font-semibold text-[9px] uppercase tracking-wider opacity-80">· {expiracao.descricao}</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
               <p className="text-slate-700 mb-6 leading-relaxed font-medium text-[11px] md:text-base">{t(selectedMessage.preview)}</p>
+
+              {/* VINCULAÇÃO OFICIAL: OCORRÊNCIA LOCAL */}
+              {ehOcorrencia && (
+                <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-3xl p-5 md:p-6 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-3xs">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                      <MapPin size={22} />
+                    </div>
+                    <div className="min-w-0 text-left">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800">Módulo Oficial de Ocorrências Locais</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      </div>
+                      <h4 className="text-sm md:text-base font-black text-slate-900 truncate mt-0.5">
+                        {selectedMessage.details?.subject || selectedMessage.preview}
+                      </h4>
+                      <p className="text-xs text-slate-600 mt-0.5 font-medium">
+                        Consulte a localização no mapa, histórico de tramitação e gerencie o incidente.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    data-testid="btn-ver-ocorrencia-destaque"
+                    onClick={handleNavegarParaOcorrencia}
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md transition-all shrink-0 hover:scale-[1.02] active:scale-95 cursor-pointer"
+                  >
+                    <MapPin size={14} />
+                    Ver Ocorrência
+                  </button>
+                </div>
+              )}
 
               {/* v37.77 — ANEXOS na vista de página completa: esta variante (a
                   que abre no Correio) NÃO tinha SECÇÃO DE ANEXOS — a imagem
@@ -4459,13 +4819,21 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3 text-slate-700">
-                            <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center shrink-0 border border-blue-600">
-                              <Calendar size={16} className="text-white" />
+                          {/* 2026-09-11 (T45) — Data de Expiração (antes «Prazo Limite Regulamentar») */}
+                          <div className="flex items-center gap-3 text-slate-700" data-testid="detalhe-grelha-data-expiracao">
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${expiracao.definida ? 'bg-[#e05252] border-[#e05252]' : 'bg-blue-600 border-blue-600'}`}>
+                              <CalendarClock size={16} className="text-white" />
                             </div>
                             <div>
-                              <small className="text-slate-500 text-[9px] md:text-xs font-black uppercase tracking-[0.15em] block leading-none mb-1">{t("Prazo Limite Regulamentar")}</small>
-                              <div className="text-xs md:text-sm font-bold text-primary">{t(selectedMessage.details.deadline || '')}</div>
+                              <small className="text-slate-500 text-[9px] md:text-xs font-black uppercase tracking-[0.15em] block leading-none mb-1">{t("Data de Expiração")}</small>
+                              <div className={`text-xs md:text-sm font-bold flex flex-wrap items-center gap-1.5 ${expiracao.definida ? (expiracao.expirada ? 'text-rose-700' : 'text-[#e05252]') : 'text-primary'}`}>
+                                <span>{expiracao.rotulo}</span>
+                                {expiracao.definida && expiracao.descricao && (
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-mono font-bold uppercase tracking-wider ${expiracao.expirada ? 'bg-rose-100 text-rose-700' : 'bg-red-50 text-[#e05252]'}`}>
+                                    {expiracao.descricao}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
 
@@ -4514,25 +4882,66 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                         </div>
                       </div>
 
-                      {/* Botão de Ver detalhes Completos */}
-                      <div className="w-full pt-6 border-t border-slate-150 flex justify-start mt-6">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveAction('Ver detalhes');
-                            addAuditLogToMessage('Visualizou detalhes completos do documento');
-                          }}
-                          className="text-xs font-black uppercase tracking-wider text-white bg-blue-950 hover:bg-blue-900 px-5 py-3 rounded-full shadow-md flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 font-bold"
-                        >
-                          <Eye size={13} className="text-white" />
-                          Ver detalhes Completos
-                        </button>
+                      {/* Botão de Ver detalhes Completos + Ver Ocorrência + (T53) cronograma da denúncia à direita */}
+                      <div className="w-full pt-6 border-t border-slate-150 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 mt-6">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveAction('Ver detalhes');
+                              addAuditLogToMessage('Visualizou detalhes completos do documento');
+                            }}
+                            className="text-xs font-black uppercase tracking-wider text-white bg-blue-950 hover:bg-blue-900 px-5 py-3 rounded-full shadow-md flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 font-bold self-start shrink-0"
+                          >
+                            <Eye size={13} className="text-white" />
+                            Ver detalhes Completos
+                          </button>
+                          {ehOcorrencia && (
+                            <button
+                              type="button"
+                              data-testid="btn-ver-ocorrencia-mensagem"
+                              onClick={handleNavegarParaOcorrencia}
+                              className="text-xs font-black uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 px-5 py-3 rounded-full shadow-md flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 font-bold self-start shrink-0"
+                            >
+                              <MapPin size={13} className="text-white" />
+                              Ver Ocorrência
+                            </button>
+                          )}
+                        </div>
+                        {ehDenunciaActual && (
+                          <CronogramaDenuncia
+                            messageId={selectedMessage.id}
+                            senderBi={selectedMessage.senderKey || (selectedMessage as any).senderBi || selectedMessage.org}
+                            subject={selectedMessage.details?.subject || selectedMessage.preview}
+                            podeGerir={!cidadaoBi && !!podeGerirDenuncia}
+                            onRegistar={(texto) => {
+                              addAuditLogToMessage(texto);
+                              addAuditLog?.(texto, 'success');
+                              // refresca «Cronologia & Estado» com o novo evento da nuvem
+                              const baseId = selectedMessage.id >= 10000 && selectedMessage.id < 90000000 ? selectedMessage.id - 10000 : selectedMessage.id;
+                              void supabaseService.getMessageStateHistory(baseId).then((history) => {
+                                if (!history || history.length === 0) return;
+                                setSelectedMessage({
+                                  ...selectedMessage,
+                                  stateHistory: history.map((event: { state?: string; event_date?: string; event_time?: string; responsible?: string; description?: string }) => ({
+                                    state: (event.state || '') as CorrespondenceStateEvent['state'],
+                                    date: event.event_date ? new Date(event.event_date).toLocaleDateString('pt-AO') : '',
+                                    time: event.event_time?.slice(0, 5) || '',
+                                    responsible: event.responsible || '',
+                                    description: event.description || '',
+                                  })),
+                                });
+                              }).catch(() => { /* melhor esforço */ });
+                            }}
+                            onAviso={(texto, tipo) => setAvisoDenuncia({ texto, tipo })}
+                          />
+                        )}
                       </div>
                     </div>
 
-                    {/* QR Code de Protocolo (Lado Direito) */}
+                    {/* QR Code de Localização (Lado Direito) — único QR da página */}
                     <div className="flex flex-col items-center justify-center p-6 bg-white rounded-3xl border border-line/60 lg:w-[280px] shrink-0 self-center lg:self-stretch">
-                      <div className="text-[10px] font-extrabold text-slate-500 uppercase tracking-[0.2em] mb-4">QR CODE DE PROTOCOLO</div>
+                      <div className="text-[10px] font-extrabold text-slate-500 uppercase tracking-[0.2em] mb-4">QR CODE DE LOCALIZAÇÃO</div>
                       <div 
                         onClick={triggerVerification}
                         className="p-3 bg-white border border-line/40 rounded-2xl shadow-md group relative overflow-hidden text-center w-full cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/10 transition-all active:scale-95 flex flex-col items-center justify-center"
@@ -4549,6 +4958,18 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                           <QrCode size={9} /> CLIQUE PARA VALIDAR
                         </span>
                       </div>
+                      <p className="text-[10px] text-slate-500 font-semibold text-center leading-relaxed mt-3 mb-0">
+                        Digitalize com o telemóvel para abrir esta correspondência directamente na plataforma.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={copiarLinkQr}
+                        className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-extrabold text-[10px] uppercase tracking-wide transition-all active:scale-95 cursor-pointer"
+                        title="Copiar ligação da correspondência" aria-label="Copiar ligação da correspondência"
+                      >
+                        <QrCode size={13} />
+                        {qrLinkCopiado ? 'Copiado ✓' : 'Copiar ligação'}
+                      </button>
                     </div>
                   </div>
                 </div>

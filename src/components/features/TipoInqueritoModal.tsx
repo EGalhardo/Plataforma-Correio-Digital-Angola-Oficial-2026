@@ -6,7 +6,7 @@
 // Padrão único de popups do app: CdaModal.
 // ============================================================================
 import { useEffect, useState } from 'react';
-import { FileText, Pencil, BrainCircuit, Check } from 'lucide-react';
+import { FileText, Pencil, MessagesSquare, Check } from 'lucide-react';
 import { CdaModal } from '../ui/CdaModal';
 
 export type TipoInquerito = 'normal' | 'ia';
@@ -19,7 +19,8 @@ interface Props {
 
 const OPCOES: { tipo: TipoInquerito; titulo: string; descricao: string; Icone: typeof Pencil }[] = [
   { tipo: 'normal', titulo: 'Inquérito Normal', descricao: 'Crie perguntas e opções manualmente.', Icone: Pencil },
-  { tipo: 'ia', titulo: 'Inquérito IA', descricao: 'A Inteligência Artificial ajuda a criar o inquérito.', Icone: BrainCircuit },
+  // 2026-09-10 — conversacional (PROMPT v3 §4.1.9)
+  { tipo: 'ia', titulo: 'Inquérito IA', descricao: 'A IA conversa com o cidadão por texto ou voz e recolhe as respostas.', Icone: MessagesSquare },
 ];
 
 export function TipoInqueritoModal({ aberto, onFechar, onConfirmar }: Props) {

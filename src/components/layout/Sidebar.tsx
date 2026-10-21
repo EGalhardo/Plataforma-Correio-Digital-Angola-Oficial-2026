@@ -102,10 +102,7 @@ export function Sidebar({
   const itensVisiveis = currentItems;
 
   return (
-    <aside className={`hidden md:flex p-5 md:w-[250px] md:rounded-[36px] shadow-2xl transition-all duration-500 shrink-0 md:sticky md:top-5 md:h-[calc(100vh-2.5rem)] flex-col border border-slate-200 dark:border-[#141d31] ${
-      appMode === 'admin' ? 'bg-white text-slate-900 shadow-indigo-900/5' : 
-      'bg-white text-slate-900 shadow-slate-200/50'
-    }`}>
+    <aside className={`hidden md:flex p-5 md:w-[250px] md:rounded-[32px] shadow-none dark:shadow-2xl transition-all duration-500 shrink-0 md:sticky md:top-5 md:h-[calc(100vh-2.5rem)] flex-col border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white`}>
       <div className="mb-8 px-4">
         {/* v37.78.33 — LOGOMARCA ÚNICA: a mesma imagem nos dois temas (claro e
             escuro), a pedido do dono — caixa fixa com rácio preservado
@@ -149,14 +146,16 @@ export function Sidebar({
               if (id !== 'correspondencias' && id !== 'documentos' && id !== 'mensagem') setSelectedMessage(null);
               if (id !== 'documento') setSelectedDoc(null);
             }}
-            className={`w-full flex items-center gap-3 px-2 py-2 rounded-xl font-bold transition-all ${
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold transition-all bg-transparent ${
               inativo
                 ? 'opacity-60 cursor-not-allowed text-slate-500 select-none'
-                : tab === id ? 'text-indigo-600' : 'bg-transparent text-slate-700 hover:text-slate-900'
+                : tab === id
+                  ? 'text-[#4F39F6] dark:text-[#4F39F6]'
+                  : 'text-slate-700 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/40'
             }`}
           >
-            <Icon size={16} className={inativo ? 'text-slate-500' : tab === id ? 'text-indigo-600' : 'text-slate-600'} />
-            <span className="text-xs tracking-tight flex items-center gap-1 whitespace-nowrap">
+            <Icon size={16} className={inativo ? 'text-slate-500' : tab === id ? 'text-[#4F39F6] dark:text-[#4F39F6]' : 'text-slate-600 dark:text-slate-400'} />
+            <span className={`text-xs tracking-tight flex items-center gap-1 whitespace-nowrap ${tab === id ? 'text-[#4F39F6] dark:text-[#4F39F6]' : ''}`}>
               {translate(label)}
               {(semPermissao || bloqueado) && (
                 <span className="text-[9px] font-bold text-red-400">
@@ -169,10 +168,10 @@ export function Sidebar({
         })}
       </nav>
 
-      <div className="mt-auto pt-6 border-t space-y-2 border-slate-300/80">
+      <div className="mt-auto pt-6 border-t space-y-2 border-slate-300/80 dark:border-slate-800">
         <button
           onClick={() => handleLogout(false)}
-          className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl font-black transition-all bg-[#0E2B64] text-white hover:bg-[#081a3d] border-0 shadow-sm cursor-pointer"
+          className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl font-black transition-all bg-[#0E2B64] text-white hover:bg-[#081a3d] border-0 shadow-none dark:shadow-sm cursor-pointer"
         >
           <LogOut size={20} className="text-white" />
           <span className="text-xs uppercase tracking-widest">{translate("Sair do Canal")}</span>

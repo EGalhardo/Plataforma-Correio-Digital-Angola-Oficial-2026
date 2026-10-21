@@ -26,6 +26,7 @@ import {
   Wallet,
   Info
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { Document, DigitalProtocol } from '../../types';
 import { generateProtocol } from '../../utils/protocolGenerator';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -538,6 +539,7 @@ export function SolicitarDocumentoContent({
       <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-[28px] p-4 md:p-6 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 mb-4 md:mb-6">
           <div className="flex items-center gap-3 text-left">
+            <BotaoVoltar />
             <div className="w-10 h-10 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center shrink-0">
               <Layers size={20} />
             </div>
@@ -986,8 +988,10 @@ export function SolicitarDocumentoContent({
                     <h4 className="text-slate-800 font-extrabold text-sm md:text-base uppercase tracking-tight">Protocolo de Varredura e Consistência Técnica</h4>
                     <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Processando verificação automática inteligente em tempo real</p>
                   </div>
-                  {!validationSuccess && (
-                    <RefreshCw className="animate-spin text-indigo-600" size={20} />
+                  {!validationSuccess ? (
+                    <ShieldCheck className="text-indigo-600" size={20} />
+                  ) : (
+                    <CheckCircle2 className="text-emerald-600" size={20} />
                   )}
                 </div>
 

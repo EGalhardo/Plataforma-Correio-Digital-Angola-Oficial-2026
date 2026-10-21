@@ -123,19 +123,16 @@ const NAV_DESTINOS: DestinoNav[] = [
   { termos: ['historico', 'histórico', 'atividades', 'atividade', 'linha do tempo'], tab: 'historico', label: 'Histórico de Atividades', papeis: ['user', 'institution', 'admin'] },
   { termos: ['notificacoes', 'notificações', 'notificacao', 'notificação', 'alerta', 'alertas', 'central de alertas'], tab: 'notificacoes', label: 'Central de Notificações', papeis: ['user', 'institution', 'admin'] },
   { termos: ['video atendimento', 'videoatendimento', 'vídeo atendimento', 'videochamada', 'vídeo chamada', 'chamada', 'conferencia', 'conferência'], tab: 'video-atendimento', label: 'Video Atendimento', papeis: ['user', 'institution', 'admin'] },
-  { termos: ['documentos', 'documento', 'certidoes', 'certidões', 'certidao', 'certidão', 'arquivo'], tab: 'documentos', label: 'Documentos', papeis: ['user', 'institution'] },
+  { termos: ['documentos', 'documento', 'certidoes', 'certidões', 'certidao', 'certidão', 'arquivo'], tab: 'documentos', label: 'Documentos', papeis: ['institution'] },
 
   // ---- Cidadão / comum ----
   { termos: ['contactos', 'contacto', 'contatos', 'contato', 'vizinhos', 'vizinho', 'emergencia', 'emergência', 'parentes', 'circulo de confiança', 'círculo de confiança', 'confianca', 'confiança'], tab: 'contactos', label: 'Contactos', papeis: ['user'] },
   { termos: ['perfil', 'minha conta', 'meu perfil', 'dados pessoais', 'biometria'], tab: 'perfil', label: 'Meu Perfil', papeis: ['user', 'institution'] },
-  { termos: ['pagamentos', 'pagamento', 'taxas', 'taxa', 'cobranca', 'cobrança', 'emolumentos', 'emolumento'], tab: 'pagamentos', label: 'Pagamentos', papeis: ['user'] },
-  { termos: ['pasta digital', 'minha pasta', 'processos digitais', 'dossier'], tab: 'pasta-digital', label: 'Pasta Digital', papeis: ['user'] },
   { termos: ['qr code', 'qr', 'codigo qr', 'código qr', 'carteira digital', 'carteira', 'passaporte', 'offline'], tab: 'qr-code', label: 'QR Code', papeis: ['user'] },
   { termos: ['solicitar documento', 'pedir documento', 'solicitacao de documento', 'pedido de documento'], tab: 'solicitar-documento', label: 'Solicitar Documento', papeis: ['user'] },
 
   // ---- Instituição ----
   { termos: ['equipa', 'colaboradores', 'colaborador', 'trabalhadores', 'trabalhador', 'membros', 'membro', 'operadores', 'operador', 'funcionarios', 'funcionário'], tab: 'gov-contatos', label: 'Equipa', papeis: ['institution'] },
-  { termos: ['pagamentos', 'pagamento', 'cobrancas', 'cobrança', 'cobrancas', 'taxas', 'emolumentos'], tab: 'inst-pagamentos', label: 'Pagamentos e Cobranças', papeis: ['institution'] },
   { termos: ['qr code', 'qr', 'validacao', 'validação', 'validar', 'codigo qr'], tab: 'inst-qrcode', label: 'Validação por QR Code', papeis: ['institution'] },
   { termos: ['ia', 'assistente ia', 'assistente', 'inteligencia artificial', 'inteligência artificial', 'base de conhecimento', 'conhecimento'], tab: 'inst-ai-assistant', label: 'Assistência IA', papeis: ['institution'] },
 
@@ -153,50 +150,66 @@ const NAV_DESTINOS: DestinoNav[] = [
   { termos: ['perfil', 'minha conta', 'perfil admin'], tab: 'gov-perfil', label: 'Perfil Admin', papeis: ['admin'] },
 ];
 
+// 2026-09-18 — nomes alinhados com as páginas que existem hoje e com as
+// apresentações de voz (services/voicePresentations.ts): removidas Pagamentos,
+// Pasta Digital e «Documentos» do cidadão; acrescentadas as páginas novas.
 const PAGE_FRIENDLY_NAMES: Record<AppMode, Record<string, string>> = {
   user: {
-    home: "Painel Principal",
-    correspondencias: "Correio Digital",
-    documentos: "Documentos e Certificados",
-    "pasta-digital": "Pasta Digital",
-    "qr-code": "QR Code e Carteira",
-    historico: "Histórico de Atividades",
-    notificacoes: "Central de Notificações",
-    contactos: "Círculo de Confiança",
-    contatos: "Círculo de Confiança",
-    pagamentos: "Pagamentos e Emolumentos",
-    perfil: "Meu Perfil",
-    "video-atendimento": "Video Atendimento"
+    home: "Painel",
+    correspondencias: "Correio",
+    contatos: "Contactos",
+    contactos: "Contactos",
+    perfil: "Perfil",
+    "qr-code": "QR Code e Carteira Digital",
+    "solicitar-documento": "Solicitar Documento",
+    historico: "Histórico",
+    notificacoes: "Centro de Notificações",
+    "video-atendimento": "Vídeo-Atendimento",
+    inqueritos: "Inquéritos",
+    ocorrencias: "Ocorrências Locais",
+    denuncias: "Livro de Reclamações",
+    "nova-denuncia": "Denuncia",
+    "directorio-orgaos": "Directório de Órgãos"
   },
   institution: {
-    home: "Painel Principal",
+    home: "Painel",
     correspondencias: "Correio Institucional",
-    documentos: "Gestão de Documentos",
     "gov-contatos": "Equipa",
     "inst-qrcode": "Validação por QR Code",
     "inst-ai-assistant": "Assistência IA",
-    "inst-pagamentos": "Pagamentos e Cobranças",
     perfil: "Perfil Institucional",
-    "video-atendimento": "Video Atendimento"
+    documentos: "Expedientes e Arquivos",
+    "qr-code": "Emissão Documental",
+    historico: "Histórico",
+    notificacoes: "Centro de Notificações",
+    "video-atendimento": "Vídeo-Atendimento",
+    inqueritos: "Inquéritos",
+    sondagens: "Sondagens",
+    ocorrencias: "Ocorrências Recebidas",
+    denuncias: "Livro de Reclamações",
+    "nova-denuncia": "Denuncia"
   },
   admin: {
-    "gov-dashboard": "Painel Principal SOC",
-    "gov-interoperabilidade": "Interoperabilidade",
+    "gov-dashboard": "Painel Nacional",
+    "gov-interoperabilidade": "Instituições",
     "gov-correspondencias": "Correspondências",
     "gov-contatos": "Cidadãos",
     "gov-trabalhadores": "Equipa",
-    "gov-emissao": "Emissão de Documentos",
-    "gov-docs": "Arquivo de Documentos",
-    "gov-documentos": "Arquivo de Documentos",
+    "gov-emissao": "Emissão (Correio Oficial)",
+    "gov-docs": "Emissão Documental",
+    "gov-documentos": "Emissão Documental",
     "gov-relatorio": "Relatórios",
-    "gov-ia": "IA (Nacional)",
-    "gov-seguranca": "Auditoria de Segurança",
-    "gov-perfil": "Perfil Admin",
-    historico: "Histórico Geral",
-    notificacoes: "Central de Notificações",
-    "video-atendimento": "Video Atendimento"
+    "gov-ia": "IA Nacional",
+    "gov-seguranca": "Auditoria e Segurança",
+    "gov-perfil": "Perfil do Administrador",
+    historico: "Histórico Operacional",
+    notificacoes: "Centro de Notificações",
+    "video-atendimento": "Vídeo-Atendimento"
   }
 };
+
+/** Chaves que são meros aliases de outra página já listada (evita botões duplicados). */
+const ALIASES_APRESENTACAO: ReadonlySet<string> = new Set(['contactos', 'gov-documentos']);
 
 interface PendingNavigation {
   targetTab: string;
@@ -968,7 +981,9 @@ export function AIChatAssistant({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
-          isGovMode: isGov,
+          appMode: appMode,
+          isGovMode: isAdmin,
+          isInstMode: isInst,
           currentPage: activeTab,
           pageContext: contextoFinal,
           language: currentLanguage
@@ -1159,7 +1174,7 @@ export function AIChatAssistant({
             {Object.keys(PAGE_PRESENTATIONS[appMode] || {})
               .filter(pageKey => {
                 const isFriendlyNamePage = PAGE_FRIENDLY_NAMES[appMode] && (pageKey in PAGE_FRIENDLY_NAMES[appMode]);
-                return isFriendlyNamePage && pageKey !== activeTab;
+                return isFriendlyNamePage && pageKey !== activeTab && !ALIASES_APRESENTACAO.has(pageKey);
               }).length > 0 && (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
@@ -1173,7 +1188,8 @@ export function AIChatAssistant({
                   {Object.keys(PAGE_PRESENTATIONS[appMode] || {})
                     .filter(pageKey => {
                       const isFriendlyNamePage = PAGE_FRIENDLY_NAMES[appMode] && (pageKey in PAGE_FRIENDLY_NAMES[appMode]);
-                      return isFriendlyNamePage && pageKey !== activeTab;
+                      // aliases da mesma página (contactos/contatos, gov-documentos/gov-docs) só uma vez na lista
+                      return isFriendlyNamePage && pageKey !== activeTab && !ALIASES_APRESENTACAO.has(pageKey);
                     })
                     .map(pageKey => {
                       const label = getPageFriendlyName(pageKey);

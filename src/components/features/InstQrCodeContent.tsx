@@ -24,9 +24,9 @@ import {
   Key,
   FileCheck,
   Keyboard,
-  ArrowLeft,
   Loader2
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 // QRCode loaded dynamically
 import { Html5Qrcode } from 'html5-qrcode';
 import { Document, Message } from '../../types';
@@ -65,6 +65,7 @@ interface ScanHistoryItem {
 }
 
 export function InstQrCodeContent({ documents, messages, onSelectMessage, addAuditLog, setTab }: InstQrCodeContentProps) {
+  void setTab; // 2026-09-11 — navegação de regresso passou para <BotaoVoltar /> (VoltarContext)
   // Main Top Mode: 'reader' | 'generator' | 'history'
   const [activeMainTab, setActiveMainTab] = useState<'reader' | 'generator' | 'history'>('reader');
 
@@ -1353,6 +1354,7 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
       {/* 1. BRANDING HEADER (Top rounded white card) */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-sm animate-fade-in" id="qr-branding-header">
         <div className="flex items-center gap-4">
+          <BotaoVoltar />
           <div className="w-[52px] h-[52px] rounded-full bg-[#0E2B64] flex items-center justify-center shadow-md shadow-[#0E2B64]/15 shrink-0">
             <QrCode className="w-[24px] h-[24px] text-white" strokeWidth={2.5} />
           </div>
@@ -1367,15 +1369,6 @@ export function InstQrCodeContent({ documents, messages, onSelectMessage, addAud
           </div>
         </div>
         <div className="flex items-center gap-3 self-start sm:self-auto">
-          {setTab && (
-            <button
-              onClick={() => setTab('home')}
-              className="bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl px-4 py-2 border border-slate-200 text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2 shadow-xs active:scale-95"
-            >
-              <ArrowLeft size={14} strokeWidth={2.5} />
-              Voltar ao Painel
-            </button>
-          )}
           <span className="bg-slate-100 border border-slate-200 text-[#0E2B64] rounded-full px-4 py-1.5 text-xs font-bold" id="scan-count-badge">
             {historyData.length} escaneados
           </span>

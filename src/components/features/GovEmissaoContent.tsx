@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, ShieldCheck, FileText, Send, User, ArrowLeft, CheckCircle2, Clock, Upload, X, Paperclip, ArrowRight, Search, Plus } from 'lucide-react';
+import { Mail, ShieldCheck, FileText, Send, User, CheckCircle2, Clock, Upload, X, Paperclip, ArrowRight, Search, Plus } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { Document, AppNotification, UserRequest } from '../../types';
 
 interface GovEmissaoContentProps {
@@ -215,17 +216,12 @@ export function GovEmissaoContent({
 
        {showForm ? (
          <div className="flex items-center justify-between mb-4">
-            <button 
-              onClick={() => setShowForm(false)}
-              className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-950 transition-colors border-0 cursor-pointer shrink-0"
-              title="Voltar ao Correio"
-            >
-              <ArrowLeft size={16} />
-            </button>
+            <BotaoVoltar onClick={() => setShowForm(false)} titulo="Voltar ao Correio" />
          </div>
        ) : (
          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
+              <BotaoVoltar />
               <div className="w-10 h-10 md:w-12 md:h-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 border border-red-100">
                 <Mail size={20} className="md:w-6 md:h-6" />
               </div>

@@ -35,8 +35,10 @@ import {
   Smartphone,
   Check,
   Copy,
-  Printer
+  Printer,
+  FileText
 } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { Message, LanguageCode } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
 
@@ -397,14 +399,7 @@ export function DocumentsContent({
         className="space-y-4 md:space-y-6 w-full"
       >
         <div className="flex items-center gap-4 mb-2">
-          <button 
-            onClick={() => setIsComposing(false)}
-            className="flex items-center justify-center w-10 h-10 bg-white border-2 border-[#d1dbe5] rounded-full text-[#384e6e] hover:bg-slate-50 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95 shrink-0"
-            aria-label="Voltar"
-            title="Voltar aos Documentos"
-          >
-            <ArrowLeft size={16} className="text-[#384e6e]" />
-          </button>
+          <BotaoVoltar onClick={() => setIsComposing(false)} titulo="Voltar aos Documentos" />
           <div>
             <h3 className="text-base md:text-xl font-black text-primary leading-none">Novo Documento Oficial</h3>
             <p className="text-[9px] md:text-[10px] text-slate-700 font-black uppercase tracking-widest mt-1">Submissão Oficial Homologada</p>
@@ -581,14 +576,7 @@ export function DocumentsContent({
 
         {/* Action Header / Top Bar (non-printable) */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 no-print bg-slate-50 border border-slate-200/80 p-4 rounded-[24px]">
-          <button 
-            type="button"
-            onClick={() => setSelectedInvoiceForDetail(null)}
-            className="flex items-center justify-center w-10 h-10 bg-white border border-[#d1dbe5] rounded-full text-[#384e6e] hover:bg-slate-50 transition-all shadow-sm cursor-pointer hover:scale-105 active:scale-95 shrink-0"
-            title="Voltar às Facturas"
-          >
-            <ArrowLeft size={16} />
-          </button>
+          <BotaoVoltar onClick={() => setSelectedInvoiceForDetail(null)} titulo="Voltar às Facturas" />
 
           <div className="flex items-center gap-2">
             {isPendente && (
@@ -827,6 +815,7 @@ export function DocumentsContent({
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
         <div className="flex items-center gap-4">
+          <BotaoVoltar />
           <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
             {isInst ? <Folder size={20} className="md:w-6 md:h-6" /> : <Receipt size={20} className="md:w-6 md:h-6" />}
           </div>
@@ -931,8 +920,50 @@ export function DocumentsContent({
         </div>
 
         {!isInst ? (
-          // --- USER INVOICES ---
-          filteredInvoicesForSelectedInst.length > 0 ? (
+          // --- USER INVOICES + RECEIVED OFFICIAL DOCUMENTS ---
+          <>
+            {/* AUDIT-FIX(F2): o cidadão nunca via os documentos oficiais
+                submetidos pelas instituições (finalFilteredDocs era calculado
+                mas só renderizado no ramo da instituição). Secção própria
+                acima das facturas; clique abre o detalhe (mensagem). */}
+            {finalFilteredDocs.length > 0 && (
+              <div className="space-y-3 pb-2">
+                <h5 className="font-black text-slate-900 text-xs md:text-sm uppercase tracking-tight flex items-center gap-2">
+                  <FileText size={16} className="text-[#0E2B64] shrink-0" />
+                  Documentos oficiais recebidos ({finalFilteredDocs.length})
+                </h5>
+                <div className="space-y-2.5">
+                  {finalFilteredDocs.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => handleSelectMessage(item)}
+                      className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-primary/30 transition-all cursor-pointer text-left space-y-1.5 active:scale-[0.99]"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shrink-0 ${
+                            item.unread
+                              ? 'bg-red-600 text-white border border-red-600'
+                              : 'bg-slate-100 text-slate-500 border border-slate-200'
+                          }`}>
+                            {item.unread ? 'Não Lido' : 'Consultado'}
+                          </span>
+                          <span className="text-[9px] font-bold text-slate-400 font-mono shrink-0">DOC: #{item.id}</span>
+                        </div>
+                        <span className="text-[9px] font-mono text-slate-400 font-bold shrink-0">{item.date}</span>
+                      </div>
+                      <div className="font-black text-slate-900 text-xs md:text-sm leading-snug break-words">
+                        {item.details?.subject || item.preview}
+                      </div>
+                      <div className="text-[10px] md:text-[11px] text-slate-500 font-semibold truncate">
+                        {item.org}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {filteredInvoicesForSelectedInst.length > 0 ? (
             <>
               {/* Mobile View: Invoice Cards */}
               <div className="block md:hidden space-y-3">
@@ -1131,6 +1162,8 @@ export function DocumentsContent({
             </div>
             </>
           ) : (
+            <>
+            {finalFilteredDocs.length === 0 ? (
             <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[24px] md:rounded-[32px] p-12 md:p-20 text-center space-y-4">
               <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm text-slate-400 border border-slate-200">
                 <Receipt size={32} />
@@ -1142,8 +1175,12 @@ export function DocumentsContent({
                 </p>
               </div>
             </div>
+            ) : null}
+            </>
+          )}
+          </>
           )
-        ) : (
+        : (
           // --- ORIGINAL DOCUMENTS TABLE ---
           finalFilteredDocs.length > 0 ? (
             <>

@@ -183,13 +183,12 @@ export const updateInstMemberProfile = (
   });
 };
 
-/** A senha é a identidade da pessoa: dentro da mesma instituição não pode haver repetição. */
-export const isInstPasswordTaken = (code: string, password: string, excludeMemberId?: string): boolean => {
-  const reg = getLocalInstReg(code);
-  if (!reg || !password) return false;
-  if (reg.password === password) return true;
-  return (reg.members || []).some(m => m.id !== excludeMemberId && m.password === password);
-};
+/** 2026-09-13 — SENHAS REPETIDAS PERMITIDAS (decisão do dono): a identidade
+ *  da pessoa é o Nº Agente (CÓDIGO-NN), nunca a senha. Duas credenciais podem
+ *  ter a mesma palavra-passe (dentro da mesma instituição ou entre contas
+ *  diferentes) e o sistema NUNCA revela que uma senha «já existe». Mantida por
+ *  compatibilidade de API — devolve sempre false. */
+export const isInstPasswordTaken = (_code: string, _password: string, _excludeMemberId?: string): boolean => false;
 
 export const setInstResponsiblePassword = (code: string, password: string): void => {
   updateLocalInstReg(code, { password });
@@ -360,18 +359,21 @@ export const countExistingAgents = async (
       return { count: 0, nextSeq: 1, error: error.message };
     }
     
-    // Contar registos únicos (evitar duplicados)
-    const uniqueAgents = new Set<string>();
+    // 2026-09-13 — o próximo Nº deriva do MAIOR sequencial já existente (a
+    // linha do código-base, sem sufixo, representa o responsável = 01). Uma
+    // instituição NOVA não tem linhas ⇒ nextSeq = 1 ⇒ o primeiro agente é o
+    // RESPONSÁVEL (CÓDIGO-01). Antes contava-se «total + 1» partindo de um
+    // responsável presumido, e o primeiro agente nascia como -02 (colaborador
+    // — que, pela regra T53, nunca vê denúncias).
+    let maxSeq = 0;
     for (const row of (data || [])) {
       const bi = String(row.bi || '').toUpperCase().trim();
-      if (bi) uniqueAgents.add(bi);
+      if (!bi) continue;
+      if (bi === code) { maxSeq = Math.max(maxSeq, 1); continue; }
+      const m = bi.match(/-(\d{2,})$/);
+      if (m) maxSeq = Math.max(maxSeq, parseInt(m[1], 10));
     }
-    
-    const totalAgents = uniqueAgents.size;
-    // Próximo sequencial = total + 1 (responsável é sempre 01)
-    const nextSeq = totalAgents + 1;
-    
-    return { count: totalAgents, nextSeq, error: null };
+    return { count: maxSeq, nextSeq: maxSeq + 1, error: null };
   } catch (e: any) {
     console.warn('[AgentCount] Exceção ao contar agentes:', e?.message || e);
     return { count: 0, nextSeq: 1, error: e?.message || 'Erro desconhecido.' };
@@ -387,12 +389,11 @@ export const countAgentsWithLocalFallback = async (
 ): Promise<{ count: number; nextSeq: number }> => {
   const code = normalizeInstCode(instCode);
   
-  // 1. Contar no store local
-  let localCount = 1; // responsável (-01) sempre existe
+  // 1. Contar no store local — 2026-09-13: sem registo local a instituição é
+  // NOVA (0 agentes ⇒ o primeiro será o responsável -01); com registo, o
+  // responsável (-01) + membros.
   const reg = getLocalInstReg(code);
-  if (reg) {
-    localCount = 1 + (reg.members || []).length;
-  }
+  const localCount = reg ? 1 + (reg.members || []).length : 0;
   
   // 2. Contar na nuvem (se disponível)
   const isReady = isSupabaseReady();

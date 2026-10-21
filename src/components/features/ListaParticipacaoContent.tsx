@@ -1,0 +1,204 @@
+import { ListaRolavel } from '../ui/ListaRolavel';
+import { useState, useEffect, useMemo } from 'react';
+import { Plus, ClipboardList, ShieldAlert, Search, ArrowRight, Bot, Flag, Megaphone, Trash2 } from 'lucide-react';
+import type { Message, AppNotification } from '../../types';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
+import { CdaConfirmModal } from '../ui/CdaConfirm';
+import { listarParticipacao, temInqueritoIA, temInqueritoNormal, filtrarAbaInquerito, type AbaInquerito } from '../../utils/listasParticipacao';
+import { novidadesPorMensagem } from '../../utils/notificacoesAtalhos';
+import { useLanguage } from '../../hooks/useLanguage';
+
+interface Props {
+  tipo: 'inqueritos' | 'denuncias' | 'nova-denuncia' | 'comunicados';
+  isInst: boolean;
+  messages: Message[];
+  notifications?: AppNotification[];
+  onOpen: (message: Message) => void;
+  onBack: () => void;
+  onCreate?: () => void;
+  onDeleteMessage?: (id: number) => void;
+}
+
+export function ListaParticipacaoContent({tipo, isInst, messages, notifications = [], onOpen, onBack, onCreate, onDeleteMessage}: Props) {
+  const {t} = useLanguage();
+  const [query, setQuery] = useState('');
+  const [aba, setAba] = useState<AbaInquerito>('normal');
+  const [itemParaEliminar, setItemParaEliminar] = useState<Message | null>(null);
+
+  useEffect(() => { setQuery(''); setAba('normal'); }, [tipo, isInst]);
+  const inqueritos = tipo === 'inqueritos';
+  const novaDenuncia = tipo === 'nova-denuncia';
+  const comunicados = tipo === 'comunicados';
+  const titulo = inqueritos ? 'Inquéritos' : novaDenuncia ? 'Denuncia' : comunicados ? 'Comunicados' : 'Livro de Reclamações';
+  const anonimizar = !inqueritos && !comunicados && isInst;
+  const base = useMemo(() => {
+    const todos = listarParticipacao(messages, tipo);
+    return inqueritos ? filtrarAbaInquerito(todos, aba) : todos;
+  }, [messages, tipo, inqueritos, aba]);
+  const lista = useMemo(() => listarParticipacao(base, tipo, query, anonimizar), [base, tipo, query, anonimizar]);
+  const total = base.length;
+  // Denúncias, Inquéritos, Comunicados e Notificações: fundem estado não lido da mensagem com alertas associados
+  const fundeNaoLidas = true;
+  const novidades = useMemo(
+    () => novidadesPorMensagem(notifications, listarParticipacao(messages, tipo), tipo, fundeNaoLidas),
+    [notifications, messages, tipo, fundeNaoLidas],
+  );
+  const itensComNovidade = lista.filter(m => {
+    const nov = novidades.porMensagem.get(m.id);
+    return nov && (nov.naoLida || nov.atualizacoes > 0);
+  }).length;
+  const Icon = inqueritos ? ClipboardList : novaDenuncia ? Flag : comunicados ? Megaphone : ShieldAlert;
+
+  return <section className="space-y-4 md:space-y-6" aria-label={t(titulo)}>
+    <header className="flex flex-wrap items-center gap-3">
+      <BotaoVoltar onClick={onBack}/>
+      <span className="p-2 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+        <img
+          src={
+            inqueritos
+              ? "https://i.postimg.cc/L4gTRJfp/Inquerito-(1).png"
+              : novaDenuncia
+                ? "https://i.postimg.cc/Qx88Q30h/Denuncia.jpg"
+                : comunicados
+                  ? "https://i.postimg.cc/d1c7SGm2/Comunicado.png"
+                  : "https://i.postimg.cc/y8j1d36z/ANIESA-2.jpg"
+          }
+          alt={t(titulo)}
+          loading="lazy"
+          className="h-[72px] w-[72px] md:h-[88px] md:w-[88px] object-contain rounded-xl"
+        />
+      </span>
+      <div className="flex-1 min-w-0"><h2 className="text-xl md:text-2xl font-black text-primary">{t(titulo)}</h2>
+        <p className="text-xs md:text-sm text-slate-500">{t(inqueritos
+          ? 'Participe em inquéritos por múltipla escolha ou através de uma conversa com IA.'
+          : novaDenuncia
+            ? isInst
+              ? 'Receba e trate denúncias com segurança, confidencialidade e rastreabilidade.'
+              : 'Apresente a sua denúncia de forma simples, segura e anónima.'
+            : comunicados
+              ? isInst
+                ? 'Emita e acompanhe comunicados oficiais dirigidos a cidadãos e instituições.'
+                : 'Receba Comunicados Oficiais de Órgãos do Estado.'
+              : isInst
+                ? 'Receba, acompanhe e responda às reclamações apresentadas pelos cidadãos.'
+                : 'Apresente a sua reclamação de forma simples, segura e acompanhe a resposta da instituição.')}</p>
+      </div>
+      {inqueritos && (
+        <div role="tablist" aria-label={t('Tipo de inquérito')} data-aba-inquerito={aba}
+          className="flex items-end gap-1.5 md:gap-5 border-b border-slate-200 overflow-x-auto custom-scrollbar-h shrink-0">
+          {([
+            { a: 'normal', rotulo: t('Normal'), Icone: ClipboardList },
+            { a: 'ia', rotulo: t('IA'), Icone: Bot },
+          ] as const).map(({ a, rotulo, Icone }) => {
+            const activo = aba === a;
+            return (
+              <button key={a} type="button" role="tab" aria-selected={activo} data-aba={a} id={`tab-inqueritos-${a}`}
+                onClick={() => { setAba(a); setQuery(''); }}
+                className={`relative flex items-center gap-2.5 px-3 md:px-6 py-2.5 md:py-3 -mb-px whitespace-nowrap text-[0.7rem] md:text-[0.9rem] font-black transition-colors bg-transparent border-0 border-b-2 cursor-pointer ${
+                  activo ? 'text-primary border-primary' : 'text-slate-400 border-transparent hover:text-slate-600'
+                }`}>
+                <Icone size={18} className="md:w-[1.4rem] md:h-[1.4rem] shrink-0" strokeWidth={activo ? 2.2 : 1.8} />
+                {rotulo}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {comunicados && isInst && onCreate && (
+        <button type="button" onClick={onCreate} className="w-full sm:w-auto shrink-0 flex items-center justify-center gap-2 bg-primary text-white rounded-2xl px-5 py-3 text-xs font-black shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-colors">
+          <Plus size={17} aria-hidden="true" />{t('Criar Comunicado')}
+        </button>
+      )}
+      {!inqueritos && !comunicados && !isInst && onCreate && <button type="button" onClick={onCreate} className="w-full sm:w-auto shrink-0 flex items-center justify-center gap-2 bg-primary text-white rounded-2xl px-5 py-3 text-xs font-black shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-colors">
+        <Plus size={17} aria-hidden="true" />{t(novaDenuncia ? 'Criar Denuncia' : 'Criar Denúncia')}
+      </button>}
+    </header>
+    <div className="relative">
+      <Search size={18} aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"/>
+      <input type="search" aria-label={t(`Procurar ${inqueritos ? 'inquéritos' : novaDenuncia ? 'denuncias' : comunicados ? 'comunicados' : 'denúncias'}`)} placeholder={t(`Procurar ${inqueritos ? 'inquéritos' : novaDenuncia ? 'denuncias' : comunicados ? 'comunicados' : 'denúncias'} por assunto ou número...`)} value={query} onChange={e=>setQuery(e.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"/>
+    </div>
+    <p className="text-xs font-bold text-slate-500" aria-live="polite" data-novidades-tab={itensComNovidade} data-avisos-orfas={novidades.orfas}>{lista.length} {t('de')} {total} {t(inqueritos ? 'mensagens com inquéritos' : novaDenuncia ? 'denuncias' : comunicados ? 'comunicados oficiais' : 'denúncias')}
+      {itensComNovidade > 0 && <span className="text-red-600"> · {itensComNovidade} {t(fundeNaoLidas ? 'não lidas' : 'com atualizações')}</span>}
+      {novidades.orfas > 0 && <span> · +{novidades.orfas} {t('avisos nas notificações')}</span>}
+    </p>
+    {lista.length === 0 ? <div className="p-8 text-center rounded-2xl border border-slate-200 bg-white text-slate-500">
+      {t(query.trim() ? 'Nenhum resultado para esta procura.' : inqueritos ? (aba === 'ia' ? 'Ainda não recebeu inquéritos com IA.' : 'Ainda não recebeu inquéritos normais.') : novaDenuncia ? (isInst ? 'Ainda não recebeu denuncias.' : 'Ainda não enviou denuncias.') : comunicados ? (isInst ? 'Ainda não emitiu comunicados oficiais.' : 'Ainda não recebeu comunicados oficiais.') : isInst ? 'Ainda não recebeu denúncias.' : 'Ainda não enviou denúncias.')}
+    </div> : <ListaRolavel count={lista.length} label={t(titulo)}>
+      {lista.map(m => {
+        const nov = novidades.porMensagem.get(m.id);
+        return (
+          <div
+            key={m.id}
+            data-msg-id={m.id}
+            className="group relative w-full min-w-0 bg-white border border-slate-200 rounded-2xl p-4 md:p-5 hover:border-primary/40 focus-within:border-primary/40 transition-colors"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => onOpen(m)}
+                className="flex-1 min-w-0 text-left space-y-2 bg-transparent border-0 p-0 cursor-pointer focus:outline-none"
+              >
+                <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-500">
+                  <span>#{m.id}</span><span>{m.date}</span>
+                  {inqueritos && <span className="text-indigo-700">{t(temInqueritoIA(m) ? temInqueritoNormal(m) ? 'Normal e com IA' : 'Com IA' : 'Normal')}</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-primary break-words">{m.details?.subject || m.preview || t(titulo)}</h3>
+                  {nov && (nov.naoLida || nov.atualizacoes > 0) && (
+                    <span data-testid={`badge-item-${m.id}`} className="shrink-0 min-w-4 h-4 px-1.5 inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[9px] font-black leading-none shadow-xs animate-pulse">
+                      {nov.atualizacoes > 0 ? nov.atualizacoes : '1'}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 break-words">{anonimizar ? t('Remetente: Anónimo') : `${t(inqueritos ? 'Instituição' : comunicados ? (isInst ? 'Destinatários' : 'Emissor') : 'Destinatário')}: ${m.org || '—'}`}</p>
+                <span className="block text-xs font-bold text-primary mt-3">{t(inqueritos ? 'Consultar inquérito' : novaDenuncia ? 'Consultar denuncia' : comunicados ? 'Consultar comunicado' : 'Consultar denúncia')}</span>
+              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {onDeleteMessage && (
+                  <button
+                    type="button"
+                    title={t("Eliminar")}
+                    data-testid={`btn-eliminar-${tipo}-${m.id}`}
+                    data-acao="eliminar"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setItemParaEliminar(m);
+                    }}
+                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer border-0 bg-transparent"
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onOpen(m)}
+                  className="p-2 text-primary hover:bg-slate-50 rounded-xl transition-colors border-0 bg-transparent cursor-pointer"
+                >
+                  <ArrowRight size={18} aria-hidden="true" className="shrink-0 text-primary" />
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </ListaRolavel>}
+
+    {itemParaEliminar && (
+      <CdaConfirmModal
+        aberto={true}
+        titulo={t(`Eliminar ${titulo}`)}
+        mensagem={t(`Tem a certeza que deseja eliminar esta correspondência de ${titulo.toLowerCase()}? Ela será movida para as Eliminadas da sua conta sem afetar a contraparte.`)}
+        textoConfirmar={t('Eliminar')}
+        textoCancelar={t('Cancelar')}
+        perigoso={true}
+        onConfirmar={() => {
+          if (onDeleteMessage && itemParaEliminar) {
+            onDeleteMessage(itemParaEliminar.id);
+          }
+          setItemParaEliminar(null);
+        }}
+        onCancelar={() => setItemParaEliminar(null)}
+      />
+    )}
+  </section>;
+}

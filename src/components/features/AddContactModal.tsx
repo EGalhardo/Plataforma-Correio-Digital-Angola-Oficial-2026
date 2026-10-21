@@ -32,6 +32,7 @@ interface ContactoForm {
 }
 
 interface AddContactModalProps {
+  institutional?: boolean;
   isAddingContact: boolean;
   setIsAddingContact: (isAdding: boolean) => void;
   contactForm: { name: string; bi: string; relation: string; phone?: string; whatsapp?: string; email?: string; type?: 'Normal' | 'Emergência' };
@@ -42,6 +43,7 @@ interface AddContactModalProps {
 }
 
 export function AddContactModal({ 
+  institutional = false,
   isAddingContact, 
   setIsAddingContact, 
   contactForm, 
@@ -83,10 +85,10 @@ export function AddContactModal({
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-xl md:text-[23px] font-black text-[#0c2340] italic uppercase tracking-tighter leading-none mb-1">
-                  Novo Contacto
+                  {institutional ? 'Nova Instituição' : 'Novo Contacto Pessoal'}
                 </h3>
                 <p className="text-blue-600 font-extrabold text-[10px] uppercase tracking-widest font-sans leading-none">
-                  PROTOCOLO DE REDES DE SEGURANÇA
+                  {institutional ? 'CONTACTOS INSTITUCIONAIS' : 'PROTOCOLO DE REDES DE SEGURANÇA'}
                 </p>
               </div>
               {/* Corner close button */}
@@ -108,7 +110,7 @@ export function AddContactModal({
                   <span>Identificação do Contacto</span>
                 </div>
 
-                <div className="space-y-1">
+                <div hidden={institutional} className="space-y-1">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Tipo de Contacto *</label>
                   <div className="bg-slate-50/50 p-1 rounded-2xl flex w-full border border-slate-200">
                     <button 
@@ -144,13 +146,13 @@ export function AddContactModal({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Nome Completo */}
                   <div className="grid gap-1.5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Nome Completo *</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{institutional ? 'Nome da Instituição *' : 'Nome Completo *'}</label>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                         <User size={15} />
                       </span>
                       <input 
-                        placeholder="Ex.: Nome completo do contacto" 
+                        placeholder={institutional ? 'Ex.: Nome oficial da instituição' : 'Ex.: Nome completo do contacto'}
                         value={contactForm.name}
                         onChange={e => setContactForm((prev) => ({ ...prev, name: e.target.value }))}
                         onBlur={() => { const n = normalizarNome(contactForm.name); if (n !== contactForm.name) setContactForm((prev) => ({ ...prev, name: n })); }}
@@ -162,24 +164,24 @@ export function AddContactModal({
 
                   {/* Número de BI Oficial */}
                   <div className="grid gap-1.5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Número de BI Oficial *</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{institutional ? 'NIF / Código Institucional *' : 'Número de BI Oficial *'}</label>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                         <CreditCard size={15} />
                       </span>
                       <input 
-                        placeholder="Introduza o número do BI" 
+                        placeholder={institutional ? 'Introduza o NIF ou código institucional' : 'Introduza o número do BI'}
                         value={contactForm.bi}
                         onChange={e => setContactForm((prev) => ({ ...prev, bi: e.target.value }))}
                         className="w-full bg-white border border-slate-200 focus:border-[#0c2340] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-800 outline-none transition-all font-mono font-bold tracking-wider placeholder:text-slate-400"
-                        maxLength={14}
+                        maxLength={institutional ? 40 : 14}
                         id="contact-bi-input"
                       />
                     </div>
                   </div>
 
-                  {/* Grau de Parentesco — F55: SELECT fechado (spec chat-approved) */}
-                  <div className="grid gap-1.5">
+                  {/* Relação aplica-se apenas aos contactos pessoais. */}
+                  <div hidden={institutional} className="grid gap-1.5">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Grau de Parentesco / Relação *</label>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10">
@@ -270,7 +272,7 @@ export function AddContactModal({
               <div className="border-t border-dashed border-slate-200 my-1" />
 
               {/* Estágio de Autorização Section */}
-              <div className="space-y-4">
+              <div hidden={institutional} className="space-y-4">
                 <div className="flex items-center gap-2 text-[#10b981] font-bold uppercase tracking-wider text-xs">
                   <CheckCircle size={16} />
                   <span>Estágio de Autorização</span>
@@ -322,7 +324,7 @@ export function AddContactModal({
                 id="confirm-add-contact-btn"
               >
                 <Check size={14} />
-                Adicionar Contacto
+                {institutional ? 'Adicionar Instituição' : 'Adicionar Contacto'}
               </button>
             </div>
           </motion.div>

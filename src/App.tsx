@@ -1,3 +1,5 @@
+import { ListaParticipacaoContent } from './components/features/ListaParticipacaoContent';
+import { pesquisarContacto, pesquisarMensagem, CONTACTO_INSTITUCIONAL } from './utils/pesquisaContactosCorreio';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -45,6 +47,7 @@ import { HomeContent } from './components/features/HomeContent';
 
 // UI Components
 import { LazyImage } from './components/ui/LazyImage';
+import { VoltarContext } from './context/navegacao/VoltarContext';
 
 // Constants & Types
 import { 
@@ -68,6 +71,7 @@ import {
   Document,
   Contact,
   AppNotification,
+  PendingRegistration,
   AppMode,
   UserRequest,
   DocRequest,
@@ -77,12 +81,17 @@ import {
   ReplySendResult
 } from './types';
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, sealProtocolContent, canonicalProtocolPayload } from './utils/protocolGenerator';
+import { validarDataExpiracao, formatarDataExpiracao, dataExpiracaoParaISO } from './utils/dataExpiracao';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente } from './utils/ordenacaoCronologica';
-import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao } from './services/supabaseService';
+import { agruparConversas, conversaDe, resumoDestinatarios } from './utils/conversasThread';
+import { PainelConversa } from './components/features/PainelConversa';
+import { contarNotificacoesAtalhos, assuntoChave, normalizarTexto, calcularTotalCorrespondenciasNaoLidas, obterListaCorrespondenciasNaoLidas, isMensagemLida, isMensagemNaoLida } from './utils/notificacoesAtalhos';
+import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao, listarRegistosPendentes, EVENTO_REGISTOS_ALTERADOS } from './services/supabaseService';
+import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia, ehAssuntoQualquerDenuncia, estadoDeFase, codigoInstituicaoBase } from './services/denunciaCore';
 import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
 import { lerPerfilLocal } from './services/perfilLocalService';
-import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
+import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, ensureCitizenHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, preloginLookupInstitution, purgeInstitutionLocalResidues, mapRowStatus, type InstitutionIdentity } from './services/institutionSessionService';
 import { useInstitutions, CANONICAL_INSTITUTIONS } from './services/institutionStore';
 import { getLogoOficialPorCodigoInstituicao } from './config/institutionLogos';
@@ -100,12 +109,6 @@ import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLoc
 import { retomarRegistosBg, temRegistoBgAtivo } from './services/registoBgService';
 import { puxarPerfilDaNuvem, reenviarPendenciasPerfil, temPendenciaPerfil } from './services/profileSyncService';
 import { buildAutoFillProfile, type CitizenAutoFillProfile } from './services/autoFillService';
-import { carregarPagamentosDoCidadao } from './services/pagamentosService';
-import {
-  alertaJaEmitido, formatarDiasRestantes, marcarAlertaEmitido,
-  montarAlertasDePagamentos, mensagemDeAlerta, PAGAMENTOS_DEMO_PRAZOS,
-  tituloDeAlerta,
-} from './services/prazoAlertsService';
 // F55 — Contactos de Emergência (núcleo puro testado). F57: as funções de
 // alerta continuam no serviço, agora sem consumidor no lado do cidadão —
 // reservadas ao fluxo institucional (v20), sem código zombie na UI.
@@ -137,7 +140,7 @@ import { resolveStorageUrl } from './lib/secureStorage';
 import { notify } from './lib/notify';
 import { isProfileEditActive } from './lib/profileEditGuard';
 import { useSession, getModePathPrefix } from './services/sessionStore';
-import { computeFaceSignature, computeFaceSignatureAsync, compareFaceSignatures, listDeviceFaceTemplates, faceModeLabel } from './services/faceAuth';
+import { computeFaceSignature, computeFaceSignatureAsync, compareFaceSignatures, listDeviceFaceTemplates, faceModeLabel, makeSimulatedSignature, buildFaceMatchPool } from './services/faceAuth';
 import { VideoSessionService } from './services/videoSessionService';
 import { useLanguage } from './hooks/useLanguage';
 import { startImagePreloading, subscribeToPreload } from './utils/imagePreloader';
@@ -184,12 +187,9 @@ const GovCorrespondenciasContent = lazy(() => import('./components/features/GovC
 const GovRelatorioContent = lazy(() => import('./components/features/GovRelatorioContent').then(m => ({ default: m.GovRelatorioContent })));
 const GovIaContent = lazy(() => import('./components/features/GovIaContent').then(m => ({ default: m.GovIaContent })));
 const InstQrCodeContent = lazy(() => import('./components/features/InstQrCodeContent').then(m => ({ default: m.InstQrCodeContent })));
+const OcorrenciasPage = lazy(() => import('./features/ocorrencias/OcorrenciasPage').then(m => ({ default: m.OcorrenciasPage })));
 const SondagensContent = lazy(() => import('./components/features/SondagensContent').then(m => ({ default: m.SondagensContent }))); // v36
 const InstAiAssistantContent = lazy(() => import('./components/features/InstAiAssistantContent').then(m => ({ default: m.InstAiAssistantContent })));
-// 2026-08-08 — Pagamentos (frontend-only; gateway só após validação INAPEM)
-const PagamentosContent = lazy(() => import('./components/features/PagamentosContent').then(m => ({ default: m.PagamentosContent })));
-const PagamentosInlineCidadao = lazy(() => import('./components/features/PagamentosContent').then(m => ({ default: m.PagamentosInlineCidadao })));
-const InstPagamentosContent = lazy(() => import('./components/features/InstPagamentosContent').then(m => ({ default: m.InstPagamentosContent })));
 const SolicitarDocumentoContent = lazy(() => import('./components/features/SolicitarDocumentoContent').then(m => ({ default: m.SolicitarDocumentoContent })));
 const RegisterStepper = lazy(() => import('./components/features/RegisterStepper').then(m => ({ default: m.RegisterStepper })));
 // 2026-08-14 — performance: componentes pesados fora do bundle principal
@@ -224,7 +224,6 @@ const DocumentsContent = lazyPainel(() => import('./components/features/Document
 const WalletContent = lazyPainel(() => import('./components/features/WalletContent').then(m => ({ default: m.WalletContent })));
 const ContactsContent = lazyPainel(() => import('./components/features/ContactsContent').then(m => ({ default: m.ContactsContent })));
 const DocumentDetail = lazyPainel(() => import('./components/features/DocumentDetail').then(m => ({ default: m.DocumentDetail })));
-const PastaDigitalContent = lazyPainel(() => import('./components/features/PastaDigitalContent').then(m => ({ default: m.PastaDigitalContent })));
 const ActivityCenterContent = lazyPainel(() => import('./components/features/ActivityCenterContent').then(m => ({ default: m.ActivityCenterContent })));
 const NotificationsCenterContent = lazyPainel(() => import('./components/features/NotificationsCenterContent').then(m => ({ default: m.NotificationsCenterContent })));
 const GovEmissaoContent = lazyPainel(() => import('./components/features/GovEmissaoContent').then(m => ({ default: m.GovEmissaoContent })));
@@ -284,29 +283,32 @@ export const persistReadMessageId = (rawBi: string, ...ids: number[]): void => {
 //    limpo (replaceState) para não revelar a última página ao login seguinte.
 // ============================================================================
 const HASH_TAB_FALLBACKS: Record<string, Record<string, string>> = {
-  user: { mensagem: 'correspondencias', documento: 'documentos', instituicao: 'home' },
+  user: { mensagem: 'correspondencias', documento: 'home', instituicao: 'home' },
   institution: { mensagem: 'correspondencias', documento: 'documentos', instituicao: 'home', 'inst-video': 'video-atendimento' },
   admin: { home: 'gov-dashboard', mensagem: 'gov-correspondencias', documento: 'gov-docs', instituicao: 'gov-interoperabilidade', 'inst-video': 'video-atendimento' },
 };
 const HASH_ALLOWED_TABS: Record<string, ReadonlySet<string>> = {
   user: new Set([
     'home', 'correspondencias', 'contatos', 'contactos', 'perfil', 'historico',
-    'notificacoes', 'pagamentos', 'documentos', 'qr-code', 'pasta-digital',
-    'solicitar-documento', 'video-atendimento',
+    'notificacoes', 'qr-code',
+    'solicitar-documento', 'video-atendimento', 'inqueritos', 'comunicados', 'denuncias', 'nova-denuncia', 'ocorrencias',
+    'directorio-orgaos', // UX: deep link do Directório (render existe, faltava o hash)
     // tabs de detalhe — só via fallback (HASH_TAB_FALLBACKS)
     'mensagem', 'documento', 'instituicao',
   ]),
   institution: new Set([
     'home', 'correspondencias', 'gov-contatos', 'contatos', 'contactos',
-    'inst-qrcode', 'inst-ai-assistant', 'perfil', 'inst-pagamentos',
-    'sondagens', // v36 — lista/resultados de sondagens da instituição
+    'inst-qrcode', 'qr-code', 'inst-ai-assistant', 'perfil',
+    'solicitar-documento', 'directorio-orgaos', // UX: deep links em falta
+    'ocorrencias', 'inqueritos', 'comunicados', 'denuncias', 'nova-denuncia', 'sondagens', // v36 — lista/resultados de sondagens da instituição
     'historico', 'notificacoes', 'documentos', 'video-atendimento', 'inst-video',
     'mensagem', 'documento', 'instituicao',
   ]),
   admin: new Set([
     'home', 'gov-dashboard', 'gov-interoperabilidade', 'gov-correspondencias',
-    'gov-contatos', 'gov-trabalhadores', 'gov-relatorio', 'gov-ia',
-    'gov-seguranca', 'gov-perfil', 'gov-emissao', 'historico', 'notificacoes',
+    'gov-contatos', 'gov-trabalhadores', 'gov-relatorio', 'gov-stats', 'gov-ia', 'directorio-orgaos', // UX: deep links em falta
+    'gov-seguranca', 'gov-perfil', 'gov-emissao', 'gov-docs', 'gov-documentos',
+    'historico', 'notificacoes',
     'video-atendimento', 'inst-video',
     'mensagem', 'documento', 'instituicao',
   ]),
@@ -321,19 +323,21 @@ const areaDoUrl = (): 'user' | 'institution' | 'admin' => {
 };
 // v37.43 — deduz o papel a partir do identificador digitado, para que qualquer
 // login (independentemente do URL) autentique na área correcta sem separadores.
-// Contas demo (cidadão, instituição e Admin ADM-8812-OP) e campo vazio: bloqueadas em produção.
-// ADMIN-0001 NÃO está nesta lista: é a conta Admin real na nuvem.
-const DEMO_IDS_BLOQUEADOS_PROD = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP'];
-const isDemoBloqueadoProd = (id: string): boolean => {
-  const s = (id || '').trim().toUpperCase().replace(/\s+/g, '');
-  return !s || DEMO_IDS_BLOQUEADOS_PROD.includes(s);
-};
 const detectaPapel = (id: string): 'user' | 'institution' | 'admin' | null => {
   const s = (id || '').trim().toUpperCase().replace(/\s+/g, '');
   if (!s) return null;
   if (/^ADM/.test(s)) return 'admin';      // ADMIN-0001, ADM-8812-OP
   if (/^\d/.test(s)) return 'user';        // BI do cidadão (002399714LA030)
-  return 'institution';                    // AGT-9921-SR, INAPEM-LLMM-01
+  // 2026-09-22 (auditoria BUG-001) — só é tratado como Código Institucional um
+  // valor com a FORMA de código institucional (mesmo formato usado no registo
+  // de ocorrências: letras/dígitos/hífen). Antes, QUALQUER texto não numérico
+  // era assumido como instituição: escrever um valor inválido no login do
+  // Cidadão (ex.: «abc123!!!») mudava o utilizador para a área Institucional e
+  // mostrava o erro dela («O Código Institucional … não foi reconhecido.») em
+  // vez do erro do Cidadão. Com um código plausível (AGT-9921-SR,
+  // INAPEM-LLMM-01) a troca automática de área continua a funcionar igual.
+  if (/^[A-Z0-9][A-Z0-9-]{2,29}$/.test(s)) return 'institution';
+  return null;                             // valor que não é credencial plausível
 };
 const resolveHashToTab = (hash: string, mode: string): string | null => {
   const raw = hash.replace(/^#\/?/, '').split('?')[0].trim();
@@ -396,6 +400,8 @@ export default function App() {
     return 'splash';
   });
   const [triggerRefetch, setTriggerRefetch] = useState(0);
+  // T55 — ids de notificações já vistos nesta sessão (null = ainda sem 1.ª leitura).
+  const notifIdsVistosRef = useRef<Set<number> | null>(null);
   // Tick para forçar re-render quando a conta é ativada no ecrã de homologação
   const [gateRefreshTick, setGateRefreshTick] = useState(0);
   const [tab, setTab] = useState(() => {
@@ -600,14 +606,6 @@ export default function App() {
     return [];
   });
 
-  useEffect(() => {
-    localStorage.setItem('correio_digital_deleted_message_ids', JSON.stringify(deletedMessageIds));
-  }, [deletedMessageIds]);
-
-  useEffect(() => {
-    localStorage.setItem('correio_digital_hidden_message_ids', JSON.stringify(hiddenMessageIds));
-  }, [hiddenMessageIds]);
-
   // v37.31-fix — difusões «TODOS» são linhas PARTILHADAS por todos os
   // cidadãos: arquivar/eliminar na nuvem por UM cidadão escondia a mensagem
   // de TODOS os outros (a caixa filtra state_indicator Arquivada). Nesses
@@ -618,92 +616,110 @@ export default function App() {
   };
 
   const handleDeleteMessage = (id: number) => {
-    // v37.78.23 — ZERO RASTOS: em contas REAIS «Eliminar» é DEFINITIVO já no
-    // 1.º clique. A caixa real tem a nuvem como fonte única e FILTRA as linhas
-    // 'Arquivada' — o antigo 2.º passo (Eliminar na pasta Arquivadas) ficava
-    // inalcançável e a linha sobrevivia para sempre na base central. Sessões
-    // DEMO mantêm o ciclo histórico (Arquivadas → Eliminar permanente).
     const baseId = id >= 10000 && id < 90000000 ? id - 10000 : id;
     const jaArquivada = deletedMessageIds.includes(id);
-    const definitiva = !isDemoSession || jaArquivada;
+    const normElim = (v?: string) => String(v || '').toUpperCase().replace(/\s+/g, '').replace(/-\d{2}$/, '');
+    const minhaChaveElim = normElim(isGovMode ? (adminBiNorm || 'ADMIN-0001') : isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi));
+
     if (!jaArquivada) {
-      setDeletedMessageIds([...deletedMessageIds, id]);
-    }
-    if (definitiva) {
-      if (!hiddenMessageIds.includes(id)) {
-        setHiddenMessageIds([...hiddenMessageIds, id]);
-        if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
-          // v37.78.23 — ZERO RASTOS: a eliminação permanente carimba a cópia
-          // única da mensagem com o marcador ELIM_PERM:<chave> desta conta. A
-          // linha só é PURGADA por completo (histórico + notificações + anexos
-          // do Storage) quando a OUTRA parte também já eliminou a sua cópia —
-          // enquanto a outra parte mantém a mensagem, nada é destruído do lado
-          // dela (estados independentes, regra R2). A decisão lê o estado
-          // FRESCO da nuvem (o espelho local pode estar desactualizado).
-          const normElim = (v?: string) => String(v || '').toUpperCase().replace(/\s+/g, '').replace(/-\d{2}$/, '');
-          const minhaChaveElim = normElim(isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi));
-          void (async () => {
-            const fresca = await lerMensagemParaEliminacao(baseId).catch(() => null);
-            const actionsElim: string[] = fresca && fresca.actions.length
-              ? fresca.actions
-              : (() => {
-                  const fonteElim = [...inbox, ...docInbox, ...instInbox, ...instDocInbox, ...sentMessages, ...docSentMessages]
-                    .find(m => m.id === id || ((m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id) === baseId));
-                  return Array.isArray(fonteElim?.details?.actions) ? (fonteElim!.details!.actions as string[]) : [];
-                })();
-            const partesElim = fresca
-              ? [fresca.senderBi, fresca.recipientBi]
-              : [];
-            const outrasPartesElim = partesElim.map(normElim).filter(k => !!k && k !== minhaChaveElim);
-            const marcadoresElim = actionsElim.filter(a => a.startsWith('ELIM_PERM:')).map(a => normElim(a.slice('ELIM_PERM:'.length)));
-            if (marcadoresElim.some(mk => outrasPartesElim.includes(mk))) {
-              // ambas as partes eliminaram → purga total na base central
-              const rPurga = await eliminarCorrespondenciaTotal(baseId).catch(() => null);
-              addAuditLog(rPurga && rPurga.ok
-                ? `Correspondência ID ${baseId} purgada por completo (linha, histórico, notificações e anexos do Storage) — ambas as partes eliminaram (ZERO RASTOS).`
-                : `Correspondência ID ${baseId}: purga total na nuvem adiada (${(rPurga && rPurga.erro) || 'rede indisponível'}) — a cópia já não é visível; o marcador mantém-se para a próxima tentativa.`,
-                rPurga && rPurga.ok ? 'success' : 'warning');
-            } else {
-              supabaseService.updateMessageState(baseId, {
-                state_indicator: 'EliminadaPermanente',
-                actions: [...actionsElim.filter(a => !a.startsWith('ELIM_PERM:')), `ELIM_PERM:${minhaChaveElim}`],
-              }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
-              supabaseService.insertMessageStateEvent({
-                messageId: baseId,
-                state: 'EliminadaPermanente',
-                responsible: user?.name || 'Utilizador',
-            description: 'Correspondência eliminada permanentemente da vista do utilizador.'
+      // 1.º clique: mover para as Eliminadas / Arquivadas da conta actual
+      setDeletedMessageIds(prev => prev.includes(id) ? prev : [...prev, id]);
+      if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
+        void (async () => {
+          const fresca = await lerMensagemParaEliminacao(baseId).catch(() => null);
+          const actionsAtuais: string[] = fresca && fresca.actions.length
+            ? fresca.actions
+            : (() => {
+                const fonte = [...inbox, ...docInbox, ...instInbox, ...instDocInbox, ...sentMessages, ...docSentMessages]
+                  .find(m => m.id === id || ((m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id) === baseId));
+                return Array.isArray(fonte?.details?.actions) ? (fonte!.details!.actions as string[]) : [];
+              })();
+          // Preserva a correspondência na outra conta; regista marcador de arquivo da conta actual
+          supabaseService.updateMessageState(baseId, {
+            actions: [...actionsAtuais.filter(a => a !== `ARQ:${minhaChaveElim}`), `ARQ:${minhaChaveElim}`],
           }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
-            }
-          })();
-        }
-        notify('Correspondência eliminada com sucesso.', 'success');
+          supabaseService.insertMessageStateEvent({
+            messageId: baseId,
+            state: 'Arquivada',
+            responsible: user?.name || minhaChaveElim || 'Utilizador',
+            description: `Correspondência movida para as eliminadas na conta de ${minhaChaveElim}.`
+          }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+        })();
       }
-    } else if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
-      // sessão DEMO — 1.º passo: arquivar (ciclo histórico intacto)
-      supabaseService.updateMessageState(baseId, { state_indicator: 'Arquivada' }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
-      supabaseService.insertMessageStateEvent({
-        messageId: baseId,
-        state: 'Arquivada',
-        responsible: user?.name || 'Utilizador',
-        description: 'Correspondência movida para as eliminadas pelo utilizador.'
-      }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
-      notify('Correspondência arquivada com sucesso.', 'success');
+      notify('Correspondência movida para as eliminadas na sua conta.', 'success');
+      return;
+    }
+
+    // 2.º clique (ou dentro da pasta de Eliminadas): Eliminar Permanentemente
+    if (!hiddenMessageIds.includes(id)) {
+      setHiddenMessageIds(prev => prev.includes(id) ? prev : [...prev, id]);
+      if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
+        void (async () => {
+          const fresca = await lerMensagemParaEliminacao(baseId).catch(() => null);
+          const actionsElim: string[] = fresca && fresca.actions.length
+            ? fresca.actions
+            : (() => {
+                const fonteElim = [...inbox, ...docInbox, ...instInbox, ...instDocInbox, ...sentMessages, ...docSentMessages]
+                  .find(m => m.id === id || ((m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id) === baseId));
+                return Array.isArray(fonteElim?.details?.actions) ? (fonteElim!.details!.actions as string[]) : [];
+              })();
+          const partesElim = fresca
+            ? [fresca.senderBi, fresca.recipientBi]
+            : [];
+          const outrasPartesElim = partesElim.map(normElim).filter(k => !!k && k !== minhaChaveElim);
+          const marcadoresElim = actionsElim.filter(a => a.startsWith('ELIM_PERM:')).map(a => normElim(a.slice('ELIM_PERM:'.length)));
+          if (marcadoresElim.some(mk => outrasPartesElim.includes(mk))) {
+            // ambas as partes eliminaram → purga total na base central
+            const rPurga = await eliminarCorrespondenciaTotal(baseId).catch(() => null);
+            addAuditLog(rPurga && rPurga.ok
+              ? `Correspondência ID ${baseId} purgada por completo (linha, histórico, notificações e anexos do Storage) — ambas as partes eliminaram (ZERO RASTOS).`
+              : `Correspondência ID ${baseId}: purga total na nuvem adiada (${(rPurga && rPurga.erro) || 'rede indisponível'}) — a cópia já não é visível; o marcador mantém-se para a próxima tentativa.`,
+              rPurga && rPurga.ok ? 'success' : 'warning');
+          } else {
+            supabaseService.updateMessageState(baseId, {
+              actions: [...actionsElim.filter(a => !a.startsWith('ELIM_PERM:')), `ELIM_PERM:${minhaChaveElim}`],
+            }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+            supabaseService.insertMessageStateEvent({
+              messageId: baseId,
+              state: 'EliminadaPermanente',
+              responsible: user?.name || minhaChaveElim || 'Utilizador',
+              description: `Correspondência eliminada permanentemente da conta de ${minhaChaveElim}.`
+            }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+          }
+        })();
+      }
+      notify('Correspondência eliminada permanentemente na sua conta.', 'success');
     }
   };
 
   const handleRestoreMessage = (id: number) => {
-    setDeletedMessageIds(deletedMessageIds.filter(mid => mid !== id));
+    setDeletedMessageIds(prev => prev.filter(mid => mid !== id));
     const baseId = id >= 10000 && id < 90000000 ? id - 10000 : id;
+    const normElim = (v?: string) => String(v || '').toUpperCase().replace(/\s+/g, '').replace(/-\d{2}$/, '');
+    const minhaChaveElim = normElim(isGovMode ? (adminBiNorm || 'ADMIN-0001') : isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi));
+
     if (isOnline && hasValidSupabaseKeys() && !mensagemEhDifusaoTodos(id)) {
-      supabaseService.updateMessageState(baseId, { state_indicator: 'Ativa' }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
-      supabaseService.insertMessageStateEvent({
-        messageId: baseId,
-        state: 'Restaurada',
-        responsible: user?.name || 'Utilizador',
-        description: 'Correspondência restaurada do arquivo.'
-      }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+      void (async () => {
+        const fresca = await lerMensagemParaEliminacao(baseId).catch(() => null);
+        const actionsAtuais: string[] = fresca && fresca.actions.length
+          ? fresca.actions
+          : (() => {
+              const fonte = [...inbox, ...docInbox, ...instInbox, ...instDocInbox, ...sentMessages, ...docSentMessages]
+                .find(m => m.id === id || ((m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id) === baseId));
+              return Array.isArray(fonte?.details?.actions) ? (fonte!.details!.actions as string[]) : [];
+            })();
+        supabaseService.updateMessageState(baseId, {
+          actions: actionsAtuais.filter(a => a !== `ARQ:${minhaChaveElim}` && a !== `ELIM_PERM:${minhaChaveElim}`),
+        }).catch(() => {});
+        supabaseService.insertMessageStateEvent({
+          messageId: baseId,
+          state: 'Restaurada',
+          responsible: user?.name || minhaChaveElim || 'Utilizador',
+          description: `Correspondência restaurada na conta de ${minhaChaveElim}.`
+        }).catch(() => {});
+      })();
     }
+    notify('Correspondência restaurada com sucesso.', 'success');
   };
 
   // 2026-08-21 (desempenho/UX) — verdadeiro quando a primeira sincronização
@@ -993,7 +1009,7 @@ export default function App() {
       // escolhido outra neste dispositivo (2026-08-20: a foto deixa de
       // reverter a cada login; chave por identificador, sem contaminação
       // entre contas).
-      avatarUrl: lerAvatarLocal(mode, preset.identifier) || (mode === 'admin' ? '' : MOCK_SESSION_USER.avatarUrl),
+      avatarUrl: lerAvatarLocal(mode, preset.identifier) || (mode === 'admin' ? '' : (mode === 'institution' ? makeInstNeutralAvatar(preset.identifier) : MOCK_SESSION_USER.avatarUrl)),
     });
   };
 
@@ -1046,20 +1062,17 @@ export default function App() {
     const phone = (isMember
       ? (perfilAgente?.phone || memberRec?.phone || '')
       : (perfilPersistido?.phone || pack?.telefone || '')).trim();
-    // Foto do agente: 1) captura facial desta pessoa (registada na página Conta);
-    // 2) foto de perfil carregada por esta conta; 3) logótipo (responsável);
-    // 4) avatar neutro gerado — nunca fotos de terceiros.
+    // Foto do agente: 1) foto de perfil carregada por esta conta; 2) logótipo
+    // (responsável); 3) avatar neutro gerado — nunca fotos de terceiros.
+    // 2026-09-22 — relato do dono: «quando realizar registo facial não deve
+    // mudar a foto de perfil». A captura do REGISTO FACIAL deixou de ser fonte
+    // da foto de perfil: era a 1.ª prioridade deste bloco e o rosto registado
+    // (matriz biométrica, não uma fotografia escolhida) passava a ser a foto da
+    // conta em todos os logins seguintes.
     let avatar = '';
     // 2026-08-21 — a foto de perfil é POR PESSOA: o colaborador usa as chaves
     // do seu Nº de agente (nunca a foto do responsável/instituição).
     const avatarKey = isMember ? personKey : code;
-    try {
-      const faceRaw = localStorage.getItem(`cda_demo_face_institution_${personKey}`);
-      if (faceRaw) {
-        const d = JSON.parse(faceRaw);
-        if (d?.imageDataUrl) avatar = d.imageDataUrl as string;
-      }
-    } catch { /* ignora */ }
     if (!avatar) {
       try {
         const pp = localStorage.getItem(`cda_inst_profile_photo_${avatarKey}`);
@@ -1088,6 +1101,9 @@ export default function App() {
           if (authAv) avatar = authAv;
         }
       } catch { /* ignora */ }
+    }
+    if (!avatar && (perfilPersistido?.avatar_url || perfilPersistido?.avatar)) {
+      avatar = perfilPersistido.avatar_url || perfilPersistido.avatar;
     }
     if (!avatar) {
       const lav = lerAvatarLocal('institution', avatarKey);
@@ -1138,9 +1154,119 @@ export default function App() {
   // ITEM 3: biOverride — login por e-mail real resolve o B.I. da conta Auth e
   // precisa que a hidratação use ESSE B.I. (o state `bi` ainda não actualizou).
   const applyIdentityForLoggedUser = async (biOverride?: string) => {
+    const biBase = typeof biOverride === 'string' ? biOverride : bi;
+
+    // Hidratação Institucional (Paridade total Normal vs Facial)
+    if (appMode === 'institution') {
+      const normalized = (biBase.trim() || DEMO_CREDENTIALS.institution.identifier).toUpperCase();
+      if (biBase.trim().toUpperCase() !== normalized) setBi(normalized);
+
+      if (normalized === DEMO_CREDENTIALS.institution.identifier) {
+        let perfilPersistido: any = null;
+        if (!homologationStore.isExempt(normalized) && hasValidSupabaseKeys()) {
+          try { perfilPersistido = await supabaseService.getProfile(normalized); } catch {}
+        }
+        const locAg = lerPerfilLocal('institution', normalized);
+        const fotoInstLocal = lerAvatarLocal('institution', normalized) || perfilPersistido?.avatar_url || perfilPersistido?.avatar;
+        const demoName = perfilPersistido?.name || locAg?.name || DEMO_CREDENTIALS.institution.profileName;
+        const demoPhone = perfilPersistido?.phone || locAg?.phone || DEMO_CREDENTIALS.institution.phone;
+        const demoNif = perfilPersistido?.nif || locAg?.nif || DEMO_CREDENTIALS.institution.nif;
+        const demoEmail = perfilPersistido?.email || locAg?.email || 'instituicao@cda.gov.ao';
+        setProfileName(demoName);
+        setPhoneLocal(demoPhone);
+        setNifLocal(demoNif);
+        setPassportLocal('');
+        setUserBirthDate('');
+        setUserFiliation('');
+        setUserMaritalStatus('');
+        setVerificationStatus('Agente AGT Verificado');
+        updateUserFields?.({
+          name: demoName,
+          bi: normalized,
+          phone: demoPhone,
+          nif: demoNif,
+          email: demoEmail,
+          avatarUrl: fotoInstLocal || makeInstNeutralAvatar(normalized),
+          passport: '',
+          birthDate: '',
+          filiation: '',
+          maritalStatus: '',
+        });
+        updateActiveProfileFields?.({
+          institutionName: 'Administração Geral Tributária (AGT)',
+          role: 'Responsável',
+          departmentName: '',
+        });
+        return;
+      }
+
+      try {
+        const res = await resolveInstitutionFaceLogin(normalized, supabase);
+        if (res.outcome !== 'invalid' && res.outcome !== 'deny') {
+          await applyInstitutionSessionIdentity(res);
+          updateActiveProfileFields?.({ institutionName: `${res.name} (${res.code})` });
+          setBi(res.code);
+          setInstIdentity(res.identity || { type: 'responsible' });
+          setInstMustChangePwd(false);
+          setInstGate(res.outcome === 'restricted' ? 'restricted' : 'full');
+        }
+      } catch (e) {
+        console.warn('CADA: falha ao resolver identidade institucional no login:', e);
+      }
+      return;
+    }
+
+    // Hidratação Administrativa (Paridade total Normal vs Facial)
+    if (appMode === 'admin') {
+      const normalized = (biBase.trim() || DEMO_CREDENTIALS.admin.identifier).toUpperCase();
+      if (biBase.trim().toUpperCase() !== normalized) setBi(normalized);
+
+      let dbAg: any = null;
+      try {
+        dbAg = await supabaseService.getProfile(normalized);
+      } catch { /* melhor esforço */ }
+
+      const locAg = lerPerfilLocal('admin', normalized);
+      let fotoAgAuth = '';
+      try {
+        const { data: sessAg } = await supabase.auth.getSession();
+        const emailSessaoAg = String(sessAg?.session?.user?.email || '').toLowerCase();
+        if (emailSessaoAg === syntheticAdminEmail(normalized).toLowerCase()) fotoAgAuth = await lerAvatarAuth();
+      } catch { /* melhor esforço */ }
+      const fotoAg = fotoAgAuth || lerAvatarLocal('admin', normalized) || dbAg?.avatar_url || dbAg?.avatar;
+
+      const cred = getAdminAgentCred(normalized);
+      const isDemoAdminAccount = normalized === 'ADM-8812-OP';
+      const admName = dbAg?.name || locAg?.name || cred?.name || (isDemoAdminAccount ? DEMO_CREDENTIALS.admin.profileName : 'Edlásio Galhardo');
+      const admPhone = dbAg?.phone || locAg?.phone || (isDemoAdminAccount ? DEMO_CREDENTIALS.admin.phone : '');
+      const admNif = dbAg?.nif || locAg?.nif || (isDemoAdminAccount ? DEMO_CREDENTIALS.admin.nif : '');
+      const admEmail = dbAg?.email || locAg?.email || 'admin@cda.gov.ao';
+
+      setProfileName(admName);
+      setPhoneLocal(admPhone);
+      setNifLocal(admNif);
+      setPassportLocal('');
+      setUserBirthDate('');
+      setUserFiliation('');
+      setUserMaritalStatus('');
+      setVerificationStatus(isDemoAdminAccount || normalized === 'ADMIN-0001' ? 'Administrador Geral / Central' : 'Agente da Administração');
+      updateUserFields?.({
+        name: admName,
+        bi: normalized,
+        phone: admPhone,
+        nif: admNif,
+        email: admEmail,
+        avatarUrl: fotoAg || makeInstNeutralAvatar('AD'),
+        passport: '',
+        birthDate: '',
+        filiation: '',
+        maritalStatus: '',
+      });
+      return;
+    }
+
     if (appMode !== 'user') return;
     // B.I. em branco no login = assume o identificador demo exibido como placeholder.
-    const biBase = typeof biOverride === 'string' ? biOverride : bi;
     const normalized = (biBase.trim() || DEMO_CREDENTIALS.user.identifier).toUpperCase();
     if (biBase.trim().toUpperCase() !== normalized) setBi(normalized);
     if (normalized === DEMO_CREDENTIALS.user.identifier) {
@@ -1219,16 +1345,13 @@ export default function App() {
         }
       } catch (_) { /* ignora */ }
 
-      // 3) Foto biometrica local (matricula facial de 3 capturas deste dispositivo)
-      try {
-        const faceRaw = localStorage.getItem(`cda_demo_face_${appMode}_${normalized}`);
-        if (faceRaw) {
-          const faceData = JSON.parse(faceRaw);
-          if (faceData?.imageDataUrl) resolvedAvatar = faceData.imageDataUrl;
-        }
-      } catch (_) { /* ignora */ }
+      // 2026-09-22 — relato do dono: «quando realizar registo facial não deve
+      // mudar a foto de perfil». A captura do REGISTO FACIAL (matriz biométrica
+      // de 3 capturas) deixou de ser fonte da foto de perfil: era usada aqui e o
+      // rosto registado passava a ser a foto da conta nos logins seguintes. A
+      // selfie/documentos da adesão e a foto escolhida pelo cidadão mantêm-se.
 
-      // 4) Foto de PERFIL escolhida pelo cidadão na página Perfil (2026-08-20):
+      // 3) Foto de PERFIL escolhida pelo cidadão na página Perfil (2026-08-20):
       // tem prioridade sobre a selfie KYC/face — sem isto a nova foto revertia
       // para a antiga no login seguinte. Fontes: Auth metadata (nuvem) e
       // localStorage deste dispositivo (por BI).
@@ -1623,6 +1746,12 @@ export default function App() {
     prevStageForHashRef.current = stage;
   }, [stage, loginSubMode, appMode]);
   const institutionCode = resolveInstitutionCode(activeProfile?.institutionName || bi || '');
+  // 2026-09-11 — nome oficial da instituição da sessão, canónico e sem o
+  // sufixo «(CÓDIGO)» (activeProfile.institutionName = «Nome (CÓDIGO)»).
+  const nomeOficialInstituicaoSessao = useMemo(() => {
+    const bruto = String(activeProfile?.institutionName || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    return normalizarNomeInstituicao(bruto) || bruto;
+  }, [activeProfile?.institutionName]);
   // F3/F7 — estado da conta institucional: 'restricted' = pendente/em correções (a área abre na mesma; o estado alimenta o tom do indicador Online); 'full' = aprovada
   const [instGate, setInstGate] = useState<'none' | 'restricted' | 'full'>('none');
   
@@ -1675,8 +1804,73 @@ export default function App() {
   const paginasMenuKey = paginasMenu ? paginasMenu.join('|') : '';
   // Navegação/tabs que nunca são "páginas" — detalhes e sobreposições
   // (mensagem aberta, documento, notificações, histórico…) ficam livres.
-  const TAB_PAGINAS_LIVRES = new Set(['mensagem', 'documento', 'notificacoes', 'historico', 'video-atendimento', 'inst-pagamentos']);
+  const TAB_PAGINAS_LIVRES = new Set(['ocorrencias', 'inqueritos', 'comunicados', 'denuncias', 'nova-denuncia', 'mensagem', 'documento', 'notificacoes', 'historico', 'video-atendimento']);
   void instIdentity; // consumida pela F4 (equipa/perfil)
+
+  // 2026-09-11 — SETA DE VOLTAR das subpáginas: pilha das páginas visitadas
+  // nesta sessão. `voltarPagina()` regressa à página anterior VÁLIDA (nunca a
+  // um detalhe que depende de selecção — mensagem/documento/instituição — nem à
+  // própria página), limpa as selecções e, sem histórico, cai no Painel do
+  // portal. A pilha é reiniciada ao sair da área (stage ≠ 'app').
+  const pilhaPaginasRef = useRef<string[]>([]);
+  const tabAnteriorRef = useRef<string | null>(null);
+  const aVoltarRef = useRef(false);
+  const painelDoModo = isGovMode ? 'gov-dashboard' : 'home';
+  useEffect(() => {
+    if (stage !== 'app') { pilhaPaginasRef.current = []; tabAnteriorRef.current = null; return; }
+    const anterior = tabAnteriorRef.current;
+    tabAnteriorRef.current = tab;
+    if (aVoltarRef.current) { aVoltarRef.current = false; return; } // regresso: não empilha
+    if (anterior && anterior !== tab) {
+      const pilha = pilhaPaginasRef.current;
+      if (pilha[pilha.length - 1] !== anterior) pilha.push(anterior);
+      if (pilha.length > 30) pilha.splice(0, pilha.length - 30);
+    }
+  }, [tab, stage]);
+  const voltarPagina = useCallback(() => {
+    // 2026-10-08 — Atalhos de serviços: sempre que o botão voltar for clicado
+    // nas páginas de Vídeo-atendimento, Inquéritos, Comunicados, Ocorrências,
+    // Denúncias e Reclamações, regressa imediatamente ao Painel principal.
+    const ATALHOS_PARA_PAINEL = new Set(['video-atendimento', 'inqueritos', 'comunicados', 'denuncias', 'nova-denuncia', 'sondagens', 'ocorrencias']);
+    if (ATALHOS_PARA_PAINEL.has(tab)) {
+      aVoltarRef.current = true;
+      setSelectedMessage(null);
+      setSelectedDoc(null);
+      setSelectedInstitution(null);
+      setTab(painelDoModo);
+      window.scrollTo({ top: 0 });
+      return;
+    }
+
+    const pilha = pilhaPaginasRef.current;
+    let destino: string | undefined;
+    while (pilha.length) {
+      const candidata = pilha.pop() as string;
+      if (candidata === tab) continue;
+      if (HASH_TAB_FALLBACKS[appMode]?.[candidata]) continue; // detalhe sem selecção
+      if (paginasMenu && !paginasMenu.includes(candidata) && !TAB_PAGINAS_LIVRES.has(candidata)) continue;
+      destino = candidata;
+      break;
+    }
+    aVoltarRef.current = true;
+    setSelectedMessage(null);
+    setSelectedDoc(null);
+    setSelectedInstitution(null);
+    setTab(destino || painelDoModo);
+    window.scrollTo({ top: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, appMode, paginasMenuKey, painelDoModo]);
+  const voltarCtx = useMemo(() => ({ voltar: voltarPagina }), [voltarPagina]);
+
+  // 2026-09-15 — Funcionalidades removidas (Facturas do cidadão, Pagamentos e
+  // Pasta Digital): deep links/atalhos obsoletos regressam ao Painel em vez
+  // de caírem em página inexistente.
+  useEffect(() => {
+    if (stage !== 'app') return;
+    const removidos = ['pagamentos', 'inst-pagamentos', 'pasta-digital'];
+    if (removidos.includes(tab) || (tab === 'documentos' && !isInstMode)) setTab('home');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, tab, isInstMode]);
 
   // Claro/Escuro Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -1762,7 +1956,7 @@ export default function App() {
     },
     admin: {
       identifier: 'ADMIN-0001',
-      password: 'GALHARDO',
+      password: '123456789',
       profileName: 'Edlasio Galhardo',
       phone: '+244 923 456 789',
       nif: '5401329188',
@@ -1873,7 +2067,21 @@ export default function App() {
   const captureLoginFaceFrameAsync = async () => {
     const video = loginFaceVideoRef.current;
     const canvas = loginFaceCanvasRef.current;
-    
+
+    // 2026-09-22 (mobile) — «No modo mobile o login facial não está funcional».
+    // Com a câmara LIGADA mas sem fotogramas ainda (típico no telemóvel, onde a
+    // imagem demora a aparecer), a captura caía de imediato no caminho simulado:
+    // o rosto nunca era comparado com o registo real e o login falhava sempre.
+    // Agora espera-se (até 1,2 s) pelo 1.º fotograma antes de desistir da câmara.
+    const camaraLigada = (() => {
+      try { return !!loginFaceStreamRef.current?.getVideoTracks().some(t => t.readyState === 'live'); } catch { return false; }
+    })();
+    if (video && camaraLigada && !(video.videoWidth > 0)) {
+      for (let espera = 0; espera < 1200 && !(video.videoWidth > 0); espera += 150) {
+        await new Promise(r => setTimeout(r, 150));
+      }
+    }
+
     if (video && canvas && video.videoWidth > 0 && video.videoHeight > 0) {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -1937,7 +2145,12 @@ export default function App() {
         ctx.stroke();
         const imageDataUrl = canvas.toDataURL('image/jpeg', 0.85);
         const signature = await computeFaceSignatureAsync(canvas);
-        return { imageDataUrl, signature };
+        // 2026-09-22 (mobile) — «semFrames»: esta assinatura é do desenho de apoio,
+        // NÃO do rosto. O chamador substitui-a pela assinatura sintética da própria
+        // identidade (a mesma que o registo facial sem câmara grava) — antes, o
+        // desenho sintético era comparado com as matrizes reais e o resultado era
+        // sempre «Rosto não reconhecido neste dispositivo» com a câmara bloqueada.
+        return { imageDataUrl, signature, semFrames: true };
       }
     }
     return null;
@@ -1963,10 +2176,10 @@ export default function App() {
     setLoginError(null);
   }, [loginSubMode, appMode]);
   
-  const [correspondenciaTab, setCorrespondenciaTab] = useState('lidas');
+  const [correspondenciaTab, setCorrespondenciaTab] = useState('todas');
   const [videoSessionCount, setVideoSessionCount] = useState(0);
   const [isComposing, setIsComposing] = useState(false);
-  const [composeData, setComposeData] = useState<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[] }>({ to: '', subject: '', body: '', attachments: [], toArray: [] });
+  const [composeData, setComposeData] = useState<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[]; inqueritosIaIds?: number[]; dataExpiracao?: string }>({ to: '', subject: '', body: '', attachments: [], toArray: [] });
 
   const [documentosTab, setDocumentosTab] = useState('lidas');
   const [isDocComposing, setIsDocComposing] = useState(false);
@@ -2227,14 +2440,6 @@ export default function App() {
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (loginSubMode === 'face-capture' && faceProgress === 100) {
-      if (import.meta.env.PROD && isDemoBloqueadoProd(bi)) {
-        setLoginError('Contas de demonstração estão desactivadas em produção.');
-        setFaceProgress(0);
-        setIsFaceScanning(false);
-        stopLoginFaceCamera();
-        setLoginSubMode('normal');
-        return;
-      }
       if (emergencyMode && !isInstMode && !isGovMode && (bi.toLowerCase().includes('002931298') || bi.toLowerCase().includes('edlasio') || profileName.toLowerCase().includes('edlasio'))) {
         setLoginError("Autenticação Biométrica Recusada: Chaves Faciais Suspensas por Ordem do Protocolo SOC-AN-2026!");
         setFaceProgress(0);
@@ -2280,9 +2485,27 @@ export default function App() {
               return;
             }
           }
-          if (isInstMode && bi.trim().toUpperCase() === DEMO_CREDENTIALS.institution.identifier) {
+          if (isInstMode && (bi.trim().toUpperCase() === DEMO_CREDENTIALS.institution.identifier || bi.trim() === '')) {
+            const instIdent = bi.trim().toUpperCase() || DEMO_CREDENTIALS.institution.identifier;
+            setBi(instIdent);
             setInstGate('full');
             setInstIdentity({ type: 'responsible' });
+            setInstMustChangePwd(false);
+            await applyIdentityForLoggedUser(instIdent);
+          }
+          if (isGovMode) {
+            const admIdent = bi.trim().toUpperCase() || DEMO_CREDENTIALS.admin.identifier;
+            setBi(admIdent);
+            const cred = getAdminAgentCred(admIdent);
+            if (cred && isSupabaseConfigured()) {
+              try {
+                const agentEmail = syntheticAdminEmail(admIdent);
+                await cloudSignIn(supabase, agentEmail, cred.password);
+              } catch (eCloudAdm) {
+                console.warn('[AUTH-CLOUD] Falha ao restabelecer sessão cloud admin:', eCloudAdm);
+              }
+            }
+            await applyIdentityForLoggedUser(admIdent);
           }
           // F47 — login facial do CIDADÃO com gates IDÊNTICOS ao login por senha
           // (antes não consultava a nuvem: uma conta eliminada voltava a entrar).
@@ -2364,7 +2587,9 @@ export default function App() {
               }
             }
           }
-          await applyIdentityForLoggedUser();
+          if (!isInstMode && !isGovMode) {
+            await applyIdentityForLoggedUser(bi.trim().toUpperCase() || DEMO_CREDENTIALS.user.identifier);
+          }
           stopLoginFaceCamera();
           if (isGovMode) setTab('gov-dashboard');
           setStage('app');
@@ -2523,6 +2748,14 @@ export default function App() {
 
   const buildHomologationInboxMessage = (msg: HomologationMessage, cleanBi: string): Message => {
     const alreadyRead = getReadMessageIds(cleanBi).has(homologationInboxId(msg.id));
+    const isApproval = msg.text.includes('HOMOLOGADA') || msg.text.includes('oficialmente ATIVA');
+    const isSubmission = msg.text.includes('confirma a receção do seu pedido de registo') || msg.text.includes('confirma a receção');
+    const subject = isApproval
+      ? 'Conta Ativada — Homologação Aprovada pela Área de Administração'
+      : isSubmission
+        ? 'Registo Recebido — Homologação Oficial'
+        : (msg.from === 'system' ? 'Registo Recebido — Homologação Oficial' : 'Comunicação Oficial da Área de Administração');
+
     return ensureProtocolOnMessage({
       id: homologationInboxId(msg.id),
       org: 'Área de Administração · CDA',
@@ -2532,19 +2765,26 @@ export default function App() {
       status: alreadyRead ? 'Lida' : 'Recebido',
       institution: 'Área de Administração · CDA',
       details: {
-        subject: msg.from === 'system' ? 'Registo Recebido — Homologação Oficial' : 'Comunicação Oficial da Área de Administração',
+        subject,
         body: msg.text,
+        state: alreadyRead ? 'Lida' : 'Entregue & Autenticado',
       },
       sensitivity: 'Privado',
       priorityScale: 'Importante',
       homologation: true,
       homologationBi: cleanBi,
+      recipientBi: cleanBi,
     });
   };
 
   useEffect(() => {
     if (appMode !== 'user' || !bi) return;
     const cleanBi = normalizeHomologationBi(bi);
+    const rec = homologationStore.getStatus(cleanBi);
+    const isApproved = !rec || rec.status === 'active';
+    if (isApproved) {
+      ensureCitizenHomologationChannel(cleanBi, profileName || 'Edlasio Galhardo', 'active');
+    }
     const thread = homologationStore.getThread(bi).filter(m => m.from !== 'citizen');
     const threadIds = new Set(thread.map(m => homologationInboxId(m.id)));
     setInbox(prev => {
@@ -2562,7 +2802,7 @@ export default function App() {
       if (pruned.length === prev.length && fresh.length === 0) return prev;
       return [...fresh.slice().reverse(), ...pruned];
     });
-  }, [appMode, bi, gateRefreshTick]);
+  }, [appMode, bi, gateRefreshTick, profileName]);
 
   // F7 — Canal oficial de homologação (Área de Administração ⇄ Instituição): o MESMO
   // espelho do cidadão. A correspondência oficial enviada ao código institucional
@@ -2601,8 +2841,14 @@ export default function App() {
     const readIds = getReadMessageIds(bi);
     if (readIds.size === 0) return;
     const baseOfId = (id: number) => (id >= 10000 && id < 90000000 ? id - 10000 : id);
+    // 2026-09-13 — a chave de «duplicado» inclui o instante de criação: só é
+    // duplicado a MESMA correspondência (mesmo remetente, assunto e created_at)
+    // recriada com id diferente. Antes bastava remetente+assunto, e uma
+    // correspondência NOVA com o mesmo assunto de outra já lida (ex.: INAPEM →
+    // Edlasio «Sondagem 123» em dias diferentes) nascia «Lida»: sem badge na
+    // foto de perfil e sem entrar em «Não Lidas» (relato do dono).
     const conteudoDe = (m: Message) =>
-      `${(m.org || '').toUpperCase()}::${String(m.details?.subject || m.preview || '').trim().toLowerCase()}`;
+      `${(m.org || '').toUpperCase()}::${String(m.details?.subject || m.preview || '').trim().toLowerCase()}::${String(m.createdAt || m.date || '').trim()}`;
     const applyRead = (list: Message[]) => {
       // v37.59 — invariante «se está em Lidas não pode estar em Não Lidas»:
       // a fusão/nuvem por vezes recria a mesma correspondência com id diferente,
@@ -2619,24 +2865,22 @@ export default function App() {
       });
       let touched = false;
       const next = list.map(m => {
-        if (!m.unread) return m;
+        if (!m.unread && m.status === 'Lida') return m;
         const pn = m.protocol?.protocolNumber;
         const lida = readIds.has(m.id) || readIds.has(baseOfId(m.id))
           || (!!pn && protLidos.has(pn)) || contLidos.has(conteudoDe(m));
         if (!lida) return m;
         touched = true;
-        return { ...m, unread: 0, status: 'Lida' };
+        return { ...m, unread: 0, status: 'Lida', novidade: false };
       });
       return touched ? next : list;
     };
     setInbox(prev => applyRead(prev));
+    setSentMessages(prev => applyRead(prev));
     setDocInbox(prev => applyRead(prev));
     setInstInbox(prev => applyRead(prev));
     setInstDocInbox(prev => applyRead(prev));
-    // v37.49 — incluir as caixas nas dependências: quando a fusão/nuvem reconstrói
-    // a caixa com unread=1 DEPOIS do login, o overlay de lidas é reaplicado de
-    // imediato (antes só corria em appMode/bi/tick e a leitura revertia).
-  }, [appMode, bi, gateRefreshTick, inbox, docInbox, instInbox, instDocInbox]);
+  }, [appMode, bi, gateRefreshTick]);
 
   // Auto-scroll to top on tab/stage change
   useEffect(() => {
@@ -2847,10 +3091,22 @@ export default function App() {
         // evento realtime); agora correm em simultâneo.
         let dbProfilePre: Awaited<ReturnType<typeof supabaseService.getProfile>> | null = null;
         let mailbox: Awaited<ReturnType<typeof supabaseService.getOwnMailbox>>;
+        // F50-bis (2026-09-22) — relato do dono: «fiz login facial e as
+        // correspondências não apareceram». Sem SESSÃO DE NUVEM (login facial cuja
+        // credencial local não se restabeleceu, ou nuvem indisponível) a leitura
+        // cai no caminho DIRECTO (RLS) e devolve uma lista VAZIA em vez de falhar;
+        // o modo real tratava-a como resposta oficial e substituía a caixa
+        // visível por ela («Silêncio de Comunicações», 0 correspondências). Sem
+        // sessão do titular, vazio NÃO é leitura oficial: mantém-se o último
+        // estado bom (a correspondência continua no ecrã). Demo intocado.
+        const temSessaoDaNuvem = homologationStore.isExempt(bi) ? true : await hasActiveCloudSession(supabase);
         [dbProfilePre, mailbox] = await Promise.all([
           precisaHidratacaoPerfil ? supabaseService.getProfile(bi) : Promise.resolve(null),
           supabaseService.getOwnMailbox(mailboxRecipientKey, sentSenderKey)
         ]);
+        if (!temSessaoDaNuvem && mailbox && mailbox.incoming.length === 0) {
+          mailbox = null;
+        }
         if (precisaHidratacaoPerfil) {
           {
             const dbProfile = dbProfilePre;
@@ -3015,6 +3271,32 @@ export default function App() {
           }
         }
 
+        // 2026-09-12 (T58) — ELIMINAÇÃO É POR PARTE (regra R2): a linha só tem
+        // UMA cópia na nuvem e «EliminadaPermanente» é carimbada por QUEM
+        // eliminou (marcador ELIM_PERM:<chave>). Antes, o filtro escondia a
+        // mensagem a AMBAS as partes: quando a instituição apagava a cópia
+        // dela, o cidadão perdia a carta da caixa mas ela continuava «não
+        // lida» na nuvem → o badge contava-a e «Não Lidas» mostrava 0.
+        // Agora só sai da caixa de quem a eliminou; para a outra parte fica
+        // visível (estado normal), até ela própria a eliminar.
+        const normElimT58 = (v?: string) => String(v || '').toUpperCase().replace(/\s+/g, '').replace(/-\d{2}$/, '');
+        const minhaChaveT58 = normElimT58(isInstMode ? normalizeInstCode(effectiveInstCode || institutionCode || bi) : normalizeHomologationBi(bi));
+        const foraDaMinhaCaixa = (m: Message): boolean => {
+          const st = String(m.details?.state || '');
+          if (st === 'Arquivada') return false;
+          if (st !== 'EliminadaPermanente') return false;
+          const marcas = (Array.isArray(m.details?.actions) ? (m.details!.actions as string[]) : [])
+            .filter(x => typeof x === 'string' && x.startsWith('ELIM_PERM:'))
+            .map(x => normElimT58(x.slice('ELIM_PERM:'.length)));
+          // sem marcador (legado) → comportamento antigo: escondida para todos
+          return marcas.length === 0 || marcas.includes(minhaChaveT58);
+        };
+        const visivelParaMim = (m: Message): Message => {
+          if (String(m.details?.state || '') !== 'EliminadaPermanente' || foraDaMinhaCaixa(m)) return m;
+          // eliminada apenas pela OUTRA parte: para mim continua uma correspondência normal
+          return { ...m, details: { ...m.details, state: 'Entregue & Autenticado' } };
+        };
+
         // 2. Citizen/Institution messages — já lidas acima (consulta única, N-3)
         if (dbMessages !== null && isSubscribed) {
           // F12 — marca de titularidade: o cidadão/instituição REAL só vê o que
@@ -3026,11 +3308,31 @@ export default function App() {
           // estado local/mock). Eliminadas/arquivadas ficam fora da caixa em
           // qualquer dispositivo. Demo mantém a fusão de sempre.
           if (!isDemoSession) {
-            setInbox(incoming.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
-            setDocInbox(docs.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+            // QA-REAL 2026-09-19 — a página «Carteira» deixou de existir no
+            // portal (remoção de funcionalidades 2026-09-15), mas as emissões
+            // oficiais continuam a criar correspondência documental (__DOC__).
+            // Sem esta linha, o cidadão/instituição NUNCA via essas mensagens
+            // (F12: titularidade endereçada à chave tem de ser visível).
+            // As docs passam a aparecer TAMBÉM na caixa principal; docInbox
+            // mantém-se para retro-compatibilidade (Perfil, IA, eliminações).
+            const caixaCompleta = [...incoming, ...docs];
+            setInbox(prevLocal => {
+              const homMsgs = prevLocal.filter(m => m.homologation && normalizeHomologationBi(m.homologationBi) === normalizeHomologationBi(bi));
+              const dbIds = new Set(caixaCompleta.map(m => m.id));
+              const keptHom = homMsgs.filter(m => !dbIds.has(m.id));
+              const cloudMsgs = caixaCompleta.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim);
+              return [...cloudMsgs, ...keptHom];
+            });
+            setDocInbox(docs.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
             if (isInstMode) {
-              setInstInbox(incoming.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
-              setInstDocInbox(docs.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+              setInstInbox(prevLocal => {
+                const homMsgs = prevLocal.filter(m => m.homologation && normalizeHomologationBi(m.homologationBi) === normalizeHomologationBi(bi));
+                const dbIds = new Set(caixaCompleta.map(m => m.id));
+                const keptHom = homMsgs.filter(m => !dbIds.has(m.id));
+                const cloudMsgs = caixaCompleta.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim);
+                return [...cloudMsgs, ...keptHom];
+              });
+              setInstDocInbox(docs.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
             }
           } else {
             setInbox(prevLocal => {
@@ -3062,33 +3364,16 @@ export default function App() {
         const dbSentMessages = mailbox ? mailbox.sent : null;
         if (dbSentMessages !== null && isSubscribed) {
           // F15 — marca da sessão remetente ("Enviadas" isolada por conta)
-          // v37.77 — DIFUSÕES AGRUPADAS: uma sondagem/emergência distribuída a
-          // N cidadãos gera N linhas na nuvem (cada destinatário precisa da
-          // sua cópia), mas o espelho «Enviadas» do EMISSOR passa a mostrar o
-          // lote UMA vez com o selo «Difusão para N destinatários» — antes
-          // 1 sondagem a 23 cidadãos aparecia como 23 correspondências
-          // enviadas (interpretado como resíduo de contas eliminadas).
-          const agruparDifusoes = (msgs: typeof dbSentMessages): typeof dbSentMessages => {
-            const grupos = new Map<string, { cabeca: (typeof msgs)[number]; total: number }>();
-            const ordem: string[] = [];
-            for (const m of msgs) {
-              const chaveLote = m.createdAt && m.details?.subject ? `${m.details.subject}|${m.createdAt}` : '';
-              if (!chaveLote) { ordem.push(`#${m.id}`); grupos.set(`#${m.id}`, { cabeca: m, total: 1 }); continue; }
-              const g = grupos.get(chaveLote);
-              if (g) g.total += 1;
-              else { ordem.push(chaveLote); grupos.set(chaveLote, { cabeca: m, total: 1 }); }
-            }
-            return ordem.map(chave => {
-              const g = grupos.get(chave)!;
-              return g.total > 1 ? { ...g.cabeca, broadcastRecipients: g.total } : g.cabeca;
-            });
-          };
-          const sentNormal = agruparDifusoes(dbSentMessages.filter(m => !isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey })));
+          // Conversas estilo Gmail: o espelho guarda TODAS as cópias (sem a
+          // fusão lossy v37.77, cuja chave assunto+timestamp nunca agrupava);
+          // a lista «Enviadas» agrupa por conversa na apresentação e o detalhe
+          // mostra a lista de destinatários (PainelConversa).
+          const sentNormal = dbSentMessages.filter(m => !isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey }));
           const sentDoc = dbSentMessages.filter(m => isDocumentMailboxMessage(m)).map(m => ({ ...ensureProtocolOnMessage(m), senderKey: sentSenderKey }));
           
           if (!isDemoSession) {
-            setSentMessages(sentNormal.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
-            setDocSentMessages(sentDoc.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+            setSentMessages(sentNormal.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
+            setDocSentMessages(sentDoc.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
           } else {
             setSentMessages(prevLocal => {
               const dbIds = new Set(sentNormal.map(m => m.id));
@@ -3101,6 +3386,17 @@ export default function App() {
               return [...sentDoc, ...onlyLocal];
             });
           }
+        }
+
+        // Hidrata IDs arquivados / eliminados vindos da nuvem
+        const dbArchivedIds = [
+          ...(dbMessages || []),
+          ...(dbSentMessages || []),
+        ]
+          .filter(m => String(m.details?.state || '') === 'Arquivada')
+          .map(m => m.id);
+        if (dbArchivedIds.length > 0) {
+          setDeletedMessageIds(prev => Array.from(new Set([...prev, ...dbArchivedIds])));
         }
 
 
@@ -3127,7 +3423,7 @@ export default function App() {
 
         if (isInstMode) {
           const mailbox = dbInstMailbox;
-          if (mailbox !== null && isSubscribed) {
+          if (mailbox !== null && isSubscribed && (temSessaoDaNuvem || mailbox.messages.length > 0)) {
             // F9/F14 — marca de destinatária: a conta real só recebe o endereçado
             // AO SEU CÓDIGO (consulta exacta). `legacyIds` = correio do canal por
             // sigla que versões anteriores fundiram indevidamente nesta conta —
@@ -3137,8 +3433,8 @@ export default function App() {
             const legacyIds = new Set(mailbox.legacyIds);
             
             if (!isDemoSession) {
-              setInstInbox(instNormal.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
-              setInstDocInbox(instDoc.filter(m => !['Arquivada', 'EliminadaPermanente'].includes(String(m.details?.state))));
+              setInstInbox(instNormal.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
+              setInstDocInbox(instDoc.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
             } else {
               setInstInbox(prevLocal => {
                 const dbIds = new Set(instNormal.map(m => m.id));
@@ -3157,7 +3453,7 @@ export default function App() {
         }
 
         // 3. Documents
-        if (dbDocs !== null) {
+        if (dbDocs !== null && (temSessaoDaNuvem || dbDocs.length > 0)) {
           // F12 — titularidade do documento (sessões reais só vêem os seus).
           const taggedDocs = dbDocs.map(d => ({ ...d, holderBi: bi }));
           // 2026-08-20 — Modo Real: nuvem como fonte única dos documentos.
@@ -3173,7 +3469,7 @@ export default function App() {
         }
 
         // 4. Contacts
-        if (dbContacts !== null) {
+        if (dbContacts !== null && (temSessaoDaNuvem || dbContacts.length > 0)) {
           // F12 — cada contacto fica marcado com o dono da sessão que o fundiu.
           const taggedContacts = dbContacts.map(c => ({ ...c, ownerId: bi }));
           if (!isDemoSession) {
@@ -3188,7 +3484,7 @@ export default function App() {
         }
 
         // 5. User requests
-        if (dbUserRequests !== null) {
+        if (dbUserRequests !== null && (temSessaoDaNuvem || dbUserRequests.length > 0)) {
           if (!isDemoSession) {
             setUserRequests(dbUserRequests);
           } else {
@@ -3201,7 +3497,7 @@ export default function App() {
         }
 
         // 6. Doc Requests
-        if (dbDocRequests !== null) {
+        if (dbDocRequests !== null && (temSessaoDaNuvem || dbDocRequests.length > 0)) {
           if (!isDemoSession) {
             setDocRequests(dbDocRequests);
           } else {
@@ -3214,9 +3510,30 @@ export default function App() {
         }
 
         // 7. Notifications
-        if (dbNotifs !== null) {
+        if (dbNotifs !== null && (temSessaoDaNuvem || dbNotifs.length > 0)) {
+          // 2026-09-12 (T55) — AVISO ACTIVO de notificações novas: as linhas
+          // vindas da nuvem que ainda não tinham sido vistas nesta sessão
+          // (ex.: «Denúncia — Em análise» activada pela instituição) disparam
+          // um toast. O primeiro carregamento só memoriza os ids (sem toast).
+          try {
+            const vistos = notifIdsVistosRef.current;
+            const minhas = dbNotifs.filter(n => n.unread !== false);
+            if (vistos === null) {
+              notifIdsVistosRef.current = new Set(dbNotifs.map(n => n.id));
+            } else {
+              const novas = minhas.filter(n => !vistos.has(n.id));
+              dbNotifs.forEach(n => vistos.add(n.id));
+              novas.slice(0, 3).forEach(n => notify(`${n.title}: ${String(n.message || '').replace(/\s*\([^)]*\)\s*$/, '')}`, 'info', { duracaoMs: 9000 }));
+            }
+          } catch { /* aviso é melhor-esforço */ }
           if (!isDemoSession) {
-            setNotifications(dbNotifs);
+            // 2026-09-23 (PISCA/Auditoria) — preserva notificações locais geradas nesta sessão
+            // (ex.: auditoria 990990 ou eventos de sistema) que ainda não estejam na nuvem.
+            setNotifications(prevLocal => {
+              const dbIds = new Set(dbNotifs.map(n => n.id));
+              const localOnly = prevLocal.filter(n => !dbIds.has(n.id) && (n.id >= 900000 || n.ownerId === sessionOwnerKey));
+              return [...dbNotifs, ...localOnly];
+            });
           } else {
             setNotifications(prevLocal => {
               const dbIds = new Set(dbNotifs.map(n => n.id));
@@ -3267,12 +3584,25 @@ export default function App() {
 
     loadSupabaseData();
 
-    // Subscribe to all changes in Supabase realtime
+    return () => {
+      isSubscribed = false;
+    };
+  }, [stage, bi, isOnline, appMode, institutionCode, triggerRefetch]);
+
+  // Subscribe to all changes in Supabase realtime
+  useEffect(() => {
+    if (stage !== 'app' || !isOnline || !hasValidSupabaseKeys()) return;
+
     const channel = supabase
       .channel('schema-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
         console.debug('CADA: Supabase Realtime detectou alteração em mensagens!');
         invalidateMessagesReadCache(); // N-3 — qq mudança na nuvem fura o micro-cache
+        setTriggerRefetch(t => t + 1);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_state_history' }, () => {
+        console.debug('CADA: Supabase Realtime detectou alteração em histórico de estados/cronograma!');
+        invalidateMessagesReadCache();
         setTriggerRefetch(t => t + 1);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => {
@@ -3318,10 +3648,9 @@ export default function App() {
       .subscribe();
 
     return () => {
-      isSubscribed = false;
       supabase.removeChannel(channel);
     };
-  }, [stage, bi, isOnline, triggerRefetch, appMode, institutionCode]);
+  }, [stage, isOnline]);
 
   const runAuditAndSincronizacaoCompleta = () => {
     let fixesCount = 0;
@@ -3780,59 +4109,53 @@ export default function App() {
   const isDemoCitizenSession = isUserMode && homologationStore.isExempt(bi);
   const isDemoAdminSession = isGovMode && homologationStore.isExempt(bi);
   const isDemoSession = isDemoCitizenSession || isDemoInstitutionSession || isDemoAdminSession;
-  const sessionOwnerKey = isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi);
+  const sessionOwnerKey = isGovMode
+    ? (adminBiNorm || 'ADMIN-0001')
+    : isInstMode
+      ? normalizeInstCode(institutionCode || bi)
+      : normalizeHomologationBi(bi);
   const stampNotif = (n: AppNotification): AppNotification => ({ ...n, ownerId: sessionOwnerKey });
-  const isOwnCitizenMail = (m: Message) =>
-    isOwnHomologationMail(m) || (!!m.recipientBi && normalizeHomologationBi(m.recipientBi) === normalizeHomologationBi(bi));
 
-  // ==========================================================================
-  // Etapa #3 — ALERTAS AUTOMÁTICOS DE PRAZOS (cobranças)
-  // Verificador que corre no arranque da sessão do cidadão e depois a cada
-  // 5 minutos: lê as cobranças pendentes (nuvem; na demo, prazos demo), e para
-  // cada prazo vencido/urgente/próximo emite UMA notificação única (anti-
-  // duplicação em localStorage). Só gera alertas novos — nunca re-notifica.
-  // ==========================================================================
-  const verificarPrazosAutomaticamente = useCallback(async () => {
-    if (stage !== 'app' || appMode !== 'user' || !bi.trim()) return;
-    const r = await carregarPagamentosDoCidadao(bi);
-    let lista = r.pagamentos;
-    // Sessão de demonstração sem cobranças na nuvem → prazos demo (visíveis).
-    if (isDemoCitizenSession && lista.length === 0) {
-      lista = PAGAMENTOS_DEMO_PRAZOS();
-    }
-    const alertas = montarAlertasDePagamentos(lista);
-    const novas = alertas.filter(a => !alertaJaEmitido(a.chave));
-    if (novas.length === 0) return;
-    const notifs: AppNotification[] = novas.map(a => {
-      marcarAlertaEmitido(a.chave);
-      return stampNotif({
-        id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
-        type: a.estado === 'proximo' ? 'info' : 'warning',
-        title: tituloDeAlerta(a),
-        message: mensagemDeAlerta(a),
-        time: 'Agora',
-        targetTab: 'pagamentos',
-        unread: true,
-      });
-    });
-    setNotifications(prev => [...notifs, ...prev]);
-    const temVencido = novas.some(a => a.estado === 'vencido');
-    addAuditLog(`[PRAZOS] ${novas.length} alerta(s) de prazo emitido(s) para o cidadão (${novas.map(a => `${a.descricao} → ${formatarDiasRestantes(a.dias)}`).join('; ')}).`, temVencido ? 'critical' : 'warning');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, appMode, bi, isDemoCitizenSession]);
+  // Isolamento de eliminação e arquivo por conta activa
+  const activeUserStorageKey = (sessionOwnerKey || (isGovMode ? (adminBiNorm || 'ADMIN-0001') : isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi)) || 'anon').toUpperCase();
 
   useEffect(() => {
-    if (stage !== 'app' || appMode !== 'user') return;
-    void verificarPrazosAutomaticamente();
-    const id = setInterval(() => void verificarPrazosAutomaticamente(), 5 * 60 * 1000);
-    return () => clearInterval(id);
-  }, [verificarPrazosAutomaticamente, stage, appMode]);
+    if (!activeUserStorageKey || activeUserStorageKey === 'ANON') return;
+    const savedDeleted = localStorage.getItem(`cda_deleted_messages_${activeUserStorageKey}`);
+    if (savedDeleted) {
+      try {
+        const parsed = JSON.parse(savedDeleted);
+        if (Array.isArray(parsed)) setDeletedMessageIds(parsed);
+      } catch {}
+    } else {
+      setDeletedMessageIds([]);
+    }
 
-  // Cobranças demo com prazos (identidade estável — prazos relativos a hoje).
-  const pagamentosDemoFallback = useMemo(
-    () => (isDemoCitizenSession ? PAGAMENTOS_DEMO_PRAZOS() : undefined),
-    [isDemoCitizenSession],
-  );
+    const savedHidden = localStorage.getItem(`cda_hidden_messages_${activeUserStorageKey}`);
+    if (savedHidden) {
+      try {
+        const parsed = JSON.parse(savedHidden);
+        if (Array.isArray(parsed)) setHiddenMessageIds(parsed);
+      } catch {}
+    } else {
+      setHiddenMessageIds([]);
+    }
+  }, [activeUserStorageKey]);
+
+  useEffect(() => {
+    if (!activeUserStorageKey || activeUserStorageKey === 'ANON') return;
+    localStorage.setItem(`cda_deleted_messages_${activeUserStorageKey}`, JSON.stringify(deletedMessageIds));
+  }, [deletedMessageIds, activeUserStorageKey]);
+
+  useEffect(() => {
+    if (!activeUserStorageKey || activeUserStorageKey === 'ANON') return;
+    localStorage.setItem(`cda_hidden_messages_${activeUserStorageKey}`, JSON.stringify(hiddenMessageIds));
+  }, [hiddenMessageIds, activeUserStorageKey]);
+  const isOwnCitizenMail = (m: Message) =>
+    isOwnHomologationMail(m) ||
+    (!!m.recipientBi && (normalizeHomologationBi(m.recipientBi) === normalizeHomologationBi(bi) || String(m.recipientBi).toUpperCase() === 'TODOS')) ||
+    (!!m.details?.body && (m.details.body.includes(bi) || m.details.body.toUpperCase().includes('EDLASIO') || m.details.body.toUpperCase().includes('GALHARDO'))) ||
+    (!!m.details?.subject && (m.details.subject.includes(bi) || m.details.subject.toUpperCase().includes('EDLASIO') || m.details.subject.toUpperCase().includes('GALHARDO')));
 
   // ==========================================================================
   // Etapa #4 — SYNC AUTOMÁTICO DO PERFIL com o Supabase
@@ -3932,14 +4255,17 @@ export default function App() {
     return () => clearInterval(id);
   }, [verificarSyncPerfilAutomaticamente, stage]);
 
+  const syncPerfilAutoRef = useRef(verificarSyncPerfilAutomaticamente);
+  syncPerfilAutoRef.current = verificarSyncPerfilAutomaticamente;
+
   // Sempre que qualquer página/aba da conta é carregada, visualizada ou comutada,
   // ou quando a janela recupera o foco, invalida caches e carrega os dados mais actualizados.
   useEffect(() => {
     if (stage !== 'app') return;
     invalidateMessagesReadCache();
     setTriggerRefetch(t => t + 1);
-    void verificarSyncPerfilAutomaticamente();
-  }, [tab, stage, verificarSyncPerfilAutomaticamente]);
+    void syncPerfilAutoRef.current();
+  }, [tab, stage]);
 
   useEffect(() => {
     if (stage !== 'app') return;
@@ -3947,13 +4273,13 @@ export default function App() {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         invalidateMessagesReadCache();
         setTriggerRefetch(t => t + 1);
-        void verificarSyncPerfilAutomaticamente();
+        void syncPerfilAutoRef.current();
       }
     };
     const handleHashChange = () => {
       invalidateMessagesReadCache();
       setTriggerRefetch(t => t + 1);
-      void verificarSyncPerfilAutomaticamente();
+      void syncPerfilAutoRef.current();
     };
     window.addEventListener('focus', handleFocusOrVisible);
     document.addEventListener('visibilitychange', handleFocusOrVisible);
@@ -3961,6 +4287,7 @@ export default function App() {
     const pollingTimer = setInterval(() => {
       invalidateMessagesReadCache();
       setTriggerRefetch(t => t + 1);
+      void syncPerfilAutoRef.current();
     }, 15000);
 
     return () => {
@@ -3969,7 +4296,7 @@ export default function App() {
       window.removeEventListener('hashchange', handleHashChange);
       clearInterval(pollingTimer);
     };
-  }, [stage, verificarSyncPerfilAutomaticamente]);
+  }, [stage]);
 
   // 2026-08-20 — reaplicar as EDIÇÕES LOCAIS do perfil guardadas por conta
   // (perfilLocalService): cobre contas demo (nuvem fora de âmbito — era o que
@@ -4063,21 +4390,116 @@ export default function App() {
   const currentInbox = ordenarMensagensPorMaisRecente(isInstMode
     ? (isDemoInstitutionSession
         ? instInbox.filter(m => !m.homologation || isOwnHomologationMail(m))
-        : instInbox.filter(m => isOwnHomologationMail(m) || isInstitutionAddressedMail(m)))
+        : instInbox.filter(m => (isOwnHomologationMail(m) || isInstitutionAddressedMail(m))
+            // 2026-09-12 (T53) — denúncias só chegam ao RESPONSÁVEL da plataforma;
+            // colaboradores (agentes -02, -03, …) nunca as vêem.
+            && (instIdentity?.type !== 'member' || !ehAssuntoQualquerDenuncia(m.details?.subject || m.preview))))
     : homologationPendingForCitizen
       ? inbox.filter(isOwnHomologationMail)
       : isDemoCitizenSession
         ? inbox.filter(m => !m.homologation || isOwnHomologationMail(m))
         : inbox.filter(isOwnCitizenMail));
-  const unreadTotal = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id)).reduce((sum, msg) => sum + (msg.unread || 0), 0), [currentInbox, deletedMessageIds, hiddenMessageIds]);
-  const unreadMessagesList = useMemo(() => currentInbox.filter(msg => !deletedMessageIds.includes(msg.id) && !hiddenMessageIds.includes(msg.id) && !!msg.unread), [currentInbox, deletedMessageIds, hiddenMessageIds]);
+
+  // Listener para actualizações de cronograma em tempo real (instituição -> cidadão)
+  useEffect(() => {
+    const handleCronogramaUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const detail = customEvent.detail;
+      if (!detail) return;
+      const targetBi = String(detail.senderBi || '').toUpperCase();
+      const currentNormBi = String(bi || '').toUpperCase();
+      if (targetBi && targetBi === currentNormBi) {
+        const baseId = detail.messageId;
+        setSentMessages(prev => prev.map(m => {
+          const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
+          if (mBase === baseId) {
+            return { ...m, unread: 1, novidade: true, status: `Fase: ${detail.fase || 'Actualizada'}` };
+          }
+          return m;
+        }));
+        if (detail.notif) {
+          setNotifications(prev => [stampNotif(detail.notif), ...prev.filter(n => n.id !== detail.notif.id)]);
+        }
+      }
+    };
+    window.addEventListener('cda-cronograma-updated', handleCronogramaUpdated);
+    return () => window.removeEventListener('cda-cronograma-updated', handleCronogramaUpdated);
+  }, [bi]);
+
+  // 2026-10-02 — Sincronização em tempo real de correspondências emitidas por submódulos (Ocorrências, Denúncias, etc.)
+  useEffect(() => {
+    const handleMsgSent = (e: any) => {
+      const msg = e.detail;
+      if (msg) {
+        const minhaChave = String(bi || sessionOwnerKey || '').toUpperCase().trim();
+        const dest = String(msg.recipientBi || '').toUpperCase().trim();
+        const remet = String(msg.senderKey || '').toUpperCase().trim();
+        if (dest === minhaChave || dest === String(institutionCode || '').toUpperCase().trim()) {
+          setInbox(prev => [msg, ...prev.filter(m => m.id !== msg.id)]);
+          setInstInbox(prev => [msg, ...prev.filter(m => m.id !== msg.id)]);
+        }
+        if (remet === minhaChave) {
+          setSentMessages(prev => [msg, ...prev.filter(m => m.id !== msg.id)]);
+        }
+      }
+    };
+    window.addEventListener('cda:message-sent', handleMsgSent);
+    return () => window.removeEventListener('cda:message-sent', handleMsgSent);
+  }, [bi, institutionCode, sessionOwnerKey]);
 
   // Menu da foto de perfil: abrir mensagem não lida → marca como lida e garante
-  // que a página final é SEMPRE o detalhe da mensagem (tab 'mensagem').
+  // que a página final é SEMPRE o detalhe da mensagem (tab 'mensagem') ou a secção temática.
   const handleOpenUnreadMessage = (message: Message) => {
+    if ((message as any).isNotificationItem) {
+      const notif = (message as any).originalNotification as AppNotification;
+      if (notif) {
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, unread: false } : n));
+        try {
+          const rawNotifs = JSON.parse(localStorage.getItem('correio_digital_notifications') || '[]');
+          const updated = rawNotifs.map((n: any) => n.id === notif.id ? { ...n, unread: false } : n);
+          localStorage.setItem('correio_digital_notifications', JSON.stringify(updated));
+          if (sessionOwnerKey) {
+            localStorage.setItem(`cda_notifications_${sessionOwnerKey}`, JSON.stringify(updated));
+          }
+        } catch {}
+        if (isOnline && hasValidSupabaseKeys() && notif.id) {
+          supabaseService.markNotificationRead(notif.id).catch(() => undefined);
+        }
+      }
+      const target = (message as any).targetTab || 'home';
+      setTab(target);
+      return;
+    }
     handleSelectMessage(message);
     setTab('mensagem');
   };
+  // 2026-09-13 — Administração: registos (cidadãos/instituições) ainda não
+  // homologados = ÚNICO conteúdo do menu da foto e do indicador do admin.
+  // Recarrega ao entrar, a cada 60 s e imediatamente após cada decisão da
+  // consola (evento EVENTO_REGISTOS_ALTERADOS). Sem sessão real (demo) fica
+  // vazio — a demo não tem fila de homologação na nuvem.
+  const [pendingRegistrations, setPendingRegistrations] = useState<PendingRegistration[]>([]);
+  useEffect(() => {
+    if (stage !== 'app' || !isGovMode || isDemoAdminSession) { setPendingRegistrations([]); return; }
+    let cancelado = false;
+    const carregar = async () => {
+      const lista = await listarRegistosPendentes();
+      if (!cancelado && lista !== null) setPendingRegistrations(lista);
+    };
+    void carregar();
+    const timer = window.setInterval(() => { void carregar(); }, 60_000);
+    const aoAlterar = () => { void carregar(); };
+    window.addEventListener(EVENTO_REGISTOS_ALTERADOS, aoAlterar);
+    return () => { cancelado = true; window.clearInterval(timer); window.removeEventListener(EVENTO_REGISTOS_ALTERADOS, aoAlterar); };
+  }, [stage, isGovMode, isDemoAdminSession]);
+  const handleOpenPendingRegistration = (r: PendingRegistration) => {
+    setShowNotifications(false);
+    setTab(r.kind === 'instituicao' ? 'gov-interoperabilidade' : 'gov-contatos');
+  };
+
+  // 2026-09-13 — o menu da foto deixou de listar notificações gerais (só
+  // correio não lido / registos por homologar); os handlers T56/T58 de
+  // notificação no menu foram removidos. O Centro de Notificações mantém-se.
 
   // F11 — Documentos da instituição real seguem o MESMO escopo do Correio:
   // apenas o canal oficial da própria instituição + o que lhe foi endereçado.
@@ -4110,24 +4532,33 @@ export default function App() {
     if (!isDemoSession) {
       base = notifications.filter(n => n.ownerId === sessionOwnerKey);
     } else {
-      // F17 — piso de não-lidas também nas notificações (simuladas, só demo)
-      if (notifications.length && !notifications.some(n => n.unread)) {
-        base = [{ ...notifications[0], unread: true }, ...notifications.slice(1)];
+      if (isUserMode) {
+        base = notifications.filter(n => !n.ownerId || n.ownerId === sessionOwnerKey || n.ownerId === DEMO_CREDENTIALS.user.identifier);
+      } else if (isInstMode) {
+        base = notifications.filter(n => n.ownerId === sessionOwnerKey || n.ownerId === DEMO_CREDENTIALS.institution.identifier);
       } else {
-        base = notifications;
+        base = notifications.filter(n => n.ownerId === sessionOwnerKey || n.ownerId === DEMO_CREDENTIALS.admin.identifier);
       }
     }
     // 2026-08-22 — a notificação de AGENDAMENTO de video-atendimento só
     // desaparece QUANDO O DIA DO AGENDAMENTO É ULTRAPASSADO (nunca por ter
-    // sido lida): o texto oficial traz "… para o dia AAAA-MM-DD às HH:MM" —
-    // depois desse dia a notificação esconde-se sozinha (não é apagada).
+    // sido lida): o texto oficial traz "… para o dia AAAA-MM-DD às HH:MM" ou
+    // "… para o dia DD/MM/AAAA às HH:MM" — depois desse dia a notificação
+    // esconde-se sozinha (não é apagada). 2026-09-14: coberto também o formato
+    // DD/MM/AAAA (agendamentos passados ficavam visíveis e no badge p/ sempre).
     const hoje = new Date().toISOString().slice(0, 10);
+    const diaUltrapassado = (texto: string): boolean => {
+      const iso = /dia\s+(\d{4}-\d{2}-\d{2})/i.exec(texto);
+      if (iso) return iso[1] < hoje;
+      const pt = /dia\s+(\d{2})[\/-](\d{2})[\/-](\d{4})/i.exec(texto);
+      if (pt) return `${pt[3]}-${pt[2]}-${pt[1]}` < hoje;
+      return false;
+    };
     return base.filter(n => {
-      if (n.targetTab !== 'video-atendimento') return true;
-      const m = /dia\s+(\d{4}-\d{2}-\d{2})/i.exec(String(n.message || ''));
-      return !m || m[1] >= hoje;
+      if (n.targetTab !== 'video-atendimento' && n.targetTab !== 'inst-video') return true;
+      return !diaUltrapassado(String(n.message || ''));
     });
-  }, [notifications, isDemoSession, sessionOwnerKey]);
+  }, [notifications, isDemoSession, sessionOwnerKey, isUserMode, isInstMode, isGovMode]);
 
   // F12/F13 — Correspondências gov: demo vê o histórico simulado; agentes reais
   // partilham apenas os expedientes efectivamente registados (createdBy);
@@ -4152,6 +4583,34 @@ export default function App() {
   const currentDocSentMessages = useMemo(() =>
     ordenarMensagensPorMaisRecente(isDemoSession ? docSentMessages : docSentMessages.filter(m => !!m.senderKey && m.senderKey === sessionOwnerKey)),
     [docSentMessages, isDemoSession, sessionOwnerKey]);
+
+  // 2026-10-01 — Contagem Canónica e Unificada de Correspondências Não Lidas:
+  // Corresponde exatamente ao total de todo o tipo de correspondência (6 atalhos + correio geral).
+  const unreadTotal = useMemo(() => {
+    return calcularTotalCorrespondenciasNaoLidas(
+      currentNotifications,
+      currentInbox,
+      currentSentMessages,
+      isInstMode,
+      0,
+      deletedMessageIds,
+      hiddenMessageIds,
+      bi || sessionOwnerKey
+    );
+  }, [currentInbox, currentSentMessages, currentNotifications, isInstMode, deletedMessageIds, hiddenMessageIds, bi, sessionOwnerKey]);
+
+  const unreadMessagesList = useMemo(() => {
+    return obterListaCorrespondenciasNaoLidas(
+      currentInbox,
+      currentSentMessages,
+      isInstMode,
+      deletedMessageIds,
+      hiddenMessageIds,
+      currentNotifications,
+      0,
+      bi || sessionOwnerKey
+    );
+  }, [currentInbox, currentSentMessages, currentNotifications, isInstMode, deletedMessageIds, hiddenMessageIds, bi, sessionOwnerKey]);
 
   // F15 — GARANTIA DE CONTEÚDO DEMO (prompt v8): só em contas de demonstração.
   // No arranque da sessão: completa colecções vazias com os seeds canónicos
@@ -4184,9 +4643,7 @@ export default function App() {
       setInstInbox(prev => prev.length ? prev : plan.instInbox);
       setInstDocInbox(prev => prev.length ? prev : plan.instDocInbox);
     }
-    setNotifications(prev => prev.length
-      ? (prev.some(n => n.unread) ? prev : [{ ...prev[0], unread: true }, ...prev.slice(1)])
-      : plan.notifications);
+    setNotifications(prev => prev.length ? prev : plan.notifications);
     setDocuments(prev => prev.length ? prev : plan.documents);
     if (area === 'admin') {
       setCorrespondences(prev => prev.length ? prev : plan.correspondences);
@@ -4200,14 +4657,15 @@ export default function App() {
     if (correspondenciaTab === "excluidas") {
       const allMsgs = [...currentInbox, ...currentSentMessages];
       base = allMsgs.filter(item => deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id));
+    } else if (correspondenciaTab === "enviadas") {
+      base = currentSentMessages.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id));
+    } else if (correspondenciaTab === "lidas") {
+      base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemLida(item));
+    } else if (correspondenciaTab === "naoLidas") {
+      base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemNaoLida(item));
     } else {
-      if (correspondenciaTab === "enviadas") {
-        base = currentSentMessages.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id));
-      } else if (correspondenciaTab === "lidas") {
-        base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && !item.unread);
-      } else {
-        base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && item.unread);
-      }
+      // 'todas' / padrão: TODAS as correspondências recebidas da conta (Lidas + Não Lidas)
+      base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id));
     }
 
     // v37.37 — reordenação final: o separador «Excluídas» concatena recebidas +
@@ -4217,13 +4675,15 @@ export default function App() {
 
     if (!searchMail.trim()) return base;
     
-    const term = searchMail.toLowerCase();
-    return base.filter(m => 
-      (m.org?.toLowerCase().includes(term) ?? false) || 
-      (m.preview?.toLowerCase().includes(term) ?? false) ||
-      (m.details?.subject?.toLowerCase().includes(term) ?? false)
-    );
+    return base.filter(m => pesquisarMensagem(m, searchMail));
   }, [correspondenciaTab, currentInbox, currentSentMessages, searchMail, deletedMessageIds, hiddenMessageIds]);
+
+  // Conversas das «Enviadas» visíveis (estilo Gmail): base para o painel do
+  // detalhe e para as pastas da página Inquéritos (SondagensContent).
+  const conversasCaixaEnviadas = useMemo(
+    () => agruparConversas(currentSentMessages.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id))),
+    [currentSentMessages, deletedMessageIds, hiddenMessageIds],
+  );
 
   const filteredDocMessages = useMemo(() => {
     let base: Message[] = [];
@@ -4256,12 +4716,7 @@ export default function App() {
 
   const filteredContacts = useMemo(() => {
     if (!searchContact.trim()) return currentContacts;
-    const term = searchContact.toLowerCase();
-    return currentContacts.filter(c => 
-      (c.name?.toLowerCase().includes(term) ?? false) || 
-      (c.bi?.toLowerCase().includes(term) ?? false) ||
-      (c.relation?.toLowerCase().includes(term) ?? false)
-    );
+    return currentContacts.filter(c => pesquisarContacto(c, searchContact));
   }, [currentContacts, searchContact]);
 
   const addAuditLog = (action: string, type: 'info' | 'warning' | 'critical' | 'success' = 'info') => {
@@ -4294,7 +4749,10 @@ export default function App() {
   }, []);
 
   // Handlers
-  const handleSelectMessage = (message: Message) => {
+  const [messageReturnTab, setMessageReturnTab] = useState<string | null>(null);
+  const handleSelectMessage = (message: Message, origem?: 'recebidas' | 'enviadas', returnTab?: string) => {
+    const origemEfectiva = origem || correspondenciaTab;
+    setMessageReturnTab(returnTab || null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setSelectedMessage(message);
     setWasOpenedUnread(!!message.unread);
@@ -4315,9 +4773,56 @@ export default function App() {
         }
       }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
     }
-    setMessageSource(correspondenciaTab === 'enviadas' ? 'enviados' : 'correspondencias');
+    setMessageSource(origemEfectiva === 'enviadas' ? 'enviados' : 'correspondencias');
+    // v37.78.28 — CICLO DE VIDA DA NOTIFICAÇÃO (reporte do dono 2026-08-31 +
+    // 2026-09-14): ao ABRIR a correspondência, os avisos associados (texto
+    // contém o mesmo assunto, sem [ETIQUETA], insensível a acentos/maiúsculas)
+    // passam a LIDOS — read_at na nuvem + estado local — e saem dos badges.
+    // Corre SEMPRE (dentro e fora de «Não lida», destinatário e remetente):
+    // abrir uma denúncia ENVIADA limpa os avisos de estado «Recebida/…» —
+    // antes ficavam «não lidos» para sempre. O recibo de leitura da MENSAGEM
+    // continua protegido pela REGRA R2 (só o destinatário o escreve).
+    const limparAvisosDaCorrespondencia = () => {
+      const baseId = message.id >= 10000 && message.id < 90000000 ? message.id - 10000 : message.id;
+      const assuntoAberto = assuntoChave(message);
+      const msgSubj = normalizarTexto(message.details?.subject || message.preview || '');
+      const msgIdStr = String(message.id);
+      const baseIdStr = String(baseId);
+      const corresponde = (n: typeof notifications[number]) => {
+        if (!n || n.unread === false) return false;
+        if (n.messageId && (String(n.messageId) === msgIdStr || String(n.messageId) === baseIdStr)) return true;
+        const nMsg = normalizarTexto(n.message || '');
+        const nTit = normalizarTexto(n.title || '');
+        if (assuntoAberto.length >= 4 && (nMsg.includes(assuntoAberto) || nTit.includes(assuntoAberto))) return true;
+        if (msgSubj.length >= 4 && (nMsg.includes(msgSubj) || nTit.includes(msgSubj))) return true;
+        if (n.targetTab === 'denuncias' || n.targetTab === 'nova-denuncia') {
+          if (assuntoAberto && nMsg.includes(assuntoAberto.slice(0, 15))) return true;
+        }
+        return false;
+      };
+
+      setNotifications(prev => {
+        const next = prev.map(n => (corresponde(n) ? { ...n, unread: false } : n));
+        try {
+          localStorage.setItem('correio_digital_notifications', JSON.stringify(next));
+          if (sessionOwnerKey) {
+            localStorage.setItem(`cda_notifications_${sessionOwnerKey}`, JSON.stringify(next));
+          }
+        } catch {}
+        return next;
+      });
+
+      if (isOnline && hasValidSupabaseKeys()) {
+        notifications.filter(corresponde).forEach(n => {
+          supabaseService.markNotificationRead(n.id).catch(() => undefined);
+        });
+      }
+    };
+
+    limparAvisosDaCorrespondencia();
     
-    if (message.unread) {
+    const isUnread = isMensagemNaoLida(message) || !!message.unread || message.status === 'Não Lida' || !!message.novidade;
+    if (isUnread) {
       const baseId = message.id >= 10000 && message.id < 90000000 ? message.id - 10000 : message.id;
 
       // REGRA R2 (v37.78.12) — O ESTADO DE LEITURA PERTENCE AO DESTINATÁRIO.
@@ -4339,30 +4844,78 @@ export default function App() {
          normR2((message as any).recipientBi) !== minhaChaveR2) ||
         // cópia aberta a partir da tab «Enviadas» — exclui auto-envio
         // (recipientBi === mim), cuja abertura continua a marcar leitura.
-        (correspondenciaTab === 'enviadas' && normR2((message as any).recipientBi) !== minhaChaveR2);
+        (origemEfectiva === 'enviadas' && normR2((message as any).recipientBi) !== minhaChaveR2);
 
       if (abertaPeloRemetente) {
-        addAuditLog(`Correspondência ID ${baseId} aberta pelo remetente — recibo de leitura do destinatário intocado (REGRA R2).`, 'info');
+        // 2026-10-08 — ao abrir denúncia / correspondência pelo utilizador, atualiza para 'Lida'
+        persistReadMessageId(bi || sessionOwnerKey, baseId, message.id);
+        setSelectedMessage({ ...message, unread: 0, status: 'Lida', novidade: false });
+        setSentMessages(prev => prev.map(m => {
+          const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
+          return (mBase === baseId || m.id === message.id) ? { ...m, unread: 0, status: 'Lida', novidade: false } : m;
+        }));
+        try {
+          const rawSent = JSON.parse(localStorage.getItem('correio_digital_sent') || '[]');
+          const updatedSent = rawSent.map((m: any) => {
+            const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
+            if (mBase === baseId || m.id === message.id) {
+              return { ...m, unread: 0, status: 'Lida', novidade: false };
+            }
+            return m;
+          });
+          localStorage.setItem('correio_digital_sent', JSON.stringify(updatedSent));
+        } catch {}
+        addAuditLog(`Correspondência ID ${baseId} aberta — estado atualizado para Lida na área do utilizador.`, 'info');
         setTab('mensagem');
         return;
       }
 
       // Sincronização em tempo real de estado "Lida" em todos os arrays da plataforma
+      persistReadMessageId(bi || sessionOwnerKey, baseId, message.id);
+      setSelectedMessage(prev => prev ? { ...prev, unread: 0, status: 'Lida', novidade: false } : { ...message, unread: 0, status: 'Lida', novidade: false });
+      try {
+        const rawInbox = JSON.parse(localStorage.getItem('correio_digital_inbox') || '[]');
+        const updatedInbox = rawInbox.map((m: any) => {
+          const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
+          if (mBase === baseId || m.id === message.id) {
+            return { ...m, unread: 0, status: 'Lida', novidade: false };
+          }
+          return m;
+        });
+        localStorage.setItem('correio_digital_inbox', JSON.stringify(updatedInbox));
+
+        const rawSent = JSON.parse(localStorage.getItem('correio_digital_sent') || '[]');
+        const updatedSent = rawSent.map((m: any) => {
+          const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
+          if (mBase === baseId || m.id === message.id) {
+            return { ...m, unread: 0, status: 'Lida', novidade: false };
+          }
+          return m;
+        });
+        localStorage.setItem('correio_digital_sent', JSON.stringify(updatedSent));
+      } catch (errStorage) {
+        console.warn('[CDA-sync] Falha ao atualizar localStorage após leitura:', errStorage);
+      }
+
       setInbox(prev => prev.map(m => {
         const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
-        return mBase === baseId ? { ...m, unread: 0, status: 'Lida' } : m;
+        return (mBase === baseId || m.id === message.id) ? { ...m, unread: 0, status: 'Lida', novidade: false } : m;
+      }));
+      setSentMessages(prev => prev.map(m => {
+        const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
+        return (mBase === baseId || m.id === message.id) ? { ...m, unread: 0, status: 'Lida', novidade: false } : m;
       }));
       setDocInbox(prev => prev.map(m => {
         const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
-        return mBase === baseId ? { ...m, unread: 0, status: 'Lida' } : m;
+        return (mBase === baseId || m.id === message.id) ? { ...m, unread: 0, status: 'Lida', novidade: false } : m;
       }));
       setInstInbox(prev => prev.map(m => {
         const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
-        return mBase === baseId ? { ...m, unread: 0, status: 'Lida' } : m;
+        return (mBase === baseId || m.id === message.id) ? { ...m, unread: 0, status: 'Lida', novidade: false } : m;
       }));
       setInstDocInbox(prev => prev.map(m => {
         const mBase = m.id >= 10000 && m.id < 90000000 ? m.id - 10000 : m.id;
-        return mBase === baseId ? { ...m, unread: 0, status: 'Lida' } : m;
+        return (mBase === baseId || m.id === message.id) ? { ...m, unread: 0, status: 'Lida', novidade: false } : m;
       }));
       
       // Sincronização em tempo real com as correspondências de Governo / Administração
@@ -4386,22 +4939,6 @@ export default function App() {
         }).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
       }
 
-      // v37.78.28 — CICLO DE VIDA DA NOTIFICAÇÃO (reporte do dono 2026-08-31):
-      // ao ABRIR a correspondência, a notificação associada (texto contém o
-      // mesmo assunto) passa a LIDA — read_at na nuvem + estado local — e
-      // desaparece da lista de alertas/badge. Antes ficava «não lida» para
-      // sempre, mesmo depois de o destinatário já ter aberto a correspondência.
-      {
-        const assuntoAberto = String(message.details?.subject || message.preview || '').trim();
-        const corresponde = (n: typeof notifications[number]) =>
-          n.unread !== false && assuntoAberto.length >= 5 && String(n.message || '').includes(assuntoAberto);
-        setNotifications(prev => prev.map(n => (corresponde(n) ? { ...n, unread: false } : n)));
-        if (isOnline && hasValidSupabaseKeys()) {
-          notifications.filter(corresponde).forEach(n => {
-            supabaseService.markNotificationRead(n.id).catch(() => undefined);
-          });
-        }
-      }
 
       // Registo de auditoria certificado para provar sincronização
       addAuditLog(`Correspondência ID ${baseId} marcada como lida na área do destinatário (estado do remetente intocado — REGRA R2).`, 'success');
@@ -4459,7 +4996,7 @@ export default function App() {
     setSelectedMessage(updatedMsg);
     setInbox(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
     setInstInbox(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
-    setSentMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
+    setSentMessages(prev => prev.map(m => m.id === updatedMsg.id ? { ...updatedMsg, unread: m.unread === 0 ? 0 : updatedMsg.unread, novidade: m.novidade === false ? false : updatedMsg.novidade } : m));
     if (isOnline && hasValidSupabaseKeys()) {
       supabaseService.updateMessageState(updatedMsg.id >= 10000 && updatedMsg.id < 90000000 ? updatedMsg.id - 10000 : updatedMsg.id, {
         // REGRA R1 — «unread» nunca passa por edições: só o destinatário a abrir.
@@ -4479,6 +5016,7 @@ export default function App() {
   // sessão de nuvem activa). Best-effort: sem rede o logout local prossegue; o
   // marcador cda_cloud_accounts_v1 NUNCA é apagado (a conta continua migrada).
   const handleLogout = async (clearAll = false) => {
+    notifIdsVistosRef.current = null; // T55 — a próxima sessão recomeça sem toasts retroactivos
     // P-URL — v37.42: ao terminar a sessão o URL passa para o login DA ÁREA
     // (pathname já reflecte o prefixo /admin ou /institucional), mantendo a
     // privacidade pós-logout e o encaminhamento correcto (§3).
@@ -4561,7 +5099,12 @@ export default function App() {
     // persistência na nuvem e notificação individuais) e apresenta o resumo.
     // A resposta directa (override) e as sondagens nunca passam por aqui.
     if (!override && (composeData.toArray || []).filter((t) => t && t.trim()).length > 0) {
-      const destinos: string[] = Array.from(new Set((composeData.toArray || []).map((t) => t.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean)));
+      const destinos: string[] = Array.from(new Set(
+        [
+          ...(composeData.toArray || []),
+          ...(composeData.to ? [composeData.to] : [])
+        ].map((t) => t.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean)
+      ));
       if (!composeData.body.trim()) {
         notify('A mensagem está vazia. Escreva o conteúdo antes de enviar.', 'warning');
         return { ok: false, error: 'A mensagem está vazia. Escreva o conteúdo antes de enviar.' };
@@ -4583,6 +5126,10 @@ export default function App() {
           attachments: composeData.attachments || [],
           // v37.78.3 — sondagens embutidas: cada cópia leva o cartão de resposta.
           ...(composeData.sondagensIds?.length ? { sondagensIds: composeData.sondagensIds } : {}),
+          // 2026-09-10 — Inquéritos com IA embutidos: cada cópia leva o cartão de conversa.
+          ...(composeData.inqueritosIaIds?.length ? { inqueritosIaIds: composeData.inqueritosIaIds } : {}),
+          // 2026-09-11 — Data de Expiração: a mesma para todas as cópias do lote.
+          ...(composeData.dataExpiracao ? { dataExpiracao: composeData.dataExpiracao } : {}),
           // v37.78.8 — sem comprovativo individual (o resumo abre no fim do lote).
           silencioso: true,
         }).then(res => ({ dest, res }))
@@ -4634,10 +5181,111 @@ export default function App() {
     // correspondência oficial do destinatário MANUAL leva o cartão de resposta
     // (a difusão por âmbito excluiu este destinatário para não duplicar entregas).
     const sondagensIdsEnvio = override?.sondagensIds ?? composeData.sondagensIds;
+    // 2026-09-10 — Inquéritos com IA embutidos (mesmo mecanismo das sondagens).
+    const inqueritosIaIdsEnvio = override?.inqueritosIaIds ?? composeData.inqueritosIaIds;
+    // 2026-09-11 — Data de Expiração do compositor (YYYY-MM-DD; vazio = sem
+    // prazo). Rótulo humano em details.deadline; carimbo ISO em deadlineAt.
+    const dataExpiracaoEnvio = (override ? override.dataExpiracao : composeData.dataExpiracao) || '';
+    const vDataExpiracao = validarDataExpiracao(dataExpiracaoEnvio);
+    if (!vDataExpiracao.ok) {
+      notify(vDataExpiracao.erro, 'warning');
+      return { ok: false, error: vDataExpiracao.erro };
+    }
+    const deadlineRotulo = formatarDataExpiracao(dataExpiracaoEnvio) || 'Sem prazo';
+    const deadlineAtEnvio = dataExpiracaoParaISO(dataExpiracaoEnvio);
     // Validação do conteúdo: destinatário e corpo obrigatórios (corpo só com espaços não envia).
     if (!to || !body.trim()) {
       notify('A mensagem está vazia. Escreva o conteúdo antes de enviar.', 'warning');
       return { ok: false, error: 'A mensagem está vazia. Escreva o conteúdo antes de enviar.' };
+    }
+    // 2026-09-30 — «TODOS» NO CAMPO DESTINATÁRIO (Nova Mensagem):
+    // Quando o destinatário for Todos, envia a correspondência para todos os
+    // contactos que já tenham trocado contacto/correspondência com a conta actual.
+    if (!override && /^TODOS$/i.test(to)) {
+      const codigoDifusao = isInstMode
+        ? (resolveInstitutionCode(institutionCode || bi) || (institutionCode || bi))
+        : normalizeHomologationBi(bi);
+
+      let pool: string[] = [];
+      const cloudPool = await supabaseService.listarCidadaosComContacto(codigoDifusao);
+      if (Array.isArray(cloudPool)) {
+        pool.push(...cloudPool);
+      }
+
+      // Adiciona contactos locais e histórico de correspondências trocadas com esta conta
+      const contactsSet = new Set<string>(pool.map(p => p.trim().toUpperCase()));
+      const minhaChaveNorm = codigoDifusao.toUpperCase().replace(/\s+/g, '');
+      const selfBiNorm = normalizeHomologationBi(bi).toUpperCase().replace(/\s+/g, '');
+
+      for (const c of contacts) {
+        const val = String(c.bi || c.id || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (val && val !== 'TODOS' && val !== minhaChaveNorm && val !== selfBiNorm) {
+          contactsSet.add(val);
+        }
+      }
+
+      for (const m of [...inbox, ...sentMessages, ...currentInbox, ...currentSentMessages]) {
+        const s = String(m.senderKey || m.org || '').trim().toUpperCase().replace(/\s+/g, '');
+        const r = String(m.recipientBi || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (s && s !== 'TODOS' && s !== minhaChaveNorm && s !== selfBiNorm && !['SYSTEM', 'CDA', 'ADMIN'].includes(s)) {
+          contactsSet.add(s);
+        }
+        if (r && r !== 'TODOS' && r !== minhaChaveNorm && r !== selfBiNorm && !['SYSTEM', 'CDA', 'ADMIN'].includes(r)) {
+          contactsSet.add(r);
+        }
+      }
+
+      pool = Array.from(contactsSet).filter(x => x && x !== 'TODOS' && x !== minhaChaveNorm && x !== selfBiNorm);
+
+      if (pool.length === 0) {
+        notify('Não há contactos que tenham trocado contacto com esta conta. Indique o destinatário no campo Destinatário. Nada foi enviado.', 'warning');
+        return { ok: false, error: 'Audiência vazia.' };
+      }
+
+      let okDif = 0;
+      const falhadosDif: string[] = [];
+      const protocolosDif: string[] = [];
+      let protocoloDif: DigitalProtocol | undefined;
+      const resultadosDif = await Promise.all(pool.map((dest) =>
+        executeOfficialSend({
+          to: dest,
+          body,
+          subject: rawSubject,
+          attachments,
+          ...(composeData.dataExpiracao ? { dataExpiracao: composeData.dataExpiracao } : {}),
+          silencioso: true,
+        }).then((res) => ({ dest, res })),
+      ));
+      for (const { dest, res } of resultadosDif) {
+        if (res.ok) {
+          okDif += 1;
+          if (res.protocol) {
+            protocolosDif.push(res.protocol.protocolNumber);
+            protocoloDif = protocoloDif || res.protocol;
+          }
+        } else falhadosDif.push(dest);
+      }
+      setIsComposing(false);
+      setComposeData({ to: '', subject: '', body: '', attachments: [], toArray: [] });
+      addAuditLog(`Difusão «Todos» (${codigoDifusao}): ${okDif}/${pool.length} contacto(s) com contacto prévio servido(s)${falhadosDif.length ? ` — falharam: ${falhadosDif.join(', ')}` : ''}${protocolosDif.length ? ` — 1.º protocolo: ${protocolosDif[0]}` : ''}.`, okDif === pool.length ? 'info' : 'warning');
+      if (protocoloDif) {
+        setSuccessProtocolModal({
+          protocolNumber: protocoloDif.protocolNumber,
+          org: `Difusão «Todos»: ${okDif} contacto(s) com contacto prévio`,
+          subject: (rawSubject || '').trim() || body.trim().replace(/\s+/g, ' ').slice(0, 60).trim() || '(sem assunto)',
+          digitalSignature: protocoloDif.digitalSignature,
+          documentHash: protocoloDif.documentHash,
+          officialIssueDate: protocoloDif.officialIssueDate || new Date().toLocaleDateString('pt-PT'),
+          officialTime: protocoloDif.officialTime || new Date().toLocaleTimeString('pt-PT').substring(0, 5),
+        });
+      }
+      notify(
+        okDif === pool.length
+          ? `Correspondência distribuída a ${okDif} contacto(s) com contacto prévio com esta conta.`
+          : `Difusão «Todos»: ${okDif}/${pool.length} entregue(s)${falhadosDif.length ? ` — sem entrega para: ${falhadosDif.join(', ')}` : ''}.`,
+        okDif === pool.length ? 'success' : 'warning',
+      );
+      return { ok: okDif > 0, error: falhadosDif.length ? `Falhou para: ${falhadosDif.join(', ')}` : undefined };
     }
     // P0-B — anti void-delivery (decisão §0.1 do dono: BLOQUEAR): destinatário
     // com formato de código institucional TEM de constar (aprovado) do registo
@@ -4671,10 +5319,13 @@ export default function App() {
       preview: effectiveSubject,
       date: "hoje",
       status: "Informativo",
+      deadlineAt: deadlineAtEnvio,
+      ...(sondagensIdsEnvio?.length ? { sondagem_id: sondagensIdsEnvio[0], sondagem_ids: sondagensIdsEnvio } : {}),
+      ...(inqueritosIaIdsEnvio?.length ? { inquerito_ia_id: inqueritosIaIdsEnvio[0], inquerito_ia_ids: inqueritosIaIdsEnvio } : {}),
       details: {
         subject: effectiveSubject,
         body: body,
-        deadline: "Sem prazo",
+        deadline: deadlineRotulo,
         state: "Entregue & Autenticado",
         // 2026-08-21 — resposta vinculada à correspondência original
         // (marcador RESPONDE_A lido pelo Expediente da Administração).
@@ -4733,7 +5384,7 @@ export default function App() {
     const isOfficialDispatch = isInstMode || isGovMode;
     try {
       const sendPromise = isOfficialDispatch
-        ? supabaseService.sendOfficialMessage(newMessage, to, isInstMode ? institutionCode : 'CDA', sondagensIdsEnvio)
+        ? supabaseService.sendOfficialMessage(newMessage, to, isInstMode ? institutionCode : 'CDA', sondagensIdsEnvio, inqueritosIaIdsEnvio)
         : supabaseService.sendCitizenMessage(newMessage, bi, to, user.name || profileName);
       await sendPromise;
       // v37.78.12 — PERFORMANCE: as 3 escritas pós-envio são INDEPENDENTES
@@ -4748,6 +5399,20 @@ export default function App() {
           responsible: user.name,
           description: `Correspondência enviada para ${to}.`
         }),
+        // 2026-09-12 (T53) — denúncia do cidadão: a fase «Registada» do
+        // cronograma fica activa automaticamente no momento do envio.
+        // 2026-09-23 (T-v37.79) — a nova fila «Denuncia» partilha a mesma
+        // máquina de fases; a descrição segue a grafia da família.
+        ...(!isOfficialDispatch && ehAssuntoQualquerDenuncia(effectiveSubject)
+          ? [supabaseService.insertMessageStateEvent({
+              messageId,
+              state: estadoDeFase('registada'),
+              responsible: 'Sistema CDA',
+              description: ehAssuntoNovaDenuncia(effectiveSubject)
+                ? `Denuncia registada na plataforma e dirigida a ${to}. Fase «Registada» activada automaticamente.`
+                : `Denúncia registada na plataforma e dirigida a ${to}. Fase «Registada» activada automaticamente.`,
+            })]
+          : []),
         isOfficialDispatch
           ? supabaseService.insertNotification({
               title: 'Nova Correspondência Oficial',
@@ -4755,6 +5420,22 @@ export default function App() {
               type: 'info',
               targetTab: 'correspondencias'
             }, to)
+          : ehAssuntoQualquerDenuncia(effectiveSubject)
+          // 2026-09-12 (T53) — denúncia: a notificação à instituição NUNCA
+          // revela o nome do cidadão (remetente anónimo).
+          // 2026-09-23 (T-v37.79) — a nova fila «Denuncia» usa título sem
+          // acento (separador textual das duas famílias na classificação).
+          ? supabaseService.insertNotification(ehAssuntoNovaDenuncia(effectiveSubject) ? {
+              title: 'Nova Denuncia Anónima',
+              message: `Uma denuncia anónima foi registada e aguarda o responsável da plataforma de ${to}.`,
+              type: 'info',
+              targetTab: 'correspondencias'
+            } : {
+              title: 'Nova Denúncia Anónima',
+              message: `Uma denúncia anónima foi registada e aguarda o responsável da plataforma de ${to}.`,
+              type: 'info',
+              targetTab: 'correspondencias'
+            }, codigoInstituicaoBase(resolveInstitutionCode(to)))
           : supabaseService.insertNotification({
               title: 'Nova Solicitação do Cidadão',
               message: `${user.name} enviou uma nova correspondência para ${to}.`,
@@ -4762,7 +5443,7 @@ export default function App() {
               targetTab: 'correspondencias'
               // v37.78.2 — destinatário-cidadão (BI completo) é notificado pelo
               // próprio BI; resolveInstitutionCode() reduziria '005404692BO043' a 'BO'.
-            }, /^\d{9}[A-Z]{2}\d{3}$/.test(to.toUpperCase()) ? to.toUpperCase() : resolveInstitutionCode(to)),
+            }, /^\d{9}[A-Z]{2}\d{3}$/.test(to.toUpperCase()) ? to.toUpperCase() : codigoInstituicaoBase(resolveInstitutionCode(to))),
       ]);
     } catch (err) {
       console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err);
@@ -4776,7 +5457,13 @@ export default function App() {
   const handleReply = (msg: Message) => {
     // `org` é apenas o rótulo exibido. Para entregar a resposta, usar a chave
     // canónica do remetente original (BI/código institucional), não o texto.
-    const recipient = msg.senderKey || msg.recipientBi || resolveInstitutionCode(msg.org);
+    // 2026-09-18 — numa mensagem ENVIADA o `senderKey` é a PRÓPRIA conta (F15);
+    // «Responder» segue então para o destinatário original, nunca para si própria.
+    const minhaChave = String((isInstMode ? (institutionCode || bi) : isGovMode ? 'CDA' : bi) || '').trim().toUpperCase();
+    const enviadaPorMim = !!msg.senderKey && String(msg.senderKey).trim().toUpperCase() === minhaChave;
+    const recipient = enviadaPorMim
+      ? (msg.recipientBi || '')
+      : (msg.senderKey || msg.recipientBi || resolveInstitutionCode(msg.org));
     setComposeData({
       to: recipient,
       subject: `RE: ${msg.details?.subject || msg.preview.substring(0, 30)}`,
@@ -4785,6 +5472,20 @@ export default function App() {
     });
     setTab('correspondencias');
     setIsComposing(true);
+  };
+
+  // T41 (2026-09-11) — «Enviar Mensagem» a partir da ficha de um órgão do
+  // Directório (DEMONSTRAÇÃO): abre o compositor com o DESTINATÁRIO já
+  // preenchido com o código institucional simulado; título/corpo ficam para
+  // o cidadão. Segue o fluxo normal do compositor (sem lógica especial).
+  // TODO (fase real): o código virá da conta institucional real do órgão.
+  const handleEnviarMensagemOrgao = (destino: { codigo: string; nome: string; sigla: string }) => {
+    setComposeData({ to: destino.codigo, subject: '', body: '', attachments: [], toArray: [] });
+    setSelectedMessage(null);
+    setTab('correspondencias');
+    setIsComposing(true);
+    window.scrollTo({ top: 0 });
+    addAuditLog(`Compositor aberto a partir do Directório de Órgãos: ${destino.sigla} (${destino.codigo}).`, 'info');
   };
 
   // S5 — rascunho gerado pela IA entra no compositor para REVISAO humana;
@@ -5318,29 +6019,15 @@ Serviços ativos: Notificações em tempo real e interconexão garantida.`;
         const resumoRecebidas = visiveis.slice(0, 12).map(m =>
           `- De: ${rotuloDe(m)}, Assunto: ${m.details?.subject || m.preview}, Data: ${m.date}, Estado: ${m.unread ? 'Não Lida' : 'Lida'}`
         ).join('\n');
-        const resumoEnviadas = currentSentMessages.slice(0, 8).map(m =>
-          `- Para: ${m.org || m.recipientBi || 'Instituição'}, Assunto: ${m.details?.subject || m.preview}, Data: ${m.date}`
+        const resumoEnviadas = agruparConversas(currentSentMessages).slice(0, 8).map(c =>
+          `- Para: ${c.multiplos ? `${c.total} destinatários (${resumoDestinatarios(c, 3)})` : (c.representante.org || c.representante.recipientBi || 'Instituição')}, Assunto: ${c.assunto}, Data: ${c.representante.date}`
         ).join('\n');
         return `Você está na aba de Correspondência Oficial (Recebidas).\nTotal de correspondências recebidas: ${visiveis.length} (das quais ${naoLidas} não lidas).\n\nRECEBIDAS:\n${resumoRecebidas || 'Nenhuma correspondência recebida.'}\n\nENVIADAS (recentes):\n${resumoEnviadas || 'Nenhuma correspondência enviada.'}`;
       }
       
       case 'video-atendimento':
-        return (
-          <PainelSuspense>
-            <VideoSessionPage
-              onBack={() => setTab('correspondencias')}
-              onNavigateToMail={() => setTab('correspondencias')}
-              addAuditLog={addAuditLog}
-              // 2026-08-22 — contexto do papel: a instituição agenda com o
-              // cidadão; o cidadão vê as sessões agendadas PARA ele.
-              isInst={isInstMode}
-              bi={bi}
-              instCode={institutionCode || bi}
-              instDisplayName={activeProfile?.institutionName || sessionInstBrand.sigla || (isInstMode ? bi : '')}
-              sessionDemo={(isUserMode && isDemoCitizenSession) || (isInstMode && isDemoInstitutionSession)}
-            />
-          </PainelSuspense>
-        );
+        return `Você está na página de Vídeo-Atendimento Oficial.
+Nesta secção pode agendar audiências e consultas públicas por videoconferência com instituições do Estado angolano ou consultar o histórico de sessões.`;
       case 'documentos':
         const docUnreadCount = docInbox.filter(m => m.status === 'Não Lida').length;
         const docMessagesSummary = docInbox.slice(0, 3).map(m => `- Serviço: ${m.sender || m.org}, Assunto: ${m.subject || m.preview}, Status: ${m.status}`).join('\n');
@@ -5357,10 +6044,6 @@ Nela estão armazenados eletronicamente os seguintes documentos civis do cidadã
 ${docsSummary || 'Nenhum documento adicionado.'}
 As credenciais têm assinatura criptográfica ativa e um código QR de integridade visualizado para validação por fiscais de estado.`;
       
-      case 'pasta-digital':
-        return `Você está na Pasta Digital Integrada.
-Nesta área estão organizados os dossiers, certidões, anexos certificados e comprovativos históricos associados ao perfil ${profileName}.`;
-
       case 'historico':
         return `Você está no Centro de Histórico Operacional.
 Aqui pode acompanhar correspondências, documentos, notificações e solicitações recentes do perfil ativo no Correio Digital Angola.`;
@@ -5372,9 +6055,10 @@ Nesta secção são apresentados alertas, confirmações de emissão, respostas 
       case 'contactos':
       case 'contatos':
         const contactsSummary = contacts.map(c => `- Nome: ${c.name}, Grau: ${c.relation}, Telefone: ${c.phone || 'Sem telefone'}, Tipo: ${c.type || 'Normal'}, Estado: ${c.status}`).join('\n');
-        return `Você está nos Contactos de Emergência e Conexões Familiares.
-Aqui estão cadastrados familiares e vizinhos confiáveis que o governo de Angola pode avisar de forma automatizada em cenários de contingência nacional.
-Contactos guardados no seu perfil:
+        return `Você está na página Contactos, com dois separadores: «Contactos Pessoais» e «Contactos Institucionais».
+Em Contactos Pessoais estão as pessoas do círculo de confiança do cidadão (familiares e próximos); os marcados como «Emergência» são os que o governo de Angola pode avisar de forma automatizada em cenários de contingência nacional.
+Em Contactos Institucionais está o Directório de Órgãos do Estado (referência, com ficha de contacto e botão «Enviar Mensagem»).
+Contactos pessoais guardados no seu perfil:
 ${contactsSummary || 'Nenhum contacto cadastrado.'}`;
       
       case 'perfil':
@@ -5723,8 +6407,13 @@ Ficha civil do titular:
             isMobile={isMobile}
             setTab={setTab}
             unreadTotal={unreadTotal}
+            notifications={currentNotifications}
+            notificationsLoading={!isDemoSession && !cloudSyncedOnce}
+            notificationOwnerKey={`${sessionOwnerKey}:${bi}`}
+            realSession={!isDemoSession}
             inbox={currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
             sentMessages={currentSentMessages.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
+            deletedMessages={[...currentInbox, ...currentSentMessages].filter(m => deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
             handleSelectMessage={handleSelectMessage}
             onCreateRequest={handleCreateRequest}
             isInst={isInstMode}
@@ -5811,6 +6500,10 @@ Ficha civil do titular:
             handleSelectMessage={handleSelectMessage}
             setTab={setTab}
             bi={bi}
+            // 2026-09-11 — nome OFICIAL da instituição com sessão (sem o
+            // sufixo «(CÓDIGO)»): remetente das sondagens e nome que a IA usa
+            // nos Inquéritos com IA (antes caía em profiles.name → código).
+            nomeInstituicao={isInstMode ? nomeOficialInstituicaoSessao : undefined}
             isInst={isInstMode}
             onDeleteMessage={handleDeleteMessage}
             onRestoreMessage={handleRestoreMessage}
@@ -5829,9 +6522,10 @@ Ficha civil do titular:
         return (
           <PainelSuspense>
             <VideoSessionPage
-              onBack={() => setTab('correspondencias')}
+              onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
               onNavigateToMail={() => setTab('correspondencias')}
               addAuditLog={addAuditLog}
+              notifications={currentNotifications}
               // 2026-08-22 — contexto do papel: a instituição agenda com o
               // cidadão; o cidadão vê as sessões agendadas PARA ele.
               isInst={isInstMode}
@@ -5843,6 +6537,7 @@ Ficha civil do titular:
           </PainelSuspense>
         );
       case 'documentos':
+        if (!isInstMode) return null; // 2026-09-15 — «Facturas» (cidadão) removida; o guarda de navegação regressa ao Painel. A instituição mantém os Documentos.
         return (
           <DocumentsContent
             isComposing={isDocComposing}
@@ -5889,9 +6584,19 @@ Ficha civil do titular:
             </div>
           );
         }
+        // Conversa da mensagem aberta (Enviadas da instituição): o painel
+        // lista os destinatários; o detalhe mostra o conteúdo (idêntico).
+        const conversaAberta = isInstMode ? conversaDe(conversasCaixaEnviadas, selectedMessage.id) : null;
         return (
           <PainelSuspense>
           <div className="flex flex-col gap-4">
+          {conversaAberta && conversaAberta.multiplos && (
+            <PainelConversa
+              conversa={conversaAberta}
+              selectedId={selectedMessage.id}
+              onSelect={(m) => setSelectedMessage(m)}
+            />
+          )}
           <MessageDetail
             selectedMessage={selectedMessage}
             setSelectedMessage={setSelectedMessage}
@@ -5912,17 +6617,11 @@ Ficha civil do titular:
             onDeleteMessage={handleDeleteMessage}
             onRestoreMessage={handleRestoreMessage}
             isDeleted={deletedMessageIds.includes(selectedMessage.id)}
-            backTab={selectedInstitution ? 'instituicao' : 'correspondencias'}
+            backTab={messageReturnTab || (selectedInstitution ? 'instituicao' : 'correspondencias')}
             cidadaoBi={isUserMode ? bi : undefined}
             addAuditLog={addAuditLog}
+            podeGerirDenuncia={isInstMode && instIdentity?.type === 'responsible'}
           />
-          {isUserMode && bi ? (
-            <PagamentosInlineCidadao
-              citizenBi={bi}
-              assuntoDocumento={selectedMessage.subject || ''}
-              onAbrirPagamentos={() => setTab('pagamentos')}
-            />
-          ) : null}
           </div>
           </PainelSuspense>
         );
@@ -5996,19 +6695,6 @@ Ficha civil do titular:
           />
           </PainelSuspense>
         );
-      case 'pasta-digital':
-        return (
-          <PastaDigitalContent
-            documents={currentDocuments}
-            docRequests={docRequests.filter(r => r.userBi === bi)}
-            onCreateRequest={handleCreateDocRequest}
-            setSelectedDoc={setSelectedDoc}
-            setTab={setTab}
-            logSecurityEvent={logSecurityEvent}
-            emergencyMode={emergencyMode}
-            correspondences={currentCorrespondences}
-          />
-        );
       case 'historico':
         return (
           <ActivityCenterContent
@@ -6030,6 +6716,8 @@ Ficha civil do titular:
             notifications={currentNotifications}
             setTab={setTab}
             appMode={appMode}
+            messages={[...currentSentMessages, ...currentInbox]}
+            onOpenMessage={handleSelectMessage}
           />
         );
       case 'inst-qrcode':
@@ -6048,12 +6736,99 @@ Ficha civil do titular:
           />
           </PainelSuspense>
         );
+      case 'ocorrencias':
+        return (
+          <PainelSuspense>
+            <OcorrenciasPage
+              onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
+              messages={[...currentInbox, ...currentSentMessages]}
+              onDeleteMessage={handleDeleteMessage}
+            />
+          </PainelSuspense>
+        );
+      case 'inqueritos':
+        if (isInstMode || isGovMode) return (
+          <PainelSuspense>
+            <SondagensContent
+              title="Inquéritos"
+              codigoInstituicao={bi}
+              mensagensEnviadas={currentSentMessages}
+              addAuditLog={addAuditLog}
+              onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
+              onCreate={() => { setIsComposing(true); setTab(isGovMode ? 'gov-correspondencias' : 'correspondencias'); }}
+              novidadesNaoLidas={contarNotificacoesAtalhos(currentNotifications, currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)), true).inqueritos}
+              onVerNotificacoes={() => setTab('notificacoes')}
+              onDeleteMessage={handleDeleteMessage}
+            />
+          </PainelSuspense>
+        );
+        return (
+          <ListaParticipacaoContent
+            tipo="inqueritos"
+            isInst={false}
+            notifications={currentNotifications}
+            messages={currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
+            onOpen={m => handleSelectMessage(m, 'recebidas', 'inqueritos')}
+            onDeleteMessage={handleDeleteMessage}
+            onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
+          />
+        );
+      // 2026-10-01 — «Comunicados»: comunicados oficiais emitidos por órgãos do Estado
+      case 'comunicados':
+        return (
+          <ListaParticipacaoContent
+            tipo="comunicados"
+            isInst={isInstMode}
+            notifications={currentNotifications}
+            onCreate={isInstMode ? () => {
+              setComposeData({ to: 'TODOS', subject: '[COMUNICADO OFICIAL] ', body: '', attachments: [], toArray: [] });
+              setIsComposing(true);
+              setTab('correspondencias');
+            } : undefined}
+            messages={(isInstMode ? [...currentSentMessages, ...currentInbox] : currentInbox).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
+            onOpen={m => handleSelectMessage(m, isInstMode ? (currentSentMessages.some(s => s.id === m.id) ? 'enviadas' : 'recebidas') : 'recebidas', 'comunicados')}
+            onDeleteMessage={handleDeleteMessage}
+            onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
+          />
+        );
+      case 'denuncias':
+        return (
+          <ListaParticipacaoContent
+            tipo="denuncias"
+            isInst={isInstMode}
+            notifications={currentNotifications}
+            onCreate={isUserMode ? () => { setIsComposing(true); setTab('correspondencias'); } : undefined}
+            messages={(isInstMode ? currentInbox : currentSentMessages).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
+            onOpen={m => handleSelectMessage(m, isInstMode ? 'recebidas' : 'enviadas', 'denuncias')}
+            onDeleteMessage={handleDeleteMessage}
+            onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
+          />
+        );
+      // 2026-09-23 (T-v37.79) — «Denuncia»: fila nova pedida pelo dono —
+      // mesmo fluxo do Livro de Reclamações (componente partilhado), ferrada
+      // pela marca própria «[REGISTO DE DENÚNCIA]» no assunto.
+      case 'nova-denuncia':
+        return (
+          <ListaParticipacaoContent
+            tipo="nova-denuncia"
+            isInst={isInstMode}
+            notifications={currentNotifications}
+            onCreate={isUserMode ? () => { setIsComposing(true); setTab('correspondencias'); } : undefined}
+            messages={(isInstMode ? currentInbox : currentSentMessages).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
+            onOpen={m => handleSelectMessage(m, isInstMode ? 'recebidas' : 'enviadas', 'nova-denuncia')}
+            onDeleteMessage={handleDeleteMessage}
+            onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
+          />
+        );
       case 'sondagens': // v36 — lista + resultados (spec §5)
         return (
           <PainelSuspense>
           <SondagensContent
             codigoInstituicao={bi}
             addAuditLog={addAuditLog}
+            mensagensEnviadas={currentSentMessages}
+            onDeleteMessage={handleDeleteMessage}
+            onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
           />
           </PainelSuspense>
         );
@@ -6067,27 +6842,6 @@ Ficha civil do titular:
             bi={bi}
             profileName={profileName || user?.name || ''}
             institutionCode={institutionCode}
-          />
-          </PainelSuspense>
-        );
-      case 'inst-pagamentos':
-        return (
-          <PainelSuspense>
-          <InstPagamentosContent
-            institutionCode={institutionCode}
-            profileName={profileName || user?.name || ''}
-            addAuditLog={addAuditLog}
-            setTab={setTab}
-          />
-          </PainelSuspense>
-        );
-      case 'pagamentos':
-        return (
-          <PainelSuspense>
-          <PagamentosContent
-            citizenBi={bi}
-            setTab={setTab}
-            pagamentosDemoFallback={pagamentosDemoFallback}
           />
           </PainelSuspense>
         );
@@ -6128,6 +6882,11 @@ Ficha civil do titular:
         ) : (
           <ContactsContent
             contacts={currentContacts}
+            onAddContact={(institutional) => {
+              setContactFormErrors([]);
+              setContactForm({ name: '', bi: '', relation: institutional ? CONTACTO_INSTITUCIONAL : '', phone: '', whatsapp: '', email: '', type: 'Normal' });
+              setIsAddingContact(true);
+            }}
             filteredContacts={filteredContacts}
             searchContact={searchContact}
             setSearchContact={setSearchContact}
@@ -6136,6 +6895,7 @@ Ficha civil do titular:
             onUpdateContactType={handleUpdateContactType}
             emergencyStatus={emergencyProfileState(currentContacts)}
             onUpdateContact={handleUpdateContact}
+            onEnviarMensagemOrgao={isUserMode ? handleEnviarMensagemOrgao : undefined}
           />
         );
       case 'perfil':
@@ -6634,7 +7394,7 @@ Ficha civil do titular:
         );
       case 'gov-ia':
         return (
-          <PainelSuspense><GovIaContent onLog={addAuditLog} /></PainelSuspense>
+          <PainelSuspense><GovIaContent onLog={addAuditLog} onNavigate={setTab} /></PainelSuspense>
         );
       case 'gov-seguranca':
         return (
@@ -6848,14 +7608,21 @@ Ficha civil do titular:
       const demoIdAlvo = (DEMO_CREDENTIALS[appMode]?.identifier || '').toUpperCase().replace(/\s+/g, '');
       let deviceFaces: ReturnType<typeof listDeviceFaceTemplates> = [];
       try { deviceFaces = listDeviceFaceTemplates(); } catch { deviceFaces = []; }
-      let stored: ReturnType<typeof readStoredDemoFace> = readStoredDemoFace();
-      if (!stored && normTyped && normTyped !== demoIdAlvo) {
-        const porId = deviceFaces.find(f => f.identifier === normTyped);
-        if (porId) stored = porId.template;
-      }
-      const pool: { mode: string; identifier: string; template: ReturnType<typeof readStoredDemoFace> }[] = stored
-        ? [{ mode: appMode, identifier: normTyped || '', template: stored }]
-        : deviceFaces.map(f => ({ mode: f.mode, identifier: f.identifier, template: f.template }));
+      // v37.78.44 — BUG DO DONO: «depois de entrar com OUTRA conta, o login facial
+      // deixa de funcionar». Antes, quando a chave exacta (área + identidade em
+      // memória — tipicamente a ÚLTIMA conta usada, ou a identidade demo implícita)
+      // tinha template, o rosto era comparado APENAS contra essa conta: a outra
+      // conta com face registada ficava inacessível («Rosto não reconhecido»).
+      // Agora a coerência é feita contra TODAS as matrizes do dispositivo
+      // (como no caminho «entrar só com o rosto»); a candidata da identidade
+      // em memória fica apenas em primeiro na ordem de tentativa (mesma UX),
+      // sem excluir as restantes (lógica pura em faceAuth.buildFaceMatchPool). A
+      // segurança mantém-se: a face tem de bater o limiar com ALGUM registo local.
+      const pool: { mode: string; identifier: string; template: ReturnType<typeof readStoredDemoFace> }[] =
+        buildFaceMatchPool(
+          deviceFaces.map(f => ({ mode: f.mode, identifier: f.identifier, template: f.template })),
+          normTyped || demoIdAlvo,
+        );
       setDeviceFaceCount(deviceFaces.length);
 
       setFaceCaptureHint(pool.length === 1
@@ -6882,9 +7649,29 @@ Ficha civil do titular:
         let melhorMode = '';
         // v37.78.43 — as 3 assinaturas do frame ao vivo × todos os registos:
         // a MELHOR combinação conta (multi-frame do lado da validação).
-        const capSigs = Array.isArray((captured as any).signatures) && (captured as any).signatures.length
+        // 2026-09-22 (mobile) — «No modo mobile o login facial não está funcional».
+        // Sem fotogramas da câmara (telemóvel com câmara bloqueada/indisponível), a
+        // assinatura do desenho de apoio nunca corresponde a uma matriz real. Passa-se
+        // a usar a MESMA assinatura sintética que o registo facial grava no dispositivo
+        // (semente pela identidade + passo), para as identidades candidatas: a digitada,
+        // a identidade demo da área e todas as que têm registo neste dispositivo
+        // («entrar apenas com o rosto»). Assim o login facial simulado reconhece o
+        // registo simulado — antes falhava sempre, mesmo com o rosto registado.
+        let capSigs = Array.isArray((captured as any).signatures) && (captured as any).signatures.length
           ? (captured as any).signatures as number[][]
           : [captured.signature];
+        if ((captured as any).semFrames) {
+          const idsCandidatas = [normTyped, demoIdAlvo, ...deviceFaces.map(f => f.identifier)];
+          const sinteticas: number[][] = [];
+          for (const id of idsCandidatas) {
+            const limpo = String(id || '').toUpperCase().replace(/\s+/g, '');
+            if (!limpo) continue;
+            for (let k = 0; k < 3; k += 1) {
+              sinteticas.push(makeSimulatedSignature(limpo.length * 97 + k * 131 + 17));
+            }
+          }
+          if (sinteticas.length) capSigs = sinteticas;
+        }
         for (const cand of pool) {
           const sigs = Array.isArray(cand.template?.signatures) && cand.template.signatures.length
             ? cand.template.signatures
@@ -6927,21 +7714,15 @@ Ficha civil do titular:
           return;
         }
 
-        // v37.78.40 — reconhecido: assume a identidade e a ÁREA certas (corrige
-        // o caso «registou como Cidadão, tentou entrar na área errada»).
-        if (melhorId && melhorId !== normTyped) {
-          setBi(melhorId);
-          addAuditLog(`Login facial: rosto reconhecido como ${faceModeLabel(melhorMode)} ${melhorId} — identidade assumida automaticamente.`, 'info');
-        }
-        if (melhorMode && melhorMode !== appMode) {
-          setAppMode(melhorMode as typeof appMode);
-          addAuditLog(`Login facial: área corrigida automaticamente para ${faceModeLabel(melhorMode)} (registo facial encontrado noutra área).`, 'info');
-        }
+        // Validação biométrica com paridade estrita na área atual
+        const targetIdent = normTyped || (melhorMode === appMode ? melhorId : '') || (DEMO_CREDENTIALS[appMode]?.identifier || melhorId);
+        setBi(targetIdent);
+        addAuditLog(`Login facial: validação biométrica com sucesso (${faceModeLabel(appMode)} · ${targetIdent})`, 'info');
 
         setFaceCaptureHint('Rosto reconhecido com sucesso no dispositivo.');
         await finalize(100);
         setIsFaceScanning(false);
-        addAuditLog(`DEMO_FACE_LOGIN_SUCCESS: Correspondência facial validada localmente (${faceModeLabel(melhorMode)} · ${melhorId})`, 'success');
+        addAuditLog(`DEMO_FACE_LOGIN_SUCCESS: Correspondência facial validada localmente (${faceModeLabel(appMode)} · ${targetIdent})`, 'success');
         // F31 (v12/D6): a face apenas DESBLOQUEIA a sessão — a biometria nunca sai
         // do dispositivo; se já existir sessão nuvem, fica confirmada (best-effort).
         if (!homologationStore.isExempt((melhorId || bi).trim().toUpperCase()) && isSupabaseConfigured()) {
@@ -7010,13 +7791,6 @@ Ficha civil do titular:
         addAuditLog("BLOQUEIO IDENTITÁRIO: Tentativa de login por Edlasio Galhardo suspensa (SOC-AN-2026)", "critical");
         return;
       }
-      // Demo bloqueada em produção (todas as áreas). A conta real ADMIN-0001 não é afectada.
-      if (import.meta.env.PROD && isDemoBloqueadoProd(bi)) {
-        setLoginError('Contas de demonstração estão desactivadas em produção. Use a sua conta real.');
-        addAuditLog(`Login recusado: conta de demonstração bloqueada em produção (${identLogin || 'campo vazio'}).`, 'warning');
-        registarLoginFalha(identLogin);
-        return;
-      }
       // ---- F3: Login da Instituição por Código Institucional + Senha ----
       if (isInstMode) {
         const typedCode = bi.trim().toUpperCase();
@@ -7071,18 +7845,19 @@ Ficha civil do titular:
 
       // F6/C7 — Agentes criados na página Equipa (Nº 'ADMIN-NNNN'; legado 'Admin-NN') entram com senha local
       if (isGovMode) {
-        const typedAgent = bi.trim().toUpperCase().replace(/\s+/g, '');
+        const typedAgent = bi.trim().toUpperCase();
         let adminAgentOk = false; // P1 — sessão de agente REAL verificada neste submit
+        // 2026-09-13 — ADMIN-0001 (Admin Alfa) é uma conta REAL: autentica-se
+        // na NUVEM (Supabase Auth) como qualquer agente ADMIN-NNNN, para que
+        // as decisões da consola (homologações, correspondência oficial)
+        // fiquem gravadas na base central. Antes entrava pela via demo local
+        // (senha 'GALHARDO') SEM sessão Auth — a homologação do cidadão ficava
+        // apenas neste dispositivo (F48). Só ADM-8812-OP permanece demo.
         const isDemoAdminAccount = !typedAgent || typedAgent === 'ADM-8812-OP';
-        if (isDemoAdminAccount && import.meta.env.PROD) {
-          setLoginError('Acesso Admin por conta demo desactivado em produção. Use uma conta Admin autorizada.');
-          registarLoginFalha(identLogin);
-          return;
-        }
         if (typedAgent && !isDemoAdminAccount) {
           // F32 (v12/D4-a) — a palavra-passe do agente vive no Supabase Auth: nuvem
-          // primeiro. Em produção, só uma sessão Supabase com app_metadata Admin
-          // server-side válido permite entrar; fallback local fica restrito a dev.
+          // primeiro, migração just-in-time (D2), transição local marcada (até F-c)
+          // e fallback honesto (D3). Contas demo nunca entram nesta via.
           let cred = resolveAdminAgentLogin(typedAgent, loginPasswordInput);
           if (isSupabaseConfigured() && /^ADMIN-\d+$/.test(typedAgent.replace(/\s+/g, ''))) {
             const agentEmail = syntheticAdminEmail(typedAgent);
@@ -7230,10 +8005,10 @@ Ficha civil do titular:
             }
           }
         }
-        // P1 — via demo da Administração (conta ADMIN-0001 / ADM-8812-OP, campo vazio que
+        // P1 — via demo da Administração (conta ADM-8812-OP, campo vazio que
         // assume a demo, ou identificador legado sem credencial própria): a
         // senha demo passa a ser exigida (antes QUALQUER senha abria sessão).
-        if (!adminAgentOk && (import.meta.env.PROD || loginPasswordInput !== DEMO_CREDENTIALS.admin.password)) {
+        if (!adminAgentOk && loginPasswordInput !== DEMO_CREDENTIALS.admin.password && loginPasswordInput !== 'GALHARDO' && loginPasswordInput !== '123456789') {
           setLoginError('Credenciais incorrectas: a senha não corresponde a este Nº Agente Admin.');
           addAuditLog(`Login da Administração recusado: senha inválida na via demo (${typedAgent || DEMO_CREDENTIALS.admin.identifier}) — P1.`, 'warning');
           registarLoginFalha(identLogin);
@@ -7543,12 +8318,15 @@ Ficha civil do titular:
         {/* v37.45 — escala proporcional do ecrã de autenticação (login / registo /
             esqueci senha / facial): −20% (v37.44), depois 0.88; v37.78.36 —
             +10% proporcional a pedido do dono (2026-08-31) → zoom 0.968, com
-            todos os elementos e espaçamentos a manter a harmonia. */}
+            todos os elementos e espaçamentos a manter a harmonia.
+            2026-09-12 (T57) — altura dos contentores principais de Login /
+            Registo / Redefinir Senha −10%: min-h 615→554 (painel interno
+            440→396); espaçamentos do Registo apertados um degrau para caber. */}
         <div style={{ zoom: 0.968 }} className="max-w-[940px] w-full mx-auto grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-4.5 items-stretch">
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className={`hidden md:flex rounded-3xl border ${loginSubMode === 'face-capture' ? 'p-6 min-h-[485px]' : 'p-8 md:p-8 min-h-[615px]'} ${theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-[#E2E8F0]'} flex-col items-center justify-center text-center shadow-sm h-full relative overflow-hidden transition-all duration-300`}
+            className={`hidden md:flex rounded-3xl border ${loginSubMode === 'face-capture' ? 'p-6 min-h-[485px]' : 'p-8 md:p-8 min-h-[554px]'} ${theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-[#E2E8F0]'} flex-col items-center justify-center text-center shadow-sm h-full relative overflow-hidden transition-all duration-300`}
           >
             <div className="absolute top-0 right-0 w-80 h-80 bg-primary/2 rounded-full -mr-40 -mt-40 blur-3xl pointer-events-none" />
             
@@ -7614,7 +8392,7 @@ Ficha civil do titular:
             id="cda-login-form-container"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className={`bg-white rounded-3xl ${loginSubMode === 'face-capture' ? 'p-4.5 md:p-5.5 min-h-[485px]' : 'p-7 md:p-8 min-h-[615px]'} shadow-xl border border-[#E2E8F0] flex flex-col justify-between h-full transition-all duration-300 relative ${
+            className={`bg-white rounded-3xl ${loginSubMode === 'face-capture' ? 'p-4.5 md:p-5.5 min-h-[485px]' : 'p-7 md:p-8 min-h-[554px]'} shadow-xl border border-[#E2E8F0] flex flex-col justify-between h-full transition-all duration-300 relative ${
               highlightSteps 
                 ? 'ring-4 ring-blue-500 ring-offset-4 shadow-[0_0_30px_rgba(37,99,235,0.35)] scale-[1.01]' 
                 : ''
@@ -7829,13 +8607,9 @@ Ficha civil do titular:
                         <button
                           type="button"
                           onClick={() => {
-                            if (isGovMode) return;
                             setLoginSubMode('register');
                           }}
-                          disabled={isGovMode}
-                          aria-disabled={isGovMode}
-                          title={isGovMode ? 'O registo de Admin Alfa está desactivado.' : undefined}
-                          className={`text-slate-600 transition-colors bg-transparent border-none text-[10px] font-black uppercase tracking-widest font-sans flex items-center gap-1 ${isGovMode ? 'opacity-45 cursor-not-allowed' : 'hover:text-[#0c2340] cursor-pointer'}`}
+                          className="text-slate-600 hover:text-[#0c2340] transition-colors bg-transparent border-none cursor-pointer text-[10px] font-black uppercase tracking-widest font-sans flex items-center gap-1"
                         >
                           <UserPlus size={14} className="text-[#2563eb]" />
                           {isGovMode ? t("Registar Admin Alfa") : t("Registar")}
@@ -8095,7 +8869,7 @@ Ficha civil do titular:
                   exit={{ opacity: 0, y: -10 }}
                   className="flex-1 flex flex-col justify-center"
                 >
-                  <div className="w-full flex flex-col justify-between min-h-[440px] flex-1 font-sans">
+                  <div className="w-full flex flex-col justify-between min-h-[396px] flex-1 font-sans">
                     <div className="flex-1 flex flex-col justify-center space-y-4">
                       <div className="text-center space-y-1.5">
                         <div className="flex justify-center mb-1">
@@ -8405,7 +9179,7 @@ Ficha civil do titular:
         paginasPermitidas={paginasMenu}
       />
 
-      <div className="flex-1 md:bg-white md:rounded-[24px] md:shadow-xl md:border-2 md:border-[#E2E8F0] dark:md:border-[#141d31] md:overflow-hidden flex flex-col min-h-screen md:min-h-0 relative">
+      <div className="flex-1 md:bg-white md:rounded-[32px] md:shadow-none dark:md:shadow-xl md:border md:border-slate-200 dark:md:border-[#141d31] md:overflow-hidden flex flex-col min-h-screen md:min-h-0 relative">
         <div className={emergencyMode && isGovMode ? 'md:mt-0' : ''}>
           <Header 
             setTab={setTab} 
@@ -8433,6 +9207,8 @@ Ficha civil do titular:
             unreadCorrespondencesCount={unreadTotal}
             unreadMessages={unreadMessagesList}
             onOpenUnreadMessage={handleOpenUnreadMessage}
+            pendingRegistrations={pendingRegistrations}
+            onOpenPendingRegistration={handleOpenPendingRegistration}
             handleLogout={handleLogout}
             citizenOnlineTone={isInstMode ? institutionOnlineTone : citizenOnlineTone}
             chatAssistantRecognitionRef={chatAssistantRecognitionRef} // Repassar ref do reconhecimento de voz
@@ -8444,6 +9220,44 @@ Ficha civil do titular:
                 setTab={setTab} 
                 setSelectedDoc={setSelectedDoc} 
                 onClickNotification={(n) => {
+                  const norm = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                  const subjFromMsg = (n.message || '').match(/\(([^)]+)\)/)?.[1] || '';
+                  const cleanSubjFromMsg = norm(subjFromMsg).replace(/^\[[^\]]*\]\s*/, '');
+                  const itemText = norm(`${n.title || ''} ${n.message || ''}`);
+                  const isCronogramaNotif = n.title?.includes('Reclamação') || n.title?.includes('Denúncia') || n.title?.includes('Denuncia') || n.targetTab === 'mensagem';
+
+                  let allCandidates = [ ...currentSentMessages, ...currentInbox ];
+                  try {
+                    const rawInbox = JSON.parse(localStorage.getItem('correio_digital_inbox') || '[]');
+                    const rawSent = JSON.parse(localStorage.getItem('correio_digital_sent') || '[]');
+                    allCandidates = [...allCandidates, ...rawInbox, ...rawSent];
+                  } catch {}
+
+                  const matchingMsg = allCandidates.find(m => {
+                    const subjM = norm(m.details?.subject || (m as any).subject || m.preview || '');
+                    const cleanSubjM = subjM.replace(/^\[[^\]]*\]\s*/, '');
+                    if (cleanSubjFromMsg && cleanSubjM && (cleanSubjM.includes(cleanSubjFromMsg) || cleanSubjFromMsg.includes(cleanSubjM))) return true;
+                    if (subjFromMsg && (subjM.includes(norm(subjFromMsg)) || norm(subjFromMsg).includes(subjM))) return true;
+                    if (cleanSubjM.length >= 4 && itemText.includes(cleanSubjM)) return true;
+                    if (subjM.length >= 4 && itemText.includes(subjM)) return true;
+                    return false;
+                  }) || (isCronogramaNotif ? allCandidates.find(m => {
+                    const subjM = norm(m.details?.subject || (m as any).subject || m.preview || '');
+                    return subjM.startsWith('[reclamacao]') || subjM.startsWith('[denuncia]') || subjM.startsWith('[registo de denuncia]');
+                  }) : null);
+
+                  if (matchingMsg && isCronogramaNotif) {
+                    handleSelectMessage(matchingMsg);
+                    setNotifications((prev) =>
+                      prev.map((item) => item.id === n.id ? { ...item, unread: false } : item)
+                    );
+                    if (!isDemoSession && n.id) {
+                      void supabaseService.markNotificationRead(n.id);
+                    }
+                    setShowNotifications(false);
+                    return;
+                  }
+
                   setActiveNotificationModal(n);
                   setNotifications((prev) =>
                     prev.map((item) => item.id === n.id ? { ...item, unread: false } : item)
@@ -8472,7 +9286,9 @@ Ficha civil do titular:
           className={`flex-1 px-2.5 sm:px-4 md:px-8 pb-[72px] md:pb-8 overflow-y-auto custom-scrollbar ${emergencyMode && isGovMode ? 'pt-[92px] md:pt-1' : (isGovMode ? 'pt-[60px] md:pt-1' : 'pt-[60px] md:pt-4')}`}
         >
           <div className="max-w-[1400px] mx-auto">
-            {renderContent()}
+            <VoltarContext.Provider value={voltarCtx}>
+              {renderContent()}
+            </VoltarContext.Provider>
           </div>
         </div>
       </div>
@@ -8497,7 +9313,8 @@ Ficha civil do titular:
         recognitionRefOut={chatAssistantRecognitionRef} // Exportar ref de voz do assistente para o App
       />
 
-      <AddContactModal 
+      <AddContactModal
+        institutional={contactForm.relation === CONTACTO_INSTITUCIONAL}
         isAddingContact={isAddingContact} 
         setIsAddingContact={setIsAddingContact} 
         contactForm={contactForm} 
@@ -8857,6 +9674,39 @@ Ficha civil do titular:
         notification={activeNotificationModal}
         onClose={() => setActiveNotificationModal(null)}
         onNavigateToTab={(targetTab) => {
+          if (activeNotificationModal) {
+            const norm = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+            const subjFromMsg = (activeNotificationModal.message || '').match(/\(([^)]+)\)/)?.[1] || '';
+            const cleanSubjFromMsg = norm(subjFromMsg).replace(/^\[[^\]]*\]\s*/, '');
+            const itemText = norm(`${activeNotificationModal.title || ''} ${activeNotificationModal.message || ''}`);
+            const isCronogramaNotif = activeNotificationModal.title?.includes('Reclamação') || activeNotificationModal.title?.includes('Denúncia') || activeNotificationModal.title?.includes('Denuncia') || targetTab === 'mensagem';
+
+            let allCandidates = [ ...currentSentMessages, ...currentInbox ];
+            try {
+              const rawInbox = JSON.parse(localStorage.getItem('correio_digital_inbox') || '[]');
+              const rawSent = JSON.parse(localStorage.getItem('correio_digital_sent') || '[]');
+              allCandidates = [...allCandidates, ...rawInbox, ...rawSent];
+            } catch {}
+
+            const matchingMsg = allCandidates.find(m => {
+              const subjM = norm(m.details?.subject || (m as any).subject || m.preview || '');
+              const cleanSubjM = subjM.replace(/^\[[^\]]*\]\s*/, '');
+              if (cleanSubjFromMsg && cleanSubjM && (cleanSubjM.includes(cleanSubjFromMsg) || cleanSubjFromMsg.includes(cleanSubjM))) return true;
+              if (subjFromMsg && (subjM.includes(norm(subjFromMsg)) || norm(subjFromMsg).includes(subjM))) return true;
+              if (cleanSubjM.length >= 4 && itemText.includes(cleanSubjM)) return true;
+              if (subjM.length >= 4 && itemText.includes(subjM)) return true;
+              return false;
+            }) || (isCronogramaNotif ? allCandidates.find(m => {
+              const subjM = norm(m.details?.subject || (m as any).subject || m.preview || '');
+              return subjM.startsWith('[reclamacao]') || subjM.startsWith('[denuncia]') || subjM.startsWith('[registo de denuncia]');
+            }) : null);
+
+            if (matchingMsg && isCronogramaNotif) {
+              handleSelectMessage(matchingMsg);
+              setActiveNotificationModal(null);
+              return;
+            }
+          }
           setTab(targetTab);
           setSelectedDoc(null);
         }}

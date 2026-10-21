@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search,
@@ -122,6 +123,7 @@ export function WalletContent({
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
+          <BotaoVoltar />
           <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
             <QrCode size={24} />
           </div>
@@ -146,7 +148,6 @@ export function WalletContent({
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 px-0.5 no-scrollbar mb-4">
-        <button onClick={() => setTab('pasta-digital')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{translate("Abrir Pasta Digital")}</button>
         <button onClick={() => setTab('historico')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{translate("Ver Histórico")}</button>
         <button onClick={() => setTab('notificacoes')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">{translate("Notificações")}</button>
         <button onClick={() => setShowRequestsHistory(prev => !prev)} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">
@@ -271,6 +272,32 @@ export function WalletContent({
           })}
         </AnimatePresence>
       </div>
+
+      {/* UX: estado vazio — antes a carteira sem documentos era um ecrã em branco. */}
+      {filteredDocs.length === 0 && (
+        <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[24px] md:rounded-[32px] p-10 md:p-14 text-center space-y-4">
+          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm text-primary">
+            <QrCode size={30} />
+          </div>
+          <div>
+            <h4 className="text-base md:text-lg font-black text-slate-600 uppercase">Carteira vazia</h4>
+            <p className="text-xs md:text-sm text-slate-500 font-semibold max-w-md mx-auto">
+              {searchDoc
+                ? `Nenhum documento na carteira corresponde a "${searchDoc}".`
+                : 'Ainda não tem documentos digitais validados. Solicite o seu primeiro documento oficial — ele aparece aqui com validade jurídica.'}
+            </p>
+          </div>
+          {!searchDoc && (
+            <button
+              type="button"
+              onClick={() => setTab('solicitar-documento')}
+              className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary/90 transition-all cursor-pointer"
+            >
+              <Plus size={16} /> Solicitar Documento
+            </button>
+          )}
+        </div>
+      )}
 
       {docRequests.length > 0 && showRequestsHistory && (
         <div className="space-y-6 pt-10">

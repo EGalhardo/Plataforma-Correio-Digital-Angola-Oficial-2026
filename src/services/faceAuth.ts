@@ -221,6 +221,27 @@ export const listDeviceFaceTemplates = (): DeviceFaceRecord[] => {
 export const faceModeLabel = (mode: string): string =>
   mode === 'institution' ? 'Institucional' : mode === 'admin' ? 'Administração' : 'Cidadão';
 
+/**
+ * v37.78.44 — Lista de CANDIDATAS à coerência facial (função pura, testável).
+ * Regra do dono: a face é SEMPRE confrontada com TODAS as matrizes do
+ * dispositivo — a candidata indicada (identidade digitada/em memória) fica só
+ * na frente da fila de tentativa (mesma UX), nunca exclui as restantes. Antes,
+ * quando a chave exacta existia (ex.: template da conta depois de «outra
+ * conta» ter sido usada), a coerência ficava presa a esse 1 registo e as
+ * outras contas com face registada ficavam intransitáveis.
+ */
+export const buildFaceMatchPool = <T extends { identifier: string }>(
+  deviceFaces: T[],
+  alvo?: string,
+): T[] => {
+  const pool = [...deviceFaces];
+  const alvoNorm = (alvo || '').toUpperCase().replace(/\s+/g, '');
+  if (alvoNorm) {
+    pool.sort((a, b) => (a.identifier.toUpperCase() === alvoNorm ? -1 : b.identifier.toUpperCase() === alvoNorm ? 1 : 0));
+  }
+  return pool;
+};
+
 
 /** Assinatura simulada determinística de alta resolução (2048 pontos) para o modo sem câmara. */
 export const makeSimulatedSignature = (seed: number): number[] => {

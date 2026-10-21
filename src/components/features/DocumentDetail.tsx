@@ -5,7 +5,8 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Download, ShieldCheck, QrCode, Info, ExternalLink, Printer, Fingerprint, Sparkles, ArrowRight } from 'lucide-react';
+import { Download, ShieldCheck, QrCode, Info, ExternalLink, Printer, Fingerprint, Sparkles, ArrowRight } from 'lucide-react';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { useLanguage } from '../../hooks/useLanguage';
 import { Document } from '../../types';
 import { USER_PROFILE_PHOTO } from '../../constants/data';
@@ -27,6 +28,9 @@ export function DocumentDetail({
   setTab,
   logSecurityEvent,
 }: DocumentDetailProps) {
+  // 2026-09-11 — o regresso é feito por <BotaoVoltar /> (página anterior);
+  // as props mantêm-se para compatibilidade com o App.
+  void setSelectedDoc; void setTab;
   const { t: translate } = useLanguage();
   const [showAIPanel, setShowAIPanel] = useState(false);
   
@@ -53,16 +57,7 @@ export function DocumentDetail({
       className="space-y-6"
     >
       <div className="flex items-center gap-4 mb-2">
-        <button 
-          onClick={() => {
-            setSelectedDoc(null);
-            setTab('home');
-          }}
-          className="flex items-center justify-center w-10 h-10 bg-white border-2 border-[#d1dbe5] rounded-full text-[#384e6e] hover:bg-slate-50 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95 shrink-0"
-          title="Voltar ao Painel"
-        >
-          <ArrowLeft size={16} className="text-[#384e6e]" />
-        </button>
+        <BotaoVoltar />
         <div>
           <h3 className="text-base md:text-xl font-black text-primary leading-none">{translate('Visualizar Documento')}</h3>
           <p className="text-[10px] md:text-sm text-slate-400 font-black uppercase tracking-widest mt-1">Ref: {selectedDoc.code}</p>

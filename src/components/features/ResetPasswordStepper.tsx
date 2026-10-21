@@ -110,6 +110,22 @@ export function ResetPasswordStepper({ onCancel, onSuccess, addAuditLog, appMode
     setGravando(false);
     if (r.outcome === 'ok') {
       addAuditLog('Recuperação de senha: nova palavra-passe gravada na nuvem via link de e-mail (PASSWORD_RECOVERY).', 'success');
+      // v37.78.44 — BUG DO DONO: a recuperação gravava a nova senha na nuvem MAS
+      // deixava o espelho local `citizen_pass_{BI}` com a senha VELHA. No próximo
+      // LOGIN FACIAL, o restauro da sessão da nuvem usava esse espelho obsoleto →
+      // signIn inválido → sem sessão → correspondências incompletas/vazias
+      // (o utilizador pensava que a caixa tinha «menos mensagens»).
+      // Recupera aqui o B.I. da sessão de recuperação recém-fechada e actualiza
+      // o espelho: o próximo login facial volta a entrar com o correio completo.
+      try {
+        const { data } = await supabase.auth.getSession();
+        const emailSessao = String(data?.session?.user?.email || '').toLowerCase();
+        const mBi = emailSessao.match(/^bi\.([a-z0-9]+)@cidadao\.correiodigital\.ao$/i);
+        if (mBi && mBi[1]) {
+          const biDaConta = mBi[1].toUpperCase();
+          localStorage.setItem(`citizen_pass_${biDaConta}`, password);
+        }
+      } catch { /* espelho bloqueado — o próximo login por senha repara-o */ }
       setStep('success');
       return;
     }
@@ -128,7 +144,7 @@ export function ResetPasswordStepper({ onCancel, onSuccess, addAuditLog, appMode
   };
 
   return (
-    <div className="w-full flex flex-col justify-between min-h-[440px] flex-1 font-sans">
+    <div className="w-full flex flex-col justify-between min-h-[396px] flex-1 font-sans">
       <div className="flex-1 flex flex-col justify-center">
         <AnimatePresence mode="wait">
 

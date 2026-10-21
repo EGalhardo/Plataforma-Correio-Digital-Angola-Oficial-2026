@@ -1,25 +1,68 @@
-import { Bell, BadgeCheck, ShieldAlert, Info, ChevronRight } from 'lucide-react';
-import { AppNotification, AppMode } from '../../types';
+import { useState } from 'react';
+import { Bell, BadgeCheck, ShieldAlert, Info, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { AppNotification, AppMode, Message } from '../../types';
+import { BotaoVoltar } from '../ui/BotaoVoltar';
 
 interface NotificationsCenterContentProps {
   notifications: AppNotification[];
   setTab: (tab: string) => void;
   appMode: AppMode;
+  messages?: Message[];
+  onOpenMessage?: (msg: Message) => void;
 }
 
-export function NotificationsCenterContent({ notifications, setTab, appMode }: NotificationsCenterContentProps) {
+/** UX: mensagens longas começam truncadas (2 linhas) com «Ver mais». */
+const LIMITE_EXPANDIR = 140;
+
+export function NotificationsCenterContent({ notifications, setTab, appMode, messages = [], onOpenMessage }: NotificationsCenterContentProps) {
+  const [expandidos, setExpandidos] = useState<Set<string | number>>(new Set());
+  const alternar = (id: string | number) => {
+    setExpandidos(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
   const grouped = {
     success: notifications.filter((n) => n.type === 'success'),
     warning: notifications.filter((n) => n.type === 'warning'),
     info: notifications.filter((n) => n.type === 'info')
   };
 
-  const goHome = () => {
-    setTab(appMode === 'admin' ? 'gov-dashboard' : 'home');
-  };
+  const navigateToTarget = (targetTab: string, item?: AppNotification) => {
+    if (item && onOpenMessage) {
+      const norm = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      const subjFromMsg = (item.message || '').match(/\(([^)]+)\)/)?.[1] || '';
+      const cleanSubjFromMsg = norm(subjFromMsg).replace(/^\[[^\]]*\]\s*/, '');
+      const itemText = norm(`${item.title || ''} ${item.message || ''}`);
 
-  const navigateToTarget = (targetTab: string) => {
-    setTab(targetTab || (appMode === 'admin' ? 'gov-dashboard' : 'home'));
+      let allCandidates = [...(messages || [])];
+      try {
+        const rawInbox = JSON.parse(localStorage.getItem('correio_digital_inbox') || '[]');
+        const rawSent = JSON.parse(localStorage.getItem('correio_digital_sent') || '[]');
+        allCandidates = [...allCandidates, ...rawInbox, ...rawSent];
+      } catch {}
+
+      const matchingMsg = allCandidates.find(m => {
+        const subjM = norm(m.details?.subject || (m as any).subject || m.preview || '');
+        const cleanSubjM = subjM.replace(/^\[[^\]]*\]\s*/, '');
+        if (cleanSubjFromMsg && cleanSubjM && (cleanSubjM.includes(cleanSubjFromMsg) || cleanSubjFromMsg.includes(cleanSubjM))) return true;
+        if (subjFromMsg && (subjM.includes(norm(subjFromMsg)) || norm(subjFromMsg).includes(subjM))) return true;
+        if (cleanSubjM.length >= 4 && itemText.includes(cleanSubjM)) return true;
+        if (subjM.length >= 4 && itemText.includes(subjM)) return true;
+        return false;
+      }) || allCandidates.find(m => {
+        const subjM = norm(m.details?.subject || (m as any).subject || m.preview || '');
+        return subjM.startsWith('[reclamacao]') || subjM.startsWith('[denuncia]') || subjM.startsWith('[registo de denuncia]');
+      });
+
+      if (matchingMsg && (item.title?.includes('Reclamação') || item.title?.includes('Denúncia') || item.title?.includes('Denuncia') || targetTab === 'mensagem')) {
+        onOpenMessage(matchingMsg);
+        return;
+      }
+    }
+    setTab(targetTab === 'mensagem' ? 'correspondencias' : (targetTab || (appMode === 'admin' ? 'gov-dashboard' : 'home')));
   };
 
   const sections = [
@@ -32,6 +75,7 @@ export function NotificationsCenterContent({ notifications, setTab, appMode }: N
     <section className="space-y-4 md:space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
         <div className="flex items-center gap-3.5 text-left">
+          <BotaoVoltar />
           <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shrink-0">
             <Bell size={20} className="md:w-6 md:h-6" />
           </div>
@@ -41,7 +85,6 @@ export function NotificationsCenterContent({ notifications, setTab, appMode }: N
           </div>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-h py-1 no-scrollbar">
-          <button onClick={goHome} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">Voltar ao Painel</button>
           <button onClick={() => setTab('historico')} className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap shadow-3xs hover:border-slate-300 transition-all cursor-pointer">Ver Histórico</button>
         </div>
       </div>
@@ -76,16 +119,32 @@ export function NotificationsCenterContent({ notifications, setTab, appMode }: N
 
             {section.items.length > 0 ? (
               <div className="space-y-2">
-                {section.items.map((item) => (
+                {section.items.map((item) => {
+                  const longa = (item.message || '').length > LIMITE_EXPANDIR;
+                  const expandida = expandidos.has(item.id);
+                  return (
                   <button
                     key={item.id}
-                    onClick={() => navigateToTarget(item.targetTab)}
+                    onClick={() => navigateToTarget(item.targetTab, item)}
                     className="w-full text-left bg-slate-50 hover:bg-slate-100 border border-slate-150 rounded-xl md:rounded-2xl p-3.5 transition-all cursor-pointer"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div>
+                      <div className="min-w-0">
                         <span className="block text-xs font-bold text-slate-900">{item.title}</span>
-                        <p className="text-[11px] text-slate-500 font-medium mt-0.5 leading-relaxed">{item.message}</p>
+                        <p className={`text-[11px] text-slate-500 font-medium mt-0.5 leading-relaxed ${longa && !expandida ? 'line-clamp-2' : ''}`}>{item.message}</p>
+                        {longa && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            aria-expanded={expandida}
+                            onClick={(e) => { e.stopPropagation(); alternar(item.id); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); alternar(item.id); } }}
+                            className="inline-flex items-center gap-0.5 mt-1 text-[10px] font-black uppercase tracking-wider text-primary hover:underline cursor-pointer"
+                          >
+                            {expandida ? 'Ver menos' : 'Ver mais'}
+                            {expandida ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                          </span>
+                        )}
                       </div>
                       <div className="shrink-0 text-right">
                         <span className="text-[9px] font-mono font-bold text-slate-400 uppercase block">{item.time}</span>
@@ -93,7 +152,8 @@ export function NotificationsCenterContent({ notifications, setTab, appMode }: N
                       </div>
                     </div>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="py-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-xl md:rounded-2xl">

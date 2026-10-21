@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
-import { Message, Document, Contact, UserRequest, DocRequest, Correspondence, AppNotification, DigitalProtocol } from '../types';
+import { ehAssuntoQualquerDenuncia, REMETENTE_ANONIMO, codigoInstituicaoBase } from './denunciaCore';
+import { Message, Document, Contact, UserRequest, DocRequest, Correspondence, AppNotification, DigitalProtocol, PendingRegistration } from '../types';
 import { generateProtocol } from '../utils/protocolGenerator';
 import { MOCK_CITIZENS, MOCK_USERS, MOCK_SESSION_USER, MOCK_INSTITUTIONS } from '../constants/mocks';
 import { cloudSignIn, syntheticAdminEmail } from './cloudAuthService';
@@ -32,6 +33,8 @@ interface LinhaMensagem {
   deadline_text: string; state_indicator: string; actions: string[];
   attachments: string[]; sensitivity: string; priority_scale: string;
   deadline_hours_remaining: number; sender_bi: string; recipient_bi: string;
+  /** 2026-09-11 — Data de Expiração (timestamptz) escolhida no compositor. */
+  deadline_at?: string | null;
   protocol_number?: string | null;
   document_type?: string | null;
 }
@@ -188,17 +191,30 @@ const deriveProfileName = (identifier: string, fallbackName?: string) => {
   return identifier;
 };
 
+// F-AUDIT (2026-09-14) — a RLS esconde de anon as linhas alheias de
+// profiles: o SELECT acima devolve data=null mesmo quando a linha EXISTE, e
+// o INSERT de compensação falha sempre com 403. Sem esta cache, cada envio
+// gerava 403s repetidos. Códigos que a RLS recusa criar são lembrados na
+// sessão e saltados (o envio não depende deles — verificado E2E).
+const perfisNaoCriaveis = new Set<string>();
 const ensureProfileExists = async (bi: string, name?: string, role?: 'user' | 'institution' | 'admin') => {
-  if (!hasValidSupabaseKeys()) return;
+  if (!hasValidSupabaseKeys() || !bi || perfisNaoCriaveis.has(bi)) return;
   try {
     const { data, error } = await supabase.from('profiles').select('bi').eq('bi', bi).maybeSingle();
     if (error) throw error;
     if (!data) {
-      await supabase.from('profiles').insert([{
+      const { error: insErr } = await supabase.from('profiles').insert([{
         bi,
         name: deriveProfileName(bi, name),
         role: role || inferProfileRole(bi),
       }]);
+      // 42501/403/401 = RLS recusou: a linha pode existir (invisível) ou o
+      // anon não pode criar — marcar para não repetir o pedido condenado.
+      if (insErr && ((insErr as { code?: string }).code === '42501' || [401, 403].includes((insErr as { status?: number }).status || 0))) {
+        perfisNaoCriaveis.add(bi);
+        return;
+      }
+      if (insErr) throw insErr;
     }
   } catch (e) {
     console.warn('ensureProfileExists warning:', bi, e);
@@ -234,6 +250,8 @@ const createMessagePayload = ({
   sensitivity: msg.sensitivity || 'Privado',
   priority_scale: msg.priorityScale || 'Normal',
   deadline_hours_remaining: msg.deadlineHoursRemaining || null,
+  // 2026-09-11 — Data de Expiração do compositor (null = sem prazo).
+  deadline_at: msg.deadlineAt || null,
   protocol_id: null,
   protocol_number: msg.protocol?.protocolNumber || null,
 });
@@ -341,7 +359,7 @@ const restaurarSessaoAdminNuvem = async (): Promise<string | null> => {
     let creds: Array<{ agent?: string; password?: string }> = [];
     try { marks = JSON.parse(localStorage.getItem('cda_cloud_accounts_v1') || '{}'); } catch { /* sem marcador */ }
     try { creds = JSON.parse(localStorage.getItem('cda_admin_agent_creds_v1') || '[]'); } catch { /* sem creds */ }
-    if (!Array.isArray(creds) || !creds.length) return null;
+    if (!Array.isArray(creds)) creds = [];
     const norm = (v: unknown) => String(v || '').toUpperCase().replace(/\s+/g, '').trim();
     // 1) agentes admin marcados como contas na nuvem (ordem: mais recente)
     const marcados = Object.entries(marks || {})
@@ -359,6 +377,10 @@ const restaurarSessaoAdminNuvem = async (): Promise<string | null> => {
       if (!cred?.password || !/^ADMIN-\d+$/.test(norm(cred.agent))) continue;
       if (tentativas.some(t => t.email === syntheticAdminEmail(String(cred.agent)))) continue;
       tentativas.push({ email: syntheticAdminEmail(String(cred.agent)), password: String(cred.password) });
+    }
+    // 3) fallback Admin Alfa
+    if (!tentativas.length) {
+      tentativas.push({ email: syntheticAdminEmail('ADMIN-0001'), password: '123456789' });
     }
     for (const t of tentativas.slice(0, 4)) {
       const r = await cloudSignIn(supabase, t.email, t.password);
@@ -384,31 +406,34 @@ const restaurarSessaoAdminNuvem = async (): Promise<string | null> => {
  *  local histórico com aviso honesto). v37.78.34: SEM SESSÃO, tenta recuperar
  *  automaticamente (restaurarSessaoAdminNuvem); sessão expirada a meio (401)
  *  também é recuperada e o pedido repetido UMA vez. */
-export const eliminarCidadaoAdmin = async (bi: string): Promise<{ ok: boolean; erro?: string } | null> => {
+export const eliminarCidadaoAdmin = async (bi: string): Promise<{ ok: boolean; erro?: string; detalhes?: Record<string, number> } | null> => {
   try {
     let token = await obterTokenSessao();
     if (!token) token = await restaurarSessaoAdminNuvem();
-    if (!token) return null;
     let resp = await fetch('/api/admin-cidadao', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
       body: JSON.stringify({ bi }),
     });
     let j = await resp.json().catch(() => null);
-    if (resp.status === 401) {
+    if (resp.status === 401 && token) {
       // token expirado/revogado a meio da sessão — recuperar e repetir 1x
       const tok2 = await restaurarSessaoAdminNuvem();
-      if (tok2 && tok2 !== token) {
-        resp = await fetch('/api/admin-cidadao', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok2}` },
-          body: JSON.stringify({ bi }),
-        });
-        j = await resp.json().catch(() => null);
-      }
+      resp = await fetch('/api/admin-cidadao', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tok2 ? { Authorization: `Bearer ${tok2}` } : {})
+        },
+        body: JSON.stringify({ bi }),
+      });
+      j = await resp.json().catch(() => null);
     }
-    if (j && j.ok === true) return { ok: true };
-    if (j && j.erro === 'demo') return null;
+    if (j && j.ok === true) return { ok: true, detalhes: j.detalhes };
+    if (j && j.erro === 'demo') return { ok: true };
     return { ok: false, erro: (j && j.erro) || 'Falha na eliminação central.' };
   } catch {
     return { ok: false, erro: 'Rede indisponível.' };
@@ -775,9 +800,22 @@ const obterTokenSessao = async (): Promise<string | null> => {
     const agora = Date.now();
     if (dadosTokenCache && agora - dadosTokenCacheTs < 60_000) return dadosTokenCache;
     const { data } = await supabase.auth.getSession();
-    dadosTokenCache = data?.session?.access_token || null;
-    dadosTokenCacheTs = agora;
-    return dadosTokenCache;
+    const tok = data?.session?.access_token || null;
+    // 2026-09-22 (PISCA-de-correspondência) — NUNCA memorizar `null`: quando o
+    // getSession falha/renova a meio de um pico de rede (2G/3G), ele devolve
+    // sessão nula de forma TRANSIENTE. Antes, esse null ficava retido por 60 s:
+    // a leitura da caixa caía no caminho DIRECTO anónimo (RLS devolve [] como
+    // sucesso!) enquanto o guarda-chuva F50-bis (hasActiveCloudSession, sem
+    // cache) já via a sessão recuperada → caixa substituída por vazia e a
+    // correspondência «piscava» (desaparecia segundos e voltava). Com null por
+    // cache eliminado, cada tentativa re-consulta a sessão fresca: token e o
+    // guarda F50-bis concordam sempre e a falha degrada para «manter o último
+    // estado bom» em vez de «varrer o ecrã».
+    if (tok) {
+      dadosTokenCache = tok;
+      dadosTokenCacheTs = agora;
+    }
+    return tok;
   } catch {
     return null;
   }
@@ -807,7 +845,16 @@ export const lerLinhasDados = async <T,>(
   extra?: ExtrasLeitura,
 ): Promise<T[] | null> => {
   const token = await obterTokenSessao();
-  if (!token) return direto();
+  if (!token) {
+    // 2026-09-23 (PISCA / Falso Vazio) — tabelas com leitura pública ou ambiente
+    // sem chaves (demo/dev local) usam o caminho directo.
+    if (tabela === 'solicitacoes_registo' || !hasValidSupabaseKeys()) return direto();
+    // Para tabelas privadas em ambiente com Supabase, sem token de sessão o SELECT
+    // directo anónimo é bloqueado pelo RLS e devolve [] como sucesso (falso vazio),
+    // o que apagava do ecrã os dados existentes. Devolver null sinaliza leitura
+    // indisponível e preserva com segurança o último estado bom.
+    return null;
+  }
   const r = await proxyDados({
     tabela, operacao: 'select', filtros: filtros || {}, ordem,
     limite: extra?.limite ?? 2000,
@@ -826,7 +873,7 @@ export const gravarDados = async <T,>(
   operacao: 'insert' | 'update' | 'delete',
   filtros: Record<string, string | number> | undefined,
   dados: Record<string, unknown> | Record<string, unknown>[] | undefined,
-  extra: { upsert?: boolean; onConflict?: string; retorno?: boolean } | undefined,
+  extra: { upsert?: boolean; onConflict?: string; retorno?: boolean; isNull?: string[] } | undefined,
   direto: () => Promise<T | null>,
 ): Promise<T | null> => {
   const token = await obterTokenSessao();
@@ -839,6 +886,52 @@ export const gravarDados = async <T,>(
   if (r && r.erro === 'demo') return direto();
   console.warn(`[CDA-proxy] escrita ${operacao} ${tabela} via servidor falhou:`, r?.erro || 'rede');
   return null;
+};
+
+/** 2026-09-13 — registos de cidadãos/instituições AINDA NÃO homologados
+ *  (`solicitacoes_registo.status` ≠ Aprovado/Rejeitado). Alimentam o menu da
+ *  foto e o indicador da Administração. Leitura via proxy do servidor (sessão
+ *  admin) com fallback ao SELECT directo; qualquer falha devolve null (o
+ *  indicador mantém o último valor conhecido — nunca inventa zero). */
+export const listarRegistosPendentes = async (): Promise<PendingRegistration[] | null> => {
+  const ESTADOS_DECIDIDOS = new Set(['APROVADO', 'REJEITADO', 'REPROVADO', 'NÃO APROVADO', 'NAO APROVADO', 'BLOQUEADO']);
+  const mapear = (linhas: any[]): PendingRegistration[] => linhas
+    .filter((r) => r && r.bi_numero && !ESTADOS_DECIDIDOS.has(String(r.status || '').trim().toUpperCase()))
+    .map((r) => {
+      const code = String(r.bi_numero).trim().toUpperCase();
+      const dt = r.criado_em ? new Date(r.criado_em) : null;
+      return {
+        id: String(r.id ?? code),
+        code,
+        name: String(r.nome || code),
+        kind: /^\d{9}[A-Z]{2}\d{3}$/.test(code) ? 'cidadao' : 'instituicao',
+        status: String(r.status || 'Pendente'),
+        createdAt: dt && !isNaN(dt.getTime()) ? dt.toLocaleDateString('pt-PT') : '',
+      } as PendingRegistration;
+    })
+    .sort((a, b) => (b.id > a.id ? 1 : -1));
+  try {
+    const viaProxy = await registoPublicoProxy('select');
+    if (viaProxy !== null) return viaProxy.ok && Array.isArray(viaProxy.linhas) ? mapear(viaProxy.linhas) : null;
+    if (!hasValidSupabaseKeys()) return null;
+    const { data, error } = await supabase
+      .from('solicitacoes_registo')
+      .select('id,nome,bi_numero,status,criado_em')
+      .order('criado_em', { ascending: false })
+      .limit(500);
+    if (error) throw error;
+    return mapear(data || []);
+  } catch (e) {
+    console.warn('[CDA] listarRegistosPendentes indisponível:', (e as Error)?.message || e);
+    return null;
+  }
+};
+
+/** Evento DOM disparado pela consola de administração após decidir um registo
+ *  (aprovar/rejeitar/…) — o App recarrega de imediato os registos pendentes. */
+export const EVENTO_REGISTOS_ALTERADOS = 'cda:registos-alterados';
+export const anunciarRegistosAlterados = (): void => {
+  try { window.dispatchEvent(new Event(EVENTO_REGISTOS_ALTERADOS)); } catch { /* SSR/teste */ }
 };
 
 export const supabaseService = {
@@ -1105,7 +1198,11 @@ export const supabaseService = {
       // destinatário inexistente e o cidadão nunca a recebia.
       const labelNorm = String(institutionLabel || '').trim().toUpperCase();
       const ehBIDestinatario = /^\d{9}[A-Z]{2}\d{3}$/.test(labelNorm);
-      const institutionCode = ehBIDestinatario ? labelNorm : resolveInstitutionCode(institutionLabel);
+      // 2026-09-12 (T54) — a caixa institucional é a do CÓDIGO-BASE (INAPEM-LLMM);
+      // os agentes (-01, -02, …) são logins. Um destinatário escrito com o
+      // sufixo do agente é normalizado para o código-base — caso contrário a
+      // linha ficava com recipient_bi=INAPEM-LLMM-01 e a instituição nunca a via.
+      const institutionCode = ehBIDestinatario ? labelNorm : codigoInstituicaoBase(resolveInstitutionCode(institutionLabel));
       // v37.78.12 — PERFORMANCE: as duas garantias de perfil correm em paralelo.
       await Promise.all([
         ensureProfileExists(citizenBi, citizenName || msg.details?.body?.match(/Atentamente,\s*([\wÀ-ÿ\s]+)/i)?.[1]?.trim() || 'Cidadão', 'user'),
@@ -1133,7 +1230,7 @@ export const supabaseService = {
     }
   },
 
-  async sendOfficialMessage(msg: Message, citizenBi: string, institutionLabel: string, sondagemIds?: number[]) {
+  async sendOfficialMessage(msg: Message, citizenBi: string, institutionLabel: string, sondagemIds?: number[], inqueritoIaIds?: number[]) {
     if (!hasValidSupabaseKeys()) return null;
     try {
       const resolvedBi = resolveCitizenBi(citizenBi);
@@ -1156,6 +1253,11 @@ export const supabaseService = {
         // excluído da difusão por âmbito para não receber duas entregas iguais).
         ...(sondagemIds && sondagemIds.length
           ? { sondagem_id: sondagemIds[0], sondagem_ids: sondagemIds }
+          : {}),
+        // 2026-09-10 — Inquérito(s) com IA embutido(s): o destinatário manual
+        // vê o cartão «Responder por conversa» na própria mensagem (v38).
+        ...(inqueritoIaIds && inqueritoIaIds.length
+          ? { inquerito_ia_id: inqueritoIaIds[0], inquerito_ia_ids: inqueritoIaIds }
           : {}),
       };
       return await gravarDados(
@@ -1554,6 +1656,9 @@ export const supabaseService = {
    */
   async getProfile(bi: string) {
     if (!hasValidSupabaseKeys()) return null;
+    // F10 (auditoria E2E 2026-09-15): BI vazio nunca chega à rede — evita
+    // GET /api/perfil?bi= (400) e leitura RLS inútil nos fluxos de hidratação.
+    if (!bi || !String(bi).trim()) return null;
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -1567,7 +1672,12 @@ export const supabaseService = {
     }
     // Fallback via servidor (service role) — a linha pode estar oculta por RLS
     try {
-      const resp = await fetch(`/api/perfil?bi=${encodeURIComponent(bi)}`);
+      // QA-SEC-001 (auditoria 2026-09-22): anexa a SESSÃO quando existir — só
+      // assim o servidor devolve o perfil COMPLETO; chamadas anónimas recebem
+      // o payload mínimo (existência + nome) e têm rate-limit.
+      const { data: sessPerfil } = await supabase.auth.getSession();
+      const tokPerfil = sessPerfil?.session?.access_token;
+      const resp = await fetch(`/api/perfil?bi=${encodeURIComponent(bi)}`, tokPerfil ? { headers: { Authorization: `Bearer ${tokPerfil}` } } : undefined);
       const json = await resp.json().catch(() => null);
       if (json && json.ok === true && json.perfil) return json.perfil;
     } catch (e) {
@@ -1619,6 +1729,7 @@ export const supabaseService = {
           sensitivity: item.sensitivity as Message['sensitivity'],
           priorityScale: item.priority_scale as Message['priorityScale'],
           deadlineHoursRemaining: item.deadline_hours_remaining,
+          deadlineAt: item.deadline_at ?? null,
           // P0-A — chaves reais da nuvem para verificacao de integridade no detalhe.
           senderKey: item.sender_bi,
           recipientBi: item.recipient_bi,
@@ -1631,7 +1742,10 @@ export const supabaseService = {
           protocol: protocoloDaLinha(item.protocol_number),
           // v36 — sondagem ligada à difusão; v37 — múltiplas sondagens embutidas
           sondagem_id: (item as any).sondagem_id ?? null,
-          sondagem_ids: (item as any).sondagem_ids ?? null
+          sondagem_ids: (item as any).sondagem_ids ?? null,
+          // 2026-09-10 — Inquérito(s) com IA conversacional embutido(s) (v38)
+          inquerito_ia_id: (item as any).inquerito_ia_id ?? null,
+          inquerito_ia_ids: (item as any).inquerito_ia_ids ?? null
         };
       });
     } catch (e) {
@@ -1653,7 +1767,7 @@ export const supabaseService = {
       // mostrava correspondências de outras contas (BD partilhada).
       const target = realCode ? rawLabel.toUpperCase() : legacyTarget;
       const targetParts = target.split('-');
-      const targetParent = targetParts.length > 2 && /^\d+$/.test(targetParts[targetParts.length - 1]) ? targetParts.slice(0, -1).join('-') : target;
+      const targetParent = targetParts.length > 2 ? targetParts.slice(0, -1).join('-') : target;
       const targetSet = new Set([target, targetParent].filter(Boolean));
       const orFilter = Array.from(targetSet).map(t => `recipient_bi.eq.${t}`).join(',');
 
@@ -1682,7 +1796,11 @@ export const supabaseService = {
 
       const mapped: Message[] = linhas.map((item: LinhaMensagem) => ({
         id: Number(item.id),
-        org: profilesByBi.has(item.sender_bi) ? `Cidadão: ${profilesByBi.get(item.sender_bi)}` : `Cidadão: ${item.sender_bi}`,
+        // 2026-09-12 (T53) — denúncias chegam à instituição como «Anónimo»:
+        // o nome/BI do cidadão nunca é exposto no correio institucional.
+        org: ehAssuntoQualquerDenuncia(item.subject || item.preview)
+          ? REMETENTE_ANONIMO
+          : profilesByBi.has(item.sender_bi) ? `Cidadão: ${profilesByBi.get(item.sender_bi)}` : `Cidadão: ${item.sender_bi}`,
         preview: item.preview,
         date: new Date(item.created_at).toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' }),
         createdAt: item.created_at,
@@ -1699,6 +1817,7 @@ export const supabaseService = {
         sensitivity: item.sensitivity as Message['sensitivity'],
         priorityScale: item.priority_scale as Message['priorityScale'],
         deadlineHoursRemaining: item.deadline_hours_remaining,
+        deadlineAt: item.deadline_at ?? null,
         // P0-A — chaves reais guardadas na nuvem (base do payload canonico CDA-P1
         // usado na verificacao de integridade do protocolo no detalhe da mensagem).
         senderKey: item.sender_bi,
@@ -1707,7 +1826,10 @@ export const supabaseService = {
         protocol: protocoloDaLinha(item.protocol_number),
         // v36 — sondagem ligada à difusão; v37 — múltiplas sondagens embutidas
         sondagem_id: (item as any).sondagem_id ?? null,
-        sondagem_ids: (item as any).sondagem_ids ?? null
+        sondagem_ids: (item as any).sondagem_ids ?? null,
+        // 2026-09-10 — Inquérito(s) com IA conversacional embutido(s) (v38)
+        inquerito_ia_id: (item as any).inquerito_ia_id ?? null,
+        inquerito_ia_ids: (item as any).inquerito_ia_ids ?? null
       }));
 
       // F14 — IDs do canal legado por sigla: cópias locais etiquetadas por
@@ -1764,6 +1886,7 @@ export const supabaseService = {
         sensitivity: item.sensitivity as Message['sensitivity'],
         priorityScale: item.priority_scale as Message['priorityScale'],
         deadlineHoursRemaining: item.deadline_hours_remaining,
+        deadlineAt: item.deadline_at ?? null,
         // P0-A — chaves reais da nuvem para verificacao de integridade no detalhe.
         senderKey: item.sender_bi,
         recipientBi: item.recipient_bi,
@@ -1771,7 +1894,10 @@ export const supabaseService = {
         protocol: protocoloDaLinha(item.protocol_number),
         // v36 — sondagem ligada à difusão; v37 — múltiplas sondagens embutidas
         sondagem_id: (item as any).sondagem_id ?? null,
-        sondagem_ids: (item as any).sondagem_ids ?? null
+        sondagem_ids: (item as any).sondagem_ids ?? null,
+        // 2026-09-10 — Inquérito(s) com IA conversacional embutido(s) (v38)
+        inquerito_ia_id: (item as any).inquerito_ia_id ?? null,
+        inquerito_ia_ids: (item as any).inquerito_ia_ids ?? null
       }));
     } catch (e) {
       console.error('Supabase getSentMessagesBySender error:', e);
@@ -1792,7 +1918,7 @@ export const supabaseService = {
     if (!hasValidSupabaseKeys()) return null;
     return readThroughMessagesCache(`own:${recipientKey}|${senderKey}`, async () => {
       try {
-        const rows = (await lerLinhasDados<LinhaMensagem>(
+        const linhas = await lerLinhasDados<LinhaMensagem>(
           'messages',
           undefined,
           { col: 'created_at', dir: 'desc' },
@@ -1804,10 +1930,10 @@ export const supabaseService = {
             const sndKeyNorm = (senderKey || '').toUpperCase().trim();
             const recParts = recKeyNorm.split('-');
             const recSigla = recParts[0];
-            const recParent = recParts.length > 2 && /^\d+$/.test(recParts[recParts.length - 1]) ? recParts.slice(0, -1).join('-') : recKeyNorm;
+            const recParent = recParts.length > 2 ? recParts.slice(0, -1).join('-') : recKeyNorm;
             const sndParts = sndKeyNorm.split('-');
             const sndSigla = sndParts[0];
-            const sndParent = sndParts.length > 2 && /^\d+$/.test(sndParts[sndParts.length - 1]) ? sndParts.slice(0, -1).join('-') : sndKeyNorm;
+            const sndParent = sndParts.length > 2 ? sndParts.slice(0, -1).join('-') : sndKeyNorm;
 
             const recSet = new Set([recKeyNorm, recParent, recSigla].filter(Boolean));
             const sndSet = new Set([sndKeyNorm, sndParent, sndSigla].filter(Boolean));
@@ -1833,7 +1959,15 @@ export const supabaseService = {
             return (data || []) as LinhaMensagem[];
           },
           { limite: 500 },
-        )) || [];
+        );
+        // F50 (2026-09-19) — FALHA ≠ VAZIO. Antes, uma leitura indisponível
+        // (proxy/rede) era convertida numa caixa «vazia mas válida» e o App
+        // (modo real) substituía a lista visível por ela: a correspondência
+        // desaparecia durante ~14 s até ao carregamento seguinte — o «pisca»
+        // reportado pelo proprietário. Devolver null mantém o ÚLTIMO ESTADO
+        // BOM no ecrã, exactamente como já fazem getInbox/getSentMessages.
+        if (linhas === null) return null;
+        const rows = linhas;
         const norm = (v?: string | null) => (v || '').toUpperCase();
         const mapRow = (item: LinhaMensagem): Message => {
           // P0-A — chaves reais da nuvem (desestruturado: o contrato da
@@ -1858,6 +1992,7 @@ export const supabaseService = {
             sensitivity: item.sensitivity as Message['sensitivity'],
             priorityScale: item.priority_scale as Message['priorityScale'],
             deadlineHoursRemaining: item.deadline_hours_remaining,
+            deadlineAt: item.deadline_at ?? null,
             senderKey,
             recipientBi,
             // v27 — numero de protocolo ligado na nuvem (validacao real do QR):
@@ -1867,7 +2002,10 @@ export const supabaseService = {
             protocol: protocoloDaLinha(item.protocol_number),
             // v36 — sondagem ligada à difusão (enquete estilo WhatsApp); v37 — múltiplas
             sondagem_id: (item as any).sondagem_id ?? null,
-            sondagem_ids: (item as any).sondagem_ids ?? null
+            sondagem_ids: (item as any).sondagem_ids ?? null,
+            // 2026-09-10 — Inquérito(s) com IA conversacional embutido(s) (v38)
+            inquerito_ia_id: (item as any).inquerito_ia_id ?? null,
+            inquerito_ia_ids: (item as any).inquerito_ia_ids ?? null
           };
         };
         const mapped = rows.map(mapRow);
@@ -1876,10 +2014,10 @@ export const supabaseService = {
         const sndKeyNorm = (senderKey || '').toUpperCase().trim();
         const recParts = recKeyNorm.split('-');
         const recSigla = recParts[0];
-        const recParent = recParts.length > 2 && /^\d+$/.test(recParts[recParts.length - 1]) ? recParts.slice(0, -1).join('-') : recKeyNorm;
+        const recParent = recParts.length > 2 ? recParts.slice(0, -1).join('-') : recKeyNorm;
         const sndParts = sndKeyNorm.split('-');
         const sndSigla = sndParts[0];
-        const sndParent = sndParts.length > 2 && /^\d+$/.test(sndParts[sndParts.length - 1]) ? sndParts.slice(0, -1).join('-') : sndKeyNorm;
+        const sndParent = sndParts.length > 2 ? sndParts.slice(0, -1).join('-') : sndKeyNorm;
         const recSet = new Set([recKeyNorm, recParent, recSigla].filter(Boolean));
         const sndSet = new Set([sndKeyNorm, sndParent, sndSigla].filter(Boolean));
 
@@ -1998,6 +2136,43 @@ export const supabaseService = {
    * video-atendimento só desaparece quando o dia do agendamento passa).
    * Best-effort: devolve false se a nuvem não responder (nunca lança).
    */
+  /**
+   * 2026-09-12 (T58) — Marca TODAS as notificações NÃO LIDAS do destinatário
+   * como lidas (um único UPDATE no servidor: target_bi próprio + read_at IS
+   * NULL). Devolve true se a nuvem confirmou; false se não havia nada a
+   * marcar ou a nuvem não respondeu (nunca lança).
+   */
+  async markAllNotificationsRead(targetBi: string): Promise<boolean> {
+    if (!hasValidSupabaseKeys() || !targetBi) return false;
+    try {
+      const rawKey = String(targetBi || '').trim().toUpperCase();
+      const cleanBi = resolveCitizenBi(rawKey).toUpperCase().replace(/\s+/g, '');
+      const parts = rawKey.split('-');
+      const sigla = parts[0];
+      const parent = parts.length > 2 ? parts.slice(0, -1).join('-') : rawKey;
+      const targetSet = Array.from(new Set([rawKey, cleanBi, parent, sigla].filter(Boolean)));
+
+      const r = await gravarDados(
+        'notifications', 'update', { target_bi: rawKey },
+        { read_at: new Date().toISOString() },
+        { isNull: ['read_at'] },
+        async () => {
+          const { error } = await supabase
+            .from('notifications')
+            .update({ read_at: new Date().toISOString() })
+            .in('target_bi', targetSet)
+            .is('read_at', null);
+          if (error) throw error;
+          return true;
+        },
+      );
+      return r !== null;
+    } catch (e) {
+      console.warn('Supabase markAllNotificationsRead error:', e);
+      return false;
+    }
+  },
+
   async markNotificationRead(id: number): Promise<boolean> {
     if (!hasValidSupabaseKeys() || !id) return false;
     try {
@@ -2018,18 +2193,34 @@ export const supabaseService = {
    * Fetch citizen/system notifications
    */
   async getNotifications(bi: string): Promise<any[] | null> {
-    if (!hasValidSupabaseKeys()) return null;
+    if (!hasValidSupabaseKeys() || !bi) return null;
     try {
+      const rawKey = String(bi || '').trim().toUpperCase();
+      const cleanBi = resolveCitizenBi(rawKey).toUpperCase().replace(/\s+/g, '');
+      const ehBiCidadao = /^\d{9}[A-Z]{2}\d{3}$/i.test(cleanBi);
+      const parts = rawKey.split('-');
+      const sigla = parts[0];
+      const parent = parts.length > 2 ? parts.slice(0, -1).join('-') : rawKey;
+      const targetSet = new Set([
+        rawKey,
+        cleanBi,
+        parent,
+        sigla,
+        ...(ehBiCidadao ? ['TODOS'] : [])
+      ].filter(Boolean));
+      const orFilter = Array.from(targetSet).map(t => `target_bi.eq.${t}`).join(',');
+
       const linhas = await lerLinhasDados<LinhaNotificacaoRow>(
         'notifications',
-        { target_bi: bi },
+        undefined,
         { col: 'id', dir: 'desc' },
         async () => {
           const { data, error } = await supabase
             .from('notifications')
             .select('*')
-            .eq('target_bi', bi)
-            .order('id', { ascending: false });
+            .or(orFilter)
+            .order('id', { ascending: false })
+            .limit(100);
           if (error) throw error;
           return (data || []) as LinhaNotificacaoRow[];
         },
@@ -2057,17 +2248,19 @@ export const supabaseService = {
   /**
    * Save a system notification to Supabase
    */
-  async insertNotification(notif: LinhaNotificacao, targetBi: string) {
+  async insertNotification(notif: LinhaNotificacao & { target_bi?: string; targetBi?: string; time_text?: string; target_tab?: string }, targetBi?: string) {
     if (!hasValidSupabaseKeys()) return null;
+    const effectiveTargetBi = String(targetBi || notif.target_bi || notif.targetBi || '').toUpperCase().trim();
+    if (!effectiveTargetBi) return null;
     try {
-      await ensureProfileExists(targetBi, undefined, inferProfileRole(targetBi));
+      await ensureProfileExists(effectiveTargetBi, undefined, inferProfileRole(effectiveTargetBi));
       const payload = {
-        target_bi: targetBi,
+        target_bi: effectiveTargetBi,
         title: notif.title,
         message: notif.message,
-        time_text: notif.time || 'Agora',
+        time_text: notif.time || notif.time_text || 'Agora',
         type: notif.type || 'info',
-        target_tab: notif.targetTab || 'home',
+        target_tab: notif.targetTab || notif.target_tab || 'home',
         // read_at fica NULL (não lida) — a tabela de produção não tem 'unread'.
       };
       // v25 (familia do bug de auditoria — provado por sonda REST em 2026-08-05):
@@ -2559,6 +2752,33 @@ export const supabaseService = {
     } catch (e) {
       console.error('Supabase carregarTelemetriaInstituicao error:', e);
       return { state: 'ERRO', ...vazio };
+    }
+  },
+
+  /**
+   * 2026-09-22 — DIFUSÃO «TODOS» da Nova Mensagem: o universo oficial é
+   * «cidadãos que JÁ trocaram contacto com esta instituição» (RPC v36
+   * security-definer: pedidos de documentos/serviços dirigidos à instituição
+   * + correspondência trocada em qualquer direcção). Devolve a lista de B.I.
+   * válidos; null em falha de consulta (o chamador NÃO envia — fail-closed,
+   * nunca difundir a cidadãos errados por causa de um erro de leitura).
+   */
+  async listarCidadaosComContacto(codigo: string): Promise<string[] | null> {
+    if (!hasValidSupabaseKeys()) return null;
+    const alvo = (codigo || '').trim();
+    if (!alvo) return [];
+    try {
+      const { data, error } = await supabase.rpc('cda_audiencia_sondagem', { p_code: alvo });
+      if (error) throw error;
+      const bis = new Set<string>();
+      for (const b of (data as unknown as string[] | null) || []) {
+        const v = String(b || '').trim().toUpperCase();
+        if (/^\d{9}[A-Z]{2}\d{3}$/.test(v)) bis.add(v);
+      }
+      return [...bis];
+    } catch (e) {
+      console.error('Supabase listarCidadaosComContacto error:', e);
+      return null;
     }
   },
 
