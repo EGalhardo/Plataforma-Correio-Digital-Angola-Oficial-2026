@@ -711,6 +711,20 @@ export const alterarSenhaAgente = async (agente: string, senha: string): Promise
  *  + registo em digital_protocols, via proxy /api/dados (service role).
  *  Devolve null sem sessão (demo) ou para destinatários de demonstração —
  *  nesses casos o chamador mantém apenas o canal local de sempre. */
+/** Lê o papel (role) do token de sessão, pelo mesmo critério do servidor
+ *  (user_metadata/app_metadata). Só para decidir o canal no cliente: a
+ *  autorização real continua no servidor. */
+const tokenEhAdministrador = (token: string): boolean => {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(base64));
+    const meta = { ...(payload.app_metadata || {}), ...(payload.user_metadata || {}) };
+    return String(meta.role || '').toLowerCase() === 'admin';
+  } catch {
+    return false;
+  }
+};
+
 export const enviarMensagemAdministrativa = async (
   para: string,
   assunto: string,
@@ -720,6 +734,10 @@ export const enviarMensagemAdministrativa = async (
   try {
     const token = await obterTokenSessao();
     if (!token) return null;
+    // Sem sessão de administração (ex.: sessão de um cidadão no mesmo browser),
+    // o servidor gravaria o cidadão como REMETENTE da mensagem da Administração.
+    // Nesse caso não se envia: o chamador usa o canal local de sempre.
+    if (!tokenEhAdministrador(token)) return null;
     const alvo = (para || '').toUpperCase().replace(/\s+/g, '');
     if (!alvo || ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP', '009999999LA099'].includes(alvo) || /-LLVV$/.test(alvo)) return null;
     const messageId = Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);

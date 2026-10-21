@@ -2743,6 +2743,7 @@ export default function App() {
   // Canal oficial de homologação (Área de Administração ⇄ Cidadão): espelha as
   // mensagens gravadas na homologationStore para a caixa de entrada do cidadão.
   // Sem este espelho, a correspondência do admin ficava invisível para o cidadão.
+  const ASSUNTO_CONTA_ATIVADA = 'Conta Ativada — Homologação Aprovada pela Área de Administração';
   const homologationInboxId = (raw: string): number => {
     let h = 0;
     for (let i = 0; i < raw.length; i++) h = ((h * 31) + raw.charCodeAt(i)) >>> 0;
@@ -2799,9 +2800,11 @@ export default function App() {
         threadIds.has(m.id)
       );
       const existing = new Set(pruned.map(m => m.id));
+      // A «Conta Ativada» da nuvem já está na caixa: não duplicar com a cópia local.
+      const jaTemContaAtivadaNuvem = pruned.some(m => !m.homologation && m.details?.subject === ASSUNTO_CONTA_ATIVADA);
       const fresh = thread
         .map(msg => buildHomologationInboxMessage(msg, cleanBi))
-        .filter(m => !existing.has(m.id));
+        .filter(m => !existing.has(m.id) && !(jaTemContaAtivadaNuvem && m.details?.subject === ASSUNTO_CONTA_ATIVADA));
       if (pruned.length === prev.length && fresh.length === 0) return prev;
       return [...fresh.slice().reverse(), ...pruned];
     });
@@ -3322,8 +3325,10 @@ export default function App() {
             setInbox(prevLocal => {
               const homMsgs = prevLocal.filter(m => m.homologation && normalizeHomologationBi(m.homologationBi) === normalizeHomologationBi(bi));
               const dbIds = new Set(caixaCompleta.map(m => m.id));
-              const keptHom = homMsgs.filter(m => !dbIds.has(m.id));
               const cloudMsgs = caixaCompleta.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim);
+              // Cópia local da «Conta Ativada» descartada quando a nuvem já a trouxe.
+              const temContaAtivadaNuvem = cloudMsgs.some(m => m.details?.subject === ASSUNTO_CONTA_ATIVADA);
+              const keptHom = homMsgs.filter(m => !dbIds.has(m.id) && !(temContaAtivadaNuvem && m.details?.subject === ASSUNTO_CONTA_ATIVADA));
               return [...cloudMsgs, ...keptHom];
             });
             setDocInbox(docs.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
