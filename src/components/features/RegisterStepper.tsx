@@ -22,6 +22,7 @@ import {
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore, notifyRegistrationSubmitted, notifyAccountApproved } from '../../services/homologationStore';
 import { apagarDadosLocaisDaConta, apagarDadosLocaisDoBi, apagarMarcadoresDeEliminacao } from '../../services/dadosLocaisConta';
+import { copiarTexto } from '../../utils/copiarTexto';
 import { registoPublicoProxy } from '../../services/supabaseService';
 import { CdaModal } from '../ui/CdaModal';
 import { isSupabaseConfigured, cloudSignOutBestEffort } from '../../services/cloudAuthService';
@@ -83,11 +84,14 @@ const blobToPviDataUrl = (blob: Blob, maxSide = 1024, quality = 0.8): Promise<st
 interface RegisterStepperProps {
   onCancel: () => void;
   onSuccess: () => void;
+  /** Leva as credenciais criadas ao ecrã de login (só em memória, nunca no endereço). */
+  onIrParaLogin?: (bi: string, password: string) => void;
   addAuditLog: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
   appMode?: 'user' | 'institution' | 'admin';
 }
 
-export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'user' }: RegisterStepperProps) {
+export function RegisterStepper({ onCancel, onSuccess, onIrParaLogin, addAuditLog, appMode = 'user' }: RegisterStepperProps) {
+  const [credCopiadas, setCredCopiadas] = useState(false);
   // Current step state
   const [step, setStep] = useState<1 | 2 | 3 | 'success'>(1);
 
@@ -1701,19 +1705,31 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
             Por segurança, memorize ou guarde estes dados num local seguro — a senha não volta a ser mostrada.
           </p>
           <p className="text-[10.5px] font-semibold text-blue-700 m-0 leading-relaxed">
-            Pode entrar na aplicação já agora: a análise decorre em segundo plano e o resultado será notificado nesta mesma conta.
+            A conta fica pendente até a Área de Administração a homologar. Será notificado nesta mesma conta.
           </p>
         </div>
-        <div className="flex justify-end pt-2">
+        <div className="flex flex-col sm:flex-row gap-2 justify-end pt-2">
+          <button
+            type="button"
+            onClick={async () => {
+              const ok = await copiarTexto(`Correio Digital Angola — Dados de acesso\nNº de acesso: ${biNumber}\nSenha: ${password}`);
+              setCredCopiadas(ok);
+            }}
+            className="px-5 py-3 rounded-full font-black text-xs uppercase tracking-wider text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer border border-blue-100"
+          >
+            {credCopiadas ? 'Credenciais copiadas' : 'Copiar credenciais'}
+          </button>
           <button
             type="button"
             onClick={() => {
               setCredPopup(false);
-              if (aprovadoPendente) { setAprovadoPendente(false); setAprovadoPopup(true); }
+              setAprovadoPendente(false);
+              if (onIrParaLogin) onIrParaLogin(biNumber, password);
+              onSuccess();
             }}
             className="px-6 py-3 rounded-full font-black text-xs uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer border-none shadow-md shadow-blue-200"
           >
-            Entendi
+            Ir para o login
           </button>
         </div>
       </CdaModal>

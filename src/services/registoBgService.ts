@@ -298,7 +298,9 @@ export const correrRegistoBg = async (job: RegistoBgJob, hooks: BgHooks): Promis
         }
       }
       cloudPreExisting = provOutcome === 'linked_existing' || provOutcome === 'conflict';
-      effectiveAutoApproved = pviAutoApproved && !cloudPreExisting && uploadCompleto;
+      // 2026-10 — a IA NÃO ativa contas: a homologação é sempre manual (Área de Administração).
+      effectiveAutoApproved = false;
+      void pviAutoApproved; void cloudPreExisting; void uploadCompleto;
       if (cloudPreExisting) {
         hooks.addAuditLog(`[F47] Re-registo do B.I. ${newUser.biNumber}: credencial de nuvem PRÉ-EXISTENTE (conta anterior eliminada pela Administração) — aprovação automática por PVI SUPRIMIDA; a conta fica PENDENTE de nova homologação.`, 'warning');
       }

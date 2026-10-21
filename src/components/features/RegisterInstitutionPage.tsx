@@ -18,6 +18,8 @@ import { registoPublicoProxy } from '../../services/supabaseService';
 import { provisionCloudAccount, markCloudAccount, isSupabaseConfigured, syntheticInstitutionAgentEmail } from '../../services/cloudAuthService';
 import { purgeInstitutionLocalResidues } from '../../services/institutionSessionService';
 import { apagarDadosLocaisDaConta } from '../../services/dadosLocaisConta';
+import { copiarTexto } from '../../utils/copiarTexto';
+import { CdaModal } from '../ui/CdaModal';
 import { homologationStore } from '../../services/homologationStore';
 import {
   MUNICIPALITIES_BY_PROVINCE, CITIES_BY_PROVINCE, COMMUNES_BY_MUNICIPALITY,
@@ -35,6 +37,8 @@ import { normalizarNome, normalizarTitulo, normalizarTexto, corrigirDominioEmail
 interface RegisterInstitutionPageProps {
   onCancel: () => void;
   onSuccess: () => void;
+  /** Leva as credenciais criadas ao ecrã de login (só em memória, nunca no endereço). */
+  onIrParaLogin?: (agente: string, password: string) => void;
   addAuditLog: (action: string, type?: 'info' | 'warning' | 'critical' | 'success') => void;
 }
 
@@ -43,7 +47,7 @@ const selectCls = inputCls + " appearance-none cursor-pointer pr-9 pl-4";
 const labelCls = "text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1";
 const errCls = "border-red-300 focus:border-red-400 focus:ring-red-300";
 
-export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: RegisterInstitutionPageProps) {
+export function RegisterInstitutionPage({ onCancel, onSuccess, onIrParaLogin, addAuditLog }: RegisterInstitutionPageProps) {
   // Dados da Instituição
   const [fullName, setFullName] = useState('');
   const [sigla, setSigla] = useState('');
@@ -71,6 +75,10 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
   const [generatedAgent, setGeneratedAgent] = useState('');
+  const [credPopup, setCredPopup] = useState(false);
+  const [credCopiadas, setCredCopiadas] = useState(false);
+  // Ao concluir a adesão, mostra o popup com as credenciais de acesso.
+  useEffect(() => { if (generatedCode) setCredPopup(true); }, [generatedCode]);
   const [copied, setCopied] = useState(false);
   // v37.78.18 — REGRAS UX: estado da sincronização em segundo plano com a fila
   // da Administração (o ecrã de sucesso aparece IMEDIATAMENTE com o Código).
@@ -402,12 +410,66 @@ export function RegisterInstitutionPage({ onCancel, onSuccess, addAuditLog }: Re
 
   // ---------- Ecrã de sucesso ----------
   if (generatedCode) {
+    const agenteAcesso = generatedAgent || generatedCode;
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         className="flex-1 flex flex-col items-center justify-center text-center space-y-5 py-6"
       >
+        <CdaModal
+          aberto={credPopup}
+          onFechar={() => setCredPopup(false)}
+          icone={Lock}
+          titulo="Adesão Concluída"
+          subtitulo="Dados de acesso"
+          maxW="max-w-md"
+          tomIcone="bg-blue-50 text-blue-600 border-blue-100"
+          padding="p-6"
+        >
+          <div className="text-left space-y-4">
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Guarde estes dados. Serão necessários para entrar na plataforma. A adesão fica pendente até a Área de Administração a homologar.
+            </p>
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-800 shrink-0">Código</span>
+                <span className="font-mono font-black text-slate-900 text-[13px]">{generatedCode}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-800 shrink-0">Nº de Acesso</span>
+                <span className="font-mono font-black text-slate-900 text-[13px] truncate">{agenteAcesso}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-800 shrink-0">Senha</span>
+                <span className="font-mono font-black text-slate-900 text-[13px] break-all text-right">{senha}</span>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 justify-end pt-1">
+              <button
+                type="button"
+                onClick={async () => {
+                  const ok = await copiarTexto(`Correio Digital Angola — Dados de acesso da instituição\nCódigo: ${generatedCode}\nNº de acesso: ${agenteAcesso}\nSenha: ${senha}`);
+                  setCredCopiadas(ok);
+                }}
+                className="px-5 py-3 rounded-full font-black text-xs uppercase tracking-wider text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer border border-blue-100"
+              >
+                {credCopiadas ? 'Credenciais copiadas' : 'Copiar credenciais'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCredPopup(false);
+                  if (onIrParaLogin) onIrParaLogin(agenteAcesso, senha);
+                  onSuccess();
+                }}
+                className="px-6 py-3 rounded-full font-black text-xs uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer border-none shadow-md shadow-blue-200"
+              >
+                Ir para o login
+              </button>
+            </div>
+          </div>
+        </CdaModal>
         <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
           <CheckCircle2 size={30} />
         </div>

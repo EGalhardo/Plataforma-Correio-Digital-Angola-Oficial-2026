@@ -8850,6 +8850,7 @@ Ficha civil do titular:
                     <RegisterInstitutionPage
                       onCancel={() => setLoginSubMode('normal')}
                       onSuccess={() => setLoginSubMode('normal')}
+                      onIrParaLogin={(agente, pwd) => { setBi(agente.toUpperCase()); setLoginPasswordInput(pwd); setLoginSubMode('normal'); }}
                       addAuditLog={addAuditLog}
                     />
                   ) : appMode === 'admin' ? (
@@ -8865,6 +8866,7 @@ Ficha civil do titular:
                     <RegisterStepper
                       onCancel={() => setLoginSubMode('normal')}
                       onSuccess={() => setLoginSubMode('normal')}
+                      onIrParaLogin={(biNovo, pwd) => { setBi(biNovo.toUpperCase()); setLoginPasswordInput(pwd); setLoginSubMode('normal'); }}
                       addAuditLog={addAuditLog}
                       appMode={appMode}
                     />
