@@ -72,25 +72,34 @@ const InstitutionContext = createContext<InstitutionContextType | undefined>(und
 
 export const InstitutionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [institutions, setInstitutions] = useState<Institution[]>(() => {
+    // Só o catálogo de demonstração quando NÃO existe lista guardada. Uma lista
+    // guardada vazia ([]) é uma decisão do utilizador (eliminou a última
+    // instituição): antes voltava a carregar todas as de demonstração ao
+    // atualizar a página, e a instituição eliminada reaparecia.
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem("correio_digital_institutions") : null;
-    if (saved) {
+    if (saved !== null) {
       try {
-        const parsed = JSON.parse(saved) as Institution[];
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map(inst => ({
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return (parsed as Institution[]).map(inst => ({
             ...inst,
             fullName: inst.fullName || inst.name || 'Instituição',
           }));
         }
       } catch (e) {
-        // use canonical default
+        // lista corrompida: usa o catálogo canónico
       }
     }
     return CANONICAL_INSTITUTIONS;
   });
 
   useEffect(() => {
-    localStorage.setItem("correio_digital_institutions", JSON.stringify(institutions));
+    try {
+      localStorage.setItem("correio_digital_institutions", JSON.stringify(institutions));
+    } catch (e) {
+      // armazenamento cheio/indisponível: a lista continua em memória nesta sessão
+      console.warn('[INSTITUIÇÕES] não foi possível gravar a lista localmente:', e);
+    }
   }, [institutions]);
 
   const addInstitution = (newFields: Omit<Institution, 'id' | 'totalCorrespondence' | 'totalAgents' | 'lastActivity' | 'responseRate' | 'registrationDate' | 'aiUsageRate' | 'performanceScore'>) => {
