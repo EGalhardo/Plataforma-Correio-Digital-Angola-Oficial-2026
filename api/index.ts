@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
-import { resolveTrustedAuthIdentity } from './adminIdentity';
+import { resolveTrustedAuthIdentity } from './adminIdentity.js';
 
 dotenv.config();
 
