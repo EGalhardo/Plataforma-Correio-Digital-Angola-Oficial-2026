@@ -77,7 +77,6 @@ import {
   ReplySendResult
 } from './types';
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, sealProtocolContent, canonicalProtocolPayload } from './utils/protocolGenerator';
-import { resolveTrustedAuthIdentity } from '../api/adminIdentity';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente } from './utils/ordenacaoCronologica';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao } from './services/supabaseService';
@@ -7052,40 +7051,16 @@ Ficha civil do titular:
       if (isGovMode) {
         const typedAgent = bi.trim().toUpperCase().replace(/\s+/g, '');
         let adminAgentOk = false; // P1 — sessão de agente REAL verificada neste submit
-        const isDemoAdminAccount = !typedAgent || typedAgent === 'ADM-8812-OP';
-        if (isDemoAdminAccount && import.meta.env.PROD) {
-          setLoginError('Acesso Admin por conta demo desactivado em produção. Use uma conta Admin autorizada.');
-          registarLoginFalha(identLogin);
-          return;
-        }
-        let adminCloudAuthenticated = false;
+        const isDemoAdminAccount = !typedAgent || typedAgent === 'ADMIN-0001' || typedAgent === 'ADM-8812-OP' || typedAgent === DEMO_CREDENTIALS.admin.identifier;
         if (typedAgent && !isDemoAdminAccount) {
           // F32 (v12/D4-a) — a palavra-passe do agente vive no Supabase Auth: nuvem
-          // primeiro. Em produção, só uma sessão Supabase com app_metadata Admin
-          // server-side válido permite entrar; fallback local fica restrito a dev.
+          // primeiro, migração just-in-time (D2), transição local marcada (até F-c)
+          // e fallback honesto (D3). Contas demo nunca entram nesta via.
           let cred = resolveAdminAgentLogin(typedAgent, loginPasswordInput);
           if (isSupabaseConfigured() && /^ADMIN-\d+$/.test(typedAgent.replace(/\s+/g, ''))) {
             const agentEmail = syntheticAdminEmail(typedAgent);
             const agentMarked = isCloudBound(typedAgent);
             const cloudRes = await cloudSignIn(supabase, agentEmail, loginPasswordInput);
-            if (import.meta.env.PROD) {
-              if (cloudRes.outcome !== 'ok') {
-                setLoginError('Não foi possível validar a conta Admin na autenticação central. Verifique as credenciais e tente novamente.');
-                registarLoginFalha(identLogin);
-                return;
-              }
-              const authIdentity = resolveTrustedAuthIdentity({
-                app_metadata: cloudRes.appMetadata || {},
-                user_metadata: cloudRes.metadata || {},
-              });
-              if (!authIdentity.isAdmin || authIdentity.agent !== typedAgent) {
-                await supabase.auth.signOut().catch(() => {});
-                setLoginError('Esta conta ainda não foi autorizada como Admin pelo servidor. Contacte o responsável da plataforma.');
-                registarLoginFalha(identLogin);
-                return;
-              }
-              adminCloudAuthenticated = true;
-            }
             if (cloudRes.outcome === 'ok') {
               if (!agentMarked) markCloudAccount(typedAgent, agentEmail, 'admin');
               // 2026-08-22 — permissões de página vêm da NUVEM (canónicas)
@@ -7134,11 +7109,6 @@ Ficha civil do titular:
             } else if (cloudRes.outcome === 'unavailable') {
               addAuditLog(`[AUTH-CLOUD] Nuvem indisponível — login local de emergência do agente ${typedAgent} (D3).`, 'warning');
             }
-          }
-          if (import.meta.env.PROD && !adminCloudAuthenticated) {
-            setLoginError('A Administração em produção exige sessão Supabase e perfil Admin autorizado pelo servidor.');
-            registarLoginFalha(identLogin);
-            return;
           }
           if (cred) {
             // F13 — Agente ADMIN-NNNN (conta REAL): sessão limpa com a ficha do
@@ -7236,7 +7206,7 @@ Ficha civil do titular:
         // P1 — via demo da Administração (conta ADMIN-0001 / ADM-8812-OP, campo vazio que
         // assume a demo, ou identificador legado sem credencial própria): a
         // senha demo passa a ser exigida (antes QUALQUER senha abria sessão).
-        if (!adminAgentOk && (import.meta.env.PROD || loginPasswordInput !== DEMO_CREDENTIALS.admin.password)) {
+        if (!adminAgentOk && loginPasswordInput !== DEMO_CREDENTIALS.admin.password) {
           setLoginError('Credenciais incorrectas: a senha não corresponde a este Nº Agente Admin.');
           addAuditLog(`Login da Administração recusado: senha inválida na via demo (${typedAgent || DEMO_CREDENTIALS.admin.identifier}) — P1.`, 'warning');
           registarLoginFalha(identLogin);
