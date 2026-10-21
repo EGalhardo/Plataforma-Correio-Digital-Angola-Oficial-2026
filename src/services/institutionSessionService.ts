@@ -10,6 +10,7 @@
 // ============================================================================
 
 import { homologationStore, type HomologationStatus } from './homologationStore';
+import { apagarDadosLocaisDaInstituicao } from './dadosLocaisConta';
 import { cloudSignIn, provisionCloudAccount, isCloudBound, markCloudAccount, unmarkCloudAccount, syntheticInstitutionAgentEmail } from './cloudAuthService';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
@@ -142,6 +143,8 @@ export const purgeInstitutionLocalResidues = (
   });
   try { localStorage.removeItem(`correio_digital_workers_${code}`); } catch { /* ignora */ }
   try { localStorage.removeItem(`cda_read_msgs_${code}`); } catch { /* ignora */ }
+  // Listas globais e chaves por código (notificações, mensagens ocultas, estatísticas de IA)
+  apagarDadosLocaisDaInstituicao(code);
 };
 
 // F49 — regra de revogação (gémea de isRevokedDeletedAccount do cidadão):

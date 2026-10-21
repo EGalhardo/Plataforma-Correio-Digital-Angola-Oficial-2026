@@ -67,6 +67,7 @@ import {
 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { supabase } from '../../lib/supabaseClient';
+import { apagarDadosLocaisDoBi } from '../../services/dadosLocaisConta';
 import { registoPublicoProxy, anunciarRegistosAlterados, eliminarCidadaoAdmin, eliminarAgente, permissoesAgente, alterarSenhaAgente, enviarMensagemAdministrativa, equipaMembroCloud } from '../../services/supabaseService';
 import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { limparPendenciaPerfil } from '../../services/profileSyncService';
@@ -976,6 +977,8 @@ export function GovContactsContent({
           try { localStorage.removeItem(`cda_demo_face_${m}_${biKey}`); } catch (e) { /* ignora */ }
         });
         try { localStorage.removeItem(`cda_avatar_user_${normKey}`); } catch (e) { /* ignora */ }
+        // Estado local do cidadão (selfie, B.I., leituras e listas globais filtradas pelo BI)
+        apagarDadosLocaisDoBi(biKey);
         try { localStorage.removeItem(`cda_perfil_dados_user_${normKey}`); } catch (e) { /* ignora */ }
         try {
           const savedGov = localStorage.getItem('gov_admin_citizens');

@@ -1500,6 +1500,9 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
       await apagar('document_requests', `user_bi=eq.${encodeURIComponent(biNorm)}`);
       await apagar('emergency_alerts', `citizen_bi=eq.${encodeURIComponent(biNorm)}`);
       await apagar('sondagem_respostas', `cidadao_bi=eq.${encodeURIComponent(biNorm)}`);
+      // Ocorrências do cidadão (cda_ocorrencias, ligadas pelo BI): sem isto, uma conta nova
+      // com o mesmo BI via-as. Apagar antes do utilizador de autenticação (FK cidadao_id).
+      await apagar('cda_ocorrencias', `cidadao_bi=eq.${encodeURIComponent(biNorm)}`);
 
       // v37.77.3 — RESÍDUOS DO CIDADÃO: correspondências (enviadas/recebidas),
       // respectivo histórico de estados e pedidos de documentos também saem

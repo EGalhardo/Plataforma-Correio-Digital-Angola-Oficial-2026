@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { homologationStore, notifyRegistrationSubmitted, notifyAccountApproved } from '../../services/homologationStore';
+import { apagarDadosLocaisDaConta, apagarDadosLocaisDoBi, apagarMarcadoresDeEliminacao } from '../../services/dadosLocaisConta';
 import { registoPublicoProxy } from '../../services/supabaseService';
 import { CdaModal } from '../ui/CdaModal';
 import { isSupabaseConfigured, cloudSignOutBestEffort } from '../../services/cloudAuthService';
@@ -642,6 +643,10 @@ export function RegisterStepper({ onCancel, onSuccess, addAuditLog, appMode = 'u
       }
       }
 
+      // Conta NOVA: não herda dados locais de uma conta anterior com o mesmo BI nem de outra conta.
+      apagarDadosLocaisDaConta();
+      apagarDadosLocaisDoBi(newUser.biNumber);
+      apagarMarcadoresDeEliminacao(newUser.biNumber);
       // — gravação LOCAL instantânea (D3): a conta existe desde JÁ para login —
       try {
         const saved = localStorage.getItem('gov_admin_citizens');
