@@ -77,7 +77,6 @@ import {
   ReplySendResult
 } from './types';
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, sealProtocolContent, canonicalProtocolPayload } from './utils/protocolGenerator';
-import { resolveTrustedAuthIdentity } from '../api/adminIdentity';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente } from './utils/ordenacaoCronologica';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao } from './services/supabaseService';
@@ -322,6 +321,13 @@ const areaDoUrl = (): 'user' | 'institution' | 'admin' => {
 };
 // v37.43 — deduz o papel a partir do identificador digitado, para que qualquer
 // login (independentemente do URL) autentique na área correcta sem separadores.
+// Contas demo (cidadão, instituição e Admin ADM-8812-OP) e campo vazio: bloqueadas em produção.
+// ADMIN-0001 NÃO está nesta lista: é a conta Admin real na nuvem.
+const DEMO_IDS_BLOQUEADOS_PROD = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP'];
+const isDemoBloqueadoProd = (id: string): boolean => {
+  const s = (id || '').trim().toUpperCase().replace(/\s+/g, '');
+  return !s || DEMO_IDS_BLOQUEADOS_PROD.includes(s);
+};
 const detectaPapel = (id: string): 'user' | 'institution' | 'admin' | null => {
   const s = (id || '').trim().toUpperCase().replace(/\s+/g, '');
   if (!s) return null;
@@ -2221,6 +2227,14 @@ export default function App() {
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (loginSubMode === 'face-capture' && faceProgress === 100) {
+      if (import.meta.env.PROD && isDemoBloqueadoProd(bi)) {
+        setLoginError('Contas de demonstração estão desactivadas em produção.');
+        setFaceProgress(0);
+        setIsFaceScanning(false);
+        stopLoginFaceCamera();
+        setLoginSubMode('normal');
+        return;
+      }
       if (emergencyMode && !isInstMode && !isGovMode && (bi.toLowerCase().includes('002931298') || bi.toLowerCase().includes('edlasio') || profileName.toLowerCase().includes('edlasio'))) {
         setLoginError("Autenticação Biométrica Recusada: Chaves Faciais Suspensas por Ordem do Protocolo SOC-AN-2026!");
         setFaceProgress(0);
@@ -6996,6 +7010,13 @@ Ficha civil do titular:
         addAuditLog("BLOQUEIO IDENTITÁRIO: Tentativa de login por Edlasio Galhardo suspensa (SOC-AN-2026)", "critical");
         return;
       }
+      // Demo bloqueada em produção (todas as áreas). A conta real ADMIN-0001 não é afectada.
+      if (import.meta.env.PROD && isDemoBloqueadoProd(bi)) {
+        setLoginError('Contas de demonstração estão desactivadas em produção. Use a sua conta real.');
+        addAuditLog(`Login recusado: conta de demonstração bloqueada em produção (${identLogin || 'campo vazio'}).`, 'warning');
+        registarLoginFalha(identLogin);
+        return;
+      }
       // ---- F3: Login da Instituição por Código Institucional + Senha ----
       if (isInstMode) {
         const typedCode = bi.trim().toUpperCase();
@@ -7058,7 +7079,6 @@ Ficha civil do titular:
           registarLoginFalha(identLogin);
           return;
         }
-        let adminCloudAuthenticated = false;
         if (typedAgent && !isDemoAdminAccount) {
           // F32 (v12/D4-a) — a palavra-passe do agente vive no Supabase Auth: nuvem
           // primeiro. Em produção, só uma sessão Supabase com app_metadata Admin
@@ -7068,24 +7088,6 @@ Ficha civil do titular:
             const agentEmail = syntheticAdminEmail(typedAgent);
             const agentMarked = isCloudBound(typedAgent);
             const cloudRes = await cloudSignIn(supabase, agentEmail, loginPasswordInput);
-            if (import.meta.env.PROD) {
-              if (cloudRes.outcome !== 'ok') {
-                setLoginError('Não foi possível validar a conta Admin na autenticação central. Verifique as credenciais e tente novamente.');
-                registarLoginFalha(identLogin);
-                return;
-              }
-              const authIdentity = resolveTrustedAuthIdentity({
-                app_metadata: cloudRes.appMetadata || {},
-                user_metadata: cloudRes.metadata || {},
-              });
-              if (!authIdentity.isAdmin || authIdentity.agent !== typedAgent) {
-                await supabase.auth.signOut().catch(() => {});
-                setLoginError('Esta conta ainda não foi autorizada como Admin pelo servidor. Contacte o responsável da plataforma.');
-                registarLoginFalha(identLogin);
-                return;
-              }
-              adminCloudAuthenticated = true;
-            }
             if (cloudRes.outcome === 'ok') {
               if (!agentMarked) markCloudAccount(typedAgent, agentEmail, 'admin');
               // 2026-08-22 — permissões de página vêm da NUVEM (canónicas)
@@ -7134,11 +7136,6 @@ Ficha civil do titular:
             } else if (cloudRes.outcome === 'unavailable') {
               addAuditLog(`[AUTH-CLOUD] Nuvem indisponível — login local de emergência do agente ${typedAgent} (D3).`, 'warning');
             }
-          }
-          if (import.meta.env.PROD && !adminCloudAuthenticated) {
-            setLoginError('A Administração em produção exige sessão Supabase e perfil Admin autorizado pelo servidor.');
-            registarLoginFalha(identLogin);
-            return;
           }
           if (cred) {
             // F13 — Agente ADMIN-NNNN (conta REAL): sessão limpa com a ficha do
