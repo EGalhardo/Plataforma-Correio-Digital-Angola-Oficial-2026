@@ -13,7 +13,7 @@
 //   obtido em /api/inquerito-ia/hash (o sal não sai do servidor).
 // ============================================================================
 import { supabase } from '../lib/supabaseClient';
-import { gravarDados, lerLinhasDados } from './supabaseService';
+import { gravarDados, lerLinhasDados, obterUltimoErroEscrita } from './supabaseService';
 import {
   classificarInstituicao,
   sondagensDisponiveis,
@@ -188,17 +188,34 @@ export const criarRascunhoInqueritoIA = async (params: {
       audiencia_total: 0,
       criado_por: params.criadoPor,
     };
-    const r = await gravarDados<InqueritoIA[]>('inqueritos_ia', 'insert', undefined, [linha], { retorno: true }, async () => {
+    const escrever = () => gravarDados<InqueritoIA[]>('inqueritos_ia', 'insert', undefined, [linha], { retorno: true }, async () => {
       const { data, error } = await supabase.from('inqueritos_ia').insert(linha).select();
       if (error) throw error;
       return (data || []) as InqueritoIA[];
     });
-    const criado = Array.isArray(r) ? r[0] : null;
-    if (!criado) return erro('Não foi possível guardar o rascunho do inquérito.');
+    let r = await escrever();
+    let criado = Array.isArray(r) ? r[0] : null;
+    // Sessão antiga/expirada (ou sem papel de instituição no token): renova a sessão e tenta uma vez.
+    if (!criado && ehErroDeSessao(obterUltimoErroEscrita())) {
+      await supabase.auth.refreshSession().catch(() => null);
+      r = await escrever();
+      criado = Array.isArray(r) ? r[0] : null;
+    }
+    if (!criado) return erro(mensagemFalhaEscrita(obterUltimoErroEscrita()));
     return { ok: true, dados: criado };
   } catch (e: unknown) {
     return erro(String((e as Error)?.message || e));
   }
+};
+
+const ehErroDeSessao = (e: string | null): boolean => !!e && /Sem permiss|Sessão inválida|sessão/i.test(e);
+
+const mensagemFalhaEscrita = (e: string | null): string => {
+  if (!e) return 'Não foi possível guardar o rascunho do inquérito. Tente novamente.';
+  if (/Sem permiss/i.test(e)) return 'Não foi possível guardar o rascunho: a sessão atual não tem permissão de instituição. Termine sessão e volte a entrar com a conta da instituição.';
+  if (/Sessão inválida|sessão/i.test(e)) return 'Não foi possível guardar o rascunho: a sessão expirou. Volte a entrar e tente novamente.';
+  if (/^rede$/i.test(e)) return 'Não foi possível guardar o rascunho: sem ligação ao servidor. Verifique a ligação e tente novamente.';
+  return `Não foi possível guardar o rascunho do inquérito (${e}).`;
 };
 
 /** Remove um rascunho (só rascunhos). */

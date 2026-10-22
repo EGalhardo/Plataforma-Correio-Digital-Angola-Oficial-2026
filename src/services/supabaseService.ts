@@ -886,6 +886,10 @@ export const lerLinhasDados = async <T,>(
 };
 
 /** Grava (insert/update/delete): proxy quando há sessão; senão directo. */
+/** Motivo da última falha de escrita via servidor (lido por quem precisa de mensagem exacta). */
+let ultimoErroEscrita: string | null = null;
+export const obterUltimoErroEscrita = (): string | null => ultimoErroEscrita;
+
 export const gravarDados = async <T,>(
   tabela: string,
   operacao: 'insert' | 'update' | 'delete',
@@ -898,10 +902,12 @@ export const gravarDados = async <T,>(
   if (!token) return direto();
   const r = await proxyDados({ tabela, operacao, filtros: filtros || {}, dados: dados ?? {}, ...(extra || {}) });
   if (r && r.ok) {
+    ultimoErroEscrita = null;
     invalidateMessagesReadCache();
     return (extra?.retorno && Array.isArray(r.linhas) ? r.linhas : { escrito: true }) as unknown as T;
   }
   if (r && r.erro === 'demo') return direto();
+  ultimoErroEscrita = String(r?.erro || 'rede');
   console.warn(`[CDA-proxy] escrita ${operacao} ${tabela} via servidor falhou:`, r?.erro || 'rede');
   return null;
 };
