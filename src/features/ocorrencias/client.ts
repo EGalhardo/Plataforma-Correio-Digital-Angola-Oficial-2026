@@ -96,7 +96,8 @@ function detectCurrentActor(): { id: string; papel: "cidadao" | "instituicao"; i
 }
 
 function executarFallbackLocal<T = any>(acao: string, data: Record<string, unknown>): T {
-  const deletedIds = new Set<string>(JSON.parse(localStorage.getItem('cda_ocorrencias_deleted') || '[]'));
+  // Eliminações são por conta e vivem no servidor; não há lista global no browser (era partilhada por todas as contas).
+  const deletedIds = new Set<string>();
   let savedLocal: Ocorrencia[] = [];
   try {
     const raw = localStorage.getItem('cda_ocorrencias_local');
@@ -244,19 +245,9 @@ function executarFallbackLocal<T = any>(acao: string, data: Record<string, unkno
       return { ok: true, ocorrencia: novaOco } as unknown as T;
     }
 
-    case "eliminar": {
-      const idParaEliminar = String(data.id || '');
-      deletedIds.add(idParaEliminar);
-      const ocoParaEliminar = savedLocal.find(o => o.id === idParaEliminar || String(o.numero) === idParaEliminar);
-      if (ocoParaEliminar) {
-        deletedIds.add(String(ocoParaEliminar.id));
-        deletedIds.add(String(ocoParaEliminar.numero));
-      }
-      localStorage.setItem('cda_ocorrencias_deleted', JSON.stringify(Array.from(deletedIds)));
-      const filtered = savedLocal.filter(o => o.id !== idParaEliminar && String(o.numero) !== idParaEliminar);
-      localStorage.setItem('cda_ocorrencias_local', JSON.stringify(filtered));
-      return { ok: true, eliminada: true } as unknown as T;
-    }
+    case "eliminar":
+      // Nunca há eliminação local: alterar só o browser faria desaparecer a ocorrência de outras contas.
+      throw new OcorrenciaRequestError("Eliminação só é possível com ligação ao servidor. Nada foi alterado.", 0);
 
     case "actuar": {
       const idAlvo = String(data.id || '');

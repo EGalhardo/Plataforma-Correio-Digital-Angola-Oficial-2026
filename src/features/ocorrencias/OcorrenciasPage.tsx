@@ -620,6 +620,7 @@ export function OcorrenciasPage({ onBack, messages = [], onDeleteMessage }: Ocor
   const [tratResp, setTratResp] = useState("");
   const [tratAlvo, setTratAlvo] = useState("");
   const [tratNota, setTratNota] = useState("");
+  const [tratConfirma, setTratConfirma] = useState(false);
   const [tlAlvo, setTlAlvo] = useState<string | null>(null);
   const [tlNota, setTlNota] = useState("");
   const [tlBloqueio, setTlBloqueio] = useState("");
@@ -1283,32 +1284,14 @@ export function OcorrenciasPage({ onBack, messages = [], onDeleteMessage }: Ocor
     setBusy(true);
     setError("");
     try {
-      // 1. Marca imediatamente como eliminado no armazenamento persistente do cliente
-      try {
-        const deletedIds = new Set<string>(JSON.parse(localStorage.getItem('cda_ocorrencias_deleted') || '[]'));
-        deletedIds.add(String(o.id));
-        if (o.numero) deletedIds.add(String(o.numero));
-        localStorage.setItem('cda_ocorrencias_deleted', JSON.stringify(Array.from(deletedIds)));
-
-        const rawLocal = localStorage.getItem('cda_ocorrencias_local');
-        if (rawLocal) {
-          const parsed = JSON.parse(rawLocal);
-          const filtered = parsed.filter((item: any) => item.id !== o.id && item.numero !== o.numero);
-          localStorage.setItem('cda_ocorrencias_local', JSON.stringify(filtered));
-        }
-      } catch (errStorage) {
-        console.warn("[OcorrenciasPage] Aviso ao persistir exclusão local da ocorrência:", errStorage);
-      }
-
-      // 2. Notifica API de Ocorrências (remoto) com tolerância a falhas
-      try {
-        await ocorrenciasApi("eliminar", { id: o.id });
-      } catch (errApi) {
-        console.warn("[OcorrenciasPage] Falha na eliminação remota (fallback local aplicado):", errApi);
-      }
+      // 1. Eliminação só na conta actual: o servidor regista o evento deste actor e
+      //    só purga a ocorrência quando as duas partes a tiverem eliminado. Não se
+      //    alteram dados locais partilhados (outras contas no mesmo browser).
+      //    Se o servidor falhar, o erro é mostrado e a ocorrência continua na lista.
+      await ocorrenciasApi("eliminar", { id: o.id });
 
       setParaEliminar(null);
-      setSuccess(`Ocorrência ${protocoloOcorrencia(o.numero)} eliminada com sucesso.`);
+      setSuccess(`Ocorrência ${protocoloOcorrencia(o.numero)} eliminada da sua conta.`);
       setList((prev) => prev.filter((x) => x.id !== o.id && x.numero !== o.numero));
       setTotal((t) => Math.max(0, t - 1));
 
@@ -1334,35 +1317,6 @@ export function OcorrenciasPage({ onBack, messages = [], onDeleteMessage }: Ocor
         msgsVinculadas.forEach((m: Message) => {
           onDeleteMessage(m.id);
         });
-      }
-
-      // 4. Limpeza de correspondências e notificações locais associadas à ocorrência eliminada
-      try {
-        const numProt = protocoloOcorrencia(o.numero).toLowerCase();
-        const titNorm = (o.titulo || '').toLowerCase();
-        
-        const rawInbox = JSON.parse(localStorage.getItem('correio_digital_inbox') || '[]');
-        const cleanInbox = rawInbox.filter((m: any) => {
-          const s = (m.details?.subject || m.preview || '').toLowerCase();
-          return !s.includes(numProt) && !s.includes(titNorm);
-        });
-        localStorage.setItem('correio_digital_inbox', JSON.stringify(cleanInbox));
-
-        const rawSent = JSON.parse(localStorage.getItem('correio_digital_sent') || '[]');
-        const cleanSent = rawSent.filter((m: any) => {
-          const s = (m.details?.subject || m.preview || '').toLowerCase();
-          return !s.includes(numProt) && !s.includes(titNorm);
-        });
-        localStorage.setItem('correio_digital_sent', JSON.stringify(cleanSent));
-
-        const rawNotifs = JSON.parse(localStorage.getItem('correio_digital_notifications') || '[]');
-        const cleanNotifs = rawNotifs.filter((n: any) => {
-          const s = `${n.title || ''} ${n.message || ''}`.toLowerCase();
-          return !s.includes(numProt) && !s.includes(titNorm);
-        });
-        localStorage.setItem('correio_digital_notifications', JSON.stringify(cleanNotifs));
-      } catch (errStorage) {
-        console.warn("[OcorrenciasPage] Aviso ao limpar armazenamento local da ocorrência:", errStorage);
       }
 
       if (selected?.id === o.id || selected?.numero === o.numero) {
@@ -1473,6 +1427,20 @@ export function OcorrenciasPage({ onBack, messages = [], onDeleteMessage }: Ocor
     }
     if (await executarAcao(t.acao, { descricao: tratNota.trim() }))
       setTratNota("");
+  };
+  // Confirmação antes de gravar a mudança de estado (área da instituição).
+  const pedirConfirmacaoTratamento = () => {
+    const t = transicoes.find((x) => x.alvo === tratAlvo);
+    if (!selected || !t) return;
+    if (t.exigeNota && tratNota.trim().length < 5) {
+      setError("Indique a justificação da alteração (mínimo 5 caracteres).");
+      return;
+    }
+    setTratConfirma(true);
+  };
+  const confirmarTratamento = async () => {
+    setTratConfirma(false);
+    await submitTratamento();
   };
   // Mudança de estado por clique no cronograma: só avança UM nível (sem
   // retroceder nem saltar), e só para alvos válidos na matriz de transições.
@@ -2771,7 +2739,7 @@ export function OcorrenciasPage({ onBack, messages = [], onDeleteMessage }: Ocor
                         type="button"
                         className={primary}
                         disabled={busy || loading || !tratAlvo}
-                        onClick={() => void submitTratamento()}
+                        onClick={() => pedirConfirmacaoTratamento()}
                       >
                         Guardar actualização
                       </button>
@@ -2819,6 +2787,48 @@ export function OcorrenciasPage({ onBack, messages = [], onDeleteMessage }: Ocor
                   onPonto={pedirMudancaTimeline}
                 />
               </div>
+              {tratConfirma && selected && (
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Confirmar actualização do estado"
+                  onClick={() => setTratConfirma(false)}
+                >
+                  <div
+                    className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl space-y-4"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <h3 className="font-black text-primary">Confirmar actualização</h3>
+                    <p className="text-sm text-slate-700">
+                      Pretende actualizar a ocorrência de{" "}
+                      <strong>«{ESTADOS_OCORRENCIAS[selected.estado] || selected.estado}»</strong>{" "}
+                      para{" "}
+                      <strong>«{ESTADOS_OCORRENCIAS[tratAlvo] || tratAlvo}»</strong>?
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      O cidadão será notificado desta actualização.
+                    </p>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        className={secondary}
+                        onClick={() => setTratConfirma(false)}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        className={primary}
+                        disabled={busy}
+                        onClick={() => void confirmarTratamento()}
+                      >
+                        Confirmar actualização
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               {tlAlvo !== null && selected && (
                 <div
                   className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
