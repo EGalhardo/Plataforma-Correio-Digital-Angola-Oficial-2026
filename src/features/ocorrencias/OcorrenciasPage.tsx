@@ -895,6 +895,8 @@ export function OcorrenciasPage({ onBack, messages = [], onDeleteMessage }: Ocor
     }
   };
   const newReport = () => {
+    // Só o cidadão cria ocorrências (a instituição nunca entra no formulário).
+    if (actor?.papel !== "cidadao") return;
     setData({ ...DADOS_VAZIOS });
     setPhotos([]);
     setConfirmed(false);
@@ -1626,7 +1628,7 @@ export function OcorrenciasPage({ onBack, messages = [], onDeleteMessage }: Ocor
                 : "Comunique problemas da sua localidade e acompanhe o seu tratamento."}
           </p>
         </div>
-        {view === "lista" && !institutional && (
+        {view === "lista" && actor?.papel === "cidadao" && (
           <button
             type="button"
             data-testid="btn-criar-ocorrencia"

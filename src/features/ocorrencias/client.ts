@@ -376,6 +376,8 @@ export async function ocorrenciasApi<T = any>(
       // «criar»: o erro real do servidor (ex.: 403 «Apenas o cidadão…») é mostrado; nunca se finge sucesso.
       // «eliminar» também: nunca se esconde localmente algo que o servidor não gravou.
       if (acao === "criar" || acao === "eliminar") throw new OcorrenciaRequestError(result?.erro || "Não foi possível concluir a operação. Tente novamente.", r.status);
+      // «inicio» identifica o perfil: nunca se inventa um ator local quando há sessão.
+      if (acao === "inicio") throw new OcorrenciaRequestError(result?.erro || "Não foi possível confirmar a sua sessão. Actualize a página.", r.status);
       if (acao === "actuar" || acao === "detalhe" || r.status === 401 || r.status === 404 || r.status >= 500) {
         return executarFallbackLocal<T>(acao, data);
       }
@@ -386,6 +388,10 @@ export async function ocorrenciasApi<T = any>(
     }
     return result as T;
   } catch (e) {
+    if (acao === "inicio") {
+      if (e instanceof OcorrenciaRequestError) throw e;
+      throw new OcorrenciaRequestError("Não foi possível confirmar a sua sessão. Actualize a página.", 0);
+    }
     if (acao === "criar" || acao === "eliminar") {
       if (e instanceof OcorrenciaRequestError) throw e;
       throw new OcorrenciaRequestError("Sem ligação ao servidor. Nada foi alterado; tente novamente.", 0);

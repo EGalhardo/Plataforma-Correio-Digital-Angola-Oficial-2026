@@ -87,7 +87,7 @@ import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente }
 import { agruparConversas, conversaDe, resumoDestinatarios } from './utils/conversasThread';
 import { PainelConversa } from './components/features/PainelConversa';
 import { contarNotificacoesAtalhos, assuntoChave, normalizarTexto, calcularTotalCorrespondenciasNaoLidas, obterListaCorrespondenciasNaoLidas, isMensagemLida, isMensagemNaoLida } from './utils/notificacoesAtalhos';
-import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao, listarRegistosPendentes, EVENTO_REGISTOS_ALTERADOS } from './services/supabaseService';
+import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, codigoInstituicaoDeConta, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao, listarRegistosPendentes, EVENTO_REGISTOS_ALTERADOS } from './services/supabaseService';
 import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia, ehAssuntoQualquerDenuncia, estadoDeFase, codigoInstituicaoBase } from './services/denunciaCore';
 import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
 import { lerPerfilLocal } from './services/perfilLocalService';
@@ -1748,7 +1748,9 @@ export default function App() {
     }
     prevStageForHashRef.current = stage;
   }, [stage, loginSubMode, appMode]);
-  const institutionCode = resolveInstitutionCode(activeProfile?.institutionName || bi || '');
+  // O código da conta tem prioridade: é a mesma chave com que o servidor grava as ocorrências
+  // (AGT-LMM-01 → AGT-LMM). Só com o nome «AGT» (sem sufixo) as notificações não eram lidas.
+  const institutionCode = codigoInstituicaoDeConta(bi) || resolveInstitutionCode(activeProfile?.institutionName || bi || '');
   // 2026-09-11 — nome oficial da instituição da sessão, canónico e sem o
   // sufixo «(CÓDIGO)» (activeProfile.institutionName = «Nome (CÓDIGO)»).
   const nomeOficialInstituicaoSessao = useMemo(() => {

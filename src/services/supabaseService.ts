@@ -176,6 +176,16 @@ export const resolveInstitutionCode = (label?: string): string => {
   return normalized.split(' ')[0].replace(/[^A-Z]/g, '').slice(0, 12) || 'INSTITUICAO';
 };
 
+/**
+ * Código institucional derivado do N.º de acesso da conta (ex.: AGT-LMM-01 → AGT-LMM).
+ * Regra igual à do servidor (server/ocorrencias.ts, instCodeFromEmail): o código é tudo
+ * o que vem antes dos dois dígitos finais do agente. Devolve null se não se aplicar.
+ */
+export const codigoInstituicaoDeConta = (acesso?: string): string | null => {
+  const m = String(acesso || '').trim().toUpperCase().match(/^([A-Z0-9]{2,8}(?:-[A-Z0-9]{2,8})*)-(\d{2})$/);
+  return m ? m[1] : null;
+};
+
 const inferProfileRole = (identifier: string): 'user' | 'institution' | 'admin' => {
   const upper = identifier.toUpperCase();
   if (upper === 'CDA' || upper.startsWith('ADM-')) return 'admin';
