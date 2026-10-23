@@ -265,9 +265,15 @@ export function obterListaCorrespondenciasNaoLidas(
   biKey = '',
 ): Message[] {
   const isExcluded = (m: Message) => !m || deletedIds.includes(m.id) || hiddenIds.includes(m.id);
-  const unreadInbox = (inbox || []).filter(m => !isExcluded(m) && isMensagemNaoLida(m));
+  // Cópia de ocorrência: o cidadão é o remetente; quem fica notificado é a instituição.
+  // A cópia enviada nunca conta como «não lida» para o cidadão.
+  const ehCopiaOcorrencia = (m: Message) => {
+    const acoes = Array.isArray(m?.details?.actions) ? (m.details!.actions as unknown[]) : [];
+    return acoes.some(a => typeof a === 'string' && (a === 'OCORRENCIA' || a.startsWith('OCORRENCIA_ID:')));
+  };
+  const unreadInbox = (inbox || []).filter(m => !isExcluded(m) && !(!institucional && ehCopiaOcorrencia(m)) && isMensagemNaoLida(m));
   const unreadSent = !institucional
-    ? (enviadas || []).filter(m => !isExcluded(m) && isMensagemNaoLida(m))
+    ? (enviadas || []).filter(m => !isExcluded(m) && !ehCopiaOcorrencia(m) && isMensagemNaoLida(m))
     : [];
 
   const baseMsgs = [...unreadInbox, ...unreadSent];

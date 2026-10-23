@@ -648,19 +648,30 @@ export async function handleOcorrencias(req: any, res: any) {
           const ins = await db.from("cda_ocorrencias").insert([rowInsert]).select().maybeSingle();
           if (ins.data) {
             createdOco = ins.data;
-            try {
-              await db.from("cda_ocorrencias_eventos").insert({
+            // Mesma regra do RPC: o evento leva pedido_id (NOT NULL) e a instituição é notificada.
+            const { data: evSub, error: errEvSub } = await db.from("cda_ocorrencias_eventos").insert({
+              ocorrencia_id: createdOco.id,
+              actor_id: a.id,
+              actor_papel: a.papel,
+              actor_nome: a.nome,
+              acao: 'submeter',
+              estado_anterior: 'submetida',
+              estado_novo: 'submetida',
+              descricao: 'Ocorrência registada e submetida via Correio Digital de Angola.',
+              pedido_id: id(b.pedido),
+            }).select("id").maybeSingle();
+            if (errEvSub || !evSub?.id) {
+              console.error("[server/ocorrencias] criar (fallback): evento não gravado", errEvSub);
+            } else {
+              const { error: errNotInst } = await db.from("cda_ocorrencias_notificacoes").insert({
                 ocorrencia_id: createdOco.id,
-                actor_id: a.id,
-                actor_papel: a.papel,
-                actor_nome: a.nome,
-                acao: 'submeter',
-                estado_anterior: 'submetida',
-                estado_novo: 'submetida',
-                descricao: 'Ocorrência registada e submetida via Correio Digital de Angola.',
+                evento_id: evSub.id,
+                destinatario_tipo: 'instituicao',
+                destinatario_chave: String(createdOco.instituicao_codigo || instCode),
+                titulo: 'Nova ocorrência submetida',
+                mensagem: String(createdOco.titulo || d.titulo || ''),
               });
-            } catch {
-              /* ignore */
+              if (errNotInst) console.error("[server/ocorrencias] criar (fallback): notificação à instituição não gravada", errNotInst);
             }
           } else {
             createdOco = {
@@ -873,21 +884,44 @@ export async function handleOcorrencias(req: any, res: any) {
           const { data: updatedDb } = await db.from("cda_ocorrencias").update(updatePayload).eq("id", row.id).select().maybeSingle();
           actedOco = updatedDb || { ...row, ...updatePayload };
 
-          try {
-            await db.from("cda_ocorrencias_eventos").insert({
+          // Mesma regra do RPC: quando actua a instituição, o cidadão é notificado.
+          const TITULOS_ACAO: Record<string, string> = {
+            receber: 'Recepção confirmada',
+            analisar: 'Ocorrência em análise',
+            iniciar_resolucao: 'Resolução iniciada',
+            pedir_esclarecimento: 'Informação solicitada ao cidadão',
+            resolver: 'Ocorrência marcada como resolvida',
+            encerrar: 'Ocorrência encerrada com justificação',
+            atribuir: 'Responsável atribuído',
+            encaminhar: 'Ocorrência encaminhada',
+          };
+          const descricaoAcao = String(dados.descricao || dados.responsavel || 'Actualização de estado da ocorrência.');
+          const { data: evAcao, error: errEvAcao } = await db.from("cda_ocorrencias_eventos").insert({
+            ocorrencia_id: row.id,
+            actor_id: a.id,
+            actor_papel: a.papel,
+            actor_nome: a.nome,
+            actor_instituicao: a.instituicao || null,
+            acao: action,
+            estado_anterior: row.estado,
+            estado_novo: novoEstado,
+            descricao: descricaoAcao,
+            destino_codigo: dados.instituicao_codigo || null,
+            pedido_id: id(b.pedido),
+          }).select("id").maybeSingle();
+          if (errEvAcao || !evAcao?.id) {
+            console.error("[server/ocorrencias] actuar (fallback): evento não gravado", errEvAcao);
+          } else if (a.papel === "instituicao") {
+            const { error: errNotCid } = await db.from("cda_ocorrencias_notificacoes").insert({
               ocorrencia_id: row.id,
-              actor_id: a.id,
-              actor_papel: a.papel,
-              actor_nome: a.nome,
-              actor_instituicao: a.instituicao || null,
-              acao: action,
-              estado_anterior: row.estado,
-              estado_novo: novoEstado,
-              descricao: dados.descricao || dados.responsavel || 'Actualização de estado da ocorrência.',
-              destino_codigo: dados.instituicao_codigo || null,
-              pedido_id: id(b.pedido),
+              evento_id: evAcao.id,
+              destinatario_tipo: 'cidadao',
+              destinatario_chave: String(row.cidadao_id),
+              titulo: TITULOS_ACAO[action] || 'Atualização da ocorrência',
+              mensagem: descricaoAcao,
             });
-          } catch { /* melhor esforço */ }
+            if (errNotCid) console.error("[server/ocorrencias] actuar (fallback): notificação ao cidadão não gravada", errNotCid);
+          }
         }
 
         result = { ocorrencia: actedOco };

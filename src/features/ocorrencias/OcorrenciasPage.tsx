@@ -1251,36 +1251,16 @@ export function OcorrenciasPage({ onBack, messages = [], onDeleteMessage }: Ocor
             console.warn('[OcorrenciasPage] Falha insertNotification:', eNotif);
           }
 
-          // Atualizar o armazenamento local do navegador para persistência instantânea
+          // Armazenamento local: só a cópia ENVIADA do cidadão. A caixa de entrada e as
+          // notificações locais não recebem esta ocorrência: quem é notificado é a
+          // instituição (notificação na nuvem acima e notificação de ocorrência no servidor).
           try {
-            const rawInbox = JSON.parse(localStorage.getItem('correio_digital_inbox') || '[]');
-            const existsInbox = rawInbox.some((m: any) => m.id === messageId);
-            if (!existsInbox) {
-              localStorage.setItem('correio_digital_inbox', JSON.stringify([novaMensagem, ...rawInbox]));
-            }
-
             const rawSent = JSON.parse(localStorage.getItem('correio_digital_sent') || '[]');
             const existsSent = rawSent.some((m: any) => m.id === messageId);
             if (!existsSent) {
               localStorage.setItem('correio_digital_sent', JSON.stringify([novaMensagem, ...rawSent]));
             }
-
-            const rawNotifs = JSON.parse(localStorage.getItem('correio_digital_notifications') || '[]');
-            const newNotifItem = {
-              id: Number(Date.now() + Math.floor(Math.random() * 100)),
-              title: `Nova Ocorrência: ${numRotulo}`,
-              message: `O cidadão ${remetenteBi} submeteu a ocorrência «${ocorrencia.titulo}» (${ocorrencia.categoria}) em ${ocorrencia.municipio}, ${ocorrencia.provincia}.`,
-              time: 'Agora',
-              type: 'info',
-              target_tab: 'ocorrencias',
-              target_bi: destInst,
-              unread: true,
-            };
-            localStorage.setItem('correio_digital_notifications', JSON.stringify([newNotifItem, ...rawNotifs]));
-
-            // Disparar eventos de sincronização em tempo real
             window.dispatchEvent(new CustomEvent('cda:message-sent', { detail: novaMensagem }));
-            window.dispatchEvent(new CustomEvent('cda:refresh-notifications', { detail: newNotifItem }));
           } catch (errLocalStore) {
             console.warn('[OcorrenciasPage] Aviso ao atualizar localStorage para correspondência/notificação:', errLocalStore);
           }
