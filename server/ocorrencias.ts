@@ -703,8 +703,10 @@ export async function handleOcorrencias(req: any, res: any) {
         const row = await occurrence(db, a, b.id);
         const acaoElim = a.papel === "cidadao" ? "eliminar_cidadao" : "eliminar_instituicao";
         
-        // Registar o evento de eliminação específica do actor
-        await db.from("cda_ocorrencias_eventos").insert({
+        // Registar o evento de eliminação específica do actor.
+        // pedido_id é obrigatório na tabela (NOT NULL) e o erro tem de ser
+        // verificado: antes, a falha era ignorada e a API respondia ok.
+        const { error: errEvElim } = await db.from("cda_ocorrencias_eventos").insert({
           ocorrencia_id: row.id,
           actor_id: a.id,
           actor_papel: a.papel,
@@ -716,7 +718,12 @@ export async function handleOcorrencias(req: any, res: any) {
           descricao: a.papel === "cidadao"
             ? "Ocorrência eliminada da conta do cidadão."
             : "Ocorrência eliminada da conta da instituição.",
+          pedido_id: randomUUID(),
         });
+        if (errEvElim) {
+          console.error("[server/ocorrencias] eliminar: evento não gravado", errEvElim);
+          fail(500, "Não foi possível eliminar a ocorrência. Tente novamente.");
+        }
 
         // Verificar se ambas as partes já eliminaram
         const evs = checked(

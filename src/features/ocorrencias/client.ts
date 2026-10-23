@@ -359,6 +359,8 @@ export async function ocorrenciasApi<T = any>(
   const token = sessionData.session?.access_token;
   
   if (!token) {
+    // «criar» nunca cai no modo local: sem sessão a ocorrência não chega à base de dados.
+    if (acao === "criar" || acao === "eliminar") throw new OcorrenciaRequestError("Inicie sessão para continuar.", 401);
     return executarFallbackLocal<T>(acao, data);
   }
 
@@ -380,7 +382,10 @@ export async function ocorrenciasApi<T = any>(
     });
     const result = await r.json().catch(() => null);
     if (!r.ok || !result?.ok) {
-      if (acao === "eliminar" || acao === "criar" || acao === "actuar" || acao === "detalhe" || r.status === 401 || r.status === 404 || r.status >= 500) {
+      // «criar»: o erro real do servidor (ex.: 403 «Apenas o cidadão…») é mostrado; nunca se finge sucesso.
+      // «eliminar» também: nunca se esconde localmente algo que o servidor não gravou.
+      if (acao === "criar" || acao === "eliminar") throw new OcorrenciaRequestError(result?.erro || "Não foi possível concluir a operação. Tente novamente.", r.status);
+      if (acao === "actuar" || acao === "detalhe" || r.status === 401 || r.status === 404 || r.status >= 500) {
         return executarFallbackLocal<T>(acao, data);
       }
       throw new OcorrenciaRequestError(
@@ -390,7 +395,11 @@ export async function ocorrenciasApi<T = any>(
     }
     return result as T;
   } catch (e) {
-    if (acao === "eliminar" || acao === "criar" || acao === "actuar" || acao === "detalhe") {
+    if (acao === "criar" || acao === "eliminar") {
+      if (e instanceof OcorrenciaRequestError) throw e;
+      throw new OcorrenciaRequestError("Sem ligação ao servidor. Nada foi alterado; tente novamente.", 0);
+    }
+    if (acao === "actuar" || acao === "detalhe") {
       return executarFallbackLocal<T>(acao, data);
     }
     if (e instanceof OcorrenciaRequestError && [400, 403].includes(e.status)) throw e;
