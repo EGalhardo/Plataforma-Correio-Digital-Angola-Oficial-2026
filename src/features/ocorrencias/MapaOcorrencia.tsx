@@ -51,13 +51,21 @@ async function geocodificar(
     tentativas.push({ q: `${provincia.trim()}, Angola`, origem: "provincia" });
   for (const t of tentativas) {
     try {
-      const r = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ao&q=${encodeURIComponent(t.q)}`,
-        { headers: { Accept: "application/json", "User-Agent": "CorreioDigitalAngola/1.0" } },
-      );
-      const j = (await r.json()) as Array<{ lat: string; lon: string }>;
-      if (Array.isArray(j) && j[0])
-        return { lat: Number(j[0].lat), lon: Number(j[0].lon), origem: t.origem };
+      // Tempo limite: se o serviço não responder, avança-se para a granularidade seguinte
+      // (e, no fim, para a capital da província), em vez de ficar em «A localizar a área…».
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      try {
+        const r = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ao&q=${encodeURIComponent(t.q)}`,
+          { headers: { Accept: "application/json", "User-Agent": "CorreioDigitalAngola/1.0" }, signal: ctrl.signal },
+        );
+        const j = (await r.json()) as Array<{ lat: string; lon: string }>;
+        if (Array.isArray(j) && j[0])
+          return { lat: Number(j[0].lat), lon: Number(j[0].lon), origem: t.origem };
+      } finally {
+        clearTimeout(timer);
+      }
     } catch {
       /* tenta a próxima granularidade */
     }
@@ -213,6 +221,10 @@ export function MapaOcorrencia({
       </div>
       <p className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
         <MapPin size={12} className="shrink-0" />
+        <span className="font-mono">
+          {geo.lat.toFixed(5)}, {geo.lon.toFixed(5)}
+        </span>
+        ·{" "}
         {geo.origem === "gps"
           ? `Posição GPS real do dispositivo (±${Math.max(
               1,

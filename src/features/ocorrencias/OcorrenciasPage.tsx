@@ -2934,6 +2934,21 @@ export function OcorrenciasPage({ onBack, messages = [], onDeleteMessage }: Ocor
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
               <div className="xl:col-span-2 space-y-4">
                 <div className={panel}>
+                  <h3 className="font-black text-primary flex items-center gap-2">
+                    <MapPin size={18} />
+                    Mapa da ocorrência
+                  </h3>
+                  <MapaOcorrencia
+                    provincia={selected.provincia}
+                    municipio={selected.municipio}
+                    bairro={selected.bairro}
+                    rua={selected.rua}
+                    lat={selected.lat}
+                    lon={selected.lon}
+                    precisao={selected.precisao_m}
+                  />
+                </div>
+                <div className={panel}>
                   <h3 className="text-xl font-black text-primary break-words">
                     {selected.titulo}
                   </h3>
