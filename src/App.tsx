@@ -2185,6 +2185,12 @@ export default function App() {
   const [correspondenciaTab, setCorrespondenciaTab] = useState('todas');
   const [videoSessionCount, setVideoSessionCount] = useState(0);
   const [isComposing, setIsComposing] = useState(false);
+  // 2026-10-24 — «Criar Denúncia» no Livro de Reclamações: o envio fica fixo como Reclamação
+  // (prefixo [DENÚNCIA]), para que a mensagem apareça sempre no Livro. Limpa-se ao fechar a composição.
+  const [modalidadeFixaEnvio, setModalidadeFixaEnvio] = useState<'denuncia' | null>(null);
+  useEffect(() => {
+    if (!isComposing || tab !== 'correspondencias') setModalidadeFixaEnvio(null);
+  }, [isComposing, tab]);
   const [composeData, setComposeData] = useState<{ to: string; subject: string; body: string; attachments?: string[]; toArray?: string[]; sondagensIds?: number[]; inqueritosIaIds?: number[]; dataExpiracao?: string }>({ to: '', subject: '', body: '', attachments: [], toArray: [] });
 
   const [documentosTab, setDocumentosTab] = useState('lidas');
@@ -6531,6 +6537,7 @@ Ficha civil do titular:
             composeData={composeData}
             setComposeData={setComposeData}
             handleSendMessage={executeOfficialSend}
+            modalidadeFixaEnvio={modalidadeFixaEnvio}
             unreadTotal={unreadTotal}
             correspondenciaTab={correspondenciaTab}
             setCorrespondenciaTab={setCorrespondenciaTab}
@@ -6840,7 +6847,7 @@ Ficha civil do titular:
             tipo="denuncias"
             isInst={isInstMode}
             notifications={currentNotifications}
-            onCreate={isUserMode ? () => { setIsComposing(true); setTab('correspondencias'); } : undefined}
+            onCreate={isUserMode ? () => { setModalidadeFixaEnvio('denuncia'); setIsComposing(true); setTab('correspondencias'); } : undefined}
             messages={(isInstMode ? currentInbox : currentSentMessages).filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id))}
             onOpen={m => handleSelectMessage(m, isInstMode ? 'recebidas' : 'enviadas', 'denuncias')}
             onDeleteMessage={handleDeleteMessage}

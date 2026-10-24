@@ -123,6 +123,8 @@ interface MailContentProps {
   /** 2026-09-11 — aceita um payload opcional (mesma pipeline do App) para a
    *  expedição «Todos» servir também o(s) destinatário(s) manual(is). */
   handleSendMessage: (override?: ReplySendPayload) => void | Promise<unknown>;
+  // 2026-10-24 — Livro de Reclamações: «Criar Denúncia» envia sempre como Reclamação (prefixo [DENÚNCIA]).
+  modalidadeFixaEnvio?: 'denuncia' | null;
   unreadTotal: number;
   correspondenciaTab: string;
   setCorrespondenciaTab: (tab: string) => void;
@@ -178,6 +180,7 @@ export function MailContent({
   composeData = { to: '', subject: '', body: '', attachments: [] },
   setComposeData,
   handleSendMessage,
+  modalidadeFixaEnvio = null,
   unreadTotal,
   correspondenciaTab,
   setCorrespondenciaTab,
@@ -559,11 +562,13 @@ export function MailContent({
   const ehComunicado = (composeData.subject || '').trim().toUpperCase().startsWith(PREFIXO_COMUNICADO) || (composeData.subject || '').trim().toUpperCase().startsWith('[COMUNICADO]');
 
   const abrirPopupEnvio = () => {
-    setModalidadeRealcada('normal');
+    setModalidadeRealcada(modalidadeFixaEnvio ? 'denuncia' : 'normal');
     setShowTipoEnvioModal(true);
   };
 
-  const escolherModalidadeEnvio = (m: ModalidadeEnvio) => {
+  const escolherModalidadeEnvio = (mEscolhida: ModalidadeEnvio) => {
+    // 2026-10-24 — no Livro de Reclamações a modalidade é fixa: nunca sai como «Normal».
+    const m: ModalidadeEnvio = modalidadeFixaEnvio ? 'denuncia' : mEscolhida;
     setShowTipoEnvioModal(false);
     if (m === 'emergencia') {
       if (onEmergencyBroadcast) onEmergencyBroadcast(); else tentarEnviar();
@@ -2177,7 +2182,7 @@ export function MailContent({
           >
             <div className="space-y-4 text-left" data-testid="popup-enviar-mensagem">
               <div className="space-y-3">
-                {opcoesEnvio.map((op) => {
+                {opcoesEnvio.filter((op) => !modalidadeFixaEnvio || op.id === 'denuncia').map((op) => {
                   const activa = modalidadeRealcada === op.id;
                   const icone = op.tom === 'azul'
                     ? 'bg-blue-50 text-blue-600'
