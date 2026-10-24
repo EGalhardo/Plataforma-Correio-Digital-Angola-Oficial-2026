@@ -277,9 +277,11 @@ export function obterListaCorrespondenciasNaoLidas(
     return acoes.some(a => typeof a === 'string' && (a === 'OCORRENCIA' || a.startsWith('OCORRENCIA_ID:')));
   };
   const unreadInbox = (inbox || []).filter(m => !isExcluded(m) && !(!institucional && ehCopiaOcorrencia(m)) && isMensagemNaoLida(m));
-  const unreadSent = !institucional
-    ? (enviadas || []).filter(m => !isExcluded(m) && !ehCopiaOcorrencia(m) && isMensagemNaoLida(m))
-    : [];
+  // Regra única (cidadão e instituição): quem enviou uma correspondência nunca a tem como
+  // «não lida» nas suas Enviadas. A linha da mensagem é partilhada com o destinatário, e o
+  // campo unread só reflete a leitura do destinatário. As respostas chegam como
+  // correspondências recebidas (inbox) e notificações próprias.
+  const unreadSent: Message[] = [];
 
   const baseMsgsLegado = [...unreadInbox, ...unreadSent];
   const baseMsgs = servidorCarregado
@@ -291,12 +293,20 @@ export function obterListaCorrespondenciasNaoLidas(
   // Notificações genuinamente NÃO lidas que não estão associadas a uma mensagem já não-lida na lista
   const notifsNaoLidas = (notificacoes || []).filter(n => n && n.unread !== false);
   const notifsExtras: Message[] = [];
+  // Assuntos das correspondências já contadas (caixa de entrada ou enviadas). Um aviso que
+  // cita um destes assuntos é a MESMA correspondência: não conta outra vez. Cobre respostas
+  // recebidas na caixa de entrada, que as pools de denúncia (só enviadas) não associam.
+  const assuntosContados = baseMsgs
+    .map(m => normalizar(m.details?.subject || m.preview || ''))
+    .filter(s => s.length >= 8);
 
   for (const n of notifsNaoLidas) {
     if (servidorCarregado && n.targetTab === 'ocorrencias') continue;
     if (n.messageId && msgIds.has(n.messageId)) continue;
     const assoc = associarMensagem(n, todosPools);
     if (assoc && assoc.m && msgIds.has(assoc.m.id)) continue;
+    const textoAviso = normalizar(`${n.title || ''} ${n.message || ''}`);
+    if (assuntosContados.some(s => textoAviso.includes(s))) continue;
 
     const notifMsgItem: Message = {
       id: typeof n.id === 'number' ? n.id : (99000000 + Math.floor(Math.random() * 999999)),

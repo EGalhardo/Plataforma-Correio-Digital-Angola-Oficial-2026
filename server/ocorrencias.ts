@@ -602,106 +602,27 @@ export async function handleOcorrencias(req: any, res: any) {
           fail(400, "Máximo de cinco fotografias.");
         b.fotos.forEach(id);
 
-        let createdOco: any = null;
-        try {
-          const rpcRes = await db.rpc("cda_ocorrencias_criar", {
-            p_actor: a,
-            p_dados: d,
-            p_fotos: b.fotos,
-            p_pedido: id(b.pedido),
-          });
-          if (rpcRes.data) createdOco = rpcRes.data;
-        } catch (errRpc) {
-          console.warn("[server/ocorrencias] RPC cda_ocorrencias_criar aviso:", errRpc);
+        // O RPC é a ÚNICA via de criação: valida a instituição e as fotografias e
+        // grava ocorrência, evento e notificação numa só transação.
+        // Sem fallback: a versão anterior, quando o RPC falhava, devolvia uma ocorrência
+        // fictícia («oco-…») com número aleatório, e a mensagem seguia para a instituição
+        // sem registo real na base de dados.
+        const rpcRes = await db.rpc("cda_ocorrencias_criar", {
+          p_actor: a,
+          p_dados: d,
+          p_fotos: b.fotos,
+          p_pedido: id(b.pedido),
+        });
+        if (rpcRes.error) {
+          const code = String(rpcRes.error.code || "");
+          const msg = String(rpcRes.error.message || "");
+          console.error("[server/ocorrencias] criar: RPC falhou", code, msg);
+          if (code === "22023") fail(400, msg || "Dados da ocorrência inválidos.");
+          if (code === "42501") fail(403, msg || "Apenas o cidadão pode criar ocorrências.");
+          fail(500, "Não foi possível registar a ocorrência. Tente novamente.");
         }
-
-        if (!createdOco) {
-          const numGerado = Math.floor(100000 + Math.random() * 900000);
-          const instCode = String(d.instituicao_codigo || '').trim().toUpperCase();
-          const { data: instRows } = await db.from("solicitacoes_registo").select("nome").eq("bi_numero", instCode).limit(1);
-          const instNome = instRows?.[0]?.nome || instCode;
-
-          const rowInsert: any = {
-            cidadao_id: a.id,
-            cidadao_bi: a.identificador,
-            cidadao_nome: a.nome,
-            instituicao_codigo: instCode,
-            instituicao_nome: instNome,
-            categoria: d.categoria,
-            titulo: d.titulo,
-            descricao: d.descricao,
-            provincia: d.provincia,
-            municipio: d.municipio,
-            bairro: d.bairro,
-            rua: d.rua || '',
-            referencia: d.referencia || '',
-            estado: 'submetida',
-            numero: numGerado,
-            pedido_id: id(b.pedido),
-            tipo_localizacao: d.tipo_localizacao || 'manual',
-            lat: d.lat || null,
-            lon: d.lon || null,
-            precisao_m: d.precisao_m || null,
-            versao: 1
-          };
-
-          const ins = await db.from("cda_ocorrencias").insert([rowInsert]).select().maybeSingle();
-          if (ins.data) {
-            createdOco = ins.data;
-            // Mesma regra do RPC: o evento leva pedido_id (NOT NULL) e a instituição é notificada.
-            const { data: evSub, error: errEvSub } = await db.from("cda_ocorrencias_eventos").insert({
-              ocorrencia_id: createdOco.id,
-              actor_id: a.id,
-              actor_papel: a.papel,
-              actor_nome: a.nome,
-              acao: 'submeter',
-              estado_anterior: 'submetida',
-              estado_novo: 'submetida',
-              descricao: 'Ocorrência registada e submetida via Correio Digital de Angola.',
-              pedido_id: id(b.pedido),
-            }).select("id").maybeSingle();
-            if (errEvSub || !evSub?.id) {
-              console.error("[server/ocorrencias] criar (fallback): evento não gravado", errEvSub);
-            } else {
-              const { error: errNotInst } = await db.from("cda_ocorrencias_notificacoes").insert({
-                ocorrencia_id: createdOco.id,
-                evento_id: evSub.id,
-                destinatario_tipo: 'instituicao',
-                destinatario_chave: String(createdOco.instituicao_codigo || instCode),
-                titulo: 'Nova ocorrência submetida',
-                mensagem: String(createdOco.titulo || d.titulo || ''),
-              });
-              if (errNotInst) console.error("[server/ocorrencias] criar (fallback): notificação à instituição não gravada", errNotInst);
-            }
-          } else {
-            createdOco = {
-              id: `oco-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-              numero: numGerado,
-              cidadao_id: a.id,
-              cidadao_bi: a.identificador,
-              cidadao_nome: a.nome,
-              instituicao_codigo: instCode,
-              instituicao_nome: instNome,
-              categoria: d.categoria,
-              titulo: d.titulo,
-              descricao: d.descricao,
-              provincia: d.provincia,
-              municipio: d.municipio,
-              bairro: d.bairro,
-              rua: d.rua || '',
-              referencia: d.referencia || '',
-              estado: 'submetida',
-              responsavel: null,
-              versao: 1,
-              criado_em: new Date().toISOString(),
-              actualizado_em: new Date().toISOString(),
-              tipo_localizacao: d.tipo_localizacao || 'manual',
-              lat: d.lat || null,
-              lon: d.lon || null,
-              precisao_m: d.precisao_m || null,
-            };
-          }
-        }
+        const createdOco: any = rpcRes.data;
+        if (!createdOco) fail(500, "Não foi possível registar a ocorrência. Tente novamente.");
 
         result = { ocorrencia: createdOco };
         break;
