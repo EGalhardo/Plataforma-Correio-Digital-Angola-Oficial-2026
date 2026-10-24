@@ -86,7 +86,8 @@ import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente } from './utils/ordenacaoCronologica';
 import { agruparConversas, conversaDe, resumoDestinatarios } from './utils/conversasThread';
 import { PainelConversa } from './components/features/PainelConversa';
-import { contarNotificacoesAtalhos, assuntoChave, normalizarTexto, calcularTotalCorrespondenciasNaoLidas, obterListaCorrespondenciasNaoLidas, isMensagemLida, isMensagemNaoLida } from './utils/notificacoesAtalhos';
+import { contarNotificacoesAtalhos, assuntoChave, normalizarTexto, obterListaCorrespondenciasNaoLidas, contarPorCategoria, itemNotificacaoOcorrencia, isMensagemLida, isMensagemNaoLida, isMensagemNaoLidaNoCorreio } from './utils/notificacoesAtalhos';
+import { ocorrenciasApi } from './features/ocorrencias/client';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, codigoInstituicaoDeConta, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao, listarRegistosPendentes, EVENTO_REGISTOS_ALTERADOS } from './services/supabaseService';
 import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia, ehAssuntoQualquerDenuncia, estadoDeFase, codigoInstituicaoBase } from './services/denunciaCore';
 import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
@@ -4460,6 +4461,17 @@ export default function App() {
   // Menu da foto de perfil: abrir mensagem não lida → marca como lida e garante
   // que a página final é SEMPRE o detalhe da mensagem (tab 'mensagem') ou a secção temática.
   const handleOpenUnreadMessage = (message: Message) => {
+    const ocorrenciaNotifId = (message as any).ocorrenciaNotifId;
+    if (ocorrenciaNotifId) {
+      setOcorrenciasServidor(prev => prev ? prev.filter(m => (m as any).ocorrenciaNotifId !== ocorrenciaNotifId) : prev);
+      if (isOnline && hasValidSupabaseKeys()) {
+        ocorrenciasApi('ler_notificacao', { id: ocorrenciaNotifId })
+          .catch(() => undefined)
+          .finally(() => window.dispatchEvent(new Event('cda:ocorrencias-atualizadas')));
+      }
+      setTab('ocorrencias');
+      return;
+    }
     if ((message as any).isNotificationItem) {
       const notif = (message as any).originalNotification as AppNotification;
       if (notif) {
@@ -4594,21 +4606,34 @@ export default function App() {
     ordenarMensagensPorMaisRecente(isDemoSession ? docSentMessages : docSentMessages.filter(m => !!m.senderKey && m.senderKey === sessionOwnerKey)),
     [docSentMessages, isDemoSession, sessionOwnerKey]);
 
-  // 2026-10-01 — Contagem Canónica e Unificada de Correspondências Não Lidas:
-  // Corresponde exatamente ao total de todo o tipo de correspondência (6 atalhos + correio geral).
-  const unreadTotal = useMemo(() => {
-    return calcularTotalCorrespondenciasNaoLidas(
-      currentNotifications,
-      currentInbox,
-      currentSentMessages,
-      isInstMode,
-      0,
-      deletedMessageIds,
-      hiddenMessageIds,
-      bi || sessionOwnerKey
-    );
-  }, [currentInbox, currentSentMessages, currentNotifications, isInstMode, deletedMessageIds, hiddenMessageIds, bi, sessionOwnerKey]);
+  // Ocorrências do servidor (fonte única desta categoria). null = ainda não carregada.
+  const [ocorrenciasServidor, setOcorrenciasServidor] = useState<Message[] | null>(null);
+  useEffect(() => {
+    const sessaoReal = stage === 'app' && !isGovMode && !isDemoSession && isOnline && hasValidSupabaseKeys();
+    if (!sessaoReal) { setOcorrenciasServidor(null); return; }
+    let ativo = true;
+    const carregar = async () => {
+      if (document.visibilityState === 'hidden') return;
+      try {
+        const r = await ocorrenciasApi<{ lista?: any[] }>('notificacoes', { naoLidas: true });
+        if (ativo) setOcorrenciasServidor((r?.lista || []).filter((n: any) => !n.lida).map(itemNotificacaoOcorrencia));
+      } catch { /* mantém a última contagem conhecida */ }
+    };
+    void carregar();
+    const timer = window.setInterval(() => void carregar(), 15000);
+    const aoFocar = () => void carregar();
+    window.addEventListener('focus', aoFocar);
+    window.addEventListener('cda:ocorrencias-atualizadas', aoFocar);
+    return () => {
+      ativo = false;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', aoFocar);
+      window.removeEventListener('cda:ocorrencias-atualizadas', aoFocar);
+    };
+  }, [stage, isGovMode, isDemoSession, isOnline, sessionOwnerKey, bi]);
 
+  // 2026-10-23 — Fonte ÚNICA de não lidas: sino, dropdown e cartões do painel usam esta lista.
+  // Cada item conta uma vez, na sua categoria (ocorrências vêm do servidor).
   const unreadMessagesList = useMemo(() => {
     return obterListaCorrespondenciasNaoLidas(
       currentInbox,
@@ -4618,9 +4643,12 @@ export default function App() {
       hiddenMessageIds,
       currentNotifications,
       0,
-      bi || sessionOwnerKey
+      bi || sessionOwnerKey,
+      ocorrenciasServidor
     );
-  }, [currentInbox, currentSentMessages, currentNotifications, isInstMode, deletedMessageIds, hiddenMessageIds, bi, sessionOwnerKey]);
+  }, [currentInbox, currentSentMessages, currentNotifications, isInstMode, deletedMessageIds, hiddenMessageIds, bi, sessionOwnerKey, ocorrenciasServidor]);
+  const unreadTotal = unreadMessagesList.length;
+  const badgeCounts = useMemo(() => contarPorCategoria(unreadMessagesList), [unreadMessagesList]);
 
   // F15 — GARANTIA DE CONTEÚDO DEMO (prompt v8): só em contas de demonstração.
   // No arranque da sessão: completa colecções vazias com os seeds canónicos
@@ -4672,7 +4700,7 @@ export default function App() {
     } else if (correspondenciaTab === "lidas") {
       base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemLida(item));
     } else if (correspondenciaTab === "naoLidas") {
-      base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemNaoLida(item));
+      base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemNaoLidaNoCorreio(item));
     } else {
       // 'todas' / padrão: TODAS as correspondências recebidas da conta (Lidas + Não Lidas)
       base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id));
@@ -6416,6 +6444,7 @@ Ficha civil do titular:
         }
         return (
           <HomeContent
+            badgeCounts={badgeCounts}
             activeSlide={activeSlide}
             setActiveSlide={setActiveSlide}
             isMobile={isMobile}
@@ -6770,7 +6799,7 @@ Ficha civil do titular:
               addAuditLog={addAuditLog}
               onBack={() => setTab(isGovMode ? 'gov-dashboard' : 'home')}
               onCreate={() => { setIsComposing(true); setTab(isGovMode ? 'gov-correspondencias' : 'correspondencias'); }}
-              novidadesNaoLidas={contarNotificacoesAtalhos(currentNotifications, currentInbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)), true).inqueritos}
+              novidadesNaoLidas={badgeCounts.inqueritos}
               onVerNotificacoes={() => setTab('notificacoes')}
               onDeleteMessage={handleDeleteMessage}
             />

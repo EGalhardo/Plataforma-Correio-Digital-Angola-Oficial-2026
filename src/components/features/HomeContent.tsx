@@ -4,8 +4,7 @@
  */
 
 import { useState, useEffect, useId } from 'react';
-import { ocorrenciasApi } from '../../features/ocorrencias/client';
-import { contarNotificacoesAtalhos, type AtalhoPainel } from '../../utils/notificacoesAtalhos';
+import { contarNotificacoesAtalhos, isMensagemNaoLidaNoCorreio, type AtalhoPainel, type ContagensAtalhos } from '../../utils/notificacoesAtalhos';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShieldCheck, Mail, Video, ClipboardList, MapPin, ShieldAlert, Flag, Trash2, Megaphone } from 'lucide-react';
 import { HIGHLIGHT_SLIDES, INST_HIGHLIGHT_SLIDES } from '../../constants/data';
@@ -15,6 +14,8 @@ import { LazyImage } from '../ui/LazyImage';
 import { AnimatedCounter } from '../ui/AnimatedCounter';
 
 interface HomeContentProps {
+  /** Contagens por categoria calculadas pela App a partir da lista única de não lidas. */
+  badgeCounts?: ContagensAtalhos;
   activeSlide: number;
   setActiveSlide: (slide: number) => void;
   isMobile: boolean;
@@ -46,6 +47,7 @@ interface HomeContentProps {
   currentLanguage?: LanguageCode;
 }
 export function HomeContent({
+  badgeCounts: badgeCountsProp,
   activeSlide,
   setActiveSlide,
   isMobile,
@@ -69,30 +71,10 @@ export function HomeContent({
   onDoubleClickInstitution}: HomeContentProps) {
   const { t } = useLanguage();
   const badgeId = useId();
-  const [ocorrenciasCount, setOcorrenciasCount] = useState<number>(0);
-  useEffect(() => {
-    let active = true, fetching = false;
-    const controller = new AbortController();
-    const refresh = async () => {
-      if (!active || fetching || document.visibilityState === 'hidden') return;
-      fetching = true;
-      try {
-        const r = await ocorrenciasApi<{total: number}>('notificacoes', {naoLidas: true}, controller.signal);
-        if (active && typeof r?.total === 'number') setOcorrenciasCount(r.total);
-      } catch { /* Não substituir uma contagem conhecida por zero numa falha de rede. */ }
-      finally { fetching = false; }
-    };
-    void refresh();
-    const timer = window.setInterval(() => void refresh(), 15000);
-    const visible = () => void refresh();
-    window.addEventListener('focus', visible);
-    document.addEventListener('visibilitychange', visible);
-    return () => {active = false; controller.abort(); window.clearInterval(timer); window.removeEventListener('focus', visible); document.removeEventListener('visibilitychange', visible);};
-  }, [notificationOwnerKey, isInst]);
 
-  const badgeCounts = contarNotificacoesAtalhos(notifications, inbox || [], !!isInst,
-    ocorrenciasCount,
-    sentMessages || []);
+
+  // Contagens vêm da App (fonte única: mesma lista do sino). Fallback sem contagem externa.
+  const badgeCounts: ContagensAtalhos = badgeCountsProp ?? contarNotificacoesAtalhos(notifications, inbox || [], !!isInst, 0, sentMessages || []);
 
   /**
    * v37.39 — se a logomarca oficial falhar (URL removida/fora do ar), cai no
@@ -106,7 +88,7 @@ export function HomeContent({
   const currentSlide = slides[activeSlide % slides.length];
 
   // Contagens para layout dinâmico dos containers de correspondências:
-  const unreadCount = (inbox || []).filter(m => m.unread).length;
+  const unreadCount = (inbox || []).filter(isMensagemNaoLidaNoCorreio).length;
   const readCount = (inbox || []).filter(m => !m.unread).length;
   const sentCount = (sentMessages || []).length;
   const deletedCount = (deletedMessages || []).length;
@@ -276,7 +258,7 @@ export function HomeContent({
          <div className="flex flex-nowrap gap-2 md:gap-3 overflow-x-auto custom-scrollbar-h pb-2">
           {["INAPEM", "SME", "AGT", "ENDE", "EPAL", "Tribunal", "Hospital", "Ministerios", "Polícia Nacional", "Notário", "Registo Civil", "Seguro Social", "Administradoras", "INE"].map((name) => {
             const unreadCount = (inbox || []).filter(
-              m => m.unread && (m.org || '').toUpperCase().includes(name.toUpperCase())
+              m => isMensagemNaoLidaNoCorreio(m) && (m.org || '').toUpperCase().includes(name.toUpperCase())
             ).length;
 
             return (
@@ -367,7 +349,7 @@ export function HomeContent({
                 <p className="text-xs font-black uppercase text-[#0E2B64] tracking-wider">{t("SEM MENSAGENS NOVAS")}</p>
               </div>
             ) : (
-              (inbox || []).filter(m => m.unread).map(m => (
+              (inbox || []).filter(isMensagemNaoLidaNoCorreio).map(m => (
                 <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
                   <div className="min-w-0 flex-1 truncate mr-3">
                     <span className="font-extrabold text-slate-900 group-hover/item:text-primary transition-colors">{t(m.org)}:</span>

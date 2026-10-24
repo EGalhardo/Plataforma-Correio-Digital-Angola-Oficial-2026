@@ -263,7 +263,12 @@ export function obterListaCorrespondenciasNaoLidas(
   notificacoes: AppNotification[] = [],
   ocorrencias = 0,
   biKey = '',
+  ocorrenciasServidor: Message[] | null = null,
 ): Message[] {
+  // Ocorrências: quando a lista do servidor já foi carregada, é a ÚNICA fonte.
+  // Mensagens-cópia e notificações da nuvem de ocorrências deixam de contar à parte,
+  // para que cada evento seja uma unidade (sino = soma dos cartões).
+  const servidorCarregado = Array.isArray(ocorrenciasServidor);
   const isExcluded = (m: Message) => !m || deletedIds.includes(m.id) || hiddenIds.includes(m.id);
   // Cópia de ocorrência: o cidadão é o remetente; quem fica notificado é a instituição.
   // A cópia enviada nunca conta como «não lida» para o cidadão.
@@ -276,7 +281,10 @@ export function obterListaCorrespondenciasNaoLidas(
     ? (enviadas || []).filter(m => !isExcluded(m) && !ehCopiaOcorrencia(m) && isMensagemNaoLida(m))
     : [];
 
-  const baseMsgs = [...unreadInbox, ...unreadSent];
+  const baseMsgsLegado = [...unreadInbox, ...unreadSent];
+  const baseMsgs = servidorCarregado
+    ? baseMsgsLegado.filter(m => categoriaDeItem(m) !== 'ocorrencias')
+    : baseMsgsLegado;
   const msgIds = new Set(baseMsgs.map(m => m.id));
   const todosPools = poolsPorPapel(inbox, enviadas, institucional);
 
@@ -285,6 +293,7 @@ export function obterListaCorrespondenciasNaoLidas(
   const notifsExtras: Message[] = [];
 
   for (const n of notifsNaoLidas) {
+    if (servidorCarregado && n.targetTab === 'ocorrencias') continue;
     if (n.messageId && msgIds.has(n.messageId)) continue;
     const assoc = associarMensagem(n, todosPools);
     if (assoc && assoc.m && msgIds.has(assoc.m.id)) continue;
@@ -312,7 +321,7 @@ export function obterListaCorrespondenciasNaoLidas(
     notifsExtras.push(notifMsgItem);
   }
 
-  return [...baseMsgs, ...notifsExtras];
+  return [...baseMsgs, ...notifsExtras, ...(servidorCarregado ? ocorrenciasServidor! : [])];
 }
 
 /**
@@ -408,3 +417,74 @@ export function ligarNotificacoesSessoes(
   }
   return ligadas;
 }
+
+/* ------------------------------------------------------------------------- *
+ * Fonte única de não lidas (harmonização sino ↔ cartões do painel).
+ * Cada item da lista pertence a UMA categoria; o sino mostra o total da lista
+ * e cada cartão mostra a contagem da sua categoria.
+ * ------------------------------------------------------------------------- */
+
+export type CategoriaNaoLida = AtalhoPainel | 'correio';
+
+/** Cópia de ocorrência (marcador explícito). Não conta como não lida no Correio: o sino e os
+ *  cartões seguem a notificação do servidor. */
+export const ehCopiaDeOcorrencia = (m: Message | any): boolean => temMarcadorOcorrencia(m);
+/** Não lida no Correio (contador, indicador e lista «Não Lidas»). */
+export const isMensagemNaoLidaNoCorreio = (m: Message | any): boolean => isMensagemNaoLida(m) && !ehCopiaDeOcorrencia(m);
+
+const temMarcadorOcorrencia = (m: any): boolean =>
+  (m?.details?.actions || []).some((a: unknown) => {
+    const t = String(a);
+    return t === 'OCORRENCIA' || t.startsWith('OCORRENCIA_');
+  });
+
+/** Categoria única de um item não lido. Marcadores explícitos têm prioridade sobre texto. */
+export function categoriaDeItem(item: Message | any): CategoriaNaoLida {
+  if (!item) return 'correio';
+  if (item.ocorrenciaNotifId || item.targetTab === 'ocorrencias' || temMarcadorOcorrencia(item)) return 'ocorrencias';
+  if (isVideoAtendimentoMessage(item)) return 'video-atendimento';
+  if (isInqueritoMessage(item)) return 'inqueritos';
+  if (isComunicadoMessage(item)) return 'comunicados';
+  if (isNovaDenunciaMessage(item)) return 'nova-denuncia';
+  if (isReclamacaoDenunciaMessage(item)) return 'denuncias';
+  if (isOcorrenciaMessage(item)) return 'ocorrencias';
+  return 'correio';
+}
+
+/** Contagem por categoria a partir da MESMA lista usada pelo sino. */
+export function contarPorCategoria(lista: Message[] = []): ContagensAtalhos & { correio: number } {
+  const c = {
+    'video-atendimento': 0, 'inqueritos': 0, 'comunicados': 0,
+    'ocorrencias': 0, 'nova-denuncia': 0, 'denuncias': 0, correio: 0,
+  };
+  for (const m of lista) c[categoriaDeItem(m)] += 1;
+  return c;
+}
+
+/** Converte uma notificação de ocorrência do servidor num item da lista de não lidas. */
+export function itemNotificacaoOcorrencia(n: {
+  id: number | string;
+  ocorrencia_id: number | string;
+  titulo?: string;
+  mensagem?: string;
+  criado_em?: string;
+}): Message {
+  const numId = Number(n.id);
+  const data = n.criado_em ? new Date(n.criado_em) : null;
+  return {
+    id: 95000000 + (Number.isFinite(numId) ? numId : 0),
+    org: 'Ocorrências',
+    preview: n.mensagem || n.titulo || 'Atualização de ocorrência',
+    date: data && !isNaN(data.getTime()) ? data.toLocaleDateString('pt-PT') : 'Hoje',
+    unread: 1,
+    status: 'Não Lida',
+    details: {
+      subject: n.titulo || 'Ocorrência',
+      body: n.mensagem || '',
+      category: 'Ocorrências',
+      actions: ['Abrir', 'OCORRENCIA', `OCORRENCIA_ID:${n.ocorrencia_id}`],
+    },
+    ...({ ocorrenciaNotifId: n.id, targetTab: 'ocorrencias' } as any),
+  } as Message;
+}
+

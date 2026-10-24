@@ -1527,6 +1527,8 @@ export function OcorrenciasPage({ onBack, messages = [], onDeleteMessage }: Ocor
         prev.map((p) => (p.id === n.id ? { ...p, lida: true } : p)),
       );
       void refreshUnread();
+      // Harmonização: o sino e os cartões do painel recalculam já.
+      window.dispatchEvent(new Event("cda:ocorrencias-atualizadas"));
       if (open) await openDetail(n.ocorrencia_id);
       else if (abaNotif === "naoLidas") await loadNotifs();
     } catch (e) {
