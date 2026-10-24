@@ -557,8 +557,11 @@ export function MailContent({
   const PREFIXO_DENUNCIA = '[DENÚNCIA]';
   const PREFIXO_NOVA_DENUNCIA = '[REGISTO DE DENÚNCIA]'; // 2026-09-23 (T-v37.79) — marca da nova fila «Denuncia» (mesma do denunciaCore)
   const PREFIXO_COMUNICADO = '[COMUNICADO OFICIAL]'; // 2026-10-01 — marca da fila «Comunicados»
+  // 2026-10-24 — «Reclamação» (Livro de Reclamações) leva a marca própria [RECLAMAÇÃO], não [DENÚNCIA].
+  const PREFIXO_RECLAMACAO = '[RECLAMAÇÃO]';
   const ehDenuncia = (composeData.subject || '').trim().toUpperCase().startsWith(PREFIXO_DENUNCIA);
   const ehNovaDenuncia = (composeData.subject || '').trim().toUpperCase().startsWith(PREFIXO_NOVA_DENUNCIA);
+  const ehReclamacao = (composeData.subject || '').trim().toUpperCase().startsWith(PREFIXO_RECLAMACAO);
   const ehComunicado = (composeData.subject || '').trim().toUpperCase().startsWith(PREFIXO_COMUNICADO) || (composeData.subject || '').trim().toUpperCase().startsWith('[COMUNICADO]');
 
   const abrirPopupEnvio = () => {
@@ -580,12 +583,14 @@ export function MailContent({
         subject: `${PREFIXO_COMUNICADO} ${(prev.subject || '').trim()}`.trim(),
       }));
     }
-    if (m === 'denuncia' && !ehDenuncia) {
+    if (m === 'denuncia' && !ehReclamacao) {
+      // 2026-10-24 — a opção «Reclamação» sai sempre com [RECLAMAÇÃO]; retira-se um eventual
+      // [DENÚNCIA] antigo para não ficar classificada como denúncia.
       // O assunto é opcional para o cidadão; o prefixo identifica a modalidade
       // no detalhe, na revisão e no comprovativo sem alterar a base de dados.
       setComposeData((prev) => ({
         ...prev,
-        subject: `${PREFIXO_DENUNCIA} ${(prev.subject || '').trim()}`.trim(),
+        subject: `${PREFIXO_RECLAMACAO} ${(prev.subject || '').trim().replace(/^\[DENÚNCIA\]\s*/i, '')}`.trim(),
       }));
     }
     // 2026-09-23 (T-v37.79) — «Denuncia»: prefixo próprio; se a mensagem já
@@ -2288,8 +2293,8 @@ export function MailContent({
                 {!isInst && (
                   <div className="flex gap-3 text-sm" data-testid="rever-modalidade">
                     <span className="font-black text-slate-400 uppercase text-[10px] tracking-wider w-28 shrink-0 pt-0.5">Modalidade</span>
-                    <span className={`font-bold min-w-0 ${ehDenuncia ? 'text-rose-600' : 'text-slate-800'}`}>
-                      {ehDenuncia ? 'Reclamação' : 'Mensagem Normal'}
+                    <span className={`font-bold min-w-0 ${(ehDenuncia || ehReclamacao) ? 'text-rose-600' : 'text-slate-800'}`}>
+                      {(ehDenuncia || ehReclamacao) ? 'Reclamação' : 'Mensagem Normal'}
                     </span>
                   </div>
                 )}
