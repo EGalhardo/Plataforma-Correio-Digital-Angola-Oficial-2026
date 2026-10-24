@@ -300,6 +300,11 @@ export function obterListaCorrespondenciasNaoLidas(
     .map(m => normalizar(m.details?.subject || m.preview || ''))
     .filter(s => s.length >= 8);
 
+  // Aviso de vídeo-atendimento: o texto do aviso não repete o assunto da sessão, por isso não
+  // se associa à mensagem «Video-atendimento agendado: …». Cada mensagem de vídeo não lida
+  // absorve um aviso (emparelhamento 1:1): o mesmo evento não conta duas vezes.
+  let videoPorEmparelhar = baseMsgs.filter(m => isVideoAtendimentoMessage(m)).length;
+
   for (const n of notifsNaoLidas) {
     if (servidorCarregado && n.targetTab === 'ocorrencias') continue;
     if (n.messageId && msgIds.has(n.messageId)) continue;
@@ -307,6 +312,10 @@ export function obterListaCorrespondenciasNaoLidas(
     if (assoc && assoc.m && msgIds.has(assoc.m.id)) continue;
     const textoAviso = normalizar(`${n.title || ''} ${n.message || ''}`);
     if (assuntosContados.some(s => textoAviso.includes(s))) continue;
+    if (n.targetTab === 'video-atendimento' && videoPorEmparelhar > 0) {
+      videoPorEmparelhar -= 1;
+      continue;
+    }
 
     const notifMsgItem: Message = {
       id: typeof n.id === 'number' ? n.id : (99000000 + Math.floor(Math.random() * 999999)),
