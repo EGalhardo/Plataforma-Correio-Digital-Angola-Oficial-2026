@@ -3450,7 +3450,15 @@ export default function App() {
             const legacyIds = new Set(mailbox.legacyIds);
             
             if (!isDemoSession) {
-              setInstInbox(instNormal.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
+              // 2026-10-24 — os espelhos locais do canal de homologação (ex.: «Registo Recebido»)
+              // não existem no servidor: são preservados aqui. Antes eram apagados a cada
+              // carregamento e só voltavam no tick seguinte, por isso o sino oscilava.
+              setInstInbox(prevLocal => {
+                const doServidor = instNormal.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim);
+                const idsServidor = new Set(doServidor.map(m => m.id));
+                const homologacoesLocais = prevLocal.filter(m => m.homologation && !idsServidor.has(m.id));
+                return [...doServidor, ...homologacoesLocais];
+              });
               setInstDocInbox(instDoc.filter(m => !foraDaMinhaCaixa(m)).map(visivelParaMim));
             } else {
               setInstInbox(prevLocal => {

@@ -123,6 +123,9 @@ export function WebRTCVideoCallRoom({
   // State
   const [connectionState, setConnectionState] = useState<'waiting' | 'connecting' | 'connected' | 'ended'>('waiting');
   const [hasRemoteStream, setHasRemoteStream] = useState(false);
+  // 2026-10-24 — «A reconectar…»: uma quebra da ligação NÃO esconde o vídeo do interlocutor.
+  const [reconectando, setReconectando] = useState(false);
+  const reconexaoTimerRef = useRef<number | null>(null);
   const [remoteParticipant, setRemoteParticipant] = useState<string>(remoteUserName);
   const [localAudioMuted, setLocalAudioMuted] = useState(!isAudioOn);
   const [localVideoMuted, setLocalVideoMuted] = useState(!isVideoOn);
@@ -237,6 +240,35 @@ export function WebRTCVideoCallRoom({
     v.play().catch(() => setSomBloqueado(true));
   }, []);
 
+  const limparTemporizadorReconexao = useCallback(() => {
+    if (reconexaoTimerRef.current !== null) {
+      window.clearTimeout(reconexaoTimerRef.current);
+      reconexaoTimerRef.current = null;
+    }
+  }, []);
+
+  // Sem temporizadores pendentes ao sair da sala.
+  useEffect(() => () => limparTemporizadorReconexao(), [limparTemporizadorReconexao]);
+
+  /** Reinicia o ICE (renegociação com iceRestart). Só o lado «impolite» inicia — a mesma
+   *  regra de desempate das ofertas — para não haver duas ofertas em simultâneo. */
+  const reiniciarLigacaoIce = useCallback(async (pc: RTCPeerConnection, targetPeerId?: string) => {
+    if (pc !== peerConnectionRef.current || pc.signalingState === 'closed') return;
+    if (!targetPeerId || myPeerId.current < targetPeerId) return; // o polite espera pela oferta
+    if (isNegotiating.current || pc.signalingState !== 'stable') return;
+    isNegotiating.current = true;
+    try {
+      const { currentUserName: myName, currentUserRole: myRole } = propsRef.current;
+      const offer = await pc.createOffer({ iceRestart: true, offerToReceiveAudio: true, offerToReceiveVideo: true });
+      await pc.setLocalDescription(offer);
+      sendSignal({ type: 'offer', offer: { type: offer.type, sdp: offer.sdp }, target: targetPeerId, name: myName, role: myRole });
+    } catch (err) {
+      console.warn('[CDA-WebRTC] Falha ao reiniciar ICE:', err);
+    } finally {
+      isNegotiating.current = false;
+    }
+  }, [sendSignal]);
+
   // Create or retrieve PeerConnection
   const getOrCreatePeerConnection = useCallback((targetPeerId?: string) => {
     let pc = peerConnectionRef.current;
@@ -296,11 +328,24 @@ export function WebRTCVideoCallRoom({
       pc.onconnectionstatechange = () => {
         console.log('[CDA-WebRTC] Estado da ligação:', pc.connectionState);
         if (pc.connectionState === 'connected') {
+          limparTemporizadorReconexao();
+          setReconectando(false);
           setConnectionState('connected');
           setHasRemoteStream(true);
-        } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-          setConnectionState('waiting');
-          setHasRemoteStream(false);
+        } else if (pc.connectionState === 'disconnected') {
+          // Quebra transitória: o vídeo do interlocutor continua a chegar. NÃO se esconde o
+          // ecrã grande (antes ficava escuro com o vídeo ainda ao vivo). Se não recuperar
+          // em 3 s, reinicia-se o ICE.
+          setReconectando(true);
+          limparTemporizadorReconexao();
+          reconexaoTimerRef.current = window.setTimeout(() => {
+            reconexaoTimerRef.current = null;
+            if (pc.connectionState !== 'connected') void reiniciarLigacaoIce(pc, targetPeerId);
+          }, 3000);
+        } else if (pc.connectionState === 'failed') {
+          // Falha definitiva da ligação: reinicia o ICE em vez de deixar o ecrã escuro.
+          setReconectando(true);
+          void reiniciarLigacaoIce(pc, targetPeerId);
         }
       };
 
@@ -330,7 +375,7 @@ export function WebRTCVideoCallRoom({
     }
 
     return pc;
-  }, [sendSignal]);
+  }, [sendSignal, reiniciarLigacaoIce, limparTemporizadorReconexao]);
 
   // Handle incoming signaling messages
   const handleSignalMessage = useCallback(async (msg: any) => {
@@ -1053,6 +1098,16 @@ export function WebRTCVideoCallRoom({
           autoPlay
           playsInline
         />
+
+        {reconectando && hasRemoteStream && (
+          <div
+            data-testid="reconectar-badge"
+            role="status"
+            className="absolute top-3 left-1/2 -translate-x-1/2 z-20 bg-amber-500/90 text-slate-950 font-black text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-full shadow-lg"
+          >
+            A reconectar…
+          </div>
+        )}
 
         {/* WAITING SCREEN (Shown ONLY while waiting for the second participant to enter) */}
         {!hasRemoteStream && (
