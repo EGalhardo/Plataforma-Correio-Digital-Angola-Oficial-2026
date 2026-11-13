@@ -2772,15 +2772,30 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
       const room = String(req.query.room || '').replace(/[^a-zA-Z0-9\-_]/g, '');
       const sender = String(req.query.sender || '');
       const since = Number(req.query.since || 0);
+      // 2026-11-13 (fix P1) — sinceTs: watermark por timestamp do SERVIDOR.
+      // Em serverless multi-instância (Vercel) o contador de ids NÃO é
+      // global: o tracking "since" por id reiniciava ao alternar instâncias
+      // e re-entregava ofertas antigas, o que derrubava a negociação
+      // WebRTC (a chamada não conectava em produção). O cliente deduplica
+      // por fingerprint, por isso a sobreposição de 1000 ms é segura.
+      const sinceTsRaw = req.query.sinceTs;
 
       if (!room) {
         return res.status(400).json({ error: 'room parameter required' });
       }
 
       const list = webrtcRoomMessages.get(room) || [];
-      const messages = list
-        .filter(m => m.id > since && m.sender !== sender)
-        .map(m => m.payload);
+      let messages: any[];
+      if (sinceTsRaw !== undefined && sinceTsRaw !== null && sinceTsRaw !== '') {
+        const cut = Number(sinceTsRaw) - 1000;
+        messages = list
+          .filter(m => m.timestamp >= cut && m.sender !== sender)
+          .map(m => ({ ...m.payload, _sigts: m.timestamp }));
+      } else {
+        messages = list
+          .filter(m => m.id > since && m.sender !== sender)
+          .map(m => ({ ...m.payload, _sigts: m.timestamp }));
+      }
 
       const latestId = list.length > 0 ? list[list.length - 1].id : since;
       res.json({ ok: true, latestId, messages });

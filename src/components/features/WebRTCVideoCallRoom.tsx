@@ -64,6 +64,35 @@ export interface WebRTCVideoCallRoomProps {
   remoteUserName?: string;
 }
 
+// 2026-11-13 (fix P1/P3) — fingerprint estável para deduplicação de sinalização.
+// · offer/answer: hash do SDP — SDP idêntico = duplicata (ignora); SDP
+//   diferente = renegociação legítima (processa).
+// · candidate: (sdpMid, sdpMLineIndex, fim da string) — reenvios idênticos
+//   do mesmo candidato são ignorados (o spec trata como no-op, mas evita o
+//   ruído de exceções).
+// · join/leave: por remetente (o heartbeat "join" a cada 3 s deixa de
+//   reprocessar; um "leave" volta a ser aceito após um novo "join").
+const dedupSig = (msg: any): string => {
+  if (!msg) return 'x';
+  const s = String(msg.sender || '');
+  const hash = (str: string) => {
+    let h = 5381;
+    for (let i = 0; i < str.length; i += 4) h = ((h << 5) + h + (str.charCodeAt(i) || 0)) | 0;
+    return h;
+  };
+  switch (msg.type) {
+    case 'join': return `${s}|join`;
+    case 'leave': return `${s}|leave`;
+    case 'offer': return `${s}|offer|${hash(String(msg.offer?.sdp || ''))}`;
+    case 'answer': return `${s}|answer|${hash(String(msg.answer?.sdp || ''))}`;
+    case 'candidate': {
+      const c = msg.candidate || {};
+      return `${s}|cand|${c.sdpMid}|${c.sdpMLineIndex}|${String(c.candidate || '').slice(-48)}`;
+    }
+    default: return `${s}|${msg.type}|${msg.timestamp ?? 0}`;
+  }
+};
+
 export function WebRTCVideoCallRoom({
   roomName,
   subject,
@@ -103,6 +132,17 @@ export function WebRTCVideoCallRoom({
   const pararPedidoRef = useRef(false);
   const candidateQueue = useRef<RTCIceCandidateInit[]>([]);
   const isNegotiating = useRef(false);
+  // 2026-11-13 (fix P1/P3) — Deduplicação de sinalização: a mesma oferta/
+  // resposta chega 2+ vezes (polling × Supabase Realtime; serverless
+  // multi-instância com contadores fragmentados re-entregava ofertas
+  // antigas) e a negociação entrava em loop de InvalidStateError.
+  const processedSigs = useRef<Set<string>>(new Set());
+  // Watermark (timestamp do servidor) para o polling por sinceTs.
+  const lastSeenTs = useRef<number>(Date.now() - 10000);
+  // 2026-11-13 (fix P2) — versão do stream remoto p/ re-sincronizar o <video>.
+  const [remoteStreamRev, setRemoteStreamRev] = useState(0);
+  // 2026-11-13 (fix P2) — "ligado" mas sem frames do remoto por 8 s.
+  const [semVideoRemoto, setSemVideoRemoto] = useState(false);
 
   // Signaling & Identity refs
   const myPeerId = useRef<string>(`peer-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
@@ -198,9 +238,13 @@ export function WebRTCVideoCallRoom({
     } catch {}
 
     // 3. Supabase Realtime Broadcast (External networks)
+    // 2026-11-13 (fix P5) — só enviar com o canal SUBSCRIBED: enviar antes
+    // forçava o fallback REST que é abortado (console sujo + o anúncio
+    // inicial perdia-se). O envio no callback SUBSCRIBED cobre.
     try {
-      if (supabaseChannelRef.current) {
-        supabaseChannelRef.current.send({
+      const chanRT = supabaseChannelRef.current;
+      if (chanRT && (chanRT.subscriptionStatus === 'subscribed' || chanRT.subscriptionStatus === 'SUBSCRIBED')) {
+        chanRT.send({
           type: 'broadcast',
           event: 'webrtc',
           payload: message,
@@ -265,6 +309,9 @@ export function WebRTCVideoCallRoom({
 
         setHasRemoteStream(true);
         setConnectionState('connected');
+        // 2026-11-13 (fix P2) — nova versão do stream remoto: força o efeito
+        // de re-sincronização dos elementos <video>/<audio> remotos.
+        setRemoteStreamRev((r) => r + 1);
 
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = stream;
@@ -340,6 +387,16 @@ export function WebRTCVideoCallRoom({
     if (!msg || msg.sender === myPeerId.current || msg.room !== cleanRoom) return;
     if (msg.timestamp && msg.timestamp < joinedAt.current - 2000) return;
 
+    // 2026-11-13 (fix P1/P3) — deduplicação: polling e Supabase Realtime
+    // entregam a mesma mensagem 2x; no serverless multi-instância o
+    // contador de ids salta e ofertas antigas chegavam repetidas, derrubando
+    // a negociação (InvalidStateError em cascata). Ignorar duplicatas idênticas.
+    const sig = dedupSig(msg);
+    if (processedSigs.current.has(sig)) return;
+    processedSigs.current.add(sig);
+    if (processedSigs.current.size > 800) processedSigs.current.clear();
+    if (msg.type === 'join') processedSigs.current.delete(`${msg.sender}|leave`);
+
     // Deterministic Perfect Negotiation: polite peer yields when both initiate
     const isPolite = myPeerId.current < msg.sender;
 
@@ -353,6 +410,12 @@ export function WebRTCVideoCallRoom({
       // The impolite peer creates the offer
       if (!isPolite) {
         const pc = getOrCreatePeerConnection(msg.sender);
+        // 2026-11-13 (fix P3) — o heartbeat "join" (3 s) não renegocia uma
+        // sessão já estabelecida: a oferta só é criada a partir do estado
+        // 'stable' SEM descrição remota (aguardar participante). Antes, cada
+        // heartbeat gerava uma oferta nova → renegociação completa a cada
+        // 3 s + InvalidStateErrors no outro lado.
+        if (!(pc.signalingState === 'stable' && !pc.currentRemoteDescription)) return;
         if (isNegotiating.current) return;
         isNegotiating.current = true;
 
@@ -573,6 +636,44 @@ export function WebRTCVideoCallRoom({
     }
   }, [isCameraLoading, localVideoMuted]);
 
+  // 2026-11-13 (fix P2) — re-sincronizar srcObject do VÍDEO/SOM REMOTO:
+  // um re-render do React ou uma renegociação podia deixar o <video> sem
+  // stream (ecrã a preto com "EM DIRETO" + timer a correr — sintoma
+  // "a câmara do outro lado parou de funcionar"). A mesma garantia que o
+  // vídeo local já tinha.
+  useEffect(() => {
+    const stream = remoteStreamRef.current;
+    if (!stream) return;
+    const v = remoteVideoRef.current;
+    if (v && v.srcObject !== stream) {
+      v.srcObject = stream;
+      v.play().catch(() => {});
+    }
+    const a = remoteAudioRef.current;
+    if (a && a.srcObject !== stream) {
+      a.srcObject = stream;
+      a.play().catch(() => {});
+    }
+  }, [remoteStreamRev, hasRemoteStream, connectionState]);
+
+  // 2026-11-13 (fix P2) — ligado, mas o vídeo remoto sem frames por 8 s →
+  // o badge passa a "SEM VÍDEO" (âmbar) em vez de "EM DIRETO".
+  useEffect(() => {
+    if (!isActive || !hasRemoteStream) { setSemVideoRemoto(false); return; }
+    let semFramesMs = 0;
+    const t = setInterval(() => {
+      const v = remoteVideoRef.current;
+      if (v && v.videoWidth > 0) {
+        semFramesMs = 0;
+        setSemVideoRemoto(false);
+        return;
+      }
+      semFramesMs += 2000;
+      if (semFramesMs >= 8000) setSemVideoRemoto(true);
+    }, 2000);
+    return () => clearInterval(t);
+  }, [isActive, hasRemoteStream]);
+
   // Main Call Lifecycle Effect (Runs ONCE per active session)
   useEffect(() => {
     if (!isActive) return;
@@ -635,16 +736,23 @@ export function WebRTCVideoCallRoom({
     });
 
     // 4. Server-Side Polling Loop for zero-latency cross-client synchronization
-    let latestPollId = 0;
+    // 2026-11-13 (fix P1) — polling por TIMESTAMPO DO SERVIDOR (sinceTs):
+    // na Vercel cada instância serverless tem o seu contador de ids, e o
+    // tracking "since" por id reiniciava ao mudar de instância → re-entrega
+    // de ofertas antigas → negociação em loop (a chamada NUNCA conectava em
+    // produção). Agora a watermark é o timestamp do servidor (_sigts), com
+    // 1 s de sobreposição + deduplicação no cliente → funciona em TOPOLOGIA
+    // DE QUALQUER NÚMERO de instâncias.
     const pollSignaling = async () => {
       if (!isMounted) return;
       try {
-        const res = await fetch(`/api/webrtc/poll?room=${encodeURIComponent(cleanRoomName)}&sender=${encodeURIComponent(myPeerId.current)}&since=${latestPollId}`);
+        const res = await fetch(`/api/webrtc/poll?room=${encodeURIComponent(cleanRoomName)}&sender=${encodeURIComponent(myPeerId.current)}&sinceTs=${lastSeenTs.current}`);
         if (res.ok) {
           const data = await res.json();
-          if (typeof data.latestId === 'number') latestPollId = data.latestId;
           if (Array.isArray(data.messages)) {
             for (const msg of data.messages) {
+              const ts = Number((msg as any)?._sigts || 0);
+              if (ts > lastSeenTs.current) lastSeenTs.current = ts;
               if (isMounted) await handleSignalRef.current(msg);
             }
           }
@@ -1002,10 +1110,10 @@ export function WebRTCVideoCallRoom({
         {/* 2026-09-09: em espera o canto superior esquerdo fica limpo (o estado
             «Aguardar Participante» é mostrado no centro do ecrã grande) */}
         {hasRemoteStream ? (
-          <div className="flex items-center gap-1.5 bg-slate-950/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-emerald-500/30">
-            <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]" />
-            <span className="text-emerald-300 text-[10px] font-black uppercase tracking-wider">
-              EM DIRETO
+          <div className={`flex items-center gap-1.5 bg-slate-950/60 backdrop-blur-md px-2.5 py-1 rounded-full border ${semVideoRemoto ? 'border-amber-500/40' : 'border-emerald-500/30'}`}>
+            <div className={`w-2 h-2 rounded-full ${semVideoRemoto ? 'bg-amber-400 shadow-[0_0_8px_#fbbf24]' : 'bg-emerald-400 shadow-[0_0_8px_#10b981]'}`} />
+            <span className={`${semVideoRemoto ? 'text-amber-300' : 'text-emerald-300'} text-[10px] font-black uppercase tracking-wider`}>
+              {semVideoRemoto ? 'SEM VÍDEO' : 'EM DIRETO'}
             </span>
           </div>
         ) : <div />}

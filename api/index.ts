@@ -1690,15 +1690,30 @@ export default async function handler(req: any, res: any) {
         const room = String(parsedUrl.searchParams.get('room') || req.query?.room || '').replace(/[^a-zA-Z0-9\-_]/g, '');
         const sender = String(parsedUrl.searchParams.get('sender') || req.query?.sender || '');
         const since = Number(parsedUrl.searchParams.get('since') || req.query?.since || 0);
+        // 2026-11-13 (fix P1) — sinceTs: watermark por timestamp do SERVIDOR.
+        // Cada instância serverless tem o seu contador de ids; o tracking
+        // "since" por id re-entregava ofertas antigas ao alternar instâncias
+        // e a negociação WebRTC entrava em loop de InvalidStateError (a
+        // chamada nunca conectava em produção). O cliente deduplica por
+        // fingerprint, por isso a sobreposição de 1000 ms é segura.
+        const sinceTsRaw = parsedUrl.searchParams.get('sinceTs') ?? (req.query?.sinceTs as string | undefined);
 
         if (!room) {
           return res.status(400).json({ error: 'room parameter required' });
         }
 
         const list = webrtcRoomMessages.get(room) || [];
-        const messages = list
-          .filter(m => m.id > since && m.sender !== sender)
-          .map(m => m.payload);
+        let messages: any[];
+        if (sinceTsRaw !== undefined && sinceTsRaw !== null && sinceTsRaw !== '') {
+          const cut = Number(sinceTsRaw) - 1000;
+          messages = list
+            .filter(m => m.timestamp >= cut && m.sender !== sender)
+            .map(m => ({ ...m.payload, _sigts: m.timestamp }));
+        } else {
+          messages = list
+            .filter(m => m.id > since && m.sender !== sender)
+            .map(m => ({ ...m.payload, _sigts: m.timestamp }));
+        }
 
         const latestId = list.length > 0 ? list[list.length - 1].id : since;
         return res.status(200).json({ ok: true, latestId, messages });
