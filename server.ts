@@ -2804,6 +2804,51 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
     }
   });
 
+  // 2026-11-13 (fix P2c/TURN) — Configuração ICE (STUN + relay TURN) para o
+  // cliente. Sem relay TURN, chamadas entre NATs simétricos/CGNAT (típico de
+  // redes móveis) podem nunca estabelecer o caminho de media. O relay por
+  // omissão é o público de teste do metered.ca; em produção substituir pelos
+  // envs ICE_TURN_URLS / ICE_TURN_USERNAME / ICE_TURN_CREDENTIAL (coturn,
+  // Twilio TRUST, Daily, etc.).
+  app.get("/api/webrtc/ice", (_req, res) => {
+    try {
+      const stun = [
+        "stun:stun.l.google.com:19302",
+        "stun:stun1.l.google.com:19302",
+        "stun:stun2.l.google.com:19302",
+        "stun:stun3.l.google.com:19302",
+        "stun:stun4.l.google.com:19302",
+      ];
+      let turn: { urls: string[]; username: string; credential: string } | null = null;
+      const turnUrls = process.env.ICE_TURN_URLS;
+      const turnUser = process.env.ICE_TURN_USERNAME;
+      const turnCred = process.env.ICE_TURN_CREDENTIAL;
+      if (turnUrls && turnUser && turnCred) {
+        turn = {
+          urls: turnUrls.split(",").map((s) => s.trim()).filter(Boolean),
+          username: turnUser,
+          credential: turnCred,
+        };
+      } else {
+        // Relay público de teste (openrelay/reely — mesmo projeto, mesmo
+        // credential) — fallback para travessia de NAT. Dois domínios para
+        // redundância em produção; o navegador usa os host/srflx primeiro e
+        // só recorre ao relay quando o P2P direto não fecha (NAT simétrico).
+        turn = {
+          urls: [
+            "turn:openrelay.metered.ca:80", "turns:openrelay.metered.ca:443", "turn:openrelay.metered.ca:3478",
+            "turn:openrelay.reely.io", "turns:openrelay.reely.io:443",
+          ],
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        };
+      }
+      res.json({ ok: true, ice: { stun, turn } });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || "ICE config failed" });
+    }
+  });
+
   app.get('/api/security/readiness', async (req, res) => {
     // FIX: handler async em Express 4 — sem try/catch qualquer exceção derruba o processo (unhandled rejection)
     try {

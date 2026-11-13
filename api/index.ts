@@ -1722,6 +1722,43 @@ export default async function handler(req: any, res: any) {
       }
     }
 
+    // 2026-11-13 (fix P2c/TURN) — Configuração ICE (STUN + relay TURN).
+    // O relay por omissão é o público de teste do metered.ca; em produção
+    // substituir pelos envs ICE_TURN_URLS / ICE_TURN_USERNAME /
+    // ICE_TURN_CREDENTIAL na Vercel (Project Settings → Environment Variables).
+    if (url.includes('/api/webrtc/ice') && method === 'GET') {
+      try {
+        const stun = [
+          'stun:stun.l.google.com:19302',
+          'stun:stun1.l.google.com:19302',
+          'stun:stun2.l.google.com:19302',
+          'stun:stun3.l.google.com:19302',
+          'stun:stun4.l.google.com:19302',
+        ];
+        let turn: { urls: string[]; username: string; credential: string } | null = null;
+        const turnUrls = process.env.ICE_TURN_URLS;
+        const turnUser = process.env.ICE_TURN_USERNAME;
+        const turnCred = process.env.ICE_TURN_CREDENTIAL;
+        if (turnUrls && turnUser && turnCred) {
+          turn = {
+            urls: turnUrls.split(',').map((s) => s.trim()).filter(Boolean),
+            username: turnUser,
+            credential: turnCred,
+          };
+        } else {
+          // Relay público de teste (metered.ca) — fallback para travessia de NAT.
+          turn = {
+            urls: ['turn:openrelay.metered.ca:80', 'turns:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:3478'],
+            username: 'openrelayproject',
+            credential: 'openrelayproject',
+          };
+        }
+        return res.status(200).json({ ok: true, ice: { stun, turn } });
+      } catch (err: any) {
+        return res.status(500).json({ error: err?.message || 'ICE config failed' });
+      }
+    }
+
     // QA-SEC-002: Endpoint /api/security/readiness (Mirror de server.ts)
     if (url.includes('/api/security/readiness') && method === 'GET') {
       try {

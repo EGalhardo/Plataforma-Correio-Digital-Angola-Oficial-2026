@@ -20,6 +20,7 @@ import {
   PhoneOff,
   RefreshCw,
   Camera,
+  CameraOff,
   Monitor,
   ShieldCheck,
   Clock,
@@ -81,8 +82,11 @@ const dedupSig = (msg: any): string => {
     return h;
   };
   switch (msg.type) {
-    case 'join': return `${s}|join`;
-    case 'leave': return `${s}|leave`;
+    // 2026-11-13 (fix P2f) — incluir a GERAÇÃO da sessão: um re-join após
+    // (re)inicialização da sala tem gen novo → processado; re-entrega do
+    // mesmo join (sobreposição do polling) tem gen igual → descartado.
+    case 'join': return `${s}|join|${msg.gen ?? 0}`;
+    case 'leave': return `${s}|leave|${msg.gen ?? 0}`;
     case 'offer': return `${s}|offer|${hash(String(msg.offer?.sdp || ''))}`;
     case 'answer': return `${s}|answer|${hash(String(msg.answer?.sdp || ''))}`;
     case 'candidate': {
@@ -143,6 +147,37 @@ export function WebRTCVideoCallRoom({
   const [remoteStreamRev, setRemoteStreamRev] = useState(0);
   // 2026-11-13 (fix P2) — "ligado" mas sem frames do remoto por 8 s.
   const [semVideoRemoto, setSemVideoRemoto] = useState(false);
+  // 2026-11-13 (fix P2b) — remoto ligado mas SEM faixa de vídeo (câmara
+  // desligada/recusada no outro lado): mostrar «ligado por áudio» em vez de
+  // ecrã negro sem explicação.
+  const [remoteSemVideo, setRemoteSemVideo] = useState(false);
+  const [showRemoteSemVideo, setShowRemoteSemVideo] = useState(false);
+  // 2026-11-13 (fix P2b) — local: sem faixa de vídeo (câmara recusada/inexistente).
+  const [localSemVideo, setLocalSemVideo] = useState(false);
+  // 2026-11-13 (fix P2b) — peer remoto (para renegociação direcionada).
+  const remotePeerIdRef = useRef<string | null>(null);
+  // 2026-11-13 (fix P2d) — marca do último JOIN processado por peer.
+  // Um «leave» só é válido se for POSTERIOR ao último join: o mesmo leave
+  // re-entregue pela sobreposição de 1 s do polling (ou um leave órfão do
+  // double-effect de dev/StrictMode) não pode matar uma sessão viva.
+  const lastJoinTsRef = useRef<Map<string, { sigts?: number; ts?: number }>>(new Map());
+  // 2026-11-13 (fix P2f) — GERAÇÃO DA SESSÃO: cada (re)inicialização do ciclo
+  // de vida da sala incrementa. Join/leave levam a geração; a deduplicação
+  // por (peer, tipo, geração) faz com que um re-join legítimo após um
+  // re-mount/re-execução do efeito SEMPRE seja processado (antes era
+  // descartado como «duplicata» do join anterior e a chamada morria sem
+  // renegociar), enquanto re-entregas do MESMO join (overlapping polling)
+  // continuam a ser descartadas.
+  const sessionGenRef = useRef(0);
+  const cameraRecuperandoRef = useRef(false);
+  const facingModeRef = useRef<'user' | 'environment'>('user');
+  const recuperarCameraRef = useRef<() => void>(() => {});
+  // 2026-11-13 (fix P2c/TURN) — configuração ICE dinâmica: STUN + relay TURN
+  // (fetch de /api/webrtc/ice no arranço da sessão). Sem relay, chamadas
+  // entre NATs simétricos (típico em 4G/CGNAT) podem ficar "ligadas" no ICE
+  // sem nunca transportar media.
+  const iceConfigRef = useRef<RTCConfiguration>(ICE_SERVERS);
+  const iceRestartCountRef = useRef(0);
 
   // Signaling & Identity refs
   const myPeerId = useRef<string>(`peer-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
@@ -167,6 +202,7 @@ export function WebRTCVideoCallRoom({
   const [localAudioMuted, setLocalAudioMuted] = useState(!isAudioOn);
   const [localVideoMuted, setLocalVideoMuted] = useState(!isVideoOn);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  facingModeRef.current = facingMode;
   const [isSharingScreen, setIsSharingScreen] = useState(isScreenSharing);
   const [callDuration, setCallDuration] = useState(0);
   const [isCameraLoading, setIsCameraLoading] = useState(true);
@@ -219,6 +255,8 @@ export function WebRTCVideoCallRoom({
       sender: myPeerId.current,
       room: cleanRoom,
       timestamp: Date.now(),
+      // 2026-11-13 (fix P2f) — geração da sessão (dedup de join/leave)
+      gen: sessionGenRef.current,
     };
 
     // 1. Server-side Signaling API (fastest, guaranteed delivery across separate browser instances)
@@ -286,7 +324,8 @@ export function WebRTCVideoCallRoom({
     let pc = peerConnectionRef.current;
     if (!pc || pc.signalingState === 'closed') {
       console.log('[CDA-WebRTC] Criando nova RTCPeerConnection...');
-      pc = new RTCPeerConnection(ICE_SERVERS);
+      // 2026-11-13 (fix P2c/TURN) — config dinâmica (STUN + relay TURN)
+      pc = new RTCPeerConnection(iceConfigRef.current);
 
       // Handle incoming remote track
       pc.ontrack = (event) => {
@@ -306,6 +345,33 @@ export function WebRTCVideoCallRoom({
         if (!stream.getTracks().some((t) => t.id === event.track.id)) {
           stream.addTrack(event.track);
         }
+
+        // 2026-11-13 (fix P2b) — a faixa remota pode TERMINAR a meio da
+        // chamada (a câmara do outro lado foi desligada, ocupada por outra
+        // app, ou o dispositivo libertou-a). Remover a faixa do stream e
+        // passar ao estado «ligado por áudio» — em vez de ecrã negro sem
+        // explicação.
+        event.track.onended = () => {
+          const st = remoteStreamRef.current;
+          if (st) {
+            st.getTracks().forEach((t) => {
+              if (t.readyState === 'ended') { try { st.removeTrack(t); } catch {} }
+            });
+          }
+          const temVideoAgora = !!st?.getVideoTracks().some((t) => t.readyState === 'live');
+          const temAudioAgora = !!st?.getAudioTracks().some((t) => t.readyState === 'live');
+          if (event.track.kind === 'video') {
+            setHasRemoteStream(temVideoAgora || temAudioAgora);
+            if (!temVideoAgora) setRemoteSemVideo(true);
+          }
+          setRemoteStreamRev((r) => r + 1);
+        };
+
+        // 2026-11-13 (fix P2b) — se o stream remoto ainda não tem faixa de
+        // vídeo, marcar «sem vídeo» (o overlay só aparece após 2 s de
+        // tolerância, para a faixa de vídeo chegar a tempo).
+        const temVideoRemoto = stream.getVideoTracks().some((t) => t.readyState === 'live');
+        setRemoteSemVideo(!temVideoRemoto);
 
         setHasRemoteStream(true);
         setConnectionState('connected');
@@ -344,10 +410,31 @@ export function WebRTCVideoCallRoom({
         console.log('[CDA-WebRTC] Estado da ligação:', pc.connectionState);
         if (pc.connectionState === 'connected') {
           setConnectionState('connected');
-          setHasRemoteStream(true);
+          iceRestartCountRef.current = 0;
+          // 2026-11-13 (fix P2e v2) — «EM DIRETO» exige MEDIA real. Mas se a
+          // ligação apenas teve um BLIP transitório (ICE disconnected→
+          // connected) e as faixas remotas continuam vivas, RESTAURAR o
+          // estado (o ontrack não re-dispara). Sem faixas vivas (NAT a
+          // bloquear o RTP), o estado honesto continua «Aguardar Participante».
+          const st = remoteStreamRef.current;
+          const temMediaViva = !!st?.getTracks().some((t) => t.readyState === 'live');
+          if (temMediaViva) setHasRemoteStream(true);
         } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
           setConnectionState('waiting');
           setHasRemoteStream(false);
+          // 2026-11-13 (fix P2c/TURN) — «failed» com sessão negociada: tentar
+          // recuperar o caminho com um ICE restart (reaproveita o relay TURN
+          // da configuração). Limite de 2 tentativas para não ficar em loop.
+          if (pc.connectionState === 'failed' && pc.signalingState === 'stable' && iceRestartCountRef.current < 2) {
+            iceRestartCountRef.current += 1;
+            const n = iceRestartCountRef.current;
+            console.log(`[CDA-WebRTC] ICE failed → restartIce (tentativa ${n}/2)`);
+            setTimeout(() => {
+              try {
+                if (peerConnectionRef.current === pc && pc.signalingState === 'stable') pc.restartIce();
+              } catch {}
+            }, 1200);
+          }
         }
       };
 
@@ -395,7 +482,11 @@ export function WebRTCVideoCallRoom({
     if (processedSigs.current.has(sig)) return;
     processedSigs.current.add(sig);
     if (processedSigs.current.size > 800) processedSigs.current.clear();
-    if (msg.type === 'join') processedSigs.current.delete(`${msg.sender}|leave`);
+    // 2026-11-13 (fix P2f) — (a regra anterior de apagar a chave de leave
+    // ao receber join foi removida: a dedup por geração resolve o caso
+    // sem reabrir a janela de leave-zombie via sobreposição do polling.)
+    // 2026-11-13 (fix P2c) — peer remoto para renegociação direcionada.
+    remotePeerIdRef.current = msg.sender;
 
     // Deterministic Perfect Negotiation: polite peer yields when both initiate
     const isPolite = myPeerId.current < msg.sender;
@@ -406,6 +497,13 @@ export function WebRTCVideoCallRoom({
     if (msg.type === 'join') {
       if (msg.name) setRemoteParticipant(msg.name);
       setConnectionState('connecting');
+      // 2026-11-13 (fix P2d) — registar a marca do último join deste peer
+      // (timestamp do servidor `_sigts` quando existe; senão o do cliente).
+      // Usada para rejeitar «leave» antigos re-entregues.
+      lastJoinTsRef.current.set(msg.sender, {
+        sigts: typeof (msg as any)._sigts === 'number' ? (msg as any)._sigts : undefined,
+        ts: typeof msg.timestamp === 'number' ? msg.timestamp : undefined,
+      });
 
       // The impolite peer creates the offer
       if (!isPolite) {
@@ -448,11 +546,12 @@ export function WebRTCVideoCallRoom({
 
       const pc = getOrCreatePeerConnection(msg.sender);
       
-      // If already connected and stable, ignore redundant offers
-      if (pc.signalingState === 'stable' && pc.currentRemoteDescription && !isPolite) {
-        return;
-      }
-
+      // 2026-11-13 (fix P2c) — guardas antigas de «oferta redundante»
+      // REMOVIDAS: as ofertas com SDP idêntico já são descartadas pela
+      // deduplicação por fingerprint (dedupSig); uma oferta com SDP diferente
+      // é uma renegociação legítima (ex.: faixa de vídeo tardia) e tem de ser
+      // aceite pelos DOIS lados, senão a renegociação local falhava no lado
+      // impolite. Glare continua resolvido pelo Perfect Negotiation abaixo.
       const readyForOffer = !isNegotiating.current && (pc.signalingState === 'stable' || isPolite);
       const offerCollision = !readyForOffer;
 
@@ -525,6 +624,30 @@ export function WebRTCVideoCallRoom({
 
     // 5. Participant left
     if (msg.type === 'leave' && (msg.target === myPeerId.current || !msg.target)) {
+      // 2026-11-13 (fix P2d) — REGRESSÃO CORRIGIDA: um «leave» ANTIGO (re-entregue
+      // pela sobreposição de 1 s do polling, ou órfão de um mount anterior em
+      // dev/StrictMode) estava a resetar `hasRemoteStream` e a MATAR a sessão
+      // viva ~250 ms após a ligação. Agora só processa um leave que seja
+      // POSTERIOR ao último join conhecido deste peer (mesmo domínio de
+      // timestamps: `_sigts` do servidor, senão o `timestamp` do cliente).
+      const lastJoin = lastJoinTsRef.current.get(msg.sender);
+      if (!lastJoin) {
+        console.log('[CDA-WebRTC] Leave ignorado (sem join anterior conhecido de', msg.sender + ').');
+        return;
+      }
+      const leaveSig = (msg as any)._sigts;
+      const leaveTs = msg.timestamp;
+      let stale = false;
+      if (typeof leaveSig === 'number' && typeof lastJoin.sigts === 'number') {
+        stale = leaveSig < lastJoin.sigts;
+      } else if (typeof leaveTs === 'number' && typeof lastJoin.ts === 'number') {
+        stale = leaveTs < lastJoin.ts;
+      }
+      if (stale) {
+        console.log('[CDA-WebRTC] Leave antigo ignorado (re-entrega) de', msg.sender);
+        return;
+      }
+      lastJoinTsRef.current.delete(msg.sender);
       console.log('[CDA-WebRTC] Participante remoto saiu da chamada.');
       setHasRemoteStream(false);
       setConnectionState('waiting');
@@ -537,6 +660,95 @@ export function WebRTCVideoCallRoom({
   // Keep ref to latest signal handler to avoid re-attaching listeners
   const handleSignalRef = useRef(handleSignalMessage);
   handleSignalRef.current = handleSignalMessage;
+
+  // 2026-11-13 (fix P2c) — Renegociação LOCAL: usada quando uma faixa só fica
+  // disponível DEPOIS da sessão já estabelecida (ex.: o pedido de permissão
+  // da câmara foi mais lento do que a oferta). Com Perfect Negotiation +
+  // deduplicação por fingerprint de SDP é seguro iniciar a renegociação de
+  // qualquer um dos lados (a oferta nova é aceite; SDP idêntico é ignorado).
+  const renegociarLocal = useCallback(async (motivo: string) => {
+    const pc = peerConnectionRef.current;
+    const target = remotePeerIdRef.current;
+    if (!pc || !target || pc.signalingState === 'closed') return;
+    if (pc.signalingState !== 'stable' || !pc.currentRemoteDescription) return;
+    if (isNegotiating.current) return;
+    isNegotiating.current = true;
+    try {
+      console.log(`[CDA-WebRTC] Renegociação local (${motivo})`);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      const offerPayload = typeof offer.toJSON === 'function' ? offer.toJSON() : { type: offer.type, sdp: offer.sdp };
+      sendSignal({
+        type: 'offer',
+        offer: offerPayload,
+        target,
+        name: propsRef.current.currentUserName,
+        role: propsRef.current.currentUserRole,
+      });
+    } catch (err) {
+      console.error('[CDA-WebRTC] Erro na renegociação local:', err);
+    } finally {
+      isNegotiating.current = false;
+    }
+  }, [sendSignal]);
+
+  // 2026-11-13 (fix P2b) — Recuperação da câmara local: se a faixa de vídeo
+  // terminar a meio da chamada (dispositivo ocupado por outra app, lock do
+  // SO, cabo), reabre a câmara e devolve-a à sessão SEM renegotiação quando
+  // já existe sender de vídeo (replaceTrack).
+  const recuperarCamera = useCallback(async () => {
+    if (cameraRecuperandoRef.current) return;
+    cameraRecuperandoRef.current = true;
+    console.log('[CDA-WebRTC] A tentar recuperar a câmara local...');
+    try {
+      let nova: MediaStream | null = null;
+      try {
+        nova = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facingModeRef.current, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+      } catch {}
+      const novaTrack = nova?.getVideoTracks()[0] || null;
+      if (!novaTrack || novaTrack.readyState !== 'live') {
+        console.warn('[CDA-WebRTC] Recuperação da câmara falhou — continua sem vídeo local.');
+        setLocalSemVideo(true);
+        return;
+      }
+      const stream = localStreamRef.current;
+      if (stream) {
+        stream.getVideoTracks().forEach((t) => {
+          t.onended = null;
+          try { stream.removeTrack(t); } catch {}
+          try { t.stop(); } catch {}
+        });
+        stream.addTrack(novaTrack);
+      }
+      if (localVideoRef.current && stream) {
+        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.play().catch(() => {});
+      }
+      const pc = peerConnectionRef.current;
+      if (pc && pc.signalingState !== 'closed' && stream) {
+        const videoSender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
+        if (videoSender) {
+          try { await videoSender.replaceTrack(novaTrack); } catch {}
+        } else if (pc.currentRemoteDescription) {
+          try { pc.addTrack(novaTrack, stream); } catch {}
+          void renegociarLocal('recuperação da câmara');
+        }
+      }
+      novaTrack.onended = () => {
+        setLocalSemVideo(true);
+        void recuperarCameraRef.current();
+      };
+      setLocalSemVideo(false);
+      setLocalVideoMuted(false);
+      console.log('[CDA-WebRTC] Câmara recuperada.');
+    } finally {
+      cameraRecuperandoRef.current = false;
+    }
+  }, [renegociarLocal]);
+  recuperarCameraRef.current = () => { void recuperarCamera(); };
 
   // Initialize Local Media Stream
   const initLocalMedia = useCallback(async () => {
@@ -581,6 +793,22 @@ export function WebRTCVideoCallRoom({
 
       localStreamRef.current = stream;
 
+      // 2026-11-13 (fix P2b) — estado «sem faixa de vídeo» (câmara recusada/
+      // inexistente): o PiP mostra «Sem câmara — só áudio» em vez de PiP a
+      // preto com o cabeçalho «EU LIVE». E vigia `ended` da faixa: se a
+      // câmara real morrer a meio da chamada, tenta recuperar.
+      {
+        const vts = stream.getVideoTracks();
+        setLocalSemVideo(!vts.some((t) => t.readyState === 'live'));
+        vts.forEach((t) => {
+          t.onended = () => {
+            setLocalSemVideo(true);
+            console.warn('[CDA-WebRTC] A faixa de vídeo local terminou — a tentar recuperar a câmara.');
+            recuperarCameraRef.current();
+          };
+        });
+      }
+
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
         await localVideoRef.current.play().catch(() => {});
@@ -588,15 +816,25 @@ export function WebRTCVideoCallRoom({
 
       // If peer connection exists, add new tracks
       if (peerConnectionRef.current) {
-        const senders = peerConnectionRef.current.getSenders();
+        const pc = peerConnectionRef.current;
+        const senders = pc.getSenders();
+        let adicionada = false;
         stream.getTracks().forEach((track) => {
           const hasTrack = senders.some((s) => s.track && s.track.id === track.id);
           if (!hasTrack) {
             try {
-              peerConnectionRef.current!.addTrack(track, stream);
+              pc.addTrack(track, stream);
+              adicionada = true;
             } catch {}
           }
         });
+        // 2026-11-13 (fix P2c) — faixa que chegou DEPOIS da sessão estar
+        // estabelecida (permissão de câmara lenta): a oferta já tinha saído
+        // sem ela → renegociar, senão o outro lado nunca recebe o vídeo
+        // (o ecrã grande ficava negro do lado dele).
+        if (adicionada && pc.currentRemoteDescription) {
+          void renegociarLocal('faixa local tardia');
+        }
       }
 
       setIsCameraLoading(false);
@@ -606,7 +844,7 @@ export function WebRTCVideoCallRoom({
       setIsCameraLoading(false);
       return null;
     }
-  }, [facingMode]);
+  }, [facingMode, renegociarLocal]);
 
   // Sync streams to video DOM tags
   useEffect(() => {
@@ -634,7 +872,9 @@ export function WebRTCVideoCallRoom({
       }
       localVideoRef.current.play().catch(() => {});
     }
-  }, [isCameraLoading, localVideoMuted]);
+    // localSemVideo nas deps: quando a câmara volta (PiP volta a montar o
+    // <video>), o srcObject tem de ser ligado de novo.
+  }, [isCameraLoading, localVideoMuted, localSemVideo]);
 
   // 2026-11-13 (fix P2) — re-sincronizar srcObject do VÍDEO/SOM REMOTO:
   // um re-render do React ou uma renegociação podia deixar o <video> sem
@@ -674,6 +914,14 @@ export function WebRTCVideoCallRoom({
     return () => clearInterval(t);
   }, [isActive, hasRemoteStream]);
 
+  // 2026-11-13 (fix P2b) — overlay «ligado por áudio»: tolerância de 2 s
+  // para a faixa de vídeo chegar (normalmente chega logo a seguir ao áudio).
+  useEffect(() => {
+    if (!hasRemoteStream || !remoteSemVideo) { setShowRemoteSemVideo(false); return; }
+    const t = setTimeout(() => setShowRemoteSemVideo(true), 2000);
+    return () => clearTimeout(t);
+  }, [hasRemoteStream, remoteSemVideo, remoteStreamRev]);
+
   // Main Call Lifecycle Effect (Runs ONCE per active session)
   useEffect(() => {
     if (!isActive) return;
@@ -683,6 +931,45 @@ export function WebRTCVideoCallRoom({
     const channelId = `cda-video-room-${cleanRoomName}`;
 
     console.log('[CDA-WebRTC] Inicializando sala de vídeo:', channelId);
+    // 2026-11-13 (fix P2f) — nova GERAÇÃO de sessão: qualquer (re)inicialização
+    // (remount, StrictMode double-effect, re-execução do efeito) produce um
+    // join com gen novo, que a outra parte processa e renegocia com.
+    sessionGenRef.current += 1;
+
+    // 0. 2026-11-13 (fix P2c/TURN) — carregar a configuração ICE (STUN +
+    //    relay TURN) do servidor ANTES de qualquer RTCPeerConnection. Sem
+    //    relay, chamadas entre NATs simétricos/CGNAT (comum em 4G) podem
+    //    ficar "ligadas" no ICE sem nunca transportar media. Falha de forma
+    //    transparente para STUN-only se o endpoint estiver indisponível.
+    fetch('/api/webrtc/ice')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d || !d.ice || !isMounted) return;
+        try {
+          const stun: string[] = Array.isArray(d.ice.stun) ? d.ice.stun : [];
+          const servers: RTCIceServer[] = stun.map((u: string) => ({ urls: u }));
+          const turn = d.ice.turn;
+          if (turn && turn.urls) {
+            const urls: string[] = Array.isArray(turn.urls) ? turn.urls : [turn.urls];
+            urls.forEach((u: string) =>
+              servers.push({ urls: u, username: turn.username, credential: turn.credential })
+            );
+          }
+          if (servers.length > 0) {
+            iceConfigRef.current = {
+              iceServers: servers,
+              iceCandidatePoolSize: 10,
+              // forceRelay: usado em testes (endpoint sobreposto) para provar
+              // o caminho 100% via relay TURN.
+              iceTransportPolicy: d.ice.forceRelay ? 'relay' : undefined,
+            };
+            console.log('[CDA-WebRTC] Config ICE carregada:', servers.length, 'serviço(s) (', servers.filter(s => String(s.urls).startsWith('turn')).length, 'TURN), forceRelay=', !!d.ice.forceRelay);
+          }
+        } catch (e) {
+          console.warn('[CDA-WebRTC] Falha ao aplicar config ICE (mantém STUN default):', e);
+        }
+      })
+      .catch(() => {});
 
     // 1. Start local camera & Audio feedback
     try {
@@ -843,9 +1130,23 @@ export function WebRTCVideoCallRoom({
   };
 
   // Toggle Video
+  // 2026-11-13 (fix P2b) — se não existe faixa de vídeo (câmara recusada/
+  // inexistente), «ligar a câmara» faz uma re-aquisição completa (o toggle
+  // anterior só mudava `track.enabled` de faixas que não existiam).
   const toggleVideo = () => {
     const nextMuted = !localVideoMuted;
     setLocalVideoMuted(nextMuted);
+    const temFaixa = localStreamRef.current?.getVideoTracks().some((t) => t.readyState === 'live');
+    if (!temFaixa) {
+      if (!nextMuted) {
+        void initLocalMedia().then(() => {
+          const ok = localStreamRef.current?.getVideoTracks().some((t) => t.readyState === 'live');
+          setLocalSemVideo(!ok);
+          if (ok) setLocalVideoMuted(false);
+        });
+      }
+      return;
+    }
     if (localStreamRef.current) {
       localStreamRef.current.getVideoTracks().forEach((track) => {
         track.enabled = !nextMuted;
@@ -1181,6 +1482,34 @@ export function WebRTCVideoCallRoom({
           </div>
         )}
 
+        {/* 2026-11-13 (fix P2b) — LIGADO POR ÁUDIO: o participante está ligado
+            mas a câmara dele está desligada/recusada. Antes: ecrã negro sem
+            qualquer explicação («o ecra maior não exibe os usuários»). */}
+        {showRemoteSemVideo && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#0E2B64] to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-600/20 mb-4">
+              <Mic size={26} className="animate-pulse" />
+            </div>
+            <h3 className="text-white font-black text-sm sm:text-base md:text-lg uppercase tracking-tight">
+              Ligado por áudio
+            </h3>
+            <p className="text-slate-400 text-[11px] sm:text-xs mt-2 max-w-[280px] font-semibold leading-relaxed">
+              A câmara de {remoteParticipant} está desligada — a chamada continua com som.
+            </p>
+          </div>
+        )}
+
+        {/* 2026-11-13 (fix P2b) — há faixa de vídeo mas sem frames há 8 s:
+            aviso no ecrã (antes: só o badge «SEM VÍDEO» e o resto a preto). */}
+        {hasRemoteStream && !showRemoteSemVideo && semVideoRemoto && (
+          <div className="absolute inset-x-0 bottom-3 z-10 flex items-center justify-center pointer-events-none">
+            <div className="bg-slate-950/85 backdrop-blur-md border border-amber-500/40 text-amber-300 px-3.5 py-2 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg">
+              <VideoOff size={13} />
+              A imagem do participante não está a chegar
+            </div>
+          </div>
+        )}
+
         {/* 3. SMALL PiP SCREEN (LOCAL USER CAMERA / RETORNO) */}
         <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 w-[100px] h-[140px] md:w-[150px] md:h-[200px] bg-slate-950 border-2 border-indigo-500/80 rounded-2xl overflow-hidden shadow-2xl z-40 transition-all flex flex-col justify-between shrink-0 select-none group">
           
@@ -1204,7 +1533,9 @@ export function WebRTCVideoCallRoom({
                 EU
               </span>
             </div>
-            <span className="text-[6.5px] text-emerald-400 font-bold font-mono">LIVE</span>
+            <span className={`text-[6.5px] ${localSemVideo ? 'text-amber-400' : 'text-emerald-400'} font-bold font-mono`}>
+              {localSemVideo ? 'SOM' : 'LIVE'}
+            </span>
           </div>
 
           {/* Local Video Tag */}
@@ -1213,6 +1544,15 @@ export function WebRTCVideoCallRoom({
               <div className="flex flex-col items-center justify-center gap-1.5 text-center p-2">
                 <RefreshCw size={14} className="text-indigo-400 animate-spin" />
                 <span className="text-[8px] text-slate-400 font-bold uppercase">A ligar...</span>
+              </div>
+            ) : localSemVideo ? (
+              // 2026-11-13 (fix P2b) — sem faixa de vídeo (câmara recusada/
+              // inexistente): antes ficava PiP a preto com «EU LIVE» a
+              // mentir. Agora o estado é explícito e o botão de câmara
+              // re-tenta a aquisição (toggleVideo).
+              <div className="flex flex-col items-center justify-center gap-1 text-center p-2">
+                <CameraOff size={16} className="text-amber-400" />
+                <span className="text-[8px] text-amber-300 font-bold leading-tight">Sem câmara<br/>só áudio</span>
               </div>
             ) : localVideoMuted ? (
               <div className="flex flex-col items-center justify-center gap-1 text-center p-2">
