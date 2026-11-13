@@ -47,6 +47,7 @@ import { useSession } from '../../services/sessionStore';
 import { VideoSessionService } from '../../services/videoSessionService';
 import type { VideoSessionExtended } from '../../services/videoSessionService';
 import { supabaseService } from '../../services/supabaseService';
+import { MOCK_USERS } from '../../constants/mocks';
 import { generateProtocol } from '../../utils/protocolGenerator';
 import type { Message } from '../../types';
 import { WebRTCVideoCallRoom } from './WebRTCVideoCallRoom';
@@ -181,6 +182,25 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
       return;
     }
     setLookupEstado('checking');
+
+    // 2026-11-04 — DEMO: a sessão sandbox não tem JWT de instituição, por isso a
+    // RPC `cda_cidadao_lookup_bi` recusa com 42501/P0001 (gate duro da v20) e o
+    // agendamento ficava impossível. O lookup cai no registo de demonstração —
+    // o mesmo padrão já usado em App.tsx (handleRecipientLookup). Continua a
+    // haver verificação real: um BI fora do registo é recusado.
+    if (sessionDemo) {
+      const registado = MOCK_USERS.find(u => normalizar(u.bi) === alvo && u.role === 'citizen');
+      if (registado) {
+        setFormAgendar(prev => ({ ...prev, biCidadao: alvo, nomeCidadao: registado.name }));
+        setLookupEstado('found');
+        addAuditLog?.('Cidadão localizado no registo de demonstração (Modo Sandbox — sem consulta real)', 'info');
+      } else {
+        setLookupEstado('not_found');
+        setFormErro('Cidadão não localizado na plataforma (não registado). O video-atendimento só pode ser agendado para cidadãos registados no Correio Digital de Angola.');
+      }
+      return;
+    }
+
     const res = await supabaseService.institutionLookupCidadao(alvo);
     if (res.found && res.citizen) {
       const nome = res.citizen.name || '';
@@ -218,11 +238,19 @@ export function VideoSessionPage({ onBack, addAuditLog, isInst = false, bi = '',
         guestName: nomeCidadao.trim(),
         scheduledFor: `${data} às ${hora}`,
         agenda: formAgendar.agenda.trim() || undefined,
+        // 2026-11-04 — sessão sandbox: sem JWT Supabase não há gravação na
+        // nuvem (o proxy responde 401). Marcado para o serviço não tentar.
+        sandbox: sessionDemo,
       } as any);
       // 2026-08-22 — a falha de persistência na nuvem deixa de ser silenciosa:
       // sem este aviso o agendamento "desapareceria" no logout (localStorage
       // limpo + nada gravado na nuvem).
-      if ((nova as VideoSessionExtended).cloudPersisted === false) {
+      // 2026-11-04 — Em sessão DEMO não há JWT Supabase, por isso o proxy
+      // /api/dados responde 401 "Sessão obrigatória" (gate de segurança, não
+      // avaria). O agendamento é sempre local nesse modo — avisar de uma
+      // perda que não vai acontecer seria um falso alarme, tal como em
+      // App.tsx (handleRecipientLookup) que declara o sandbox como tal.
+      if ((nova as VideoSessionExtended).cloudPersisted === false && !sessionDemo) {
         notify('Atenção: o agendamento NÃO foi sincronizado com a nuvem (servidor indisponível). Ele existe apenas neste dispositivo — ao sair da conta será perdido. Verifique a ligação e re-agende se necessário.', 'error');
         addAuditLog?.(`Agendamento de video-atendimento com ${nomeCidadao.trim()} NÃO sincronizado com a nuvem (proxy indisponível) — sessão apenas local.`, 'warning');
       }

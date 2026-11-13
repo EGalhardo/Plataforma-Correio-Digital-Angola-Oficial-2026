@@ -347,7 +347,10 @@ export const VideoSessionService = {
     // 2026-09-04 (v3) — preenchimento de TODAS as colunas NOT NULL da tabela
     // video_sessions (reference_code, title, origin_type, origin_id, etc.).
     let cloudPersisted = true;
-    if (hasValidSupabaseKeys()) {
+    // 2026-11-04 — MODO DEMO: sem JWT Supabase o proxy /api/dados devolve
+    // 401 «Sessão obrigatória» (gate de segurança, não avaria). O chamador
+    // marca a sessão com `sandbox: true` e a nuvem não é tentada.
+    if (hasValidSupabaseKeys() && !(session as any).sandbox) {
       // Extrair data e hora do scheduledFor (ex: "Hoje às 14:30")
       const scheduledDate = new Date().toISOString().split('T')[0];
       const timeMatch = session.scheduledFor.match(/(\d{1,2}):(\d{2})/);
@@ -416,7 +419,9 @@ export const VideoSessionService = {
 
     this.createNotification(id, 'reminder', `Nova sessão de videoatendimento agendada: ${session.subject}`);
 
-    return { ...newSession, cloudPersisted };
+    // `sandbox: true` propaga-se no resultado para o chamador distinguir
+    // «ficou só local porque é demo» de «ficou só local porque a nuvem falhou».
+    return { ...newSession, cloudPersisted, ...((session as any).sandbox ? { sandbox: true } : {}) };
   },
 
   /**
