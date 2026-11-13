@@ -217,7 +217,7 @@ CREATE POLICY "Permitir tudo para audit_logs" ON audit_logs FOR ALL USING (true)
 
 -- Video Sessions for Video Attendance
 CREATE TABLE IF NOT EXISTS video_sessions (
-  id TEXT PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   room_name TEXT NOT NULL,
   subject TEXT NOT NULL,
   associated_protocol TEXT,
@@ -239,8 +239,8 @@ CREATE TABLE IF NOT EXISTS video_sessions (
 
 -- Video Session Events for Audit Trail
 CREATE TABLE IF NOT EXISTS video_session_events (
-  id TEXT PRIMARY KEY,
-  session_id TEXT NOT NULL REFERENCES video_sessions(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id UUID NOT NULL REFERENCES video_sessions(id) ON DELETE CASCADE,
   event_type TEXT NOT NULL,
   bi TEXT NOT NULL,
   user_name TEXT NOT NULL,
@@ -250,8 +250,8 @@ CREATE TABLE IF NOT EXISTS video_session_events (
 
 -- Video Session Notifications
 CREATE TABLE IF NOT EXISTS video_session_notifications (
-  id TEXT PRIMARY KEY,
-  session_id TEXT NOT NULL REFERENCES video_sessions(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id UUID NOT NULL REFERENCES video_sessions(id) ON DELETE CASCADE,
   type TEXT NOT NULL,
   message TEXT NOT NULL,
   timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
