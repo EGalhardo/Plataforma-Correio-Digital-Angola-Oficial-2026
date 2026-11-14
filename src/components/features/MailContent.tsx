@@ -70,7 +70,7 @@ import {
   distribuirInqueritosIA, removerRascunhoInqueritoIA, registarExpedicaoInqueritosIA,
   ativarInqueritosIAParaDestinatarios, type InqueritoIA,
 } from '../../services/inqueritoIaService';
-import { isMensagemLida, isMensagemNaoLidaNoCorreio } from '../../utils/notificacoesAtalhos';
+import { isMensagemLida, isMensagemNaoLida } from '../../utils/notificacoesAtalhos';
 import { Loader2, CheckCircle2, AlertTriangle, Sparkles, CheckCheck, ClipboardCheck, MessagesSquare, Mic } from 'lucide-react';
 // F59 — a pesquisa teatral de 8s com textos governamentais inventados e
 // correspondência em MOCK_CITIZENS/MOCK_USERS foi REMOVIDA: o lookup do
@@ -2506,7 +2506,11 @@ export function MailContent({
           {[
             { id: 'todas', label: 'Todas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)).length },
             { id: 'lidas', label: 'Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && isMensagemLida(m)).length },
-            { id: 'naoLidas', label: 'Não Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && isMensagemNaoLidaNoCorreio(m)).length },
+            // 2026-11-13 — «Não Lidas» completa: badge da aba reflecte TODAS as
+            // recebidas não lidas (incl. ocorrências não lidas), em paridade com
+            // a lista (isMensagemNaoLida) e com «Lidas». O contador/badge global
+            // (avatar) e o painel inicial mantêm a deduplicação de ocorrências.
+            { id: 'naoLidas', label: 'Não Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && isMensagemNaoLida(m)).length },
             { id: 'enviadas', label: 'Enviadas', count: contagemEnviadas },
             { id: 'excluidas', label: 'Arquivadas', count: [...inbox, ...sentMessages].filter(m => deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)).length }
           ].map(tab => {

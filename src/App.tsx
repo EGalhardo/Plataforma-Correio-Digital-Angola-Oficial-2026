@@ -86,7 +86,7 @@ import { OfflineManager, OfflineAction } from './utils/offlineManager';
 import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente } from './utils/ordenacaoCronologica';
 import { agruparConversas, conversaDe, resumoDestinatarios } from './utils/conversasThread';
 import { PainelConversa } from './components/features/PainelConversa';
-import { contarNotificacoesAtalhos, assuntoChave, normalizarTexto, obterListaCorrespondenciasNaoLidas, contarPorCategoria, itemNotificacaoOcorrencia, isMensagemLida, isMensagemNaoLida, isMensagemNaoLidaNoCorreio } from './utils/notificacoesAtalhos';
+import { contarNotificacoesAtalhos, assuntoChave, normalizarTexto, obterListaCorrespondenciasNaoLidas, contarPorCategoria, itemNotificacaoOcorrencia, isMensagemLida, isMensagemNaoLida } from './utils/notificacoesAtalhos';
 import { ocorrenciasApi } from './features/ocorrencias/client';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, codigoInstituicaoDeConta, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao, listarRegistosPendentes, EVENTO_REGISTOS_ALTERADOS } from './services/supabaseService';
 import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia, ehAssuntoQualquerDenuncia, estadoDeFase, codigoInstituicaoBase } from './services/denunciaCore';
@@ -4714,7 +4714,15 @@ export default function App() {
     } else if (correspondenciaTab === "lidas") {
       base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemLida(item));
     } else if (correspondenciaTab === "naoLidas") {
-      base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemNaoLidaNoCorreio(item));
+      // 2026-11-13 — partição de leitura COMPLETA na caixa Correio: «Não Lidas»
+      // inclui TODAS as mensagens recebidas não lidas (incl. cópias de
+      // ocorrência). Antes usava isMensagemNaoLidaNoCorreio, que excluía as
+      // ocorrências não lidas — mas «Lidas» (isMensagemLida) as incluía quando
+      // lidas, deixando a ocorrência NÃO lida em NENHUMA das duas listas
+      // (só em «Todas»). O design de "não contagem dupla" mantém-se no
+      // contador/badge (obterListaCorrespondenciasNaoLidas) e no painel
+      // inicial (HomeContent), que continuam a usar isMensagemNaoLidaNoCorreio.
+      base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemNaoLida(item));
     } else {
       // 'todas' / padrão: TODAS as correspondências recebidas da conta (Lidas + Não Lidas)
       base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id));
