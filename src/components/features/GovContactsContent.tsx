@@ -1350,17 +1350,31 @@ export function GovContactsContent({
     // INAPEM-LLMM-02). O índice 01 pertence ao responsável; fontes do máx.:
     // membros do registo local + equipa actual (espelho por dispositivo).
     if (appMode === 'institution' && regCode) {
-      let max = 1;
+      // 2026-11-13 — pedido do dono: Nº Agente Instituição = TOTAL de
+      // utilizadores da plataforma da instituição + 1 (o responsável conta —
+      // reserva o 01). O total mede a UNIÃO deduplicada da base central
+      // (dadosReais.profiles — fonte canónica: cobre o 2.º dispositivo e o
+      // próprio responsável) + registo local + espelho local. O antigo
+      // max()+1 só olhava para as fontes locais e reutilizava/saltava números.
+      const usados = new Set<string>();
+      const recolher = (raw?: string) => {
+        const k = normalizeAgentNumber(raw || '');
+        const { code, seq } = splitAgentNumber(k);
+        if (code === regCode && seq) usados.add(k);
+      };
+      (dadosReais?.profiles || []).forEach(p => recolher(String(p.bi || '')));
+      membrosCloudInst.forEach(m => recolher(m.agentId));
       const regAuto = getLocalInstReg(regCode);
-      for (const m of regAuto?.members || []) {
-        const { code, seq } = splitAgentNumber(m.agentNumber || '');
-        if (code === regCode && seq && seq > max) max = seq;
-      }
-      for (const w of workers) {
-        const { code, seq } = splitAgentNumber(w.agentId || '');
-        if (code === regCode && seq && seq > max) max = seq;
-      }
-      return buildAgentNumber(regCode, max + 1);
+      (regAuto?.members || []).forEach(m => recolher(m.agentNumber));
+      workers.forEach(w => recolher(w.agentId));
+      // O 01 pertence sempre ao responsável (conta no total mesmo sem registo
+      // local — ex.: instituição criada noutro dispositivo).
+      recolher(buildAgentNumber(regCode, 1));
+      if (regAuto?.agentNumber) recolher(regAuto.agentNumber);
+      let n = usados.size + 1;
+      let cand = buildAgentNumber(regCode, n);
+      while (usados.has(cand)) { n += 1; cand = buildAgentNumber(regCode, n); }
+      return cand;
     }
     if (appMode === 'admin-workers') {
       // 2026-11-13 — pedido do dono: Nº Agente Admin = TOTAL de utilizadores da
@@ -1699,6 +1713,34 @@ export function GovContactsContent({
             while (seqUsados.has(cand)) { n += 1; cand = `ADMIN-${String(n).padStart(4, '0')}`; }
             if (cand !== numeroAgenteFinal) {
               addAuditLog?.(`[EQUIPA] Nº Agente recalculado com a base central: ${cand} (total de utilizadores da plataforma Admin + 1).`, 'info');
+            }
+            numeroAgenteFinal = cand;
+          } else if (appMode === 'institution' && regCode) {
+            // 2026-11-13 — pedido do dono: Nº Agente Instituição = TOTAL de
+            // utilizadores da plataforma da instituição + 1, recalculado no
+            // acto da criação. O 'listar' institucional NÃO inclui o
+            // responsável (nº 01), que conta no total — por isso a união
+            // mede a base central completa (dadosReais.profiles) + o 'listar'
+            // + registo local + espelho local.
+            const instUsados = new Set<string>();
+            const recolherInst = (raw?: string) => {
+              const k = normalizeAgentNumber(raw || '');
+              const { code, seq } = splitAgentNumber(k);
+              if (code === regCode && seq) instUsados.add(k);
+            };
+            (dadosReais?.profiles || []).forEach(p => recolherInst(String(p.bi || '')));
+            resLista.membros.forEach(m => recolherInst(String(m.bi || '')));
+            membrosCloudInst.forEach(m => recolherInst(m.agentId));
+            (getLocalInstReg(regCode)?.members || []).forEach(m => recolherInst(m.agentNumber));
+            workers.forEach(w => recolherInst(w.agentId));
+            recolherInst(buildAgentNumber(regCode, 1)); // o 01 é do responsável
+            const respReg = getLocalInstReg(regCode)?.agentNumber;
+            if (respReg) recolherInst(respReg);
+            let n = instUsados.size + 1;
+            let cand = buildAgentNumber(regCode, n);
+            while (instUsados.has(cand)) { n += 1; cand = buildAgentNumber(regCode, n); }
+            if (cand !== numeroAgenteFinal) {
+              addAuditLog?.(`[EQUIPA] Nº Agente recalculado com a base central: ${cand} (total de utilizadores da instituição + 1).`, 'info');
             }
             numeroAgenteFinal = cand;
           } else {
@@ -2205,10 +2247,25 @@ export function GovContactsContent({
   // lista de colaboradores da página Equipa; sem colaboradores a lista fica
   // vazia (o Alfa é o responsável, não um colaborador listado). O contador do
   // cabeçalho conta a MESMA lista (colaboradoresLista) para nunca divergir.
+  // Instituição: o RESPONSÁVEL (o «alfa» da instituição — nº 01) também nunca
+  // aparece na lista de colaboradores, qualquer que seja a fonte da linha.
   const colaboradoresLista = useMemo(() => {
-    if (appMode !== 'admin-workers') return equipaCombinada;
-    return equipaCombinada.filter(w => normalizeAgentNumber(w.agentId || '') !== ADMIN_ALFA_AGENT);
-  }, [equipaCombinada, appMode]);
+    if (appMode === 'admin-workers') {
+      return equipaCombinada.filter(w => normalizeAgentNumber(w.agentId || '') !== ADMIN_ALFA_AGENT);
+    }
+    if (appMode === 'institution') {
+      const regCode = normalizeInstCode(bi || '');
+      if (!regCode) return equipaCombinada;
+      const respNum = normalizeAgentNumber(getLocalInstReg(regCode)?.agentNumber || `${regCode}-01`);
+      return equipaCombinada.filter(w => {
+        const k = normalizeAgentNumber(w.agentId || '');
+        if (k === respNum) return false;
+        const { code, seq } = splitAgentNumber(k);
+        return !(code === regCode && seq === 1);
+      });
+    }
+    return equipaCombinada;
+  }, [equipaCombinada, appMode, bi]);
 
   const filteredWorkers = useMemo(() => {
     return colaboradoresLista.filter(w => {
@@ -2265,7 +2322,7 @@ export function GovContactsContent({
             </span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-3xl font-black text-slate-900 italic font-mono">
-                <AnimatedCounter to={appMode === 'admin-workers' ? colaboradoresLista.length : workers.length} className="italic" />
+                <AnimatedCounter to={(appMode === 'admin-workers' || appMode === 'institution') ? colaboradoresLista.length : workers.length} className="italic" />
               </span>
               <span className="text-[10px] text-slate-400 font-bold">Inscritos</span>
             </div>
