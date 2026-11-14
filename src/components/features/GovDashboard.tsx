@@ -31,7 +31,8 @@ import {
   Eye,
   Check,
   CheckCircle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Megaphone
 } from "lucide-react";
 import React, { useState, useEffect, useMemo } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
@@ -418,36 +419,56 @@ export function GovDashboard({
   }, []);
 
   // ===== PAINEL DE INDICADORES (Ocorrências, Denúncias, Inquéritos, Vídeo-Atendimentos) =====
-  const [indicadoresTab, setIndicadoresTab] = useState<'todos' | 'ocorrencias' | 'denuncias' | 'inqueritos' | 'video'>('todos');
+  const [indicadoresTab, setIndicadoresTab] = useState<'todos' | 'ocorrencias' | 'denuncias' | 'inqueritos' | 'video' | 'comunicados'>('todos');
   const [showIndicadoresPanel, setShowIndicadoresPanel] = useState(true);
 
   const indicadores = useMemo(() => {
     const d = dadosReais;
 
-    // 1. Ocorrências Territoriais (cda_ocorrencias + persistência local)
+    // 1. Ocorrências Territoriais — 2026-11-14: total REAL da plataforma via
+    // servidor (service role, «admin_consulta»). A leitura directa do client
+    // estava bloqueada por RLS (cda_ocorrencias não tem política SELECT) e o
+    // painel caía SEMPRE no fallback de demonstração (384), sem reflectir o que
+    // os cidadãos/instituições submetiam.
+    const contOcos = d?.ocorrenciasContagens || null;
     const rawOcos = d?.ocorrencias || [];
-    const totalOcorrencias = rawOcos.length > 0 ? rawOcos.length : 384;
-    const resolvidasOcorrencias = rawOcos.length > 0
-      ? rawOcos.filter(o => /resolv|conclu/i.test(o.estado || '')).length
-      : 298;
-    const analiseOcorrencias = rawOcos.length > 0
-      ? rawOcos.filter(o => /an[aá]lise|progresso|atrib/i.test(o.estado || '')).length
-      : 62;
+    const totalOcorrencias = contOcos ? contOcos.total : (rawOcos.length > 0 ? rawOcos.length : 384);
+    const resolvidasOcorrencias = contOcos
+      ? (contOcos.resolvida || 0) + (contOcos.encerrada || 0)
+      : rawOcos.length > 0 ? rawOcos.filter(o => /resolv|conclu|encerr/i.test(o.estado || '')).length : 298;
+    const analiseOcorrencias = contOcos
+      ? (contOcos.em_analise || 0) + (contOcos.em_resolucao || 0) + (contOcos.aguarda_informacao || 0) + (contOcos.reabertura_solicitada || 0)
+      : rawOcos.length > 0 ? rawOcos.filter(o => /an[aá]lise|progresso|atrib|resolucao/i.test(o.estado || '')).length : 62;
     const pendentesOcorrencias = Math.max(0, totalOcorrencias - resolvidasOcorrencias - analiseOcorrencias);
     const taxaResolucaoOcorrencias = totalOcorrencias > 0
       ? Math.round((resolvidasOcorrencias / totalOcorrencias) * 1000) / 10
       : 77.6;
 
-    // 2. Denúncias & Integridade Pública (Livro de Reclamações & Pedidos)
+    // 2. Denúncias & Integridade Pública (Livro de Reclamações & Pedidos).
+    // 2026-11-14: a fila REAL de denúncias/reclamações são CORRESPONDÊNCIAS
+    // com marca no assunto — [DENÚNCIA]/[RECLAMAÇÃO] (Livro) e
+    // [REGISTO DE DENÚNCIA] (nova fila «Denuncia») — criadas na área do
+    // Cidadão. Antes o painel só contava pedidos de serviço (user_requests) e
+    // mensagens com «reclama» no assunto, ficando fora da sincronia.
     const reqs = d?.userRequests || [];
     const msgs = d?.mensagens || [];
-    const rawDenuncias = reqs.filter(r => /den[uú]ncia|integridade|fraude|corrup/i.test(r.service_type || '')).length;
-    const rawReclamacoes = reqs.filter(r => /reclama/i.test(r.service_type || '')).length + msgs.filter(m => /reclama/i.test(m.subject || '')).length;
+    const normA = (s: string) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+    const ehDenMsg = (s: string) => { const n = normA(s); return n.startsWith('[DENUNCIA]') || n.startsWith('[REGISTO DE DENUNCIA]'); };
+    const ehRecMsg = (s: string) => normA(s).startsWith('[RECLAMACAO]');
+    const fasesDen = new Map<number, number>(d?.denunciasFases || []);
+    const msgsDen = msgs.filter(m => ehDenMsg(m.subject || ''));
+    const msgsRec = msgs.filter(m => ehRecMsg(m.subject || ''));
+    const rawDenuncias = reqs.filter(r => /den[uú]ncia|integridade|fraude|corrup/i.test(r.service_type || '')).length + msgsDen.length;
+    const rawReclamacoes = reqs.filter(r => /reclama/i.test(r.service_type || '')).length + msgsRec.length;
     const totalDenunciasReclamacoes = (rawDenuncias + rawReclamacoes > 0)
       ? (rawDenuncias + rawReclamacoes)
       : 231;
+    // «Resolvida» = pedido com estado conclusivo OU mensagem de
+    // denúncia/reclamação cuja fase mais avançada é Respondida/Encerrada.
+    const resolvidasReq = reqs.filter(r => /den[uú]ncia|reclama/i.test(r.service_type || '') && /conclu|defer|resolv|atendid/i.test(r.status || '')).length;
+    const resolvidasMsgs = [...msgsDen, ...msgsRec].filter(m => (fasesDen.get(Number(m.id)) ?? -1) >= 3).length;
     const denunciasResolvidas = (rawDenuncias + rawReclamacoes > 0)
-      ? Math.max(1, reqs.filter(r => /den[uú]ncia|reclama/i.test(r.service_type || '') && /conclu|defer|resolv|atendid/i.test(r.status || '')).length)
+      ? (resolvidasReq + resolvidasMsgs)
       : 194;
     const denunciasEmTriagem = Math.max(0, totalDenunciasReclamacoes - denunciasResolvidas);
     const taxaConformidadeDenuncias = 98.4;
@@ -459,10 +480,21 @@ export function GovDashboard({
       ? Math.max(1, rawInqs.filter(i => /ativ|abert|em_curso/i.test(i.status || '')).length)
       : 8;
     const inqueritosConcluidos = Math.max(0, totalInqueritos - inqueritosAtivos);
+    // 2026-11-14: respostas REAIS (inquerito_ia_respostas) — a coluna
+    // total_respostas não existe em inqueritos_ia (mostrava sempre 140/item).
     const totalVotosInqueritos = rawInqs.length > 0
-      ? rawInqs.reduce((s, i) => s + (i.total_respostas || 140), 0)
+      ? rawInqs.reduce((s, i) => s + ((d?.respostasInquerito?.[String(i.id)] ?? 0)), 0)
       : 3640;
     const taxaAdesaoInqueritos = 94.2;
+
+    // 5. Comunicados Oficiais — 2026-11-14: correspondências marcadas com
+    // [COMUNICADO OFICIAL]/[COMUNICADO] (emitidos pelas instituições/admin) —
+    // o Painel não os mostrava; agora aparece a contagem real + origem.
+    const ehComMsg = (s: string) => { const n = normA(s); return n.startsWith('[COMUNICADO OFICIAL]') || n.startsWith('[COMUNICADO]'); };
+    const ehBiCidadao = (bi: string) => /^\d{9}[A-Z]{2}\d{3}$/i.test(String(bi || ''));
+    const msgsCom = msgs.filter(m => ehComMsg(m.subject || ''));
+    const comDeInstituicoes = msgsCom.filter(m => !ehBiCidadao(m.sender_bi)).length;
+    const comDeCidadaos = msgsCom.length - comDeInstituicoes;
 
     // 4. Vídeo-Atendimentos Governamentais (video_sessions)
     const rawVids = (d?.videoSessions && d.videoSessions.length > 0) ? d.videoSessions : videoSessions;
@@ -478,8 +510,9 @@ export function GovDashboard({
       : 56;
     const taxaPontualidadeVideo = 99.1;
 
-    // Total Global Consolidado
-    const totalVolumeGlobal = totalOcorrencias + totalDenunciasReclamacoes + totalInqueritos + totalVideo;
+    // Total Global Consolidado (2026-11-14: inclui Comunicados Oficiais)
+    const totalComunicados = msgsCom.length;
+    const totalVolumeGlobal = totalOcorrencias + totalDenunciasReclamacoes + totalInqueritos + totalVideo + totalComunicados;
 
     // Distribuição Setorial para Gráficos
     const distribuicaoSetorial = [
@@ -487,6 +520,7 @@ export function GovDashboard({
       { name: 'Denúncias & Integridade', sigla: 'Denúncias', valor: totalDenunciasReclamacoes, cor: '#dc2626', percent: Math.round((totalDenunciasReclamacoes / totalVolumeGlobal) * 1000) / 10 },
       { name: 'Inquéritos Cívicos', sigla: 'Inquéritos', valor: totalInqueritos, cor: '#10b981', percent: Math.round((totalInqueritos / totalVolumeGlobal) * 1000) / 10 },
       { name: 'Vídeo-Atendimentos', sigla: 'Vídeo-Atend.', valor: totalVideo, cor: '#6366f1', percent: Math.round((totalVideo / totalVolumeGlobal) * 1000) / 10 },
+      { name: 'Comunicados Oficiais', sigla: 'Comunicados', valor: totalComunicados, cor: '#0ea5e9', percent: Math.round((totalComunicados / totalVolumeGlobal) * 1000) / 10 },
     ];
 
     const volumePorMes = [
@@ -525,6 +559,13 @@ export function GovDashboard({
         emCurso: videoEmCurso,
         agendadas: videoAgendadas,
         taxaPontualidade: taxaPontualidadeVideo,
+      },
+      // 2026-11-14 — Comunicados Oficiais (correspondências marcadas),
+      // sincronizados com a área da Instituição/Admin que os emite.
+      comunicados: {
+        total: totalComunicados,
+        deInstituicoes: comDeInstituicoes,
+        deCidadaos: comDeCidadaos,
       },
       totalVolumeGlobal,
       distribuicaoSetorial,
@@ -1027,6 +1068,8 @@ export function GovDashboard({
               { id: 'denuncias', label: 'Denúncias & Reclamações', icon: ShieldAlert, count: indicadores.denuncias.total, color: 'text-rose-600 dark:text-rose-400' },
               { id: 'inqueritos', label: 'Inquéritos & Sondagens', icon: Vote, count: indicadores.inqueritos.total, color: 'text-emerald-600 dark:text-emerald-400' },
               { id: 'video', label: 'Vídeo-Atendimentos', icon: Video, count: indicadores.video.total, color: 'text-indigo-600 dark:text-indigo-400' },
+              // 2026-11-14 — Comunicados Oficiais (sincronizados com a área da Instituição)
+              { id: 'comunicados', label: 'Comunicados Oficiais', icon: Megaphone, count: indicadores.comunicados.total, color: 'text-sky-600 dark:text-sky-400' },
             ].map(tab => {
               const IconComp = tab.icon;
               const isSelected = indicadoresTab === tab.id;
@@ -1055,8 +1098,8 @@ export function GovDashboard({
 
           {showIndicadoresPanel && (
             <div className="space-y-6 animate-fadeIn">
-              {/* 4 Cartões Principais de Volume Global */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+              {/* 5 Cartões Principais de Volume Global (2026-11-14: +Comunicados) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-5">
                 {/* 1. Ocorrências Territoriais */}
                 <div className={`cda-indicador-card rounded-2xl p-5 border transition-all text-left flex flex-col justify-between ${
                   indicadoresTab === 'ocorrencias' || indicadoresTab === 'todos'
@@ -1302,6 +1345,57 @@ export function GovDashboard({
                     </div>
                     <div className="text-[9px] font-bold text-indigo-700 uppercase tracking-wider pt-1 flex items-center gap-1 justify-center">
                       <Radio size={11} /> Barramento WebRTC Governamental
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Comunicados Oficiais (2026-11-14 — sincronização com a área da Instituição) */}
+                <div className={`cda-indicador-card rounded-2xl p-5 border transition-all text-left flex flex-col justify-between ${
+                  indicadoresTab === 'comunicados' || indicadoresTab === 'todos'
+                    ? 'cda-indicador-ativo-comunicados bg-sky-50/40 border-sky-300/80 shadow-xs ring-1 ring-sky-300/40'
+                    : 'bg-white border-slate-200 opacity-90 hover:opacity-100'
+                }`}>
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-600 border border-sky-500/20 flex items-center justify-center shrink-0">
+                        <Megaphone size={20} className="stroke-[2.2]" />
+                      </div>
+                      <span className="cda-indicador-badge-comunicados text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-sky-100 text-sky-900 border border-sky-300">
+                        Oficial
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] font-black text-slate-700 uppercase tracking-wider">
+                      Comunicados Oficiais
+                    </div>
+
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <AnimatedCounter
+                        to={indicadores.comunicados.total}
+                        duration={1800}
+                        className="text-2xl md:text-3xl font-black text-slate-900 font-mono tracking-tight"
+                      />
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                        emitidos
+                      </span>
+                    </div>
+
+                    {/* Breakdown pílulas */}
+                    <div className="grid grid-cols-2 gap-1.5 mt-3 pt-3 border-t border-sky-200/60 text-center">
+                      <div className="bg-sky-50 border border-sky-200 rounded-lg py-1.5 px-1">
+                        <span className="text-[8px] font-black text-sky-700 uppercase block">Instituições</span>
+                        <span className="text-xs font-black text-sky-900 font-mono">{indicadores.comunicados.deInstituicoes}</span>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-1">
+                        <span className="text-[8px] font-black text-slate-600 uppercase block">Outros</span>
+                        <span className="text-xs font-black text-slate-900 font-mono">{indicadores.comunicados.deCidadaos}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-sky-200/60">
+                    <div className="text-[9px] font-bold text-sky-700 uppercase tracking-wider flex items-center gap-1 justify-center">
+                      <Megaphone size={11} /> Difusão no correio dos cidadãos
                     </div>
                   </div>
                 </div>

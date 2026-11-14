@@ -325,13 +325,49 @@ export async function handleOcorrencias(req: any, res: any) {
       .replace(/^Bearer\s+/i, "")
       .trim();
     const db = adminClient();
-    const a = await identidadeOcorrencias(db, token);
+    // 2026-11-14 — INTEROPERABILIDADE: a Administração Central lê TODAS as
+    // ocorrências via service role (novo actor «admin»). A leitura directa do
+    // client (anon+JWT) estava bloqueada por RLS — a tabela cda_ocorrencias
+    // não tem política SELECT para ninguém (escrita só pelas RPC SECURITY
+    // DEFINER) — e o Painel do admin caía no fallback de demonstração.
+    const a =
+      b.acao === "admin_consulta" ? null : await identidadeOcorrencias(db, token);
     let result: any;
     const offset =
       Number.isInteger(b.offset) && b.offset >= 0
         ? Math.min(b.offset, 100000)
         : 0;
     switch (b.acao) {
+      case "admin_consulta": {
+        // 2026-11-14 — INTEROPERABILIDADE (Painel Admin ↔ área do cidadão/instituição):
+        // a Administração Central consulta o total de ocorrências da plataforma
+        // (todas as instituições) para o «Painel de Indicadores». Identidade por
+        // E-MAIL (padrão das restantes vias — nunca user_metadata): os agentes da
+        // Administração Central têm e-mails `agente.admin-NNNN@admin.correiodigital.ao`.
+        const { data: adu, error: ade } = await db.auth.getUser(token);
+        if (ade || !adu.user || !adu.user.email_confirmed_at)
+          fail(401, "Sessão expirada ou inválida. Volte a entrar.");
+        const admEmail = String(adu.user.email || "").toLowerCase();
+        if (!/^agente\.admin-\d+@admin\.correiodigital\.ao$/.test(admEmail))
+          fail(403, "Apenas a Administração Central pode consultar as ocorrências da plataforma.");
+        const rl = checked<any[]>(
+          await db
+            .from("cda_ocorrencias")
+            .select("id,numero,titulo,categoria,estado,instituicao_codigo,provincia,municipio,criado_em,actualizado_em")
+            .order("criado_em", { ascending: false })
+            .limit(50),
+        ) || [];
+        const rc = checked<any[]>(
+          await db.from("cda_ocorrencias").select("estado").range(0, 1999),
+        ) || [];
+        const contagens: Record<string, number> = { total: rc.length };
+        for (const row of rc) {
+          const e = String((row as any).estado || "desconhecido");
+          contagens[e] = (contagens[e] || 0) + 1;
+        }
+        result = { contagens, lista: rl };
+        break;
+      }
       case "inicio":
         result = { actor: a, instituicoes: await institutions(db) };
         break;

@@ -133,9 +133,8 @@ export interface RealOcorrenciaRow {
 
 export interface RealInqueritoRow {
   id: string | number;
-  titulo?: string | null;
+  o_que_pretende_saber?: string | null;
   status?: string | null;
-  categoria?: string | null;
   instituicao_code?: string | null;
   created_at?: string | null;
   total_respostas?: number;
@@ -160,6 +159,15 @@ export interface AdminRealData {
   userRequests: RealUserRequestRow[];
   ocorrencias: RealOcorrenciaRow[];
   inqueritos: RealInqueritoRow[];
+  /** 2026-11-14 — fases de denúncia: [messageId, ordemMáxima da fase]
+   *  (0=registada … 4=encerrada), a partir de message_state_history
+   *  (state = "DENUNCIA:<fase>"). Vazio = sem dados/sem sessão. */
+  denunciasFases: Array<[number, number]>;
+  /** 2026-11-14 — nº de respostas REAIS por inquérito (inquerito_ia_respostas). */
+  respostasInquerito: Record<string, number>;
+  /** 2026-11-14 — contagens REAIS de ocorrências por estado (inclui {total}),
+   *  via /api/ocorrencias «admin_consulta» (service role). null = sem sessão. */
+  ocorrenciasContagens: Record<string, number> | null;
 }
 
 const CACHE_MS = 60_000;
@@ -235,6 +243,7 @@ export async function carregarDadosReaisAdmin(forcar = false): Promise<AdminReal
       profilesRaw, auditRaw, auditTotal, mensagensRaw, mensagensTotal,
       videoRaw, docsRaw, protRaw, pagRaw, iaLogsRaw, iaTelRaw,
       solicitRaw, userReqRaw, ocorrenciasRaw, inqueritosRaw,
+      ocorrenciasAdminRaw, histDenunciasRaw, respostasInqRaw,
     ] = await Promise.all([
       ler(supabase.from('profiles').select('bi,name,role,phone,email,nif,morada').limit(500)),
       ler(supabase.from('audit_logs').select('id,action,username,timestamp,action_type').order('id', { ascending: false }).limit(1500)),
@@ -250,7 +259,37 @@ export async function carregarDadosReaisAdmin(forcar = false): Promise<AdminReal
       ler(supabase.from('solicitacoes_registo').select('id,nome,bi_numero,status,criado_em,observacoes').order('criado_em', { ascending: false }).limit(500)),
       ler(supabase.from('user_requests').select('id,user_bi,user_name,service_type,status,request_date').order('request_date', { ascending: false }).limit(500)),
       ler(supabase.from('cda_ocorrencias').select('id,numero,titulo,categoria,estado,criado_em,instituicao_codigo,provincia,municipio').order('criado_em', { ascending: false }).limit(500)),
-      ler(supabase.from('inqueritos_ia').select('id,titulo,status,categoria,instituicao_code,created_at').order('created_at', { ascending: false }).limit(500)),
+      // 2026-11-14 — colunas REAIS de inqueritos_ia (não existe `titulo` nem
+      // `categoria`: o select anterior devolvia 42703 e o cartão do painel
+      // ficava no fallback demo 24/3640 sem que nada falhasse à vista).
+      ler(supabase.from('inqueritos_ia').select('id,o_que_pretende_saber,status,instituicao_code,created_at').order('created_at', { ascending: false }).limit(500)),
+      // 2026-11-14 — INTEROPERABILIDADE: as ocorrências da plataforma (todas as
+      // instituições) vêm do SERVIDOR (service role): a leitura directa do
+      // client (anon+JWT admin) está bloqueada por RLS — cda_ocorrencias não
+      // tem política SELECT — e o Painel caía no fallback de demonstração.
+      (async () => {
+        if (!temSessaoAuth) return null;
+        try {
+          const { data: s2 } = await supabase.auth.getSession();
+          const tok = s2?.session?.access_token;
+          if (!tok) return null;
+          const r = await fetch('/api/ocorrencias', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+            body: JSON.stringify({ acao: 'admin_consulta' }),
+          });
+          if (!r.ok) return null;
+          const j = await r.json().catch(() => null);
+          return j && j.ok && Array.isArray(j.lista) && j.contagens ? j : null;
+        } catch { return null; }
+      })(),
+      // 2026-11-14 — fases das denúncias/reclamações (a mesma máquina do
+      // Livro de Reclamações: message_state_history state="DENUNCIA:<fase>").
+      // RLS: o admin lê (política msg_history_select_da_caixa).
+      ler(temSessaoAuth ? supabase.from('message_state_history').select('message_id,state').limit(2000) : semLeitura),
+      // 2026-11-14 — respostas REAIS por inquérito (a coluna total_respostas
+      // não existe em inqueritos_ia — o painel mostrava sempre o fallback 140).
+      ler(supabase.from('inquerito_ia_respostas').select('inquerito_id,estado').limit(5000)),
     ]);
 
     // Fusão resiliente com dados criados localmente na sessão
@@ -278,6 +317,31 @@ export async function carregarDadosReaisAdmin(forcar = false): Promise<AdminReal
       ...localInqueritos.filter(li => !inqueritosIds.has(String(li.id)))
     ];
 
+    // 2026-11-14 — fases REAIS das denúncias/reclamações: por mensagem, a
+    // ordem máxima registada (0=registada … 3=respondida, 4=encerrada).
+    const ORDEM_FASE_DENUNCIA: Record<string, number> = { registada: 0, recebida: 1, em_analise: 2, respondida: 3, encerrada: 4 };
+    const fasesMap = new Map<number, number>();
+    for (const h of histDenunciasRaw as any[]) {
+      const s = String((h && h.state) || '');
+      if (!s.startsWith('DENUNCIA:')) continue;
+      const fase = s.slice('DENUNCIA:'.length).trim().toLowerCase();
+      const ordem = ORDEM_FASE_DENUNCIA[fase];
+      if (ordem === undefined) continue;
+      const mid = Number((h as any).message_id);
+      if (!Number.isFinite(mid)) continue;
+      const cur = fasesMap.get(mid) ?? -1;
+      if (ordem > cur) fasesMap.set(mid, ordem);
+    }
+    const denunciasFases: Array<[number, number]> = Array.from(fasesMap.entries());
+
+    // 2026-11-14 — nº REAL de respostas por inquérito (inquerito_ia_respostas).
+    const respostasInquerito: Record<string, number> = {};
+    for (const r of respostasInqRaw as any[]) {
+      const k = String((r && r.inquerito_id) ?? '');
+      if (!k) continue;
+      respostasInquerito[k] = (respostasInquerito[k] || 0) + 1;
+    }
+
     const profiles = profilesRaw as RealProfileRow[];
     const dados: AdminRealData = {
       carregadoEm: agora,
@@ -298,6 +362,11 @@ export async function carregarDadosReaisAdmin(forcar = false): Promise<AdminReal
       userRequests: userReqRaw as RealUserRequestRow[],
       ocorrencias: mergedOcorrencias as RealOcorrenciaRow[],
       inqueritos: mergedInqueritos as RealInqueritoRow[],
+      denunciasFases,
+      respostasInquerito,
+      ocorrenciasContagens: ocorrenciasAdminRaw
+        ? { ...(ocorrenciasAdminRaw.contagens as Record<string, number>) }
+        : null,
     };
     cache = dados;
     return dados;
