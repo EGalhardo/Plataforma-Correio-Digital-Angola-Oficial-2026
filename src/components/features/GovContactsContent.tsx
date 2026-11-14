@@ -73,7 +73,7 @@ import { isStorageRef, resolveStorageUrl } from '../../lib/secureStorage';
 import { limparPendenciaPerfil } from '../../services/profileSyncService';
 import { limparLoginFalhas } from '../../services/loginSecurityService';
 import { getLocalInstReg, normalizeInstCode, addInstMember, removeInstMember, updateInstMemberPassword, updateInstMemberProfile, buildAgentNumber, splitAgentNumber } from '../../services/institutionRegistrationStore';
-import { addAdminAgent, updateAdminAgentPassword, updateAdminAgentPermissions, removeAdminAgentByWorker, nextAdminAgentNumber, getAdminAgentCreds, ADMIN_ALFA_AGENT } from '../../services/adminAgentStore';
+import { addAdminAgent, updateAdminAgentPassword, updateAdminAgentPermissions, removeAdminAgentByWorker, getAdminAgentCreds, normalizeAgentNumber, ADMIN_ALFA_AGENT } from '../../services/adminAgentStore';
 import { useSession } from '../../services/sessionStore';
 
 interface AuditLog {
@@ -736,7 +736,13 @@ export function GovContactsContent({
         // instituições passaram a ter linha `profiles` (v37.78.6), o filtro
         // "BI codificado" deixava-os vazar para a Equipa da Administração.
         if (role === 'instituicao' || role === 'institution') return false;
-        return role === 'admin' || _ehAgenteCodificado(pp.bi || '');
+        // 2026-11-13 — pedido do dono: a Equipa da Administração mostra apenas
+        // membros da PLATAFORMA CENTRAL (role admin / nºs ADMIN-xxxx), o mesmo
+        // critério do servidor (/api/equipa-membro → profiles role=admin). O
+        // critério antigo (qualquer "BI codificado") deixava agentes de
+        // instituições (ex.: AGT-LMM-01, role 'user') vazar para a lista.
+        const bi = String(pp.bi || '').toUpperCase();
+        return role === 'admin' || /^ADMIN-\d+$/.test(bi);
       })
       .map<Trabajador>(pp => ({
         id: pp.bi,
@@ -1356,7 +1362,25 @@ export function GovContactsContent({
       }
       return buildAgentNumber(regCode, max + 1);
     }
-    if (appMode === 'admin-workers') return nextAdminAgentNumber([...workers.map(w => w.agentId || ''), ...getAdminAgentCreds().map(c => c.agent)]); // F25 — fonte completa (trabalhadores + credenciais), como na página de registo
+    if (appMode === 'admin-workers') {
+      // 2026-11-13 — pedido do dono: Nº Agente Admin = TOTAL de utilizadores da
+      // plataforma Admin + 1 (o Alfa conta — reserva o nº 1). O total mede a
+      // UNIÃO deduplicada da base central (agentesReais — 2.º dispositivo não
+      // tem espelho local) + espelho local (workers) + credenciais locais; o
+      // antigo max()+1 saltava números quando havia espelhos obsoletos.
+      const usados = new Set<string>();
+      const recolher = (raw?: string) => {
+        const k = normalizeAgentNumber(raw || '');
+        if (k && /^ADMIN-\d+$/.test(k)) usados.add(k);
+      };
+      agentesReais.forEach(a => recolher(a.agentId));
+      workers.forEach(w => recolher(w.agentId));
+      getAdminAgentCreds().forEach(c => recolher(c.agent));
+      let n = usados.size + 1;
+      let cand = `ADMIN-${String(n).padStart(4, '0')}`;
+      while (usados.has(cand)) { n += 1; cand = `ADMIN-${String(n).padStart(4, '0')}`; }
+      return cand;
+    }
     return `AGT-${Math.floor(100000 + Math.random() * 900000)}`;
   })();
   
@@ -1623,23 +1647,45 @@ export function GovContactsContent({
       try {
         const resLista = await equipaMembroCloud('listar');
         if (resLista.ok && Array.isArray(resLista.membros)) {
-          const usados = new Set(resLista.membros.map(m => String(m.bi || '').toUpperCase()).filter(Boolean));
-          if (usados.has(String(numeroAgenteFinal || '').toUpperCase())) {
-            const mpref = String(numeroAgenteFinal || '').match(/^([A-Z0-9]+(?:-[A-Z]+)*-)(\d+)$/);
-            if (mpref) {
-              let seq = 0;
-              usados.forEach(u => {
-                const mu = u.match(/^([A-Z0-9]+(?:-[A-Z]+)*-)(\d+)$/);
-                if (mu && mu[1] === mpref[1]) seq = Math.max(seq, parseInt(mu[2], 10));
-              });
-              let cand = `${mpref[1]}${String(seq + 1).padStart(mpref[2].length, '0')}`;
-              while (usados.has(cand) || workers.some(w => (w.agentId || '').toUpperCase() === cand)) {
-                const mc = cand.match(/^(.*-)(\d+)$/);
-                if (!mc) break;
-                cand = `${mc[1]}${String(parseInt(mc[2], 10) + 1).padStart(mc[2].length, '0')}`;
+          if (appMode === 'admin-workers') {
+            // 2026-11-13 — regra do dono: Nº Agente Admin = TOTAL de
+            // utilizadores da plataforma Admin + 1, recalculado com a base
+            // central (fonte canónica) no acto da criação — não depende do
+            // espelho local deste dispositivo nem do timing do render.
+            const seqUsados = new Set<string>();
+            const recolherSeq = (raw?: string) => {
+              const k = normalizeAgentNumber(raw || '');
+              if (k && /^ADMIN-\d+$/.test(k)) seqUsados.add(k);
+            };
+            resLista.membros.forEach(m => recolherSeq(String(m.bi || '')));
+            workers.forEach(w => recolherSeq(w.agentId));
+            getAdminAgentCreds().forEach(c => recolherSeq(c.agent));
+            let n = seqUsados.size + 1;
+            let cand = `ADMIN-${String(n).padStart(4, '0')}`;
+            while (seqUsados.has(cand)) { n += 1; cand = `ADMIN-${String(n).padStart(4, '0')}`; }
+            if (cand !== numeroAgenteFinal) {
+              addAuditLog?.(`[EQUIPA] Nº Agente recalculado com a base central: ${cand} (total de utilizadores da plataforma Admin + 1).`, 'info');
+            }
+            numeroAgenteFinal = cand;
+          } else {
+            const usados = new Set(resLista.membros.map(m => String(m.bi || '').toUpperCase()).filter(Boolean));
+            if (usados.has(String(numeroAgenteFinal || '').toUpperCase())) {
+              const mpref = String(numeroAgenteFinal || '').match(/^([A-Z0-9]+(?:-[A-Z]+)*-)(\d+)$/);
+              if (mpref) {
+                let seq = 0;
+                usados.forEach(u => {
+                  const mu = u.match(/^([A-Z0-9]+(?:-[A-Z]+)*-)(\d+)$/);
+                  if (mu && mu[1] === mpref[1]) seq = Math.max(seq, parseInt(mu[2], 10));
+                });
+                let cand = `${mpref[1]}${String(seq + 1).padStart(mpref[2].length, '0')}`;
+                while (usados.has(cand) || workers.some(w => (w.agentId || '').toUpperCase() === cand)) {
+                  const mc = cand.match(/^(.*-)(\d+)$/);
+                  if (!mc) break;
+                  cand = `${mc[1]}${String(parseInt(mc[2], 10) + 1).padStart(mc[2].length, '0')}`;
+                }
+                addAuditLog?.(`[EQUIPA] O nº ${autoWorkerAgentId} já existe na base central — o novo membro recebeu o nº ${cand}.`, 'warning');
+                numeroAgenteFinal = cand;
               }
-              addAuditLog?.(`[EQUIPA] O nº ${autoWorkerAgentId} já existe na base central — o novo membro recebeu o nº ${cand}.`, 'warning');
-              numeroAgenteFinal = cand;
             }
           }
         }
@@ -2100,14 +2146,23 @@ export function GovContactsContent({
     return workers;
   }, [workers, agentesReais, dadosReais, appMode, membrosCloudInst]);
 
+  // 2026-11-13 — pedido do dono: o Admin Alfa (ADMIN-0001) NUNCA aparece na
+  // lista de colaboradores da página Equipa; sem colaboradores a lista fica
+  // vazia (o Alfa é o responsável, não um colaborador listado). O contador do
+  // cabeçalho conta a MESMA lista (colaboradoresLista) para nunca divergir.
+  const colaboradoresLista = useMemo(() => {
+    if (appMode !== 'admin-workers') return equipaCombinada;
+    return equipaCombinada.filter(w => normalizeAgentNumber(w.agentId || '') !== ADMIN_ALFA_AGENT);
+  }, [equipaCombinada, appMode]);
+
   const filteredWorkers = useMemo(() => {
-    return equipaCombinada.filter(w => {
-      const matchesSearch = w.name.toLowerCase().includes(workerSearch.toLowerCase()) || 
+    return colaboradoresLista.filter(w => {
+      const matchesSearch = w.name.toLowerCase().includes(workerSearch.toLowerCase()) ||
                             w.email.toLowerCase().includes(workerSearch.toLowerCase()) ||
                             w.role.toLowerCase().includes(workerSearch.toLowerCase());
       return matchesSearch;
     });
-  }, [equipaCombinada, workerSearch]);
+  }, [colaboradoresLista, workerSearch]);
 
   if (appMode === 'institution' || appMode === 'admin-workers') {
     const isPlatformAdmin = appMode === 'admin-workers';
@@ -2155,7 +2210,7 @@ export function GovContactsContent({
             </span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-3xl font-black text-slate-900 italic font-mono">
-                <AnimatedCounter to={appMode === 'admin-workers' && dadosReais ? equipaCombinada.length : workers.length} className="italic" />
+                <AnimatedCounter to={appMode === 'admin-workers' ? colaboradoresLista.length : workers.length} className="italic" />
               </span>
               <span className="text-[10px] text-slate-400 font-bold">Inscritos</span>
             </div>
