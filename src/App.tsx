@@ -4714,15 +4714,12 @@ export default function App() {
     } else if (correspondenciaTab === "lidas") {
       base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemLida(item));
     } else if (correspondenciaTab === "naoLidas") {
-      // 2026-11-13 — partição de leitura COMPLETA na caixa Correio: «Não Lidas»
-      // inclui TODAS as mensagens recebidas não lidas (incl. cópias de
-      // ocorrência). Antes usava isMensagemNaoLidaNoCorreio, que excluía as
-      // ocorrências não lidas — mas «Lidas» (isMensagemLida) as incluía quando
-      // lidas, deixando a ocorrência NÃO lida em NENHUMA das duas listas
-      // (só em «Todas»). O design de "não contagem dupla" mantém-se no
-      // contador/badge (obterListaCorrespondenciasNaoLidas) e no painel
-      // inicial (HomeContent), que continuam a usar isMensagemNaoLidaNoCorreio.
-      base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemNaoLida(item));
+      // 2026-11-13 — a lista «Não Lidas» é a MESMA fonte do badge da foto de
+      // perfil (unreadMessagesList = obterListaCorrespondenciasNaoLidas): tudo
+      // o que o badge conta (não lidas da caixa, notificações e ocorrências do
+      // servidor, com deduplicação) aparece aqui, com paridade 1:1. O dono
+      // exige: "todas as não lidas do badge devem aparecer em «Não Lidas»".
+      base = unreadMessagesList;
     } else {
       // 'todas' / padrão: TODAS as correspondências recebidas da conta (Lidas + Não Lidas)
       base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id));
@@ -4736,7 +4733,7 @@ export default function App() {
     if (!searchMail.trim()) return base;
     
     return base.filter(m => pesquisarMensagem(m, searchMail));
-  }, [correspondenciaTab, currentInbox, currentSentMessages, searchMail, deletedMessageIds, hiddenMessageIds]);
+  }, [correspondenciaTab, currentInbox, currentSentMessages, searchMail, deletedMessageIds, hiddenMessageIds, unreadMessagesList]);
 
   // Conversas das «Enviadas» visíveis (estilo Gmail): base para o painel do
   // detalhe e para as pastas da página Inquéritos (SondagensContent).
@@ -4811,6 +4808,16 @@ export default function App() {
   // Handlers
   const [messageReturnTab, setMessageReturnTab] = useState<string | null>(null);
   const handleSelectMessage = (message: Message, origem?: 'recebidas' | 'enviadas', returnTab?: string) => {
+    // 2026-11-13 — itens do BADGE que agora aparecem na lista «Não Lidas»
+    // (ocorrências do servidor / notificações): reutilizar o handler do menu
+    // da foto (handleOpenUnreadMessage) — marca como lida e navega para a
+    // secção temática, em vez de abrir o detalhe inline (que não existe para
+    // estes itens sintéticos). Para mensagens normais, comportamento intacto.
+    const _esp = message as any;
+    if (_esp.ocorrenciaNotifId || _esp.isNotificationItem) {
+      handleOpenUnreadMessage(message);
+      return;
+    }
     const origemEfectiva = origem || correspondenciaTab;
     setMessageReturnTab(returnTab || null);
     window.scrollTo({ top: 0, behavior: 'smooth' });

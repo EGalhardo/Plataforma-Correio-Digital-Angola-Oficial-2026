@@ -70,7 +70,7 @@ import {
   distribuirInqueritosIA, removerRascunhoInqueritoIA, registarExpedicaoInqueritosIA,
   ativarInqueritosIAParaDestinatarios, type InqueritoIA,
 } from '../../services/inqueritoIaService';
-import { isMensagemLida, isMensagemNaoLida } from '../../utils/notificacoesAtalhos';
+import { isMensagemLida } from '../../utils/notificacoesAtalhos';
 import { Loader2, CheckCircle2, AlertTriangle, Sparkles, CheckCheck, ClipboardCheck, MessagesSquare, Mic } from 'lucide-react';
 // F59 — a pesquisa teatral de 8s com textos governamentais inventados e
 // correspondência em MOCK_CITIZENS/MOCK_USERS foi REMOVIDA: o lookup do
@@ -673,7 +673,20 @@ export function MailContent({
     return mapa;
   }, [agruparEnviadas, baseEnviadasVisiveis]);
   const linhasConversa = useMemo(
-    () => (agruparEnviadas ? agruparConversas(filteredMessages) : filteredMessages.map(conversaUnica)),
+    () => (agruparEnviadas
+      ? agruparConversas(filteredMessages)
+      : filteredMessages.map((m) => {
+          // 2026-11-13 — chave ÚNICA por item. A lista «Não Lidas» inclui itens
+          // do badge (ocorrências do servidor / notificações) que podem
+          // partilhar o mesmo id numérico (ex.: 95000000); usa o
+          // identificador estável de cada item para evitar chaves React
+          // duplicadas (3 ocorrências = 3 linhas distintas).
+          const c = conversaUnica(m);
+          const am = m as any;
+          if (am.ocorrenciaNotifId != null) return { ...c, chave: 'oc:' + String(am.ocorrenciaNotifId) };
+          if (am.isNotificationItem && am.originalNotification?.id != null) return { ...c, chave: 'nt:' + String(am.originalNotification.id) };
+          return c;
+        })),
     [agruparEnviadas, filteredMessages],
   );
   const contagemEnviadas = useMemo(
@@ -2506,11 +2519,10 @@ export function MailContent({
           {[
             { id: 'todas', label: 'Todas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)).length },
             { id: 'lidas', label: 'Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && isMensagemLida(m)).length },
-            // 2026-11-13 — «Não Lidas» completa: badge da aba reflecte TODAS as
-            // recebidas não lidas (incl. ocorrências não lidas), em paridade com
-            // a lista (isMensagemNaoLida) e com «Lidas». O contador/badge global
-            // (avatar) e o painel inicial mantêm a deduplicação de ocorrências.
-            { id: 'naoLidas', label: 'Não Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && isMensagemNaoLida(m)).length },
+            // 2026-11-13 — «Não Lidas» = lista do badge (unreadTotal): o badge
+            // da aba reflecte exactamente o que o badge da foto de perfil
+            // conta (unreadMessagesList), com paridade 1:1 com a lista.
+            { id: 'naoLidas', label: 'Não Lidas', count: unreadTotal },
             { id: 'enviadas', label: 'Enviadas', count: contagemEnviadas },
             { id: 'excluidas', label: 'Arquivadas', count: [...inbox, ...sentMessages].filter(m => deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)).length }
           ].map(tab => {
