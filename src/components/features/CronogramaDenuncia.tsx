@@ -21,12 +21,10 @@ import {
   FASES_DENUNCIA,
   definicaoFase,
   proximaFase,
-  ehAssuntoNovaDenuncia,
   type DefinicaoFase,
   type FaseDenuncia,
 } from '../../services/denunciaCore';
 import { activarFaseDenuncia, lerCronogramaDenuncia, type EventoFaseDenuncia } from '../../services/denunciaService';
-import { supabaseService } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 
 interface Props {
@@ -110,48 +108,12 @@ export function CronogramaDenuncia({ messageId, senderBi, subject, podeGerir, on
       void supabase.from('messages').update({ unread: 1, updated_at: new Date().toISOString() }).eq('id', baseId).then(() => {}, () => {});
 
       if (effectiveSenderBi) {
-        const isReclamacao = String(subject || '').toUpperCase().includes('RECLAMA');
-        const prefixo = isReclamacao ? 'Reclamação' : ehAssuntoNovaDenuncia(subject) ? 'Denuncia' : 'Denúncia';
-        const msgNotif = isReclamacao
-          ? (pedida.id === 'encerrada' ? 'O processo da sua reclamação foi encerrado.' : pedida.id === 'respondida' ? 'A instituição respondeu à sua reclamação.' : `A sua reclamação passou para o estado «${pedida.rotulo}».`)
-          : (pedida.id === 'encerrada' ? 'O processo da sua denúncia foi encerrado.' : pedida.id === 'respondida' ? 'A instituição respondeu à sua denúncia.' : `A sua denúncia passou para o estado «${pedida.rotulo}».`);
-        const cleanSubj = String(subject || '').replace(/^\[[^\]]*\]\s*/, '').slice(0, 80) || 'sem assunto';
-
-        const notifPayload = {
-          target_bi: String(effectiveSenderBi).toUpperCase(),
-          title: `${prefixo} — ${pedida.rotulo}`,
-          message: `${msgNotif} (${cleanSubj})`,
-          time_text: 'Agora',
-          type: (pedida.id === 'encerrada' ? 'success' : 'info') as 'success' | 'info',
-          target_tab: 'mensagem',
-        };
-
-        void supabaseService.insertNotification(notifPayload).catch(() => {});
-
-        // Sincronização e persistência local imediata
+        // 2026-11-13 — a notificação E a mensagem de actualização de estado são
+        // gravadas UMA única vez, pelo SERVIDOR (/api/denuncia/fase). Antes o
+        // cliente inseria AQUI uma segunda notificação (duplicata na caixa do
+        // cidadão) e não havia mensagem de correspondência. Mantém-se apenas a
+        // actualização dos caches locais da própria correspondência.
         try {
-          const rawNotifs = localStorage.getItem('correio_digital_notifications');
-          const notifsList = rawNotifs ? JSON.parse(rawNotifs) : [];
-          const novaNotif = {
-            id: Date.now(),
-            title: notifPayload.title,
-            message: notifPayload.message,
-            time: 'Agora',
-            type: notifPayload.type,
-            targetTab: isReclamacao ? 'denuncias' : 'nova-denuncia',
-            unread: true,
-            ownerId: String(effectiveSenderBi).toUpperCase()
-          };
-          notifsList.unshift(novaNotif);
-          localStorage.setItem('correio_digital_notifications', JSON.stringify(notifsList));
-
-          const normBiKey = String(effectiveSenderBi).toUpperCase();
-          const userNotifsKey = `cda_notifications_${normBiKey}`;
-          const rawUserNotifs = localStorage.getItem(userNotifsKey);
-          const userNotifsList = rawUserNotifs ? JSON.parse(rawUserNotifs) : [];
-          userNotifsList.unshift(novaNotif);
-          localStorage.setItem(userNotifsKey, JSON.stringify(userNotifsList));
-
           // Atualizar cópia em correio_digital_sent
           const rawSent = localStorage.getItem('correio_digital_sent');
           if (rawSent) {
@@ -181,7 +143,7 @@ export function CronogramaDenuncia({ messageId, senderBi, subject, podeGerir, on
           }
 
           window.dispatchEvent(new CustomEvent('cda-cronograma-updated', {
-            detail: { messageId: baseId, fase: pedida.id, senderBi: effectiveSenderBi, notif: novaNotif }
+            detail: { messageId: baseId, fase: pedida.id, senderBi: effectiveSenderBi, notif: null }
           }));
         } catch {}
       }
@@ -190,7 +152,7 @@ export function CronogramaDenuncia({ messageId, senderBi, subject, podeGerir, on
       const isReclamacao = String(subject || '').toUpperCase().includes('RECLAMA');
       const rotuloProcesso = isReclamacao ? 'da reclamação' : 'da denúncia';
       onRegistar?.(`Fase ${rotuloProcesso} «${r.rotulo}» activada — cidadão notificado.`);
-      onAviso?.(`Fase «${r.rotulo}» activada. O cidadão foi notificado.`, 'success');
+      onAviso?.(`Fase «${r.rotulo}» activada. O cidadão foi notificado e recebeu a mensagem de actualização de estado.`, 'success');
       await recarregar();
     } else {
       setErroPopup(r.erro);

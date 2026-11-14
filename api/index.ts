@@ -4604,8 +4604,9 @@ async function denunciaActivarFase(opts: {
     const txt = await ri.text().catch(() => '');
     return { status: ri.status, json: { ok: false, erro: `Gravação falhou (${ri.status}). ${txt.slice(0, 120)}` } };
   }
-  // Notificação ao cidadão remetente (melhor esforço — a fase já ficou gravada).
+  // Notificação + mensagem ao cidadão remetente (melhor esforço — a fase já ficou gravada).
   let notificado = false;
+  let mensagemEnviada = false;
   try {
     const isReclamacao = String(row.subject || '').toUpperCase().includes('RECLAMA');
     const prefixoTitulo = ehNovaFila ? 'Denuncia' : isReclamacao ? 'Reclamação' : 'Denúncia';
@@ -4628,6 +4629,46 @@ async function denunciaActivarFase(opts: {
     });
     notificado = rn.ok;
 
+    // 2026-11-13 — além da notificação, o REMETENTE recebe uma MENSAGEM na
+    // própria caixa de entrada informando da actualização do estado do processo
+    // (pedido do dono). Título: «<Família> <assunto> - Estado <fase>»; corpo no
+    // molde «Viemos por esse meio informar que a sua <Família> sobre <assunto>
+    // foi recebida e está neste momento em estado <fase>.» A linha é uma
+    // correspondência normal endereçada ao BI do cidadão (recipient_bi), de modo
+    // a aparecer no getOwnMailbox do remetente. Melhor esforço — a fase já está
+    // gravada mesmo que esta escrita falhe.
+    const cidadaoBi = String(row.sender_bi || '').toUpperCase().trim();
+    if (cidadaoBi) {
+      const tituloMsg = `${prefixoTitulo} ${cleanSubj} - Estado ${def.rotulo}`;
+      const corpoMsg = `Viemos por esse meio informar que a sua ${prefixoTitulo} sobre ${cleanSubj} foi recebida e está neste momento em estado ${def.rotulo}.`;
+      const novoId = Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);
+      const rm = await fetch(`${supaUrl}/rest/v1/messages`, {
+        method: 'POST', headers: { ...H, Prefer: 'return=minimal' },
+        body: JSON.stringify([{
+          id: novoId,
+          sender_bi: minha,
+          recipient_bi: cidadaoBi,
+          org: minha,
+          preview: tituloMsg,
+          unread: 1,
+          status: 'Informativo',
+          subject: tituloMsg,
+          body: corpoMsg,
+          deadline_text: 'Sem prazo',
+          state_indicator: def.rotulo,
+          actions: ['Ver detalhes'],
+          attachments: [],
+          sensitivity: 'Privado',
+          priority_scale: 'Normal',
+          deadline_hours_remaining: null,
+          deadline_at: null,
+          protocol_id: null,
+          protocol_number: null,
+        }]),
+      });
+      mensagemEnviada = rm.ok;
+    }
+
     // Marcação da correspondência como não lida para que o cidadão receba o badge na foto de perfil
     await fetch(`${supaUrl}/rest/v1/messages?id=eq.${id}`, {
       method: 'PATCH',
@@ -4635,7 +4676,7 @@ async function denunciaActivarFase(opts: {
       body: JSON.stringify({ unread: 1, updated_at: agora.toISOString() }),
     });
   } catch { /* melhor esforço */ }
-  return { status: 200, json: { ok: true, fase: def.id, rotulo: def.rotulo, em: agora.toISOString(), notificado } };
+  return { status: 200, json: { ok: true, fase: def.id, rotulo: def.rotulo, em: agora.toISOString(), notificado, mensagem: mensagemEnviada } };
 }
 
 async function dadosResolverEExecutar(opts: {
