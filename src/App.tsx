@@ -5526,18 +5526,23 @@ export default function App() {
     return { ok: true, protocol };
   };
 
-  const handleReply = (msg: Message) => {
-    // `org` é apenas o rótulo exibido. Para entregar a resposta, usar a chave
-    // canónica do remetente original (BI/código institucional), não o texto.
-    // 2026-09-18 — numa mensagem ENVIADA o `senderKey` é a PRÓPRIA conta (F15);
-    // «Responder» segue então para o destinatário original, nunca para si própria.
+  // 2026-11-13 — chave canónica do destinatário de uma RESPOSTA (usada pelo
+  // «Responder» e pelo «Usar rascunho» da IA): `org` é apenas o rótulo exibido;
+  // entregar com o texto faz a mensagem cair numa caixa que ninguém consulta
+  // (resposta «perdida»). 2026-09-18 — numa mensagem ENVIADA o `senderKey` é a
+  // PRÓPRIA conta (F15); responder segue então para o destinatário original,
+  // nunca para si própria.
+  const resolverDestinatarioResposta = (msg: Message): string => {
     const minhaChave = String((isInstMode ? (institutionCode || bi) : isGovMode ? 'CDA' : bi) || '').trim().toUpperCase();
     const enviadaPorMim = !!msg.senderKey && String(msg.senderKey).trim().toUpperCase() === minhaChave;
-    const recipient = enviadaPorMim
+    return enviadaPorMim
       ? (msg.recipientBi || '')
       : (msg.senderKey || msg.recipientBi || resolveInstitutionCode(msg.org));
+  };
+
+  const handleReply = (msg: Message) => {
     setComposeData({
-      to: recipient,
+      to: resolverDestinatarioResposta(msg),
       subject: `RE: ${msg.details?.subject || msg.preview.substring(0, 30)}`,
       body: `\n\n--------------------------------\nEm resposta à mensagem de ${msg.date}:\n"${msg.preview}"`,
       attachments: []
@@ -5562,9 +5567,14 @@ export default function App() {
 
   // S5 — rascunho gerado pela IA entra no compositor para REVISAO humana;
   // o envio continua 100% manual (a IA nunca envia).
+  // 2026-11-13 — BUG DE ENTREGA: o destinatário era `msg.org` (rótulo
+  // exibido, ex. «Área de Administração · CDA»), de modo que a resposta gravava
+  // recipient_bi com texto que não corresponde a nenhuma caixa → a resposta
+  // nunca chegava ao remetente original. Usa agora a MESMA resolução canónica
+  // do «Responder» (resolverDestinatarioResposta).
   const handleResponderComRascunho = (msg: Message, rascunho: string) => {
     setComposeData({
-      to: msg.org,
+      to: resolverDestinatarioResposta(msg),
       subject: `RE: ${msg.details?.subject || msg.preview.substring(0, 30)}`,
       body: rascunho,
       attachments: []
