@@ -4582,7 +4582,12 @@ export default function App() {
     // "… para o dia DD/MM/AAAA às HH:MM" — depois desse dia a notificação
     // esconde-se sozinha (não é apagada). 2026-09-14: coberto também o formato
     // DD/MM/AAAA (agendamentos passados ficavam visíveis e no badge p/ sempre).
-    const hoje = new Date().toISOString().slice(0, 10);
+    // 2026-11-14 — dia de hoje em horário LOCAL (o browser do utilizador, ex.:
+    // Africa/Luanda UTC+1), não UTC: a versão antiga (toISOString) mantinha as
+    // notificações do dia anterior visíveis até 01:00 locais e desfasava a
+    // contagem das «Não Lidas» na página da madrugada.
+    const agoraLocal = new Date();
+    const hoje = `${agoraLocal.getFullYear()}-${String(agoraLocal.getMonth() + 1).padStart(2, '0')}-${String(agoraLocal.getDate()).padStart(2, '0')}`;
     const diaUltrapassado = (texto: string): boolean => {
       const iso = /dia\s+(\d{4}-\d{2}-\d{2})/i.exec(texto);
       if (iso) return iso[1] < hoje;

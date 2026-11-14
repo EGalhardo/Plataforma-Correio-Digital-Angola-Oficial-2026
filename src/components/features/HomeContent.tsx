@@ -11,7 +11,6 @@ import { HIGHLIGHT_SLIDES, INST_HIGHLIGHT_SLIDES } from '../../constants/data';
 import { Message, LanguageCode, AppNotification } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
 import { LazyImage } from '../ui/LazyImage';
-import { AnimatedCounter } from '../ui/AnimatedCounter';
 
 interface HomeContentProps {
   /** Contagens por categoria calculadas pela App a partir da lista única de não lidas. */
@@ -222,12 +221,12 @@ export function HomeContent({
           <div className="min-w-0 flex-1">
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 truncate">{t("Novas Mensagens")}</div>
             <div className="flex items-baseline gap-1 truncate" data-testid="card-unread-messages">
-              <AnimatedCounter
-                to={unreadTotal}
-                duration={1200}
-                className="text-sm md:text-lg font-black text-slate-900 leading-tight tracking-tight"
-                triggerOnVisible
-              />
+              {/* 2026-11-14 — número IMEDIATO (sem animação): o contador antigo
+                  (AnimatedCounter, 1200ms) mostrava valores intermédios enquanto
+                  as notificações sincronizavam, ficando visivelmente DIFERENTE do
+                  badge da foto e da lista «Não Lidas» no Painel. Agora todos os
+                  números do Painel partilham a mesma fonte e actualizam juntos. */}
+              <span data-testid="novas-mensagens-count" className="text-sm md:text-lg font-black text-slate-900 leading-tight tracking-tight tabular-nums">{unreadTotal}</span>
               <span data-testid="unread-total-counter" data-unread-count={unreadTotal} className="text-sm md:text-lg font-black text-slate-900 leading-tight tracking-tight"> {t("Não Lidas")}</span>
             </div>
             <div className="text-[10px] md:text-xs text-primary font-bold mt-1 flex items-center gap-1">{t("Ver Correspondências")} &rarr;</div>
