@@ -6479,6 +6479,9 @@ Ficha civil do titular:
             isMobile={isMobile}
             setTab={setTab}
             unreadTotal={unreadTotal}
+            // 2026-11-14 — o cartão «Não Lidas» do Painel usa a MESMA fonte canónica
+            // do badge da foto e da aba «Não Lidas» do Correio (1:1, sem omissões).
+            unreadMessages={unreadMessagesList}
             notifications={currentNotifications}
             notificationsLoading={!isDemoSession && !cloudSyncedOnce}
             notificationOwnerKey={`${sessionOwnerKey}:${bi}`}

@@ -25,6 +25,13 @@ interface HomeContentProps {
   notificationOwnerKey?: string;
   realSession?: boolean;
   notificationsLoading?: boolean;
+  /**
+   * 2026-11-14 — fonte canónica das «Não Lidas» (a MESMA lista do badge da
+   * foto de perfil e da aba «Não Lidas» do Correio). Quando fornecida, o
+   * cartão «Não Lidas» do Painel a usa: correspondências não lidas +
+   * notificações não lidas + ocorrências do servidor.
+   */
+  unreadMessages?: Message[];
   inbox: Message[];
   sentMessages: Message[];
   deletedMessages?: Message[];
@@ -57,6 +64,7 @@ export function HomeContent({
   notificationOwnerKey = "",
   realSession = false,
   notificationsLoading = false,
+  unreadMessages,
   inbox,
   sentMessages,
   deletedMessages = [],
@@ -87,11 +95,26 @@ export function HomeContent({
   const slides = isInst ? INST_HIGHLIGHT_SLIDES : HIGHLIGHT_SLIDES;
   const currentSlide = slides[activeSlide % slides.length];
 
-  // Contagens para layout dinâmico dos containers de correspondências:
-  const unreadCount = (inbox || []).filter(isMensagemNaoLidaNoCorreio).length;
+  // 2026-11-14 — fonte canónica das «Não Lidas» para o cartão do Painel: a MESMA
+  // lista que alimenta o badge da foto de perfil e a aba «Não Lidas» do Correio
+  // (correspondências não lidas + notificações não lidas + ocorrências do servidor).
+  // Sem a prop, cai no filtro antigo sobre a inbox crua (que omitia as ocorrências,
+  // por serem «cópias», e as notificações sintéticas — o bug do «1 em vez de 10»).
+  const unreadItems = unreadMessages ?? (inbox || []).filter(isMensagemNaoLidaNoCorreio);
+  const unreadCount = unreadItems.length;
   const readCount = (inbox || []).filter(m => !m.unread).length;
   const sentCount = (sentMessages || []).length;
   const deletedCount = (deletedMessages || []).length;
+
+  // Chave React ÚNICA por item: as ocorrências do servidor partilham id=95000000
+  // (colisão UUID→NaN) e as notificações sintéticas têm id derivado, por isso a
+  // chave não pode ser só o `m.id` (mesma razão da lista do Correio).
+  const chaveItemNaoLida = (m: Message) => {
+    const am = m as any;
+    if (am.ocorrenciaNotifId != null) return 'oc:' + String(am.ocorrenciaNotifId);
+    if (am.isNotificationItem && am.originalNotification?.id != null) return 'nt:' + String(am.originalNotification.id);
+    return 'm:' + m.id;
+  };
 
   // Regras de visibilidade dos containers (Esquerda para a Direita):
   // 1. «Lidas»: Sempre visível (obrigatório, mesmo com 0 correspondências)
@@ -349,8 +372,8 @@ export function HomeContent({
                 <p className="text-xs font-black uppercase text-[#0E2B64] tracking-wider">{t("SEM MENSAGENS NOVAS")}</p>
               </div>
             ) : (
-              (inbox || []).filter(isMensagemNaoLidaNoCorreio).map(m => (
-                <div key={m.id} role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
+              unreadItems.map(m => (
+                <div key={chaveItemNaoLida(m)} data-testid="painel-nao-lidas-item" role="button" className="flex justify-between items-center text-[12px] md:text-sm border-b border-slate-50 pb-2.5 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer px-2 py-1.5 rounded-xl group/item" onClick={() => handleSelectMessage(m)}>
                   <div className="min-w-0 flex-1 truncate mr-3">
                     <span className="font-extrabold text-slate-900 group-hover/item:text-primary transition-colors">{t(m.org)}:</span>
                     <span className="ml-1 text-slate-600 font-medium">{t(m.preview)}</span>
