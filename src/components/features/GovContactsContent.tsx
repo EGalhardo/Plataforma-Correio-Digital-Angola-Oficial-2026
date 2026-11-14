@@ -1486,6 +1486,27 @@ export function GovContactsContent({
     await gravarWorker();
     } finally { setIsSavingWorker(false); }
   };
+
+  // 2026-11-13 — pedido do dono: «EDITAR MEMBRO DA EQUIPA» tem de gravar as
+  // páginas marcadas para o login do colaborador as activar. O número do
+  // agente é resolvido a partir da LINHA editada (lista combinada): a lista
+  // mostra a linha da base central (id = Nº do agente) enquanto o espelho
+  // local guarda o mesmo membro com outro id (worker-…). A pesquisa antiga
+  // (só espelho local por id) falhava nas linhas centrais → as permissões de
+  // página NÃO eram gravadas em lado nenhum (nem local nem nuvem) e o popup
+  // mostrava «guardado com sucesso».
+  const resolverNumeroAgenteEmEdicao = (rowId: string | null): string => {
+    if (!rowId) return '';
+    // (agentesReais/membrosCloudInst/workers — todas definidas antes deste
+    // ponto; a lista combinada surge depois e não pode ser usada aqui)
+    const porLinha = [...(agentesReais || []), ...(membrosCloudInst || []), ...(workers || [])].find(w => w.id === rowId)?.agentId;
+    if (porLinha && normalizeAgentNumber(porLinha)) return normalizeAgentNumber(porLinha);
+    const norma = normalizeAgentNumber(rowId);
+    const porEspelho = (workers || []).find(w => w.agentId && normalizeAgentNumber(w.agentId) === norma)?.agentId;
+    if (porEspelho) return normalizeAgentNumber(porEspelho);
+    return /^[A-Z0-9][A-Z0-9-]{3,23}$/.test(norma) ? norma : '';
+  };
+
   const gravarWorker = async () => {
 
     const isPlatformAdmin = appMode === 'admin-workers';
@@ -1518,9 +1539,16 @@ export function GovContactsContent({
     }
 
     if (isEditingWorker && editingWorkerId) {
+      // 2026-11-13 — número do agente resolvido UMA vez a partir da linha editada
+      // (funciona para linhas da base central — id = Nº — e para o espelho local).
+      const editedAgentNum = resolverNumeroAgenteEmEdicao(editingWorkerId);
       if (instReg && newWorkerPassword && editingWorkerId) {
-        updateInstMemberPassword(regCode, editingWorkerId, newWorkerPassword);
-        const editedMemberAgent = workers.find(w => w.id === editingWorkerId)?.agentId;
+        // membro do registo local: por id OU por nº de agente (linhas centrais
+        // têm id = nº do agente, que não é o id do membro no registo)
+        const membroRegId = (instReg.members || []).find(m => m.id === editingWorkerId)?.id
+          || ((instReg.members || []).find(m => m.agentNumber && editedAgentNum && normalizeAgentNumber(m.agentNumber) === editedAgentNum)?.id);
+        if (membroRegId) updateInstMemberPassword(regCode, membroRegId, newWorkerPassword);
+        const editedMemberAgent = editedAgentNum;
         // 2026-08-22 — a senha do colaborador vive no Supabase Auth: a nuvem
         // passa a ser ACTUALIZADA na reposição (antes ficava com a senha
         // antiga e o colaborador acumulava tentativas falhadas noutros
@@ -1536,12 +1564,15 @@ export function GovContactsContent({
         }
       }
       if (adminCredsOn && newWorkerPassword && editingWorkerId) {
-        const editedWorkerAgentNum = workers.find(w => w.id === editingWorkerId)?.agentId;
-        if (editedWorkerAgentNum && /^Admin-\d+$/i.test(editedWorkerAgentNum)) {
+        const editedWorkerAgentNum = editedAgentNum;
+        if (editedWorkerAgentNum && /^(Admin-\d+|ADMIN-\d+)$/i.test(editedWorkerAgentNum)) {
           updateAdminAgentPassword(editedWorkerAgentNum, newWorkerPassword);
           addAuditLog?.(`[EQUIPA] Senha do agente ${editedWorkerAgentNum} actualizada — login Admin passa a exigir a nova senha.`, 'info');
-          // 2026-08-22 — nuvem sincronizada na reposição (antes só local)
-          if (isCloudBound(editedWorkerAgentNum) && isSupabaseConfigured()) {
+          // 2026-08-22 — nuvem sincronizada na reposição (antes só local).
+          // 2026-11-13 — contas criadas pela Equipa são nuvem-primárias por
+          // construção (provision no acto): a reposição sincroniza a nuvem
+          // mesmo sem o marcador de migração (isCloudBound) local.
+          if ((isCloudBound(editedWorkerAgentNum) || editedWorkerAgentNum !== ADMIN_ALFA_AGENT) && isSupabaseConfigured()) {
             void alterarSenhaAgente(editedWorkerAgentNum, newWorkerPassword).then((res) => {
               addAuditLog?.(res.ok
                 ? `[AUTH-CLOUD] Palavra-passe de ${editedWorkerAgentNum} actualizada na nuvem (Supabase Auth).`
@@ -1564,7 +1595,12 @@ export function GovContactsContent({
       // próprio login.
       if (instReg && editingWorkerId) {
         console.log('[EQUIPA] A guardar no registo da instituição...');
-        updateInstMemberProfile(regCode, editingWorkerId, {
+        // 2026-11-13 — o id da linha pode ser o Nº do agente (linha da base
+        // central) e não o id do membro no registo local: resolver por id OU
+        // por nº de agente.
+        const membroRegId = (instReg.members || []).find(m => m.id === editingWorkerId)?.id
+          || ((instReg.members || []).find(m => m.agentNumber && editedAgentNum && normalizeAgentNumber(m.agentNumber) === editedAgentNum)?.id);
+        if (membroRegId) updateInstMemberProfile(regCode, membroRegId, {
           name: newWorkerName,
           email: newWorkerEmail,
           phone: newWorkerPhone,
@@ -1576,7 +1612,7 @@ export function GovContactsContent({
         
         // Verificar se foi guardado correctamente
         const regVerificacao = getLocalInstReg(regCode);
-        const membroVerificacao = (regVerificacao?.members || []).find(m => m.id === editingWorkerId);
+        const membroVerificacao = (regVerificacao?.members || []).find(m => m.id === (membroRegId || editingWorkerId));
         console.log('[EQUIPA] Verificação - membro:', membroVerificacao?.name);
         console.log('[EQUIPA] Verificação - paginasPermitidas:', membroVerificacao?.paginasPermitidas);
       } else {
@@ -1587,14 +1623,12 @@ export function GovContactsContent({
       
       // 2026-08-22 — permissões de página do AGENTE ADMIN (espelho local)
       if (adminCredsOn && editingWorkerId) {
-        const editedAgentNum = workers.find(w => w.id === editingWorkerId)?.agentId;
         if (editedAgentNum) updateAdminAgentPermissions(editedAgentNum, permissoesParaGuardar);
       }
       // 2026-08-22 — persistência NA NUVEM (Modo Real): o servidor grava as
       // páginas nos user_metadata do agente e valida a autoridade do
       // responsável (best-effort — falha de rede não quebra a edição local).
       {
-        const editedAgentNum = workers.find(w => w.id === editingWorkerId)?.agentId;
         if (editedAgentNum && isSupabaseConfigured()) {
           void permissoesAgente('gravar', editedAgentNum, permissoesParaGuardar).then((res) => {
             if (res.ok) addAuditLog?.(`[EQUIPA] Permissões de página de ${editedAgentNum} gravadas na nuvem (Supabase).`, 'success');
@@ -1602,14 +1636,14 @@ export function GovContactsContent({
           });
         }
       }
-      setWorkers(prev => prev.map(w => w.id === editingWorkerId ? {
+      setWorkers(prev => prev.map(w => (w.id === editingWorkerId || (editedAgentNum && w.agentId && normalizeAgentNumber(w.agentId) === editedAgentNum)) ? {
         ...w,
         name: newWorkerName,
         email: newWorkerEmail,
         role: newWorkerRole,
         phone: newWorkerPhone,
         department: newWorkerDept || 'Geral',
-        agentId: w.agentId || `CDA-${Math.floor(1000 + Math.random() * 9000)}`,
+        agentId: w.agentId || editedAgentNum || `CDA-${Math.floor(1000 + Math.random() * 9000)}`,
         status: newWorkerStatus || 'Ativo',
         registrationDate: w.registrationDate || '12/06/2026',
         permissions: w.permissions || ['Visualizar'],
@@ -1622,7 +1656,7 @@ export function GovContactsContent({
       addAuditLog?.(`[EQUIPA] Registo do membro da equipa ${newWorkerName} atualizado com sucesso.`, 'success');
       notify(`Ficha de ${newWorkerName} guardada com sucesso.`, 'success');
       // v37.78.6 — propagar a edição à ficha da base central (nome/telefone/email)
-      const agEdit = workers.find(w => w.id === editingWorkerId)?.agentId;
+      const agEdit = editedAgentNum;
       if (agEdit && /^[A-Z0-9][A-Z0-9\-]{3,23}$/.test(agEdit.toUpperCase())) {
         void equipaMembroCloud('criar', {
           agente: agEdit.toUpperCase(),
@@ -1905,9 +1939,13 @@ export function GovContactsContent({
         console.log('[EQUIPA] ✓ PRIORIDADE 2: usando reg.members.paginasPermitidas:', paginasCarregadas);
       }
     }
-    // PRIORIDADE 3: ir buscar às credenciais do admin
+    // PRIORIDADE 3: ir buscar às credenciais do admin (por workerId OU por nº
+    // de agente — 2026-11-13: as linhas da base central têm id = nº do agente,
+    // que não coincide com o workerId do espelho local)
     else {
-      const cred = getAdminAgentCreds().find((c) => c.workerId === w.id);
+      const cred = getAdminAgentCreds().find((c) =>
+        (w.id && c.workerId === w.id) ||
+        (w.agentId && c.agent && normalizeAgentNumber(c.agent) === normalizeAgentNumber(w.agentId)));
       if (cred?.paginasPermitidas && cred.paginasPermitidas.length > 0) {
         paginasCarregadas = [...cred.paginasPermitidas];
       }
@@ -1917,6 +1955,23 @@ export function GovContactsContent({
     console.log('[EQUIPA] A chamar setNewWorkerPaginas com:', paginasCarregadas);
     setNewWorkerPaginas(paginasCarregadas);
     setShowAddWorkerModal(true);
+    // 2026-11-13 — pedido do dono: o popup tem de abrir com as permissões
+    // REAIS do colaborador. Linha da base central sem permissões locais
+    // (criada noutro dispositivo): carrega as páginas da NUVEM (o servidor lê
+    // o user_metadata do Auth) e ajusta a pré-seleção; se falhar, mantém o
+    // fallback legado (todas = sem restrições).
+    if (appMode === 'admin-workers' && w.agentId && !w.paginas && isSupabaseConfigured()) {
+      void equipaMembroCloud('listar').then((res) => {
+        if (!res.ok || !Array.isArray(res.membros)) return;
+        const m = res.membros.find((x) => normalizeAgentNumber(String(x.bi || '')) === normalizeAgentNumber(w.agentId || ''));
+        const pag = (m && (m as { paginasPermitidas?: string[] | null }).paginasPermitidas);
+        if (Array.isArray(pag)) {
+          const validas = pag.filter((p) => paginasDaArea.some((pg) => pg.id === p));
+          setNewWorkerPaginas(validas.length ? [...validas, paginaObrigatoriaId] : [paginaObrigatoriaId]);
+          console.log('[EQUIPA] ✓ Pré-seleção ajustada a partir da nuvem:', [...validas, paginaObrigatoriaId]);
+        }
+      }).catch(() => { /* mantém o fallback */ });
+    }
   };
 
   // F6/B4 — guardar nova senha directamente no dossier do colaborador (vazio = manter)

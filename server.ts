@@ -2226,17 +2226,39 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
 
       // ---- LISTAR: equipa da própria área (base central) ----
       if (acao === 'listar') {
+        // 2026-11-13 — inclui as páginas concedidas a cada membro (fonte:
+        // user_metadata do Auth, a mesma do login) para o popup «Editar
+        // Membro da Equipa» abrir com a pré-seleção REAL do colaborador.
+        // null = sem lista gravada (sem restrições / legado).
+        const mapaPaginasAuth = async (dominio: string, whitelist: string[]): Promise<Map<string, string[]>> => {
+          const mapa = new Map<string, string[]>();
+          for (let pg = 1; pg <= 10; pg++) {
+            const { data: lista, error: listErr } = await admin.auth.admin.listUsers({ page: pg, perPage: 200 });
+            if (listErr || !lista || !lista.users || !lista.users.length) break;
+            lista.users.forEach((uu: any) => {
+              const em = String(uu?.email || '').toLowerCase();
+              const meta = (uu && uu.user_metadata) || {};
+              if (!em.startsWith('agente.') || !em.endsWith(`@${dominio}`) || !Array.isArray(meta.paginasPermitidas)) return;
+              mapa.set(em, (meta.paginasPermitidas as unknown[]).map((x) => String(x).trim()).filter(Boolean).filter((p) => whitelist.includes(p)));
+            });
+          }
+          return mapa;
+        };
         if (ehResponsavelInst) {
           const { data, error } = await admin.from('profiles')
             .select('bi,name,phone,email,role')
             .eq('role', 'instituicao')
             .like('bi', `${instCaller}-%`);
           if (error) return res.status(500).json({ ok: false, erro: error.message });
+          const mapa = await mapaPaginasAuth('inst.correiodigital.ao', PAGINAS_INSTITUICAO);
           // só COLABORADORES (seq >= 2): o nº 01 é o próprio responsável
           const membros = (data || []).filter((p: any) => {
             const seq = parseInt((String(p.bi || '').match(/-(\d+)$/) || [])[1] || '0', 10);
             return seq >= 2;
-          });
+          }).map((p: any) => ({
+            bi: p.bi, name: p.name, phone: p.phone, email: p.email, role: p.role,
+            paginasPermitidas: mapa.get(`agente.${String(p.bi || '').toLowerCase()}@inst.correiodigital.ao`) ?? null,
+          }));
           return res.status(200).json({ ok: true, membros });
         }
         if (ehAlfa) {
@@ -2244,7 +2266,12 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
             .select('bi,name,phone,email,role')
             .eq('role', 'admin');
           if (error) return res.status(500).json({ ok: false, erro: error.message });
-          return res.status(200).json({ ok: true, membros: data || [] });
+          const mapa = await mapaPaginasAuth('admin.correiodigital.ao', PAGINAS_ADMIN);
+          const membros = (data || []).map((p: any) => ({
+            bi: p.bi, name: p.name, phone: p.phone, email: p.email, role: p.role,
+            paginasPermitidas: mapa.get(`agente.${String(p.bi || '').toLowerCase()}@admin.correiodigital.ao`) ?? null,
+          }));
+          return res.status(200).json({ ok: true, membros });
         }
         return res.status(403).json({ ok: false, erro: 'Apenas o responsável da área pode listar a equipa.' });
       }

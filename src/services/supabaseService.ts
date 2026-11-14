@@ -677,7 +677,7 @@ export const permissoesAgente = async (
 export const equipaMembroCloud = async (
   acao: 'criar' | 'listar',
   membro?: { agente: string; nome: string; email?: string; phone?: string },
-): Promise<{ ok: boolean; membros?: { bi: string; name: string; phone?: string; email?: string }[]; erro?: string }> => {
+): Promise<{ ok: boolean; membros?: { bi: string; name: string; phone?: string; email?: string; paginasPermitidas?: string[] | null }[]; erro?: string }> => {
   try {
     const token = await obterTokenSessao();
     if (!token) return { ok: false, erro: 'A sua sessão expirou por motivos de segurança. Saia e entre novamente para continuar.' };

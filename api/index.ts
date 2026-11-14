@@ -3803,21 +3803,53 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
 
         // ---- LISTAR: equipa da própria área (base central) ----
         if (acao === 'listar') {
+          // 2026-11-13 — inclui as páginas concedidas a cada membro (fonte:
+          // user_metadata do Auth, a mesma do login) para o popup «Editar
+          // Membro da Equipa» abrir com a pré-seleção REAL do colaborador.
+          // null = sem lista gravada (sem restrições / legado).
+          const mapaPaginasAuth = async (dominio: string, whitelist: string[]): Promise<Map<string, string[]>> => {
+            const mapa = new Map<string, string[]>();
+            for (let pg = 1; pg <= 10; pg++) {
+              const lu = await fetch(`${supaUrlPerfil}/auth/v1/admin/users?per_page=200&page=${pg}`, { headers: h });
+              if (!lu.ok) break;
+              const lista = await lu.json().catch(() => null);
+              const users: any[] = (lista && lista.users) || [];
+              if (!users.length) break;
+              users.forEach((uu) => {
+                const em = String((uu && uu.email) || '').toLowerCase();
+                const meta = (uu && uu.user_metadata) || {};
+                if (!em.startsWith('agente.') || !em.endsWith(`@${dominio}`) || !Array.isArray(meta.paginasPermitidas)) return;
+                mapa.set(em, meta.paginasPermitidas.map((x: unknown) => String(x).trim()).filter(Boolean).filter((p: string) => whitelist.includes(p)));
+              });
+            }
+            return mapa;
+          };
           if (ehResponsavelInst) {
             const r = await fetch(`${supaUrlPerfil}/rest/v1/profiles?role=eq.instituicao&bi=like.${encodeURIComponent(`${instCaller}-%`)}&select=bi,name,phone,email,role`, { headers: h });
             if (!r.ok) return res.status(500).json({ ok: false, erro: `profiles: HTTP ${r.status}` });
             const linhas = await r.json().catch(() => []);
+            const PAGINAS_INST = ['home', 'correspondencias', 'inst-qrcode', 'inst-ai-assistant', 'perfil'];
+            const mapa = await mapaPaginasAuth('inst.correiodigital.ao', PAGINAS_INST);
             const membros = (Array.isArray(linhas) ? linhas : []).filter((p: any) => {
               const seq = parseInt((String(p.bi || '').match(/-(\d+)$/) || [])[1] || '0', 10);
               return seq >= 2;
-            });
+            }).map((p: any) => ({
+              bi: p.bi, name: p.name, phone: p.phone, email: p.email, role: p.role,
+              paginasPermitidas: mapa.get(`agente.${String(p.bi || '').toLowerCase()}@inst.correiodigital.ao`) ?? null,
+            }));
             return res.status(200).json({ ok: true, membros });
           }
           if (ehAlfa) {
             const r = await fetch(`${supaUrlPerfil}/rest/v1/profiles?role=eq.admin&select=bi,name,phone,email,role`, { headers: h });
             if (!r.ok) return res.status(500).json({ ok: false, erro: `profiles: HTTP ${r.status}` });
             const linhas = await r.json().catch(() => []);
-            return res.status(200).json({ ok: true, membros: Array.isArray(linhas) ? linhas : [] });
+            const PAGINAS_ADM = ['gov-dashboard', 'gov-interoperabilidade', 'gov-correspondencias', 'gov-contatos', 'gov-relatorio', 'gov-ia', 'gov-seguranca', 'gov-perfil'];
+            const mapa = await mapaPaginasAuth('admin.correiodigital.ao', PAGINAS_ADM);
+            const membros = (Array.isArray(linhas) ? linhas : []).map((p: any) => ({
+              bi: p.bi, name: p.name, phone: p.phone, email: p.email, role: p.role,
+              paginasPermitidas: mapa.get(`agente.${String(p.bi || '').toLowerCase()}@admin.correiodigital.ao`) ?? null,
+            }));
+            return res.status(200).json({ ok: true, membros });
           }
           return res.status(403).json({ ok: false, erro: 'Apenas o responsável da área pode listar a equipa.' });
         }
