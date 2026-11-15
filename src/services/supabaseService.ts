@@ -1,3 +1,4 @@
+import { isInstitutionHomologationReadMarker } from './institutionHomologationRead';
 import { notificationMessageKey, notificationMessageId } from '../utils/notificationMessageLink';
 import { supabase } from '../lib/supabaseClient';
 import { ehAssuntoQualquerDenuncia, REMETENTE_ANONIMO, codigoInstituicaoBase } from './denunciaCore';
@@ -2263,7 +2264,7 @@ export const supabaseService = {
       );
       if (linhas === null) return null;
 
-      return linhas.map((item: LinhaNotificacaoRow) => ({
+      return linhas.filter(item => !isInstitutionHomologationReadMarker(item.dedupe_key)).map((item: LinhaNotificacaoRow) => ({
         id: Number(item.id),
         title: item.title,
         message: item.message,

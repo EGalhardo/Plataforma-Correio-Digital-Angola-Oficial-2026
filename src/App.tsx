@@ -1,3 +1,4 @@
+import { firstInstitutionReceiptId, syncInstitutionReceipt } from './services/institutionHomologationRead';
 import { sameNotificationMessage } from './utils/notificationMessageLink';
 import { ListaParticipacaoContent } from './components/features/ListaParticipacaoContent';
 import { pesquisarContacto, pesquisarMensagem, CONTACTO_INSTITUCIONAL } from './utils/pesquisaContactosCorreio';
@@ -2256,7 +2257,7 @@ export default function App() {
     const baseId = baseOf(targetId);
     // Persiste "Lida" para as próximas sessões deste BI (novo login não repõe "Não Lida").
     persistReadMessageId(bi, targetId, baseId);
-    if (selectedMessage.homologation && appMode === 'user') window.dispatchEvent(new Event('cda-homologation-read'));
+    if (selectedMessage.homologation && (appMode === 'user' || appMode === 'institution')) window.dispatchEvent(new Event('cda-homologation-read'));
     const mark = (list: Message[]) => {
       let touched = false;
       const next = list.map(m => {
@@ -2918,6 +2919,67 @@ export default function App() {
       return [...fresh.slice().reverse(), ...pruned];
     });
   }, [appMode, bi, gateRefreshTick]);
+
+  // A confirmação institucional também é reconstruída com IDs locais. Ao ser
+  // aberta, regista-se um marcador único para o registo e a caixa PARTILHADA da
+  // instituição; não altera mensagens de aprovação recebidas da nuvem.
+  useEffect(() => {
+    if (stage !== 'app' || appMode !== 'institution' || !bi || !isOnline || !hasValidSupabaseKeys() || homologationStore.isExempt(bi)) return;
+    const controller = new AbortController();
+    const code = normalizeInstCode(bi);
+    let busy = false, pending = false;
+    const sync = async () => {
+      if (controller.signal.aborted) return;
+      if (busy) { pending = true; return; }
+      busy = true;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token || controller.signal.aborted) return;
+        const invalidatedIds = new Set<number>();
+        const result = await syncInstitutionReceipt({
+          url: import.meta.env.VITE_SUPABASE_URL || 'https://klrclczcahfycfdxzdqs.supabase.co',
+          key: import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
+          token: session.access_token, code, signal: controller.signal,
+          localRead: registrationId => {
+            const id = firstInstitutionReceiptId(homologationStore.getThread(code));
+            const reads = getReadMessageIds(code);
+            try {
+              const marker = JSON.parse(localStorage.getItem(`cda_institution_homologation_registration_${code}`) || 'null');
+              if (marker?.registrationId && marker.registrationId !== registrationId && typeof marker.id === 'number' && reads.delete(marker.id)) invalidatedIds.add(marker.id);
+            } catch { /* mantém os IDs locais */ }
+            return id != null && reads.has(id);
+          },
+        });
+        if (controller.signal.aborted) return;
+        const id = firstInstitutionReceiptId(homologationStore.getThread(code));
+        try {
+          if (invalidatedIds.size) {
+            const reads = getReadMessageIds(code);
+            invalidatedIds.forEach(oldId => reads.delete(oldId));
+            localStorage.setItem(cdaReadKey(code), JSON.stringify([...reads]));
+          }
+          localStorage.setItem(`cda_institution_homologation_registration_${code}`, JSON.stringify({ registrationId:result.registrationId, id }));
+        } catch { /* armazenamento local indisponível */ }
+        if (result.read && id != null) persistReadMessageId(code, id);
+        setInstInbox(prev => prev.map(m => {
+          if (!m.homologation || normalizeInstCode(m.homologationBi) !== code) return m;
+          if (result.read && m.id === id) return { ...m, unread:0, status:'Lida', novidade:false };
+          if (invalidatedIds.has(m.id)) return { ...m, unread:1, status:'Recebido', novidade:false };
+          return m;
+        }));
+      } catch (error) {
+        if (!controller.signal.aborted) console.warn('[Homologação institucional] Leitura ainda não sincronizada.', error);
+      } finally {
+        busy = false;
+        if (pending && !controller.signal.aborted) { pending = false; void sync(); }
+      }
+    };
+    void sync();
+    const onRead = () => void sync();
+    window.addEventListener('cda-homologation-read', onRead);
+    const timer = window.setInterval(() => void sync(), 60000);
+    return () => { controller.abort(); window.clearInterval(timer); window.removeEventListener('cda-homologation-read', onRead); };
+  }, [stage, appMode, bi, isOnline]);
 
   // Persistência do estado "Lida" entre sessões: re-aplica as leituras guardadas
   // deste BI sempre que a caixa for (re)construída (novo login, seed, espelho).
@@ -5018,7 +5080,7 @@ export default function App() {
 
       // Sincronização em tempo real de estado "Lida" em todos os arrays da plataforma
       persistReadMessageId(bi || sessionOwnerKey, baseId, message.id);
-      if (message.homologation && appMode === 'user') window.dispatchEvent(new Event('cda-homologation-read'));
+      if (message.homologation && (appMode === 'user' || appMode === 'institution')) window.dispatchEvent(new Event('cda-homologation-read'));
       setSelectedMessage(prev => prev ? { ...prev, unread: 0, status: 'Lida', novidade: false } : { ...message, unread: 0, status: 'Lida', novidade: false });
       try {
         const rawInbox = JSON.parse(localStorage.getItem('correio_digital_inbox') || '[]');

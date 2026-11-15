@@ -143,6 +143,7 @@ export const purgeInstitutionLocalResidues = (
   });
   try { localStorage.removeItem(`correio_digital_workers_${code}`); } catch { /* ignora */ }
   try { localStorage.removeItem(`cda_read_msgs_${code}`); } catch { /* ignora */ }
+  try { localStorage.removeItem(`cda_institution_homologation_registration_${code}`); } catch { /* ignora */ }
   // Listas globais e chaves por código (notificações, mensagens ocultas, estatísticas de IA)
   apagarDadosLocaisDaInstituicao(code);
 };
