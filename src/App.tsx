@@ -5451,6 +5451,13 @@ export default function App() {
       || body.trim().replace(/\s+/g, ' ').slice(0, 60).trim()
       || 'Correspondência Oficial';
     
+    // A fila antiga não contém o corpo/anexos nem garante replay. Para contas
+    // reais, não apresentar um envio fictício enquanto o serviço está offline.
+    if (!isOnline && !isDemoSession) {
+      const error = 'Sem ligação: a correspondência não foi enviada. O texto permanece no formulário para enviar quando a ligação regressar.';
+      notify(error, 'warning');
+      return { ok: false, error };
+    }
     const messageId = Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);
     const protocol = await sealProtocolForSend(
       generateProtocol(to, 'message', messageId, effectiveSubject),
@@ -5495,13 +5502,6 @@ export default function App() {
       protocol: protocol
     };
 
-    setSentMessages(prev => [{ ...newMessage, senderKey: isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi) }, ...prev]);
-    // Resposta directa do Detalhe da Correspondência NÃO mexe no compositor.
-    if (!override) {
-      setIsComposing(false);
-      setComposeData({ to: '', subject: '', body: '', attachments: [] });
-    }
-
     const protocolData = {
       protocolNumber: protocol.protocolNumber,
       org: to,
@@ -5511,11 +5511,19 @@ export default function App() {
       officialIssueDate: protocol.officialIssueDate || new Date().toLocaleDateString('pt-PT'),
       officialTime: protocol.officialTime || new Date().toLocaleTimeString('pt-PT').substring(0, 5)
     };
-// v37.78.8 — no envio múltiplo cada cópia é «silenciosa»: o comprovativo
-    // individual NÃO abre (o resumo do LOTE abre uma única vez no fim).
-    if (!override?.silencioso) setSuccessProtocolModal(protocolData);
+    // A caixa Enviadas, o fecho do formulário e o comprovativo só são
+    // publicados após confirmação da escrita principal (ou no modo demo).
+    const confirmarEnvioLocal = () => {
+      setSentMessages(prev => [{ ...newMessage, senderKey: isInstMode ? normalizeInstCode(institutionCode || bi) : normalizeHomologationBi(bi) }, ...prev]);
+      if (!override) {
+        setIsComposing(false);
+        setComposeData({ to: '', subject: '', body: '', attachments: [] });
+      }
+    };
 
     if (!isOnline) {
+      confirmarEnvioLocal();
+      if (!override?.silencioso) setSuccessProtocolModal(protocolData);
       OfflineManager.queueAction('SEND_MESSAGE', { messageId, to, subject: effectiveSubject });
       setOfflineQueue(OfflineManager.getQueue());
       
@@ -5525,20 +5533,31 @@ export default function App() {
       addAuditLog(`Ação Offline: Mensagem guardada em fila local. Canal SMS ativo.`, 'warning');
       return { ok: true, queued: true, protocol };
     }
-    addAuditLog(`Correspondência enviada com Protocolo ${protocol.protocolNumber}`, 'info');
-    OfflineManager.createAutomaticBackup();
-    // Sync to Supabase (falha de sincronização NÃO bloqueia a ação local — comportamento original)
     const isOfficialDispatch = isInstMode || isGovMode;
     try {
-      const sendPromise = isOfficialDispatch
+      const saved = await (isOfficialDispatch
         ? supabaseService.sendOfficialMessage(newMessage, to, isInstMode ? institutionCode : 'CDA', sondagensIdsEnvio, inqueritosIaIdsEnvio)
-        : supabaseService.sendCitizenMessage(newMessage, bi, to, user.name || profileName);
-      await sendPromise;
+        : supabaseService.sendCitizenMessage(newMessage, bi, to, user.name || profileName));
+      if (saved == null && !isDemoSession) throw new Error('Escrita principal não confirmada');
+    } catch (err) {
+      console.warn('[CDA-sync] Escrita da correspondência não confirmada:', err);
+      if (!isDemoSession) {
+        const error = 'Não foi possível confirmar o envio. O texto foi mantido; verifique Enviadas antes de tentar novamente.';
+        notify(error, 'error');
+        return { ok: false, error };
+      }
+    }
+    confirmarEnvioLocal();
+    addAuditLog(`Correspondência guardada com Protocolo ${protocol.protocolNumber}`, 'info');
+    OfflineManager.createAutomaticBackup();
+    let complementoFalhou = false;
+    let protocoloConfirmado = false;
+    try {
       // v37.78.12 — PERFORMANCE: as 3 escritas pós-envio são INDEPENDENTES
       // (protocolo para QR, evento «Enviada», notificação do destinatário).
       // Correm em PARALELO — antes eram 3 round-trips sequenciais e eram a
       // maior causa da lentidão ao enviar/responder correspondência.
-      await Promise.allSettled([
+      const resultadosComplementares = await Promise.allSettled([
         supabaseService.insertDigitalProtocol(protocol),
         supabaseService.insertMessageStateEvent({
           messageId,
@@ -5596,12 +5615,18 @@ export default function App() {
               // próprio BI; resolveInstitutionCode() reduziria '005404692BO043' a 'BO'.
             }, /^\d{9}[A-Z]{2}\d{3}$/.test(to.toUpperCase()) ? to.toUpperCase() : codigoInstituicaoBase(resolveInstitutionCode(to))),
       ]);
+      const resultadoProtocolo = resultadosComplementares[0];
+      protocoloConfirmado = resultadoProtocolo?.status === 'fulfilled' && resultadoProtocolo.value != null;
+      complementoFalhou = resultadosComplementares.some(r => r.status === 'rejected' || (r.status === 'fulfilled' && r.value == null));
     } catch (err) {
-      console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err);
+      complementoFalhou = true;
+      console.warn('[CDA-sync] Escritas complementares não confirmadas:', err);
     }
-    // v37.61 — feedback de sucesso no envio pelo compositor. A resposta direta
-    // (override) já mostra o cartão de sucesso no detalhe, por isso não duplicar.
-    if (!override) notify('Correspondência enviada com sucesso.', 'success');
+    // A mensagem pode estar guardada mesmo se protocolo ou aviso falharam:
+    // não a reenviar automaticamente, para evitar duplicados.
+    if ((protocoloConfirmado || isDemoSession) && !override?.silencioso) setSuccessProtocolModal(protocolData);
+    if (complementoFalhou && !isDemoSession) notify('Correspondência guardada, mas não foi possível confirmar todos os registos complementares ou a notificação.', 'warning');
+    else if (!override) notify('Correspondência enviada com sucesso.', 'success');
     return { ok: true, protocol };
   };
 
