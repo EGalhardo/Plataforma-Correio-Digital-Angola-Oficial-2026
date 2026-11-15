@@ -358,6 +358,11 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   const [filterMunicipio, setFilterMunicipio] = useState('Todos');
   const [filterCategory, setFilterCategory] = useState('Todas');
   const [filterStatus, setFilterStatus] = useState('Todos');
+  // 2026-11-15 — «Solicitações de Registo de Instituições» deixa de ser um
+  // cartão separado e passa a ser uma ABA do painel único, tal como na
+  // página «Cidadãos».
+  const [abaPainel, setAbaPainel] = useState<'instituicoes' | 'solicitacoes'>('instituicoes');
+
 
   // Modal active states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -399,6 +404,15 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   const [solicitacoes, setSolicitacoes] = useState<any[]>([]);
   const [loadingSolicitacoes, setLoadingSolicitacoes] = useState(false);
   const [selectedSolicitacao, setSelectedSolicitacao] = useState<any | null>(null);
+  // Vinham do IIFE do container removido; passam a viver no corpo do componente.
+  const pendingCount = solicitacoes.filter(s => solState(s.status) === 'pendente' || solState(s.status) === 'correcao').length;
+  const stateChip = (status?: string) => {
+    const st = solState(status);
+    if (st === 'ativa') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-emerald-50 border-emerald-100 text-emerald-700 tracking-wider">🟢 Ativa</span>;
+    if (st === 'rejeitada') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-rose-50 border-rose-100 text-rose-700 tracking-wider">🔴 Rejeitada</span>;
+    if (st === 'correcao') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-amber-50 border-amber-100 text-amber-700 tracking-wider">🟠 Em Correções</span>;
+    return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-yellow-50 border-yellow-100 text-yellow-700 tracking-wider">🟡 Pendente</span>;
+  };
   const [solReason, setSolReason] = useState('');
   const [solError, setSolError] = useState('');
   const [solBusy, setSolBusy] = useState(false);
@@ -1432,22 +1446,38 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
         </div>
       </div>
 
-      {/* ===== SOLICITAÇÕES DE REGISTO (modelo do cidadão) ===== */}
-      {(() => {
-        const pendingCount = solicitacoes.filter(s => solState(s.status) === 'pendente' || solState(s.status) === 'correcao').length;
-        const stateChip = (status?: string) => {
-          const st = solState(status);
-          if (st === 'ativa') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-emerald-50 border-emerald-100 text-emerald-700 tracking-wider">🟢 Ativa</span>;
-          if (st === 'rejeitada') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-rose-50 border-rose-100 text-rose-700 tracking-wider">🔴 Rejeitada</span>;
-          if (st === 'correcao') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-amber-50 border-amber-100 text-amber-700 tracking-wider">🟠 Em Correções</span>;
-          return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-yellow-50 border-yellow-100 text-yellow-700 tracking-wider">🟡 Pendente</span>;
-        };
-        return (
-          <div className="bg-white border border-slate-200 rounded-[24px] p-6 mb-8 shadow-xs">
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-4">
+
+      {/* Advanced Filter Box */}
+      <div className="bg-white border border-slate-200 rounded-[24px] px-6 py-4 mb-8">
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-4 mb-4">
+          <SlidersHorizontal size={14} className="text-indigo-600" />
+          <h3 className="text-[11px] font-black uppercase text-slate-900 tracking-wider">
+            Painel Geral de Filtros e Busca
+          </h3>
+          <div className="ml-auto flex items-center gap-1.5">
+            <button
+              onClick={() => setAbaPainel('instituicoes')}
+              className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border cursor-pointer transition-all ${
+                abaPainel === 'instituicoes' ? 'bg-[#0E2B64] border-[#0E2B64] text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            >
+              Instituições <span className="ml-1 text-[8.5px] opacity-80">{institutions.length}</span>
+            </button>
+            <button
+              onClick={() => setAbaPainel('solicitacoes')}
+              className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border cursor-pointer transition-all ${
+                abaPainel === 'solicitacoes' ? 'bg-[#0E2B64] border-[#0E2B64] text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            >
+              Solicitações <span className="ml-1 text-[8.5px] opacity-80">{solicitacoes.filter((r: any) => ['pendente','correcao'].includes(solState(r.status))).length}</span>
+            </button>
+          </div>
+        </div>
+
+        {abaPainel === 'solicitacoes' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3 pb-1">
               <div className="flex items-center gap-2.5">
                 <Shield size={15} className="text-[#4f46e5] stroke-[2.5]" />
-                <h3 className="text-[11px] font-black uppercase text-slate-900 tracking-wider">Solicitações de Registo de Instituições</h3>
+                <h3 className="text-[11px] font-black uppercase text-slate-900 tracking-wider">Pedidos de adesão institucional</h3>
                 {pendingCount > 0 && (
                   <span className="bg-amber-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full leading-none">{pendingCount} pendente{pendingCount > 1 ? 's' : ''}</span>
                 )}
@@ -1513,18 +1543,10 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
               </div>
             )}
           </div>
-        );
-      })()}
+        )}
 
-      {/* Advanced Filter Box */}
-      <div className="bg-white border border-slate-200 rounded-[24px] p-6 mb-8">
-        <div className="flex items-center gap-2 border-b border-slate-100 pb-4 mb-4">
-          <SlidersHorizontal size={14} className="text-indigo-600" />
-          <h3 className="text-[11px] font-black uppercase text-slate-900 tracking-wider">
-            Painel Geral de Filtros e Busca
-          </h3>
-        </div>
-
+        {abaPainel === 'instituicoes' && (
+        <>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {/* Search Dropdown replacing input */}
           <div className="space-y-1.5 col-span-1 md:col-span-2">
@@ -1617,9 +1639,12 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
             </div>
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* Beautiful tabular list layout replacing the card grid */}
+      {abaPainel === 'instituicoes' && (
       <div className="space-y-6">
         {paginatedInstitutions.length > 0 ? (
           <div className="overflow-x-auto rounded-[24px] bg-white max-h-[600px] border border-slate-200 shadow-xs">
@@ -1773,6 +1798,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
           </div>
         )}
       </div>
+      )}
 
       {/* Creation and Modification Drawer Dialog */}
       {createPortal(
