@@ -404,15 +404,6 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   const [solicitacoes, setSolicitacoes] = useState<any[]>([]);
   const [loadingSolicitacoes, setLoadingSolicitacoes] = useState(false);
   const [selectedSolicitacao, setSelectedSolicitacao] = useState<any | null>(null);
-  // Vinham do IIFE do container removido; passam a viver no corpo do componente.
-  const pendingCount = solicitacoes.filter(s => solState(s.status) === 'pendente' || solState(s.status) === 'correcao').length;
-  const stateChip = (status?: string) => {
-    const st = solState(status);
-    if (st === 'ativa') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-emerald-50 border-emerald-100 text-emerald-700 tracking-wider">🟢 Ativa</span>;
-    if (st === 'rejeitada') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-rose-50 border-rose-100 text-rose-700 tracking-wider">🔴 Rejeitada</span>;
-    if (st === 'correcao') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-amber-50 border-amber-100 text-amber-700 tracking-wider">🟠 Em Correções</span>;
-    return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-yellow-50 border-yellow-100 text-yellow-700 tracking-wider">🟡 Pendente</span>;
-  };
   const [solReason, setSolReason] = useState('');
   const [solError, setSolError] = useState('');
   const [solBusy, setSolBusy] = useState(false);
@@ -430,6 +421,16 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     if (status === 'Rejeitado' || status === 'Reprovado' || status === 'Não Aprovado') return 'rejeitada';
     if (status === 'Em Correções') return 'correcao';
     return 'pendente';
+  };
+
+  // Vinham do IIFE do container removido; passam a viver no corpo do componente.
+  const pendingCount = solicitacoes.filter(s => solState(s.status) === 'pendente' || solState(s.status) === 'correcao').length;
+  const stateChip = (status?: string) => {
+    const st = solState(status);
+    if (st === 'ativa') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-emerald-50 border-emerald-100 text-emerald-700 tracking-wider">🟢 Ativa</span>;
+    if (st === 'rejeitada') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-rose-50 border-rose-100 text-rose-700 tracking-wider">🔴 Rejeitada</span>;
+    if (st === 'correcao') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-amber-50 border-amber-100 text-amber-700 tracking-wider">🟠 Em Correções</span>;
+    return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-yellow-50 border-yellow-100 text-yellow-700 tracking-wider">🟡 Pendente</span>;
   };
 
   const fetchSolicitacoes = async () => {
@@ -1467,7 +1468,7 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
               className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border cursor-pointer transition-all ${
                 abaPainel === 'solicitacoes' ? 'bg-[#0E2B64] border-[#0E2B64] text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
             >
-              Solicitações <span className="ml-1 text-[8.5px] opacity-80">{solicitacoes.filter((r: any) => ['pendente','correcao'].includes(solState(r.status))).length}</span>
+              Solicitações <span className="ml-1 text-[8.5px] opacity-80">{solicitacoes.length}</span>
             </button>
           </div>
         </div>
