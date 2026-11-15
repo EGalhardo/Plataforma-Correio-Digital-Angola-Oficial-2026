@@ -83,6 +83,7 @@ import {
 import { ensureProtocolOnMessage, ensureProtocolOnDocument, generateProtocol, sealProtocolContent, canonicalProtocolPayload } from './utils/protocolGenerator';
 import { validarDataExpiracao, formatarDataExpiracao, dataExpiracaoParaISO } from './utils/dataExpiracao';
 import { OfflineManager, OfflineAction } from './utils/offlineManager';
+import { reconcileCloudMailboxState } from './utils/cloudMailboxState';
 import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente } from './utils/ordenacaoCronologica';
 import { agruparConversas, conversaDe, resumoDestinatarios } from './utils/conversasThread';
 import { PainelConversa } from './components/features/PainelConversa';
@@ -3316,8 +3317,8 @@ export default function App() {
         if (dbMessages !== null && isSubscribed) {
           // F12 — marca de titularidade: o cidadão/instituição REAL só vê o que
           // foi efectivamente endereçado à sua chave (query da nuvem já filtra).
-          const incoming = dbMessages.filter(m => !isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage).map(m => ({ ...m, recipientBi: bi, recipientInst: isInstMode ? (effectiveInstCode || bi) : m.recipientInst }));
-          const docs = dbMessages.filter(m => isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage).map(m => ({ ...m, recipientBi: bi, recipientInst: isInstMode ? (effectiveInstCode || bi) : m.recipientInst }));
+          const incoming = dbMessages.filter(m => !isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage).map(m => ({ ...m, recipientBi: m.recipientBi?.toUpperCase() === 'TODOS' ? 'TODOS' : bi, recipientInst: isInstMode ? (effectiveInstCode || bi) : m.recipientInst }));
+          const docs = dbMessages.filter(m => isDocumentMailboxMessage(m)).map(ensureProtocolOnMessage).map(m => ({ ...m, recipientBi: m.recipientBi?.toUpperCase() === 'TODOS' ? 'TODOS' : bi, recipientInst: isInstMode ? (effectiveInstCode || bi) : m.recipientInst }));
           
           // 2026-08-20 — Modo Real: a nuvem é a fonte ÚNICA (sem fusão com
           // estado local/mock). Eliminadas/arquivadas ficam fora da caixa em
@@ -3405,19 +3406,6 @@ export default function App() {
           }
         }
 
-        // Hidrata IDs arquivados / eliminados vindos da nuvem
-        const dbArchivedIds = [
-          ...(dbMessages || []),
-          ...(dbSentMessages || []),
-        ]
-          .filter(m => String(m.details?.state || '') === 'Arquivada')
-          .map(m => m.id);
-        if (dbArchivedIds.length > 0) {
-          setDeletedMessageIds(prev => Array.from(new Set([...prev, ...dbArchivedIds])));
-        }
-
-
-
         // 3–9 (2026-08-21, DESEMPENHO) — leituras em PARALELO: antes eram 6–7
         // round-trips sequenciais ao servidor (cada um com validação de sessão);
         // agora correm em simultâneo e a página da Administração carrega em
@@ -3437,6 +3425,21 @@ export default function App() {
           isInstMode ? supabaseService.getInstitutionMessages(institutionCode) : Promise.resolve(null),
         ]);
         if (!isSubscribed) return;
+
+        // O estado local não pode ocultar uma linha que a nuvem confirma como
+        // activa. Em contas reais reconciliamos apenas IDs efectivamente lidos;
+        // uma falha de leitura nunca altera a lista local. Os marcadores ARQ e
+        // ELIM_PERM pertencem a cada conta; difusões TODOS continuam locais.
+        if (!isDemoSession && !isGovMode && temSessaoDaNuvem && mailbox && (!isInstMode || dbInstMailbox)) {
+          const cloudRows = [...mailbox.incoming, ...mailbox.sent, ...(dbInstMailbox?.messages || [])];
+          const owner = isInstMode ? effectiveInstCode : bi;
+          setDeletedMessageIds(prev => reconcileCloudMailboxState(prev, cloudRows, owner, 'archived'));
+          setHiddenMessageIds(prev => reconcileCloudMailboxState(prev, cloudRows, owner, 'hidden'));
+        } else if (isDemoSession) {
+          const archived = [...(dbMessages || []), ...(dbSentMessages || [])]
+            .filter(m => String(m.details?.state || '') === 'Arquivada').map(m => m.id);
+          if (archived.length) setDeletedMessageIds(prev => Array.from(new Set([...prev, ...archived])));
+        }
 
         if (isInstMode) {
           const mailbox = dbInstMailbox;
