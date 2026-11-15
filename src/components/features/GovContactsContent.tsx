@@ -575,56 +575,7 @@ export function GovContactsContent({
   const [deleteConfirmCitizen, setDeleteConfirmCitizen] = useState<Citizen | null>(null);
   const [isDeletingCitizen, setIsDeletingCitizen] = useState<boolean>(false);
   const [modalActiveTab, setModalActiveTab] = useState<'validation' | 'activity' | 'edit'>('validation');
-  // 2026-11-15 — linhas cruas de `solicitacoes_registo` para o container
-  // «Solicitações de Registo do Cidadão». A lista `citizens` é o resultado já
-  // transformado; aqui guarda-se o registo tal como está na base (pendentes
-  // incluídos, com datas e marcadores de pré-verificação).
-  const [linhasSolicitacao, setLinhasSolicitacao] = useState<LinhaSolicitacaoCidadao[]>([]);
-  const [solicitacaoExpandida, setSolicitacaoExpandida] = useState<string | null>(null);
-  // Estado da gravação em curso por registo (id → true) para desactivar os botões.
-  const [aGravarSolicitacao, setAGravarSolicitacao] = useState<string | null>(null);
 
-  /** 2026-11-15 — actualiza o estado da conta de um pedido de registo, a
-   *  qualquer momento, a partir do container «Solicitações de Registo».
-   *  Usa o MESMO caminho de escrita da página (`updateRegistrationRecord` →
-   *  proxy do servidor com service role, com recuo para escrita directa), pelo
-   *  que não há um segundo circuito a divergir do fluxo da ficha do cidadão.
-   *  Os estados são os que a aplicação já usa: Aprovado / Pendente /
-   *  Bloqueado / Reprovado. */
-  const alterarEstadoSolicitacao = async (p: LinhaSolicitacaoCidadao, novoEstado: string) => {
-    const chave = String(p.bi_numero || p.id);
-    setAGravarSolicitacao(chave);
-    try {
-      const obs =
-        novoEstado === 'Aprovado' ? 'Conta aprovada pelo Administrador a partir das Solicitações de Registo.'
-        : novoEstado === 'Bloqueado' ? 'Conta bloqueada pelo Administrador a partir das Solicitações de Registo.'
-        : novoEstado === 'Reprovado' ? 'Pedido reprovado pelo Administrador a partir das Solicitações de Registo.'
-        : 'Conta reposta em estado pendente pelo Administrador a partir das Solicitações de Registo.';
-      const okNuvem = await updateRegistrationRecord(String(p.id), { status: novoEstado, observacoes: obs });
-
-      // Espelha o novo estado na lista já carregada (a tabela desta página e a
-      // do container passam a mostrar o mesmo, sem esperar por novo fetch).
-      setLinhasSolicitacao((prev) =>
-        prev.map((l) => (String(l.id) === String(p.id) ? { ...l, status: novoEstado, observacoes: obs } : l)),
-      );
-      setCitizens((prev) =>
-        prev.map((c) =>
-          String(c.biNumber || '').toUpperCase() === String(p.bi_numero || '').toUpperCase()
-            ? { ...c, status: novoEstado }
-            : c,
-        ),
-      );
-
-      if (okNuvem) {
-        notify(`Estado de ${p.nome || p.bi_numero} actualizado para «${novoEstado}» na base central.`);
-        addAuditLog?.(`[SOLICITAÇÕES] Registo ${p.bi_numero} → ${novoEstado} (via container de solicitações).`, 'success');
-      } else {
-        warnIfCloudDecisionNotPersisted(false, `A alteração de estado de ${p.bi_numero} para «${novoEstado}»`);
-      }
-    } finally {
-      setAGravarSolicitacao(null);
-    }
-  };
 
   // Edit fields states for selection inside modal
   const [editName, setEditName] = useState('');
@@ -685,8 +636,13 @@ export function GovContactsContent({
   }, [selectedReviewCitizen]);
 
   const [citizens, setCitizens] = useState<Citizen[]>(() => {
+    // 2026-11-15 — A LISTA ARRANCA VAZIA e só a base central a preenche.
+    // Antes arrancava de `localStorage['gov_admin_citizens']`, que guardava
+    // cidadãos de sessões antigas em que o catálogo fictício foi carregado
+    // (Maria Antónia, José Kalunga, Ana Baptista, …). Voltavam a aparecer em
+    // cada arranque e nunca desapareciam.
     const list: Citizen[] = [];
-    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('gov_admin_citizens') : null;
+    const saved: string | null = null;
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -1152,12 +1108,6 @@ export function GovContactsContent({
               const localFiltered = prev.filter(c => !(profileData as LinhaPerfilAdmin[]).some((item) => item.bi === c.biNumber));
               return [...profileCitizens, ...localFiltered];
             });
-            // Sem `solicitacoes_registo`, as «Solicitações» recorrem aos perfis
-            // como fonte — o container nunca fica a mentir «zero pedidos».
-            setLinhasSolicitacao((profileData as LinhaPerfilAdmin[]).map((p) => ({
-              id: p.id || p.bi, nome: p.name, bi_numero: p.bi,
-              email: p.email, status: 'Aprovado', criado_em: undefined,
-            })));
           }
           return;
         }
@@ -1183,14 +1133,14 @@ export function GovContactsContent({
         if (biNorm && (localStorage.getItem('cda_revoked_' + biNorm) || localStorage.getItem('cda_deleted_' + biNorm))) return false;
         return true;
       });
-      // 2026-11-15 — guarda o registo cru para o container «Solicitações de
-      // Registo do Cidadão» (o resto da página consome a lista transformada).
-      setLinhasSolicitacao(citizenRows);
       const supabaseCitizens: Citizen[] = await resolveCitizenDocUrls(mapRegistrationRowsToCitizens(citizenRows));
 
       const localMap = new Map<string, Citizen>();
       try {
-        const saved = localStorage.getItem('gov_admin_citizens');
+        // 2026-11-15 — deixou de se ler `gov_admin_citizens`: era por aqui que
+        // entravam cidadãos fictícios de sessões antigas. A base é a única
+        // fonte; o que só existe no browser não é apresentado como real.
+        const saved: string | null = null;
         if (saved) {
           const list = JSON.parse(saved);
           if (Array.isArray(list)) {
@@ -1259,15 +1209,11 @@ export function GovContactsContent({
           }
         });
 
-        // Preserva cadastros já presentes no estado local não revogados
-        prev.forEach(pc => {
-          if (pc.biNumber) {
-            const k = normalizeHomologationBi(pc.biNumber);
-            if (!cloudBis.has(k) && !localMap.has(k) && !localStorage.getItem('cda_revoked_' + k) && !localStorage.getItem('cda_deleted_' + k)) {
-              resultList.push(pc);
-            }
-          }
-        });
+        // 2026-11-15 — NÃO se preserva o estado anterior (`prev`) quando não
+        // existe na base central. Era esta linha que mantinha vivos os
+        // cidadãos fictícios: mesmo com a base a devolver só o cidadão real,
+        // o `prev` voltava a introduzi-los na lista. Agora a lista é
+        // exactamente o que a base devolve.
 
         const finalFiltered = resultList.filter(c => {
           if (c.biNumber) {
@@ -3441,220 +3387,6 @@ export function GovContactsContent({
       </div>
 
       <div className="space-y-8 animate-fadeIn">
-
-        {/* ============ SOLICITAÇÕES DE REGISTO DO CIDADÃO ============
-            2026-11-15 — pedido do dono. Mostra os pedidos de adesão tal como
-            estão em `solicitacoes_registo`, com a data real, o resultado da
-            pré-verificação e as ações de triagem. Segue a mesma linguagem
-            visual do «Quadro de Cadastros» (cartão 32px, cabeçalho com barra
-            indigo, etiquetas em maiúsculas) para haver harmonia na página. */}
-        {(() => {
-          const pedidos = linhasSolicitacao.filter(Boolean);
-          const estadoPedido = (s?: string) => {
-            const v = String(s || '').toLowerCase();
-            if (v.includes('aprovad')) return { txt: 'Aprovado', cls: 'bg-emerald-50 text-emerald-700 border-emerald-100' };
-            if (v.includes('reprov') || v.includes('rejeit') || v.includes('não aprovad')) return { txt: 'Rejeitado', cls: 'bg-rose-50 text-rose-700 border-rose-100' };
-            if (v.includes('bloque')) return { txt: 'Bloqueado', cls: 'bg-slate-100 text-slate-700 border-slate-200' };
-            if (v.includes('revis')) return { txt: 'Em revisão', cls: 'bg-blue-50 text-blue-700 border-blue-100' };
-            return { txt: 'Pendente', cls: 'bg-amber-50 text-amber-700 border-amber-100' };
-          };
-          // O estado MOSTRADO vem da lista `citizens` quando o cidadão lá existe:
-          // é a lista canónica consumida pelo «Quadro de Cadastros», por isso as
-          // duas tabelas nunca divergem depois de uma alteração de estado.
-          const estadoDe = (p: LinhaSolicitacaoCidadao) => {
-            const bi = String(p.bi_numero || '').trim().toUpperCase();
-            const naLista = citizens.find((c) => String(c.biNumber || '').trim().toUpperCase() === bi);
-            return estadoPedido(naLista?.status || p.status);
-          };
-          const contaPor = (pred: (linha: LinhaSolicitacaoCidadao) => boolean) => pedidos.filter(pred).length;
-          const pendentes = contaPor(p => ['Pendente', 'Em revisão'].includes(estadoDe(p).txt));
-          const aprovados = contaPor(p => estadoDe(p).txt === 'Aprovado');
-          const bloqueados = contaPor(p => estadoDe(p).txt === 'Bloqueado');
-          const rejeitados = contaPor(p => estadoDe(p).txt === 'Rejeitado');
-          const dataCurta = (p: LinhaSolicitacaoCidadao) => {
-            const raw = p.criado_em || p.created_at;
-            if (!raw) return '—';
-            const d = new Date(raw);
-            return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-AO');
-          };
-
-          return (
-            <div className="bg-white border border-slate-200 rounded-[32px] p-6 md:p-8 shadow-sm space-y-5 text-left">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 pb-5 border-b border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-1.5 h-6 bg-indigo-600 rounded-full" />
-                  <div>
-                    <h4 className="font-black text-slate-900 text-lg md:text-xl italic uppercase tracking-tight flex items-center gap-2">
-                      <FileText size={20} className="text-indigo-600" />
-                      Solicitações de Registo do Cidadão
-                    </h4>
-                    <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">
-                      Pedidos de adesão recebidos, triagem e estado de homologação
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <div className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-2 text-center">
-                    <div className="text-lg font-black text-slate-800 leading-none">{pedidos.length}</div>
-                    <div className="text-[8.5px] font-black text-slate-400 uppercase tracking-wider mt-1">Total</div>
-                  </div>
-                  <div className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-2 text-center">
-                    <div className="text-lg font-black text-amber-700 leading-none">{pendentes}</div>
-                    <div className="text-[8.5px] font-black text-amber-500 uppercase tracking-wider mt-1">Em curso</div>
-                  </div>
-                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-2 text-center">
-                    <div className="text-lg font-black text-emerald-700 leading-none">{aprovados}</div>
-                    <div className="text-[8.5px] font-black text-emerald-500 uppercase tracking-wider mt-1">Aprovados</div>
-                  </div>
-                  <div className="bg-slate-100 border border-slate-200 rounded-2xl px-4 py-2 text-center">
-                    <div className="text-lg font-black text-slate-700 leading-none">{bloqueados}</div>
-                    <div className="text-[8.5px] font-black text-slate-500 uppercase tracking-wider mt-1">Bloqueados</div>
-                  </div>
-                  <div className="bg-rose-50 border border-rose-100 rounded-2xl px-4 py-2 text-center">
-                    <div className="text-lg font-black text-rose-700 leading-none">{rejeitados}</div>
-                    <div className="text-[8.5px] font-black text-rose-500 uppercase tracking-wider mt-1">Rejeitados</div>
-                  </div>
-                </div>
-              </div>
-
-              {pedidos.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center">
-                  <FileText size={26} className="text-slate-300 mx-auto mb-2" />
-                  <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Sem solicitações registadas</p>
-                  <p className="text-[10.5px] text-slate-400 font-semibold mt-1">
-                    Não há pedidos de adesão em `solicitacoes_registo` neste momento.
-                  </p>
-                </div>
-              ) : (
-                <div className="border border-slate-200 rounded-2xl overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-slate-50 border-b border-slate-100">
-                      <tr>
-                        <th className="py-3 px-4 text-[8.5px] font-black uppercase tracking-wider text-slate-400 text-left">Cidadão</th>
-                        <th className="py-3 px-4 text-[8.5px] font-black uppercase tracking-wider text-slate-400 text-left">Nº de BI</th>
-                        <th className="py-3 px-4 text-[8.5px] font-black uppercase tracking-wider text-slate-400 text-left">Contacto</th>
-                        <th className="py-3 px-4 text-[8.5px] font-black uppercase tracking-wider text-slate-400 text-left">Data</th>
-                        <th className="py-3 px-4 text-[8.5px] font-black uppercase tracking-wider text-slate-400 text-center">Estado</th>
-                        <th className="py-3 px-4 text-[8.5px] font-black uppercase tracking-wider text-slate-400 text-right">Ação</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {pedidos.map((p) => {
-                        const est = estadoDe(p);
-                        const k = String(p.bi_numero || p.id);
-                        const aberta = solicitacaoExpandida === k;
-                        return (
-                          <>
-                            <tr key={k} className="hover:bg-slate-50/70 transition-colors">
-                              <td className="py-3 px-4">
-                                <span className="font-bold text-slate-800 text-xs block leading-tight">{p.nome || p.nome_completo || '—'}</span>
-                                <span className="text-[9.5px] text-slate-400 font-semibold">Registo #{String(p.id)}</span>
-                              </td>
-                              <td className="py-3 px-4 text-[10.5px] font-mono text-slate-500">{p.bi_numero || '—'}</td>
-                              <td className="py-3 px-4 text-[10.5px] text-slate-500">{p.email || p.telefone || '—'}</td>
-                              <td className="py-3 px-4 text-[10.5px] font-mono text-slate-500">{dataCurta(p)}</td>
-                              <td className="py-3 px-4 text-center">
-                                <span className={`inline-block px-2.5 py-1 rounded-full text-[8.5px] font-black uppercase tracking-wider border ${est.cls}`}>
-                                  {est.txt}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4 text-right">
-                                <button
-                                  onClick={() => setSolicitacaoExpandida(aberta ? null : k)}
-                                  className={`px-3.5 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer inline-flex items-center gap-1.5 ${
-                                    aberta
-                                      ? 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200'
-                                      : 'bg-white border-slate-200 text-slate-600 hover:bg-[#0E2B64] hover:text-white hover:border-[#0E2B64]'
-                                  }`}
-                                >
-                                  {aberta ? <ChevronUp size={10} className="stroke-[3]" /> : <ExternalLink size={10} className="stroke-[3]" />}
-                                  {aberta ? 'Fechar' : 'Abrir'}
-                                </button>
-                              </td>
-                            </tr>
-                            {aberta && (
-                              <tr key={`${k}-det`} className="bg-slate-50/70">
-                                <td colSpan={6} className="px-4 py-4">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                      <span className="text-[8.5px] font-black uppercase tracking-wider text-slate-400 block mb-1">Observações do registo</span>
-                                      <p className="text-[10.5px] text-slate-600 font-semibold leading-relaxed">
-                                        {stripKycMarker(p.observacoes) || 'Sem observações registadas.'}
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <span className="text-[8.5px] font-black uppercase tracking-wider text-slate-400 block mb-1">Documentos submetidos</span>
-                                      <div className="flex flex-wrap gap-1.5">
-                                        {[['Frente', p.url_frente || p.url_bi_frente], ['Verso', p.url_verso || p.url_bi_verso], ['Selfie', p.url_selfie]].map(([etq, url]) => (
-                                          <span key={String(etq)} className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-1 rounded-md border ${url ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
-                                            {etq}: {url ? 'sim' : 'não'}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Painel de estado da conta — alterável a qualquer momento */}
-                                  <div className="mt-4 pt-4 border-t border-slate-200">
-                                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                                      <div>
-                                        <span className="text-[8.5px] font-black uppercase tracking-wider text-slate-400 block mb-0.5">
-                                          Estado atual da conta
-                                        </span>
-                                        <span className={`inline-block px-2.5 py-1 rounded-full text-[8.5px] font-black uppercase tracking-wider border ${est.cls}`}>
-                                          {est.txt}
-                                        </span>
-                                      </div>
-                                      <div className="flex flex-wrap items-center gap-1.5">
-                                        <span className="text-[8.5px] font-black uppercase tracking-wider text-slate-400 mr-1">Alterar para:</span>
-                                        {([
-                                          ['Aprovado', 'bg-emerald-600 hover:bg-emerald-700'],
-                                          ['Pendente', 'bg-amber-600 hover:bg-amber-700'],
-                                          ['Bloqueado', 'bg-slate-700 hover:bg-slate-800'],
-                                          ['Reprovado', 'bg-rose-600 hover:bg-rose-700'],
-                                        ] as Array<[string, string]>).map(([novo, cor]) => {
-                                          const igual = est.txt === novo;
-                                          const ocupado = aGravarSolicitacao === k;
-                                          return (
-                                            <button
-                                              key={novo}
-                                              disabled={igual || ocupado}
-                                              onClick={() => alterarEstadoSolicitacao(p, novo)}
-                                              className={`px-2.5 py-1.5 rounded-lg text-[8.5px] font-black uppercase tracking-wider transition-all border-0 ${
-                                                igual
-                                                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                                  : ocupado
-                                                    ? 'bg-slate-300 text-white cursor-wait'
-                                                    : `${cor} text-white cursor-pointer`
-                                              }`}
-                                              title={igual ? `A conta já está «${novo}»` : `Marcar a conta como «${novo}»`}
-                                            >
-                                              {ocupado && !igual ? '…' : novo}
-                                            </button>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                    <p className="text-[9.5px] text-slate-400 font-semibold mt-2.5">
-                                      A alteração é gravada em <span className="font-mono">solicitacoes_registo</span> e
-                                      tem efeito imediato na conta. A validação biométrica e os documentos
-                                      continuam a rever-se na ficha do cidadão, em «Rever».
-                                    </p>
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          );
-        })()}
 
         {/* Quadro de cadastros em tempo real + filtros territoriais */}
         <div className="bg-white border border-slate-200 rounded-[32px] p-6 md:p-8 shadow-sm space-y-6 text-left">
