@@ -5290,15 +5290,22 @@ export default function App() {
           }
         } else falhados.push(dest);
       }
-      setIsComposing(false);
-      setComposeData({ to: '', subject: '', body: '', attachments: [], toArray: [] });
+      if (falhados.length) {
+        // Só os destinos não confirmados continuam no rascunho; os restantes
+        // não são reenviados automaticamente (evita duplicação).
+        setComposeData(prev => ({ ...prev, to: '', toArray: falhados }));
+        setIsComposing(true);
+      } else {
+        setIsComposing(false);
+        setComposeData({ to: '', subject: '', body: '', attachments: [], toArray: [] });
+      }
       addAuditLog(`[MULTI] Expedição múltipla concluída: ${okCount}/${destinos.length} destinatário(s) servido(s)${falhados.length ? ` — falharam: ${falhados.join(', ')}` : ''}${protocolosLote.length ? ` — protocolos: ${protocolosLote.join(', ')}` : ''}.`, okCount === destinos.length ? 'info' : 'warning');
       // v37.78.8 — comprovativo ÚNICO do lote (nº do 1.º protocolo; contagem e
       // lista de destinatários no campo AGENTE). Antes: N popups, um por envio.
       if (protocoloLote) {
         setSuccessProtocolModal({
           protocolNumber: protocoloLote.protocolNumber,
-          org: `${okCount} destinatário(s): ${destinos.join(', ')}`,
+          org: `${okCount} destinatário(s): ${resultadosLote.filter(x => x.res.ok).map(x => x.dest).join(', ')}`,
           subject: composeData.subject?.trim() || '(sem assunto)',
           digitalSignature: protocoloLote.digitalSignature,
           documentHash: protocoloLote.documentHash,
@@ -5309,10 +5316,10 @@ export default function App() {
       notify(
         okCount === destinos.length
           ? `Correspondência enviada para ${okCount} destinatário(s) com sucesso.`
-          : `Envio múltiplo: ${okCount}/${destinos.length} enviadas${falhados.length ? ` — sem entrega para: ${falhados.join(', ')}` : ''}.`,
+          : `Envio múltiplo: ${okCount}/${destinos.length} confirmadas${falhados.length ? ` — não confirmadas: ${falhados.join(', ')}. Verifique Enviadas antes de tentar novamente.` : ''}`,
         okCount === destinos.length ? 'success' : 'warning',
       );
-      return { ok: okCount > 0, error: falhados.length ? `Falhou para: ${falhados.join(', ')}` : undefined };
+      return { ok: okCount > 0 && falhados.length === 0, error: falhados.length ? `Não confirmado para: ${falhados.join(', ')}` : undefined };
     }
     // F34 — a Nova Mensagem do cidadão já não tem campo Assunto: deriva-se do corpo.
     // FIX 2026-08-20 — aceita um payload opcional ("Enviar Resposta Oficial" do
@@ -5412,8 +5419,13 @@ export default function App() {
           }
         } else falhadosDif.push(dest);
       }
-      setIsComposing(false);
-      setComposeData({ to: '', subject: '', body: '', attachments: [], toArray: [] });
+      if (falhadosDif.length) {
+        setComposeData(prev => ({ ...prev, to: '', toArray: falhadosDif }));
+        setIsComposing(true);
+      } else {
+        setIsComposing(false);
+        setComposeData({ to: '', subject: '', body: '', attachments: [], toArray: [] });
+      }
       addAuditLog(`Difusão «Todos» (${codigoDifusao}): ${okDif}/${pool.length} contacto(s) com contacto prévio servido(s)${falhadosDif.length ? ` — falharam: ${falhadosDif.join(', ')}` : ''}${protocolosDif.length ? ` — 1.º protocolo: ${protocolosDif[0]}` : ''}.`, okDif === pool.length ? 'info' : 'warning');
       if (protocoloDif) {
         setSuccessProtocolModal({
@@ -5429,10 +5441,10 @@ export default function App() {
       notify(
         okDif === pool.length
           ? `Correspondência distribuída a ${okDif} contacto(s) com contacto prévio com esta conta.`
-          : `Difusão «Todos»: ${okDif}/${pool.length} entregue(s)${falhadosDif.length ? ` — sem entrega para: ${falhadosDif.join(', ')}` : ''}.`,
+          : `Difusão «Todos»: ${okDif}/${pool.length} confirmada(s)${falhadosDif.length ? ` — não confirmadas: ${falhadosDif.join(', ')}. Verifique Enviadas antes de tentar novamente.` : ''}`,
         okDif === pool.length ? 'success' : 'warning',
       );
-      return { ok: okDif > 0, error: falhadosDif.length ? `Falhou para: ${falhadosDif.join(', ')}` : undefined };
+      return { ok: okDif > 0 && falhadosDif.length === 0, error: falhadosDif.length ? `Não confirmado para: ${falhadosDif.join(', ')}` : undefined };
     }
     // P0-B — anti void-delivery (decisão §0.1 do dono: BLOQUEAR): destinatário
     // com formato de código institucional TEM de constar (aprovado) do registo
