@@ -1,4 +1,3 @@
-import { ownNotificationTarget } from '../src/services/notificationAccess';
 import { handleOcorrencias } from '../server/ocorrencias.js';
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
@@ -4322,8 +4321,9 @@ async function dadosExecutarPedido(opts: {
   }
   // Notificações: leitura restrita ao próprio destino (ou admin).
   if (tabela === 'notifications' && ident && !ident.isAdmin && operacao === 'select') {
-    const destino = ownNotificationTarget(ident, filtros.target_bi);
-    if (!destino) return { status: 403, json: { ok: false, erro: 'Sem permissão para ler notificações de outra conta.' } };
+    const destino = String(ident.instCode || ident.bi || '').trim().toUpperCase();
+    const solicitado = String(filtros.target_bi || '').trim().toUpperCase();
+    if (!destino || (solicitado && solicitado !== destino)) return { status: 403, json: { ok: false, erro: 'Sem permissão para ler notificações de outra conta.' } };
     filtros.target_bi = destino;
   }
   // update/delete exigem filtro de linha (nunca em massa).
