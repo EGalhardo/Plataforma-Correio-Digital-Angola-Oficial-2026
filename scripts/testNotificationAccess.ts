@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import { ownNotificationTarget } from '../src/services/notificationAccess';
+assert.equal(ownNotificationTarget({ bi: '123LA' }), '123LA');
+assert.equal(ownNotificationTarget({ bi: '123LA' }, ' 123la '), '123LA');
+assert.equal(ownNotificationTarget({ bi: '123LA' }, '456LA'), null);
+assert.equal(ownNotificationTarget({ bi: 'AGT-LMM-01', instCode: 'AGT-LMM' }), 'AGT-LMM');
+assert.equal(ownNotificationTarget({ bi: 'AGT-LMM-01', instCode: 'AGT-LMM' }, 'AGT-LMM'), 'AGT-LMM');
+assert.equal(ownNotificationTarget({ bi: 'AGT-LMM-01', instCode: 'AGT-LMM' }, '123LA'), null);
+assert.equal(ownNotificationTarget({}, '123LA'), null);
+console.log('notification access control: PASS');

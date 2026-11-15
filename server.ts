@@ -1,3 +1,4 @@
+import { ownNotificationTarget } from './src/services/notificationAccess';
 import { handleOcorrencias } from './server/ocorrencias.js';
 import express from "express";
 import type { Response as ExpressResponse } from "express";
@@ -473,7 +474,7 @@ const DADOS_COLUNAS: Record<string, Record<string, boolean>> = {
     canal_usado: true, n_perguntas: true, iniciado_em: true, actualizado_em: true, concluido_em: true,
   },
   contacts: { id: true, owner_bi: true, name: true, bi: true, relation: true, status: true, type: true, phone: true, whatsapp: true, email: true }, // v35 — email opcional (difusão de emergência)
-  notifications: { id: true, target_bi: true, title: true, message: true, time_text: true, type: true, target_tab: true, read_at: true },
+  notifications: { id: true, target_bi: true, title: true, message: true, time_text: true, type: true, target_tab: true, read_at: true, dedupe_key: true },
   user_requests: { id: true, user_bi: true, user_name: true, service_type: true, priority: true, time_text: true, status: true, institution: true, request_date: true },
   document_requests: { id: true, user_bi: true, user_name: true, doc_type: true, institution: true, request_date: true, status: true, ai_status: true },
   documents: { name: true, validity: true, code: true, holder_bi: true, document_number: true, issuer: true, issued_at: true },
@@ -810,7 +811,8 @@ async function dadosExecutarPedido(opts: {
   }
   // Notificações: leitura restrita ao próprio destino (ou admin).
   if (tabela === 'notifications' && ident && !ident.isAdmin && operacao === 'select') {
-    const destino = filtros.target_bi || ident.bi || ident.instCode;
+    const destino = ownNotificationTarget(ident, filtros.target_bi);
+    if (!destino) return { status: 403, json: { ok: false, erro: 'Sem permissão para ler notificações de outra conta.' } };
     filtros.target_bi = destino;
   }
   // update/delete exigem filtro de linha (nunca em massa).

@@ -1,3 +1,4 @@
+import { sameNotificationMessage } from './notificationMessageLink';
 import type { AppNotification, Message } from '../types';
 import { listarParticipacao, temInqueritoNormal, temInqueritoIA } from './listasParticipacao';
 import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia, ehAssuntoComunicado } from '../services/denunciaCore';
@@ -138,14 +139,10 @@ export interface PoolMensagens { tipo: TipoLista; m: Message; funde: boolean }
 export function associarMensagem(
   n: AppNotification, pools: PoolMensagens[],
 ): PoolMensagens | undefined {
-  if (n.messageId) {
-    const byId = pools.find(({ m }) => m.id === n.messageId);
-    if (byId) return byId;
-  }
+  if (n.messageId) return pools.find(({ m }) => sameNotificationMessage(n.messageId!, m.id));
   const nMsg = normalizar(n.message || '');
   const nTit = normalizar(n.title || '');
   return pools.find(({ m }) => {
-    if (m.id && n.messageId && m.id === n.messageId) return true;
     const assunto = assuntoChave(m);
     if (assunto.length >= 4 && (nMsg.includes(assunto) || nTit.includes(assunto))) return true;
     const fullSubj = normalizar(m.details?.subject || m.preview || '');
@@ -311,7 +308,7 @@ export function obterListaCorrespondenciasNaoLidas(
     const assoc = associarMensagem(n, todosPools);
     if (assoc && assoc.m && msgIds.has(assoc.m.id)) continue;
     const textoAviso = normalizar(`${n.title || ''} ${n.message || ''}`);
-    if (assuntosContados.some(s => textoAviso.includes(s))) continue;
+    if (!n.messageId && assuntosContados.some(s => textoAviso.includes(s))) continue;
     if (n.targetTab === 'video-atendimento' && videoPorEmparelhar > 0) {
       videoPorEmparelhar -= 1;
       continue;

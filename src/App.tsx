@@ -1,3 +1,4 @@
+import { sameNotificationMessage } from './utils/notificationMessageLink';
 import { ListaParticipacaoContent } from './components/features/ListaParticipacaoContent';
 import { pesquisarContacto, pesquisarMensagem, CONTACTO_INSTITUCIONAL } from './utils/pesquisaContactosCorreio';
 /**
@@ -4931,11 +4932,11 @@ export default function App() {
       const baseId = message.id >= 10000 && message.id < 90000000 ? message.id - 10000 : message.id;
       const assuntoAberto = assuntoChave(message);
       const msgSubj = normalizarTexto(message.details?.subject || message.preview || '');
-      const msgIdStr = String(message.id);
-      const baseIdStr = String(baseId);
       const corresponde = (n: typeof notifications[number]) => {
         if (!n || n.unread === false) return false;
-        if (n.messageId && (String(n.messageId) === msgIdStr || String(n.messageId) === baseIdStr)) return true;
+        // Um vínculo explícito é autoritativo: não casar outra mensagem só
+        // porque tem o mesmo assunto. Notificações legadas usam o texto.
+        if (n.messageId) return sameNotificationMessage(n.messageId, message.id);
         const nMsg = normalizarTexto(n.message || '');
         const nTit = normalizarTexto(n.title || '');
         if (assuntoAberto.length >= 4 && (nMsg.includes(assuntoAberto) || nTit.includes(assuntoAberto))) return true;
@@ -5561,6 +5562,7 @@ export default function App() {
           : []),
         isOfficialDispatch
           ? supabaseService.insertNotification({
+              messageId,
               title: 'Nova Correspondência Oficial',
               message: `${newMessage.preview} foi disponibilizada no seu endereço digital oficial.`,
               type: 'info',
@@ -5572,17 +5574,20 @@ export default function App() {
           // 2026-09-23 (T-v37.79) — a nova fila «Denuncia» usa título sem
           // acento (separador textual das duas famílias na classificação).
           ? supabaseService.insertNotification(ehAssuntoNovaDenuncia(effectiveSubject) ? {
+              messageId,
               title: 'Nova Denuncia Anónima',
               message: `Uma denuncia anónima foi registada e aguarda o responsável da plataforma de ${to}.`,
               type: 'info',
               targetTab: 'correspondencias'
             } : {
+              messageId,
               title: 'Nova Denúncia Anónima',
               message: `Uma denúncia anónima foi registada e aguarda o responsável da plataforma de ${to}.`,
               type: 'info',
               targetTab: 'correspondencias'
             }, codigoInstituicaoBase(resolveInstitutionCode(to)))
           : supabaseService.insertNotification({
+              messageId,
               title: 'Nova Solicitação do Cidadão',
               message: `${user.name} enviou uma nova correspondência para ${to}.`,
               type: 'info',
