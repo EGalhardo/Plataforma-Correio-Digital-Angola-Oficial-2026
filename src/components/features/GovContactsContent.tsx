@@ -733,15 +733,26 @@ export function GovContactsContent({
   // e agentes reais da equipa. Em Modo Demo nada disto corre.
   const [dadosReais, setDadosReais] = useState<AdminRealData | null>(null);
   const moradasReaisRef = React.useRef<Map<string, string>>(new Map());
+  // 2026-11-15 — território real (profiles.provincia / .municipio). Sem isto a
+  // coluna «Localidade» mostrava «—» e os filtros não tinham o que filtrar.
+  const territorioRealRef = React.useRef<Map<string, { provincia: string; municipio: string }>>(new Map());
   React.useEffect(() => {
     let vivo = true;
     carregarDadosReaisAdmin().then(d => {
       if (!vivo || !d) return;
       const mapa = new Map<string, string>();
+      const terr = new Map<string, { provincia: string; municipio: string }>();
       (d.profiles || []).forEach(pp => {
         if (pp.bi && pp.morada) mapa.set(pp.bi.toUpperCase(), pp.morada);
+        if (pp.bi && (pp.provincia || pp.municipio)) {
+          terr.set(pp.bi.toUpperCase(), {
+            provincia: pp.provincia || '—',
+            municipio: pp.municipio || '—',
+          });
+        }
       });
       moradasReaisRef.current = mapa;
+      territorioRealRef.current = terr;
       setDadosReais(d);
     }).catch(() => {});
     return () => { vivo = false; };
@@ -910,10 +921,10 @@ export function GovContactsContent({
       id: String(item.id),
       name: item.nome,
       category: item.observacoes?.includes('[Instituição]') ? 'Instituição' : 'Cidadão',
-      // 2026-08-23 — MODO REAL: território/morada vêm da base central (morada
-      // real do profile). Sem dado → «—» (nunca 'Luanda/Belas/Kilamba' fixos).
-      province: '—',
-      municipio: '—',
+      // 2026-11-15 — território real do profile (provincia/municipio). Sem dado
+      // → «—»; nunca valores fixos inventados.
+      province: territorioRealRef.current.get(biClean)?.provincia || '—',
+      municipio: territorioRealRef.current.get(biClean)?.municipio || '—',
       address: moradasReaisRef.current.get(biClean) || '—',
       contact: item.email,
       status: st,
@@ -1276,10 +1287,18 @@ export function GovContactsContent({
     carregarDadosReaisAdmin().then(d => {
       if (!d) return;
       const mapa = new Map<string, string>();
+      const terr = new Map<string, { provincia: string; municipio: string }>();
       (d.profiles || []).forEach(pp => {
         if (pp.bi && pp.morada) mapa.set(pp.bi.toUpperCase(), pp.morada);
+        if (pp.bi && (pp.provincia || pp.municipio)) {
+          terr.set(pp.bi.toUpperCase(), {
+            provincia: pp.provincia || '—',
+            municipio: pp.municipio || '—',
+          });
+        }
       });
       moradasReaisRef.current = mapa;
+      territorioRealRef.current = terr;
       setDadosReais(d);
     }).catch(() => {});
     void refrescarMembrosCloudInst();

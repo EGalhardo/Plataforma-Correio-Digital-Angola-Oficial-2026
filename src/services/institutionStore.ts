@@ -2,6 +2,13 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Institution, InstitutionStatus } from '../types';
 import { MOCK_INSTITUTIONS } from '../constants/mocks';
 import { shouldUseMockFallback } from '../config/runtime';
+import {
+  listarInstituicoes,
+  criarInstituicao,
+  actualizarInstituicao,
+  eliminarInstituicao,
+  semearInstituicoes,
+} from './institutionService';
 
 export const CANONICAL_INSTITUTIONS: Institution[] = MOCK_INSTITUTIONS;
 
@@ -71,6 +78,11 @@ interface InstitutionContextType {
 const InstitutionContext = createContext<InstitutionContextType | undefined>(undefined);
 
 export const InstitutionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // 2026-11-15 — a lista passa a viver na tabela `public.institutions`.
+  // Arranca VAZIA (ou com o que houver em localStorage como cache de arranque)
+  // e hidrata da base no efeito abaixo. Só cai no catálogo de demonstração
+  // quando o modo demo está activo (shouldUseMockFallback).
+  const [carregadoDaBase, setCarregadoDaBase] = useState(false);
   const [institutions, setInstitutions] = useState<Institution[]>(() => {
     // Só o catálogo de demonstração quando NÃO existe lista guardada. Uma lista
     // guardada vazia ([]) é uma decisão do utilizador (eliminou a última
@@ -92,6 +104,34 @@ export const InstitutionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
     return CANONICAL_INSTITUTIONS;
   });
+
+  // Hidratação a partir da base (uma vez, no arranque).
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const daBase = await listarInstituicoes();
+      if (!vivo) return;
+      if (daBase === null) {
+        // Sem nuvem: mantém-se o que estiver em localStorage. Em modo demo,
+        // o catálogo canónico serve de conteúdo.
+        setCarregadoDaBase(true);
+        return;
+      }
+      if (daBase.length === 0 && shouldUseMockFallback()) {
+        // Modo demonstração: semeia a base com o catálogo, uma única vez.
+        const n = await semearInstituicoes(MOCK_INSTITUTIONS);
+        if (n > 0) {
+          const relido = await listarInstituicoes();
+          if (vivo && relido) setInstitutions(relido);
+          setCarregadoDaBase(true);
+          return;
+        }
+      }
+      setInstitutions(daBase);
+      setCarregadoDaBase(true);
+    })();
+    return () => { vivo = false; };
+  }, []);
 
   useEffect(() => {
     try {
@@ -116,10 +156,20 @@ export const InstitutionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       performanceScore: "100%"
     };
     setInstitutions(prev => [...prev, newInst]);
+    // Espelha na base; se falhar, a linha fica só local e a consola avisa.
+    void criarInstituicao(newInst as Omit<Institution, 'id'>).then((criada) => {
+      if (!criada) {
+        console.warn('[INSTITUIÇÕES] criação não persistiu na base central (ficou apenas local).');
+        return;
+      }
+      // Troca o id local pelo id da base, para editar/eliminar apontarem certo.
+      setInstitutions(prev => prev.map(i => (i.id === id ? { ...i, id: criada.id } : i)));
+    });
   };
 
   const updateInstitutionStatus = (id: string, status: InstitutionStatus | string) => {
     setInstitutions(prev => prev.map(inst => inst.id === id ? { ...inst, status } : inst));
+    void actualizarInstituicao(id, { status } as Partial<Institution>);
   };
 
   const getInstitutionByName = (name: string) => {

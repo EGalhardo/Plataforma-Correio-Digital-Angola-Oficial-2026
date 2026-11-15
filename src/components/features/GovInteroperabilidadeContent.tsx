@@ -1092,6 +1092,24 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
     // MODO REAL — números da base central: contas institucionais reais,
     // tráfego real da tabela messages e IA medida pelo log real de conversas.
     // O que não tem medição (SLA) fica honestamente «—».
+    // 2026-11-15 — o KPI passa a contar a TABELA `institutions` (a lista que o
+    // administrador vê), e não `profiles.role='institution'` (que contava
+    // contas e dava «0» quando a instituição existe só no catálogo da base).
+    if (institutions.length > 0) {
+      const ativas = institutions.filter(i => i.status === 'Ativa').length;
+      const totalMembros = institutions.reduce((s, i) => s + (i.totalAgents || 0), 0);
+      const corr = institutions.reduce((s, i) => s + (i.totalCorrespondence || 0), 0);
+      const pctIa = institutions.map(i => parseFloat(String(i.aiUsageRate || '0').replace('%','')) || 0);
+      const mediaIa = pctIa.length ? Math.round(pctIa.reduce((a,b)=>a+b,0) / pctIa.length) : 0;
+      return {
+        totalInsts: institutions.length,
+        activeInsts: ativas,
+        totalCorr: corr || (dadosReais?.mensagensTotal ?? 0),
+        avgAiUsage: `${mediaIa}%`,
+        avgPerformance: '—',
+        totalMembros,
+      };
+    }
     if (dadosReais) {
       const totalInstsReais = dadosReais.instituicoes?.length ?? 0;
       const ativasReais = totalInstsReais;

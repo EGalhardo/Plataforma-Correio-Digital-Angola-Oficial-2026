@@ -22,6 +22,12 @@ export interface RealProfileRow {
   email: string | null;
   nif: string | null;
   morada: string | null;
+  // 2026-11-15 — território e ligação institucional (colunas criadas pelo
+  // PATCH_instituicoes_e_territorio.sql). Sem estes campos a lista de cidadãos
+  // caía sempre em «Luanda / Belas» e o painel de membros não agregava.
+  provincia?: string | null;
+  municipio?: string | null;
+  instituicao?: string | null;
 }
 
 export interface RealAuditRow {
@@ -245,7 +251,7 @@ export async function carregarDadosReaisAdmin(forcar = false): Promise<AdminReal
       solicitRaw, userReqRaw, ocorrenciasRaw, inqueritosRaw,
       ocorrenciasAdminRaw, histDenunciasRaw, respostasInqRaw,
     ] = await Promise.all([
-      ler(supabase.from('profiles').select('bi,name,role,phone,email,nif,morada').limit(500)),
+      ler(supabase.from('profiles').select('bi,name,role,phone,email,nif,morada,provincia,municipio,instituicao').limit(500)),
       ler(supabase.from('audit_logs').select('id,action,username,timestamp,action_type').order('id', { ascending: false }).limit(1500)),
       contar('audit_logs'),
       ler(supabase.from('messages').select('id,status,created_at,org,preview,subject,unread,sender_bi,recipient_bi').order('created_at', { ascending: false }).limit(2000)),
