@@ -2509,10 +2509,9 @@ export const supabaseService = {
     // GET à tabela messages por execução do carregador).
     return readThroughMessagesCache('corr:all', async () => {
     try {
-      // 2026-08-21 (desempenho) — o filtro de correspondências REAIS passa a
-      // ser aplicado NO SERVIDOR (protocol_number not null + exclusão das
-      // chaves demo) com limite de 200 linhas: em vez de transferir ~585
-      // mensagens com corpos inteiros, chegam apenas as reais (poucas).
+      // As contas de demonstração continuam excluídas. Uma mensagem real pode
+      // não ter protocolo: não a ocultar apenas por esse campo estar vazio.
+      // A leitura mantém o limite existente de 200 linhas.
       const CHAVES_FILTRO_SRV = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP', '009999999LA099', 'CIDADO'];
       const linhas = await lerLinhasDados<LinhaMensagem>(
         'messages',
@@ -2527,7 +2526,7 @@ export const supabaseService = {
           if (error) throw error;
           return (data || []) as LinhaMensagem[];
         },
-        { limite: 200, notNull: ['protocol_number'], notIn: { sender_bi: CHAVES_FILTRO_SRV, recipient_bi: CHAVES_FILTRO_SRV } },
+        { limite: 200, notIn: { sender_bi: CHAVES_FILTRO_SRV, recipient_bi: CHAVES_FILTRO_SRV } },
       );
       if (linhas === null) return null;
 
@@ -2537,8 +2536,8 @@ export const supabaseService = {
       //   · envios feitos pela CONTA DEMO (009874562LA041 / AGT-9921-SR /
       //     ADM-8812-OP), que também gravam na nuvem;
       //   · artefactos de piloto E2E (códigos fictícios *-LLVV e BI 009999999LA099).
-      // Critério de REAL: protocolo selado (protocol_number presente) E
-      // remetente/destinatário fora dos identificadores de demonstração/ficção.
+      // Excluem-se identificadores de demonstração/ficção. A ausência de
+      // protocolo não prova que uma mensagem seja fictícia e não a esconde.
       const CHAVES_DEMO_OU_FICTICIAS = new Set(['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP', '009999999LA099', 'CIDADO']);
       const ehChaveReal = (chave?: string | null): boolean => {
         const k = (chave || '').toUpperCase().replace(/\s+/g, '');
@@ -2549,7 +2548,6 @@ export const supabaseService = {
       };
       return linhas
         .filter((item: LinhaMensagem) =>
-          !!item.protocol_number &&
           ehChaveReal(item.sender_bi) &&
           ehChaveReal(item.recipient_bi))
         .map((item: LinhaMensagem) => {
