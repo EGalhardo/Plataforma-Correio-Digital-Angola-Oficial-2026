@@ -2888,7 +2888,7 @@ export default function App() {
     window.addEventListener('cda-homologation-read', onRead);
     const timer = window.setInterval(() => void sync(), 60000);
     return () => { controller.abort(); window.clearInterval(timer); window.removeEventListener('cda-homologation-read', onRead); };
-  }, [stage, appMode, bi, isOnline, gateRefreshTick]);
+  }, [stage, appMode, bi, isOnline]);
 
   // F7 — Canal oficial de homologação (Área de Administração ⇄ Instituição): o MESMO
   // espelho do cidadão. A correspondência oficial enviada ao código institucional
