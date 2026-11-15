@@ -363,6 +363,9 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingInstitution, setEditingInstitution] = useState<Institution | null>(null);
   const [selectedInstHistory, setSelectedInstHistory] = useState<Institution | null>(null);
+  // 2026-11-04 — LISTA DE MEMBROS POR INSTITUIÇÃO. O admin passa a ver quem
+  // compõe cada instituição, e não apenas o número na coluna «Equipa».
+  const [instMembrosAberta, setInstMembrosAberta] = useState<Institution | null>(null);
   // v37 §2.3 — classificação oficial da instituição (âmbito das sondagens)
   const [classifClasse, setClassifClasse] = useState<AbrangenciaSondagem | null>(null);
   const [classifProv, setClassifProv] = useState('');
@@ -1647,8 +1650,14 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
                         <span className="text-slate-300 italic text-[10px]">Não atribuído</span>
                       )}
                     </td>
-                    <td className="py-4 px-4 text-center font-mono font-extrabold text-slate-700 text-xs">
-                      {inst.totalAgents}
+                    <td className="py-4 px-4 text-center">
+                      <button
+                        onClick={() => setInstMembrosAberta(inst)}
+                        className="font-mono font-extrabold text-slate-700 text-xs px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-[#0E2B64] hover:text-white hover:border-[#0E2B64] transition-all cursor-pointer underline decoration-dotted underline-offset-2"
+                        title={`Ver os membros de ${inst.name}`}
+                      >
+                        {inst.totalAgents}
+                      </button>
                     </td>
                     <td className="py-4 px-4 text-center font-mono font-extrabold text-slate-700 text-xs text-nowrap">
                       {inst.totalCorrespondence.toLocaleString()}
@@ -2857,6 +2866,119 @@ export function GovInteroperabilidadeContent({ onLog }: GovInteroperabilidadeCon
         })()}
       </AnimatePresence>
       , document.body)}
+
+      {/* ============ PAINEL: MEMBROS DA INSTITUIÇÃO ============
+          2026-11-04 — pedido do dono: clicar no número da coluna «Equipa»
+          abre a lista de quem compõe a instituição.
+          A ligação usa, por agora, os dados disponíveis HOJE:
+            · o responsável da própria ficha (`responsibleName`), e
+            · perfis cujo nº de acesso comece pelo código da instituição
+              (AGT-LMM-01, AGT-LMM-02…), que é o critério de /api/equipa-membro.
+          LIMITAÇÃO CONHECIDA: não existe ainda coluna `instituicao` em
+          `profiles`. Instituições sem sufixo numérico (ex.: «AGT») não
+          conseguem agregar membros por prefixo — o painel di-lo na cara,
+          em vez de inventar linhas. */}
+      <AnimatePresence>
+        {instMembrosAberta && (() => {
+          const sigla = String(instMembrosAberta.name || '').trim().toUpperCase();
+          const instsReais = dadosReais?.instituicoes || [];
+          const membros = (dadosReais?.profiles || []).filter((p) => {
+            const biP = String(p.bi || '').trim().toUpperCase();
+            const roleP = String(p.role || '').toLowerCase();
+            if (roleP !== 'instituicao' && roleP !== 'institution') return false;
+            // mesmo prefixo institucional (AGT-LMM-02 começa por «AGT-LMM-»)
+            return biP === sigla || biP.startsWith(`${sigla}-`);
+          });
+          const semLigacao = instsReais.length > 0 && membros.length === 0;
+
+          return (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+              onClick={() => setInstMembrosAberta(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.96, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 12 }}
+                className="bg-white w-full max-w-2xl rounded-[28px] shadow-2xl overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-4 p-6 border-b border-slate-100">
+                  <div className="text-left">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Membros da instituição</span>
+                    <h3 className="font-display font-black text-slate-900 text-xl italic uppercase tracking-tight mt-1 leading-none">
+                      {instMembrosAberta.name}
+                    </h3>
+                    <p className="text-[10.5px] text-slate-400 font-bold mt-2">
+                      {instMembrosAberta.province} &bull; {instMembrosAberta.municipio}
+                      {instMembrosAberta.responsibleName ? ` · Responsável: ${instMembrosAberta.responsibleName}` : ''}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setInstMembrosAberta(null)}
+                    className="p-2 rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer"
+                    title="Fechar"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <div className="p-6 text-left">
+                  {membros.length > 0 ? (
+                    <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                      <table className="w-full">
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <th className="py-2.5 px-4 text-[8.5px] font-black uppercase tracking-wider text-slate-400 text-left">Membro</th>
+                            <th className="py-2.5 px-4 text-[8.5px] font-black uppercase tracking-wider text-slate-400 text-left">Nº de acesso</th>
+                            <th className="py-2.5 px-4 text-[8.5px] font-black uppercase tracking-wider text-slate-400 text-left">Contacto</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {membros.map((m) => (
+                            <tr key={String(m.bi)} className="hover:bg-slate-50/70">
+                              <td className="py-3 px-4 text-xs font-bold text-slate-800">{m.name || '—'}</td>
+                              <td className="py-3 px-4 text-[10.5px] font-mono text-slate-500">{m.bi}</td>
+                              <td className="py-3 px-4 text-[10.5px] text-slate-500">{m.email || m.phone || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-wide text-amber-800">
+                            {semLigacao ? 'Sem ligação membro → instituição na base' : 'Sem membros registados'}
+                          </p>
+                          <p className="text-[11px] text-amber-700 font-semibold leading-relaxed mt-1.5">
+                            {semLigacao
+                              ? `Há ${instsReais.length} perfil(is) institucional(is) na base, mas nenhum tem o nº de acesso com o prefixo «${sigla}». O critério actual (prefixo do nº de acesso) não consegue agregar membros a esta instituição. É preciso a coluna «instituicao» em profiles.`
+                              : 'Esta instituição ainda não tem colaboradores registados.'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <span className="text-[9.5px] font-bold text-slate-400">
+                      Total na coluna «Equipa»: {instMembrosAberta.totalAgents} · encontrados por prefixo: {membros.length}
+                    </span>
+                    <button
+                      onClick={() => setInstMembrosAberta(null)}
+                      className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-extrabold text-[10px] uppercase tracking-widest transition-colors cursor-pointer"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
 
     </div>
   );

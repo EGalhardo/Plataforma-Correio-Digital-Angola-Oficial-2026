@@ -125,7 +125,9 @@ interface LinhaSolicitacaoCidadao {
   nome_completo?: string; telefone?: string;
   [extra: string]: unknown;
 }
-interface LinhaPerfilAdmin { id?: string; name: string; email?: string; bi: string; }
+// 2026-11-04 — `role` e `provincia` passam a ser lidos: a categoria do perfil
+// (cidadão vs instituição) e o território vinham a ser descartados aqui.
+interface LinhaPerfilAdmin { id?: string; name: string; email?: string; bi: string; role?: string; provincia?: string | null; }
 
 export function GovContactsContent({
   appMode = 'user',
@@ -896,7 +898,12 @@ export function GovContactsContent({
     return {
       id: item.id || `profile-${index}`,
       name: item.name,
-      category: 'Cidadão',
+      // 2026-11-04 — antes era SEMPRE 'Cidadão', o que fazia contas de serviço
+      // e membros de instituições (role='user' mas nº AGT-LMM-01 / CDA)
+      // aparecerem como cidadãos. Agora a categoria vem do próprio perfil.
+      category: (String(item.role || '').toLowerCase() === 'institution'
+        || String(item.role || '').toLowerCase() === 'instituicao')
+        ? 'Instituição' : 'Cidadão',
       province: 'Luanda',
       municipio: 'Belas',
       address: 'Endereço não detalhado no perfil',
@@ -1237,6 +1244,21 @@ export function GovContactsContent({
 
   const filteredCitizens = useMemo(() => {
     const filtrados = citizens.filter((citizen) => {
+      // 2026-11-04 — ESTA PÁGINA É SÓ DE CIDADÃOS.
+      // Antes, linhas com categoria «Instituição» (adesões formais em
+      // solicitacoes_registo, ex.: bi «AGT-LMM») e contas de serviço com
+      // role='user' (ex.: «AGT-LMM-01», «CDA») caíam na lista de cidadãos.
+      // O mapeador de profiles ainda forçava category:'Cidadão' — daí não
+      // bastar filtrar a montante.
+      if (citizen.category === 'Instituição') return false;
+      const biCid = String(citizen.biNumber || '').trim().toUpperCase();
+      // Nº de acesso institucional (AGT-LMM-01 / ADMIN-0001) não é BI de cidadão.
+      if (/^[A-Z]{2,}(-[A-Z0-9]+)*-\d+$/.test(biCid)) return false;
+      // Códigos de conta/serviço sem qualquer dígito (CDA, AGT, REMOVIDA).
+      // Todo o BI angolano contém dígitos, pelo que esta regra não elimina
+      // nenhum cidadão real — apenas identificadores institucionais.
+      if (!/\d/.test(biCid)) return false;
+
       const matchProvince = filterProvince === 'Todas' || citizen.province === filterProvince;
       const matchMunicipio = filterMunicipio === 'Todos' || citizen.municipio === filterMunicipio;
       const matchStatus = filterStatus === 'Todas' || citizen.status === filterStatus;
