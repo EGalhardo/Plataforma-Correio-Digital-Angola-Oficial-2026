@@ -138,6 +138,7 @@ export const purgeCitizenLocalResidues = (bi: string): void => {
   try { localStorage.removeItem(`citizen_pass_${cleanBi}`); } catch { /* ignora */ }
   try { unmarkCloudAccount(cleanBi); } catch { /* ignora */ }
   try { localStorage.removeItem(`cda_read_msgs_${cleanBi}`); } catch { /* ignora */ }
+  try { localStorage.removeItem(`cda_homologation_registration_${cleanBi}`); } catch { /* ignora */ }
   ['user', 'institution', 'admin'].forEach((m) => {
     try { localStorage.removeItem(`cda_demo_face_${m}_${cleanBi}`); } catch { /* ignora */ }
   });

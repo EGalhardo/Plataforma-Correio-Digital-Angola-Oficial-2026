@@ -94,6 +94,7 @@ import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia, ehAssuntoQualquerDenuncia, es
 import { lerAvatarLocal, lerAvatarAuth } from './services/avatarService';
 import { lerPerfilLocal } from './services/perfilLocalService';
 import { homologationStore, normalizeHomologationBi, ensureInstitutionHomologationChannel, ensureCitizenHomologationChannel, notifyAccountApproved, notifyAccountUnblocked } from './services/homologationStore';
+import { homologationInboxId, firstNoticeIds, flagsFromLocal, syncNoticeReads } from './services/homologationReadSync';
 import { resolveInstitutionLogin, resolveInstitutionFaceLogin, isInstitutionFichaSuspended, preloginLookupInstitution, purgeInstitutionLocalResidues, mapRowStatus, type InstitutionIdentity } from './services/institutionSessionService';
 import { useInstitutions, CANONICAL_INSTITUTIONS } from './services/institutionStore';
 import { getLogoOficialPorCodigoInstituicao } from './config/institutionLogos';
@@ -2254,6 +2255,7 @@ export default function App() {
     const baseId = baseOf(targetId);
     // Persiste "Lida" para as próximas sessões deste BI (novo login não repõe "Não Lida").
     persistReadMessageId(bi, targetId, baseId);
+    if (selectedMessage.homologation && appMode === 'user') window.dispatchEvent(new Event('cda-homologation-read'));
     const mark = (list: Message[]) => {
       let touched = false;
       const next = list.map(m => {
@@ -2754,12 +2756,6 @@ export default function App() {
   // mensagens gravadas na homologationStore para a caixa de entrada do cidadão.
   // Sem este espelho, a correspondência do admin ficava invisível para o cidadão.
   const ASSUNTO_CONTA_ATIVADA = 'Conta Ativada — Homologação Aprovada pela Área de Administração';
-  const homologationInboxId = (raw: string): number => {
-    let h = 0;
-    for (let i = 0; i < raw.length; i++) h = ((h * 31) + raw.charCodeAt(i)) >>> 0;
-    return 90000000 + (h % 8999999);
-  };
-
   const buildHomologationInboxMessage = (msg: HomologationMessage, cleanBi: string): Message => {
     const alreadyRead = getReadMessageIds(cleanBi).has(homologationInboxId(msg.id));
     const isApproval = msg.text.includes('HOMOLOGADA') || msg.text.includes('oficialmente ATIVA');
@@ -2819,6 +2815,80 @@ export default function App() {
       return [...fresh.slice().reverse(), ...pruned];
     });
   }, [appMode, bi, gateRefreshTick, profileName]);
+
+  // As duas notificações locais são reconstruídas com IDs diferentes em cada
+  // dispositivo. Sincroniza apenas a leitura desses eventos com a conta Auth e
+  // com o ID do registo oficial actual; mensagens reais da nuvem não são tocadas.
+  useEffect(() => {
+    if (stage !== 'app' || appMode !== 'user' || !bi || !isOnline || !hasValidSupabaseKeys() || homologationStore.isExempt(bi)) return;
+    const controller = new AbortController();
+    let busy = false;
+    let pending = false;
+    const cleanBi = normalizeHomologationBi(bi);
+    const sync = async () => {
+      if (controller.signal.aborted) return;
+      if (busy) { pending = true; return; }
+      busy = true;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token || controller.signal.aborted) return;
+        const invalidatedIds = new Set<number>();
+        let currentRegistrationId = '';
+        const flags = await syncNoticeReads({
+          url: import.meta.env.VITE_SUPABASE_URL || 'https://klrclczcahfycfdxzdqs.supabase.co',
+          key: import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
+          token: session.access_token, bi: cleanBi, signal: controller.signal,
+          local: (registrationId) => {
+            const ids = firstNoticeIds(homologationStore.getThread(cleanBi));
+            const readIds = getReadMessageIds(cleanBi);
+            // A conta Auth pode sobreviver à eliminação e novo registo. Apenas
+            // invalida IDs da geração anterior, nunca IDs de uma thread nova.
+            try {
+              const markerKey = `cda_homologation_registration_${cleanBi}`;
+              const previous = JSON.parse(localStorage.getItem(markerKey) || 'null');
+              if (previous?.registrationId && previous.registrationId !== registrationId) {
+                for (const id of Object.values(previous.ids || {})) {
+                  if (typeof id === 'number' && readIds.delete(id)) invalidatedIds.add(id);
+                }
+              }
+              currentRegistrationId = registrationId;
+            } catch { /* se o storage falhar mantém o estado local */ }
+            return flagsFromLocal(homologationStore.getThread(cleanBi), readIds);
+          },
+        });
+        if (controller.signal.aborted) return;
+        const ids = firstNoticeIds(homologationStore.getThread(cleanBi));
+        try {
+          if (invalidatedIds.size) {
+            const current = getReadMessageIds(cleanBi);
+            invalidatedIds.forEach(id => current.delete(id));
+            localStorage.setItem(cdaReadKey(cleanBi), JSON.stringify([...current]));
+          }
+          if (currentRegistrationId) localStorage.setItem(`cda_homologation_registration_${cleanBi}`, JSON.stringify({ registrationId: currentRegistrationId, ids }));
+        } catch { /* armazenamento local indisponível */ }
+        const readIds = [flags.submission ? ids.submission : undefined, flags.approval ? ids.approval : undefined]
+          .filter((id): id is number => id != null);
+        if (readIds.length) persistReadMessageId(cleanBi, ...readIds);
+        const readSet = new Set(readIds);
+        setInbox(prev => prev.map(m => {
+          if (!m.homologation || normalizeHomologationBi(m.homologationBi) !== cleanBi) return m;
+          if (readSet.has(m.id)) return { ...m, unread: 0, status: 'Lida', novidade: false };
+          if (invalidatedIds.has(m.id)) return { ...m, unread: 1, status: 'Recebido', novidade: false };
+          return m;
+        }));
+      } catch (error) {
+        if (!controller.signal.aborted) console.warn('[Homologação] Leitura ainda não sincronizada; será tentada novamente.', error);
+      } finally {
+        busy = false;
+        if (pending && !controller.signal.aborted) { pending = false; void sync(); }
+      }
+    };
+    void sync();
+    const onRead = () => void sync();
+    window.addEventListener('cda-homologation-read', onRead);
+    const timer = window.setInterval(() => void sync(), 60000);
+    return () => { controller.abort(); window.clearInterval(timer); window.removeEventListener('cda-homologation-read', onRead); };
+  }, [stage, appMode, bi, isOnline, gateRefreshTick]);
 
   // F7 — Canal oficial de homologação (Área de Administração ⇄ Instituição): o MESMO
   // espelho do cidadão. A correspondência oficial enviada ao código institucional
@@ -4947,6 +5017,7 @@ export default function App() {
 
       // Sincronização em tempo real de estado "Lida" em todos os arrays da plataforma
       persistReadMessageId(bi || sessionOwnerKey, baseId, message.id);
+      if (message.homologation && appMode === 'user') window.dispatchEvent(new Event('cda-homologation-read'));
       setSelectedMessage(prev => prev ? { ...prev, unread: 0, status: 'Lida', novidade: false } : { ...message, unread: 0, status: 'Lida', novidade: false });
       try {
         const rawInbox = JSON.parse(localStorage.getItem('correio_digital_inbox') || '[]');
@@ -5003,7 +5074,7 @@ export default function App() {
         return c;
       }));
 
-      if (isOnline && hasValidSupabaseKeys()) {
+      if (!message.homologation && isOnline && hasValidSupabaseKeys()) {
         // REGRA R1/R2 — apenas o DESTINATÁRIO escreve «unread» na nuvem.
         supabaseService.markMessageReadByRecipient(baseId).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
         supabaseService.insertMessageStateEvent({
