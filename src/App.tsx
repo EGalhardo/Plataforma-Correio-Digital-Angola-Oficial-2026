@@ -8,6 +8,7 @@ import { pesquisarContacto, pesquisarMensagem, CONTACTO_INSTITUCIONAL } from './
  */
 
 import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
+import { FronteiraDePagina } from './components/ui/FronteiraDePagina';
 import type { ReactNode, ComponentType, ComponentProps } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -156,10 +157,17 @@ import { startImagePreloading, subscribeToPreload } from './utils/imagePreloader
 // ficheiro inicial (~1,9 MB). São descarregados só quando o utilizador os
 // abre. Fallback: indicador a rodar; NENHUMA funcionalidade mudou.
 // ============================================================================
-const PainelSuspense = ({ children }: { children: ReactNode }) => (
-  <Suspense fallback={<div className="flex items-center justify-center p-10"><Loader2 className="w-6 h-6 animate-spin text-indigo-500" /></div>}>
-    {children}
-  </Suspense>
+// 2026-11-16 — ECRÃ BRANCO: as páginas são carregadas à parte (React.lazy);
+// quando uma falhava, a React desmontava tudo e `#root` ficava VAZIO, sem
+// mensagem (reproduzido em produção). Cada painel passa a ter uma fronteira
+// que reconhece a falha, recarrega uma vez e, se persistir, mostra uma página
+// de recuperação — nunca um ecrã branco.
+const PainelSuspense = ({ children, area }: { children: ReactNode; area?: string }) => (
+  <FronteiraDePagina area={area}>
+    <Suspense fallback={<div className="flex items-center justify-center p-10"><Loader2 className="w-6 h-6 animate-spin text-indigo-500" /></div>}>
+      {children}
+    </Suspense>
+  </FronteiraDePagina>
 );
 
 // v37.18 — província onde o cidadão reside: primeiro pela morada declarada,
@@ -214,11 +222,11 @@ const DirectorioOrgaosContent = lazy(() => import('./components/features/Directo
 
 // v37.5 §3.2 — componentes pesados que vinham pelo barrel './components'
 // passam a chunks próprios (lazy), já com fronteira Suspense incluída.
-function lazyPainel<T extends ComponentType<any>>(factory: () => Promise<{ default: T }>) {
+function lazyPainel<T extends ComponentType<any>>(factory: () => Promise<{ default: T }>, area?: string) {
   const LazyComp = lazy(factory);
   return function WithSuspense(props: ComponentProps<T>) {
     return (
-      <PainelSuspense>
+      <PainelSuspense area={area}>
         <LazyComp {...(props as ComponentProps<typeof LazyComp>)} />
       </PainelSuspense>
     );

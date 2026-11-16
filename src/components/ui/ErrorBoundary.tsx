@@ -1,9 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { FronteiraDePagina } from './FronteiraDePagina';
 
 interface Props {
   children: React.ReactNode;
 }
 
+/**
+ * 2026-11-16 — o ecrã branco tinha duas causas nesta peça:
+ *
+ *  1. Este componente NÃO era um error boundary do React: só ouvia eventos
+ *     globais de `window`. Erros durante o render não eram apanhados e a
+ *     árvore era desmontada pelo próprio React, deixando `#root` vazio.
+ *  2. QUALQUER promessa rejeitada sem tratamento substituía a aplicação
+ *     inteira pelo ecrã «Algo correu mal» — um `fetch` falhado noutro canto
+ *     da aplicação tirava o utilizador da página em que estava.
+ *
+ * Agora: erros de render são apanhados por `FronteiraDePagina` (lá dentro) e
+ * as rejeições assíncronas deixam de desmontar a aplicação — são registadas
+ * e a página onde o utilizador está mantém-se. A recuperação por página faz
+ * sentido; a recuperação global fica reservada a falhas de arranque.
+ */
 export function ErrorBoundary({ children }: Props) {
   const [hasError, setHasError] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -50,9 +66,10 @@ export function ErrorBoundary({ children }: Props) {
         return;
       }
       
-      console.error('ErrorBoundary apanhou uma rejeição assíncrona:', event.reason);
-      setHasError(true);
-      setError(event.reason instanceof Error ? event.reason : new Error(String(event.reason)));
+      // NÃO desmontar a aplicação por uma promessa rejeitada: registar e
+      // deixar o utilizador onde está. Se for uma falha de carregamento de
+      // página, a fronteira dessa página trata dela.
+      console.error('ErrorBoundary registou uma rejeição assíncrona:', event.reason);
     };
 
     window.addEventListener('error', handleError);
@@ -111,6 +128,6 @@ export function ErrorBoundary({ children }: Props) {
     );
   }
 
-  return <>{children}</>;
+  return <FronteiraDePagina>{children}</FronteiraDePagina>;
 }
 export default ErrorBoundary;
