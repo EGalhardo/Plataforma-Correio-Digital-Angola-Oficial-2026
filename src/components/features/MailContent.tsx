@@ -2498,7 +2498,10 @@ export function MailContent({
           </div>
           <div>
             <h3 className="text-lg md:text-2xl font-black text-primary leading-tight">{translateText("Correio Digital", currentLanguage)}</h3>
-            <p className="text-[10px] md:text-sm text-slate-600 font-black uppercase tracking-widest">{unreadTotal} {translateText("mensagens por ler", currentLanguage)}</p>
+            {/* 2026-11-16 — o cabeçalho do Correio conta a CAIXA (igual à aba
+                «Não Lidas»); antes usava o contador do sino e o mesmo ecrã
+                mostrava «10 mensagens por ler» acima de «Não Lidas 6». */}
+            <p className="text-[10px] md:text-sm text-slate-600 font-black uppercase tracking-widest">{naoLidasDaCaixa} {translateText("mensagens por ler", currentLanguage)}</p>
           </div>
         </div>
         <button 
