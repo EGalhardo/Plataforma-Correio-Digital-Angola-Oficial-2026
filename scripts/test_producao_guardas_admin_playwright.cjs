@@ -86,10 +86,14 @@ const token = async (email) => {
     const depois = await (await fetch(`${base}/rest/v1/profiles?bi=eq.${BI_ALVO}&select=bi`, { headers: H })).json();
     out.apagado_pelo_admin = Array.isArray(depois) && depois.length === 0;
 
-    // Rate-limit das rotas de e-mail: a 6.ª chamada do mesmo IP deve ser 429.
+    // Rate-limit das rotas de e-mail. O contador é POR IP e é partilhado com
+    // todas as suites desta ronda, por isso o índice do primeiro 429 depende
+    // do tráfego anterior — a asserção correcta é «o limite dispara e mantém-
+    // se disparado», não «é exactamente a 6.ª chamada».
     const codigos = [];
     for (let i = 0; i < 6; i++) codigos.push((await pedir(null, '/api/enviar-email-boas-vindas', { nome: 'x', email: `rl${i}@example.com`, chaveAcesso: 'X', senha: 'y' })).status);
     out.rate_limit_email = codigos;
+    out.rate_limit_activo = codigos.includes(429) && codigos[codigos.length - 1] === 429;
 
     out.aprovado =
       out.cidadao_elimina_cidadao.status === 403 &&
@@ -97,7 +101,7 @@ const token = async (email) => {
       out.intacto_apos_recusas === true &&
       out.admin_elimina.status === 200 &&
       out.apagado_pelo_admin === true &&
-      codigos.slice(0, 5).every((c) => c !== 429) && codigos[5] === 429;
+      out.rate_limit_activo === true;
 
     console.log(JSON.stringify(out, null, 1));
     if (!out.aprovado) process.exitCode = 1;
