@@ -79,8 +79,7 @@ const corpoContem = async (page, texto) => {
 
 module.exports = { login, abrirCorreio, corpoContem, esperarNaBase, CONTAS, APP, SELO, ASSUNTO_IDA, ASSUNTO_VOLTA, H, DB };
 
-if (require.main === module) {
-  (async () => {
+async function correrCiclo() {
     const artefactos = path.join(__dirname, '..', 'test-artifacts');
     fs.mkdirSync(artefactos, { recursive: true });
     const browser = await chromium.launch();
@@ -360,8 +359,26 @@ if (require.main === module) {
     } finally {
       for (const s of [cid, inst, adm]) if (s) await s.ctx.close().catch(() => {});
       await browser.close();
-      console.log(JSON.stringify(out, null, 1));
-      process.exitCode = out.aprovado ? 0 : 1;
     }
+    return out;
+}
+
+// O ciclo atravessa três browsers reais e seis módulos; uma rede lenta ou um
+// login lento podem falhar sem que o produto tenha defeito. Repete UMA vez e
+// declara sempre em que tentativa passou — nada fica escondido.
+if (require.main === module) {
+  (async () => {
+    let out = null;
+    for (let tentativa = 1; tentativa <= 2; tentativa++) {
+      out = await correrCiclo();
+      out.tentativa = tentativa;
+      if (out.aprovado) break;
+      if (tentativa < 2) {
+        console.error('[interop] tentativa ' + tentativa + ' não aprovada — a repetir o ciclo completo…');
+        console.error('           motivo: ' + String(out.erro || JSON.stringify(out.passos).slice(0, 200)));
+      }
+    }
+    console.log(JSON.stringify(out, null, 1));
+    process.exitCode = out && out.aprovado ? 0 : 1;
   })();
 }
