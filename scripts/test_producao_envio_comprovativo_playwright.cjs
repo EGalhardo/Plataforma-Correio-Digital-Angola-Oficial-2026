@@ -22,6 +22,8 @@ const BI = `9${tag}LA0${(Date.now() % 90 + 10)}`;
 const pw = 'Envio!2026' + tag;
 const EMAIL = `bi.${BI.toLowerCase()}@cidadao.correiodigital.ao`;
 const MARCA = `TESTE-COMPROVATIVO-${tag}`;
+const ARTEFACTOS = require('path').join(__dirname, '..', 'test-artifacts');
+require('fs').mkdirSync(ARTEFACTOS, { recursive: true });
 
 (async () => {
   const criados = { conta: null };
@@ -31,6 +33,22 @@ const MARCA = `TESTE-COMPROVATIVO-${tag}`;
   const out = {};
   const erros = [];
   page.on('pageerror', (e) => erros.push(String(e).slice(0, 140)));
+  // Diagnóstico: registar as escritas e as respostas da API durante o envio.
+  const rede = [];
+  page.on('request', (r) => {
+    if (r.method() !== 'POST') return;
+    const u = r.url();
+    if (!/\/api\//.test(u)) return;
+    rede.push({ fase: 'pedido', url: u.replace(/^https?:\/\/[^/]+/, ''), corpo: (r.postData() || '').slice(0, 120) });
+  });
+  page.on('response', async (r) => {
+    if (r.request().method() !== 'POST') return;
+    const u = r.url();
+    if (!/\/api\//.test(u)) return;
+    let corpo = '';
+    try { corpo = (await r.text()).slice(0, 160); } catch { /* corpo não legível */ }
+    rede.push({ fase: 'resposta', url: u.replace(/^https?:\/\/[^/]+/, ''), status: r.status(), corpo });
+  });
 
   try {
     // Conta efémera aprovada (perfil + fila + Auth com identidade).
@@ -66,7 +84,7 @@ const MARCA = `TESTE-COMPROVATIVO-${tag}`;
     await page.waitForTimeout(7000);
     out.entrou = !(await page.getByRole('button', { name: /ENTRAR NO PORTAL/i }).first().isVisible().catch(() => false));
     out.ecra_apos_login = (await page.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 300);
-    await page.screenshot({ path: '/home/user/auditoria-interoperabilidade/envio-1-apos-login.png' }).catch(() => {});
+    await page.screenshot({ path: ARTEFACTOS + '/envio-1-apos-login.png' }).catch(() => {});
 
     // 2. Ir ao correio e compor uma mensagem para a instituição.
     const abaCorreio = page.getByRole('button', { name: /correio|caixa de entrada|mensagens/i }).first();
@@ -79,7 +97,7 @@ const MARCA = `TESTE-COMPROVATIVO-${tag}`;
     if (out.tem_botao_compor) {
       await btnCompor.click();
       await page.waitForTimeout(1500);
-      await page.screenshot({ path: '/home/user/auditoria-interoperabilidade/envio-2-compor.png' }).catch(() => {});
+      await page.screenshot({ path: ARTEFACTOS + '/envio-2-compor.png' }).catch(() => {});
       // Campos reais do compose (MailContent): destinatário por Código
       // Institucional, «TÍTULO» (#compose-subject-input) e o conteúdo.
       const campoDest = page.locator('input[placeholder*="Código Institucional" i]').first();
@@ -92,7 +110,7 @@ const MARCA = `TESTE-COMPROVATIVO-${tag}`;
       const temCorpo = await campoCorpo.isVisible().catch(() => false);
       if (temCorpo) await campoCorpo.fill(`Mensagem de verificação ${MARCA}`);
       out.preencheu = { destinatario: temDest, titulo: temAssunto, corpo: temCorpo };
-      await page.screenshot({ path: '/home/user/auditoria-interoperabilidade/envio-2-comprovativo.png' }).catch(() => {});
+      await page.screenshot({ path: ARTEFACTOS + '/envio-2-comprovativo.png' }).catch(() => {});
       const enviar = page.getByRole('button', { name: /^Enviar Mensagem$/i }).first();
       out.tem_botao_enviar = await enviar.isVisible().catch(() => false);
       if (out.tem_botao_enviar) await enviar.click({ timeout: 10000 }).catch(() => {});
@@ -128,15 +146,15 @@ const MARCA = `TESTE-COMPROVATIVO-${tag}`;
         if (achado) {
           protocoloNoEcra = achado[0];
           seloVisivel = /selo digital|QR Code|comprovativ/i.test(t);
-          await page.screenshot({ path: '/home/user/auditoria-interoperabilidade/envio-3-comprovativo.png' }).catch(() => {});
+          await page.screenshot({ path: ARTEFACTOS + '/envio-3-comprovativo.png' }).catch(() => {});
           break;
         }
-        if (i === 20) await page.screenshot({ path: '/home/user/auditoria-interoperabilidade/envio-3-sem-comprovativo.png' }).catch(() => {});
+        if (i === 20) await page.screenshot({ path: ARTEFACTOS + '/envio-3-sem-comprovativo.png' }).catch(() => {});
       }
       out.protocolo_no_ecra = protocoloNoEcra;
       out.selo_visivel = seloVisivel;
       await page.waitForTimeout(3000);
-      await page.screenshot({ path: '/home/user/auditoria-interoperabilidade/envio-3-comprovativo.png' }).catch(() => {});
+      await page.screenshot({ path: ARTEFACTOS + '/envio-3-comprovativo.png' }).catch(() => {});
 
       const texto = (await page.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ');
       out.texto_apos_envio = texto.slice(0, 600);
@@ -146,8 +164,17 @@ const MARCA = `TESTE-COMPROVATIVO-${tag}`;
     }
 
     // 3. Confirmar na base que a mensagem foi gravada com protocolo.
-    const msgs = await (await fetch(`${base}/rest/v1/messages?select=id,subject,protocol_number,sender_bi&order=id.desc&limit=20`, { headers: H })).json();
-    const minha = Array.isArray(msgs) ? msgs.filter((x) => String(x.subject || '').includes(MARCA) || String(x.sender_bi || '') === BI) : [];
+    // 2026-11-16 — a gravação não é instantânea: ler uma única vez logo após o
+    // comprovativo dava falsos negativos (o ecrã já mostrava o protocolo e a
+    // base ainda não tinha a linha). Repetir até 12 s antes de concluir.
+    let minha = [];
+    for (let tent = 0; tent < 9; tent++) {
+      const msgs = await (await fetch(`${base}/rest/v1/messages?select=id,subject,protocol_number,sender_bi&order=id.desc&limit=20`, { headers: H })).json();
+      minha = Array.isArray(msgs) ? msgs.filter((x) => String(x.subject || '').includes(MARCA) || String(x.sender_bi || '') === BI) : [];
+      if (minha.length) break;
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+    out.rede_envio = rede.filter((x) => /dados|comprovativo|mensagem/i.test(x.url)).slice(-8);
     out.gravada_na_base = minha.length > 0;
     out.protocolo_na_base = minha[0]?.protocol_number ?? null;
 
