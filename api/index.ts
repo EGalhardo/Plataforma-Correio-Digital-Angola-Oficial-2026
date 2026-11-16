@@ -4795,7 +4795,22 @@ async function denunciaActivarFase(opts: {
     const cidadaoBi = String(row.sender_bi || '').toUpperCase().trim();
     if (cidadaoBi) {
       const tituloMsg = `${prefixoTitulo} ${cleanSubj} - Estado ${def.rotulo}`;
-      const corpoMsg = `Viemos por esse meio informar que a sua ${prefixoTitulo} sobre ${cleanSubj} foi recebida e está neste momento em estado ${def.rotulo}.`;
+      // 2026-11-16 — molde explícito, com o estado anterior e o novo, para o
+      // remetente perceber o que mudou (antes dizia sempre «foi recebida», mesmo
+      // quando a fase já ia em «Em análise» ou «Encerrada»).
+      const corpoMsg = [
+        'Exmo(a). Senhor(a),',
+        '',
+        `Viemos por este meio informar que a sua ${prefixoTitulo} sobre «${cleanSubj}» foi actualizada.`,
+        '',
+        `Estado anterior: ${actual.rotulo}`,
+        `Estado actual: ${def.rotulo}`,
+        `Detalhe: ${def.notificacao}`,
+        '',
+        'Pode acompanhar o cronograma completo na plataforma, no detalhe da correspondência.',
+        '',
+        'Correio Digital de Angola',
+      ].join('\n');
       const novoId = Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);
       const rm = await fetch(`${supaUrl}/rest/v1/messages`, {
         method: 'POST', headers: { ...H, Prefer: 'return=minimal' },

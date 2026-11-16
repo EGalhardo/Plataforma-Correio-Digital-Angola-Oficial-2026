@@ -274,6 +274,76 @@ async function signedPhoto(db: SupabaseClient, f: any) {
   if (r.error) throw r.error;
   return { id: f.id, nome: f.nome, tamanho: f.tamanho, url: r.data.signedUrl };
 }
+/**
+ * 2026-11-16 — AVISO AO REMETENTE QUANDO A INSTITUIÇÃO MUDA O ESTADO.
+ *
+ * Antes, uma mudança de estado só produzia uma notificação INTERNA
+ * (`cda_ocorrencias_notificacoes`). O cidadão não recebia nada na caixa de
+ * correio: medido em produção, uma ocorrência passada a «recebida» pela
+ * instituição gerava ZERO mensagens novas para o autor.
+ *
+ * Este aviso grava uma correspondência normal da instituição para o cidadão
+ * (sender/recipient reais), com o protocolo da ocorrência e o estado novo, de
+ * modo a aparecer no Correio («Não Lidas»), no sino e no detalhe da ocorrência.
+ * É melhor esforço: a mudança de estado já está gravada e nunca é revertida
+ * por uma falha aqui.
+ */
+async function avisarRemetenteDoEstado(
+  db: SupabaseClient,
+  oco: any,
+  titulo: string,
+  descricao: string,
+  de: string,
+) {
+  try {
+    const cidadao = String(oco?.cidadao_id || "").trim().toUpperCase();
+    const instituicao = String(oco?.instituicao_codigo || "").trim().toUpperCase();
+    if (!cidadao || !instituicao) return false;
+    const protocolo = `OC-${String(oco.numero).padStart(6, "0")}`;
+    const assunto = `Ocorrência ${protocolo} · ${titulo}`;
+    const corpo = [
+      `Exmo(a). Senhor(a),`,
+      ``,
+      `Viemos por este meio informar que a sua ocorrência ${protocolo} («${oco.titulo}») foi actualizada.`,
+      ``,
+      `Estado actual: ${titulo}`,
+      `Detalhe: ${descricao}`,
+      `Responsável: ${de}`,
+      ``,
+      `Pode acompanhar o processo no módulo «Ocorrências» da plataforma.`,
+      ``,
+      `Correio Digital de Angola — ${instituicao}`,
+    ].join("\n");
+    const { error } = await db.from("messages").insert({
+      id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
+      sender_bi: instituicao,
+      recipient_bi: cidadao,
+      org: instituicao,
+      preview: titulo,
+      unread: 1,
+      status: "Informativo",
+      subject: assunto,
+      body: corpo,
+      deadline_text: "Sem prazo",
+      state_indicator: titulo,
+      actions: ["Ver detalhes", "OCORRENCIA", `OCORRENCIA_ID:${oco.id}`, `OCORRENCIA_NUM:${oco.numero}`],
+      attachments: [],
+      sensitivity: "Privado",
+      priority_scale: "Normal",
+      deadline_hours_remaining: null,
+      deadline_at: null,
+      protocol_number: protocolo,
+    });
+    if (error) {
+      console.error("[server/ocorrencias] aviso ao remetente não gravado:", error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("[server/ocorrencias] aviso ao remetente falhou:", e);
+    return false;
+  }
+}
 async function notifQuery(
   db: SupabaseClient,
   a: ActorOcorrencia,
@@ -904,7 +974,33 @@ export async function handleOcorrencias(req: any, res: any) {
           }
         }
 
-        result = { ocorrencia: actedOco };
+        // Aviso ao remetente, qualquer que tenha sido o caminho (RPC ou fallback).
+        let avisouRemetente = false;
+        if (a.papel === "instituicao") {
+          const TITULOS: Record<string, string> = {
+            receber: "Recepção confirmada",
+            analisar: "Ocorrência em análise",
+            iniciar_resolucao: "Resolução iniciada",
+            pedir_esclarecimento: "Informação solicitada ao cidadão",
+            resolver: "Ocorrência marcada como resolvida",
+            encerrar: "Ocorrência encerrada",
+            atribuir: "Responsável atribuído",
+            encaminhar: "Ocorrência encaminhada",
+          };
+          const titulo = TITULOS[action] || "Actualização da ocorrência";
+          const detalhe = String(
+            (b.dados && (b.dados.descricao || b.dados.responsavel)) || "Actualização de estado da ocorrência.",
+          ).slice(0, 500);
+          avisouRemetente = await avisarRemetenteDoEstado(
+            db,
+            actedOco || row,
+            titulo,
+            detalhe,
+            a.nome || a.instituicao || "Instituição",
+          );
+        }
+
+        result = { ocorrencia: actedOco, aviso_remetente: avisouRemetente };
         break;
       }
       case "notificacoes": {
