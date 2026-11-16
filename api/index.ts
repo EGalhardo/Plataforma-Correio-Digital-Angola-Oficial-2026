@@ -4224,6 +4224,11 @@ const DADOS_TABELAS: Record<string, {
     select: true, insert: true, update: true, delete: true, upsert: true,
     // 2026-08-21 — titularidade respeitada em TODOS os papéis: admin vê tudo;
     // instituição só os contactos do próprio código; cidadão só os seus.
+    // 2026-11-16 — auditado: para uma instituição, `dadosResolverIdentidadeRaw`
+    // só devolve identidade se `instCode` existir (senão 401 «Identidade
+    // incompleta»), e nesse ramo `bi === instCode`. Logo `instCode || bi`
+    // nunca cai no B.I. de um cidadão — a carteira de contactos é sempre a da
+    // própria sigla. Mantém-se explícito e fechado para leitura/escrita.
     escopo: (i) => i.isAdmin ? { or: [], and: {} } : { or: [], and: { owner_bi: i.instCode || i.bi } },
     injetar: (i, d) => (i.isAdmin) ? d : { ...d, owner_bi: i.instCode || i.bi },
   },
