@@ -90,10 +90,23 @@ const token = async (email) => {
     // todas as suites desta ronda, por isso o índice do primeiro 429 depende
     // do tráfego anterior — a asserção correcta é «o limite dispara e mantém-
     // se disparado», não «é exactamente a 6.ª chamada».
+    // O limitador é POR IP e partilhado por toda a ronda de suites, e a janela
+    // expira. Por isso: continuar a chamar ATÉ o limite disparar (máx. 12) e
+    // exigir que, a partir daí, se mantenha disparado — em vez de fixar a
+    // posição exacta, que dependia do tráfego anterior.
     const codigos = [];
-    for (let i = 0; i < 6; i++) codigos.push((await pedir(null, '/api/enviar-email-boas-vindas', { nome: 'x', email: `rl${i}@example.com`, chaveAcesso: 'X', senha: 'y' })).status);
+    let primeiro429 = -1;
+    for (let i = 0; i < 12; i++) {
+      const c = (await pedir(null, '/api/enviar-email-boas-vindas', { nome: 'x', email: `rl${i}@example.com`, chaveAcesso: 'X', senha: 'y' })).status;
+      codigos.push(c);
+      if (c === 429 && primeiro429 < 0) primeiro429 = i;
+      if (primeiro429 >= 0) break; // já disparou; confirmar a estabilidade abaixo
+    }
+    if (primeiro429 >= 0) {
+      for (let j = 0; j < 2; j++) codigos.push((await pedir(null, '/api/enviar-email-boas-vindas', { nome: 'x', email: `rlx${j}@example.com`, chaveAcesso: 'X', senha: 'y' })).status);
+    }
     out.rate_limit_email = codigos;
-    out.rate_limit_activo = codigos.includes(429) && codigos[codigos.length - 1] === 429;
+    out.rate_limit_activo = primeiro429 >= 0 && codigos.slice(primeiro429).every((c) => c === 429);
 
     out.aprovado =
       out.cidadao_elimina_cidadao.status === 403 &&
