@@ -62,12 +62,22 @@ const abrirCorreio = async (page, raiz) => {
   await page.waitForSelector('button:has-text("Nova Mensagem"), input[placeholder*="Pesquisar"]', { timeout: 30000 });
 };
 
+/** Espera até 12 s por uma linha na base (o INSERT e a leitura não são instantâneos). */
+const esperarNaBase = async (url, tentativas = 8) => {
+  for (let i = 0; i < tentativas; i++) {
+    const r = await (await fetch(url, { headers: H })).json().catch(() => null);
+    if (Array.isArray(r) && r.length) return r;
+    await new Promise((res) => setTimeout(res, 1500));
+  }
+  return [];
+};
+
 const corpoContem = async (page, texto) => {
   const t = await page.evaluate(() => document.body.innerText);
   return t.includes(texto);
 };
 
-module.exports = { login, abrirCorreio, corpoContem, CONTAS, APP, SELO, ASSUNTO_IDA, ASSUNTO_VOLTA, H, DB };
+module.exports = { login, abrirCorreio, corpoContem, esperarNaBase, CONTAS, APP, SELO, ASSUNTO_IDA, ASSUNTO_VOLTA, H, DB };
 
 if (require.main === module) {
   (async () => {
@@ -180,7 +190,7 @@ if (require.main === module) {
         if (conf) { await conf.click(); await inst.page.waitForTimeout(7000); }
         ecrãResposta = await inst.page.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').slice(0, 240));
         // prova na base: existe uma linha AGT-LMM → cidadão com o assunto de volta?
-        const volta = await (await fetch(`${DB}/rest/v1/messages?subject=eq.${encodeURIComponent(ASSUNTO_VOLTA)}&select=id,sender_bi,recipient_bi`, { headers: H })).json();
+        const volta = await esperarNaBase(`${DB}/rest/v1/messages?subject=eq.${encodeURIComponent(ASSUNTO_VOLTA)}&select=id,sender_bi,recipient_bi`);
         respondeu = Array.isArray(volta) && volta.length > 0
           && volta[0].sender_bi === 'AGT-LMM' && volta[0].recipient_bi === '002399714LA030';
         out.passos.instituicao_responde = {
@@ -269,7 +279,7 @@ if (require.main === module) {
       }
       await cid.page.screenshot({ path: path.join(artefactos, 'interop-8-ocorrencia-cidadao.png'), fullPage: true });
 
-      const ocDb = await (await fetch(`${DB}/rest/v1/cda_ocorrencias?titulo=eq.${encodeURIComponent(ASSUNTO_OC)}&select=id,numero,titulo,estado,cidadao_bi`, { headers: H })).json();
+      const ocDb = await esperarNaBase(`${DB}/rest/v1/cda_ocorrencias?titulo=eq.${encodeURIComponent(ASSUNTO_OC)}&select=id,numero,titulo,estado,cidadao_bi`);
       const criada = Array.isArray(ocDb) && ocDb.length > 0;
 
       let instViuOc = false;
@@ -308,8 +318,8 @@ if (require.main === module) {
       const confD = cid.page.locator('button:has-text("ENVIAR CORRESPONDÊNCIA"), button:has-text("Enviar Correspondência")').first();
       if (await confD.count()) { await confD.click({ force: true }); await cid.page.waitForTimeout(8000); }
       await cid.page.screenshot({ path: path.join(artefactos, 'interop-10-denuncia-cidadao.png'), fullPage: true });
-      const denDb = await (await fetch(`${DB}/rest/v1/messages?subject=like.*${encodeURIComponent(SELO)}*&select=id,subject,sender_bi,recipient_bi&order=id.desc`, { headers: H })).json()
-        .then((r) => (Array.isArray(r) ? r.filter((m) => /den[úu]ncia/i.test(m.subject)) : r));
+      const todasSelo = await esperarNaBase(`${DB}/rest/v1/messages?subject=like.*${encodeURIComponent(SELO)}*&select=id,subject,sender_bi,recipient_bi&order=id.desc`);
+      const denDb = (Array.isArray(todasSelo) ? todasSelo : []).filter((m) => /den[úu]ncia/i.test(m.subject));
       out.passos.denuncia = {
         criada_na_base: Array.isArray(denDb) && denDb.length > 0,
         linha: Array.isArray(denDb) && denDb[0] ? { de: denDb[0].sender_bi, para: denDb[0].recipient_bi } : null,
