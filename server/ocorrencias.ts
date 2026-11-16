@@ -296,9 +296,18 @@ async function avisarRemetenteDoEstado(
   de: string,
 ) {
   try {
-    const cidadao = String(oco?.cidadao_id || "").trim().toUpperCase();
+    // ATENÇÃO: `cidadao_id` é o UUID da conta Auth, NÃO o B.I. O destinatário
+    // da correspondência tem de ser o B.I. (`cidadao_bi`) — usar o id fazia o
+    // INSERT falhar em silêncio e o cidadão não recebia nada.
+    const cidadao = String(oco?.cidadao_bi || "").trim().toUpperCase();
     const instituicao = String(oco?.instituicao_codigo || "").trim().toUpperCase();
-    if (!cidadao || !instituicao) return false;
+    if (!cidadao || !instituicao) {
+      console.error("[server/ocorrencias] aviso ao remetente: falta cidadao_bi/instituicao_codigo", {
+        cidadao_bi: oco?.cidadao_bi,
+        instituicao_codigo: oco?.instituicao_codigo,
+      });
+      return false;
+    }
     const protocolo = `OC-${String(oco.numero).padStart(6, "0")}`;
     const assunto = `Ocorrência ${protocolo} · ${titulo}`;
     const corpo = [
