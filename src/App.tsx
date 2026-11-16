@@ -733,6 +733,10 @@ export default function App() {
   // 2026-08-21 (desempenho/UX) — verdadeiro quando a primeira sincronização
   // com a nuvem terminou (usado para o estado de carregamento das páginas).
   const [cloudSyncedOnce, setCloudSyncedOnce] = useState(false);
+  // 2026-11-16 — estado da sincronização das correspondências oficiais
+  // (indicador de carregamento do painel da Administração, independente do
+  // resto da sincronização).
+  const [correspondenciasSync, setCorrespondenciasSync] = useState<{ estado: 'a-carregar' | 'pronto' | 'indisponivel'; em?: number }>({ estado: 'a-carregar' });
 
   const [contacts, setContacts] = useState<Contact[]>(() => {
     if (shouldUseLocalBootstrap()) {
@@ -3551,6 +3555,12 @@ export default function App() {
         // ~1/4 do tempo. Audit Logs e Correspondências são visões da
         // Administração — só são pedidas em modo gov (menos tráfego para
         // cidadão/instituição). Correspondências vêm JÁ FILTRADAS do servidor.
+        // 2026-11-16 — INDICADOR HONESTO (painel da Administração): a página
+        // «Correspondências» mostrava «a carregar» até a sincronização INTEIRA
+        // terminar — sete leituras, incluindo documentos e contactos que esta
+        // página nem usa. Com a nuvem lenta o expediente ficava em espera sem
+        // motivo. Passa a haver um sinal específico das correspondências.
+        setCorrespondenciasSync({ estado: 'a-carregar' });
         const [dbDocs, dbContacts, dbUserRequests, dbDocRequests, dbNotifs, dbLogs, dbCorrespondences, dbInstMailbox] = await Promise.all([
           supabaseService.getDocuments(bi),
           supabaseService.getContacts(bi),
@@ -3724,6 +3734,10 @@ export default function App() {
         }
 
         // 9. Official Correspondences (só modo gov)
+        setCorrespondenciasSync({
+          estado: dbCorrespondences === null ? 'indisponivel' : 'pronto',
+          em: Date.now(),
+        });
         if (dbCorrespondences !== null) {
           if (!isDemoSession) {
             // 2026-08-21 — Modo Real: só dados REAIS na página "Correspondências"
@@ -3746,6 +3760,8 @@ export default function App() {
       } catch (err) {
         console.error('Erro na sincronização em segundo plano do Supabase:', err);
         setCloudSyncedOnce(true); // honesto: não deixar a UI em carregamento infinito
+        // A página da Administração não pode ficar a «carregar» para sempre.
+        setCorrespondenciasSync({ estado: 'indisponivel', em: Date.now() });
       }
     }
 
@@ -7319,7 +7335,7 @@ Ficha civil do titular:
           <PainelSuspense>
           <GovCorrespondenciasContent
             correspondences={currentCorrespondences}
-            carregando={isGovMode && !cloudSyncedOnce}
+            carregando={isGovMode && correspondenciasSync.estado === 'a-carregar'}
             onNavigate={setTab}
             onDeleteCorrespondence={async (cor) => {
               // v37.77 — eliminação pelo Admin: remove a linha LOCALMENTE e na

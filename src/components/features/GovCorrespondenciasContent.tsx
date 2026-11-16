@@ -69,35 +69,22 @@ const prepareCorrespondence = (c: Correspondence) => {
     else category = 'Geral';
   }
 
-  // default dates & timelines
-  // 2026-08-21 — data E hora completas no Expediente.
+  // Datas e prazos REAIS do processo (2026-11-16).
+  // Antes: sem valor na base, o ecrã inventava um SLA («18 horas»), uma
+  // prioridade por id fixo, um anexo fictício `oficio_digitalizado_*.pdf`,
+  // um atraso de 4 dias e uma cronologia inteira com utilizadores
+  // inexistentes (AUDITOR_CDA, SUPERVISOR_GERAL…). O expediente oficial não
+  // pode exibir factos que ninguém registou: agora só aparece o que existe.
   const dateWithTime = c.time ? `${c.date} ${c.time}` : c.date;
-  const sentDate = c.sentDate || dateWithTime;
-  const receivedDate = c.receivedDate || (status !== 'Enviada' ? dateWithTime : 'Pendente');
-  const responseTime = c.responseTime || (status === 'Respondida' ? '18 horas' : status === 'Arquivada' ? '36 horas' : 'Pendente');
-  const priority = c.priority || (c.id === 'CDA-90118' || c.id === 'CDA-77123' ? 'Alta' : c.id === 'CDA-88123' ? 'Média' : 'Baixa');
-  
-  // default attachments
-  const attachments = c.attachments || [
-    { name: `oficio_digitalizado_${c.id.toLowerCase()}.pdf`, size: '1.4 MB' }
-  ];
-
-  // default delay metric
-  const isDelayed = c.isDelayed !== undefined ? c.isDelayed : (c.id === 'CDA-77123'); // Viana marked as delayed
-  const delayDays = c.delayDays !== undefined ? c.delayDays : (isDelayed ? 4 : 0);
-
-  // default operational timeline history
-  const history = c.history || [
-    { action: "Submissão Eletrónica no Barramento Governamental", dateTime: `${c.date} 09:15`, user: `${c.institution}_DELEGADO` },
-    ...(status !== 'Enviada' ? [{ action: "Validação Digital pelo CDA Nacional", dateTime: `${c.date} 10:20`, user: "CDA_INTEGRADOR" }] : []),
-    ...(status === 'Em Análise' ? [{ action: "Início de Auditoria Administrativa", dateTime: `${c.date} 14:05`, user: "AUDITOR_CDA" }] : []),
-    ...(status === 'Respondida' ? [
-      { action: "Resposta Elaborada pelo Ofício", dateTime: `${c.date} 15:30`, user: "OPERADOR_BALCAO" },
-      { action: "Assinatura Digital de Envio Homologada", dateTime: `${c.date} 16:10`, user: "SUPERVISOR_GERAL" }
-    ] : []),
-    ...(status === 'Arquivada' ? [{ action: "Processo Arquivado com Sucesso", dateTime: `${c.date} 17:00`, user: "SISTEMA_ARQUIVO" }] : []),
-    ...(status === 'Cancelada' ? [{ action: "Emissão Cancelada por Ordem Superior", dateTime: `${c.date} 11:55`, user: "SUPERVISOR_GERAL" }] : [])
-  ];
+  const sentDate = c.sentDate || dateWithTime || '—';
+  const receivedDate = c.receivedDate || (status !== 'Enviada' ? dateWithTime : 'Pendente') || '—';
+  const responseTime = c.responseTime || '';
+  const priority = c.priority || '';
+  const attachments = c.attachments || [];
+  const isDelayed = c.isDelayed === true;
+  const delayDays = c.delayDays !== undefined ? c.delayDays : 0;
+  // Cronologia: só eventos registados (sem invenção de intervenientes).
+  const history = c.history || [];
 
   return {
     ...c,
@@ -907,13 +894,17 @@ export function GovCorrespondenciasContent({
                       <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-50">
                         <div>
                           <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">{t("Tempo de Resposta SLA")}</span>
-                          <span className="font-mono font-extrabold text-slate-800">{t(selectedLetter.responseTime || '')}</span>
+                          <span className="font-mono font-extrabold text-slate-800">{selectedLetter.responseTime ? t(selectedLetter.responseTime) : '—'}</span>
                         </div>
                         <div>
                           <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">{t("Prioridade de Auditoria")}</span>
-                          <span className={`font-mono font-extrabold px-2 py-0.5 rounded text-[9px] border inline-block select-none ${getPriorityColorStyles(selectedLetter.priority)}`}>
-                            {t(selectedLetter.priority || '')}
-                          </span>
+                          {selectedLetter.priority ? (
+                            <span className={`font-mono font-extrabold px-2 py-0.5 rounded text-[9px] border inline-block select-none ${getPriorityColorStyles(selectedLetter.priority)}`}>
+                              {t(selectedLetter.priority)}
+                            </span>
+                          ) : (
+                            <span className="font-mono text-slate-400">—</span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -927,6 +918,9 @@ export function GovCorrespondenciasContent({
                     </div>
 
                     <div className="space-y-3.5 max-h-[190px] overflow-y-auto pr-1 custom-scrollbar">
+                      {(!selectedLetter.history || selectedLetter.history.length === 0) && (
+                        <p className="text-[10.5px] text-slate-400 italic">{t("Sem eventos de tráfego registados para este expediente.")}</p>
+                      )}
                       {selectedLetter.history && selectedLetter.history.map((log: { action?: string; user?: string; dateTime?: string; state?: string; date?: string; time?: string; responsible?: string; description?: string }, index: number) => (
                         <div key={index} className="flex gap-2 text-[10.5px] relative pl-4 border-l border-slate-200 last:border-l-0 pb-3">
                           <div className="w-2 h-2 rounded-full bg-indigo-600 absolute -left-1 top-1.5" />
@@ -951,7 +945,7 @@ export function GovCorrespondenciasContent({
                             <div key={idx} className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-150 rounded-xl text-[10.5px]">
                               <div className="flex items-center gap-2 truncate">
                                 <FileText size={13} className="text-slate-400 shrink-0" />
-                                <span className="font-bold text-slate-800 truncate" title={file.name}>{t(file.name)}</span>
+                                <span className="font-bold text-slate-800 truncate" title={file.name}>{t(file.name || 'Anexo')}</span>
                               </div>
                               <span className="font-mono text-[9px] text-slate-400 pr-1 shrink-0">{file.size}</span>
                             </div>
