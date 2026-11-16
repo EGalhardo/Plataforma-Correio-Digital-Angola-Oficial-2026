@@ -110,7 +110,7 @@ import {
 } from './services/cloudAuthService';
 // F47 — revogação de contas eliminadas (pré-login via RPC v16 + purga local)
 // F48 — sincronização viva do estado oficial em sessão aberta (luz Online/gate)
-import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLocalResidues, resolveCloudGateAction, marcarCloudAprovou } from './services/accountGateService';
+import { readCitizenRegistrationStatus, isRevokedDeletedAccount, purgeCitizenLocalResidues, resolveCloudGateAction, marcarCloudAprovou, limparCorrespondenciaLocalDaSessao } from './services/accountGateService';
 import { retomarRegistosBg, temRegistoBgAtivo } from './services/registoBgService';
 import { puxarPerfilDaNuvem, reenviarPendenciasPerfil, temPendenciaPerfil } from './services/profileSyncService';
 import { buildAutoFillProfile, type CitizenAutoFillProfile } from './services/autoFillService';
@@ -5283,6 +5283,10 @@ export default function App() {
       } else if (bi && homologationStore.isExempt(bi)) {
         console.debug('[DEMO] signOut ignorado — conta de demonstração (D7/v12).');
       }
+      // 2026-11-16 — dispositivo partilhado: a correspondência desta sessão
+      // REAL sai do browser no logout (antes o próximo utilizador lia as
+      // mensagens do cidadão anterior). Contas demo mantêm o estado local.
+      if (!isDemoSession) limparCorrespondenciaLocalDaSessao(bi);
       setLoginPasswordInput('');
       setEnteredOtp('');
       setEnteredPin('');

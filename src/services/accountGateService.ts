@@ -180,6 +180,43 @@ export const purgeCitizenLocalResidues = (bi: string): void => {
   } catch { /* ignora */ }
 };
 
+/**
+ * 2026-11-16 — PRIVACIDADE EM DISPOSITIVO PARTILHADO.
+ *
+ * Comprovado em produção: depois de «Sair do Canal», as chaves locais
+ * `correio_digital_inbox`, `correio_digital_sent`, `documentos_digital_*`,
+ * `correio_digital_inst_inbox`, `gov_offline_messages_cache` e
+ * `gov_correspondences` continuavam no browser COM o conteúdo do cidadão
+ * anterior (assunto e corpo das mensagens privadas). Quem usasse o mesmo
+ * dispositivo a seguir lia a correspondência de outra pessoa.
+ *
+ * O logout de contas REAIS passa a levar a correspondência desta sessão.
+ * A fila de acções offline NÃO é apagada aqui (pode conter trabalho do
+ * próprio utilizador por sincronizar — ver painel da fila).
+ */
+export const limparCorrespondenciaLocalDaSessao = (bi: string): void => {
+  const chaves = [
+    'correio_digital_inbox',
+    'correio_digital_sent',
+    'documentos_digital_inbox',
+    'documentos_digital_sent',
+    'correio_digital_inst_inbox',
+    'documentos_digital_inst_inbox',
+    'gov_offline_messages_cache',
+    'gov_correspondences',
+  ];
+  for (const k of chaves) {
+    try { localStorage.removeItem(k); } catch { /* ignora */ }
+  }
+  // Marcadores por conta (lidas/eliminadas/ocultas) da sessão que termina.
+  const cleanBi = normalizeHomologationBi(bi);
+  if (cleanBi) {
+    for (const k of [`cda_deleted_messages_${cleanBi}`, `cda_hidden_messages_${cleanBi}`, `cda_read_msgs_${cleanBi}`]) {
+      try { localStorage.removeItem(k); } catch { /* ignora */ }
+    }
+  }
+};
+
 // ----------------------------------------------------------------------------
 // F48 — Sincronização VIVA do estado oficial em sessão aberta (área do cidadão)
 // ----------------------------------------------------------------------------
