@@ -124,20 +124,35 @@ const loginToken = async (email) => {
       };
       const propria = await pedir(tokDepois);
       const anonima = await pedir(null);
-      // e uma tabela de outro cidadão não deve ser legível em nome alheio
+      // `profiles` NÃO é servida pelo proxy /api/dados (por desenho: o perfil
+      // vai por /api/perfil e /api/perfil-sync). Confirma-se que o proxy a
+      // recusa — nada de leitura de fichas alheias por esta via.
       const perfis = await fetch(APP + '/api/dados', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + tokDepois, 'Content-Type': 'application/json' },
         body: JSON.stringify({ tabela: 'profiles', operacao: 'select', filtros: {}, limite: 2000 }),
       });
       const pj = await perfis.json().catch(() => null);
+      // Tentativa de ler a caixa de OUTRO cidadão: o servidor tem de impor o
+      // próprio B.I. e devolver zero linhas alheias.
+      const alheia = await fetch(APP + '/api/dados', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + tokDepois, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tabela: 'notifications', operacao: 'select', filtros: { target_bi: 'AGT-LMM' }, limite: 2000 }),
+      });
+      const aj = await alheia.json().catch(() => null);
       return {
         claims: { bi, role: me.app_metadata?.role ?? null },
         caixa_status: propria.status,
         caixa_total: propria.linhas ? propria.linhas.length : null,
         todas_suas: propria.linhas ? propria.linhas.every((n) => !n.target_bi || n.target_bi === bi) : null,
         sem_sessao_bloqueado: anonima.status >= 400 || anonima.linhas === null || anonima.linhas.length === 0,
-        perfis_alheios: pj?.linhas ? pj.linhas.filter((x) => x.bi && x.bi !== bi).length : null,
+        perfis_recusados_pelo_proxy: perfis.status >= 400 || pj?.ok === false,
+        caixa_alheia: {
+          status: alheia.status,
+          linhas: Array.isArray(aj?.linhas) ? aj.linhas.length : 0,
+          bloqueado: alheia.status >= 400 || (Array.isArray(aj?.linhas) ? aj.linhas.length === 0 : true),
+        },
       };
     }, [base, anon, APP, tokDepois]);
 
@@ -149,7 +164,8 @@ const loginToken = async (email) => {
       out.depois_da_aprovacao.claims.bi === BI &&
       out.depois_da_aprovacao.claims.role === 'cidadao' &&
       out.depois_da_aprovacao.todas_suas !== false &&
-      out.depois_da_aprovacao.perfis_alheios === 0;
+      out.depois_da_aprovacao.perfis_recusados_pelo_proxy === true &&
+      out.depois_da_aprovacao.caixa_alheia.bloqueado === true;
 
     console.log(JSON.stringify(out, null, 1));
     if (!out.aprovado) process.exitCode = 1;
