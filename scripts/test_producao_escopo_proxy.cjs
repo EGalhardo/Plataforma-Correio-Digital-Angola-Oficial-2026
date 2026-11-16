@@ -91,9 +91,14 @@ const j = async (r) => { const t = await r.text(); try { return JSON.parse(t); }
     // --- limpeza total ------------------------------------------------------
     await fetch(`${B}/rest/v1/contacts?owner_bi=in.(${BI},${OUTRO})`, { method: 'DELETE', headers: H });
     await fetch(`${B}/rest/v1/documents?holder_bi=in.(${BI},${OUTRO})`, { method: 'DELETE', headers: H });
+    // o proxy garante um `profiles` para o owner_bi de cada contacto — essa
+    // linha também é resíduo desta prova e tem de sair com ela.
+    await fetch(`${B}/rest/v1/profiles?bi=in.(${BI},${OUTRO})`, { method: 'DELETE', headers: H });
     if (uid) await fetch(`${B}/auth/v1/admin/users/${uid}`, { method: 'DELETE', headers: H });
     const resto = await j(await fetch(`${B}/rest/v1/contacts?select=owner_bi&owner_bi=in.(${BI},${OUTRO})`, { headers: H }));
-    res.residuo_limpo = Array.isArray(resto) && resto.length === 0;
+    const perfis = await j(await fetch(`${B}/rest/v1/profiles?select=bi&bi=in.(${BI},${OUTRO})`, { headers: H }));
+    res.residuo_limpo = Array.isArray(resto) && resto.length === 0
+      && Array.isArray(perfis) && perfis.length === 0;
     console.log(JSON.stringify(res, null, 1));
     process.exit(res.aprovado && res.residuo_limpo ? 0 : 1);
   }
