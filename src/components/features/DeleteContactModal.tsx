@@ -12,7 +12,9 @@ import { Contact } from '../../types';
 interface DeleteContactModalProps {
   contactToDelete: Contact | null;
   setContactToDelete: (contact: Contact | null) => void;
-  handleDeleteContact: () => void;
+  handleDeleteContact: () => void | Promise<void>;
+  saving?: boolean;
+  saveError?: string | null;
   /** F55 — razão REAL de bloqueio (mínimo de 2 contactos de emergência). */
   blockReason?: string | null;
 }
@@ -21,17 +23,19 @@ export function DeleteContactModal({
   contactToDelete, 
   setContactToDelete, 
   handleDeleteContact,
+  saving = false,
+  saveError = null,
   blockReason = null,
 }: DeleteContactModalProps) {
   // G4 — fecho por tecla Escape (acessibilidade de teclado)
   useEffect(() => {
     if (!contactToDelete) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setContactToDelete(null);
+      if (e.key === 'Escape' && !saving) setContactToDelete(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [contactToDelete, setContactToDelete]);
+  }, [contactToDelete, setContactToDelete, saving]);
 
   return (
     <AnimatePresence>
@@ -41,7 +45,7 @@ export function DeleteContactModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setContactToDelete(null)}
+            onClick={() => { if (!saving) setContactToDelete(null); }}
             className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
           />
           <motion.div 
@@ -59,7 +63,7 @@ export function DeleteContactModal({
                 <p className="text-[#4f46e5] font-black text-[10px] uppercase tracking-[0.16em] mt-1 m-0 leading-none">Acção irreversível</p>
               </div>
               <button 
-                onClick={() => setContactToDelete(null)}
+                onClick={() => { if (!saving) setContactToDelete(null); }}
                 className="absolute -top-1 -right-1 text-slate-400 hover:text-slate-600 transition-all p-2 hover:bg-slate-50 rounded-full border-none bg-transparent cursor-pointer"
                 type="button"
                 title="Fechar"
@@ -79,9 +83,10 @@ export function DeleteContactModal({
                 </p>
               </div>
             )}
+            {saveError && <p className="text-red-700 text-xs font-bold" role="alert">{saveError}</p>}
             <div className="grid grid-cols-2 gap-3">
               <button 
-                onClick={() => setContactToDelete(null)}
+                onClick={() => { if (!saving) setContactToDelete(null); }}
                 className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-colors"
               >
                 Cancelar
@@ -92,14 +97,14 @@ export function DeleteContactModal({
                   // com a razão honesta quando a regra dos 2 bloqueia.
                   handleDeleteContact();
                 }}
-                disabled={!!blockReason}
+                disabled={!!blockReason || saving}
                 className={`py-4 rounded-2xl font-bold transition-colors ${
                   blockReason
                     ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                     : 'bg-red-600 text-white shadow-lg shadow-red-200 hover:bg-red-700'
                 }`}
               >
-                Eliminar
+                {saving ? 'A eliminar…' : 'Eliminar'}
               </button>
             </div>
           </motion.div>

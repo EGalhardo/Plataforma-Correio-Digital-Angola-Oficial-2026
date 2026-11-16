@@ -2206,7 +2206,13 @@ export default function App() {
   // honesto da regra dos 2. (F57 — o accionamento de alerta saiu do lado do
   // cidadão: a Mensagem de Emergência passa a ser funcionalidade institucional.)
   const [contactFormErrors, setContactFormErrors] = useState<string[]>([]);
+  const [contactSavePending, setContactSavePending] = useState(false);
+  const contactSaveLockRef = useRef(false);
+  const contactPendingIdRef = useRef<number | null>(null);
   const [contactDeleteBlock, setContactDeleteBlock] = useState<string | null>(null);
+  const [contactDeleteError, setContactDeleteError] = useState<string | null>(null);
+  const [contactDeletePending, setContactDeletePending] = useState(false);
+  const contactDeleteLockRef = useRef(false);
 
   // F59 (= F58 + fusão aprovada) — lookup REAL do destinatário no compositor
   // institucional: um ÚNICO campo de BI alimenta tanto o envio oficial como a
@@ -4275,6 +4281,8 @@ export default function App() {
     : isInstMode
       ? normalizeInstCode(institutionCode || bi)
       : normalizeHomologationBi(bi);
+  const contactActiveSessionRef = useRef({ owner: sessionOwnerKey, stage });
+  contactActiveSessionRef.current = { owner: sessionOwnerKey, stage };
   const stampNotif = (n: AppNotification): AppNotification => ({ ...n, ownerId: sessionOwnerKey });
 
   // Isolamento de eliminação e arquivo por conta activa
@@ -5858,39 +5866,41 @@ export default function App() {
   };
 
 
-  const handleDeleteContact = () => {
-    if (contactToDelete) {
-      // F55 — regra dos 2 contactos de emergência: bloqueio REAL com razão
-      // visível no modal; o modal NÃO fecha com sucesso fabricado.
-      const removalCheck = checkContactRemoval(currentContacts, contactToDelete.id);
-      if (!removalCheck.allowed) {
-        setContactDeleteBlock(removalCheck.reason);
-        addAuditLog(`Remoção de contacto bloqueada: ${contactToDelete.name} — regra do mínimo de ${2} contactos de emergência.`, 'warning');
-        return;
-      }
-
-      setContactDeleteBlock(null);
-      setContacts(prev => prev.filter(c => c.id !== contactToDelete.id));
-      
-      if (!isOnline) {
-        OfflineManager.queueAction('DELETE_CONTACT', { id: contactToDelete.id, name: contactToDelete.name });
-        setOfflineQueue(OfflineManager.getQueue());
-        const fallback = OfflineManager.triggerFallback('PUSH', `Remover Contacto: ${contactToDelete.name}`);
-        setActiveFallback({ channel: 'PUSH', message: fallback.message, protocol: fallback.protocol });
-        addAuditLog(`Ação Offline: Remoção de contacto guardada. Fallback Push ativo.`, 'warning');
-      } else {
-        addAuditLog(`Contacto removido: ${contactToDelete.name}`, 'warning');
-        OfflineManager.createAutomaticBackup();
-        // Background sync to Supabase (nunca em sessões demo — D7)
-        if (!isDemoSession) supabaseService.deleteContact(contactToDelete.id).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
-      }
-      
-      setContactToDelete(null);
-      notify('Contacto removido com sucesso.', 'success');
+  const handleDeleteContact = async () => {
+    if (!contactToDelete || contactDeleteLockRef.current) return;
+    const removalCheck = checkContactRemoval(currentContacts, contactToDelete.id);
+    if (!removalCheck.allowed) {
+      setContactDeleteBlock(removalCheck.reason);
+      addAuditLog(`Remoção de contacto bloqueada: ${contactToDelete.name} — regra do mínimo de ${2} contactos de emergência.`, 'warning');
+      return;
     }
+    setContactDeleteBlock(null);
+    setContactDeleteError(null);
+    if (!isDemoSession) {
+      if (!isOnline) { setContactDeleteError('Sem ligação: a eliminação não foi confirmada.'); return; }
+      const ownerAtSave = sessionOwnerKey;
+      contactDeleteLockRef.current = true;
+      setContactDeletePending(true);
+      try {
+        const removed = await supabaseService.deleteContact(contactToDelete.id);
+        if (!removed) throw new Error('Eliminação não confirmada');
+        if (contactActiveSessionRef.current.stage !== 'app' || contactActiveSessionRef.current.owner !== ownerAtSave) return;
+      } catch (error) {
+        console.warn('[CDA] Remoção do contacto não confirmada:', error);
+        if (contactActiveSessionRef.current.stage === 'app' && contactActiveSessionRef.current.owner === ownerAtSave)
+          setContactDeleteError('A eliminação não foi confirmada. Verifique a lista antes de tentar novamente.');
+        return;
+      } finally { contactDeleteLockRef.current = false; setContactDeletePending(false); }
+    }
+    setContacts(prev => prev.filter(c => c.id !== contactToDelete.id));
+    addAuditLog(`Contacto removido: ${contactToDelete.name}`, 'warning');
+    OfflineManager.createAutomaticBackup();
+    setContactToDelete(null);
+    notify(isDemoSession ? 'Contacto removido localmente (modo demonstração).' : 'Contacto removido com sucesso.', 'success');
   };
 
-  const handleAddContact = () => {
+  const handleAddContact = async () => {
+    if (contactSaveLockRef.current) return;
     // F55 — fim do retorno silencioso: TODOS os bloqueios são verbalizados
     // (telefone +244 obrigatório, relação obrigatória, anti-duplicados por
     // telefone, máximo de 50 contactos). O modal só fecha em sucesso REAL.
@@ -5902,7 +5912,7 @@ export default function App() {
     }
 
     const newContact = {
-      id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
+      id: contactPendingIdRef.current ?? Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
       name: contactForm.name.trim(),
       bi: contactForm.bi.trim(),
       relation: contactForm.relation.trim() || "Outro",
@@ -5915,24 +5925,36 @@ export default function App() {
       ownerId: sessionOwnerKey,
     };
 
-    setContacts(prev => [newContact, ...prev]);
-
-    if (!isOnline) {
-      // F56 — payload completo do contacto: permite replay REAL na
-      // sincronização (antes só tinha name/bi — insuficiente para reenviar).
-      OfflineManager.queueAction('ADD_CONTACT', { contact: newContact, name: contactForm.name, bi: contactForm.bi });
-      setOfflineQueue(OfflineManager.getQueue());
-      const fallback = OfflineManager.triggerFallback('USSD', `Adicionar Contacto: ${contactForm.name}`);
-      setActiveFallback({ channel: 'USSD', message: fallback.message, protocol: fallback.protocol });
-      addAuditLog(`Ação Offline: Adição de contacto guardada em fila. Canal USSD ativo (*141*9#).`, 'warning');
-    } else {
-      addAuditLog(`Novo contacto adicionado: ${contactForm.name}`, 'success');
-      OfflineManager.createAutomaticBackup();
-      // Background sync to Supabase (nunca em sessões demo — D7)
-      if (!isDemoSession) supabaseService.insertContact(newContact, bi).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
+    if (!isDemoSession) {
+      if (!isOnline) {
+        setContactFormErrors(['Sem ligação: o contacto não foi gravado. Ligue-se à internet para continuar.']);
+        return;
+      }
+      // Reutiliza o ID numa tentativa seguinte: após um timeout a escrita pode
+      // ter chegado ao servidor, pelo que um ID novo criaria um duplicado.
+      contactPendingIdRef.current = newContact.id;
+      const ownerAtSave = sessionOwnerKey;
+      contactSaveLockRef.current = true;
+      setContactSavePending(true);
+      try {
+        const saved = await supabaseService.insertContact(newContact, bi);
+        if (!saved) throw new Error('Gravação não confirmada');
+        if (contactActiveSessionRef.current.stage !== 'app' || contactActiveSessionRef.current.owner !== ownerAtSave) return;
+      } catch (error) {
+        console.warn('[CDA] Contacto não confirmado:', error);
+        if (contactActiveSessionRef.current.stage !== 'app' || contactActiveSessionRef.current.owner !== ownerAtSave) return;
+        setContactFormErrors(['A gravação não foi confirmada. O formulário foi conservado; verifique a lista antes de voltar a tentar.']);
+        return;
+      } finally {
+        contactSaveLockRef.current = false;
+        setContactSavePending(false);
+      }
     }
-
-    notify('Contacto adicionado com sucesso.', 'success');
+    setContacts(prev => [newContact, ...prev.filter(c => c.id !== newContact.id)]);
+    contactPendingIdRef.current = null;
+    addAuditLog(`Novo contacto adicionado: ${contactForm.name}`, 'success');
+    OfflineManager.createAutomaticBackup();
+    notify(isDemoSession ? 'Contacto adicionado localmente (modo demonstração).' : 'Contacto adicionado com sucesso.', 'success');
     setContactFormErrors([]);
     setIsAddingContact(false);
     setContactForm({ name: '', bi: '', relation: '', phone: '', whatsapp: '', email: '', type: 'Normal' });
@@ -5944,7 +5966,7 @@ export default function App() {
    * o tipo (controlo fabricado). Devolve erros de validação para a UI;
    * vazio = gravado.
    */
-  const handleUpdateContact = (updatedContact: Contact): string[] => {
+  const handleUpdateContact = async (updatedContact: Contact): Promise<string[]> => {
     const fieldErrors = validateContactForm(updatedContact, currentContacts, { excludeContactId: updatedContact.id });
     const typeCheck = checkContactTypeChange(currentContacts, updatedContact.id, updatedContact.type || 'Normal');
     const errors = [...fieldErrors, ...(typeCheck.reason ? [typeCheck.reason] : [])];
@@ -5953,13 +5975,21 @@ export default function App() {
       return errors;
     }
 
+    if (!isDemoSession) {
+      if (!isOnline) return ['Sem ligação: as alterações não foram gravadas.'];
+      const ownerAtSave = sessionOwnerKey;
+      try {
+        const saved = await supabaseService.insertContact(updatedContact, bi);
+        if (!saved) throw new Error('Gravação não confirmada');
+      } catch (error) {
+        console.warn('[CDA] Edição do contacto não confirmada:', error);
+        return ['A gravação não foi confirmada. As alterações continuam no formulário; verifique a lista antes de tentar novamente.'];
+      }
+      if (contactActiveSessionRef.current.stage !== 'app' || contactActiveSessionRef.current.owner !== ownerAtSave) return ['A sessão mudou durante a gravação.'];
+    }
     setContacts(prev => prev.map(c => (c.id === updatedContact.id ? { ...c, ...updatedContact } : c)));
     addAuditLog(`Contacto actualizado: ${updatedContact.name}`, 'success');
     OfflineManager.createAutomaticBackup();
-    if (isOnline && !isDemoSession) {
-      supabaseService.insertContact(updatedContact, bi).catch(err => console.warn('[CDA-sync] Sincronização falhou (não bloqueia a ação local):', err));
-    }
-    notify('Contacto atualizado com sucesso.', 'success');
     return [];
   };
 
@@ -7152,6 +7182,7 @@ Ficha civil do titular:
           <ContactsContent
             contacts={currentContacts}
             onAddContact={(institutional) => {
+              contactPendingIdRef.current = null;
               setContactFormErrors([]);
               setContactForm({ name: '', bi: '', relation: institutional ? CONTACTO_INSTITUCIONAL : '', phone: '', whatsapp: '', email: '', type: 'Normal' });
               setIsAddingContact(true);
@@ -9591,6 +9622,7 @@ Ficha civil do titular:
         contactForm={contactForm} 
         setContactForm={setContactForm} 
         onAddContact={handleAddContact}
+        saving={contactSavePending}
         formErrors={contactFormErrors}
       />
 
@@ -9598,10 +9630,12 @@ Ficha civil do titular:
         contactToDelete={contactToDelete} 
         setContactToDelete={(c) => {
           setContactToDelete(c);
-          if (!c) setContactDeleteBlock(null);
+          if (!c) { setContactDeleteBlock(null); setContactDeleteError(null); }
         }}
         handleDeleteContact={handleDeleteContact}
         blockReason={contactDeleteBlock}
+        saveError={contactDeleteError}
+        saving={contactDeletePending}
       />
 
       {/* F58 — Página de difusão institucional (área Instituição apenas) */}

@@ -30,7 +30,7 @@ interface ContactsContentProps {
   /** F55 — estado da regra dos 2 contactos de emergência (calculado no App). */
   emergencyStatus?: EmergencyProfileState;
   /** F55 — edição REAL do contacto completo; devolve erros de validação (vazio = gravado). */
-  onUpdateContact?: (contact: Contact) => string[];
+  onUpdateContact?: (contact: Contact) => string[] | Promise<string[]>;
   /** T41 — «Enviar Mensagem» na ficha de um órgão do Directório (demonstração). */
   onEnviarMensagemOrgao?: (destino: { codigo: string; nome: string; sigla: string }) => void;
 }
@@ -56,6 +56,7 @@ export function ContactsContent({
   const [separador, setSeparador] = useState<'emergencias' | 'instituicoes'>('emergencias');
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [editErrors, setEditErrors] = useState<string[]>([]);
+  const [editSaving, setEditSaving] = useState(false);
   const [editForm, setEditForm] = useState<{ name: string; bi: string; relation: string; phone?: string; whatsapp?: string; email?: string; type?: 'Normal' | 'Emergência' }>({
     name: '',
     bi: '',
@@ -85,8 +86,8 @@ export function ContactsContent({
    * guardar descartava essas alterações — controlo fabricado).
    * Validações honestas: erros ficam visíveis; nada é fechado com sucesso falso.
    */
-  const handleSaveEdit = () => {
-    if (!editingContact) return;
+  const handleSaveEdit = async () => {
+    if (!editingContact || editSaving) return;
 
     const fieldErrors = validateContactForm(editForm, contacts, { excludeContactId: editingContact.id });
     const typeCheck = checkContactTypeChange(contacts, editingContact.id, editForm.type || 'Normal');
@@ -109,11 +110,14 @@ export function ContactsContent({
     };
 
     if (onUpdateContact) {
-      const appSideErrors = onUpdateContact(updatedContact);
-      if (appSideErrors.length > 0) {
-        setEditErrors(appSideErrors);
+      setEditSaving(true);
+      try {
+        const appSideErrors = await onUpdateContact(updatedContact);
+        if (appSideErrors.length > 0) { setEditErrors(appSideErrors); return; }
+      } catch {
+        setEditErrors(['A gravação não foi confirmada. Verifique a ligação e tente novamente.']);
         return;
-      }
+      } finally { setEditSaving(false); }
     } else if (onUpdateContactType) {
       // Retrocompatibilidade defensiva (não deverá acontecer em produção).
       onUpdateContactType(editingContact.id, editForm.type || 'Normal');
@@ -469,7 +473,7 @@ export function ContactsContent({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setEditingContact(null)}
+              onClick={() => { if (!editSaving) setEditingContact(null); }}
               className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
             />
             <motion.div
@@ -493,7 +497,7 @@ export function ContactsContent({
                 </div>
                 {/* Corner close button */}
                 <button
-                  onClick={() => setEditingContact(null)}
+                  onClick={() => { if (!editSaving) setEditingContact(null); }}
                   className="absolute top-0 right-0 text-slate-400 hover:text-slate-600 transition-colors p-2 hover:bg-slate-50 rounded-full"
                   id="close-edit-contact"
                 >
@@ -706,7 +710,7 @@ export function ContactsContent({
               <div className="flex items-center gap-3 pt-2 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setEditingContact(null)}
+                  onClick={() => { if (!editSaving) setEditingContact(null); }}
                   className="flex-1 bg-white border border-slate-200 text-slate-700 py-3.5 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-50 transition-all"
                   id="cancel-edit-contact-btn"
                 >
@@ -717,12 +721,12 @@ export function ContactsContent({
                 <button
                   type="button"
                   onClick={handleSaveEdit}
-                  disabled={!editForm.name || !editForm.bi}
+                  disabled={editSaving || !editForm.name || !editForm.bi}
                   className="flex-[2] bg-[#0c2340] hover:bg-[#152e4d] text-white py-3.5 rounded-full font-black text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2.5 transition-all duration-300 disabled:opacity-40 disabled:pointer-events-none cursor-pointer active:scale-98"
                   id="confirm-edit-contact-btn"
                 >
                   <Check size={14} />
-                  Guardar Alterações
+                  {editSaving ? 'A gravar…' : 'Guardar Alterações'}
                 </button>
               </div>
             </motion.div>

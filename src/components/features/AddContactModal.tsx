@@ -37,7 +37,8 @@ interface AddContactModalProps {
   setIsAddingContact: (isAdding: boolean) => void;
   contactForm: { name: string; bi: string; relation: string; phone?: string; whatsapp?: string; email?: string; type?: 'Normal' | 'Emergência' };
   setContactForm: Dispatch<SetStateAction<ContactoForm>>;
-  onAddContact: () => void;
+  onAddContact: () => void | Promise<void>;
+  saving?: boolean;
   /** F55 — erros de validação reais (telefone +244, duplicados, relação…). */
   formErrors?: string[];
 }
@@ -49,17 +50,18 @@ export function AddContactModal({
   contactForm, 
   setContactForm, 
   onAddContact,
+  saving = false,
   formErrors = [],
 }: AddContactModalProps) {
   // G4 — fecho por tecla Escape (acessibilidade de teclado)
   useEffect(() => {
     if (!isAddingContact) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsAddingContact(false);
+      if (e.key === 'Escape' && !saving) setIsAddingContact(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isAddingContact, setIsAddingContact]);
+  }, [isAddingContact, setIsAddingContact, saving]);
 
   return (
     <AnimatePresence>
@@ -95,6 +97,7 @@ export function AddContactModal({
               <button 
                 onClick={() => setIsAddingContact(false)} 
                 className="absolute top-0 right-0 text-slate-400 hover:text-slate-600 transition-colors p-2 hover:bg-slate-50 rounded-full"
+                disabled={saving}
                 id="close-add-contact"
               >
                 <X size={18} />
@@ -305,6 +308,7 @@ export function AddContactModal({
                 type="button"
                 onClick={() => setIsAddingContact(false)}
                 className="flex-1 bg-white border border-slate-200 text-slate-700 py-3.5 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-50 transition-all"
+                disabled={saving}
                 id="cancel-add-contact-btn"
               >
                 <X size={14} />
@@ -319,12 +323,12 @@ export function AddContactModal({
                   // sucesso confirmado.
                   onAddContact();
                 }}
-                disabled={!contactForm.name || !contactForm.bi}
+                disabled={saving || !contactForm.name || !contactForm.bi}
                 className="flex-[2] bg-[#0c2340] hover:bg-[#152e4d] text-white py-3.5 rounded-full font-black text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2.5 transition-all duration-300 disabled:opacity-40 disabled:pointer-events-none cursor-pointer active:scale-98"
                 id="confirm-add-contact-btn"
               >
                 <Check size={14} />
-                {institutional ? 'Adicionar Instituição' : 'Adicionar Contacto'}
+                {saving ? 'A gravar…' : (institutional ? 'Adicionar Instituição' : 'Adicionar Contacto')}
               </button>
             </div>
           </motion.div>
